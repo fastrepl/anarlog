@@ -226,11 +226,6 @@ export function SelectProviderAndModel() {
                           <Trans>Upgrade to Pro to use this provider.</Trans>
                         </span>
                       ) : null}
-                      {!locked && !configured ? (
-                        <span className="text-muted-foreground text-[11px]">
-                          <Trans>Configure this provider to use it.</Trans>
-                        </span>
-                      ) : null}
                     </div>
                   </SelectItem>
                 );

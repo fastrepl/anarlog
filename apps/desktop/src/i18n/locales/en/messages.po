@@ -403,10 +403,6 @@ msgstr "Configure"
 msgid "Configure Providers"
 msgstr "Configure Providers"
 
-#: src/settings/ai/llm/select.tsx
-msgid "Configure this provider to use it."
-msgstr "Configure this provider to use it."
-
 #: src/onboarding/folder-location.tsx
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Confirm"
