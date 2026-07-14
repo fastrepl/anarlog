@@ -45,9 +45,7 @@ export const Route = createFileRoute("/auth")({
       }
 
       if (search.flow === "desktop") {
-        const result = await createDesktopSession({
-          data: { email: user.email },
-        });
+        const result = await createDesktopSession();
 
         if (result) {
           throw redirect({
@@ -226,7 +224,7 @@ function DesktopReauthView({
   scheme: DesktopScheme;
 }) {
   const retryMutation = useMutation({
-    mutationFn: () => createDesktopSession({ data: { email } }),
+    mutationFn: () => createDesktopSession(),
     onSuccess: (result) => {
       if (result) {
         const params = new URLSearchParams();

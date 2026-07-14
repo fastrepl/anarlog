@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { isAdminEmail } from "@/functions/admin";
 import { getRequestAppOrigin } from "@/functions/app-origin";
+import { mintDesktopSessionForAuthenticatedUser } from "@/functions/auth-session";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import {
   getSupabaseAdminClient,
@@ -369,9 +370,15 @@ export const exchangeOtpToken = createServerFn({ method: "POST" })
     return toSuccessTokenResponse(tokens);
   });
 
-export const createDesktopSession = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ email: z.string().email() }))
-  .handler(async ({ data }) => mintDesktopSessionFromEmail(data.email));
+export const createDesktopSession = createServerFn({ method: "POST" }).handler(
+  async () => {
+    const supabase = getSupabaseServerClient();
+    return mintDesktopSessionForAuthenticatedUser({
+      getUser: () => supabase.auth.getUser(),
+      mintSession: mintDesktopSessionFromEmail,
+    });
+  },
+);
 
 export const doPasswordResetRequest = createServerFn({ method: "POST" })
   .inputValidator(
