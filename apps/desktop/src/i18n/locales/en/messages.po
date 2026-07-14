@@ -22,11 +22,6 @@ msgstr "(default)"
 msgid "{0} opened on"
 msgstr "{0} opened on"
 
-#. placeholder {0}: status.fileCount
-#: src/settings/general/storage/legacy-cleanup.tsx
-msgid "{0} verified legacy files can be removed"
-msgstr "{0} verified legacy files can be removed"
-
 #: src/settings/general/account.tsx
 msgid "{trialDaysRemaining} day left"
 msgstr "{trialDaysRemaining} day left"
