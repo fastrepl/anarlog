@@ -71,7 +71,7 @@ export const Enhanced = forwardRef<
     const isConfigError = shouldShowEmptySummaryConfigError(llmStatus);
 
     if (status === "idle" && isConfigError && !hasContent) {
-      return <ConfigError status={llmStatus} />;
+      return <ConfigError />;
     }
 
     return (

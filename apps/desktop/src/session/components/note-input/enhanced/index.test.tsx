@@ -276,7 +276,6 @@ describe("Enhanced", () => {
     expect(screen.getByTestId("enhanced-editor").hidden).toBe(true);
     expect(screen.getByText("Generated summary")).not.toBeNull();
   });
-
   it("keeps the title row while streaming for an already titled session", () => {
     hoisted.sessionTitle = "Existing title";
     hoisted.enhanceTask = {
@@ -387,13 +386,26 @@ describe("Enhanced", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
-  it("does not show config errors for missing provider setup", () => {
+  it("shows config errors for missing provider setup", () => {
     hoisted.llmStatus = { status: "pending", reason: "missing_provider" };
 
     render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
 
-    expect(screen.queryByText("Config error")).toBeNull();
-    expect(screen.getByText("Enhanced editor")).not.toBeNull();
+    expect(screen.getByText("Config error")).not.toBeNull();
+    expect(screen.queryByText("Enhanced editor")).toBeNull();
+  });
+
+  it("shows config errors when a model has not been selected", () => {
+    hoisted.llmStatus = {
+      status: "pending",
+      reason: "missing_model",
+      providerId: "openai",
+    };
+
+    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+
+    expect(screen.getByText("Config error")).not.toBeNull();
+    expect(screen.queryByText("Enhanced editor")).toBeNull();
   });
 
   it("renders the editor when the enhanced note already has content", () => {

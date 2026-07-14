@@ -33,17 +33,27 @@ export function EnhanceError({
   };
 
   return (
-    <div className="flex h-full min-h-[400px] flex-col items-center justify-center gap-4">
-      <AlertCircleIcon size={24} className="text-muted-foreground" />
-      <p className="text-muted-foreground max-w-lg text-center text-sm">
-        {error?.message || (
-          <Trans>Something went wrong while generating the summary.</Trans>
-        )}
-      </p>
+    <div
+      role="alert"
+      className="flex h-full min-h-[400px] flex-col items-center justify-center px-6 text-center"
+    >
+      <AlertCircleIcon
+        aria-hidden
+        className="text-muted-foreground mb-5 size-9 stroke-[1.5]"
+      />
+      <div className="mb-6 flex max-w-md flex-col gap-2">
+        <p className="text-base font-medium">Summary generation failed</p>
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          {error?.message || (
+            <Trans>Something went wrong while generating the summary.</Trans>
+          )}
+        </p>
+      </div>
       <Button
         onClick={handleRetry}
         disabled={!model}
-        className="flex items-center gap-2"
+        size="sm"
+        className="gap-2"
         variant="default"
       >
         <RefreshCwIcon size={16} />
