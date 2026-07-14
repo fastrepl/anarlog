@@ -67,10 +67,12 @@ impl ChangeNotifier {
 
                 let commit_state = Arc::clone(&hook_state);
                 if cloudsync_enabled {
+                    let savepoint_state = Arc::clone(&hook_state);
                     hypr_cloudsync::install_transaction_observer(
                         &mut handle,
                         move || commit_state.flush(),
                         move || hook_state.clear(),
+                        move |event| savepoint_state.savepoint(event),
                     )
                     .map_err(|error| sqlx::Error::Configuration(Box::new(error)))?;
                 } else {

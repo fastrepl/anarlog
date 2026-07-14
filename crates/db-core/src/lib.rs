@@ -303,6 +303,7 @@ mod tests {
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
 
+    use sqlx::Acquire;
     use tokio::sync::oneshot;
 
     fn test_cloudsync_config() -> CloudsyncRuntimeConfig {
@@ -644,6 +645,158 @@ mod tests {
         assert_eq!(final_version, 3);
         assert_eq!(value, "three");
         assert_eq!(failed_row_count, 0);
+    }
+
+    #[tokio::test]
+    async fn nested_rollback_restores_pending_table_changes() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("cloudsync.db");
+        let db = Db::open(DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_enabled: true,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .await
+        .unwrap();
+
+        sqlx::query("CREATE TABLE test_sync (id TEXT PRIMARY KEY NOT NULL)")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query("CREATE TABLE other_events (id TEXT PRIMARY KEY NOT NULL)")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        db.cloudsync_init("test_sync", None, None).await.unwrap();
+
+        let notifier = db.change_notifier();
+        let mut changes = notifier.subscribe();
+        let version_before: i64 = sqlx::query_scalar("SELECT cloudsync_db_version()")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+
+        let mut transaction = db.pool().begin().await.unwrap();
+        sqlx::query("INSERT INTO test_sync (id) VALUES ('a')")
+            .execute(&mut *transaction)
+            .await
+            .unwrap();
+
+        let mut nested = transaction.begin().await.unwrap();
+        sqlx::query("DELETE FROM test_sync WHERE id = 'a'")
+            .execute(&mut *nested)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO other_events (id) VALUES ('a')")
+            .execute(&mut *nested)
+            .await
+            .unwrap();
+        nested.rollback().await.unwrap();
+        transaction.commit().await.unwrap();
+
+        let change = tokio::time::timeout(std::time::Duration::from_secs(1), changes.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(change.table, "test_sync");
+        assert_eq!(change.kind, hypr_db_change::TableChangeKind::Insert);
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(100), changes.recv())
+                .await
+                .is_err()
+        );
+
+        let version_after: i64 = sqlx::query_scalar("SELECT cloudsync_db_version()")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        let synced_rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM test_sync")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        let other_rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM other_events")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(version_after, version_before + 1);
+        assert_eq!(synced_rows, 1);
+        assert_eq!(other_rows, 0);
+    }
+
+    #[tokio::test]
+    async fn failed_outer_savepoint_release_preserves_pending_snapshot() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("cloudsync.db");
+        let db = Db::open(DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_enabled: true,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .await
+        .unwrap();
+
+        sqlx::query("CREATE TABLE parents (id TEXT PRIMARY KEY NOT NULL)")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query(
+            "CREATE TABLE test_sync (\
+                id TEXT PRIMARY KEY NOT NULL, \
+                parent_id TEXT NOT NULL DEFAULT '', \
+                FOREIGN KEY (parent_id) REFERENCES parents(id) \
+                    DEFERRABLE INITIALLY DEFERRED\
+            )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        db.cloudsync_init("test_sync", None, None).await.unwrap();
+
+        let notifier = db.change_notifier();
+        let seq_before = notifier.current_seq();
+        let mut changes = notifier.subscribe();
+        let mut connection = db.pool().acquire().await.unwrap();
+
+        sqlx::query("SAVEPOINT \"outer\"")
+            .execute(&mut *connection)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO test_sync (id, parent_id) VALUES ('a', 'missing')")
+            .execute(&mut *connection)
+            .await
+            .unwrap();
+        assert!(
+            sqlx::query("RELEASE SAVEPOINT \"outer\"")
+                .execute(&mut *connection)
+                .await
+                .is_err()
+        );
+        sqlx::query("ROLLBACK TO SAVEPOINT \"outer\"")
+            .execute(&mut *connection)
+            .await
+            .unwrap();
+        sqlx::query("RELEASE SAVEPOINT \"outer\"")
+            .execute(&mut *connection)
+            .await
+            .unwrap();
+
+        assert_eq!(notifier.current_seq(), seq_before);
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(100), changes.recv())
+                .await
+                .is_err()
+        );
+        drop(connection);
+
+        let row_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM test_sync")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(row_count, 0);
     }
 
     #[tokio::test]
