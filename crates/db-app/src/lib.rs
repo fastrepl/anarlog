@@ -68,6 +68,48 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         scope: hypr_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260713164500_repair_empty_session_titles.sql"),
     },
+    hypr_db_migrate::MigrationStep {
+        id: "20260714120000_search_index_queue",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260714120000_search_index_queue.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260714120100_search_index_sessions_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "sessions",
+        },
+        sql: include_str!("../migrations/20260714120100_search_index_sessions_triggers.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260714120200_search_index_session_documents_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "session_documents",
+        },
+        sql: include_str!(
+            "../migrations/20260714120200_search_index_session_documents_triggers.sql"
+        ),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260714120300_search_index_transcripts_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "transcripts",
+        },
+        sql: include_str!("../migrations/20260714120300_search_index_transcripts_triggers.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260714120400_search_index_humans_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "humans",
+        },
+        sql: include_str!("../migrations/20260714120400_search_index_humans_triggers.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260714120500_search_index_organizations_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "organizations",
+        },
+        sql: include_str!("../migrations/20260714120500_search_index_organizations_triggers.sql"),
+    },
 ];
 
 pub fn schema() -> hypr_db_migrate::DbSchema {
@@ -179,6 +221,29 @@ mod tests {
         db
     }
 
+    async fn initialize_enabled_cloudsync_tables(db: &Db) {
+        for table in cloudsync_table_registry()
+            .iter()
+            .filter(|table| table.enabled)
+        {
+            db.cloudsync_init(
+                &table.table_name,
+                table.crdt_algo.as_deref(),
+                table.init_flags,
+            )
+            .await
+            .unwrap();
+        }
+    }
+
+    fn migration_steps_before(id: &str) -> &'static [hypr_db_migrate::MigrationStep] {
+        let index = APP_MIGRATION_STEPS
+            .iter()
+            .position(|step| step.id == id)
+            .unwrap();
+        &APP_MIGRATION_STEPS[..index]
+    }
+
     async fn test_db_without_default_templates() -> Db {
         let db = Db::open(hypr_db_core::DbOpenOptions {
             storage: hypr_db_core::DbStorage::Memory,
@@ -255,6 +320,8 @@ mod tests {
                 "migration_import_runs",
                 "migration_import_targets",
                 "organizations",
+                "search_index_dirty",
+                "search_index_state",
                 "session_attachments",
                 "session_documents",
                 "session_participants",
@@ -268,13 +335,103 @@ mod tests {
         );
     }
 
+    #[cfg(any(
+        all(target_os = "macos", target_arch = "aarch64"),
+        all(target_os = "macos", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "x86_64"),
+        all(target_os = "windows", target_arch = "x86_64"),
+    ))]
+    #[tokio::test]
+    async fn search_index_migrations_apply_before_cloudsync_initialization() {
+        let db = Db::connect_memory().await.unwrap();
+
+        prepare_schema(&db).await.unwrap();
+
+        let trigger_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM sqlite_master
+             WHERE type = 'trigger' AND name LIKE 'search_index_%'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(trigger_count, 15);
+
+        initialize_enabled_cloudsync_tables(&db).await;
+
+        sqlx::query("INSERT INTO sessions (id, title) VALUES ('session-1', 'Planning')")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let generation: i64 = sqlx::query_scalar(
+            "SELECT generation FROM search_index_dirty
+             WHERE entity_type = 'session' AND entity_id = 'session-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(generation, 1);
+    }
+
+    #[cfg(any(
+        all(target_os = "macos", target_arch = "aarch64"),
+        all(target_os = "macos", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "x86_64"),
+        all(target_os = "windows", target_arch = "x86_64"),
+    ))]
+    #[tokio::test]
+    async fn search_index_migrations_apply_to_initialized_cloudsync_tables() {
+        let db = Db::connect_memory().await.unwrap();
+        hypr_db_migrate::migrate(
+            &db,
+            hypr_db_migrate::DbSchema {
+                steps: migration_steps_before("20260714120000_search_index_queue"),
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
+        initialize_enabled_cloudsync_tables(&db).await;
+
+        prepare_schema(&db).await.unwrap();
+
+        sqlx::query("INSERT INTO sessions (id, title) VALUES ('session-1', 'Planning')")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let generation: i64 = sqlx::query_scalar(
+            "SELECT generation FROM search_index_dirty
+             WHERE entity_type = 'session' AND entity_id = 'session-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(generation, 1);
+
+        for table in cloudsync_table_registry()
+            .iter()
+            .filter(|table| table.enabled)
+        {
+            assert!(
+                hypr_db_core::cloudsync_is_enabled_on(db.pool(), &table.table_name)
+                    .await
+                    .unwrap()
+            );
+        }
+    }
+
     #[tokio::test]
     async fn migration_repairs_empty_titles_from_summary_headings() {
         let db = Db::connect_memory_plain().await.unwrap();
         hypr_db_migrate::migrate(
             &db,
             hypr_db_migrate::DbSchema {
-                steps: &APP_MIGRATION_STEPS[..APP_MIGRATION_STEPS.len() - 1],
+                steps: migration_steps_before("20260713164500_repair_empty_session_titles"),
                 validate_cloudsync_table: cloudsync_alter_guard_required,
             },
         )
@@ -429,8 +586,177 @@ mod tests {
                 .iter()
                 .any(|table| table.table_name == "migration_import_runs")
         );
+        assert!(!registry.iter().any(|table| {
+            matches!(
+                table.table_name.as_str(),
+                "search_index_dirty" | "search_index_state"
+            )
+        }));
         assert!(cloudsync_alter_guard_required("sessions"));
         assert!(!cloudsync_alter_guard_required("calendars"));
+    }
+
+    #[test]
+    fn search_index_trigger_migrations_are_cloudsync_guarded() {
+        let queue_step = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260714120000_search_index_queue")
+            .unwrap();
+        assert_eq!(queue_step.scope, hypr_db_migrate::MigrationScope::Plain);
+
+        for (id, table_name) in [
+            ("20260714120100_search_index_sessions_triggers", "sessions"),
+            (
+                "20260714120200_search_index_session_documents_triggers",
+                "session_documents",
+            ),
+            (
+                "20260714120300_search_index_transcripts_triggers",
+                "transcripts",
+            ),
+            ("20260714120400_search_index_humans_triggers", "humans"),
+            (
+                "20260714120500_search_index_organizations_triggers",
+                "organizations",
+            ),
+        ] {
+            let step = APP_MIGRATION_STEPS
+                .iter()
+                .find(|step| step.id == id)
+                .unwrap();
+            assert_eq!(
+                step.scope,
+                hypr_db_migrate::MigrationScope::CloudsyncAlter { table_name }
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn search_index_queue_coalesces_changes_and_tracks_session_moves() {
+        let db = test_db().await;
+
+        sqlx::query(
+            "INSERT INTO sessions (id, title) VALUES ('session-1', 'One'), ('session-2', 'Two')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query("DELETE FROM search_index_dirty")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        sqlx::query(
+            "INSERT INTO session_documents (id, session_id, body) VALUES ('document-1', 'session-1', 'one')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query("UPDATE session_documents SET body = 'two' WHERE id = 'document-1'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query(
+            "UPDATE session_documents SET session_id = 'session-2' WHERE id = 'document-1'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        sqlx::query(
+            "INSERT INTO transcripts (id, session_id, words_json) VALUES ('transcript-1', 'session-1', '[]')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query("UPDATE transcripts SET session_id = 'session-2' WHERE id = 'transcript-1'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM transcripts WHERE id = 'transcript-1'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM session_documents WHERE id = 'document-1'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        let rows = sqlx::query_as::<_, (String, String, i64)>(
+            "SELECT entity_type, entity_id, generation
+             FROM search_index_dirty
+             ORDER BY entity_type, entity_id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+
+        assert_eq!(
+            rows,
+            vec![
+                ("session".to_string(), "session-1".to_string(), 5),
+                ("session".to_string(), "session-2".to_string(), 4),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn search_index_queue_tracks_entity_lifecycle_and_starts_unversioned() {
+        let db = test_db().await;
+
+        let projection_version: i64 = sqlx::query_scalar(
+            "SELECT projection_version FROM search_index_state WHERE id = 'default'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(projection_version, 0);
+
+        sqlx::query("INSERT INTO sessions (id, title) VALUES ('session-1', 'One')")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO humans (id, name) VALUES ('human-1', 'Ada')")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO organizations (id, name) VALUES ('organization-1', 'Acme')")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        sqlx::query(
+            "UPDATE sessions SET deleted_at = '2026-07-14T00:00:00Z' WHERE id = 'session-1'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query("UPDATE humans SET memo = 'Updated' WHERE id = 'human-1'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM organizations WHERE id = 'organization-1'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        let rows = sqlx::query_as::<_, (String, String, i64)>(
+            "SELECT entity_type, entity_id, generation
+             FROM search_index_dirty
+             ORDER BY entity_type, entity_id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+
+        assert_eq!(
+            rows,
+            vec![
+                ("human".to_string(), "human-1".to_string(), 2),
+                ("organization".to_string(), "organization-1".to_string(), 2,),
+                ("session".to_string(), "session-1".to_string(), 2),
+            ]
+        );
     }
 
     #[tokio::test]

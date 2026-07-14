@@ -259,7 +259,44 @@ async fn cloudsync_alter_scope_falls_back_to_plain_when_cloudsync_is_disabled() 
     all(test, target_os = "windows", target_arch = "x86_64"),
 ))]
 #[tokio::test]
-async fn cloudsync_alter_scope_runs_successfully_on_a_cloudsync_table() {
+async fn cloudsync_alter_scope_falls_back_to_plain_for_an_uninitialized_table() {
+    let db = Db::connect_memory().await.unwrap();
+
+    migrate(&db, schema(CLOUDSYNC_ALTER_STEPS, widgets_synced))
+        .await
+        .unwrap();
+
+    let enabled = hypr_db_core::cloudsync_is_enabled_on(db.pool(), "widgets")
+        .await
+        .unwrap();
+
+    assert!(!enabled);
+    assert_eq!(
+        applied_versions(&db).await,
+        vec![20260415030101, 20260415030102]
+    );
+    assert_eq!(
+        widget_columns(&db).await,
+        vec!["id".to_string(), "name".to_string(), "slug".to_string()]
+    );
+}
+
+#[cfg(any(
+    all(test, target_os = "macos", target_arch = "aarch64"),
+    all(test, target_os = "macos", target_arch = "x86_64"),
+    all(test, target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
+    all(test, target_os = "linux", target_env = "gnu", target_arch = "x86_64"),
+    all(
+        test,
+        target_os = "linux",
+        target_env = "musl",
+        target_arch = "aarch64"
+    ),
+    all(test, target_os = "linux", target_env = "musl", target_arch = "x86_64"),
+    all(test, target_os = "windows", target_arch = "x86_64"),
+))]
+#[tokio::test]
+async fn cloudsync_alter_scope_preserves_an_initialized_cloudsync_table() {
     let db = Db::connect_memory().await.unwrap();
 
     migrate(&db, schema(CLOUDSYNC_BASE_STEPS, widgets_synced))
@@ -268,8 +305,7 @@ async fn cloudsync_alter_scope_runs_successfully_on_a_cloudsync_table() {
 
     db.cloudsync_init("widgets", None, None).await.unwrap();
 
-    let enabled: bool = sqlx::query_scalar("SELECT cloudsync_is_enabled('widgets')")
-        .fetch_one(db.pool())
+    let enabled = hypr_db_core::cloudsync_is_enabled_on(db.pool(), "widgets")
         .await
         .unwrap();
     assert!(enabled);
@@ -285,5 +321,10 @@ async fn cloudsync_alter_scope_runs_successfully_on_a_cloudsync_table() {
     assert_eq!(
         widget_columns(&db).await,
         vec!["id".to_string(), "name".to_string(), "slug".to_string()]
+    );
+    assert!(
+        hypr_db_core::cloudsync_is_enabled_on(db.pool(), "widgets")
+            .await
+            .unwrap()
     );
 }

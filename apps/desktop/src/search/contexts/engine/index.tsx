@@ -1,13 +1,10 @@
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext } from "react";
 
 import { commands as tantivy } from "@hypr/plugin-tantivy";
 
 import { buildTantivyFilters } from "./filters";
-import { createSearchIndexSync } from "./indexing";
 import type { SearchEntityType, SearchFilters, SearchHit } from "./types";
 import { normalizeQuery } from "./utils";
-
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export type {
   SearchDocument,
@@ -21,7 +18,6 @@ const SearchEngineContext = createContext<{
     query: string,
     filters?: SearchFilters | null,
   ) => Promise<SearchHit[]>;
-  isIndexing: boolean;
 } | null>(null);
 
 export function SearchEngineProvider({
@@ -29,26 +25,6 @@ export function SearchEngineProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const [isIndexing, setIsIndexing] = useState(true);
-
-  useMountEffect(() => {
-    const sync = createSearchIndexSync();
-    let disposed = false;
-    void sync
-      .start()
-      .catch((error) => {
-        console.error("Failed to create search index:", error);
-      })
-      .finally(() => {
-        if (!disposed) setIsIndexing(false);
-      });
-
-    return () => {
-      disposed = true;
-      void sync.stop();
-    };
-  });
-
   const search = useCallback(
     async (
       query: string,
@@ -88,7 +64,6 @@ export function SearchEngineProvider({
 
   const value = {
     search,
-    isIndexing,
   };
 
   return (

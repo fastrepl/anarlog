@@ -231,6 +231,16 @@ where
     hypr_cloudsync::begin_alter(executor, table_name).await
 }
 
+pub async fn cloudsync_is_enabled_on<'e, E>(
+    executor: E,
+    table_name: &str,
+) -> Result<bool, hypr_cloudsync::Error>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
+    hypr_cloudsync::is_enabled(executor, table_name).await
+}
+
 pub async fn cloudsync_commit_alter_on<'e, E>(
     executor: E,
     table_name: &str,

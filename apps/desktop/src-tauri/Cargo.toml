@@ -92,6 +92,7 @@ hypr-host = { workspace = true }
 hypr-storage = { workspace = true }
 hypr-supervisor = { workspace = true }
 
+chrono = { workspace = true }
 dirs = { workspace = true }
 pico-args = { workspace = true }
 ractor = { workspace = true }
@@ -100,6 +101,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 specta = { workspace = true }
 specta-typescript = { workspace = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
 strum = { workspace = true, features = ["derive"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

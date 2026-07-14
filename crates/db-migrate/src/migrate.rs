@@ -241,7 +241,12 @@ impl Migrate for DbMigrateConnection<'_> {
                 MigrationScope::CloudsyncAlter {
                     table_name: cs_table,
                 } => {
-                    if !self.db.cloudsync_enabled() {
+                    let cloudsync_table_enabled = self.db.cloudsync_enabled()
+                        && hypr_db_core::cloudsync_is_enabled_on(&mut *self.conn, cs_table)
+                            .await
+                            .map_err(cloudsync_error)?;
+
+                    if !cloudsync_table_enabled {
                         return <SqliteConnection as Migrate>::apply(
                             &mut *self.conn,
                             table_name,

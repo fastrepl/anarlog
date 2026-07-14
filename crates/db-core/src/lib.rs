@@ -13,6 +13,7 @@ use crate::cloudsync::CloudsyncRuntimeState;
 pub use crate::cloudsync::{
     CloudsyncAuth, CloudsyncNetworkResult, CloudsyncRuntimeConfig, CloudsyncRuntimeError,
     CloudsyncStatus, CloudsyncTableSpec, cloudsync_begin_alter_on, cloudsync_commit_alter_on,
+    cloudsync_is_enabled_on,
 };
 
 #[derive(Clone, Copy, Debug)]

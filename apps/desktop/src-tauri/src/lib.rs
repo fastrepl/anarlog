@@ -3,6 +3,7 @@ mod appearance;
 mod commands;
 mod db;
 mod ext;
+mod search_index;
 mod store;
 mod supervisor;
 
@@ -281,6 +282,8 @@ pub async fn main() {
                     app_handle.local_llm().start_server();
                 }
             }
+
+            search_index::spawn(app_handle, db.clone());
 
             Ok(())
         })

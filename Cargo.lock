@@ -4815,6 +4815,7 @@ version = "0.0.0"
 dependencies = [
  "audio-actual",
  "audio-mock",
+ "chrono",
  "db-app",
  "db-core",
  "dirs 6.0.0",
@@ -4827,6 +4828,7 @@ dependencies = [
  "serde_json",
  "specta",
  "specta-typescript",
+ "sqlx",
  "storage",
  "strum 0.28.0",
  "supervisor",
