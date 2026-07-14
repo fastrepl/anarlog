@@ -86,7 +86,18 @@ impl Drop for Db {
 
 impl Db {
     pub async fn open(options: DbOpenOptions<'_>) -> Result<Self, DbOpenError> {
-        let (change_notifier, pool_options) = hypr_db_change::ChangeNotifier::new();
+        if options.cloudsync_enabled
+            && matches!(options.storage, DbStorage::Local(_))
+            && !options.journal_mode_wal
+        {
+            return Err(hypr_cloudsync::Error::WalRequired.into());
+        }
+
+        let (change_notifier, pool_options) = match (options.cloudsync_enabled, options.storage) {
+            (true, DbStorage::Local(_)) => hypr_db_change::ChangeNotifier::new_with_cloudsync(),
+            (true, DbStorage::Memory) => hypr_db_change::ChangeNotifier::disabled(),
+            (false, _) => hypr_db_change::ChangeNotifier::new(),
+        };
         connect_with_options(&options, pool_options, change_notifier).await
     }
 
@@ -100,13 +111,15 @@ impl Db {
         }
         let options = apply_internal_connect_policy(SqliteConnectOptions::new())
             .filename(path)
-            .create_if_missing(true);
+            .create_if_missing(true)
+            .pragma("journal_mode", "WAL");
         let (options, cloudsync_path) = hypr_cloudsync::apply(options)?;
-        let (change_notifier, pool_options) = hypr_db_change::ChangeNotifier::new();
+        let (change_notifier, pool_options) = hypr_db_change::ChangeNotifier::new_with_cloudsync();
         let pool = pool_options
             .connect_with(options)
             .await
             .map_err(hypr_cloudsync::Error::from)?;
+        ensure_cloudsync_wal(&pool).await?;
 
         Ok(Self {
             cloudsync_enabled: true,
@@ -123,7 +136,7 @@ impl Db {
         let options =
             apply_internal_connect_policy(SqliteConnectOptions::from_str("sqlite::memory:")?);
         let (options, cloudsync_path) = hypr_cloudsync::apply(options)?;
-        let (change_notifier, pool_options) = hypr_db_change::ChangeNotifier::new();
+        let (change_notifier, pool_options) = hypr_db_change::ChangeNotifier::disabled();
         let pool = pool_options
             .max_connections(1)
             .connect_with(options)
@@ -254,6 +267,9 @@ async fn connect_with_options(
         }
     };
     let pool = pool_options.connect_with(connect_options).await?;
+    if options.cloudsync_enabled && matches!(options.storage, DbStorage::Local(_)) {
+        ensure_cloudsync_wal(&pool).await?;
+    }
 
     Ok(Db {
         cloudsync_enabled: options.cloudsync_enabled,
@@ -268,6 +284,17 @@ async fn connect_with_options(
 
 fn apply_internal_connect_policy(connect_options: SqliteConnectOptions) -> SqliteConnectOptions {
     connect_options.busy_timeout(SQLITE_BUSY_TIMEOUT)
+}
+
+async fn ensure_cloudsync_wal(pool: &SqlitePool) -> Result<(), hypr_cloudsync::Error> {
+    let journal_mode: String = sqlx::query_scalar("PRAGMA journal_mode")
+        .fetch_one(pool)
+        .await?;
+    if journal_mode.eq_ignore_ascii_case("wal") {
+        Ok(())
+    } else {
+        Err(hypr_cloudsync::Error::WalRequired)
+    }
 }
 
 #[cfg(test)]
@@ -418,6 +445,226 @@ mod tests {
 
         let error = db.cloudsync_start().await.unwrap_err();
         assert!(matches!(error, CloudsyncRuntimeError::NotConfigured));
+    }
+
+    #[tokio::test]
+    async fn memory_cloudsync_does_not_install_change_hooks() {
+        let db = Db::connect_memory().await.unwrap();
+        sqlx::query("CREATE TABLE events (id TEXT PRIMARY KEY NOT NULL)")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let mut changes = db.change_notifier().subscribe();
+
+        sqlx::query("INSERT INTO events (id) VALUES ('a')")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        assert_eq!(db.change_notifier().current_seq(), 0);
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(100), changes.recv())
+                .await
+                .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn cloudsync_and_change_notifier_share_transaction_lifecycle() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("cloudsync.db");
+        let db = Db::open(DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_enabled: true,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .await
+        .unwrap();
+        let journal_mode: String = sqlx::query_scalar("PRAGMA journal_mode")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(journal_mode.to_lowercase(), "wal");
+
+        sqlx::query(
+            "CREATE TABLE test_sync (\
+                id TEXT PRIMARY KEY NOT NULL, \
+                value TEXT NOT NULL DEFAULT ''\
+            )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "CREATE TABLE other_events (\
+                id TEXT PRIMARY KEY NOT NULL, \
+                value TEXT NOT NULL DEFAULT ''\
+            )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        db.cloudsync_init("test_sync", None, None).await.unwrap();
+
+        let notifier = db.change_notifier();
+        let mut changes = notifier.subscribe();
+
+        sqlx::query("INSERT INTO test_sync (id, value) VALUES ('a', 'one')")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let first_version: i64 = sqlx::query_scalar("SELECT cloudsync_db_version()")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(first_version, 1);
+        let first_change = tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            loop {
+                let change = changes.recv().await.unwrap();
+                if change.table == "test_sync" {
+                    break change;
+                }
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(first_change.kind, hypr_db_change::TableChangeKind::Insert);
+        while changes.try_recv().is_ok() {}
+
+        let mut transaction = db.pool().begin().await.unwrap();
+        sqlx::query("UPDATE test_sync SET value = 'two' WHERE id = 'a'")
+            .execute(&mut *transaction)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO other_events (id, value) VALUES ('a', 'two')")
+            .execute(&mut *transaction)
+            .await
+            .unwrap();
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(100), changes.recv())
+                .await
+                .is_err()
+        );
+        transaction.commit().await.unwrap();
+
+        let (sync_change, other_change) =
+            tokio::time::timeout(std::time::Duration::from_secs(1), async {
+                let mut sync_change = None;
+                let mut other_change = None;
+                while sync_change.is_none() || other_change.is_none() {
+                    let change = changes.recv().await.unwrap();
+                    match change.table.as_str() {
+                        "test_sync" => sync_change = Some(change),
+                        "other_events" => other_change = Some(change),
+                        _ => {}
+                    }
+                }
+                (sync_change.unwrap(), other_change.unwrap())
+            })
+            .await
+            .unwrap();
+        assert_eq!(sync_change.kind, hypr_db_change::TableChangeKind::Update);
+        assert_eq!(sync_change.seq, other_change.seq);
+        let second_version: i64 = sqlx::query_scalar("SELECT cloudsync_db_version()")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(second_version, 2);
+        while changes.try_recv().is_ok() {}
+
+        let mut transaction = db.pool().begin().await.unwrap();
+        sqlx::query("UPDATE test_sync SET value = 'rolled-back' WHERE id = 'a'")
+            .execute(&mut *transaction)
+            .await
+            .unwrap();
+        sqlx::query("UPDATE other_events SET value = 'rolled-back' WHERE id = 'a'")
+            .execute(&mut *transaction)
+            .await
+            .unwrap();
+        transaction.rollback().await.unwrap();
+
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(100), changes.recv())
+                .await
+                .is_err()
+        );
+        let version_after_rollback: i64 = sqlx::query_scalar("SELECT cloudsync_db_version()")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(version_after_rollback, second_version);
+
+        let failed = sqlx::query(
+            "INSERT INTO test_sync (id, value) VALUES ('b', 'temporary'), ('a', 'duplicate')",
+        )
+        .execute(db.pool())
+        .await;
+        assert!(failed.is_err());
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(100), changes.recv())
+                .await
+                .is_err()
+        );
+        let version_after_failure: i64 = sqlx::query_scalar("SELECT cloudsync_db_version()")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(version_after_failure, second_version);
+
+        sqlx::query("UPDATE test_sync SET value = 'three' WHERE id = 'a'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let final_change = tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            loop {
+                let change = changes.recv().await.unwrap();
+                if change.table == "test_sync" {
+                    break change;
+                }
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(final_change.kind, hypr_db_change::TableChangeKind::Update);
+        let final_version: i64 = sqlx::query_scalar("SELECT cloudsync_db_version()")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        let value: String = sqlx::query_scalar("SELECT value FROM test_sync WHERE id = 'a'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        let failed_row_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM test_sync WHERE id = 'b'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(final_version, 3);
+        assert_eq!(value, "three");
+        assert_eq!(failed_row_count, 0);
+    }
+
+    #[tokio::test]
+    async fn local_cloudsync_requires_wal() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("cloudsync.db");
+
+        let error = Db::open(DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_enabled: true,
+            journal_mode_wal: false,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .await
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            DbOpenError::Cloudsync(hypr_cloudsync::Error::WalRequired)
+        ));
     }
 
     #[tokio::test]

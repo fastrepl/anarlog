@@ -15,6 +15,7 @@ pub use api::{
     terminate, uuid, version,
 };
 pub use bundle::bundled_extension_path;
+pub use close::install_transaction_observer;
 pub use error::{Error, ErrorKind};
 pub use network::{
     NetworkReceiveResult, NetworkResult, NetworkSendResult, network_check_changes, network_cleanup,

@@ -4502,6 +4502,7 @@ dependencies = [
 name = "db-change"
 version = "0.1.0"
 dependencies = [
+ "cloudsync",
  "sqlx",
  "tokio",
 ]

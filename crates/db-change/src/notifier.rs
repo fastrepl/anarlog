@@ -16,11 +16,32 @@ pub struct ChangeNotifier {
 
 impl ChangeNotifier {
     pub fn new() -> (Self, SqlitePoolOptions) {
+        Self::build(Some(false))
+    }
+
+    pub fn new_with_cloudsync() -> (Self, SqlitePoolOptions) {
+        Self::build(Some(true))
+    }
+
+    pub fn disabled() -> (Self, SqlitePoolOptions) {
+        Self::build(None)
+    }
+
+    fn build(cloudsync_enabled: Option<bool>) -> (Self, SqlitePoolOptions) {
         let (table_change_tx, _) = broadcast::channel(256);
         let change_tracker = Arc::new(ChangeTracker::default());
 
-        let callback_tx = table_change_tx.clone();
-        let callback_tracker = Arc::clone(&change_tracker);
+        let notifier = Self {
+            table_change_tx,
+            change_tracker,
+        };
+
+        let Some(cloudsync_enabled) = cloudsync_enabled else {
+            return (notifier, SqlitePoolOptions::new());
+        };
+
+        let callback_tx = notifier.table_change_tx.clone();
+        let callback_tracker = Arc::clone(&notifier.change_tracker);
 
         let pool_options = SqlitePoolOptions::new().after_connect(move |conn, _| {
             let callback_tx = callback_tx.clone();
@@ -32,6 +53,9 @@ impl ChangeNotifier {
 
                 let update_state = Arc::clone(&hook_state);
                 handle.set_update_hook(move |update| {
+                    if cloudsync_enabled && update.database != "main" {
+                        return;
+                    }
                     let kind = match update.operation {
                         SqliteOperation::Insert => TableChangeKind::Insert,
                         SqliteOperation::Update => TableChangeKind::Update,
@@ -42,23 +66,27 @@ impl ChangeNotifier {
                 });
 
                 let commit_state = Arc::clone(&hook_state);
-                handle.set_commit_hook(move || {
-                    commit_state.flush();
-                    true
-                });
+                if cloudsync_enabled {
+                    hypr_cloudsync::install_transaction_observer(
+                        &mut handle,
+                        move || commit_state.flush(),
+                        move || hook_state.clear(),
+                    )
+                    .map_err(|error| sqlx::Error::Configuration(Box::new(error)))?;
+                } else {
+                    handle.set_commit_hook(move || {
+                        commit_state.flush();
+                        true
+                    });
 
-                handle.set_rollback_hook(move || {
-                    hook_state.clear();
-                });
+                    handle.set_rollback_hook(move || {
+                        hook_state.clear();
+                    });
+                }
 
                 Ok(())
             })
         });
-
-        let notifier = Self {
-            table_change_tx,
-            change_tracker,
-        };
 
         (notifier, pool_options)
     }

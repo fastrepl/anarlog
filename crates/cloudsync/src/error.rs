@@ -28,6 +28,10 @@ pub enum Error {
     MissingCacheDir,
     #[error("failed to register the cloudsync close hook: sqlite error {0}")]
     CloseHookRegistration(i32),
+    #[error("failed to register the cloudsync transaction observer: sqlite error {0}")]
+    TransactionObserverRegistration(i32),
+    #[error("CloudSync requires WAL journal mode for commit-safe change notifications")]
+    WalRequired,
     #[error(
         "the bundled cloudsync extension is not available for this target; supported targets: {SUPPORTED_CLOUDSYNC_TARGETS}"
     )]
