@@ -30,14 +30,6 @@ msgstr "{trialDaysRemaining} day left"
 msgid "{trialDaysRemaining} days left"
 msgstr "{trialDaysRemaining} days left"
 
-#: src/settings/ai/llm/select.tsx
-msgid "<0>Language model</0> is needed to make Anarlog summarize and chat about your conversations."
-msgstr "<0>Language model</0> is needed to make Anarlog summarize and chat about your conversations."
-
-#: src/settings/ai/stt/select.tsx
-msgid "<0>Transcription model</0> is needed to make Anarlog listen to your conversations."
-msgstr "<0>Transcription model</0> is needed to make Anarlog listen to your conversations."
-
 #: src/settings/general/storage/index.tsx
 msgid "1 day"
 msgstr "1 day"
@@ -837,6 +829,10 @@ msgstr "Language & Region"
 #: src/settings/general/main-language.tsx
 msgid "Language for summaries, chats, and AI-generated responses"
 msgstr "Language for summaries, chats, and AI-generated responses"
+
+#: src/settings/ai/llm/select.tsx
+msgid "Language model is needed to make Anarlog summarize and chat about your conversations."
+msgstr "Language model is needed to make Anarlog summarize and chat about your conversations."
 
 #: src/chat/components/message/error.tsx
 msgid "Learn how to fix this"
@@ -1796,6 +1792,10 @@ msgstr "Transcript"
 #: src/sidebar/settings.tsx
 msgid "Transcription"
 msgstr "Transcription"
+
+#: src/settings/ai/stt/select.tsx
+msgid "Transcription model is needed to make Anarlog listen to your conversations."
+msgstr "Transcription model is needed to make Anarlog listen to your conversations."
 
 #: src/templates/template-icon-picker.tsx
 msgid "Travel & Places"

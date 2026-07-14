@@ -30,14 +30,6 @@ msgstr ""
 msgid "{trialDaysRemaining} days left"
 msgstr ""
 
-#: src/settings/ai/llm/select.tsx
-msgid "<0>Language model</0> is needed to make Anarlog summarize and chat about your conversations."
-msgstr ""
-
-#: src/settings/ai/stt/select.tsx
-msgid "<0>Transcription model</0> is needed to make Anarlog listen to your conversations."
-msgstr ""
-
 #: src/settings/general/storage/index.tsx
 msgid "1 day"
 msgstr ""
@@ -837,6 +829,10 @@ msgstr "Wika at Rehiyon"
 #: src/settings/general/main-language.tsx
 msgid "Language for summaries, chats, and AI-generated responses"
 msgstr "Wika para sa mga buod, pakikipag-chat, at mga tugon na binuo ng AI"
+
+#: src/settings/ai/llm/select.tsx
+msgid "Language model is needed to make Anarlog summarize and chat about your conversations."
+msgstr ""
 
 #: src/chat/components/message/error.tsx
 msgid "Learn how to fix this"
@@ -1795,6 +1791,10 @@ msgstr ""
 #: src/settings/ai/stt/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Transcription"
+msgstr ""
+
+#: src/settings/ai/stt/select.tsx
+msgid "Transcription model is needed to make Anarlog listen to your conversations."
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx
