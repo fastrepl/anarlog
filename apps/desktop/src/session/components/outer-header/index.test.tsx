@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   stopTranscription: vi.fn(),
   requestMainListenerControl: vi.fn(),
   isMainWebviewWindow: true,
+  audioExists: false,
   hasTranscriptBySession: {} as Record<string, boolean>,
   overflowProps: [] as Array<{
     allowListening?: boolean;
@@ -68,6 +69,10 @@ vi.mock("@hypr/plugin-opener2", () => ({
 
 vi.mock("~/calendar/hooks", () => ({
   useNow: () => new Date(mocks.nowMs),
+}));
+
+vi.mock("~/audio-player", () => ({
+  useAudioPlayer: () => ({ audioExists: mocks.audioExists }),
 }));
 
 vi.mock("~/contexts/shell", () => ({
@@ -131,6 +136,7 @@ describe("OuterHeader", () => {
     mocks.stopTranscription.mockClear();
     mocks.requestMainListenerControl.mockClear();
     mocks.isMainWebviewWindow = true;
+    mocks.audioExists = false;
     mocks.hasTranscriptBySession = {};
     mocks.overflowProps = [];
   });
@@ -501,6 +507,26 @@ describe("OuterHeader", () => {
     expect(resumeButton.title).toBe("Resume listening");
     expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
     expect(screen.getByTestId("recording-icon")).not.toBeNull();
+    expect(mocks.startListening).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows resume when an inactive session has audio without a transcript", () => {
+    mocks.audioExists = true;
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "transcript" } as EditorView}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    const resumeButton = screen.getByRole("button", { name: "Resume" });
+
+    fireEvent.click(resumeButton);
+
+    expect(resumeButton.title).toBe("Resume listening");
+    expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
     expect(mocks.startListening).toHaveBeenCalledTimes(1);
   });
 

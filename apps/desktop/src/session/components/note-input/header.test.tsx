@@ -518,7 +518,7 @@ describe("Header", () => {
 
     expect(
       menu.map((item) => ("text" in item ? item.text : "separator")),
-    ).toEqual(["Copy", "Regenerate", "Delete recording"]);
+    ).toEqual(["Copy", "Re-transcribe", "Delete recording"]);
     expect(menu.find(isMenuItem)?.disabled).toBe(false);
     expect(
       menu.find(

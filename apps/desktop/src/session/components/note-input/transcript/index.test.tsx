@@ -4,12 +4,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Transcript } from "./index";
 
-const { useListenerMock, useAudioPlayerMock, useSessionTranscriptsMock } =
-  vi.hoisted(() => ({
-    useListenerMock: vi.fn(),
-    useAudioPlayerMock: vi.fn(),
-    useSessionTranscriptsMock: vi.fn(),
-  }));
+const {
+  useListenerMock,
+  useAudioPlayerMock,
+  useSessionTranscriptsMock,
+  regenerateTranscriptMock,
+} = vi.hoisted(() => ({
+  useListenerMock: vi.fn(),
+  useAudioPlayerMock: vi.fn(),
+  useSessionTranscriptsMock: vi.fn(),
+  regenerateTranscriptMock: vi.fn(),
+}));
+
+vi.mock("./actions", () => ({
+  useRegenerateTranscript: () => regenerateTranscriptMock,
+}));
 
 vi.mock("~/stt/queries", () => ({
   useSessionTranscripts: useSessionTranscriptsMock,

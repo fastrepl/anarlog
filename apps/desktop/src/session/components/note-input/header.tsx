@@ -792,7 +792,7 @@ function HeaderViewTranscriptActive({
     if (audioExists) {
       items.push({
         id: `regenerate-transcript-${sessionId}`,
-        text: "Regenerate",
+        text: "Re-transcribe",
         action: () => {
           void regenerate();
         },

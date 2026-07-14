@@ -1,4 +1,9 @@
-import { AlertCircleIcon, AudioLinesIcon, SquareIcon } from "lucide-react";
+import {
+  AlertCircleIcon,
+  AudioLinesIcon,
+  RefreshCwIcon,
+  SquareIcon,
+} from "lucide-react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
@@ -9,6 +14,7 @@ export function TranscriptEmptyState({
   percentage,
   phase,
   error,
+  onRetranscribe,
   onUploadAudio,
   onUploadTranscript,
   onStopTranscription,
@@ -18,82 +24,108 @@ export function TranscriptEmptyState({
   percentage?: number;
   phase?: "importing" | "transcribing";
   error?: string | null;
+  onRetranscribe?: () => void;
   onUploadAudio?: () => void;
   onUploadTranscript?: () => void;
   onStopTranscription?: () => void;
 }) {
   if (error) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-        <AlertCircleIcon className="h-8 w-8 text-red-400" />
-        <div className="flex max-w-md flex-col gap-1">
-          <p className="text-muted-foreground text-sm font-medium">
-            Batch transcription failed
+      <div
+        role="alert"
+        className="flex h-full min-h-[400px] flex-col items-center justify-center px-6 text-center"
+      >
+        <AlertCircleIcon
+          aria-hidden
+          className="text-muted-foreground mb-5 size-9 stroke-[1.5]"
+        />
+        <div className="mb-6 flex max-w-md flex-col gap-2">
+          <p className="text-base font-medium">Transcription failed</p>
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            {error}
           </p>
-          <p className="text-muted-foreground text-xs">{error}</p>
         </div>
+        {onRetranscribe && (
+          <Button size="sm" className="gap-2" onClick={onRetranscribe}>
+            <RefreshCwIcon className="size-4" />
+            Re-transcribe
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  if (isBatching) {
+    const hasProgress = typeof percentage === "number" && percentage > 0;
+
+    return (
+      <div
+        role="status"
+        className="flex h-full min-h-[400px] flex-col items-center justify-center px-6 text-center"
+      >
+        <div className="text-muted-foreground mb-5">
+          <Spinner size={36} />
+        </div>
+        <div className={onStopTranscription ? "mb-6" : undefined}>
+          <p className="text-base font-medium">
+            {phase === "importing"
+              ? "Importing audio..."
+              : "Generating transcript..."}
+          </p>
+          {hasProgress && (
+            <p className="text-muted-foreground mt-2 text-sm leading-relaxed tabular-nums">
+              {Math.round((percentage ?? 0) * 100)}% complete
+            </p>
+          )}
+        </div>
+        {onStopTranscription && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={onStopTranscription}
+          >
+            <SquareIcon className="size-3 fill-current" />
+            Stop transcription
+          </Button>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3">
-      {isBatching ? (
-        <Spinner size={28} />
-      ) : (
-        <AudioLinesIcon className="h-8 w-8" />
-      )}
-      {isBatching ? (
-        <div className="flex flex-col items-center gap-1">
-          {typeof percentage === "number" && percentage > 0 ? (
-            <p className="text-muted-foreground text-2xl font-medium tabular-nums">
-              {Math.round(percentage * 100)}%
-            </p>
-          ) : null}
-          <p className="text-sm">
-            {phase === "importing"
-              ? "Importing audio..."
-              : "Generating transcript..."}
-          </p>
-          {onStopTranscription ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-2 gap-1.5 text-xs"
-              onClick={onStopTranscription}
-            >
-              <SquareIcon className="size-3 fill-current" />
-              Stop transcription
+    <div className="flex h-full min-h-[400px] flex-col items-center justify-center px-6 text-center">
+      <AudioLinesIcon
+        aria-hidden
+        className="text-muted-foreground mb-5 size-9 stroke-[1.5]"
+      />
+      <div className="mb-6 flex max-w-md flex-col gap-2">
+        <p className="text-base font-medium">
+          {hasAudio ? "Audio available" : "No transcript available"}
+        </p>
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          {hasAudio
+            ? "Re-transcribe this audio, or upload a transcript file."
+            : "Upload audio or a transcript file to populate this note."}
+        </p>
+      </div>
+      {(onRetranscribe || onUploadAudio || onUploadTranscript) && (
+        <div className="flex items-center gap-2">
+          {hasAudio && onRetranscribe && (
+            <Button size="sm" className="gap-2" onClick={onRetranscribe}>
+              <RefreshCwIcon className="size-4" />
+              Re-transcribe
             </Button>
-          ) : null}
-        </div>
-      ) : (
-        <div className="flex max-w-sm flex-col items-center gap-1 text-center">
-          <p className="text-muted-foreground text-sm">
-            {hasAudio ? "Recording available" : "No transcript available"}
-          </p>
-          <p className="text-muted-foreground text-xs">
-            {hasAudio
-              ? "Use the refresh button above to generate a transcript, or upload a file."
-              : "Upload audio or a transcript file to populate this note."}
-          </p>
-          {(onUploadAudio || onUploadTranscript) && (
-            <div className="mt-3 flex items-center gap-2">
-              {onUploadAudio && (
-                <Button variant="outline" size="sm" onClick={onUploadAudio}>
-                  Upload audio
-                </Button>
-              )}
-              {onUploadTranscript && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onUploadTranscript}
-                >
-                  Upload transcript
-                </Button>
-              )}
-            </div>
+          )}
+          {!hasAudio && onUploadAudio && (
+            <Button variant="outline" size="sm" onClick={onUploadAudio}>
+              Upload audio
+            </Button>
+          )}
+          {onUploadTranscript && (
+            <Button variant="outline" size="sm" onClick={onUploadTranscript}>
+              Upload transcript
+            </Button>
           )}
         </div>
       )}

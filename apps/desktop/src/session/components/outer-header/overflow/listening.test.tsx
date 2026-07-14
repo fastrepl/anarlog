@@ -57,16 +57,16 @@ describe("Listening", () => {
     cleanup();
   });
 
-  it("hides resume listening when a transcript already exists", () => {
-    render(<Listening sessionId="session-1" hasTranscript />);
+  it("resumes listening when the session already has content", () => {
+    render(<Listening sessionId="session-1" resume />);
 
-    expect(
-      screen.queryByRole("button", { name: "Resume listening" }),
-    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Resume listening" }));
+
+    expect(startListeningMock).toHaveBeenCalledTimes(1);
   });
 
   it("starts listening directly in the main window before transcript exists", () => {
-    render(<Listening sessionId="session-1" hasTranscript={false} />);
+    render(<Listening sessionId="session-1" resume={false} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Start listening" }));
 
@@ -77,7 +77,7 @@ describe("Listening", () => {
   it("delegates standalone start requests to the main window before transcript exists", () => {
     isMainWebviewWindowMock.mockReturnValue(false);
 
-    render(<Listening sessionId="session-1" hasTranscript={false} />);
+    render(<Listening sessionId="session-1" resume={false} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Start listening" }));
 
@@ -97,7 +97,7 @@ describe("Listening", () => {
       }),
     );
 
-    render(<Listening sessionId="session-1" hasTranscript />);
+    render(<Listening sessionId="session-1" resume />);
 
     fireEvent.click(screen.getByRole("button", { name: "Stop listening" }));
 

@@ -5,6 +5,7 @@ import {
   FileTextIcon,
   MoreHorizontalIcon,
   PictureInPicture2Icon,
+  RefreshCwIcon,
   SquareArrowOutUpRightIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -24,7 +25,9 @@ import { ExportModal } from "./export-modal";
 import { Listening } from "./listening";
 import { ShowInFinder } from "./misc";
 
+import { useAudioPlayer } from "~/audio-player";
 import { openFloatingMeetingPanel } from "~/meeting-float/host";
+import { useRegenerateTranscript } from "~/session/components/note-input/transcript/actions";
 import {
   useCurrentNoteHasContent,
   useHasTranscript,
@@ -53,19 +56,28 @@ export function OverflowButton({
     sessionId,
     currentView,
   );
+  const { audioExists } = useAudioPlayer();
   const { uploadAudio, uploadTranscript } = useUploadFile(sessionId);
+  const regenerateTranscript = useRegenerateTranscript(sessionId);
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const floatingBarEnabled = useConfigValue("floating_bar_enabled");
   const isMeetingInProgress =
     sessionMode === "active" || sessionMode === "finalizing";
-  const showListeningAction =
-    allowListening && (!hasTranscript || isMeetingInProgress);
+  const isRetranscribing = sessionMode === "running_batch";
+  const showListeningAction = allowListening;
+  const showRetranscribeAction = audioExists && !isMeetingInProgress;
   const showUploadActions =
-    !hasTranscript && !currentNoteHasContent && !isMeetingInProgress;
+    !audioExists &&
+    !hasTranscript &&
+    !currentNoteHasContent &&
+    !isMeetingInProgress;
   const canOpenFloatingPanel =
     allowListening && floatingBarEnabled && sessionMode === "active";
   const hasMeetingActions =
-    showListeningAction || showUploadActions || canOpenFloatingPanel;
+    showListeningAction ||
+    showRetranscribeAction ||
+    showUploadActions ||
+    canOpenFloatingPanel;
   const openExportModal = () => {
     setOpen(false);
     requestAnimationFrame(() => setIsExportModalOpen(true));
@@ -77,6 +89,10 @@ export function OverflowButton({
   const handleUploadTranscript = () => {
     setOpen(false);
     uploadTranscript();
+  };
+  const handleRetranscribe = () => {
+    setOpen(false);
+    void regenerateTranscript();
   };
   const handleOpenFloatingPanel = () => {
     setOpen(false);
@@ -116,7 +132,20 @@ export function OverflowButton({
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {showListeningAction && (
-              <Listening sessionId={sessionId} hasTranscript={hasTranscript} />
+              <Listening
+                sessionId={sessionId}
+                resume={audioExists || hasTranscript}
+              />
+            )}
+            {showRetranscribeAction && (
+              <DropdownMenuItem
+                onClick={handleRetranscribe}
+                disabled={isRetranscribing}
+                className="cursor-pointer"
+              >
+                <RefreshCwIcon />
+                <span>Re-transcribe</span>
+              </DropdownMenuItem>
             )}
             {showUploadActions && (
               <>

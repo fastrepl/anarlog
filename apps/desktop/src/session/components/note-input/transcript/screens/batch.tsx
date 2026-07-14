@@ -16,17 +16,22 @@ export function BatchState({
     "Recording continues and audio will be saved when you stop.";
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-8">
-      <DancingSticks
-        amplitude={Math.min(Math.hypot(amplitude.mic, amplitude.speaker), 1)}
-        color="#a3a3a3"
-        height={56}
-        width={120}
-        stickWidth={3.5}
-        gap={4}
-      />
-      <div className="flex max-w-sm flex-col items-center gap-2 text-center">
-        <p className="text-muted-foreground text-base font-semibold">
+    <div
+      role="status"
+      className="flex h-full min-h-[400px] flex-col items-center justify-center px-6 text-center"
+    >
+      <div className="mb-5">
+        <DancingSticks
+          amplitude={Math.min(Math.hypot(amplitude.mic, amplitude.speaker), 1)}
+          color="#a3a3a3"
+          height={36}
+          width={80}
+          stickWidth={3}
+          gap={3}
+        />
+      </div>
+      <div className="flex max-w-md flex-col gap-2">
+        <p className="text-base font-medium">
           {isFallbackFromLive
             ? "Live transcription stopped"
             : "Recording continues"}

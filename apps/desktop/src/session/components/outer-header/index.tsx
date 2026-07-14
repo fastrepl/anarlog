@@ -14,6 +14,7 @@ import { RecordingIcon, useHasTranscript } from "../shared";
 import { MetadataButton } from "./metadata";
 import { OverflowButton } from "./overflow";
 
+import { useAudioPlayer } from "~/audio-player";
 import { useNow } from "~/calendar/hooks";
 import { useShell } from "~/contexts/shell";
 import { useEventCountdown } from "~/session/hooks/useEventCountdown";
@@ -138,6 +139,8 @@ function HeaderMeetingActionPill({
   const endedAt = event?.ended_at ? safeParseDate(event.ended_at) : null;
   const ended = !!endedAt && endedAt.getTime() <= now.getTime();
   const hasTranscript = useHasTranscript(sessionId);
+  const { audioExists } = useAudioPlayer();
+  const canResume = audioExists || hasTranscript;
   const { t } = useLingui();
   const countdown = useEventCountdown(sessionId);
   const start = useCallback(() => {
@@ -199,8 +202,8 @@ function HeaderMeetingActionPill({
     }
 
     return {
-      label: hasTranscript ? t`Resume` : t`Record`,
-      title: hasTranscript ? t`Resume listening` : t`Record`,
+      label: canResume ? t`Resume` : t`Record`,
+      title: canResume ? t`Resume listening` : t`Record`,
       icon: <RecordingIcon />,
       onClick: start,
     };

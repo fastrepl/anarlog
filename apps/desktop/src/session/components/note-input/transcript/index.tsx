@@ -3,6 +3,7 @@ import { useCallback } from "react";
 
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 
+import { useRegenerateTranscript } from "./actions";
 import { TranscriptViewer } from "./renderer";
 import { BatchState } from "./screens/batch";
 import { TranscriptEmptyState } from "./screens/empty";
@@ -21,6 +22,7 @@ export function Transcript({
 }) {
   const screen = useTranscriptScreen({ sessionId });
   const { uploadAudio, uploadTranscript } = useUploadFile(sessionId);
+  const regenerateTranscript = useRegenerateTranscript(sessionId);
   const stopTranscription = useListener((state) => state.stopTranscription);
   const handleStopTranscription = useCallback(() => {
     void stopTranscription(sessionId);
@@ -52,6 +54,7 @@ export function Transcript({
           isBatching={false}
           hasAudio={screen.hasAudio}
           error={screen.error}
+          onRetranscribe={regenerateTranscript}
           onUploadAudio={uploadAudio}
           onUploadTranscript={uploadTranscript}
         />

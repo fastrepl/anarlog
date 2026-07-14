@@ -9,6 +9,8 @@ import type { EditorView } from "~/store/zustand/tabs/schema";
 const {
   uploadAudioMock,
   uploadTranscriptMock,
+  regenerateTranscriptMock,
+  audioExists,
   currentNoteContent,
   useHasTranscriptMock,
   useListenerMock,
@@ -17,6 +19,8 @@ const {
 } = vi.hoisted(() => ({
   uploadAudioMock: vi.fn(),
   uploadTranscriptMock: vi.fn(),
+  regenerateTranscriptMock: vi.fn(),
+  audioExists: { value: false },
   currentNoteContent: { value: "" },
   useHasTranscriptMock: vi.fn(),
   useListenerMock: vi.fn(),
@@ -66,7 +70,11 @@ vi.mock("./export-modal", () => ({
 }));
 
 vi.mock("./listening", () => ({
-  Listening: () => <button type="button">Resume listening</button>,
+  Listening: ({ resume }: { resume: boolean }) => (
+    <button type="button">
+      {resume ? "Resume listening" : "Start listening"}
+    </button>
+  ),
 }));
 
 vi.mock("./misc", () => ({
@@ -75,6 +83,14 @@ vi.mock("./misc", () => ({
 
 vi.mock("~/meeting-float/host", () => ({
   openFloatingMeetingPanel: vi.fn(),
+}));
+
+vi.mock("~/audio-player", () => ({
+  useAudioPlayer: () => ({ audioExists: audioExists.value }),
+}));
+
+vi.mock("~/session/components/note-input/transcript/actions", () => ({
+  useRegenerateTranscript: () => regenerateTranscriptMock,
 }));
 
 vi.mock("@hypr/plugin-windows", () => ({
@@ -110,6 +126,7 @@ describe("OverflowButton", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    audioExists.value = false;
     currentNoteContent.value = "";
     useHasTranscriptMock.mockReturnValue(true);
     useConfigValueMock.mockReturnValue(false);
@@ -150,17 +167,44 @@ describe("OverflowButton", () => {
     expect(
       screen.queryByRole("button", { name: "Upload transcript" }),
     ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Resume listening" }),
+    ).not.toBeNull();
   });
 
-  it("renders one separator when no meeting actions are visible", () => {
+  it("renders one separator when meeting actions are disabled", () => {
     const { container } = render(
       <OverflowButton
+        allowListening={false}
         sessionId="session-1"
         currentView={{ type: "enhanced", id: "note-1" } as EditorView}
       />,
     );
 
     expect(container.querySelectorAll("hr")).toHaveLength(1);
+  });
+
+  it("offers resume and re-transcribe when recorded audio exists", () => {
+    audioExists.value = true;
+    useHasTranscriptMock.mockReturnValue(false);
+
+    render(
+      <OverflowButton
+        sessionId="session-1"
+        currentView={{ type: "enhanced", id: "note-1" } as EditorView}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Re-transcribe" }));
+
+    expect(
+      screen.getByRole("button", { name: "Resume listening" }),
+    ).not.toBeNull();
+    expect(regenerateTranscriptMock).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Upload audio" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Upload transcript" }),
+    ).toBeNull();
   });
 
   it("separates visible meeting actions from the static actions", () => {

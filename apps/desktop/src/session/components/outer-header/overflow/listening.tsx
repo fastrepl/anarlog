@@ -11,10 +11,10 @@ import {
 
 export function Listening({
   sessionId,
-  hasTranscript,
+  resume,
 }: {
   sessionId: string;
-  hasTranscript: boolean;
+  resume: boolean;
 }) {
   const { mode, stop } = useListener((state) => ({
     mode: state.getSessionMode(sessionId),
@@ -24,10 +24,6 @@ export function Listening({
   const isFinalizing = mode === "finalizing";
   const isBatching = mode === "running_batch";
   const startListening = useStartListening(sessionId);
-
-  if (!isListening && hasTranscript) {
-    return null;
-  }
 
   const handleToggleListening = () => {
     if (isBatching) {
@@ -49,7 +45,7 @@ export function Listening({
     }
   };
 
-  const startLabel = hasTranscript ? "Resume listening" : "Start listening";
+  const startLabel = resume ? "Resume listening" : "Start listening";
 
   return (
     <DropdownMenuItem

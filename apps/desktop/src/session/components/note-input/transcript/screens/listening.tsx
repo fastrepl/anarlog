@@ -10,17 +10,25 @@ export function TranscriptListeningState({
   const isFinalizing = status === "finalizing";
 
   return (
-    <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3">
+    <div
+      role="status"
+      className="flex h-full min-h-[400px] flex-col items-center justify-center px-6 text-center"
+    >
       {isFinalizing ? (
-        <Spinner size={28} />
+        <div className="text-muted-foreground mb-5">
+          <Spinner size={36} />
+        </div>
       ) : (
-        <AudioLinesIcon className="h-8 w-8" />
+        <AudioLinesIcon
+          aria-hidden
+          className="text-muted-foreground mb-5 size-9 stroke-[1.5]"
+        />
       )}
-      <div className="flex max-w-sm flex-col items-center gap-1 text-center">
-        <p className="text-muted-foreground text-sm">
+      <div className="flex max-w-md flex-col gap-2">
+        <p className="text-base font-medium">
           {isFinalizing ? "Finalizing transcript..." : "Listening..."}
         </p>
-        <p className="text-muted-foreground text-xs">
+        <p className="text-muted-foreground text-sm leading-relaxed">
           {isFinalizing
             ? "Transcript is still being written."
             : "Transcript will appear here when the first segment arrives."}
