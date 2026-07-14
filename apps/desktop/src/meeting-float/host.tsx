@@ -1,3 +1,5 @@
+import { useRef } from "react";
+
 import {
   commands as windowsCommands,
   events as windowsEvents,
@@ -18,6 +20,7 @@ import {
 } from "~/settings/queries";
 import type { SettingValues } from "~/settings/schema";
 import { useConfigValue, useConfigValues } from "~/shared/config";
+import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { SegmentKeyUtils, type RenderLabelContext } from "~/stt/live-segment";
@@ -134,10 +137,7 @@ export function FloatingMeetingWindowHost() {
       <FloatingOverlaySettingsEventSync />
       <LiveCaptionDefaultVisibilitySync />
       {floatingBarEnabled ? (
-        <FloatingMeetingWindowSync
-          key={JSON.stringify(overlaySettings)}
-          settings={overlaySettings}
-        />
+        <FloatingMeetingWindowSync settings={overlaySettings} />
       ) : (
         <FloatingMeetingWindowDisabled />
       )}
@@ -273,12 +273,15 @@ function FloatingMeetingWindowSync({
 }: {
   settings: FloatingOverlaySettings;
 }) {
+  const settingsRef = useLatestRef(settings);
+  const refreshSettingsRef = useRef<() => void>(() => {});
+
   useMountEffect(() => {
     let meetingData: MeetingFloatData = { sessions: {}, humanNames: {} };
     let routeState = getCurrentFloatingRouteState(
       listenerStore.getState(),
       undefined,
-      settings,
+      settingsRef.current,
       getFloatingLiveCaptionToggleVisible(listenerStore.getState()),
       meetingData,
     );
@@ -303,12 +306,13 @@ function FloatingMeetingWindowSync({
         getCurrentFloatingRouteState(
           listenerStore.getState(),
           undefined,
-          settings,
+          settingsRef.current,
           getFloatingLiveCaptionToggleVisible(listenerStore.getState()),
           meetingData,
         ),
       );
     };
+    refreshSettingsRef.current = refreshCurrentRouteState;
 
     const sync = async () => {
       if (!shouldContinue()) {
@@ -386,14 +390,14 @@ function FloatingMeetingWindowSync({
       const colorScheme = getCurrentFloatingBarColorScheme();
       const nextRouteState = getFloatingRouteState(state, {
         colorScheme,
-        settings,
+        settings: settingsRef.current,
         liveCaptionToggleVisible: getFloatingLiveCaptionToggleVisible(state),
         sessionTitle: getFloatingSessionTitle(state, meetingData),
         speakerLabelContext: getFloatingSpeakerLabelContext(state, meetingData),
       });
       const previousRouteState = getFloatingRouteState(previousState, {
         colorScheme,
-        settings,
+        settings: settingsRef.current,
         liveCaptionToggleVisible:
           getFloatingLiveCaptionToggleVisible(previousState),
         sessionTitle: getFloatingSessionTitle(previousState, meetingData),
@@ -434,6 +438,7 @@ function FloatingMeetingWindowSync({
 
     return () => {
       cancelled = true;
+      refreshSettingsRef.current = () => {};
       unsubscribe();
       unsubscribeAppliedTheme();
       void unsubscribeMeetingData?.();
@@ -442,6 +447,20 @@ function FloatingMeetingWindowSync({
     };
   });
 
+  return (
+    <FloatingMeetingWindowSettingsSync
+      key={JSON.stringify(settings)}
+      onSettingsChange={() => refreshSettingsRef.current()}
+    />
+  );
+}
+
+function FloatingMeetingWindowSettingsSync({
+  onSettingsChange,
+}: {
+  onSettingsChange: () => void;
+}) {
+  useMountEffect(onSettingsChange);
   return null;
 }
 
