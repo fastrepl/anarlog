@@ -48,6 +48,7 @@ export function OverflowButton({
 }) {
   const [open, setOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [hasOpenedExportModal, setHasOpenedExportModal] = useState(false);
   const hasTranscript = useHasTranscript(sessionId);
   const currentNoteHasContent = useCurrentNoteHasContent(
     sessionId,
@@ -68,6 +69,7 @@ export function OverflowButton({
     showListeningAction || showUploadActions || canOpenFloatingPanel;
   const openExportModal = () => {
     setOpen(false);
+    setHasOpenedExportModal(true);
     requestAnimationFrame(() => setIsExportModalOpen(true));
   };
   const handleUploadAudio = () => {
@@ -168,12 +170,14 @@ export function OverflowButton({
           </AppFloatingPanel>
         </DropdownMenuContent>
       </DropdownMenu>
-      <ExportModal
-        sessionId={sessionId}
-        currentView={currentView}
-        open={isExportModalOpen}
-        onOpenChange={setIsExportModalOpen}
-      />
+      {hasOpenedExportModal && (
+        <ExportModal
+          sessionId={sessionId}
+          currentView={currentView}
+          open={isExportModalOpen}
+          onOpenChange={setIsExportModalOpen}
+        />
+      )}
     </>
   );
 }

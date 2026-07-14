@@ -4,6 +4,7 @@ Default permissions for the plugin
 
 #### This default permission set includes the following:
 
+- `allow-event-fire-and-forget`
 - `allow-event`
 - `allow-set-properties`
 - `allow-set-disabled`
@@ -41,6 +42,32 @@ Enables the event command without any pre-configured scope.
 <td>
 
 Denies the event command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`analytics:allow-event-fire-and-forget`
+
+</td>
+<td>
+
+Enables the event_fire_and_forget command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`analytics:deny-event-fire-and-forget`
+
+</td>
+<td>
+
+Denies the event_fire_and_forget command without any pre-configured scope.
 
 </td>
 </tr>

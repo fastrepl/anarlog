@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  analyticsEvent: vi.fn(() => Promise.resolve()),
+  analyticsEventFireAndForget: vi.fn(() => Promise.resolve()),
   execute: vi.fn(),
   executeTransaction: vi.fn(
     (_statements: Array<{ sql: string; params: unknown[] }>) =>
@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@hypr/plugin-analytics", () => ({
-  commands: { event: mocks.analyticsEvent },
+  commands: { eventFireAndForget: mocks.analyticsEventFireAndForget },
 }));
 
 vi.mock("@hypr/plugin-fs-sync", () => ({
@@ -225,6 +225,26 @@ describe("session SQLite operations", () => {
       ),
     ).toBe(true);
   });
+
+  it("does not wait for analytics before returning a newly created event note", async () => {
+    mocks.analyticsEventFireAndForget.mockImplementationOnce(
+      () => new Promise<never>(() => {}),
+    );
+    mocks.execute
+      .mockResolvedValueOnce([event])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: "session-created" }]);
+    mocks.executeTransaction.mockResolvedValueOnce([1]);
+
+    await expect(getOrCreateSessionForEventId("event-1")).resolves.toBe(
+      "session-created",
+    );
+    expect(mocks.analyticsEventFireAndForget).toHaveBeenCalledWith({
+      event: "note_created",
+      has_event_id: true,
+    });
+  }, 1_000);
 
   it("tombstones the session and every owned child with one timestamp", async () => {
     vi.useFakeTimers();

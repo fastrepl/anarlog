@@ -2,6 +2,15 @@ use crate::AnalyticsPluginExt;
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) fn event_fire_and_forget<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    payload: hypr_analytics::AnalyticsPayload,
+) {
+    app.analytics().event_fire_and_forget(payload);
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn event<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     payload: hypr_analytics::AnalyticsPayload,

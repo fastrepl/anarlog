@@ -632,7 +632,7 @@ export async function createSession(
     },
   ]);
 
-  await trackNoteCreated(false);
+  trackNoteCreated(false);
   return sessionId;
 }
 
@@ -788,7 +788,7 @@ export async function getOrCreateSessionForEventId(
   }
 
   if (rowsAffected[0] === 1) {
-    await trackNoteCreated(true);
+    trackNoteCreated(true);
   }
   return createdSessionId;
 }
@@ -1116,13 +1116,16 @@ function mapEnhancedNoteRow(row: EnhancedNoteSqlRow): EnhancedNoteRecord {
   };
 }
 
-async function trackNoteCreated(hasEventId: boolean): Promise<void> {
-  try {
-    await analyticsCommands.event({
+function trackNoteCreated(hasEventId: boolean): void {
+  void analyticsCommands
+    .eventFireAndForget({
       event: "note_created",
       has_event_id: hasEventId,
+    })
+    .catch((error) => {
+      console.error(
+        "[session] failed to record note creation analytics",
+        error,
+      );
     });
-  } catch (error) {
-    console.error("[session] failed to record note creation analytics", error);
-  }
 }

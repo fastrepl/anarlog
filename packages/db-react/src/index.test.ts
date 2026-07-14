@@ -57,6 +57,118 @@ describe("@hypr/db-react", () => {
     });
   });
 
+  it("shares identical live-query subscriptions", async () => {
+    const useLiveQuery = createUseLiveQuery(client);
+    const unsubscribe = vi.fn().mockResolvedValue(undefined);
+    let onData: ((rows: Array<{ id: number }>) => void) | undefined;
+
+    subscribeMock.mockImplementation(async (_sql, _params, options) => {
+      onData = options.onData;
+      return unsubscribe;
+    });
+
+    const first = renderHook(() =>
+      useLiveQuery({
+        sql: "SELECT id FROM test WHERE kind = ?",
+        params: ["note"],
+        mapRows: (rows: Array<{ id: number }>) => rows.map((row) => row.id),
+      }),
+    );
+    const second = renderHook(() =>
+      useLiveQuery({
+        sql: "SELECT id FROM test WHERE kind = ?",
+        params: ["note"],
+        mapRows: (rows: Array<{ id: number }>) => rows.length,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(subscribeMock).toHaveBeenCalledTimes(1);
+    });
+
+    act(() => {
+      onData?.([{ id: 1 }, { id: 2 }]);
+    });
+
+    await waitFor(() => {
+      expect(first.result.current.data).toEqual([1, 2]);
+      expect(second.result.current.data).toBe(2);
+    });
+
+    first.unmount();
+    expect(unsubscribe).not.toHaveBeenCalled();
+
+    second.unmount();
+    await waitFor(() => {
+      expect(unsubscribe).toHaveBeenCalledTimes(1);
+    });
+
+    const remounted = renderHook(() =>
+      useLiveQuery({
+        sql: "SELECT id FROM test WHERE kind = ?",
+        params: ["note"],
+      }),
+    );
+
+    await waitFor(() => {
+      expect(subscribeMock).toHaveBeenCalledTimes(2);
+    });
+    remounted.unmount();
+  });
+
+  it("keeps distinct query parameters in separate subscriptions", async () => {
+    const useLiveQuery = createUseLiveQuery(client);
+    subscribeMock.mockResolvedValue(async () => {});
+
+    const first = renderHook(() =>
+      useLiveQuery({ sql: "SELECT id FROM test WHERE id = ?", params: [1] }),
+    );
+    const second = renderHook(() =>
+      useLiveQuery({ sql: "SELECT id FROM test WHERE id = ?", params: [2] }),
+    );
+
+    await waitFor(() => {
+      expect(subscribeMock).toHaveBeenCalledTimes(2);
+    });
+
+    first.unmount();
+    second.unmount();
+  });
+
+  it("releases the previous subscription when query parameters change", async () => {
+    const useLiveQuery = createUseLiveQuery(client);
+    const firstUnsubscribe = vi.fn().mockResolvedValue(undefined);
+    const secondUnsubscribe = vi.fn().mockResolvedValue(undefined);
+    subscribeMock
+      .mockResolvedValueOnce(firstUnsubscribe)
+      .mockResolvedValueOnce(secondUnsubscribe);
+
+    const { rerender, unmount } = renderHook(
+      ({ id }) =>
+        useLiveQuery({
+          sql: "SELECT id FROM test WHERE id = ?",
+          params: [id],
+        }),
+      { initialProps: { id: 1 } },
+    );
+
+    await waitFor(() => {
+      expect(subscribeMock).toHaveBeenCalledTimes(1);
+    });
+
+    rerender({ id: 2 });
+
+    await waitFor(() => {
+      expect(firstUnsubscribe).toHaveBeenCalledTimes(1);
+      expect(subscribeMock).toHaveBeenCalledTimes(2);
+    });
+
+    unmount();
+    await waitFor(() => {
+      expect(secondUnsubscribe).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("does not subscribe when disabled", () => {
     const useLiveQuery = createUseLiveQuery(client);
     const { result } = renderHook(() =>

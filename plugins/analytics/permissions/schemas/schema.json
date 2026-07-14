@@ -307,6 +307,18 @@
           "markdownDescription": "Denies the event command without any pre-configured scope."
         },
         {
+          "description": "Enables the event_fire_and_forget command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-event-fire-and-forget",
+          "markdownDescription": "Enables the event_fire_and_forget command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the event_fire_and_forget command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-event-fire-and-forget",
+          "markdownDescription": "Denies the event_fire_and_forget command without any pre-configured scope."
+        },
+        {
           "description": "Enables the identify command without any pre-configured scope.",
           "type": "string",
           "const": "allow-identify",
@@ -355,10 +367,10 @@
           "markdownDescription": "Denies the set_properties command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-event`\n- `allow-set-properties`\n- `allow-set-disabled`\n- `allow-is-disabled`\n- `allow-identify`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-event-fire-and-forget`\n- `allow-event`\n- `allow-set-properties`\n- `allow-set-disabled`\n- `allow-is-disabled`\n- `allow-identify`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-event`\n- `allow-set-properties`\n- `allow-set-disabled`\n- `allow-is-disabled`\n- `allow-identify`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-event-fire-and-forget`\n- `allow-event`\n- `allow-set-properties`\n- `allow-set-disabled`\n- `allow-is-disabled`\n- `allow-identify`"
         }
       ]
     }

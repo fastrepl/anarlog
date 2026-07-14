@@ -1,4 +1,5 @@
 const COMMANDS: &[&str] = &[
+    "event_fire_and_forget",
     "event",
     "set_properties",
     "set_disabled",
