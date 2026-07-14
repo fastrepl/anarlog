@@ -583,9 +583,7 @@ describe("useStartListening", () => {
           : [],
     );
 
-    const { result } = renderHook(() =>
-      useStartListening("session-1"),
-    );
+    const { result } = renderHook(() => useStartListening("session-1"));
 
     await act(async () => {
       await result.current();
