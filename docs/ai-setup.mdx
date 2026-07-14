@@ -1,0 +1,54 @@
+---
+title: "Transcription and AI"
+description: "Choose how Anarlog turns audio into text and text into useful notes."
+---
+
+Anarlog uses two model settings:
+
+- **Transcription** turns meeting audio into a transcript.
+- **Intelligence** creates summaries and powers chat.
+
+Open **Settings → Transcription** or **Settings → Intelligence** to choose a provider and model.
+
+## Choose a setup
+
+<CardGroup cols={2}>
+  <Card title="Anarlog Cloud" icon="cloud">
+    Sign in and choose Anarlog for the quickest setup. Hosted models require Pro.
+  </Card>
+  <Card title="On-device transcription" icon="laptop">
+    Download a supported local model from Transcription. Local models are available on supported Apple Silicon Macs.
+  </Card>
+  <Card title="Your API key" icon="key">
+    Configure a provider, enter its API key, then select it under Model being used.
+  </Card>
+  <Card title="Local language model" icon="server">
+    Connect LM Studio or Ollama to generate summaries on your computer.
+  </Card>
+</CardGroup>
+
+Models labeled **Live** show text during the meeting. Models labeled **After recording** transcribe after you stop.
+
+## LM Studio
+
+1. Install [LM Studio](https://lmstudio.ai/download) and download a model.
+2. Start its local server on port `1234` and enable CORS.
+3. In Anarlog, open **Settings → Intelligence → Configure Providers → LM Studio**.
+4. Select the LM Studio model under **Model being used**.
+
+## Ollama
+
+1. Install [Ollama](https://ollama.com/download).
+2. Start it and pull a model:
+
+   ```bash
+   ollama serve
+   ollama pull llama3.2
+   ```
+
+3. In Anarlog, open **Settings → Intelligence → Configure Providers → Ollama**.
+4. Select the Ollama model under **Model being used**.
+
+## What leaves your computer
+
+Your app data remains local. Local transcription and local Intelligence providers process content on your computer. If you select Anarlog Cloud or another hosted provider, Anarlog sends the audio or text needed for that request to the selected provider.

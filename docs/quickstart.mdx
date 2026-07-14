@@ -1,41 +1,28 @@
 ---
-title: "Quickstart"
-description: "Query your first Anarlog meeting from a terminal or agent."
+title: "Your first meeting"
+description: "Set up Anarlog and try a private demo before your next call."
 ---
 
-This quickstart installs the current CLI from source and reads a meeting from the local Anarlog database.
-
-## Prerequisites
-
-- [Anarlog desktop](https://anarlog.so/download), opened at least once
-- A recent Rust toolchain with `cargo`
-- Git
-
 <Steps>
-  <Step title="Install from source">
-    ```bash
-    git clone https://github.com/fastrepl/anarlog.git
-    cd anarlog
-    cargo install --locked --path apps/cli
-    ```
+  <Step title="Install Anarlog">
+    [Download Anarlog](https://anarlog.so/download), open it, and follow the setup screen.
   </Step>
-  <Step title="List recent meetings">
-    ```bash
-    anarlog --json meetings list --limit 5
-    ```
-
-    Copy the `id` of the meeting you want to inspect.
+  <Step title="Allow audio access">
+    Allow **Microphone** so Anarlog can hear you. Allow **System Audio** so it can hear everyone else on the call.
   </Step>
-  <Step title="Read one meeting">
-    ```bash
-    anarlog --json meetings get MEETING_ID
-    ```
-
-    The result contains meeting metadata, the canonical note, generated summaries, participants, and action items.
+  <Step title="Finish the optional setup">
+    Sign in if you want Anarlog Cloud, sync, or connected calendars. Choose where Anarlog stores its local data.
   </Step>
-  <Step title="Connect an agent">
-    Configure an MCP client to launch `anarlog mcp`, or give the agent the [Anarlog skill](/agents/skills) so it can fall back to CLI JSON.
+  <Step title="Run the private demo">
+    Open **Welcome to Anarlog** and click **Join & record**. Anarlog opens a prerecorded meeting and treats it like a real call.
+  </Step>
+  <Step title="Review the result">
+    When the video ends, return to Anarlog and stop listening. Open **Memos**, **Summary**, and **Transcript** to see what Anarlog captured.
   </Step>
 </Steps>
 
-If the CLI cannot locate your database, open Anarlog once or follow [database troubleshooting](/troubleshooting#database-not-found).
+## Record a real meeting
+
+Open a calendar event or create a note, then click **Join & record** or **Record** in the top-right corner. See [Record meetings](/meetings) for the full flow.
+
+If Anarlog cannot hear the call, start with [audio troubleshooting](/troubleshooting#audio-is-missing).

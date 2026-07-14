@@ -1,32 +1,34 @@
 ---
-title: "Anarlog documentation"
-description: "Use Anarlog locally, from the command line, or through an MCP-compatible agent."
+title: "Anarlog"
+description: "Record a meeting, take notes, and leave with a clear summary."
 ---
 
-Anarlog is a local-first meeting notetaker. The desktop app records meetings and keeps notes, summaries, transcripts, participants, and action items on your computer.
-
-The `anarlog` executable provides two read-only interfaces to that data:
-
-- A CLI for people, scripts, and agents that can run shell commands.
-- A local MCP server for agents that support the Model Context Protocol.
-
-Both interfaces use the same application queries and never migrate or modify your database. CLI export can write a user-selected file, but it refuses to replace an existing file unless you pass `--force`.
+Anarlog records your microphone and computer audio without joining the call as a bot. Each meeting stays together as an editable memo, transcript, and summary.
 
 <CardGroup cols={2}>
-  <Card title="Install the CLI" icon="terminal" href="/installation">
-    Build the current CLI from source and connect it to your local Anarlog data.
+  <Card title="Try your first meeting" icon="play" href="/quickstart">
+    Use the private demo in Anarlog, then record a real meeting.
   </Card>
-  <Card title="Use Anarlog with agents" icon="robot" href="/agents/overview">
-    Choose MCP when connected or use structured CLI output as a fallback.
+  <Card title="Record a meeting" icon="microphone" href="/meetings">
+    Start from your calendar or from a new note.
   </Card>
-  <Card title="CLI reference" icon="rectangle-terminal" href="/reference/cli">
-    Review every available command, option, and exit behavior.
+  <Card title="Review and export" icon="file-lines" href="/notes">
+    Work with your memo, summary, transcript, and exports.
   </Card>
-  <Card title="MCP reference" icon="plug" href="/reference/mcp">
-    Review the local tools, parameters, and resources exposed over stdio.
+  <Card title="Choose your AI" icon="sparkles" href="/ai-setup">
+    Use Anarlog Cloud, your own provider, or local models.
   </Card>
 </CardGroup>
 
+## The short version
+
+1. Open a calendar event or create a note.
+2. Click **Join & record** or **Record**.
+3. Take rough notes in **Memos** while Anarlog listens.
+4. Stop listening, then review **Summary** and **Transcript**.
+
+Your app data is stored locally. If you choose a hosted transcription or language-model provider, the content needed for that feature is sent to that provider.
+
 <Note>
-  The CLI and MCP server are read-only with respect to Anarlog data. Homebrew, desktop-bundled CLI, and Windows binary distribution are planned and are not yet published.
+  New to Anarlog? Open the **Welcome to Anarlog** note and click **Join & record**. It uses a private, prerecorded demo meeting.
 </Note>

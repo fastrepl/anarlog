@@ -1,61 +1,41 @@
 ---
 title: "Troubleshooting"
-description: "Resolve common CLI and MCP setup problems."
+description: "Fix the most common recording, transcription, summary, and calendar problems."
 ---
 
-## Command not found
+## Audio is missing
 
-Confirm the Cargo binary directory is on `PATH`:
+Open **Settings → Permissions** and confirm:
 
-```bash
-cargo install --locked --path apps/cli
-anarlog --version
-```
+- **Microphone** is allowed so Anarlog can hear you.
+- **System Audio** is allowed so Anarlog can hear the other people on the call.
 
-The default Cargo binary directory is normally `~/.cargo/bin`.
+If a permission is denied, use **Open** to change it in macOS Settings, then restart Anarlog.
 
-## Database not found
+## The transcript is not live
 
-Inspect the resolved path and schema status:
+Open **Settings → Transcription** and check the selected model. **Live** models transcribe during the meeting. **After recording** models wait until you stop.
 
-```bash
-anarlog --json doctor
-```
+If transcription fails, confirm the provider is configured, the model supports your spoken languages, and a local provider is running.
 
-Open the Anarlog desktop app once if the database does not exist, then retry:
+## No summary appears
 
-```bash
-anarlog --json meetings list --limit 5
-```
+A summary needs an Intelligence model. Open **Settings → Intelligence**, then select Anarlog Cloud or configure another provider.
 
-If your database is stored elsewhere, pass its path explicitly:
+For LM Studio and Ollama, confirm the local server is running. See [Transcription and AI](/ai-setup).
 
-```bash
-anarlog --db-path /path/to/app.db --json meetings list
-```
+## Calendar events are missing
 
-The CLI does not create or migrate databases.
+Open **Calendar** and confirm the account is connected and the calendar is enabled. Refresh the calendar list. Reconnect any account marked **Reconnect required**.
 
-## No meetings found
+For Apple Calendar, also check **Settings → Permissions → Calendar**.
 
-Remove the search filter and list recent meetings. Confirm you opened the same Anarlog data directory as the desktop app.
+## A recording disappeared
 
-## Meeting or note not found
+Open **Settings → Storage** and check **Audio file retention**. Anarlog can delete audio immediately or after a selected period while keeping the note and transcript.
 
-Run `meetings list` again and use an exact returned ID. A meeting can exist without a canonical note or generated summary.
+## Get more help
 
-## MCP server disconnects
+Email [hello@anarlog.so](mailto:hello@anarlog.so), [join Discord](https://anarlog.so/discord), or [open a GitHub issue](https://github.com/fastrepl/anarlog/issues).
 
-First verify database access outside the MCP client:
-
-```bash
-anarlog --json meetings list --limit 1
-```
-
-Then confirm the client launches `anarlog` with `mcp` as an argument. Use an absolute command path if the client's environment does not inherit your shell `PATH`.
-
-## CLI and desktop disagree
-
-Rebuild the CLI from the same repository revision as the desktop app. Do not run migrations manually. Published lockstep desktop and CLI artifacts are planned but not available yet.
-
-For further help, email [hello@anarlog.so](mailto:hello@anarlog.so) or open an issue on [GitHub](https://github.com/fastrepl/anarlog/issues).
+For CLI and MCP errors, use the [error reference](/reference/errors).

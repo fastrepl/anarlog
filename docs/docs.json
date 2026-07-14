@@ -17,11 +17,16 @@
     "pages": [
       {
         "group": "Getting started",
-        "pages": ["index", "quickstart", "installation"]
+        "pages": ["index", "quickstart"]
       },
       {
-        "group": "Use with agents",
+        "group": "Using Anarlog",
+        "pages": ["meetings", "notes", "calendar", "ai-setup"]
+      },
+      {
+        "group": "CLI and agents",
         "pages": [
+          "installation",
           "agents/overview",
           "agents/cli",
           "agents/mcp",
