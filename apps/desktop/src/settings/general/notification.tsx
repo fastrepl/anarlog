@@ -210,7 +210,7 @@ export function NotificationSettingsView() {
             </div>
 
             {field.state.value && (
-              <div className={cn(["border-muted ml-6 border-l-2 pt-2 pl-6"])}>
+              <div className={cn(["border-muted ml-3 border-l-2 pt-2 pl-4"])}>
                 <form.Field name="mic_active_threshold">
                   {(thresholdField) => (
                     <div className="mb-4 flex items-center justify-between gap-4">
