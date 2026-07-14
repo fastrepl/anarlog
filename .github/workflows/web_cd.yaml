@@ -28,16 +28,27 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/pnpm_install
       - uses: denoland/setup-deno@v2
-      - run: pnpm -F ui build
-      - run: pnpm -F web build
-        env:
-          VITE_APP_URL: "https://anarlog.so"
-          VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
-      - run: npm install -g netlify-cli
-      - run: netlify deploy --prod --dir=apps/web/dist/client
+      - name: Check Netlify deployment credentials
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          : "${NETLIFY_AUTH_TOKEN:?Missing NETLIFY_AUTH_TOKEN repository secret}"
+          : "${NETLIFY_SITE_ID:?Missing NETLIFY_SITE_ID repository secret}"
+      - run: pnpm -F ui build
+      - run: npm install -g netlify-cli@26.2.0
+      - name: Build and deploy web to Netlify
+        run: |
+          netlify deploy \
+            --prod \
+            --context production \
+            --site "$NETLIFY_SITE_ID" \
+            --filter @hypr/web \
+            --message "web v${{ needs.compute-version.outputs.version }} ($GITHUB_SHA)"
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
 
   tag:
     needs: [compute-version, deploy]
