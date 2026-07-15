@@ -151,14 +151,22 @@ impl Db {
 
     pub async fn cloudsync_network_send_changes(
         &self,
-        wait_ms: Option<i64>,
-        max_retries: Option<i64>,
     ) -> Result<hypr_cloudsync::NetworkResult, hypr_cloudsync::Error> {
         let mut connection = self.lock_cloudsync_connection().await?;
-        let result = hypr_cloudsync::network_send_changes(
+        let result =
+            hypr_cloudsync::network_send_changes(&mut **connection.as_mut().unwrap()).await;
+        self.release_single_pool_connection(&mut connection);
+        result
+    }
+
+    pub async fn cloudsync_network_receive_changes(
+        &self,
+        max_chunks: Option<i64>,
+    ) -> Result<hypr_cloudsync::NetworkResult, hypr_cloudsync::Error> {
+        let mut connection = self.lock_cloudsync_connection().await?;
+        let result = hypr_cloudsync::network_receive_changes(
             &mut **connection.as_mut().unwrap(),
-            wait_ms,
-            max_retries,
+            max_chunks,
         )
         .await;
         self.release_single_pool_connection(&mut connection);
@@ -167,18 +175,9 @@ impl Db {
 
     pub async fn cloudsync_network_check_changes(
         &self,
-        wait_ms: Option<i64>,
-        max_retries: Option<i64>,
+        max_chunks: Option<i64>,
     ) -> Result<hypr_cloudsync::NetworkResult, hypr_cloudsync::Error> {
-        let mut connection = self.lock_cloudsync_connection().await?;
-        let result = hypr_cloudsync::network_check_changes(
-            &mut **connection.as_mut().unwrap(),
-            wait_ms,
-            max_retries,
-        )
-        .await;
-        self.release_single_pool_connection(&mut connection);
-        result
+        self.cloudsync_network_receive_changes(max_chunks).await
     }
 
     pub async fn cloudsync_network_reset_sync_version(&self) -> Result<(), hypr_cloudsync::Error> {

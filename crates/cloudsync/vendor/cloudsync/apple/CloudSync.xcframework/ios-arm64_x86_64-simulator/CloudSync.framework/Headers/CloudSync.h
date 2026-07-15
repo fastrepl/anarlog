@@ -18,7 +18,7 @@
 extern "C" {
 #endif
 
-#define CLOUDSYNC_VERSION                       "1.0.20"
+#define CLOUDSYNC_VERSION                       "1.1.2"
 #define CLOUDSYNC_MAX_TABLENAME_LEN             512
 
 #define CLOUDSYNC_VALUE_NOTSET                  -1
@@ -26,6 +26,33 @@ extern "C" {
 #define CLOUDSYNC_RLS_RESTRICTED_VALUE          "__[RLS]__"
 #define CLOUDSYNC_DISABLE_ROWIDONLY_TABLES      1
 #define CLOUDSYNC_DEFAULT_ALGO                  "cls"
+#define CLOUDSYNC_PAYLOAD_CHUNK_DEFAULT_SIZE    (5 * 1024 * 1024)
+#define CLOUDSYNC_PAYLOAD_CHUNK_MIN_SIZE        (256 * 1024)
+// Hard ceiling on the effective chunk size, regardless of the per-database
+// payload_max_chunk_size setting. Protects the server (one chunk is built in
+// memory and stored as a single artifact) and the tenant from a misconfigured
+// value. Large TEXT/BLOB values still sync above this size: they are split
+// across chunks by the fragment path. Only a row whose non-fragmentable
+// scaffolding (primary key + column name + metadata, replicated into every
+// fragment) exceeds the chunk size hits row_too_large, which is practically
+// unreachable.
+#define CLOUDSYNC_PAYLOAD_CHUNK_MAX_SIZE        (32 * 1024 * 1024)
+#define CLOUDSYNC_PAYLOAD_CHUNK_SAFETY_MARGIN   (16 * 1024)
+// Fragment sizing is a small fixpoint: after the first target estimate, only
+// decimal metadata widths for part_index/part_count can change, so eight passes
+// is ample while still preventing an accidental unbounded planning loop.
+#define CLOUDSYNC_PAYLOAD_FRAGMENT_SIZE_FIXPOINT_ITERATIONS 8
+
+// Machine-parseable error-code tokens. These prefix the human-readable text of
+// permanent (non-retryable) failures so the CloudSync server can classify them
+// from the error message alone — the only signal common to both the Postgres
+// (pgconn.PgError.Message) and SQLite (result error text) backends. The server
+// parses the bracketed code with /cloudsync_error\[([a-z0-9_]+)\]/ and decides
+// retry policy; keep these strings stable and identical across backends. They
+// carry a trailing ": " so they concatenate directly onto a message literal.
+#define CLOUDSYNC_ERRCODE_PAYLOAD_TOO_LARGE     "cloudsync_error[payload_too_large]: "
+#define CLOUDSYNC_ERRCODE_ROW_TOO_LARGE         "cloudsync_error[row_too_large]: "
+#define CLOUDSYNC_ERRCODE_CHUNK_TOO_LARGE       "cloudsync_error[chunk_too_large]: "
 
 #define CLOUDSYNC_CHANGES_NCOLS                 9
 
@@ -87,13 +114,57 @@ const char *cloudsync_schema (cloudsync_context *data);
 const char *cloudsync_table_schema (cloudsync_context *data, const char *table_name);
 
 // Payload
-int    cloudsync_payload_apply (cloudsync_context *data, const char *payload, int blen, int *nrows);
+// Receive-checkpoint modes for cloudsync_payload_apply's checkpoint_db_version
+// argument. The receive cursor (check_dbversion/check_seq) must only ever land
+// on a complete db_version boundary, otherwise a stop between chunks of a single
+// source db_version silently skips the unapplied rows on the next /check (the
+// server's cloudsync_payload_chunks uses db_version > since with no seq cursor).
+//   >= 0                              advance the cursor to exactly this
+//                                     (watermark_db_version), with checkpoint_seq.
+//                                     Used once a chunk stream is fully applied.
+//   CLOUDSYNC_CHECKPOINT_NONE         do not advance the cursor. Used for a
+//                                     non-final chunk of a multi-chunk stream.
+//   CLOUDSYNC_CHECKPOINT_LAST_APPLIED advance to this artifact's last applied
+//                                     (db_version, seq). Legacy/monolithic
+//                                     behavior: safe only for a complete payload
+//                                     that ends on a db_version boundary.
+#define CLOUDSYNC_CHECKPOINT_NONE          (-1)
+#define CLOUDSYNC_CHECKPOINT_LAST_APPLIED  (-2)
+int    cloudsync_payload_apply (cloudsync_context *data, const char *payload, int blen, int *nrows, int64_t checkpoint_db_version, int64_t checkpoint_seq);
 int    cloudsync_payload_encode_step (cloudsync_payload_context *payload, cloudsync_context *data, int argc, dbvalue_t **argv);
 int    cloudsync_payload_encode_final (cloudsync_payload_context *payload, cloudsync_context *data);
 char  *cloudsync_payload_blob (cloudsync_payload_context *payload, int64_t *blob_size, int64_t *nrows);
 size_t cloudsync_payload_context_size (size_t *header_size);
+void   cloudsync_payload_context_free (cloudsync_payload_context *payload);
+uint64_t cloudsync_payload_context_nrows (cloudsync_payload_context *payload);
+size_t cloudsync_payload_context_bused (cloudsync_payload_context *payload);
 int    cloudsync_payload_get (cloudsync_context *data, char **blob, int *blob_size, int *db_version, int64_t *new_db_version);
 int    cloudsync_payload_save (cloudsync_context *data, const char *payload_path, int *blob_size); // available only on Desktop OS (no WASM, no mobile)
+int    cloudsync_payload_max_chunk_size (cloudsync_context *data);
+int    cloudsync_payload_encode_fragment_step (cloudsync_payload_context *payload, cloudsync_context *data,
+                                               const char *tbl, int tbl_len,
+                                               const void *pk, int pk_len,
+                                               const char *col_name, int col_name_len,
+                                               const void *fragment, int fragment_len,
+                                               int64_t col_version, int64_t db_version,
+                                               const void *site_id, int site_id_len,
+                                               int64_t cl, int64_t seq,
+                                               uint64_t value_checksum,
+                                               int64_t total_size,
+                                               int part_index, int part_count);
+int    cloudsync_payload_fragment_target_size (cloudsync_context *data);
+int    cloudsync_payload_fragment_count (int64_t total_size, int target_size);
+int    cloudsync_payload_fragment_data_size (cloudsync_context *data,
+                                             const char *tbl, int tbl_len,
+                                             const void *pk, int pk_len,
+                                             const char *col_name, int col_name_len,
+                                             int64_t col_version, int64_t db_version,
+                                             const void *site_id, int site_id_len,
+                                             int64_t cl, int64_t seq,
+                                             int64_t total_size,
+                                             int part_index, int part_count);
+uint64_t cloudsync_payload_encoded_value_checksum (dbvalue_t *value);
+int    cloudsync_payload_encoded_value_header (dbvalue_t *value, char *header, int header_cap, int64_t *payload_len);
 
 // CloudSync table context
 int cloudsync_refill_metatable (cloudsync_context *data, const char *table_name);

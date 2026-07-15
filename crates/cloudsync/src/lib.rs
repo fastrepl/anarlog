@@ -19,11 +19,12 @@ pub use close::install_transaction_observer;
 pub use error::{Error, ErrorKind};
 pub use network::{
     NetworkReceiveResult, NetworkResult, NetworkSendResult, network_check_changes, network_cleanup,
-    network_has_unsent_changes, network_init, network_logout, network_reset_sync_version,
-    network_send_changes, network_set_apikey, network_set_token, network_sync,
+    network_has_unsent_changes, network_init, network_logout, network_receive_changes,
+    network_reset_sync_version, network_send_changes, network_set_apikey, network_set_token,
+    network_sync,
 };
 
-pub const CLOUDSYNC_VERSION: &str = "1.0.20";
+pub const CLOUDSYNC_VERSION: &str = "1.1.2";
 
 pub fn apply(options: SqliteConnectOptions) -> Result<(SqliteConnectOptions, PathBuf), Error> {
     close::install_terminate_on_close()?;
@@ -68,6 +69,47 @@ mod tests {
         let version = version(&pool).await.unwrap();
 
         assert_eq!(version, CLOUDSYNC_VERSION);
+        pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn chunks_large_values_within_the_transport_limit() {
+        let options = SqliteConnectOptions::from_str("sqlite::memory:").unwrap();
+        let (options, _) = apply(options).unwrap();
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .unwrap();
+
+        sqlx::query(
+            "CREATE TABLE items (
+                id TEXT PRIMARY KEY NOT NULL,
+                value TEXT NOT NULL DEFAULT ''
+            )",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        init(&pool, "items", None, None).await.unwrap();
+        sqlx::query("INSERT INTO items (id, value) VALUES (?, ?)")
+            .bind("large-value")
+            .bind("x".repeat(12 * 1024 * 1024))
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let (chunks, total_bytes, max_chunk_bytes): (i64, i64, i64) = sqlx::query_as(
+            "SELECT count(*), sum(payload_size), max(payload_size)
+             FROM cloudsync_payload_chunks",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+        assert!(chunks >= 3);
+        assert!(total_bytes > 0);
+        assert!(max_chunk_bytes <= 5 * 1024 * 1024);
         pool.close().await;
     }
 
