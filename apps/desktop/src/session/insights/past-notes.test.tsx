@@ -9,7 +9,7 @@ const hoisted = vi.hoisted(() => ({
       Promise.resolve([1]),
   ),
   generateText: vi.fn(),
-  showTransientToast: vi.fn(),
+  toastError: vi.fn(),
 }));
 
 vi.mock("ai", async (importOriginal) => ({
@@ -24,6 +24,10 @@ vi.mock("@hypr/plugin-template", () => ({
       data: template,
     })),
   },
+}));
+
+vi.mock("@hypr/ui/components/ui/toast", () => ({
+  sonnerToast: { error: hoisted.toastError },
 }));
 
 vi.mock("~/ai/hooks", () => ({
@@ -66,15 +70,11 @@ import {
   usePastSessionNotes,
 } from "./past-notes";
 
-vi.mock("~/sidebar/toast/transient", () => ({
-  showTransientToast: hoisted.showTransientToast,
-}));
-
 beforeEach(() => {
   hoisted.data = null;
   hoisted.executeTransaction.mockClear();
   hoisted.generateText.mockReset();
-  hoisted.showTransientToast.mockReset();
+  hoisted.toastError.mockReset();
 });
 
 afterEach(() => {
@@ -218,11 +218,12 @@ describe("insights regeneration", () => {
     });
 
     await waitFor(() => {
-      expect(hoisted.showTransientToast).toHaveBeenCalledWith({
-        id: "past-note-key-facts-error",
-        description: "Could not generate meeting insights. Try again.",
-        variant: "error",
-      });
+      expect(hoisted.toastError).toHaveBeenCalledWith(
+        "Could not generate meeting insights. Try again.",
+        {
+          id: "past-note-key-facts-error",
+        },
+      );
     });
     expect(consoleError).toHaveBeenCalledWith(
       "Failed to generate meeting insights",

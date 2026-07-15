@@ -10,6 +10,8 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useMemo, useRef, useState } from "react";
 
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
+
 import { ParticipantChip } from "./chip";
 import { ParticipantDropdown } from "./dropdown";
 import {
@@ -33,7 +35,6 @@ import {
 } from "~/session/queries";
 import { getSessionEvent } from "~/session/utils";
 import { useAutoCloser } from "~/shared/hooks/useAutoCloser";
-import { showTransientToast } from "~/sidebar/toast/transient";
 import { removeHumanSpeakerAssignments } from "~/stt/queries";
 
 export function ParticipantInput({ sessionId }: { sessionId: string }) {
@@ -396,25 +397,16 @@ function useEventContactEnhancement(sessionId: string) {
       const toastId = `event-contact-enhancement-${humanId}`;
 
       if (extraction.contacts.length === 0 || !applied.matched) {
-        showTransientToast({
-          id: toastId,
-          description: "No contact detail found",
-        });
+        sonnerToast.message("No contact detail found", { id: toastId });
         return;
       }
 
       if (changed === 0) {
-        showTransientToast({
-          id: toastId,
-          description: "Contact already up to date",
-        });
+        sonnerToast.message("Contact already up to date", { id: toastId });
         return;
       }
 
-      showTransientToast({
-        id: toastId,
-        description: "Contact enhanced",
-      });
+      sonnerToast.success("Contact enhanced", { id: toastId });
     },
     onError: (error) => {
       const message =
@@ -422,10 +414,8 @@ function useEventContactEnhancement(sessionId: string) {
           ? "Language model needed"
           : "Could not enhance contact";
 
-      showTransientToast({
+      sonnerToast.error(message, {
         id: "event-contact-enhancement",
-        description: message,
-        variant: "error",
       });
     },
   });

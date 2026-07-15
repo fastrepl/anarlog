@@ -30,10 +30,6 @@ vi.mock("~/sidebar/timeline", () => ({
   ),
 }));
 
-vi.mock("~/sidebar/toast", () => ({
-  ToastArea: () => <div data-testid="toast-area" />,
-}));
-
 vi.mock("~/sidebar/calendar", () => ({
   CalendarNav: () => <div data-testid="calendar-nav" />,
 }));

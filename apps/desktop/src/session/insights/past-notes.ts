@@ -7,6 +7,7 @@ import {
   commands as templateCommands,
   type JsonValue,
 } from "@hypr/plugin-template";
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
 import { format, safeParseDate } from "@hypr/utils";
 
 import systemPromptTemplate from "./past-note-key-facts.system.md.jinja?raw";
@@ -18,7 +19,6 @@ import { executeTransaction, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import { extractPlainText } from "~/search/contexts/engine/utils";
 import { getSessionEvent } from "~/session/utils";
-import { showTransientToast } from "~/sidebar/toast/transient";
 
 export type PastSessionNote = {
   sessionId: string;
@@ -154,10 +154,8 @@ export function usePastSessionNotes(
     },
     onError: (error) => {
       console.error("Failed to generate meeting insights", error);
-      showTransientToast({
+      sonnerToast.error("Could not generate meeting insights. Try again.", {
         id: "past-note-key-facts-error",
-        description: "Could not generate meeting insights. Try again.",
-        variant: "error",
       });
     },
   });

@@ -12,22 +12,14 @@ export type DownloadProgress = {
   progress: number;
 };
 
-export type ToastAnchor = "main-content-panel";
-
 export type ToastType = {
   id: string;
   icon?: ReactNode;
-  title?: string;
   description: ReactNode;
   primaryAction?: ToastAction;
-  secondaryAction?: ToastAction;
-  actions?: ToastAction[];
   dismissible: boolean;
-  progress?: number;
-  downloads?: DownloadProgress[];
   variant?: "default" | "error" | "warning";
-  anchor?: ToastAnchor;
-  gradient?: string;
+  loading?: boolean;
 };
 
 export type ToastCondition = () => boolean;

@@ -1,8 +1,6 @@
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
+
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
-import {
-  showTransientToast,
-  useTransientToast,
-} from "~/sidebar/toast/transient";
 
 export function SettingsAlertToast({
   id,
@@ -37,22 +35,18 @@ function SettingsAlertToastLifecycle({
   variant: "default" | "error" | "warning";
 }) {
   useMountEffect(() => {
-    showTransientToast(
-      {
-        id,
-        description,
-        anchor: "main-content-panel",
-        dismissible: false,
-        variant,
-      },
-      { durationMs: null },
-    );
+    const options = { id, duration: Infinity };
+
+    if (variant === "error") {
+      sonnerToast.error(description, options);
+    } else if (variant === "warning") {
+      sonnerToast.warning(description, options);
+    } else {
+      sonnerToast.message(description, options);
+    }
 
     return () => {
-      const { toast, clearToast } = useTransientToast.getState();
-      if (toast?.id === id) {
-        clearToast(toast.key);
-      }
+      sonnerToast.dismiss(id);
     };
   });
 

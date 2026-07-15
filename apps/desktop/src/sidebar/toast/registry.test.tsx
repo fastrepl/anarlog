@@ -17,7 +17,6 @@ const baseParams = {
   isAiIntelligenceTabActive: false,
   isBatchTranscribingInActiveTranscriptTab: false,
   hasActiveDownload: false,
-  downloadProgress: null,
   downloadingModel: null,
   activeDownloads: [],
   localSttStatus: null,
@@ -123,6 +122,6 @@ describe("sidebar toast registry", () => {
     expect(languageModelToast.description).toBe("Language model needed");
     expect(languageModelToast.primaryAction?.label).toBe("Add");
     expect(downloadToast.id).toBe("devtools-downloading-model");
-    expect(downloadToast.progress).toBe(42);
+    expect(downloadToast.loading).toBe(true);
   });
 });

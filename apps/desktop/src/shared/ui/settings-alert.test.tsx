@@ -1,21 +1,37 @@
 import { cleanup, render } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  message: vi.fn(),
+  error: vi.fn(),
+  warning: vi.fn(),
+  dismiss: vi.fn(),
+}));
+
+vi.mock("@hypr/ui/components/ui/toast", () => ({
+  sonnerToast: {
+    message: mocks.message,
+    error: mocks.error,
+    warning: mocks.warning,
+    dismiss: mocks.dismiss,
+  },
+}));
 
 import { SettingsAlertToast } from "./settings-alert";
 
-import { useTransientToast } from "~/sidebar/toast/transient";
-
 describe("SettingsAlertToast", () => {
   beforeEach(() => {
-    useTransientToast.getState().clearToast();
+    mocks.message.mockClear();
+    mocks.error.mockClear();
+    mocks.warning.mockClear();
+    mocks.dismiss.mockClear();
   });
 
   afterEach(() => {
     cleanup();
-    useTransientToast.getState().clearToast();
   });
 
-  it("shows the alert in the existing toast area", () => {
+  it("shows persistent settings alerts through Sonner", () => {
     render(
       <SettingsAlertToast
         id="settings-alert"
@@ -24,16 +40,13 @@ describe("SettingsAlertToast", () => {
       />,
     );
 
-    expect(useTransientToast.getState().toast).toMatchObject({
+    expect(mocks.error).toHaveBeenCalledWith("Provider not configured.", {
       id: "settings-alert",
-      description: "Provider not configured.",
-      anchor: "main-content-panel",
-      dismissible: false,
-      variant: "error",
+      duration: Infinity,
     });
   });
 
-  it("clears its toast when the alert leaves the page", () => {
+  it("dismisses its Sonner toast when the alert leaves the page", () => {
     const { unmount } = render(
       <SettingsAlertToast
         id="settings-alert"
@@ -43,6 +56,6 @@ describe("SettingsAlertToast", () => {
 
     unmount();
 
-    expect(useTransientToast.getState().toast).toBeNull();
+    expect(mocks.dismiss).toHaveBeenCalledWith("settings-alert");
   });
 });

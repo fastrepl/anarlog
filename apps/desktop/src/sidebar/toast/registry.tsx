@@ -22,7 +22,6 @@ type ToastRegistryParams = {
   isAiIntelligenceTabActive: boolean;
   isBatchTranscribingInActiveTranscriptTab: boolean;
   hasActiveDownload: boolean;
-  downloadProgress: number | null;
   downloadingModel: string | null;
   activeDownloads: DownloadProgress[];
   localSttStatus: ServerStatus | null;
@@ -50,7 +49,6 @@ export function createToastRegistry({
   isAiIntelligenceTabActive,
   isBatchTranscribingInActiveTranscriptTab,
   hasActiveDownload,
-  downloadProgress,
   downloadingModel,
   activeDownloads,
   localSttStatus,
@@ -71,9 +69,7 @@ export function createToastRegistry({
         id: "downloading-model",
         description: downloadTitle,
         dismissible: false,
-        progress:
-          activeDownloads.length === 1 ? (downloadProgress ?? 0) : undefined,
-        downloads: activeDownloads.length > 1 ? activeDownloads : undefined,
+        loading: true,
       },
       condition: () => hasActiveDownload,
     },
@@ -82,6 +78,7 @@ export function createToastRegistry({
         id: "local-stt-loading",
         description: "Starting transcription...",
         dismissible: false,
+        loading: true,
       },
       condition: () =>
         isLocalSttModel &&
@@ -231,7 +228,7 @@ export function createDevtoolsToastPreview({
         id: "devtools-downloading-model",
         description: "Downloading model",
         dismissible: false,
-        progress: 42,
+        loading: true,
       };
     case "pro":
       return {

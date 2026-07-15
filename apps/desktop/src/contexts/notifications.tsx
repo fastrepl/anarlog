@@ -27,7 +27,6 @@ interface NotificationState {
   hasActiveBanner: boolean;
   hasActiveEnhancement: boolean;
   hasActiveDownload: boolean;
-  downloadProgress: number | null;
   downloadingModel: string | null;
   activeDownloads: DownloadProgress[];
   notificationCount: number;
@@ -137,7 +136,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }));
 
     const firstDownload = downloadsArray[0];
-    const downloadProgress = firstDownload?.progress ?? null;
     const downloadingModel = firstDownload?.displayName ?? null;
 
     const notificationCount =
@@ -149,7 +147,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       hasActiveBanner,
       hasActiveEnhancement,
       hasActiveDownload,
-      downloadProgress,
       downloadingModel,
       activeDownloads: downloadsArray,
       notificationCount,
@@ -177,7 +174,6 @@ const DEFAULT_NOTIFICATION_STATE: NotificationState = {
   hasActiveBanner: false,
   hasActiveEnhancement: false,
   hasActiveDownload: false,
-  downloadProgress: null,
   downloadingModel: null,
   activeDownloads: [],
   notificationCount: 0,

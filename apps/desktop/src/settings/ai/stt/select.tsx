@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@hypr/ui/components/ui/select";
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
 import {
   Tooltip,
   TooltipContent,
@@ -67,10 +68,6 @@ import { useSetSettingValues } from "~/settings/queries";
 import { useConfigValues } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { SettingsAlertToast } from "~/shared/ui/settings-alert";
-import {
-  showTransientToast,
-  useTransientToast,
-} from "~/sidebar/toast/transient";
 import {
   isConfiguredSttModel,
   isHyprnoteLocalSttModel,
@@ -392,26 +389,18 @@ function TranscriptionLanguageWarningToastLifecycle({
   actionLabel: string;
 }) {
   useMountEffect(() => {
-    showTransientToast(
-      {
-        id: TRANSCRIPTION_LANGUAGE_WARNING_TOAST_ID,
-        icon: <AlertTriangle className="size-4 shrink-0 text-amber-500" />,
-        description,
-        anchor: "main-content-panel",
-        actions: [
-          {
-            label: actionLabel,
-            onClick: () => {
-              dismissedTranscriptionLanguageWarningKeys.add(warningKey);
-              clearTranscriptionLanguageWarningToast();
-            },
-          },
-        ],
-        dismissible: false,
-        variant: "warning",
+    sonnerToast.warning(description, {
+      id: TRANSCRIPTION_LANGUAGE_WARNING_TOAST_ID,
+      duration: Infinity,
+      icon: <AlertTriangle className="size-4 shrink-0 text-amber-500" />,
+      action: {
+        label: actionLabel,
+        onClick: () => {
+          dismissedTranscriptionLanguageWarningKeys.add(warningKey);
+          clearTranscriptionLanguageWarningToast();
+        },
       },
-      { durationMs: null },
-    );
+    });
 
     return clearTranscriptionLanguageWarningToast;
   });
@@ -420,11 +409,7 @@ function TranscriptionLanguageWarningToastLifecycle({
 }
 
 function clearTranscriptionLanguageWarningToast() {
-  const { toast, clearToast } = useTransientToast.getState();
-
-  if (toast?.id === TRANSCRIPTION_LANGUAGE_WARNING_TOAST_ID) {
-    clearToast(toast.key);
-  }
+  sonnerToast.dismiss(TRANSCRIPTION_LANGUAGE_WARNING_TOAST_ID);
 }
 
 function useTranscriptionLanguageWarning() {

@@ -1,9 +1,9 @@
 import { useCallback } from "react";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import { getEnhancerService } from "~/services/enhancer";
-import { showTransientToast } from "~/sidebar/toast/transient";
 import { useListener } from "~/stt/contexts";
 import { isStoppedTranscriptionError, useRunBatch } from "~/stt/useRunBatch";
 
@@ -14,10 +14,8 @@ export function useRegenerateTranscript(sessionId: string) {
   return useCallback(async () => {
     const result = await fsSyncCommands.audioPath(sessionId);
     if (result.status === "error") {
-      showTransientToast({
+      sonnerToast.error("Recording not found. It may have been deleted.", {
         id: `transcript-regenerate-audio-missing-${sessionId}`,
-        description: "Recording not found. It may have been deleted.",
-        variant: "error",
       });
       return;
     }

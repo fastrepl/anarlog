@@ -102,7 +102,7 @@ function AppRoot() {
         {isMainWindow ? <TaskManager /> : null}
         {isMainWindow ? <FloatingMeetingWindowHost /> : null}
         {isMainWindow ? <EventListeners /> : null}
-        <Toaster />
+        <Toaster position="bottom-right" />
       </TinyTickProvider>
     </QueryClientProvider>
   );

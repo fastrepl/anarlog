@@ -42,9 +42,7 @@ vi.mock("~/contexts/shell", () => ({
 }));
 
 vi.mock("~/sidebar/toast", () => ({
-  ToastArea: ({ placement }: { placement?: "default" | "left-sidebar" }) => (
-    <div data-placement={placement} data-testid="toast-area" />
-  ),
+  ToastNotifications: () => <div data-testid="toast-notifications" />,
 }));
 
 vi.mock("~/store/zustand/tabs", () => ({
@@ -68,9 +66,7 @@ describe("ClassicMainShellFrame", () => {
   it("uses left-edge main surface chrome while the sidebar timeline is expanded", () => {
     render(<ClassicMainShellFrame />);
 
-    expect(
-      screen.getByTestId("toast-area").getAttribute("data-placement"),
-    ).toBe("left-sidebar");
+    expect(screen.getByTestId("toast-notifications")).not.toBeNull();
     expect(
       screen
         .getByTestId("main-shell-scaffold")
@@ -83,9 +79,7 @@ describe("ClassicMainShellFrame", () => {
 
     render(<ClassicMainShellFrame />);
 
-    expect(
-      screen.getByTestId("toast-area").getAttribute("data-placement"),
-    ).toBe("default");
+    expect(screen.getByTestId("toast-notifications")).not.toBeNull();
     expect(
       screen
         .getByTestId("main-shell-scaffold")

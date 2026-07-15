@@ -13,8 +13,6 @@ import { cn } from "@hypr/utils";
 
 import { useMainContentCenterOffset } from "./content-offset";
 
-import { useUndoDelete } from "~/store/zustand/undo-delete";
-
 type SessionStatusBannerState = {
   skipReason: string | null;
 } | null;
@@ -63,9 +61,6 @@ export function useSessionStatusBanner({
 
 export function MainSessionStatusBannerHost() {
   const banner = useContext(SessionStatusBannerStateContext);
-  const hasUndoDeleteToast = useUndoDelete(
-    (state) => Object.keys(state.pendingDeletions).length > 0,
-  );
   const contentOffset = useMainContentCenterOffset();
 
   if (typeof document === "undefined" || !banner || !banner.skipReason) {
@@ -85,7 +80,7 @@ export function MainSessionStatusBannerHost() {
           "fixed z-50 -translate-x-1/2",
           "text-center text-xs whitespace-nowrap",
           "text-red-400",
-          hasUndoDeleteToast ? "bottom-1" : "bottom-6",
+          "bottom-6",
         ])}
       >
         {banner.skipReason}

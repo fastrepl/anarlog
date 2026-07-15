@@ -1,13 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useMemo } from "react";
 
-import { cn } from "@hypr/utils";
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import { restoreDeletedSession } from "~/session/queries";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useTabs } from "~/store/zustand/tabs";
-import { UNDO_TIMEOUT_MS, useUndoDelete } from "~/store/zustand/undo-delete";
+import { useUndoDelete } from "~/store/zustand/undo-delete";
 
 type ToastGroup = {
   key: string;
@@ -33,31 +32,25 @@ function useToastGroups(): ToastGroup[] {
       }
     }
 
-    const groups: ToastGroup[] = [];
-
-    for (const { sessionId, addedAt } of singles) {
-      groups.push({
-        key: sessionId,
-        sessionIds: [sessionId],
-        isBatch: false,
-        addedAt,
-      });
-    }
+    const groups: ToastGroup[] = singles.map(({ sessionId, addedAt }) => ({
+      key: sessionId,
+      sessionIds: [sessionId],
+      isBatch: false,
+      addedAt,
+    }));
 
     for (const [batchId, sessionIds] of batchMap) {
-      const earliest = Math.min(
-        ...sessionIds.map((id) => pendingDeletions[id].addedAt),
-      );
       groups.push({
         key: batchId,
         sessionIds,
         isBatch: true,
-        addedAt: earliest,
+        addedAt: Math.min(
+          ...sessionIds.map((id) => pendingDeletions[id].addedAt),
+        ),
       });
     }
 
-    groups.sort((a, b) => a.addedAt - b.addedAt);
-    return groups;
+    return groups.sort((a, b) => a.addedAt - b.addedAt);
   }, [pendingDeletions]);
 }
 
@@ -94,6 +87,7 @@ function useRestoreGroup() {
         }
       })().catch((error) => {
         console.error("[undo-delete] failed to restore session", error);
+        sonnerToast.error("Could not restore deleted note");
       });
     },
     [pendingDeletions, openCurrent, clearDeletion, clearBatch, queryClient],
@@ -116,201 +110,46 @@ function useConfirmGroup() {
   );
 }
 
-function useGroupCountdown(group: ToastGroup) {
-  const pendingDeletions = useUndoDelete((state) => state.pendingDeletions);
-  const [remaining, setRemaining] = useState(UNDO_TIMEOUT_MS);
-
-  const { earliest, isPaused, frozenRemaining } = useMemo(() => {
-    let min = Infinity;
-    let paused = false;
-    let frozen = 0;
-
-    for (const id of group.sessionIds) {
-      const p = pendingDeletions[id];
-      if (!p) continue;
-      min = Math.min(min, p.data.deletedAt);
-      if (p.paused && p.pausedAt) {
-        paused = true;
-        const elapsed = p.pausedAt - p.data.deletedAt;
-        frozen = Math.max(0, UNDO_TIMEOUT_MS - elapsed);
-      }
-    }
-
-    return {
-      earliest: min === Infinity ? Date.now() : min,
-      isPaused: paused,
-      frozenRemaining: frozen,
-    };
-  }, [group.sessionIds, pendingDeletions]);
-
-  useEffect(() => {
-    if (isPaused) {
-      setRemaining(frozenRemaining);
-      return;
-    }
-
-    const update = () => {
-      const elapsed = Date.now() - earliest;
-      setRemaining(Math.max(0, UNDO_TIMEOUT_MS - elapsed));
-    };
-    update();
-    const id = setInterval(update, 100);
-    return () => clearInterval(id);
-  }, [earliest, isPaused, frozenRemaining]);
-
-  return Math.ceil(remaining / 1000);
-}
-
 export function UndoDeleteToast() {
   const groups = useToastGroups();
 
-  return createPortal(
-    <AnimatePresence mode="popLayout">
-      {groups.map((group, index) => (
-        <ToastPill
-          key={group.key}
-          group={group}
-          index={index}
-          total={groups.length}
-        />
-      ))}
-    </AnimatePresence>,
-    document.body,
-  );
+  return groups.map((group) => (
+    <UndoDeleteSonnerToast
+      key={`${group.key}:${group.sessionIds.join(":")}`}
+      group={group}
+    />
+  ));
 }
 
-const SIDEBAR_SELECTOR = "[data-testid='main-app-shell']";
-
-function ToastPill({
-  group,
-  index,
-  total,
-}: {
-  group: ToastGroup;
-  index: number;
-  total: number;
-}) {
+function UndoDeleteSonnerToast({ group }: { group: ToastGroup }) {
   const restoreGroup = useRestoreGroup();
   const confirmGroup = useConfirmGroup();
-  const seconds = useGroupCountdown(group);
   const pendingDeletions = useUndoDelete((state) => state.pendingDeletions);
-  const pauseGroup = useUndoDelete((state) => state.pauseGroup);
-  const resumeGroup = useUndoDelete((state) => state.resumeGroup);
+  const title = group.isBatch
+    ? null
+    : pendingDeletions[group.sessionIds[0]]?.data.session.title || "Untitled";
+  const label = group.isBatch
+    ? `Deleting ${group.sessionIds.length} notes`
+    : `Deleting ${title}`;
 
-  const [contentOffset, setContentOffset] = useState(0);
+  useMountEffect(() => {
+    const toastId = `undo-delete:${group.key}`;
 
-  useEffect(() => {
-    const computeOffset = () => {
-      const shell = document.querySelector(SIDEBAR_SELECTOR);
-      if (!shell) {
-        setContentOffset(0);
-        return;
-      }
+    sonnerToast.message(label, {
+      id: toastId,
+      duration: Infinity,
+      action: {
+        label: "Undo",
+        onClick: () => restoreGroup(group),
+      },
+      cancel: {
+        label: "Delete",
+        onClick: () => confirmGroup(group),
+      },
+    });
 
-      const panels = document.querySelectorAll("[data-panel-id]");
-      const bodyPanel = panels[0];
-      if (!bodyPanel) {
-        setContentOffset(0);
-        return;
-      }
+    return () => sonnerToast.dismiss(toastId);
+  });
 
-      const bodyRect = bodyPanel.getBoundingClientRect();
-      const bodyCenter = bodyRect.left + bodyRect.width / 2;
-      const windowCenter = window.innerWidth / 2;
-      setContentOffset(bodyCenter - windowCenter);
-    };
-
-    computeOffset();
-    window.addEventListener("resize", computeOffset);
-
-    const resizeObserver = new ResizeObserver(computeOffset);
-    const panels = document.querySelectorAll("[data-panel-id]");
-    for (const panel of panels) {
-      resizeObserver.observe(panel);
-    }
-
-    return () => {
-      window.removeEventListener("resize", computeOffset);
-      resizeObserver.disconnect();
-    };
-  }, []);
-
-  const handleMouseEnter = useCallback(() => {
-    pauseGroup(group.sessionIds);
-  }, [pauseGroup, group.sessionIds]);
-
-  const handleMouseLeave = useCallback(() => {
-    resumeGroup(group.sessionIds);
-  }, [resumeGroup, group.sessionIds]);
-
-  const title = useMemo(() => {
-    if (group.isBatch) return null;
-    const p = pendingDeletions[group.sessionIds[0]];
-    return p?.data.session.title || "Untitled";
-  }, [group, pendingDeletions]);
-
-  const stackOffset = (total - 1 - index) * 44;
-  const isTop = index === total - 1;
-
-  const count = group.sessionIds.length;
-  const label = group.isBatch ? `Deleting ${count} notes` : `Deleting ${title}`;
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: -20, scale: 0.95 }}
-      animate={{
-        opacity: isTop ? 1 : 0.7,
-        y: stackOffset,
-        scale: 1,
-      }}
-      exit={{ opacity: 0, y: -20, scale: 0.95 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
-      style={{
-        zIndex: 50 + index,
-        pointerEvents: isTop ? "auto" : "none",
-        left: `calc(50% + ${contentOffset}px)`,
-      }}
-      className="fixed top-14 -translate-x-1/2"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      <div
-        className={cn([
-          "flex items-center gap-3 py-1.5 pr-1.5 pl-4",
-          "bg-card text-card-foreground rounded-full",
-          "border-border border shadow-lg backdrop-blur-none",
-        ])}
-      >
-        <span className="text-muted-foreground max-w-50 truncate text-sm">
-          {label}...
-        </span>
-
-        <button
-          onClick={() => confirmGroup(group)}
-          className={cn([
-            "rounded-full px-3 py-1.5 text-xs font-medium",
-            "whitespace-nowrap",
-            "bg-destructive text-destructive-foreground",
-            "hover:bg-destructive/90",
-            "transition-colors",
-          ])}
-        >
-          Delete
-        </button>
-
-        <button
-          onClick={() => restoreGroup(group)}
-          className={cn([
-            "rounded-full px-3 py-1.5 text-xs font-medium",
-            "whitespace-nowrap",
-            "border-border bg-muted text-foreground hover:bg-accent border",
-            "transition-colors",
-          ])}
-        >
-          Undo {seconds}s
-        </button>
-      </div>
-    </motion.div>
-  );
+  return null;
 }

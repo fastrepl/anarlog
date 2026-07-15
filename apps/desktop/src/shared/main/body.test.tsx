@@ -150,10 +150,6 @@ vi.mock("~/shared/useNewNote", () => ({
   useNewNote: () => mocks.createNewNote,
 }));
 
-vi.mock("~/sidebar/toast", () => ({
-  ToastArea: () => <div data-testid="toast-area" />,
-}));
-
 vi.mock("~/store/zustand/tabs", () => ({
   uniqueIdfromTab: vi.fn(() => "empty-slot"),
   useTabs: vi.fn((selector: (state: unknown) => unknown) =>

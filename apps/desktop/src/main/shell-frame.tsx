@@ -5,7 +5,7 @@ import { resolveMainSurfaceChrome } from "./main-surface-chrome";
 
 import { useShell } from "~/contexts/shell";
 import { MainShellBodyFrame, MainShellScaffold } from "~/shared/main";
-import { ToastArea } from "~/sidebar/toast";
+import { ToastNotifications } from "~/sidebar/toast";
 import {
   hasCustomSidebarTab,
   hasLeftSurfaceCustomSidebarTab,
@@ -37,7 +37,7 @@ export function ClassicMainShellFrame() {
       mainSurfaceChrome={isOnboarding ? undefined : mainSurfaceChrome}
     >
       <ClassicMainBodyHost />
-      <ToastArea placement={showSidebarTimeline ? "left-sidebar" : "default"} />
+      <ToastNotifications />
     </MainShellScaffold>
   );
 }
