@@ -461,7 +461,8 @@ describe("Header", () => {
     expect(memoTab.textContent).toBe("Memos");
     expect(memoTab.className).toContain("h-7");
     expect(memoTab.className).toContain("bg-white");
-    expect(memoTab.className).toContain("border");
+    expect(memoTab.className).toContain("border-0");
+    expect(memoTab.className).not.toContain("border-border");
     expect(memoTab.className).toContain("shadow-none");
     expect(memoTab.className).not.toContain("shadow-xs");
     expect(memoTab.className).not.toContain("bg-foreground/10");
