@@ -516,6 +516,34 @@ describe("TimelineView", () => {
     ]);
   });
 
+  it("does not select sidebar notes while the mounted timeline is hidden", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T09:00:00.000Z"));
+    mocks.currentTimeMs = Date.now();
+    mocks.currentTab = { type: "sessions", id: "selected-note" };
+    mocks.timelineSelectionAnchorId = "session-selected-note";
+    mocks.timelineSessionsTable = {
+      "selected-note": {
+        title: "Selected note",
+        created_at: "2024-01-15T12:00:00.000Z",
+      },
+      "other-note": {
+        title: "Other note",
+        created_at: "2024-01-15T11:00:00.000Z",
+      },
+    };
+
+    render(
+      <div aria-hidden inert>
+        <TimelineView />
+      </div>,
+    );
+
+    fireEvent.keyDown(window, { key: "a", metaKey: true });
+
+    expect(mocks.selectAll).not.toHaveBeenCalled();
+  });
+
   it("does not select sidebar notes when Cmd+A starts in the editor", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-15T09:00:00.000Z"));

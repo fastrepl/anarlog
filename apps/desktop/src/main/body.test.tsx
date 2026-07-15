@@ -325,7 +325,7 @@ describe("ClassicMainBody", () => {
     expect(panels[0]?.dataset.flexGrow).toBe("var(--left-sidebar-panel-size)");
     expect(panels[0]?.dataset.minWidth).toBe("200");
     expect(panels[0]?.dataset.maxWidth).toBe("360");
-    expect(panels[0]?.dataset.transition).toContain("flex-grow");
+    expect(panels[0]?.dataset.transition).toBeUndefined();
     expect(panels[1]?.dataset.panelId).toBe("classic-main-content");
     expect(panels[1]?.dataset.order).toBe("2");
 
@@ -340,6 +340,9 @@ describe("ClassicMainBody", () => {
     );
 
     expect(sidebarContent?.className).toContain("translate-x-0");
+    expect(sidebarContent?.className).toContain(
+      "transition-[opacity,transform]",
+    );
     expect(sidebarContent?.getAttribute("aria-hidden")).toBe("false");
     expect(sidebarChrome).toBeNull();
     expect(sidebarTimelineHeader).toBeTruthy();
@@ -698,7 +701,7 @@ describe("ClassicMainBody", () => {
     expect(panels[1]?.dataset.minWidth).toBe("500");
   });
 
-  it("collapses the sidebar panel and unmounts hidden timeline content", () => {
+  it("collapses the sidebar panel while keeping hidden timeline content mounted", () => {
     mocks.leftsidebar.expanded = false;
 
     render(<ClassicMainBody />);
@@ -707,7 +710,7 @@ describe("ClassicMainBody", () => {
 
     expect(resizeHandle.dataset.className).toContain("pointer-events-none");
     expect(resizeHandle.dataset.className).toContain("w-0");
-    expect(screen.queryByTestId("classic-main-sidebar")).toBeNull();
+    expect(screen.getByTestId("classic-main-sidebar")).toBeTruthy();
 
     const panels = screen.getAllByTestId("panel");
     expect(panels).toHaveLength(2);
@@ -715,13 +718,16 @@ describe("ClassicMainBody", () => {
     expect(panels[0]?.dataset.flexGrow).toBe("0");
     expect(panels[0]?.dataset.minWidth).toBe("0");
     expect(panels[0]?.dataset.maxWidth).toBe("0");
-    expect(panels[0]?.dataset.transition).toContain("flex-grow");
+    expect(panels[0]?.dataset.transition).toBeUndefined();
 
     const sidebarContent = document.querySelector<HTMLElement>(
       "[data-left-sidebar-panel-content]",
     );
     expect(sidebarContent?.className).toContain("-translate-x-3");
     expect(sidebarContent?.className).toContain("opacity-0");
+    expect(
+      document.querySelector("[data-sidebar-timeline-header]"),
+    ).toBeTruthy();
     expect(sidebarContent?.getAttribute("aria-hidden")).toBe("true");
     expect(sidebarContent?.hasAttribute("inert")).toBe(true);
   });
@@ -729,16 +735,22 @@ describe("ClassicMainBody", () => {
   it("resizes the collapsed sidebar panel before reopening it", () => {
     mocks.leftsidebar.expanded = false;
 
-    render(<ClassicMainBody />);
+    const { rerender } = render(<ClassicMainBody />);
+    const mountedSidebar = screen.getByTestId("classic-main-sidebar");
 
     fireEvent.click(screen.getByRole("button", { name: "Show sidebar" }));
 
     expect(mocks.leftSidebarPanelHandle.resize).toHaveBeenCalledWith(12.5);
     expect(mocks.leftSidebarPanelHandle.expand).not.toHaveBeenCalled();
     expect(mocks.leftsidebar.toggleExpanded).toHaveBeenCalledTimes(1);
+
+    mocks.leftsidebar.expanded = true;
+    rerender(<ClassicMainBody />);
+
+    expect(screen.getByTestId("classic-main-sidebar")).toBe(mountedSidebar);
   });
 
-  it("restores sidebar transitions when a resize is interrupted by collapse", () => {
+  it("keeps layout transitions disabled when resize is interrupted by collapse", () => {
     const { rerender } = render(<ClassicMainBody />);
 
     act(() => {
@@ -753,9 +765,9 @@ describe("ClassicMainBody", () => {
     mocks.leftsidebar.expanded = false;
     rerender(<ClassicMainBody />);
 
-    expect(screen.getAllByTestId("panel")[0]?.dataset.transition).toContain(
-      "flex-grow",
-    );
+    expect(
+      screen.getAllByTestId("panel")[0]?.dataset.transition,
+    ).toBeUndefined();
     expect(mocks.leftsidebar.toggleExpanded).toHaveBeenCalledTimes(1);
   });
 

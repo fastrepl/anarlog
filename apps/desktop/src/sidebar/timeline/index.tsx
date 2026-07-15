@@ -280,7 +280,11 @@ export const TimelineView = memo(function TimelineView({
 
   useMountEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      const container = containerRef.current;
+
       if (
+        !container ||
+        container.closest("[inert], [aria-hidden='true']") ||
         event.defaultPrevented ||
         !isSelectAllShortcut(event) ||
         isTextEditingShortcutTarget(event.target) ||

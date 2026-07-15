@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import {
   type CSSProperties,
+  memo,
   type MouseEvent,
   type PointerEvent,
   type WheelEvent as ReactWheelEvent,
@@ -165,7 +166,6 @@ export function ClassicMainBody() {
     showSidebarTimelineChrome || hasLeftSurfaceCustomSidebar;
   const mainAreaTopDrag = useMainAreaTopWindowDrag(enableMainAreaTopDrag);
   const update = useDesktopUpdateControl();
-  const [leftSidebarResizing, setLeftSidebarResizing] = useState(false);
   const currentSessionId =
     currentTab?.type === "sessions" ? currentTab.id : undefined;
   const createNewNote = useNewNote();
@@ -200,7 +200,6 @@ export function ClassicMainBody() {
 
       if (!canResizeLeftSidebarPanel) {
         leftSidebarResizeDraggingRef.current = false;
-        setLeftSidebarResizing(false);
         pendingLeftSidebarDefaultSizeRef.current = null;
         return;
       }
@@ -255,7 +254,6 @@ export function ClassicMainBody() {
   const handleLeftSidebarResizeDragging = useCallback(
     (isDragging: boolean) => {
       leftSidebarResizeDraggingRef.current = isDragging;
-      setLeftSidebarResizing(isDragging);
 
       if (isDragging) {
         leftSidebarDefaultSizeTrackingRef.current = false;
@@ -290,13 +288,11 @@ export function ClassicMainBody() {
   ]);
   const handleLeftSidebarPanelCollapse = useCallback(() => {
     leftSidebarResizeDraggingRef.current = false;
-    setLeftSidebarResizing(false);
     restoreLeftSidebarPanelSize();
     leftsidebar.setExpanded(false);
   }, [leftsidebar.setExpanded, restoreLeftSidebarPanelSize]);
   const handleToggleLeftSidebar = useCallback(() => {
     leftSidebarResizeDraggingRef.current = false;
-    setLeftSidebarResizing(false);
 
     if (!leftsidebar.expanded) {
       restoreLeftSidebarPanelSize();
@@ -333,7 +329,6 @@ export function ClassicMainBody() {
 
     if (!canResizeLeftSidebarPanel) {
       leftSidebarResizeDraggingRef.current = false;
-      setLeftSidebarResizing(false);
       pendingLeftSidebarDefaultSizeRef.current = null;
     } else if (!leftSidebarDefaultSizeTrackingRef.current) {
       return;
@@ -442,14 +437,6 @@ export function ClassicMainBody() {
         flexGrow: 0,
         maxWidth: 0,
         minWidth: 0,
-        transition:
-          leftSidebarResizing && leftsidebar.expanded
-            ? undefined
-            : [
-                "flex-grow 180ms ease-out",
-                "max-width 180ms ease-out",
-                "min-width 180ms ease-out",
-              ].join(", "),
       } satisfies CSSProperties;
     }
 
@@ -459,14 +446,6 @@ export function ClassicMainBody() {
         flexGrow: 0,
         maxWidth: LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
         minWidth: LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
-        transition:
-          leftSidebarResizing && leftsidebar.expanded
-            ? undefined
-            : [
-                "flex-grow 180ms ease-out",
-                "max-width 180ms ease-out",
-                "min-width 180ms ease-out",
-              ].join(", "),
       } satisfies CSSProperties;
     }
 
@@ -474,16 +453,8 @@ export function ClassicMainBody() {
       flexGrow: "var(--left-sidebar-panel-size)",
       maxWidth: LEFT_SIDEBAR_MAX_WIDTH_PX,
       minWidth: LEFT_SIDEBAR_MIN_WIDTH_PX,
-      transition:
-        leftSidebarResizing && leftsidebar.expanded
-          ? undefined
-          : [
-              "flex-grow 180ms ease-out",
-              "max-width 180ms ease-out",
-              "min-width 180ms ease-out",
-            ].join(", "),
     } satisfies CSSProperties;
-  }, [canResizeLeftSidebarPanel, leftSidebarResizing, leftsidebar.expanded]);
+  }, [canResizeLeftSidebarPanel, leftsidebar.expanded]);
   const leftSidebarPanelRenderConstraints = canResizeLeftSidebarPanel
     ? leftSidebarPanelConstraints
     : createFixedLeftSidebarPanelConstraints(
@@ -496,25 +467,27 @@ export function ClassicMainBody() {
     "--left-sidebar-panel-size": `${renderedLeftSidebarPanelSize}`,
     "--left-sidebar-panel-width": `${renderedLeftSidebarPanelSize}%`,
   } as LeftSidebarSizeStyle;
-  const timelineHeader = showSidebarTimeline ? (
+  const timelineHeader = showSidebarTimelineChrome ? (
     <div
       data-tauri-drag-region
       data-sidebar-timeline-header
       className="flex h-9 shrink-0 items-start pt-[9px] pr-1 pl-[76px]"
       onWheelCapture={handleSidebarTimelineHeaderWheel}
     >
-      <SidebarTimelineChromeWithUpcomingMeeting
-        currentSessionId={currentSessionId}
-        sidebarExpanded
-        showDevtoolsPanelButton={showDevtoolsPanelButton}
-        showIgnoredTimelineEvents={showIgnoredTimelineEvents}
-        devtoolsPanelOpen={devtoolsPanelOpen}
-        onNewNote={createNewNote}
-        onSearch={handleOpenNoteDialog}
-        onOpenDevtools={handleOpenDevtoolsPanel}
-        onToggleSidebar={handleToggleLeftSidebar}
-        update={update}
-      />
+      {showSidebarTimeline ? (
+        <SidebarTimelineChromeWithUpcomingMeeting
+          currentSessionId={currentSessionId}
+          sidebarExpanded
+          showDevtoolsPanelButton={showDevtoolsPanelButton}
+          showIgnoredTimelineEvents={showIgnoredTimelineEvents}
+          devtoolsPanelOpen={devtoolsPanelOpen}
+          onNewNote={createNewNote}
+          onSearch={handleOpenNoteDialog}
+          onOpenDevtools={handleOpenDevtoolsPanel}
+          onToggleSidebar={handleToggleLeftSidebar}
+          update={update}
+        />
+      ) : null}
     </div>
   ) : null;
 
@@ -629,6 +602,7 @@ export function ClassicMainBody() {
                 ])}
               >
                 <ClassicMainSidebar
+                  forceMount
                   timelineHeader={timelineHeader}
                   showIgnoredTimelineEvents={showIgnoredTimelineEvents}
                   onShowIgnoredTimelineEventsChange={
@@ -893,51 +867,53 @@ function isMainAreaWindowDrag(
   );
 }
 
-function SidebarTimelineChromeWithUpcomingMeeting({
-  currentSessionId,
-  devtoolsPanelOpen,
-  onNewNote,
-  onOpenDevtools,
-  onSearch,
-  onToggleSidebar,
-  sidebarExpanded,
-  showDevtoolsPanelButton,
-  showIgnoredTimelineEvents,
-  update,
-}: {
-  currentSessionId?: string;
-  devtoolsPanelOpen: boolean;
-  onNewNote: () => void;
-  onOpenDevtools: () => void;
-  onSearch: () => void;
-  onToggleSidebar: () => void;
-  sidebarExpanded: boolean;
-  showDevtoolsPanelButton: boolean;
-  showIgnoredTimelineEvents: boolean;
-  update: DesktopUpdateControl;
-}) {
-  const upcomingMeetingStatus = useSidebarUpcomingMeetingStatus({
-    showIgnored: showIgnoredTimelineEvents,
-  });
-  const hasUpcomingMeeting = upcomingMeetingStatus
-    ? !currentSessionId ||
-      upcomingMeetingStatus.itemKey !== `session-${currentSessionId}`
-    : false;
+const SidebarTimelineChromeWithUpcomingMeeting = memo(
+  function SidebarTimelineChromeWithUpcomingMeeting({
+    currentSessionId,
+    devtoolsPanelOpen,
+    onNewNote,
+    onOpenDevtools,
+    onSearch,
+    onToggleSidebar,
+    sidebarExpanded,
+    showDevtoolsPanelButton,
+    showIgnoredTimelineEvents,
+    update,
+  }: {
+    currentSessionId?: string;
+    devtoolsPanelOpen: boolean;
+    onNewNote: () => void;
+    onOpenDevtools: () => void;
+    onSearch: () => void;
+    onToggleSidebar: () => void;
+    sidebarExpanded: boolean;
+    showDevtoolsPanelButton: boolean;
+    showIgnoredTimelineEvents: boolean;
+    update: DesktopUpdateControl;
+  }) {
+    const upcomingMeetingStatus = useSidebarUpcomingMeetingStatus({
+      showIgnored: showIgnoredTimelineEvents,
+    });
+    const hasUpcomingMeeting = upcomingMeetingStatus
+      ? !currentSessionId ||
+        upcomingMeetingStatus.itemKey !== `session-${currentSessionId}`
+      : false;
 
-  return (
-    <SidebarTimelineChrome
-      devtoolsPanelOpen={devtoolsPanelOpen}
-      hasUpcomingMeeting={hasUpcomingMeeting}
-      onNewNote={onNewNote}
-      onOpenDevtools={onOpenDevtools}
-      onSearch={onSearch}
-      onToggleSidebar={onToggleSidebar}
-      sidebarExpanded={sidebarExpanded}
-      showDevtoolsPanelButton={showDevtoolsPanelButton}
-      update={update}
-    />
-  );
-}
+    return (
+      <SidebarTimelineChrome
+        devtoolsPanelOpen={devtoolsPanelOpen}
+        hasUpcomingMeeting={hasUpcomingMeeting}
+        onNewNote={onNewNote}
+        onOpenDevtools={onOpenDevtools}
+        onSearch={onSearch}
+        onToggleSidebar={onToggleSidebar}
+        sidebarExpanded={sidebarExpanded}
+        showDevtoolsPanelButton={showDevtoolsPanelButton}
+        update={update}
+      />
+    );
+  },
+);
 
 function SidebarTimelineChrome({
   devtoolsPanelOpen,

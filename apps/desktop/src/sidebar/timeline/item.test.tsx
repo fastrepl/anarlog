@@ -233,6 +233,8 @@ describe("TimelineItemComponent", () => {
     expect(row?.getAttribute("data-sidebar-timeline-session-id")).toBe(
       "session-live",
     );
+    expect(row?.className).toContain("[content-visibility:auto]");
+    expect(row?.className).toContain("[contain-intrinsic-size:auto_56px]");
     expect(selectedNodeRef.mock.calls.some(([node]) => node === row)).toBe(
       true,
     );

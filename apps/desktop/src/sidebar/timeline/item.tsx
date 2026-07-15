@@ -175,7 +175,7 @@ const ItemBase = memo(function ItemBase({
     <div
       ref={setItemRef}
       data-sidebar-timeline-session-id={timelineSessionId}
-      className="group/sidebar-live-item relative"
+      className="group/sidebar-live-item relative [contain-intrinsic-size:auto_56px] [content-visibility:auto]"
     >
       <InteractiveButton
         onClick={ignored ? undefined : onClick}
