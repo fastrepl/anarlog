@@ -13,6 +13,15 @@ import {
   handleCloudsyncAuthChange,
   prepareCloudsyncSignOut,
 } from "./cloudsync";
+import {
+  startCloudsyncInitialSyncProgress,
+  stopCloudsyncInitialSyncProgress,
+} from "./cloudsync-progress";
+
+vi.mock("./cloudsync-progress", () => ({
+  startCloudsyncInitialSyncProgress: vi.fn(),
+  stopCloudsyncInitialSyncProgress: vi.fn(),
+}));
 
 vi.mock("~/env", () => ({
   env: {
@@ -102,7 +111,9 @@ describe("CloudSync auth lifecycle", () => {
       "sqlite-token",
       "user-id",
     );
+    expect(startCloudsyncInitialSyncProgress).toHaveBeenCalledWith("user-id");
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
+    expect(stopCloudsyncInitialSyncProgress).toHaveBeenCalledTimes(1);
 
     await vi.advanceTimersByTimeAsync(13 * 60 * 1000 - 1);
     expect(fetchMock).toHaveBeenCalledTimes(1);

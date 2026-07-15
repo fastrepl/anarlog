@@ -7,6 +7,11 @@ import {
   suspendCloudsync,
 } from "@hypr/plugin-db";
 
+import {
+  startCloudsyncInitialSyncProgress,
+  stopCloudsyncInitialSyncProgress,
+} from "./cloudsync-progress";
+
 import { env } from "~/env";
 
 const REFRESH_LEAD_MS = 2 * 60 * 1000;
@@ -69,6 +74,7 @@ async function suspendCloudsyncForGeneration(activeGeneration: number) {
         return;
       }
       await suspendCloudsync();
+      stopCloudsyncInitialSyncProgress();
     });
   } catch {
     if (activeGeneration === generation) {
@@ -356,6 +362,8 @@ async function activateCloudsync(
       console.warn("[cloudsync] local database belongs to another account");
       return "account_mismatch";
     }
+
+    startCloudsyncInitialSyncProgress(session.user.id);
   } catch (error) {
     if (activeGeneration !== generation) {
       return "ok";
@@ -393,6 +401,7 @@ async function activateCloudsync(
 
 async function suspendCloudsyncSession(): Promise<void> {
   beginTransition();
+  stopCloudsyncInitialSyncProgress();
 
   try {
     await enqueuePluginOperation(suspendCloudsync);
@@ -406,6 +415,7 @@ export async function prepareCloudsyncSignOut(
   onAccountMismatch?: CloudsyncAccountMismatchHandler,
 ): Promise<void> {
   const activeGeneration = beginTransition();
+  stopCloudsyncInitialSyncProgress();
 
   try {
     await enqueuePluginOperation(suspendCloudsync);

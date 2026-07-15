@@ -11,6 +11,7 @@ import type { ToastType } from "./types";
 import { useDismissedToasts } from "./useDismissedToasts";
 
 import { useAuth } from "~/auth";
+import { useCloudsyncInitialSyncProgress } from "~/auth/cloudsync-progress";
 import { useNotifications } from "~/contexts/notifications";
 import { useConfigValues } from "~/shared/config";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
@@ -26,6 +27,7 @@ import { useListener } from "~/stt/contexts";
 
 export function ToastNotifications() {
   const auth = useAuth();
+  const cloudsyncProgress = useCloudsyncInitialSyncProgress();
   const { dismissToast, isDismissed } = useDismissedToasts();
   const shouldShowToast = useShouldShowToast();
   const {
@@ -123,6 +125,10 @@ export function ToastNotifications() {
         isAiTranscriptionTabActive,
         isAiIntelligenceTabActive,
         isBatchTranscribingInActiveTranscriptTab,
+        cloudsyncInitialSyncToastId:
+          cloudsyncProgress.state === "syncing"
+            ? cloudsyncProgress.toastId
+            : null,
         hasActiveDownload,
         downloadingModel,
         activeDownloads,
@@ -142,6 +148,7 @@ export function ToastNotifications() {
       isAiTranscriptionTabActive,
       isAiIntelligenceTabActive,
       isBatchTranscribingInActiveTranscriptTab,
+      cloudsyncProgress,
       hasActiveDownload,
       downloadingModel,
       activeDownloads,
