@@ -11,8 +11,8 @@ use std::path::PathBuf;
 use sqlx::sqlite::SqliteConnectOptions;
 
 pub use api::{
-    begin_alter, cleanup, commit_alter, db_version, disable, enable, init, is_enabled, siteid,
-    terminate, uuid, version,
+    CloudsyncConnectionInitializer, CloudsyncTableSpec, begin_alter, cleanup, commit_alter,
+    db_version, disable, enable, init, is_enabled, siteid, terminate, uuid, version,
 };
 pub use bundle::bundled_extension_path;
 pub use close::install_transaction_observer;

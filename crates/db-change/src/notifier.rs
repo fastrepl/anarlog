@@ -16,18 +16,23 @@ pub struct ChangeNotifier {
 
 impl ChangeNotifier {
     pub fn new() -> (Self, SqlitePoolOptions) {
-        Self::build(Some(false))
+        Self::build(Some(false), None)
     }
 
-    pub fn new_with_cloudsync() -> (Self, SqlitePoolOptions) {
-        Self::build(Some(true))
+    pub fn new_with_cloudsync(
+        initializer: hypr_cloudsync::CloudsyncConnectionInitializer,
+    ) -> (Self, SqlitePoolOptions) {
+        Self::build(Some(true), Some(initializer))
     }
 
     pub fn disabled() -> (Self, SqlitePoolOptions) {
-        Self::build(None)
+        Self::build(None, None)
     }
 
-    fn build(cloudsync_enabled: Option<bool>) -> (Self, SqlitePoolOptions) {
+    fn build(
+        cloudsync_enabled: Option<bool>,
+        cloudsync_initializer: Option<hypr_cloudsync::CloudsyncConnectionInitializer>,
+    ) -> (Self, SqlitePoolOptions) {
         let (table_change_tx, _) = broadcast::channel(256);
         let change_tracker = Arc::new(ChangeTracker::default());
 
@@ -46,6 +51,7 @@ impl ChangeNotifier {
         let pool_options = SqlitePoolOptions::new().after_connect(move |conn, _| {
             let callback_tx = callback_tx.clone();
             let callback_tracker = Arc::clone(&callback_tracker);
+            let cloudsync_initializer = cloudsync_initializer.clone();
 
             Box::pin(async move {
                 let mut handle = conn.lock_handle().await?;
@@ -82,6 +88,14 @@ impl ChangeNotifier {
                     handle.set_rollback_hook(move || {
                         hook_state.clear();
                     });
+                }
+                drop(handle);
+
+                if let Some(initializer) = cloudsync_initializer {
+                    initializer
+                        .initialize(conn)
+                        .await
+                        .map_err(|error| sqlx::Error::Configuration(Box::new(error)))?;
                 }
 
                 Ok(())

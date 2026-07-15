@@ -1,6 +1,47 @@
-use sqlx::{Executor, Sqlite};
+use std::sync::{Arc, RwLock};
+
+use serde::{Deserialize, Serialize};
+use sqlx::{Executor, Sqlite, SqliteConnection};
 
 use crate::error::Error;
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct CloudsyncTableSpec {
+    pub table_name: String,
+    pub crdt_algo: Option<String>,
+    pub init_flags: Option<i64>,
+    pub enabled: bool,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct CloudsyncConnectionInitializer {
+    tables: Arc<RwLock<Vec<CloudsyncTableSpec>>>,
+}
+
+impl CloudsyncConnectionInitializer {
+    pub fn replace_tables(&self, tables: Vec<CloudsyncTableSpec>) {
+        *self.tables.write().unwrap() = tables;
+    }
+
+    pub fn clear(&self) {
+        self.tables.write().unwrap().clear();
+    }
+
+    pub async fn initialize(&self, connection: &mut SqliteConnection) -> Result<(), Error> {
+        let tables = self.tables.read().unwrap().clone();
+        for table in tables.iter().filter(|table| table.enabled) {
+            init(
+                &mut *connection,
+                &table.table_name,
+                table.crdt_algo.as_deref(),
+                table.init_flags,
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+}
 
 /// https://docs.sqlitecloud.io/docs/sqlite-sync-api-cloudsync-version
 pub async fn version<'e, E>(executor: E) -> Result<String, Error>

@@ -48,6 +48,7 @@ const SQLITE_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 pub struct Db {
     pub(crate) cloudsync_enabled: bool,
     pub(crate) cloudsync_path: Option<PathBuf>,
+    pub(crate) cloudsync_initializer: hypr_cloudsync::CloudsyncConnectionInitializer,
     pub(crate) cloudsync_connection: Arc<tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>>,
     pub(crate) cloudsync_lifecycle: Arc<tokio::sync::Mutex<()>>,
     pub(crate) cloudsync_runtime: Arc<Mutex<CloudsyncRuntimeState>>,
@@ -93,12 +94,21 @@ impl Db {
             return Err(hypr_cloudsync::Error::WalRequired.into());
         }
 
+        let cloudsync_initializer = hypr_cloudsync::CloudsyncConnectionInitializer::default();
         let (change_notifier, pool_options) = match (options.cloudsync_enabled, options.storage) {
-            (true, DbStorage::Local(_)) => hypr_db_change::ChangeNotifier::new_with_cloudsync(),
+            (true, DbStorage::Local(_)) => {
+                hypr_db_change::ChangeNotifier::new_with_cloudsync(cloudsync_initializer.clone())
+            }
             (true, DbStorage::Memory) => hypr_db_change::ChangeNotifier::disabled(),
             (false, _) => hypr_db_change::ChangeNotifier::new(),
         };
-        connect_with_options(&options, pool_options, change_notifier).await
+        connect_with_options(
+            &options,
+            pool_options,
+            change_notifier,
+            cloudsync_initializer,
+        )
+        .await
     }
 
     pub fn change_notifier(&self) -> &hypr_db_change::ChangeNotifier {
@@ -114,7 +124,9 @@ impl Db {
             .create_if_missing(true)
             .pragma("journal_mode", "WAL");
         let (options, cloudsync_path) = hypr_cloudsync::apply(options)?;
-        let (change_notifier, pool_options) = hypr_db_change::ChangeNotifier::new_with_cloudsync();
+        let cloudsync_initializer = hypr_cloudsync::CloudsyncConnectionInitializer::default();
+        let (change_notifier, pool_options) =
+            hypr_db_change::ChangeNotifier::new_with_cloudsync(cloudsync_initializer.clone());
         let pool = pool_options
             .connect_with(options)
             .await
@@ -124,6 +136,7 @@ impl Db {
         Ok(Self {
             cloudsync_enabled: true,
             cloudsync_path: Some(cloudsync_path),
+            cloudsync_initializer,
             cloudsync_connection: Arc::new(tokio::sync::Mutex::new(None)),
             cloudsync_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
             cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
@@ -146,6 +159,7 @@ impl Db {
         Ok(Self {
             cloudsync_enabled: true,
             cloudsync_path: Some(cloudsync_path),
+            cloudsync_initializer: hypr_cloudsync::CloudsyncConnectionInitializer::default(),
             cloudsync_connection: Arc::new(tokio::sync::Mutex::new(None)),
             cloudsync_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
             cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
@@ -168,6 +182,7 @@ impl Db {
         Ok(Self {
             cloudsync_enabled: false,
             cloudsync_path: None,
+            cloudsync_initializer: hypr_cloudsync::CloudsyncConnectionInitializer::default(),
             cloudsync_connection: Arc::new(tokio::sync::Mutex::new(None)),
             cloudsync_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
             cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
@@ -188,6 +203,7 @@ impl Db {
         Ok(Self {
             cloudsync_enabled: false,
             cloudsync_path: None,
+            cloudsync_initializer: hypr_cloudsync::CloudsyncConnectionInitializer::default(),
             cloudsync_connection: Arc::new(tokio::sync::Mutex::new(None)),
             cloudsync_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
             cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
@@ -209,6 +225,7 @@ impl Db {
         Ok(Self {
             cloudsync_enabled: false,
             cloudsync_path: None,
+            cloudsync_initializer: hypr_cloudsync::CloudsyncConnectionInitializer::default(),
             cloudsync_connection: Arc::new(tokio::sync::Mutex::new(None)),
             cloudsync_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
             cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
@@ -226,6 +243,7 @@ async fn connect_with_options(
     options: &DbOpenOptions<'_>,
     pool_options: SqlitePoolOptions,
     change_notifier: hypr_db_change::ChangeNotifier,
+    cloudsync_initializer: hypr_cloudsync::CloudsyncConnectionInitializer,
 ) -> Result<Db, DbOpenError> {
     let mut connect_options = match options.storage {
         DbStorage::Local(path) => {
@@ -274,6 +292,7 @@ async fn connect_with_options(
     Ok(Db {
         cloudsync_enabled: options.cloudsync_enabled,
         cloudsync_path,
+        cloudsync_initializer,
         cloudsync_connection: Arc::new(tokio::sync::Mutex::new(None)),
         cloudsync_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
         cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),

@@ -88,18 +88,9 @@ impl Db {
                 .ok_or(CloudsyncRuntimeError::NotConfigured)?
         };
 
-        for table in config.enabled_tables() {
-            if let Err(error) = self
-                .cloudsync_init(
-                    &table.table_name,
-                    table.crdt_algo.as_deref(),
-                    table.init_flags,
-                )
-                .await
-            {
-                self.cleanup_failed_cloudsync_start(false).await;
-                return Err(error.into());
-            }
+        if let Err(error) = self.cloudsync_init_enabled_tables(&config.tables).await {
+            self.cleanup_failed_cloudsync_start(false).await;
+            return Err(error.into());
         }
 
         if let Err(error) = self.cloudsync_network_init(&config.connection_string).await {
@@ -167,20 +158,16 @@ impl Db {
 
         if self.cloudsync_enabled
             && self.has_cloudsync()
-            && let Err(error) = self.cloudsync_terminate().await
+            && let Err(error) = self.cloudsync_terminate_and_close().await
             && first_error.is_none()
         {
             first_error = Some(CloudsyncRuntimeError::from(error));
         }
 
-        let pinned_connection = self.cloudsync_connection.lock().await.take();
-        if let Some(connection) = pinned_connection
-            && let Err(error) = connection.close().await
+        if let Err(error) = self.cloudsync_close_connection().await
             && first_error.is_none()
         {
-            first_error = Some(CloudsyncRuntimeError::from(hypr_cloudsync::Error::from(
-                error,
-            )));
+            first_error = Some(CloudsyncRuntimeError::from(error));
         }
 
         let mut runtime = self.cloudsync_runtime.lock().unwrap();
@@ -229,11 +216,11 @@ impl Db {
         };
         let cleanup_result = self.cloudsync_network_cleanup().await;
         let terminate_result = if self.has_cloudsync() {
-            self.cloudsync_terminate().await
+            self.cloudsync_terminate_and_close().await
         } else {
             Ok(())
         };
-        self.cloudsync_connection.lock().await.take();
+        let close_result = self.cloudsync_close_connection().await;
 
         let logout_error = logout_result
             .as_ref()
@@ -262,6 +249,7 @@ impl Db {
             tracing::warn!(%error, "cloudsync cleanup after partial startup failed");
         }
         terminate_result?;
+        close_result?;
         Ok(())
     }
 
@@ -368,11 +356,13 @@ impl Db {
             tracing::warn!(%error, "cloudsync cleanup after failed startup failed");
         }
         if self.has_cloudsync()
-            && let Err(error) = self.cloudsync_terminate().await
+            && let Err(error) = self.cloudsync_terminate_and_close().await
         {
-            tracing::warn!(%error, "cloudsync termination after failed startup failed");
+            tracing::warn!(%error, "cloudsync teardown after failed startup failed");
         }
-        self.cloudsync_connection.lock().await.take();
+        if let Err(error) = self.cloudsync_close_connection().await {
+            tracing::warn!(%error, "cloudsync connection close after failed startup failed");
+        }
 
         let mut runtime = self.cloudsync_runtime.lock().unwrap();
         runtime.running = false;

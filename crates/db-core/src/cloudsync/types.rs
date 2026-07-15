@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+pub use hypr_cloudsync::CloudsyncTableSpec;
 pub use hypr_cloudsync::NetworkResult as CloudsyncNetworkResult;
 
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -24,14 +25,6 @@ impl std::fmt::Debug for CloudsyncAuth {
                 .finish(),
         }
     }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct CloudsyncTableSpec {
-    pub table_name: String,
-    pub crdt_algo: Option<String>,
-    pub init_flags: Option<i64>,
-    pub enabled: bool,
 }
 
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -115,10 +108,6 @@ impl CloudsyncRuntimeConfig {
         }
         self.connection_string = self.connection_string.trim().to_string();
         Ok(self)
-    }
-
-    pub(crate) fn enabled_tables(&self) -> impl Iterator<Item = &CloudsyncTableSpec> {
-        self.tables.iter().filter(|table| table.enabled)
     }
 }
 
