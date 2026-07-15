@@ -1,10 +1,32 @@
 import { describe, expect, it } from "vitest";
 
+import { schema } from "@hypr/editor/note";
+
 import {
+  documentTitlePlaceholder,
   ensureFirstLineTitle,
   ensureMarkdownFirstLineTitle,
   extractFirstLineTitle,
 } from "./title-content";
+
+describe("documentTitlePlaceholder", () => {
+  it("shows Untitled only for the document title block", () => {
+    expect(
+      documentTitlePlaceholder({
+        node: schema.node("heading", { level: 1 }),
+        pos: 0,
+        hasAnchor: true,
+      }),
+    ).toBe("Untitled");
+    expect(
+      documentTitlePlaceholder({
+        node: schema.node("paragraph"),
+        pos: 2,
+        hasAnchor: true,
+      }),
+    ).toBe("");
+  });
+});
 
 describe("extractFirstLineTitle", () => {
   it("returns the first block text", () => {

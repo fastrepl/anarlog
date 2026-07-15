@@ -138,6 +138,7 @@ describe("RawEditor", () => {
 
     expect(props?.className).toContain("session-note-editor");
     expect(props?.className).toContain("custom-editor-class");
+    expect(props?.placeholderComponent).toEqual(expect.any(Function));
     expect(props?.initialContent).toMatchObject({
       type: "doc",
       content: [

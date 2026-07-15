@@ -23,6 +23,7 @@ import { useUpdateSession } from "~/session/queries";
 import {
   ensureFirstLineTitle,
   extractFirstLineTitle,
+  documentTitlePlaceholder,
 } from "~/session/title-content";
 
 const extraNodeViews = { appLink: AppLinkView, session: SessionNodeView };
@@ -120,6 +121,7 @@ export const RawEditor = forwardRef<
           key={`session-${sessionId}-raw`}
           initialContent={initialContent}
           handleChange={handleChange}
+          placeholderComponent={documentTitlePlaceholder}
           mentionConfig={mentionConfig}
           sessionMentionDropConfig={sessionMentionDropConfig}
           onNavigateToTitle={onNavigateToTitle}

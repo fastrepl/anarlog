@@ -22,6 +22,7 @@ import { useUpdateEnhancedNoteContent } from "~/session/queries";
 import {
   ensureFirstLineTitle,
   extractFirstLineTitle,
+  documentTitlePlaceholder,
 } from "~/session/title-content";
 
 const extraNodeViews = { appLink: AppLinkView, session: SessionNodeView };
@@ -102,6 +103,7 @@ const EnhancedEditorInner = forwardRef<
           key={editorKey}
           initialContent={initialContent}
           handleChange={persistChanges ? handleChange : undefined}
+          placeholderComponent={documentTitlePlaceholder}
           mentionConfig={mentionConfig}
           sessionMentionDropConfig={sessionMentionDropConfig}
           onNavigateToTitle={onNavigateToTitle}
