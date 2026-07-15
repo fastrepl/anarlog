@@ -1,14 +1,17 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { jwtDecode } from "jwt-decode";
 import { CheckIcon, CopyIcon } from "lucide-react";
-import { motion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 
 import { deriveBillingInfo, type SupabaseJwtPayload } from "@hypr/supabase";
-import { cn } from "@hypr/utils";
 
-import { AnarlogLogo } from "@/components/anarlog-logo";
+import {
+  AuthShell,
+  authNoticeClassName,
+  authPrimaryButtonClassName,
+  authSecondaryButtonClassName,
+} from "@/components/auth-shell";
 import { exchangeOAuthCode, exchangeOtpToken } from "@/functions/auth";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import { useAnalytics } from "@/hooks/use-posthog";
@@ -132,57 +135,6 @@ export const Route = createFileRoute("/_view/callback/auth")({
   },
 });
 
-function Container({ children }: { children: React.ReactNode }) {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState<number | "auto">("auto");
-
-  useEffect(() => {
-    const el = contentRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(([entry]) => {
-      setHeight(entry.contentRect.height);
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <div
-      className={cn([
-        "flex min-h-screen items-center justify-center",
-        "bg-page",
-        "bg-dotted-dark",
-      ])}
-    >
-      <div className="border-color-brand surface mx-auto w-md min-w-[320px] overflow-hidden rounded-xl border shadow-md">
-        <motion.div
-          animate={{ height }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-        >
-          <div ref={contentRef}>{children}</div>
-        </motion.div>
-      </div>
-    </div>
-  );
-}
-
-function Header({ title }: { title: string }) {
-  return (
-    <div className="mb-8 text-center">
-      <div
-        className={cn([
-          "mx-auto mb-8 p-8",
-          "flex items-center justify-between",
-          "border-color-brand border-b",
-        ])}
-      >
-        <AnarlogLogo compact className="text-fg h-10 w-auto" />
-        <h1 className="text-fg py-4 font-mono text-xl">{title}</h1>
-      </div>
-    </div>
-  );
-}
-
 function Component() {
   const search = Route.useSearch();
   const navigate = useNavigate();
@@ -253,10 +205,12 @@ function Component() {
 
   if (search.error) {
     return (
-      <Container>
-        <Header title="Sign-in failed" />
-        <div className="flex flex-col gap-4 px-8 pb-8">
-          <p className="text-fg-muted text-center">
+      <AuthShell
+        title="Sign-in didn’t work"
+        description="Your notes are safe. Try the sign-in flow again."
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-center text-sm leading-6 text-[#756b5d]">
             {search.error_description
               ? search.error_description.replaceAll("+", " ")
               : "Something went wrong during sign-in"}
@@ -264,18 +218,12 @@ function Component() {
 
           <a
             href={`/auth?flow=${search.flow}&scheme=${search.scheme}`}
-            className={cn([
-              "w-full cursor-pointer px-4 py-2",
-              "bg-fg hover:bg-fg/80 rounded-full font-sans text-white",
-              "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
-              "transition-colors",
-              "flex items-center justify-center",
-            ])}
+            className={authPrimaryButtonClassName}
           >
             Try again
           </a>
         </div>
-      </Container>
+      </AuthShell>
     );
   }
 
@@ -283,47 +231,31 @@ function Component() {
     const hasTokens = search.access_token && search.refresh_token;
 
     return (
-      <Container>
-        <Header title={hasTokens ? "Sign-in successful" : "Signing in..."} />
-        <div className="flex flex-col gap-4 px-8 pb-8">
-          <p className="text-fg-muted text-center">
-            {hasTokens
-              ? "Click the button below to return to the app"
-              : "Please wait while we complete the sign-in"}
-          </p>
-
+      <AuthShell
+        title={hasTokens ? "You’re signed in" : "Finishing sign-in"}
+        description={
+          hasTokens
+            ? "Return to the desktop app to keep going."
+            : "Please wait while we complete the secure handoff."
+        }
+      >
+        <div className="flex flex-col gap-4">
           {hasTokens && (
             <div className="flex flex-col gap-3">
               <button
                 onClick={handleDeeplink}
-                className={cn([
-                  "w-full cursor-pointer px-4 py-2",
-                  "bg-fg hover:bg-fg/80 rounded-full font-sans text-white",
-                  "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
-                  "transition-colors",
-                  "flex items-center justify-center",
-                ])}
+                className={authPrimaryButtonClassName}
               >
                 Open Anarlog
               </button>
 
-              <button
-                onClick={handleCopy}
-                className={cn([
-                  "flex w-full cursor-pointer flex-col items-center gap-3 p-4 text-left",
-                  "border-color-brand rounded-lg border",
-                  "hover:bg-brand-dark/10 transition-colors",
-                ])}
-              >
-                <p className="text-fg-muted text-sm">
+              <div className="rounded-xl border border-[#e5ddcf] bg-[#fbfaf7] p-4 text-center">
+                <p className="mb-3 text-sm leading-6 text-[#756b5d]">
                   Button not working? Copy the link instead
                 </p>
-                <span
-                  className={cn([
-                    "flex w-full items-center justify-center gap-2 px-4 py-2 font-sans text-sm",
-                    "border-color-brand text-fg rounded-full border",
-                    "hover:bg-brand-dark/10 transition-colors",
-                  ])}
+                <button
+                  onClick={handleCopy}
+                  className={authSecondaryButtonClassName}
                 >
                   {copied ? (
                     <>
@@ -336,23 +268,35 @@ function Component() {
                       Copy URL
                     </>
                   )}
-                </span>
-              </button>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!hasTokens && (
+            <div className={authNoticeClassName}>
+              <p className="text-sm font-medium text-[#4f4940]">
+                Connecting your account...
+              </p>
             </div>
           )}
         </div>
-      </Container>
+      </AuthShell>
     );
   }
 
   if (search.flow === "web") {
     return (
-      <Container>
-        <Header title="Redirecting..." />
-        <div className="px-8 pb-8 text-center">
-          <p className="text-fg-muted">Taking you to your account...</p>
+      <AuthShell
+        title="Taking you back"
+        description="Your sign-in is complete."
+      >
+        <div className={authNoticeClassName}>
+          <p className="text-sm font-medium text-[#4f4940]">
+            Opening your account...
+          </p>
         </div>
-      </Container>
+      </AuthShell>
     );
   }
 }

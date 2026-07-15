@@ -2,13 +2,18 @@ import { Icon } from "@iconify-icon/react";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { ArrowLeftIcon, MailIcon } from "lucide-react";
-import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
 import { cn } from "@hypr/utils";
 
-import { AnarlogLogo } from "@/components/anarlog-logo";
+import {
+  AuthShell,
+  authInputClassName,
+  authNoticeClassName,
+  authPrimaryButtonClassName,
+  authSecondaryButtonClassName,
+} from "@/components/auth-shell";
 import {
   createDesktopSession,
   doAuth,
@@ -74,24 +79,25 @@ function Component() {
 
   if (existingUser && flow === "desktop") {
     return (
-      <Container>
-        <Header />
+      <AuthShell
+        title="Welcome back"
+        description="Finishing your secure handoff to the desktop app."
+      >
         <DesktopReauthView
           email={existingUser.email}
           scheme={scheme ?? "hyprnote"}
         />
-      </Container>
+      </AuthShell>
     );
   }
 
   if (existingUser && flow === "web" && provider) {
     return (
-      <Container>
-        <Header />
-        <div className="flex flex-col gap-4 p-8">
-          <p className="text-fg-muted text-center text-sm">
-            Refreshing your {provider} access for admin actions.
-          </p>
+      <AuthShell
+        title={`Reconnect ${provider.charAt(0).toUpperCase() + provider.slice(1)}`}
+        description={`Refresh your ${provider} access to continue with admin actions.`}
+      >
+        <div className="flex flex-col gap-4">
           <OAuthButton
             flow={flow}
             scheme={scheme}
@@ -101,7 +107,7 @@ function Component() {
             autoStart
           />
         </div>
-      </Container>
+      </AuthShell>
     );
   }
 
@@ -110,11 +116,13 @@ function Component() {
   const showEmail = !provider;
 
   return (
-    <Container>
-      <Header />
+    <AuthShell
+      title="Welcome to Anarlog"
+      description="Choose how you’d like to continue."
+    >
       {view === "main" && (
         <>
-          <div className="flex flex-col gap-2 px-8">
+          <div className="flex flex-col gap-3">
             {showGoogle && (
               <OAuthButton
                 flow={flow}
@@ -135,15 +143,7 @@ function Component() {
             {showEmail && (
               <button
                 onClick={() => setView("email")}
-                className={cn([
-                  "w-full cursor-pointer px-4 py-2",
-                  "border-color-brand border",
-                  "text-fg rounded-full font-sans",
-                  "hover:bg-brand-dark/10",
-                  "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
-                  "transition-colors",
-                  "flex items-center justify-center gap-3",
-                ])}
+                className={authSecondaryButtonClassName}
               >
                 <MailIcon className="size-4" />
                 Sign in with Email
@@ -161,58 +161,7 @@ function Component() {
           onBack={() => setView("main")}
         />
       )}
-    </Container>
-  );
-}
-
-function Container({ children }: { children: React.ReactNode }) {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState<number | "auto">("auto");
-
-  useEffect(() => {
-    const el = contentRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(([entry]) => {
-      setHeight(entry.contentRect.height);
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <div
-      className={cn([
-        "flex min-h-screen items-center justify-center",
-        "bg-page",
-        "bg-dotted-dark",
-      ])}
-    >
-      <div className="border-color-brand surface mx-auto w-md min-w-[320px] overflow-hidden rounded-xl border shadow-md">
-        <motion.div
-          animate={{ height }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-        >
-          <div ref={contentRef}>{children}</div>
-        </motion.div>
-      </div>
-    </div>
-  );
-}
-
-function Header() {
-  return (
-    <div className="mb-8 text-center">
-      <div
-        className={cn([
-          "mx-auto mb-8 p-8",
-          "flex items-center justify-between",
-          "border-color-brand border-b",
-        ])}
-      >
-        <AnarlogLogo compact className="text-fg h-10 w-auto" />
-        <h1 className="text-fg py-4 font-mono text-xl">Welcome to Anarlog</h1>
-      </div>
-    </div>
+    </AuthShell>
   );
 }
 
@@ -245,21 +194,25 @@ function DesktopReauthView({
     retryMutation.isError || (retryMutation.isSuccess && !retryMutation.data);
 
   return (
-    <div className="flex flex-col gap-4 p-8">
+    <div className="flex flex-col gap-4">
       {!hasRetryFailed && (
-        <div className="text-center">
-          <p className="text-neutral-600">Signing in as {email}...</p>
+        <div className={authNoticeClassName}>
+          <p className="text-sm font-medium text-[#4f4940]">
+            Signing in as {email}...
+          </p>
         </div>
       )}
       {hasRetryFailed && (
         <>
           <div className="text-center">
-            <p className="mb-1 text-neutral-600">Signed in as {email}</p>
-            <p className="text-sm text-neutral-400">
+            <p className="mb-1 text-sm font-medium text-[#4f4940]">
+              Signed in as {email}
+            </p>
+            <p className="text-sm text-[#8b8174]">
               Sign in with your provider to continue to the app
             </p>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             <OAuthButton flow="desktop" scheme={scheme} provider="google" />
             <OAuthButton flow="desktop" scheme={scheme} provider="github" />
           </div>
@@ -271,18 +224,18 @@ function DesktopReauthView({
 
 function LegalText() {
   return (
-    <p className="mt-4 px-8 pb-8 text-center text-xs text-neutral-500">
+    <p className="mt-6 text-center text-xs leading-5 text-[#8b8174]">
       By signing up, you agree to our{" "}
       <a
         href="https://anarlog.so/terms"
-        className="underline hover:text-neutral-700"
+        className="underline decoration-[#b9ae9f] underline-offset-2 hover:text-[#181613]"
       >
         Terms of Service
       </a>{" "}
       and{" "}
       <a
         href="https://anarlog.so/privacy"
-        className="underline hover:text-neutral-700"
+        className="underline decoration-[#b9ae9f] underline-offset-2 hover:text-[#181613]"
       >
         Privacy Policy
       </a>
@@ -307,23 +260,23 @@ function EmailAuthView({
   const [mode, setMode] = useState<EmailMode>("password");
 
   return (
-    <div className="flex flex-col gap-4 px-8">
+    <div className="flex flex-col gap-5">
       <button
         onClick={onBack}
-        className="-mt-2 mb-1 flex items-center gap-1 self-start text-sm text-neutral-500 transition-colors hover:text-neutral-700"
+        className="flex cursor-pointer items-center gap-1 self-start text-sm text-[#756b5d] transition-colors hover:text-[#181613]"
       >
         <ArrowLeftIcon className="size-3.5" />
         Back
       </button>
 
-      <div className="flex gap-1 rounded-full bg-neutral-100 p-1">
+      <div className="flex gap-1 rounded-full bg-[#f4efe6] p-1">
         <button
           onClick={() => setMode("password")}
           className={cn([
-            "flex-1 rounded-full py-1.5 font-sans text-sm font-medium transition-colors",
+            "flex-1 cursor-pointer rounded-full py-2 text-sm font-medium transition-colors",
             mode === "password"
-              ? "bg-white text-neutral-900 shadow-sm"
-              : "text-neutral-500 hover:text-neutral-700",
+              ? "bg-white text-[#181613] shadow-sm"
+              : "text-[#756b5d] hover:text-[#181613]",
           ])}
         >
           Password
@@ -331,13 +284,13 @@ function EmailAuthView({
         <button
           onClick={() => setMode("magic-link")}
           className={cn([
-            "flex-1 rounded-full py-1.5 font-sans text-sm font-medium transition-colors",
+            "flex-1 cursor-pointer rounded-full py-2 text-sm font-medium transition-colors",
             mode === "magic-link"
-              ? "bg-white text-neutral-900 shadow-sm"
-              : "text-neutral-500 hover:text-neutral-700",
+              ? "bg-white text-[#181613] shadow-sm"
+              : "text-[#756b5d] hover:text-[#181613]",
           ])}
         >
-          Magic Link
+          Magic link
         </button>
       </div>
 
@@ -451,9 +404,9 @@ function PasswordForm({
 
   if (submitted) {
     return (
-      <div className="rounded-lg border border-stone-200 bg-stone-50 p-4 text-center">
-        <p className="font-medium text-stone-700">Check your email</p>
-        <p className="mt-1 text-sm text-stone-500">
+      <div className={authNoticeClassName}>
+        <p className="font-medium text-[#4f4940]">Check your email</p>
+        <p className="mt-1 text-sm text-[#756b5d]">
           We sent a confirmation link to {email}
         </p>
       </div>
@@ -468,12 +421,7 @@ function PasswordForm({
         onChange={(e) => setEmail(e.target.value)}
         placeholder="Email"
         required
-        className={cn([
-          "w-full px-4 py-2",
-          "rounded-lg border border-neutral-300",
-          "text-fg placeholder:text-fg-muted",
-          "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
-        ])}
+        className={authInputClassName}
       />
       <input
         type="password"
@@ -481,12 +429,7 @@ function PasswordForm({
         onChange={(e) => setPassword(e.target.value)}
         placeholder="Password"
         required
-        className={cn([
-          "w-full px-4 py-2",
-          "rounded-lg border border-neutral-300",
-          "text-fg placeholder:text-fg-muted",
-          "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
-        ])}
+        className={authInputClassName}
       />
       {isSignUp && (
         <input
@@ -495,33 +438,18 @@ function PasswordForm({
           onChange={(e) => setConfirmPassword(e.target.value)}
           placeholder="Confirm password"
           required
-          className={cn([
-            "w-full px-4 py-2",
-            "rounded-lg border border-neutral-300",
-            "text-fg placeholder:text-fg-muted",
-            "focus:ring-2 focus:ring-stone-800 focus:ring-offset-2 focus:outline-hidden",
-          ])}
+          className={authInputClassName}
         />
       )}
       {errorMessage && (
-        <p className="text-center text-sm text-red-500">{errorMessage}</p>
+        <p className="text-center text-sm text-red-700">{errorMessage}</p>
       )}
       <button
         type="submit"
         disabled={
           isPending || !email || !password || (isSignUp && !confirmPassword)
         }
-        className={cn([
-          "w-full cursor-pointer px-4 py-2",
-          "font rounded-full font-sans",
-          "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
-          "disabled:cursor-not-allowed disabled:opacity-50",
-          "transition-colors",
-          "flex items-center justify-center gap-3",
-          isSignUp
-            ? "border-color-border text-fg hover:bg-brand-dark/10 rounded-full border"
-            : "bg-fg hover:bg-fg/80 text-white",
-        ])}
+        className={authPrimaryButtonClassName}
       >
         {isPending ? "Loading..." : isSignUp ? "Create account" : "Sign in"}
       </button>
@@ -533,7 +461,7 @@ function PasswordForm({
             setErrorMessage("");
             setConfirmPassword("");
           }}
-          className="text-fg-muted hover:text-fg font-sans text-sm transition-colors hover:underline"
+          className="cursor-pointer text-sm text-[#756b5d] transition-colors hover:text-[#181613] hover:underline"
         >
           {isSignUp
             ? "Already have an account? Sign in"
@@ -542,7 +470,7 @@ function PasswordForm({
         {!isSignUp && (
           <Link
             to="/reset-password/"
-            className="text-fg-muted hover:text-fg text-sm transition-colors hover:underline"
+            className="text-sm text-[#756b5d] transition-colors hover:text-[#181613] hover:underline"
           >
             Forgot password?
           </Link>
@@ -602,9 +530,9 @@ function MagicLinkForm({
 
   if (submitted) {
     return (
-      <div className="rounded-lg border border-stone-200 bg-stone-50 p-4 text-center">
-        <p className="font-medium text-stone-700">Check your email</p>
-        <p className="mt-1 text-sm text-stone-500">
+      <div className={authNoticeClassName}>
+        <p className="font-medium text-[#4f4940]">Check your email</p>
+        <p className="mt-1 text-sm text-[#756b5d]">
           We sent a magic link to {email}
         </p>
       </div>
@@ -627,31 +555,17 @@ function MagicLinkForm({
         onChange={(e) => setEmail(e.target.value)}
         placeholder="Enter your email"
         required
-        className={cn([
-          "w-full px-4 py-2",
-          "rounded-lg border border-neutral-300",
-          "text-neutral-700 placeholder:text-neutral-400",
-          "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
-        ])}
+        className={authInputClassName}
       />
       <button
         type="submit"
         disabled={magicLinkMutation.isPending || !email}
-        className={cn([
-          "w-full cursor-pointer px-4 py-2",
-          "border border-neutral-300",
-          "rounded-lg font-medium text-neutral-700",
-          "hover:bg-neutral-50",
-          "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
-          "disabled:cursor-not-allowed disabled:opacity-50",
-          "transition-colors",
-          "flex items-center justify-center gap-2",
-        ])}
+        className={authPrimaryButtonClassName}
       >
         {magicLinkMutation.isPending ? "Sending..." : "Send magic link"}
       </button>
       {magicLinkMutation.isError && (
-        <p className="text-center text-sm text-red-500">
+        <p className="text-center text-sm text-red-700">
           Failed to send magic link. Please try again.
         </p>
       )}
@@ -705,19 +619,14 @@ function OAuthButton({
     <button
       onClick={() => mutate(provider)}
       disabled={isPending}
-      className={cn([
-        "w-full cursor-pointer px-4 py-2",
-        "border-color-brand border",
-        "text-fg rounded-full font-sans",
-        "hover:bg-brand-dark/10",
-        "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
-        "disabled:cursor-not-allowed disabled:opacity-50",
-        "transition-colors",
-        "flex items-center justify-center gap-3",
-      ])}
+      className={authSecondaryButtonClassName}
     >
-      {provider === "google" && <Icon icon="logos:google-icon" />}
-      {provider === "github" && <Icon icon="logos:github-icon" />}
+      {provider === "google" && (
+        <Icon icon="logos:google-icon" width="18" height="18" />
+      )}
+      {provider === "github" && (
+        <Icon icon="logos:github-icon" width="18" height="18" />
+      )}
       Sign in with {provider.charAt(0).toUpperCase() + provider.slice(1)}
     </button>
   );
