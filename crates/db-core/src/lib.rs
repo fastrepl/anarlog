@@ -667,6 +667,55 @@ mod tests {
         ));
     }
 
+    #[cfg(any(
+        all(target_os = "macos", target_arch = "aarch64"),
+        all(target_os = "macos", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "x86_64"),
+        all(target_os = "windows", target_arch = "x86_64"),
+    ))]
+    #[tokio::test]
+    async fn cloudsync_initialized_table_requires_extension_for_writes() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("cloudsync.db");
+        let db = Db::open(DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_enabled: true,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .await
+        .unwrap();
+
+        sqlx::query(
+            "CREATE TABLE items (
+                id TEXT PRIMARY KEY NOT NULL,
+                value TEXT NOT NULL DEFAULT ''
+            )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        db.cloudsync_init("items", None, None).await.unwrap();
+        sqlx::query("INSERT INTO items (id, value) VALUES ('cloud', 'one')")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        db.pool().close().await;
+        drop(db);
+
+        let plain = Db::connect_local_plain(&db_path).await.unwrap();
+        let error = sqlx::query("INSERT INTO items (id, value) VALUES ('plain', 'two')")
+            .execute(plain.pool())
+            .await
+            .unwrap_err();
+
+        assert!(error.to_string().contains("cloudsync_is_sync"));
+    }
+
     #[tokio::test]
     async fn configure_rejects_live_runtime_changes() {
         let db = Db::connect_memory_plain().await.unwrap();

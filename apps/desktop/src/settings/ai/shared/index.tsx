@@ -31,7 +31,7 @@ import {
   requiresEntitlement,
 } from "./eligibility";
 
-import { useBillingAccess } from "~/auth/billing";
+import { useBillingAccess } from "~/auth/billing-context";
 import {
   useAiProvider,
   useAiProviders,

@@ -118,6 +118,13 @@ pub enum QueryEvent {
     Error(String),
 }
 
+#[derive(Debug, Clone, Copy, serde::Serialize, specta::Type, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CloudsyncTokenConfigurationResult {
+    Configured,
+    AccountMismatch,
+}
+
 fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
     tauri_specta::Builder::<R>::new()
         .plugin_name(PLUGIN_NAME)
@@ -136,14 +143,13 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::subscribe,
             commands::unsubscribe,
             commands::configure_cloudsync,
-            commands::claim_cloudsync_account,
+            commands::bind_cloudsync_account,
             commands::configure_cloudsync_token,
             commands::start_cloudsync,
             commands::stop_cloudsync,
             commands::suspend_cloudsync,
             commands::get_cloudsync_status,
             commands::sync_cloudsync_now,
-            commands::logout_cloudsync,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
@@ -246,12 +252,14 @@ mod test {
         .map_err(anyhow::Error::from)
     }
 
-    async fn setup_runtime() -> (tempfile::TempDir, Arc<runtime::PluginDbRuntime>) {
+    async fn setup_runtime_with_cloudsync(
+        cloudsync_enabled: bool,
+    ) -> (tempfile::TempDir, Arc<runtime::PluginDbRuntime>) {
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("app.db");
         let db = hypr_db_core::Db::open(hypr_db_core::DbOpenOptions {
             storage: hypr_db_core::DbStorage::Local(&db_path),
-            cloudsync_enabled: false,
+            cloudsync_enabled,
             journal_mode_wal: true,
             foreign_keys: true,
             max_connections: Some(4),
@@ -261,6 +269,15 @@ mod test {
         hypr_db_app::prepare_schema(&db).await.unwrap();
 
         (dir, Arc::new(runtime::PluginDbRuntime::new(Arc::new(db))))
+    }
+
+    async fn setup_runtime() -> (tempfile::TempDir, Arc<runtime::PluginDbRuntime>) {
+        setup_runtime_with_cloudsync(false).await
+    }
+
+    async fn setup_enabled_cloudsync_runtime() -> (tempfile::TempDir, Arc<runtime::PluginDbRuntime>)
+    {
+        setup_runtime_with_cloudsync(true).await
     }
 
     async fn setup_unmigrated_runtime() -> (tempfile::TempDir, Arc<runtime::PluginDbRuntime>) {
@@ -525,57 +542,26 @@ mod test {
     }
 
     #[tokio::test]
-    async fn token_configuration_claims_workspace_and_can_be_suspended() {
+    async fn account_binding_is_durable_without_rekeying_local_rows() {
         let (_dir, runtime) = setup_runtime().await;
         let local_workspace = hypr_db_app::ensure_cloudsync_workspace_binding(runtime.pool())
             .await
             .unwrap();
         sqlx::query(
-            "INSERT INTO sessions (id, workspace_id, title) VALUES ('session', ?, 'Session')",
+            "INSERT INTO humans (id, workspace_id, owner_user_id, name)
+             VALUES (?, ?, ?, 'Local user')",
         )
-        .bind(local_workspace)
+        .bind(&local_workspace)
+        .bind(&local_workspace)
+        .bind(&local_workspace)
         .execute(runtime.pool())
         .await
         .unwrap();
-
-        assert!(
-            runtime
-                .configure_cloudsync_token(
-                    "managed-database-id".to_string(),
-                    "token".to_string(),
-                    "user-a".to_string(),
-                )
-                .await
-                .unwrap()
-        );
-
-        let workspace_id: String =
-            sqlx::query_scalar("SELECT workspace_id FROM sessions WHERE id = 'session'")
-                .fetch_one(runtime.pool())
-                .await
-                .unwrap();
-        assert_eq!(workspace_id, "user-a");
-        assert_eq!(
-            runtime.cloudsync_status().await.unwrap()["configured"],
-            true
-        );
-
-        runtime.suspend_cloudsync().await.unwrap();
-        assert_eq!(
-            runtime.cloudsync_status().await.unwrap()["configured"],
-            false
-        );
-    }
-
-    #[tokio::test]
-    async fn account_claim_is_durable_without_a_cloudsync_token() {
-        let (_dir, runtime) = setup_runtime().await;
-        let local_workspace = hypr_db_app::ensure_cloudsync_workspace_binding(runtime.pool())
-            .await
-            .unwrap();
         sqlx::query(
-            "INSERT INTO sessions (id, workspace_id, title) VALUES ('session', ?, 'Session')",
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session', ?, ?, 'Session')",
         )
+        .bind(&local_workspace)
         .bind(&local_workspace)
         .execute(runtime.pool())
         .await
@@ -583,7 +569,7 @@ mod test {
 
         assert!(
             runtime
-                .claim_cloudsync_account("user-a".to_string())
+                .bind_cloudsync_account("user-a".to_string())
                 .await
                 .unwrap()
         );
@@ -596,32 +582,115 @@ mod test {
         .fetch_one(runtime.pool())
         .await
         .unwrap();
-        let workspace_id: String =
-            sqlx::query_scalar("SELECT workspace_id FROM sessions WHERE id = 'session'")
+        let human: (String, String, String) = sqlx::query_as(
+            "SELECT id, workspace_id, owner_user_id FROM humans WHERE name = 'Local user'",
+        )
+        .fetch_one(runtime.pool())
+        .await
+        .unwrap();
+        let session: (String, String) =
+            sqlx::query_as("SELECT workspace_id, owner_user_id FROM sessions WHERE id = 'session'")
                 .fetch_one(runtime.pool())
                 .await
                 .unwrap();
 
-        assert_eq!(binding, ("user-a".to_string(), "user-a".to_string()));
-        assert_eq!(workspace_id, "user-a");
+        assert_eq!(binding, (local_workspace.clone(), "user-a".to_string()));
+        assert_eq!(
+            human,
+            (
+                local_workspace.clone(),
+                local_workspace.clone(),
+                local_workspace.clone(),
+            )
+        );
+        assert_eq!(session, (local_workspace.clone(), local_workspace));
         assert!(
-            runtime
-                .claim_cloudsync_account("user-a".to_string())
+            !runtime
+                .bind_cloudsync_account("user-b".to_string())
                 .await
                 .unwrap()
         );
-        assert!(
-            !runtime
-                .claim_cloudsync_account("user-b".to_string())
-                .await
-                .unwrap()
+        assert_eq!(
+            runtime.cloudsync_status().await.unwrap()["configured"],
+            false
         );
     }
 
     #[tokio::test]
-    async fn same_account_reclaim_preserves_cloudsync_configuration() {
+    async fn token_configuration_rejects_local_only_runtime_before_rekeying() {
         let (_dir, runtime) = setup_runtime().await;
+        let local_workspace = hypr_db_app::ensure_cloudsync_workspace_binding(runtime.pool())
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session', ?, ?, 'Session')",
+        )
+        .bind(&local_workspace)
+        .bind(&local_workspace)
+        .execute(runtime.pool())
+        .await
+        .unwrap();
+
+        let error = runtime
+            .configure_cloudsync_token(
+                "managed-database-id".to_string(),
+                "token".to_string(),
+                "user-a".to_string(),
+            )
+            .await
+            .unwrap_err();
+
+        let binding: (String, Option<String>) = sqlx::query_as(
+            "SELECT json_extract(value_json, '$.workspace_id'),
+                    json_extract(value_json, '$.account_user_id')
+             FROM app_settings WHERE id = 'cloudsync_workspace_binding'",
+        )
+        .fetch_one(runtime.pool())
+        .await
+        .unwrap();
+        let session: (String, String) =
+            sqlx::query_as("SELECT workspace_id, owner_user_id FROM sessions WHERE id = 'session'")
+                .fetch_one(runtime.pool())
+                .await
+                .unwrap();
+
+        assert!(matches!(
+            error,
+            crate::Error::Cloudsync(hypr_db_core::CloudsyncRuntimeError::Unavailable)
+        ));
+        assert_eq!(binding, (local_workspace.clone(), None));
+        assert_eq!(session, (local_workspace.clone(), local_workspace));
+        assert_eq!(
+            runtime.cloudsync_status().await.unwrap()["configured"],
+            false
+        );
+    }
+
+    #[tokio::test]
+    async fn token_configuration_claims_workspace_and_can_be_suspended() {
+        let (_dir, runtime) = setup_enabled_cloudsync_runtime().await;
+        let local_workspace = hypr_db_app::ensure_cloudsync_workspace_binding(runtime.pool())
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session', ?, ?, 'Session')",
+        )
+        .bind(&local_workspace)
+        .bind(&local_workspace)
+        .execute(runtime.pool())
+        .await
+        .unwrap();
+
         assert!(
+            runtime
+                .bind_cloudsync_account("user-a".to_string())
+                .await
+                .unwrap()
+        );
+
+        assert_eq!(
             runtime
                 .configure_cloudsync_token(
                     "managed-database-id".to_string(),
@@ -629,19 +698,114 @@ mod test {
                     "user-a".to_string(),
                 )
                 .await
+                .unwrap(),
+            CloudsyncTokenConfigurationResult::Configured
+        );
+
+        let session: (String, String) =
+            sqlx::query_as("SELECT workspace_id, owner_user_id FROM sessions WHERE id = 'session'")
+                .fetch_one(runtime.pool())
+                .await
+                .unwrap();
+        let binding: (String, String) = sqlx::query_as(
+            "SELECT json_extract(value_json, '$.workspace_id'),
+                    json_extract(value_json, '$.account_user_id')
+             FROM app_settings WHERE id = 'cloudsync_workspace_binding'",
+        )
+        .fetch_one(runtime.pool())
+        .await
+        .unwrap();
+
+        assert_eq!(session, ("user-a".to_string(), "user-a".to_string()));
+        assert_eq!(binding, ("user-a".to_string(), "user-a".to_string()));
+        runtime.suspend_cloudsync().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn token_configuration_rejects_foreign_workspace_rows() {
+        let (_dir, runtime) = setup_enabled_cloudsync_runtime().await;
+        sqlx::query("INSERT INTO sessions (id, workspace_id) VALUES ('session', 'other-user')")
+            .execute(runtime.pool())
+            .await
+            .unwrap();
+
+        assert!(
+            runtime
+                .bind_cloudsync_account("user-a".to_string())
+                .await
+                .unwrap()
+        );
+
+        let result = runtime
+            .configure_cloudsync_token(
+                "managed-database-id".to_string(),
+                "token".to_string(),
+                "user-a".to_string(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(result, CloudsyncTokenConfigurationResult::AccountMismatch);
+        assert_eq!(
+            runtime.cloudsync_status().await.unwrap()["configured"],
+            false
+        );
+    }
+
+    #[tokio::test]
+    async fn token_configuration_rejects_an_invalid_workspace_binding() {
+        let (_dir, runtime) = setup_enabled_cloudsync_runtime().await;
+        assert!(
+            runtime
+                .bind_cloudsync_account("user-a".to_string())
+                .await
+                .unwrap()
+        );
+        sqlx::query(
+            "UPDATE app_settings
+             SET value_json = 'not-json'
+             WHERE id = 'cloudsync_workspace_binding'",
+        )
+        .execute(runtime.pool())
+        .await
+        .unwrap();
+
+        let result = runtime
+            .configure_cloudsync_token(
+                "managed-database-id".to_string(),
+                "token".to_string(),
+                "user-a".to_string(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(result, CloudsyncTokenConfigurationResult::AccountMismatch);
+        assert_eq!(
+            runtime.cloudsync_status().await.unwrap()["configured"],
+            false
+        );
+    }
+
+    #[tokio::test]
+    async fn same_account_binding_is_idempotent() {
+        let (_dir, runtime) = setup_runtime().await;
+        assert!(
+            runtime
+                .bind_cloudsync_account("user-a".to_string())
+                .await
                 .unwrap()
         );
 
         assert!(
             runtime
-                .claim_cloudsync_account("user-a".to_string())
+                .bind_cloudsync_account("user-a".to_string())
                 .await
                 .unwrap()
         );
 
         assert_eq!(
             runtime.cloudsync_status().await.unwrap()["configured"],
-            true
+            false
         );
     }
 
@@ -650,25 +814,17 @@ mod test {
         let (_dir, runtime) = setup_runtime().await;
         assert!(
             runtime
-                .configure_cloudsync_token(
-                    "managed-database-id".to_string(),
-                    "token-a".to_string(),
-                    "user-a".to_string(),
-                )
+                .bind_cloudsync_account("user-a".to_string())
                 .await
                 .unwrap()
         );
 
-        let configured = runtime
-            .configure_cloudsync_token(
-                "managed-database-id".to_string(),
-                "token-b".to_string(),
-                "user-b".to_string(),
-            )
+        let bound = runtime
+            .bind_cloudsync_account("user-b".to_string())
             .await
             .unwrap();
 
-        assert!(!configured);
+        assert!(!bound);
         assert_eq!(
             runtime.cloudsync_status().await.unwrap()["configured"],
             false
@@ -676,22 +832,18 @@ mod test {
     }
 
     #[tokio::test]
-    async fn invalid_account_claim_remains_an_error() {
+    async fn invalid_account_binding_remains_an_error() {
         let (_dir, runtime) = setup_runtime().await;
         assert!(
             runtime
-                .configure_cloudsync_token(
-                    "managed-database-id".to_string(),
-                    "token".to_string(),
-                    "user-a".to_string(),
-                )
+                .bind_cloudsync_account("user-a".to_string())
                 .await
                 .unwrap()
         );
 
         assert!(
             runtime
-                .claim_cloudsync_account(" ".to_string())
+                .bind_cloudsync_account(" ".to_string())
                 .await
                 .is_err()
         );

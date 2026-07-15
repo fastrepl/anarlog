@@ -16,14 +16,13 @@ Default permissions for the plugin
 - `allow-subscribe`
 - `allow-unsubscribe`
 - `allow-configure-cloudsync`
-- `allow-claim-cloudsync-account`
+- `allow-bind-cloudsync-account`
 - `allow-configure-cloudsync-token`
 - `allow-start-cloudsync`
 - `allow-stop-cloudsync`
 - `allow-suspend-cloudsync`
 - `allow-get-cloudsync-status`
 - `allow-sync-cloudsync-now`
-- `allow-logout-cloudsync`
 
 ## Permission Table
 
@@ -37,12 +36,12 @@ Default permissions for the plugin
 <tr>
 <td>
 
-`db:allow-claim-cloudsync-account`
+`db:allow-bind-cloudsync-account`
 
 </td>
 <td>
 
-Enables the claim_cloudsync_account command without any pre-configured scope.
+Enables the bind_cloudsync_account command without any pre-configured scope.
 
 </td>
 </tr>
@@ -50,12 +49,12 @@ Enables the claim_cloudsync_account command without any pre-configured scope.
 <tr>
 <td>
 
-`db:deny-claim-cloudsync-account`
+`db:deny-bind-cloudsync-account`
 
 </td>
 <td>
 
-Denies the claim_cloudsync_account command without any pre-configured scope.
+Denies the bind_cloudsync_account command without any pre-configured scope.
 
 </td>
 </tr>
@@ -394,32 +393,6 @@ Enables the list_meetings command without any pre-configured scope.
 <td>
 
 Denies the list_meetings command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`db:allow-logout-cloudsync`
-
-</td>
-<td>
-
-Enables the logout_cloudsync command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`db:deny-logout-cloudsync`
-
-</td>
-<td>
-
-Denies the logout_cloudsync command without any pre-configured scope.
 
 </td>
 </tr>

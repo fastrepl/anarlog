@@ -64,7 +64,7 @@ vi.mock("~/auth", () => ({
   useAuth: useAuthMock,
 }));
 
-vi.mock("~/auth/billing", () => ({
+vi.mock("~/auth/billing-context", () => ({
   useBillingAccess: useBillingAccessMock,
 }));
 

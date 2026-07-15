@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { listConnections } from "@hypr/api-client";
 import { createClient } from "@hypr/api-client/client";
 
-import { useAuth } from "./context";
+import { useAuth } from "./auth-context";
 
 import { env } from "~/env";
 

@@ -118,15 +118,15 @@ async configureCloudsync(configJson: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async claimCloudsyncAccount(accountUserId: string) : Promise<Result<boolean, string>> {
+async bindCloudsyncAccount(accountUserId: string) : Promise<Result<boolean, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:db|claim_cloudsync_account", { accountUserId }) };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|bind_cloudsync_account", { accountUserId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async configureCloudsyncToken(databaseId: string, token: string, workspaceId: string) : Promise<Result<boolean, string>> {
+async configureCloudsyncToken(databaseId: string, token: string, workspaceId: string) : Promise<Result<CloudsyncTokenConfigurationResult, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:db|configure_cloudsync_token", { databaseId, token, workspaceId }) };
 } catch (e) {
@@ -173,14 +173,6 @@ async syncCloudsyncNow() : Promise<Result<JsonValue, string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
-},
-async logoutCloudsync(discardUnsentChanges: boolean) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:db|logout_cloudsync", { discardUnsentChanges }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
 }
 }
 
@@ -195,6 +187,7 @@ async logoutCloudsync(discardUnsentChanges: boolean) : Promise<Result<null, stri
 /** user-defined types **/
 
 export type ActionItem = { id: string; assignee_human_id: string; status: string; text: string; due_at: string; completed_at: string | null }
+export type CloudsyncTokenConfigurationResult = "configured" | "account_mismatch"
 export type DependencyAnalysis = { kind: "reactive"; data: { targets: DependencyTarget[] } } | { kind: "non_reactive"; data: { reason: string } }
 export type DependencyTarget = { kind: "table"; data: string } | { kind: "virtual_table"; data: string }
 export type Document = { id: string; kind: string; template_id: string; title: string; markdown: string; sort_order: number; created_at: string; updated_at: string }

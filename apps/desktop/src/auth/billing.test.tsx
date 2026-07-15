@@ -5,11 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { canStartTrial as canStartTrialApi } from "@hypr/api-client";
 import { commands as authCommands } from "@hypr/plugin-auth";
 
-import { BillingProvider } from "./billing";
+import * as billingProviderModule from "./billing";
+
+const { BillingProvider } = billingProviderModule;
 
 const refreshSession = vi.fn();
 
-vi.mock("./context", () => ({
+vi.mock("./auth-context", () => ({
   useAuth: () => ({
     session: {
       access_token: "stale-token",
@@ -94,6 +96,10 @@ function renderBillingProvider() {
 }
 
 describe("BillingProvider", () => {
+  it("keeps the provider module compatible with Fast Refresh", () => {
+    expect(Object.keys(billingProviderModule)).toEqual(["BillingProvider"]);
+  });
+
   beforeEach(() => {
     vi.stubGlobal("localStorage", {
       getItem: vi.fn(() => null),

@@ -1,9 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
-  createContext,
   type ReactNode,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -16,11 +14,7 @@ import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as authCommands } from "@hypr/plugin-auth";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { openUrlWithInstruction } from "@hypr/plugin-windows";
-import {
-  type BillingInfo,
-  deriveBillingInfo,
-  type SupabaseJwtPayload,
-} from "@hypr/supabase";
+import { deriveBillingInfo, type SupabaseJwtPayload } from "@hypr/supabase";
 
 import { TrialEndedDialog } from "../billing/trial-ended-dialog";
 import { TrialPaymentReminderDialog } from "../billing/trial-payment-reminder-dialog";
@@ -28,7 +22,8 @@ import { TrialStartedDialog } from "../billing/trial-started-dialog";
 import { env } from "../env";
 import { configurePaidSettings } from "../shared/config/configure-paid-settings";
 import { buildWebAppUrl } from "../shared/utils";
-import { useAuth } from "./context";
+import { useAuth } from "./auth-context";
+import { type BillingAccess, BillingContext } from "./billing-context";
 
 import { setSettingValues } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
@@ -49,16 +44,6 @@ async function getClaimsFromToken(
     has_payment_method: result.data.has_payment_method,
   };
 }
-
-type BillingContextValue = BillingInfo & {
-  isReady: boolean;
-  canStartTrial: { data: boolean; isPending: boolean };
-  upgradeToPro: () => void;
-};
-
-export type BillingAccess = BillingContextValue;
-
-const BillingContext = createContext<BillingContextValue | null>(null);
 
 const TRIAL_STARTED_SEEN_PREFIX = "anarlog:trial_started_seen:";
 const TRIAL_ENDED_SEEN_PREFIX = "anarlog:trial_ended_seen:";
@@ -281,7 +266,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     auth.refreshSession,
   ]);
 
-  const value = useMemo<BillingContextValue>(
+  const value = useMemo<BillingAccess>(
     () => ({
       ...billing,
       isReady,
@@ -320,14 +305,4 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       />
     </BillingContext.Provider>
   );
-}
-
-export function useBillingAccess() {
-  const context = useContext(BillingContext);
-
-  if (!context) {
-    throw new Error("useBillingAccess must be used within BillingProvider");
-  }
-
-  return context;
 }

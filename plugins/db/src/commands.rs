@@ -179,7 +179,7 @@ pub(crate) async fn configure_cloudsync_token(
     database_id: String,
     token: String,
     workspace_id: String,
-) -> Result<bool, String> {
+) -> Result<crate::CloudsyncTokenConfigurationResult, String> {
     state
         .configure_cloudsync_token(database_id, token, workspace_id)
         .await
@@ -188,12 +188,12 @@ pub(crate) async fn configure_cloudsync_token(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn claim_cloudsync_account(
+pub(crate) async fn bind_cloudsync_account(
     state: tauri::State<'_, ManagedState>,
     account_user_id: String,
 ) -> Result<bool, String> {
     state
-        .claim_cloudsync_account(account_user_id)
+        .bind_cloudsync_account(account_user_id)
         .await
         .map_err(|error| error.to_string())
 }
@@ -243,18 +243,6 @@ pub(crate) async fn sync_cloudsync_now(
 ) -> Result<serde_json::Value, String> {
     state
         .sync_cloudsync_now()
-        .await
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub(crate) async fn logout_cloudsync(
-    state: tauri::State<'_, ManagedState>,
-    discard_unsent_changes: bool,
-) -> Result<(), String> {
-    state
-        .logout_cloudsync(discard_unsent_changes)
         .await
         .map_err(|error| error.to_string())
 }

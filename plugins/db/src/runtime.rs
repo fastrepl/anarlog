@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use hypr_db_core::{Db, DbOpenOptions, DbStorage};
+use hypr_db_core::{Db, DbOpenError, DbOpenOptions, DbStorage};
 use hypr_db_execute::{DbExecutor, ProxyQueryMethod, ProxyQueryResult};
 use hypr_db_reactive::{LiveQueryRuntime, QueryEventSink, SubscriptionRegistration};
 use tauri::ipc::Channel;
@@ -136,9 +136,13 @@ impl PluginDbRuntime {
         database_id: String,
         token: String,
         workspace_id: String,
-    ) -> Result<bool> {
-        if !self.claim_cloudsync_account(workspace_id).await? {
-            return Ok(false);
+    ) -> Result<crate::CloudsyncTokenConfigurationResult> {
+        if !self.db.cloudsync_enabled() {
+            return Err(hypr_db_core::CloudsyncRuntimeError::Unavailable.into());
+        }
+
+        if !self.claim_cloudsync_workspace(workspace_id).await? {
+            return Ok(crate::CloudsyncTokenConfigurationResult::AccountMismatch);
         }
 
         self.apply_cloudsync_config_fail_closed(hypr_db_core::CloudsyncRuntimeConfig {
@@ -150,10 +154,25 @@ impl PluginDbRuntime {
             max_retries: Some(3),
         })
         .await?;
-        Ok(true)
+        Ok(crate::CloudsyncTokenConfigurationResult::Configured)
     }
 
-    pub async fn claim_cloudsync_account(&self, account_user_id: String) -> Result<bool> {
+    pub async fn bind_cloudsync_account(&self, account_user_id: String) -> Result<bool> {
+        self.ensure_app_schema().await?;
+        match hypr_db_app::bind_cloudsync_account(self.db.pool(), &account_user_id).await {
+            Ok(()) => Ok(true),
+            Err(hypr_db_app::CloudsyncWorkspaceError::AccountMismatch) => {
+                self.db.cloudsync_suspend().await?;
+                Ok(false)
+            }
+            Err(error) => {
+                let _ = self.db.cloudsync_suspend().await;
+                Err(error.into())
+            }
+        }
+    }
+
+    async fn claim_cloudsync_workspace(&self, account_user_id: String) -> Result<bool> {
         self.ensure_app_schema().await?;
         match hypr_db_app::cloudsync_workspace_is_claimed_by(self.db.pool(), &account_user_id).await
         {
@@ -161,6 +180,9 @@ impl PluginDbRuntime {
             Ok(false) => {}
             Err(error) => {
                 let _ = self.db.cloudsync_suspend().await;
+                if is_permanent_cloudsync_workspace_rejection(&error) {
+                    return Ok(false);
+                }
                 return Err(error.into());
             }
         }
@@ -168,7 +190,7 @@ impl PluginDbRuntime {
         self.db.cloudsync_suspend().await?;
         match hypr_db_app::claim_cloudsync_workspace(self.db.pool(), &account_user_id).await {
             Ok(()) => Ok(true),
-            Err(hypr_db_app::CloudsyncWorkspaceError::AccountMismatch) => Ok(false),
+            Err(error) if is_permanent_cloudsync_workspace_rejection(&error) => Ok(false),
             Err(error) => Err(error.into()),
         }
     }
@@ -223,6 +245,18 @@ impl PluginDbRuntime {
     }
 }
 
+fn is_permanent_cloudsync_workspace_rejection(
+    error: &hypr_db_app::CloudsyncWorkspaceError,
+) -> bool {
+    matches!(
+        error,
+        hypr_db_app::CloudsyncWorkspaceError::InvalidWorkspaceId
+            | hypr_db_app::CloudsyncWorkspaceError::InvalidBinding
+            | hypr_db_app::CloudsyncWorkspaceError::AccountMismatch
+            | hypr_db_app::CloudsyncWorkspaceError::ForeignWorkspace { .. }
+    )
+}
+
 fn bind_params<'q>(
     mut query: sqlx::query::Query<'q, sqlx::Sqlite, sqlx::sqlite::SqliteArguments>,
     params: &[serde_json::Value],
@@ -252,23 +286,243 @@ pub async fn open_app_db(db_path: Option<&Path>) -> Result<Db> {
         None => DbStorage::Memory,
     };
 
-    let db = Db::open(DbOpenOptions {
+    match Db::open(app_db_open_options(storage, true)).await {
+        Ok(db) => {
+            hypr_db_app::prepare_schema(&db).await?;
+            Ok(db)
+        }
+        Err(cloudsync_error) => {
+            let probe_error = match probe_cloudsync_extension().await {
+                Ok(()) => return Err(cloudsync_error.into()),
+                Err(error) => error,
+            };
+            open_app_db_without_cloudsync(storage, cloudsync_error, probe_error).await
+        }
+    }
+}
+
+fn app_db_open_options(storage: DbStorage<'_>, cloudsync_enabled: bool) -> DbOpenOptions<'_> {
+    DbOpenOptions {
         storage,
-        cloudsync_enabled: true,
+        cloudsync_enabled,
         journal_mode_wal: true,
         foreign_keys: true,
         max_connections: Some(4),
-    })
-    .await?;
+    }
+}
 
-    hypr_db_app::prepare_schema(&db).await?;
+async fn probe_cloudsync_extension() -> std::result::Result<(), DbOpenError> {
+    let db = Db::open(app_db_open_options(DbStorage::Memory, true)).await?;
+    db.pool().close().await;
+    Ok(())
+}
 
+async fn open_app_db_without_cloudsync(
+    storage: DbStorage<'_>,
+    cloudsync_error: DbOpenError,
+    probe_error: DbOpenError,
+) -> Result<Db> {
+    let db = Db::open(app_db_open_options(storage, false)).await?;
+    if database_uses_cloudsync_schema(&db).await? {
+        db.pool().close().await;
+        tracing::error!(
+            %cloudsync_error,
+            %probe_error,
+            "cloudsync extension is unavailable for an initialized local replica"
+        );
+        return Err(cloudsync_error.into());
+    }
+
+    if let Err(error) = hypr_db_app::prepare_schema(&db).await {
+        db.pool().close().await;
+        return Err(error.into());
+    }
+
+    tracing::warn!(
+        %cloudsync_error,
+        %probe_error,
+        "cloudsync extension is unavailable; opened the app database in local-only mode"
+    );
     Ok(db)
+}
+
+async fn database_uses_cloudsync_schema(db: &Db) -> std::result::Result<bool, sqlx::Error> {
+    sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1
+            FROM sqlite_master
+            WHERE (type = 'table' AND name = 'cloudsync_table_settings')
+               OR (type = 'trigger' AND instr(lower(COALESCE(sql, '')), 'cloudsync_') > 0)
+        )",
+    )
+    .fetch_one(db.pool())
+    .await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn unavailable_extension_error() -> DbOpenError {
+        DbOpenError::Io(std::io::Error::other("cloudsync extension unavailable"))
+    }
+
+    fn failed_extension_probe_error() -> DbOpenError {
+        DbOpenError::Io(std::io::Error::other("cloudsync extension probe failed"))
+    }
+
+    #[tokio::test]
+    async fn cloudsync_open_failure_falls_back_for_uninitialized_database() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("app.db");
+
+        let db = open_app_db_without_cloudsync(
+            DbStorage::Local(&db_path),
+            unavailable_extension_error(),
+            failed_extension_probe_error(),
+        )
+        .await
+        .unwrap();
+
+        assert!(!db.cloudsync_enabled());
+        let sessions_exists: bool = sqlx::query_scalar(
+            "SELECT EXISTS(
+                SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'sessions'
+            )",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert!(sessions_exists);
+    }
+
+    #[cfg(any(
+        all(target_os = "macos", target_arch = "aarch64"),
+        all(target_os = "macos", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "x86_64"),
+        all(target_os = "windows", target_arch = "x86_64"),
+    ))]
+    #[tokio::test]
+    async fn extension_open_without_initialized_tables_allows_plain_fallback() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("app.db");
+        let db = Db::open(DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_enabled: true,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .await
+        .unwrap();
+        db.pool().close().await;
+        drop(db);
+
+        let db = open_app_db_without_cloudsync(
+            DbStorage::Local(&db_path),
+            unavailable_extension_error(),
+            failed_extension_probe_error(),
+        )
+        .await
+        .unwrap();
+
+        assert!(!db.cloudsync_enabled());
+        assert!(!database_uses_cloudsync_schema(&db).await.unwrap());
+    }
+
+    #[cfg(any(
+        all(target_os = "macos", target_arch = "aarch64"),
+        all(target_os = "macos", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "x86_64"),
+        all(target_os = "windows", target_arch = "x86_64"),
+    ))]
+    #[tokio::test]
+    async fn cloudsync_open_failure_does_not_migrate_initialized_replica_plainly() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("app.db");
+        let db = Db::open(DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_enabled: true,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .await
+        .unwrap();
+        sqlx::query(
+            "CREATE TABLE items (
+                id TEXT PRIMARY KEY NOT NULL,
+                value TEXT NOT NULL DEFAULT ''
+            )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        db.cloudsync_init("items", None, None).await.unwrap();
+        db.pool().close().await;
+        drop(db);
+
+        let error = open_app_db_without_cloudsync(
+            DbStorage::Local(&db_path),
+            unavailable_extension_error(),
+            failed_extension_probe_error(),
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(error, crate::Error::Db(DbOpenError::Io(_))));
+        let plain = Db::connect_local_plain(&db_path).await.unwrap();
+        let sessions_exists: bool = sqlx::query_scalar(
+            "SELECT EXISTS(
+                SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'sessions'
+            )",
+        )
+        .fetch_one(plain.pool())
+        .await
+        .unwrap();
+        assert!(!sessions_exists);
+    }
+
+    #[tokio::test]
+    async fn cloudsync_open_fallback_propagates_schema_errors() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("app.db");
+        let db = Db::open(app_db_open_options(DbStorage::Local(&db_path), false))
+            .await
+            .unwrap();
+        hypr_db_app::prepare_schema(&db).await.unwrap();
+        sqlx::query(
+            "UPDATE app_settings
+             SET value_json = 'not-json'
+             WHERE id = 'cloudsync_workspace_binding'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        db.pool().close().await;
+        drop(db);
+
+        let error = open_app_db_without_cloudsync(
+            DbStorage::Local(&db_path),
+            unavailable_extension_error(),
+            failed_extension_probe_error(),
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            crate::Error::AppSchema(hypr_db_app::AppSchemaError::CloudsyncWorkspace(
+                hypr_db_app::CloudsyncWorkspaceError::InvalidBinding
+            ))
+        ));
+    }
 
     #[tokio::test]
     async fn failed_cloudsync_start_clears_new_credentials() {

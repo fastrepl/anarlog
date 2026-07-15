@@ -121,10 +121,7 @@ pub async fn cloudsync_workspace_is_claimed_by(
     pool: &SqlitePool,
     account_user_id: &str,
 ) -> Result<bool, CloudsyncWorkspaceError> {
-    let account_user_id = account_user_id.trim();
-    if account_user_id.is_empty() || account_user_id == LEGACY_DEFAULT_USER_ID {
-        return Err(CloudsyncWorkspaceError::InvalidWorkspaceId);
-    }
+    let account_user_id = validated_account_user_id(account_user_id)?;
 
     let Some(value_json) =
         sqlx::query_scalar::<_, String>("SELECT value_json FROM app_settings WHERE id = ?")
@@ -136,17 +133,46 @@ pub async fn cloudsync_workspace_is_claimed_by(
     };
     let binding = parse_binding(&value_json)?;
 
-    Ok(binding.account_user_id.as_deref() == Some(account_user_id))
+    Ok(binding.workspace_id == account_user_id
+        && binding.account_user_id.as_deref() == Some(account_user_id))
+}
+
+pub async fn bind_cloudsync_account(
+    pool: &SqlitePool,
+    account_user_id: &str,
+) -> Result<(), CloudsyncWorkspaceError> {
+    let account_user_id = validated_account_user_id(account_user_id)?;
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let binding = load_or_create_binding(&mut transaction).await?;
+
+    if binding
+        .account_user_id
+        .as_deref()
+        .is_some_and(|id| id != account_user_id)
+    {
+        return Err(CloudsyncWorkspaceError::AccountMismatch);
+    }
+
+    if binding.account_user_id.is_none() {
+        save_binding(
+            &mut transaction,
+            &CloudsyncWorkspaceBinding {
+                workspace_id: binding.workspace_id,
+                account_user_id: Some(account_user_id.to_string()),
+            },
+        )
+        .await?;
+    }
+
+    transaction.commit().await?;
+    Ok(())
 }
 
 pub async fn claim_cloudsync_workspace(
     pool: &SqlitePool,
     account_user_id: &str,
 ) -> Result<(), CloudsyncWorkspaceError> {
-    let account_user_id = account_user_id.trim();
-    if account_user_id.is_empty() || account_user_id == LEGACY_DEFAULT_USER_ID {
-        return Err(CloudsyncWorkspaceError::InvalidWorkspaceId);
-    }
+    let account_user_id = validated_account_user_id(account_user_id)?;
 
     let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     let binding = load_or_create_binding(&mut transaction).await?;
@@ -221,6 +247,14 @@ pub async fn claim_cloudsync_workspace(
     }
     transaction.commit().await?;
     Ok(())
+}
+
+fn validated_account_user_id(account_user_id: &str) -> Result<&str, CloudsyncWorkspaceError> {
+    let account_user_id = account_user_id.trim();
+    if account_user_id.is_empty() || account_user_id == LEGACY_DEFAULT_USER_ID {
+        return Err(CloudsyncWorkspaceError::InvalidWorkspaceId);
+    }
+    Ok(account_user_id)
 }
 
 async fn rekey_local_user_identity(
@@ -383,6 +417,90 @@ mod tests {
 
         assert_eq!(first, second);
         assert!(!first.is_empty());
+    }
+
+    #[tokio::test]
+    async fn account_binding_is_durable_without_rekeying_rows() {
+        let db = test_db().await;
+        let local_workspace = ensure_cloudsync_workspace_binding(db.pool()).await.unwrap();
+
+        sqlx::query(
+            "INSERT INTO humans (id, workspace_id, owner_user_id, name)
+             VALUES (?, ?, ?, 'Local user')",
+        )
+        .bind(&local_workspace)
+        .bind(&local_workspace)
+        .bind(&local_workspace)
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session', ?, ?, 'Session')",
+        )
+        .bind(&local_workspace)
+        .bind(&local_workspace)
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        bind_cloudsync_account(db.pool(), "user-a").await.unwrap();
+
+        let binding: (String, String) = sqlx::query_as(
+            "SELECT json_extract(value_json, '$.workspace_id'),
+                    json_extract(value_json, '$.account_user_id')
+             FROM app_settings WHERE id = 'cloudsync_workspace_binding'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        let human: (String, String, String) = sqlx::query_as(
+            "SELECT id, workspace_id, owner_user_id FROM humans WHERE name = 'Local user'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        let session: (String, String) =
+            sqlx::query_as("SELECT workspace_id, owner_user_id FROM sessions WHERE id = 'session'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+
+        assert_eq!(binding, (local_workspace.clone(), "user-a".to_string()));
+        assert_eq!(
+            human,
+            (
+                local_workspace.clone(),
+                local_workspace.clone(),
+                local_workspace.clone(),
+            )
+        );
+        assert_eq!(session, (local_workspace.clone(), local_workspace));
+        assert!(
+            !cloudsync_workspace_is_claimed_by(db.pool(), "user-a")
+                .await
+                .unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn account_binding_rejects_switching_before_and_after_claim() {
+        let db = test_db().await;
+
+        bind_cloudsync_account(db.pool(), "user-a").await.unwrap();
+        let error = bind_cloudsync_account(db.pool(), "user-b")
+            .await
+            .unwrap_err();
+        assert!(matches!(error, CloudsyncWorkspaceError::AccountMismatch));
+
+        claim_cloudsync_workspace(db.pool(), "user-a")
+            .await
+            .unwrap();
+        bind_cloudsync_account(db.pool(), "user-a").await.unwrap();
+        let error = bind_cloudsync_account(db.pool(), "user-b")
+            .await
+            .unwrap_err();
+        assert!(matches!(error, CloudsyncWorkspaceError::AccountMismatch));
     }
 
     #[tokio::test]

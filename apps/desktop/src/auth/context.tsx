@@ -7,18 +7,11 @@ import {
 } from "@supabase/supabase-js";
 import { useMutation } from "@tanstack/react-query";
 import { getVersion } from "@tauri-apps/api/app";
+import { emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { version as osVersion, platform } from "@tauri-apps/plugin-os";
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as authPluginCommands } from "@hypr/plugin-auth";
@@ -27,15 +20,18 @@ import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { openUrlWithInstruction } from "@hypr/plugin-windows";
 import { deriveBillingInfo } from "@hypr/supabase";
 
+import { AuthContext } from "./auth-context";
 import { persistAuthSession, supabase } from "./client";
 import {
-  claimCloudsyncAccountForAuth,
+  bindCloudsyncAccountForAuth,
   handleCloudsyncAuthChange,
   prepareCloudsyncSignOut,
   refreshCloudsyncForSession,
 } from "./cloudsync";
 import { clearAuthStorage, isFatalSessionError } from "./errors";
 
+import { useLatestRef } from "~/shared/hooks/useLatestRef";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
   buildWebAppUrl,
   DEVICE_FINGERPRINT_HEADER,
@@ -43,48 +39,20 @@ import {
   id,
 } from "~/shared/utils";
 
-type AuthState = {
-  supabase: SupabaseClient | null;
-  // undefined = initial load in progress, null = known unauthenticated
-  session: Session | null | undefined;
-  isRefreshingSession: boolean;
+const AUTH_SIGN_OUT_REQUEST_EVENT = "hypr:auth-sign-out-request";
+const AUTH_SIGN_OUT_RESULT_EVENT = "hypr:auth-sign-out-result";
+const AUTH_SIGN_OUT_TIMEOUT_MS = 10_000;
+
+type AuthSignOutRequestPayload = {
+  requestId: string;
+  sourceLabel: string;
 };
 
-type AuthActions = {
-  signIn: () => Promise<void>;
-  signOut: () => Promise<void>;
-  refreshSession: () => Promise<Session | null>;
+type AuthSignOutResultPayload = {
+  requestId: string;
+  completed: boolean;
+  error: string | null;
 };
-
-type AuthTokenHandlers = {
-  handleAuthCallback: (url: string) => Promise<void>;
-  setSessionFromTokens: (
-    accessToken: string,
-    refreshToken: string,
-  ) => Promise<void>;
-};
-
-type AuthUtils = {
-  getHeaders: () => Record<string, string> | null;
-  getAvatarUrl: () => Promise<string | null>;
-};
-
-export type AuthContextType = AuthState &
-  AuthActions &
-  AuthTokenHandlers &
-  AuthUtils;
-
-const AuthContext = createContext<AuthContextType | null>(null);
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-
-  if (!context) {
-    throw new Error("'useAuth' must be used within an 'AuthProvider'");
-  }
-
-  return context;
-}
 
 async function loadInitialSession(
   client: SupabaseClient,
@@ -186,16 +154,125 @@ async function trackAuthEvent(
   }
 }
 
+function isAuthSignOutRequestPayload(
+  payload: unknown,
+): payload is AuthSignOutRequestPayload {
+  if (!payload || typeof payload !== "object") {
+    return false;
+  }
+
+  const candidate = payload as Partial<AuthSignOutRequestPayload>;
+  return (
+    typeof candidate.requestId === "string" &&
+    candidate.requestId.length > 0 &&
+    typeof candidate.sourceLabel === "string" &&
+    candidate.sourceLabel.length > 0
+  );
+}
+
+function isAuthSignOutResultPayload(
+  payload: unknown,
+): payload is AuthSignOutResultPayload {
+  if (!payload || typeof payload !== "object") {
+    return false;
+  }
+
+  const candidate = payload as Partial<AuthSignOutResultPayload>;
+  return (
+    typeof candidate.requestId === "string" &&
+    typeof candidate.completed === "boolean" &&
+    (candidate.error === null || typeof candidate.error === "string")
+  );
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function requestMainSignOut(sourceLabel: string): Promise<boolean> {
+  const requestId = id();
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  let resolveResult!: (completed: boolean) => void;
+  let rejectResult!: (error: Error) => void;
+  const result = new Promise<boolean>((resolve, reject) => {
+    resolveResult = resolve;
+    rejectResult = reject;
+  });
+  const unlisten = await listen<AuthSignOutResultPayload>(
+    AUTH_SIGN_OUT_RESULT_EVENT,
+    (event) => {
+      if (
+        !isAuthSignOutResultPayload(event.payload) ||
+        event.payload.requestId !== requestId
+      ) {
+        return;
+      }
+
+      if (event.payload.error) {
+        rejectResult(new Error(event.payload.error));
+      } else {
+        resolveResult(event.payload.completed);
+      }
+    },
+  );
+
+  timeout = setTimeout(() => {
+    rejectResult(new Error("Main window did not acknowledge sign-out"));
+  }, AUTH_SIGN_OUT_TIMEOUT_MS);
+
+  try {
+    const [, completed] = await Promise.all([
+      emitTo("main", AUTH_SIGN_OUT_REQUEST_EVENT, {
+        requestId,
+        sourceLabel,
+      } satisfies AuthSignOutRequestPayload),
+      result,
+    ]);
+    return completed;
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    unlisten();
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [fingerprint, setFingerprint] = useState<string | null>(null);
-  const managesCloudsync = getCurrentWebviewWindow().label === "main";
+  const currentWindowLabel = getCurrentWebviewWindow().label;
+  const managesCloudsync = currentWindowLabel === "main";
   // Prevents double initSession in React StrictMode, which can cause refresh token races
   const initStartedRef = useRef(false);
   const authTransitionRef = useRef(0);
+  const authTransitionEventRef = useRef<AuthChangeEvent | null>(null);
   const nonInitialAuthTransitionRef = useRef(0);
   const authTransitionQueueRef = useRef(Promise.resolve());
   const authStorageRevisionRef = useRef(0);
+  const coordinatedMainSignOutRef = useRef<Promise<boolean> | null>(null);
+
+  const coordinateMainSignOut = useCallback(() => {
+    const existing = coordinatedMainSignOutRef.current;
+    if (existing) {
+      return existing;
+    }
+
+    const request = requestMainSignOut(currentWindowLabel);
+    coordinatedMainSignOutRef.current = request;
+    void request.then(
+      (completed) => {
+        if (!completed && coordinatedMainSignOutRef.current === request) {
+          coordinatedMainSignOutRef.current = null;
+        }
+      },
+      () => {
+        if (coordinatedMainSignOutRef.current === request) {
+          coordinatedMainSignOutRef.current = null;
+        }
+      },
+    );
+    return request;
+  }, [currentWindowLabel]);
 
   useEffect(() => {
     miscCommands.getFingerprint().then((result) => {
@@ -241,9 +318,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const rejectAuthChange = useCallback(
-    async (transition: number, invalidateClientSession = false) => {
+    async (
+      transition: number,
+      invalidateClientSession = false,
+      mainSignOutCompleted = false,
+    ) => {
       if (transition !== authTransitionRef.current) {
         return;
+      }
+
+      if (
+        invalidateClientSession &&
+        !managesCloudsync &&
+        !mainSignOutCompleted
+      ) {
+        let completed: boolean;
+        try {
+          completed = await coordinateMainSignOut();
+        } catch {
+          console.warn("[auth] rejected session could not be routed to main");
+          return;
+        }
+
+        if (!completed || transition !== authTransitionRef.current) {
+          return;
+        }
       }
 
       if (invalidateClientSession && supabase) {
@@ -287,7 +386,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(null);
       }
     },
-    [managesCloudsync],
+    [coordinateMainSignOut, managesCloudsync],
   );
 
   const applyAuthChange = useCallback(
@@ -303,9 +402,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (clearStorage || event === "SIGNED_OUT") {
+        let mainSignOutCompleted = false;
+        if (event === "SIGNED_OUT" && !managesCloudsync) {
+          trackedIdentifySignature = null;
+          trackedSignedInUserId = null;
+          setSession(null);
+
+          try {
+            mainSignOutCompleted = await coordinateMainSignOut();
+          } catch {
+            console.warn("[auth] sign-out could not be routed to main");
+            return;
+          }
+
+          if (
+            !mainSignOutCompleted ||
+            transition !== authTransitionRef.current
+          ) {
+            return;
+          }
+        }
+
         await rejectAuthChange(
           transition,
           clearStorage && event !== "SIGNED_OUT",
+          mainSignOutCompleted,
         );
         return;
       }
@@ -316,7 +437,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (nextSession) {
         try {
-          const claimed = await claimCloudsyncAccountForAuth(
+          const claimed = await bindCloudsyncAccountForAuth(
             nextSession.user.id,
           );
           if (transition !== authTransitionRef.current) {
@@ -368,7 +489,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const result = await handleCloudsyncAuthChange(event, nextSession);
+      const rejectAccountMismatch = () => rejectAuthChange(transition, true);
+      const result = await handleCloudsyncAuthChange(
+        event,
+        nextSession,
+        rejectAccountMismatch,
+      );
       if (
         result !== "account_mismatch" ||
         transition !== authTransitionRef.current
@@ -376,9 +502,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      await rejectAuthChange(transition, true);
+      await rejectAccountMismatch();
     },
-    [managesCloudsync, rejectAuthChange],
+    [coordinateMainSignOut, managesCloudsync, rejectAuthChange],
   );
 
   const enqueueAuthChange = useCallback(
@@ -387,6 +513,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       nextSession: Session | null,
       clearStorage = false,
     ) => {
+      if (event !== "SIGNED_OUT") {
+        coordinatedMainSignOutRef.current = null;
+      }
+      authTransitionEventRef.current = event;
       const transition = ++authTransitionRef.current;
       const storageRevision = authStorageRevisionRef.current;
       const apply = () =>
@@ -479,16 +609,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log("[auth] startAutoRefresh: window regained focus");
           void client.auth.startAutoRefresh();
           if (managesCloudsync) {
-            void client.auth
-              .getSession()
-              .then(({ data, error }) => {
-                if (!cancelled && !error && data.session) {
-                  void refreshCloudsyncForSession(data.session);
+            void (async () => {
+              const transition = authTransitionRef.current;
+              try {
+                const { data, error } = await client.auth.getSession();
+                if (
+                  cancelled ||
+                  error ||
+                  !data.session ||
+                  transition !== authTransitionRef.current
+                ) {
+                  return;
                 }
-              })
-              .catch(() => {
+
+                const currentSession = data.session;
+                if (
+                  !currentSession.expires_at ||
+                  currentSession.expires_at * 1000 <= Date.now() + 120_000
+                ) {
+                  const refreshed = await client.auth.refreshSession();
+                  if (cancelled || refreshed.error || !refreshed.data.session) {
+                    return;
+                  }
+                  return;
+                }
+
+                if (cancelled || transition !== authTransitionRef.current) {
+                  return;
+                }
+
+                const rejectAccountMismatch = async () => {
+                  if (cancelled || transition !== authTransitionRef.current) {
+                    return;
+                  }
+
+                  await rejectAuthChange(transition, true);
+                };
+                const result = await refreshCloudsyncForSession(
+                  currentSession,
+                  rejectAccountMismatch,
+                );
+                if (
+                  cancelled ||
+                  result !== "account_mismatch" ||
+                  transition !== authTransitionRef.current
+                ) {
+                  return;
+                }
+
+                await rejectAccountMismatch();
+              } catch {
                 console.warn("[cloudsync] session recovery failed");
-              });
+              }
+            })();
           }
         }
       })
@@ -506,7 +679,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       unlisten?.();
       void client.auth.stopAutoRefresh();
     };
-  }, [managesCloudsync]);
+  }, [managesCloudsync, rejectAuthChange]);
 
   const signIn = useCallback(async () => {
     const url = await buildWebAppUrl("/auth");
@@ -515,24 +688,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
-  const signOut = useCallback(async () => {
+  const signOutFromMain = useCallback(async (): Promise<boolean> => {
     if (!supabase) {
-      return;
-    }
-
-    const currentSession = session;
-    if (currentSession && managesCloudsync) {
-      await prepareCloudsyncSignOut(currentSession);
+      return false;
     }
 
     const transition = authTransitionRef.current;
+    const currentSession = session;
+    const rejectAccountMismatch = () => rejectAuthChange(transition, true);
+    await prepareCloudsyncSignOut(currentSession, rejectAccountMismatch);
+
+    if (transition !== authTransitionRef.current) {
+      return authTransitionEventRef.current === "SIGNED_OUT";
+    }
+
     let shouldCleanUp = false;
     let signOutError: unknown = null;
 
     try {
       const { error } = await supabase.auth.signOut({ scope: "local" });
       if (transition !== authTransitionRef.current) {
-        return;
+        return authTransitionEventRef.current === "SIGNED_OUT";
       }
 
       if (error) {
@@ -549,7 +725,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (e) {
       if (transition !== authTransitionRef.current) {
-        return;
+        return authTransitionEventRef.current === "SIGNED_OUT";
       }
 
       if (
@@ -563,18 +739,101 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (signOutError) {
-      if (currentSession && managesCloudsync) {
-        await handleCloudsyncAuthChange("TOKEN_REFRESHED", currentSession);
+      if (currentSession) {
+        const result = await handleCloudsyncAuthChange(
+          "TOKEN_REFRESHED",
+          currentSession,
+          rejectAccountMismatch,
+        );
+        if (result === "account_mismatch") {
+          await rejectAccountMismatch();
+          return true;
+        }
       }
       throw signOutError;
     }
 
     if (!shouldCleanUp || transition !== authTransitionRef.current) {
-      return;
+      return false;
     }
 
     await enqueueAuthChange("SIGNED_OUT", null);
-  }, [enqueueAuthChange, managesCloudsync, session]);
+    return true;
+  }, [enqueueAuthChange, rejectAuthChange, session]);
+  const signOutFromMainRef = useLatestRef(signOutFromMain);
+
+  useMountEffect(() => {
+    if (!managesCloudsync) {
+      return;
+    }
+
+    let active = true;
+    let unlisten: (() => void) | null = null;
+
+    void listen<AuthSignOutRequestPayload>(
+      AUTH_SIGN_OUT_REQUEST_EVENT,
+      (event) => {
+        if (!active || !isAuthSignOutRequestPayload(event.payload)) {
+          return;
+        }
+
+        const request = event.payload;
+        void signOutFromMainRef
+          .current()
+          .then(
+            (completed) =>
+              emitTo(request.sourceLabel, AUTH_SIGN_OUT_RESULT_EVENT, {
+                requestId: request.requestId,
+                completed,
+                error: null,
+              } satisfies AuthSignOutResultPayload),
+            (error) =>
+              emitTo(request.sourceLabel, AUTH_SIGN_OUT_RESULT_EVENT, {
+                requestId: request.requestId,
+                completed: false,
+                error: getErrorMessage(error),
+              } satisfies AuthSignOutResultPayload),
+          )
+          .catch(() => {
+            console.warn("[auth] sign-out acknowledgement failed");
+          });
+      },
+    )
+      .then((fn) => {
+        if (active) {
+          unlisten = fn;
+        } else {
+          fn();
+        }
+      })
+      .catch(() => {
+        console.warn("[auth] main-window sign-out bridge failed to initialize");
+      });
+
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  });
+
+  const signOut = useCallback(async () => {
+    if (managesCloudsync) {
+      await signOutFromMain();
+      return;
+    }
+
+    const transition = authTransitionRef.current;
+    const completed = await coordinateMainSignOut();
+    if (!completed || transition !== authTransitionRef.current) {
+      return;
+    }
+    await rejectAuthChange(transition, true, true);
+  }, [
+    coordinateMainSignOut,
+    managesCloudsync,
+    rejectAuthChange,
+    signOutFromMain,
+  ]);
 
   const refreshSessionMutation = useMutation({
     mutationFn: async (): Promise<Session | null> => {

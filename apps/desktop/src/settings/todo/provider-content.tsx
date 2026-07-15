@@ -12,7 +12,7 @@ import { GitHubTodoProviderContent } from "./github";
 import type { TodoProvider } from "./shared";
 
 import { useAuth } from "~/auth";
-import { useBillingAccess } from "~/auth/billing";
+import { useBillingAccess } from "~/auth/billing-context";
 import { useConnections } from "~/auth/useConnections";
 import {
   AccessPermissionRow,

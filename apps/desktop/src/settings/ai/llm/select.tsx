@@ -17,7 +17,7 @@ import { getDefaultLlmSelection, getPreferredProviderModel } from "./selection";
 import { type Provider, PROVIDERS } from "./shared";
 
 import { useAuth } from "~/auth";
-import { useBillingAccess } from "~/auth/billing";
+import { useBillingAccess } from "~/auth/billing-context";
 import { providerRowId, ProviderIconSlot } from "~/settings/ai/shared";
 import {
   getProviderSelectionBlockers,

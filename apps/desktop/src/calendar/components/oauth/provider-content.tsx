@@ -14,7 +14,7 @@ import {
 import { ReconnectRequiredIndicator } from "./status";
 
 import { useAuth } from "~/auth";
-import { useBillingAccess } from "~/auth/billing";
+import { useBillingAccess } from "~/auth/billing-context";
 import { useConnections } from "~/auth/useConnections";
 import type { CalendarProvider } from "~/calendar/components/shared";
 import { openIntegrationUrl } from "~/shared/integration";

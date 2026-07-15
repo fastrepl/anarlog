@@ -11,7 +11,7 @@ import {
   type LocalModel,
 } from "@hypr/plugin-local-stt";
 
-import { useBillingAccess } from "~/auth/billing";
+import { useBillingAccess } from "~/auth/billing-context";
 import { useToastAction } from "~/store/zustand/toast-action";
 
 type SttSettingsContextType = {

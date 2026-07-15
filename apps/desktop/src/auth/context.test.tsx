@@ -10,15 +10,20 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AuthProvider, useAuth } from "./context";
+import { useAuth } from "./auth-context";
+import * as authProviderModule from "./context";
+
+const { AuthProvider } = authProviderModule;
 
 const mocks = vi.hoisted(() => ({
   authCallback: null as
     | ((event: AuthChangeEvent, session: Session | null) => void)
     | null,
-  claimCloudsyncAccountForAuth: vi.fn(),
+  bindCloudsyncAccountForAuth: vi.fn(),
   clearAuthStorage: vi.fn(),
   currentWebviewWindowLabel: "main",
+  emitTo: vi.fn(),
+  eventCallbacks: new Map<string, (event: { payload: unknown }) => void>(),
   focusCallback: null as ((event: { payload: boolean }) => void) | null,
   getSession: vi.fn(),
   handleCloudsyncAuthChange: vi.fn(),
@@ -61,7 +66,7 @@ vi.mock("./client", () => ({
 }));
 
 vi.mock("./cloudsync", () => ({
-  claimCloudsyncAccountForAuth: mocks.claimCloudsyncAccountForAuth,
+  bindCloudsyncAccountForAuth: mocks.bindCloudsyncAccountForAuth,
   handleCloudsyncAuthChange: mocks.handleCloudsyncAuthChange,
   prepareCloudsyncSignOut: mocks.prepareCloudsyncSignOut,
   refreshCloudsyncForSession: mocks.refreshCloudsyncForSession,
@@ -109,6 +114,20 @@ vi.mock("@hypr/supabase", () => ({
 
 vi.mock("@tauri-apps/api/app", () => ({
   getVersion: vi.fn().mockResolvedValue("1.0.0"),
+}));
+
+vi.mock("@tauri-apps/api/event", () => ({
+  emitTo: mocks.emitTo,
+  listen: vi.fn(
+    (event: string, callback: (event: { payload: unknown }) => void) => {
+      mocks.eventCallbacks.set(event, callback);
+      return Promise.resolve(() => {
+        if (mocks.eventCallbacks.get(event) === callback) {
+          mocks.eventCallbacks.delete(event);
+        }
+      });
+    },
+  ),
 }));
 
 vi.mock("@tauri-apps/api/webviewWindow", () => ({
@@ -164,11 +183,14 @@ function makeSession(userId: string): Session {
 }
 
 function SessionProbe() {
-  const { refreshSession, session, signOut } = useAuth();
+  const { getHeaders, refreshSession, session, signOut } = useAuth();
   return (
     <>
       <div data-testid="session">{session?.user.id ?? "none"}</div>
       <div data-testid="access-token">{session?.access_token ?? "none"}</div>
+      <div data-testid="authorization">
+        {getHeaders()?.Authorization ?? "none"}
+      </div>
       <button onClick={() => void refreshSession().catch(() => {})}>
         Refresh
       </button>
@@ -195,11 +217,17 @@ function renderAuthProvider() {
 }
 
 describe("AuthProvider", () => {
+  it("keeps the provider module compatible with Fast Refresh", () => {
+    expect(Object.keys(authProviderModule)).toEqual(["AuthProvider"]);
+  });
+
   beforeEach(() => {
     mocks.authCallback = null;
-    mocks.claimCloudsyncAccountForAuth.mockReset();
+    mocks.bindCloudsyncAccountForAuth.mockReset();
     mocks.clearAuthStorage.mockReset();
     mocks.currentWebviewWindowLabel = "main";
+    mocks.emitTo.mockReset();
+    mocks.eventCallbacks.clear();
     mocks.focusCallback = null;
     mocks.getSession.mockReset();
     mocks.handleCloudsyncAuthChange.mockReset();
@@ -211,8 +239,9 @@ describe("AuthProvider", () => {
     mocks.signOut.mockReset();
     mocks.startAutoRefresh.mockReset();
     mocks.stopAutoRefresh.mockReset();
+    mocks.bindCloudsyncAccountForAuth.mockResolvedValue(true);
     mocks.clearAuthStorage.mockResolvedValue(undefined);
-    mocks.claimCloudsyncAccountForAuth.mockResolvedValue(true);
+    mocks.emitTo.mockResolvedValue(undefined);
     mocks.getSession.mockImplementation(() => new Promise(() => {}));
     mocks.handleCloudsyncAuthChange.mockResolvedValue("ok");
     mocks.isFatalSessionError.mockReturnValue(false);
@@ -253,8 +282,102 @@ describe("AuthProvider", () => {
     await waitFor(() => {
       expect(mocks.refreshCloudsyncForSession).toHaveBeenCalledWith(
         currentSession,
+        expect.any(Function),
       );
     });
+    expect(mocks.refreshSession).not.toHaveBeenCalled();
+  });
+
+  it("rejects a mismatched account found during focus recovery", async () => {
+    const foreignSession = makeSession("foreign-account");
+    mocks.refreshCloudsyncForSession.mockResolvedValueOnce("account_mismatch");
+    mocks.signOut.mockImplementationOnce(async () => {
+      mocks.authCallback?.("SIGNED_OUT", null);
+      return { error: null };
+    });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+      expect(mocks.focusCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", foreignSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        foreignSession.user.id,
+      );
+    });
+
+    mocks.getSession.mockResolvedValueOnce({
+      data: { session: foreignSession },
+      error: null,
+    });
+
+    act(() => {
+      mocks.focusCallback?.({ payload: true });
+    });
+
+    await waitFor(() => {
+      expect(mocks.handleCloudsyncAuthChange).toHaveBeenCalledWith(
+        "SIGNED_OUT",
+        null,
+      );
+    });
+
+    expect(mocks.refreshCloudsyncForSession).toHaveBeenCalledWith(
+      foreignSession,
+      expect.any(Function),
+    );
+    expect(mocks.stopAutoRefresh).toHaveBeenCalled();
+    expect(mocks.signOut).toHaveBeenCalledTimes(1);
+    expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("session").textContent).toBe("none");
+  });
+
+  it("refreshes an expiring session before cloudsync when focus returns", async () => {
+    const staleSession = makeSession("bound-account");
+    staleSession.expires_at = Math.floor(Date.now() / 1000) + 60;
+    const refreshedSession = makeSession("bound-account");
+    refreshedSession.access_token = "refreshed-access-token";
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.focusCallback).not.toBeNull();
+    });
+
+    mocks.getSession.mockResolvedValueOnce({
+      data: { session: staleSession },
+      error: null,
+    });
+    mocks.refreshSession.mockImplementationOnce(async () => {
+      mocks.authCallback?.("TOKEN_REFRESHED", refreshedSession);
+      return {
+        data: { session: refreshedSession },
+        error: null,
+      };
+    });
+
+    act(() => {
+      mocks.focusCallback?.({ payload: true });
+    });
+
+    await waitFor(() => {
+      expect(mocks.refreshSession).toHaveBeenCalledTimes(1);
+      expect(mocks.handleCloudsyncAuthChange).toHaveBeenCalledWith(
+        "TOKEN_REFRESHED",
+        refreshedSession,
+        expect.any(Function),
+      );
+    });
+    expect(mocks.refreshCloudsyncForSession).not.toHaveBeenCalled();
   });
 
   it("only runs cloudsync from the main window", async () => {
@@ -279,17 +402,717 @@ describe("AuthProvider", () => {
       );
     });
 
-    expect(mocks.claimCloudsyncAccountForAuth).toHaveBeenCalledWith(
+    expect(mocks.bindCloudsyncAccountForAuth).toHaveBeenCalledWith(
       currentSession.user.id,
     );
     expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalled();
     expect(mocks.refreshCloudsyncForSession).not.toHaveBeenCalled();
   });
 
+  it("routes secondary-window account rejection through the main window", async () => {
+    const foreignSession = makeSession("foreign-account");
+    mocks.currentWebviewWindowLabel = "note-session-id";
+    mocks.bindCloudsyncAccountForAuth.mockResolvedValue(false);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", foreignSession);
+    });
+
+    await waitFor(() => {
+      expect(mocks.emitTo).toHaveBeenCalledWith(
+        "main",
+        "hypr:auth-sign-out-request",
+        {
+          requestId: "request-id",
+          sourceLabel: "note-session-id",
+        },
+      );
+    });
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+
+    act(() => {
+      mocks.eventCallbacks.get("hypr:auth-sign-out-result")?.({
+        payload: { requestId: "request-id", completed: true, error: null },
+      });
+    });
+
+    await waitFor(() => {
+      expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalled();
+    expect(screen.getByTestId("session").textContent).toBe("none");
+  });
+
+  it("preserves shared auth when main rejects secondary cleanup", async () => {
+    const foreignSession = makeSession("foreign-account");
+    mocks.currentWebviewWindowLabel = "note-session-id";
+    mocks.bindCloudsyncAccountForAuth.mockResolvedValue(false);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", foreignSession);
+    });
+
+    await waitFor(() => {
+      expect(mocks.emitTo).toHaveBeenCalledWith(
+        "main",
+        "hypr:auth-sign-out-request",
+        expect.objectContaining({ sourceLabel: "note-session-id" }),
+      );
+    });
+
+    act(() => {
+      mocks.eventCallbacks.get("hypr:auth-sign-out-result")?.({
+        payload: { requestId: "request-id", completed: false, error: null },
+      });
+    });
+
+    await waitFor(() => {
+      expect(mocks.eventCallbacks.has("hypr:auth-sign-out-result")).toBe(false);
+    });
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+    expect(mocks.signOut).not.toHaveBeenCalled();
+    expect(screen.getByTestId("session").textContent).toBe("none");
+  });
+
+  it("routes secondary-window sign-out through the main window", async () => {
+    const currentSession = makeSession("bound-account");
+    mocks.currentWebviewWindowLabel = "note-session-id";
+    mocks.signOut.mockImplementationOnce(async () => {
+      mocks.authCallback?.("SIGNED_OUT", null);
+      return { error: null };
+    });
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        currentSession.user.id,
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+
+    await waitFor(() => {
+      expect(mocks.emitTo).toHaveBeenCalledWith(
+        "main",
+        "hypr:auth-sign-out-request",
+        {
+          requestId: "request-id",
+          sourceLabel: "note-session-id",
+        },
+      );
+    });
+
+    expect(mocks.prepareCloudsyncSignOut).not.toHaveBeenCalled();
+    expect(mocks.signOut).not.toHaveBeenCalled();
+
+    act(() => {
+      mocks.eventCallbacks.get("hypr:auth-sign-out-result")?.({
+        payload: { requestId: "request-id", completed: true, error: null },
+      });
+    });
+
+    await waitFor(() => {
+      expect(mocks.eventCallbacks.has("hypr:auth-sign-out-result")).toBe(false);
+      expect(screen.getByTestId("session").textContent).toBe("none");
+    });
+    expect(mocks.stopAutoRefresh).toHaveBeenCalled();
+    expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
+    expect(mocks.emitTo).toHaveBeenCalledTimes(1);
+  });
+
+  it("coordinates spontaneous secondary sign-out with main exactly once", async () => {
+    const currentSession = makeSession("bound-account");
+    mocks.currentWebviewWindowLabel = "note-session-id";
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        currentSession.user.id,
+      );
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_OUT", null);
+    });
+
+    await waitFor(() => {
+      expect(mocks.emitTo).toHaveBeenCalledWith(
+        "main",
+        "hypr:auth-sign-out-request",
+        {
+          requestId: "request-id",
+          sourceLabel: "note-session-id",
+        },
+      );
+    });
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+    expect(mocks.signOut).not.toHaveBeenCalled();
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_OUT", null);
+      mocks.eventCallbacks.get("hypr:auth-sign-out-result")?.({
+        payload: { requestId: "request-id", completed: true, error: null },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe("none");
+      expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.emitTo).toHaveBeenCalledTimes(1);
+    expect(mocks.signOut).not.toHaveBeenCalled();
+  });
+
+  it("hides a spontaneous secondary sign-out while retrying incomplete main coordination", async () => {
+    const currentSession = makeSession("bound-account");
+    mocks.currentWebviewWindowLabel = "note-session-id";
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        currentSession.user.id,
+      );
+      expect(screen.getByTestId("authorization").textContent).toBe(
+        `bearer ${currentSession.access_token}`,
+      );
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_OUT", null);
+    });
+
+    await waitFor(() => {
+      expect(mocks.emitTo).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("session").textContent).toBe("none");
+      expect(screen.getByTestId("authorization").textContent).toBe("none");
+    });
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+    expect(mocks.signOut).not.toHaveBeenCalled();
+
+    act(() => {
+      mocks.eventCallbacks.get("hypr:auth-sign-out-result")?.({
+        payload: { requestId: "request-id", completed: false, error: null },
+      });
+    });
+
+    await waitFor(() => {
+      expect(mocks.eventCallbacks.has("hypr:auth-sign-out-result")).toBe(false);
+    });
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+    expect(screen.getByTestId("session").textContent).toBe("none");
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_OUT", null);
+    });
+
+    await waitFor(() => {
+      expect(mocks.emitTo).toHaveBeenCalledTimes(2);
+    });
+
+    act(() => {
+      mocks.eventCallbacks.get("hypr:auth-sign-out-result")?.({
+        payload: { requestId: "request-id", completed: true, error: null },
+      });
+    });
+
+    await waitFor(() => {
+      expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.signOut).not.toHaveBeenCalled();
+    expect(screen.getByTestId("session").textContent).toBe("none");
+  });
+
+  it("keeps a spontaneous secondary sign-out hidden after rejected coordination and allows recovery", async () => {
+    const currentSession = makeSession("bound-account");
+    const recoveredSession = {
+      ...makeSession("bound-account"),
+      access_token: "recovered-access-token",
+    };
+    mocks.currentWebviewWindowLabel = "note-session-id";
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        currentSession.user.id,
+      );
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_OUT", null);
+    });
+
+    await waitFor(() => {
+      expect(mocks.emitTo).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("session").textContent).toBe("none");
+      expect(screen.getByTestId("authorization").textContent).toBe("none");
+    });
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+    expect(mocks.signOut).not.toHaveBeenCalled();
+
+    act(() => {
+      mocks.eventCallbacks.get("hypr:auth-sign-out-result")?.({
+        payload: {
+          requestId: "request-id",
+          completed: false,
+          error: "cloudsync suspension failed",
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(mocks.eventCallbacks.has("hypr:auth-sign-out-result")).toBe(false);
+    });
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+    expect(screen.getByTestId("session").textContent).toBe("none");
+
+    act(() => {
+      mocks.authCallback?.("TOKEN_REFRESHED", recoveredSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("access-token").textContent).toBe(
+        recoveredSession.access_token,
+      );
+      expect(screen.getByTestId("authorization").textContent).toBe(
+        `bearer ${recoveredSession.access_token}`,
+      );
+    });
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+  });
+
+  it("keeps the secondary-window session when main sign-out fails", async () => {
+    const currentSession = makeSession("bound-account");
+    mocks.currentWebviewWindowLabel = "note-session-id";
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        currentSession.user.id,
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+
+    await waitFor(() => {
+      expect(mocks.emitTo).toHaveBeenCalledWith(
+        "main",
+        "hypr:auth-sign-out-request",
+        {
+          requestId: "request-id",
+          sourceLabel: "note-session-id",
+        },
+      );
+    });
+
+    act(() => {
+      mocks.eventCallbacks.get("hypr:auth-sign-out-result")?.({
+        payload: {
+          requestId: "request-id",
+          completed: false,
+          error: "cloudsync suspension failed",
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(mocks.eventCallbacks.has("hypr:auth-sign-out-result")).toBe(false);
+    });
+    expect(screen.getByTestId("session").textContent).toBe(
+      currentSession.user.id,
+    );
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+    expect(mocks.prepareCloudsyncSignOut).not.toHaveBeenCalled();
+    expect(mocks.signOut).not.toHaveBeenCalled();
+  });
+
+  it("keeps the secondary-window session when main sign-out is superseded", async () => {
+    const currentSession = makeSession("bound-account");
+    mocks.currentWebviewWindowLabel = "note-session-id";
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        currentSession.user.id,
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+
+    await waitFor(() => {
+      expect(mocks.emitTo).toHaveBeenCalledWith(
+        "main",
+        "hypr:auth-sign-out-request",
+        {
+          requestId: "request-id",
+          sourceLabel: "note-session-id",
+        },
+      );
+    });
+
+    act(() => {
+      mocks.eventCallbacks.get("hypr:auth-sign-out-result")?.({
+        payload: { requestId: "request-id", completed: false, error: null },
+      });
+    });
+
+    await waitFor(() => {
+      expect(mocks.eventCallbacks.has("hypr:auth-sign-out-result")).toBe(false);
+    });
+    expect(screen.getByTestId("session").textContent).toBe(
+      currentSession.user.id,
+    );
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+  });
+
+  it("runs remote sign-out in the main window and acknowledges it", async () => {
+    const currentSession = makeSession("bound-account");
+    mocks.signOut.mockImplementationOnce(async () => {
+      mocks.authCallback?.("SIGNED_OUT", null);
+      return { error: null };
+    });
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        currentSession.user.id,
+      );
+      expect(mocks.eventCallbacks.has("hypr:auth-sign-out-request")).toBe(true);
+    });
+
+    act(() => {
+      mocks.eventCallbacks.get("hypr:auth-sign-out-request")?.({
+        payload: {
+          requestId: "remote-request-id",
+          sourceLabel: "note-session-id",
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(mocks.emitTo).toHaveBeenCalledWith(
+        "note-session-id",
+        "hypr:auth-sign-out-result",
+        { requestId: "remote-request-id", completed: true, error: null },
+      );
+    });
+
+    expect(mocks.prepareCloudsyncSignOut).toHaveBeenCalledWith(
+      currentSession,
+      expect.any(Function),
+    );
+    expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(
+      mocks.prepareCloudsyncSignOut.mock.invocationCallOrder[0],
+    ).toBeLessThan(mocks.signOut.mock.invocationCallOrder[0]);
+  });
+
+  it("fails remote sign-out closed when the React session is empty", async () => {
+    mocks.prepareCloudsyncSignOut.mockRejectedValueOnce(
+      new Error("cloudsync suspension failed"),
+    );
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("INITIAL_SESSION", null);
+    });
+
+    await waitFor(() => {
+      expect(mocks.handleCloudsyncAuthChange).toHaveBeenCalledWith(
+        "INITIAL_SESSION",
+        null,
+        expect.any(Function),
+      );
+      expect(mocks.eventCallbacks.has("hypr:auth-sign-out-request")).toBe(true);
+    });
+
+    act(() => {
+      mocks.eventCallbacks.get("hypr:auth-sign-out-request")?.({
+        payload: {
+          requestId: "remote-request-id",
+          sourceLabel: "note-session-id",
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(mocks.emitTo).toHaveBeenCalledWith(
+        "note-session-id",
+        "hypr:auth-sign-out-result",
+        {
+          requestId: "remote-request-id",
+          completed: false,
+          error: "cloudsync suspension failed",
+        },
+      );
+    });
+
+    expect(mocks.prepareCloudsyncSignOut).toHaveBeenCalledWith(
+      null,
+      expect.any(Function),
+    );
+    expect(mocks.signOut).not.toHaveBeenCalled();
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+  });
+
+  it("does not sign out a session that wins during cloudsync preflight", async () => {
+    const currentSession = makeSession("bound-account");
+    const refreshedSession = {
+      ...makeSession("bound-account"),
+      access_token: "refreshed-access-token",
+    };
+    const preflight = deferred();
+    mocks.prepareCloudsyncSignOut.mockReturnValueOnce(preflight.promise);
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        currentSession.user.id,
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+
+    await waitFor(() => {
+      expect(mocks.prepareCloudsyncSignOut).toHaveBeenCalledWith(
+        currentSession,
+        expect.any(Function),
+      );
+    });
+
+    act(() => {
+      mocks.authCallback?.("TOKEN_REFRESHED", refreshedSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("access-token").textContent).toBe(
+        refreshedSession.access_token,
+      );
+    });
+
+    await act(async () => {
+      preflight.resolve();
+      await preflight.promise;
+    });
+
+    expect(mocks.signOut).not.toHaveBeenCalled();
+    expect(screen.getByTestId("access-token").textContent).toBe(
+      refreshedSession.access_token,
+    );
+  });
+
+  it("reports remote sign-out as incomplete when a newer auth transition wins", async () => {
+    const currentSession = makeSession("bound-account");
+    const refreshedSession = {
+      ...makeSession("bound-account"),
+      access_token: "refreshed-access-token",
+    };
+    const signOut = deferred<{ error: null }>();
+    mocks.signOut.mockReturnValue(signOut.promise);
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        currentSession.user.id,
+      );
+      expect(mocks.eventCallbacks.has("hypr:auth-sign-out-request")).toBe(true);
+    });
+
+    act(() => {
+      mocks.eventCallbacks.get("hypr:auth-sign-out-request")?.({
+        payload: {
+          requestId: "remote-request-id",
+          sourceLabel: "note-session-id",
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(mocks.signOut).toHaveBeenCalledTimes(1);
+    });
+
+    act(() => {
+      mocks.authCallback?.("TOKEN_REFRESHED", refreshedSession);
+    });
+
+    await act(async () => {
+      signOut.resolve({ error: null });
+      await signOut.promise;
+    });
+
+    await waitFor(() => {
+      expect(mocks.emitTo).toHaveBeenCalledWith(
+        "note-session-id",
+        "hypr:auth-sign-out-result",
+        { requestId: "remote-request-id", completed: false, error: null },
+      );
+      expect(screen.getByTestId("access-token").textContent).toBe(
+        refreshedSession.access_token,
+      );
+    });
+
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+    expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalledWith(
+      "SIGNED_OUT",
+      null,
+    );
+  });
+
+  it("returns the main-window preflight error to the requesting window", async () => {
+    const currentSession = makeSession("bound-account");
+    mocks.prepareCloudsyncSignOut.mockRejectedValue(
+      new Error("cloudsync suspension failed"),
+    );
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        currentSession.user.id,
+      );
+      expect(mocks.eventCallbacks.has("hypr:auth-sign-out-request")).toBe(true);
+    });
+
+    act(() => {
+      mocks.eventCallbacks.get("hypr:auth-sign-out-request")?.({
+        payload: {
+          requestId: "remote-request-id",
+          sourceLabel: "note-session-id",
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(mocks.emitTo).toHaveBeenCalledWith(
+        "note-session-id",
+        "hypr:auth-sign-out-result",
+        {
+          requestId: "remote-request-id",
+          completed: false,
+          error: "cloudsync suspension failed",
+        },
+      );
+    });
+
+    expect(mocks.signOut).not.toHaveBeenCalled();
+    expect(screen.getByTestId("session").textContent).toBe(
+      currentSession.user.id,
+    );
+  });
+
   it("keeps a session hidden until its local account claim succeeds", async () => {
     const nextSession = makeSession("bound-account");
     const claim = deferred<boolean>();
-    mocks.claimCloudsyncAccountForAuth.mockReturnValue(claim.promise);
+    mocks.bindCloudsyncAccountForAuth.mockReturnValue(claim.promise);
 
     renderAuthProvider();
 
@@ -302,7 +1125,7 @@ describe("AuthProvider", () => {
     });
 
     await waitFor(() => {
-      expect(mocks.claimCloudsyncAccountForAuth).toHaveBeenCalledWith(
+      expect(mocks.bindCloudsyncAccountForAuth).toHaveBeenCalledWith(
         nextSession.user.id,
       );
     });
@@ -311,6 +1134,7 @@ describe("AuthProvider", () => {
     expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalledWith(
       "SIGNED_IN",
       nextSession,
+      expect.any(Function),
     );
 
     await act(async () => {
@@ -348,7 +1172,7 @@ describe("AuthProvider", () => {
     });
 
     const claim = deferred<boolean>();
-    mocks.claimCloudsyncAccountForAuth.mockReturnValueOnce(claim.promise);
+    mocks.bindCloudsyncAccountForAuth.mockReturnValueOnce(claim.promise);
     mocks.refreshSession.mockImplementationOnce(async () => {
       mocks.authCallback?.("TOKEN_REFRESHED", refreshedSession);
       return { data: { session: refreshedSession }, error: null };
@@ -357,7 +1181,7 @@ describe("AuthProvider", () => {
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
 
     await waitFor(() => {
-      expect(mocks.claimCloudsyncAccountForAuth).toHaveBeenCalledTimes(2);
+      expect(mocks.bindCloudsyncAccountForAuth).toHaveBeenCalledTimes(2);
     });
     expect(screen.getByTestId("access-token").textContent).toBe(
       currentSession.access_token,
@@ -376,7 +1200,7 @@ describe("AuthProvider", () => {
 
   it("rejects a different local database account before admission", async () => {
     const foreignSession = makeSession("foreign-account");
-    mocks.claimCloudsyncAccountForAuth.mockResolvedValue(false);
+    mocks.bindCloudsyncAccountForAuth.mockResolvedValue(false);
     vi.spyOn(console, "warn").mockImplementation(() => {});
 
     renderAuthProvider();
@@ -397,12 +1221,13 @@ describe("AuthProvider", () => {
     expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalledWith(
       "SIGNED_IN",
       foreignSession,
+      expect.any(Function),
     );
   });
 
   it("fails closed when the local database account cannot be verified", async () => {
     const nextSession = makeSession("unverified-account");
-    mocks.claimCloudsyncAccountForAuth.mockRejectedValue(
+    mocks.bindCloudsyncAccountForAuth.mockRejectedValue(
       new Error("database unavailable"),
     );
     vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -425,6 +1250,7 @@ describe("AuthProvider", () => {
     expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalledWith(
       "SIGNED_IN",
       nextSession,
+      expect.any(Function),
     );
   });
 
@@ -471,6 +1297,7 @@ describe("AuthProvider", () => {
     expect(mocks.handleCloudsyncAuthChange).toHaveBeenCalledWith(
       "SIGNED_IN",
       newSession,
+      expect.any(Function),
     );
     expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalledWith(
       "SIGNED_OUT",
@@ -514,6 +1341,108 @@ describe("AuthProvider", () => {
     expect(screen.getByTestId("session").textContent).toBe("none");
   });
 
+  it("rejects the current session when scheduled CloudSync renewal reports a mismatch", async () => {
+    const foreignSession = makeSession("foreign-account");
+    let reportAccountMismatch: (() => Promise<void>) | undefined;
+    mocks.handleCloudsyncAuthChange.mockImplementation(
+      async (
+        event: AuthChangeEvent,
+        _session: Session | null,
+        onAccountMismatch?: () => Promise<void>,
+      ) => {
+        if (event === "SIGNED_IN") {
+          reportAccountMismatch = onAccountMismatch;
+        }
+        return "ok";
+      },
+    );
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", foreignSession);
+    });
+
+    await waitFor(() => {
+      expect(reportAccountMismatch).toBeTypeOf("function");
+      expect(screen.getByTestId("session").textContent).toBe(
+        foreignSession.user.id,
+      );
+    });
+
+    await act(async () => {
+      await reportAccountMismatch?.();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe("none");
+    });
+    expect(mocks.stopAutoRefresh).toHaveBeenCalled();
+    expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
+    expect(mocks.handleCloudsyncAuthChange).toHaveBeenCalledWith(
+      "SIGNED_OUT",
+      null,
+    );
+  });
+
+  it("ignores a scheduled mismatch from a superseded auth transition", async () => {
+    const oldSession = makeSession("old-account");
+    const newSession = makeSession("new-account");
+    let reportOldAccountMismatch: (() => Promise<void>) | undefined;
+    mocks.handleCloudsyncAuthChange.mockImplementation(
+      async (
+        event: AuthChangeEvent,
+        nextSession: Session | null,
+        onAccountMismatch?: () => Promise<void>,
+      ) => {
+        if (event === "SIGNED_IN" && nextSession === oldSession) {
+          reportOldAccountMismatch = onAccountMismatch;
+        }
+        return "ok";
+      },
+    );
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", oldSession);
+    });
+
+    await waitFor(() => {
+      expect(reportOldAccountMismatch).toBeTypeOf("function");
+      expect(screen.getByTestId("session").textContent).toBe(
+        oldSession.user.id,
+      );
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", newSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        newSession.user.id,
+      );
+    });
+
+    await act(async () => {
+      await reportOldAccountMismatch?.();
+    });
+
+    expect(mocks.signOut).not.toHaveBeenCalled();
+    expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
+    expect(screen.getByTestId("session").textContent).toBe(newSession.user.id);
+  });
+
   it("admits the bound account when CloudSync credential exchange stays offline", async () => {
     const localSession = makeSession("bound-account");
     mocks.handleCloudsyncAuthChange.mockResolvedValue("ok");
@@ -540,6 +1469,7 @@ describe("AuthProvider", () => {
     expect(mocks.handleCloudsyncAuthChange).toHaveBeenCalledWith(
       "SIGNED_IN",
       localSession,
+      expect.any(Function),
     );
   });
 
@@ -686,10 +1616,10 @@ describe("AuthProvider", () => {
     );
   });
 
-  it("keeps the account signed in when CloudSync has unsent changes", async () => {
+  it("keeps the account signed in when CloudSync suspension fails", async () => {
     const localSession = makeSession("bound-account");
     mocks.prepareCloudsyncSignOut.mockRejectedValue(
-      new Error("cloudsync has unsent local changes"),
+      new Error("cloudsync suspension failed"),
     );
 
     renderAuthProvider();
@@ -711,7 +1641,10 @@ describe("AuthProvider", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
     await waitFor(() => {
-      expect(mocks.prepareCloudsyncSignOut).toHaveBeenCalledWith(localSession);
+      expect(mocks.prepareCloudsyncSignOut).toHaveBeenCalledWith(
+        localSession,
+        expect.any(Function),
+      );
     });
 
     expect(mocks.signOut).not.toHaveBeenCalled();

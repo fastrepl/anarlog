@@ -82,6 +82,8 @@ pub struct CloudsyncStatus {
 
 #[derive(Debug, thiserror::Error)]
 pub enum CloudsyncRuntimeError {
+    #[error("cloudsync runtime is unavailable in local-only mode")]
+    Unavailable,
     #[error("cloudsync runtime is not configured")]
     NotConfigured,
     #[error("cloudsync runtime is not started")]

@@ -51,16 +51,28 @@ vi.mock("@tauri-apps/api/path", () => ({
 }));
 
 vi.mock("@hypr/plugin-db", () => ({
-  claimCloudsyncAccount: vi.fn().mockResolvedValue(true),
-  configureCloudsyncToken: vi.fn().mockResolvedValue(true),
+  bindCloudsyncAccount: vi.fn().mockResolvedValue(true),
+  configureCloudsyncToken: vi.fn().mockResolvedValue("configured"),
   execute: vi.fn().mockResolvedValue([]),
   executeProxy: vi.fn().mockResolvedValue({ rows: [] }),
   executeTransaction: vi.fn().mockResolvedValue([]),
+  getCloudsyncStatus: vi.fn().mockResolvedValue({
+    cloudsync_enabled: true,
+    extension_loaded: true,
+    configured: false,
+    running: false,
+    network_initialized: false,
+    last_sync: null,
+    last_sync_at_ms: null,
+    has_unsent_changes: null,
+    last_error: null,
+    last_error_kind: null,
+    consecutive_failures: 0,
+  }),
   getMeeting: vi.fn(),
   getMeetingTranscript: vi.fn(),
   getRecurringMeetingHistory: vi.fn(),
   listMeetings: vi.fn(),
-  logoutCloudsync: vi.fn().mockResolvedValue(undefined),
   subscribe: vi.fn().mockResolvedValue(() => Promise.resolve()),
   suspendCloudsync: vi.fn().mockResolvedValue(undefined),
 }));

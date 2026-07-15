@@ -4,6 +4,7 @@ import type {
   GetMeetingInput,
   GetMeetingTranscriptInput as GeneratedGetMeetingTranscriptInput,
   GetRecurringMeetingHistoryInput as GeneratedGetRecurringMeetingHistoryInput,
+  CloudsyncTokenConfigurationResult,
   LegacyCleanupResult,
   LegacyCleanupStatus,
   LegacyImportReport,
@@ -15,6 +16,7 @@ import type {
 } from "./bindings.gen";
 
 export type {
+  CloudsyncTokenConfigurationResult,
   GetMeetingInput,
   LegacyCleanupResult,
   LegacyCleanupStatus,
@@ -169,7 +171,7 @@ export async function configureCloudsyncToken(
   databaseId: string,
   token: string,
   workspaceId: string,
-): Promise<boolean> {
+): Promise<CloudsyncTokenConfigurationResult> {
   return invoke("plugin:db|configure_cloudsync_token", {
     databaseId,
     token,
@@ -177,10 +179,10 @@ export async function configureCloudsyncToken(
   });
 }
 
-export async function claimCloudsyncAccount(
+export async function bindCloudsyncAccount(
   accountUserId: string,
 ): Promise<boolean> {
-  return invoke("plugin:db|claim_cloudsync_account", { accountUserId });
+  return invoke("plugin:db|bind_cloudsync_account", { accountUserId });
 }
 
 export async function startCloudsync(): Promise<void> {
@@ -201,12 +203,6 @@ export async function getCloudsyncStatus(): Promise<CloudsyncStatus> {
 
 export async function syncCloudsyncNow(): Promise<CloudsyncNetworkResult> {
   return invoke("plugin:db|sync_cloudsync_now");
-}
-
-export async function logoutCloudsync(
-  discardUnsentChanges = false,
-): Promise<void> {
-  return invoke("plugin:db|logout_cloudsync", { discardUnsentChanges });
 }
 
 export async function subscribe<T = Record<string, unknown>>(

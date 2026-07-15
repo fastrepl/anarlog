@@ -8,7 +8,7 @@ import { createClient } from "@hypr/api-client/client";
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 
 import { useAuth } from "~/auth";
-import { useBillingAccess } from "~/auth/billing";
+import { useBillingAccess } from "~/auth/billing-context";
 import { env } from "~/env";
 import { waitForBillingUpdate } from "~/shared/billing";
 import { configurePaidSettings } from "~/shared/config/configure-paid-settings";
