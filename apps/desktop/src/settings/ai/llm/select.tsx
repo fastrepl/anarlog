@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { useQueryClient } from "@tanstack/react-query";
-import { useMemo, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useRef, useState } from "react";
 
 import {
   Select,
@@ -13,7 +13,7 @@ import { cn } from "@hypr/utils";
 
 import { useLlmSettings } from "./context";
 import { HealthStatusIndicator, useConnectionHealth } from "./health";
-import { getPreferredProviderModel } from "./selection";
+import { getDefaultLlmSelection, getPreferredProviderModel } from "./selection";
 import { type Provider, PROVIDERS } from "./shared";
 
 import { useAuth } from "~/auth";
@@ -41,17 +41,25 @@ import {
 } from "~/settings/ai/shared/list-openai";
 import { listOpenRouterModels } from "~/settings/ai/shared/list-openrouter";
 import { ModelCombobox } from "~/settings/ai/shared/model-combobox";
-import { useAiProviders } from "~/settings/providers";
-import { useSetSettingValue } from "~/settings/queries";
+import { PersistAiSelection } from "~/settings/ai/shared/persist-selection";
+import {
+  getConfiguredProviderIds,
+  getConfiguredProviders,
+  getVisibleModelSelection,
+} from "~/settings/ai/shared/selection";
+import { useAiProvidersState } from "~/settings/providers";
+import { useSetSettingValues } from "~/settings/queries";
 import { useConfigValues } from "~/shared/config";
 import { SettingsAlertToast } from "~/shared/ui/settings-alert";
 
 export function SelectProviderAndModel() {
   const { t } = useLingui();
-  const configuredProviders = useConfiguredMapping();
+  const { providers: configuredProviders, isReady: providerSettingsReady } =
+    useConfiguredMapping();
   const billing = useBillingAccess();
   const queryClient = useQueryClient();
   const { setAccordionValue } = useLlmSettings();
+  const [pendingProvider, setPendingProvider] = useState<string | null>(null);
 
   const { current_llm_model, current_llm_provider } = useConfigValues([
     "current_llm_model",
@@ -60,22 +68,22 @@ export function SelectProviderAndModel() {
   const selectedProviderConfigured = current_llm_provider
     ? (configuredProviders[current_llm_provider]?.configured ?? false)
     : false;
-
-  const health = useConnectionHealth();
-  const isConfigured = !!(
-    current_llm_provider &&
-    current_llm_model &&
-    selectedProviderConfigured
+  const visibleSelection = getVisibleModelSelection(
+    current_llm_provider,
+    current_llm_model,
+    selectedProviderConfigured,
   );
-  const hasError = isConfigured && health.status === "error";
-  const alertDescription = !isConfigured
-    ? t`Language model is needed to make Anarlog summarize and chat about your conversations.`
-    : hasError
-      ? health.message
-      : undefined;
+  const providerOptions = getConfiguredProviders(
+    PROVIDERS,
+    configuredProviders,
+  );
+  const configuredProviderIds = getConfiguredProviderIds(
+    PROVIDERS,
+    configuredProviders,
+    current_llm_provider,
+  );
 
-  const handleSelectProvider = useSetSettingValue("current_llm_provider");
-  const handleSelectModel = useSetSettingValue("current_llm_model");
+  const setSelection = useSetSettingValues();
   const lastSelectedModelsRef = useRef<Record<string, string>>(
     current_llm_provider && current_llm_model
       ? { [current_llm_provider]: current_llm_model }
@@ -124,11 +132,59 @@ export function SelectProviderAndModel() {
     return result.models;
   };
 
+  const needsDefaultSelection = !(
+    visibleSelection.provider && visibleSelection.model
+  );
+  const defaultSelectionQuery = useQuery({
+    queryKey: [
+      "default-ai-selection",
+      "llm",
+      current_llm_provider ?? "",
+      current_llm_model ?? "",
+      configuredProviderIds,
+    ],
+    queryFn: async () =>
+      await getDefaultLlmSelection(
+        configuredProviderIds,
+        current_llm_provider,
+        current_llm_model,
+        fetchModels,
+      ),
+    enabled:
+      !pendingProvider &&
+      providerSettingsReady &&
+      needsDefaultSelection &&
+      configuredProviderIds.length > 0,
+    retry: false,
+    staleTime: Infinity,
+  });
+  const defaultSelection = needsDefaultSelection
+    ? defaultSelectionQuery.data
+    : null;
+  const effectiveSelection = pendingProvider
+    ? { provider: pendingProvider, model: "" }
+    : (defaultSelection ?? visibleSelection);
+
+  const health = useConnectionHealth();
+  const isConfigured = !!(
+    effectiveSelection.provider && effectiveSelection.model
+  );
+  const hasError = isConfigured && health.status === "error";
+  const alertDescription = !providerSettingsReady
+    ? undefined
+    : !isConfigured
+      ? t`Language model is needed to make Anarlog summarize and chat about your conversations.`
+      : hasError
+        ? health.message
+        : undefined;
+
   const handleProviderChange = (provider: string) => {
     if (provider === "hyprnote" && !billing.isPaid) {
       billing.upgradeToPro();
       return;
     }
+
+    const requestId = ++selectionRequestRef.current;
 
     const status = configuredProviders[provider];
     if (!status?.listModels) {
@@ -136,6 +192,7 @@ export function SelectProviderAndModel() {
     }
 
     rememberModel(current_llm_provider, current_llm_model);
+    setPendingProvider(provider);
 
     const nextModel = getPreferredProviderModel(
       lastSelectedModelsRef.current[provider],
@@ -143,13 +200,23 @@ export function SelectProviderAndModel() {
       { allowSavedModelWithoutChoices: provider === "custom" },
     );
 
-    rememberModel(provider, nextModel);
-    handleSelectProvider(provider);
-    handleSelectModel(nextModel);
+    if (nextModel) {
+      setPendingProvider(null);
+      rememberModel(provider, nextModel);
+      setSelection({
+        current_llm_provider: provider,
+        current_llm_model: nextModel,
+      });
+      return;
+    }
 
-    const requestId = ++selectionRequestRef.current;
     void (async () => {
-      const models = await fetchModels(provider);
+      let models: string[];
+      try {
+        models = await fetchModels(provider);
+      } catch {
+        return;
+      }
       const resolvedModel = getPreferredProviderModel(
         lastSelectedModelsRef.current[provider],
         models,
@@ -160,22 +227,43 @@ export function SelectProviderAndModel() {
         return;
       }
 
+      if (!resolvedModel) {
+        return;
+      }
+
+      setPendingProvider(null);
       rememberModel(provider, resolvedModel);
-      handleSelectModel(resolvedModel);
+      setSelection({
+        current_llm_provider: provider,
+        current_llm_model: resolvedModel,
+      });
     })();
   };
 
   const handleModelChange = (model: string) => {
-    if (!current_llm_provider) {
+    if (!effectiveSelection.provider) {
       return;
     }
 
-    rememberModel(current_llm_provider, model);
-    handleSelectModel(model);
+    selectionRequestRef.current += 1;
+    rememberModel(effectiveSelection.provider, model);
+    setPendingProvider(null);
+    setSelection({
+      current_llm_provider: effectiveSelection.provider,
+      current_llm_model: model,
+    });
   };
 
   return (
     <div className="flex flex-col gap-4">
+      {defaultSelection && !pendingProvider ? (
+        <PersistAiSelection
+          key={`llm:${defaultSelection.provider}:${defaultSelection.model}`}
+          type="llm"
+          provider={defaultSelection.provider}
+          model={defaultSelection.model}
+        />
+      ) : null}
       <SettingsAlertToast
         id="llm-settings-alert"
         description={alertDescription}
@@ -188,14 +276,14 @@ export function SelectProviderAndModel() {
       <div className="flex flex-row items-center gap-4">
         <div className="min-w-0 flex-2" data-llm-provider-selector>
           <Select
-            value={current_llm_provider || ""}
+            value={effectiveSelection.provider}
             onValueChange={handleProviderChange}
           >
             <SelectTrigger className="bg-card shadow-none focus:ring-0">
               <SelectValue placeholder={t`Select a provider`} />
             </SelectTrigger>
             <SelectContent>
-              {PROVIDERS.map((provider) => {
+              {providerOptions.map((provider) => {
                 const requiresPro = requiresEntitlement(
                   provider.requirements,
                   "pro",
@@ -236,13 +324,13 @@ export function SelectProviderAndModel() {
 
         <div className="min-w-0 flex-3">
           <ModelCombobox
-            providerId={current_llm_provider || ""}
-            value={current_llm_model || ""}
+            providerId={effectiveSelection.provider}
+            value={effectiveSelection.model}
             onChange={handleModelChange}
-            disabled={!current_llm_provider || !selectedProviderConfigured}
+            disabled={!effectiveSelection.provider}
             listModels={
-              current_llm_provider
-                ? configuredProviders[current_llm_provider]?.listModels
+              effectiveSelection.provider
+                ? configuredProviders[effectiveSelection.provider]?.listModels
                 : undefined
             }
             isConfigured={isConfigured && health.status === "success"}
@@ -345,10 +433,14 @@ export function getLlmProviderStatus({
   return { configured: true, listModels: listModelsFunc };
 }
 
-function useConfiguredMapping(): Record<string, ProviderStatus> {
+function useConfiguredMapping(): {
+  providers: Record<string, ProviderStatus>;
+  isReady: boolean;
+} {
   const auth = useAuth();
   const billing = useBillingAccess();
-  const configuredProviders = useAiProviders("llm");
+  const { providers: configuredProviders, isReady } =
+    useAiProvidersState("llm");
 
   const mapping = useMemo(() => {
     return Object.fromEntries(
@@ -367,5 +459,5 @@ function useConfiguredMapping(): Record<string, ProviderStatus> {
     ) as Record<string, ProviderStatus>;
   }, [configuredProviders, auth, billing]);
 
-  return mapping;
+  return { providers: mapping, isReady };
 }

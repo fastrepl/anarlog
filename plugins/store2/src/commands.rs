@@ -13,6 +13,16 @@ fn secure_store_service(identifier: &str) -> String {
     format!("{identifier}.{SECURE_STORE_SUFFIX}")
 }
 
+fn secure_store_account(identifier: &str, scope: &str, key: &str) -> String {
+    let account = format!("{scope}:{key}");
+    if identifier == "com.hyprnote.dev" {
+        // Rotate away from dev items whose ACLs captured unstable ad-hoc signatures.
+        format!("v2:{account}")
+    } else {
+        account
+    }
+}
+
 fn legacy_secret_entry<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     scope: &str,
@@ -38,8 +48,9 @@ fn secret_entry<R: tauri::Runtime>(
         return Err("secure-store scope and key must not be empty".to_string());
     }
 
-    let service = secure_store_service(&app.config().identifier);
-    let account = format!("{scope}:{key}");
+    let identifier = &app.config().identifier;
+    let service = secure_store_service(identifier);
+    let account = secure_store_account(identifier, scope, key);
     keyring::Entry::new(&service, &account).map_err(|error| error.to_string())
 }
 
@@ -255,6 +266,18 @@ mod tests {
         assert_eq!(
             secure_store_service("com.example.app"),
             "com.example.app.secure-store"
+        );
+    }
+
+    #[test]
+    fn versions_dev_accounts_across_signing_changes() {
+        assert_eq!(
+            secure_store_account("com.hyprnote.dev", "provider", "deepgram"),
+            "v2:provider:deepgram"
+        );
+        assert_eq!(
+            secure_store_account("com.hyprnote.stable", "provider", "deepgram"),
+            "provider:deepgram"
         );
     }
 }

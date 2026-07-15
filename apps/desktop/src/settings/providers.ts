@@ -1,5 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { commands as store2Commands } from "@hypr/plugin-store2";
 
@@ -24,6 +23,13 @@ const EMPTY_ROWS: AppSettingRow[] = [];
 export function useAiProviders(
   type: AiProviderType,
 ): Record<string, AiProviderConfig> {
+  return useAiProvidersState(type).providers;
+}
+
+export function useAiProvidersState(type: AiProviderType): {
+  providers: Record<string, AiProviderConfig>;
+  isReady: boolean;
+} {
   const { data: rows = EMPTY_ROWS, isLoading } = useLiveQuery<
     AppSettingRow,
     AppSettingRow[]
@@ -33,22 +39,26 @@ export function useAiProviders(
   });
   const providers = parseAiProviders(rows, type);
   const providerIds = Object.keys(providers).sort();
-  const { data: secureApiKeys = EMPTY_PROVIDER_API_KEYS } = useQuery({
+  const secureApiKeysQuery = useQuery({
     queryKey: ["ai-provider-api-keys", type, providerIds],
     queryFn: () => loadSecureAiProviderApiKeys(providerIds, type),
     enabled: !isLoading,
     staleTime: Infinity,
   });
+  const secureApiKeys = secureApiKeysQuery.data ?? EMPTY_PROVIDER_API_KEYS;
 
-  return Object.fromEntries(
-    Object.entries(providers).map(([rowId, provider]) => [
-      rowId,
-      {
-        ...provider,
-        api_key: secureApiKeys[rowId] ?? provider.api_key,
-      },
-    ]),
-  );
+  return {
+    providers: Object.fromEntries(
+      Object.entries(providers).map(([rowId, provider]) => [
+        rowId,
+        {
+          ...provider,
+          api_key: secureApiKeys[rowId] ?? provider.api_key,
+        },
+      ]),
+    ),
+    isReady: !isLoading && secureApiKeysQuery.data !== undefined,
+  };
 }
 
 export function useAiProvider(
@@ -153,23 +163,22 @@ export function setAiProvider(
 export function useSetAiProvider(type: AiProviderType, providerId: string) {
   const queryClient = useQueryClient();
 
-  return useCallback(
-    (changes: Partial<Pick<AiProviderConfig, "base_url" | "api_key">>) => {
-      void setAiProvider(type, providerId, changes)
-        .then(() =>
-          queryClient.invalidateQueries({
-            queryKey: ["ai-provider-api-keys", type],
-          }),
-        )
-        .catch((error) => {
-          console.error(
-            `[settings] failed to update provider ${type}:${providerId}`,
-            error,
-          );
-        });
+  return useMutation({
+    mutationKey: ["set-ai-provider", type, providerId],
+    mutationFn: (
+      changes: Partial<Pick<AiProviderConfig, "base_url" | "api_key">>,
+    ) => setAiProvider(type, providerId, changes),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["ai-provider-api-keys", type],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["default-ai-selection", type],
+        }),
+      ]);
     },
-    [providerId, queryClient, type],
-  );
+  });
 }
 
 export async function loadSecureAiProviderApiKeys(

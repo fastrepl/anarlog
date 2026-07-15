@@ -30,12 +30,12 @@ export function Toast({
 
         <div
           className={cn([
-            "min-w-0 text-sm",
+            "max-w-[min(560px,calc(100vw-10rem))] min-w-0 text-sm leading-5 break-words whitespace-normal",
             toast.variant === "error"
-              ? "text-alert-foreground max-w-50 truncate"
+              ? "text-alert-foreground"
               : toast.variant === "warning"
-                ? "max-w-[min(720px,calc(100vw-16rem))] whitespace-nowrap text-amber-950 dark:text-amber-100"
-                : "text-muted-foreground max-w-50 truncate",
+                ? "text-amber-950 dark:text-amber-100"
+                : "text-muted-foreground",
           ])}
         >
           {toast.description}
@@ -46,7 +46,7 @@ export function Toast({
         {actions.length > 0 ? (
           <div
             className={cn([
-              "flex items-center gap-1",
+              "flex shrink-0 items-center gap-1",
               toast.variant === "warning" && "pl-2",
             ])}
           >
@@ -131,7 +131,7 @@ function getProgress(toast: ToastType) {
 
 function ProgressPill({ progress }: { progress: number }) {
   return (
-    <span className="bg-muted text-muted-foreground rounded-full px-2.5 py-1.5 text-xs font-medium whitespace-nowrap">
+    <span className="bg-muted text-muted-foreground shrink-0 rounded-full px-2.5 py-1.5 text-xs font-medium whitespace-nowrap">
       {Math.round(progress)}%
     </span>
   );

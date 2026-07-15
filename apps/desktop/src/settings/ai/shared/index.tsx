@@ -152,7 +152,7 @@ export function NonHyprProviderCard({
 }) {
   const { t } = useLingui();
   const billing = useBillingAccess();
-  const [provider, setProvider] = useProvider(providerType, config.id);
+  const [provider, providerMutation] = useProvider(providerType, config.id);
   const locked =
     requiresEntitlement(config.requirements, "pro") && !billing.isPaid;
   const isConfigured = useIsProviderConfigured(
@@ -166,8 +166,13 @@ export function NonHyprProviderCard({
   const showBaseUrl = requiredFields.includes("base_url");
 
   const form = useForm({
-    onSubmit: ({ value }) => {
-      setProvider(value);
+    onSubmit: async ({ value }) => {
+      try {
+        await providerMutation.mutateAsync(value);
+      } catch {
+        return;
+      }
+
       void analyticsCommands.event({
         event: "ai_provider_configured",
         provider: value.type,
@@ -187,6 +192,7 @@ export function NonHyprProviderCard({
       } satisfies AIProvider),
     listeners: {
       onChange: ({ formApi }) => {
+        providerMutation.reset();
         queueMicrotask(() => {
           void formApi.handleSubmit();
         });
@@ -312,6 +318,11 @@ export function NonHyprProviderCard({
               </div>
             </details>
           )}
+          {providerMutation.error && (
+            <p className="text-destructive text-xs">
+              {providerMutation.error.message}
+            </p>
+          )}
         </form>
       </AccordionContent>
     </AccordionItem>
@@ -410,12 +421,10 @@ export function StyledStreamdown({
 
 function useProvider(providerType: ProviderType, id: string) {
   const providerRow = useAiProvider(providerType, id);
-  const setProvider = useSetAiProvider(providerType, id) as (
-    row: Partial<AIProvider>,
-  ) => void;
+  const providerMutation = useSetAiProvider(providerType, id);
 
   const { data } = aiProviderSchema.safeParse(providerRow);
-  return [data, setProvider] as const;
+  return [data, providerMutation] as const;
 }
 
 function FormField({

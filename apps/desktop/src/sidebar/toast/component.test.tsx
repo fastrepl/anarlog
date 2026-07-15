@@ -27,7 +27,9 @@ describe("Toast", () => {
 
     expect(pill?.className).toContain("rounded-full");
     expect(pill?.className).toContain("bg-card");
-    expect(screen.getByText("Language model needed")).toBeTruthy();
+    const description = screen.getByText("Language model needed");
+    expect(description.className).not.toContain("truncate");
+    expect(description.className).toContain("whitespace-normal");
     expect(screen.getByRole("button", { name: "Add" }).className).toContain(
       "bg-foreground",
     );
@@ -67,7 +69,7 @@ describe("Toast", () => {
     expect(action.className).toContain("text-destructive-foreground");
   });
 
-  it("does not truncate warning toast text", () => {
+  it("wraps long warning toast text", () => {
     render(
       <Toast
         toast={{
@@ -90,9 +92,13 @@ describe("Toast", () => {
     );
 
     expect(description.className).not.toContain("truncate");
-    expect(description.className).toContain("whitespace-nowrap");
+    expect(description.className).toContain("whitespace-normal");
+    expect(description.className).toContain("break-words");
     expect(
       screen.getByRole("button", { name: "Dismiss" }).parentElement?.className,
     ).toContain("pl-2");
+    expect(
+      screen.getByRole("button", { name: "Dismiss" }).parentElement?.className,
+    ).toContain("shrink-0");
   });
 });

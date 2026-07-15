@@ -1,7 +1,11 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { renderHook, waitFor } from "@testing-library/react";
+import { createElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   execute: vi.fn(),
+  useLiveQuery: vi.fn(),
   getSecret: vi.fn(async () => ({
     status: "ok",
     data: null as string | null,
@@ -25,7 +29,7 @@ vi.mock("@hypr/plugin-store2", () => ({
 vi.mock("~/db", () => ({
   executeTransaction: mocks.executeTransaction,
   liveQueryClient: { execute: mocks.execute },
-  useLiveQuery: vi.fn(() => ({ data: undefined })),
+  useLiveQuery: mocks.useLiveQuery,
 }));
 
 vi.mock("~/db/write-queue", () => ({
@@ -38,6 +42,7 @@ import {
   migratePlaintextAiProviderApiKeys,
   parseAiProviders,
   setAiProvider,
+  useAiProvidersState,
 } from "./providers";
 
 describe("SQLite AI providers", () => {
@@ -47,6 +52,49 @@ describe("SQLite AI providers", () => {
     mocks.getSecret.mockResolvedValue({ status: "ok", data: null });
     mocks.setSecret.mockResolvedValue({ status: "ok", data: null });
     mocks.deleteSecret.mockResolvedValue({ status: "ok", data: null });
+    mocks.useLiveQuery.mockReturnValue({ data: [], isLoading: false });
+  });
+
+  it("waits for secure provider keys before reporting provider state as ready", async () => {
+    let resolveSecret!: (value: { status: "ok"; data: string | null }) => void;
+    mocks.useLiveQuery.mockReturnValue({
+      data: [
+        {
+          id: "ai_provider:stt:deepgram",
+          value_json: JSON.stringify({
+            type: "stt",
+            base_url: "https://api.deepgram.com/v1",
+            api_key: "",
+          }),
+        },
+      ],
+      isLoading: false,
+    });
+    mocks.getSecret.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveSecret = resolve;
+        }),
+    );
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    const { result } = renderHook(() => useAiProvidersState("stt"), {
+      wrapper,
+    });
+
+    expect(result.current.isReady).toBe(false);
+
+    await waitFor(() => expect(mocks.getSecret).toHaveBeenCalledTimes(1));
+    resolveSecret({ status: "ok", data: "deepgram-key" });
+
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+    expect(result.current.providers["stt:deepgram"]?.api_key).toBe(
+      "deepgram-key",
+    );
   });
 
   it("uses direct provider rows over imported legacy configuration", () => {

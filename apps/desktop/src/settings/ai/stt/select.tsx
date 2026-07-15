@@ -8,7 +8,7 @@ import {
   Loader2,
   Trash2,
 } from "lucide-react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 import {
   commands as localSttCommands,
@@ -34,7 +34,11 @@ import { cn } from "@hypr/utils";
 import { useSttSettings } from "./context";
 import { HealthStatusIndicator, useConnectionHealth } from "./health";
 import { LocalModelBackendBadge, LocalModelLabel } from "./model-icon";
-import { resolveLiveLanguageSupportMode } from "./selection";
+import {
+  getDefaultSttSelection,
+  getLanguageSupportIssue,
+  resolveLiveLanguageSupportMode,
+} from "./selection";
 import {
   displayModelLabel,
   displayModelTitle,
@@ -51,8 +55,15 @@ import {
   getProviderSelectionBlockers,
   requiresEntitlement,
 } from "~/settings/ai/shared/eligibility";
-import { useAiProviders } from "~/settings/providers";
-import { useSetSettingValue } from "~/settings/queries";
+import { PersistAiSelection } from "~/settings/ai/shared/persist-selection";
+import {
+  getConfiguredProviderIds,
+  getConfiguredProviders,
+  getVisibleModelSelection,
+} from "~/settings/ai/shared/selection";
+import { getBaseLanguageDisplayName } from "~/settings/general/language";
+import { useAiProvidersState } from "~/settings/providers";
+import { useSetSettingValues } from "~/settings/queries";
 import { useConfigValues } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { SettingsAlertToast } from "~/shared/ui/settings-alert";
@@ -81,9 +92,13 @@ export function SelectProviderAndModel() {
     "current_stt_model",
   ] as const);
   const billing = useBillingAccess();
-  const configuredProviders = useConfiguredMapping();
+  const { providers: configuredProviders, isReady: providerSettingsReady } =
+    useConfiguredMapping();
   const { startDownload, startTrial } = useSttSettings();
   const health = useConnectionHealth();
+  const [pendingProvider, setPendingProvider] = useState<ProviderId | null>(
+    null,
+  );
 
   const selectedSttModel = isConfiguredSttModel(
     current_stt_provider,
@@ -91,30 +106,63 @@ export function SelectProviderAndModel() {
   )
     ? current_stt_model
     : undefined;
-  const isConfigured = !!(current_stt_provider && selectedSttModel);
-  const hasError = isConfigured && health.status === "error";
-  const alertDescription = !isConfigured
-    ? t`Transcription model is needed to make Anarlog listen to your conversations.`
-    : hasError
-      ? health.message
-      : undefined;
   const selectedProvider = current_stt_provider as ProviderId | undefined;
-  const selectedModels = selectedProvider
-    ? (configuredProviders[selectedProvider]?.models ?? [])
+  const selectedProviderConfigured = selectedProvider
+    ? (configuredProviders[selectedProvider]?.configured ?? false)
+    : false;
+  const visibleSelection = getVisibleModelSelection(
+    selectedProvider,
+    selectedSttModel,
+    selectedProviderConfigured,
+  );
+  const selectableProviders = PROVIDERS.filter(({ disabled }) => !disabled);
+  const configuredProviderIds = getConfiguredProviderIds(
+    selectableProviders,
+    configuredProviders,
+    selectedProvider,
+  );
+  const defaultSelection =
+    providerSettingsReady && !visibleSelection.model
+      ? getDefaultSttSelection(
+          configuredProviderIds,
+          configuredProviders,
+          selectedProvider,
+          current_stt_model,
+        )
+      : null;
+  const effectiveSelection = pendingProvider
+    ? { provider: pendingProvider, model: "" }
+    : (defaultSelection ?? visibleSelection);
+  const visibleProvider = effectiveSelection.provider as ProviderId | "";
+  const isConfigured = !!(visibleProvider && effectiveSelection.model);
+  const hasError = isConfigured && health.status === "error";
+  const alertDescription = !providerSettingsReady
+    ? undefined
+    : !isConfigured
+      ? t`Transcription model is needed to make Anarlog listen to your conversations.`
+      : hasError
+        ? health.message
+        : undefined;
+  const selectedModels = visibleProvider
+    ? (configuredProviders[visibleProvider]?.models ?? [])
     : [];
   const displayedSttModel =
-    selectedProvider === "custom"
-      ? selectedSttModel
-      : getPreferredProviderModel(selectedSttModel, selectedModels, {
-          keepUnavailableSavedModel: true,
-        });
+    visibleProvider === "custom"
+      ? effectiveSelection.model
+      : effectiveSelection.model
+        ? getPreferredProviderModel(effectiveSelection.model, selectedModels, {
+            keepUnavailableSavedModel: true,
+          })
+        : undefined;
   const selectedModel = selectedModels.find(
     (model) => model.id === displayedSttModel,
   );
+  const providerOptions = getConfiguredProviders(
+    selectableProviders,
+    configuredProviders,
+  );
 
-  const handleSelectProvider = useSetSettingValue("current_stt_provider");
-
-  const handleSelectModel = useSetSettingValue("current_stt_model");
+  const setSelection = useSetSettingValues();
   const lastSelectedModelsRef = useRef<Record<string, string>>(
     current_stt_provider && selectedSttModel
       ? { [current_stt_provider]: selectedSttModel }
@@ -142,21 +190,41 @@ export function SelectProviderAndModel() {
       getDefaultSttModel(providerId) ||
       "";
 
-    rememberModel(provider, nextModel);
-    handleSelectProvider(provider);
-    handleSelectModel(nextModel);
-  };
-
-  const handleModelChange = (model: string) => {
-    if (!current_stt_provider) {
+    if (!nextModel) {
+      setPendingProvider(providerId);
       return;
     }
 
-    rememberModel(current_stt_provider, model);
-    handleSelectModel(model);
+    setPendingProvider(null);
+    rememberModel(provider, nextModel);
+    setSelection({
+      current_stt_provider: provider,
+      current_stt_model: nextModel,
+    });
+  };
+
+  const handleModelChange = (model: string) => {
+    if (!visibleProvider) {
+      return;
+    }
+
+    rememberModel(visibleProvider, model);
+    setPendingProvider(null);
+    setSelection({
+      current_stt_provider: visibleProvider,
+      current_stt_model: model,
+    });
   };
   return (
     <div className="flex flex-col gap-4">
+      {defaultSelection && !pendingProvider ? (
+        <PersistAiSelection
+          key={`stt:${defaultSelection.provider}:${defaultSelection.model}`}
+          type="stt"
+          provider={defaultSelection.provider}
+          model={defaultSelection.model}
+        />
+      ) : null}
       <SettingsAlertToast
         id="stt-settings-alert"
         description={alertDescription}
@@ -169,15 +237,12 @@ export function SelectProviderAndModel() {
       </h3>
       <div className="flex flex-row items-center gap-4">
         <div className="min-w-0 flex-2" data-stt-provider-selector>
-          <Select
-            value={current_stt_provider || ""}
-            onValueChange={handleProviderChange}
-          >
+          <Select value={visibleProvider} onValueChange={handleProviderChange}>
             <SelectTrigger className="bg-card shadow-none focus:ring-0">
               <SelectValue placeholder={t`Select a provider`} />
             </SelectTrigger>
             <SelectContent>
-              {PROVIDERS.filter(({ disabled }) => !disabled).map((provider) => {
+              {providerOptions.map((provider) => {
                 const configured =
                   configuredProviders[provider.id]?.configured ?? false;
                 const requiresPro = requiresEntitlement(
@@ -220,7 +285,7 @@ export function SelectProviderAndModel() {
 
         <span className="text-muted-foreground">/</span>
 
-        {current_stt_provider === "custom" ? (
+        {visibleProvider === "custom" ? (
           <div className="min-w-0 flex-3">
             <Input
               value={displayedSttModel || ""}
@@ -291,38 +356,51 @@ const TRANSCRIPTION_LANGUAGE_WARNING_TOAST_ID =
 const dismissedTranscriptionLanguageWarningKeys = new Set<string>();
 
 function TranscriptionLanguageWarningToast() {
-  const warningKey = useTranscriptionLanguageWarningKey();
+  const { i18n, t } = useLingui();
+  const warning = useTranscriptionLanguageWarning();
 
-  if (
-    !warningKey ||
-    dismissedTranscriptionLanguageWarningKeys.has(warningKey)
-  ) {
+  if (!warning || dismissedTranscriptionLanguageWarningKeys.has(warning.key)) {
     return null;
   }
 
+  const model = displayModelLabel(warning.model);
+  const unsupportedLanguages = warning.unsupportedLanguages.map((language) =>
+    getBaseLanguageDisplayName(language, i18n.locale),
+  );
+  const description =
+    unsupportedLanguages.length > 0
+      ? t`${model} can't transcribe ${formatLanguageList(unsupportedLanguages)}. Try another model or change your spoken languages.`
+      : t`${model} can't transcribe all selected languages together. Try another model or use fewer spoken languages.`;
+
   return (
     <TranscriptionLanguageWarningToastLifecycle
-      key={warningKey}
-      warningKey={warningKey}
+      key={warning.key}
+      warningKey={warning.key}
+      description={description}
+      actionLabel={t`Got it`}
     />
   );
 }
 
 function TranscriptionLanguageWarningToastLifecycle({
   warningKey,
+  description,
+  actionLabel,
 }: {
   warningKey: string;
+  description: string;
+  actionLabel: string;
 }) {
   useMountEffect(() => {
     showTransientToast(
       {
         id: TRANSCRIPTION_LANGUAGE_WARNING_TOAST_ID,
         icon: <AlertTriangle className="size-4 shrink-0 text-amber-500" />,
-        description: "Model doesn't support all languages.",
+        description,
         anchor: "main-content-panel",
         actions: [
           {
-            label: "Dismiss",
+            label: actionLabel,
             onClick: () => {
               dismissedTranscriptionLanguageWarningKeys.add(warningKey);
               clearTranscriptionLanguageWarningToast();
@@ -349,7 +427,7 @@ function clearTranscriptionLanguageWarningToast() {
   }
 }
 
-function useTranscriptionLanguageWarningKey() {
+function useTranscriptionLanguageWarning() {
   const { current_stt_provider, current_stt_model, spoken_languages } =
     useConfigValues([
       "current_stt_provider",
@@ -384,7 +462,7 @@ function useTranscriptionLanguageWarningKey() {
     liveSupported: liveSupport.data,
   });
 
-  const languageSupport = useQuery({
+  const languageSupportIssue = useQuery({
     queryKey: [
       "stt-language-support",
       current_stt_provider,
@@ -392,33 +470,57 @@ function useTranscriptionLanguageWarningKey() {
       useLiveMode,
       spoken_languages,
     ],
-    queryFn: async () =>
-      useLiveMode
-        ? await isSupportedLanguagesLive(
-            current_stt_provider!,
-            selectedSttModel ?? null,
-            spoken_languages ?? [],
-          )
-        : await isSupportedLanguagesBatch(
-            current_stt_provider!,
-            selectedSttModel ?? null,
-            spoken_languages ?? [],
-          ),
+    queryFn: async () => {
+      const isSupported = (languages: readonly string[]) =>
+        useLiveMode
+          ? isSupportedLanguagesLive(
+              current_stt_provider!,
+              selectedSttModel ?? null,
+              languages,
+            )
+          : isSupportedLanguagesBatch(
+              current_stt_provider!,
+              selectedSttModel ?? null,
+              languages,
+            );
+
+      return await getLanguageSupportIssue(spoken_languages ?? [], isSupported);
+    },
     enabled:
       isConfigured &&
       liveSupport.data !== undefined &&
       !!spoken_languages?.length,
   });
 
-  if (!isConfigured || languageSupport.data !== false || hasError) {
+  if (
+    !isConfigured ||
+    !selectedSttModel ||
+    !languageSupportIssue.data ||
+    hasError
+  ) {
     return null;
   }
 
-  return [
-    current_stt_provider,
-    selectedSttModel,
-    ...(spoken_languages ?? []),
-  ].join(":");
+  return {
+    key: [
+      current_stt_provider,
+      selectedSttModel,
+      ...(spoken_languages ?? []),
+    ].join(":"),
+    model: selectedSttModel,
+    unsupportedLanguages: languageSupportIssue.data.unsupportedLanguages,
+  };
+}
+
+function formatLanguageList(languages: string[]) {
+  const visibleLanguages = languages.slice(0, 3);
+  const remainingCount = languages.length - visibleLanguages.length;
+
+  if (remainingCount > 0) {
+    visibleLanguages.push(`${remainingCount} more`);
+  }
+
+  return visibleLanguages.join(", ");
 }
 
 type ModelCategory = "latest" | null;
@@ -492,15 +594,19 @@ function getProviderModelMode(
   return undefined;
 }
 
-function useConfiguredMapping(): Record<
-  ProviderId,
-  {
-    configured: boolean;
-    models: ModelEntry[];
-  }
-> {
+function useConfiguredMapping(): {
+  providers: Record<
+    ProviderId,
+    {
+      configured: boolean;
+      models: ModelEntry[];
+    }
+  >;
+  isReady: boolean;
+} {
   const billing = useBillingAccess();
-  const configuredProviders = useAiProviders("stt");
+  const { providers: configuredProviders, isReady } =
+    useAiProvidersState("stt");
 
   const targetArch = useQuery({
     queryKey: ["target-arch"],
@@ -526,7 +632,7 @@ function useConfiguredMapping(): Record<
     queries: [...soniqoModels.map((m) => sttModelQueries.isDownloaded(m.key))],
   });
 
-  return Object.fromEntries(
+  const providers = Object.fromEntries(
     PROVIDERS.map((provider) => {
       const config = configuredProviders[providerRowId("stt", provider.id)] as
         | AIProviderStorage
@@ -591,6 +697,8 @@ function useConfiguredMapping(): Record<
       models: ModelEntry[];
     }
   >;
+
+  return { providers, isReady };
 }
 
 function ModelSelectItem({

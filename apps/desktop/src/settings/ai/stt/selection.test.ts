@@ -2,6 +2,8 @@ import { describe, expect, test } from "vitest";
 
 import {
   getDefaultSttModel,
+  getDefaultSttSelection,
+  getLanguageSupportIssue,
   getPreferredProviderModel,
   resolveLiveLanguageSupportMode,
 } from "./selection";
@@ -116,6 +118,79 @@ describe("getPreferredProviderModel", () => {
         allowSavedModelWithoutChoices: true,
       }),
     ).toBe("whisper-large-v3");
+  });
+});
+
+describe("getDefaultSttSelection", () => {
+  test("keeps the active configured provider and repairs its missing model", () => {
+    expect(
+      getDefaultSttSelection(
+        ["deepgram", "assemblyai"],
+        {
+          deepgram: {
+            configured: true,
+            models: [{ id: "nova-3-general" }],
+          },
+          assemblyai: {
+            configured: true,
+            models: [{ id: "universal-3-pro" }],
+          },
+        },
+        "deepgram",
+      ),
+    ).toEqual({ provider: "deepgram", model: "nova-3-general" });
+  });
+
+  test("skips configured providers that have no available model", () => {
+    expect(
+      getDefaultSttSelection(["hyprnote", "deepgram"], {
+        hyprnote: {
+          configured: true,
+          models: [{ id: "cloud", isDownloaded: false }],
+        },
+        deepgram: {
+          configured: true,
+          models: [{ id: "nova-3-general" }],
+        },
+      }),
+    ).toEqual({ provider: "deepgram", model: "nova-3-general" });
+  });
+
+  test("returns no selection when nothing is available", () => {
+    expect(
+      getDefaultSttSelection(["hyprnote"], {
+        hyprnote: {
+          configured: true,
+          models: [{ id: "cloud", isDownloaded: false }],
+        },
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("getLanguageSupportIssue", () => {
+  test("returns the languages the model cannot transcribe", async () => {
+    const issue = await getLanguageSupportIssue(
+      ["en", "ko", "ja"],
+      async (languages) => !languages.includes("ko"),
+    );
+
+    expect(issue).toEqual({ unsupportedLanguages: ["ko"] });
+  });
+
+  test("distinguishes an unsupported combination from unsupported languages", async () => {
+    const issue = await getLanguageSupportIssue(
+      ["en", "ko"],
+      async (languages) => languages.length === 1,
+    );
+
+    expect(issue).toEqual({ unsupportedLanguages: [] });
+  });
+
+  test("returns no issue when the full selection is supported", async () => {
+    const issue = await getLanguageSupportIssue(["en", "ko"], async () => true);
+
+    expect(issue).toBeNull();
   });
 });
 

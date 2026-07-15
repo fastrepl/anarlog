@@ -21,3 +21,29 @@ export function getPreferredProviderModel(
 
   return "";
 }
+
+export async function getDefaultLlmSelection(
+  providerIds: readonly string[],
+  currentProvider: string | undefined,
+  currentModel: string | undefined,
+  loadModels: (provider: string) => Promise<string[]>,
+) {
+  for (const provider of providerIds) {
+    try {
+      const models = await loadModels(provider);
+      const model = getPreferredProviderModel(
+        provider === currentProvider ? currentModel : undefined,
+        models,
+        { allowSavedModelWithoutChoices: provider === "custom" },
+      );
+
+      if (model) {
+        return { provider, model };
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}

@@ -14,7 +14,7 @@
     "i18n:extract": "lingui extract",
     "i18n:compile": "lingui compile",
     "i18n:check": "lingui extract --clean --workers 1 && lingui compile --strict --workers 1 && git diff --exit-code -- src/i18n/locales",
-    "tauri:dev": "dotenvx run --ignore MISSING_ENV_FILE --env RELAY_PORT=1424 -f ../../.env.supabase -f .env -- tauri dev --no-watch --features dev",
+    "tauri:dev": "dotenvx run --ignore MISSING_ENV_FILE --env RELAY_PORT=1424 -f ../../.env.supabase -f .env -- tauri dev --runner ../scripts/dev-runner.mjs --no-watch --features dev",
     "tauri:build": "tauri build"
   },
   "dependencies": {

@@ -22,6 +22,15 @@ msgstr ""
 msgid "{0} opened on"
 msgstr ""
 
+#. placeholder {0}: formatLanguageList(unsupportedLanguages)
+#: src/settings/ai/stt/select.tsx
+msgid "{model} can't transcribe {0}. Try another model or change your spoken languages."
+msgstr ""
+
+#: src/settings/ai/stt/select.tsx
+msgid "{model} can't transcribe all selected languages together. Try another model or use fewer spoken languages."
+msgstr ""
+
 #: src/settings/general/account.tsx
 msgid "{trialDaysRemaining} day left"
 msgstr ""
@@ -743,6 +752,10 @@ msgstr ""
 
 #: src/chat/components/body/index.tsx
 msgid "Go to recent"
+msgstr ""
+
+#: src/settings/ai/stt/select.tsx
+msgid "Got it"
 msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
