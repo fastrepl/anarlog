@@ -529,6 +529,10 @@ msgstr "Describe the template purpose..."
 msgid "Detection delay"
 msgstr "Detection delay"
 
+#: src/sidebar/settings.tsx
+msgid "Developers"
+msgstr "Developers"
+
 #: src/settings/personalization/index.tsx
 msgid "Dictionary"
 msgstr "Dictionary"

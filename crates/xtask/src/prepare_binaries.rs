@@ -6,6 +6,7 @@ pub(crate) fn prepare_binaries() -> Result<()> {
     let root_dir = crate::repo_root();
     let src_tauri = root_dir.join("apps/desktop/src-tauri");
     let binaries_dir = src_tauri.join("binaries");
+    let embedded_cli_dir = src_tauri.join("resources").join("cli");
 
     let triple = match env::var("TAURI_ENV_TARGET_TRIPLE") {
         Ok(v) => v,
@@ -37,6 +38,24 @@ pub(crate) fn prepare_binaries() -> Result<()> {
     fs::copy(&src, &dst).with_context(|| format!("copy {} -> {}", src.display(), dst.display()))?;
 
     println!("prepare-binaries: binaries/char-chrome-native-host-{triple}{ext}");
+
+    cmd!(
+        sh,
+        "{cargo} build --release --target {triple} -p anarlog-cli"
+    )
+    .run()?;
+
+    fs::create_dir_all(&embedded_cli_dir).context("create resources/cli/")?;
+
+    let src = src_tauri
+        .join("target")
+        .join(&triple)
+        .join("release")
+        .join(format!("anarlog{ext}"));
+    let dst = embedded_cli_dir.join(format!("anarlog-cli-{triple}{ext}"));
+    fs::copy(&src, &dst).with_context(|| format!("copy {} -> {}", src.display(), dst.display()))?;
+
+    println!("prepare-binaries: resources/cli/anarlog-cli-{triple}{ext}");
     Ok(())
 }
 

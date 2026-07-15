@@ -5,13 +5,25 @@ description: "Install the current Anarlog CLI and point it at local meeting data
 
 ## Current availability
 
-The CLI is currently available as a source build from the Anarlog repository. It includes the `anarlog mcp` server in the same executable.
+The CLI includes the `anarlog mcp` server in the same executable.
 
 <Warning>
-  Homebrew, desktop-bundled CLI, standalone release binaries, and Windows package-manager distribution are forthcoming. Do not rely on those channels yet.
+  Homebrew, standalone release binaries, and Windows package-manager distribution are forthcoming. Do not rely on those channels yet.
 </Warning>
 
+## Install from the desktop app
+
+On macOS, open **Settings → Developers** and select **Install**. Anarlog installs the bundled command at `~/.local/bin/anarlog` without sending data anywhere.
+
+If your shell cannot find `anarlog`, add `~/.local/bin` to `PATH`:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
 ## Build from source
+
+To build the CLI yourself instead:
 
 ```bash
 git clone https://github.com/fastrepl/anarlog.git

@@ -34,6 +34,7 @@ export type SettingsTab =
   | "account"
   | "app"
   | "notifications"
+  | "developers"
   | "permissions"
   | "personalization"
   | "transcription"
@@ -45,6 +46,7 @@ const isSettingsTab = (tab: string | null | undefined): tab is SettingsTab => {
     case "account":
     case "app":
     case "notifications":
+    case "developers":
     case "permissions":
     case "personalization":
     case "transcription":
@@ -62,6 +64,7 @@ export const normalizeSettingsTab = (
   switch (tab) {
     case "app":
     case "notifications":
+    case "developers":
     case "permissions":
     case "personalization":
     case "transcription":

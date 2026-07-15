@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 use crate::{Args, Error, Result};
@@ -28,6 +29,22 @@ pub(crate) fn resolve_path(args: &Args) -> Result<PathBuf> {
 }
 
 fn resolve_default_path(data_dir: &Path) -> PathBuf {
+    let command_name = std::env::args_os()
+        .next()
+        .and_then(|path| Path::new(&path).file_name().map(|name| name.to_owned()));
+    resolve_default_path_for_command(data_dir, command_name.as_deref())
+}
+
+fn resolve_default_path_for_command(data_dir: &Path, command_name: Option<&OsStr>) -> PathBuf {
+    let channel_identifier = match command_name.and_then(OsStr::to_str) {
+        Some("anarlog-dev") => Some("com.hyprnote.dev"),
+        Some("anarlog-staging") => Some("com.hyprnote.staging"),
+        _ => None,
+    };
+    if let Some(identifier) = channel_identifier {
+        return data_dir.join(identifier).join("app.db");
+    }
+
     let current = data_dir.join("anarlog").join("app.db");
     if current.is_file() {
         return current;
@@ -59,23 +76,49 @@ mod tests {
 
         std::fs::create_dir_all(identifier.parent().unwrap()).unwrap();
         std::fs::write(&identifier, "").unwrap();
-        assert_eq!(resolve_default_path(dir.path()), identifier);
+        assert_eq!(
+            resolve_default_path_for_command(dir.path(), Some(OsStr::new("anarlog"))),
+            identifier
+        );
 
         std::fs::create_dir_all(legacy.parent().unwrap()).unwrap();
         std::fs::write(&legacy, "").unwrap();
-        assert_eq!(resolve_default_path(dir.path()), legacy);
+        assert_eq!(
+            resolve_default_path_for_command(dir.path(), Some(OsStr::new("anarlog"))),
+            legacy
+        );
 
         std::fs::create_dir_all(current.parent().unwrap()).unwrap();
         std::fs::write(&current, "").unwrap();
-        assert_eq!(resolve_default_path(dir.path()), current);
+        assert_eq!(
+            resolve_default_path_for_command(dir.path(), Some(OsStr::new("anarlog"))),
+            current
+        );
     }
 
     #[test]
     fn default_path_targets_current_location_for_new_installs() {
         let dir = tempfile::tempdir().unwrap();
         assert_eq!(
-            resolve_default_path(dir.path()),
+            resolve_default_path_for_command(dir.path(), Some(OsStr::new("anarlog"))),
             dir.path().join("anarlog/app.db")
+        );
+    }
+
+    #[test]
+    fn channel_commands_target_their_channel_database() {
+        let dir = tempfile::tempdir().unwrap();
+        let stable = dir.path().join("anarlog/app.db");
+        std::fs::create_dir_all(stable.parent().unwrap()).unwrap();
+        std::fs::write(stable, "").unwrap();
+
+        assert_eq!(
+            resolve_default_path_for_command(dir.path(), Some(OsStr::new("anarlog-dev"))),
+            dir.path().join("com.hyprnote.dev/app.db")
+        );
+        assert_eq!(
+            resolve_default_path_for_command(dir.path(), Some(OsStr::new("anarlog-staging"))),
+            dir.path().join("com.hyprnote.staging/app.db")
         );
     }
 }

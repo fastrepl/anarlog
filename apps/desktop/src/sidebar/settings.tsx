@@ -6,6 +6,7 @@ import {
   BellIcon,
   BookText,
   CalendarIcon,
+  Code2Icon,
   CogIcon,
   LockIcon,
   SmileIcon,
@@ -71,6 +72,7 @@ export function SettingsNav() {
         { id: "app", label: t`App`, icon: CogIcon },
         { id: "account", label: t`Account`, icon: UserIcon },
         { id: "notifications", label: t`Notifications`, icon: BellIcon },
+        { id: "developers", label: t`Developers`, icon: Code2Icon },
       ],
     },
     {

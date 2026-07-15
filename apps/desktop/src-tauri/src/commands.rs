@@ -1,4 +1,4 @@
-use crate::AppExt;
+use crate::{AppExt, embedded_cli::EmbeddedCliStatus};
 
 const STAGING_BUNDLE_ID: &str = "com.hyprnote.staging";
 
@@ -100,6 +100,22 @@ pub async fn set_recently_opened_sessions<R: tauri::Runtime>(
     v: String,
 ) -> Result<(), String> {
     app.set_recently_opened_sessions(v)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn check_embedded_cli<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<EmbeddedCliStatus, String> {
+    Ok(crate::embedded_cli::check(&app))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn install_embedded_cli<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<EmbeddedCliStatus, String> {
+    crate::embedded_cli::install(&app)
 }
 
 #[cfg(test)]
