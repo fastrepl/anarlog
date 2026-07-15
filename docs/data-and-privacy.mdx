@@ -1,0 +1,52 @@
+---
+title: "Data, privacy, and retention"
+description: "Understand what stays on your computer, what can leave it, and how long audio is kept."
+---
+
+Anarlog stores its app data on your computer and captures meetings without adding a bot to the call. Data leaves your computer only when you use a connected or hosted feature that needs it.
+
+## What stays on your computer
+
+Your notes, local transcripts, settings, recordings you choose to keep, and downloaded local models are stored locally. You can write notes, record audio, and use configured local models without sending meeting content to Anarlog Cloud.
+
+Use Anarlog's export tools when you need a portable copy. Do not edit the app database directly.
+
+## When content is sent elsewhere
+
+The destination depends on the feature you choose:
+
+- A hosted **Transcription** provider receives the audio needed to create a transcript.
+- A hosted **Intelligence** provider receives the text and instructions needed to create a summary or chat response.
+- Connected calendars exchange the event data required to show and update your meetings.
+- Sync and sharing features send the content you choose to make available on another device or through a link.
+
+Anarlog Cloud, your own API-key providers, and local providers are separate choices. Review the provider's own retention and training policies before sending sensitive content.
+
+## Keep a meeting fully local
+
+1. Select an on-device model under **Settings → Transcription**.
+2. Select LM Studio or Ollama under **Settings → Intelligence**.
+3. Avoid cloud sync, share links, and hosted providers for that content.
+
+See [Use Anarlog offline](/offline) for the full setup.
+
+## Choose how long audio is kept
+
+Open **Settings → App → Storage → Audio file retention**. Choose:
+
+- **Don't save**
+- **1 day**
+- **3 days**
+- **1 week**
+- **1 month**
+- **Forever**
+
+Deleting retained audio does not remove the meeting note or transcript. If you need the recording later, open the meeting's **•••** menu, choose **Show in Finder**, and copy the audio before its retention period ends.
+
+## Turn off usage analytics
+
+Open **Settings → App** and disable **Share usage data**. This controls anonymous product analytics, not the meeting content sent to a provider you selected.
+
+<Warning>
+  Recording-consent rules depend on where you and the other participants are located. Make sure you have permission before recording.
+</Warning>

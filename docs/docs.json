@@ -21,7 +21,19 @@
       },
       {
         "group": "Using Anarlog",
-        "pages": ["meetings", "notes", "calendar", "ai-setup"]
+        "pages": [
+          "meetings",
+          "automatic-capture",
+          "import-recordings",
+          "notes",
+          "customize-summaries",
+          "calendar",
+          "languages"
+        ]
+      },
+      {
+        "group": "AI and privacy",
+        "pages": ["ai-setup", "offline", "data-and-privacy"]
       },
       {
         "group": "CLI and agents",
@@ -47,7 +59,7 @@
       },
       {
         "group": "Help",
-        "pages": ["troubleshooting"]
+        "pages": ["help", "troubleshooting"]
       }
     ],
     "global": {
