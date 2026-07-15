@@ -6,7 +6,7 @@ use std::{
 };
 
 #[cfg(target_os = "macos")]
-const MACOS_MINIMUM_SYSTEM_VERSION: &str = "14.2";
+const MACOS_MINIMUM_SYSTEM_VERSION: &str = "15.0";
 
 fn main() {
     #[cfg(target_os = "macos")]

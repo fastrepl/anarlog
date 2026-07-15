@@ -43,7 +43,7 @@
       "resources/notification-icons": "notification-icons"
     },
     "macOS": {
-      "minimumSystemVersion": "14.2",
+      "minimumSystemVersion": "15.0",
       "frameworks": [
         "../../../crates/cloudsync/vendor/cloudsync/macos/aarch64/cloudsync.dylib"
       ],
