@@ -487,13 +487,7 @@ function PlanTierList({
             );
 
             return (
-              <div
-                key={tier.id}
-                className={cn([
-                  "flex flex-col p-3",
-                  isCurrent && "bg-background/60",
-                ])}
-              >
+              <div key={tier.id} className="flex flex-col p-3">
                 <div className="mb-2 flex items-center gap-2">
                   <span className="text-foreground font-sans text-base font-medium">
                     {tier.name}
@@ -543,10 +537,7 @@ function PlanTierList({
             return (
               <div
                 key={tier.id}
-                className={cn([
-                  "border-border border-b py-3 last:border-b-0",
-                  isCurrent && "bg-background/60 -mx-2 rounded-md px-2",
-                ])}
+                className="border-border border-b py-3 last:border-b-0"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
