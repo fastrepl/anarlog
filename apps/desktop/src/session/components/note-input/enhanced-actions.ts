@@ -1,15 +1,15 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import { useAITaskTask } from "~/ai/hooks";
-import { useLanguageModel, useLLMConnectionStatus } from "~/ai/hooks";
+import { useLanguageModel } from "~/ai/hooks";
 import {
   isMainAITaskHostWindow,
   requestMainAITaskCancel,
   requestMainEnhance,
 } from "~/ai/task-window-sync";
-import { shouldShowEmptySummaryConfigError } from "~/session/enhance-config";
 import { useEnhancedNote } from "~/session/queries";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 
@@ -21,13 +21,9 @@ export function useEnhancedNoteActions({
   sessionId: string;
 }) {
   const model = useLanguageModel("enhance");
-  const llmStatus = useLLMConnectionStatus();
   const taskId = enhancedNoteId
     ? createTaskId(enhancedNoteId, "enhance")
     : null;
-  const [missingModelError, setMissingModelError] = useState<Error | null>(
-    null,
-  );
 
   const noteTemplateId =
     useEnhancedNote(enhancedNoteId ?? "")?.templateId || undefined;
@@ -41,13 +37,11 @@ export function useEnhancedNoteActions({
       }
 
       if (!model) {
-        setMissingModelError(
-          new Error("Intelligence provider not configured."),
+        sonnerToast.error(
+          "Set up Intelligence in Settings before regenerating this summary.",
         );
         return;
       }
-
-      setMissingModelError(null);
 
       if (!isMainAITaskHostWindow()) {
         void requestMainEnhance(sessionId, {
@@ -74,10 +68,6 @@ export function useEnhancedNoteActions({
     [enhancedNoteId, model, enhanceTask.start, sessionId, noteTemplateId],
   );
 
-  const isConfigError = shouldShowEmptySummaryConfigError(llmStatus);
-  const isIdleWithConfigError = enhanceTask.isIdle && isConfigError;
-  const error = model ? enhanceTask.error : missingModelError;
-  const isError = !!error || enhanceTask.isError || isIdleWithConfigError;
   const onCancel = useCallback(() => {
     if (!taskId) {
       return;
@@ -93,8 +83,8 @@ export function useEnhancedNoteActions({
 
   return {
     isGenerating: enhanceTask.isGenerating,
-    isError,
-    error,
+    isError: enhanceTask.isError,
+    error: enhanceTask.error,
     onRegenerate,
     onCancel,
   };
