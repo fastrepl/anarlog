@@ -2543,7 +2543,11 @@ fn find_participant_streams(
         .filter_map(|node| candidate_stream(platform, surface, node).map(|stream| (stream, node)))
         .collect::<Vec<_>>();
 
-    streams.sort_by(|a, b| b.0.confidence.total_cmp(&a.0.confidence));
+    streams.sort_by(|a, b| {
+        b.0.is_active_speaker
+            .cmp(&a.0.is_active_speaker)
+            .then_with(|| b.0.confidence.total_cmp(&a.0.confidence))
+    });
     let mut retained_nodes: Vec<(String, &AxNode)> = Vec::new();
     streams.retain(|(stream, node)| {
         let duplicate = stream.participant_name.as_deref().is_some_and(|name| {
@@ -2557,7 +2561,12 @@ fn find_participant_streams(
         }
         !duplicate
     });
-    streams.truncate(24);
+    let retained_limit = streams
+        .iter()
+        .filter(|(stream, _)| stream.is_active_speaker)
+        .count()
+        .max(24);
+    streams.truncate(retained_limit);
     streams.into_iter().map(|(stream, _)| stream).collect()
 }
 
@@ -2794,6 +2803,12 @@ fn participant_name_from_evidence(
 #[cfg(target_os = "macos")]
 fn participant_name_from_speaker_label(label: &str) -> Option<String> {
     let label = label.trim();
+    let lower = label.to_ascii_lowercase();
+    let label = if lower.ends_with(" (you)") {
+        &label[..label.len() - " (you)".len()]
+    } else {
+        label
+    };
     let lower = label.to_ascii_lowercase();
     let name = if lower.starts_with("active speaker: ") {
         &label["active speaker: ".len()..]
@@ -3689,6 +3704,46 @@ mod tests {
                 .signals
                 .contains(&"speaker-state-label".to_string())
         );
+    }
+
+    #[test]
+    fn test_self_view_speaker_label_marks_stream_active() {
+        let nodes = vec![node(10, "AXRow", "Grace Hopper is speaking (You)", None)];
+
+        let streams =
+            find_participant_streams(&MeetingPlatform::Zoom, &MeetingSurface::Native, &nodes);
+
+        assert_eq!(streams.len(), 1);
+        assert_eq!(streams[0].participant_name.as_deref(), Some("Grace Hopper"));
+        assert!(streams[0].is_active_speaker);
+    }
+
+    #[test]
+    fn test_active_speaker_is_retained_past_participant_limit() {
+        let mut nodes = (0..24)
+            .map(|index| {
+                node(
+                    index,
+                    "AXGroup",
+                    &format!("Video render Participant {index}, Computer audio unmuted"),
+                    Some(AxRect {
+                        x: 0.0,
+                        y: 0.0,
+                        width: 320.0,
+                        height: 180.0,
+                    }),
+                )
+            })
+            .collect::<Vec<_>>();
+        nodes.push(node(24, "AXRow", "Ada Lovelace is speaking", None));
+
+        let streams =
+            find_participant_streams(&MeetingPlatform::Zoom, &MeetingSurface::Native, &nodes);
+
+        assert_eq!(streams.len(), 24);
+        assert!(streams.iter().any(|stream| {
+            stream.is_active_speaker && stream.participant_name.as_deref() == Some("Ada Lovelace")
+        }));
     }
 
     #[test]
