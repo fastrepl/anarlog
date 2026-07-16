@@ -2828,7 +2828,11 @@ fn participant_name_from_speaker_label(label: &str) -> Option<String> {
         .trim_end_matches(" (you)")
         .trim();
     let name = if name.to_ascii_lowercase().starts_with("video render ") {
-        name["video render ".len()..].trim()
+        name["video render ".len()..]
+            .split(',')
+            .next()
+            .unwrap_or_default()
+            .trim()
     } else {
         name
     };
@@ -4835,6 +4839,14 @@ mod tests {
             participant_name_from_evidence(
                 &MeetingPlatform::Zoom,
                 "Video render Grace Hopper is speaking",
+            )
+            .as_deref(),
+            Some("Grace Hopper")
+        );
+        assert_eq!(
+            participant_name_from_evidence(
+                &MeetingPlatform::Zoom,
+                "Video render Grace Hopper, Computer audio unmuted, active speaker",
             )
             .as_deref(),
             Some("Grace Hopper")
