@@ -28,7 +28,7 @@ function setScrollMetrics(
 }
 
 describe("useScrollDetection", () => {
-  it("reports overflow even when the viewport is near both edges", () => {
+  it("keeps one scroll edge available when the viewport is near both edges", () => {
     const element = document.createElement("div");
     setScrollMetrics(element, {
       clientHeight: 100,
@@ -44,6 +44,14 @@ describe("useScrollDetection", () => {
 
     expect(result.current.canScroll).toBe(true);
     expect(result.current.isAtTop).toBe(true);
+    expect(result.current.isAtBottom).toBe(false);
+
+    act(() => {
+      element.scrollTop = 50;
+      element.dispatchEvent(new Event("scroll"));
+    });
+
+    expect(result.current.isAtTop).toBe(false);
     expect(result.current.isAtBottom).toBe(true);
   });
 

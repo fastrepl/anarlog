@@ -31,16 +31,16 @@ export function useScrollDetection(
     lastScrollTopRef.current = element.scrollTop;
 
     const updateScrollState = () => {
-      const topThreshold = 40;
       const bottomThreshold = 100;
       const distanceToBottom =
         element.scrollHeight - element.scrollTop - element.clientHeight;
       const hasOverflow = element.scrollHeight - element.clientHeight > 1;
-      const isNearTop = element.scrollTop < topThreshold;
       const isNearBottom = distanceToBottom < bottomThreshold;
+      const isAtExactTop = element.scrollTop <= 1;
+      const isAtExactBottom = !isAtExactTop && distanceToBottom <= 1;
       setCanScroll(hasOverflow);
-      setIsAtTop(!hasOverflow || isNearTop);
-      setIsAtBottom(!hasOverflow || isNearBottom);
+      setIsAtTop(!hasOverflow || isAtExactTop);
+      setIsAtBottom(!hasOverflow || isAtExactBottom);
 
       return isNearBottom;
     };
