@@ -147,7 +147,7 @@ pub async fn main() {
         ))
         .plugin(tauri_plugin_bedrock::init());
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "macos")]
     {
         builder = builder.plugin(tauri_plugin_importer::init());
     }
