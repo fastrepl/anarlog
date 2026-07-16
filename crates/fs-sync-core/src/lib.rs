@@ -323,8 +323,18 @@ fn write_unique_file(
     filename: &str,
     data: &[u8],
 ) -> Result<(PathBuf, String)> {
-    use std::fs::OpenOptions;
     use std::io::Write;
+
+    write_unique_file_with(dir, filename, data, |file, bytes| file.write_all(bytes))
+}
+
+fn write_unique_file_with(
+    dir: &std::path::Path,
+    filename: &str,
+    data: &[u8],
+    mut write_data: impl FnMut(&mut std::fs::File, &[u8]) -> std::io::Result<()>,
+) -> Result<(PathBuf, String)> {
+    use std::fs::OpenOptions;
 
     let path = std::path::Path::new(filename);
     let stem = path
@@ -352,7 +362,16 @@ fn write_unique_file(
             .open(&candidate_path)
         {
             Ok(mut file) => {
-                file.write_all(data)?;
+                if let Err(error) = write_data(&mut file, data) {
+                    drop(file);
+                    if let Err(cleanup_error) = std::fs::remove_file(&candidate_path) {
+                        tracing::warn!(
+                            error = %cleanup_error,
+                            "Failed to remove partially written attachment"
+                        );
+                    }
+                    return Err(error.into());
+                }
                 return Ok((candidate_path, candidate_filename));
             }
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
@@ -488,7 +507,7 @@ mod tests {
         let core = FsSyncCore::new(temp.path().to_path_buf());
         let result = core.rename_folder("old", "new");
 
-        assert!(result.is_err());
+        assert!(matches!(result, Err(Error::Path(message)) if message == "folder_target_exists"));
     }
 
     #[test]
@@ -630,6 +649,32 @@ mod tests {
             .child("attachments")
             .child("file 1.txt")
             .assert(predicates::path::exists());
+    }
+
+    #[test]
+    fn attachment_save_removes_a_partial_candidate_after_write_failure() {
+        let temp = TempDir::new().unwrap();
+        let attachments_dir = temp.path().join("attachments");
+        std::fs::create_dir_all(&attachments_dir).unwrap();
+
+        let result =
+            write_unique_file_with(&attachments_dir, "file.txt", b"partial", |file, bytes| {
+                use std::io::Write;
+
+                file.write_all(&bytes[..3])?;
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::StorageFull,
+                    "disk full",
+                ))
+            });
+
+        assert!(matches!(
+            result,
+            Err(Error::Io(error)) if error.kind() == std::io::ErrorKind::StorageFull
+        ));
+        assert!(!attachments_dir.join("file.txt").exists());
+        let saved = write_unique_file(&attachments_dir, "file.txt", b"complete").unwrap();
+        assert_eq!(saved.1, "file.txt");
     }
 
     #[test]

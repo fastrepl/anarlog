@@ -6,6 +6,8 @@ import {
   commands as fsSyncCommands,
 } from "@hypr/plugin-fs-sync";
 
+import { catalogLocalNoteAttachment, sha256Hex } from "~/session/attachments";
+
 export type FileUploadResult = AttachmentSaveResult & {
   url: string;
 };
@@ -15,6 +17,7 @@ export function useFileUpload(sessionId: string) {
     async (file: File): Promise<FileUploadResult> => {
       const filename = file.name;
       const arrayBuffer = await file.arrayBuffer();
+      const sha256 = await sha256Hex(arrayBuffer);
       const data = Array.from(new Uint8Array(arrayBuffer));
 
       const result = await fsSyncCommands.attachmentSave(
@@ -28,6 +31,29 @@ export function useFileUpload(sessionId: string) {
       }
 
       const { path, attachmentId } = result.data;
+      try {
+        await catalogLocalNoteAttachment({
+          sessionId,
+          attachmentId,
+          filename,
+          contentType: file.type,
+          sizeBytes: arrayBuffer.byteLength,
+          sha256,
+        });
+      } catch (error) {
+        try {
+          const cleanup = await fsSyncCommands.attachmentRemove(
+            sessionId,
+            attachmentId,
+          );
+          if (cleanup.status === "error") {
+            console.error("[attachment] failed to roll back local file");
+          }
+        } catch {
+          console.error("[attachment] failed to roll back local file");
+        }
+        throw error;
+      }
       return { path, attachmentId, url: convertFileSrc(path) };
     },
     [sessionId],
