@@ -1,7 +1,7 @@
 import { Icon } from "@iconify-icon/react";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { type AnyFieldApi, useForm } from "@tanstack/react-form";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Streamdown } from "streamdown";
@@ -55,6 +55,7 @@ type ProviderConfig = {
   baseUrl?: string;
   disabled?: boolean;
   requirements: ProviderRequirement[];
+  checkAvailability?: (baseUrl: string, apiKey: string) => Promise<boolean>;
   links?: {
     download?: { label: string; url: string };
     models?: { label: string; url: string };
@@ -117,7 +118,7 @@ export function providerRowId(providerType: ProviderType, providerId: string) {
   return `${providerType}:${providerId}`;
 }
 
-function useIsProviderConfigured(
+function useIsProviderReady(
   providerId: string,
   providerType: ProviderType,
   providers: readonly ProviderConfig[],
@@ -127,19 +128,32 @@ function useIsProviderConfigured(
   const providerDef = providers.find((p) => p.id === providerId);
   const config = configuredProviders[providerRowId(providerType, providerId)];
 
-  if (!providerDef) {
-    return false;
-  }
-
-  const baseUrl = String(config?.base_url || providerDef.baseUrl || "").trim();
+  const baseUrl = String(config?.base_url || providerDef?.baseUrl || "").trim();
   const apiKey = String(config?.api_key || "").trim();
-
-  return (
+  const isConfigured =
+    !!providerDef &&
     getProviderSelectionBlockers(providerDef.requirements, {
       isAuthenticated: true,
       isPaid: billing.isPaid,
       config: { base_url: baseUrl, api_key: apiKey },
-    }).length === 0
+    }).length === 0;
+  const checkAvailability = providerDef?.checkAvailability;
+  const availabilityQuery = useQuery({
+    queryKey: [
+      "ai-provider-availability",
+      providerType,
+      providerId,
+      baseUrl,
+      apiKey,
+    ],
+    queryFn: () => checkAvailability?.(baseUrl, apiKey) ?? false,
+    enabled: isConfigured && !!checkAvailability,
+    retry: false,
+    refetchInterval: checkAvailability ? 5_000 : false,
+  });
+
+  return (
+    isConfigured && (!checkAvailability || availabilityQuery.data === true)
   );
 }
 
@@ -163,11 +177,7 @@ export function NonHyprProviderCard({
     useState(false);
   const locked =
     requiresEntitlement(config.requirements, "pro") && !billing.isPaid;
-  const isConfigured = useIsProviderConfigured(
-    config.id,
-    providerType,
-    providers,
-  );
+  const isReady = useIsProviderReady(config.id, providerType, providers);
 
   const requiredFields = getRequiredConfigFields(config.requirements);
   const showApiKey = requiredFields.includes("api_key");
@@ -236,7 +246,7 @@ export function NonHyprProviderCard({
       value={config.id}
       className={cn([
         "bg-muted rounded-[22px] border-2",
-        isConfigured ? "border-border border-solid" : "border-dashed",
+        isReady ? "border-border border-solid" : "border-dashed",
       ])}
     >
       <SettingsAlertToast

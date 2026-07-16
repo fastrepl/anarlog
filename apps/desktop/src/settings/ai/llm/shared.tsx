@@ -14,6 +14,10 @@ import type { ReactNode } from "react";
 import { env } from "~/env";
 import { AnarlogProviderIcon } from "~/settings/ai/shared";
 import { type ProviderRequirement } from "~/settings/ai/shared/eligibility";
+import {
+  checkLMStudioAvailability,
+  checkOllamaAvailability,
+} from "~/settings/ai/shared/local-provider-availability";
 import { sortProviders } from "~/settings/ai/shared/sort-providers";
 
 export type Provider = {
@@ -23,6 +27,7 @@ export type Provider = {
   icon: ReactNode;
   baseUrl?: string;
   requirements: ProviderRequirement[];
+  checkAvailability?: (baseUrl: string, apiKey: string) => Promise<boolean>;
   links?: {
     download?: { label: string; url: string };
     models?: { label: string; url: string };
@@ -49,6 +54,7 @@ const _PROVIDERS = [
     icon: <LmStudio size={16} />,
     baseUrl: "http://127.0.0.1:1234/v1",
     requirements: [],
+    checkAvailability: checkLMStudioAvailability,
     links: {
       download: {
         label: "Download LM Studio",
@@ -68,6 +74,7 @@ const _PROVIDERS = [
     icon: <Ollama size={16} />,
     baseUrl: "http://127.0.0.1:11434/v1",
     requirements: [],
+    checkAvailability: checkOllamaAvailability,
     links: {
       download: {
         label: "Download Ollama",
