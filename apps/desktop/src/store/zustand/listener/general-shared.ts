@@ -41,9 +41,10 @@ export type GeneralState = {
     degraded: DegradedError | null;
     requestedLiveTranscription: boolean | null;
     liveTranscriptionActive: boolean | null;
+    needsBatchRepair: boolean;
     finalizingBySession: Record<
       string,
-      { startedAtMs: number; seconds: number }
+      { startedAtMs: number; seconds: number; needsBatchRepair: boolean }
     >;
     triggerAppIds: string[] | null;
   };
@@ -65,6 +66,7 @@ const initialLiveState: LiveState = {
   degraded: null,
   requestedLiveTranscription: null,
   liveTranscriptionActive: null,
+  needsBatchRepair: false,
   finalizingBySession: {},
   triggerAppIds: null,
 };
@@ -125,6 +127,7 @@ export const markLiveStartRequested = (live: LiveState, sessionId: string) => {
   live.lastError = null;
   live.requestedLiveTranscription = null;
   live.liveTranscriptionActive = null;
+  live.needsBatchRepair = false;
 };
 
 export const markLiveActive = (
@@ -144,16 +147,29 @@ export const markLiveActive = (
   live.degraded = degraded;
   live.requestedLiveTranscription = requestedLiveTranscription;
   live.liveTranscriptionActive = liveTranscriptionActive;
+  live.needsBatchRepair ||=
+    requestedLiveTranscription &&
+    (!liveTranscriptionActive || degraded !== null);
 };
 
 export const markLiveFinalizing = (live: LiveState, sessionId: string) => {
-  const seconds = live.sessionId === sessionId ? live.seconds : 0;
+  const existing = live.finalizingBySession[sessionId];
+  const seconds =
+    live.sessionId === sessionId ? live.seconds : (existing?.seconds ?? 0);
+  const needsBatchRepair =
+    live.sessionId === sessionId
+      ? live.needsBatchRepair
+      : (existing?.needsBatchRepair ?? false);
   if (live.sessionId === sessionId) {
     live.status = "finalizing";
     live.loading = true;
     live.intervalId = undefined;
   }
-  live.finalizingBySession[sessionId] = { startedAtMs: Date.now(), seconds };
+  live.finalizingBySession[sessionId] = {
+    startedAtMs: existing?.startedAtMs ?? Date.now(),
+    seconds,
+    needsBatchRepair,
+  };
 };
 
 export const markLiveInactive = (live: LiveState, error: string | null) => {
@@ -167,6 +183,7 @@ export const markLiveInactive = (live: LiveState, error: string | null) => {
   live.degraded = null;
   live.requestedLiveTranscription = null;
   live.liveTranscriptionActive = null;
+  live.needsBatchRepair = false;
   live.muted = initialLiveState.muted;
   live.triggerAppIds = null;
 };
@@ -185,6 +202,7 @@ export const markLiveStartFailed = (live: LiveState) => {
   live.degraded = null;
   live.requestedLiveTranscription = null;
   live.liveTranscriptionActive = null;
+  live.needsBatchRepair = false;
   live.triggerAppIds = null;
 };
 

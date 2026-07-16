@@ -29,6 +29,7 @@ export type OnStoppedCallback = (
     audioPath: string | null;
     requestedLiveTranscription: boolean;
     liveTranscriptionActive: boolean;
+    needsBatchRepair: boolean;
   },
 ) => void;
 

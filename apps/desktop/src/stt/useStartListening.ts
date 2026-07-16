@@ -40,10 +40,11 @@ export function getPostCaptureAction(
   details: {
     audioPath: string | null;
     liveTranscriptionActive: boolean;
+    needsBatchRepair: boolean;
   },
   canRunBatch: boolean,
 ) {
-  if (details.liveTranscriptionActive) {
+  if (details.liveTranscriptionActive && !details.needsBatchRepair) {
     return "enhance_only" as const;
   }
 

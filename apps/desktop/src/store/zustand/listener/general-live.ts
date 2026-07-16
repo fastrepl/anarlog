@@ -114,6 +114,9 @@ const createSessionEventHandlers = <T extends LiveStore>(
           live.requestedLiveTranscription =
             payload.requested_live_transcription;
           live.liveTranscriptionActive = payload.live_transcription_active;
+          live.needsBatchRepair ||=
+            payload.requested_live_transcription &&
+            (!payload.live_transcription_active || payload.degraded !== null);
         });
         return;
       }
@@ -158,6 +161,11 @@ const createSessionEventHandlers = <T extends LiveStore>(
         : (currentLive.finalizingBySession[targetSessionId]?.seconds ?? 0);
     const onStopped = get().takeOnStopped(targetSessionId);
     const unlisteners = currentLive.eventUnlistenersBySession[targetSessionId];
+    const needsBatchRepair =
+      currentLive.sessionId === targetSessionId
+        ? currentLive.needsBatchRepair
+        : (currentLive.finalizingBySession[targetSessionId]?.needsBatchRepair ??
+          false);
 
     clearLiveEventUnlisteners(unlisteners);
 
@@ -182,6 +190,7 @@ const createSessionEventHandlers = <T extends LiveStore>(
         audioPath: payload.audio_path ?? null,
         requestedLiveTranscription: payload.requested_live_transcription,
         liveTranscriptionActive: payload.live_transcription_active,
+        needsBatchRepair,
       });
     }
   },

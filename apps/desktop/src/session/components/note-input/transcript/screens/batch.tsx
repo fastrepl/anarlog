@@ -12,8 +12,19 @@ export function BatchState({
 }) {
   const amplitude = useListener((state) => state.live.amplitude);
   const isFallbackFromLive = requestedLiveTranscription === true;
-  const continuation =
-    "Recording continues and audio will be saved when you stop.";
+  const isReconnecting = isFallbackFromLive && isRetryable(error);
+  const title = isFallbackFromLive
+    ? isReconnecting
+      ? "Reconnecting live transcription"
+      : error
+        ? "Live transcription stopped"
+        : "Live transcription unavailable"
+    : "Batch transcription mode";
+  const description = isFallbackFromLive
+    ? `${error ? `${degradedMessage(error)}. ` : ""}Recording continues${
+        isReconnecting ? " while we reconnect" : ""
+      }. A complete transcript will be generated after you stop.`
+    : "Recording continues. Your transcript will be generated after you stop.";
 
   return (
     <div
@@ -31,19 +42,17 @@ export function BatchState({
         />
       </div>
       <div className="flex max-w-md flex-col gap-2">
-        <p className="text-base font-medium">
-          {isFallbackFromLive
-            ? "Live transcription stopped"
-            : "Recording continues"}
-        </p>
+        <p className="text-base font-medium">{title}</p>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          {isFallbackFromLive
-            ? `${error ? degradedMessage(error) : "Live transcription is unavailable."} ${continuation}`
-            : `${continuation}`}
+          {description}
         </p>
       </div>
     </div>
   );
+}
+
+function isRetryable(error: DegradedError | null) {
+  return error !== null && error.type !== "authentication_failed";
 }
 
 function degradedMessage(error: DegradedError): string {

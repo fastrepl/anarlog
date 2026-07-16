@@ -78,6 +78,7 @@ import { createListenerStore } from ".";
 import {
   getLiveCaptureUiMode,
   markLiveActive,
+  markLiveStartRequested,
   updateLiveProgress,
 } from "./general-shared";
 
@@ -116,6 +117,7 @@ describe("General Listener Slice", () => {
       expect(state.live.seconds).toBe(0);
       expect(state.live.eventUnlistenersBySession).toEqual({});
       expect(state.live.intervalId).toBeUndefined();
+      expect(state.live.needsBatchRepair).toBe(false);
       expect(state.batch).toEqual({});
     });
   });
@@ -190,6 +192,22 @@ describe("General Listener Slice", () => {
 
       expect(store.getState().live.status).toBe("active");
       expect(store.getState().live.lastError).toBe("socket closed");
+    });
+
+    test("markLiveActive preserves the need for batch repair after recovery", () => {
+      const intervalId = setInterval(() => {}, 1000);
+
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          markLiveActive(draft.live, "session-1", intervalId, true, false, {
+            type: "connection_timeout",
+          });
+          markLiveActive(draft.live, "session-1", intervalId, true, true, null);
+        }),
+      );
+
+      clearInterval(intervalId);
+      expect(store.getState().live.needsBatchRepair).toBe(true);
     });
   });
 
@@ -644,6 +662,7 @@ describe("General Listener Slice", () => {
       expect(store.getState().live.finalizingBySession["session-1"]).toEqual({
         startedAtMs: expect.any(Number),
         seconds: 42,
+        needsBatchRepair: false,
       });
     });
   });
@@ -674,6 +693,101 @@ describe("General Listener Slice", () => {
       expect(listenCaptureLifecycleMock).toHaveBeenCalledTimes(1);
       expect(listenCaptureStatusMock).toHaveBeenCalledTimes(1);
       expect(listenCaptureDataMock).toHaveBeenCalledTimes(1);
+    });
+
+    test("finalizing sessions keep the batch repair flag when another session starts", async () => {
+      let lifecycleHandler:
+        | ((event: {
+            payload:
+              | {
+                  type: "started";
+                  session_id: string;
+                  requested_live_transcription: boolean;
+                  live_transcription_active: boolean;
+                  degraded: { type: "connection_timeout" } | null;
+                }
+              | {
+                  type: "finalizing";
+                  session_id: string;
+                }
+              | {
+                  type: "stopped";
+                  session_id: string;
+                  audio_path: string;
+                  requested_live_transcription: boolean;
+                  live_transcription_active: boolean;
+                  error: null;
+                };
+          }) => void)
+        | undefined;
+      const onStopped = vi.fn();
+      listenCaptureLifecycleMock.mockImplementationOnce((handler) => {
+        lifecycleHandler = handler;
+        return Promise.resolve(() => {});
+      });
+      getCaptureSnapshotMock.mockResolvedValueOnce({
+        status: "ok",
+        data: {
+          activeSessionId: "session-a",
+          finalizingSessionIds: [],
+          liveTranscriptionActive: true,
+          requestedLiveTranscription: true,
+          state: "active",
+        },
+      });
+      store.getState().setOnStopped("session-a", onStopped);
+
+      await store.getState().attachLiveSession("session-a");
+      lifecycleHandler?.({
+        payload: {
+          type: "started",
+          session_id: "session-a",
+          requested_live_transcription: true,
+          live_transcription_active: false,
+          degraded: { type: "connection_timeout" },
+        },
+      });
+      lifecycleHandler?.({
+        payload: {
+          type: "started",
+          session_id: "session-a",
+          requested_live_transcription: true,
+          live_transcription_active: true,
+          degraded: null,
+        },
+      });
+      lifecycleHandler?.({
+        payload: {
+          type: "finalizing",
+          session_id: "session-a",
+        },
+      });
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          markLiveStartRequested(draft.live, "session-b");
+        }),
+      );
+      lifecycleHandler?.({
+        payload: {
+          type: "finalizing",
+          session_id: "session-a",
+        },
+      });
+      lifecycleHandler?.({
+        payload: {
+          type: "stopped",
+          session_id: "session-a",
+          audio_path: "/tmp/session.wav",
+          requested_live_transcription: true,
+          live_transcription_active: true,
+          error: null,
+        },
+      });
+
+      expect(onStopped).toHaveBeenCalledWith(
+        "session-a",
+        expect.objectContaining({ needsBatchRepair: true }),
+      );
     });
 
     test("attachLiveSession ignores overlapping attaches for the same session", async () => {
@@ -888,6 +1002,7 @@ describe("General Listener Slice", () => {
           draft.live.finalizingBySession["session-a"] = {
             startedAtMs: 123,
             seconds: 0,
+            needsBatchRepair: false,
           };
         }),
       );
@@ -904,6 +1019,7 @@ describe("General Listener Slice", () => {
           draft.live.finalizingBySession["session-a"] = {
             startedAtMs: 123,
             seconds: 0,
+            needsBatchRepair: false,
           };
         }),
       );

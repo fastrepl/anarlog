@@ -1,6 +1,7 @@
 mod children;
 mod mode;
 
+use ractor::concurrency::Duration;
 use ractor::{Actor, ActorCell, ActorProcessingErr, ActorRef, SupervisionEvent};
 use tracing::Instrument;
 
@@ -14,6 +15,14 @@ use owhisper_client::AdapterKind;
 use self::children::{ChildKind, RESTART_BUDGET};
 use self::mode::SessionModeState;
 
+const LISTENER_RETRY_DELAYS: [Duration; 5] = [
+    Duration::from_secs(2),
+    Duration::from_secs(5),
+    Duration::from_secs(10),
+    Duration::from_secs(20),
+    Duration::from_secs(30),
+];
+
 pub struct SessionState {
     ctx: SessionContext,
     source_cell: Option<ActorCell>,
@@ -22,6 +31,7 @@ pub struct SessionState {
     source_restarts: hypr_supervisor::RestartTracker,
     recorder_restarts: hypr_supervisor::RestartTracker,
     mode: SessionModeState,
+    listener_retry_attempt: usize,
     shutting_down: bool,
 }
 
@@ -30,6 +40,7 @@ pub struct SessionActor;
 #[derive(Debug)]
 pub enum SessionMsg {
     Shutdown,
+    RetryListener,
     UpdateConfig(SessionConfigUpdate),
 }
 
@@ -74,6 +85,7 @@ impl Actor for SessionActor {
                 source_restarts: hypr_supervisor::RestartTracker::new(),
                 recorder_restarts: hypr_supervisor::RestartTracker::new(),
                 mode,
+                listener_retry_attempt: 0,
                 shutting_down: false,
             })
         }
@@ -134,6 +146,9 @@ impl Actor for SessionActor {
                 state.shutting_down = true;
                 children::shutdown_children(state, "session_stop").await;
                 myself.stop(None);
+            }
+            SessionMsg::RetryListener => {
+                retry_listener(myself, state).await;
             }
             SessionMsg::UpdateConfig(update) => {
                 update_config(myself, state, update).await;
@@ -369,7 +384,65 @@ async fn handle_listener_failure(
         tracing::warn!("listener_failed_stopping_session");
         stop_after_listener_failure(myself, state, degraded).await;
     } else {
+        let should_retry = should_retry_listener_failure(&degraded);
         enter_batch_fallback(state, degraded).await;
+        if should_retry {
+            schedule_listener_retry(myself, state);
+        }
+    }
+}
+
+fn should_retry_listener_failure(degraded: &DegradedError) -> bool {
+    !matches!(degraded, DegradedError::AuthenticationFailed { .. })
+}
+
+fn schedule_listener_retry(myself: &ActorRef<SessionMsg>, state: &mut SessionState) {
+    let delay = listener_retry_delay(state.listener_retry_attempt);
+    state.listener_retry_attempt = state.listener_retry_attempt.saturating_add(1);
+    tracing::info!(
+        ?delay,
+        attempt = state.listener_retry_attempt,
+        "listener_retry_scheduled"
+    );
+    myself.send_after(delay, || SessionMsg::RetryListener);
+}
+
+fn listener_retry_delay(attempt: usize) -> Duration {
+    LISTENER_RETRY_DELAYS[attempt.min(LISTENER_RETRY_DELAYS.len() - 1)]
+}
+
+async fn retry_listener(myself: ActorRef<SessionMsg>, state: &mut SessionState) {
+    if state.shutting_down || state.listener_cell.is_some() || !state.mode.should_retry_listener() {
+        return;
+    }
+
+    let replay_duration_secs = children::prepare_listener_refresh(state).await;
+    let replay_offset_secs =
+        (state.ctx.started_at_instant.elapsed().as_secs_f64() - replay_duration_secs).max(0.0);
+
+    match children::spawn_listener(myself.get_cell(), &state.ctx, Some(replay_offset_secs)).await {
+        Ok(listener_cell) => {
+            tracing::info!(
+                attempts = state.listener_retry_attempt,
+                "listener_reconnected"
+            );
+            state.listener_cell = Some(listener_cell);
+            state.listener_retry_attempt = 0;
+            state.mode.on_listener_attached();
+            children::attach_listener_to_source(state).await;
+            emit_active_lifecycle_event(state, None).await;
+        }
+        Err(error) => {
+            tracing::warn!(?error, "listener_retry_failed");
+            handle_listener_failure(
+                &myself,
+                state,
+                DegradedError::UpstreamUnavailable {
+                    message: mode::classify_connection_failure(&state.ctx.params.base_url),
+                },
+            )
+            .await;
+        }
     }
 }
 
@@ -586,6 +659,7 @@ mod tests {
             source_restarts: RestartTracker::new(),
             recorder_restarts: RestartTracker::new(),
             mode: SessionModeState::new(TranscriptionMode::Live, TranscriptionMode::Live),
+            listener_retry_attempt: 0,
             shutting_down: false,
         }
     }
@@ -685,6 +759,25 @@ mod tests {
         assert!(!should_stop_on_listener_failure(&state));
     }
 
+    #[test]
+    fn transient_listener_failures_retry_with_capped_backoff() {
+        assert!(should_retry_listener_failure(
+            &DegradedError::ConnectionTimeout
+        ));
+        assert_eq!(listener_retry_delay(0), Duration::from_secs(2));
+        assert_eq!(listener_retry_delay(3), Duration::from_secs(20));
+        assert_eq!(listener_retry_delay(20), Duration::from_secs(30));
+    }
+
+    #[test]
+    fn authentication_failures_do_not_retry() {
+        assert!(!should_retry_listener_failure(
+            &DegradedError::AuthenticationFailed {
+                provider: "test".to_string(),
+            }
+        ));
+    }
+
     #[tokio::test]
     async fn stop_after_listener_failure_emits_degraded_active_event() {
         let runtime = Arc::new(RecordingRuntime {
@@ -764,6 +857,7 @@ mod tests {
             source_restarts: RestartTracker::new(),
             recorder_restarts: RestartTracker::new(),
             mode: SessionModeState::new(TranscriptionMode::Live, TranscriptionMode::Live),
+            listener_retry_attempt: 0,
             shutting_down: false,
         };
 

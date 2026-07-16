@@ -129,6 +129,7 @@ describe("getPostCaptureAction", () => {
         {
           audioPath: "/tmp/session.wav",
           liveTranscriptionActive: false,
+          needsBatchRepair: false,
         },
         true,
       ),
@@ -141,10 +142,24 @@ describe("getPostCaptureAction", () => {
         {
           audioPath: "/tmp/session.wav",
           liveTranscriptionActive: true,
+          needsBatchRepair: false,
         },
         true,
       ),
     ).toBe("enhance_only");
+  });
+
+  test("repairs the full transcript after live transcription recovered", () => {
+    expect(
+      getPostCaptureAction(
+        {
+          audioPath: "/tmp/session.wav",
+          liveTranscriptionActive: true,
+          needsBatchRepair: true,
+        },
+        true,
+      ),
+    ).toBe("batch_then_enhance");
   });
 
   test("does nothing when batch fallback is needed but no transcription connection is available", () => {
@@ -153,6 +168,7 @@ describe("getPostCaptureAction", () => {
         {
           audioPath: "/tmp/session.wav",
           liveTranscriptionActive: false,
+          needsBatchRepair: false,
         },
         false,
       ),
@@ -165,6 +181,7 @@ describe("getPostCaptureAction", () => {
         {
           audioPath: null,
           liveTranscriptionActive: false,
+          needsBatchRepair: false,
         },
         true,
       ),
@@ -284,6 +301,7 @@ describe("useStartListening", () => {
         audioPath: "/tmp/session.wav",
         requestedLiveTranscription: false,
         liveTranscriptionActive: false,
+        needsBatchRepair: false,
       });
     });
 
@@ -312,6 +330,7 @@ describe("useStartListening", () => {
         audioPath: "/tmp/session.wav",
         requestedLiveTranscription: true,
         liveTranscriptionActive: true,
+        needsBatchRepair: false,
       });
     });
 
@@ -366,6 +385,7 @@ describe("useStartListening", () => {
       audioPath: "/tmp/session.wav",
       requestedLiveTranscription: true,
       liveTranscriptionActive: true,
+      needsBatchRepair: false,
     });
 
     expect(resetEnhanceTasksMock).not.toHaveBeenCalled();
@@ -395,6 +415,7 @@ describe("useStartListening", () => {
         audioPath: "/tmp/session.wav",
         requestedLiveTranscription: false,
         liveTranscriptionActive: false,
+        needsBatchRepair: false,
       });
     });
 

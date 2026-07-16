@@ -28,11 +28,17 @@ impl SessionModeState {
 
     pub(super) fn on_listener_attached(&mut self) {
         self.current_transcription_mode = TranscriptionMode::Live;
+        self.listener_buffering_enabled = true;
     }
 
     pub(super) fn enter_batch_fallback(&mut self) {
         self.current_transcription_mode = TranscriptionMode::Batch;
         self.listener_buffering_enabled = false;
+    }
+
+    pub(super) fn should_retry_listener(&self) -> bool {
+        self.requested_transcription_mode == TranscriptionMode::Live
+            && self.current_transcription_mode == TranscriptionMode::Batch
     }
 
     pub(super) fn listener_routing(&self, listener_cell: Option<&ActorCell>) -> ListenerRouting {
@@ -119,6 +125,21 @@ mod tests {
         assert!(matches!(
             state.listener_routing(None),
             ListenerRouting::Dropped
+        ));
+    }
+
+    #[test]
+    fn reattaching_listener_restores_live_mode_and_buffering() {
+        let mut state = SessionModeState::new(TranscriptionMode::Live, TranscriptionMode::Live);
+        state.enter_batch_fallback();
+
+        assert!(state.should_retry_listener());
+        state.on_listener_attached();
+
+        assert!(state.should_spawn_listener());
+        assert!(matches!(
+            state.listener_routing(None),
+            ListenerRouting::Buffering
         ));
     }
 
