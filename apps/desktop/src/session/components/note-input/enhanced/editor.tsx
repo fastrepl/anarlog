@@ -7,7 +7,6 @@ import {
   type JSONContent,
   type NoteEditorRef,
 } from "@hypr/editor/note";
-import { cn } from "@hypr/utils";
 
 import { AudioDropTarget } from "../audio-drop-target";
 import { useNoteFileHandlerConfig } from "../file-handler";
@@ -35,7 +34,6 @@ const EnhancedEditorInner = forwardRef<
     enhancedNoteId: string;
     content: string;
     contentOverride?: JSONContent;
-    isHidden?: boolean;
     onNavigateToTitle?: (pixelWidth?: number) => void;
     onViewReady?: (view: EditorView) => void;
     onViewDisposed?: (view: EditorView) => void;
@@ -48,7 +46,6 @@ const EnhancedEditorInner = forwardRef<
       enhancedNoteId,
       content,
       contentOverride,
-      isHidden = false,
       onNavigateToTitle,
       onViewReady,
       onViewDisposed,
@@ -93,7 +90,7 @@ const EnhancedEditorInner = forwardRef<
 
     return (
       <AudioDropTarget
-        className={cn(["h-full", isHidden && "hidden"])}
+        className="h-full"
         targetProps={audioDropTargetProps}
         isActive={isAudioDragActive}
       >

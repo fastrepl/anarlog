@@ -74,29 +74,27 @@ export const Enhanced = forwardRef<
       return <ConfigError />;
     }
 
-    return (
-      <>
-        {showStreaming ? (
-          <StreamingView
-            key="streaming"
-            sessionId={sessionId}
-            sessionTitle={sessionTitle}
-            enhancedNoteId={enhancedNoteId}
-          />
-        ) : null}
-        <EnhancedEditor
-          key="editor"
-          ref={showStreaming ? null : ref}
+    if (showStreaming) {
+      return (
+        <StreamingView
           sessionId={sessionId}
           sessionTitle={sessionTitle}
           enhancedNoteId={enhancedNoteId}
-          content={enhancedNote.content}
-          isHidden={showStreaming}
-          onNavigateToTitle={onNavigateToTitle}
-          onViewReady={onViewReady}
-          onViewDisposed={onViewDisposed}
         />
-      </>
+      );
+    }
+
+    return (
+      <EnhancedEditor
+        ref={ref}
+        sessionId={sessionId}
+        sessionTitle={sessionTitle}
+        enhancedNoteId={enhancedNoteId}
+        content={enhancedNote.content}
+        onNavigateToTitle={onNavigateToTitle}
+        onViewReady={onViewReady}
+        onViewDisposed={onViewDisposed}
+      />
     );
   },
 );

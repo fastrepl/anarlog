@@ -73,11 +73,9 @@ vi.mock("./editor", () => ({
   EnhancedEditor: ({
     content,
     contentOverride,
-    isHidden = false,
   }: {
     content: string;
     contentOverride?: { content?: unknown[] };
-    isHidden?: boolean;
   }) => {
     const [mountId] = useState(() => {
       hoisted.enhancedEditorMountCount += 1;
@@ -100,11 +98,7 @@ vi.mock("./editor", () => ({
     };
 
     return (
-      <div
-        data-testid="enhanced-editor"
-        data-mount-id={mountId}
-        hidden={isHidden}
-      >
+      <div data-testid="enhanced-editor" data-mount-id={mountId}>
         <span>Enhanced editor</span>
         <span>{content}</span>
         {contentOverride ? <span>{collectText(contentOverride)}</span> : null}
@@ -172,7 +166,7 @@ describe("Enhanced", () => {
 
     render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
 
-    expect(screen.getByTestId("enhanced-editor").hidden).toBe(true);
+    expect(screen.queryByTestId("enhanced-editor")).toBeNull();
     expect(screen.getByRole("status")).not.toBeNull();
     expect(screen.getByText("Analyzing structure...")).not.toBeNull();
     expect(
@@ -191,7 +185,7 @@ describe("Enhanced", () => {
 
     render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
 
-    expect(screen.getByTestId("enhanced-editor").hidden).toBe(true);
+    expect(screen.queryByTestId("enhanced-editor")).toBeNull();
     expect(screen.getByText("Streaming summary")).not.toBeNull();
     expect(screen.getByTestId("summary-title-space")).not.toBeNull();
     expect(screen.getByText("Generating title...")).not.toBeNull();
@@ -211,20 +205,18 @@ describe("Enhanced", () => {
       <Enhanced sessionId="session-1" enhancedNoteId="note-1" />,
     );
 
-    const editor = screen.getByTestId("enhanced-editor");
-    expect(editor.hidden).toBe(true);
+    expect(screen.queryByTestId("enhanced-editor")).toBeNull();
     expect(screen.getByText("Generated summary")).not.toBeNull();
 
     hoisted.content = "Stored summary";
     view.rerender(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
 
-    expect(screen.getByTestId("enhanced-editor")).toBe(editor);
-    expect(editor.hidden).toBe(false);
+    expect(screen.getByTestId("enhanced-editor")).not.toBeNull();
     expect(screen.getByText("Stored summary")).not.toBeNull();
     expect(hoisted.enhancedEditorMountCount).toBe(1);
   });
 
-  it("preserves the editor instance across the streaming handoff", () => {
+  it("remounts the editor with persisted content after generation", () => {
     hoisted.content = "Stored summary";
     const view = render(
       <Enhanced sessionId="session-1" enhancedNoteId="note-1" />,
@@ -240,8 +232,7 @@ describe("Enhanced", () => {
     };
     view.rerender(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
 
-    expect(screen.getByTestId("enhanced-editor")).toBe(editor);
-    expect(editor.hidden).toBe(true);
+    expect(screen.queryByTestId("enhanced-editor")).toBeNull();
 
     hoisted.content = "Updated summary";
     hoisted.enhanceTask = {
@@ -253,9 +244,9 @@ describe("Enhanced", () => {
     };
     view.rerender(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
 
-    expect(screen.getByTestId("enhanced-editor")).toBe(editor);
-    expect(editor.hidden).toBe(false);
-    expect(hoisted.enhancedEditorMountCount).toBe(1);
+    expect(screen.getByTestId("enhanced-editor")).not.toBe(editor);
+    expect(screen.getByText("Updated summary")).not.toBeNull();
+    expect(hoisted.enhancedEditorMountCount).toBe(2);
   });
 
   it("keeps the completed stream visible over an empty stored document", () => {
@@ -273,7 +264,7 @@ describe("Enhanced", () => {
 
     render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
 
-    expect(screen.getByTestId("enhanced-editor").hidden).toBe(true);
+    expect(screen.queryByTestId("enhanced-editor")).toBeNull();
     expect(screen.getByText("Generated summary")).not.toBeNull();
   });
   it("keeps the title row while streaming for an already titled session", () => {
