@@ -1,14 +1,15 @@
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 
 import {
   commands as trayCommands,
   type TrayScheduleEvent,
 } from "@hypr/plugin-tray";
 import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
-import { safeParseDate } from "@hypr/utils";
+import { addDays, format, safeParseDate, TZDate } from "@hypr/utils";
 
 import { useIgnoredEvents } from "~/calendar/ignored-events";
 import { useTimelineEventsTable } from "~/calendar/queries";
+import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import type { TimelineEventRow } from "~/sidebar/timeline/utils";
 
@@ -21,8 +22,18 @@ export function buildTrayScheduleEvents(
     recurrenceSeriesId: string | null | undefined,
   ) => boolean,
   nowMs = Date.now(),
+  timezone?: string,
+  locale?: string,
 ): TrayScheduleEvent[] {
   const upperBoundMs = nowMs + PUBLISHED_SCHEDULE_HORIZON_MS;
+  const now = toTimezone(new Date(nowMs), timezone);
+  const todayKey = format(now, "yyyy-MM-dd");
+  const tomorrowKey = format(addDays(now, 1), "yyyy-MM-dd");
+  const timeFormatter = new Intl.DateTimeFormat(locale, {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: timezone,
+  });
 
   return Object.values(rows ?? {})
     .flatMap((row): TrayScheduleEvent[] => {
@@ -55,11 +66,28 @@ export function buildTrayScheduleEvents(
         return [];
       }
 
+      const isActive =
+        startsAtMs <= nowMs && endsAtMs !== null && endsAtMs > nowMs;
+      const dayKey = isActive
+        ? todayKey
+        : format(toTimezone(start, timezone), "yyyy-MM-dd");
+      const dayLabel =
+        dayKey === todayKey
+          ? "Today"
+          : dayKey === tomorrowKey
+            ? "Tomorrow"
+            : null;
+      const timeLabel = endsAtMs
+        ? `${timeFormatter.format(start)} – ${timeFormatter.format(endsAtMs)}`
+        : timeFormatter.format(start);
+
       return [
         {
           title: row.title?.trim() || "Untitled event",
           startsAtMs,
           endsAtMs,
+          dayLabel,
+          timeLabel,
         },
       ];
     })
@@ -73,12 +101,57 @@ export function buildTrayScheduleEvents(
 export function TrayScheduleSync() {
   const timelineEventsTable = useTimelineEventsTable();
   const { isIgnored } = useIgnoredEvents();
+  const timezone = useConfigValue("timezone") || undefined;
+  const currentDay = useCurrentDay(timezone);
   const events = useMemo(
-    () => buildTrayScheduleEvents(timelineEventsTable, isIgnored),
-    [isIgnored, timelineEventsTable],
+    () =>
+      buildTrayScheduleEvents(
+        timelineEventsTable,
+        isIgnored,
+        Date.now(),
+        timezone,
+      ),
+    [currentDay, isIgnored, timelineEventsTable, timezone],
   );
 
   return <TraySchedulePublisher key={JSON.stringify(events)} events={events} />;
+}
+
+function toTimezone(date: Date, timezone?: string): Date {
+  return timezone ? new TZDate(date, timezone) : date;
+}
+
+function useCurrentDay(timezone?: string) {
+  const store = useMemo(() => createCurrentDayStore(timezone), [timezone]);
+  return useSyncExternalStore(
+    store.subscribe,
+    store.getSnapshot,
+    store.getSnapshot,
+  );
+}
+
+function createCurrentDayStore(timezone?: string) {
+  const getCurrentDay = () =>
+    format(toTimezone(new Date(), timezone), "yyyy-MM-dd");
+  let currentDay = getCurrentDay();
+
+  const subscribe = (listener: () => void) => {
+    const refresh = () => {
+      const nextDay = getCurrentDay();
+      if (nextDay === currentDay) return;
+      currentDay = nextDay;
+      listener();
+    };
+    const interval = setInterval(refresh, 60_000);
+    window.addEventListener("focus", refresh);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+    };
+  };
+
+  return { getSnapshot: () => currentDay, subscribe };
 }
 
 function TraySchedulePublisher({ events }: { events: TrayScheduleEvent[] }) {

@@ -7,18 +7,18 @@ use tauri::async_runtime::JoinHandle;
 use tauri::{
     AppHandle, Result,
     image::Image,
-    menu::{Menu, MenuItemKind, PredefinedMenuItem, Submenu},
+    menu::{Menu, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu},
     tray::TrayIconBuilder,
 };
 
 use crate::{
-    schedule::{TrayScheduleEvent, menu_bar_title},
+    schedule::{TrayAgendaSection, TrayScheduleEvent, agenda_sections, menu_bar_title},
     tray_icon::{RECORDING_FRAMES, TrayIconState},
 };
 
 use crate::menu_items::{
     AppInfo, AppNew, HelpReportBug, HelpSuggestFeature, MenuItemHandler, TrayCheckUpdate, TrayOpen,
-    TrayQuit, TraySettings, TrayShowEvents, TrayStart, TrayVersion,
+    TrayQuit, TraySettings, TrayShowEvents, TrayStart, TrayVersion, build_agenda_item,
 };
 use tauri_plugin_store2::Store2PluginExt;
 
@@ -28,10 +28,12 @@ static IS_RECORDING: AtomicBool = AtomicBool::new(false);
 static IS_DEGRADED: AtomicBool = AtomicBool::new(false);
 static IS_UPDATE_AVAILABLE: AtomicBool = AtomicBool::new(false);
 static SHOW_EVENTS: AtomicBool = AtomicBool::new(true);
+static START_DISABLED: AtomicBool = AtomicBool::new(false);
 static ANIMATION_TASK: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 static SCHEDULE: Mutex<Vec<TrayScheduleEvent>> = Mutex::new(Vec::new());
 static SCHEDULE_TASK: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 static SCHEDULE_TITLE: Mutex<Option<String>> = Mutex::new(None);
+static AGENDA_SECTIONS: Mutex<Vec<TrayAgendaSection>> = Mutex::new(Vec::new());
 
 pub struct Tray<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
     manager: &'a M,
@@ -118,20 +120,9 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
 
         SHOW_EVENTS.store(Self::load_show_events(app), Ordering::SeqCst);
 
-        let menu = Menu::with_items(
-            app,
-            &[
-                &TrayVersion::build(app)?,
-                &PredefinedMenuItem::separator(app)?,
-                &TrayOpen::build(app)?,
-                &TrayStart::build_with_disabled(app, false)?,
-                &TrayShowEvents::build(app)?,
-                &PredefinedMenuItem::separator(app)?,
-                &TrayCheckUpdate::build(app)?,
-                &PredefinedMenuItem::separator(app)?,
-                &TrayQuit::build(app)?,
-            ],
-        )?;
+        let agenda = Self::current_agenda_sections();
+        let menu = Self::build_tray_menu(app, &agenda)?;
+        *AGENDA_SECTIONS.lock().unwrap() = agenda;
 
         TrayIconBuilder::with_id(TRAY_ID)
             .icon(TrayIconState::Default.to_image()?)
@@ -189,6 +180,7 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
 
         let app = self.manager.app_handle();
         Self::refresh_schedule_title(app)?;
+        Self::refresh_menu_if_agenda_changed(app)?;
 
         let mut task = SCHEDULE_TASK.lock().unwrap();
         if task.is_none() {
@@ -199,6 +191,9 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
                     interval.tick().await;
                     if let Err(error) = Self::refresh_schedule_title(&app) {
                         tracing::warn!(%error, "failed to refresh tray schedule title");
+                    }
+                    if let Err(error) = Self::refresh_menu_if_agenda_changed(&app) {
+                        tracing::warn!(%error, "failed to refresh tray agenda");
                     }
                 }
             }));
@@ -216,7 +211,8 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
 
         let app = self.manager.app_handle();
         Self::persist_show_events(app, show);
-        Self::refresh_schedule_title(app)
+        Self::refresh_schedule_title(app)?;
+        Self::rebuild_menu(app)
     }
 
     fn load_show_events(app: &AppHandle<tauri::Wry>) -> bool {
@@ -270,6 +266,88 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
             *current_title = title;
         }
 
+        Ok(())
+    }
+
+    fn current_agenda_sections() -> Vec<TrayAgendaSection> {
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as f64;
+        agenda_sections(
+            &SCHEDULE.lock().unwrap(),
+            now_ms,
+            SHOW_EVENTS.load(Ordering::SeqCst),
+        )
+    }
+
+    fn build_tray_menu(
+        app: &AppHandle<tauri::Wry>,
+        agenda: &[TrayAgendaSection],
+    ) -> Result<Menu<tauri::Wry>> {
+        let menu = Menu::new(app)?;
+        let mut agenda_index = 0;
+
+        for (section_index, section) in agenda.iter().enumerate() {
+            let heading = MenuItem::with_id(
+                app,
+                format!("hypr_tray_agenda_section_{section_index}"),
+                &section.label,
+                false,
+                None::<&str>,
+            )?;
+            menu.append(&heading)?;
+
+            for event in &section.events {
+                let item = build_agenda_item(app, agenda_index, event)?;
+                menu.append(&item)?;
+                agenda_index += 1;
+            }
+        }
+
+        if !agenda.is_empty() {
+            menu.append(&PredefinedMenuItem::separator(app)?)?;
+        }
+
+        menu.append(&TrayVersion::build(app)?)?;
+        menu.append(&PredefinedMenuItem::separator(app)?)?;
+        menu.append(&TrayOpen::build(app)?)?;
+        menu.append(&TrayStart::build_with_disabled(
+            app,
+            START_DISABLED.load(Ordering::SeqCst),
+        )?)?;
+        menu.append(&TrayShowEvents::build(app)?)?;
+        menu.append(&PredefinedMenuItem::separator(app)?)?;
+        menu.append(&TrayCheckUpdate::build(app)?)?;
+        menu.append(&PredefinedMenuItem::separator(app)?)?;
+        menu.append(&TrayQuit::build(app)?)?;
+
+        Ok(menu)
+    }
+
+    pub fn refresh_menu(&self) -> Result<()> {
+        Self::rebuild_menu(self.manager.app_handle())
+    }
+
+    fn rebuild_menu(app: &AppHandle<tauri::Wry>) -> Result<()> {
+        let agenda = Self::current_agenda_sections();
+        if let Some(tray) = app.tray_by_id(TRAY_ID) {
+            tray.set_menu(Some(Self::build_tray_menu(app, &agenda)?))?;
+        }
+        *AGENDA_SECTIONS.lock().unwrap() = agenda;
+        Ok(())
+    }
+
+    fn refresh_menu_if_agenda_changed(app: &AppHandle<tauri::Wry>) -> Result<()> {
+        let agenda = Self::current_agenda_sections();
+        if *AGENDA_SECTIONS.lock().unwrap() == agenda {
+            return Ok(());
+        }
+
+        if let Some(tray) = app.tray_by_id(TRAY_ID) {
+            tray.set_menu(Some(Self::build_tray_menu(app, &agenda)?))?;
+        }
+        *AGENDA_SECTIONS.lock().unwrap() = agenda;
         Ok(())
     }
 
@@ -332,28 +410,8 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
     }
 
     pub fn set_start_disabled(&self, disabled: bool) -> Result<()> {
-        let app = self.manager.app_handle();
-
-        if let Some(tray) = app.tray_by_id(TRAY_ID) {
-            let menu = Menu::with_items(
-                app,
-                &[
-                    &TrayVersion::build(app)?,
-                    &PredefinedMenuItem::separator(app)?,
-                    &TrayOpen::build(app)?,
-                    &TrayStart::build_with_disabled(app, disabled)?,
-                    &TrayShowEvents::build(app)?,
-                    &PredefinedMenuItem::separator(app)?,
-                    &TrayCheckUpdate::build(app)?,
-                    &PredefinedMenuItem::separator(app)?,
-                    &TrayQuit::build(app)?,
-                ],
-            )?;
-
-            tray.set_menu(Some(menu))?;
-        }
-
-        Ok(())
+        START_DISABLED.store(disabled, Ordering::SeqCst);
+        Self::rebuild_menu(self.manager.app_handle())
     }
 }
 

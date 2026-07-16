@@ -5,13 +5,14 @@ use std::sync::{
 
 use tauri::{
     AppHandle, Result,
-    menu::{Menu, MenuItem, MenuItemKind, PredefinedMenuItem},
+    menu::{MenuItem, MenuItemKind},
 };
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri_plugin_updater2::Updater2PluginExt;
 use tauri_specta::Event;
 
-use super::{MenuItemHandler, TrayOpen, TrayQuit, TrayShowEvents, TrayStart, TrayVersion};
+use super::MenuItemHandler;
+use crate::TrayPluginExt;
 
 const STATE_CHECK_FOR_UPDATE: u8 = 0;
 const STATE_DOWNLOADING: u8 = 1;
@@ -46,26 +47,7 @@ impl TrayCheckUpdate {
             menu_item.set_enabled(enabled)?;
         }
 
-        if let Some(tray) = app.tray_by_id("hypr-tray") {
-            let check_update_item = MenuItem::with_id(app, Self::ID, text, enabled, None::<&str>)?;
-
-            let menu = Menu::with_items(
-                app,
-                &[
-                    &TrayOpen::build(app)?,
-                    &TrayStart::build_with_disabled(app, false)?,
-                    &TrayShowEvents::build(app)?,
-                    &PredefinedMenuItem::separator(app)?,
-                    &MenuItemKind::MenuItem(check_update_item),
-                    &PredefinedMenuItem::separator(app)?,
-                    &TrayQuit::build(app)?,
-                    &PredefinedMenuItem::separator(app)?,
-                    &TrayVersion::build(app)?,
-                ],
-            )?;
-
-            tray.set_menu(Some(menu))?;
-        }
+        app.tray().refresh_menu()?;
 
         Ok(())
     }

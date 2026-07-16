@@ -5,7 +5,7 @@ mod schedule;
 mod tray_icon;
 
 pub use ext::*;
-pub use menu_items::{HyprMenuItem, UpdateMenuState};
+pub use menu_items::{HyprMenuItem, UpdateMenuState, handle_agenda_menu_event};
 
 const PLUGIN_NAME: &str = "hypr-tray";
 

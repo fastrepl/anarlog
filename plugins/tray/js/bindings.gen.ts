@@ -44,6 +44,8 @@ export type TrayScheduleEvent = {
   title: string;
   startsAtMs: number;
   endsAtMs: number | null;
+  dayLabel: string | null;
+  timeLabel: string;
 };
 
 /** tauri-specta globals **/

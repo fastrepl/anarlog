@@ -30,6 +30,8 @@ describe("buildTrayScheduleEvents", () => {
       },
       () => false,
       NOW,
+      "UTC",
+      "en-US",
     );
 
     expect(events).toEqual([
@@ -37,11 +39,15 @@ describe("buildTrayScheduleEvents", () => {
         title: "Standup",
         startsAtMs: Date.parse("2026-07-16T23:55:00.000Z"),
         endsAtMs: Date.parse("2026-07-17T00:25:00.000Z"),
+        dayLabel: "Today",
+        timeLabel: "11:55 PM – 12:25 AM",
       },
       {
         title: "Design sync",
         startsAtMs: Date.parse("2026-07-17T01:00:00.000Z"),
         endsAtMs: Date.parse("2026-07-17T02:00:00.000Z"),
+        dayLabel: "Today",
+        timeLabel: "1:00 AM – 2:00 AM",
       },
     ]);
   });
@@ -71,8 +77,31 @@ describe("buildTrayScheduleEvents", () => {
       },
       (trackingId) => trackingId === "ignored",
       NOW,
+      "UTC",
+      "en-US",
     );
 
     expect(events).toEqual([]);
+  });
+
+  test("labels tomorrow in the configured timezone", () => {
+    const events = buildTrayScheduleEvents(
+      {
+        tomorrow: event({
+          title: "Planning",
+          started_at: "2026-07-18T01:00:00.000Z",
+          ended_at: "2026-07-18T02:00:00.000Z",
+        }),
+      },
+      () => false,
+      NOW,
+      "UTC",
+      "en-US",
+    );
+
+    expect(events[0]).toMatchObject({
+      dayLabel: "Tomorrow",
+      timeLabel: "1:00 AM – 2:00 AM",
+    });
   });
 });

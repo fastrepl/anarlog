@@ -7,6 +7,56 @@ pub struct TrayScheduleEvent {
     pub title: String,
     pub starts_at_ms: f64,
     pub ends_at_ms: Option<f64>,
+    pub day_label: Option<String>,
+    pub time_label: String,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct TrayAgendaSection {
+    pub label: String,
+    pub events: Vec<String>,
+}
+
+pub fn agenda_sections(
+    events: &[TrayScheduleEvent],
+    now_ms: f64,
+    show_events: bool,
+) -> Vec<TrayAgendaSection> {
+    if !show_events {
+        return Vec::new();
+    }
+
+    let mut sections: Vec<TrayAgendaSection> = Vec::new();
+
+    for event in events
+        .iter()
+        .filter(|event| {
+            event.day_label.is_some()
+                && event
+                    .ends_at_ms
+                    .map_or(event.starts_at_ms > now_ms, |end_ms| end_ms > now_ms)
+        })
+        .take(3)
+    {
+        let label = event.day_label.as_ref().unwrap();
+        if sections
+            .last()
+            .is_none_or(|section| section.label != *label)
+        {
+            sections.push(TrayAgendaSection {
+                label: label.clone(),
+                events: Vec::new(),
+            });
+        }
+
+        sections.last_mut().unwrap().events.push(format!(
+            "{}  {}",
+            event.time_label,
+            compact_agenda_title(&event.title)
+        ));
+    }
+
+    sections
 }
 
 pub fn menu_bar_title(
@@ -79,6 +129,28 @@ fn compact_title(title: &str) -> String {
     )
 }
 
+fn compact_agenda_title(title: &str) -> String {
+    const MAX_AGENDA_TITLE_CHARS: usize = 32;
+    let title = title.split_whitespace().collect::<Vec<_>>().join(" ");
+    let title = if title.is_empty() {
+        "Untitled event".to_string()
+    } else {
+        title
+    };
+
+    if title.chars().count() <= MAX_AGENDA_TITLE_CHARS {
+        return title;
+    }
+
+    format!(
+        "{}…",
+        title
+            .chars()
+            .take(MAX_AGENDA_TITLE_CHARS - 1)
+            .collect::<String>()
+    )
+}
+
 fn duration_label(diff_ms: f64) -> String {
     let total_seconds = (diff_ms / 1000.0).floor().max(1.0) as u64;
 
@@ -109,6 +181,8 @@ mod tests {
             title: title.to_string(),
             starts_at_ms,
             ends_at_ms,
+            day_label: Some("Today".to_string()),
+            time_label: "9:00 AM – 9:30 AM".to_string(),
         }
     }
 
@@ -174,5 +248,37 @@ mod tests {
         let events = vec![event("Standup", now + 5.0 * 60.0 * 1000.0, None)];
 
         assert_eq!(menu_bar_title(&events, now, false), None);
+    }
+
+    #[test]
+    fn groups_at_most_three_remaining_events_for_today_and_tomorrow() {
+        let now = 1_000_000.0;
+        let mut events = vec![
+            event("Active", now - 1_000.0, Some(now + 60_000.0)),
+            event("Finished", now - 60_000.0, Some(now - 1.0)),
+            event("Next", now + 60_000.0, Some(now + 120_000.0)),
+            event("Tomorrow one", now + 120_000.0, Some(now + 180_000.0)),
+            event("Tomorrow two", now + 180_000.0, Some(now + 240_000.0)),
+        ];
+        events[2].day_label = Some("Tomorrow".to_string());
+        events[3].day_label = Some("Tomorrow".to_string());
+        events[4].day_label = Some("Tomorrow".to_string());
+
+        assert_eq!(
+            agenda_sections(&events, now, true),
+            vec![
+                TrayAgendaSection {
+                    label: "Today".to_string(),
+                    events: vec!["9:00 AM – 9:30 AM  Active".to_string()],
+                },
+                TrayAgendaSection {
+                    label: "Tomorrow".to_string(),
+                    events: vec![
+                        "9:00 AM – 9:30 AM  Next".to_string(),
+                        "9:00 AM – 9:30 AM  Tomorrow one".to_string(),
+                    ],
+                },
+            ]
+        );
     }
 }
