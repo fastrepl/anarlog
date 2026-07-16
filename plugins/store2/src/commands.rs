@@ -1,6 +1,11 @@
 use crate::Store2PluginExt;
 
 const SECURE_STORE_SUFFIX: &str = "secure-store";
+#[cfg(target_os = "macos")]
+const MACOS_KEYCHAIN_ACCESS_ERROR_PREFIX: &str = "macOS couldn't access your login Keychain.";
+
+#[cfg(target_os = "macos")]
+const ERR_SEC_AUTH_FAILED: i32 = -25293;
 
 fn secure_store_service(identifier: &str) -> String {
     let identifier = match identifier {
@@ -23,20 +28,89 @@ fn secure_store_account(identifier: &str, scope: &str, key: &str) -> String {
     }
 }
 
-fn legacy_secret_entry<R: tauri::Runtime>(
+fn secure_store_error(error: keyring::Error) -> String {
+    #[cfg(target_os = "macos")]
+    if keychain_error_code(&error) == Some(ERR_SEC_AUTH_FAILED) {
+        return format!(
+            "{MACOS_KEYCHAIN_ACCESS_ERROR_PREFIX} Use “Repair Keychain Access” below, then try again."
+        );
+    }
+
+    error.to_string()
+}
+
+#[cfg(target_os = "macos")]
+fn keychain_error_code(error: &keyring::Error) -> Option<i32> {
+    let source = match error {
+        keyring::Error::PlatformFailure(source) | keyring::Error::NoStorageAccess(source) => source,
+        _ => return None,
+    };
+
+    source
+        .downcast_ref::<security_framework::base::Error>()
+        .map(|error| error.code())
+}
+
+#[cfg(target_os = "macos")]
+fn repair_macos_keychain_access() -> Result<(), String> {
+    use objc2_security::SecKeychain;
+
+    const ERR_SEC_SUCCESS: i32 = 0;
+    const ERR_SEC_USER_CANCELED: i32 = -128;
+
+    #[allow(deprecated)]
+    let lock_status = unsafe { SecKeychain::lock(None) };
+    if lock_status != ERR_SEC_SUCCESS {
+        return Err(format!(
+            "macOS couldn't lock your login Keychain (OSStatus {lock_status})."
+        ));
+    }
+
+    #[allow(deprecated)]
+    let unlock_status = unsafe { SecKeychain::unlock(None, 0, std::ptr::null(), false) };
+    if unlock_status == ERR_SEC_USER_CANCELED {
+        return Err(
+            "Keychain unlock was cancelled. Your login Keychain is still locked; run the repair again to unlock it."
+                .to_string(),
+        );
+    }
+    if unlock_status != ERR_SEC_SUCCESS {
+        return Err(format!(
+            "macOS couldn't unlock your login Keychain (OSStatus {unlock_status}). Your login Keychain is still locked."
+        ));
+    }
+
+    Ok(())
+}
+
+fn legacy_secret_locations(identifier: &str, scope: &str, key: &str) -> Vec<(String, String)> {
+    let service = secure_store_service(identifier);
+    let account = format!("{scope}:{key}");
+    let current_account = secure_store_account(identifier, scope, key);
+    let legacy_service = format!("{identifier}.{SECURE_STORE_SUFFIX}");
+    let mut locations = Vec::new();
+
+    if account != current_account {
+        locations.push((service.clone(), account.clone()));
+    }
+    if legacy_service != service {
+        locations.push((legacy_service, account));
+    }
+
+    locations
+}
+
+fn legacy_secret_entries<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     scope: &str,
     key: &str,
-) -> Result<Option<keyring::Entry>, String> {
-    let legacy_service = format!("{}.{}", app.config().identifier, SECURE_STORE_SUFFIX);
-    if legacy_service == secure_store_service(&app.config().identifier) {
-        return Ok(None);
-    }
-
-    let account = format!("{scope}:{key}");
-    keyring::Entry::new(&legacy_service, &account)
-        .map(Some)
-        .map_err(|error| error.to_string())
+) -> Result<Vec<keyring::Entry>, String> {
+    legacy_secret_locations(&app.config().identifier, scope, key)
+        .into_iter()
+        .map(|(service, account)| {
+            keyring::Entry::new(&service, &account).map_err(|error| error.to_string())
+        })
+        .collect()
 }
 
 fn secret_entry<R: tauri::Runtime>(
@@ -62,6 +136,20 @@ pub(crate) async fn save<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<
         .map_err(|e| e.to_string())?
         .save()
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn repair_keychain_access() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        return tauri::async_runtime::spawn_blocking(repair_macos_keychain_access)
+            .await
+            .map_err(|error| error.to_string())?;
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    Err("Keychain repair is only available on macOS.".to_string())
 }
 
 #[tauri::command]
@@ -169,21 +257,21 @@ pub(crate) async fn get_secret<R: tauri::Runtime>(
         match entry.get_password() {
             Ok(secret) => Ok(Some(secret)),
             Err(keyring::Error::NoEntry) => {
-                let Some(legacy_entry) = legacy_secret_entry(&app, &scope, &key)? else {
-                    return Ok(None);
-                };
-                match legacy_entry.get_password() {
-                    Ok(secret) => {
-                        if entry.set_password(&secret).is_ok() {
-                            let _ = legacy_entry.delete_credential();
+                for legacy_entry in legacy_secret_entries(&app, &scope, &key)? {
+                    match legacy_entry.get_password() {
+                        Ok(secret) => {
+                            if entry.set_password(&secret).is_ok() {
+                                let _ = legacy_entry.delete_credential();
+                            }
+                            return Ok(Some(secret));
                         }
-                        Ok(Some(secret))
+                        Err(keyring::Error::NoEntry | keyring::Error::PlatformFailure(_)) => {}
+                        Err(error) => return Err(secure_store_error(error)),
                     }
-                    Err(keyring::Error::NoEntry) => Ok(None),
-                    Err(error) => Err(error.to_string()),
                 }
+                Ok(None)
             }
-            Err(error) => Err(error.to_string()),
+            Err(error) => Err(secure_store_error(error)),
         }
     })
     .await
@@ -200,10 +288,8 @@ pub(crate) async fn set_secret<R: tauri::Runtime>(
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let entry = secret_entry(&app, &scope, &key)?;
-        entry
-            .set_password(&value)
-            .map_err(|error| error.to_string())?;
-        if let Some(legacy_entry) = legacy_secret_entry(&app, &scope, &key)? {
+        entry.set_password(&value).map_err(secure_store_error)?;
+        for legacy_entry in legacy_secret_entries(&app, &scope, &key)? {
             let _ = legacy_entry.delete_credential();
         }
         Ok(())
@@ -220,16 +306,16 @@ pub(crate) async fn delete_secret<R: tauri::Runtime>(
     key: String,
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
-        if let Some(legacy_entry) = legacy_secret_entry(&app, &scope, &key)? {
+        for legacy_entry in legacy_secret_entries(&app, &scope, &key)? {
             match legacy_entry.delete_credential() {
-                Ok(()) | Err(keyring::Error::NoEntry) => {}
-                Err(error) => return Err(error.to_string()),
+                Ok(()) | Err(keyring::Error::NoEntry | keyring::Error::PlatformFailure(_)) => {}
+                Err(error) => return Err(secure_store_error(error)),
             }
         }
         let entry = secret_entry(&app, &scope, &key)?;
         match entry.delete_credential() {
             Ok(()) | Err(keyring::Error::NoEntry) => {}
-            Err(error) => return Err(error.to_string()),
+            Err(error) => return Err(secure_store_error(error)),
         }
         Ok(())
     })
@@ -279,5 +365,50 @@ mod tests {
             secure_store_account("com.hyprnote.stable", "provider", "deepgram"),
             "provider:deepgram"
         );
+    }
+
+    #[test]
+    fn migrates_all_previous_dev_secret_locations() {
+        assert_eq!(
+            legacy_secret_locations("com.hyprnote.dev", "provider", "deepgram"),
+            vec![
+                (
+                    "com.anarlog.dev.secure-store".to_string(),
+                    "provider:deepgram".to_string(),
+                ),
+                (
+                    "com.hyprnote.dev.secure-store".to_string(),
+                    "provider:deepgram".to_string(),
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn skips_duplicate_legacy_secret_locations() {
+        assert!(legacy_secret_locations("com.example.app", "provider", "deepgram").is_empty());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn explains_macos_keychain_access_failures() {
+        let error = keyring::Error::PlatformFailure(Box::new(
+            security_framework::base::Error::from_code(ERR_SEC_AUTH_FAILED),
+        ));
+
+        assert_eq!(
+            secure_store_error(error),
+            "macOS couldn't access your login Keychain. Use “Repair Keychain Access” below, then try again."
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn preserves_unrelated_macos_keychain_failures() {
+        let platform_error = security_framework::base::Error::from_code(-34018);
+        let expected = format!("Platform failure: {platform_error}");
+        let error = keyring::Error::PlatformFailure(Box::new(platform_error));
+
+        assert_eq!(secure_store_error(error), expected);
     }
 }

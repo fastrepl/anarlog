@@ -1,3 +1,3 @@
 [default]
 description = "Default permissions for the plugin"
-permissions = ["allow-save", "allow-delete-secret", "allow-get-bool", "allow-get-number", "allow-get-secret", "allow-get-str", "allow-set-bool", "allow-set-number", "allow-set-secret", "allow-set-str"]
+permissions = ["allow-save", "allow-delete-secret", "allow-get-bool", "allow-get-number", "allow-get-secret", "allow-get-str", "allow-repair-keychain-access", "allow-set-bool", "allow-set-number", "allow-set-secret", "allow-set-str"]

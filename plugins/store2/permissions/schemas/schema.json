@@ -355,6 +355,18 @@
           "markdownDescription": "Denies the get_str command without any pre-configured scope."
         },
         {
+          "description": "Enables the repair_keychain_access command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-repair-keychain-access",
+          "markdownDescription": "Enables the repair_keychain_access command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the repair_keychain_access command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-repair-keychain-access",
+          "markdownDescription": "Denies the repair_keychain_access command without any pre-configured scope."
+        },
+        {
           "description": "Enables the save command without any pre-configured scope.",
           "type": "string",
           "const": "allow-save",
@@ -415,10 +427,10 @@
           "markdownDescription": "Denies the set_str command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-save`\n- `allow-delete-secret`\n- `allow-get-bool`\n- `allow-get-number`\n- `allow-get-secret`\n- `allow-get-str`\n- `allow-set-bool`\n- `allow-set-number`\n- `allow-set-secret`\n- `allow-set-str`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-save`\n- `allow-delete-secret`\n- `allow-get-bool`\n- `allow-get-number`\n- `allow-get-secret`\n- `allow-get-str`\n- `allow-repair-keychain-access`\n- `allow-set-bool`\n- `allow-set-number`\n- `allow-set-secret`\n- `allow-set-str`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-save`\n- `allow-delete-secret`\n- `allow-get-bool`\n- `allow-get-number`\n- `allow-get-secret`\n- `allow-get-str`\n- `allow-set-bool`\n- `allow-set-number`\n- `allow-set-secret`\n- `allow-set-str`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-save`\n- `allow-delete-secret`\n- `allow-get-bool`\n- `allow-get-number`\n- `allow-get-secret`\n- `allow-get-str`\n- `allow-repair-keychain-access`\n- `allow-set-bool`\n- `allow-set-number`\n- `allow-set-secret`\n- `allow-set-str`"
         }
       ]
     }

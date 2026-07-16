@@ -17,6 +17,10 @@ anyhow = { workspace = true }
 strum = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["rt", "macros"] }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-security = { workspace = true, features = ["SecBase", "SecKeychain"] }
+security-framework = { workspace = true }
+
 [dependencies]
 tauri = { workspace = true, features = ["test"] }
 tauri-plugin-settings = { workspace = true }

@@ -10,6 +10,7 @@ Default permissions for the plugin
 - `allow-get-number`
 - `allow-get-secret`
 - `allow-get-str`
+- `allow-repair-keychain-access`
 - `allow-set-bool`
 - `allow-set-number`
 - `allow-set-secret`
@@ -150,6 +151,32 @@ Enables the get_str command without any pre-configured scope.
 <td>
 
 Denies the get_str command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`store2:allow-repair-keychain-access`
+
+</td>
+<td>
+
+Enables the repair_keychain_access command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`store2:deny-repair-keychain-access`
+
+</td>
+<td>
+
+Denies the repair_keychain_access command without any pre-configured scope.
 
 </td>
 </tr>

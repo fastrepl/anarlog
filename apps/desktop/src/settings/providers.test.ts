@@ -12,6 +12,11 @@ const mocks = vi.hoisted(() => ({
   })),
   setSecret: vi.fn(async () => ({ status: "ok", data: null })),
   deleteSecret: vi.fn(async () => ({ status: "ok", data: null })),
+  repairKeychainAccess: vi.fn<
+    () => Promise<
+      { status: "ok"; data: null } | { status: "error"; error: string }
+    >
+  >(async () => ({ status: "ok", data: null })),
   executeTransaction: vi.fn(
     (_statements: Array<{ sql: string; params: unknown[] }>) =>
       Promise.resolve([1]),
@@ -23,6 +28,7 @@ vi.mock("@hypr/plugin-store2", () => ({
     getSecret: mocks.getSecret,
     setSecret: mocks.setSecret,
     deleteSecret: mocks.deleteSecret,
+    repairKeychainAccess: mocks.repairKeychainAccess,
   },
 }));
 
@@ -38,9 +44,11 @@ vi.mock("~/db/write-queue", () => ({
 }));
 
 import {
+  isKeychainAccessError,
   loadSecureAiProviderApiKeys,
   migratePlaintextAiProviderApiKeys,
   parseAiProviders,
+  repairKeychainAccess,
   setAiProvider,
   useAiProvidersState,
 } from "./providers";
@@ -52,6 +60,10 @@ describe("SQLite AI providers", () => {
     mocks.getSecret.mockResolvedValue({ status: "ok", data: null });
     mocks.setSecret.mockResolvedValue({ status: "ok", data: null });
     mocks.deleteSecret.mockResolvedValue({ status: "ok", data: null });
+    mocks.repairKeychainAccess.mockResolvedValue({
+      status: "ok",
+      data: null,
+    });
     mocks.useLiveQuery.mockReturnValue({ data: [], isLoading: false });
   });
 
@@ -247,6 +259,33 @@ describe("SQLite AI providers", () => {
     );
     expect(mocks.setSecret).not.toHaveBeenCalled();
     expect(mocks.executeTransaction).not.toHaveBeenCalled();
+  });
+
+  it("repairs macOS Keychain access through the secure store", async () => {
+    await expect(repairKeychainAccess()).resolves.toBeUndefined();
+    expect(mocks.repairKeychainAccess).toHaveBeenCalledOnce();
+  });
+
+  it("surfaces Keychain repair failures", async () => {
+    mocks.repairKeychainAccess.mockResolvedValueOnce({
+      status: "error",
+      error: "unlock cancelled",
+    });
+
+    await expect(repairKeychainAccess()).rejects.toThrow("unlock cancelled");
+  });
+
+  it("recognizes only the recoverable macOS Keychain error", () => {
+    expect(
+      isKeychainAccessError(
+        new Error(
+          "macOS couldn't access your login Keychain. Use repair below.",
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      isKeychainAccessError(new Error("Platform failure: missing entitlement")),
+    ).toBe(false);
   });
 
   it("keeps the plaintext key when secure storage rejects migration", async () => {

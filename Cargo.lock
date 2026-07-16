@@ -12244,6 +12244,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "709fe137109bd1e8b5a99390f77a7d8b2961dafc1a1c5db8f2e60329ad6d895a"
 dependencies = [
  "bitflags 2.11.1",
+ "block2",
+ "libc",
  "objc2",
  "objc2-core-foundation",
 ]
@@ -18996,6 +18998,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "keyring",
+ "objc2-security",
+ "security-framework 3.7.0",
  "serde",
  "serde_json",
  "specta",

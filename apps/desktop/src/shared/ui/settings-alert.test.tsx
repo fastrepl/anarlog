@@ -58,4 +58,41 @@ describe("SettingsAlertToast", () => {
 
     expect(mocks.dismiss).toHaveBeenCalledWith("settings-alert");
   });
+
+  it("keeps required settings actions persistent", () => {
+    const onClick = vi.fn();
+
+    render(
+      <SettingsAlertToast
+        id="keychain-alert"
+        description="Repair Keychain access."
+        variant="error"
+        dismissible={false}
+        action={{ label: "Repair", onClick }}
+      />,
+    );
+
+    expect(mocks.error).toHaveBeenCalledWith(
+      "Repair Keychain access.",
+      expect.objectContaining({
+        id: "keychain-alert",
+        duration: Infinity,
+        dismissible: false,
+        closeButton: false,
+        action: expect.objectContaining({ label: "Repair" }),
+      }),
+    );
+
+    const options = mocks.error.mock.calls[0]?.[1] as {
+      action: {
+        onClick: (event: { preventDefault: () => void }) => void;
+      };
+    };
+    const preventDefault = vi.fn();
+    options.action.onClick({ preventDefault });
+
+    expect(preventDefault).toHaveBeenCalledOnce();
+    expect(onClick).toHaveBeenCalledOnce();
+    expect(mocks.dismiss).not.toHaveBeenCalled();
+  });
 });

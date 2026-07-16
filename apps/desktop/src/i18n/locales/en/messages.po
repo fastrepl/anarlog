@@ -888,6 +888,10 @@ msgstr "Loading..."
 msgid "Login with existing account"
 msgstr "Login with existing account"
 
+#: src/settings/ai/shared/index.tsx
+msgid "macOS cannot access your login Keychain. Repairing briefly locks it and asks for your Mac password before Anarlog retries this API key."
+msgstr "macOS cannot access your login Keychain. Repairing briefly locks it and asks for your Mac password before Anarlog retries this API key."
+
 #: src/settings/general/main-language.tsx
 msgid "Main language"
 msgstr "Main language"
@@ -1314,6 +1318,10 @@ msgstr "Reopen in browser"
 #: src/settings/general/account.tsx
 msgid "Reopen sign-in page"
 msgstr "Reopen sign-in page"
+
+#: src/settings/ai/shared/index.tsx
+msgid "Repair Keychain Access"
+msgstr "Repair Keychain Access"
 
 #: src/session/components/note-input/search/bar.tsx
 msgid "Replace"
@@ -1833,6 +1841,10 @@ msgstr "Unknown"
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Unknown date"
 msgstr "Unknown date"
+
+#: src/settings/ai/shared/index.tsx
+msgid "Unlock your login Keychain in the macOS prompt. Anarlog will retry saving this API key automatically."
+msgstr "Unlock your login Keychain in the macOS prompt. Anarlog will retry saving this API key automatically."
 
 #: src/contacts/organization-details.tsx
 msgid "Unnamed"

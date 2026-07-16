@@ -20,6 +20,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::set_bool<tauri::Wry>,
             commands::get_number<tauri::Wry>,
             commands::set_number<tauri::Wry>,
+            commands::repair_keychain_access,
             commands::get_secret<tauri::Wry>,
             commands::set_secret<tauri::Wry>,
             commands::delete_secret<tauri::Wry>,

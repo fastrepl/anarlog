@@ -111,6 +111,17 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async repairKeychainAccess(): Promise<Result<null, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("plugin:store2|repair_keychain_access"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
   async getSecret(
     scope: string,
     key: string,

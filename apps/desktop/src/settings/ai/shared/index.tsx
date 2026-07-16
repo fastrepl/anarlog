@@ -1,8 +1,9 @@
 import { Icon } from "@iconify-icon/react";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { type AnyFieldApi, useForm } from "@tanstack/react-form";
+import { useMutation } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { Streamdown } from "streamdown";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
@@ -33,10 +34,13 @@ import {
 
 import { useBillingAccess } from "~/auth/billing-context";
 import {
+  isKeychainAccessError,
+  repairKeychainAccess,
   useAiProvider,
   useAiProviders,
   useSetAiProvider,
 } from "~/settings/providers";
+import { SettingsAlertToast } from "~/shared/ui/settings-alert";
 
 export * from "./hypr-cloud-button";
 export * from "./model-combobox";
@@ -153,6 +157,10 @@ export function NonHyprProviderCard({
   const { t } = useLingui();
   const billing = useBillingAccess();
   const [provider, providerMutation] = useProvider(providerType, config.id);
+  const [hasUnresolvedKeychainError, setHasUnresolvedKeychainError] =
+    useState(false);
+  const [isKeychainRecoveryInProgress, setIsKeychainRecoveryInProgress] =
+    useState(false);
   const locked =
     requiresEntitlement(config.requirements, "pro") && !billing.isPaid;
   const isConfigured = useIsProviderConfigured(
@@ -169,9 +177,14 @@ export function NonHyprProviderCard({
     onSubmit: async ({ value }) => {
       try {
         await providerMutation.mutateAsync(value);
-      } catch {
+      } catch (error) {
+        if (isKeychainAccessError(error)) {
+          setHasUnresolvedKeychainError(true);
+        }
         return;
       }
+
+      setHasUnresolvedKeychainError(false);
 
       void analyticsCommands.event({
         event: "ai_provider_configured",
@@ -200,6 +213,22 @@ export function NonHyprProviderCard({
     },
     validators: { onChange: aiProviderSchema },
   });
+  const repairMutation = useMutation<void, Error>({
+    mutationFn: repairKeychainAccess,
+    onMutate: () => {
+      setIsKeychainRecoveryInProgress(true);
+    },
+    onSuccess: async () => {
+      await form.handleSubmit();
+    },
+    onSettled: () => {
+      setIsKeychainRecoveryInProgress(false);
+    },
+  });
+  const keychainToastDescription = isKeychainRecoveryInProgress
+    ? t`Unlock your login Keychain in the macOS prompt. Anarlog will retry saving this API key automatically.`
+    : (repairMutation.error?.message ??
+      t`macOS cannot access your login Keychain. Repairing briefly locks it and asks for your Mac password before Anarlog retries this API key.`);
 
   return (
     <AccordionItem
@@ -210,6 +239,22 @@ export function NonHyprProviderCard({
         isConfigured ? "border-border border-solid" : "border-dashed",
       ])}
     >
+      <SettingsAlertToast
+        id={`provider-keychain-access:${providerType}:${config.id}`}
+        description={
+          hasUnresolvedKeychainError ? keychainToastDescription : undefined
+        }
+        variant="error"
+        dismissible={false}
+        action={
+          isKeychainRecoveryInProgress
+            ? undefined
+            : {
+                label: t`Repair Keychain Access`,
+                onClick: () => repairMutation.mutate(),
+              }
+        }
+      />
       <AccordionTrigger
         className={cn([
           "gap-2 px-4 capitalize hover:no-underline",
@@ -318,11 +363,12 @@ export function NonHyprProviderCard({
               </div>
             </details>
           )}
-          {providerMutation.error && (
-            <p className="text-destructive text-xs">
-              {providerMutation.error.message}
-            </p>
-          )}
+          {providerMutation.error &&
+            !isKeychainAccessError(providerMutation.error) && (
+              <p className="text-destructive text-xs">
+                {providerMutation.error.message}
+              </p>
+            )}
         </form>
       </AccordionContent>
     </AccordionItem>
