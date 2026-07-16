@@ -8,35 +8,42 @@ pub fn find_session_dir(sessions_base: &Path, session_id: &str) -> Result<PathBu
         return Err(Error::Path("session_id_invalid".into()));
     }
 
-    if let Some(found) = find_session_dir_recursive(sessions_base, session_id) {
+    if let Some(found) = find_session_dir_recursive(sessions_base, session_id)? {
         return Ok(found);
     }
     Ok(sessions_base.join(session_id))
 }
 
-fn find_session_dir_recursive(dir: &Path, session_id: &str) -> Option<PathBuf> {
-    let entries = std::fs::read_dir(dir).ok()?;
+fn find_session_dir_recursive(dir: &Path, session_id: &str) -> std::io::Result<Option<PathBuf>> {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error),
+    };
 
-    for entry in entries.flatten() {
+    for entry in entries {
+        let entry = entry?;
         let path = entry.path();
-        if !path.is_dir() {
+        if !entry.file_type()?.is_dir() {
             continue;
         }
 
-        let name = path.file_name()?.to_str()?;
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
 
         if name == session_id {
-            return Some(path);
+            return Ok(Some(path));
         }
 
         if !is_uuid(name)
-            && let Some(found) = find_session_dir_recursive(&path, session_id)
+            && let Some(found) = find_session_dir_recursive(&path, session_id)?
         {
-            return Some(found);
+            return Ok(Some(found));
         }
     }
 
-    None
+    Ok(None)
 }
 
 pub fn delete_session_dir(session_dir: &Path) -> std::io::Result<()> {

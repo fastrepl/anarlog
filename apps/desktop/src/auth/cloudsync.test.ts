@@ -4,9 +4,11 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   bindCloudsyncAccount,
   configureCloudsyncToken,
+  execute,
   getCloudsyncStatus,
   suspendCloudsync,
 } from "@hypr/plugin-db";
+import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 
 import {
   bindCloudsyncAccountForAuth,
@@ -21,6 +23,14 @@ import {
 vi.mock("./cloudsync-progress", () => ({
   startCloudsyncInitialSyncProgress: vi.fn(),
   stopCloudsyncInitialSyncProgress: vi.fn(),
+}));
+
+vi.mock("@hypr/plugin-fs-sync", () => ({
+  commands: {
+    deleteSessionFolder: vi.fn(() =>
+      Promise.resolve({ status: "ok", data: null }),
+    ),
+  },
 }));
 
 vi.mock("~/env", () => ({
@@ -113,6 +123,11 @@ describe("CloudSync auth lifecycle", () => {
     vi.clearAllMocks();
     vi.mocked(bindCloudsyncAccount).mockResolvedValue(true);
     vi.mocked(configureCloudsyncToken).mockResolvedValue("configured");
+    vi.mocked(execute).mockResolvedValue([]);
+    vi.mocked(fsSyncCommands.deleteSessionFolder).mockResolvedValue({
+      status: "ok",
+      data: null,
+    });
     vi.mocked(getCloudsyncStatus).mockResolvedValue({
       cloudsync_enabled: true,
       extension_loaded: true,
@@ -208,6 +223,62 @@ describe("CloudSync auth lifecycle", () => {
         ],
       },
     );
+  });
+
+  test("deletes queued folders only after native revocation succeeds", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(projectedCredentialsResponse())),
+    );
+    vi.mocked(execute)
+      .mockResolvedValueOnce([
+        { sessionId: "session-shared", workspaceId: "workspace-shared" },
+      ])
+      .mockResolvedValueOnce([]);
+
+    await handleCloudsyncAuthChange("SIGNED_IN", session());
+
+    expect(fsSyncCommands.deleteSessionFolder).toHaveBeenCalledWith(
+      "session-shared",
+    );
+    expect(execute).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining("DELETE FROM cloudsync_session_evictions"),
+      [
+        "session-shared",
+        "workspace-shared",
+        "workspace-shared",
+        "session-shared",
+      ],
+    );
+  });
+
+  test("keeps failed folder evictions queued for retry", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(projectedCredentialsResponse())),
+    );
+    vi.mocked(execute)
+      .mockResolvedValueOnce([
+        { sessionId: "session-shared", workspaceId: "workspace-shared" },
+      ])
+      .mockResolvedValueOnce([]);
+    vi.mocked(fsSyncCommands.deleteSessionFolder).mockResolvedValueOnce({
+      status: "error",
+      error: "folder busy",
+    });
+
+    await handleCloudsyncAuthChange("SIGNED_IN", session());
+
+    expect(execute).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining("UPDATE cloudsync_session_evictions"),
+      ["folder busy", "session-shared", "workspace-shared"],
+    );
+    expect(execute).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(30 * 1000);
+    expect(execute).toHaveBeenCalledTimes(3);
   });
 
   test("rejects partial workspace metadata instead of treating it as legacy", async () => {

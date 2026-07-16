@@ -4,9 +4,11 @@ import type { CloudsyncWorkspaceProjection } from "@hypr/plugin-db";
 import {
   bindCloudsyncAccount,
   configureCloudsyncToken,
+  execute,
   getCloudsyncStatus,
   suspendCloudsync,
 } from "@hypr/plugin-db";
+import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 
 import {
   startCloudsyncInitialSyncProgress,
@@ -19,6 +21,7 @@ const REFRESH_LEAD_MS = 2 * 60 * 1000;
 const RETRY_DELAY_MS = 60 * 1000;
 const MIN_REFRESH_DELAY_MS = 1000;
 const EXCHANGE_TIMEOUT_MS = 25 * 1000;
+const EVICTION_RETRY_DELAY_MS = 30 * 1000;
 
 export type CloudsyncAuthChangeResult = "ok" | "account_mismatch";
 
@@ -47,6 +50,7 @@ type CloudsyncCredentials =
 let generation = 0;
 let exchangeController: AbortController | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+let evictionRetryTimer: ReturnType<typeof setTimeout> | null = null;
 let pluginOperation = Promise.resolve();
 
 function beginTransition() {
@@ -57,6 +61,10 @@ function beginTransition() {
   if (refreshTimer) {
     clearTimeout(refreshTimer);
     refreshTimer = null;
+  }
+  if (evictionRetryTimer) {
+    clearTimeout(evictionRetryTimer);
+    evictionRetryTimer = null;
   }
 
   return generation;
@@ -69,6 +77,116 @@ function enqueuePluginOperation<T>(operation: () => Promise<T>) {
     () => {},
   );
   return next;
+}
+
+async function flushCloudsyncSessionEvictions(): Promise<boolean> {
+  const batchSize = 128;
+
+  while (true) {
+    let rows: { sessionId: string; workspaceId: string }[];
+    try {
+      rows = await execute(
+        `
+          SELECT
+            eviction.session_id AS sessionId,
+            eviction.workspace_id AS workspaceId
+          FROM cloudsync_session_evictions AS eviction
+          WHERE NOT EXISTS (
+            SELECT 1
+            FROM workspace_memberships AS membership
+            WHERE membership.workspace_id = eviction.workspace_id
+              AND membership.deleted_at IS NULL
+          )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM sessions
+            WHERE sessions.id = eviction.session_id
+          )
+          ORDER BY eviction.queued_at, eviction.session_id
+          LIMIT ?
+        `,
+        [batchSize],
+      );
+    } catch (error) {
+      console.warn("[cloudsync] session eviction queue unavailable", error);
+      return true;
+    }
+
+    if (rows.length === 0) return false;
+
+    let failed = false;
+    for (const row of rows) {
+      let deletionError = "";
+      try {
+        const result = await fsSyncCommands.deleteSessionFolder(row.sessionId);
+        if (result.status === "error") {
+          deletionError = String(result.error);
+        }
+      } catch (error) {
+        deletionError = error instanceof Error ? error.message : String(error);
+      }
+
+      try {
+        if (deletionError) {
+          failed = true;
+          await execute(
+            `
+              UPDATE cloudsync_session_evictions
+              SET attempt_count = attempt_count + 1,
+                  last_attempt_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                  last_error = ?
+              WHERE session_id = ? AND workspace_id = ?
+            `,
+            [deletionError.slice(0, 512), row.sessionId, row.workspaceId],
+          );
+          continue;
+        }
+
+        await execute(
+          `
+            DELETE FROM cloudsync_session_evictions
+            WHERE session_id = ? AND workspace_id = ?
+              AND NOT EXISTS (
+                SELECT 1
+                FROM workspace_memberships
+                WHERE workspace_id = ? AND deleted_at IS NULL
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM sessions WHERE id = ?
+              )
+          `,
+          [row.sessionId, row.workspaceId, row.workspaceId, row.sessionId],
+        );
+      } catch (error) {
+        failed = true;
+        console.warn(
+          "[cloudsync] failed to update session eviction queue",
+          error,
+        );
+      }
+    }
+
+    if (failed) return true;
+    if (rows.length < batchSize) return false;
+  }
+}
+
+function scheduleCloudsyncSessionEvictionRetry(activeGeneration: number) {
+  if (evictionRetryTimer) {
+    clearTimeout(evictionRetryTimer);
+  }
+  evictionRetryTimer = setTimeout(() => {
+    evictionRetryTimer = null;
+    if (activeGeneration !== generation) return;
+
+    void enqueuePluginOperation(async () => {
+      if (activeGeneration !== generation) return;
+      const retry = await flushCloudsyncSessionEvictions();
+      if (retry && activeGeneration === generation) {
+        scheduleCloudsyncSessionEvictionRetry(activeGeneration);
+      }
+    });
+  }, EVICTION_RETRY_DELAY_MS);
 }
 
 export async function bindCloudsyncAccountForAuth(
@@ -450,6 +568,13 @@ async function activateCloudsync(
             credentials.token,
             accountUserId,
           );
+
+      if (configuration === "configured" && activeGeneration === generation) {
+        const retryEvictions = await flushCloudsyncSessionEvictions();
+        if (retryEvictions) {
+          scheduleCloudsyncSessionEvictionRetry(activeGeneration);
+        }
+      }
 
       if (activeGeneration !== generation) {
         if (configuration === "configured") {

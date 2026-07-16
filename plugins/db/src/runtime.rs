@@ -8,6 +8,8 @@ use tauri::ipc::Channel;
 use crate::{QueryEvent, Result, TransactionStatement};
 
 const DEFAULT_CLOUDSYNC_INTERVAL_MS: u64 = 30_000;
+const CLOUDSYNC_WRITE_FILTER: &str =
+    "workspace_id IN (SELECT allowed_workspace_id FROM cloudsync_writable_workspaces)";
 
 #[derive(Clone)]
 pub struct QueryEventChannel(Channel<QueryEvent>);
@@ -35,6 +37,7 @@ impl QueryEventSink for QueryEventChannel {
 pub struct PluginDbRuntime {
     db: std::sync::Arc<Db>,
     schema_ready: tokio::sync::OnceCell<()>,
+    synced_write_barrier: tokio::sync::RwLock<()>,
     executor: DbExecutor,
     live_query_runtime: LiveQueryRuntime<QueryEventChannel>,
 }
@@ -44,6 +47,7 @@ impl PluginDbRuntime {
         Self {
             db: std::sync::Arc::clone(&db),
             schema_ready: tokio::sync::OnceCell::new(),
+            synced_write_barrier: tokio::sync::RwLock::new(()),
             executor: DbExecutor::new(std::sync::Arc::clone(&db)),
             live_query_runtime: LiveQueryRuntime::new(db),
         }
@@ -78,6 +82,7 @@ impl PluginDbRuntime {
         sql: String,
         params: Vec<serde_json::Value>,
     ) -> Result<Vec<serde_json::Value>> {
+        let _write_guard = self.synced_write_barrier.read().await;
         self.ensure_app_schema().await?;
         Ok(self.executor.execute(sql, params).await?)
     }
@@ -86,6 +91,7 @@ impl PluginDbRuntime {
         &self,
         statements: Vec<TransactionStatement>,
     ) -> Result<Vec<u64>> {
+        let _write_guard = self.synced_write_barrier.read().await;
         self.ensure_app_schema().await?;
         let mut transaction = self.db.pool().begin_with("BEGIN IMMEDIATE").await?;
         let mut rows_affected = Vec::with_capacity(statements.len());
@@ -120,8 +126,19 @@ impl PluginDbRuntime {
         params: Vec<serde_json::Value>,
         method: ProxyQueryMethod,
     ) -> Result<ProxyQueryResult> {
+        let _write_guard = self.synced_write_barrier.read().await;
         self.ensure_app_schema().await?;
         Ok(self.executor.execute_proxy(sql, params, method).await?)
+    }
+
+    pub async fn cleanup_legacy_files(&self) -> Result<crate::LegacyCleanupResult> {
+        let _write_guard = self.synced_write_barrier.read().await;
+        Ok(crate::import::cleanup_legacy_files(self.db.pool()).await?)
+    }
+
+    pub async fn rerun_legacy_import(&self, dry_run: bool) -> Result<String> {
+        let _write_guard = self.synced_write_barrier.read().await;
+        Ok(crate::import::rerun_legacy_import(self.db.pool(), dry_run).await?)
     }
 
     pub async fn subscribe(
@@ -162,6 +179,11 @@ impl PluginDbRuntime {
         account_user_id: String,
         workspace_projection: Option<hypr_db_app::CloudsyncWorkspaceProjection>,
     ) -> Result<crate::CloudsyncTokenConfigurationResult> {
+        let _reconciliation_guard = if workspace_projection.is_some() {
+            Some(self.synced_write_barrier.write().await)
+        } else {
+            None
+        };
         if !self.db.cloudsync_enabled() {
             return Err(hypr_db_core::CloudsyncRuntimeError::Unavailable.into());
         }
@@ -182,27 +204,138 @@ impl PluginDbRuntime {
             return Ok(crate::CloudsyncTokenConfigurationResult::AccountMismatch);
         }
 
-        if let Some(workspace_projection) = workspace_projection {
-            hypr_db_app::replace_cloudsync_workspace_projection(
-                self.db.pool(),
-                &workspace_projection,
-            )
-            .await?;
+        if workspace_projection.is_some() {
+            self.db.cloudsync_suspend().await?;
         }
 
-        self.apply_cloudsync_config_fail_closed(hypr_db_core::CloudsyncRuntimeConfig {
+        let write_filter_version_current = match workspace_projection.as_ref() {
+            Some(_) => hypr_db_app::cloudsync_write_filter_version_current(self.db.pool()).await?,
+            None => true,
+        };
+        let write_filter_installed = match workspace_projection.as_ref() {
+            Some(projection) => {
+                hypr_db_app::cloudsync_write_filter_installed(
+                    self.db.pool(),
+                    &projection.personal_workspace_id,
+                )
+                .await?
+                    && self.cloudsync_write_filters_match().await?
+            }
+            None => true,
+        };
+        let write_filter_requires_reset = if write_filter_installed {
+            false
+        } else {
+            write_filter_version_current || self.cloudsync_has_initialized_tables().await?
+        };
+        let mut install_write_filter = !write_filter_installed;
+
+        let reconciliation = match workspace_projection.as_ref() {
+            Some(projection) => Some(
+                hypr_db_app::stage_cloudsync_workspace_reconciliation(self.db.pool(), projection)
+                    .await?,
+            ),
+            None => None,
+        };
+        let config = hypr_db_core::CloudsyncRuntimeConfig {
             connection_string: database_id,
             auth: hypr_db_core::CloudsyncAuth::Token { token },
             tables: hypr_db_app::cloudsync_table_registry().to_vec(),
             sync_interval_ms: DEFAULT_CLOUDSYNC_INTERVAL_MS,
             wait_ms: Some(5_000),
             max_retries: Some(3),
-        })
-        .await?;
+        };
+
+        if reconciliation
+            .as_ref()
+            .is_some_and(|plan| plan.requires_replica_reset())
+            || write_filter_requires_reset
+        {
+            self.apply_cloudsync_config_fail_closed(config.clone())
+                .await?;
+            match self.db.cloudsync_trigger_sync().await {
+                Ok(result) if cloudsync_send_completed(&result) => {}
+                Ok(_) => {
+                    let _ = self.db.cloudsync_suspend().await;
+                    return Err(hypr_db_core::CloudsyncRuntimeError::UnsentChanges.into());
+                }
+                Err(error) => {
+                    let _ = self.db.cloudsync_suspend().await;
+                    return Err(error.into());
+                }
+            }
+            let status = match self.db.cloudsync_status().await {
+                Ok(status) => status,
+                Err(error) => {
+                    let _ = self.db.cloudsync_suspend().await;
+                    return Err(error.into());
+                }
+            };
+            if status.has_unsent_changes != Some(false) {
+                let _ = self.db.cloudsync_suspend().await;
+                return Err(hypr_db_core::CloudsyncRuntimeError::UnsentChanges.into());
+            }
+            if let Err(error) = self.db.cloudsync_logout(false).await {
+                let _ = self.db.cloudsync_suspend().await;
+                return Err(error.into());
+            }
+            install_write_filter = true;
+        }
+
+        if let Some(projection) = workspace_projection.as_ref()
+            && install_write_filter
+        {
+            hypr_db_app::set_cloudsync_personal_write_scope(
+                self.db.pool(),
+                &projection.personal_workspace_id,
+            )
+            .await?;
+            for table in hypr_db_app::cloudsync_table_registry()
+                .iter()
+                .filter(|table| table.enabled)
+            {
+                self.db
+                    .cloudsync_init(
+                        &table.table_name,
+                        table.crdt_algo.as_deref(),
+                        table.init_flags,
+                    )
+                    .await
+                    .map_err(hypr_db_core::CloudsyncRuntimeError::from)?;
+                self.db
+                    .cloudsync_set_filter(&table.table_name, CLOUDSYNC_WRITE_FILTER)
+                    .await
+                    .map_err(hypr_db_core::CloudsyncRuntimeError::from)?;
+            }
+            hypr_db_app::mark_cloudsync_write_filter_installed(self.db.pool()).await?;
+        }
+
+        if let (Some(projection), Some(reconciliation)) =
+            (workspace_projection.as_ref(), reconciliation.as_ref())
+        {
+            let _ = hypr_db_app::commit_cloudsync_workspace_projection(
+                self.db.pool(),
+                projection,
+                reconciliation.requires_full_resync() || install_write_filter,
+            )
+            .await?;
+        }
+
+        self.apply_cloudsync_config_fail_closed(config).await?;
+        if let Some(generation) =
+            hypr_db_app::cloudsync_full_resync_generation(self.db.pool()).await?
+        {
+            if let Err(error) = self.db.cloudsync_network_reset_sync_version().await {
+                let _ = self.db.cloudsync_suspend().await;
+                return Err(hypr_db_core::CloudsyncRuntimeError::from(error).into());
+            }
+            self.schedule_cloudsync_full_resync(generation);
+        }
         Ok(crate::CloudsyncTokenConfigurationResult::Configured)
     }
 
     pub async fn bind_cloudsync_account(&self, account_user_id: String) -> Result<bool> {
+        let _write_guard = self.synced_write_barrier.write().await;
         self.ensure_app_schema().await?;
         match hypr_db_app::bind_cloudsync_account(self.db.pool(), &account_user_id).await {
             Ok(()) => Ok(true),
@@ -258,6 +391,88 @@ impl PluginDbRuntime {
         Ok(())
     }
 
+    fn schedule_cloudsync_full_resync(&self, generation: String) {
+        let db = std::sync::Arc::clone(&self.db);
+        tokio::spawn(async move {
+            for attempt in 0..3 {
+                match db.cloudsync_trigger_sync().await {
+                    Ok(result) if cloudsync_snapshot_completed(&result) => {
+                        if let Err(error) =
+                            hypr_db_app::clear_cloudsync_full_resync_pending(db.pool(), &generation)
+                                .await
+                        {
+                            tracing::warn!(%error, "failed to clear CloudSync full resync marker");
+                        }
+                        return;
+                    }
+                    Ok(_) if attempt < 2 => {
+                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    }
+                    Ok(_) => {
+                        tracing::warn!("CloudSync full resync remains incomplete");
+                    }
+                    Err(error) => {
+                        tracing::warn!(%error, "CloudSync full resync remains pending");
+                        return;
+                    }
+                }
+            }
+        });
+    }
+
+    async fn cloudsync_has_initialized_tables(&self) -> Result<bool> {
+        for table in hypr_db_app::cloudsync_table_registry()
+            .iter()
+            .filter(|table| table.enabled)
+        {
+            if hypr_db_core::cloudsync_is_enabled_on(self.db.pool(), &table.table_name)
+                .await
+                .map_err(hypr_db_core::CloudsyncRuntimeError::from)?
+            {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    pub(crate) async fn cloudsync_write_filters_match(&self) -> Result<bool> {
+        let settings_exist: bool = sqlx::query_scalar(
+            "SELECT EXISTS(
+               SELECT 1 FROM sqlite_master
+               WHERE type = 'table' AND name = 'cloudsync_table_settings'
+             )",
+        )
+        .fetch_one(self.db.pool())
+        .await?;
+        if !settings_exist {
+            return Ok(false);
+        }
+
+        for table in hypr_db_app::cloudsync_table_registry()
+            .iter()
+            .filter(|table| table.enabled)
+        {
+            let matches: bool = sqlx::query_scalar(
+                "SELECT EXISTS(
+                   SELECT 1
+                   FROM cloudsync_table_settings
+                   WHERE tbl_name = ? COLLATE NOCASE
+                     AND col_name = '*'
+                     AND key = 'filter'
+                     AND value = ?
+                 )",
+            )
+            .bind(&table.table_name)
+            .bind(CLOUDSYNC_WRITE_FILTER)
+            .fetch_one(self.db.pool())
+            .await?;
+            if !matches {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+
     pub async fn start_cloudsync(&self) -> Result<()> {
         self.ensure_legacy_migration_verified().await?;
         self.db.cloudsync_start().await?;
@@ -286,9 +501,30 @@ impl PluginDbRuntime {
     }
 
     pub async fn logout_cloudsync(&self, discard_unsent_changes: bool) -> Result<()> {
+        let _write_guard = self.synced_write_barrier.write().await;
         self.db.cloudsync_logout(discard_unsent_changes).await?;
         Ok(())
     }
+}
+
+fn cloudsync_send_completed(result: &hypr_db_core::CloudsyncNetworkResult) -> bool {
+    let Some(send) = result.send.as_ref() else {
+        return false;
+    };
+    let receive_completed = result.receive.as_ref().is_none_or(|receive| {
+        receive.complete && receive.error.is_none() && receive.last_failure.is_none()
+    });
+    send.status == "synced" && send.last_failure.is_none() && receive_completed
+}
+
+fn cloudsync_snapshot_completed(result: &hypr_db_core::CloudsyncNetworkResult) -> bool {
+    let Some(receive) = result.receive.as_ref() else {
+        return false;
+    };
+    cloudsync_send_completed(result)
+        && receive.complete
+        && receive.error.is_none()
+        && receive.last_failure.is_none()
 }
 
 fn is_permanent_cloudsync_workspace_rejection(
@@ -408,6 +644,98 @@ async fn database_uses_cloudsync_schema(db: &Db) -> std::result::Result<bool, sq
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cloudsync_completion_requires_confirmed_send_and_receive() {
+        let completed: hypr_db_core::CloudsyncNetworkResult =
+            serde_json::from_value(serde_json::json!({
+                "send": {
+                    "status": "synced",
+                    "localVersion": 2,
+                    "serverVersion": 2
+                },
+                "receive": {
+                    "rows": 0,
+                    "tables": [],
+                    "complete": true
+                }
+            }))
+            .unwrap();
+        let unconfirmed_send: hypr_db_core::CloudsyncNetworkResult =
+            serde_json::from_value(serde_json::json!({
+                "send": {
+                    "status": "syncing",
+                    "localVersion": 2,
+                    "serverVersion": 1
+                }
+            }))
+            .unwrap();
+        let incomplete_receive: hypr_db_core::CloudsyncNetworkResult =
+            serde_json::from_value(serde_json::json!({
+                "send": {
+                    "status": "synced",
+                    "localVersion": 2,
+                    "serverVersion": 2
+                },
+                "receive": {
+                    "rows": 1,
+                    "tables": ["sessions"],
+                    "complete": false
+                }
+            }))
+            .unwrap();
+        let send_only: hypr_db_core::CloudsyncNetworkResult =
+            serde_json::from_value(serde_json::json!({
+                "send": {
+                    "status": "synced",
+                    "localVersion": 2,
+                    "serverVersion": 2
+                }
+            }))
+            .unwrap();
+
+        assert!(cloudsync_send_completed(&completed));
+        assert!(cloudsync_snapshot_completed(&completed));
+        assert!(!cloudsync_send_completed(&unconfirmed_send));
+        assert!(!cloudsync_snapshot_completed(&unconfirmed_send));
+        assert!(!cloudsync_send_completed(&incomplete_receive));
+        assert!(!cloudsync_snapshot_completed(&incomplete_receive));
+        assert!(cloudsync_send_completed(&send_only));
+        assert!(!cloudsync_snapshot_completed(&send_only));
+        assert!(!cloudsync_send_completed(
+            &hypr_db_core::CloudsyncNetworkResult::default()
+        ));
+    }
+
+    #[tokio::test]
+    async fn reconciliation_barrier_blocks_renderer_writes() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        let runtime = std::sync::Arc::new(PluginDbRuntime::new(db));
+        let guard = runtime.synced_write_barrier.write().await;
+        let write_runtime = std::sync::Arc::clone(&runtime);
+        let mut write = tokio::spawn(async move {
+            write_runtime
+                .execute(
+                    "INSERT INTO sessions (id, title) VALUES ('session', 'Session')".to_string(),
+                    vec![],
+                )
+                .await
+        });
+
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(25), &mut write)
+                .await
+                .is_err()
+        );
+        drop(guard);
+        write.await.unwrap().unwrap();
+
+        let session_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM sessions")
+            .fetch_one(runtime.pool())
+            .await
+            .unwrap();
+        assert_eq!(session_count, 1);
+    }
 
     fn unavailable_extension_error() -> DbOpenError {
         DbOpenError::Io(std::io::Error::other("cloudsync extension unavailable"))

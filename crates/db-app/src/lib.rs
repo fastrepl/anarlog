@@ -115,6 +115,11 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         scope: hypr_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260716120000_personal_workspaces.sql"),
     },
+    hypr_db_migrate::MigrationStep {
+        id: "20260716130000_cloudsync_session_evictions",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260716130000_cloudsync_session_evictions.sql"),
+    },
 ];
 
 pub fn schema() -> hypr_db_migrate::DbSchema {
@@ -326,6 +331,8 @@ mod tests {
                 "calendars",
                 "chat_groups",
                 "chat_messages",
+                "cloudsync_session_evictions",
+                "cloudsync_writable_workspaces",
                 "daily_notes",
                 "entity_mentions",
                 "events",

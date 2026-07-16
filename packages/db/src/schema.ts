@@ -73,6 +73,34 @@ export const events = sqliteTable(
   ],
 );
 
+export const workspaces = sqliteTable(
+  "workspaces",
+  {
+    id: text("id").primaryKey().notNull(),
+    ownerUserId: text("owner_user_id").notNull().default(""),
+    kind: text("kind").notNull().default("personal"),
+    name: text("name").notNull().default(""),
+    createdAt: text("created_at").notNull().default(currentTimestamp),
+    updatedAt: text("updated_at").notNull().default(currentTimestamp),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [index("idx_workspaces_owner_user_id").on(table.ownerUserId)],
+);
+
+export const workspaceMemberships = sqliteTable(
+  "workspace_memberships",
+  {
+    id: text("id").primaryKey().notNull(),
+    workspaceId: text("workspace_id").notNull().default(""),
+    userId: text("user_id").notNull().default(""),
+    role: text("role").notNull().default("member"),
+    createdAt: text("created_at").notNull().default(currentTimestamp),
+    updatedAt: text("updated_at").notNull().default(currentTimestamp),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [index("idx_workspace_memberships_user_id").on(table.userId)],
+);
+
 export const organizations = sqliteTable("organizations", {
   id: text("id").primaryKey().notNull(),
   workspaceId: text("workspace_id").notNull().default(""),

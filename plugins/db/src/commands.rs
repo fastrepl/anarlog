@@ -114,7 +114,8 @@ pub(crate) async fn get_legacy_cleanup_status(
 pub(crate) async fn cleanup_legacy_files(
     state: tauri::State<'_, ManagedState>,
 ) -> Result<crate::LegacyCleanupResult, String> {
-    crate::import::cleanup_legacy_files(state.pool())
+    state
+        .cleanup_legacy_files()
         .await
         .map_err(|error| error.to_string())
 }
@@ -125,7 +126,8 @@ pub(crate) async fn run_legacy_import(
     state: tauri::State<'_, ManagedState>,
     dry_run: bool,
 ) -> Result<String, String> {
-    crate::import::rerun_legacy_import(state.pool(), dry_run)
+    state
+        .rerun_legacy_import(dry_run)
         .await
         .map_err(|error| error.to_string())
 }

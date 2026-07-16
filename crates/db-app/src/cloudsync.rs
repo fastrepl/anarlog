@@ -5,6 +5,9 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Sqlite, SqlitePool, Transaction};
 
 pub const CLOUDSYNC_WORKSPACE_BINDING_ID: &str = "cloudsync_workspace_binding";
+const CLOUDSYNC_FULL_RESYNC_PENDING_ID: &str = "cloudsync_full_resync_pending";
+const CLOUDSYNC_WRITE_FILTER_VERSION_ID: &str = "cloudsync_write_filter_version";
+const CLOUDSYNC_WRITE_FILTER_VERSION: &str = "writable-workspaces-v1";
 const LEGACY_DEFAULT_USER_ID: &str = "00000000-0000-0000-0000-000000000000";
 
 const USER_ID_REFERENCES: &[(&str, &str)] = &[
@@ -91,6 +94,22 @@ pub struct CloudsyncWorkspaceProjectionEntry {
     pub membership_updated_at: String,
     pub created_at: String,
     pub updated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CloudsyncWorkspaceReconciliationPlan {
+    pub granted_workspace_ids: Vec<String>,
+    pub revoked_workspace_ids: Vec<String>,
+}
+
+impl CloudsyncWorkspaceReconciliationPlan {
+    pub fn requires_replica_reset(&self) -> bool {
+        !self.revoked_workspace_ids.is_empty()
+    }
+
+    pub fn requires_full_resync(&self) -> bool {
+        !self.granted_workspace_ids.is_empty() || !self.revoked_workspace_ids.is_empty()
+    }
 }
 
 static CLOUDSYNC_TABLE_REGISTRY: LazyLock<Vec<CloudsyncTableSpec>> = LazyLock::new(|| {
@@ -286,9 +305,192 @@ pub async fn replace_cloudsync_workspace_projection(
     pool: &SqlitePool,
     projection: &CloudsyncWorkspaceProjection,
 ) -> Result<(), CloudsyncWorkspaceError> {
+    write_cloudsync_workspace_projection(pool, projection, false, false)
+        .await
+        .map(|_| ())
+}
+
+pub async fn stage_cloudsync_workspace_reconciliation(
+    pool: &SqlitePool,
+    projection: &CloudsyncWorkspaceProjection,
+) -> Result<CloudsyncWorkspaceReconciliationPlan, CloudsyncWorkspaceError> {
     validate_cloudsync_workspace_projection(projection)?;
 
     let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    require_claimed_binding(&mut transaction, &projection.account_user_id).await?;
+
+    let existing_workspace_ids: Vec<String> = sqlx::query_scalar(
+        "SELECT workspace_id
+         FROM workspace_memberships
+         WHERE user_id = ? AND deleted_at IS NULL",
+    )
+    .bind(&projection.account_user_id)
+    .fetch_all(&mut *transaction)
+    .await?;
+    let existing_workspace_ids = existing_workspace_ids
+        .into_iter()
+        .collect::<std::collections::HashSet<_>>();
+    let projected_workspace_ids = projection
+        .workspaces
+        .iter()
+        .map(|workspace| workspace.id.clone())
+        .collect::<std::collections::HashSet<_>>();
+
+    let mut granted_workspace_ids = projected_workspace_ids
+        .difference(&existing_workspace_ids)
+        .cloned()
+        .collect::<Vec<_>>();
+    let mut revoked_workspace_ids = existing_workspace_ids
+        .difference(&projected_workspace_ids)
+        .cloned()
+        .collect::<Vec<_>>();
+    granted_workspace_ids.sort();
+    revoked_workspace_ids.sort();
+
+    for workspace_id in &revoked_workspace_ids {
+        sqlx::query(
+            "INSERT INTO cloudsync_session_evictions (session_id, workspace_id)
+             SELECT id, workspace_id
+             FROM sessions
+             WHERE workspace_id = ?
+             ON CONFLICT(session_id) DO UPDATE SET
+               workspace_id = excluded.workspace_id,
+               queued_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+               attempt_count = 0,
+               last_attempt_at = NULL,
+               last_error = ''",
+        )
+        .bind(workspace_id)
+        .execute(&mut *transaction)
+        .await?;
+    }
+
+    transaction.commit().await?;
+    Ok(CloudsyncWorkspaceReconciliationPlan {
+        granted_workspace_ids,
+        revoked_workspace_ids,
+    })
+}
+
+pub async fn commit_cloudsync_workspace_projection(
+    pool: &SqlitePool,
+    projection: &CloudsyncWorkspaceProjection,
+    require_full_resync: bool,
+) -> Result<Option<String>, CloudsyncWorkspaceError> {
+    write_cloudsync_workspace_projection(pool, projection, require_full_resync, true).await
+}
+
+pub async fn cloudsync_full_resync_generation(
+    pool: &SqlitePool,
+) -> Result<Option<String>, CloudsyncWorkspaceError> {
+    let value_json: Option<String> =
+        sqlx::query_scalar("SELECT value_json FROM app_settings WHERE id = ?")
+            .bind(CLOUDSYNC_FULL_RESYNC_PENDING_ID)
+            .fetch_optional(pool)
+            .await?;
+    value_json
+        .map(|value_json| {
+            serde_json::from_str(&value_json)
+                .map_err(|_| CloudsyncWorkspaceError::InvalidWorkspaceProjection)
+        })
+        .transpose()
+}
+
+pub async fn clear_cloudsync_full_resync_pending(
+    pool: &SqlitePool,
+    generation: &str,
+) -> Result<(), CloudsyncWorkspaceError> {
+    let value_json = serde_json::to_string(generation)
+        .map_err(|_| CloudsyncWorkspaceError::InvalidWorkspaceProjection)?;
+    sqlx::query("DELETE FROM app_settings WHERE id = ? AND value_json = ?")
+        .bind(CLOUDSYNC_FULL_RESYNC_PENDING_ID)
+        .bind(value_json)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+pub async fn cloudsync_write_filter_installed(
+    pool: &SqlitePool,
+    personal_workspace_id: &str,
+) -> Result<bool, CloudsyncWorkspaceError> {
+    let personal_workspace_id = validated_account_user_id(personal_workspace_id)?;
+    if !cloudsync_write_filter_version_current(pool).await? {
+        return Ok(false);
+    }
+    let writable_scope_matches: bool = sqlx::query_scalar(
+        "SELECT COUNT(*) = 1 AND MAX(allowed_workspace_id) = ?
+         FROM cloudsync_writable_workspaces",
+    )
+    .bind(personal_workspace_id)
+    .fetch_one(pool)
+    .await?;
+    Ok(writable_scope_matches)
+}
+
+pub async fn cloudsync_write_filter_version_current(
+    pool: &SqlitePool,
+) -> Result<bool, CloudsyncWorkspaceError> {
+    let value_json: Option<String> =
+        sqlx::query_scalar("SELECT value_json FROM app_settings WHERE id = ?")
+            .bind(CLOUDSYNC_WRITE_FILTER_VERSION_ID)
+            .fetch_optional(pool)
+            .await?;
+    let current_version = value_json
+        .and_then(|value_json| serde_json::from_str::<String>(&value_json).ok())
+        .is_some_and(|version| version == CLOUDSYNC_WRITE_FILTER_VERSION);
+    Ok(current_version)
+}
+
+pub async fn set_cloudsync_personal_write_scope(
+    pool: &SqlitePool,
+    personal_workspace_id: &str,
+) -> Result<(), CloudsyncWorkspaceError> {
+    let personal_workspace_id = validated_account_user_id(personal_workspace_id)?;
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    sqlx::query("DELETE FROM cloudsync_writable_workspaces")
+        .execute(&mut *transaction)
+        .await?;
+    sqlx::query("INSERT INTO cloudsync_writable_workspaces (allowed_workspace_id) VALUES (?)")
+        .bind(personal_workspace_id)
+        .execute(&mut *transaction)
+        .await?;
+    transaction.commit().await?;
+    Ok(())
+}
+
+pub async fn mark_cloudsync_write_filter_installed(
+    pool: &SqlitePool,
+) -> Result<(), CloudsyncWorkspaceError> {
+    let value_json = serde_json::to_string(CLOUDSYNC_WRITE_FILTER_VERSION)
+        .map_err(|_| CloudsyncWorkspaceError::InvalidWorkspaceProjection)?;
+    sqlx::query(
+        "INSERT INTO app_settings (id, value_json)
+         VALUES (?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           value_json = excluded.value_json,
+           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
+    )
+    .bind(CLOUDSYNC_WRITE_FILTER_VERSION_ID)
+    .bind(value_json)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+async fn write_cloudsync_workspace_projection(
+    pool: &SqlitePool,
+    projection: &CloudsyncWorkspaceProjection,
+    require_full_resync: bool,
+    require_claimed_account: bool,
+) -> Result<Option<String>, CloudsyncWorkspaceError> {
+    validate_cloudsync_workspace_projection(projection)?;
+
+    let full_resync_generation = require_full_resync.then(|| uuid::Uuid::new_v4().to_string());
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    if require_claimed_account {
+        require_claimed_binding(&mut transaction, &projection.account_user_id).await?;
+    }
     sqlx::query("DELETE FROM workspace_memberships")
         .execute(&mut *transaction)
         .await?;
@@ -323,10 +525,31 @@ pub async fn replace_cloudsync_workspace_projection(
         .bind(&workspace.membership_updated_at)
         .execute(&mut *transaction)
         .await?;
+
+        sqlx::query("DELETE FROM cloudsync_session_evictions WHERE workspace_id = ?")
+            .bind(&workspace.id)
+            .execute(&mut *transaction)
+            .await?;
+    }
+
+    if let Some(generation) = full_resync_generation.as_ref() {
+        let value_json = serde_json::to_string(generation)
+            .map_err(|_| CloudsyncWorkspaceError::InvalidWorkspaceProjection)?;
+        sqlx::query(
+            "INSERT INTO app_settings (id, value_json)
+             VALUES (?, ?)
+             ON CONFLICT(id) DO UPDATE SET
+               value_json = excluded.value_json,
+               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
+        )
+        .bind(CLOUDSYNC_FULL_RESYNC_PENDING_ID)
+        .bind(value_json)
+        .execute(&mut *transaction)
+        .await?;
     }
 
     transaction.commit().await?;
-    Ok(())
+    Ok(full_resync_generation)
 }
 
 pub fn validate_cloudsync_workspace_projection(
@@ -498,6 +721,27 @@ async fn load_or_create_binding(
     Ok(binding)
 }
 
+async fn require_claimed_binding(
+    transaction: &mut Transaction<'_, Sqlite>,
+    account_user_id: &str,
+) -> Result<(), CloudsyncWorkspaceError> {
+    let value_json: Option<String> =
+        sqlx::query_scalar("SELECT value_json FROM app_settings WHERE id = ?")
+            .bind(CLOUDSYNC_WORKSPACE_BINDING_ID)
+            .fetch_optional(&mut **transaction)
+            .await?;
+    let Some(value_json) = value_json else {
+        return Err(CloudsyncWorkspaceError::InvalidBinding);
+    };
+    let binding = parse_binding(&value_json)?;
+    if binding.workspace_id != account_user_id
+        || binding.account_user_id.as_deref() != Some(account_user_id)
+    {
+        return Err(CloudsyncWorkspaceError::AccountMismatch);
+    }
+    Ok(())
+}
+
 fn parse_binding(value_json: &str) -> Result<CloudsyncWorkspaceBinding, CloudsyncWorkspaceError> {
     let binding: CloudsyncWorkspaceBinding =
         serde_json::from_str(value_json).map_err(|_| CloudsyncWorkspaceError::InvalidBinding)?;
@@ -640,6 +884,262 @@ mod tests {
                 "2026-07-16T00:01:00Z".to_string(),
                 "2026-07-16T00:02:00Z".to_string(),
             )]
+        );
+    }
+
+    #[tokio::test]
+    async fn workspace_reconciliation_stages_revoked_sessions_before_projection_commit() {
+        let db = test_db().await;
+        claim_cloudsync_workspace(db.pool(), "user-a")
+            .await
+            .unwrap();
+        let current = projection(
+            "user-a",
+            vec![
+                projected_workspace(
+                    "user-a",
+                    "user-a",
+                    "personal",
+                    "membership-personal",
+                    "owner",
+                    "Personal",
+                ),
+                projected_workspace(
+                    "workspace-shared",
+                    "user-b",
+                    "shared",
+                    "membership-shared",
+                    "member",
+                    "Shared",
+                ),
+            ],
+        );
+        replace_cloudsync_workspace_projection(db.pool(), &current)
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session-personal', 'user-a', 'user-a', 'Personal'),
+                    ('session-shared', 'workspace-shared', 'user-b', 'Shared')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let personal_only = projection(
+            "user-a",
+            vec![projected_workspace(
+                "user-a",
+                "user-a",
+                "personal",
+                "membership-personal",
+                "owner",
+                "Personal",
+            )],
+        );
+        let plan = stage_cloudsync_workspace_reconciliation(db.pool(), &personal_only)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            plan,
+            CloudsyncWorkspaceReconciliationPlan {
+                granted_workspace_ids: vec![],
+                revoked_workspace_ids: vec!["workspace-shared".to_string()],
+            }
+        );
+        assert!(plan.requires_replica_reset());
+        assert!(plan.requires_full_resync());
+        let memberships_before_commit: Vec<String> = sqlx::query_scalar(
+            "SELECT workspace_id FROM workspace_memberships ORDER BY workspace_id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        let queued: Vec<(String, String)> = sqlx::query_as(
+            "SELECT session_id, workspace_id
+             FROM cloudsync_session_evictions ORDER BY session_id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(
+            memberships_before_commit,
+            vec!["user-a".to_string(), "workspace-shared".to_string()]
+        );
+        assert_eq!(
+            queued,
+            vec![("session-shared".to_string(), "workspace-shared".to_string(),)]
+        );
+
+        let generation = commit_cloudsync_workspace_projection(
+            db.pool(),
+            &personal_only,
+            plan.requires_full_resync(),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+
+        let memberships_after_commit: Vec<String> = sqlx::query_scalar(
+            "SELECT workspace_id FROM workspace_memberships ORDER BY workspace_id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        let session_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM sessions")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(memberships_after_commit, vec!["user-a".to_string()]);
+        assert_eq!(session_count, 2);
+        assert_eq!(
+            cloudsync_full_resync_generation(db.pool()).await.unwrap(),
+            Some(generation.clone())
+        );
+        let newer_generation =
+            commit_cloudsync_workspace_projection(db.pool(), &personal_only, true)
+                .await
+                .unwrap()
+                .unwrap();
+        clear_cloudsync_full_resync_pending(db.pool(), &generation)
+            .await
+            .unwrap();
+        assert_eq!(
+            cloudsync_full_resync_generation(db.pool()).await.unwrap(),
+            Some(newer_generation.clone())
+        );
+        clear_cloudsync_full_resync_pending(db.pool(), &newer_generation)
+            .await
+            .unwrap();
+        assert_eq!(
+            cloudsync_full_resync_generation(db.pool()).await.unwrap(),
+            None
+        );
+    }
+
+    #[tokio::test]
+    async fn reauthorized_workspace_cancels_staged_session_evictions() {
+        let db = test_db().await;
+        claim_cloudsync_workspace(db.pool(), "user-a")
+            .await
+            .unwrap();
+        let current = projection(
+            "user-a",
+            vec![
+                projected_workspace(
+                    "user-a",
+                    "user-a",
+                    "personal",
+                    "membership-personal",
+                    "owner",
+                    "Personal",
+                ),
+                projected_workspace(
+                    "workspace-shared",
+                    "user-b",
+                    "shared",
+                    "membership-shared",
+                    "member",
+                    "Shared",
+                ),
+            ],
+        );
+        replace_cloudsync_workspace_projection(db.pool(), &current)
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, title)
+             VALUES ('session-shared', 'workspace-shared', 'Shared')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let personal_only = projection(
+            "user-a",
+            vec![projected_workspace(
+                "user-a",
+                "user-a",
+                "personal",
+                "membership-personal",
+                "owner",
+                "Personal",
+            )],
+        );
+        stage_cloudsync_workspace_reconciliation(db.pool(), &personal_only)
+            .await
+            .unwrap();
+
+        commit_cloudsync_workspace_projection(db.pool(), &current, false)
+            .await
+            .unwrap();
+
+        let queued_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM cloudsync_session_evictions")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(queued_count, 0);
+    }
+
+    #[tokio::test]
+    async fn workspace_reconciliation_requires_the_claimed_account() {
+        let db = test_db().await;
+        let error = stage_cloudsync_workspace_reconciliation(
+            db.pool(),
+            &projection(
+                "user-a",
+                vec![projected_workspace(
+                    "user-a",
+                    "user-a",
+                    "personal",
+                    "membership-personal",
+                    "owner",
+                    "Personal",
+                )],
+            ),
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(error, CloudsyncWorkspaceError::AccountMismatch));
+        let queue_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM cloudsync_session_evictions")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(queue_count, 0);
+    }
+
+    #[tokio::test]
+    async fn cloudsync_write_filter_scope_is_local_and_versioned() {
+        let db = test_db().await;
+        assert!(
+            !cloudsync_write_filter_installed(db.pool(), "user-a")
+                .await
+                .unwrap()
+        );
+
+        set_cloudsync_personal_write_scope(db.pool(), "user-a")
+            .await
+            .unwrap();
+        mark_cloudsync_write_filter_installed(db.pool())
+            .await
+            .unwrap();
+
+        let writable_workspace_ids: Vec<String> = sqlx::query_scalar(
+            "SELECT allowed_workspace_id
+                 FROM cloudsync_writable_workspaces
+                 ORDER BY allowed_workspace_id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(writable_workspace_ids, vec!["user-a".to_string()]);
+        assert!(
+            cloudsync_write_filter_installed(db.pool(), "user-a")
+                .await
+                .unwrap()
         );
     }
 

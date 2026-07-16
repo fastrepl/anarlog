@@ -934,6 +934,14 @@ mod test {
         .fetch_all(runtime.pool())
         .await
         .unwrap();
+        let writable_workspace_ids: Vec<String> = sqlx::query_scalar(
+            "SELECT allowed_workspace_id
+             FROM cloudsync_writable_workspaces
+             ORDER BY allowed_workspace_id",
+        )
+        .fetch_all(runtime.pool())
+        .await
+        .unwrap();
 
         assert_eq!(
             workspaces,
@@ -957,6 +965,13 @@ mod test {
                 ),
             ]
         );
+        assert_eq!(writable_workspace_ids, vec!["user-a".to_string()]);
+        assert!(
+            hypr_db_app::cloudsync_write_filter_installed(runtime.pool(), "user-a")
+                .await
+                .unwrap()
+        );
+        assert!(runtime.cloudsync_write_filters_match().await.unwrap());
     }
 
     #[tokio::test]

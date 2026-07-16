@@ -103,6 +103,7 @@ async fn sync_ok(db: &Db, label: &str) {
         assert!(send.last_failure.is_none(), "{label} send failed");
     }
     if let Some(receive) = result.receive {
+        assert!(receive.complete, "{label} receive did not complete");
         assert!(receive.error.is_none(), "{label} receive failed");
         assert!(
             receive.last_failure.is_none(),
@@ -1490,37 +1491,65 @@ async fn access_token_workspace_attributes_allow_shared_reads_but_not_writes() {
     let foreign_insert_count =
         row_count_by_id(db_c_verifier.pool(), "sessions", &foreign_insert_c).await;
 
-    let db_a_without_shared = setup_db(
-        CloudsyncAuth::Token {
-            token: token_a_without_shared_c.clone(),
-        },
-        Some(&workspace_a),
-    )
-    .await;
-    db_a_without_shared
+    db_a_shared
+        .cloudsync_reconfigure(cloudsync_config(
+            CloudsyncAuth::Token {
+                token: token_a_without_shared_c.clone(),
+            },
+            5_000,
+            3,
+        ))
+        .await
+        .expect("same-client workspace A token reconfiguration failed");
+    if db_a_shared
+        .cloudsync_status()
+        .await
+        .expect("same-client workspace A status failed")
+        .has_unsent_changes
+        .unwrap_or(true)
+    {
+        sync_ok(&db_a_shared, "same-client workspace A pre-revocation drain").await;
+    }
+    db_a_shared
+        .cloudsync_logout(false)
+        .await
+        .expect("same-client workspace A replica logout failed");
+    let revoked_a_was_purged = row_count_by_id(db_a_shared.pool(), "sessions", &session_a).await
+        == 0
+        && row_count_by_id(db_a_shared.pool(), "sessions", &session_c).await == 0;
+
+    db_a_shared
+        .cloudsync_configure(cloudsync_config(
+            CloudsyncAuth::Token {
+                token: token_a_without_shared_c.clone(),
+            },
+            5_000,
+            3,
+        ))
+        .await
+        .expect("same-client workspace A post-logout configuration failed");
+    db_a_shared
+        .cloudsync_start()
+        .await
+        .expect("same-client workspace A post-logout start failed");
+    db_a_shared
         .cloudsync_network_reset_sync_version()
         .await
-        .expect("fresh workspace A token sync reset failed");
+        .expect("same-client workspace A token sync reset failed");
     sync_ok(
-        &db_a_without_shared,
-        "fresh workspace A token without C snapshot",
+        &db_a_shared,
+        "same-client workspace A token without C snapshot",
     )
     .await;
     sync_ok(
-        &db_a_without_shared,
-        "fresh workspace A token without C snapshot retry",
+        &db_a_shared,
+        "same-client workspace A token without C snapshot retry",
     )
     .await;
-    let fresh_a_reads_personal = row_count(
-        db_a_without_shared.pool(),
-        "sessions",
-        &session_a,
-        &workspace_a,
-    )
-    .await
-        == 1;
-    let fresh_a_cannot_read_c =
-        row_count_by_id(db_a_without_shared.pool(), "sessions", &session_c).await == 0;
+    let revoked_a_reads_personal =
+        row_count(db_a_shared.pool(), "sessions", &session_a, &workspace_a).await == 1;
+    let revoked_a_cannot_read_c =
+        row_count_by_id(db_a_shared.pool(), "sessions", &session_c).await == 0;
 
     sqlx::query("DELETE FROM sessions WHERE id = ?")
         .bind(&session_a)
@@ -1552,7 +1581,6 @@ async fn access_token_workspace_attributes_allow_shared_reads_but_not_writes() {
         (&update_attacker, "workspace C update attacker"),
         (&delete_attacker, "workspace C delete attacker"),
         (&db_c_verifier, "workspace C verifier"),
-        (&db_a_without_shared, "fresh workspace A reader"),
     ] {
         tokio::time::timeout(Duration::from_secs(15), db.cloudsync_stop())
             .await
@@ -1599,11 +1627,15 @@ async fn access_token_workspace_attributes_allow_shared_reads_but_not_writes() {
         "workspace A inserted a row into workspace C"
     );
     assert!(
-        fresh_a_reads_personal,
-        "fresh workspace A token could not read its personal row"
+        revoked_a_was_purged,
+        "same-client workspace A logout did not purge its prior replica"
     );
     assert!(
-        fresh_a_cannot_read_c,
-        "fresh workspace A token without C still read workspace C"
+        revoked_a_reads_personal,
+        "same-client workspace A token could not restore its personal row"
+    );
+    assert!(
+        revoked_a_cannot_read_c,
+        "same-client workspace A token without C restored workspace C"
     );
 }

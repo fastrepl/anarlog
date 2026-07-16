@@ -12,7 +12,7 @@ use sqlx::sqlite::SqliteConnectOptions;
 
 pub use api::{
     CloudsyncConnectionInitializer, CloudsyncTableSpec, begin_alter, cleanup, commit_alter,
-    db_version, disable, enable, init, is_enabled, siteid, terminate, uuid, version,
+    db_version, disable, enable, init, is_enabled, set_filter, siteid, terminate, uuid, version,
 };
 pub use bundle::bundled_extension_path;
 pub use close::install_transaction_observer;
@@ -110,6 +110,80 @@ mod tests {
         assert!(chunks >= 3);
         assert!(total_bytes > 0);
         assert!(max_chunk_bytes <= 5 * 1024 * 1024);
+        pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn write_filter_can_use_a_local_workspace_scope_table() {
+        let options = SqliteConnectOptions::from_str("sqlite::memory:").unwrap();
+        let (options, _) = apply(options).unwrap();
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .unwrap();
+        sqlx::query(
+            "CREATE TABLE writable_workspaces (
+               allowed_workspace_id TEXT PRIMARY KEY NOT NULL
+             )",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query("INSERT INTO writable_workspaces (allowed_workspace_id) VALUES ('personal')")
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query(
+            "CREATE TABLE items (
+               id TEXT PRIMARY KEY NOT NULL,
+               workspace_id TEXT NOT NULL DEFAULT '',
+               title TEXT NOT NULL DEFAULT ''
+             )",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        init(&pool, "items", None, None).await.unwrap();
+        set_filter(
+            &pool,
+            "items",
+            "workspace_id IN (SELECT allowed_workspace_id FROM writable_workspaces)",
+        )
+        .await
+        .unwrap();
+        let baseline_metadata_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM items_cloudsync")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+
+        sqlx::query(
+            "INSERT INTO items (id, workspace_id, title)
+             VALUES ('shared', 'shared', 'Shared')",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        let shared_metadata_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM items_cloudsync")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(shared_metadata_count, baseline_metadata_count);
+
+        sqlx::query(
+            "INSERT INTO items (id, workspace_id, title)
+             VALUES ('personal', 'personal', 'Personal')",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        let personal_metadata_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM items_cloudsync")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert!(personal_metadata_count > baseline_metadata_count);
         pool.close().await;
     }
 

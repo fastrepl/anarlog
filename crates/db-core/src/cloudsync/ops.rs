@@ -62,6 +62,22 @@ impl Db {
         result
     }
 
+    pub async fn cloudsync_set_filter(
+        &self,
+        table_name: &str,
+        filter_expression: &str,
+    ) -> Result<(), hypr_cloudsync::Error> {
+        let mut connection = self.lock_cloudsync_connection().await?;
+        let result = hypr_cloudsync::set_filter(
+            &mut **connection.as_mut().unwrap(),
+            table_name,
+            filter_expression,
+        )
+        .await;
+        self.release_single_pool_connection(&mut connection);
+        result
+    }
+
     pub(crate) async fn cloudsync_init_enabled_tables(
         &self,
         tables: &[CloudsyncTableSpec],

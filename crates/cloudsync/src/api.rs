@@ -147,6 +147,23 @@ where
         .await?)
 }
 
+/// https://docs.sqlitecloud.io/docs/sqlite-sync-api-cloudsync-set-filter
+pub async fn set_filter<'e, E>(
+    executor: E,
+    table_name: &str,
+    filter_expression: &str,
+) -> Result<(), Error>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
+    sqlx::query("SELECT cloudsync_set_filter(?, ?)")
+        .bind(table_name)
+        .bind(filter_expression)
+        .fetch_optional(executor)
+        .await?;
+    Ok(())
+}
+
 /// https://docs.sqlitecloud.io/docs/sqlite-sync-api-cloudsync-commit-alter
 pub async fn commit_alter<'e, E>(executor: E, table_name: &str) -> Result<(), Error>
 where
