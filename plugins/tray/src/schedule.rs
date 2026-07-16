@@ -1,5 +1,5 @@
 const DISPLAY_HORIZON_MS: f64 = 24.0 * 60.0 * 60.0 * 1000.0;
-const MAX_TITLE_CHARS: usize = 24;
+const MAX_MENU_BAR_LABEL_CHARS: usize = 30;
 
 #[derive(Debug, Clone, serde::Deserialize, specta::Type, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -84,11 +84,11 @@ pub fn menu_bar_title(
         });
 
     if let Some(event) = active {
-        return Some(format!(
-            "{} • {} left",
-            compact_title(&event.title),
+        let suffix = format!(
+            " • {} left",
             duration_label(event.ends_at_ms.unwrap_or(now_ms) - now_ms)
-        ));
+        );
+        return Some(menu_bar_label(&event.title, &suffix));
     }
 
     let event = events
@@ -104,14 +104,16 @@ pub fn menu_bar_title(
                 .unwrap_or(std::cmp::Ordering::Equal)
         })?;
 
-    Some(format!(
-        "{} • in {}",
-        compact_title(&event.title),
-        duration_label(event.starts_at_ms - now_ms)
-    ))
+    let suffix = format!(" • in {}", duration_label(event.starts_at_ms - now_ms));
+    Some(menu_bar_label(&event.title, &suffix))
 }
 
-fn compact_title(title: &str) -> String {
+fn menu_bar_label(title: &str, suffix: &str) -> String {
+    let title_limit = MAX_MENU_BAR_LABEL_CHARS.saturating_sub(suffix.chars().count());
+    format!("{}{suffix}", compact_title(title, title_limit))
+}
+
+fn compact_title(title: &str, max_chars: usize) -> String {
     let title = title.split_whitespace().collect::<Vec<_>>().join(" ");
     let title = if title.is_empty() {
         "Untitled event".to_string()
@@ -119,14 +121,15 @@ fn compact_title(title: &str) -> String {
         title
     };
 
-    if title.chars().count() <= MAX_TITLE_CHARS {
+    if title.chars().count() <= max_chars {
         return title;
     }
 
-    format!(
-        "{}…",
-        title.chars().take(MAX_TITLE_CHARS - 1).collect::<String>()
-    )
+    if max_chars <= 1 {
+        return "…".to_string();
+    }
+
+    format!("{}…", title.chars().take(max_chars - 1).collect::<String>())
 }
 
 fn compact_agenda_title(title: &str) -> String {
@@ -230,7 +233,11 @@ mod tests {
 
         assert_eq!(
             menu_bar_title(&events, now, true),
-            Some("Sprint retrospective an… • in 17h 20m".to_string())
+            Some("Sprint retrospec… • in 17h 20m".to_string())
+        );
+        assert_eq!(
+            menu_bar_title(&events, now, true).unwrap().chars().count(),
+            MAX_MENU_BAR_LABEL_CHARS
         );
     }
 
