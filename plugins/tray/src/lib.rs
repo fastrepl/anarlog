@@ -1,6 +1,7 @@
 mod commands;
 mod ext;
 mod menu_items;
+mod schedule;
 mod tray_icon;
 
 pub use ext::*;
@@ -62,6 +63,7 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .plugin_name(PLUGIN_NAME)
         .commands(tauri_specta::collect_commands![
             commands::set_tray_icon_visible,
+            commands::set_tray_schedule,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

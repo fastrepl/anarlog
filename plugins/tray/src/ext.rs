@@ -11,19 +11,27 @@ use tauri::{
     tray::TrayIconBuilder,
 };
 
-use crate::tray_icon::{RECORDING_FRAMES, TrayIconState};
+use crate::{
+    schedule::{TrayScheduleEvent, menu_bar_title},
+    tray_icon::{RECORDING_FRAMES, TrayIconState},
+};
 
 use crate::menu_items::{
     AppInfo, AppNew, HelpReportBug, HelpSuggestFeature, MenuItemHandler, TrayCheckUpdate, TrayOpen,
-    TrayQuit, TraySettings, TrayStart, TrayVersion,
+    TrayQuit, TraySettings, TrayShowEvents, TrayStart, TrayVersion,
 };
+use tauri_plugin_store2::Store2PluginExt;
 
 const TRAY_ID: &str = "hypr-tray";
 
 static IS_RECORDING: AtomicBool = AtomicBool::new(false);
 static IS_DEGRADED: AtomicBool = AtomicBool::new(false);
 static IS_UPDATE_AVAILABLE: AtomicBool = AtomicBool::new(false);
+static SHOW_EVENTS: AtomicBool = AtomicBool::new(true);
 static ANIMATION_TASK: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
+static SCHEDULE: Mutex<Vec<TrayScheduleEvent>> = Mutex::new(Vec::new());
+static SCHEDULE_TASK: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
+static SCHEDULE_TITLE: Mutex<Option<String>> = Mutex::new(None);
 
 pub struct Tray<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
     manager: &'a M,
@@ -108,6 +116,8 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
             return Ok(());
         }
 
+        SHOW_EVENTS.store(Self::load_show_events(app), Ordering::SeqCst);
+
         let menu = Menu::with_items(
             app,
             &[
@@ -115,6 +125,7 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
                 &PredefinedMenuItem::separator(app)?,
                 &TrayOpen::build(app)?,
                 &TrayStart::build_with_disabled(app, false)?,
+                &TrayShowEvents::build(app)?,
                 &PredefinedMenuItem::separator(app)?,
                 &TrayCheckUpdate::build(app)?,
                 &PredefinedMenuItem::separator(app)?,
@@ -128,6 +139,8 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
             .menu(&menu)
             .show_menu_on_left_click(true)
             .build(app)?;
+
+        Self::refresh_schedule_title(app)?;
 
         Ok(())
     }
@@ -162,6 +175,100 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         if let Some(tray) = app.tray_by_id(TRAY_ID) {
             tray.set_title(title)?;
         }
+        Ok(())
+    }
+
+    pub fn set_schedule(&self, mut events: Vec<TrayScheduleEvent>) -> Result<()> {
+        events.retain(|event| event.starts_at_ms.is_finite());
+        events.sort_by(|left, right| {
+            left.starts_at_ms
+                .partial_cmp(&right.starts_at_ms)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        *SCHEDULE.lock().unwrap() = events;
+
+        let app = self.manager.app_handle();
+        Self::refresh_schedule_title(app)?;
+
+        let mut task = SCHEDULE_TASK.lock().unwrap();
+        if task.is_none() {
+            let app = app.clone();
+            *task = Some(tauri::async_runtime::spawn(async move {
+                let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
+                loop {
+                    interval.tick().await;
+                    if let Err(error) = Self::refresh_schedule_title(&app) {
+                        tracing::warn!(%error, "failed to refresh tray schedule title");
+                    }
+                }
+            }));
+        }
+
+        Ok(())
+    }
+
+    pub fn shows_events(&self) -> bool {
+        SHOW_EVENTS.load(Ordering::SeqCst)
+    }
+
+    pub fn set_show_events(&self, show: bool) -> Result<()> {
+        SHOW_EVENTS.store(show, Ordering::SeqCst);
+
+        let app = self.manager.app_handle();
+        Self::persist_show_events(app, show);
+        Self::refresh_schedule_title(app)
+    }
+
+    fn load_show_events(app: &AppHandle<tauri::Wry>) -> bool {
+        let result = app
+            .store2()
+            .scoped_store::<String>(crate::PLUGIN_NAME)
+            .and_then(|store| store.get("show_events_in_menu_bar".to_string()));
+
+        match result {
+            Ok(value) => value.unwrap_or(true),
+            Err(error) => {
+                tracing::warn!(%error, "failed to load tray event visibility");
+                true
+            }
+        }
+    }
+
+    fn persist_show_events(app: &AppHandle<tauri::Wry>, show: bool) {
+        let result = app
+            .store2()
+            .scoped_store::<String>(crate::PLUGIN_NAME)
+            .and_then(|store| {
+                store.set("show_events_in_menu_bar".to_string(), show)?;
+                store.save()
+            });
+
+        if let Err(error) = result {
+            tracing::warn!(%error, "failed to persist tray event visibility");
+        }
+    }
+
+    fn refresh_schedule_title(app: &AppHandle<tauri::Wry>) -> Result<()> {
+        let Some(tray) = app.tray_by_id(TRAY_ID) else {
+            return Ok(());
+        };
+
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as f64;
+        let title = menu_bar_title(
+            &SCHEDULE.lock().unwrap(),
+            now_ms,
+            SHOW_EVENTS.load(Ordering::SeqCst),
+        );
+        let mut current_title = SCHEDULE_TITLE.lock().unwrap();
+
+        if *current_title != title {
+            tray.set_title(title.as_deref())?;
+            *current_title = title;
+        }
+
         Ok(())
     }
 
@@ -234,6 +341,7 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
                     &PredefinedMenuItem::separator(app)?,
                     &TrayOpen::build(app)?,
                     &TrayStart::build_with_disabled(app, disabled)?,
+                    &TrayShowEvents::build(app)?,
                     &PredefinedMenuItem::separator(app)?,
                     &TrayCheckUpdate::build(app)?,
                     &PredefinedMenuItem::separator(app)?,

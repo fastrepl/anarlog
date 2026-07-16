@@ -17,6 +17,21 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async setTraySchedule(
+    events: TrayScheduleEvent[],
+  ): Promise<Result<null, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("plugin:hypr-tray|set_tray_schedule", {
+          events,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
 };
 
 /** user-defined events **/
@@ -24,6 +39,12 @@ export const commands = {
 /** user-defined constants **/
 
 /** user-defined types **/
+
+export type TrayScheduleEvent = {
+  title: string;
+  startsAtMs: number;
+  endsAtMs: number | null;
+};
 
 /** tauri-specta globals **/
 
