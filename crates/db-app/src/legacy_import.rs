@@ -431,6 +431,7 @@ pub async fn apply_legacy_import_item(
     let mut imported_count = 0_i64;
     let mut matched_count = 0_i64;
     let mut conflict_count = 0_i64;
+    let mut missing_dependency_count = 0_usize;
 
     for row in &batch.rows {
         let outcome = if dry_run {
@@ -440,8 +441,11 @@ pub async fn apply_legacy_import_item(
         };
         match outcome {
             InsertOutcome::Inserted => imported_count += 1,
-            InsertOutcome::Matched | InsertOutcome::RetainedExisting => matched_count += 1,
+            InsertOutcome::Matched
+            | InsertOutcome::FilledFromLegacy
+            | InsertOutcome::RetainedExisting => matched_count += 1,
             InsertOutcome::Conflict => conflict_count += 1,
+            InsertOutcome::MissingDependency => missing_dependency_count += 1,
             InsertOutcome::DryRun => {}
         }
         record_import_target(&mut transaction, &item, row, outcome).await?;
@@ -449,7 +453,8 @@ pub async fn apply_legacy_import_item(
 
     let discovered_count = i64::try_from(batch.rows.len()).unwrap_or(i64::MAX)
         + i64::try_from(batch.skipped_count).unwrap_or(i64::MAX);
-    let skipped_count = i64::try_from(batch.skipped_count).unwrap_or(i64::MAX);
+    let skipped_count = i64::try_from(batch.skipped_count.saturating_add(missing_dependency_count))
+        .unwrap_or(i64::MAX);
     let status = if dry_run {
         "dry_run"
     } else if skipped_count > 0 || !batch.warning.is_empty() {
@@ -537,10 +542,12 @@ pub async fn finish_legacy_import_run(
     let skipped_count = aggregate.get::<i64, _>("skipped_count");
     let conflict_count = aggregate.get::<i64, _>("conflict_count");
     let error_count = aggregate.get::<i64, _>("error_count");
-    let status = if skipped_count == 0 && conflict_count == 0 && error_count == 0 {
-        "completed"
-    } else {
+    let status = if skipped_count > 0 || error_count > 0 {
         "completed_with_issues"
+    } else if conflict_count > 0 {
+        "completed_with_conflicts"
+    } else {
+        "completed"
     };
 
     sqlx::query(
@@ -626,8 +633,10 @@ pub async fn fail_legacy_import_run(
 enum InsertOutcome {
     Inserted,
     Matched,
+    FilledFromLegacy,
     RetainedExisting,
     Conflict,
+    MissingDependency,
     DryRun,
 }
 
@@ -636,8 +645,10 @@ impl InsertOutcome {
         match self {
             Self::Inserted => "inserted",
             Self::Matched => "matched",
+            Self::FilledFromLegacy => "filled_from_legacy",
             Self::RetainedExisting => "retained_existing",
             Self::Conflict => "conflict",
+            Self::MissingDependency => "missing_dependency",
             Self::DryRun => "dry_run",
         }
     }
@@ -974,10 +985,293 @@ async fn insert_row_if_missing(
         Ok(InsertOutcome::Inserted)
     } else if row_matches_existing(transaction, row).await? {
         Ok(InsertOutcome::Matched)
-    } else if row.existing_sqlite_is_authoritative() {
-        Ok(InsertOutcome::RetainedExisting)
+    } else if let Some(outcome) = reconcile_content_conflict(transaction, row).await? {
+        Ok(outcome)
+    } else if import_target_exists(transaction, row).await? {
+        Ok(if row.existing_sqlite_is_authoritative() {
+            InsertOutcome::RetainedExisting
+        } else {
+            InsertOutcome::Conflict
+        })
     } else {
-        Ok(InsertOutcome::Conflict)
+        Ok(InsertOutcome::MissingDependency)
+    }
+}
+
+async fn import_target_exists(
+    transaction: &mut Transaction<'_, Sqlite>,
+    row: &LegacyImportRow,
+) -> Result<bool, sqlx::Error> {
+    let query = format!(
+        "SELECT EXISTS(SELECT 1 FROM {} WHERE id = ?)",
+        row.table_name()
+    );
+    sqlx::query_scalar(sqlx::AssertSqlSafe(query.as_str()))
+        .bind(row.id())
+        .fetch_one(&mut **transaction)
+        .await
+}
+
+async fn reconcile_content_conflict(
+    transaction: &mut Transaction<'_, Sqlite>,
+    row: &LegacyImportRow,
+) -> Result<Option<InsertOutcome>, sqlx::Error> {
+    match row {
+        LegacyImportRow::Document(row) => {
+            let Some((session_id, title, body_format, body, deleted_at)) =
+                sqlx::query_as::<_, (String, String, String, String, Option<String>)>(
+                    "SELECT session_id, title, body_format, body, deleted_at
+                     FROM session_documents
+                     WHERE id = ?",
+                )
+                .bind(&row.id)
+                .fetch_optional(&mut **transaction)
+                .await?
+            else {
+                return Ok(None);
+            };
+
+            if deleted_at.is_some() || session_id != row.session_id {
+                return Ok(None);
+            }
+
+            let existing_empty = document_body_is_empty(&body_format, &body);
+            let incoming_empty = document_body_is_empty(&row.body_format, &row.body);
+            if !existing_empty && incoming_empty {
+                return Ok(Some(InsertOutcome::RetainedExisting));
+            }
+
+            let bodies_resolve =
+                document_bodies_are_equivalent(&body_format, &body, row) || existing_empty;
+            let existing_title_empty = title.trim().is_empty();
+            let incoming_title_empty = row.title.trim().is_empty();
+            let titles_resolve = existing_title_empty || incoming_title_empty || title == row.title;
+            if !bodies_resolve || !titles_resolve {
+                return Ok(None);
+            }
+
+            let fill_body = existing_empty && !incoming_empty;
+            let fill_title = existing_title_empty && !incoming_title_empty;
+            if !fill_body && !fill_title {
+                return Ok(Some(InsertOutcome::RetainedExisting));
+            }
+
+            if !fill_body {
+                let result = sqlx::query(
+                    "UPDATE session_documents
+                     SET title = ?
+                     WHERE id = ?
+                       AND session_id = ?
+                       AND title IS ?
+                       AND body_format IS ?
+                       AND body IS ?
+                       AND deleted_at IS NULL",
+                )
+                .bind(&row.title)
+                .bind(&row.id)
+                .bind(&row.session_id)
+                .bind(&title)
+                .bind(&body_format)
+                .bind(&body)
+                .execute(&mut **transaction)
+                .await?;
+
+                return Ok((result.rows_affected() == 1).then_some(InsertOutcome::FilledFromLegacy));
+            }
+
+            let result = sqlx::query(
+                "UPDATE session_documents
+                 SET kind = ?,
+                     template_id = ?,
+                     title = CASE WHEN ? THEN title ELSE ? END,
+                     body_format = ?,
+                     body = ?,
+                     source_hash = ?,
+                     sort_order = ?,
+                     created_by = CASE WHEN ? = '' THEN created_by ELSE ? END,
+                     updated_by = CASE WHEN ? = '' THEN updated_by ELSE ? END,
+                     created_at = CASE WHEN ? = '' THEN created_at ELSE ? END,
+                     updated_at = CASE WHEN ? = '' THEN updated_at ELSE ? END
+                 WHERE id = ?
+                   AND session_id = ?
+                   AND title IS ?
+                   AND body_format IS ?
+                   AND body IS ?
+                   AND deleted_at IS NULL",
+            )
+            .bind(&row.kind)
+            .bind(&row.template_id)
+            .bind(incoming_title_empty)
+            .bind(&row.title)
+            .bind(&row.body_format)
+            .bind(&row.body)
+            .bind(&row.source_hash)
+            .bind(row.sort_order)
+            .bind(&row.created_by)
+            .bind(&row.created_by)
+            .bind(&row.created_by)
+            .bind(&row.created_by)
+            .bind(&row.created_at)
+            .bind(&row.created_at)
+            .bind(&row.updated_at)
+            .bind(&row.updated_at)
+            .bind(&row.id)
+            .bind(&row.session_id)
+            .bind(&title)
+            .bind(&body_format)
+            .bind(&body)
+            .execute(&mut **transaction)
+            .await?;
+
+            Ok((result.rows_affected() == 1).then_some(InsertOutcome::FilledFromLegacy))
+        }
+        LegacyImportRow::Transcript(row) => {
+            let Some((session_id, memo, words_json, speaker_hints_json, deleted_at)) =
+                sqlx::query_as::<_, (String, String, String, String, Option<String>)>(
+                    "SELECT session_id, memo, words_json, speaker_hints_json, deleted_at
+                     FROM transcripts
+                     WHERE id = ?",
+                )
+                .bind(&row.id)
+                .fetch_optional(&mut **transaction)
+                .await?
+            else {
+                return Ok(None);
+            };
+
+            if deleted_at.is_some() || session_id != row.session_id {
+                return Ok(None);
+            }
+
+            let existing_empty =
+                transcript_payload_is_empty(&memo, &words_json, &speaker_hints_json);
+            let incoming_empty =
+                transcript_payload_is_empty(&row.memo, &row.words_json, &row.speaker_hints_json);
+            if transcript_payloads_are_equivalent(&memo, &words_json, &speaker_hints_json, row)
+                || incoming_empty
+            {
+                return Ok(Some(InsertOutcome::RetainedExisting));
+            }
+            if !existing_empty {
+                return Ok(None);
+            }
+
+            let result = sqlx::query(
+                "UPDATE transcripts
+                 SET owner_user_id = CASE WHEN owner_user_id = '' THEN ? ELSE owner_user_id END,
+                     started_at_ms = ?,
+                     ended_at_ms = ?,
+                     memo = ?,
+                     words_json = ?,
+                     speaker_hints_json = ?,
+                     created_at = CASE WHEN ? = '' THEN created_at ELSE ? END,
+                     updated_at = CASE WHEN ? = '' THEN updated_at ELSE ? END
+                 WHERE id = ?
+                   AND session_id = ?
+                   AND memo IS ?
+                   AND words_json IS ?
+                   AND speaker_hints_json IS ?
+                   AND deleted_at IS NULL",
+            )
+            .bind(&row.owner_user_id)
+            .bind(row.started_at_ms)
+            .bind(row.ended_at_ms)
+            .bind(&row.memo)
+            .bind(&row.words_json)
+            .bind(&row.speaker_hints_json)
+            .bind(&row.created_at)
+            .bind(&row.created_at)
+            .bind(&row.created_at)
+            .bind(&row.created_at)
+            .bind(&row.id)
+            .bind(&row.session_id)
+            .bind(&memo)
+            .bind(&words_json)
+            .bind(&speaker_hints_json)
+            .execute(&mut **transaction)
+            .await?;
+
+            Ok((result.rows_affected() == 1).then_some(InsertOutcome::FilledFromLegacy))
+        }
+        _ => Ok(None),
+    }
+}
+
+fn document_bodies_are_equivalent(
+    existing_format: &str,
+    existing_body: &str,
+    incoming: &LegacyDocument,
+) -> bool {
+    existing_format == incoming.body_format && existing_body == incoming.body
+}
+
+fn document_body_is_empty(body_format: &str, body: &str) -> bool {
+    let body = body.trim();
+    if body.is_empty() || body == "&nbsp;" {
+        return true;
+    }
+    if body_format != "prosemirror_json" {
+        return false;
+    }
+
+    let Ok(serde_json::Value::Object(document)) = serde_json::from_str(body) else {
+        return false;
+    };
+    if document.get("type").and_then(serde_json::Value::as_str) != Some("doc") {
+        return false;
+    }
+    let Some(content) = document.get("content") else {
+        return true;
+    };
+    let Some(content) = content.as_array() else {
+        return false;
+    };
+
+    content.is_empty()
+        || content.iter().all(|node| {
+            let Some(node) = node.as_object() else {
+                return false;
+            };
+            node.get("type").and_then(serde_json::Value::as_str) == Some("paragraph")
+                && node
+                    .get("content")
+                    .is_none_or(|content| content.as_array().is_some_and(Vec::is_empty))
+        })
+}
+
+fn transcript_payloads_are_equivalent(
+    existing_memo: &str,
+    existing_words_json: &str,
+    existing_speaker_hints_json: &str,
+    incoming: &LegacyTranscript,
+) -> bool {
+    existing_memo == incoming.memo
+        && json_payloads_are_equivalent(existing_words_json, &incoming.words_json)
+        && json_payloads_are_equivalent(existing_speaker_hints_json, &incoming.speaker_hints_json)
+}
+
+fn transcript_payload_is_empty(memo: &str, words_json: &str, speaker_hints_json: &str) -> bool {
+    memo.trim().is_empty()
+        && json_array_is_empty(words_json)
+        && json_array_is_empty(speaker_hints_json)
+}
+
+fn json_array_is_empty(value: &str) -> bool {
+    let value = value.trim();
+    value.is_empty()
+        || matches!(
+            serde_json::from_str::<serde_json::Value>(value),
+            Ok(serde_json::Value::Array(items)) if items.is_empty()
+        )
+}
+
+fn json_payloads_are_equivalent(left: &str, right: &str) -> bool {
+    match (
+        serde_json::from_str::<serde_json::Value>(left),
+        serde_json::from_str::<serde_json::Value>(right),
+    ) {
+        (Ok(left), Ok(right)) => left == right,
+        _ => left == right,
     }
 }
 
@@ -1442,6 +1736,57 @@ mod tests {
         }
     }
 
+    async fn begin_run_with_session(db: &Db, run_id: &str) {
+        begin_legacy_import_run(db.pool(), run_id, "/vault", false)
+            .await
+            .unwrap();
+        apply_legacy_import_item(
+            db.pool(),
+            LegacyImportItem {
+                id: "session-item",
+                run_id,
+                source_path: "sessions/session-1/_meta.json",
+                source_kind: "session_meta",
+                source_sha256: "session-hash",
+            },
+            &session_batch(),
+            false,
+        )
+        .await
+        .unwrap();
+    }
+
+    fn document_row(id: &str, body_format: &str, body: &str) -> LegacyImportRow {
+        LegacyImportRow::Document(LegacyDocument {
+            id: id.to_string(),
+            session_id: "session-1".to_string(),
+            kind: "note".to_string(),
+            template_id: String::new(),
+            title: String::new(),
+            body_format: body_format.to_string(),
+            body: body.to_string(),
+            source_hash: format!("{id}-hash"),
+            sort_order: 0,
+            created_by: String::new(),
+            created_at: String::new(),
+            updated_at: String::new(),
+        })
+    }
+
+    fn transcript_row(id: &str, words_json: &str) -> LegacyImportRow {
+        LegacyImportRow::Transcript(LegacyTranscript {
+            id: id.to_string(),
+            owner_user_id: "user-1".to_string(),
+            session_id: "session-1".to_string(),
+            started_at_ms: 10,
+            ended_at_ms: Some(20),
+            memo: String::new(),
+            words_json: words_json.to_string(),
+            speaker_hints_json: "[]".to_string(),
+            created_at: "2026-07-10T12:00:00Z".to_string(),
+        })
+    }
+
     #[tokio::test]
     async fn import_fails_closed_without_a_workspace_binding() {
         let db = test_db().await;
@@ -1552,6 +1897,379 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(title, "Planning");
+    }
+
+    #[tokio::test]
+    async fn orphaned_session_document_is_a_blocking_missing_dependency() {
+        let db = test_db().await;
+        begin_legacy_import_run(db.pool(), "run-1", "/vault", false)
+            .await
+            .unwrap();
+
+        let result = apply_legacy_import_item(
+            db.pool(),
+            LegacyImportItem {
+                id: "document-item",
+                run_id: "run-1",
+                source_path: "sessions/missing/_memo.md",
+                source_kind: "session_document",
+                source_sha256: "document-hash",
+            },
+            &LegacyImportBatch {
+                rows: vec![document_row("document-1", "markdown", "Orphaned note")],
+                ..Default::default()
+            },
+            false,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.imported_count, 0);
+        assert_eq!(result.matched_count, 0);
+        assert_eq!(result.conflict_count, 0);
+        assert_eq!(result.skipped_count, 1);
+        let target_status: String = sqlx::query_scalar(
+            "SELECT status FROM migration_import_targets
+             WHERE run_id = 'run-1' AND target_id = 'document-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(target_status, "missing_dependency");
+        assert_eq!(
+            finish_legacy_import_run(db.pool(), "run-1").await.unwrap(),
+            "completed_with_issues"
+        );
+    }
+
+    #[tokio::test]
+    async fn nonempty_legacy_document_fills_an_empty_sqlite_document() {
+        let db = test_db().await;
+        begin_run_with_session(&db, "run-1").await;
+        sqlx::query(
+            "INSERT INTO session_documents
+             (id, session_id, kind, title, body_format, body)
+             VALUES ('document-1', 'session-1', 'note', 'Keep this title',
+                     'prosemirror_json',
+                     '{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\"}]}')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let mut incoming = document_row("document-1", "markdown", "Legacy note");
+        let LegacyImportRow::Document(row) = &mut incoming else {
+            unreachable!();
+        };
+        row.title = "  \n".to_string();
+
+        let result = apply_legacy_import_item(
+            db.pool(),
+            LegacyImportItem {
+                id: "document-item",
+                run_id: "run-1",
+                source_path: "sessions/session-1/_memo.md",
+                source_kind: "session_document",
+                source_sha256: "document-hash",
+            },
+            &LegacyImportBatch {
+                rows: vec![incoming],
+                ..Default::default()
+            },
+            false,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.matched_count, 1);
+        assert_eq!(result.conflict_count, 0);
+        let document: (String, String, String) = sqlx::query_as(
+            "SELECT title, body_format, body FROM session_documents WHERE id = 'document-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(
+            document,
+            (
+                "Keep this title".to_string(),
+                "markdown".to_string(),
+                "Legacy note".to_string()
+            )
+        );
+        let target_status: String = sqlx::query_scalar(
+            "SELECT status FROM migration_import_targets
+             WHERE run_id = 'run-1' AND target_id = 'document-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(target_status, "filled_from_legacy");
+        assert_eq!(
+            finish_legacy_import_run(db.pool(), "run-1").await.unwrap(),
+            "completed"
+        );
+    }
+
+    #[tokio::test]
+    async fn nonempty_sqlite_document_wins_over_an_empty_legacy_document() {
+        let db = test_db().await;
+        begin_run_with_session(&db, "run-1").await;
+        sqlx::query(
+            "INSERT INTO session_documents
+             (id, session_id, kind, body_format, body)
+             VALUES ('document-1', 'session-1', 'note', 'markdown', 'SQLite note')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let mut incoming = document_row("document-1", "markdown", "  \n");
+        let LegacyImportRow::Document(row) = &mut incoming else {
+            unreachable!();
+        };
+        row.title = "Legacy title".to_string();
+
+        let result = apply_legacy_import_item(
+            db.pool(),
+            LegacyImportItem {
+                id: "document-item",
+                run_id: "run-1",
+                source_path: "sessions/session-1/_memo.md",
+                source_kind: "session_document",
+                source_sha256: "document-hash",
+            },
+            &LegacyImportBatch {
+                rows: vec![incoming],
+                ..Default::default()
+            },
+            false,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.matched_count, 1);
+        assert_eq!(result.conflict_count, 0);
+        let document: (String, String) =
+            sqlx::query_as("SELECT title, body FROM session_documents WHERE id = 'document-1'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(document, (String::new(), "SQLite note".to_string()));
+        assert_eq!(
+            finish_legacy_import_run(db.pool(), "run-1").await.unwrap(),
+            "completed"
+        );
+    }
+
+    #[tokio::test]
+    async fn document_title_is_filled_only_when_the_existing_title_is_empty() {
+        let db = test_db().await;
+        begin_run_with_session(&db, "run-1").await;
+        sqlx::query(
+            "INSERT INTO session_documents
+             (id, session_id, kind, title, body_format, body)
+             VALUES ('document-1', 'session-1', 'note', '', 'markdown', 'Same note')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let mut incoming = document_row("document-1", "markdown", "Same note");
+        let LegacyImportRow::Document(row) = &mut incoming else {
+            unreachable!();
+        };
+        row.title = "Legacy title".to_string();
+
+        let result = apply_legacy_import_item(
+            db.pool(),
+            LegacyImportItem {
+                id: "document-item",
+                run_id: "run-1",
+                source_path: "sessions/session-1/_memo.md",
+                source_kind: "session_document",
+                source_sha256: "document-hash",
+            },
+            &LegacyImportBatch {
+                rows: vec![incoming],
+                ..Default::default()
+            },
+            false,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.matched_count, 1);
+        assert_eq!(result.conflict_count, 0);
+        let title: String =
+            sqlx::query_scalar("SELECT title FROM session_documents WHERE id = 'document-1'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(title, "Legacy title");
+    }
+
+    #[tokio::test]
+    async fn divergent_nonempty_document_titles_remain_conflicted() {
+        let db = test_db().await;
+        begin_run_with_session(&db, "run-1").await;
+        sqlx::query(
+            "INSERT INTO session_documents
+             (id, session_id, kind, title, body_format, body)
+             VALUES ('document-1', 'session-1', 'note', 'SQLite title',
+                     'markdown', 'Same note')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let mut incoming = document_row("document-1", "markdown", "Same note");
+        let LegacyImportRow::Document(row) = &mut incoming else {
+            unreachable!();
+        };
+        row.title = "Legacy title".to_string();
+
+        let result = apply_legacy_import_item(
+            db.pool(),
+            LegacyImportItem {
+                id: "document-item",
+                run_id: "run-1",
+                source_path: "sessions/session-1/_memo.md",
+                source_kind: "session_document",
+                source_sha256: "document-hash",
+            },
+            &LegacyImportBatch {
+                rows: vec![incoming],
+                ..Default::default()
+            },
+            false,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.matched_count, 0);
+        assert_eq!(result.conflict_count, 1);
+        let title: String =
+            sqlx::query_scalar("SELECT title FROM session_documents WHERE id = 'document-1'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(title, "SQLite title");
+    }
+
+    #[tokio::test]
+    async fn divergent_nonempty_documents_remain_conflicted_and_unchanged() {
+        let db = test_db().await;
+        begin_run_with_session(&db, "run-1").await;
+        sqlx::query(
+            "INSERT INTO session_documents
+             (id, session_id, kind, body_format, body)
+             VALUES ('document-1', 'session-1', 'note', 'markdown', 'SQLite note')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let result = apply_legacy_import_item(
+            db.pool(),
+            LegacyImportItem {
+                id: "document-item",
+                run_id: "run-1",
+                source_path: "sessions/session-1/_memo.md",
+                source_kind: "session_document",
+                source_sha256: "document-hash",
+            },
+            &LegacyImportBatch {
+                rows: vec![document_row("document-1", "markdown", "Legacy note")],
+                ..Default::default()
+            },
+            false,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.matched_count, 0);
+        assert_eq!(result.conflict_count, 1);
+        let body: String =
+            sqlx::query_scalar("SELECT body FROM session_documents WHERE id = 'document-1'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(body, "SQLite note");
+        assert_eq!(
+            finish_legacy_import_run(db.pool(), "run-1").await.unwrap(),
+            "completed_with_conflicts"
+        );
+        let parity_verified: bool = sqlx::query_scalar(
+            "SELECT parity_verified FROM storage_migration_state WHERE id = 'legacy_v1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert!(!parity_verified);
+    }
+
+    #[tokio::test]
+    async fn transcript_reconciliation_only_fills_an_empty_payload() {
+        let db = test_db().await;
+        begin_run_with_session(&db, "run-1").await;
+        sqlx::query(
+            "INSERT INTO transcripts
+             (id, session_id, words_json, speaker_hints_json)
+             VALUES
+             ('fill', 'session-1', '[]', '[]'),
+             ('retain', 'session-1', '[{\"id\":\"sqlite\"}]', '[]'),
+             ('equivalent', 'session-1', '[ { \"id\": \"same\" } ]', '[]'),
+             ('conflict', 'session-1', '[{\"id\":\"sqlite\"}]', '[]')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let result = apply_legacy_import_item(
+            db.pool(),
+            LegacyImportItem {
+                id: "transcript-item",
+                run_id: "run-1",
+                source_path: "sessions/session-1/transcript.json",
+                source_kind: "transcript",
+                source_sha256: "transcript-hash",
+            },
+            &LegacyImportBatch {
+                rows: vec![
+                    transcript_row("fill", "[{\"id\":\"legacy\"}]"),
+                    transcript_row("retain", "[]"),
+                    transcript_row("equivalent", "[{\"id\":\"same\"}]"),
+                    transcript_row("conflict", "[{\"id\":\"legacy\"}]"),
+                ],
+                ..Default::default()
+            },
+            false,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.matched_count, 3);
+        assert_eq!(result.conflict_count, 1);
+        let payloads: Vec<(String, String)> =
+            sqlx::query_as("SELECT id, words_json FROM transcripts ORDER BY id")
+                .fetch_all(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(
+            payloads,
+            vec![
+                ("conflict".to_string(), "[{\"id\":\"sqlite\"}]".to_string()),
+                (
+                    "equivalent".to_string(),
+                    "[ { \"id\": \"same\" } ]".to_string()
+                ),
+                ("fill".to_string(), "[{\"id\":\"legacy\"}]".to_string()),
+                ("retain".to_string(), "[{\"id\":\"sqlite\"}]".to_string()),
+            ]
+        );
+        assert_eq!(
+            finish_legacy_import_run(db.pool(), "run-1").await.unwrap(),
+            "completed_with_conflicts"
+        );
     }
 
     #[tokio::test]
