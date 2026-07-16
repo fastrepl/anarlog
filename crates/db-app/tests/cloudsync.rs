@@ -10,6 +10,7 @@ use hypr_db_core::{
 use sqlx::{AssertSqlSafe, SqlitePool};
 
 const SYNC_TIMEOUT: Duration = Duration::from_secs(90);
+const SYNC_ATTEMPTS: usize = 3;
 const POLICY_SYNC_TIMEOUT: Duration = Duration::from_secs(30);
 const STALE_SNAPSHOT_SYNC_ATTEMPTS: usize = 2;
 const SYNCED_TABLES: [&str; 8] = [
@@ -76,10 +77,27 @@ async fn setup_policy_db(auth: CloudsyncAuth, workspace_id: &str) -> Db {
 }
 
 async fn sync_ok(db: &Db, label: &str) {
-    let result = tokio::time::timeout(SYNC_TIMEOUT, db.cloudsync_trigger_sync())
-        .await
-        .unwrap_or_else(|_| panic!("{label} timed out"))
-        .unwrap_or_else(|error| panic!("{label} failed: {error}"));
+    let mut result = None;
+    let mut last_failure = None;
+    for attempt in 1..=SYNC_ATTEMPTS {
+        match tokio::time::timeout(SYNC_TIMEOUT, db.cloudsync_trigger_sync()).await {
+            Ok(Ok(value)) => {
+                result = Some(value);
+                break;
+            }
+            Ok(Err(error)) => last_failure = Some(error.to_string()),
+            Err(_) => last_failure = Some("timed out".to_string()),
+        }
+        if attempt < SYNC_ATTEMPTS {
+            tokio::time::sleep(Duration::from_secs(2)).await;
+        }
+    }
+    let result = result.unwrap_or_else(|| {
+        panic!(
+            "{label} failed after {SYNC_ATTEMPTS} attempts: {}",
+            last_failure.as_deref().unwrap_or("unknown error")
+        )
+    });
     if let Some(send) = result.send {
         assert_eq!(send.status, "synced", "{label} send did not complete");
         assert!(send.last_failure.is_none(), "{label} send failed");
@@ -473,6 +491,53 @@ fn fixture_value_column(table: &str) -> &'static str {
     }
 }
 
+async fn setup_snapshot_policy_db(
+    token: &str,
+    local_workspace: &str,
+    row_workspace: &str,
+    table: &str,
+    id: &str,
+) -> Db {
+    let db = setup_db(
+        CloudsyncAuth::Token {
+            token: token.to_string(),
+        },
+        Some(local_workspace),
+    )
+    .await;
+    db.cloudsync_network_reset_sync_version()
+        .await
+        .unwrap_or_else(|error| panic!("{table} snapshot fixture reset failed: {error}"));
+    for attempt in 1..=STALE_SNAPSHOT_SYNC_ATTEMPTS {
+        sync_ok(
+            &db,
+            &format!("{table} snapshot fixture download attempt {attempt}"),
+        )
+        .await;
+        if row_count(db.pool(), table, id, row_workspace).await == 1 {
+            break;
+        }
+    }
+    let downloaded_rows = row_count(db.pool(), table, id, row_workspace).await;
+    let status = db.cloudsync_status().await.unwrap();
+    assert_eq!(
+        downloaded_rows, 1,
+        "{table} snapshot fixture was not downloaded after a reset and \
+         {STALE_SNAPSHOT_SYNC_ATTEMPTS} bounded attempts; last sync: {:?}; last error: {:?}",
+        status.last_sync, status.last_error,
+    );
+    if status.has_unsent_changes != Some(false) {
+        sync_ok(&db, &format!("{table} snapshot fixture upload drain")).await;
+    }
+    assert_eq!(
+        db.cloudsync_status().await.unwrap().has_unsent_changes,
+        Some(false),
+        "{table} snapshot client had unrelated pending changes"
+    );
+
+    db
+}
+
 async fn setup_stale_policy_db(
     token_b: &str,
     token_a: &str,
@@ -480,42 +545,7 @@ async fn setup_stale_policy_db(
     table: &str,
     id: &str,
 ) -> Db {
-    let db = setup_db(
-        CloudsyncAuth::Token {
-            token: token_b.to_string(),
-        },
-        Some(workspace_b),
-    )
-    .await;
-    db.cloudsync_network_reset_sync_version()
-        .await
-        .unwrap_or_else(|error| panic!("{table} stale fixture reset failed: {error}"));
-    for attempt in 1..=STALE_SNAPSHOT_SYNC_ATTEMPTS {
-        sync_ok(
-            &db,
-            &format!("{table} stale fixture download attempt {attempt}"),
-        )
-        .await;
-        if row_count(db.pool(), table, id, workspace_b).await == 1 {
-            break;
-        }
-    }
-    let downloaded_rows = row_count(db.pool(), table, id, workspace_b).await;
-    let status = db.cloudsync_status().await.unwrap();
-    assert_eq!(
-        downloaded_rows, 1,
-        "{table} stale fixture was not downloaded after a reset and \
-         {STALE_SNAPSHOT_SYNC_ATTEMPTS} bounded attempts; last sync: {:?}; last error: {:?}",
-        status.last_sync, status.last_error,
-    );
-    if status.has_unsent_changes != Some(false) {
-        sync_ok(&db, &format!("{table} stale fixture upload drain")).await;
-    }
-    assert_eq!(
-        db.cloudsync_status().await.unwrap().has_unsent_changes,
-        Some(false),
-        "{table} stale client had unrelated pending changes before reauthentication"
-    );
+    let db = setup_snapshot_policy_db(token_b, workspace_b, workspace_b, table, id).await;
 
     // Keep the downloaded B-owned row, but switch only the network identity to A.
     tokio::time::timeout(Duration::from_secs(15), db.cloudsync_stop())
@@ -1243,5 +1273,337 @@ async fn access_tokens_isolate_two_workspaces() {
         fixture_b_violations.is_empty(),
         "workspace A mutated workspace B rows: {}",
         fixture_b_violations.join(", ")
+    );
+}
+
+#[tokio::test]
+#[ignore = "external verification only; requires ANARLOG_CLOUDSYNC_DATABASE_ID, ANARLOG_CLOUDSYNC_WORKSPACE_A/B/C, ANARLOG_CLOUDSYNC_TOKEN_A_WITH_SHARED_C, ANARLOG_CLOUDSYNC_TOKEN_A_WITHOUT_SHARED_C, ANARLOG_CLOUDSYNC_TOKEN_B, and ANARLOG_CLOUDSYNC_TOKEN_C_OWNER"]
+async fn access_token_workspace_attributes_allow_shared_reads_but_not_writes() {
+    let workspace_a = std::env::var("ANARLOG_CLOUDSYNC_WORKSPACE_A")
+        .expect("ANARLOG_CLOUDSYNC_WORKSPACE_A must be set");
+    let workspace_b = std::env::var("ANARLOG_CLOUDSYNC_WORKSPACE_B")
+        .expect("ANARLOG_CLOUDSYNC_WORKSPACE_B must be set");
+    let workspace_c = std::env::var("ANARLOG_CLOUDSYNC_WORKSPACE_C")
+        .expect("ANARLOG_CLOUDSYNC_WORKSPACE_C must be set");
+    assert_ne!(workspace_a, workspace_b);
+    assert_ne!(workspace_a, workspace_c);
+    assert_ne!(workspace_b, workspace_c);
+
+    let token_a_with_shared_c = std::env::var("ANARLOG_CLOUDSYNC_TOKEN_A_WITH_SHARED_C")
+        .expect("ANARLOG_CLOUDSYNC_TOKEN_A_WITH_SHARED_C must be set");
+    let token_a_without_shared_c = std::env::var("ANARLOG_CLOUDSYNC_TOKEN_A_WITHOUT_SHARED_C")
+        .expect("ANARLOG_CLOUDSYNC_TOKEN_A_WITHOUT_SHARED_C must be set");
+    let token_b =
+        std::env::var("ANARLOG_CLOUDSYNC_TOKEN_B").expect("ANARLOG_CLOUDSYNC_TOKEN_B must be set");
+    let token_c_owner = std::env::var("ANARLOG_CLOUDSYNC_TOKEN_C_OWNER")
+        .expect("ANARLOG_CLOUDSYNC_TOKEN_C_OWNER must be set");
+
+    let db_a_owner = setup_db(
+        CloudsyncAuth::Token {
+            token: token_a_without_shared_c.clone(),
+        },
+        Some(&workspace_a),
+    )
+    .await;
+    let db_b_owner = setup_db(
+        CloudsyncAuth::Token {
+            token: token_b.clone(),
+        },
+        Some(&workspace_b),
+    )
+    .await;
+    let db_c_owner = setup_db(
+        CloudsyncAuth::Token {
+            token: token_c_owner.clone(),
+        },
+        Some(&workspace_c),
+    )
+    .await;
+
+    let marker = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let session_a: String = sqlx::query_scalar("SELECT cloudsync_uuid()")
+        .fetch_one(db_a_owner.pool())
+        .await
+        .unwrap();
+    let session_b: String = sqlx::query_scalar("SELECT cloudsync_uuid()")
+        .fetch_one(db_b_owner.pool())
+        .await
+        .unwrap();
+    let session_c: String = sqlx::query_scalar("SELECT cloudsync_uuid()")
+        .fetch_one(db_c_owner.pool())
+        .await
+        .unwrap();
+    let foreign_insert_c: String = sqlx::query_scalar("SELECT cloudsync_uuid()")
+        .fetch_one(db_a_owner.pool())
+        .await
+        .unwrap();
+    let title_a = format!("anarlog-workspace-attributes-a-{marker}");
+    let title_b = format!("anarlog-workspace-attributes-b-{marker}");
+    let title_c = format!("anarlog-workspace-attributes-c-{marker}");
+
+    for (db, id, workspace_id, title) in [
+        (&db_a_owner, &session_a, &workspace_a, &title_a),
+        (&db_b_owner, &session_b, &workspace_b, &title_b),
+        (&db_c_owner, &session_c, &workspace_c, &title_c),
+    ] {
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title) VALUES (?, ?, ?, ?)",
+        )
+        .bind(id)
+        .bind(workspace_id)
+        .bind(workspace_id)
+        .bind(title)
+        .execute(db.pool())
+        .await
+        .unwrap();
+    }
+    sync_ok(&db_a_owner, "workspace attribute A fixture upload").await;
+    sync_ok(&db_b_owner, "workspace attribute B fixture upload").await;
+    sync_ok(&db_c_owner, "workspace attribute C fixture upload").await;
+
+    let db_a_shared = setup_db(
+        CloudsyncAuth::Token {
+            token: token_a_with_shared_c.clone(),
+        },
+        Some(&workspace_a),
+    )
+    .await;
+    let db_b_reader = setup_db(
+        CloudsyncAuth::Token {
+            token: token_b.clone(),
+        },
+        Some(&workspace_b),
+    )
+    .await;
+    for (db, label) in [
+        (&db_a_shared, "workspace A shared-read snapshot"),
+        (&db_b_reader, "workspace B isolation snapshot"),
+    ] {
+        sync_ok(db, label).await;
+        sync_ok(db, label).await;
+    }
+
+    let a_reads_personal =
+        row_count(db_a_shared.pool(), "sessions", &session_a, &workspace_a).await == 1;
+    let a_reads_shared_c =
+        row_count(db_a_shared.pool(), "sessions", &session_c, &workspace_c).await == 1;
+    let a_cannot_read_b = row_count_by_id(db_a_shared.pool(), "sessions", &session_b).await == 0;
+    let b_reads_personal =
+        row_count(db_b_reader.pool(), "sessions", &session_b, &workspace_b).await == 1;
+    let b_cannot_read_c = row_count_by_id(db_b_reader.pool(), "sessions", &session_c).await == 0;
+
+    let insert_attacker = setup_policy_db(
+        CloudsyncAuth::Token {
+            token: token_a_with_shared_c.clone(),
+        },
+        &workspace_a,
+    )
+    .await;
+    sqlx::query(
+        "INSERT INTO sessions (id, workspace_id, owner_user_id, title) VALUES (?, ?, ?, ?)",
+    )
+    .bind(&foreign_insert_c)
+    .bind(&workspace_c)
+    .bind(&workspace_c)
+    .bind(format!(
+        "anarlog-workspace-attributes-foreign-insert-{marker}"
+    ))
+    .execute(insert_attacker.pool())
+    .await
+    .unwrap();
+    let insert_policy =
+        expect_policy_sync_completed_or_denied(&insert_attacker, "shared workspace C INSERT").await;
+
+    let update_attacker = setup_snapshot_policy_db(
+        &token_a_with_shared_c,
+        &workspace_a,
+        &workspace_c,
+        "sessions",
+        &session_c,
+    )
+    .await;
+    let update_rows = sqlx::query("UPDATE sessions SET title = ? WHERE id = ?")
+        .bind(format!(
+            "anarlog-workspace-attributes-foreign-update-{marker}"
+        ))
+        .bind(&session_c)
+        .execute(update_attacker.pool())
+        .await
+        .unwrap()
+        .rows_affected();
+    let update_policy = if update_rows == 1 {
+        expect_policy_sync_completed_or_denied(&update_attacker, "shared workspace C UPDATE").await
+    } else {
+        Err("shared workspace C was not available for the UPDATE attempt".to_string())
+    };
+
+    let delete_attacker = setup_snapshot_policy_db(
+        &token_a_with_shared_c,
+        &workspace_a,
+        &workspace_c,
+        "sessions",
+        &session_c,
+    )
+    .await;
+    let delete_rows = sqlx::query("DELETE FROM sessions WHERE id = ?")
+        .bind(&session_c)
+        .execute(delete_attacker.pool())
+        .await
+        .unwrap()
+        .rows_affected();
+    let delete_policy = if delete_rows == 1 {
+        expect_policy_sync_completed_or_denied(&delete_attacker, "shared workspace C DELETE").await
+    } else {
+        Err("shared workspace C was not available for the DELETE attempt".to_string())
+    };
+
+    let db_c_verifier = setup_db(
+        CloudsyncAuth::Token {
+            token: token_c_owner.clone(),
+        },
+        Some(&workspace_c),
+    )
+    .await;
+    db_c_verifier
+        .cloudsync_network_reset_sync_version()
+        .await
+        .expect("workspace C verification sync reset failed");
+    sync_ok(
+        &db_c_verifier,
+        "shared workspace C write-policy verification",
+    )
+    .await;
+    sync_ok(
+        &db_c_verifier,
+        "shared workspace C write-policy verification retry",
+    )
+    .await;
+    let verified_title_c: Option<String> =
+        sqlx::query_scalar("SELECT title FROM sessions WHERE id = ?")
+            .bind(&session_c)
+            .fetch_optional(db_c_verifier.pool())
+            .await
+            .unwrap();
+    let foreign_insert_count =
+        row_count_by_id(db_c_verifier.pool(), "sessions", &foreign_insert_c).await;
+
+    let db_a_without_shared = setup_db(
+        CloudsyncAuth::Token {
+            token: token_a_without_shared_c.clone(),
+        },
+        Some(&workspace_a),
+    )
+    .await;
+    db_a_without_shared
+        .cloudsync_network_reset_sync_version()
+        .await
+        .expect("fresh workspace A token sync reset failed");
+    sync_ok(
+        &db_a_without_shared,
+        "fresh workspace A token without C snapshot",
+    )
+    .await;
+    sync_ok(
+        &db_a_without_shared,
+        "fresh workspace A token without C snapshot retry",
+    )
+    .await;
+    let fresh_a_reads_personal = row_count(
+        db_a_without_shared.pool(),
+        "sessions",
+        &session_a,
+        &workspace_a,
+    )
+    .await
+        == 1;
+    let fresh_a_cannot_read_c =
+        row_count_by_id(db_a_without_shared.pool(), "sessions", &session_c).await == 0;
+
+    sqlx::query("DELETE FROM sessions WHERE id = ?")
+        .bind(&session_a)
+        .execute(db_a_owner.pool())
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM sessions WHERE id = ?")
+        .bind(&session_b)
+        .execute(db_b_owner.pool())
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM sessions WHERE id = ? OR id = ?")
+        .bind(&session_c)
+        .bind(&foreign_insert_c)
+        .execute(db_c_verifier.pool())
+        .await
+        .unwrap();
+    sync_ok(&db_a_owner, "workspace attribute A fixture cleanup").await;
+    sync_ok(&db_b_owner, "workspace attribute B fixture cleanup").await;
+    sync_ok(&db_c_verifier, "workspace attribute C fixture cleanup").await;
+
+    for (db, label) in [
+        (&db_a_owner, "workspace A owner"),
+        (&db_b_owner, "workspace B owner"),
+        (&db_c_owner, "workspace C owner"),
+        (&db_a_shared, "workspace A shared reader"),
+        (&db_b_reader, "workspace B reader"),
+        (&insert_attacker, "workspace C insert attacker"),
+        (&update_attacker, "workspace C update attacker"),
+        (&delete_attacker, "workspace C delete attacker"),
+        (&db_c_verifier, "workspace C verifier"),
+        (&db_a_without_shared, "fresh workspace A reader"),
+    ] {
+        tokio::time::timeout(Duration::from_secs(15), db.cloudsync_stop())
+            .await
+            .unwrap_or_else(|_| panic!("{label} stop timed out"))
+            .unwrap();
+    }
+
+    assert!(
+        a_reads_personal,
+        "workspace A could not read its personal row"
+    );
+    assert!(
+        a_reads_shared_c,
+        "workspace A could not read shared workspace C"
+    );
+    assert!(a_cannot_read_b, "workspace A read unrelated workspace B");
+    assert!(
+        b_reads_personal,
+        "workspace B could not read its personal row"
+    );
+    assert!(b_cannot_read_c, "workspace B read shared workspace C");
+    assert!(
+        insert_policy.is_ok(),
+        "workspace A shared INSERT returned an unexpected sync result: {:?}",
+        insert_policy.err()
+    );
+    assert!(
+        update_policy.is_ok(),
+        "workspace A shared UPDATE returned an unexpected sync result: {:?}",
+        update_policy.err()
+    );
+    assert!(
+        delete_policy.is_ok(),
+        "workspace A shared DELETE returned an unexpected sync result: {:?}",
+        delete_policy.err()
+    );
+    assert_eq!(
+        verified_title_c.as_deref(),
+        Some(title_c.as_str()),
+        "workspace A updated or deleted workspace C's row"
+    );
+    assert_eq!(
+        foreign_insert_count, 0,
+        "workspace A inserted a row into workspace C"
+    );
+    assert!(
+        fresh_a_reads_personal,
+        "fresh workspace A token could not read its personal row"
+    );
+    assert!(
+        fresh_a_cannot_read_c,
+        "fresh workspace A token without C still read workspace C"
     );
 }

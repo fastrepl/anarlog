@@ -16,6 +16,8 @@ use crate::state::AppState;
 
 const WORKSPACE_PROJECTION_SELECT: &str = "id,user_id,role,created_at,updated_at,workspace:workspaces!inner(id,owner_user_id,kind,name,created_at,updated_at)";
 const WORKSPACE_PROJECTION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+const MAX_TOKEN_WORKSPACES: usize = 128;
+const MAX_TOKEN_ATTRIBUTES_BYTES: usize = 8 * 1024;
 
 #[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -50,6 +52,7 @@ struct CreateTokenRequest<'a> {
     name: &'static str,
     user_id: &'a str,
     expires_at: &'a str,
+    attributes: &'a str,
 }
 
 #[derive(Deserialize)]
@@ -124,6 +127,7 @@ async fn create_credentials(
     let workspace_rows = fetch_workspace_projection(&state, &auth).await?;
     let (personal_workspace_id, workspaces) =
         validate_workspace_projection(workspace_rows, &auth.claims.sub)?;
+    let token_attributes = encode_workspace_token_attributes(&workspaces)?;
 
     let ttl = i64::try_from(state.config.token_ttl_seconds)
         .map_err(|_| SyncError::Internal("CloudSync token TTL is too large".to_string()))?;
@@ -141,6 +145,7 @@ async fn create_credentials(
             name: "anarlog-cloudsync",
             user_id: &auth.claims.sub,
             expires_at: &expires_at,
+            attributes: &token_attributes,
         })
         .send()
         .await
@@ -304,6 +309,35 @@ fn invalid_workspace_projection<T>(reason: &'static str) -> Result<T> {
     Err(SyncError::Upstream)
 }
 
+fn encode_workspace_token_attributes(workspaces: &[CloudsyncWorkspace]) -> Result<String> {
+    if workspaces.len() > MAX_TOKEN_WORKSPACES {
+        tracing::warn!(
+            workspace_count = workspaces.len(),
+            "CloudSync workspace projection exceeds token limit"
+        );
+        return Err(SyncError::Upstream);
+    }
+
+    let attributes = serde_json::to_string(&serde_json::json!({
+        "workspace_ids": workspaces
+            .iter()
+            .map(|workspace| workspace.id.as_str())
+            .collect::<Vec<_>>(),
+    }))
+    .map_err(|error| {
+        SyncError::Internal(format!("CloudSync token attributes are invalid: {error}"))
+    })?;
+    if attributes.len() > MAX_TOKEN_ATTRIBUTES_BYTES {
+        tracing::warn!(
+            attribute_bytes = attributes.len(),
+            "CloudSync workspace projection exceeds token size limit"
+        );
+        return Err(SyncError::Upstream);
+    }
+
+    Ok(attributes)
+}
+
 #[cfg(test)]
 mod tests {
     use axum::{Extension, body::Body, body::to_bytes, http::Request, http::StatusCode};
@@ -453,10 +487,46 @@ mod tests {
         assert_eq!(requests[0].url.path(), "/rest/v1/workspace_memberships");
         assert_eq!(requests[1].url.path(), "/v2/tokens");
         let token_request: Value = serde_json::from_slice(&requests[1].body).unwrap();
-        assert_eq!(token_request.as_object().unwrap().len(), 3);
+        assert_eq!(token_request.as_object().unwrap().len(), 4);
         assert_eq!(token_request["userId"], "user-123");
+        let attributes: Value =
+            serde_json::from_str(token_request["attributes"].as_str().unwrap()).unwrap();
+        assert_eq!(
+            attributes,
+            json!({ "workspace_ids": ["user-123", "workspace-team"] })
+        );
         assert!(token_request.get("workspaceId").is_none());
         assert!(token_request.get("workspaceIds").is_none());
+    }
+
+    #[test]
+    fn bounds_workspace_token_attributes() {
+        let workspace = |id: String| CloudsyncWorkspace {
+            id,
+            owner_user_id: "user-123".to_string(),
+            kind: "shared".to_string(),
+            name: "Shared".to_string(),
+            membership_id: "membership".to_string(),
+            role: "member".to_string(),
+            membership_created_at: "2026-07-16T08:00:00Z".to_string(),
+            membership_updated_at: "2026-07-16T08:00:00Z".to_string(),
+            created_at: "2026-07-16T08:00:00Z".to_string(),
+            updated_at: "2026-07-16T08:00:00Z".to_string(),
+        };
+
+        let too_many = (0..=MAX_TOKEN_WORKSPACES)
+            .map(|index| workspace(format!("workspace-{index}")))
+            .collect::<Vec<_>>();
+        assert!(matches!(
+            encode_workspace_token_attributes(&too_many),
+            Err(SyncError::Upstream)
+        ));
+
+        let oversized = [workspace("x".repeat(MAX_TOKEN_ATTRIBUTES_BYTES))];
+        assert!(matches!(
+            encode_workspace_token_attributes(&oversized),
+            Err(SyncError::Upstream)
+        ));
     }
 
     #[tokio::test]
