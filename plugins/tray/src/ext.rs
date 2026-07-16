@@ -265,7 +265,8 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         let mut current_title = SCHEDULE_TITLE.lock().unwrap();
 
         if *current_title != title {
-            tray.set_title(title.as_deref())?;
+            // tray-icon currently treats None as a no-op on macOS.
+            tray.set_title(Some(title.as_deref().unwrap_or("")))?;
             *current_title = title;
         }
 
