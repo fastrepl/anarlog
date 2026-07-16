@@ -24,6 +24,8 @@ pub enum Error {
     CloudsyncWorkspace(#[from] hypr_db_app::CloudsyncWorkspaceError),
     #[error(transparent)]
     Json(#[from] serde_json::Error),
+    #[error("end-to-end encryption recovery key setup is required before CloudSync can start")]
+    E2eeIdentityRequired,
     #[error("transaction statement {statement_index} affected {actual} rows; expected {expected}")]
     UnexpectedRowsAffected {
         statement_index: usize,

@@ -13,6 +13,10 @@ Default permissions for the plugin
 - `allow-get-recurring-meeting-history`
 - `allow-get-legacy-cleanup-status`
 - `allow-cleanup-legacy-files`
+- `allow-get-e2ee-identity-status`
+- `allow-inspect-e2ee-recovery-key`
+- `allow-create-e2ee-identity`
+- `allow-import-e2ee-identity`
 - `allow-subscribe`
 - `allow-unsubscribe`
 - `allow-configure-cloudsync`
@@ -140,6 +144,32 @@ Denies the configure_cloudsync_token command without any pre-configured scope.
 <tr>
 <td>
 
+`db:allow-create-e2ee-identity`
+
+</td>
+<td>
+
+Enables the create_e2ee_identity command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-create-e2ee-identity`
+
+</td>
+<td>
+
+Denies the create_e2ee_identity command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `db:allow-execute`
 
 </td>
@@ -237,6 +267,32 @@ Enables the get_cloudsync_status command without any pre-configured scope.
 <td>
 
 Denies the get_cloudsync_status command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-get-e2ee-identity-status`
+
+</td>
+<td>
+
+Enables the get_e2ee_identity_status command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-get-e2ee-identity-status`
+
+</td>
+<td>
+
+Denies the get_e2ee_identity_status command without any pre-configured scope.
 
 </td>
 </tr>
@@ -367,6 +423,58 @@ Enables the get_recurring_meeting_history command without any pre-configured sco
 <td>
 
 Denies the get_recurring_meeting_history command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-import-e2ee-identity`
+
+</td>
+<td>
+
+Enables the import_e2ee_identity command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-import-e2ee-identity`
+
+</td>
+<td>
+
+Denies the import_e2ee_identity command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-inspect-e2ee-recovery-key`
+
+</td>
+<td>
+
+Enables the inspect_e2ee_recovery_key command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-inspect-e2ee-recovery-key`
+
+</td>
+<td>
+
+Denies the inspect_e2ee_recovery_key command without any pre-configured scope.
 
 </td>
 </tr>

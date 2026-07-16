@@ -14,6 +14,7 @@ hypr-db-core = { workspace = true }
 hypr-db-execute = { workspace = true }
 hypr-db-migrate = { workspace = true }
 hypr-db-reactive = { workspace = true, features = ["specta"] }
+hypr-e2ee = { workspace = true }
 hypr-fs-sync-core = { workspace = true }
 hypr-storage = { workspace = true }
 hypr-tauri-utils = { workspace = true }
@@ -26,6 +27,7 @@ specta-typescript = { workspace = true }
 sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled", "macros"] }
 tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+tauri-plugin-store2 = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }

@@ -13,21 +13,12 @@ const SYNC_TIMEOUT: Duration = Duration::from_secs(90);
 const SYNC_ATTEMPTS: usize = 3;
 const POLICY_SYNC_TIMEOUT: Duration = Duration::from_secs(30);
 const STALE_SNAPSHOT_SYNC_ATTEMPTS: usize = 2;
-const SYNCED_TABLES: [&str; 8] = [
-    "organizations",
-    "humans",
-    "sessions",
-    "session_documents",
-    "transcripts",
-    "session_participants",
-    "action_items",
-    "session_attachments",
-];
+const SYNCED_TABLES: [&str; 1] = ["e2ee_records"];
 
 fn cloudsync_config(auth: CloudsyncAuth, wait_ms: i64, max_retries: i64) -> CloudsyncRuntimeConfig {
     CloudsyncRuntimeConfig {
-        connection_string: std::env::var("ANARLOG_CLOUDSYNC_DATABASE_ID")
-            .expect("ANARLOG_CLOUDSYNC_DATABASE_ID must be set"),
+        connection_string: std::env::var("ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID")
+            .expect("ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID must be set"),
         auth,
         tables: cloudsync_table_registry().to_vec(),
         sync_interval_ms: 86_400_000,
@@ -361,6 +352,15 @@ async fn insert_foreign_row(
         .unwrap();
 
     match table {
+        "e2ee_records" => {
+            sqlx::query("INSERT INTO e2ee_records (id, workspace_id, payload) VALUES (?, ?, ?)")
+                .bind(&id)
+                .bind(foreign_workspace_id)
+                .bind(marker)
+                .execute(pool)
+                .await
+                .unwrap();
+        }
         "organizations" => {
             sqlx::query(
                 "INSERT INTO organizations (id, workspace_id, owner_user_id, name) \
@@ -482,6 +482,7 @@ async fn insert_foreign_row(
 
 fn fixture_value_column(table: &str) -> &'static str {
     match table {
+        "e2ee_records" => "payload",
         "organizations" | "humans" => "name",
         "sessions" | "session_documents" => "title",
         "transcripts" => "memo",
@@ -1278,7 +1279,7 @@ async fn access_tokens_isolate_two_workspaces() {
 }
 
 #[tokio::test]
-#[ignore = "external verification only; requires ANARLOG_CLOUDSYNC_DATABASE_ID, ANARLOG_CLOUDSYNC_WORKSPACE_A/B/C, ANARLOG_CLOUDSYNC_TOKEN_A_WITH_SHARED_C, ANARLOG_CLOUDSYNC_TOKEN_A_WITHOUT_SHARED_C, ANARLOG_CLOUDSYNC_TOKEN_B, and ANARLOG_CLOUDSYNC_TOKEN_C_OWNER"]
+#[ignore = "external verification only; requires ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID, ANARLOG_CLOUDSYNC_WORKSPACE_A/B/C, ANARLOG_CLOUDSYNC_TOKEN_A_WITH_SHARED_C, ANARLOG_CLOUDSYNC_TOKEN_A_WITHOUT_SHARED_C, ANARLOG_CLOUDSYNC_TOKEN_B, and ANARLOG_CLOUDSYNC_TOKEN_C_OWNER"]
 async fn access_token_workspace_attributes_allow_shared_reads_but_not_writes() {
     let workspace_a = std::env::var("ANARLOG_CLOUDSYNC_WORKSPACE_A")
         .expect("ANARLOG_CLOUDSYNC_WORKSPACE_A must be set");

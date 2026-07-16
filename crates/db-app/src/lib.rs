@@ -3,6 +3,7 @@
 mod calendar_ops;
 mod calendar_types;
 mod cloudsync;
+mod e2ee;
 mod event_ops;
 mod event_types;
 mod legacy_import;
@@ -14,6 +15,7 @@ mod template_types;
 pub use calendar_ops::*;
 pub use calendar_types::*;
 pub use cloudsync::*;
+pub use e2ee::*;
 pub use event_ops::*;
 pub use event_types::*;
 pub use legacy_import::*;
@@ -124,6 +126,11 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         id: "20260716173000_shared_session_cache",
         scope: hypr_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260716173000_shared_session_cache.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260717120000_e2ee_replica",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260717120000_e2ee_replica.sql"),
     },
 ];
 
@@ -339,6 +346,8 @@ mod tests {
                 "cloudsync_session_evictions",
                 "cloudsync_writable_workspaces",
                 "daily_notes",
+                "e2ee_local_state",
+                "e2ee_records",
                 "entity_mentions",
                 "events",
                 "humans",
@@ -515,9 +524,12 @@ mod tests {
         )
         .await
         .unwrap();
-        initialize_enabled_cloudsync_tables(&db).await;
+        for table_name in E2EE_DOMAIN_TABLES {
+            db.cloudsync_init(table_name, None, None).await.unwrap();
+        }
 
         prepare_schema(&db).await.unwrap();
+        initialize_enabled_cloudsync_tables(&db).await;
 
         sqlx::query("INSERT INTO sessions (id, title) VALUES ('session-1', 'Planning')")
             .execute(db.pool())
@@ -678,7 +690,7 @@ mod tests {
     }
 
     #[test]
-    fn cloudsync_registry_enables_only_the_initial_meeting_slice() {
+    fn cloudsync_registry_enables_only_the_encrypted_replica() {
         let registry = cloudsync_table_registry();
         let enabled: Vec<&str> = registry
             .iter()
@@ -686,20 +698,8 @@ mod tests {
             .map(|table| table.table_name.as_str())
             .collect();
 
-        assert_eq!(registry.len(), 19);
-        assert_eq!(
-            enabled,
-            vec![
-                "action_items",
-                "humans",
-                "organizations",
-                "session_attachments",
-                "session_documents",
-                "session_participants",
-                "sessions",
-                "transcripts",
-            ]
-        );
+        assert_eq!(registry.len(), 20);
+        assert_eq!(enabled, vec!["e2ee_records"]);
         assert!(
             !registry
                 .iter()
@@ -722,6 +722,7 @@ mod tests {
                 .any(|table| { table.table_name == "workspace_memberships" && !table.enabled })
         );
         assert!(cloudsync_alter_guard_required("sessions"));
+        assert!(cloudsync_alter_guard_required("e2ee_records"));
         assert!(!cloudsync_alter_guard_required("workspaces"));
         assert!(!cloudsync_alter_guard_required("workspace_memberships"));
         assert!(!cloudsync_alter_guard_required("calendars"));

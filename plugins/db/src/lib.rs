@@ -104,6 +104,19 @@ pub struct LegacyCleanupResult {
     pub deleted_bytes: u64,
 }
 
+#[derive(Debug, Clone, serde::Serialize, specta::Type, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct E2eeIdentityStatus {
+    pub configured: bool,
+    pub key_id: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, specta::Type, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct E2eeRecoveryKeyIdentity {
+    pub key_id: String,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq)]
 pub struct ExecuteProxyResult {
     rows: Vec<serde_json::Value>,
@@ -188,11 +201,15 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::get_legacy_cleanup_status,
             commands::cleanup_legacy_files,
             commands::run_legacy_import,
+            commands::get_e2ee_identity_status<tauri::Wry>,
+            commands::inspect_e2ee_recovery_key,
+            commands::create_e2ee_identity<tauri::Wry>,
+            commands::import_e2ee_identity<tauri::Wry>,
             commands::subscribe,
             commands::unsubscribe,
             commands::configure_cloudsync,
             commands::bind_cloudsync_account,
-            commands::configure_cloudsync_token,
+            commands::configure_cloudsync_token<tauri::Wry>,
             commands::start_cloudsync,
             commands::stop_cloudsync,
             commands::suspend_cloudsync,
@@ -342,7 +359,15 @@ mod test {
 
     async fn setup_enabled_cloudsync_runtime() -> (tempfile::TempDir, Arc<runtime::PluginDbRuntime>)
     {
-        setup_runtime_with_cloudsync(true).await
+        let (dir, runtime) = setup_runtime_with_cloudsync(true).await;
+        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+            "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+        )
+        .unwrap();
+        runtime
+            .set_e2ee_recovery_key("user-a", &recovery_key)
+            .unwrap();
+        (dir, runtime)
     }
 
     async fn setup_unmigrated_runtime() -> (tempfile::TempDir, Arc<runtime::PluginDbRuntime>) {

@@ -35,7 +35,7 @@ fn cloudsync_runtime_config(
         return Ok(None);
     }
 
-    let database_id = get("ANARLOG_CLOUDSYNC_DATABASE_ID").and_then(nonempty);
+    let database_id = get("ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID").and_then(nonempty);
     let api_key = get("ANARLOG_CLOUDSYNC_API_KEY").and_then(nonempty);
     let token = get("ANARLOG_CLOUDSYNC_TOKEN").and_then(nonempty);
 
@@ -44,7 +44,8 @@ fn cloudsync_runtime_config(
     }
 
     let database_id = database_id.ok_or_else(|| {
-        "ANARLOG_CLOUDSYNC_DATABASE_ID is required when CloudSync auth is configured".to_string()
+        "ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID is required when CloudSync auth is configured"
+            .to_string()
     })?;
     let auth = match (api_key, token) {
         (Some(api_key), None) => hypr_db_core::CloudsyncAuth::ApiKey { api_key },
@@ -135,7 +136,7 @@ mod tests {
         let values = HashMap::from([
             ("ANARLOG_CLOUDSYNC_ALLOW_STATIC_AUTH", "true".to_string()),
             (
-                "ANARLOG_CLOUDSYNC_DATABASE_ID",
+                "ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID",
                 "managed-database-id".to_string(),
             ),
             ("ANARLOG_CLOUDSYNC_TOKEN", "token".to_string()),
@@ -158,8 +159,8 @@ mod tests {
             config.auth,
             hypr_db_core::CloudsyncAuth::Token { .. }
         ));
-        assert_eq!(enabled.len(), 8);
-        assert!(enabled.contains(&"sessions"));
+        assert_eq!(enabled, vec!["e2ee_records"]);
+        assert!(!enabled.contains(&"sessions"));
         assert!(!enabled.contains(&"calendars"));
     }
 
@@ -168,7 +169,7 @@ mod tests {
         let values = HashMap::from([
             ("ANARLOG_CLOUDSYNC_ALLOW_STATIC_AUTH", "true".to_string()),
             (
-                "ANARLOG_CLOUDSYNC_DATABASE_ID",
+                "ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID",
                 "managed-database-id".to_string(),
             ),
             ("ANARLOG_CLOUDSYNC_API_KEY", "api-key".to_string()),
@@ -184,7 +185,7 @@ mod tests {
     fn cloudsync_static_auth_requires_explicit_opt_in() {
         let values = HashMap::from([
             (
-                "ANARLOG_CLOUDSYNC_DATABASE_ID",
+                "ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID",
                 "managed-database-id".to_string(),
             ),
             ("ANARLOG_CLOUDSYNC_API_KEY", "api-key".to_string()),

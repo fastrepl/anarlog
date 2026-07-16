@@ -2,6 +2,7 @@ mod commands;
 mod error;
 mod ext;
 
+pub use commands::{read_secret, write_secret};
 pub use error::*;
 pub use ext::*;
 

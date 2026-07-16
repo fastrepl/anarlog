@@ -92,6 +92,7 @@ hypr-dictation-ui-macos = { path = "crates/dictation-ui-macos", package = "dicta
 hypr-docs = { path = "crates/docs", package = "docs" }
 hypr-download-interface = { path = "crates/download-interface", package = "download-interface" }
 hypr-embedding = { path = "crates/embedding", package = "embedding" }
+hypr-e2ee = { path = "crates/e2ee", package = "e2ee" }
 hypr-exa = { path = "crates/exa", package = "exa" }
 hypr-exedev = { path = "crates/exedev", package = "exedev" }
 hypr-export-core = { path = "crates/export-core", package = "export-core" }

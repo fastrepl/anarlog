@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::Path;
 
 use hypr_db_core::{Db, DbOpenError, DbOpenOptions, DbStorage};
@@ -10,6 +11,85 @@ use crate::{QueryEvent, Result, TransactionStatement};
 const DEFAULT_CLOUDSYNC_INTERVAL_MS: u64 = 30_000;
 const CLOUDSYNC_WRITE_FILTER: &str =
     "workspace_id IN (SELECT allowed_workspace_id FROM cloudsync_writable_workspaces)";
+
+#[derive(Default)]
+struct E2eeSyncHook {
+    keys: std::sync::RwLock<HashMap<String, hypr_e2ee::WorkspaceKey>>,
+}
+
+impl E2eeSyncHook {
+    fn set_personal_workspace(
+        &self,
+        workspace_id: &str,
+        recovery_key: &hypr_e2ee::RecoveryKey,
+    ) -> std::result::Result<(), hypr_e2ee::Error> {
+        let key = recovery_key.workspace_key(workspace_id)?;
+        *self.keys.write().unwrap() = HashMap::from([(workspace_id.to_string(), key)]);
+        Ok(())
+    }
+
+    fn has_workspace(&self, workspace_id: &str) -> bool {
+        self.keys.read().unwrap().contains_key(workspace_id)
+    }
+
+    fn clear(&self) {
+        self.keys.write().unwrap().clear();
+    }
+
+    fn snapshot(&self) -> HashMap<String, hypr_e2ee::WorkspaceKey> {
+        self.keys.read().unwrap().clone()
+    }
+
+    async fn prepare_local_snapshot(
+        &self,
+        pool: &sqlx::SqlitePool,
+    ) -> std::result::Result<(), hypr_db_app::E2eeReplicaError> {
+        hypr_db_app::encrypt_e2ee_replica_changes(pool, &self.snapshot())
+            .await
+            .map(|_| ())
+    }
+}
+
+impl hypr_db_core::CloudsyncSyncHook for E2eeSyncHook {
+    fn before_sync<'a>(
+        &'a self,
+        pool: &'a sqlx::SqlitePool,
+    ) -> hypr_db_core::CloudsyncHookFuture<'a> {
+        let keys = self.snapshot();
+        Box::pin(async move {
+            let stats = hypr_db_app::encrypt_e2ee_replica_changes(pool, &keys)
+                .await
+                .map_err(|error| {
+                    std::io::Error::other(format!("E2EE pre-sync encryption failed: {error}"))
+                })?;
+            tracing::debug!(
+                encrypted_fields = stats.encrypted_fields,
+                "prepared encrypted CloudSync replica"
+            );
+            Ok(())
+        })
+    }
+
+    fn after_sync<'a>(
+        &'a self,
+        pool: &'a sqlx::SqlitePool,
+    ) -> hypr_db_core::CloudsyncHookFuture<'a> {
+        let keys = self.snapshot();
+        Box::pin(async move {
+            let stats = hypr_db_app::apply_e2ee_replica_changes(pool, &keys)
+                .await
+                .map_err(|error| {
+                    std::io::Error::other(format!("E2EE post-sync decryption failed: {error}"))
+                })?;
+            tracing::debug!(
+                applied_fields = stats.applied_fields,
+                skipped_local_changes = stats.skipped_local_changes,
+                "applied encrypted CloudSync replica"
+            );
+            Ok(())
+        })
+    }
+}
 
 #[derive(Clone)]
 pub struct QueryEventChannel(Channel<QueryEvent>);
@@ -40,17 +120,32 @@ pub struct PluginDbRuntime {
     synced_write_barrier: tokio::sync::RwLock<()>,
     executor: DbExecutor,
     live_query_runtime: LiveQueryRuntime<QueryEventChannel>,
+    e2ee_sync_hook: std::sync::Arc<E2eeSyncHook>,
 }
 
 impl PluginDbRuntime {
     pub fn new(db: std::sync::Arc<Db>) -> Self {
+        let e2ee_sync_hook = std::sync::Arc::new(E2eeSyncHook::default());
+        db.set_cloudsync_sync_hook(e2ee_sync_hook.clone());
         Self {
             db: std::sync::Arc::clone(&db),
             schema_ready: tokio::sync::OnceCell::new(),
             synced_write_barrier: tokio::sync::RwLock::new(()),
             executor: DbExecutor::new(std::sync::Arc::clone(&db)),
             live_query_runtime: LiveQueryRuntime::new(db),
+            e2ee_sync_hook,
         }
+    }
+
+    pub fn set_e2ee_recovery_key(
+        &self,
+        workspace_id: &str,
+        recovery_key: &hypr_e2ee::RecoveryKey,
+    ) -> Result<()> {
+        self.e2ee_sync_hook
+            .set_personal_workspace(workspace_id, recovery_key)
+            .map_err(|error| std::io::Error::other(error.to_string()))?;
+        Ok(())
     }
 
     pub fn pool(&self) -> &sqlx::SqlitePool {
@@ -200,6 +295,17 @@ impl PluginDbRuntime {
 
         self.ensure_legacy_migration_verified().await?;
 
+        let personal_workspace_id = workspace_projection
+            .as_ref()
+            .map(|projection| projection.personal_workspace_id.as_str())
+            .unwrap_or(account_user_id.as_str());
+        if personal_workspace_id != account_user_id
+            || !self.e2ee_sync_hook.has_workspace(personal_workspace_id)
+        {
+            let _ = self.db.cloudsync_suspend().await;
+            return Err(crate::Error::E2eeIdentityRequired);
+        }
+
         if !self.claim_cloudsync_workspace(account_user_id).await? {
             return Ok(crate::CloudsyncTokenConfigurationResult::AccountMismatch);
         }
@@ -207,6 +313,7 @@ impl PluginDbRuntime {
         if workspace_projection.is_some() {
             self.db.cloudsync_suspend().await?;
         }
+        self.prepare_e2ee_cutover().await?;
 
         let write_filter_version_current = match workspace_projection.as_ref() {
             Some(_) => hypr_db_app::cloudsync_write_filter_version_current(self.db.pool()).await?,
@@ -391,6 +498,26 @@ impl PluginDbRuntime {
         Ok(())
     }
 
+    async fn prepare_e2ee_cutover(&self) -> Result<()> {
+        self.e2ee_sync_hook
+            .prepare_local_snapshot(self.db.pool())
+            .await
+            .map_err(|error| std::io::Error::other(error.to_string()))?;
+
+        for table_name in hypr_db_app::E2EE_DOMAIN_TABLES {
+            if hypr_db_core::cloudsync_is_enabled_on(self.db.pool(), table_name)
+                .await
+                .map_err(hypr_db_core::CloudsyncRuntimeError::from)?
+            {
+                self.db
+                    .cloudsync_cleanup(table_name)
+                    .await
+                    .map_err(hypr_db_core::CloudsyncRuntimeError::from)?;
+            }
+        }
+        Ok(())
+    }
+
     fn schedule_cloudsync_full_resync(&self, generation: String) {
         let db = std::sync::Arc::clone(&self.db);
         tokio::spawn(async move {
@@ -486,6 +613,7 @@ impl PluginDbRuntime {
 
     pub async fn suspend_cloudsync(&self) -> Result<()> {
         self.db.cloudsync_suspend().await?;
+        self.e2ee_sync_hook.clear();
         Ok(())
     }
 

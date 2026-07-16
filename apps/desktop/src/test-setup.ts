@@ -56,6 +56,15 @@ vi.mock("@hypr/plugin-db", () => ({
   execute: vi.fn().mockResolvedValue([]),
   executeProxy: vi.fn().mockResolvedValue({ rows: [] }),
   executeTransaction: vi.fn().mockResolvedValue([]),
+  getE2eeIdentityStatus: vi.fn().mockResolvedValue({
+    configured: true,
+    keyId: "abcdefghijklmnopqrstuv",
+  }),
+  createE2eeIdentity: vi.fn(),
+  inspectE2eeRecoveryKey: vi
+    .fn()
+    .mockResolvedValue({ keyId: "abcdefghijklmnopqrstuv" }),
+  importE2eeIdentity: vi.fn(),
   getCloudsyncStatus: vi.fn().mockResolvedValue({
     cloudsync_enabled: true,
     extension_loaded: true,

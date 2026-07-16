@@ -6,6 +6,8 @@ import type {
   GetRecurringMeetingHistoryInput as GeneratedGetRecurringMeetingHistoryInput,
   CloudsyncTokenConfigurationResult,
   CloudsyncWorkspaceProjection,
+  E2eeIdentityStatus,
+  E2eeRecoveryKeyIdentity,
   LegacyCleanupResult,
   LegacyCleanupStatus,
   LegacyImportReport,
@@ -19,6 +21,8 @@ import type {
 export type {
   CloudsyncTokenConfigurationResult,
   CloudsyncWorkspaceProjection,
+  E2eeIdentityStatus,
+  E2eeRecoveryKeyIdentity,
   GetMeetingInput,
   LegacyCleanupResult,
   LegacyCleanupStatus,
@@ -159,6 +163,34 @@ export async function cleanupLegacyFiles(): Promise<LegacyCleanupResult> {
 
 export async function runLegacyImport(dryRun = false): Promise<string> {
   return invoke("plugin:db|run_legacy_import", { dryRun });
+}
+
+export async function getE2eeIdentityStatus(
+  accountUserId: string,
+): Promise<E2eeIdentityStatus> {
+  return invoke("plugin:db|get_e2ee_identity_status", { accountUserId });
+}
+
+export async function inspectE2eeRecoveryKey(
+  recoveryKey: string,
+): Promise<E2eeRecoveryKeyIdentity> {
+  return invoke("plugin:db|inspect_e2ee_recovery_key", { recoveryKey });
+}
+
+export async function createE2eeIdentity(
+  accountUserId: string,
+): Promise<string> {
+  return invoke("plugin:db|create_e2ee_identity", { accountUserId });
+}
+
+export async function importE2eeIdentity(
+  accountUserId: string,
+  recoveryKey: string,
+): Promise<void> {
+  return invoke("plugin:db|import_e2ee_identity", {
+    accountUserId,
+    recoveryKey,
+  });
 }
 
 export async function configureCloudsync(
