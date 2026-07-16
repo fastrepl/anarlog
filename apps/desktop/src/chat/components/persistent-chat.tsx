@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import { cn } from "@hypr/utils";
@@ -11,15 +11,12 @@ import { chatFloatingPanelShellClassNames } from "~/chat/surface";
 import { useShell } from "~/contexts/shell";
 
 const FLOATING_CHAT_INPUT_MAX_WIDTH = 640;
-const FLOATING_CHAT_INPUT_HEIGHT = 40;
 const FLOATING_CHAT_SHELL_INSET = 4;
 const FLOATING_PANEL_MIN_WIDTH = 476;
 const FLOATING_PANEL_DEFAULT_MAX_WIDTH =
   FLOATING_CHAT_INPUT_MAX_WIDTH + FLOATING_CHAT_SHELL_INSET * 2;
-const FLOATING_PANEL_REVEAL_HEIGHT =
-  FLOATING_CHAT_INPUT_HEIGHT + FLOATING_CHAT_SHELL_INSET;
-const FLOATING_PANEL_RADIUS = 24;
 const FLOATING_PANEL_TOP_CLEARANCE = 46;
+const FLOATING_PANEL_EASE = [0.22, 1, 0.36, 1] as const;
 
 type FloatingContainerRect = {
   top: number;
@@ -38,11 +35,9 @@ export function PersistentChatPanel({
   const { chat } = useShell();
   const isVisible = chat.mode === "FloatingOpen";
 
-  const [hasBeenOpened, setHasBeenOpened] = useState(false);
   const [containerRect, setContainerRect] =
     useState<FloatingContainerRect | null>(null);
   const [draftHasContent, setDraftHasContent] = useState(false);
-  const observerRef = useRef<ResizeObserver | null>(null);
 
   const getActiveContainer = () => {
     return (
@@ -62,12 +57,6 @@ export function PersistentChatPanel({
     return toFloatingContainerRect(anchor.getBoundingClientRect());
   };
 
-  useEffect(() => {
-    if (isVisible && !hasBeenOpened) {
-      setHasBeenOpened(true);
-    }
-  }, [isVisible, hasBeenOpened]);
-
   useHotkeys(
     "esc",
     () => chat.sendEvent({ type: "CLOSE" }),
@@ -81,87 +70,55 @@ export function PersistentChatPanel({
   );
 
   useLayoutEffect(() => {
-    const nextRect = getContainerRect();
-
-    if (!isVisible || !nextRect) {
-      setContainerRect(null);
-      return;
-    }
-    setContainerRect(nextRect);
-  }, [isVisible, hasBeenOpened, floatingContainerRef]);
-
-  useEffect(() => {
     const root = floatingContainerRef.current;
     const container = getActiveContainer();
 
     if (!isVisible || !root || !container) {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-        observerRef.current = null;
-      }
       return;
     }
 
     const updateRect = () => {
-      setContainerRect(getContainerRect());
+      const nextRect = getContainerRect();
+      setContainerRect((currentRect) =>
+        areFloatingContainerRectsEqual(currentRect, nextRect)
+          ? currentRect
+          : nextRect,
+      );
     };
 
-    observerRef.current = new ResizeObserver(updateRect);
+    updateRect();
+    const observer = new ResizeObserver(updateRect);
     if (root !== container) {
-      observerRef.current.observe(root);
+      observer.observe(root);
     }
-    observerRef.current.observe(container);
+    observer.observe(container);
     window.addEventListener("resize", updateRect);
     window.addEventListener("scroll", updateRect, true);
 
     return () => {
-      observerRef.current?.disconnect();
-      observerRef.current = null;
+      observer.disconnect();
       window.removeEventListener("resize", updateRect);
       window.removeEventListener("scroll", updateRect, true);
     };
-  }, [isVisible, hasBeenOpened, floatingContainerRef]);
-
-  if (!hasBeenOpened) {
-    return null;
-  }
+  }, [isVisible, floatingContainerRef]);
 
   const panelMotion = {
-    initial: {
-      y: 0,
-      opacity: 1,
-      scale: 1,
-      clipPath: `inset(calc(100% - ${FLOATING_PANEL_REVEAL_HEIGHT}px) 0 0 0 round ${FLOATING_PANEL_RADIUS}px)`,
-    },
-    animate: {
-      y: 0,
-      opacity: 1,
-      scale: 1,
-      clipPath: `inset(0 0 0 0 round ${FLOATING_PANEL_RADIUS}px)`,
-    },
-    exit: {
-      y: 8,
-      opacity: 0,
-      scale: 0.99,
-      clipPath: `inset(calc(100% - ${FLOATING_PANEL_REVEAL_HEIGHT}px) 0 0 0 round ${FLOATING_PANEL_RADIUS}px)`,
-    },
+    initial: { y: 10, scale: 0.985 },
+    animate: { y: 0, scale: 1 },
+    exit: { y: 6, scale: 0.99 },
   };
-  const panelTransition = {
-    opacity: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
-    scale: { duration: 0.2, ease: [0.22, 1, 0.36, 1] },
-    y: { duration: 0.22, ease: [0.22, 1, 0.36, 1] },
-    clipPath: { duration: 0.32, ease: [0.22, 1, 0.36, 1] },
-  };
+  const panelTransition = { duration: 0.18, ease: FLOATING_PANEL_EASE };
   const panelStyle = {
     width: "100%",
     minWidth: `min(${FLOATING_PANEL_MIN_WIDTH}px, 100%)`,
     maxWidth: `${FLOATING_PANEL_DEFAULT_MAX_WIDTH}px`,
     maxHeight: "100%",
     transformOrigin: "bottom center",
+    willChange: "transform",
   };
 
   return (
-    <AnimatePresence>
+    <AnimatePresence initial={false}>
       {isVisible && (
         <motion.div
           className="pointer-events-none fixed z-100"
@@ -172,13 +129,14 @@ export function PersistentChatPanel({
                   left: containerRect.left,
                   width: containerRect.width,
                   height: containerRect.height,
+                  willChange: "opacity",
                 }
               : { display: "none" }
           }
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
+          transition={{ duration: 0.12, ease: FLOATING_PANEL_EASE }}
         >
           <div
             data-chat-floating-frame
@@ -201,7 +159,7 @@ export function PersistentChatPanel({
           >
             <motion.div
               data-chat-panel
-              data-chat-panel-reveal="bottom-up"
+              data-chat-panel-reveal="lift"
               data-chat-size="floating"
               className={cn([
                 "relative flex min-h-0 flex-col overflow-hidden",
@@ -236,4 +194,16 @@ function toFloatingContainerRect(rect: DOMRect): FloatingContainerRect {
     width: rect.width,
     height: rect.height,
   };
+}
+
+function areFloatingContainerRectsEqual(
+  currentRect: FloatingContainerRect | null,
+  nextRect: FloatingContainerRect | null,
+) {
+  return (
+    currentRect?.top === nextRect?.top &&
+    currentRect?.left === nextRect?.left &&
+    currentRect?.width === nextRect?.width &&
+    currentRect?.height === nextRect?.height
+  );
 }

@@ -135,8 +135,10 @@ describe("PersistentChatPanel", () => {
       expect(panel?.style.height).toBe("");
       expect(panel?.style.maxHeight).toBe("100%");
       expect(panel?.style.transformOrigin).toBe("bottom center");
+      expect(panel?.style.willChange).toBe("transform");
+      expect(panel?.style.clipPath).toBe("");
       expect(panel?.className).toContain("rounded-[24px]");
-      expect(panel?.dataset.chatPanelReveal).toBe("bottom-up");
+      expect(panel?.dataset.chatPanelReveal).toBe("lift");
     });
   });
 

@@ -55,12 +55,9 @@ describe("ChatCTA", () => {
     expect(surface?.className).toContain("absolute");
     expect(surface?.className).toContain("bottom-0");
     expect(surface?.className).toContain("left-1/2");
-    expect(surface?.className).toContain("w-[min(640px,calc(100cqw_-_2rem))]");
+    expect(surface?.className).toContain("w-[180px]");
     expect(surface?.className).toContain(
-      "[clip-path:inset(0_max(0px,calc(50%_-_90px))_0_max(0px,calc(50%_-_90px))_round_32px)]",
-    );
-    expect(surface?.className).toContain(
-      "transition-[clip-path,height,padding,background-color,border-color,box-shadow]",
+      "transition-[width,height,padding,background-color,border-color,box-shadow]",
     );
     expect(surface?.className).toContain("origin-bottom");
     expect(surface?.className).toContain("h-2");
@@ -99,26 +96,22 @@ describe("ChatCTA", () => {
     );
     expect(surface?.className).toContain("group-hover/anarlog-chat-cta:h-10");
     expect(surface?.className).toContain(
-      "group-hover/anarlog-chat-cta:[clip-path:inset(0_0_0_0_round_9999px)]",
+      "group-hover/anarlog-chat-cta:w-[min(640px,calc(100cqw_-_2rem))]",
     );
     expect(surface?.className).toContain(
-      "group-focus-visible/anarlog-chat-cta:[clip-path:inset(0_0_0_0_round_9999px)]",
+      "group-focus-visible/anarlog-chat-cta:w-[min(640px,calc(100cqw_-_2rem))]",
     );
+    expect(surface?.className).not.toContain("clip-path");
     expect(surface?.className).not.toContain("inset_0_0_0_1px");
     expect(button.querySelectorAll("svg")).toHaveLength(0);
-    expect(label.className).toContain("max-w-0");
     expect(label.className).toContain("opacity-0");
     expect(label.className).toContain("text-white/55");
     expect(label.className).not.toContain("ml-2");
     expect(label.className).toContain(
       "group-hover/anarlog-chat-cta:text-muted-foreground",
     );
-    expect(label.className).toContain(
-      "group-hover/anarlog-chat-cta:max-w-full",
-    );
-    expect(label.className).toContain(
-      "group-focus-within/anarlog-chat-cta:max-w-full",
-    );
+    expect(label.className).toContain("transition-opacity");
+    expect(label.className).not.toContain("max-w");
   });
 
   it("uses a compact hover rectangle for the floating trigger", () => {
