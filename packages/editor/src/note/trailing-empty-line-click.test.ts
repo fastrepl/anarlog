@@ -30,6 +30,29 @@ describe("handleTrailingEmptyLineMouseDown", () => {
     expect(view.focus).toHaveBeenCalled();
   });
 
+  it("adds a body paragraph when clicking below a title-only document", () => {
+    const { view, getState } = createView([
+      schema.node("heading", { level: 1 }, [schema.text("Weekly sync")]),
+    ]);
+    const event = createMouseEvent({ target: view.dom, clientY: 40 });
+
+    const handled = handleTrailingEmptyLineMouseDown(view, event);
+
+    expect(handled).toBe(true);
+    expect(getState().doc.toJSON()).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 1 },
+          content: [{ type: "text", text: "Weekly sync" }],
+        },
+        { type: "paragraph" },
+      ],
+    });
+    expect(getState().selection.from).toBe(getState().doc.content.size - 1);
+  });
+
   it("uses an existing trailing empty paragraph instead of adding another", () => {
     const { view, getState } = createView([
       schema.node("paragraph", null, [schema.text("Follow up")]),

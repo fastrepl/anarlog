@@ -89,7 +89,10 @@ import {
 } from "./linked-item-open-behavior";
 import { schema } from "./schema";
 import { normalizeTitleHeadingDoc, titleHeadingPlugin } from "./title-layout";
-import { trailingEmptyLineClickPlugin } from "./trailing-empty-line-click";
+import {
+  focusTrailingEmptyLine,
+  trailingEmptyLineClickPlugin,
+} from "./trailing-empty-line-click";
 
 export type { MentionConfig, FileHandlerConfig, PlaceholderFunction };
 export { schema };
@@ -115,6 +118,7 @@ export interface SearchReplaceParams {
 export interface EditorCommands {
   focus: () => void;
   focusAtStart: () => void;
+  focusAtTrailingEmptyLine: () => void;
   focusAtPixelWidth: (pixelWidth: number) => void;
   insertAtStartAndFocus: (content: string) => void;
   replaceContent: (content: JSONContent) => void;
@@ -379,6 +383,7 @@ function ViewCapture({
 const noopCommands: EditorCommands = {
   focus: () => {},
   focusAtStart: () => {},
+  focusAtTrailingEmptyLine: () => {},
   focusAtPixelWidth: () => {},
   insertAtStartAndFocus: () => {},
   replaceContent: () => {},
@@ -407,6 +412,9 @@ function EditorCommandsBridge({
             view.state.tr.setSelection(Selection.atStart(view.state.doc)),
           );
           view.focus();
+        },
+        focusAtTrailingEmptyLine: () => {
+          focusTrailingEmptyLine(view);
         },
         focusAtPixelWidth: (pixelWidth: number) => {
           const blockStart = Selection.atStart(view.state.doc).from;

@@ -40,7 +40,17 @@ export function handleTrailingEmptyLineMouseDown(
 
   event.preventDefault();
 
+  focusTrailingEmptyLine(view);
+  return true;
+}
+
+export function focusTrailingEmptyLine(view: EditorView) {
   const { doc } = view.state;
+  const paragraph = view.state.schema.nodes.paragraph;
+  if (!paragraph) {
+    return false;
+  }
+
   const lastChild = doc.lastChild;
   if (lastChild?.type === paragraph && !lastChild.textContent.trim()) {
     view.dispatch(view.state.tr.setSelection(Selection.atEnd(doc)));
