@@ -1,4 +1,7 @@
 {
+  "build": {
+    "runner": "../scripts/dev-runner.mjs"
+  },
   "bundle": {
     "externalBin": [
       "binaries/check-permissions"

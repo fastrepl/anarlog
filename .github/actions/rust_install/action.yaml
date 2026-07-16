@@ -43,11 +43,6 @@ runs:
         toolchain: ${{ steps.toolchain.outputs.channel }}
         targets: x86_64-pc-windows-msvc
         components: ${{ steps.toolchain.outputs.components }}
-    - if: inputs.platform == 'windows'
-      run: cargo install trusted-signing-cli
-      shell: bash
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
     - if: inputs.platform == 'linux'
       uses: dtolnay/rust-toolchain@master
       with:
