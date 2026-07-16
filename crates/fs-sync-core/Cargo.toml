@@ -17,6 +17,7 @@ hypr-tiptap = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
+sha2 = { workspace = true }
 specta = { workspace = true, features = ["derive", "serde_json"] }
 tauri-specta = { workspace = true, optional = true, features = ["derive"] }
 

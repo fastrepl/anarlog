@@ -18,6 +18,8 @@ import { ChannelProfile } from "./segment";
 import { isStoppedTranscriptionError, useRunBatch } from "./useRunBatch";
 
 import { getEnhancerService } from "~/services/enhancer";
+import { catalogLocalSessionAudio } from "~/session/attachments";
+import { enqueueSessionAudioOperation } from "~/session/audio-operations";
 import { useSession, useUpdateSession } from "~/session/queries";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { createTranscript } from "~/stt/queries";
@@ -155,26 +157,32 @@ export function useUploadFile(sessionId: string) {
             error: string;
           }
       >,
-    ) => {
-      const unlisten = await fsSyncEvents.audioImportEvent.listen((e) => {
-        if (
-          e.payload.type === "audioImportProgress" &&
-          e.payload.session_id === sessionId
-        ) {
-          updateBatchProgress(sessionId, e.payload.percentage);
-        }
-      });
+    ) =>
+      enqueueSessionAudioOperation(sessionId, async () => {
+        const unlisten = await fsSyncEvents.audioImportEvent.listen((e) => {
+          if (
+            e.payload.type === "audioImportProgress" &&
+            e.payload.session_id === sessionId
+          ) {
+            updateBatchProgress(sessionId, e.payload.percentage);
+          }
+        });
 
-      try {
-        const result = await runImport();
-        if (result.status === "error") {
-          throw new Error(result.error);
+        try {
+          const result = await runImport();
+          if (result.status === "error") {
+            throw new Error(result.error);
+          }
+          try {
+            await catalogLocalSessionAudio(sessionId);
+          } catch (error) {
+            console.error("[upload] failed to catalog imported audio", error);
+          }
+          return result.data;
+        } finally {
+          unlisten();
         }
-        return result.data;
-      } finally {
-        unlisten();
-      }
-    },
+      }),
     [sessionId, updateBatchProgress],
   );
 

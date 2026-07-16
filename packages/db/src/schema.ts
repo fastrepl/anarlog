@@ -339,6 +339,20 @@ export const sessionAttachments = sqliteTable(
   (table) => [index("idx_session_attachments_session_id").on(table.sessionId)],
 );
 
+export const attachmentLocalState = sqliteTable(
+  "attachment_local_state",
+  {
+    attachmentId: text("attachment_id").primaryKey().notNull(),
+    sessionId: text("session_id").notNull().default(""),
+    relativePath: text("relative_path").notNull().default(""),
+    availability: text("availability").notNull().default("present"),
+    updatedAt: text("updated_at").notNull().default(currentTimestamp),
+  },
+  (table) => [
+    index("idx_attachment_local_state_session_id").on(table.sessionId),
+  ],
+);
+
 export const tags = sqliteTable(
   "tags",
   {

@@ -15,6 +15,8 @@ import WaveSurfer from "wavesurfer.js";
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 
 import { useBillingAccess } from "~/auth/billing-context";
+import { isSessionAudioIdle } from "~/services/audio-retention";
+import { deleteSessionAudio } from "~/session/attachments";
 
 const TIME_UPDATE_STEP_SECONDS = 0.1;
 
@@ -316,9 +318,11 @@ export function AudioPlayerProvider({
 
   const deleteRecordingMutation = useMutation({
     mutationFn: async () => {
-      const result = await fsSyncCommands.audioDelete(sessionId);
-      if (result.status === "error") {
-        throw new Error(result.error);
+      const deleted = await deleteSessionAudio(sessionId, () =>
+        isSessionAudioIdle(sessionId),
+      );
+      if (!deleted) {
+        throw new Error("audio_session_busy");
       }
     },
     onSuccess: () => {

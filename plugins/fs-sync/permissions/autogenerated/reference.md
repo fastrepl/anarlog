@@ -15,6 +15,7 @@ Default permissions for the fs-sync plugin
 - `allow-delete-folder`
 - `allow-audio-exist`
 - `allow-audio-delete`
+- `allow-audio-metadata`
 - `allow-audio-delete-orphaned-expired`
 - `allow-audio-import`
 - `allow-audio-import-data`
@@ -270,6 +271,32 @@ Enables the audio_import_data command without any pre-configured scope.
 <td>
 
 Denies the audio_import_data command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs-sync:allow-audio-metadata`
+
+</td>
+<td>
+
+Enables the audio_metadata command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs-sync:deny-audio-metadata`
+
+</td>
+<td>
+
+Denies the audio_metadata command without any pre-configured scope.
 
 </td>
 </tr>

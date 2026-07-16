@@ -20,6 +20,8 @@ import {
   normalizeAudioRetention,
 } from "~/services/audio-retention";
 import { getEnhancerService } from "~/services/enhancer";
+import { catalogLocalSessionAudio } from "~/session/attachments";
+import { enqueueSessionAudioOperation } from "~/session/audio-operations";
 import { useSession, useSessionHasTranscript } from "~/session/queries";
 import { getSessionEvent } from "~/session/utils";
 import { useConfigValue } from "~/shared/config";
@@ -303,6 +305,15 @@ export function useStartListening(sessionId: string) {
     const onStopped: OnStoppedCallback = async (_sessionId, details) => {
       cancelMeetingRecordingDisclosure(sessionId);
       stopMeetingChatTasks();
+      if (details.audioPath) {
+        try {
+          await enqueueSessionAudioOperation(sessionId, () =>
+            catalogLocalSessionAudio(sessionId),
+          );
+        } catch (error) {
+          console.error("[listener] failed to catalog recorded audio", error);
+        }
+      }
       await lastTranscriptWrite;
       if (transcriptWriteError) return;
 

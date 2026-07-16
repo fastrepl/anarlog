@@ -132,6 +132,11 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         scope: hypr_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260717120000_e2ee_replica.sql"),
     },
+    hypr_db_migrate::MigrationStep {
+        id: "20260717140000_attachment_local_state",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260717140000_attachment_local_state.sql"),
+    },
 ];
 
 pub fn schema() -> hypr_db_migrate::DbSchema {
@@ -340,6 +345,7 @@ mod tests {
                 "_sqlx_migrations",
                 "action_items",
                 "app_settings",
+                "attachment_local_state",
                 "calendars",
                 "chat_groups",
                 "chat_messages",
@@ -742,6 +748,23 @@ mod tests {
                 .any(|table| table.table_name == "shared_session_cache")
         );
         assert!(!cloudsync_alter_guard_required("shared_session_cache"));
+    }
+
+    #[test]
+    fn attachment_local_state_is_plain_and_excluded_from_cloudsync() {
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260717140000_attachment_local_state")
+            .unwrap();
+
+        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert!(
+            !cloudsync_table_registry()
+                .iter()
+                .any(|table| table.table_name == "attachment_local_state")
+        );
+        assert!(!E2EE_DOMAIN_TABLES.contains(&"attachment_local_state"));
+        assert!(!cloudsync_alter_guard_required("attachment_local_state"));
     }
 
     #[tokio::test]
