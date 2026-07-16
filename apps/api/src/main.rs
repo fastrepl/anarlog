@@ -161,6 +161,7 @@ async fn app() -> Router {
         &env.sync,
         &env.supabase.supabase_url,
         &env.supabase.supabase_anon_key,
+        &env.supabase.supabase_service_role_key,
     )
     .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
 

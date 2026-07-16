@@ -14,6 +14,12 @@ pub enum SyncError {
     #[error("Anarlog Pro is required for CloudSync")]
     ProPlanRequired,
 
+    #[error("Shared note publication is not permitted")]
+    SnapshotPublicationForbidden,
+
+    #[error("Shared note service is unavailable")]
+    SnapshotServiceUnavailable,
+
     #[error("CloudSync credential service is unavailable")]
     Upstream,
 
@@ -29,6 +35,16 @@ impl IntoResponse for SyncError {
                 StatusCode::FORBIDDEN,
                 "subscription_required",
                 "Anarlog Pro is required for CloudSync".to_string(),
+            ),
+            Self::SnapshotPublicationForbidden => (
+                StatusCode::FORBIDDEN,
+                "shared_note_publication_forbidden",
+                "Shared note publication is not permitted".to_string(),
+            ),
+            Self::SnapshotServiceUnavailable => (
+                StatusCode::BAD_GATEWAY,
+                "shared_note_service_unavailable",
+                "Shared note service is unavailable".to_string(),
             ),
             Self::Upstream => (
                 StatusCode::BAD_GATEWAY,

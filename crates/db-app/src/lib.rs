@@ -120,6 +120,11 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         scope: hypr_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260716130000_cloudsync_session_evictions.sql"),
     },
+    hypr_db_migrate::MigrationStep {
+        id: "20260716173000_shared_session_cache",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260716173000_shared_session_cache.sql"),
+    },
 ];
 
 pub fn schema() -> hypr_db_migrate::DbSchema {
@@ -348,6 +353,7 @@ mod tests {
                 "session_participants",
                 "session_tags",
                 "sessions",
+                "shared_session_cache",
                 "storage_migration_state",
                 "tags",
                 "templates",
@@ -719,6 +725,254 @@ mod tests {
         assert!(!cloudsync_alter_guard_required("workspaces"));
         assert!(!cloudsync_alter_guard_required("workspace_memberships"));
         assert!(!cloudsync_alter_guard_required("calendars"));
+    }
+
+    #[test]
+    fn shared_session_cache_is_plain_and_excluded_from_cloudsync() {
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260716173000_shared_session_cache")
+            .unwrap();
+
+        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert!(
+            !cloudsync_table_registry()
+                .iter()
+                .any(|table| table.table_name == "shared_session_cache")
+        );
+        assert!(!cloudsync_alter_guard_required("shared_session_cache"));
+    }
+
+    #[tokio::test]
+    async fn shared_session_cache_enforces_snapshot_contract() {
+        let db = test_db().await;
+        let insert = "INSERT INTO shared_session_cache (
+            share_id,
+            viewer_user_id,
+            workspace_id,
+            session_id,
+            schema_version,
+            content_revision,
+            title,
+            body_json,
+            capability,
+            manage_access,
+            access_version,
+            published_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        sqlx::query(insert)
+            .bind("share-1")
+            .bind("viewer-1")
+            .bind("workspace-1")
+            .bind("session-1")
+            .bind(1_i64)
+            .bind(3_i64)
+            .bind("Shared note")
+            .bind(r#"{"type":"doc","content":[{"type":"paragraph"}]}"#)
+            .bind("commenter")
+            .bind(1_i64)
+            .bind(4_i64)
+            .bind("2026-07-16T17:30:00.000Z")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        let cached: (i64, String, i64, i64) = sqlx::query_as(
+            "SELECT content_revision, capability, manage_access, access_version
+             FROM shared_session_cache
+             WHERE viewer_user_id = 'viewer-1' AND share_id = 'share-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(cached, (3, "commenter".to_string(), 1, 4));
+
+        sqlx::query(insert)
+            .bind("share-1")
+            .bind("viewer-2")
+            .bind("workspace-1")
+            .bind("session-1")
+            .bind(1_i64)
+            .bind(3_i64)
+            .bind("Shared note")
+            .bind(r#"{"type":"doc"}"#)
+            .bind("viewer")
+            .bind(0_i64)
+            .bind(4_i64)
+            .bind("2026-07-16T17:30:00.000Z")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let viewer_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM shared_session_cache WHERE share_id = 'share-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(viewer_count, 2);
+
+        for (
+            share_id,
+            viewer_user_id,
+            workspace_id,
+            session_id,
+            schema_version,
+            content_revision,
+            title,
+            body_json,
+            capability,
+            manage_access,
+            access_version,
+            published_at,
+        ) in [
+            (
+                "share-schema",
+                "viewer-1",
+                "workspace-1",
+                "session-1",
+                2,
+                1,
+                "Shared note",
+                r#"{"type":"doc"}"#,
+                "viewer",
+                0,
+                1,
+                "2026-07-16T17:30:00.000Z",
+            ),
+            (
+                "share-revision",
+                "viewer-1",
+                "workspace-1",
+                "session-1",
+                1,
+                0,
+                "Shared note",
+                r#"{"type":"doc"}"#,
+                "viewer",
+                0,
+                1,
+                "2026-07-16T17:30:00.000Z",
+            ),
+            (
+                "share-body",
+                "viewer-1",
+                "workspace-1",
+                "session-1",
+                1,
+                1,
+                "Shared note",
+                r#"{"type":"paragraph"}"#,
+                "viewer",
+                0,
+                1,
+                "2026-07-16T17:30:00.000Z",
+            ),
+            (
+                "share-capability",
+                "viewer-1",
+                "workspace-1",
+                "session-1",
+                1,
+                1,
+                "Shared note",
+                r#"{"type":"doc"}"#,
+                "owner",
+                0,
+                1,
+                "2026-07-16T17:30:00.000Z",
+            ),
+            (
+                "share-manage",
+                "viewer-1",
+                "workspace-1",
+                "session-1",
+                1,
+                1,
+                "Shared note",
+                r#"{"type":"doc"}"#,
+                "viewer",
+                2,
+                1,
+                "2026-07-16T17:30:00.000Z",
+            ),
+            (
+                "share-access-version",
+                "viewer-1",
+                "workspace-1",
+                "session-1",
+                1,
+                1,
+                "Shared note",
+                r#"{"type":"doc"}"#,
+                "viewer",
+                0,
+                0,
+                "2026-07-16T17:30:00.000Z",
+            ),
+            (
+                "share-id",
+                "viewer-1",
+                " ",
+                "session-1",
+                1,
+                1,
+                "Shared note",
+                r#"{"type":"doc"}"#,
+                "viewer",
+                0,
+                1,
+                "2026-07-16T17:30:00.000Z",
+            ),
+            (
+                "share-viewer",
+                " ",
+                "workspace-1",
+                "session-1",
+                1,
+                1,
+                "Shared note",
+                r#"{"type":"doc"}"#,
+                "viewer",
+                0,
+                1,
+                "2026-07-16T17:30:00.000Z",
+            ),
+        ] {
+            let result = sqlx::query(insert)
+                .bind(share_id)
+                .bind(viewer_user_id)
+                .bind(workspace_id)
+                .bind(session_id)
+                .bind(schema_version)
+                .bind(content_revision)
+                .bind(title)
+                .bind(body_json)
+                .bind(capability)
+                .bind(manage_access)
+                .bind(access_version)
+                .bind(published_at)
+                .execute(db.pool())
+                .await;
+            assert!(result.is_err(), "invalid cache row {share_id} was accepted");
+        }
+
+        let malformed_json = sqlx::query(insert)
+            .bind("share-json")
+            .bind("viewer-1")
+            .bind("workspace-1")
+            .bind("session-1")
+            .bind(1_i64)
+            .bind(1_i64)
+            .bind("Shared note")
+            .bind("not-json")
+            .bind("viewer")
+            .bind(0_i64)
+            .bind(1_i64)
+            .bind("2026-07-16T17:30:00.000Z")
+            .execute(db.pool())
+            .await;
+        assert!(malformed_json.is_err());
     }
 
     #[test]

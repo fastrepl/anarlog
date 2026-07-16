@@ -1,6 +1,7 @@
 mod config;
 mod error;
 mod routes;
+mod snapshot;
 mod state;
 
 pub use config::{SyncConfig, SyncEnv};
