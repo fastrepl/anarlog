@@ -244,6 +244,10 @@ msgid "Automatically detect when a meeting starts based on microphone activity."
 msgstr "Automatically detect when a meeting starts based on microphone activity."
 
 #: src/settings/general/app-settings.tsx
+msgid "Automatically open the meeting link when scheduled listening starts."
+msgstr "Automatically open the meeting link when scheduled listening starts."
+
+#: src/settings/general/app-settings.tsx
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "Automatically start listening when an event-backed note reaches its scheduled start time."
 
@@ -834,6 +838,10 @@ msgstr "Join meeting and record"
 #: src/onboarding/final.tsx
 msgid "Join our community and stay updated:"
 msgstr "Join our community and stay updated:"
+
+#: src/settings/general/app-settings.tsx
+msgid "Join scheduled meetings"
+msgstr "Join scheduled meetings"
 
 #: src/settings/general/app-settings.tsx
 msgid "Keep Anarlog available from the menu bar."

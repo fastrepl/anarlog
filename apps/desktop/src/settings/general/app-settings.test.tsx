@@ -10,11 +10,15 @@ function setting(value = true) {
   };
 }
 
-function renderAppSettings({ floatingBar = true } = {}) {
+function renderAppSettings({
+  autoStartScheduledMeetings = true,
+  floatingBar = true,
+} = {}) {
   return render(
     <AppSettingsView
       autostart={setting()}
-      autoStartScheduledMeetings={setting()}
+      autoJoinScheduledMeetings={setting()}
+      autoStartScheduledMeetings={setting(autoStartScheduledMeetings)}
       autoStopMeetings={setting()}
       floatingBar={setting(floatingBar)}
       showAppInDock={setting()}
@@ -39,5 +43,15 @@ describe("AppSettingsView", () => {
     renderAppSettings({ floatingBar: false });
 
     expect(screen.getByText("Show floating bar")).toBeTruthy();
+  });
+
+  it("only enables automatic joining when scheduled listening is enabled", () => {
+    renderAppSettings({ autoStartScheduledMeetings: false });
+
+    expect(
+      screen
+        .getByRole("switch", { name: "Join scheduled meetings" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
   });
 });

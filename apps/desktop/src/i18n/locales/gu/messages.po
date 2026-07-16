@@ -244,6 +244,10 @@ msgid "Automatically detect when a meeting starts based on microphone activity."
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
+msgid "Automatically open the meeting link when scheduled listening starts."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx
 msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
 msgstr "જ્યારે ઇવેન્ટ-બેક કરેલ નોંધ તેના નિર્ધારિત પ્રારંભ સમય પર પહોંચે ત્યારે આપમેળે સાંભળવાનું શરૂ કરો."
 
@@ -833,6 +837,10 @@ msgstr ""
 
 #: src/onboarding/final.tsx
 msgid "Join our community and stay updated:"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx
+msgid "Join scheduled meetings"
 msgstr ""
 
 #: src/settings/general/app-settings.tsx

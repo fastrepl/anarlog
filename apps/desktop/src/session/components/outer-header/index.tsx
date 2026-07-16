@@ -23,6 +23,7 @@ import {
   type RemoteMeeting,
 } from "~/session/hooks/useRemoteMeeting";
 import { useSessionEvent } from "~/session/hooks/useSessionEvent";
+import { useConfigValue } from "~/shared/config";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 import { useStartListening } from "~/stt/useStartListening";
@@ -130,10 +131,19 @@ function HeaderMeetingActionPill({
   sessionMode: string;
 }) {
   const startListening = useStartListening(sessionId);
-  const { stop, stopTranscription } = useListener((state) => ({
-    stop: state.stop,
-    stopTranscription: state.stopTranscription,
-  }));
+  const { canStartLiveSession, stop, stopTranscription } = useListener(
+    (state) => ({
+      canStartLiveSession: state.canStartLiveSession(sessionId),
+      stop: state.stop,
+      stopTranscription: state.stopTranscription,
+    }),
+  );
+  const autoJoinScheduledMeetings = useConfigValue(
+    "auto_join_scheduled_meetings",
+  );
+  const autoStartScheduledMeetings = useConfigValue(
+    "auto_start_scheduled_meetings",
+  );
   const remote = getRemoteMeeting(event?.meeting_link);
   const meetingLink = event?.meeting_link || null;
   const endedAt = event?.ended_at ? safeParseDate(event.ended_at) : null;
@@ -142,7 +152,6 @@ function HeaderMeetingActionPill({
   const { audioExists } = useAudioPlayer();
   const canResume = audioExists || hasTranscript;
   const { t } = useLingui();
-  const countdown = useEventCountdown(sessionId);
   const start = useCallback(() => {
     if (!isMainWebviewWindow()) {
       void requestMainListenerControl("start", sessionId);
@@ -151,6 +160,25 @@ function HeaderMeetingActionPill({
 
     void startListening();
   }, [sessionId, startListening]);
+  const handleCountdownExpire = useCallback(() => {
+    if (!autoStartScheduledMeetings || !canStartLiveSession) {
+      return;
+    }
+
+    if (autoJoinScheduledMeetings && meetingLink) {
+      void openerCommands.openUrl(meetingLink, null);
+    }
+    start();
+  }, [
+    autoJoinScheduledMeetings,
+    autoStartScheduledMeetings,
+    canStartLiveSession,
+    meetingLink,
+    start,
+  ]);
+  const countdown = useEventCountdown(sessionId, {
+    onExpire: handleCountdownExpire,
+  });
   const stopListening = useCallback(() => {
     if (!isMainWebviewWindow()) {
       void requestMainListenerControl("stop", sessionId);

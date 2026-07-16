@@ -10,6 +10,7 @@ interface SettingItem {
 
 interface AppSettingsViewProps {
   autostart: SettingItem;
+  autoJoinScheduledMeetings: SettingItem;
   autoStartScheduledMeetings: SettingItem;
   autoStopMeetings: SettingItem;
   floatingBar: SettingItem;
@@ -20,6 +21,7 @@ interface AppSettingsViewProps {
 
 export function AppSettingsView({
   autostart,
+  autoJoinScheduledMeetings,
   autoStartScheduledMeetings,
   autoStopMeetings,
   floatingBar,
@@ -85,6 +87,18 @@ export function AppSettingsView({
             onChange={autoStartScheduledMeetings.onChange}
           />
           <SettingRow
+            title={<Trans>Join scheduled meetings</Trans>}
+            description={
+              <Trans>
+                Automatically open the meeting link when scheduled listening
+                starts.
+              </Trans>
+            }
+            checked={autoJoinScheduledMeetings.value}
+            onChange={autoJoinScheduledMeetings.onChange}
+            disabled={!autoStartScheduledMeetings.value}
+          />
+          <SettingRow
             title={<Trans>Stop when meeting ends</Trans>}
             description={
               <Trans>
@@ -114,11 +128,13 @@ function SettingRow({
   description,
   checked,
   onChange,
+  disabled = false,
 }: {
   title: ReactNode;
   description: ReactNode;
   checked: boolean;
   onChange: (checked: boolean) => void;
+  disabled?: boolean;
 }) {
   const titleId = useId();
   const descriptionId = useId();
@@ -136,6 +152,7 @@ function SettingRow({
       <Switch
         checked={checked}
         onCheckedChange={onChange}
+        disabled={disabled}
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
       />

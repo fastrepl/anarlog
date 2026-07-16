@@ -14,6 +14,11 @@ export const SETTING_DEFINITIONS = {
     path: ["general", "auto_start_scheduled_meetings"],
     default: true as boolean,
   },
+  auto_join_scheduled_meetings: {
+    type: "boolean",
+    path: ["general", "auto_join_scheduled_meetings"],
+    default: false as boolean,
+  },
   floating_bar_enabled: {
     type: "boolean",
     path: ["general", "floating_bar_enabled"],

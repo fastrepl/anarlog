@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -24,6 +30,10 @@ const mocks = vi.hoisted(() => ({
   isMainWebviewWindow: true,
   audioExists: false,
   hasTranscriptBySession: {} as Record<string, boolean>,
+  configValues: {
+    auto_join_scheduled_meetings: false,
+    auto_start_scheduled_meetings: false,
+  } as Record<string, boolean>,
   overflowProps: [] as Array<{
     allowListening?: boolean;
     standaloneWindow?: boolean;
@@ -86,6 +96,10 @@ vi.mock("~/session/hooks/useSessionEvent", () => ({
     mocks.sessionEvents[sessionId] ?? null,
 }));
 
+vi.mock("~/shared/config", () => ({
+  useConfigValue: (key: string) => mocks.configValues[key],
+}));
+
 vi.mock("~/store/zustand/tabs", () => ({
   useTabs: vi.fn((selector: (state: unknown) => unknown) =>
     selector({
@@ -102,6 +116,8 @@ vi.mock("~/stt/contexts", () => ({
     selector({
       getSessionMode: (sessionId: string) =>
         mocks.sessionModes[sessionId] ?? "inactive",
+      canStartLiveSession: (sessionId: string) =>
+        (mocks.sessionModes[sessionId] ?? "inactive") === "inactive",
       stop: mocks.stopListening,
       stopTranscription: mocks.stopTranscription,
     }),
@@ -138,6 +154,10 @@ describe("OuterHeader", () => {
     mocks.isMainWebviewWindow = true;
     mocks.audioExists = false;
     mocks.hasTranscriptBySession = {};
+    mocks.configValues = {
+      auto_join_scheduled_meetings: false,
+      auto_start_scheduled_meetings: false,
+    };
     mocks.overflowProps = [];
   });
 
@@ -433,6 +453,94 @@ describe("OuterHeader", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(joinButton.textContent).not.toContain("starts in");
+  });
+
+  it("starts listening without joining when only scheduled listening is enabled", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-05T09:59:58.000Z"));
+    mocks.nowMs = Date.now();
+    mocks.configValues.auto_start_scheduled_meetings = true;
+    mocks.sessionEvents = {
+      "session-1": {
+        started_at: "2026-06-05T10:00:00.000Z",
+        ended_at: "2026-06-05T10:30:00.000Z",
+        meeting_link: "https://meet.google.com/abc-defg-hij",
+      },
+    };
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+      />,
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    expect(mocks.startListening).toHaveBeenCalledTimes(1);
+    expect(mocks.openUrl).not.toHaveBeenCalled();
+  });
+
+  it("joins and starts when both scheduled meeting settings are enabled", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-05T09:59:58.000Z"));
+    mocks.nowMs = Date.now();
+    mocks.configValues.auto_start_scheduled_meetings = true;
+    mocks.configValues.auto_join_scheduled_meetings = true;
+    mocks.sessionEvents = {
+      "session-1": {
+        started_at: "2026-06-05T10:00:00.000Z",
+        ended_at: "2026-06-05T10:30:00.000Z",
+        meeting_link: "https://meet.google.com/abc-defg-hij",
+      },
+    };
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+      />,
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    expect(mocks.openUrl).toHaveBeenCalledWith(
+      "https://meet.google.com/abc-defg-hij",
+      null,
+    );
+    expect(mocks.startListening).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not join or start when scheduled listening is disabled", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-05T09:59:58.000Z"));
+    mocks.nowMs = Date.now();
+    mocks.configValues.auto_join_scheduled_meetings = true;
+    mocks.sessionEvents = {
+      "session-1": {
+        started_at: "2026-06-05T10:00:00.000Z",
+        ended_at: "2026-06-05T10:30:00.000Z",
+        meeting_link: "https://meet.google.com/abc-defg-hij",
+      },
+    };
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+      />,
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    expect(mocks.openUrl).not.toHaveBeenCalled();
+    expect(mocks.startListening).not.toHaveBeenCalled();
   });
 
   it("hides the meeting countdown while listening is active", () => {

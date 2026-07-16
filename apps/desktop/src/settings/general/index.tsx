@@ -29,6 +29,7 @@ import { resolveConfigValues } from "~/shared/config";
 
 const SETTINGS_FORM_KEYS = [
   "autostart",
+  "auto_join_scheduled_meetings",
   "auto_start_scheduled_meetings",
   "auto_stop_meetings",
   "floating_bar_enabled",
@@ -49,6 +50,7 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
   const form = useForm({
     defaultValues: {
       autostart: settingsValue.autostart,
+      auto_join_scheduled_meetings: settingsValue.auto_join_scheduled_meetings,
       auto_start_scheduled_meetings:
         settingsValue.auto_start_scheduled_meetings,
       auto_stop_meetings: settingsValue.auto_stop_meetings,
@@ -85,6 +87,8 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
 
       setSettingValues({
         autostart: normalizedValue.autostart,
+        auto_join_scheduled_meetings:
+          normalizedValue.auto_join_scheduled_meetings,
         auto_start_scheduled_meetings:
           normalizedValue.auto_start_scheduled_meetings,
         auto_stop_meetings: normalizedValue.auto_stop_meetings,
@@ -100,6 +104,8 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
       void analyticsCommands.event({
         event: "settings_changed",
         autostart: normalizedValue.autostart,
+        auto_join_scheduled_meetings:
+          normalizedValue.auto_join_scheduled_meetings,
         auto_start_scheduled_meetings:
           normalizedValue.auto_start_scheduled_meetings,
         auto_stop_meetings: normalizedValue.auto_stop_meetings,
@@ -154,68 +160,88 @@ function SettingsAppContent({
         <ThemeSelector />
         <form.Field name="autostart">
           {(autostartField) => (
-            <form.Field name="auto_start_scheduled_meetings">
-              {(autoStartScheduledMeetingsField) => (
-                <form.Field name="auto_stop_meetings">
-                  {(autoStopMeetingsField) => (
-                    <form.Field name="floating_bar_enabled">
-                      {(floatingBarEnabledField) => (
-                        <form.Field name="show_app_in_dock">
-                          {(showAppInDockField) => (
-                            <form.Field name="show_tray_icon">
-                              {(showTrayIconField) => (
-                                <form.Field name="telemetry_consent">
-                                  {(telemetryConsentField) => (
-                                    <AppSettingsView
-                                      autostart={{
-                                        value: autostartField.state.value,
-                                        onChange: (val) =>
-                                          autostartField.handleChange(val),
-                                      }}
-                                      autoStartScheduledMeetings={{
-                                        value:
-                                          autoStartScheduledMeetingsField.state
-                                            .value,
-                                        onChange: (val) =>
-                                          autoStartScheduledMeetingsField.handleChange(
-                                            val,
-                                          ),
-                                      }}
-                                      autoStopMeetings={{
-                                        value:
-                                          autoStopMeetingsField.state.value,
-                                        onChange: (val) =>
-                                          autoStopMeetingsField.handleChange(
-                                            val,
-                                          ),
-                                      }}
-                                      floatingBar={{
-                                        value:
-                                          floatingBarEnabledField.state.value,
-                                        onChange: (val) =>
-                                          floatingBarEnabledField.handleChange(
-                                            val,
-                                          ),
-                                      }}
-                                      showAppInDock={{
-                                        value: showAppInDockField.state.value,
-                                        onChange: (val) =>
-                                          showAppInDockField.handleChange(val),
-                                      }}
-                                      showTrayIcon={{
-                                        value: showTrayIconField.state.value,
-                                        onChange: (val) =>
-                                          showTrayIconField.handleChange(val),
-                                      }}
-                                      telemetryConsent={{
-                                        value:
-                                          telemetryConsentField.state.value,
-                                        onChange: (val) =>
-                                          telemetryConsentField.handleChange(
-                                            val,
-                                          ),
-                                      }}
-                                    />
+            <form.Field name="auto_join_scheduled_meetings">
+              {(autoJoinScheduledMeetingsField) => (
+                <form.Field name="auto_start_scheduled_meetings">
+                  {(autoStartScheduledMeetingsField) => (
+                    <form.Field name="auto_stop_meetings">
+                      {(autoStopMeetingsField) => (
+                        <form.Field name="floating_bar_enabled">
+                          {(floatingBarEnabledField) => (
+                            <form.Field name="show_app_in_dock">
+                              {(showAppInDockField) => (
+                                <form.Field name="show_tray_icon">
+                                  {(showTrayIconField) => (
+                                    <form.Field name="telemetry_consent">
+                                      {(telemetryConsentField) => (
+                                        <AppSettingsView
+                                          autostart={{
+                                            value: autostartField.state.value,
+                                            onChange: (val) =>
+                                              autostartField.handleChange(val),
+                                          }}
+                                          autoJoinScheduledMeetings={{
+                                            value:
+                                              autoJoinScheduledMeetingsField
+                                                .state.value,
+                                            onChange: (val) =>
+                                              autoJoinScheduledMeetingsField.handleChange(
+                                                val,
+                                              ),
+                                          }}
+                                          autoStartScheduledMeetings={{
+                                            value:
+                                              autoStartScheduledMeetingsField
+                                                .state.value,
+                                            onChange: (val) =>
+                                              autoStartScheduledMeetingsField.handleChange(
+                                                val,
+                                              ),
+                                          }}
+                                          autoStopMeetings={{
+                                            value:
+                                              autoStopMeetingsField.state.value,
+                                            onChange: (val) =>
+                                              autoStopMeetingsField.handleChange(
+                                                val,
+                                              ),
+                                          }}
+                                          floatingBar={{
+                                            value:
+                                              floatingBarEnabledField.state
+                                                .value,
+                                            onChange: (val) =>
+                                              floatingBarEnabledField.handleChange(
+                                                val,
+                                              ),
+                                          }}
+                                          showAppInDock={{
+                                            value:
+                                              showAppInDockField.state.value,
+                                            onChange: (val) =>
+                                              showAppInDockField.handleChange(
+                                                val,
+                                              ),
+                                          }}
+                                          showTrayIcon={{
+                                            value:
+                                              showTrayIconField.state.value,
+                                            onChange: (val) =>
+                                              showTrayIconField.handleChange(
+                                                val,
+                                              ),
+                                          }}
+                                          telemetryConsent={{
+                                            value:
+                                              telemetryConsentField.state.value,
+                                            onChange: (val) =>
+                                              telemetryConsentField.handleChange(
+                                                val,
+                                              ),
+                                          }}
+                                        />
+                                      )}
+                                    </form.Field>
                                   )}
                                 </form.Field>
                               )}
