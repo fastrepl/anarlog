@@ -13,6 +13,8 @@ function setting(value = true) {
 function renderAppSettings({
   autoStartScheduledMeetings = true,
   floatingBar = true,
+  cloudSync = setting(),
+  cloudSyncAvailable = true,
   meetingDisclosureAutoPost = setting(),
   captureMeetingChat = setting(false),
 } = {}) {
@@ -27,12 +29,18 @@ function renderAppSettings({
         showAppInDock={setting()}
         showTrayIcon={setting()}
         telemetryConsent={setting()}
+        cloudSync={{
+          ...cloudSync,
+          available: cloudSyncAvailable,
+          disabled: !cloudSyncAvailable,
+        }}
         meetingDisclosureAutoPost={meetingDisclosureAutoPost}
         captureMeetingChat={captureMeetingChat}
       />,
     ),
     meetingDisclosureAutoPost,
     captureMeetingChat,
+    cloudSync,
   };
 }
 
@@ -52,6 +60,27 @@ describe("AppSettingsView", () => {
 
     expect(screen.getByText("Show floating bar")).toBeTruthy();
   });
+
+  it("lets Pro users turn cloud sync off", () => {
+    const cloudSync = setting(true);
+    renderAppSettings({ cloudSync });
+
+    fireEvent.click(screen.getByRole("switch", { name: "Cloud sync" }));
+
+    expect(cloudSync.onChange).toHaveBeenCalledWith(false);
+  });
+
+  it("shows cloud sync as unavailable without Pro", () => {
+    renderAppSettings({ cloudSyncAvailable: false });
+
+    expect(
+      screen
+        .getByRole("switch", { name: "Cloud sync" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
+    expect(screen.getByText("Available with Anarlog Pro.")).toBeTruthy();
+  });
+
   it("only enables automatic joining when scheduled listening is enabled", () => {
     renderAppSettings({ autoStartScheduledMeetings: false });
 

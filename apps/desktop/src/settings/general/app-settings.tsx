@@ -6,6 +6,11 @@ import { Switch } from "@hypr/ui/components/ui/switch";
 interface SettingItem {
   value: boolean;
   onChange: (value: boolean) => void;
+  disabled?: boolean;
+}
+
+interface CloudSyncSettingItem extends SettingItem {
+  available: boolean;
 }
 
 interface AppSettingsViewProps {
@@ -17,6 +22,7 @@ interface AppSettingsViewProps {
   showAppInDock: SettingItem;
   showTrayIcon: SettingItem;
   telemetryConsent: SettingItem;
+  cloudSync: CloudSyncSettingItem;
   meetingDisclosureAutoPost: SettingItem;
   captureMeetingChat: SettingItem;
 }
@@ -30,6 +36,7 @@ export function AppSettingsView({
   showAppInDock,
   showTrayIcon,
   telemetryConsent,
+  cloudSync,
   meetingDisclosureAutoPost,
   captureMeetingChat,
 }: AppSettingsViewProps) {
@@ -70,6 +77,22 @@ export function AppSettingsView({
             }
             checked={showTrayIcon.value}
             onChange={showTrayIcon.onChange}
+          />
+          <SettingRow
+            title={<Trans>Cloud sync</Trans>}
+            description={
+              cloudSync.available ? (
+                <Trans>
+                  Keep notes up to date across signed-in devices. Turning this
+                  off does not delete synced data.
+                </Trans>
+              ) : (
+                <Trans>Available with Anarlog Pro.</Trans>
+              )
+            }
+            checked={cloudSync.available && cloudSync.value}
+            onChange={cloudSync.onChange}
+            disabled={cloudSync.disabled}
           />
         </div>
       </section>
