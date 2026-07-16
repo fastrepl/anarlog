@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-import-e2ee-identity"
+description = "Enables the import_e2ee_identity command without any pre-configured scope."
+commands.allow = ["import_e2ee_identity"]
+
+[[permission]]
+identifier = "deny-import-e2ee-identity"
+description = "Denies the import_e2ee_identity command without any pre-configured scope."
+commands.deny = ["import_e2ee_identity"]
