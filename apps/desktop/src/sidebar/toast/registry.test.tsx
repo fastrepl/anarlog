@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  MEETING_DISCLOSURE_AUTO_POST_TOAST_ID,
   createDevtoolsToastPreview,
   createToastRegistry,
   getToastToShow,
@@ -12,7 +11,6 @@ const baseParams = {
   isAuthLoading: false,
   hasLLMConfigured: true,
   hasSttConfigured: true,
-  meetingDisclosureAutoPostEnabled: true,
   hasProSttConfigured: false,
   hasProLlmConfigured: false,
   isAiTranscriptionTabActive: false,
@@ -27,8 +25,6 @@ const baseParams = {
   onSignIn: vi.fn(),
   onOpenLLMSettings: vi.fn(),
   onOpenSTTSettings: vi.fn(),
-  onEnableMeetingDisclosureAutoPost: vi.fn(),
-  onDismissMeetingDisclosureAutoPost: vi.fn(),
 };
 
 describe("sidebar toast registry", () => {
@@ -122,43 +118,6 @@ describe("sidebar toast registry", () => {
     expect(toast?.description).toBe("Pro features available");
     expect(toast?.icon).toBeUndefined();
     expect(previewToast.icon).toBeUndefined();
-  });
-
-  it("offers recording disclosure auto-post once when meeting AI is configured", () => {
-    const toast = getToastToShow(
-      createToastRegistry({
-        ...baseParams,
-        meetingDisclosureAutoPostEnabled: false,
-      }),
-      () => false,
-    );
-
-    expect(toast?.id).toBe(MEETING_DISCLOSURE_AUTO_POST_TOAST_ID);
-    expect(toast?.description).toBe(
-      "Auto-post a recording disclosure when the active meeting chat supports safe posting? This does not confirm consent.",
-    );
-    expect(toast?.actions?.map((action) => action.label)).toEqual([
-      "Enable",
-      "Not now",
-    ]);
-    expect(toast?.dismissible).toBe(false);
-  });
-
-  it("does not offer recording disclosure auto-post when enabled or dismissed", () => {
-    const enabledToast = getToastToShow(
-      createToastRegistry(baseParams),
-      () => false,
-    );
-    const dismissedToast = getToastToShow(
-      createToastRegistry({
-        ...baseParams,
-        meetingDisclosureAutoPostEnabled: false,
-      }),
-      (id) => id === MEETING_DISCLOSURE_AUTO_POST_TOAST_ID,
-    );
-
-    expect(enabledToast).toBeNull();
-    expect(dismissedToast).toBeNull();
   });
 
   it("creates devtools previews with app toast content", () => {

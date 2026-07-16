@@ -10,13 +10,11 @@ const {
   persistMeetingChatRecordsMock,
   sonnerToastWarningMock,
   captureSettingState,
-  captureSettingState,
 } = vi.hoisted(() => ({
   captureMeetingChatMessagesMock: vi.fn(),
   listMicUsingApplicationsMock: vi.fn(),
   persistMeetingChatRecordsMock: vi.fn(),
   sonnerToastWarningMock: vi.fn(),
-  captureSettingState: { value: true },
   captureSettingState: { value: true },
 }));
 

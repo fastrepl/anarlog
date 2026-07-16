@@ -30,7 +30,7 @@ const {
   deleteProcessedAudioForRetentionMock,
   listMicUsingApplicationsMock,
   sendMeetingChatMessageMock,
-  showTransientToastMock,
+  sonnerToastWarningMock,
   startMeetingChatCaptureMock,
   stopMeetingChatCaptureMock,
 } = vi.hoisted(() => ({
@@ -55,7 +55,7 @@ const {
   deleteProcessedAudioForRetentionMock: vi.fn(),
   listMicUsingApplicationsMock: vi.fn(),
   sendMeetingChatMessageMock: vi.fn(),
-  showTransientToastMock: vi.fn(),
+  sonnerToastWarningMock: vi.fn(),
   startMeetingChatCaptureMock: vi.fn(),
   stopMeetingChatCaptureMock: vi.fn(),
 }));
@@ -77,8 +77,8 @@ vi.mock("@hypr/plugin-detect", () => ({
   },
 }));
 
-vi.mock("~/sidebar/toast/transient", () => ({
-  showTransientToast: showTransientToastMock,
+vi.mock("@hypr/ui/components/ui/toast", () => ({
+  sonnerToast: { warning: sonnerToastWarningMock },
 }));
 
 vi.mock("./meeting-chat-capture", () => ({
@@ -654,7 +654,7 @@ describe("useStartListening", () => {
 
     await waitFor(() => {
       expect(sendMeetingChatMessageMock).toHaveBeenCalledWith(
-        "I'm using Anarlog, a private meeting notepad, to record and transcribe this meeting. Learn more at https://anarlog.so. Please tell me here if you don't consent, and I'll stop.",
+        "I'm using Anarlog to record and transcribe this meeting. https://anarlog.so",
         ["com.tinyspeck.slackmacgap"],
       );
     });
@@ -755,7 +755,7 @@ describe("useStartListening", () => {
       expect.stringContaining("https://anarlog.so"),
       ["com.tinyspeck.slackmacgap"],
     );
-    expect(showTransientToastMock).not.toHaveBeenCalled();
+    expect(sonnerToastWarningMock).not.toHaveBeenCalled();
   });
 
   test("keeps the Slack scope when Anarlog also appears in the mic-active apps", async () => {
@@ -819,12 +819,10 @@ describe("useStartListening", () => {
       "[listener] meeting disclosure was not sent",
       "expected exactly one recognized meeting app bundle",
     );
-    expect(showTransientToastMock).toHaveBeenCalledWith({
-      id: "meeting-disclosure-send-failed",
-      description:
-        "Recording started, but Anarlog could not post the meeting chat disclosure.",
-      variant: "warning",
-    });
+    expect(sonnerToastWarningMock).toHaveBeenCalledWith(
+      "Recording started, but Anarlog could not post the meeting chat disclosure.",
+      { id: "meeting-disclosure-send-failed" },
+    );
     warn.mockRestore();
   });
 
@@ -848,7 +846,7 @@ describe("useStartListening", () => {
     expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(3);
     expect(sendMeetingChatMessageMock).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalledTimes(1);
-    expect(showTransientToastMock).toHaveBeenCalledTimes(1);
+    expect(sonnerToastWarningMock).toHaveBeenCalledTimes(1);
     warn.mockRestore();
   });
 
@@ -902,7 +900,7 @@ describe("useStartListening", () => {
     });
 
     expect(sendMeetingChatMessageMock).not.toHaveBeenCalled();
-    expect(showTransientToastMock).not.toHaveBeenCalled();
+    expect(sonnerToastWarningMock).not.toHaveBeenCalled();
   });
 
   test("does not overlap disclosure sends after a quick stop and restart", async () => {
@@ -971,12 +969,10 @@ describe("useStartListening", () => {
       "[listener] meeting disclosure was not sent",
       error,
     );
-    expect(showTransientToastMock).toHaveBeenCalledWith({
-      id: "meeting-disclosure-send-failed",
-      description:
-        "Recording started, but Anarlog could not post the meeting chat disclosure.",
-      variant: "warning",
-    });
+    expect(sonnerToastWarningMock).toHaveBeenCalledWith(
+      "Recording started, but Anarlog could not post the meeting chat disclosure.",
+      { id: "meeting-disclosure-send-failed" },
+    );
     warn.mockRestore();
   });
 
@@ -999,7 +995,7 @@ describe("useStartListening", () => {
       expect(startMeetingChatCaptureMock).toHaveBeenCalledWith({
         sessionId: "session-1",
         excludedTexts: [
-          "I'm using Anarlog, a private meeting notepad, to record and transcribe this meeting. Learn more at https://anarlog.so. Please tell me here if you don't consent, and I'll stop.",
+          "I'm using Anarlog to record and transcribe this meeting. https://anarlog.so",
         ],
       });
     });
@@ -1037,7 +1033,7 @@ describe("useStartListening", () => {
       expect(startMeetingChatCaptureMock).toHaveBeenCalledWith({
         sessionId: "session-1",
         excludedTexts: [
-          "I'm using Anarlog, a private meeting notepad, to record and transcribe this meeting. Learn more at https://anarlog.so. Please tell me here if you don't consent, and I'll stop.",
+          "I'm using Anarlog to record and transcribe this meeting. https://anarlog.so",
         ],
       });
     });

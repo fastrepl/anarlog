@@ -2,6 +2,7 @@ import { useCallback, useRef } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as detectCommands } from "@hypr/plugin-detect";
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import { useListener } from "./contexts";
 import { startMeetingChatCapture } from "./meeting-chat-capture";
@@ -23,7 +24,6 @@ import { useSession, useSessionHasTranscript } from "~/session/queries";
 import { getSessionEvent } from "~/session/utils";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
-import { showTransientToast } from "~/sidebar/toast/transient";
 import type {
   LiveTranscriptPersistCallback,
   OnStoppedCallback,
@@ -40,7 +40,7 @@ import {
 } from "~/stt/queries";
 
 export const MEETING_DISCLOSURE_MESSAGE =
-  "I'm using Anarlog, a private meeting notepad, to record and transcribe this meeting. Learn more at https://anarlog.so. Please tell me here if you don't consent, and I'll stop.";
+  "I'm using Anarlog to record and transcribe this meeting. https://anarlog.so";
 
 const MEETING_DISCLOSURE_MAX_ATTEMPTS = 30;
 const MEETING_DISCLOSURE_RETRY_INTERVAL_MS = 1_000;
@@ -70,12 +70,10 @@ const meetingDisclosureTasks = new Map<string, MeetingDisclosureTask>();
 function meetingDisclosureFailure(reason: unknown): MeetingDisclosureOutcome {
   const detail = reason instanceof Error ? reason.message : String(reason);
   console.warn("[listener] meeting disclosure was not sent", reason);
-  showTransientToast({
-    id: "meeting-disclosure-send-failed",
-    description:
-      "Recording started, but Anarlog could not post the meeting chat disclosure.",
-    variant: "warning",
-  });
+  sonnerToast.warning(
+    "Recording started, but Anarlog could not post the meeting chat disclosure.",
+    { id: "meeting-disclosure-send-failed" },
+  );
   return { status: "notSent", reason: detail };
 }
 

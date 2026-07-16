@@ -29,4 +29,13 @@ describe("resolveConfigValue", () => {
       }),
     ).toEqual(["en", "ko"]);
   });
+
+  test("keeps recording disclosure auto-post off until explicitly enabled", () => {
+    expect(
+      resolveConfigValue("consent_auto_send_chat", {
+        values: {},
+        hasValues: new Set(),
+      }),
+    ).toBe(false);
+  });
 });
