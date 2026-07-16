@@ -178,83 +178,91 @@ function SettingsAppContent({
                                   {(showTrayIconField) => (
                                     <form.Field name="telemetry_consent">
                                       {(telemetryConsentField) => (
-                                    <form.Field name="capture_meeting_chat">
-                                      {(captureMeetingChatField) => (
-                                        <AppSettingsView
-                                          autostart={{
-                                            value: autostartField.state.value,
-                                            onChange: (val) =>
-                                              autostartField.handleChange(val),
-                                          }}
-                                          autoJoinScheduledMeetings={{
-                                            value:
-                                              autoJoinScheduledMeetingsField
-                                                .state.value,
-                                            onChange: (val) =>
-                                              autoJoinScheduledMeetingsField.handleChange(
-                                                val,
-                                              ),
-                                          }}
-                                          autoStartScheduledMeetings={{
-                                            value:
-                                              autoStartScheduledMeetingsField
-                                                .state.value,
-                                            onChange: (val) =>
-                                              autoStartScheduledMeetingsField.handleChange(
-                                                val,
-                                              ),
-                                          }}
-                                          autoStopMeetings={{
-                                            value:
-                                              autoStopMeetingsField.state.value,
-                                            onChange: (val) =>
-                                              autoStopMeetingsField.handleChange(
-                                                val,
-                                              ),
-                                          }}
-                                          floatingBar={{
-                                            value:
-                                              floatingBarEnabledField.state
-                                                .value,
-                                            onChange: (val) =>
-                                              floatingBarEnabledField.handleChange(
-                                                val,
-                                              ),
-                                          }}
-                                          showAppInDock={{
-                                            value:
-                                              showAppInDockField.state.value,
-                                            onChange: (val) =>
-                                              showAppInDockField.handleChange(
-                                                val,
-                                              ),
-                                          }}
-                                          showTrayIcon={{
-                                            value:
-                                              showTrayIconField.state.value,
-                                            onChange: (val) =>
-                                              showTrayIconField.handleChange(
-                                                val,
-                                              ),
-                                          }}
-                                          telemetryConsent={{
-                                            value:
-                                              telemetryConsentField.state.value,
-                                            onChange: (val) =>
-                                              telemetryConsentField.handleChange(
-                                                val,
-                                              ),
-                                          }}
-                                          captureMeetingChat={{
-                                            value:
-                                              captureMeetingChatField.state
-                                                .value,
-                                            onChange: (val) =>
-                                              captureMeetingChatField.handleChange(
-                                                val,
-                                              ),
-                                          }}
-                                        />
+                                        <form.Field name="capture_meeting_chat">
+                                          {(captureMeetingChatField) => (
+                                            <AppSettingsView
+                                              autostart={{
+                                                value:
+                                                  autostartField.state.value,
+                                                onChange: (val) =>
+                                                  autostartField.handleChange(
+                                                    val,
+                                                  ),
+                                              }}
+                                              autoJoinScheduledMeetings={{
+                                                value:
+                                                  autoJoinScheduledMeetingsField
+                                                    .state.value,
+                                                onChange: (val) =>
+                                                  autoJoinScheduledMeetingsField.handleChange(
+                                                    val,
+                                                  ),
+                                              }}
+                                              autoStartScheduledMeetings={{
+                                                value:
+                                                  autoStartScheduledMeetingsField
+                                                    .state.value,
+                                                onChange: (val) =>
+                                                  autoStartScheduledMeetingsField.handleChange(
+                                                    val,
+                                                  ),
+                                              }}
+                                              autoStopMeetings={{
+                                                value:
+                                                  autoStopMeetingsField.state
+                                                    .value,
+                                                onChange: (val) =>
+                                                  autoStopMeetingsField.handleChange(
+                                                    val,
+                                                  ),
+                                              }}
+                                              floatingBar={{
+                                                value:
+                                                  floatingBarEnabledField.state
+                                                    .value,
+                                                onChange: (val) =>
+                                                  floatingBarEnabledField.handleChange(
+                                                    val,
+                                                  ),
+                                              }}
+                                              showAppInDock={{
+                                                value:
+                                                  showAppInDockField.state
+                                                    .value,
+                                                onChange: (val) =>
+                                                  showAppInDockField.handleChange(
+                                                    val,
+                                                  ),
+                                              }}
+                                              showTrayIcon={{
+                                                value:
+                                                  showTrayIconField.state.value,
+                                                onChange: (val) =>
+                                                  showTrayIconField.handleChange(
+                                                    val,
+                                                  ),
+                                              }}
+                                              telemetryConsent={{
+                                                value:
+                                                  telemetryConsentField.state
+                                                    .value,
+                                                onChange: (val) =>
+                                                  telemetryConsentField.handleChange(
+                                                    val,
+                                                  ),
+                                              }}
+                                              captureMeetingChat={{
+                                                value:
+                                                  captureMeetingChatField.state
+                                                    .value,
+                                                onChange: (val) =>
+                                                  captureMeetingChatField.handleChange(
+                                                    val,
+                                                  ),
+                                              }}
+                                            />
+                                          )}
+                                        </form.Field>
                                       )}
                                     </form.Field>
                                   )}

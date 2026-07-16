@@ -8,13 +8,13 @@ const {
   captureMeetingChatMessagesMock,
   listMicUsingApplicationsMock,
   persistMeetingChatRecordsMock,
-  showTransientToastMock,
+  sonnerToastWarningMock,
   captureSettingState,
 } = vi.hoisted(() => ({
   captureMeetingChatMessagesMock: vi.fn(),
   listMicUsingApplicationsMock: vi.fn(),
   persistMeetingChatRecordsMock: vi.fn(),
-  showTransientToastMock: vi.fn(),
+  sonnerToastWarningMock: vi.fn(),
   captureSettingState: { value: true },
 }));
 
@@ -29,8 +29,8 @@ vi.mock("~/stt/meeting-chat-records", () => ({
   persistMeetingChatRecords: persistMeetingChatRecordsMock,
 }));
 
-vi.mock("~/sidebar/toast/transient", () => ({
-  showTransientToast: showTransientToastMock,
+vi.mock("@hypr/ui/components/ui/toast", () => ({
+  sonnerToast: { warning: sonnerToastWarningMock },
 }));
 
 vi.mock("~/settings/queries", () => ({
@@ -550,14 +550,13 @@ describe("startMeetingChatCapture", () => {
     await vi.advanceTimersByTimeAsync(5_000);
     stop();
 
-    expect(showTransientToastMock).toHaveBeenCalledOnce();
-    expect(showTransientToastMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        description:
-          "Meeting chat capture needs Accessibility permission in Settings",
-        variant: "warning",
-      }),
-      { durationMs: 6_000 },
+    expect(sonnerToastWarningMock).toHaveBeenCalledOnce();
+    expect(sonnerToastWarningMock).toHaveBeenCalledWith(
+      "Meeting chat capture needs Accessibility permission in Settings",
+      {
+        id: "meeting-chat-capture-warning",
+        duration: 6_000,
+      },
     );
   });
 });

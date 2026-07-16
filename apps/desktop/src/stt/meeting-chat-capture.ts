@@ -1,9 +1,9 @@
 import { commands as detectCommands } from "@hypr/plugin-detect";
 import type { MeetingCapturedChatMessage } from "@hypr/plugin-detect";
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import { getStoredSettingValues } from "~/settings/queries";
 import { resolveConfigValue } from "~/shared/config";
-import { showTransientToast } from "~/sidebar/toast/transient";
 import { persistMeetingChatRecords } from "~/stt/meeting-chat-records";
 
 const MEETING_CHAT_CAPTURE_INTERVAL_MS = 5_000;
@@ -165,14 +165,12 @@ function showCaptureWarning(warnings: string[], previousWarning: string) {
     warning.includes("accessibility permission") &&
     warning !== previousWarning
   ) {
-    showTransientToast(
+    sonnerToast.warning(
+      "Meeting chat capture needs Accessibility permission in Settings",
       {
         id: "meeting-chat-capture-warning",
-        description:
-          "Meeting chat capture needs Accessibility permission in Settings",
-        variant: "warning",
+        duration: 6_000,
       },
-      { durationMs: 6_000 },
     );
   }
 }
