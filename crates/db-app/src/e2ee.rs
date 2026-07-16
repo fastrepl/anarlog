@@ -737,6 +737,66 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn encrypts_and_reconstructs_attachment_metadata() {
+        let workspace_keys = keys("workspace-a");
+        let source = test_db().await;
+        sqlx::query(
+            "INSERT INTO session_attachments (
+               id, workspace_id, session_id, filename, relative_path,
+               content_type, size_bytes, sha256, source_type, source_id
+             ) VALUES (
+               'attachment-1', 'workspace-a', 'session-1', 'secret-diagram.png',
+               'attachments/secret-diagram.png', 'image/png', 42,
+               'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+               'note_upload', 'secret-diagram.png'
+             )",
+        )
+        .execute(source.pool())
+        .await
+        .unwrap();
+
+        encrypt_e2ee_replica_changes(source.pool(), &workspace_keys)
+            .await
+            .unwrap();
+        let payloads: Vec<String> = sqlx::query_scalar(
+            "SELECT payload FROM e2ee_records WHERE workspace_id = 'workspace-a'",
+        )
+        .fetch_all(source.pool())
+        .await
+        .unwrap();
+        assert!(!payloads.is_empty());
+        assert!(payloads.iter().all(|payload| {
+            !payload.contains("secret-diagram.png")
+                && !payload.contains("attachments/secret-diagram.png")
+                && !payload
+                    .contains("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        }));
+
+        let target = test_db().await;
+        copy_replica(source.pool(), target.pool()).await;
+        apply_e2ee_replica_changes(target.pool(), &workspace_keys)
+            .await
+            .unwrap();
+        let attachment: (String, String, String, i64, String) = sqlx::query_as(
+            "SELECT filename, relative_path, content_type, size_bytes, sha256
+             FROM session_attachments WHERE id = 'attachment-1'",
+        )
+        .fetch_one(target.pool())
+        .await
+        .unwrap();
+        assert_eq!(
+            attachment,
+            (
+                "secret-diagram.png".to_string(),
+                "attachments/secret-diagram.png".to_string(),
+                "image/png".to_string(),
+                42,
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
+            )
+        );
+    }
+
+    #[tokio::test]
     async fn reconstructs_every_protected_table_and_applies_deletions() {
         let workspace_keys = keys("workspace-a");
         let source = test_db().await;
