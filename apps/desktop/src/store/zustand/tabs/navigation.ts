@@ -11,7 +11,7 @@ export type NavigationState = {
 
 type InvalidatableResourceType = Extract<
   Tab["type"],
-  "sessions" | "humans" | "organizations"
+  "sessions" | "shared_sessions" | "humans" | "organizations"
 >;
 
 export type NavigationActions = {
@@ -98,12 +98,33 @@ export const createNavigationSlice = <T extends NavigationState & BasicState>(
       }
     }
 
-    const nextTabs = tabs.filter((tab) => !isResourceMatch(tab, type, id));
+    let nextTabs = tabs.filter((tab) => !isResourceMatch(tab, type, id));
+    let nextCurrentTab = currentTab;
 
-    const nextCurrentTab =
-      currentTab && isResourceMatch(currentTab, type, id)
-        ? nextTabs.find((t) => t.active) || nextTabs[0] || null
-        : currentTab;
+    if (currentTab && isResourceMatch(currentTab, type, id)) {
+      const slotHistory = nextHistory.get(currentTab.slotId);
+      const historyFallback = slotHistory?.stack[slotHistory.currentIndex];
+      const otherFallback = nextTabs.find((tab) => tab.active) ?? nextTabs[0];
+      const fallback = historyFallback ?? otherFallback;
+
+      nextTabs = nextTabs.map((tab) => ({ ...tab, active: false }));
+      if (historyFallback) {
+        const removedIndex = tabs.findIndex((tab) =>
+          isResourceMatch(tab, type, id),
+        );
+        nextTabs.splice(
+          Math.max(0, Math.min(removedIndex, nextTabs.length)),
+          0,
+          { ...historyFallback, active: true },
+        );
+      } else if (fallback) {
+        const fallbackIndex = nextTabs.findIndex(
+          (tab) => tab.slotId === fallback.slotId,
+        );
+        nextTabs[fallbackIndex] = { ...nextTabs[fallbackIndex], active: true };
+      }
+      nextCurrentTab = nextTabs.find((tab) => tab.active) ?? null;
+    }
 
     if (hasChanges || nextTabs.length !== tabs.length) {
       set({

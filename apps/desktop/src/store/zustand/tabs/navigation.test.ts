@@ -23,6 +23,23 @@ describe("navigation", () => {
     expect(state).toHaveCurrentTab({ id: tab2.id });
   });
 
+  test("revocation invalidates a shared-note tab", () => {
+    const personal = createSessionTab();
+    useTabs.getState().openNew(personal);
+    useTabs.getState().openCurrent({
+      type: "shared_sessions",
+      id: "share-1",
+    });
+
+    useTabs.getState().invalidateResource("shared_sessions", "share-1");
+
+    const state = useTabs.getState();
+    expect(state.tabs).toHaveLength(1);
+    expect(state).toHaveCurrentTab({ id: personal.id, active: true });
+    expect(state.currentTab?.slotId).toBe(state.tabs[0]?.slotId);
+    expect(state.tabs.filter((tab) => tab.active)).toHaveLength(1);
+  });
+
   test("openCurrent adds to current slot's history", () => {
     const tab1 = createSessionTab();
     const tab2 = createSessionTab();

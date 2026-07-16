@@ -100,6 +100,22 @@ describe("Basic Tab Actions", () => {
     expect(state).toHaveHistoryLength(1);
   });
 
+  test("shared-note tabs are distinct, idempotent, and not pinnable", () => {
+    useTabs.getState().openNew({ type: "shared_sessions", id: "share-1" });
+    useTabs.getState().openNew({ type: "shared_sessions", id: "share-1" });
+
+    const tab = useTabs.getState().currentTab!;
+    expect(useTabs.getState().tabs).toHaveLength(1);
+    expect(tab).toMatchObject({
+      type: "shared_sessions",
+      id: "share-1",
+      pinned: false,
+    });
+
+    useTabs.getState().pin(tab);
+    expect(useTabs.getState().currentTab?.pinned).toBe(false);
+  });
+
   test("openNew reuses settings tab and updates requested subsection", () => {
     const settings = createSettingsTab({
       active: false,

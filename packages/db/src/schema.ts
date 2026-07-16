@@ -1,5 +1,11 @@
 import { sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+} from "drizzle-orm/sqlite-core";
 
 const currentTimestamp = sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`;
 
@@ -199,6 +205,38 @@ export const sessionDocuments = sqliteTable(
   (table) => [
     index("idx_session_documents_session_id").on(table.sessionId),
     index("idx_session_documents_kind").on(table.kind),
+  ],
+);
+
+export const sharedSessionCache = sqliteTable(
+  "shared_session_cache",
+  {
+    shareId: text("share_id").notNull(),
+    viewerUserId: text("viewer_user_id").notNull(),
+    workspaceId: text("workspace_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    schemaVersion: integer("schema_version").notNull().default(1),
+    contentRevision: integer("content_revision").notNull(),
+    title: text("title").notNull().default(""),
+    bodyJson: text("body_json", { mode: "json" }).notNull(),
+    capability: text("capability", {
+      enum: ["viewer", "commenter", "editor"],
+    })
+      .notNull()
+      .default("viewer"),
+    manageAccess: integer("manage_access", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    accessVersion: integer("access_version").notNull(),
+    publishedAt: text("published_at").notNull(),
+    cachedAt: text("cached_at").notNull().default(currentTimestamp),
+  },
+  (table) => [
+    primaryKey({ columns: [table.viewerUserId, table.shareId] }),
+    index("idx_shared_session_cache_viewer_workspace").on(
+      table.viewerUserId,
+      table.workspaceId,
+    ),
   ],
 );
 

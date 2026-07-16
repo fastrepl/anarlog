@@ -46,6 +46,10 @@ vi.mock("~/sidebar/templates", () => ({
   TemplatesNav: () => <div data-testid="templates-nav" />,
 }));
 
+vi.mock("~/sidebar/shared-notes", () => ({
+  SharedNotesNav: () => <div data-testid="shared-notes-nav" />,
+}));
+
 import { LeftSidebar } from "./index";
 
 describe("LeftSidebar", () => {
