@@ -74,8 +74,12 @@ describe("UndoDeleteToast", () => {
       expect.objectContaining({
         id: "undo-delete:session-1",
         duration: Infinity,
-        action: expect.objectContaining({ label: "Undo" }),
-        cancel: expect.objectContaining({ label: "Delete" }),
+        actionButtonStyle: {
+          background: "hsl(var(--destructive))",
+          color: "hsl(var(--destructive-foreground))",
+        },
+        action: expect.objectContaining({ label: "Delete" }),
+        cancel: expect.objectContaining({ label: "Undo" }),
       }),
     );
 
@@ -128,7 +132,7 @@ describe("UndoDeleteToast", () => {
     const options =
       mocks.message.mock.calls[mocks.message.mock.calls.length - 1][1];
     await act(async () => {
-      options.action.onClick();
+      options.cancel.onClick();
       await Promise.resolve();
     });
 

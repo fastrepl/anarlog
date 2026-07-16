@@ -138,13 +138,17 @@ function UndoDeleteSonnerToast({ group }: { group: ToastGroup }) {
     sonnerToast.message(label, {
       id: toastId,
       duration: Infinity,
-      action: {
-        label: "Undo",
-        onClick: () => restoreGroup(group),
+      actionButtonStyle: {
+        background: "hsl(var(--destructive))",
+        color: "hsl(var(--destructive-foreground))",
       },
-      cancel: {
+      action: {
         label: "Delete",
         onClick: () => confirmGroup(group),
+      },
+      cancel: {
+        label: "Undo",
+        onClick: () => restoreGroup(group),
       },
     });
 
