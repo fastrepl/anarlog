@@ -38,6 +38,7 @@ const mocks = vi.hoisted(() => ({
     allowListening?: boolean;
     standaloneWindow?: boolean;
   }>,
+  shareSessionIds: [] as string[],
 }));
 
 vi.mock("./metadata", () => ({
@@ -62,6 +63,13 @@ vi.mock("./overflow", () => ({
   }) => {
     mocks.overflowProps.push(props);
     return <button type="button">More</button>;
+  },
+}));
+
+vi.mock("~/session-sharing", () => ({
+  SessionShareButton: ({ sessionId }: { sessionId: string }) => {
+    mocks.shareSessionIds.push(sessionId);
+    return <button type="button">Share</button>;
   },
 }));
 
@@ -159,6 +167,7 @@ describe("OuterHeader", () => {
       auto_start_scheduled_meetings: false,
     };
     mocks.overflowProps = [];
+    mocks.shareSessionIds = [];
   });
 
   afterEach(() => {
@@ -182,7 +191,7 @@ describe("OuterHeader", () => {
     const titleSlot = title.parentElement?.parentElement;
 
     expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
-    expect(titleSlot?.className).toContain("right-[70px]");
+    expect(titleSlot?.className).toContain("right-[140px]");
     expect(titleSlot?.className).not.toContain("right-[153px]");
   });
 
@@ -202,7 +211,7 @@ describe("OuterHeader", () => {
     const titleSlot = title.parentElement?.parentElement;
 
     expect(screen.queryByRole("button", { name: "Finalizing" })).toBeNull();
-    expect(titleSlot?.className).toContain("right-[70px]");
+    expect(titleSlot?.className).toContain("right-[140px]");
     expect(titleSlot?.className).not.toContain("right-[153px]");
   });
 
@@ -230,7 +239,7 @@ describe("OuterHeader", () => {
     expect(titleWrapper?.className).not.toContain("max-w-[680px]");
     expect(titleSlot?.className).toContain("left-[104px]");
     expect(titleSlot?.className).not.toContain("-translate-y-1");
-    expect(titleSlot?.className).toContain("right-[70px]");
+    expect(titleSlot?.className).toContain("right-[140px]");
     expect(screen.queryByRole("button", { name: "Show sidebar" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
@@ -251,7 +260,7 @@ describe("OuterHeader", () => {
     const titleSlot = title.parentElement?.parentElement;
 
     expect(titleSlot?.className).toContain("left-0");
-    expect(titleSlot?.className).toContain("right-[70px]");
+    expect(titleSlot?.className).toContain("right-[140px]");
     expect(titleSlot?.className).not.toContain("justify-center");
   });
 
@@ -269,6 +278,23 @@ describe("OuterHeader", () => {
     const titleSlot = title.parentElement?.parentElement;
 
     expect(titleSlot?.className).toContain("justify-center");
+  });
+
+  it("shows sharing only for the canonical raw note", () => {
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "enhanced", id: "summary-1" } as EditorView}
+        title={<span>Summary title</span>}
+      />,
+    );
+
+    const title = screen.getByText("Summary title");
+    const titleSlot = title.parentElement?.parentElement;
+
+    expect(mocks.shareSessionIds).toEqual([]);
+    expect(screen.queryByRole("button", { name: "Share" })).toBeNull();
+    expect(titleSlot?.className).toContain("right-[70px]");
   });
 
   it("keeps sidebar header controls hidden while the sidebar is expanded", () => {
@@ -353,13 +379,14 @@ describe("OuterHeader", () => {
     const titleSlot = title.parentElement?.parentElement;
 
     expect(titleSlot?.className).toContain("left-[76px]");
-    expect(titleSlot?.className).toContain("right-[70px]");
+    expect(titleSlot?.className).toContain("right-[140px]");
     expect(titleSlot?.className).not.toContain("right-[153px]");
     expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
 
     const overflowProps = mocks.overflowProps[mocks.overflowProps.length - 1];
     expect(overflowProps?.standaloneWindow).toBe(true);
     expect(overflowProps?.allowListening).toBeUndefined();
+    expect(mocks.shareSessionIds).toContain("session-1");
   });
 
   it("does not reserve collapsed sidebar gutter in standalone windows", () => {
@@ -380,7 +407,7 @@ describe("OuterHeader", () => {
 
     expect(header?.className).not.toContain("pl-[156px]");
     expect(titleSlot?.className).toContain("left-[76px]");
-    expect(titleSlot?.className).toContain("right-[70px]");
+    expect(titleSlot?.className).toContain("right-[140px]");
   });
 
   it("shows a join-and-record pill before a remote meeting with a video link", () => {

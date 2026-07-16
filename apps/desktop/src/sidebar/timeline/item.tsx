@@ -1,10 +1,12 @@
 import { useLingui } from "@lingui/react/macro";
-import { SquareIcon } from "lucide-react";
+import { SquareIcon, UsersRoundIcon } from "lucide-react";
 import {
+  createContext,
   memo,
   type DragEvent,
   type RefCallback,
   useCallback,
+  useContext,
   useMemo,
 } from "react";
 
@@ -37,6 +39,11 @@ import { useTimelineSelection } from "~/store/zustand/timeline-selection";
 import { useListener } from "~/stt/contexts";
 
 const EMPTY_TIMELINE_ITEM_KEYS: string[] = [];
+const EMPTY_MANAGED_SHARED_SESSION_IDS = new Set<string>();
+
+export const ManagedSharedSessionIdsContext = createContext<
+  ReadonlySet<string>
+>(EMPTY_MANAGED_SHARED_SESSION_IDS);
 
 type ItemBaseProps = {
   title: string;
@@ -44,6 +51,7 @@ type ItemBaseProps = {
   isLive?: boolean;
   amplitude?: number;
   showSpinner?: boolean;
+  isShared?: boolean;
   selected: boolean;
   ignored?: boolean;
   muted?: boolean;
@@ -132,6 +140,7 @@ const ItemBase = memo(function ItemBase({
   isLive,
   amplitude,
   showSpinner,
+  isShared,
   selected,
   ignored,
   muted,
@@ -208,13 +217,21 @@ const ItemBase = memo(function ItemBase({
       >
         <div className="flex items-center gap-2">
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <div
-              className={cn(
-                "pointer-events-none truncate text-sm font-normal",
-                ignored && "line-through",
-              )}
-            >
-              {title || t`Untitled`}
+            <div className="flex min-w-0 items-center gap-1.5">
+              <div
+                className={cn(
+                  "pointer-events-none min-w-0 truncate text-sm font-normal",
+                  ignored && "line-through",
+                )}
+              >
+                {title || t`Untitled`}
+              </div>
+              {isShared ? (
+                <UsersRoundIcon
+                  aria-label={t`Shared note`}
+                  className="text-muted-foreground size-3.5 shrink-0"
+                />
+              ) : null}
             </div>
             {displayTime && (
               <div
@@ -299,6 +316,7 @@ function itemBasePropsAreEqual(prev: ItemBaseProps, next: ItemBaseProps) {
     prev.isLive === next.isLive &&
     prev.amplitude === next.amplitude &&
     prev.showSpinner === next.showSpinner &&
+    prev.isShared === next.isShared &&
     prev.selected === next.selected &&
     prev.ignored === next.ignored &&
     prev.muted === next.muted &&
@@ -506,6 +524,7 @@ const SessionItem = memo(
     const { t } = useLingui();
     const openCurrent = useTabs((state) => state.openCurrent);
     const deleteSession = useDeleteSession();
+    const managedSharedSessionIds = useContext(ManagedSharedSessionIdsContext);
 
     const sessionId = item.id;
     const title = useSessionTitle(sessionId, item.data.title ?? undefined);
@@ -611,6 +630,7 @@ const SessionItem = memo(
           Math.min(Math.hypot(amplitude?.mic ?? 0, amplitude?.speaker ?? 0), 1),
         )}
         showSpinner={showSpinner}
+        isShared={managedSharedSessionIds.has(sessionId)}
         selected={selected}
         muted={muted}
         multiSelected={multiSelected}

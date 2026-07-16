@@ -1,8 +1,13 @@
 import { and, desc, eq, sharedSessionCache } from "@hypr/db";
 import type { JSONContent } from "@hypr/editor/note";
 
-import { db, executeTransaction, useDrizzleLiveQuery } from "~/db";
-import { enqueueDatabaseWrite } from "~/db/write-queue";
+import {
+  db,
+  executeTransaction,
+  liveQueryClient,
+  useDrizzleLiveQuery,
+} from "~/db";
+import { enqueueDatabaseWrite, flushDatabaseWrites } from "~/db/write-queue";
 
 const MAX_SHARED_NOTE_BODY_BYTES = 2 * 1024 * 1024;
 const MAX_SHARED_NOTE_TITLE_BYTES = 4096;
@@ -40,6 +45,12 @@ type SharedNoteLiveRow = {
   access_version: number;
   published_at: string;
   cached_at: string;
+};
+
+type ManagedSharedNoteSqlRow = {
+  share_id: string;
+  workspace_id: string;
+  session_id: string;
 };
 
 export function parseDurableSharedNoteSnapshots(
@@ -167,6 +178,60 @@ export async function upsertDurableSharedNoteCache(
       },
     ]),
   );
+}
+
+export async function removeDurableSharedNoteCache(
+  viewerUserId: string,
+  shareId: string,
+): Promise<void> {
+  requireIdentity(viewerUserId, "viewer user");
+  requireUuid(shareId, "share");
+
+  await enqueueDatabaseWrite(`shared-note-cache:${viewerUserId}`, () =>
+    executeTransaction([
+      {
+        sql: `
+          DELETE FROM shared_session_cache
+          WHERE viewer_user_id = ? AND share_id = ?
+        `,
+        params: [viewerUserId, shareId],
+      },
+    ]),
+  );
+}
+
+export async function loadManagedSharedNoteForSession(
+  viewerUserId: string,
+  sessionId: string,
+): Promise<{
+  shareId: string;
+  workspaceId: string;
+  sessionId: string;
+} | null> {
+  const normalizedViewerUserId = requireIdentity(viewerUserId, "viewer user");
+  const normalizedSessionId = requireIdentity(sessionId, "session");
+  await flushDatabaseWrites();
+  const rows = await liveQueryClient.execute<ManagedSharedNoteSqlRow>(
+    `
+      SELECT share_id, workspace_id, session_id
+      FROM shared_session_cache
+      WHERE viewer_user_id = ?
+        AND session_id = ?
+        AND manage_access = 1
+      LIMIT 2
+    `,
+    [normalizedViewerUserId, normalizedSessionId],
+  );
+  if (rows.length > 1) {
+    throw new Error("ambiguous managed shared-note cache entry");
+  }
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    shareId: requireUuid(row.share_id, "share"),
+    workspaceId: requireUuid(row.workspace_id, "workspace"),
+    sessionId: requireIdentity(row.session_id, "session"),
+  };
 }
 
 export function useDurableSharedNotes(viewerUserId: string | null | undefined) {
