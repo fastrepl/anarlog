@@ -1,5 +1,6 @@
 import { Trans } from "@lingui/react/macro";
 import { useForm } from "@tanstack/react-form";
+import { useMutation } from "@tanstack/react-query";
 import { Loader2Icon } from "lucide-react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
@@ -19,13 +20,17 @@ import { ThemeSelector } from "./theme";
 import { TimezoneSelector } from "./timezone";
 import { WeekStartSelector } from "./week-start";
 
+import { useAuth } from "~/auth";
+import { useBillingAccess } from "~/auth/billing-context";
+import { applyCloudsyncPreference } from "~/auth/cloudsync";
 import { SettingsPageTitle } from "~/settings/page-title";
 import {
+  setSettingValue,
   type StoredSettingValues,
   useSetSettingValues,
   useStoredSettingValuesQuery,
 } from "~/settings/queries";
-import { resolveConfigValues } from "~/shared/config";
+import { resolveConfigValue, resolveConfigValues } from "~/shared/config";
 
 const SETTINGS_FORM_KEYS = [
   "autostart",
@@ -160,6 +165,28 @@ function SettingsAppContent({
   storedSettings: StoredSettingValues;
 }) {
   const { form } = useSettingsForm(storedSettings);
+  const auth = useAuth();
+  const { isPro } = useBillingAccess();
+  const storedCloudSyncEnabled = resolveConfigValue(
+    "cloud_sync_enabled",
+    storedSettings,
+  );
+  const cloudSyncMutation = useMutation({
+    mutationKey: ["cloudsync-preference"],
+    mutationFn: async (enabled: boolean) => {
+      await setSettingValue("cloud_sync_enabled", enabled);
+      const result = await applyCloudsyncPreference(auth.session);
+      if (result === "account_mismatch") {
+        await auth.signOut();
+      }
+    },
+    onError: (error) => {
+      console.error("[cloudsync] failed to apply sync preference", error);
+    },
+  });
+  const cloudSyncEnabled = cloudSyncMutation.isPending
+    ? (cloudSyncMutation.variables ?? storedCloudSyncEnabled)
+    : storedCloudSyncEnabled;
 
   return (
     <div className="flex flex-col gap-8">
@@ -258,6 +285,17 @@ function SettingsAppContent({
                                                       telemetryConsentField.handleChange(
                                                         val,
                                                       ),
+                                                  }}
+                                                  cloudSync={{
+                                                    value: cloudSyncEnabled,
+                                                    onChange: (enabled) =>
+                                                      cloudSyncMutation.mutate(
+                                                        enabled,
+                                                      ),
+                                                    disabled:
+                                                      !isPro ||
+                                                      cloudSyncMutation.isPending,
+                                                    available: isPro,
                                                   }}
                                                   meetingDisclosureAutoPost={{
                                                     value:

@@ -11,6 +11,7 @@ import {
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 
 import {
+  applyCloudsyncPreference,
   bindCloudsyncAccountForAuth,
   handleCloudsyncAuthChange,
   prepareCloudsyncSignOut,
@@ -19,6 +20,8 @@ import {
   startCloudsyncInitialSyncProgress,
   stopCloudsyncInitialSyncProgress,
 } from "./cloudsync-progress";
+
+import { getStoredSettingValues } from "~/settings/queries";
 
 vi.mock("./cloudsync-progress", () => ({
   startCloudsyncInitialSyncProgress: vi.fn(),
@@ -37,6 +40,10 @@ vi.mock("~/env", () => ({
   env: {
     VITE_API_URL: "https://api.test",
   },
+}));
+
+vi.mock("~/settings/queries", () => ({
+  getStoredSettingValues: vi.fn(),
 }));
 
 const NOW = new Date("2026-07-13T00:00:00Z");
@@ -142,6 +149,10 @@ describe("CloudSync auth lifecycle", () => {
       consecutive_failures: 0,
     });
     vi.mocked(suspendCloudsync).mockResolvedValue(undefined);
+    vi.mocked(getStoredSettingValues).mockResolvedValue({
+      values: {},
+      hasValues: new Set(),
+    });
   });
 
   afterEach(async () => {
@@ -156,6 +167,22 @@ describe("CloudSync auth lifecycle", () => {
 
     expect(bindCloudsyncAccount).toHaveBeenCalledWith("user-id");
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
+  });
+
+  test("keeps cloud sync suspended when the local preference is off", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    vi.mocked(getStoredSettingValues).mockResolvedValue({
+      values: { cloud_sync_enabled: false },
+      hasValues: new Set(["cloud_sync_enabled"]),
+    });
+
+    await applyCloudsyncPreference(session());
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
+    expect(suspendCloudsync).toHaveBeenCalledTimes(1);
   });
 
   test("exchanges the Supabase token and refreshes before expiry", async () => {

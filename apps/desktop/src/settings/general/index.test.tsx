@@ -3,9 +3,31 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   useStoredSettingValuesQuery: vi.fn(),
+  mutateCloudSync: vi.fn(),
+}));
+
+vi.mock("@tanstack/react-query", () => ({
+  useMutation: () => ({
+    isPending: false,
+    variables: undefined,
+    mutate: mocks.mutateCloudSync,
+  }),
+}));
+
+vi.mock("~/auth", () => ({
+  useAuth: () => ({ session: null, signOut: vi.fn() }),
+}));
+
+vi.mock("~/auth/billing-context", () => ({
+  useBillingAccess: () => ({ isPro: true }),
+}));
+
+vi.mock("~/auth/cloudsync", () => ({
+  applyCloudsyncPreference: vi.fn(),
 }));
 
 vi.mock("~/settings/queries", () => ({
+  setSettingValue: vi.fn(),
   useSetSettingValues: vi.fn(),
   useStoredSettingValuesQuery: mocks.useStoredSettingValuesQuery,
 }));

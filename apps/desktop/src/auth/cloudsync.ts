@@ -16,6 +16,8 @@ import {
 } from "./cloudsync-progress";
 
 import { env } from "~/env";
+import { getStoredSettingValues } from "~/settings/queries";
+import { resolveConfigValue } from "~/shared/config";
 
 const REFRESH_LEAD_MS = 2 * 60 * 1000;
 const RETRY_DELAY_MS = 60 * 1000;
@@ -367,6 +369,25 @@ async function activateCloudsync(
   onAccountMismatch?: CloudsyncAccountMismatchHandler,
 ): Promise<CloudsyncAuthChangeResult> {
   const activeGeneration = beginTransition();
+  let enabled: boolean;
+  try {
+    enabled = resolveConfigValue(
+      "cloud_sync_enabled",
+      await getStoredSettingValues(),
+    );
+  } catch {
+    console.warn(
+      "[cloudsync] sync preference is unavailable; sync remains disabled",
+    );
+    await suspendCloudsyncAfterCredentialRejection(activeGeneration);
+    return "ok";
+  }
+
+  if (!enabled) {
+    await suspendCloudsyncAfterCredentialRejection(activeGeneration);
+    return "ok";
+  }
+
   if (
     suspendBeforeExchange &&
     !(await suspendCloudsyncForGeneration(activeGeneration))
@@ -666,6 +687,18 @@ export async function prepareCloudsyncSignOut(
 export async function handleCloudsyncAuthChange(
   _event: AuthChangeEvent,
   session: Session | null,
+  onAccountMismatch?: CloudsyncAccountMismatchHandler,
+): Promise<CloudsyncAuthChangeResult> {
+  if (!session) {
+    await suspendCloudsyncSession();
+    return "ok";
+  }
+
+  return activateCloudsync(session, true, onAccountMismatch);
+}
+
+export async function applyCloudsyncPreference(
+  session: Session | null | undefined,
   onAccountMismatch?: CloudsyncAccountMismatchHandler,
 ): Promise<CloudsyncAuthChangeResult> {
   if (!session) {
