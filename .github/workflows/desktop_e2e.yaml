@@ -23,6 +23,8 @@ jobs:
       - run: pnpm -F desktop tauri build --no-bundle --target x86_64-unknown-linux-gnu --config ./src-tauri/tauri.conf.staging.json --features devtools
         env:
           CI: false
+          POSTHOG_API_KEY: phc_e2e
+          VITE_API_URL: https://api.anarlog.so
       - uses: ./.github/actions/desktop-e2e-linux
         with:
           channel: staging
@@ -45,11 +47,13 @@ jobs:
       - run: pnpm -F desktop tauri build --no-bundle --target aarch64-apple-darwin --config ./src-tauri/tauri.conf.staging.json --features devtools,automation
         env:
           CI: false
+          POSTHOG_API_KEY: phc_e2e
+          VITE_API_URL: https://api.anarlog.so
       - uses: FedericoCarboni/setup-ffmpeg@v3
         with:
           ffmpeg-version: release
       - run: |
-          BINARY_PATH="${{ github.workspace }}/apps/desktop/src-tauri/target/aarch64-apple-darwin/release/hyprnote-staging"
+          BINARY_PATH="${{ github.workspace }}/apps/desktop/src-tauri/target/aarch64-apple-darwin/release/anarlog-staging"
           echo "APP_BINARY_PATH=${BINARY_PATH}" >> $GITHUB_ENV
           mkdir -p "${{ github.workspace }}/e2e/blackbox/logs"
           echo "E2E_LOGS_DIR=${{ github.workspace }}/e2e/blackbox/logs" >> $GITHUB_ENV

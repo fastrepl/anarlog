@@ -20,9 +20,9 @@ runs:
       run: |
         # Determine binary name based on channel
         if [[ "${{ inputs.channel }}" == "staging" ]]; then
-          BINARY_NAME="hyprnote-staging"
+          BINARY_NAME="anarlog-staging"
         else
-          BINARY_NAME="hyprnote"
+          BINARY_NAME="anarlog"
         fi
 
         # Construct full binary path
