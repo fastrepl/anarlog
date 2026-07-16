@@ -163,6 +163,7 @@ export interface NoteEditorProps {
   extraNodeViews?: NodeViewComponents;
   sessionMentionDropConfig?: SessionMentionDropConfig;
   showFormatToolbar?: boolean;
+  readOnly?: boolean;
   onViewReady?: (view: EditorView) => void;
   onViewDisposed?: (view: EditorView) => void;
   syncContentWhenFocused?: boolean;
@@ -278,6 +279,12 @@ function createCompositionStatePlugin(
         },
       },
     },
+  });
+}
+
+export function createReadOnlyPlugin() {
+  return new Plugin({
+    filterTransaction: (transaction) => !transaction.docChanged,
   });
 }
 
@@ -547,6 +554,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       extraNodeViews,
       sessionMentionDropConfig,
       showFormatToolbar = true,
+      readOnly = false,
       onViewReady: onViewReadyProp,
       onViewDisposed,
       syncContentWhenFocused = false,
@@ -603,7 +611,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
 
     const syncTasks = useCallback(
       (content: JSONContent) => {
-        if (!taskSource || !taskStorage) {
+        if (readOnly || !taskSource || !taskStorage) {
           return;
         }
 
@@ -617,7 +625,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
           extractTasksFromContent(content, taskSource, previousTasks),
         );
       },
-      [taskSource, taskStorage],
+      [readOnly, taskSource, taskStorage],
     );
 
     const flushChange = useCallback(
@@ -648,6 +656,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       () => [
         reactKeys(),
         createCompositionStatePlugin(setCompositionActive),
+        ...(readOnly ? [createReadOnlyPlugin()] : []),
         docChangeListenerPlugin((doc) => onUpdateRef.current(doc)),
         buildInputRules(),
         ...(enforceTitleHeading ? [titleHeadingPlugin()] : []),
@@ -681,6 +690,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
         onNavigateToTitle,
         onLinkOpen,
         enforceTitleHeading,
+        readOnly,
         setCompositionActive,
       ],
     );
@@ -812,12 +822,14 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
             <ProseMirror
               defaultState={defaultState}
               nodeViewComponents={nodeViews}
+              editable={() => !readOnly}
               attributes={{
                 spellCheck: "false",
                 autoComplete: "off",
                 autoCorrect: "off",
                 autoCapitalize: "off",
-                role: "textbox",
+                role: readOnly ? "document" : "textbox",
+                "aria-readonly": readOnly ? "true" : "false",
                 class: cn([
                   "prosemirror-editor",
                   enforceTitleHeading && "note-title-editor",
@@ -832,9 +844,11 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
                 onViewDisposed={handleViewDisposed}
               />
               <EditorCommandsBridge commandsRef={commandsRef} />
-              {showFormatToolbar && <FormatToolbar />}
-              <SlashCommandMenu />
-              {mentionConfig && <MentionSuggestion config={mentionConfig} />}
+              {showFormatToolbar && !readOnly && <FormatToolbar />}
+              {!readOnly && <SlashCommandMenu />}
+              {mentionConfig && !readOnly && (
+                <MentionSuggestion config={mentionConfig} />
+              )}
             </ProseMirror>
           </EditorErrorBoundary>
         </LinkedItemOpenBehaviorContext.Provider>
