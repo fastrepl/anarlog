@@ -2719,7 +2719,7 @@ fn candidate_stream(
     } else {
         signals.push("participant-row-label".to_string());
     }
-    if node_labels(node).any(has_explicit_speaker_state) {
+    if has_explicit_speaker_state(evidence_label) {
         confidence += 0.25;
         signals.push("speaker-state-label".to_string());
     }
@@ -3772,6 +3772,31 @@ mod tests {
         );
         assert_eq!(streams[0].id, "ax-element-1009");
         assert!(streams[0].is_active_speaker);
+    }
+
+    #[test]
+    fn test_zoom_speaker_flag_uses_the_same_label_as_participant_name() {
+        let mut roster = fixture_node(
+            15,
+            "AXStaticText",
+            "Ada Lovelace (Host, me, Participant ID:417329) No audio connected",
+            &[0, 1],
+        );
+        roster.description = Some("Grace Hopper is speaking".to_string());
+        roster.text = node_text(
+            &roster.role,
+            &roster.title,
+            &roster.value,
+            &roster.description,
+            &roster.placeholder,
+        );
+
+        let stream = candidate_stream(&MeetingPlatform::Zoom, &MeetingSurface::Native, &roster)
+            .expect("expected Zoom roster participant");
+
+        assert_eq!(stream.participant_name.as_deref(), Some("Ada Lovelace"));
+        assert!(!stream.is_active_speaker);
+        assert!(!stream.signals.contains(&"speaker-state-label".to_string()));
     }
 
     #[test]
