@@ -11,6 +11,7 @@ import { useRegisterTools } from "~/contexts/tool";
 import { takePendingWelcomeSession } from "~/onboarding/welcome-note";
 import { useSearchEngine } from "~/search/contexts/engine";
 import { initEnhancerService } from "~/services/enhancer";
+import { SharedNotePreviewAuthLifecycle } from "~/shared-notes/preview";
 import { DurableSharedNoteCacheSync } from "~/shared-notes/sync";
 import { useConfigValue } from "~/shared/config";
 import { useDesktopTabLifecycle } from "~/shared/desktop-tab-lifecycle";
@@ -42,6 +43,7 @@ export function ClassicMainServices() {
   return (
     <>
       <DurableSharedNoteCacheSync />
+      <SharedNotePreviewAuthLifecycle />
       <MainListenerControlBridge />
       <ToolRegistration />
       <EnhancerInit />

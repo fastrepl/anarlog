@@ -2,6 +2,7 @@ import { HoneycombWebSDK } from "@honeycombio/opentelemetry-web";
 import { getWebAutoInstrumentations } from "@opentelemetry/auto-instrumentations-web";
 
 import { env } from "./env";
+import { isShareRoutePathname } from "./lib/share-route-privacy";
 
 declare global {
   interface Window {
@@ -49,6 +50,11 @@ function getIgnoredUrls(endpoint: string): RegExp[] {
   }
 
   ignoredUrls.push(buildUrlPrefixPattern(env.VITE_POSTHOG_HOST));
+  ignoredUrls.push(
+    buildUrlPrefixPattern(
+      new URL("/shared-notes/", env.VITE_API_URL).toString(),
+    ),
+  );
 
   return ignoredUrls;
 }
@@ -71,7 +77,10 @@ function getPropagationTargets(): string[] {
 }
 
 export function bootstrapBrowserTelemetry() {
-  if (typeof window === "undefined") {
+  if (
+    typeof window === "undefined" ||
+    isShareRoutePathname(window.location.pathname)
+  ) {
     return;
   }
 
@@ -116,4 +125,14 @@ export function bootstrapBrowserTelemetry() {
 
   sdk.start();
   window.__hyprWebOtelSdk = sdk;
+}
+
+export function stopBrowserTelemetry() {
+  if (typeof window === "undefined" || !window.__hyprWebOtelSdk) {
+    return;
+  }
+
+  const sdk = window.__hyprWebOtelSdk;
+  window.__hyprWebOtelSdk = undefined;
+  void sdk.shutdown().catch(() => {});
 }

@@ -20,6 +20,7 @@ use utoipa::{Modify, OpenApi};
         (name = "ticket", description = "Ticket management"),
         (name = "nango", description = "Integration management via Nango"),
         (name = "sync", description = "CloudSync credential management"),
+        (name = "shared-notes", description = "Public shared-note delivery"),
         (name = "subscription", description = "Subscription and trial management")
     ),
     modifiers(&SecurityAddon)
@@ -39,6 +40,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     let subscription_doc = with_path_prefix(hypr_api_subscription::openapi(), "/subscription");
     let support_doc = hypr_api_support::openapi();
     let sync_doc = with_path_prefix(hypr_api_sync::openapi(), "/sync");
+    let shared_notes_doc = hypr_api_sync::shared_notes_openapi();
 
     doc.merge(stt_doc);
     doc.merge(llm_doc);
@@ -50,6 +52,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     doc.merge(subscription_doc);
     doc.merge(support_doc);
     doc.merge(sync_doc);
+    doc.merge(shared_notes_doc);
 
     apply_bearer_auth_to_protected_paths(&mut doc);
 
@@ -186,6 +189,16 @@ mod tests {
         }));
     }
 
+    fn assert_public(path: &utoipa::openapi::path::PathItem, method: &str) {
+        let operation = match method {
+            "get" => path.get.as_ref().unwrap(),
+            "post" => path.post.as_ref().unwrap(),
+            _ => unreachable!("unsupported method"),
+        };
+
+        assert!(operation.security.as_ref().is_none_or(Vec::is_empty));
+    }
+
     #[test]
     fn pyannote_paths_are_prefixed_and_protected() {
         let doc = super::openapi();
@@ -203,6 +216,22 @@ mod tests {
         assert!(!doc.paths.paths.contains_key("/pyannote/v1/media/input"));
         assert!(!doc.paths.paths.contains_key("/pyannote/v1/media/output"));
         assert!(!doc.paths.paths.contains_key("/pyannote/v1/test"));
+    }
+
+    #[test]
+    fn shared_note_paths_are_public_and_not_sync_prefixed() {
+        let doc = super::openapi();
+
+        for (path, method) in [
+            ("/shared-notes/public/{slug}", "get"),
+            ("/shared-notes/link/{share_id}", "post"),
+            ("/shared-notes/public/{slug}/handoff", "post"),
+            ("/shared-notes/link/{share_id}/handoff", "post"),
+            ("/shared-notes/handoffs/claim", "post"),
+        ] {
+            assert_public(doc.paths.paths.get(path).unwrap(), method);
+            assert!(!doc.paths.paths.contains_key(&format!("/sync{path}")));
+        }
     }
 
     #[test]

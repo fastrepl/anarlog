@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
     isLoading: false,
     error: null as Error | null,
   },
+  preview: { status: "unavailable" } as any,
 }));
 
 vi.mock("~/auth", () => ({
@@ -17,6 +18,10 @@ vi.mock("~/auth", () => ({
 
 vi.mock("~/shared-notes/cache", () => ({
   useDurableSharedNote: () => mocks.query,
+}));
+
+vi.mock("~/shared-notes/preview", () => ({
+  useSharedNotePreview: () => mocks.preview,
 }));
 
 vi.mock("~/session/components/session-surface", () => ({
@@ -57,7 +62,7 @@ vi.mock("~/editor-bridge/open-editor-link", () => ({
   openEditorLink: vi.fn(),
 }));
 
-import { TabContentSharedNote } from ".";
+import { TabContentSharedNote, TabContentSharedNotePreview } from ".";
 
 const tab = {
   type: "shared_sessions" as const,
@@ -71,6 +76,38 @@ describe("TabContentSharedNote", () => {
   beforeEach(() => {
     mocks.session = { user: { id: "viewer-1" } };
     mocks.query = { data: null, isLoading: false, error: null };
+    mocks.preview = { status: "unavailable" };
+  });
+
+  it("renders a handoff preview without durable identifiers", () => {
+    mocks.preview = {
+      status: "ready",
+      snapshot: {
+        shareId: "f733dd21-336b-4b99-8967-c1e05509268e",
+        schemaVersion: 1,
+        contentRevision: 1,
+        title: "Public plan",
+        body: { type: "doc", content: [{ type: "paragraph" }] },
+        publishedAt: "2026-07-17T10:00:00.000Z",
+      },
+    };
+
+    render(
+      <TabContentSharedNotePreview
+        tab={{
+          type: "shared_note_preview",
+          id: "13697a87-f69b-456d-8679-4202d4f5d498",
+          active: true,
+          slotId: "slot-preview",
+          pinned: false,
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Shared link · View only")).toBeTruthy();
+    expect(
+      screen.getByTestId("shared-note-editor").getAttribute("data-read-only"),
+    ).toBe("true");
   });
 
   afterEach(cleanup);

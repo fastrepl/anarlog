@@ -168,16 +168,14 @@ select ok(
       )
       and bool_and(
         has_function_privilege('authenticated', proc.oid, 'EXECUTE')
-          = (proc.proname <> 'publish_session_share_snapshot')
+          = (proc.proname in (
+            'read_my_session_share_snapshot',
+            'list_my_session_share_snapshots',
+            'list_my_session_share_snapshot_page'
+          ))
       )
       and bool_and(
-        has_function_privilege('anon', proc.oid, 'EXECUTE')
-          = (
-            proc.proname in (
-              'read_session_share_link_snapshot',
-              'read_public_session_share_snapshot'
-            )
-          )
+        not has_function_privilege('anon', proc.oid, 'EXECUTE')
       )
     from pg_proc as proc
     join pg_namespace as namespace
@@ -192,7 +190,7 @@ select ok(
         'list_my_session_share_snapshot_page'
       )
   ),
-  'Snapshot RPC grants separate service publication, named, and anonymous reads'
+  'Snapshot RPC grants keep general-access reads behind the service gateway'
 );
 
 select ok(
@@ -920,9 +918,9 @@ select results_eq(
 select tests.clear_authentication();
 set local role anon;
 
-select results_eq(
+select throws_ok(
   $$
-    select title, capability, manage_access
+    select *
     from public.read_session_share_link_snapshot(
       (
         select share_id
@@ -936,30 +934,38 @@ select results_eq(
       )
     )
   $$,
-  $$values ('Link snapshot'::text, 'viewer'::text, false)$$,
-  'An unauthenticated visitor can read a valid bearer-link snapshot as Viewer'
+  '42501',
+  'permission denied for function read_session_share_link_snapshot',
+  'Unauthenticated visitors cannot bypass the snapshot gateway'
 );
+
+reset role;
+select tests.authenticate_as_service_role();
 
 select results_eq(
   $$
-    select count(*)
-    from public.read_session_share_link_snapshot(
+    select title
+    from public.gateway_read_session_share_link_snapshot(
       (
         select share_id
         from session_snapshot_test_state
         where name = 'link_share'
       ),
-      'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+      (
+        select secret
+        from session_snapshot_test_state
+        where name = 'active_link'
+      )
     )
   $$,
-  array[0::bigint],
-  'An invalid bearer token resolves no snapshot'
+  array['Link snapshot'::text],
+  'The trusted gateway can read a valid bearer-link snapshot'
 );
 
 select results_eq(
   $$
-    select title, capability, manage_access
-    from public.read_public_session_share_snapshot(
+    select title
+    from public.gateway_read_public_session_share_snapshot(
       (
         select slug
         from session_snapshot_test_state
@@ -967,15 +973,19 @@ select results_eq(
       )
     )
   $$,
-  $$values ('Public snapshot'::text, 'viewer'::text, false)$$,
-  'An unauthenticated visitor can read a public snapshot by slug as Viewer'
+  array['Public snapshot'::text],
+  'The trusted gateway can read a public snapshot by slug'
 );
 
 select results_eq(
-  $$select count(*) from public.read_public_session_share_snapshot('s_00000000000000000000000000000000')$$,
+  $$select count(*) from public.gateway_read_public_session_share_snapshot('s_00000000000000000000000000000000')$$,
   array[0::bigint],
   'An unknown public slug resolves no snapshot'
 );
+
+select tests.clear_authentication();
+reset role;
+set local role anon;
 
 select throws_ok(
   $query$
@@ -1125,12 +1135,12 @@ select lives_ok(
 );
 
 select tests.clear_authentication();
-set local role anon;
+select tests.authenticate_as_service_role();
 
 select results_eq(
   $$
     select count(*)
-    from public.read_session_share_link_snapshot(
+    from public.gateway_read_session_share_link_snapshot(
       (
         select share_id
         from session_snapshot_test_state
@@ -1150,7 +1160,7 @@ select results_eq(
 select results_eq(
   $$
     select count(*)
-    from public.read_public_session_share_snapshot(
+    from public.gateway_read_public_session_share_snapshot(
       (
         select slug
         from session_snapshot_test_state

@@ -159,6 +159,10 @@ select ok(
     select count(*) = 19
       and bool_and(
         has_function_privilege('authenticated', proc.oid, 'EXECUTE')
+          = (proc.proname NOT IN (
+            'resolve_session_share_link',
+            'resolve_public_session_share'
+          ))
       )
     from pg_proc as proc
     join pg_namespace as namespace
@@ -186,7 +190,7 @@ select ok(
         'list_session_share_access'
       )
   ),
-  'Permanent authenticated users can execute the complete public sharing API'
+  'Permanent authenticated users cannot bypass gateway-only general access'
 );
 
 select ok(
@@ -265,16 +269,7 @@ select ok(
   (
     select count(*) filter (
       where has_function_privilege('anon', proc.oid, 'EXECUTE')
-    ) = 2
-      and bool_and(
-        has_function_privilege('anon', proc.oid, 'EXECUTE')
-          = (
-            proc.proname in (
-              'resolve_session_share_link',
-              'resolve_public_session_share'
-            )
-          )
-      )
+    ) = 0
     from pg_proc as proc
     join pg_namespace as namespace
       on namespace.oid = proc.pronamespace
@@ -301,7 +296,7 @@ select ok(
         'list_session_share_access'
       )
   ),
-  'Anonymous callers can execute only bearer-link and public-slug resolvers'
+  'Anonymous callers cannot bypass the shared-note gateway'
 );
 
 select tests.authenticate_as('share_owner');
@@ -939,28 +934,25 @@ select ok(
   'Idempotent link enablement never discloses the existing bearer token'
 );
 
-select results_eq(
+select throws_ok(
   $$
-    select count(*)
+    select *
     from public.resolve_session_share_link(
-      (
-        select share_id
-        from session_sharing_test_state
-        where name = 'link_share'
-      ),
+      (select share_id from session_sharing_test_state where name = 'link_share'),
       'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
     )
   $$,
-  array[0::bigint],
-  'An incorrect bearer token resolves no access'
+  '42501',
+  'permission denied for function resolve_session_share_link',
+  'Authenticated clients cannot call the legacy bearer resolver'
 );
 
 select tests.clear_authentication();
 set local role anon;
 
-select results_eq(
+select throws_ok(
   $$
-    select session_id, capability
+    select *
     from public.resolve_session_share_link(
       (
         select share_id
@@ -974,16 +966,17 @@ select results_eq(
       )
     )
   $$,
-  $$values ('link-session'::text, 'viewer'::text)$$,
-  'An unauthenticated bearer-link visitor receives Viewer access only'
+  '42501',
+  'permission denied for function resolve_session_share_link',
+  'Unauthenticated visitors cannot call the legacy bearer resolver'
 );
 
 reset role;
 select tests.authenticate_as('share_anonymous');
 
-select results_eq(
+select throws_ok(
   $$
-    select session_id, capability
+    select *
     from public.resolve_session_share_link(
       (
         select share_id
@@ -997,8 +990,9 @@ select results_eq(
       )
     )
   $$,
-  $$values ('link-session'::text, 'viewer'::text)$$,
-  'An anonymous Auth user can view a valid bearer link'
+  '42501',
+  'permission denied for function resolve_session_share_link',
+  'Anonymous Auth users cannot call the legacy bearer resolver'
 );
 
 select throws_ok(
@@ -1063,44 +1057,32 @@ select ok(
   'Rotation creates a fresh bearer and advances access version'
 );
 
-select results_eq(
+select throws_ok(
   $$
-    select count(*)
+    select *
     from public.resolve_session_share_link(
-      (
-        select share_id
-        from session_sharing_test_state
-        where name = 'link_share'
-      ),
-      (
-        select secret
-        from session_sharing_test_state
-        where name = 'first_link'
-      )
+      (select share_id from session_sharing_test_state where name = 'link_share'),
+      (select secret from session_sharing_test_state where name = 'first_link')
     )
   $$,
-  array[0::bigint],
-  'The old bearer stops working immediately after rotation'
+  '42501',
+  'permission denied for function resolve_session_share_link',
+  'Managers cannot bypass the gateway after bearer rotation'
 );
 
 select results_eq(
   $$
     select capability
-    from public.resolve_session_share_link(
+    from public.resolve_my_session_access(
       (
         select share_id
         from session_sharing_test_state
         where name = 'link_share'
-      ),
-      (
-        select secret
-        from session_sharing_test_state
-        where name = 'rotated_link'
       )
     )
   $$,
   array['editor'::text],
-  'A manager opening a bearer link keeps their higher identity capability'
+  'A manager keeps their higher named identity capability'
 );
 
 select lives_ok(
@@ -1120,21 +1102,16 @@ select lives_ok(
 
 select results_eq(
   $$
-    select count(*)
-    from public.resolve_session_share_link(
+    select has_active_link
+    from public.get_session_share_management(
       (
         select share_id
         from session_sharing_test_state
         where name = 'link_share'
-      ),
-      (
-        select secret
-        from session_sharing_test_state
-        where name = 'rotated_link'
       )
     )
   $$,
-  array[0::bigint],
+  array[false],
   'Changing away from link scope revokes the active bearer'
 );
 
@@ -1156,9 +1133,9 @@ select lives_ok(
 select tests.clear_authentication();
 set local role anon;
 
-select results_eq(
+select throws_ok(
   $$
-    select session_id, capability
+    select *
     from public.resolve_public_session_share(
       (
         select slug
@@ -1167,16 +1144,17 @@ select results_eq(
       )
     )
   $$,
-  $$values ('link-session'::text, 'viewer'::text)$$,
-  'An unauthenticated public visitor receives Viewer access only'
+  '42501',
+  'permission denied for function resolve_public_session_share',
+  'Unauthenticated visitors cannot call the legacy public resolver'
 );
 
 reset role;
 select tests.authenticate_as('share_anonymous');
 
-select results_eq(
+select throws_ok(
   $$
-    select session_id, capability
+    select *
     from public.resolve_public_session_share(
       (
         select slug
@@ -1185,8 +1163,9 @@ select results_eq(
       )
     )
   $$,
-  $$values ('link-session'::text, 'viewer'::text)$$,
-  'An anonymous Auth user can view a public share'
+  '42501',
+  'permission denied for function resolve_public_session_share',
+  'Anonymous Auth users cannot call the legacy public resolver'
 );
 
 select tests.clear_authentication();
@@ -1213,16 +1192,16 @@ select tests.authenticate_as('share_owner');
 select results_eq(
   $$
     select capability
-    from public.resolve_public_session_share(
+    from public.resolve_my_session_access(
       (
-        select slug
+        select share_id
         from session_sharing_test_state
         where name = 'link_share'
       )
     )
   $$,
   array['editor'::text],
-  'A manager opening a public URL keeps their higher identity capability'
+  'A manager opening a public share keeps their higher identity capability'
 );
 
 select tests.clear_authentication();

@@ -5,6 +5,7 @@ import {
   Link,
   Outlet,
   Scripts,
+  useRouterState,
 } from "@tanstack/react-router";
 
 import { Toaster } from "@hypr/ui/components/ui/toast";
@@ -17,6 +18,7 @@ import {
   ROOT_KEYWORDS,
   ROOT_TITLE,
 } from "@/lib/seo";
+import { isShareRoutePathname } from "@/lib/share-route-privacy";
 import appCss from "@/styles.css?url";
 
 interface RouterContext {
@@ -96,9 +98,12 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 
 function RootApp() {
   const { queryClient } = Route.useRouteContext();
+  const telemetryEnabled = useRouterState({
+    select: (state) => !isShareRoutePathname(state.location.pathname),
+  });
 
   return (
-    <WebProviders queryClient={queryClient}>
+    <WebProviders queryClient={queryClient} telemetryEnabled={telemetryEnabled}>
       <Outlet />
     </WebProviders>
   );

@@ -161,7 +161,7 @@ export const pushHistory = (
   history: Map<string, TabHistory>,
   tab: Tab,
 ): Map<string, TabHistory> => {
-  if (tab.type === "empty") {
+  if (tab.type === "empty" || tab.type === "shared_note_preview") {
     return history;
   }
 

@@ -15,7 +15,7 @@ export type PinnedTab = TabInput & { pinned: true };
 
 const serializePinnedTabs = (tabs: Tab[]): string => {
   const pinnedTabs = tabs
-    .filter((t) => t.pinned)
+    .filter((t) => t.pinned && t.type !== "shared_note_preview")
     .map((tab): PinnedTab => {
       const { active, slotId, pinned, returnToSlotId, returnToTabId, ...rest } =
         tab as Tab & {
