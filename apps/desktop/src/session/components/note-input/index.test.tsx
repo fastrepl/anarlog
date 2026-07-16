@@ -8,6 +8,7 @@ import type { EditorView } from "~/store/zustand/tabs/schema";
 const hoisted = vi.hoisted(() => ({
   editorTabs: [{ type: "raw" }, { type: "transcript" }] as EditorView[],
   hotkeys: [] as Array<{ keys: string; callback: () => void }>,
+  enhancedHasProseMirror: true,
   enhancedEditorProps: [] as Record<string, unknown>[],
   focusAtTrailingEmptyLine: vi.fn(),
   onBeforeTabChange: vi.fn(),
@@ -23,7 +24,14 @@ vi.mock("./enhanced", async () => {
     Enhanced: React.forwardRef((props: Record<string, unknown>, ref) => {
       hoisted.enhancedEditorProps.push(props);
       React.useImperativeHandle(ref, () => createEditorRef());
-      return React.createElement("div", { "data-testid": "enhanced-editor" });
+      return React.createElement(
+        "div",
+        { "data-testid": "enhanced-editor" },
+        React.createElement("button", { type: "button" }, "Retry summary"),
+        hoisted.enhancedHasProseMirror
+          ? React.createElement("div", { className: "ProseMirror" })
+          : null,
+      );
     }),
   };
 });
@@ -181,6 +189,7 @@ describe("NoteInput tab selection", () => {
   beforeEach(() => {
     hoisted.editorTabs = [{ type: "raw" }, { type: "transcript" }];
     hoisted.hotkeys = [];
+    hoisted.enhancedHasProseMirror = true;
     hoisted.enhancedEditorProps = [];
     hoisted.focusAtTrailingEmptyLine.mockClear();
     hoisted.onBeforeTabChange.mockClear();
@@ -326,6 +335,25 @@ describe("NoteInput tab selection", () => {
 
     fireEvent.mouseDown(screen.getByTestId("mock-prosemirror"), { button: 0 });
 
+    expect(hoisted.focusAtTrailingEmptyLine).not.toHaveBeenCalled();
+  });
+
+  it("preserves controls when the enhanced view has no editor", () => {
+    hoisted.editorTabs = [
+      { type: "enhanced", id: "summary-1" },
+      { type: "raw" },
+    ];
+    hoisted.enhancedHasProseMirror = false;
+    renderNoteInput({
+      currentTab: { type: "enhanced", id: "summary-1" },
+    });
+
+    const wasNotCancelled = fireEvent.mouseDown(
+      screen.getByRole("button", { name: "Retry summary" }),
+      { button: 0 },
+    );
+
+    expect(wasNotCancelled).toBe(true);
     expect(hoisted.focusAtTrailingEmptyLine).not.toHaveBeenCalled();
   });
 });

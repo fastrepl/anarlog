@@ -271,10 +271,23 @@ const NoteInputContent = forwardRef<
       }
 
       const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      if (target.closest(".ProseMirror") !== null) {
+        return;
+      }
+
       if (
-        target instanceof Element &&
-        target.closest(".ProseMirror") !== null
+        target.closest(
+          "button, a, input, textarea, select, [role='button'], [contenteditable='true']",
+        ) !== null
       ) {
+        return;
+      }
+
+      if (event.currentTarget.querySelector(".ProseMirror") === null) {
         return;
       }
 
