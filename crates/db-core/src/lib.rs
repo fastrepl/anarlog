@@ -11,9 +11,9 @@ use sqlx::{Sqlite, SqlitePool};
 
 use crate::cloudsync::CloudsyncRuntimeState;
 pub use crate::cloudsync::{
-    CloudsyncAuth, CloudsyncNetworkResult, CloudsyncRuntimeConfig, CloudsyncRuntimeError,
-    CloudsyncStatus, CloudsyncTableSpec, cloudsync_begin_alter_on, cloudsync_commit_alter_on,
-    cloudsync_is_enabled_on,
+    CloudsyncAuth, CloudsyncHookFuture, CloudsyncNetworkResult, CloudsyncRuntimeConfig,
+    CloudsyncRuntimeError, CloudsyncStatus, CloudsyncSyncHook, CloudsyncTableSpec,
+    cloudsync_begin_alter_on, cloudsync_commit_alter_on, cloudsync_is_enabled_on,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -52,6 +52,7 @@ pub struct Db {
     pub(crate) cloudsync_connection: Arc<tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>>,
     pub(crate) cloudsync_lifecycle: Arc<tokio::sync::Mutex<()>>,
     pub(crate) cloudsync_runtime: Arc<Mutex<CloudsyncRuntimeState>>,
+    pub(crate) cloudsync_sync_hook: Arc<Mutex<Option<Arc<dyn CloudsyncSyncHook>>>>,
     pub(crate) pool: SqlitePool,
     change_notifier: hypr_db_change::ChangeNotifier,
 }
@@ -140,6 +141,7 @@ impl Db {
             cloudsync_connection: Arc::new(tokio::sync::Mutex::new(None)),
             cloudsync_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
             cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
+            cloudsync_sync_hook: Arc::new(Mutex::new(None)),
             pool,
             change_notifier,
         })
@@ -163,6 +165,7 @@ impl Db {
             cloudsync_connection: Arc::new(tokio::sync::Mutex::new(None)),
             cloudsync_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
             cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
+            cloudsync_sync_hook: Arc::new(Mutex::new(None)),
             pool,
             change_notifier,
         })
@@ -186,6 +189,7 @@ impl Db {
             cloudsync_connection: Arc::new(tokio::sync::Mutex::new(None)),
             cloudsync_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
             cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
+            cloudsync_sync_hook: Arc::new(Mutex::new(None)),
             pool,
             change_notifier,
         })
@@ -207,6 +211,7 @@ impl Db {
             cloudsync_connection: Arc::new(tokio::sync::Mutex::new(None)),
             cloudsync_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
             cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
+            cloudsync_sync_hook: Arc::new(Mutex::new(None)),
             pool,
             change_notifier,
         })
@@ -229,6 +234,7 @@ impl Db {
             cloudsync_connection: Arc::new(tokio::sync::Mutex::new(None)),
             cloudsync_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
             cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
+            cloudsync_sync_hook: Arc::new(Mutex::new(None)),
             pool,
             change_notifier,
         })
@@ -236,6 +242,10 @@ impl Db {
 
     pub fn pool(&self) -> &SqlitePool {
         &self.pool
+    }
+
+    pub fn set_cloudsync_sync_hook(&self, hook: Arc<dyn CloudsyncSyncHook>) {
+        self.cloudsync_sync_hook.lock().unwrap().replace(hook);
     }
 }
 
@@ -296,6 +306,7 @@ async fn connect_with_options(
         cloudsync_connection: Arc::new(tokio::sync::Mutex::new(None)),
         cloudsync_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
         cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
+        cloudsync_sync_hook: Arc::new(Mutex::new(None)),
         pool,
         change_notifier,
     })

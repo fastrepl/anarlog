@@ -94,6 +94,38 @@ async runLegacyImport(dryRun: boolean) : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async getE2eeIdentityStatus(accountUserId: string) : Promise<Result<E2eeIdentityStatus, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|get_e2ee_identity_status", { accountUserId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async inspectE2eeRecoveryKey(recoveryKey: string) : Promise<Result<E2eeRecoveryKeyIdentity, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|inspect_e2ee_recovery_key", { recoveryKey }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async createE2eeIdentity(accountUserId: string) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|create_e2ee_identity", { accountUserId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async importE2eeIdentity(accountUserId: string, recoveryKey: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|import_e2ee_identity", { accountUserId, recoveryKey }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async subscribe(sql: string, params: JsonValue[], onEvent: TAURI_CHANNEL<QueryEvent>) : Promise<Result<SubscriptionRegistration, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:db|subscribe", { sql, params, onEvent }) };
@@ -193,6 +225,8 @@ export type CloudsyncWorkspaceProjectionEntry = { id: string; ownerUserId: strin
 export type DependencyAnalysis = { kind: "reactive"; data: { targets: DependencyTarget[] } } | { kind: "non_reactive"; data: { reason: string } }
 export type DependencyTarget = { kind: "table"; data: string } | { kind: "virtual_table"; data: string }
 export type Document = { id: string; kind: string; template_id: string; title: string; markdown: string; sort_order: number; created_at: string; updated_at: string }
+export type E2eeIdentityStatus = { configured: boolean; keyId: string | null }
+export type E2eeRecoveryKeyIdentity = { keyId: string }
 export type ExecuteProxyResult = { rows: JsonValue[] }
 export type GetMeetingInput = { meeting_id: string }
 export type GetMeetingTranscriptInput = { meeting_id: string; offset: number | null; limit: number | null }

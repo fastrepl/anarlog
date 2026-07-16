@@ -6,10 +6,13 @@ edition = "2024"
 [dependencies]
 hypr-db-core = { workspace = true }
 hypr-db-migrate = { workspace = true }
+hypr-e2ee = { workspace = true }
 
+base64 = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled", "macros"] }
+thiserror = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 
 [features]

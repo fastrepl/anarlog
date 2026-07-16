@@ -1493,12 +1493,73 @@
         }
       }
     },
+    "/sync/e2ee/identity": {
+      "put": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "claim_e2ee_identity",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimE2eeIdentityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "E2EE recovery-key identity claimed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/E2eeIdentity"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid E2EE key identity"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Anarlog Pro subscription required"
+          },
+          "409": {
+            "description": "Account already uses a different recovery key"
+          },
+          "502": {
+            "description": "E2EE identity service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/sync/token": {
       "post": {
         "tags": [
           "sync"
         ],
         "operationId": "create_credentials",
+        "parameters": [
+          {
+            "name": "x-anarlog-e2ee-key-id",
+            "in": "header",
+            "description": "Local recovery-key identity",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Short-lived CloudSync credentials",
@@ -2391,9 +2452,23 @@
           "unknown"
         ]
       },
+      "ClaimE2eeIdentityRequest": {
+        "type": "object",
+        "required": [
+          "keyId"
+        ],
+        "properties": {
+          "keyId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "CloudsyncCredentials": {
         "type": "object",
         "required": [
+          "encryptionVersion",
+          "encryptionKeyId",
           "databaseId",
           "token",
           "expiresAt",
@@ -2408,6 +2483,14 @@
           },
           "databaseId": {
             "type": "string"
+          },
+          "encryptionKeyId": {
+            "type": "string"
+          },
+          "encryptionVersion": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
           },
           "expiresAt": {
             "type": "string"
@@ -3201,6 +3284,17 @@
           "precision-2",
           "community-1"
         ]
+      },
+      "E2eeIdentity": {
+        "type": "object",
+        "required": [
+          "keyId"
+        ],
+        "properties": {
+          "keyId": {
+            "type": "string"
+          }
+        }
       },
       "EmailAddress": {
         "type": "object",

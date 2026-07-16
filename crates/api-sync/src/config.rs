@@ -11,7 +11,7 @@ pub struct SyncEnv {
     #[serde(default)]
     pub sqlitecloud_token_issuer_api_key: Option<String>,
     #[serde(default)]
-    pub anarlog_cloudsync_database_id: Option<String>,
+    pub anarlog_cloudsync_e2ee_database_id: Option<String>,
     #[serde(default, deserialize_with = "deserialize_optional_u64")]
     pub anarlog_cloudsync_token_ttl_seconds: Option<u64>,
 }
@@ -108,7 +108,7 @@ impl SyncConfig {
     ) -> Result<Option<Self>, String> {
         let project_url = nonempty(env.sqlitecloud_project_url.as_deref());
         let token_issuer_api_key = nonempty(env.sqlitecloud_token_issuer_api_key.as_deref());
-        let database_id = nonempty(env.anarlog_cloudsync_database_id.as_deref());
+        let database_id = nonempty(env.anarlog_cloudsync_e2ee_database_id.as_deref());
 
         if project_url.is_none() && token_issuer_api_key.is_none() && database_id.is_none() {
             return Ok(None);
@@ -122,7 +122,7 @@ impl SyncConfig {
                 .to_string()
         })?;
         let database_id = database_id.ok_or_else(|| {
-            "ANARLOG_CLOUDSYNC_DATABASE_ID is required when CloudSync token exchange is configured"
+            "ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID is required when CloudSync token exchange is configured"
                 .to_string()
         })?;
         let token_ttl_seconds = env
@@ -220,7 +220,7 @@ mod tests {
         SyncEnv {
             sqlitecloud_project_url: Some(project_url.to_string()),
             sqlitecloud_token_issuer_api_key: Some("issuer-key".to_string()),
-            anarlog_cloudsync_database_id: Some("database-id".to_string()),
+            anarlog_cloudsync_e2ee_database_id: Some("database-id".to_string()),
             anarlog_cloudsync_token_ttl_seconds: token_ttl_seconds,
         }
     }

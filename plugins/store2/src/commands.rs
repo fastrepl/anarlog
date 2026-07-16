@@ -252,6 +252,14 @@ pub(crate) async fn get_secret<R: tauri::Runtime>(
     scope: String,
     key: String,
 ) -> Result<Option<String>, String> {
+    read_secret(app, scope, key).await
+}
+
+pub async fn read_secret<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    scope: String,
+    key: String,
+) -> Result<Option<String>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let entry = secret_entry(&app, &scope, &key)?;
         match entry.get_password() {
@@ -281,6 +289,15 @@ pub(crate) async fn get_secret<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn set_secret<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    scope: String,
+    key: String,
+    value: String,
+) -> Result<(), String> {
+    write_secret(app, scope, key, value).await
+}
+
+pub async fn write_secret<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     scope: String,
     key: String,

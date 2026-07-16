@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use axum::{
     Extension, Json, Router,
     extract::{DefaultBodyLimit, Path, State},
-    http::{HeaderValue, header},
+    http::{HeaderMap, HeaderValue, header},
     routing::{post, put},
 };
 use chrono::{SecondsFormat, TimeDelta, Utc};
@@ -25,10 +25,14 @@ const MAX_TOKEN_ATTRIBUTES_BYTES: usize = 8 * 1024;
 const SNAPSHOT_PUBLISH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 const MAX_SNAPSHOT_REQUEST_BYTES: usize = MAX_SNAPSHOT_BODY_BYTES + 16 * 1024;
 const MAX_SNAPSHOT_RESPONSE_BYTES: u64 = (MAX_SNAPSHOT_BODY_BYTES + 16 * 1024) as u64;
+const CLOUDSYNC_ENCRYPTION_VERSION: u8 = 1;
+const E2EE_KEY_ID_HEADER: &str = "x-anarlog-e2ee-key-id";
 
 #[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CloudsyncCredentials {
+    encryption_version: u8,
+    encryption_key_id: String,
     database_id: String,
     token: String,
     expires_at: String,
@@ -36,6 +40,29 @@ pub struct CloudsyncCredentials {
     account_user_id: String,
     personal_workspace_id: String,
     workspaces: Vec<CloudsyncWorkspace>,
+}
+
+#[derive(Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ClaimE2eeIdentityRequest {
+    key_id: String,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct E2eeIdentity {
+    key_id: String,
+}
+
+#[derive(Serialize)]
+struct ClaimE2eeKeyRpcRequest<'a> {
+    p_actor_user_id: &'a str,
+    p_key_id: &'a str,
+}
+
+#[derive(Deserialize)]
+struct E2eeKeyIdRow {
+    key_id: String,
 }
 
 #[derive(Serialize, utoipa::ToSchema)]
@@ -135,10 +162,16 @@ struct PostgrestError {
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(create_credentials, publish_session_share_snapshot),
+    paths(
+        create_credentials,
+        claim_e2ee_identity,
+        publish_session_share_snapshot
+    ),
     components(schemas(
         CloudsyncCredentials,
         CloudsyncWorkspace,
+        ClaimE2eeIdentityRequest,
+        E2eeIdentity,
         PublishSessionShareSnapshotRequest,
         PublishedSessionShareSnapshot
     ))
@@ -152,12 +185,43 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/token", post(create_credentials))
+        .route("/e2ee/identity", put(claim_e2ee_identity))
         .route(
             "/shares/{share_id}/snapshot",
             put(publish_session_share_snapshot)
                 .layer(DefaultBodyLimit::max(MAX_SNAPSHOT_REQUEST_BYTES)),
         )
         .with_state(state)
+}
+
+#[utoipa::path(
+    put,
+    path = "/e2ee/identity",
+    tag = "sync",
+    request_body = ClaimE2eeIdentityRequest,
+    responses(
+        (status = 200, description = "E2EE recovery-key identity claimed", body = E2eeIdentity),
+        (status = 400, description = "Invalid E2EE key identity"),
+        (status = 401, description = "Authentication required"),
+        (status = 403, description = "Anarlog Pro subscription required"),
+        (status = 409, description = "Account already uses a different recovery key"),
+        (status = 502, description = "E2EE identity service unavailable")
+    )
+)]
+async fn claim_e2ee_identity(
+    Extension(auth): Extension<AuthContext>,
+    State(state): State<AppState>,
+    Json(request): Json<ClaimE2eeIdentityRequest>,
+) -> Result<([(header::HeaderName, HeaderValue); 1], Json<E2eeIdentity>)> {
+    if !auth.claims.is_pro() {
+        return Err(SyncError::ProPlanRequired);
+    }
+
+    let key_id = claim_personal_e2ee_key(&state, &auth.claims.sub, &request.key_id).await?;
+    Ok((
+        [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
+        Json(E2eeIdentity { key_id }),
+    ))
 }
 
 #[utoipa::path(
@@ -288,6 +352,7 @@ async fn publish_session_share_snapshot(
     post,
     path = "/token",
     tag = "sync",
+    params(("x-anarlog-e2ee-key-id" = String, Header, description = "Local recovery-key identity")),
     responses(
         (status = 200, description = "Short-lived CloudSync credentials", body = CloudsyncCredentials),
         (status = 401, description = "Authentication required"),
@@ -298,6 +363,7 @@ async fn publish_session_share_snapshot(
 async fn create_credentials(
     Extension(auth): Extension<AuthContext>,
     State(state): State<AppState>,
+    headers: HeaderMap,
 ) -> Result<(
     [(header::HeaderName, HeaderValue); 1],
     Json<CloudsyncCredentials>,
@@ -306,9 +372,16 @@ async fn create_credentials(
         return Err(SyncError::ProPlanRequired);
     }
 
+    let requested_key_id = headers
+        .get(E2EE_KEY_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| SyncError::BadRequest("E2EE key identity is required".to_string()))?;
+
     let workspace_rows = fetch_workspace_projection(&state, &auth).await?;
     let (personal_workspace_id, workspaces) =
         validate_workspace_projection(workspace_rows, &auth.claims.sub)?;
+    let encryption_key_id =
+        claim_personal_e2ee_key(&state, &auth.claims.sub, requested_key_id).await?;
     let token_attributes = encode_workspace_token_attributes(&workspaces)?;
 
     let ttl = i64::try_from(state.config.token_ttl_seconds)
@@ -350,6 +423,8 @@ async fn create_credentials(
     Ok((
         [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
         Json(CloudsyncCredentials {
+            encryption_version: CLOUDSYNC_ENCRYPTION_VERSION,
+            encryption_key_id,
             database_id: state.config.database_id,
             token: response.data.token,
             expires_at,
@@ -359,6 +434,68 @@ async fn create_credentials(
             workspaces,
         }),
     ))
+}
+
+async fn claim_personal_e2ee_key(
+    state: &AppState,
+    account_user_id: &str,
+    requested_key_id: &str,
+) -> Result<String> {
+    if !is_valid_e2ee_key_id(requested_key_id) {
+        return Err(SyncError::BadRequest(
+            "E2EE key identity is invalid".to_string(),
+        ));
+    }
+
+    let response = state
+        .client
+        .post(format!(
+            "{}/rest/v1/rpc/claim_personal_workspace_e2ee_key",
+            state.config.supabase_url
+        ))
+        .header("apikey", &state.config.supabase_service_role_key)
+        .bearer_auth(&state.config.supabase_service_role_key)
+        .timeout(WORKSPACE_PROJECTION_TIMEOUT)
+        .json(&ClaimE2eeKeyRpcRequest {
+            p_actor_user_id: account_user_id,
+            p_key_id: requested_key_id,
+        })
+        .send()
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "Supabase E2EE identity request failed");
+            SyncError::Upstream
+        })?;
+    if !response.status().is_success() {
+        tracing::warn!(status = %response.status(), "Supabase E2EE identity request was rejected");
+        return Err(SyncError::Upstream);
+    }
+    let mut rows = response
+        .json::<Vec<E2eeKeyIdRow>>()
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "Supabase E2EE identity response was invalid");
+            SyncError::Upstream
+        })?;
+    if rows.len() != 1 || !is_valid_e2ee_key_id(&rows[0].key_id) {
+        tracing::warn!(
+            row_count = rows.len(),
+            "Supabase E2EE identity response failed validation"
+        );
+        return Err(SyncError::Upstream);
+    }
+    let key_id = rows.pop().expect("row count was checked").key_id;
+    if key_id != requested_key_id {
+        return Err(SyncError::E2eeKeyMismatch);
+    }
+    Ok(key_id)
+}
+
+fn is_valid_e2ee_key_id(key_id: &str) -> bool {
+    key_id.len() == 22
+        && key_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
 async fn fetch_workspace_projection(
@@ -534,6 +671,8 @@ mod tests {
     use super::*;
     use crate::SyncConfig;
 
+    const TEST_KEY_ID: &str = "abcdefghijklmnopqrstuv";
+
     fn test_router(server: &MockServer, api_key: &str, entitlements: &[&str]) -> Router {
         router(AppState::new(SyncConfig {
             project_url: server.uri(),
@@ -592,6 +731,29 @@ mod tests {
             .await;
     }
 
+    async fn mock_e2ee_key_claim(server: &MockServer, returned_key_id: &str) {
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/claim_personal_workspace_e2ee_key"))
+            .and(header("apikey", "service-role-key"))
+            .and(header("authorization", "Bearer service-role-key"))
+            .and(body_partial_json(json!({
+                "p_actor_user_id": "user-123",
+                "p_key_id": TEST_KEY_ID,
+            })))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!([{ "key_id": returned_key_id }])),
+            )
+            .mount(server)
+            .await;
+    }
+
+    fn token_request() -> Request<Body> {
+        Request::post("/token")
+            .header(E2EE_KEY_ID_HEADER, TEST_KEY_ID)
+            .body(Body::empty())
+            .unwrap()
+    }
+
     async fn response_json(response: axum::response::Response) -> Value {
         let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         serde_json::from_slice(&bytes).unwrap()
@@ -622,6 +784,7 @@ mod tests {
             ]),
         )
         .await;
+        mock_e2ee_key_claim(&server, TEST_KEY_ID).await;
         Mock::given(method("POST"))
             .and(path("/v2/tokens"))
             .and(header("authorization", "Bearer issuer-key"))
@@ -636,13 +799,15 @@ mod tests {
             .await;
 
         let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
-            .oneshot(Request::post("/token").body(Body::empty()).unwrap())
+            .oneshot(token_request())
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
         let body = response_json(response).await;
         assert_eq!(body["databaseId"], "database-id");
+        assert_eq!(body["encryptionVersion"], 1);
+        assert_eq!(body["encryptionKeyId"], TEST_KEY_ID);
         assert_eq!(body["token"], "sqlite-token");
         assert_eq!(body["workspaceId"], "user-123");
         assert_eq!(body["accountUserId"], "user-123");
@@ -668,8 +833,12 @@ mod tests {
 
         let requests = server.received_requests().await.unwrap();
         assert_eq!(requests[0].url.path(), "/rest/v1/workspace_memberships");
-        assert_eq!(requests[1].url.path(), "/v2/tokens");
-        let token_request: Value = serde_json::from_slice(&requests[1].body).unwrap();
+        assert_eq!(
+            requests[1].url.path(),
+            "/rest/v1/rpc/claim_personal_workspace_e2ee_key"
+        );
+        assert_eq!(requests[2].url.path(), "/v2/tokens");
+        let token_request: Value = serde_json::from_slice(&requests[2].body).unwrap();
         assert_eq!(token_request.as_object().unwrap().len(), 4);
         assert_eq!(token_request["userId"], "user-123");
         let attributes: Value =
@@ -680,6 +849,70 @@ mod tests {
         );
         assert!(token_request.get("workspaceId").is_none());
         assert!(token_request.get("workspaceIds").is_none());
+    }
+
+    #[tokio::test]
+    async fn rejects_a_different_recovery_key_before_minting_a_token() {
+        let server = MockServer::start().await;
+        mock_workspace_projection(&server, json!([personal_workspace("user-123")])).await;
+        mock_e2ee_key_claim(&server, "zyxwvutsrqponmlkjihgfe").await;
+
+        let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+            .oneshot(token_request())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+        assert_eq!(
+            response_json(response).await["error"]["code"],
+            "e2ee_key_mismatch"
+        );
+        assert!(
+            server
+                .received_requests()
+                .await
+                .unwrap()
+                .iter()
+                .all(|request| request.url.path() != "/v2/tokens")
+        );
+    }
+
+    #[tokio::test]
+    async fn claims_the_recovery_key_identity_without_receiving_the_key() {
+        let server = MockServer::start().await;
+        mock_e2ee_key_claim(&server, TEST_KEY_ID).await;
+
+        let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+            .oneshot(
+                Request::put("/e2ee/identity")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&json!({ "keyId": TEST_KEY_ID })).unwrap(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        assert_eq!(response_json(response).await["keyId"], TEST_KEY_ID);
+        let request = server.received_requests().await.unwrap().pop().unwrap();
+        let body = String::from_utf8(request.body).unwrap();
+        assert!(body.contains(TEST_KEY_ID));
+        assert!(!body.contains("anarlog-e2ee-v1"));
+    }
+
+    #[tokio::test]
+    async fn rejects_token_requests_without_a_key_identity() {
+        let server = MockServer::start().await;
+        let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+            .oneshot(Request::post("/token").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert!(server.received_requests().await.unwrap().is_empty());
     }
 
     #[test]
@@ -719,7 +952,7 @@ mod tests {
         for entitlements in cases {
             let server = MockServer::start().await;
             let response = test_router(&server, "issuer-key", entitlements)
-                .oneshot(Request::post("/token").body(Body::empty()).unwrap())
+                .oneshot(token_request())
                 .await
                 .unwrap();
 
@@ -865,7 +1098,7 @@ mod tests {
             mock_workspace_projection(&server, projection).await;
 
             let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
-                .oneshot(Request::post("/token").body(Body::empty()).unwrap())
+                .oneshot(token_request())
                 .await
                 .unwrap();
 
@@ -886,7 +1119,7 @@ mod tests {
             .await;
 
         let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
-            .oneshot(Request::post("/token").body(Body::empty()).unwrap())
+            .oneshot(token_request())
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
@@ -900,6 +1133,7 @@ mod tests {
     async fn sqlite_cloud_failure_is_redacted() {
         let server = MockServer::start().await;
         mock_workspace_projection(&server, json!([personal_workspace("user-123")])).await;
+        mock_e2ee_key_claim(&server, TEST_KEY_ID).await;
         Mock::given(method("POST"))
             .and(path("/v2/tokens"))
             .respond_with(ResponseTemplate::new(403).set_body_string("secret upstream detail"))
@@ -907,7 +1141,7 @@ mod tests {
             .await;
 
         let response = test_router(&server, "issuer-secret", &["hyprnote_pro"])
-            .oneshot(Request::post("/token").body(Body::empty()).unwrap())
+            .oneshot(token_request())
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::BAD_GATEWAY);

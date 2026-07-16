@@ -343,6 +343,18 @@
           "markdownDescription": "Denies the configure_cloudsync_token command without any pre-configured scope."
         },
         {
+          "description": "Enables the create_e2ee_identity command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-create-e2ee-identity",
+          "markdownDescription": "Enables the create_e2ee_identity command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the create_e2ee_identity command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-create-e2ee-identity",
+          "markdownDescription": "Denies the create_e2ee_identity command without any pre-configured scope."
+        },
+        {
           "description": "Enables the execute command without any pre-configured scope.",
           "type": "string",
           "const": "allow-execute",
@@ -389,6 +401,18 @@
           "type": "string",
           "const": "deny-get-cloudsync-status",
           "markdownDescription": "Denies the get_cloudsync_status command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_e2ee_identity_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-e2ee-identity-status",
+          "markdownDescription": "Enables the get_e2ee_identity_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_e2ee_identity_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-e2ee-identity-status",
+          "markdownDescription": "Denies the get_e2ee_identity_status command without any pre-configured scope."
         },
         {
           "description": "Enables the get_legacy_cleanup_status command without any pre-configured scope.",
@@ -449,6 +473,30 @@
           "type": "string",
           "const": "deny-get-recurring-meeting-history",
           "markdownDescription": "Denies the get_recurring_meeting_history command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the import_e2ee_identity command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-import-e2ee-identity",
+          "markdownDescription": "Enables the import_e2ee_identity command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the import_e2ee_identity command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-import-e2ee-identity",
+          "markdownDescription": "Denies the import_e2ee_identity command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the inspect_e2ee_recovery_key command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-inspect-e2ee-recovery-key",
+          "markdownDescription": "Enables the inspect_e2ee_recovery_key command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the inspect_e2ee_recovery_key command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-inspect-e2ee-recovery-key",
+          "markdownDescription": "Denies the inspect_e2ee_recovery_key command without any pre-configured scope."
         },
         {
           "description": "Enables the list_meetings command without any pre-configured scope.",
@@ -547,10 +595,10 @@
           "markdownDescription": "Denies the unsubscribe command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-execute`\n- `allow-execute-proxy`\n- `allow-execute-transaction`\n- `allow-list-meetings`\n- `allow-get-meeting`\n- `allow-get-meeting-transcript`\n- `allow-get-recurring-meeting-history`\n- `allow-get-legacy-cleanup-status`\n- `allow-cleanup-legacy-files`\n- `allow-subscribe`\n- `allow-unsubscribe`\n- `allow-configure-cloudsync`\n- `allow-bind-cloudsync-account`\n- `allow-configure-cloudsync-token`\n- `allow-start-cloudsync`\n- `allow-stop-cloudsync`\n- `allow-suspend-cloudsync`\n- `allow-get-cloudsync-status`\n- `allow-sync-cloudsync-now`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-execute`\n- `allow-execute-proxy`\n- `allow-execute-transaction`\n- `allow-list-meetings`\n- `allow-get-meeting`\n- `allow-get-meeting-transcript`\n- `allow-get-recurring-meeting-history`\n- `allow-get-legacy-cleanup-status`\n- `allow-cleanup-legacy-files`\n- `allow-get-e2ee-identity-status`\n- `allow-inspect-e2ee-recovery-key`\n- `allow-create-e2ee-identity`\n- `allow-import-e2ee-identity`\n- `allow-subscribe`\n- `allow-unsubscribe`\n- `allow-configure-cloudsync`\n- `allow-bind-cloudsync-account`\n- `allow-configure-cloudsync-token`\n- `allow-start-cloudsync`\n- `allow-stop-cloudsync`\n- `allow-suspend-cloudsync`\n- `allow-get-cloudsync-status`\n- `allow-sync-cloudsync-now`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-execute`\n- `allow-execute-proxy`\n- `allow-execute-transaction`\n- `allow-list-meetings`\n- `allow-get-meeting`\n- `allow-get-meeting-transcript`\n- `allow-get-recurring-meeting-history`\n- `allow-get-legacy-cleanup-status`\n- `allow-cleanup-legacy-files`\n- `allow-subscribe`\n- `allow-unsubscribe`\n- `allow-configure-cloudsync`\n- `allow-bind-cloudsync-account`\n- `allow-configure-cloudsync-token`\n- `allow-start-cloudsync`\n- `allow-stop-cloudsync`\n- `allow-suspend-cloudsync`\n- `allow-get-cloudsync-status`\n- `allow-sync-cloudsync-now`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-execute`\n- `allow-execute-proxy`\n- `allow-execute-transaction`\n- `allow-list-meetings`\n- `allow-get-meeting`\n- `allow-get-meeting-transcript`\n- `allow-get-recurring-meeting-history`\n- `allow-get-legacy-cleanup-status`\n- `allow-cleanup-legacy-files`\n- `allow-get-e2ee-identity-status`\n- `allow-inspect-e2ee-recovery-key`\n- `allow-create-e2ee-identity`\n- `allow-import-e2ee-identity`\n- `allow-subscribe`\n- `allow-unsubscribe`\n- `allow-configure-cloudsync`\n- `allow-bind-cloudsync-account`\n- `allow-configure-cloudsync-token`\n- `allow-start-cloudsync`\n- `allow-stop-cloudsync`\n- `allow-suspend-cloudsync`\n- `allow-get-cloudsync-status`\n- `allow-sync-cloudsync-now`"
         }
       ]
     }

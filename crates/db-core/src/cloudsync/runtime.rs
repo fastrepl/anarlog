@@ -110,6 +110,7 @@ impl Db {
         let pool = self.pool.clone();
         let connection = Arc::clone(&self.cloudsync_connection);
         let runtime_state = Arc::clone(&self.cloudsync_runtime);
+        let sync_hook = Arc::clone(&self.cloudsync_sync_hook);
         let wait_ms = config.wait_ms;
         let max_retries = config.max_retries;
         let sync_interval_ms = config.sync_interval_ms;
@@ -118,6 +119,7 @@ impl Db {
                 pool,
                 connection,
                 runtime_state,
+                sync_hook,
                 sync_interval_ms,
                 wait_ms,
                 max_retries,
@@ -322,7 +324,15 @@ impl Db {
             return Err(CloudsyncRuntimeError::NotStarted);
         }
 
-        match self.cloudsync_network_sync(wait_ms, max_retries).await {
+        let result = async {
+            run_before_sync_hook(&self.cloudsync_sync_hook, &self.pool).await?;
+            let result = self.cloudsync_network_sync(wait_ms, max_retries).await?;
+            run_after_sync_hook(&self.cloudsync_sync_hook, &self.pool).await?;
+            Ok::<_, hypr_cloudsync::Error>(result)
+        }
+        .await;
+
+        match result {
             Ok(result) => {
                 record_sync_result(&self.cloudsync_runtime, result.clone());
                 Ok(result)
@@ -855,6 +865,7 @@ async fn cloudsync_background_loop(
     pool: SqlitePool,
     connection: Arc<tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>>,
     runtime_state: Arc<Mutex<CloudsyncRuntimeState>>,
+    sync_hook: Arc<Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>>,
     sync_interval_ms: u64,
     wait_ms: Option<i64>,
     max_retries: Option<i64>,
@@ -870,6 +881,7 @@ async fn cloudsync_background_loop(
                     &pool,
                     &connection,
                     &runtime_state,
+                    &sync_hook,
                     base_interval,
                     wait_ms,
                     max_retries,
@@ -902,6 +914,7 @@ async fn sync_cloudsync_with_retry(
     pool: &SqlitePool,
     connection: &tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>,
     runtime_state: &Mutex<CloudsyncRuntimeState>,
+    sync_hook: &Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>,
     base_interval: Duration,
     wait_ms: Option<i64>,
     max_retries: Option<i64>,
@@ -914,7 +927,7 @@ async fn sync_cloudsync_with_retry(
         .build();
 
     loop {
-        match sync_cloudsync_connection(pool, connection, wait_ms, max_retries).await {
+        match sync_cloudsync_connection(pool, connection, sync_hook, wait_ms, max_retries).await {
             Err(error) if error.kind() == hypr_cloudsync::ErrorKind::Transient => {
                 let Some(retry_after) = backoff.next() else {
                     return Some(Err(error));
@@ -956,9 +969,11 @@ async fn wait_for_retry_or_shutdown(
 async fn sync_cloudsync_connection(
     pool: &SqlitePool,
     connection: &tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>,
+    sync_hook: &Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>,
     wait_ms: Option<i64>,
     max_retries: Option<i64>,
 ) -> Result<CloudsyncNetworkResult, hypr_cloudsync::Error> {
+    run_before_sync_hook(sync_hook, pool).await?;
     let mut connection = connection.lock().await;
     if connection.is_none() {
         *connection = Some(pool.acquire().await?);
@@ -969,7 +984,31 @@ async fn sync_cloudsync_connection(
     if pool.options().get_max_connections() == 1 {
         connection.take();
     }
-    result
+    let result = result?;
+    run_after_sync_hook(sync_hook, pool).await?;
+    Ok(result)
+}
+
+async fn run_before_sync_hook(
+    hook: &Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>,
+    pool: &SqlitePool,
+) -> Result<(), hypr_cloudsync::Error> {
+    let hook = hook.lock().unwrap().clone();
+    match hook {
+        Some(hook) => hook.before_sync(pool).await,
+        None => Ok(()),
+    }
+}
+
+async fn run_after_sync_hook(
+    hook: &Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>,
+    pool: &SqlitePool,
+) -> Result<(), hypr_cloudsync::Error> {
+    let hook = hook.lock().unwrap().clone();
+    match hook {
+        Some(hook) => hook.after_sync(pool).await,
+        None => Ok(()),
+    }
 }
 
 fn now_ms() -> u64 {

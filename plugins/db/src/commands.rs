@@ -2,6 +2,25 @@ use tauri::ipc::Channel;
 
 use crate::{ExecuteProxyResult, ManagedState, QueryEvent, TransactionStatement};
 
+const E2EE_SECRET_SCOPE: &str = "e2ee";
+
+fn e2ee_recovery_key_name(account_user_id: &str) -> Result<String, String> {
+    let account_user_id = uuid::Uuid::parse_str(account_user_id.trim())
+        .map_err(|_| "E2EE account ID is invalid".to_string())?;
+    Ok(format!("account:{account_user_id}:recovery-v1"))
+}
+
+async fn load_e2ee_recovery_key<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    account_user_id: &str,
+) -> Result<Option<hypr_e2ee::RecoveryKey>, String> {
+    let key = e2ee_recovery_key_name(account_user_id)?;
+    tauri_plugin_store2::read_secret(app, E2EE_SECRET_SCOPE.to_string(), key)
+        .await?
+        .map(|value| hypr_e2ee::RecoveryKey::parse(&value).map_err(|error| error.to_string()))
+        .transpose()
+}
+
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn list_meetings(
@@ -134,6 +153,76 @@ pub(crate) async fn run_legacy_import(
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) async fn get_e2ee_identity_status<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    account_user_id: String,
+) -> Result<crate::E2eeIdentityStatus, String> {
+    let recovery_key = load_e2ee_recovery_key(app, &account_user_id).await?;
+    Ok(crate::E2eeIdentityStatus {
+        configured: recovery_key.is_some(),
+        key_id: recovery_key.map(|key| key.key_id()),
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) fn inspect_e2ee_recovery_key(
+    recovery_key: String,
+) -> Result<crate::E2eeRecoveryKeyIdentity, String> {
+    let recovery_key =
+        hypr_e2ee::RecoveryKey::parse(&recovery_key).map_err(|error| error.to_string())?;
+    Ok(crate::E2eeRecoveryKeyIdentity {
+        key_id: recovery_key.key_id(),
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn create_e2ee_identity<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    account_user_id: String,
+) -> Result<String, String> {
+    e2ee_recovery_key_name(&account_user_id)?;
+    if load_e2ee_recovery_key(app.clone(), &account_user_id)
+        .await?
+        .is_some()
+    {
+        return Err("E2EE recovery key is already configured".to_string());
+    }
+
+    let recovery_key = hypr_e2ee::RecoveryKey::generate().map_err(|error| error.to_string())?;
+    let recovery_code = recovery_key.expose_code();
+    Ok(recovery_code.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn import_e2ee_identity<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    account_user_id: String,
+    recovery_key: String,
+) -> Result<(), String> {
+    let key_name = e2ee_recovery_key_name(&account_user_id)?;
+    if load_e2ee_recovery_key(app.clone(), &account_user_id)
+        .await?
+        .is_some()
+    {
+        return Err("E2EE recovery key is already configured".to_string());
+    }
+
+    let recovery_key =
+        hypr_e2ee::RecoveryKey::parse(&recovery_key).map_err(|error| error.to_string())?;
+    tauri_plugin_store2::write_secret(
+        app,
+        E2EE_SECRET_SCOPE.to_string(),
+        key_name,
+        recovery_key.expose_code().to_string(),
+    )
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn subscribe(
     state: tauri::State<'_, ManagedState>,
     sql: String,
@@ -176,13 +265,27 @@ pub(crate) async fn configure_cloudsync(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn configure_cloudsync_token(
+pub(crate) async fn configure_cloudsync_token<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     state: tauri::State<'_, ManagedState>,
     database_id: String,
     token: String,
     workspace_id: String,
     workspace_projection: Option<crate::CloudsyncWorkspaceProjection>,
 ) -> Result<crate::CloudsyncTokenConfigurationResult, String> {
+    let personal_workspace_id = workspace_projection
+        .as_ref()
+        .map(|projection| projection.personal_workspace_id.as_str())
+        .unwrap_or(workspace_id.as_str());
+    let recovery_key = load_e2ee_recovery_key(app, &workspace_id)
+        .await?
+        .ok_or_else(|| {
+            "end-to-end encryption recovery key setup is required before CloudSync can start"
+                .to_string()
+        })?;
+    state
+        .set_e2ee_recovery_key(personal_workspace_id, &recovery_key)
+        .map_err(|error| error.to_string())?;
     state
         .configure_cloudsync_token_with_projection(
             database_id,

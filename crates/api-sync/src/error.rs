@@ -14,6 +14,9 @@ pub enum SyncError {
     #[error("Anarlog Pro is required for CloudSync")]
     ProPlanRequired,
 
+    #[error("This account is protected by a different E2EE recovery key")]
+    E2eeKeyMismatch,
+
     #[error("Shared note publication is not permitted")]
     SnapshotPublicationForbidden,
 
@@ -38,6 +41,11 @@ impl IntoResponse for SyncError {
                 StatusCode::FORBIDDEN,
                 "subscription_required",
                 "Anarlog Pro is required for CloudSync".to_string(),
+            ),
+            Self::E2eeKeyMismatch => (
+                StatusCode::CONFLICT,
+                "e2ee_key_mismatch",
+                "This account is protected by a different E2EE recovery key".to_string(),
             ),
             Self::SnapshotPublicationForbidden => (
                 StatusCode::FORBIDDEN,

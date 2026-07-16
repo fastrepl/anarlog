@@ -114,23 +114,24 @@ impl CloudsyncWorkspaceReconciliationPlan {
 
 static CLOUDSYNC_TABLE_REGISTRY: LazyLock<Vec<CloudsyncTableSpec>> = LazyLock::new(|| {
     [
-        ("action_items", true),
+        ("action_items", false),
         ("calendars", false),
         ("chat_groups", false),
         ("chat_messages", false),
         ("daily_notes", false),
+        ("e2ee_records", true),
         ("entity_mentions", false),
         ("events", false),
-        ("humans", true),
-        ("organizations", true),
-        ("session_attachments", true),
-        ("session_documents", true),
-        ("session_participants", true),
+        ("humans", false),
+        ("organizations", false),
+        ("session_attachments", false),
+        ("session_documents", false),
+        ("session_participants", false),
         ("session_tags", false),
-        ("sessions", true),
+        ("sessions", false),
         ("tags", false),
         ("templates", false),
-        ("transcripts", true),
+        ("transcripts", false),
         ("workspace_memberships", false),
         ("workspaces", false),
     ]
@@ -149,9 +150,7 @@ pub fn cloudsync_table_registry() -> &'static [CloudsyncTableSpec] {
 }
 
 pub fn cloudsync_alter_guard_required(table_name: &str) -> bool {
-    cloudsync_table_registry()
-        .iter()
-        .any(|table| table.enabled && table.table_name == table_name)
+    table_name == "e2ee_records" || crate::E2EE_DOMAIN_TABLES.contains(&table_name)
 }
 
 pub async fn ensure_cloudsync_workspace_binding(
@@ -236,13 +235,10 @@ pub async fn claim_cloudsync_workspace(
         return Ok(());
     }
 
-    for table in cloudsync_table_registry()
-        .iter()
-        .filter(|table| table.enabled)
-    {
+    for table_name in crate::E2EE_DOMAIN_TABLES {
         let foreign_sql = format!(
             "SELECT EXISTS(SELECT 1 FROM {} WHERE workspace_id <> '' AND workspace_id <> ? AND workspace_id <> ?)",
-            table.table_name
+            table_name
         );
         let has_foreign_workspace: bool =
             sqlx::query_scalar(sqlx::AssertSqlSafe(foreign_sql.as_str()))
@@ -252,24 +248,21 @@ pub async fn claim_cloudsync_workspace(
                 .await?;
         if has_foreign_workspace {
             return Err(CloudsyncWorkspaceError::ForeignWorkspace {
-                table: table.table_name.clone(),
+                table: table_name.to_string(),
             });
         }
     }
 
-    for table in cloudsync_table_registry()
-        .iter()
-        .filter(|table| table.enabled)
-    {
+    for table_name in crate::E2EE_DOMAIN_TABLES {
         let update_sql = if binding.workspace_id == account_user_id {
             format!(
                 "UPDATE {} SET workspace_id = ? WHERE workspace_id = ''",
-                table.table_name
+                table_name
             )
         } else {
             format!(
                 "UPDATE {} SET workspace_id = ? WHERE workspace_id = '' OR workspace_id = ?",
-                table.table_name
+                table_name
             )
         };
         let mut query = sqlx::query(sqlx::AssertSqlSafe(update_sql.as_str())).bind(account_user_id);
@@ -1400,19 +1393,16 @@ mod tests {
 
         assert_eq!(changes_after_repeat, changes_before_repeat);
 
-        for table in cloudsync_table_registry()
-            .iter()
-            .filter(|table| table.enabled)
-        {
+        for table_name in crate::E2EE_DOMAIN_TABLES {
             let sql = format!(
                 "SELECT COUNT(*) FROM {} WHERE workspace_id <> 'user-a'",
-                table.table_name
+                table_name
             );
             let count: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(sql.as_str()))
                 .fetch_one(db.pool())
                 .await
                 .unwrap();
-            assert_eq!(count, 0, "{} was not claimed", table.table_name);
+            assert_eq!(count, 0, "{table_name} was not claimed");
         }
     }
 
