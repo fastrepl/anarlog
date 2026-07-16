@@ -225,7 +225,7 @@ export function SelectProviderAndModel() {
       <SettingsAlertToast
         id="stt-settings-alert"
         description={alertDescription}
-        variant={hasError ? "error" : "default"}
+        variant={hasError ? "error" : "warning"}
       />
       {!alertDescription && <TranscriptionLanguageWarningToast />}
 

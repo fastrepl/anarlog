@@ -267,7 +267,7 @@ export function SelectProviderAndModel() {
       <SettingsAlertToast
         id="llm-settings-alert"
         description={alertDescription}
-        variant={hasError ? "error" : "default"}
+        variant={hasError ? "error" : "warning"}
       />
 
       <h3 className="text-md font-sans font-semibold">

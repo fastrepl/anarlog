@@ -225,7 +225,7 @@ export const useRunBatch = (sessionId: string) => {
         : fallbackTarget;
 
       if (!shouldUseSelectedTarget) {
-        sonnerToast.message("Using a batch transcription provider", {
+        sonnerToast.warning("Using a batch transcription provider", {
           description: `${
             selectedTarget
               ? selectedProviderLabel(conn, selectedModel)

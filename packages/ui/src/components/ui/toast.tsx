@@ -8,11 +8,13 @@ type ToasterProps = ComponentProps<typeof Sonner>;
 const Toaster = ({
   theme = "system",
   position = "bottom-right",
+  richColors = true,
   ...props
 }: ToasterProps) => (
   <Sonner
     theme={theme}
     position={position}
+    richColors={richColors}
     className="toaster group"
     toastOptions={{
       classNames: {

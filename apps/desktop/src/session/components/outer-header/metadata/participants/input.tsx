@@ -397,12 +397,12 @@ function useEventContactEnhancement(sessionId: string) {
       const toastId = `event-contact-enhancement-${humanId}`;
 
       if (extraction.contacts.length === 0 || !applied.matched) {
-        sonnerToast.message("No contact detail found", { id: toastId });
+        sonnerToast.info("No contact detail found", { id: toastId });
         return;
       }
 
       if (changed === 0) {
-        sonnerToast.message("Contact already up to date", { id: toastId });
+        sonnerToast.info("Contact already up to date", { id: toastId });
         return;
       }
 

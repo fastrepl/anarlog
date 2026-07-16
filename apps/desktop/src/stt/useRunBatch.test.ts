@@ -19,7 +19,7 @@ const {
   useBillingAccessMock,
   useConfigValueMock,
   isSupportedLanguagesBatchMock,
-  sonnerToastMessageMock,
+  sonnerToastWarningMock,
   deleteProcessedAudioForRetentionMock,
   createTranscriptMock,
   appendTranscriptWordsAndHintsMock,
@@ -34,7 +34,7 @@ const {
   useBillingAccessMock: vi.fn(),
   useConfigValueMock: vi.fn(),
   isSupportedLanguagesBatchMock: vi.fn(),
-  sonnerToastMessageMock: vi.fn(),
+  sonnerToastWarningMock: vi.fn(),
   deleteProcessedAudioForRetentionMock: vi.fn(),
   createTranscriptMock: vi.fn(),
   appendTranscriptWordsAndHintsMock: vi.fn(),
@@ -56,7 +56,7 @@ vi.mock("./useSTTConnection", () => ({
 
 vi.mock("@hypr/ui/components/ui/toast", () => ({
   sonnerToast: {
-    message: sonnerToastMessageMock,
+    warning: sonnerToastWarningMock,
   },
 }));
 
@@ -381,7 +381,7 @@ describe("useRunBatch", () => {
       }),
       expect.any(Object),
     );
-    expect(sonnerToastMessageMock).toHaveBeenCalledWith(
+    expect(sonnerToastWarningMock).toHaveBeenCalledWith(
       "Using a batch transcription provider",
       expect.objectContaining({
         description:
@@ -412,7 +412,7 @@ describe("useRunBatch", () => {
       }),
       expect.any(Object),
     );
-    expect(sonnerToastMessageMock).toHaveBeenCalledWith(
+    expect(sonnerToastWarningMock).toHaveBeenCalledWith(
       "Using a batch transcription provider",
       expect.objectContaining({
         description:
