@@ -33,6 +33,7 @@ pub struct SyncConfig {
     pub(crate) token_ttl_seconds: u64,
     pub(crate) supabase_url: String,
     pub(crate) supabase_anon_key: String,
+    pub(crate) supabase_service_role_key: String,
 }
 
 impl SyncConfig {
@@ -42,11 +43,18 @@ impl SyncConfig {
         database_id: impl Into<String>,
         supabase_url: impl Into<String>,
         supabase_anon_key: impl Into<String>,
+        supabase_service_role_key: impl Into<String>,
     ) -> Result<Self, String> {
         let supabase_anon_key = supabase_anon_key.into();
         if supabase_anon_key.trim().is_empty() {
             return Err(
                 "SUPABASE_ANON_KEY is required for CloudSync workspace projection".to_string(),
+            );
+        }
+        let supabase_service_role_key = supabase_service_role_key.into();
+        if supabase_service_role_key.trim().is_empty() {
+            return Err(
+                "SUPABASE_SERVICE_ROLE_KEY is required for shared note publication".to_string(),
             );
         }
 
@@ -57,6 +65,7 @@ impl SyncConfig {
             token_ttl_seconds: DEFAULT_TOKEN_TTL_SECONDS,
             supabase_url: validate_supabase_url(supabase_url.into())?,
             supabase_anon_key,
+            supabase_service_role_key,
         })
     }
 
@@ -70,6 +79,7 @@ impl SyncConfig {
         env: &SyncEnv,
         supabase_url: &str,
         supabase_anon_key: &str,
+        supabase_service_role_key: &str,
     ) -> Result<Option<Self>, String> {
         let project_url = nonempty(env.sqlitecloud_project_url.as_deref());
         let token_issuer_api_key = nonempty(env.sqlitecloud_token_issuer_api_key.as_deref());
@@ -102,6 +112,7 @@ impl SyncConfig {
                 database_id,
                 supabase_url,
                 supabase_anon_key,
+                supabase_service_role_key,
             )?
             .with_token_ttl_seconds(token_ttl_seconds)?,
         ))
@@ -190,7 +201,12 @@ mod tests {
     }
 
     fn config(env: &SyncEnv) -> Result<Option<SyncConfig>, String> {
-        SyncConfig::from_env(env, "https://project.supabase.co", "anon-key")
+        SyncConfig::from_env(
+            env,
+            "https://project.supabase.co",
+            "anon-key",
+            "service-role-key",
+        )
     }
 
     #[test]
@@ -234,15 +250,66 @@ mod tests {
     fn validates_supabase_workspace_projection_config() {
         let sync_env = env("https://project.gateway.sqlite.cloud", None);
 
-        assert!(SyncConfig::from_env(&sync_env, "not-a-url", "anon-key").is_err());
-        assert!(SyncConfig::from_env(&sync_env, "http://project.supabase.co", "anon-key").is_err());
-        assert!(SyncConfig::from_env(&sync_env, "http://localhost:54321", "anon-key").is_ok());
-        assert!(SyncConfig::from_env(&sync_env, "http://127.0.0.1:54321", "anon-key").is_ok());
-        assert!(SyncConfig::from_env(&sync_env, "http://[::1]:54321", "anon-key").is_ok());
         assert!(
-            SyncConfig::from_env(&sync_env, "https://project.supabase.co/path", "anon-key")
+            SyncConfig::from_env(&sync_env, "not-a-url", "anon-key", "service-role-key").is_err()
+        );
+        assert!(
+            SyncConfig::from_env(
+                &sync_env,
+                "http://project.supabase.co",
+                "anon-key",
+                "service-role-key",
+            )
+            .is_err()
+        );
+        assert!(
+            SyncConfig::from_env(
+                &sync_env,
+                "http://localhost:54321",
+                "anon-key",
+                "service-role-key",
+            )
+            .is_ok()
+        );
+        assert!(
+            SyncConfig::from_env(
+                &sync_env,
+                "http://127.0.0.1:54321",
+                "anon-key",
+                "service-role-key",
+            )
+            .is_ok()
+        );
+        assert!(
+            SyncConfig::from_env(
+                &sync_env,
+                "http://[::1]:54321",
+                "anon-key",
+                "service-role-key",
+            )
+            .is_ok()
+        );
+        assert!(
+            SyncConfig::from_env(
+                &sync_env,
+                "https://project.supabase.co/path",
+                "anon-key",
+                "service-role-key",
+            )
+            .is_err()
+        );
+        assert!(
+            SyncConfig::from_env(
+                &sync_env,
+                "https://project.supabase.co",
+                "   ",
+                "service-role-key",
+            )
+            .is_err()
+        );
+        assert!(
+            SyncConfig::from_env(&sync_env, "https://project.supabase.co", "anon-key", "   ",)
                 .is_err()
         );
-        assert!(SyncConfig::from_env(&sync_env, "https://project.supabase.co", "   ").is_err());
     }
 }

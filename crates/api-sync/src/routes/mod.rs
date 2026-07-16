@@ -2,22 +2,29 @@ use std::collections::HashSet;
 
 use axum::{
     Extension, Json, Router,
-    extract::State,
+    extract::{DefaultBodyLimit, Path, State},
     http::{HeaderValue, header},
-    routing::post,
+    routing::{post, put},
 };
 use chrono::{SecondsFormat, TimeDelta, Utc};
 use hypr_api_auth::AuthContext;
+use reqwest::StatusCode as HttpStatusCode;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use utoipa::OpenApi;
+use uuid::Uuid;
 
 use crate::error::{Result, SyncError};
+use crate::snapshot::{MAX_SNAPSHOT_BODY_BYTES, sanitize_document, sanitize_title};
 use crate::state::AppState;
 
 const WORKSPACE_PROJECTION_SELECT: &str = "id,user_id,role,created_at,updated_at,workspace:workspaces!inner(id,owner_user_id,kind,name,created_at,updated_at)";
 const WORKSPACE_PROJECTION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 const MAX_TOKEN_WORKSPACES: usize = 128;
 const MAX_TOKEN_ATTRIBUTES_BYTES: usize = 8 * 1024;
+const SNAPSHOT_PUBLISH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+const MAX_SNAPSHOT_REQUEST_BYTES: usize = MAX_SNAPSHOT_BODY_BYTES + 16 * 1024;
+const MAX_SNAPSHOT_RESPONSE_BYTES: u64 = (MAX_SNAPSHOT_BODY_BYTES + 16 * 1024) as u64;
 
 #[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -85,10 +92,56 @@ struct WorkspaceRow {
     updated_at: String,
 }
 
+#[derive(Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PublishSessionShareSnapshotRequest {
+    title: String,
+    body: Value,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PublishedSessionShareSnapshot {
+    share_id: String,
+    schema_version: i16,
+    content_revision: i64,
+    title: String,
+    body: Value,
+    published_at: String,
+}
+
+#[derive(Serialize)]
+struct PublishSnapshotRpcRequest<'a> {
+    p_share_id: &'a str,
+    p_actor_user_id: &'a str,
+    p_title: &'a str,
+    p_body_json: &'a Value,
+}
+
+#[derive(Deserialize)]
+struct PublishedSnapshotRow {
+    share_id: String,
+    schema_version: i16,
+    content_revision: i64,
+    title: String,
+    body_json: Value,
+    published_at: String,
+}
+
+#[derive(Deserialize)]
+struct PostgrestError {
+    code: String,
+}
+
 #[derive(OpenApi)]
 #[openapi(
-    paths(create_credentials),
-    components(schemas(CloudsyncCredentials, CloudsyncWorkspace))
+    paths(create_credentials, publish_session_share_snapshot),
+    components(schemas(
+        CloudsyncCredentials,
+        CloudsyncWorkspace,
+        PublishSessionShareSnapshotRequest,
+        PublishedSessionShareSnapshot
+    ))
 )]
 pub struct ApiDoc;
 
@@ -99,7 +152,136 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/token", post(create_credentials))
+        .route(
+            "/shares/{share_id}/snapshot",
+            put(publish_session_share_snapshot)
+                .layer(DefaultBodyLimit::max(MAX_SNAPSHOT_REQUEST_BYTES)),
+        )
         .with_state(state)
+}
+
+#[utoipa::path(
+    put,
+    path = "/shares/{share_id}/snapshot",
+    tag = "sync",
+    params(("share_id" = String, Path, description = "Session share ID")),
+    request_body = PublishSessionShareSnapshotRequest,
+    responses(
+        (status = 200, description = "Sanitized shared-note snapshot published", body = PublishedSessionShareSnapshot),
+        (status = 400, description = "Invalid shared-note snapshot"),
+        (status = 401, description = "Authentication required"),
+        (status = 403, description = "Anarlog Pro or share-manager access required"),
+        (status = 413, description = "Shared-note snapshot is too large"),
+        (status = 502, description = "Shared-note service unavailable")
+    )
+)]
+async fn publish_session_share_snapshot(
+    Extension(auth): Extension<AuthContext>,
+    State(state): State<AppState>,
+    Path(share_id): Path<String>,
+    Json(request): Json<PublishSessionShareSnapshotRequest>,
+) -> Result<(
+    [(header::HeaderName, HeaderValue); 1],
+    Json<PublishedSessionShareSnapshot>,
+)> {
+    if !auth.claims.is_pro() {
+        return Err(SyncError::ProPlanRequired);
+    }
+
+    let share_id = Uuid::parse_str(&share_id)
+        .map_err(|_| SyncError::BadRequest("Shared note ID is invalid".to_string()))?
+        .to_string();
+    let title = sanitize_title(&request.title)?;
+    let body = sanitize_document(&request.body)?;
+
+    let response = state
+        .client
+        .post(format!(
+            "{}/rest/v1/rpc/publish_session_share_snapshot",
+            state.config.supabase_url
+        ))
+        .header("apikey", &state.config.supabase_service_role_key)
+        .bearer_auth(&state.config.supabase_service_role_key)
+        .timeout(SNAPSHOT_PUBLISH_TIMEOUT)
+        .json(&PublishSnapshotRpcRequest {
+            p_share_id: &share_id,
+            p_actor_user_id: &auth.claims.sub,
+            p_title: &title,
+            p_body_json: &body,
+        })
+        .send()
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "Supabase shared-note publication request failed");
+            SyncError::SnapshotServiceUnavailable
+        })?;
+    let status = response.status();
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_SNAPSHOT_RESPONSE_BYTES)
+    {
+        tracing::warn!(%status, "Supabase shared-note publication response was too large");
+        return Err(SyncError::SnapshotServiceUnavailable);
+    }
+    let bytes = response.bytes().await.map_err(|error| {
+        tracing::warn!(%error, "Supabase shared-note publication response could not be read");
+        SyncError::SnapshotServiceUnavailable
+    })?;
+    if bytes.len() as u64 > MAX_SNAPSHOT_RESPONSE_BYTES {
+        tracing::warn!(%status, "Supabase shared-note publication response was too large");
+        return Err(SyncError::SnapshotServiceUnavailable);
+    }
+    if !status.is_success() {
+        let code = serde_json::from_slice::<PostgrestError>(&bytes)
+            .ok()
+            .map(|error| error.code);
+        tracing::warn!(%status, ?code, "Supabase shared-note publication was rejected");
+        return match (status, code.as_deref()) {
+            (HttpStatusCode::UNAUTHORIZED | HttpStatusCode::FORBIDDEN, _) | (_, Some("42501")) => {
+                Err(SyncError::SnapshotPublicationForbidden)
+            }
+            (_, Some("22023")) => Err(SyncError::BadRequest(
+                "Shared note snapshot is invalid".to_string(),
+            )),
+            _ => Err(SyncError::SnapshotServiceUnavailable),
+        };
+    }
+
+    let mut rows =
+        serde_json::from_slice::<Vec<PublishedSnapshotRow>>(&bytes).map_err(|error| {
+            tracing::warn!(%error, "Supabase shared-note publication response was invalid");
+            SyncError::SnapshotServiceUnavailable
+        })?;
+    if rows.len() != 1 {
+        tracing::warn!(
+            row_count = rows.len(),
+            "Supabase shared-note publication returned an invalid row count"
+        );
+        return Err(SyncError::SnapshotServiceUnavailable);
+    }
+    let row = rows.pop().expect("row count was checked");
+    if row.share_id != share_id
+        || row.schema_version != 1
+        || row.content_revision < 1
+        || row.title != title
+        || row.body_json != body
+        || chrono::DateTime::parse_from_rfc3339(&row.published_at).is_err()
+    {
+        tracing::warn!("Supabase shared-note publication response failed validation");
+        return Err(SyncError::SnapshotServiceUnavailable);
+    }
+
+    Ok((
+        [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
+        Json(PublishedSessionShareSnapshot {
+            share_id: row.share_id,
+            schema_version: row.schema_version,
+            content_revision: row.content_revision,
+            title: row.title,
+            body: row.body_json,
+            published_at: row.published_at,
+        }),
+    ))
 }
 
 #[utoipa::path(
@@ -360,6 +542,7 @@ mod tests {
             token_ttl_seconds: 60,
             supabase_url: server.uri(),
             supabase_anon_key: "anon-key".to_string(),
+            supabase_service_role_key: "service-role-key".to_string(),
         }))
         .layer(Extension(AuthContext {
             token: "supabase-token".to_string(),
@@ -731,5 +914,191 @@ mod tests {
         let body = response_json(response).await.to_string();
         assert!(!body.contains("issuer-secret"));
         assert!(!body.contains("upstream detail"));
+    }
+
+    #[tokio::test]
+    async fn publishes_only_the_sanitized_snapshot_as_the_authenticated_actor() {
+        let server = MockServer::start().await;
+        let share_id = "11111111-1111-4111-8111-111111111111";
+        let sanitized_body = json!({
+            "type": "doc",
+            "content": [
+                {
+                    "type": "paragraph",
+                    "content": [
+                        { "type": "text", "text": "Shared note" },
+                        { "type": "text", "text": "Planning" }
+                    ]
+                },
+                {
+                    "type": "paragraph",
+                    "content": [{ "type": "text", "text": "Attachment omitted" }]
+                }
+            ]
+        });
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/publish_session_share_snapshot"))
+            .and(header("apikey", "service-role-key"))
+            .and(header("authorization", "Bearer service-role-key"))
+            .and(body_partial_json(json!({
+                "p_share_id": share_id,
+                "p_actor_user_id": "user-123",
+                "p_title": "Quarterly plan",
+                "p_body_json": sanitized_body
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "share_id": share_id,
+                "schema_version": 1,
+                "content_revision": 2,
+                "title": "Quarterly plan",
+                "body_json": sanitized_body,
+                "published_at": "2026-07-16T10:00:00Z"
+            }])))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+            .oneshot(
+                Request::put(format!("/shares/{share_id}/snapshot"))
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        json!({
+                            "title": "  Quarterly plan  ",
+                            "body": {
+                                "type": "doc",
+                                "attrs": { "workspaceId": "private-workspace" },
+                                "content": [
+                                    {
+                                        "type": "paragraph",
+                                        "content": [
+                                            { "type": "text", "text": "Shared note" },
+                                            {
+                                                "type": "mention-@",
+                                                "attrs": {
+                                                    "id": "private-mention-id",
+                                                    "type": "session",
+                                                    "label": "Planning"
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "image",
+                                        "attrs": {
+                                            "src": "asset://localhost/Users/alice/secret.png",
+                                            "attachmentId": "private-attachment-id"
+                                        }
+                                    }
+                                ]
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        let body = response_json(response).await;
+        assert_eq!(body["shareId"], share_id);
+        assert_eq!(body["schemaVersion"], 1);
+        assert_eq!(body["contentRevision"], 2);
+        assert_eq!(body["title"], "Quarterly plan");
+        assert_eq!(body["body"], sanitized_body);
+
+        let requests = server.received_requests().await.unwrap();
+        let published = String::from_utf8(requests[0].body.clone()).unwrap();
+        assert!(!published.contains("private-workspace"));
+        assert!(!published.contains("private-mention-id"));
+        assert!(!published.contains("/Users/alice"));
+        assert!(!published.contains("private-attachment-id"));
+        assert!(!published.contains("supabase-token"));
+    }
+
+    #[tokio::test]
+    async fn rejects_invalid_snapshot_requests_before_calling_supabase() {
+        let cases = [
+            (
+                "/shares/not-a-uuid/snapshot".to_string(),
+                json!({ "title": "Title", "body": { "type": "doc" } }),
+            ),
+            (
+                "/shares/11111111-1111-4111-8111-111111111111/snapshot".to_string(),
+                json!({ "title": "Title", "body": { "type": "paragraph" } }),
+            ),
+        ];
+
+        for (path, payload) in cases {
+            let server = MockServer::start().await;
+            let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+                .oneshot(
+                    Request::put(path)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(payload.to_string()))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+            assert!(server.received_requests().await.unwrap().is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn rejects_snapshot_publication_without_pro_entitlement() {
+        let server = MockServer::start().await;
+        let response = test_router(&server, "issuer-key", &[])
+            .oneshot(
+                Request::put("/shares/11111111-1111-4111-8111-111111111111/snapshot")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        json!({ "title": "Title", "body": { "type": "doc" } }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        assert_eq!(
+            response_json(response).await["error"]["code"],
+            "subscription_required"
+        );
+        assert!(server.received_requests().await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn maps_manager_denial_without_leaking_supabase_details() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/publish_session_share_snapshot"))
+            .respond_with(ResponseTemplate::new(403).set_body_json(json!({
+                "code": "42501",
+                "message": "secret database detail"
+            })))
+            .mount(&server)
+            .await;
+
+        let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+            .oneshot(
+                Request::put("/shares/11111111-1111-4111-8111-111111111111/snapshot")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        json!({ "title": "Title", "body": { "type": "doc" } }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = response_json(response).await.to_string();
+        assert!(body.contains("shared_note_publication_forbidden"));
+        assert!(!body.contains("secret database detail"));
+        assert!(!body.contains("service-role-key"));
     }
 }
