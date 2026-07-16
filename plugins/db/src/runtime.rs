@@ -60,6 +60,19 @@ impl PluginDbRuntime {
         Ok(())
     }
 
+    async fn ensure_legacy_migration_verified(&self) -> Result<()> {
+        self.ensure_app_schema().await?;
+        if crate::import::legacy_migration_verified(self.db.pool()).await? {
+            return Ok(());
+        }
+
+        let _ = self.db.cloudsync_suspend().await;
+        Err(std::io::Error::other(
+            "legacy data migration needs attention before CloudSync can start",
+        )
+        .into())
+    }
+
     pub async fn execute(
         &self,
         sql: String,
@@ -126,6 +139,7 @@ impl PluginDbRuntime {
     }
 
     pub async fn configure_cloudsync(&self, config_json: String) -> Result<()> {
+        self.ensure_legacy_migration_verified().await?;
         let config = serde_json::from_str(&config_json)?;
         self.db.cloudsync_configure(config).await?;
         Ok(())
@@ -140,6 +154,7 @@ impl PluginDbRuntime {
         if !self.db.cloudsync_enabled() {
             return Err(hypr_db_core::CloudsyncRuntimeError::Unavailable.into());
         }
+        self.ensure_legacy_migration_verified().await?;
 
         if !self.claim_cloudsync_workspace(workspace_id).await? {
             return Ok(crate::CloudsyncTokenConfigurationResult::AccountMismatch);
@@ -214,7 +229,7 @@ impl PluginDbRuntime {
     }
 
     pub async fn start_cloudsync(&self) -> Result<()> {
-        self.ensure_app_schema().await?;
+        self.ensure_legacy_migration_verified().await?;
         self.db.cloudsync_start().await?;
         Ok(())
     }
@@ -234,6 +249,7 @@ impl PluginDbRuntime {
     }
 
     pub async fn sync_cloudsync_now(&self) -> Result<serde_json::Value> {
+        self.ensure_legacy_migration_verified().await?;
         Ok(serde_json::to_value(
             self.db.cloudsync_trigger_sync().await?,
         )?)

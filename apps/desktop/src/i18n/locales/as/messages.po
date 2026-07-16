@@ -1383,6 +1383,7 @@ msgstr ""
 
 #: src/chat/components/message/error.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
+#: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Retry"
 msgstr ""
 

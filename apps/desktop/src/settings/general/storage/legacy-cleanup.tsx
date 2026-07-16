@@ -3,12 +3,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2Icon,
   Loader2Icon,
+  RotateCcwIcon,
   Trash2Icon,
   TriangleAlertIcon,
 } from "lucide-react";
 import { useState } from "react";
 
-import { cleanupLegacyFiles, getLegacyCleanupStatus } from "@hypr/plugin-db";
+import {
+  cleanupLegacyFiles,
+  getLegacyCleanupStatus,
+  getLegacyImportReport,
+  runLegacyImport,
+} from "@hypr/plugin-db";
 import { Button } from "@hypr/ui/components/ui/button";
 import {
   Dialog,
@@ -19,15 +25,21 @@ import {
   DialogTitle,
 } from "@hypr/ui/components/ui/dialog";
 
-const QUERY_KEY = ["legacy-migration-cleanup"] as const;
+const QUERY_KEY = ["legacy-migration"] as const;
 
 export function LegacyMigrationCleanupRow() {
   const { t } = useLingui();
   const queryClient = useQueryClient();
   const [confirmationOpen, setConfirmationOpen] = useState(false);
-  const statusQuery = useQuery({
+  const migrationQuery = useQuery({
     queryKey: QUERY_KEY,
-    queryFn: getLegacyCleanupStatus,
+    queryFn: async () => {
+      const [status, report] = await Promise.all([
+        getLegacyCleanupStatus(),
+        getLegacyImportReport(),
+      ]);
+      return { status, report };
+    },
   });
   const cleanupMutation = useMutation({
     mutationFn: cleanupLegacyFiles,
@@ -36,10 +48,36 @@ export function LegacyMigrationCleanupRow() {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEY });
     },
   });
+  const retryMutation = useMutation({
+    mutationFn: () => runLegacyImport(false),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    },
+  });
 
-  const status = statusQuery.data;
+  const status = migrationQuery.data?.status;
+  const report = migrationQuery.data?.report;
+  const migrationIssue = (() => {
+    if (retryMutation.error) return retryMutation.error.message;
+
+    const latestRun = report?.latestRun;
+    if (!latestRun) return status?.blockingReason ?? null;
+    if (latestRun.error.trim()) return latestRun.error;
+
+    const issueItem = report.items.find(
+      (item) => item.status === "error" || item.status === "partial",
+    );
+    if (issueItem?.error.trim()) {
+      return `${issueItem.sourcePath}: ${issueItem.error}`;
+    }
+    if (issueItem) {
+      return `${issueItem.sourcePath}: ${issueItem.status}`;
+    }
+
+    return status?.blockingReason ?? null;
+  })();
   const statusCopy = (() => {
-    if (statusQuery.isLoading) {
+    if (migrationQuery.isLoading) {
       return {
         state: "loading" as const,
         label: t`Checking migration...`,
@@ -47,7 +85,7 @@ export function LegacyMigrationCleanupRow() {
       };
     }
 
-    if (statusQuery.error || !status) {
+    if (migrationQuery.error || !status) {
       return {
         state: "warning" as const,
         label: t`Migration status unavailable`,
@@ -60,8 +98,7 @@ export function LegacyMigrationCleanupRow() {
         state: "warning" as const,
         label: t`Migration needs attention`,
         description:
-          status.blockingReason ??
-          t`SQLite migration verification is incomplete`,
+          migrationIssue ?? t`SQLite migration verification is incomplete`,
       };
     }
 
@@ -91,28 +128,40 @@ export function LegacyMigrationCleanupRow() {
   return (
     <>
       <div className="grid grid-cols-[minmax(0,1fr)_9rem] items-center gap-3">
-        <div className="flex min-w-0 items-center gap-1.5 text-sm">
+        <div className="flex min-w-0 items-start gap-1.5 text-sm">
           {statusCopy.state === "loading" && (
-            <Loader2Icon className="text-muted-foreground size-4 shrink-0 animate-spin" />
+            <Loader2Icon className="text-muted-foreground mt-0.5 size-4 shrink-0 animate-spin" />
           )}
           {statusCopy.state === "success" && (
-            <CheckCircle2Icon className="size-4 shrink-0 text-green-600" />
+            <CheckCircle2Icon className="mt-0.5 size-4 shrink-0 text-green-600" />
           )}
           {statusCopy.state === "warning" && (
-            <TriangleAlertIcon className="size-4 shrink-0 text-yellow-600" />
+            <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-yellow-600" />
           )}
-          <span className="shrink-0 font-medium">{statusCopy.label}</span>
-          {statusCopy.description && (
-            <>
-              <span className="text-muted-foreground" aria-hidden="true">
-                ·
-              </span>
-              <span className="text-muted-foreground truncate">
+          <div className="min-w-0">
+            <p className="font-medium">{statusCopy.label}</p>
+            {statusCopy.description && (
+              <p className="text-muted-foreground mt-0.5 text-xs break-words">
                 {statusCopy.description}
-              </span>
-            </>
-          )}
+              </p>
+            )}
+          </div>
         </div>
+        {status && !status.migrationVerified && (
+          <Button
+            variant="outline"
+            className="h-9 w-full justify-center"
+            onClick={() => retryMutation.mutate()}
+            disabled={retryMutation.isPending}
+          >
+            {retryMutation.isPending ? (
+              <Loader2Icon className="size-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <RotateCcwIcon className="size-4" aria-hidden="true" />
+            )}
+            {t`Retry`}
+          </Button>
+        )}
         {status?.migrationVerified && status.available && (
           <Button
             variant="destructive"

@@ -12,52 +12,70 @@ pub async fn import_legacy_data<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
-    if !legacy_import_required(pool).await? {
+    if !legacy_import_attempt_required(pool).await? {
         return Ok(());
     }
 
     let vault_base = resolve_startup_vault_base(app)?;
-    let run_id = legacy_vault::import_legacy_vault(pool, &vault_base, false).await?;
-    require_startup_ready_import(pool, &run_id).await
-}
+    let run_id = match legacy_vault::import_legacy_vault(pool, &vault_base, false).await {
+        Ok(run_id) => run_id,
+        Err(crate::Error::Io(error)) => {
+            tracing::warn!(
+                %error,
+                "legacy import could not read its source files; continuing with recovery copies intact"
+            );
+            return Ok(());
+        }
+        Err(error) => return Err(error),
+    };
 
-async fn require_startup_ready_import(pool: &SqlitePool, run_id: &str) -> crate::Result<()> {
-    if legacy_import_required(pool).await? {
-        return Err(std::io::Error::other(format!(
-            "legacy import {run_id} did not pass parity verification; source files were left unchanged",
-        ))
-        .into());
+    if !legacy_migration_verified(pool).await? {
+        tracing::warn!(
+            %run_id,
+            "legacy import needs attention; continuing with recovery copies intact"
+        );
     }
 
     Ok(())
 }
 
-async fn legacy_import_required(pool: &SqlitePool) -> Result<bool, sqlx::Error> {
-    let startup_ready: bool = sqlx::query_scalar(
+async fn legacy_import_attempt_required(pool: &SqlitePool) -> Result<bool, sqlx::Error> {
+    let attempted: bool = sqlx::query_scalar(
         "SELECT EXISTS(
            SELECT 1
            FROM storage_migration_state AS state
-           LEFT JOIN migration_import_runs AS run ON run.id = state.latest_run_id
+           JOIN migration_import_runs AS run ON run.id = state.latest_run_id
            WHERE state.id = 'legacy_v1'
-             AND (
-               (state.importer_version = ? AND state.parity_verified = 1)
-               OR (
-                 run.importer_version = ?
-                 AND run.dry_run = 0
-                 AND run.status = 'completed_with_conflicts'
-                 AND run.conflict_count > 0
-                 AND run.skipped_count = 0
-                 AND run.error_count = 0
-               )
+             AND run.importer_version = ?
+             AND run.dry_run = 0
+             AND run.status IN (
+               'completed',
+               'completed_with_conflicts',
+               'completed_with_issues',
+               'failed'
              )
          )",
     )
     .bind(hypr_db_app::LEGACY_IMPORTER_VERSION)
-    .bind(hypr_db_app::LEGACY_IMPORTER_VERSION)
     .fetch_one(pool)
     .await?;
 
-    Ok(!startup_ready)
+    Ok(!attempted)
+}
+
+pub(crate) async fn legacy_migration_verified(pool: &SqlitePool) -> Result<bool, sqlx::Error> {
+    sqlx::query_scalar(
+        "SELECT EXISTS(
+           SELECT 1
+           FROM storage_migration_state
+           WHERE id = 'legacy_v1'
+             AND importer_version = ?
+             AND parity_verified = 1
+         )",
+    )
+    .bind(hypr_db_app::LEGACY_IMPORTER_VERSION)
+    .fetch_one(pool)
+    .await
 }
 
 pub async fn rerun_legacy_import(pool: &SqlitePool, dry_run: bool) -> crate::Result<String> {
@@ -198,11 +216,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn verified_current_import_is_not_repeated_at_startup() {
+    async fn migration_verification_uses_current_importer_version() {
         let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
         hypr_db_app::prepare_schema(&db).await.unwrap();
 
-        assert!(legacy_import_required(db.pool()).await.unwrap());
+        assert!(!legacy_migration_verified(db.pool()).await.unwrap());
 
         sqlx::query(
             "UPDATE storage_migration_state
@@ -214,10 +232,7 @@ mod tests {
         .await
         .unwrap();
 
-        assert!(!legacy_import_required(db.pool()).await.unwrap());
-        require_startup_ready_import(db.pool(), "verified-run")
-            .await
-            .unwrap();
+        assert!(legacy_migration_verified(db.pool()).await.unwrap());
 
         sqlx::query(
             "UPDATE storage_migration_state
@@ -228,32 +243,43 @@ mod tests {
         .await
         .unwrap();
 
-        assert!(legacy_import_required(db.pool()).await.unwrap());
+        assert!(!legacy_migration_verified(db.pool()).await.unwrap());
     }
 
     #[tokio::test]
-    async fn incomplete_import_still_blocks_startup() {
+    async fn completed_issue_run_is_not_repeated_automatically() {
         let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
         hypr_db_app::prepare_schema(&db).await.unwrap();
 
-        let error = require_startup_ready_import(db.pool(), "run-with-errors")
-            .await
-            .unwrap_err();
+        assert!(legacy_import_attempt_required(db.pool()).await.unwrap());
+        assert_eq!(
+            finish_issue_run(db.pool(), "issue-run", "partial", 1, 0).await,
+            "completed_with_issues"
+        );
 
-        assert!(
-            error
-                .to_string()
-                .contains("did not pass parity verification")
-        );
-        assert!(
-            error
-                .to_string()
-                .contains("source files were left unchanged")
-        );
+        assert!(!legacy_import_attempt_required(db.pool()).await.unwrap());
+        assert!(!legacy_migration_verified(db.pool()).await.unwrap());
+        assert!(!legacy_migration_verified(db.pool()).await.unwrap());
     }
 
     #[tokio::test]
-    async fn conflict_only_import_allows_startup_without_verifying_parity() {
+    async fn failed_source_scan_is_left_for_explicit_retry() {
+        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
+        hypr_db_app::prepare_schema(&db).await.unwrap();
+
+        hypr_db_app::begin_legacy_import_run(db.pool(), "failed-run", "/vault", false)
+            .await
+            .unwrap();
+        hypr_db_app::fail_legacy_import_run(db.pool(), "failed-run", "permission denied")
+            .await
+            .unwrap();
+
+        assert!(!legacy_import_attempt_required(db.pool()).await.unwrap());
+        assert!(!legacy_migration_verified(db.pool()).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn conflict_only_import_preserves_cleanup_guard() {
         let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
         hypr_db_app::prepare_schema(&db).await.unwrap();
 
@@ -269,10 +295,8 @@ mod tests {
         .await
         .unwrap();
         assert!(!parity_verified);
-        assert!(!legacy_import_required(db.pool()).await.unwrap());
-        require_startup_ready_import(db.pool(), "conflict-run")
-            .await
-            .unwrap();
+        assert!(!legacy_migration_verified(db.pool()).await.unwrap());
+        assert!(!legacy_import_attempt_required(db.pool()).await.unwrap());
 
         let cleanup_status = cleanup::get_status(db.pool()).await.unwrap();
         assert!(!cleanup_status.migration_verified);
@@ -281,7 +305,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn legacy_completed_with_issues_conflicts_remain_retryable() {
+    async fn legacy_completed_with_issues_conflicts_remain_unverified() {
         let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
         hypr_db_app::prepare_schema(&db).await.unwrap();
         finish_issue_run(db.pool(), "legacy-conflict-run", "conflict", 0, 1).await;
@@ -293,16 +317,12 @@ mod tests {
         .await
         .unwrap();
 
-        assert!(legacy_import_required(db.pool()).await.unwrap());
-        assert!(
-            require_startup_ready_import(db.pool(), "legacy-conflict-run")
-                .await
-                .is_err()
-        );
+        assert!(!legacy_migration_verified(db.pool()).await.unwrap());
+        assert!(!legacy_import_attempt_required(db.pool()).await.unwrap());
     }
 
     #[tokio::test]
-    async fn legacy_conflict_only_run_is_retried_once_and_then_allows_startup() {
+    async fn explicit_retry_normalizes_legacy_conflict_only_run() {
         let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
         hypr_db_app::prepare_schema(&db).await.unwrap();
         let sqlite_document = r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"SQLite note"}]}]}"#;
@@ -384,11 +404,8 @@ mod tests {
         .await
         .unwrap();
 
-        assert!(legacy_import_required(db.pool()).await.unwrap());
+        assert!(!legacy_migration_verified(db.pool()).await.unwrap());
         let recovery_run_id = legacy_vault::import_legacy_vault(db.pool(), vault.path(), false)
-            .await
-            .unwrap();
-        require_startup_ready_import(db.pool(), &recovery_run_id)
             .await
             .unwrap();
 
@@ -445,20 +462,13 @@ mod tests {
         assert!(!cleanup_status.available);
         assert!(cleanup_status.blocking_reason.is_some());
 
-        assert!(!legacy_import_required(db.pool()).await.unwrap());
+        assert!(!legacy_migration_verified(db.pool()).await.unwrap());
+        assert!(!legacy_import_attempt_required(db.pool()).await.unwrap());
         let run_count_before_second_startup: i64 =
             sqlx::query_scalar("SELECT COUNT(*) FROM migration_import_runs")
                 .fetch_one(db.pool())
                 .await
                 .unwrap();
-        if legacy_import_required(db.pool()).await.unwrap() {
-            let run_id = legacy_vault::import_legacy_vault(db.pool(), vault.path(), false)
-                .await
-                .unwrap();
-            require_startup_ready_import(db.pool(), &run_id)
-                .await
-                .unwrap();
-        }
         let run_count_after_second_startup: i64 =
             sqlx::query_scalar("SELECT COUNT(*) FROM migration_import_runs")
                 .fetch_one(db.pool())
@@ -471,7 +481,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn skipped_and_error_imports_remain_blocking_and_retryable() {
+    async fn skipped_and_error_imports_remain_unverified_for_explicit_retry() {
         for (run_id, item_status, skipped_count) in
             [("skipped-run", "partial", 1), ("error-run", "error", 0)]
         {
@@ -482,17 +492,13 @@ mod tests {
                 finish_issue_run(db.pool(), run_id, item_status, skipped_count, 0).await,
                 "completed_with_issues"
             );
-            assert!(legacy_import_required(db.pool()).await.unwrap());
-            assert!(
-                require_startup_ready_import(db.pool(), run_id)
-                    .await
-                    .is_err()
-            );
+            assert!(!legacy_migration_verified(db.pool()).await.unwrap());
+            assert!(!legacy_import_attempt_required(db.pool()).await.unwrap());
         }
     }
 
     #[tokio::test]
-    async fn orphaned_session_children_remain_blocking_and_retryable() {
+    async fn orphaned_session_children_remain_unverified_for_explicit_retry() {
         let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
         hypr_db_app::prepare_schema(&db).await.unwrap();
         let vault = tempfile::tempdir().unwrap();
@@ -526,16 +532,12 @@ mod tests {
 
         assert_eq!(run, ("completed_with_issues".to_string(), 1, 0, 1));
         assert_eq!(target_status, "missing_dependency");
-        assert!(legacy_import_required(db.pool()).await.unwrap());
-        assert!(
-            require_startup_ready_import(db.pool(), &run_id)
-                .await
-                .is_err()
-        );
+        assert!(!legacy_migration_verified(db.pool()).await.unwrap());
+        assert!(!legacy_import_attempt_required(db.pool()).await.unwrap());
     }
 
     #[tokio::test]
-    async fn document_and_transcript_conflicts_preserve_both_stores_and_allow_startup() {
+    async fn document_and_transcript_conflicts_preserve_both_stores() {
         let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
         hypr_db_app::prepare_schema(&db).await.unwrap();
         let sqlite_document = r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"SQLite note"}]}]}"#;
@@ -647,10 +649,8 @@ mod tests {
         .await
         .unwrap();
         assert!(!parity_verified);
-        assert!(!legacy_import_required(db.pool()).await.unwrap());
-        require_startup_ready_import(db.pool(), &run_id)
-            .await
-            .unwrap();
+        assert!(!legacy_migration_verified(db.pool()).await.unwrap());
+        assert!(!legacy_import_attempt_required(db.pool()).await.unwrap());
 
         let cleanup_status = cleanup::get_status(db.pool()).await.unwrap();
         assert!(!cleanup_status.migration_verified);
@@ -719,9 +719,7 @@ mod tests {
             .await
             .unwrap();
 
-        require_startup_ready_import(db.pool(), &run_id)
-            .await
-            .unwrap();
+        assert!(legacy_migration_verified(db.pool()).await.unwrap());
         let target_statuses: Vec<String> = sqlx::query_scalar(
             "SELECT status FROM migration_import_targets WHERE run_id = ? ORDER BY target_id",
         )
@@ -763,7 +761,8 @@ mod tests {
 
         let db = crate::runtime::open_app_db(Some(&db_path)).await.unwrap();
         assert!(db.cloudsync_enabled());
-        assert!(legacy_import_required(db.pool()).await.unwrap());
+        assert!(!legacy_migration_verified(db.pool()).await.unwrap());
+        assert!(legacy_import_attempt_required(db.pool()).await.unwrap());
 
         let run_id = legacy_vault::import_legacy_vault(db.pool(), &vault, false)
             .await
@@ -791,7 +790,8 @@ mod tests {
         assert_eq!(state_before.0, run_id);
         assert!(state_before.1);
         assert_eq!(state_before.2, hypr_db_app::LEGACY_IMPORTER_VERSION);
-        assert!(!legacy_import_required(db.pool()).await.unwrap());
+        assert!(legacy_migration_verified(db.pool()).await.unwrap());
+        assert!(!legacy_import_attempt_required(db.pool()).await.unwrap());
 
         db.pool().close().await;
         drop(db);
@@ -805,7 +805,10 @@ mod tests {
         let reopened = crate::runtime::open_app_db(Some(&db_path)).await.unwrap();
         assert!(reopened.cloudsync_enabled());
 
-        if legacy_import_required(reopened.pool()).await.unwrap() {
+        if legacy_import_attempt_required(reopened.pool())
+            .await
+            .unwrap()
+        {
             legacy_vault::import_legacy_vault(reopened.pool(), &vault, false)
                 .await
                 .unwrap();
@@ -831,9 +834,11 @@ mod tests {
         assert_eq!(state_after, state_before);
         assert_eq!(run_count_after, run_count_before);
         assert_eq!(stored_title, "Imported before restart");
-        assert!(!legacy_import_required(reopened.pool()).await.unwrap());
-        require_startup_ready_import(reopened.pool(), &run_id)
-            .await
-            .unwrap();
+        assert!(legacy_migration_verified(reopened.pool()).await.unwrap());
+        assert!(
+            !legacy_import_attempt_required(reopened.pool())
+                .await
+                .unwrap()
+        );
     }
 }

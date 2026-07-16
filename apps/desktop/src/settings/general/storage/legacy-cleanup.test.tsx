@@ -13,11 +13,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   cleanupLegacyFiles: vi.fn(),
   getLegacyCleanupStatus: vi.fn(),
+  getLegacyImportReport: vi.fn(),
+  runLegacyImport: vi.fn(),
 }));
 
 vi.mock("@hypr/plugin-db", () => ({
   cleanupLegacyFiles: mocks.cleanupLegacyFiles,
   getLegacyCleanupStatus: mocks.getLegacyCleanupStatus,
+  getLegacyImportReport: mocks.getLegacyImportReport,
+  runLegacyImport: mocks.runLegacyImport,
 }));
 
 vi.mock("@lingui/react/macro", () => ({
@@ -62,6 +66,36 @@ describe("LegacyMigrationCleanupRow", () => {
       deletedFileCount: 12,
       deletedBytes: 2048,
     });
+    mocks.getLegacyImportReport.mockResolvedValue({
+      state: {
+        phase: "cutover",
+        latestRunId: "run-1",
+        parityVerified: true,
+        cutoverAt: null,
+        rollbackUntil: null,
+        lastError: "",
+        updatedAt: "2026-07-16T00:00:00Z",
+      },
+      latestRun: {
+        id: "run-1",
+        importerVersion: 1,
+        sourceRoot: "/Users/test/Anarlog",
+        dryRun: false,
+        status: "completed",
+        discoveredCount: 12,
+        importedCount: 12,
+        matchedCount: 0,
+        skippedCount: 0,
+        conflictCount: 0,
+        errorCount: 0,
+        startedAt: "2026-07-16T00:00:00Z",
+        completedAt: "2026-07-16T00:00:01Z",
+        error: "",
+      },
+      items: [],
+      targets: [],
+    });
+    mocks.runLegacyImport.mockResolvedValue("run-2");
   });
 
   afterEach(() => {
@@ -126,6 +160,87 @@ describe("LegacyMigrationCleanupRow", () => {
     expect(
       screen.getByText("1 legacy file changed after migration"),
     ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Clean Up" })).toBeNull();
+  });
+
+  it("retries an incomplete migration and refreshes its status", async () => {
+    mocks.getLegacyCleanupStatus
+      .mockResolvedValueOnce({
+        migrationVerified: false,
+        available: false,
+        alreadyCleaned: false,
+        fileCount: 0,
+        totalBytes: 0,
+        sourceRoot: "/Users/test/Anarlog",
+        blockingReason: "SQLite migration verification is incomplete",
+      })
+      .mockResolvedValue({
+        migrationVerified: true,
+        available: true,
+        alreadyCleaned: false,
+        fileCount: 12,
+        totalBytes: 2048,
+        sourceRoot: "/Users/test/Anarlog",
+        blockingReason: null,
+      });
+    mocks.getLegacyImportReport.mockResolvedValueOnce({
+      state: {
+        phase: "shadow",
+        latestRunId: "run-1",
+        parityVerified: false,
+        cutoverAt: null,
+        rollbackUntil: null,
+        lastError: "completed_with_issues",
+        updatedAt: "2026-07-16T00:00:00Z",
+      },
+      latestRun: {
+        id: "run-1",
+        importerVersion: 1,
+        sourceRoot: "/Users/test/Anarlog",
+        dryRun: false,
+        status: "completed_with_issues",
+        discoveredCount: 12,
+        importedCount: 11,
+        matchedCount: 0,
+        skippedCount: 1,
+        conflictCount: 0,
+        errorCount: 1,
+        startedAt: "2026-07-16T00:00:00Z",
+        completedAt: "2026-07-16T00:00:01Z",
+        error: "",
+      },
+      items: [
+        {
+          sourcePath: "sessions/session-1/_memo.md",
+          sourceKind: "session_document",
+          sourceSha256: "hash",
+          status: "partial",
+          discoveredCount: 1,
+          importedCount: 0,
+          matchedCount: 0,
+          skippedCount: 1,
+          conflictCount: 0,
+          error: "missing session dependency",
+        },
+      ],
+      targets: [],
+    });
+
+    renderRow();
+    expect(
+      await screen.findByText(
+        "sessions/session-1/_memo.md: missing session dependency",
+      ),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() =>
+      expect(mocks.runLegacyImport).toHaveBeenCalledWith(false),
+    );
+    await waitFor(() =>
+      expect(screen.getByText("Migration complete")).toBeTruthy(),
+    );
   });
 });

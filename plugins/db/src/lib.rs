@@ -172,7 +172,15 @@ pub fn init_with_cloudsync<R: tauri::Runtime>(
             hypr_tauri_utils::block_on(hypr_db_app::prepare_schema(db.as_ref()))?;
             hypr_tauri_utils::block_on(import::import_legacy_data(app.app_handle(), db.pool()))?;
             if let Some(config) = startup_config.clone() {
-                if let Err(error) = hypr_tauri_utils::block_on(db.cloudsync_configure(config)) {
+                let migration_verified =
+                    hypr_tauri_utils::block_on(import::legacy_migration_verified(db.pool()))?;
+                if !migration_verified {
+                    tracing::warn!(
+                        "startup CloudSync configuration skipped until legacy migration is verified"
+                    );
+                } else if let Err(error) =
+                    hypr_tauri_utils::block_on(db.cloudsync_configure(config))
+                {
                     tracing::warn!(%error, "failed to configure startup cloudsync");
                 } else {
                     let sync_db = std::sync::Arc::clone(&db);
@@ -267,6 +275,15 @@ mod test {
         .await
         .unwrap();
         hypr_db_app::prepare_schema(&db).await.unwrap();
+        sqlx::query(
+            "UPDATE storage_migration_state
+             SET importer_version = ?, parity_verified = 1
+             WHERE id = 'legacy_v1'",
+        )
+        .bind(hypr_db_app::LEGACY_IMPORTER_VERSION)
+        .execute(db.pool())
+        .await
+        .unwrap();
 
         (dir, Arc::new(runtime::PluginDbRuntime::new(Arc::new(db))))
     }
@@ -535,6 +552,41 @@ mod test {
         assert_eq!(status["network_initialized"], false);
 
         runtime.logout_cloudsync(false).await.unwrap();
+        assert_eq!(
+            runtime.cloudsync_status().await.unwrap()["configured"],
+            false
+        );
+    }
+
+    #[tokio::test]
+    async fn cloudsync_waits_for_legacy_migration_verification() {
+        let (_dir, runtime) = setup_enabled_cloudsync_runtime().await;
+        sqlx::query(
+            "UPDATE storage_migration_state
+             SET parity_verified = 0, last_error = 'completed_with_issues'
+             WHERE id = 'legacy_v1'",
+        )
+        .execute(runtime.pool())
+        .await
+        .unwrap();
+
+        let error = runtime
+            .configure_cloudsync_token(
+                "managed-database-id".to_string(),
+                "token".to_string(),
+                "user-a".to_string(),
+            )
+            .await
+            .unwrap_err();
+
+        assert!(matches!(&error, crate::Error::Io(_)));
+        assert!(
+            error
+                .to_string()
+                .contains("migration needs attention before CloudSync can start")
+        );
+        assert!(runtime.start_cloudsync().await.is_err());
+        assert!(runtime.sync_cloudsync_now().await.is_err());
         assert_eq!(
             runtime.cloudsync_status().await.unwrap()["configured"],
             false
