@@ -13,6 +13,7 @@ export function useScrollDetection(
 ) {
   const [isAtTop, setIsAtTop] = useState(true);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [canScroll, setCanScroll] = useState(false);
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
   const [scrollTarget, setScrollTarget] = useState<"top" | "bottom" | null>(
     null,
@@ -29,15 +30,23 @@ export function useScrollDetection(
 
     lastScrollTopRef.current = element.scrollTop;
 
-    const handleScroll = () => {
+    const updateScrollState = () => {
       const topThreshold = 40;
       const bottomThreshold = 100;
       const distanceToBottom =
         element.scrollHeight - element.scrollTop - element.clientHeight;
+      const hasOverflow = element.scrollHeight - element.clientHeight > 1;
       const isNearTop = element.scrollTop < topThreshold;
       const isNearBottom = distanceToBottom < bottomThreshold;
-      setIsAtTop(isNearTop);
-      setIsAtBottom(isNearBottom);
+      setCanScroll(hasOverflow);
+      setIsAtTop(!hasOverflow || isNearTop);
+      setIsAtBottom(!hasOverflow || isNearBottom);
+
+      return isNearBottom;
+    };
+
+    const handleScroll = () => {
+      const isNearBottom = updateScrollState();
 
       const currentTop = element.scrollTop;
       const prevTop = lastScrollTopRef.current;
@@ -62,7 +71,28 @@ export function useScrollDetection(
 
     element.addEventListener("scroll", handleScroll);
     handleScroll();
-    return () => element.removeEventListener("scroll", handleScroll);
+
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(updateScrollState);
+    resizeObserver?.observe(element);
+
+    const mutationObserver =
+      typeof MutationObserver === "undefined"
+        ? null
+        : new MutationObserver(updateScrollState);
+    mutationObserver?.observe(element, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+
+    return () => {
+      element.removeEventListener("scroll", handleScroll);
+      resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
+    };
   }, [containerRef]);
 
   useEffect(() => {
@@ -97,6 +127,7 @@ export function useScrollDetection(
   return {
     isAtTop,
     isAtBottom,
+    canScroll,
     autoScrollEnabled,
     scrollTarget,
     scrollToTop,

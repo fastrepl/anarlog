@@ -28,6 +28,25 @@ function setScrollMetrics(
 }
 
 describe("useScrollDetection", () => {
+  it("reports overflow even when the viewport is near both edges", () => {
+    const element = document.createElement("div");
+    setScrollMetrics(element, {
+      clientHeight: 100,
+      scrollHeight: 150,
+      scrollTop: 0,
+    });
+    const containerRef = createRef<HTMLDivElement>();
+    containerRef.current = element;
+
+    const { result } = renderHook(() =>
+      useScrollDetection(containerRef, false),
+    );
+
+    expect(result.current.canScroll).toBe(true);
+    expect(result.current.isAtTop).toBe(true);
+    expect(result.current.isAtBottom).toBe(true);
+  });
+
   it("preserves manual scroll-away state when a transcript becomes active again", () => {
     const element = document.createElement("div");
     setScrollMetrics(element, {

@@ -240,13 +240,6 @@
   [data-settings-content] [data-slot="select-trigger"]:hover {
     box-shadow: none !important;
   }
-
-  [data-chat-floating-anchor]:has([data-chat-cta-trigger]:is(:hover, :focus-visible, :focus-within))
-    [data-transcript-scroll-chip] {
-    --transcript-scroll-chip-bottom: calc(
-      3.75rem + env(safe-area-inset-bottom)
-    );
-  }
 }
 
 /* Search result highlighting styles — matches transcript's bg-yellow-200/50 and bg-yellow-500 */

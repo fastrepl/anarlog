@@ -21,7 +21,6 @@ import {
 
 import { useAudioPlayer } from "~/audio-player";
 import { useAudioTime } from "~/audio-player/provider";
-import { useShell } from "~/contexts/shell";
 import type { Segment } from "~/stt/live-segment";
 
 const LIVE_TRANSCRIPT_PLACEHOLDER_ID = "__live-transcript__";
@@ -37,7 +36,6 @@ export function TranscriptViewer({
   currentActive: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
 }) {
-  const { chat } = useShell();
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(
     null,
@@ -54,8 +52,8 @@ export function TranscriptViewer({
   const {
     isAtTop,
     isAtBottom,
+    canScroll,
     autoScrollEnabled,
-    scrollTarget,
     scrollToTop,
     scrollToBottom,
   } = useScrollDetection(containerRef, currentActive);
@@ -102,26 +100,6 @@ export function TranscriptViewer({
         ? [LIVE_TRANSCRIPT_PLACEHOLDER_ID]
         : [];
 
-  const canShowScrollChip = !currentActive && (!isAtTop || !isAtBottom);
-  const scrollChip =
-    chat.mode === "FloatingOpen" || !canShowScrollChip
-      ? null
-      : scrollTarget === "bottom" && !isAtBottom
-        ? {
-            icon: ArrowDownIcon,
-            label: "Go to bottom",
-            onClick: scrollToBottom,
-          }
-        : scrollTarget === "top" && !isAtTop
-          ? {
-              icon: ArrowUpIcon,
-              label: "Go to top",
-              onClick: scrollToTop,
-            }
-          : null;
-  const ScrollChipIcon = scrollChip?.icon;
-  const isBottomScrollChip = scrollTarget === "bottom";
-
   const handleSelectionAction = (action: string, selectedText: string) => {
     if (action === "copy") {
       void navigator.clipboard.writeText(selectedText);
@@ -167,32 +145,42 @@ export function TranscriptViewer({
         />
       </div>
 
-      {scrollChip && (
-        <button
-          data-transcript-scroll-chip
-          onClick={scrollChip.onClick}
-          style={{
-            [isBottomScrollChip ? "bottom" : "top"]: isBottomScrollChip
-              ? "var(--transcript-scroll-chip-bottom, calc(1.5rem + env(safe-area-inset-bottom)))"
-              : "var(--transcript-scroll-chip-top, calc(1.5rem + env(safe-area-inset-top)))",
-          }}
+      {canScroll && (
+        <div
+          data-transcript-scroll-controls
           className={cn([
-            "absolute left-1/2 z-30 inline-flex -translate-x-1/2 items-center gap-1.5",
-            "border-border bg-muted text-foreground rounded-full border px-3 py-1.5",
-            "hover:bg-muted active:bg-muted",
-            "text-xs font-light",
-            "transition-[top,bottom,background-color,border-color] duration-150",
+            "absolute top-1/2 right-1 z-40 flex -translate-y-1/2 flex-col overflow-hidden",
+            "border-border/60 bg-muted/70 text-foreground rounded-full border",
           ])}
         >
-          {ScrollChipIcon && (
-            <ScrollChipIcon
-              aria-hidden="true"
-              className="size-3"
-              strokeWidth={2.25}
-            />
-          )}
-          {scrollChip.label}
-        </button>
+          <button
+            type="button"
+            aria-label="Scroll to top"
+            onClick={scrollToTop}
+            disabled={isAtTop}
+            className={cn([
+              "flex size-8 items-center justify-center",
+              "hover:bg-muted/85 active:bg-muted/85",
+              "disabled:pointer-events-none disabled:opacity-30",
+            ])}
+          >
+            <ArrowUpIcon aria-hidden="true" className="size-3.5" />
+          </button>
+          <div className="bg-border/70 h-px w-full" />
+          <button
+            type="button"
+            aria-label="Scroll to bottom"
+            onClick={scrollToBottom}
+            disabled={isAtBottom}
+            className={cn([
+              "flex size-8 items-center justify-center",
+              "hover:bg-muted/85 active:bg-muted/85",
+              "disabled:pointer-events-none disabled:opacity-30",
+            ])}
+          >
+            <ArrowDownIcon aria-hidden="true" className="size-3.5" />
+          </button>
+        </div>
       )}
     </div>
   );
