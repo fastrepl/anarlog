@@ -52,6 +52,7 @@ export function TranscriptViewer({
   const {
     isAtTop,
     isAtBottom,
+    isNearBottom,
     canScroll,
     autoScrollEnabled,
     scrollToTop,
@@ -87,7 +88,7 @@ export function TranscriptViewer({
 
   usePlaybackAutoScroll(containerRef, deferredCurrentMs, isPlaying);
   const shouldAutoScroll = currentActive && autoScrollEnabled;
-  const shouldScrollLastTranscriptToEnd = currentActive && isAtBottom;
+  const shouldScrollLastTranscriptToEnd = currentActive && isNearBottom;
   useAutoScroll(
     containerRef,
     [transcriptIds, liveSegments, shouldAutoScroll],

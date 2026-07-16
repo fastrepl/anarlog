@@ -13,6 +13,7 @@ export function useScrollDetection(
 ) {
   const [isAtTop, setIsAtTop] = useState(true);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [isNearBottom, setIsNearBottom] = useState(true);
   const [canScroll, setCanScroll] = useState(false);
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
   const [scrollTarget, setScrollTarget] = useState<"top" | "bottom" | null>(
@@ -41,6 +42,7 @@ export function useScrollDetection(
       setCanScroll(hasOverflow);
       setIsAtTop(!hasOverflow || isAtExactTop);
       setIsAtBottom(!hasOverflow || isAtExactBottom);
+      setIsNearBottom(!hasOverflow || isNearBottom);
 
       return isNearBottom;
     };
@@ -127,6 +129,7 @@ export function useScrollDetection(
   return {
     isAtTop,
     isAtBottom,
+    isNearBottom,
     canScroll,
     autoScrollEnabled,
     scrollTarget,

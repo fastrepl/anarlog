@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   scrollDetection: {
     isAtTop: true,
     isAtBottom: true,
+    isNearBottom: true,
     canScroll: false,
     autoScrollEnabled: true,
     scrollTarget: null as "top" | "bottom" | null,
@@ -75,6 +76,7 @@ describe("TranscriptViewer", () => {
     mocks.scrollToTop.mockReset();
     mocks.scrollDetection.isAtTop = true;
     mocks.scrollDetection.isAtBottom = true;
+    mocks.scrollDetection.isNearBottom = true;
     mocks.scrollDetection.canScroll = false;
     mocks.scrollDetection.autoScrollEnabled = true;
     mocks.scrollDetection.scrollTarget = null;
@@ -98,6 +100,26 @@ describe("TranscriptViewer", () => {
   });
 
   it("keeps active transcript sessions pinned to the bottom", () => {
+    render(
+      <TranscriptViewer
+        transcriptIds={["transcript-1"]}
+        liveSegments={[]}
+        currentActive
+        scrollRef={createRef()}
+      />,
+    );
+
+    expect(
+      screen
+        .getByTestId("render-transcript")
+        .getAttribute("data-should-scroll-to-end"),
+    ).toBe("true");
+  });
+
+  it("keeps active transcript sessions pinned near the exact bottom edge", () => {
+    mocks.scrollDetection.isAtBottom = false;
+    mocks.scrollDetection.isNearBottom = true;
+
     render(
       <TranscriptViewer
         transcriptIds={["transcript-1"]}
