@@ -53,6 +53,58 @@ function credentialsResponse(workspaceId = "user-id") {
   );
 }
 
+function projectedCredentialsPayload() {
+  return {
+    databaseId: "database-id",
+    token: "sqlite-token",
+    expiresAt: new Date(NOW.getTime() + 15 * 60 * 1000).toISOString(),
+    workspaceId: "user-id",
+    accountUserId: "user-id",
+    personalWorkspaceId: "user-id",
+    workspaces: [
+      {
+        id: "user-id",
+        ownerUserId: "user-id",
+        kind: "personal",
+        name: "Personal",
+        membershipId: "membership-personal",
+        role: "owner",
+        membershipCreatedAt: "2026-07-01T01:00:00Z",
+        membershipUpdatedAt: "2026-07-16T01:00:00Z",
+        createdAt: "2026-07-01T00:00:00Z",
+        updatedAt: "2026-07-16T00:00:00Z",
+      },
+      {
+        id: "workspace-shared",
+        ownerUserId: "other-user",
+        kind: "shared",
+        name: "Shared",
+        membershipId: "membership-shared",
+        role: "member",
+        membershipCreatedAt: "2026-07-02T01:00:00Z",
+        membershipUpdatedAt: "2026-07-15T01:00:00Z",
+        createdAt: "2026-07-02T00:00:00Z",
+        updatedAt: "2026-07-15T00:00:00Z",
+      },
+    ],
+  };
+}
+
+type ProjectedCredentialsPayload = ReturnType<
+  typeof projectedCredentialsPayload
+>;
+
+function projectedCredentialsResponse(
+  mutate?: (payload: ProjectedCredentialsPayload) => void,
+) {
+  const payload = projectedCredentialsPayload();
+  mutate?.(payload);
+  return new Response(JSON.stringify(payload), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 describe("CloudSync auth lifecycle", () => {
   beforeEach(async () => {
     vi.useFakeTimers();
@@ -121,6 +173,122 @@ describe("CloudSync auth lifecycle", () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
+  });
+
+  test("passes server workspace metadata to the native projection", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(projectedCredentialsResponse())),
+    );
+
+    await handleCloudsyncAuthChange("SIGNED_IN", session());
+
+    expect(configureCloudsyncToken).toHaveBeenCalledWith(
+      "database-id",
+      "sqlite-token",
+      "user-id",
+      {
+        accountUserId: "user-id",
+        personalWorkspaceId: "user-id",
+        workspaces: [
+          expect.objectContaining({
+            id: "user-id",
+            membershipId: "membership-personal",
+            role: "owner",
+            membershipCreatedAt: "2026-07-01T01:00:00Z",
+            membershipUpdatedAt: "2026-07-16T01:00:00Z",
+          }),
+          expect.objectContaining({
+            id: "workspace-shared",
+            membershipId: "membership-shared",
+            role: "member",
+            membershipCreatedAt: "2026-07-02T01:00:00Z",
+            membershipUpdatedAt: "2026-07-15T01:00:00Z",
+          }),
+        ],
+      },
+    );
+  });
+
+  test("rejects partial workspace metadata instead of treating it as legacy", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              databaseId: "database-id",
+              token: "sqlite-token",
+              expiresAt: new Date(NOW.getTime() + 15 * 60 * 1000).toISOString(),
+              workspaceId: "user-id",
+              accountUserId: "user-id",
+            }),
+            { status: 200 },
+          ),
+        ),
+      ),
+    );
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await handleCloudsyncAuthChange("SIGNED_IN", session());
+
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    [
+      "an unknown role",
+      (payload: ProjectedCredentialsPayload) => {
+        payload.workspaces[1]!.role = "viewer";
+      },
+    ],
+    [
+      "an unknown workspace kind",
+      (payload: ProjectedCredentialsPayload) => {
+        payload.workspaces[1]!.kind = "team";
+      },
+    ],
+    [
+      "multiple personal workspaces",
+      (payload: ProjectedCredentialsPayload) => {
+        payload.workspaces[1]!.kind = "personal";
+      },
+    ],
+    [
+      "zero personal workspaces",
+      (payload: ProjectedCredentialsPayload) => {
+        payload.workspaces[0]!.kind = "shared";
+      },
+    ],
+    [
+      "duplicate workspace IDs",
+      (payload: ProjectedCredentialsPayload) => {
+        payload.workspaces[1]!.id = payload.workspaces[0]!.id;
+      },
+    ],
+    [
+      "duplicate membership IDs",
+      (payload: ProjectedCredentialsPayload) => {
+        payload.workspaces[1]!.membershipId =
+          payload.workspaces[0]!.membershipId;
+      },
+    ],
+    [
+      "an invalid membership timestamp",
+      (payload: ProjectedCredentialsPayload) => {
+        payload.workspaces[1]!.membershipCreatedAt = "not-a-timestamp";
+      },
+    ],
+  ])("rejects projected credentials with %s", async (_label, mutate) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(projectedCredentialsResponse(mutate))),
+    );
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await handleCloudsyncAuthChange("SIGNED_IN", session());
+
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
   });
 
   test("suspends sync and ignores an exchange completed after sign-out", async () => {
@@ -500,6 +668,9 @@ describe("CloudSync auth lifecycle", () => {
 
     const activation = handleCloudsyncAuthChange("TOKEN_REFRESHED", session());
     await vi.advanceTimersByTimeAsync(10 * 1000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(15 * 1000);
 
     await expect(activation).resolves.toBe("ok");
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -525,6 +696,9 @@ describe("CloudSync auth lifecycle", () => {
 
     const activation = handleCloudsyncAuthChange("TOKEN_REFRESHED", session());
     await vi.advanceTimersByTimeAsync(10 * 1000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(15 * 1000);
 
     await expect(activation).resolves.toBe("ok");
     expect(fetchMock).toHaveBeenCalledTimes(1);

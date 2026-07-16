@@ -149,15 +149,45 @@ impl PluginDbRuntime {
         &self,
         database_id: String,
         token: String,
-        workspace_id: String,
+        account_user_id: String,
+    ) -> Result<crate::CloudsyncTokenConfigurationResult> {
+        self.configure_cloudsync_token_with_projection(database_id, token, account_user_id, None)
+            .await
+    }
+
+    pub async fn configure_cloudsync_token_with_projection(
+        &self,
+        database_id: String,
+        token: String,
+        account_user_id: String,
+        workspace_projection: Option<hypr_db_app::CloudsyncWorkspaceProjection>,
     ) -> Result<crate::CloudsyncTokenConfigurationResult> {
         if !self.db.cloudsync_enabled() {
             return Err(hypr_db_core::CloudsyncRuntimeError::Unavailable.into());
         }
+
+        if workspace_projection
+            .as_ref()
+            .is_some_and(|projection| projection.account_user_id != account_user_id)
+        {
+            return Err(hypr_db_app::CloudsyncWorkspaceError::InvalidWorkspaceProjection.into());
+        }
+        if let Some(projection) = workspace_projection.as_ref() {
+            hypr_db_app::validate_cloudsync_workspace_projection(projection)?;
+        }
+
         self.ensure_legacy_migration_verified().await?;
 
-        if !self.claim_cloudsync_workspace(workspace_id).await? {
+        if !self.claim_cloudsync_workspace(account_user_id).await? {
             return Ok(crate::CloudsyncTokenConfigurationResult::AccountMismatch);
+        }
+
+        if let Some(workspace_projection) = workspace_projection {
+            hypr_db_app::replace_cloudsync_workspace_projection(
+                self.db.pool(),
+                &workspace_projection,
+            )
+            .await?;
         }
 
         self.apply_cloudsync_config_fail_closed(hypr_db_core::CloudsyncRuntimeConfig {

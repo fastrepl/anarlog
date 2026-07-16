@@ -157,8 +157,12 @@ async fn app() -> Router {
         jina_api_key: env.jina_api_key.clone(),
     };
     let pyannote_config = hypr_api_pyannote::PyannoteConfig::new(&env.pyannote);
-    let sync_config = hypr_api_sync::SyncConfig::from_env(&env.sync)
-        .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
+    let sync_config = hypr_api_sync::SyncConfig::from_env(
+        &env.sync,
+        &env.supabase.supabase_url,
+        &env.supabase.supabase_anon_key,
+    )
+    .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
 
     use hypr_api_nango::NangoIntegrationId;
 

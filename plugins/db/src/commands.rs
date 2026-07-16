@@ -179,9 +179,15 @@ pub(crate) async fn configure_cloudsync_token(
     database_id: String,
     token: String,
     workspace_id: String,
+    workspace_projection: Option<crate::CloudsyncWorkspaceProjection>,
 ) -> Result<crate::CloudsyncTokenConfigurationResult, String> {
     state
-        .configure_cloudsync_token(database_id, token, workspace_id)
+        .configure_cloudsync_token_with_projection(
+            database_id,
+            token,
+            workspace_id,
+            workspace_projection.map(Into::into),
+        )
         .await
         .map_err(|error| error.to_string())
 }

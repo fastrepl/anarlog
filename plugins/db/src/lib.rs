@@ -125,6 +125,54 @@ pub enum CloudsyncTokenConfigurationResult {
     AccountMismatch,
 }
 
+#[derive(Debug, Clone, serde::Deserialize, specta::Type, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CloudsyncWorkspaceProjection {
+    pub account_user_id: String,
+    pub personal_workspace_id: String,
+    pub workspaces: Vec<CloudsyncWorkspaceProjectionEntry>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, specta::Type, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CloudsyncWorkspaceProjectionEntry {
+    pub id: String,
+    pub owner_user_id: String,
+    pub kind: String,
+    pub name: String,
+    pub membership_id: String,
+    pub role: String,
+    pub membership_created_at: String,
+    pub membership_updated_at: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl From<CloudsyncWorkspaceProjection> for hypr_db_app::CloudsyncWorkspaceProjection {
+    fn from(projection: CloudsyncWorkspaceProjection) -> Self {
+        Self {
+            account_user_id: projection.account_user_id,
+            personal_workspace_id: projection.personal_workspace_id,
+            workspaces: projection
+                .workspaces
+                .into_iter()
+                .map(|workspace| hypr_db_app::CloudsyncWorkspaceProjectionEntry {
+                    id: workspace.id,
+                    owner_user_id: workspace.owner_user_id,
+                    kind: workspace.kind,
+                    name: workspace.name,
+                    membership_id: workspace.membership_id,
+                    role: workspace.role,
+                    membership_created_at: workspace.membership_created_at,
+                    membership_updated_at: workspace.membership_updated_at,
+                    created_at: workspace.created_at,
+                    updated_at: workspace.updated_at,
+                })
+                .collect(),
+        }
+    }
+}
+
 fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
     tauri_specta::Builder::<R>::new()
         .plugin_name(PLUGIN_NAME)
@@ -720,6 +768,54 @@ mod test {
     }
 
     #[tokio::test]
+    async fn invalid_projection_does_not_claim_an_unbound_database() {
+        let (_dir, runtime) = setup_enabled_cloudsync_runtime().await;
+        sqlx::query("DELETE FROM app_settings WHERE id = 'cloudsync_workspace_binding'")
+            .execute(runtime.pool())
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO sessions (id, title) VALUES ('session', 'Session')")
+            .execute(runtime.pool())
+            .await
+            .unwrap();
+
+        let error = runtime
+            .configure_cloudsync_token_with_projection(
+                "managed-database-id".to_string(),
+                "token".to_string(),
+                "user-a".to_string(),
+                Some(hypr_db_app::CloudsyncWorkspaceProjection {
+                    account_user_id: "user-a".to_string(),
+                    personal_workspace_id: "user-a".to_string(),
+                    workspaces: vec![],
+                }),
+            )
+            .await
+            .unwrap_err();
+
+        let binding_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM app_settings WHERE id = 'cloudsync_workspace_binding'",
+        )
+        .fetch_one(runtime.pool())
+        .await
+        .unwrap();
+        let session: (String, String) =
+            sqlx::query_as("SELECT workspace_id, owner_user_id FROM sessions WHERE id = 'session'")
+                .fetch_one(runtime.pool())
+                .await
+                .unwrap();
+
+        assert!(matches!(
+            error,
+            crate::Error::CloudsyncWorkspace(
+                hypr_db_app::CloudsyncWorkspaceError::InvalidWorkspaceProjection
+            )
+        ));
+        assert_eq!(binding_count, 0);
+        assert_eq!(session, (String::new(), String::new()));
+    }
+
+    #[tokio::test]
     async fn token_configuration_claims_workspace_and_can_be_suspended() {
         let (_dir, runtime) = setup_enabled_cloudsync_runtime().await;
         let local_workspace = hypr_db_app::ensure_cloudsync_workspace_binding(runtime.pool())
@@ -771,6 +867,169 @@ mod test {
         assert_eq!(session, ("user-a".to_string(), "user-a".to_string()));
         assert_eq!(binding, ("user-a".to_string(), "user-a".to_string()));
         runtime.suspend_cloudsync().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn token_configuration_projects_server_workspaces_after_account_claim() {
+        let (_dir, runtime) = setup_enabled_cloudsync_runtime().await;
+        assert!(
+            runtime
+                .bind_cloudsync_account("user-a".to_string())
+                .await
+                .unwrap()
+        );
+
+        let projection = hypr_db_app::CloudsyncWorkspaceProjection {
+            account_user_id: "user-a".to_string(),
+            personal_workspace_id: "user-a".to_string(),
+            workspaces: vec![
+                hypr_db_app::CloudsyncWorkspaceProjectionEntry {
+                    id: "user-a".to_string(),
+                    owner_user_id: "user-a".to_string(),
+                    kind: "personal".to_string(),
+                    name: "Personal".to_string(),
+                    membership_id: "membership-personal".to_string(),
+                    role: "owner".to_string(),
+                    membership_created_at: "2026-07-01T01:00:00Z".to_string(),
+                    membership_updated_at: "2026-07-16T01:00:00Z".to_string(),
+                    created_at: "2026-07-01T00:00:00Z".to_string(),
+                    updated_at: "2026-07-16T00:00:00Z".to_string(),
+                },
+                hypr_db_app::CloudsyncWorkspaceProjectionEntry {
+                    id: "workspace-shared".to_string(),
+                    owner_user_id: "user-b".to_string(),
+                    kind: "shared".to_string(),
+                    name: "Shared".to_string(),
+                    membership_id: "membership-shared".to_string(),
+                    role: "member".to_string(),
+                    membership_created_at: "2026-07-02T01:00:00Z".to_string(),
+                    membership_updated_at: "2026-07-15T01:00:00Z".to_string(),
+                    created_at: "2026-07-02T00:00:00Z".to_string(),
+                    updated_at: "2026-07-15T00:00:00Z".to_string(),
+                },
+            ],
+        };
+
+        assert_eq!(
+            runtime
+                .configure_cloudsync_token_with_projection(
+                    "managed-database-id".to_string(),
+                    "token".to_string(),
+                    "user-a".to_string(),
+                    Some(projection),
+                )
+                .await
+                .unwrap(),
+            CloudsyncTokenConfigurationResult::Configured
+        );
+
+        let workspaces: Vec<(String, String)> =
+            sqlx::query_as("SELECT id, name FROM workspaces ORDER BY id")
+                .fetch_all(runtime.pool())
+                .await
+                .unwrap();
+        let memberships: Vec<(String, String, String)> = sqlx::query_as(
+            "SELECT workspace_id, user_id, role FROM workspace_memberships ORDER BY workspace_id",
+        )
+        .fetch_all(runtime.pool())
+        .await
+        .unwrap();
+
+        assert_eq!(
+            workspaces,
+            vec![
+                ("user-a".to_string(), "Personal".to_string()),
+                ("workspace-shared".to_string(), "Shared".to_string()),
+            ]
+        );
+        assert_eq!(
+            memberships,
+            vec![
+                (
+                    "user-a".to_string(),
+                    "user-a".to_string(),
+                    "owner".to_string(),
+                ),
+                (
+                    "workspace-shared".to_string(),
+                    "user-a".to_string(),
+                    "member".to_string(),
+                ),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn token_configuration_account_mismatch_preserves_workspace_projection() {
+        let (_dir, runtime) = setup_enabled_cloudsync_runtime().await;
+        assert!(
+            runtime
+                .bind_cloudsync_account("user-a".to_string())
+                .await
+                .unwrap()
+        );
+        hypr_db_app::replace_cloudsync_workspace_projection(
+            runtime.pool(),
+            &hypr_db_app::CloudsyncWorkspaceProjection {
+                account_user_id: "user-a".to_string(),
+                personal_workspace_id: "user-a".to_string(),
+                workspaces: vec![hypr_db_app::CloudsyncWorkspaceProjectionEntry {
+                    id: "user-a".to_string(),
+                    owner_user_id: "user-a".to_string(),
+                    kind: "personal".to_string(),
+                    name: "Existing".to_string(),
+                    membership_id: "membership-existing".to_string(),
+                    role: "owner".to_string(),
+                    membership_created_at: "2026-07-01T01:00:00Z".to_string(),
+                    membership_updated_at: "2026-07-16T01:00:00Z".to_string(),
+                    created_at: "2026-07-01T00:00:00Z".to_string(),
+                    updated_at: "2026-07-16T00:00:00Z".to_string(),
+                }],
+            },
+        )
+        .await
+        .unwrap();
+
+        let error = runtime
+            .configure_cloudsync_token_with_projection(
+                "managed-database-id".to_string(),
+                "token".to_string(),
+                "user-a".to_string(),
+                Some(hypr_db_app::CloudsyncWorkspaceProjection {
+                    account_user_id: "user-b".to_string(),
+                    personal_workspace_id: "user-b".to_string(),
+                    workspaces: vec![hypr_db_app::CloudsyncWorkspaceProjectionEntry {
+                        id: "user-b".to_string(),
+                        owner_user_id: "user-b".to_string(),
+                        kind: "personal".to_string(),
+                        name: "Replacement".to_string(),
+                        membership_id: "membership-replacement".to_string(),
+                        role: "owner".to_string(),
+                        membership_created_at: "2026-07-01T01:00:00Z".to_string(),
+                        membership_updated_at: "2026-07-16T01:00:00Z".to_string(),
+                        created_at: "2026-07-01T00:00:00Z".to_string(),
+                        updated_at: "2026-07-16T00:00:00Z".to_string(),
+                    }],
+                }),
+            )
+            .await
+            .unwrap_err();
+
+        let workspaces: Vec<(String, String)> =
+            sqlx::query_as("SELECT id, name FROM workspaces ORDER BY id")
+                .fetch_all(runtime.pool())
+                .await
+                .unwrap();
+        assert!(matches!(
+            error,
+            crate::Error::CloudsyncWorkspace(
+                hypr_db_app::CloudsyncWorkspaceError::InvalidWorkspaceProjection
+            )
+        ));
+        assert_eq!(
+            workspaces,
+            vec![("user-a".to_string(), "Existing".to_string())]
+        );
     }
 
     #[tokio::test]

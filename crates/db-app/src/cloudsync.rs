@@ -32,6 +32,7 @@ pub enum CloudsyncWorkspaceError {
     Sqlx(sqlx::Error),
     InvalidWorkspaceId,
     InvalidBinding,
+    InvalidWorkspaceProjection,
     AccountMismatch,
     ForeignWorkspace { table: String },
 }
@@ -42,6 +43,9 @@ impl std::fmt::Display for CloudsyncWorkspaceError {
             Self::Sqlx(error) => write!(f, "{error}"),
             Self::InvalidWorkspaceId => write!(f, "workspace ID is invalid"),
             Self::InvalidBinding => write!(f, "local CloudSync workspace binding is invalid"),
+            Self::InvalidWorkspaceProjection => {
+                write!(f, "CloudSync workspace projection is invalid")
+            }
             Self::AccountMismatch => write!(
                 f,
                 "this local database is already bound to a different account"
@@ -66,6 +70,27 @@ impl From<sqlx::Error> for CloudsyncWorkspaceError {
 struct CloudsyncWorkspaceBinding {
     workspace_id: String,
     account_user_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CloudsyncWorkspaceProjection {
+    pub account_user_id: String,
+    pub personal_workspace_id: String,
+    pub workspaces: Vec<CloudsyncWorkspaceProjectionEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CloudsyncWorkspaceProjectionEntry {
+    pub id: String,
+    pub owner_user_id: String,
+    pub kind: String,
+    pub name: String,
+    pub membership_id: String,
+    pub role: String,
+    pub membership_created_at: String,
+    pub membership_updated_at: String,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 static CLOUDSYNC_TABLE_REGISTRY: LazyLock<Vec<CloudsyncTableSpec>> = LazyLock::new(|| {
@@ -257,6 +282,98 @@ pub async fn claim_cloudsync_workspace(
     Ok(())
 }
 
+pub async fn replace_cloudsync_workspace_projection(
+    pool: &SqlitePool,
+    projection: &CloudsyncWorkspaceProjection,
+) -> Result<(), CloudsyncWorkspaceError> {
+    validate_cloudsync_workspace_projection(projection)?;
+
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    sqlx::query("DELETE FROM workspace_memberships")
+        .execute(&mut *transaction)
+        .await?;
+    sqlx::query("DELETE FROM workspaces")
+        .execute(&mut *transaction)
+        .await?;
+
+    for workspace in &projection.workspaces {
+        sqlx::query(
+            "INSERT INTO workspaces (
+               id, owner_user_id, kind, name, created_at, updated_at, deleted_at
+             ) VALUES (?, ?, ?, ?, ?, ?, NULL)",
+        )
+        .bind(&workspace.id)
+        .bind(&workspace.owner_user_id)
+        .bind(&workspace.kind)
+        .bind(&workspace.name)
+        .bind(&workspace.created_at)
+        .bind(&workspace.updated_at)
+        .execute(&mut *transaction)
+        .await?;
+        sqlx::query(
+            "INSERT INTO workspace_memberships (
+               id, workspace_id, user_id, role, created_at, updated_at, deleted_at
+             ) VALUES (?, ?, ?, ?, ?, ?, NULL)",
+        )
+        .bind(&workspace.membership_id)
+        .bind(&workspace.id)
+        .bind(&projection.account_user_id)
+        .bind(&workspace.role)
+        .bind(&workspace.membership_created_at)
+        .bind(&workspace.membership_updated_at)
+        .execute(&mut *transaction)
+        .await?;
+    }
+
+    transaction.commit().await?;
+    Ok(())
+}
+
+pub fn validate_cloudsync_workspace_projection(
+    projection: &CloudsyncWorkspaceProjection,
+) -> Result<(), CloudsyncWorkspaceError> {
+    let account_user_id = validated_account_user_id(&projection.account_user_id)?;
+    if projection.personal_workspace_id != account_user_id || projection.workspaces.is_empty() {
+        return Err(CloudsyncWorkspaceError::InvalidWorkspaceProjection);
+    }
+
+    let mut workspace_ids = std::collections::HashSet::new();
+    let mut membership_ids = std::collections::HashSet::new();
+    for workspace in &projection.workspaces {
+        if workspace.id.trim().is_empty()
+            || workspace.owner_user_id.trim().is_empty()
+            || !matches!(workspace.kind.as_str(), "personal" | "shared")
+            || workspace.membership_id.trim().is_empty()
+            || !matches!(workspace.role.as_str(), "owner" | "admin" | "member")
+            || workspace.membership_created_at.trim().is_empty()
+            || workspace.membership_updated_at.trim().is_empty()
+            || workspace.created_at.trim().is_empty()
+            || workspace.updated_at.trim().is_empty()
+            || !workspace_ids.insert(workspace.id.as_str())
+            || !membership_ids.insert(workspace.membership_id.as_str())
+        {
+            return Err(CloudsyncWorkspaceError::InvalidWorkspaceProjection);
+        }
+    }
+
+    let mut personal_workspaces = projection
+        .workspaces
+        .iter()
+        .filter(|workspace| workspace.kind == "personal");
+    let Some(personal_workspace) = personal_workspaces.next() else {
+        return Err(CloudsyncWorkspaceError::InvalidWorkspaceProjection);
+    };
+    if personal_workspaces.next().is_some()
+        || personal_workspace.id != projection.personal_workspace_id
+        || personal_workspace.owner_user_id != account_user_id
+        || personal_workspace.role != "owner"
+    {
+        return Err(CloudsyncWorkspaceError::InvalidWorkspaceProjection);
+    }
+
+    Ok(())
+}
+
 fn validated_account_user_id(account_user_id: &str) -> Result<&str, CloudsyncWorkspaceError> {
     let account_user_id = account_user_id.trim();
     if account_user_id.is_empty() || account_user_id == LEGACY_DEFAULT_USER_ID {
@@ -414,6 +531,215 @@ mod tests {
         let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
         crate::prepare_schema(&db).await.unwrap();
         db
+    }
+
+    fn projection(
+        account_user_id: &str,
+        workspaces: Vec<CloudsyncWorkspaceProjectionEntry>,
+    ) -> CloudsyncWorkspaceProjection {
+        CloudsyncWorkspaceProjection {
+            account_user_id: account_user_id.to_string(),
+            personal_workspace_id: account_user_id.to_string(),
+            workspaces,
+        }
+    }
+
+    fn projected_workspace(
+        id: &str,
+        owner_user_id: &str,
+        kind: &str,
+        membership_id: &str,
+        role: &str,
+        name: &str,
+    ) -> CloudsyncWorkspaceProjectionEntry {
+        CloudsyncWorkspaceProjectionEntry {
+            id: id.to_string(),
+            owner_user_id: owner_user_id.to_string(),
+            kind: kind.to_string(),
+            name: name.to_string(),
+            membership_id: membership_id.to_string(),
+            role: role.to_string(),
+            membership_created_at: "2026-07-16T00:01:00Z".to_string(),
+            membership_updated_at: "2026-07-16T00:02:00Z".to_string(),
+            created_at: "2026-07-16T00:00:00Z".to_string(),
+            updated_at: "2026-07-16T00:00:00Z".to_string(),
+        }
+    }
+
+    #[tokio::test]
+    async fn workspace_projection_replaces_stale_server_rows() {
+        let db = test_db().await;
+        replace_cloudsync_workspace_projection(
+            db.pool(),
+            &projection(
+                "user-a",
+                vec![
+                    projected_workspace(
+                        "user-a",
+                        "user-a",
+                        "personal",
+                        "membership-personal",
+                        "owner",
+                        "Personal",
+                    ),
+                    projected_workspace(
+                        "workspace-shared",
+                        "user-b",
+                        "shared",
+                        "membership-shared",
+                        "member",
+                        "Shared",
+                    ),
+                ],
+            ),
+        )
+        .await
+        .unwrap();
+
+        replace_cloudsync_workspace_projection(
+            db.pool(),
+            &projection(
+                "user-a",
+                vec![projected_workspace(
+                    "user-a",
+                    "user-a",
+                    "personal",
+                    "membership-personal",
+                    "owner",
+                    "My notes",
+                )],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let workspaces: Vec<(String, String)> =
+            sqlx::query_as("SELECT id, name FROM workspaces ORDER BY id")
+                .fetch_all(db.pool())
+                .await
+                .unwrap();
+        let memberships: Vec<(String, String, String, String, String, String)> = sqlx::query_as(
+            "SELECT id, workspace_id, user_id, role, created_at, updated_at
+                 FROM workspace_memberships ORDER BY id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+
+        assert_eq!(
+            workspaces,
+            vec![("user-a".to_string(), "My notes".to_string())]
+        );
+        assert_eq!(
+            memberships,
+            vec![(
+                "membership-personal".to_string(),
+                "user-a".to_string(),
+                "user-a".to_string(),
+                "owner".to_string(),
+                "2026-07-16T00:01:00Z".to_string(),
+                "2026-07-16T00:02:00Z".to_string(),
+            )]
+        );
+    }
+
+    #[tokio::test]
+    async fn invalid_workspace_projections_preserve_existing_rows() {
+        let db = test_db().await;
+        let valid = projection(
+            "user-a",
+            vec![projected_workspace(
+                "user-a",
+                "user-a",
+                "personal",
+                "membership-personal",
+                "owner",
+                "Personal",
+            )],
+        );
+        replace_cloudsync_workspace_projection(db.pool(), &valid)
+            .await
+            .unwrap();
+
+        let mut missing_personal = valid.clone();
+        missing_personal.personal_workspace_id = "workspace-missing".to_string();
+        let mut invalid_role = valid.clone();
+        invalid_role.workspaces[0].role = "viewer".to_string();
+        let mut invalid_membership_timestamp = valid.clone();
+        invalid_membership_timestamp.workspaces[0].membership_created_at = String::new();
+        let mut invalid_kind = valid.clone();
+        invalid_kind.workspaces.push(projected_workspace(
+            "workspace-shared",
+            "user-b",
+            "team",
+            "membership-shared",
+            "member",
+            "Shared",
+        ));
+        let mut duplicate_personal = valid.clone();
+        duplicate_personal.workspaces.push(projected_workspace(
+            "workspace-personal-2",
+            "user-b",
+            "personal",
+            "membership-personal-2",
+            "owner",
+            "Other personal",
+        ));
+        let mut duplicate_workspace = valid.clone();
+        duplicate_workspace.workspaces.push(projected_workspace(
+            "user-a",
+            "user-b",
+            "shared",
+            "membership-shared",
+            "member",
+            "Shared",
+        ));
+        let mut duplicate_membership = valid.clone();
+        duplicate_membership.workspaces.push(projected_workspace(
+            "workspace-shared",
+            "user-b",
+            "shared",
+            "membership-personal",
+            "member",
+            "Shared",
+        ));
+
+        for invalid in [
+            missing_personal,
+            invalid_role,
+            invalid_membership_timestamp,
+            invalid_kind,
+            duplicate_personal,
+            duplicate_workspace,
+            duplicate_membership,
+        ] {
+            let error = replace_cloudsync_workspace_projection(db.pool(), &invalid)
+                .await
+                .unwrap_err();
+            assert!(matches!(
+                error,
+                CloudsyncWorkspaceError::InvalidWorkspaceProjection
+            ));
+        }
+
+        let workspaces: Vec<(String, String)> =
+            sqlx::query_as("SELECT id, name FROM workspaces ORDER BY id")
+                .fetch_all(db.pool())
+                .await
+                .unwrap();
+        let memberships: Vec<(String, String)> =
+            sqlx::query_as("SELECT id, workspace_id FROM workspace_memberships ORDER BY id")
+                .fetch_all(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(
+            workspaces,
+            vec![("user-a".to_string(), "Personal".to_string())]
+        );
+        assert_eq!(
+            memberships,
+            vec![("membership-personal".to_string(), "user-a".to_string(),)]
+        );
     }
 
     #[tokio::test]

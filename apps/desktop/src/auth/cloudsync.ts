@@ -1,5 +1,6 @@
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
+import type { CloudsyncWorkspaceProjection } from "@hypr/plugin-db";
 import {
   bindCloudsyncAccount,
   configureCloudsyncToken,
@@ -17,18 +18,31 @@ import { env } from "~/env";
 const REFRESH_LEAD_MS = 2 * 60 * 1000;
 const RETRY_DELAY_MS = 60 * 1000;
 const MIN_REFRESH_DELAY_MS = 1000;
-const EXCHANGE_TIMEOUT_MS = 10 * 1000;
+const EXCHANGE_TIMEOUT_MS = 25 * 1000;
 
 export type CloudsyncAuthChangeResult = "ok" | "account_mismatch";
 
 type CloudsyncAccountMismatchHandler = () => Promise<void>;
 
-type CloudsyncCredentials = {
+type CloudsyncCredentialCore = {
   databaseId: string;
   token: string;
   expiresAt: string;
   workspaceId: string;
 };
+
+type LegacyCloudsyncCredentials = CloudsyncCredentialCore & {
+  accountUserId?: undefined;
+  personalWorkspaceId?: undefined;
+  workspaces?: undefined;
+};
+
+type ProjectedCloudsyncCredentials = CloudsyncCredentialCore &
+  CloudsyncWorkspaceProjection;
+
+type CloudsyncCredentials =
+  | LegacyCloudsyncCredentials
+  | ProjectedCloudsyncCredentials;
 
 let generation = 0;
 let exchangeController: AbortController | null = null;
@@ -108,7 +122,7 @@ function isCredentials(value: unknown): value is CloudsyncCredentials {
   }
 
   const candidate = value as Record<string, unknown>;
-  return (
+  const hasCoreCredentials =
     typeof candidate.databaseId === "string" &&
     candidate.databaseId.length > 0 &&
     typeof candidate.token === "string" &&
@@ -116,8 +130,86 @@ function isCredentials(value: unknown): value is CloudsyncCredentials {
     typeof candidate.expiresAt === "string" &&
     Number.isFinite(Date.parse(candidate.expiresAt)) &&
     typeof candidate.workspaceId === "string" &&
-    candidate.workspaceId.length > 0
+    candidate.workspaceId.length > 0;
+  if (!hasCoreCredentials) {
+    return false;
+  }
+
+  const projectionKeys = ["accountUserId", "personalWorkspaceId", "workspaces"];
+  if (!projectionKeys.some((key) => key in candidate)) {
+    return true;
+  }
+
+  if (
+    typeof candidate.accountUserId !== "string" ||
+    candidate.accountUserId.length === 0 ||
+    typeof candidate.personalWorkspaceId !== "string" ||
+    candidate.personalWorkspaceId.length === 0 ||
+    candidate.personalWorkspaceId !== candidate.workspaceId ||
+    candidate.accountUserId !== candidate.personalWorkspaceId ||
+    !Array.isArray(candidate.workspaces) ||
+    candidate.workspaces.length === 0
+  ) {
+    return false;
+  }
+
+  const workspaceIds = new Set<string>();
+  const membershipIds = new Set<string>();
+  for (const value of candidate.workspaces) {
+    if (!value || typeof value !== "object") {
+      return false;
+    }
+
+    const workspace = value as Record<string, unknown>;
+    if (
+      typeof workspace.id !== "string" ||
+      workspace.id.length === 0 ||
+      typeof workspace.ownerUserId !== "string" ||
+      workspace.ownerUserId.length === 0 ||
+      typeof workspace.kind !== "string" ||
+      !["personal", "shared"].includes(workspace.kind) ||
+      typeof workspace.name !== "string" ||
+      typeof workspace.membershipId !== "string" ||
+      workspace.membershipId.length === 0 ||
+      typeof workspace.role !== "string" ||
+      !["owner", "admin", "member"].includes(workspace.role) ||
+      typeof workspace.membershipCreatedAt !== "string" ||
+      !Number.isFinite(Date.parse(workspace.membershipCreatedAt)) ||
+      typeof workspace.membershipUpdatedAt !== "string" ||
+      !Number.isFinite(Date.parse(workspace.membershipUpdatedAt)) ||
+      typeof workspace.createdAt !== "string" ||
+      !Number.isFinite(Date.parse(workspace.createdAt)) ||
+      typeof workspace.updatedAt !== "string" ||
+      !Number.isFinite(Date.parse(workspace.updatedAt)) ||
+      workspaceIds.has(workspace.id) ||
+      membershipIds.has(workspace.membershipId)
+    ) {
+      return false;
+    }
+
+    workspaceIds.add(workspace.id);
+    membershipIds.add(workspace.membershipId);
+  }
+
+  const personalWorkspaces = candidate.workspaces.filter(
+    (workspace) => workspace.kind === "personal",
   );
+  if (personalWorkspaces.length !== 1) {
+    return false;
+  }
+
+  const personalWorkspace = personalWorkspaces[0]!;
+  return (
+    personalWorkspace.id === candidate.personalWorkspaceId &&
+    personalWorkspace.ownerUserId === candidate.accountUserId &&
+    personalWorkspace.role === "owner"
+  );
+}
+
+function hasWorkspaceProjection(
+  credentials: CloudsyncCredentials,
+): credentials is ProjectedCloudsyncCredentials {
+  return credentials.accountUserId !== undefined;
 }
 
 function scheduleExchange(
@@ -311,7 +403,10 @@ async function activateCloudsync(
     return "ok";
   }
 
-  if (credentials.workspaceId !== session.user.id) {
+  const accountUserId = hasWorkspaceProjection(credentials)
+    ? credentials.accountUserId
+    : credentials.workspaceId;
+  if (accountUserId !== session.user.id) {
     if (!suspendBeforeExchange) {
       await suspendCloudsyncAfterCredentialRejection(activeGeneration);
     }
@@ -339,11 +434,22 @@ async function activateCloudsync(
         return "configured" as const;
       }
 
-      const configuration = await configureCloudsyncToken(
-        credentials.databaseId,
-        credentials.token,
-        credentials.workspaceId,
-      );
+      const configuration = hasWorkspaceProjection(credentials)
+        ? await configureCloudsyncToken(
+            credentials.databaseId,
+            credentials.token,
+            accountUserId,
+            {
+              accountUserId: credentials.accountUserId,
+              personalWorkspaceId: credentials.personalWorkspaceId,
+              workspaces: credentials.workspaces,
+            },
+          )
+        : await configureCloudsyncToken(
+            credentials.databaseId,
+            credentials.token,
+            accountUserId,
+          );
 
       if (activeGeneration !== generation) {
         if (configuration === "configured") {

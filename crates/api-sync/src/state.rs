@@ -1,6 +1,6 @@
 use crate::config::SyncConfig;
 
-const SQLITE_CLOUD_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+const UPSTREAM_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 #[derive(Clone)]
 pub struct AppState {
@@ -13,9 +13,9 @@ impl AppState {
         Self {
             config,
             client: reqwest::Client::builder()
-                .timeout(SQLITE_CLOUD_REQUEST_TIMEOUT)
+                .timeout(UPSTREAM_REQUEST_TIMEOUT)
                 .build()
-                .expect("SQLite Cloud HTTP client must build"),
+                .expect("CloudSync HTTP client must build"),
         }
     }
 }

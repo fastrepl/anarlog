@@ -956,6 +956,39 @@
             }
           },
           {
+            "name": "num_speakers",
+            "in": "query",
+            "description": "Expected exact number of speakers, when supported by the selected provider",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "min_speakers",
+            "in": "query",
+            "description": "Minimum expected number of speakers, when supported by the selected provider",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "max_speakers",
+            "in": "query",
+            "description": "Maximum expected number of speakers, when supported by the selected provider",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
             "name": "sample_rate",
             "in": "query",
             "description": "Audio sample rate in Hz (default: 16000)",
@@ -1039,6 +1072,39 @@
             "required": false,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "num_speakers",
+            "in": "query",
+            "description": "Expected exact number of speakers, when supported by the selected provider",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "min_speakers",
+            "in": "query",
+            "description": "Minimum expected number of speakers, when supported by the selected provider",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "max_speakers",
+            "in": "query",
+            "description": "Maximum expected number of speakers, when supported by the selected provider",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
             }
           },
           {
@@ -2331,19 +2397,81 @@
           "databaseId",
           "token",
           "expiresAt",
-          "workspaceId"
+          "workspaceId",
+          "accountUserId",
+          "personalWorkspaceId",
+          "workspaces"
         ],
         "properties": {
+          "accountUserId": {
+            "type": "string"
+          },
           "databaseId": {
             "type": "string"
           },
           "expiresAt": {
             "type": "string"
           },
+          "personalWorkspaceId": {
+            "type": "string"
+          },
           "token": {
             "type": "string"
           },
           "workspaceId": {
+            "type": "string"
+          },
+          "workspaces": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CloudsyncWorkspace"
+            }
+          }
+        }
+      },
+      "CloudsyncWorkspace": {
+        "type": "object",
+        "required": [
+          "id",
+          "ownerUserId",
+          "kind",
+          "name",
+          "membershipId",
+          "role",
+          "membershipCreatedAt",
+          "membershipUpdatedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "createdAt": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "membershipCreatedAt": {
+            "type": "string"
+          },
+          "membershipId": {
+            "type": "string"
+          },
+          "membershipUpdatedAt": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "ownerUserId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "updatedAt": {
             "type": "string"
           }
         }

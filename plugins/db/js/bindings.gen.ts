@@ -126,9 +126,9 @@ async bindCloudsyncAccount(accountUserId: string) : Promise<Result<boolean, stri
     else return { status: "error", error: e  as any };
 }
 },
-async configureCloudsyncToken(databaseId: string, token: string, workspaceId: string) : Promise<Result<CloudsyncTokenConfigurationResult, string>> {
+async configureCloudsyncToken(databaseId: string, token: string, workspaceId: string, workspaceProjection: CloudsyncWorkspaceProjection | null) : Promise<Result<CloudsyncTokenConfigurationResult, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:db|configure_cloudsync_token", { databaseId, token, workspaceId }) };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|configure_cloudsync_token", { databaseId, token, workspaceId, workspaceProjection }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -188,6 +188,8 @@ async syncCloudsyncNow() : Promise<Result<JsonValue, string>> {
 
 export type ActionItem = { id: string; assignee_human_id: string; status: string; text: string; due_at: string; completed_at: string | null }
 export type CloudsyncTokenConfigurationResult = "configured" | "account_mismatch"
+export type CloudsyncWorkspaceProjection = { accountUserId: string; personalWorkspaceId: string; workspaces: CloudsyncWorkspaceProjectionEntry[] }
+export type CloudsyncWorkspaceProjectionEntry = { id: string; ownerUserId: string; kind: string; name: string; membershipId: string; role: string; membershipCreatedAt: string; membershipUpdatedAt: string; createdAt: string; updatedAt: string }
 export type DependencyAnalysis = { kind: "reactive"; data: { targets: DependencyTarget[] } } | { kind: "non_reactive"; data: { reason: string } }
 export type DependencyTarget = { kind: "table"; data: string } | { kind: "virtual_table"; data: string }
 export type Document = { id: string; kind: string; template_id: string; title: string; markdown: string; sort_order: number; created_at: string; updated_at: string }

@@ -5,6 +5,7 @@ import type {
   GetMeetingTranscriptInput as GeneratedGetMeetingTranscriptInput,
   GetRecurringMeetingHistoryInput as GeneratedGetRecurringMeetingHistoryInput,
   CloudsyncTokenConfigurationResult,
+  CloudsyncWorkspaceProjection,
   LegacyCleanupResult,
   LegacyCleanupStatus,
   LegacyImportReport,
@@ -17,6 +18,7 @@ import type {
 
 export type {
   CloudsyncTokenConfigurationResult,
+  CloudsyncWorkspaceProjection,
   GetMeetingInput,
   LegacyCleanupResult,
   LegacyCleanupStatus,
@@ -171,11 +173,13 @@ export async function configureCloudsyncToken(
   databaseId: string,
   token: string,
   workspaceId: string,
+  workspaceProjection?: CloudsyncWorkspaceProjection,
 ): Promise<CloudsyncTokenConfigurationResult> {
   return invoke("plugin:db|configure_cloudsync_token", {
     databaseId,
     token,
     workspaceId,
+    workspaceProjection: workspaceProjection ?? null,
   });
 }
 

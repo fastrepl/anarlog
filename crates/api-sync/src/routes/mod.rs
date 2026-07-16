@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use axum::{
     Extension, Json, Router,
     extract::State,
@@ -12,6 +14,9 @@ use utoipa::OpenApi;
 use crate::error::{Result, SyncError};
 use crate::state::AppState;
 
+const WORKSPACE_PROJECTION_SELECT: &str = "id,user_id,role,created_at,updated_at,workspace:workspaces!inner(id,owner_user_id,kind,name,created_at,updated_at)";
+const WORKSPACE_PROJECTION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
 #[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CloudsyncCredentials {
@@ -19,6 +24,24 @@ pub struct CloudsyncCredentials {
     token: String,
     expires_at: String,
     workspace_id: String,
+    account_user_id: String,
+    personal_workspace_id: String,
+    workspaces: Vec<CloudsyncWorkspace>,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CloudsyncWorkspace {
+    id: String,
+    owner_user_id: String,
+    kind: String,
+    name: String,
+    membership_id: String,
+    role: String,
+    membership_created_at: String,
+    membership_updated_at: String,
+    created_at: String,
+    updated_at: String,
 }
 
 #[derive(Serialize)]
@@ -39,8 +62,31 @@ struct CreateTokenResponse {
     token: String,
 }
 
+#[derive(Deserialize)]
+struct WorkspaceMembershipRow {
+    id: String,
+    user_id: String,
+    role: String,
+    created_at: String,
+    updated_at: String,
+    workspace: WorkspaceRow,
+}
+
+#[derive(Deserialize)]
+struct WorkspaceRow {
+    id: String,
+    owner_user_id: String,
+    kind: String,
+    name: String,
+    created_at: String,
+    updated_at: String,
+}
+
 #[derive(OpenApi)]
-#[openapi(paths(create_credentials), components(schemas(CloudsyncCredentials)))]
+#[openapi(
+    paths(create_credentials),
+    components(schemas(CloudsyncCredentials, CloudsyncWorkspace))
+)]
 pub struct ApiDoc;
 
 pub fn openapi() -> utoipa::openapi::OpenApi {
@@ -74,6 +120,10 @@ async fn create_credentials(
     if !auth.claims.is_pro() {
         return Err(SyncError::ProPlanRequired);
     }
+
+    let workspace_rows = fetch_workspace_projection(&state, &auth).await?;
+    let (personal_workspace_id, workspaces) =
+        validate_workspace_projection(workspace_rows, &auth.claims.sub)?;
 
     let ttl = i64::try_from(state.config.token_ttl_seconds)
         .map_err(|_| SyncError::Internal("CloudSync token TTL is too large".to_string()))?;
@@ -116,9 +166,142 @@ async fn create_credentials(
             database_id: state.config.database_id,
             token: response.data.token,
             expires_at,
-            workspace_id: auth.claims.sub,
+            workspace_id: personal_workspace_id.clone(),
+            account_user_id: auth.claims.sub,
+            personal_workspace_id,
+            workspaces,
         }),
     ))
+}
+
+async fn fetch_workspace_projection(
+    state: &AppState,
+    auth: &AuthContext,
+) -> Result<Vec<WorkspaceMembershipRow>> {
+    let user_filter = format!("eq.{}", auth.claims.sub);
+    let response = state
+        .client
+        .get(format!(
+            "{}/rest/v1/workspace_memberships",
+            state.config.supabase_url
+        ))
+        .header("apikey", &state.config.supabase_anon_key)
+        .bearer_auth(&auth.token)
+        .timeout(WORKSPACE_PROJECTION_TIMEOUT)
+        .query(&[
+            ("select", WORKSPACE_PROJECTION_SELECT),
+            ("user_id", user_filter.as_str()),
+            ("deleted_at", "is.null"),
+            ("workspace.deleted_at", "is.null"),
+        ])
+        .send()
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "Supabase workspace projection request failed");
+            SyncError::Upstream
+        })?;
+    if !response.status().is_success() {
+        tracing::warn!(
+            status = %response.status(),
+            "Supabase workspace projection request was rejected"
+        );
+        return Err(SyncError::Upstream);
+    }
+
+    response.json().await.map_err(|error| {
+        tracing::warn!(%error, "Supabase workspace projection response was invalid");
+        SyncError::Upstream
+    })
+}
+
+fn validate_workspace_projection(
+    mut rows: Vec<WorkspaceMembershipRow>,
+    account_user_id: &str,
+) -> Result<(String, Vec<CloudsyncWorkspace>)> {
+    let mut membership_ids = HashSet::with_capacity(rows.len());
+    let mut workspace_ids = HashSet::with_capacity(rows.len());
+
+    for row in &rows {
+        if row.user_id != account_user_id {
+            return invalid_workspace_projection("membership user does not match account");
+        }
+        if row.id.trim().is_empty()
+            || row.workspace.id.trim().is_empty()
+            || row.workspace.owner_user_id.trim().is_empty()
+        {
+            return invalid_workspace_projection("workspace projection contains a blank identity");
+        }
+        if !matches!(row.role.as_str(), "owner" | "admin" | "member") {
+            return invalid_workspace_projection("workspace membership has an invalid role");
+        }
+        if !matches!(row.workspace.kind.as_str(), "personal" | "shared") {
+            return invalid_workspace_projection("workspace has an invalid kind");
+        }
+        if chrono::DateTime::parse_from_rfc3339(&row.workspace.created_at).is_err()
+            || chrono::DateTime::parse_from_rfc3339(&row.workspace.updated_at).is_err()
+        {
+            return invalid_workspace_projection("workspace has an invalid timestamp");
+        }
+        if chrono::DateTime::parse_from_rfc3339(&row.created_at).is_err()
+            || chrono::DateTime::parse_from_rfc3339(&row.updated_at).is_err()
+        {
+            return invalid_workspace_projection("workspace membership has an invalid timestamp");
+        }
+        if !membership_ids.insert(&row.id) || !workspace_ids.insert(&row.workspace.id) {
+            return invalid_workspace_projection("workspace projection contains duplicate rows");
+        }
+    }
+
+    let personal_workspaces = rows
+        .iter()
+        .filter(|row| row.workspace.kind == "personal")
+        .collect::<Vec<_>>();
+    if personal_workspaces.len() != 1 {
+        return invalid_workspace_projection(
+            "account must have exactly one personal owner workspace",
+        );
+    }
+
+    let personal_workspace = personal_workspaces[0];
+    if personal_workspace.role != "owner"
+        || personal_workspace.workspace.id != account_user_id
+        || personal_workspace.workspace.owner_user_id != account_user_id
+    {
+        return invalid_workspace_projection("personal workspace identity does not match account");
+    }
+
+    let personal_workspace_id = personal_workspace.workspace.id.clone();
+    rows.sort_by(|left, right| {
+        let left_is_personal = left.workspace.id == personal_workspace_id;
+        let right_is_personal = right.workspace.id == personal_workspace_id;
+        right_is_personal
+            .cmp(&left_is_personal)
+            .then_with(|| left.workspace.created_at.cmp(&right.workspace.created_at))
+            .then_with(|| left.workspace.id.cmp(&right.workspace.id))
+    });
+
+    Ok((
+        personal_workspace_id,
+        rows.into_iter()
+            .map(|row| CloudsyncWorkspace {
+                id: row.workspace.id,
+                owner_user_id: row.workspace.owner_user_id,
+                kind: row.workspace.kind,
+                name: row.workspace.name,
+                membership_id: row.id,
+                role: row.role,
+                membership_created_at: row.created_at,
+                membership_updated_at: row.updated_at,
+                created_at: row.workspace.created_at,
+                updated_at: row.workspace.updated_at,
+            })
+            .collect(),
+    ))
+}
+
+fn invalid_workspace_projection<T>(reason: &'static str) -> Result<T> {
+    tracing::warn!(reason, "Supabase workspace projection failed validation");
+    Err(SyncError::Upstream)
 }
 
 #[cfg(test)]
@@ -129,7 +312,7 @@ mod tests {
     use tower::ServiceExt;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
-        matchers::{body_partial_json, header, method, path},
+        matchers::{body_partial_json, header, method, path, query_param},
     };
 
     use super::*;
@@ -141,6 +324,8 @@ mod tests {
             token_issuer_api_key: api_key.to_string(),
             database_id: "database-id".to_string(),
             token_ttl_seconds: 60,
+            supabase_url: server.uri(),
+            supabase_anon_key: "anon-key".to_string(),
         }))
         .layer(Extension(AuthContext {
             token: "supabase-token".to_string(),
@@ -158,6 +343,38 @@ mod tests {
         }))
     }
 
+    fn personal_workspace(id: &str) -> Value {
+        json!({
+            "id": id,
+            "user_id": "user-123",
+            "role": "owner",
+            "created_at": "2026-07-16T08:01:00Z",
+            "updated_at": "2026-07-16T08:02:00Z",
+            "workspace": {
+                "id": id,
+                "owner_user_id": id,
+                "kind": "personal",
+                "name": "Personal",
+                "created_at": "2026-07-16T08:00:00Z",
+                "updated_at": "2026-07-16T08:00:00Z"
+            }
+        })
+    }
+
+    async fn mock_workspace_projection(server: &MockServer, body: Value) {
+        Mock::given(method("GET"))
+            .and(path("/rest/v1/workspace_memberships"))
+            .and(header("apikey", "anon-key"))
+            .and(header("authorization", "Bearer supabase-token"))
+            .and(query_param("select", WORKSPACE_PROJECTION_SELECT))
+            .and(query_param("user_id", "eq.user-123"))
+            .and(query_param("deleted_at", "is.null"))
+            .and(query_param("workspace.deleted_at", "is.null"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(body))
+            .mount(server)
+            .await;
+    }
+
     async fn response_json(response: axum::response::Response) -> Value {
         let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         serde_json::from_slice(&bytes).unwrap()
@@ -166,6 +383,28 @@ mod tests {
     #[tokio::test]
     async fn mints_token_for_verified_supabase_subject() {
         let server = MockServer::start().await;
+        mock_workspace_projection(
+            &server,
+            json!([
+                {
+                    "id": "membership-team",
+                    "user_id": "user-123",
+                    "role": "member",
+                    "created_at": "2026-07-16T09:01:00Z",
+                    "updated_at": "2026-07-16T10:01:00Z",
+                    "workspace": {
+                        "id": "workspace-team",
+                        "owner_user_id": "user-456",
+                        "kind": "shared",
+                        "name": "Acme",
+                        "created_at": "2026-07-16T09:00:00Z",
+                        "updated_at": "2026-07-16T10:00:00Z"
+                    }
+                },
+                personal_workspace("user-123")
+            ]),
+        )
+        .await;
         Mock::given(method("POST"))
             .and(path("/v2/tokens"))
             .and(header("authorization", "Bearer issuer-key"))
@@ -189,7 +428,35 @@ mod tests {
         assert_eq!(body["databaseId"], "database-id");
         assert_eq!(body["token"], "sqlite-token");
         assert_eq!(body["workspaceId"], "user-123");
+        assert_eq!(body["accountUserId"], "user-123");
+        assert_eq!(body["personalWorkspaceId"], "user-123");
+        assert_eq!(body["workspaces"][0]["id"], "user-123");
+        assert_eq!(body["workspaces"][0]["membershipId"], "user-123");
+        assert_eq!(body["workspaces"][0]["role"], "owner");
+        assert_eq!(body["workspaces"][1]["id"], "workspace-team");
+        assert_eq!(body["workspaces"][1]["ownerUserId"], "user-456");
+        assert_eq!(body["workspaces"][1]["kind"], "shared");
+        assert_eq!(body["workspaces"][1]["name"], "Acme");
+        assert_eq!(
+            body["workspaces"][1]["membershipCreatedAt"],
+            "2026-07-16T09:01:00Z"
+        );
+        assert_eq!(
+            body["workspaces"][1]["membershipUpdatedAt"],
+            "2026-07-16T10:01:00Z"
+        );
+        assert_eq!(body["workspaces"][1]["createdAt"], "2026-07-16T09:00:00Z");
+        assert_eq!(body["workspaces"][1]["updatedAt"], "2026-07-16T10:00:00Z");
         assert!(body["expiresAt"].as_str().unwrap().ends_with('Z'));
+
+        let requests = server.received_requests().await.unwrap();
+        assert_eq!(requests[0].url.path(), "/rest/v1/workspace_memberships");
+        assert_eq!(requests[1].url.path(), "/v2/tokens");
+        let token_request: Value = serde_json::from_slice(&requests[1].body).unwrap();
+        assert_eq!(token_request.as_object().unwrap().len(), 3);
+        assert_eq!(token_request["userId"], "user-123");
+        assert!(token_request.get("workspaceId").is_none());
+        assert!(token_request.get("workspaceIds").is_none());
     }
 
     #[tokio::test]
@@ -211,8 +478,175 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn upstream_failure_is_redacted() {
+    async fn refuses_token_when_workspace_projection_is_invalid() {
+        let invalid_projections = [
+            json!([]),
+            json!([personal_workspace("different-user")]),
+            json!([
+                personal_workspace("user-123"),
+                {
+                    "id": "other-owner-membership",
+                    "user_id": "user-123",
+                    "role": "owner",
+                    "created_at": "2026-07-16T09:00:00Z",
+                    "updated_at": "2026-07-16T09:00:00Z",
+                    "workspace": {
+                        "id": "other-personal",
+                        "owner_user_id": "other-personal",
+                        "kind": "personal",
+                        "name": "Other",
+                        "created_at": "2026-07-16T09:00:00Z",
+                        "updated_at": "2026-07-16T09:00:00Z"
+                    }
+                }
+            ]),
+            json!([{
+                "id": "user-123",
+                "user_id": "user-123",
+                "role": "admin",
+                "created_at": "2026-07-16T08:00:00Z",
+                "updated_at": "2026-07-16T08:00:00Z",
+                "workspace": {
+                    "id": "user-123",
+                    "owner_user_id": "user-123",
+                    "kind": "personal",
+                    "name": "Personal",
+                    "created_at": "2026-07-16T08:00:00Z",
+                    "updated_at": "2026-07-16T08:00:00Z"
+                }
+            }]),
+            json!([
+                personal_workspace("user-123"),
+                {
+                    "id": "",
+                    "user_id": "user-123",
+                    "role": "member",
+                    "created_at": "2026-07-16T09:00:00Z",
+                    "updated_at": "2026-07-16T09:00:00Z",
+                    "workspace": {
+                        "id": "workspace-team",
+                        "owner_user_id": "user-456",
+                        "kind": "shared",
+                        "name": "Acme",
+                        "created_at": "2026-07-16T09:00:00Z",
+                        "updated_at": "2026-07-16T09:00:00Z"
+                    }
+                }
+            ]),
+            json!([
+                personal_workspace("user-123"),
+                {
+                    "id": "membership-team",
+                    "user_id": "user-123",
+                    "role": "editor",
+                    "created_at": "2026-07-16T09:00:00Z",
+                    "updated_at": "2026-07-16T09:00:00Z",
+                    "workspace": {
+                        "id": "workspace-team",
+                        "owner_user_id": "user-456",
+                        "kind": "shared",
+                        "name": "Acme",
+                        "created_at": "2026-07-16T09:00:00Z",
+                        "updated_at": "2026-07-16T09:00:00Z"
+                    }
+                }
+            ]),
+            json!([
+                personal_workspace("user-123"),
+                {
+                    "id": "membership-team",
+                    "user_id": "user-123",
+                    "role": "member",
+                    "created_at": "2026-07-16T09:00:00Z",
+                    "updated_at": "2026-07-16T09:00:00Z",
+                    "workspace": {
+                        "id": "workspace-team",
+                        "owner_user_id": "user-456",
+                        "kind": "team",
+                        "name": "Acme",
+                        "created_at": "2026-07-16T09:00:00Z",
+                        "updated_at": "2026-07-16T09:00:00Z"
+                    }
+                }
+            ]),
+            json!([
+                personal_workspace("user-123"),
+                {
+                    "id": "membership-team",
+                    "user_id": "user-123",
+                    "role": "member",
+                    "created_at": "2026-07-16T09:00:00Z",
+                    "updated_at": "2026-07-16T09:00:00Z",
+                    "workspace": {
+                        "id": "workspace-team",
+                        "owner_user_id": "user-456",
+                        "kind": "shared",
+                        "name": "Acme",
+                        "created_at": "not-a-timestamp",
+                        "updated_at": "2026-07-16T09:00:00Z"
+                    }
+                }
+            ]),
+            json!([
+                personal_workspace("user-123"),
+                {
+                    "id": "membership-team",
+                    "user_id": "user-123",
+                    "role": "member",
+                    "created_at": "not-a-timestamp",
+                    "updated_at": "2026-07-16T09:00:00Z",
+                    "workspace": {
+                        "id": "workspace-team",
+                        "owner_user_id": "user-456",
+                        "kind": "shared",
+                        "name": "Acme",
+                        "created_at": "2026-07-16T09:00:00Z",
+                        "updated_at": "2026-07-16T09:00:00Z"
+                    }
+                }
+            ]),
+        ];
+
+        for projection in invalid_projections {
+            let server = MockServer::start().await;
+            mock_workspace_projection(&server, projection).await;
+
+            let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+                .oneshot(Request::post("/token").body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+
+            assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
+            let requests = server.received_requests().await.unwrap();
+            assert_eq!(requests.len(), 1);
+            assert_eq!(requests[0].url.path(), "/rest/v1/workspace_memberships");
+        }
+    }
+
+    #[tokio::test]
+    async fn workspace_projection_failure_is_redacted() {
         let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/rest/v1/workspace_memberships"))
+            .respond_with(ResponseTemplate::new(403).set_body_string("secret supabase detail"))
+            .mount(&server)
+            .await;
+
+        let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+            .oneshot(Request::post("/token").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
+        let body = response_json(response).await.to_string();
+        assert!(!body.contains("anon-key"));
+        assert!(!body.contains("supabase-token"));
+        assert!(!body.contains("supabase detail"));
+    }
+
+    #[tokio::test]
+    async fn sqlite_cloud_failure_is_redacted() {
+        let server = MockServer::start().await;
+        mock_workspace_projection(&server, json!([personal_workspace("user-123")])).await;
         Mock::given(method("POST"))
             .and(path("/v2/tokens"))
             .respond_with(ResponseTemplate::new(403).set_body_string("secret upstream detail"))

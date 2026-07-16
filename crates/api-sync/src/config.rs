@@ -31,6 +31,8 @@ pub struct SyncConfig {
     pub(crate) token_issuer_api_key: String,
     pub(crate) database_id: String,
     pub(crate) token_ttl_seconds: u64,
+    pub(crate) supabase_url: String,
+    pub(crate) supabase_anon_key: String,
 }
 
 impl SyncConfig {
@@ -38,12 +40,23 @@ impl SyncConfig {
         project_url: impl Into<String>,
         token_issuer_api_key: impl Into<String>,
         database_id: impl Into<String>,
+        supabase_url: impl Into<String>,
+        supabase_anon_key: impl Into<String>,
     ) -> Result<Self, String> {
+        let supabase_anon_key = supabase_anon_key.into();
+        if supabase_anon_key.trim().is_empty() {
+            return Err(
+                "SUPABASE_ANON_KEY is required for CloudSync workspace projection".to_string(),
+            );
+        }
+
         Ok(Self {
             project_url: validate_project_url(project_url.into())?,
             token_issuer_api_key: token_issuer_api_key.into(),
             database_id: database_id.into(),
             token_ttl_seconds: DEFAULT_TOKEN_TTL_SECONDS,
+            supabase_url: validate_supabase_url(supabase_url.into())?,
+            supabase_anon_key,
         })
     }
 
@@ -53,7 +66,11 @@ impl SyncConfig {
         Ok(self)
     }
 
-    pub fn from_env(env: &SyncEnv) -> Result<Option<Self>, String> {
+    pub fn from_env(
+        env: &SyncEnv,
+        supabase_url: &str,
+        supabase_anon_key: &str,
+    ) -> Result<Option<Self>, String> {
         let project_url = nonempty(env.sqlitecloud_project_url.as_deref());
         let token_issuer_api_key = nonempty(env.sqlitecloud_token_issuer_api_key.as_deref());
         let database_id = nonempty(env.anarlog_cloudsync_database_id.as_deref());
@@ -79,8 +96,14 @@ impl SyncConfig {
         validate_token_ttl(token_ttl_seconds)?;
 
         Ok(Some(
-            Self::new(project_url, token_issuer_api_key, database_id)?
-                .with_token_ttl_seconds(token_ttl_seconds)?,
+            Self::new(
+                project_url,
+                token_issuer_api_key,
+                database_id,
+                supabase_url,
+                supabase_anon_key,
+            )?
+            .with_token_ttl_seconds(token_ttl_seconds)?,
         ))
     }
 }
@@ -103,6 +126,35 @@ fn validate_project_url(value: String) -> Result<String, String> {
         || url.fragment().is_some()
     {
         return Err("SQLITECLOUD_PROJECT_URL must contain only the project origin".to_string());
+    }
+
+    Ok(url.origin().ascii_serialization())
+}
+
+fn validate_supabase_url(value: String) -> Result<String, String> {
+    let url =
+        reqwest::Url::parse(&value).map_err(|_| "SUPABASE_URL must be a valid URL".to_string())?;
+    let host = url
+        .host_str()
+        .ok_or_else(|| "SUPABASE_URL must include a host".to_string())?;
+    let address_host = host
+        .strip_prefix('[')
+        .and_then(|host| host.strip_suffix(']'))
+        .unwrap_or(host);
+    let is_loopback = host.eq_ignore_ascii_case("localhost")
+        || address_host
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|address| address.is_loopback());
+    if (url.scheme() != "https" && !(url.scheme() == "http" && is_loopback))
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.path() != "/"
+        || url.query().is_some()
+        || url.fragment().is_some()
+    {
+        return Err(
+            "SUPABASE_URL must use HTTPS, except for HTTP loopback development origins".to_string(),
+        );
     }
 
     Ok(url.origin().ascii_serialization())
@@ -137,12 +189,15 @@ mod tests {
         }
     }
 
+    fn config(env: &SyncEnv) -> Result<Option<SyncConfig>, String> {
+        SyncConfig::from_env(env, "https://project.supabase.co", "anon-key")
+    }
+
     #[test]
     fn accepts_https_sqlite_cloud_project_url() {
-        let config =
-            SyncConfig::from_env(&env("https://project.region.gateway.sqlite.cloud/", None))
-                .unwrap()
-                .unwrap();
+        let config = config(&env("https://project.region.gateway.sqlite.cloud/", None))
+            .unwrap()
+            .unwrap();
 
         assert_eq!(
             config.project_url,
@@ -153,25 +208,41 @@ mod tests {
 
     #[test]
     fn rejects_non_https_or_non_sqlite_cloud_project_url() {
-        assert!(SyncConfig::from_env(&env("http://project.gateway.sqlite.cloud", None)).is_err());
-        assert!(SyncConfig::from_env(&env("https://example.com", None)).is_err());
+        assert!(config(&env("http://project.gateway.sqlite.cloud", None)).is_err());
+        assert!(config(&env("https://example.com", None)).is_err());
     }
 
     #[test]
     fn bounds_token_ttl() {
         assert!(
-            SyncConfig::from_env(&env(
+            config(&env(
                 "https://project.gateway.sqlite.cloud",
                 Some(MIN_TOKEN_TTL_SECONDS - 1),
             ))
             .is_err()
         );
         assert!(
-            SyncConfig::from_env(&env(
+            config(&env(
                 "https://project.gateway.sqlite.cloud",
                 Some(MAX_TOKEN_TTL_SECONDS + 1),
             ))
             .is_err()
         );
+    }
+
+    #[test]
+    fn validates_supabase_workspace_projection_config() {
+        let sync_env = env("https://project.gateway.sqlite.cloud", None);
+
+        assert!(SyncConfig::from_env(&sync_env, "not-a-url", "anon-key").is_err());
+        assert!(SyncConfig::from_env(&sync_env, "http://project.supabase.co", "anon-key").is_err());
+        assert!(SyncConfig::from_env(&sync_env, "http://localhost:54321", "anon-key").is_ok());
+        assert!(SyncConfig::from_env(&sync_env, "http://127.0.0.1:54321", "anon-key").is_ok());
+        assert!(SyncConfig::from_env(&sync_env, "http://[::1]:54321", "anon-key").is_ok());
+        assert!(
+            SyncConfig::from_env(&sync_env, "https://project.supabase.co/path", "anon-key")
+                .is_err()
+        );
+        assert!(SyncConfig::from_env(&sync_env, "https://project.supabase.co", "   ").is_err());
     }
 }

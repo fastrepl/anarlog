@@ -11,7 +11,7 @@ utoipa = { workspace = true }
 
 axum = { workspace = true }
 chrono = { workspace = true }
-reqwest = { workspace = true, features = ["json"] }
+reqwest = { workspace = true, features = ["json", "query"] }
 sentry = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
