@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  createDesktopTabCloseHandler,
   createSessionTabCloseHandler,
   initializeDesktopTabs,
 } from "./desktop-tab-lifecycle";
@@ -170,5 +171,25 @@ describe("desktop tab lifecycle", () => {
         expect(deleteSessionFn).not.toHaveBeenCalled();
       }
     });
+  });
+
+  it("purges ephemeral previews through the central close handler", () => {
+    const purgePreview = vi.fn();
+    const handler = createDesktopTabCloseHandler({
+      invalidateSessionResource: vi.fn(),
+      purgePreview,
+    });
+
+    handler({
+      type: "shared_note_preview",
+      id: "13697a87-f69b-456d-8679-4202d4f5d498",
+      active: true,
+      pinned: false,
+      slotId: "slot-1",
+    });
+
+    expect(purgePreview).toHaveBeenCalledWith(
+      "13697a87-f69b-456d-8679-4202d4f5d498",
+    );
   });
 });

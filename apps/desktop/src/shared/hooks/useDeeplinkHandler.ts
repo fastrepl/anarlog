@@ -1,13 +1,21 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { isTauri } from "@tauri-apps/api/core";
-import { useEffect } from "react";
 import { useScheduleTaskRunCallback } from "tinytick/ui-react";
 
-import { events as deeplink2Events } from "@hypr/plugin-deeplink2";
+import {
+  commands as deeplink2Commands,
+  events as deeplink2Events,
+} from "@hypr/plugin-deeplink2";
 import { dismissInstruction } from "@hypr/plugin-windows";
 
 import { useAuth } from "~/auth";
 import { CALENDAR_SYNC_TASK_ID } from "~/services/calendar";
+import {
+  createShareOpenProcessor,
+  subscribeThenDrainShareOpens,
+} from "~/shared-notes/deeplink";
+import { useLatestRef } from "~/shared/hooks/useLatestRef";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function useDeeplinkHandler() {
@@ -19,30 +27,48 @@ export function useDeeplinkHandler() {
     undefined,
     0,
   );
+  const authRef = useLatestRef(auth);
+  const queryClientRef = useLatestRef(queryClient);
+  const openNewRef = useLatestRef(openNew);
+  const scheduleCalendarSyncRef = useLatestRef(scheduleCalendarSync);
 
-  useEffect(() => {
+  useMountEffect(() => {
     if (!isTauri()) {
       return;
     }
 
     const timeoutIds = new Set<number>();
     const refreshIntegrationState = () => {
-      void queryClient.invalidateQueries({
+      void queryClientRef.current.invalidateQueries({
         predicate: (query) => query.queryKey[0] === "integration-status",
       });
-      scheduleCalendarSync();
+      scheduleCalendarSyncRef.current();
     };
+    const shareOpenProcessor = createShareOpenProcessor({
+      takePendingShareOpen: deeplink2Commands.takePendingShareOpen,
+      getAuth: () => authRef.current,
+      openNew: (tab) => openNewRef.current(tab),
+    });
+    const shareOpenSubscription = subscribeThenDrainShareOpens({
+      listen: (handler) =>
+        deeplink2Events.shareOpenPendingEvent.listen(({ payload }) => {
+          handler(payload.pending_id);
+        }),
+      listPendingShareOpens: deeplink2Commands.listPendingShareOpens,
+      handle: shareOpenProcessor.handle,
+    });
 
     const unlisten = deeplink2Events.deepLinkEvent.listen(({ payload }) => {
       if (payload.to === "/auth/callback") {
         const { access_token, refresh_token } = payload.search;
-        if (access_token && refresh_token && auth) {
-          void auth.setSessionFromTokens(access_token, refresh_token);
+        if (access_token && refresh_token) {
+          void authRef.current.setSessionFromTokens(
+            access_token,
+            refresh_token,
+          );
         }
       } else if (payload.to === "/billing/refresh") {
-        if (auth) {
-          void auth.refreshSession();
-        }
+        void authRef.current.refreshSession();
         void dismissInstruction();
       } else if (payload.to === "/integration/callback") {
         const { integration_id, status, return_to } = payload.search;
@@ -59,9 +85,12 @@ export function useDeeplinkHandler() {
 
           void dismissInstruction().then(() => {
             if (return_to === "calendar" || return_to === "settings-calendar") {
-              openNew({ type: "calendar" });
+              openNewRef.current({ type: "calendar" });
             } else if (return_to === "todo") {
-              openNew({ type: "settings", state: { tab: "todo" } });
+              openNewRef.current({
+                type: "settings",
+                state: { tab: "todo" },
+              });
             }
           });
         }
@@ -69,10 +98,12 @@ export function useDeeplinkHandler() {
     });
 
     return () => {
+      shareOpenProcessor.dispose();
       for (const timeoutId of timeoutIds) {
         window.clearTimeout(timeoutId);
       }
-      void unlisten.then((fn) => fn());
+      void shareOpenSubscription.then((fn) => fn()).catch(() => {});
+      void unlisten.then((fn) => fn()).catch(() => {});
     };
-  }, [auth, openNew, queryClient, scheduleCalendarSync]);
+  });
 }

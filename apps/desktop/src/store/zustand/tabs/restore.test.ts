@@ -55,6 +55,18 @@ describe("Restore", () => {
       expect(closedTabs[0]).toMatchObject({ id: "session-1" });
       expect(closedTabs[9]).toMatchObject({ id: "session-10" });
     });
+
+    test("does not retain ephemeral shared-note previews", () => {
+      useTabs.getState().openNew({
+        type: "shared_note_preview",
+        id: "13697a87-f69b-456d-8679-4202d4f5d498",
+      });
+      const preview = useTabs.getState().currentTab!;
+
+      useTabs.getState().close(preview);
+
+      expect(useTabs.getState().closedTabs).toHaveLength(0);
+    });
   });
 
   describe("restoreLastClosedTab", () => {

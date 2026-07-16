@@ -33,6 +33,7 @@ import {
   mapSharedNoteLiveRows,
   parseDurableSharedNoteSnapshots,
   replaceDurableSharedNoteCache,
+  upsertDurableSharedNoteCache,
   useDurableSharedNote,
   useDurableSharedNotes,
 } from "./cache";
@@ -127,6 +128,23 @@ describe("durable shared-note cache", () => {
         params: ["viewer-1"],
       },
     ]);
+  });
+
+  it("upserts one account snapshot without replacing other rows", async () => {
+    const snapshot = parseDurableSharedNoteSnapshots([serverRow])[0]!;
+
+    await upsertDurableSharedNoteCache("viewer-1", snapshot);
+
+    const statements = mocks.executeTransaction.mock.calls[0]![0];
+    expect(statements).toHaveLength(1);
+    expect(statements[0]?.sql).toContain(
+      "ON CONFLICT(viewer_user_id, share_id) DO UPDATE",
+    );
+    expect(statements[0]?.sql).not.toContain(
+      "DELETE FROM shared_session_cache",
+    );
+    expect(statements[0]?.params).toContain("viewer-1");
+    expect(statements[0]?.params).toContain(serverRow.share_id);
   });
 
   it("serializes replacements for the same viewer", async () => {

@@ -6,6 +6,7 @@ export function usesNoteSurfaceMinWidth(tab: Pick<Tab, "type"> | null) {
   return (
     tab?.type === "sessions" ||
     tab?.type === "shared_sessions" ||
+    tab?.type === "shared_note_preview" ||
     tab?.type === "empty"
   );
 }

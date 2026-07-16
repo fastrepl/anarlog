@@ -111,6 +111,64 @@ export async function replaceDurableSharedNoteCache(
   );
 }
 
+export async function upsertDurableSharedNoteCache(
+  viewerUserId: string,
+  snapshot: SharedNoteSnapshot,
+): Promise<void> {
+  requireIdentity(viewerUserId, "viewer user");
+
+  await enqueueDatabaseWrite(`shared-note-cache:${viewerUserId}`, () =>
+    executeTransaction([
+      {
+        sql: `
+          INSERT INTO shared_session_cache (
+            share_id,
+            viewer_user_id,
+            workspace_id,
+            session_id,
+            schema_version,
+            content_revision,
+            title,
+            body_json,
+            capability,
+            manage_access,
+            access_version,
+            published_at,
+            cached_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+          ON CONFLICT(viewer_user_id, share_id) DO UPDATE SET
+            viewer_user_id = excluded.viewer_user_id,
+            workspace_id = excluded.workspace_id,
+            session_id = excluded.session_id,
+            schema_version = excluded.schema_version,
+            content_revision = excluded.content_revision,
+            title = excluded.title,
+            body_json = excluded.body_json,
+            capability = excluded.capability,
+            manage_access = excluded.manage_access,
+            access_version = excluded.access_version,
+            published_at = excluded.published_at,
+            cached_at = excluded.cached_at
+        `,
+        params: [
+          snapshot.shareId,
+          viewerUserId,
+          snapshot.workspaceId,
+          snapshot.sessionId,
+          snapshot.schemaVersion,
+          snapshot.contentRevision,
+          snapshot.title,
+          JSON.stringify(snapshot.body),
+          snapshot.capability,
+          snapshot.manageAccess ? 1 : 0,
+          snapshot.accessVersion,
+          snapshot.publishedAt,
+        ],
+      },
+    ]),
+  );
+}
+
 export function useDurableSharedNotes(viewerUserId: string | null | undefined) {
   const query = db
     .select()

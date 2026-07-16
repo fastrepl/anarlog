@@ -24,7 +24,8 @@ export type SupportedWindowTabInput = Exclude<
 
 export type TabInput =
   | SupportedWindowTabInput
-  | { type: "shared_sessions"; id: string };
+  | { type: "shared_sessions"; id: string }
+  | { type: "shared_note_preview"; id: string };
 
 export const isTabInputSupported = (
   tab: WindowsTabInput,
@@ -112,6 +113,7 @@ export type Tab =
       state: SessionsState;
     })
   | (BaseTab & { type: "shared_sessions"; id: string })
+  | (BaseTab & { type: "shared_note_preview"; id: string })
   | (BaseTab & {
       type: "contacts";
       state: ContactsState;
@@ -162,6 +164,8 @@ export const getDefaultState = (tab: TabInput): Tab => {
       };
     case "shared_sessions":
       return { ...base, type: "shared_sessions", id: tab.id };
+    case "shared_note_preview":
+      return { ...base, type: "shared_note_preview", id: tab.id };
     case "contacts":
       return {
         ...base,
@@ -222,6 +226,8 @@ export const uniqueIdfromTab = (tab: Tab): string => {
       return `sessions-${tab.id}`;
     case "shared_sessions":
       return `shared-sessions-${tab.id}`;
+    case "shared_note_preview":
+      return `shared-note-preview-${tab.id}`;
     case "humans":
       return `humans-${tab.id}`;
     case "organizations":

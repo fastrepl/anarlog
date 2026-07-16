@@ -1,5 +1,10 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { AlertCircleIcon, LogInIcon, UsersRoundIcon } from "lucide-react";
+import {
+  AlertCircleIcon,
+  LinkIcon,
+  LogInIcon,
+  UsersRoundIcon,
+} from "lucide-react";
 
 import { NoteEditor } from "@hypr/editor/note";
 
@@ -8,6 +13,7 @@ import { openEditorLink } from "~/editor-bridge/open-editor-link";
 import { SessionSurface } from "~/session/components/session-surface";
 import { ensureFirstLineTitle } from "~/session/title-content";
 import { useDurableSharedNote } from "~/shared-notes/cache";
+import { useSharedNotePreview } from "~/shared-notes/preview";
 import type { Tab } from "~/store/zustand/tabs";
 
 export function TabContentSharedNote({
@@ -52,26 +58,82 @@ export function TabContentSharedNote({
     );
   }
 
-  const content = ensureFirstLineTitle(snapshot.body, snapshot.title);
+  return (
+    <SharedNoteDocument
+      body={snapshot.body}
+      contentKey={`${snapshot.shareId}:${snapshot.contentRevision}`}
+      icon={UsersRoundIcon}
+      subtitle={<Trans>Shared with me · View only</Trans>}
+      title={snapshot.title}
+    />
+  );
+}
+
+export function TabContentSharedNotePreview({
+  tab,
+}: {
+  tab: Extract<Tab, { type: "shared_note_preview" }>;
+}) {
+  const { t } = useLingui();
+  const preview = useSharedNotePreview(tab.id);
+
+  if (preview.status === "loading") {
+    return <SharedNoteLoading />;
+  }
+  if (preview.status === "unavailable") {
+    return (
+      <SharedNoteUnavailable
+        icon={AlertCircleIcon}
+        title={t`Shared note unavailable`}
+        description={t`The link may have expired or its access may have changed.`}
+      />
+    );
+  }
+
+  const snapshot = preview.snapshot;
+  return (
+    <SharedNoteDocument
+      body={snapshot.body}
+      contentKey={`${tab.id}:${snapshot.contentRevision}`}
+      icon={LinkIcon}
+      subtitle={<Trans>Shared link · View only</Trans>}
+      title={snapshot.title}
+    />
+  );
+}
+
+function SharedNoteDocument({
+  body,
+  contentKey,
+  icon: Icon,
+  subtitle,
+  title,
+}: {
+  body: Parameters<typeof ensureFirstLineTitle>[0];
+  contentKey: string;
+  icon: typeof UsersRoundIcon;
+  subtitle: React.ReactNode;
+  title: string;
+}) {
+  const { t } = useLingui();
+  const content = ensureFirstLineTitle(body, title);
   return (
     <SessionSurface
       header={
         <div className="flex h-12 min-w-0 items-center gap-2 px-3">
-          <UsersRoundIcon className="text-muted-foreground size-4 shrink-0" />
+          <Icon className="text-muted-foreground size-4 shrink-0" />
           <div className="min-w-0">
             <div className="truncate text-sm font-medium">
-              {snapshot.title || t`Untitled`}
+              {title || t`Untitled`}
             </div>
-            <div className="text-muted-foreground text-xs">
-              <Trans>Shared with me · View only</Trans>
-            </div>
+            <div className="text-muted-foreground text-xs">{subtitle}</div>
           </div>
         </div>
       }
     >
       <div className="h-full overflow-auto px-3 pt-2 pb-6">
         <NoteEditor
-          key={`${snapshot.shareId}:${snapshot.contentRevision}`}
+          key={contentKey}
           className="session-note-editor"
           initialContent={content}
           onLinkOpen={openEditorLink}

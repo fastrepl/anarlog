@@ -1,5 +1,6 @@
 mod commands;
 mod error;
+mod pending_share_open;
 pub mod server;
 mod types;
 
@@ -9,6 +10,7 @@ mod docs;
 pub use error::{Error, Result};
 pub use types::{
     AuthCallbackSearch, BillingRefreshSearch, DeepLink, DeepLinkEvent, IntegrationCallbackSearch,
+    ShareOpenPendingEvent, ShareOpenRequest,
 };
 
 use std::str::FromStr;
@@ -37,8 +39,13 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .commands(tauri_specta::collect_commands![
             commands::start_callback_server::<tauri::Wry>,
             commands::stop_callback_server::<tauri::Wry>,
+            commands::list_pending_share_opens,
+            commands::take_pending_share_open,
         ])
-        .events(tauri_specta::collect_events![types::DeepLinkEvent])
+        .events(tauri_specta::collect_events![
+            types::DeepLinkEvent,
+            types::ShareOpenPendingEvent
+        ])
         .typ::<types::DeepLink>()
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
@@ -51,6 +58,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .setup(move |app, _api| {
             specta_builder.mount_events(app);
             app.manage(server::CallbackServerState::new());
+            app.manage(pending_share_open::PendingShareOpenState::default());
 
             let app_handle = app.clone();
 
@@ -60,11 +68,28 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
                     let redacted = redact_url(url_str);
                     tracing::info!(url = %redacted, "deeplink_received");
 
-                    match DeepLink::from_str(url_str) {
-                        Ok(deep_link) => {
+                    match types::IncomingDeepLink::from_str(url_str) {
+                        Ok(types::IncomingDeepLink::Existing(deep_link)) => {
                             tracing::info!(path = deep_link.path(), "deeplink_parsed");
                             if let Err(e) = DeepLinkEvent(deep_link).emit(&app_handle) {
                                 tracing::error!(error = ?e, "deeplink_event_emit_failed");
+                            }
+                        }
+                        Ok(types::IncomingDeepLink::ShareOpen(request)) => {
+                            let state =
+                                app_handle.state::<pending_share_open::PendingShareOpenState>();
+                            match state.push(request) {
+                                Ok(pending_id) => {
+                                    tracing::info!(path = "/share/open", "deeplink_parsed");
+                                    if let Err(e) = (types::ShareOpenPendingEvent { pending_id })
+                                        .emit(&app_handle)
+                                    {
+                                        tracing::error!(error = ?e, "deeplink_event_emit_failed");
+                                    }
+                                }
+                                Err(()) => {
+                                    tracing::error!("pending_share_open_queue_unavailable");
+                                }
                             }
                         }
                         Err(e) => {
@@ -103,6 +128,14 @@ mod test {
 
         let content = std::fs::read_to_string(OUTPUT_FILE).unwrap();
         std::fs::write(OUTPUT_FILE, format!("// @ts-nocheck\n{content}")).unwrap();
+    }
+
+    #[test]
+    fn redacts_query_and_fragment_from_logged_urls() {
+        let value = redact_url(
+            "hyprnote://share/open?mode=handoff&request_id=ba5ca57a-8f88-44e8-ab92-f9e10c89425c#secret",
+        );
+        assert_eq!(value, "hyprnote://share/open");
     }
 
     fn export_docs() {

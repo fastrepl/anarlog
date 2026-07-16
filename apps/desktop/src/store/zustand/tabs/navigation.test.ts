@@ -23,6 +23,17 @@ describe("navigation", () => {
     expect(state).toHaveCurrentTab({ id: tab2.id });
   });
 
+  test("ephemeral shared-note previews never enter navigation history", () => {
+    useTabs.getState().openNew({
+      type: "shared_note_preview",
+      id: "13697a87-f69b-456d-8679-4202d4f5d498",
+    });
+
+    expect(useTabs.getState().history.size).toBe(0);
+    expect(useTabs.getState().canGoBack).toBe(false);
+    expect(useTabs.getState().canGoNext).toBe(false);
+  });
+
   test("revocation invalidates a shared-note tab", () => {
     const personal = createSessionTab();
     useTabs.getState().openNew(personal);

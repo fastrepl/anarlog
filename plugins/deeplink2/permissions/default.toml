@@ -1,3 +1,8 @@
 [default]
 description = "Default permissions for the plugin"
-permissions = ["allow-get-available-deep-links", "allow-start-callback-server", "allow-stop-callback-server"]
+permissions = [
+  "allow-list-pending-share-opens",
+  "allow-start-callback-server",
+  "allow-stop-callback-server",
+  "allow-take-pending-share-open",
+]

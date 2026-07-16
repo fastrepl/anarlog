@@ -123,6 +123,11 @@ async fn app() -> Router {
                 .allow_burst(NonZeroU32::new(20).unwrap()),
         )
         .build();
+    let shared_notes_rate_limit = rate_limit::IpRateLimitState::new(
+        governor::Quota::with_period(Duration::from_secs(1))
+            .unwrap()
+            .allow_burst(NonZeroU32::new(30).unwrap()),
+    );
 
     let auth_state = AuthState::new(&env.supabase.supabase_url);
     let auth_state_paid = auth_state.clone().with_required_entitlements(
@@ -161,6 +166,11 @@ async fn app() -> Router {
         &env.sync,
         &env.supabase.supabase_url,
         &env.supabase.supabase_anon_key,
+        &env.supabase.supabase_service_role_key,
+    )
+    .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
+    let shared_notes_config = hypr_api_sync::SharedNotesConfig::new(
+        &env.supabase.supabase_url,
         &env.supabase.supabase_service_role_key,
     )
     .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
@@ -207,6 +217,13 @@ async fn app() -> Router {
             )),
         None => Router::new(),
     };
+    let shared_notes_routes = hypr_api_sync::shared_notes_router(
+        hypr_api_sync::SharedNotesState::new(shared_notes_config),
+    )
+    .route_layer(middleware::from_fn_with_state(
+        shared_notes_rate_limit,
+        rate_limit::rate_limit_by_ip,
+    ));
 
     let integration_routes = Router::new()
         .nest("/calendar", hypr_api_calendar::router())
@@ -276,6 +293,7 @@ async fn app() -> Router {
         .merge(support_routes)
         .merge(webhook_routes)
         .merge(paid_routes)
+        .merge(shared_notes_routes)
         .nest("/sync", sync_routes)
         .merge(integration_routes)
         .merge(integration_management_routes)

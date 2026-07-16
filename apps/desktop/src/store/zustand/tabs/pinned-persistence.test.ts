@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useTabs } from ".";
-import { loadPinnedTabs, restorePinnedTabsToStore } from "./pinned-persistence";
+import {
+  loadPinnedTabs,
+  restorePinnedTabsToStore,
+  savePinnedTabs,
+} from "./pinned-persistence";
 import { resetTabsStore } from "./test-utils";
 
 import { commands } from "~/types/tauri.gen";
@@ -51,5 +55,19 @@ describe("pinned tab persistence", () => {
     expect(useTabs.getState().tabs).toMatchObject([
       { type: "sessions", id: "session-1", pinned: true, active: true },
     ]);
+  });
+
+  it("never serializes an ephemeral shared-note preview", async () => {
+    await savePinnedTabs([
+      {
+        type: "shared_note_preview",
+        id: "13697a87-f69b-456d-8679-4202d4f5d498",
+        active: true,
+        pinned: true,
+        slotId: "slot-preview",
+      },
+    ]);
+
+    expect(commands.setPinnedTabs).toHaveBeenCalledWith("[]");
   });
 });

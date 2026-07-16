@@ -36,6 +36,31 @@ pub struct SyncConfig {
     pub(crate) supabase_service_role_key: String,
 }
 
+#[derive(Clone)]
+pub struct SharedNotesConfig {
+    pub(crate) supabase_url: String,
+    pub(crate) supabase_service_role_key: String,
+}
+
+impl SharedNotesConfig {
+    pub fn new(
+        supabase_url: impl Into<String>,
+        supabase_service_role_key: impl Into<String>,
+    ) -> Result<Self, String> {
+        let supabase_service_role_key = supabase_service_role_key.into();
+        if supabase_service_role_key.trim().is_empty() {
+            return Err(
+                "SUPABASE_SERVICE_ROLE_KEY is required for shared note delivery".to_string(),
+            );
+        }
+
+        Ok(Self {
+            supabase_url: validate_supabase_url(supabase_url.into())?,
+            supabase_service_role_key,
+        })
+    }
+}
+
 impl SyncConfig {
     pub fn new(
         project_url: impl Into<String>,
@@ -207,6 +232,13 @@ mod tests {
             "anon-key",
             "service-role-key",
         )
+    }
+
+    #[test]
+    fn validates_shared_note_delivery_configuration() {
+        assert!(SharedNotesConfig::new("https://project.supabase.co", "service-role-key").is_ok());
+        assert!(SharedNotesConfig::new("http://project.supabase.co", "service-role-key").is_err());
+        assert!(SharedNotesConfig::new("https://project.supabase.co", "").is_err());
     }
 
     #[test]

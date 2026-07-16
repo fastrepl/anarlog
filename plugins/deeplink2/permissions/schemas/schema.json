@@ -295,16 +295,16 @@
       "type": "string",
       "oneOf": [
         {
-          "description": "Enables the get_available_deep_links command without any pre-configured scope.",
+          "description": "Enables the list_pending_share_opens command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-get-available-deep-links",
-          "markdownDescription": "Enables the get_available_deep_links command without any pre-configured scope."
+          "const": "allow-list-pending-share-opens",
+          "markdownDescription": "Enables the list_pending_share_opens command without any pre-configured scope."
         },
         {
-          "description": "Denies the get_available_deep_links command without any pre-configured scope.",
+          "description": "Denies the list_pending_share_opens command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-get-available-deep-links",
-          "markdownDescription": "Denies the get_available_deep_links command without any pre-configured scope."
+          "const": "deny-list-pending-share-opens",
+          "markdownDescription": "Denies the list_pending_share_opens command without any pre-configured scope."
         },
         {
           "description": "Enables the start_callback_server command without any pre-configured scope.",
@@ -331,10 +331,22 @@
           "markdownDescription": "Denies the stop_callback_server command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-available-deep-links`\n- `allow-start-callback-server`\n- `allow-stop-callback-server`",
+          "description": "Enables the take_pending_share_open command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-take-pending-share-open",
+          "markdownDescription": "Enables the take_pending_share_open command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the take_pending_share_open command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-take-pending-share-open",
+          "markdownDescription": "Denies the take_pending_share_open command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-pending-share-opens`\n- `allow-start-callback-server`\n- `allow-stop-callback-server`\n- `allow-take-pending-share-open`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-available-deep-links`\n- `allow-start-callback-server`\n- `allow-stop-callback-server`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-pending-share-opens`\n- `allow-start-callback-server`\n- `allow-stop-callback-server`\n- `allow-take-pending-share-open`"
         }
       ]
     }

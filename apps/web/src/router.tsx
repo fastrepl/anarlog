@@ -4,6 +4,10 @@ import { createRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 
 import { env } from "./env";
+import {
+  isShareRoutePathname,
+  prepareShareRoutePrivacy,
+} from "./lib/share-route-privacy";
 import { routeTree } from "./routeTree.gen";
 
 export function getRouter() {
@@ -17,7 +21,13 @@ export function getRouter() {
     trailingSlash: "always",
   });
 
-  if (!router.isServer && env.VITE_SENTRY_DSN) {
+  prepareShareRoutePrivacy();
+
+  if (
+    !router.isServer &&
+    env.VITE_SENTRY_DSN &&
+    !isShareRoutePathname(window.location.pathname)
+  ) {
     Sentry.init({
       dsn: env.VITE_SENTRY_DSN,
       release: env.VITE_APP_VERSION
@@ -25,6 +35,10 @@ export function getRouter() {
         : undefined,
       sendDefaultPii: true,
       tracePropagationTargets: [],
+      beforeSend: (event) =>
+        isShareRoutePathname(window.location.pathname) ? null : event,
+      beforeSendTransaction: (event) =>
+        isShareRoutePathname(window.location.pathname) ? null : event,
     });
   }
 
