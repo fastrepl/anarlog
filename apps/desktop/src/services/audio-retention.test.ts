@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  audioDelete: vi.fn(),
+  cleanupDeletedSessionAudio: vi.fn(),
+  deleteLocalSessionAudio: vi.fn(),
   execute: vi.fn(),
   getSessionMode: vi.fn(),
+  live: { loading: false, sessionId: null as string | null },
 }));
 
-vi.mock("@hypr/plugin-fs-sync", () => ({
-  commands: { audioDelete: mocks.audioDelete },
+vi.mock("~/session/attachments", () => ({
+  cleanupDeletedSessionAudio: mocks.cleanupDeletedSessionAudio,
+  deleteLocalSessionAudio: mocks.deleteLocalSessionAudio,
 }));
 
 vi.mock("~/db", () => ({
@@ -16,7 +19,10 @@ vi.mock("~/db", () => ({
 
 vi.mock("~/store/zustand/listener/instance", () => ({
   listenerStore: {
-    getState: () => ({ getSessionMode: mocks.getSessionMode }),
+    getState: () => ({
+      getSessionMode: mocks.getSessionMode,
+      live: mocks.live,
+    }),
   },
 }));
 
@@ -27,11 +33,26 @@ import {
   sessionAudioExpired,
 } from "./audio-retention";
 
+function mockCleanupRows(
+  sessions: Array<{ id: string; created_at: string; has_words: number }>,
+  logicallyDeleted: Array<{ session_id: string }> = [],
+) {
+  mocks.execute.mockImplementation((sql: string) =>
+    Promise.resolve(
+      sql.includes("FROM session_attachments") ? logicallyDeleted : sessions,
+    ),
+  );
+}
+
 describe("audio retention", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.audioDelete.mockResolvedValue({ status: "ok", data: null });
+    mocks.cleanupDeletedSessionAudio.mockResolvedValue(true);
+    mocks.deleteLocalSessionAudio.mockResolvedValue(true);
     mocks.getSessionMode.mockReturnValue("inactive");
+    mocks.live.loading = false;
+    mocks.live.sessionId = null;
+    mockCleanupRows([]);
   });
 
   test("normalizes current and legacy values", () => {
@@ -61,7 +82,7 @@ describe("audio retention", () => {
   });
 
   test("deletes only expired inactive SQLite sessions", async () => {
-    mocks.execute.mockResolvedValueOnce([
+    mockCleanupRows([
       {
         id: "expired",
         created_at: "2026-05-11T23:59:59.999Z",
@@ -87,13 +108,16 @@ describe("audio retention", () => {
       Date.parse("2026-05-13T00:00:00.000Z"),
     );
 
-    expect(mocks.audioDelete).toHaveBeenCalledTimes(1);
-    expect(mocks.audioDelete).toHaveBeenCalledWith("expired");
+    expect(mocks.deleteLocalSessionAudio).toHaveBeenCalledTimes(1);
+    expect(mocks.deleteLocalSessionAudio).toHaveBeenCalledWith(
+      "expired",
+      expect.any(Function),
+    );
     expect(deleted).toEqual(["expired"]);
   });
 
   test("retention none keeps audio until transcript words exist", async () => {
-    mocks.execute.mockResolvedValueOnce([
+    mockCleanupRows([
       {
         id: "unprocessed",
         created_at: "2026-05-13T00:00:00.000Z",
@@ -109,7 +133,10 @@ describe("audio retention", () => {
     await expect(
       cleanupExpiredAudio("none", Date.parse("2026-05-13T00:00:00.000Z")),
     ).resolves.toEqual(["processed"]);
-    expect(mocks.audioDelete).toHaveBeenCalledWith("processed");
+    expect(mocks.deleteLocalSessionAudio).toHaveBeenCalledWith(
+      "processed",
+      expect.any(Function),
+    );
   });
 
   test("deletes processed audio immediately when retention is none", async () => {
@@ -118,7 +145,10 @@ describe("audio retention", () => {
     await expect(
       deleteProcessedAudioForRetention("none", "processed"),
     ).resolves.toBe(true);
-    expect(mocks.audioDelete).toHaveBeenCalledWith("processed");
+    expect(mocks.deleteLocalSessionAudio).toHaveBeenCalledWith(
+      "processed",
+      expect.any(Function),
+    );
   });
 
   test("keeps unprocessed audio when retention is none", async () => {
@@ -127,7 +157,7 @@ describe("audio retention", () => {
     await expect(
       deleteProcessedAudioForRetention("none", "unprocessed"),
     ).resolves.toBe(false);
-    expect(mocks.audioDelete).not.toHaveBeenCalled();
+    expect(mocks.deleteLocalSessionAudio).not.toHaveBeenCalled();
   });
 
   test("skips immediate deletion for retained audio", async () => {
@@ -135,27 +165,26 @@ describe("audio retention", () => {
       deleteProcessedAudioForRetention("oneDay", "processed"),
     ).resolves.toBe(false);
     expect(mocks.execute).not.toHaveBeenCalled();
-    expect(mocks.audioDelete).not.toHaveBeenCalled();
+    expect(mocks.deleteLocalSessionAudio).not.toHaveBeenCalled();
   });
 
-  test("does not scan SQLite when retention is forever", async () => {
+  test("only scans logical deletions when retention is forever", async () => {
     await expect(cleanupExpiredAudio("forever")).resolves.toEqual([]);
-    expect(mocks.execute).not.toHaveBeenCalled();
-    expect(mocks.audioDelete).not.toHaveBeenCalled();
+    expect(mocks.execute).toHaveBeenCalledTimes(1);
+    expect(mocks.deleteLocalSessionAudio).not.toHaveBeenCalled();
   });
 
   test("does not report failed audio deletions as deleted", async () => {
-    mocks.execute.mockResolvedValueOnce([
+    mockCleanupRows([
       {
         id: "expired",
         created_at: "2026-05-01T00:00:00.000Z",
         has_words: 1,
       },
     ]);
-    mocks.audioDelete.mockResolvedValueOnce({
-      status: "error",
-      error: "disk failure",
-    });
+    mocks.deleteLocalSessionAudio.mockRejectedValueOnce(
+      new Error("disk failure"),
+    );
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
@@ -165,5 +194,52 @@ describe("audio retention", () => {
     ).resolves.toEqual([]);
     expect(consoleError).toHaveBeenCalled();
     consoleError.mockRestore();
+  });
+
+  test("does not report a device without local audio as deleted", async () => {
+    mockCleanupRows([
+      {
+        id: "remote-only",
+        created_at: "2026-05-01T00:00:00.000Z",
+        has_words: 1,
+      },
+    ]);
+    mocks.deleteLocalSessionAudio.mockResolvedValueOnce(false);
+
+    await expect(
+      cleanupExpiredAudio("oneDay", Date.parse("2026-05-13T00:00:00.000Z")),
+    ).resolves.toEqual([]);
+  });
+
+  test("retries local cleanup for logically deleted audio", async () => {
+    mockCleanupRows([], [{ session_id: "deleted-session" }]);
+
+    await expect(cleanupExpiredAudio("forever")).resolves.toEqual([
+      "deleted-session",
+    ]);
+    expect(mocks.cleanupDeletedSessionAudio).toHaveBeenCalledWith(
+      "deleted-session",
+      expect.any(Function),
+    );
+    expect(mocks.execute.mock.calls[0]![0]).toContain(
+      "COALESCE(local.availability, 'present') != 'absent'",
+    );
+  });
+
+  test("does not clean a remote tombstone while the session is recording", async () => {
+    mockCleanupRows([], [{ session_id: "active-session" }]);
+    mocks.getSessionMode.mockReturnValue("active");
+
+    await expect(cleanupExpiredAudio("forever")).resolves.toEqual([]);
+    expect(mocks.cleanupDeletedSessionAudio).not.toHaveBeenCalled();
+  });
+
+  test("does not clean audio while capture startup is loading", async () => {
+    mockCleanupRows([], [{ session_id: "starting-session" }]);
+    mocks.live.sessionId = "starting-session";
+    mocks.live.loading = true;
+
+    await expect(cleanupExpiredAudio("forever")).resolves.toEqual([]);
+    expect(mocks.cleanupDeletedSessionAudio).not.toHaveBeenCalled();
   });
 });

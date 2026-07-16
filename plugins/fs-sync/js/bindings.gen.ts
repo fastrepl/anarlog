@@ -86,9 +86,17 @@ async audioExist(sessionId: string) : Promise<Result<boolean, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async audioDelete(sessionId: string) : Promise<Result<null, string>> {
+async audioDelete(sessionId: string) : Promise<Result<boolean, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:fs-sync|audio_delete", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async audioMetadata(sessionId: string) : Promise<Result<AudioFileMetadata | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:fs-sync|audio_metadata", { sessionId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -233,6 +241,7 @@ audioImportEvent: "plugin:fs-sync:audio-import-event"
 
 export type AttachmentInfo = { attachmentId: string; path: string; extension: string; modifiedAt: string }
 export type AttachmentSaveResult = { path: string; attachmentId: string }
+export type AudioFileMetadata = { filename: string; contentType: string; sizeBytes: number; sha256: string }
 export type AudioImportEvent = { type: "audioImportStarted"; session_id: string } | { type: "audioImportProgress"; session_id: string; percentage: number } | { type: "audioImportCompleted"; session_id: string } | { type: "audioImportFailed"; session_id: string; error: string }
 export type AudioSourceMetadata = { createdAt: string | null; modifiedAt: string | null; durationMs: number | null }
 export type FolderInfo = { name: string; parent_folder_id: string | null }

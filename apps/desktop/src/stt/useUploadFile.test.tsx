@@ -16,6 +16,7 @@ const {
   handleBatchStartedMock,
   updateBatchProgressMock,
   clearBatchSessionMock,
+  catalogLocalSessionAudioMock,
   runBatchMock,
   useSessionMock,
   updateSessionMock,
@@ -32,6 +33,7 @@ const {
   handleBatchStartedMock: vi.fn(),
   updateBatchProgressMock: vi.fn(),
   clearBatchSessionMock: vi.fn(),
+  catalogLocalSessionAudioMock: vi.fn(),
   runBatchMock: vi.fn(),
   useSessionMock: vi.fn(),
   updateSessionMock: vi.fn(),
@@ -92,6 +94,10 @@ vi.mock("~/services/enhancer", () => ({
   })),
 }));
 
+vi.mock("~/session/attachments", () => ({
+  catalogLocalSessionAudio: catalogLocalSessionAudioMock,
+}));
+
 vi.mock("~/session/queries", () => ({
   useSession: useSessionMock,
   useUpdateSession: () => updateSessionMock,
@@ -124,6 +130,7 @@ describe("useUploadFile", () => {
       data: "/vault/sessions/session-1/audio.wav",
     });
     audioImportListenMock.mockResolvedValue(vi.fn());
+    catalogLocalSessionAudioMock.mockResolvedValue(undefined);
     runBatchMock.mockResolvedValue(undefined);
     createTranscriptMock.mockResolvedValue(undefined);
     enhanceMock.mockResolvedValue({ type: "started", noteId: "note-1" });
@@ -158,9 +165,7 @@ describe("useUploadFile", () => {
       result.current.processAudioFile(file);
     });
 
-    await waitFor(() => {
-      expect(audioImportDataMock).toHaveBeenCalled();
-    });
+    await waitFor(() => expect(runBatchMock).toHaveBeenCalled());
     expect(audioImportDataMock).toHaveBeenCalledWith(
       "session-1",
       [1, 2, 3],
@@ -170,6 +175,13 @@ describe("useUploadFile", () => {
     expect(runBatchMock).toHaveBeenCalledWith(
       "/vault/sessions/session-1/audio.wav",
     );
+    expect(catalogLocalSessionAudioMock).toHaveBeenCalledWith("session-1");
+    expect(audioImportDataMock.mock.invocationCallOrder[0]).toBeLessThan(
+      catalogLocalSessionAudioMock.mock.invocationCallOrder[0]!,
+    );
+    expect(
+      catalogLocalSessionAudioMock.mock.invocationCallOrder[0],
+    ).toBeLessThan(runBatchMock.mock.invocationCallOrder[0]!);
     expect(handleBatchFailedMock).not.toHaveBeenCalled();
   });
 
@@ -203,6 +215,34 @@ describe("useUploadFile", () => {
       );
     },
   );
+
+  test("continues transcription when imported audio cataloging fails", async () => {
+    catalogLocalSessionAudioMock.mockRejectedValueOnce(
+      new Error("catalog unavailable"),
+    );
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const { result } = renderHook(() => useUploadFile("session-1"), {
+      wrapper: createWrapper(),
+    });
+    const file = new File([new Uint8Array([1, 2, 3])], "drop.wav", {
+      type: "audio/wav",
+    });
+    Object.defineProperty(file, "arrayBuffer", {
+      value: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3]).buffer),
+    });
+
+    act(() => result.current.processAudioFile(file));
+
+    await waitFor(() => expect(runBatchMock).toHaveBeenCalled());
+    expect(handleBatchFailedMock).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledWith(
+      "[upload] failed to catalog imported audio",
+      expect.any(Error),
+    );
+    consoleError.mockRestore();
+  });
 
   test("persists imported subtitles before enhancing", async () => {
     let resolveWrite: (() => void) | undefined;

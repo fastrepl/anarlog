@@ -8,6 +8,8 @@ import {
   useStartListening,
 } from "./useStartListening";
 
+import { enqueueSessionAudioOperation } from "~/session/audio-operations";
+
 const {
   queueAutoEnhanceMock,
   queueAutoEnhanceIfSummaryEmptyMock,
@@ -33,6 +35,7 @@ const {
   sonnerToastWarningMock,
   startMeetingChatCaptureMock,
   stopMeetingChatCaptureMock,
+  catalogLocalSessionAudioMock,
 } = vi.hoisted(() => ({
   queueAutoEnhanceMock: vi.fn(),
   queueAutoEnhanceIfSummaryEmptyMock: vi.fn(),
@@ -58,6 +61,7 @@ const {
   sonnerToastWarningMock: vi.fn(),
   startMeetingChatCaptureMock: vi.fn(),
   stopMeetingChatCaptureMock: vi.fn(),
+  catalogLocalSessionAudioMock: vi.fn(),
 }));
 
 vi.mock("@hypr/plugin-transcription", () => ({
@@ -117,6 +121,10 @@ vi.mock("~/services/audio-retention", () => ({
   deleteProcessedAudioForRetention: deleteProcessedAudioForRetentionMock,
   normalizeAudioRetention: (value: unknown) =>
     typeof value === "string" ? value : "forever",
+}));
+
+vi.mock("~/session/attachments", () => ({
+  catalogLocalSessionAudio: catalogLocalSessionAudioMock,
 }));
 
 vi.mock("~/contexts/shell", () => ({
@@ -247,6 +255,7 @@ describe("useStartListening", () => {
     createLiveTranscriptMock.mockResolvedValue(undefined);
     applyLiveTranscriptDeltaToDatabaseMock.mockResolvedValue(undefined);
     softDeleteTranscriptMock.mockResolvedValue(undefined);
+    catalogLocalSessionAudioMock.mockResolvedValue(undefined);
     useConfigValueMock.mockImplementation((key) =>
       key === "ai_language"
         ? "en"
@@ -370,6 +379,10 @@ describe("useStartListening", () => {
     });
 
     expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav");
+    expect(catalogLocalSessionAudioMock).toHaveBeenCalledWith("session-1");
+    expect(
+      catalogLocalSessionAudioMock.mock.invocationCallOrder[0],
+    ).toBeLessThan(runBatchMock.mock.invocationCallOrder[0]!);
     expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledWith(
       "session-1",
     );
@@ -377,6 +390,100 @@ describe("useStartListening", () => {
       "forever",
       "session-1",
     );
+  });
+
+  test("skips audio cataloging when capture produces no final file", async () => {
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
+    await act(async () => {
+      await onStopped?.("session-1", {
+        durationSeconds: 0,
+        audioPath: null,
+        requestedLiveTranscription: false,
+        liveTranscriptionActive: false,
+        needsBatchRepair: false,
+      });
+    });
+
+    expect(catalogLocalSessionAudioMock).not.toHaveBeenCalled();
+  });
+
+  test("catalogs finalized audio even when transcript persistence fails", async () => {
+    createLiveTranscriptMock.mockRejectedValueOnce(new Error("write failed"));
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const callbacks = startMock.mock.calls[0]?.[1];
+    callbacks?.handlePersist?.({
+      new_words: [
+        {
+          id: "word-1",
+          text: "hello",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 0,
+        },
+      ],
+      replaced_ids: [],
+      partials: [],
+    });
+
+    await act(async () => {
+      await callbacks?.onStopped?.("session-1", {
+        durationSeconds: 1,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+      });
+    });
+
+    expect(catalogLocalSessionAudioMock).toHaveBeenCalledWith("session-1");
+    expect(runBatchMock).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  test("catalogs finalized audio through the session audio queue", async () => {
+    let releaseBlocker: (() => void) | undefined;
+    const blocker = enqueueSessionAudioOperation(
+      "session-1",
+      () =>
+        new Promise<void>((resolve) => {
+          releaseBlocker = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
+    const stopped = onStopped?.("session-1", {
+      durationSeconds: 1,
+      audioPath: "/tmp/session.wav",
+      requestedLiveTranscription: true,
+      liveTranscriptionActive: true,
+      needsBatchRepair: false,
+    });
+    await Promise.resolve();
+    expect(catalogLocalSessionAudioMock).not.toHaveBeenCalled();
+
+    releaseBlocker?.();
+    await blocker;
+    await act(async () => await stopped);
+    expect(catalogLocalSessionAudioMock).toHaveBeenCalledWith("session-1");
   });
 
   test("cleans up processed audio after live capture stops", async () => {

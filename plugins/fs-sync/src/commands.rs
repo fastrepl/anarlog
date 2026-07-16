@@ -235,9 +235,19 @@ pub(crate) async fn audio_exist<R: tauri::Runtime>(
 pub(crate) async fn audio_delete<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     session_id: String,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     let session_dir = resolve_session_dir(&app, &session_id)?;
     crate::audio::delete(&session_dir).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn audio_metadata<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+) -> Result<Option<crate::audio::AudioFileMetadata>, String> {
+    let session_dir = resolve_session_dir(&app, &session_id)?;
+    spawn_blocking!({ crate::audio::metadata(&session_dir).map_err(|e| e.to_string()) })
 }
 
 #[tauri::command]

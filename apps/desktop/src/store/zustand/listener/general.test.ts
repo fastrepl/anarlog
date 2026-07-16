@@ -7,8 +7,10 @@ const {
   listenCaptureDataMock,
   listenCaptureLifecycleMock,
   listenCaptureStatusMock,
+  listMicUsingApplicationsMock,
   runEventHooksMock,
   setRecordingIndicatorMock,
+  startCaptureMock,
   stopCaptureMock,
   vaultBaseMock,
 } = vi.hoisted(() => ({
@@ -17,8 +19,10 @@ const {
   listenCaptureDataMock: vi.fn(),
   listenCaptureLifecycleMock: vi.fn(),
   listenCaptureStatusMock: vi.fn(),
+  listMicUsingApplicationsMock: vi.fn(),
   runEventHooksMock: vi.fn(),
   setRecordingIndicatorMock: vi.fn(),
+  startCaptureMock: vi.fn(),
   stopCaptureMock: vi.fn(),
   vaultBaseMock: vi.fn(),
 }));
@@ -29,7 +33,7 @@ vi.mock("@tauri-apps/api/app", () => ({
 
 vi.mock("@hypr/plugin-detect", () => ({
   commands: {
-    listMicUsingApplications: vi.fn(),
+    listMicUsingApplications: listMicUsingApplicationsMock,
   },
 }));
 
@@ -55,7 +59,7 @@ vi.mock("@hypr/plugin-transcription", () => ({
   commands: {
     getCaptureSnapshot: getCaptureSnapshotMock,
     setMicMuted: vi.fn(),
-    startCapture: vi.fn(),
+    startCapture: startCaptureMock,
     startTranscription: vi.fn(),
     stopCapture: stopCaptureMock,
     stopTranscription: vi.fn(),
@@ -82,6 +86,8 @@ import {
   updateLiveProgress,
 } from "./general-shared";
 
+import { enqueueSessionAudioOperation } from "~/session/audio-operations";
+
 let store: ReturnType<typeof createListenerStore>;
 
 describe("General Listener Slice", () => {
@@ -102,8 +108,10 @@ describe("General Listener Slice", () => {
     listenCaptureDataMock.mockResolvedValue(() => {});
     listenCaptureLifecycleMock.mockResolvedValue(() => {});
     listenCaptureStatusMock.mockResolvedValue(() => {});
+    listMicUsingApplicationsMock.mockResolvedValue({ status: "ok", data: [] });
     runEventHooksMock.mockResolvedValue({ status: "ok", data: null });
     setRecordingIndicatorMock.mockResolvedValue({ status: "ok", data: null });
+    startCaptureMock.mockResolvedValue({ status: "ok", data: null });
     stopCaptureMock.mockResolvedValue({ status: "ok", data: null });
     vaultBaseMock.mockResolvedValue({ status: "ok", data: "/tmp/anarlog" });
   });
@@ -994,6 +1002,36 @@ describe("General Listener Slice", () => {
 
       expect(result).toBe(false);
       expect(store.getState().live.sessionId).toBe("session-a");
+    });
+
+    test("holds the session audio lock until capture startup finishes", async () => {
+      let resolveStart:
+        | ((value: { status: "ok"; data: null }) => void)
+        | undefined;
+      startCaptureMock.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveStart = resolve;
+        }),
+      );
+      const start = store.getState().start({
+        session_id: "session-a",
+        languages: [],
+        onboarding: false,
+        model: "test-model",
+        base_url: "http://localhost",
+        api_key: "test-key",
+        keywords: [],
+      });
+
+      await vi.waitFor(() => expect(startCaptureMock).toHaveBeenCalled());
+      const nextOperation = vi.fn(async () => {});
+      const queued = enqueueSessionAudioOperation("session-a", nextOperation);
+      expect(nextOperation).not.toHaveBeenCalled();
+
+      resolveStart?.({ status: "ok", data: null });
+      await expect(start).resolves.toBe(true);
+      await queued;
+      expect(nextOperation).toHaveBeenCalledOnce();
     });
 
     test("getSessionMode returns finalizing for non-active finalizing sessions", () => {

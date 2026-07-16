@@ -754,6 +754,16 @@ mod tests {
         .execute(source.pool())
         .await
         .unwrap();
+        sqlx::query(
+            "INSERT INTO attachment_local_state (
+               attachment_id, session_id, relative_path, availability
+             ) VALUES (
+               'attachment-1', 'session-1', 'local-only-secret.png', 'present'
+             )",
+        )
+        .execute(source.pool())
+        .await
+        .unwrap();
 
         encrypt_e2ee_replica_changes(source.pool(), &workspace_keys)
             .await
@@ -768,6 +778,7 @@ mod tests {
         assert!(payloads.iter().all(|payload| {
             !payload.contains("secret-diagram.png")
                 && !payload.contains("attachments/secret-diagram.png")
+                && !payload.contains("local-only-secret.png")
                 && !payload
                     .contains("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
         }));
@@ -794,6 +805,12 @@ mod tests {
                 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
             )
         );
+        let local_state_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM attachment_local_state")
+                .fetch_one(target.pool())
+                .await
+                .unwrap();
+        assert_eq!(local_state_count, 0);
     }
 
     #[tokio::test]

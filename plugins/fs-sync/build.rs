@@ -10,6 +10,7 @@ const COMMANDS: &[&str] = &[
     "delete_folder",
     "audio_exist",
     "audio_delete",
+    "audio_metadata",
     "audio_delete_orphaned_expired",
     "audio_import",
     "audio_import_data",

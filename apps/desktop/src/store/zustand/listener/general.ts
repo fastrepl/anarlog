@@ -31,6 +31,8 @@ import type {
   TranscriptState,
 } from "./transcript";
 
+import { enqueueSessionAudioOperation } from "~/session/audio-operations";
+
 export type { GeneralState, SessionMode } from "./general-shared";
 
 export type GeneralActions = {
@@ -80,42 +82,44 @@ export const createGeneralSlice = <
       return false;
     }
 
-    const currentMode = get().getSessionMode(targetSessionId);
-    if (currentMode === "running_batch") {
-      console.warn(
-        `[listener] cannot start live session while batch processing session ${targetSessionId}`,
-      );
-      return false;
-    }
+    return enqueueSessionAudioOperation(targetSessionId, async () => {
+      const currentMode = get().getSessionMode(targetSessionId);
+      if (currentMode === "running_batch") {
+        console.warn(
+          `[listener] cannot start live session while batch processing session ${targetSessionId}`,
+        );
+        return false;
+      }
 
-    const blockReason = getLiveStartBlockReason(get().live, targetSessionId);
-    if (blockReason) {
-      console.warn(`[listener] cannot start live session: ${blockReason}`);
-      return false;
-    }
+      const blockReason = getLiveStartBlockReason(get().live, targetSessionId);
+      if (blockReason) {
+        console.warn(`[listener] cannot start live session: ${blockReason}`);
+        return false;
+      }
 
-    setLiveState(set, (live) => {
-      markLiveStartRequested(live, targetSessionId);
-    });
+      setLiveState(set, (live) => {
+        markLiveStartRequested(live, targetSessionId);
+      });
 
-    if (options?.handlePersist) {
-      get().setTranscriptPersist(targetSessionId, options.handlePersist);
-    }
-    if (options?.onStopped) {
-      get().setOnStopped(targetSessionId, options.onStopped);
-    }
-
-    const started = await startLiveSession(set, get, targetSessionId, params);
-    if (!started) {
       if (options?.handlePersist) {
-        get().setTranscriptPersist(targetSessionId, undefined);
+        get().setTranscriptPersist(targetSessionId, options.handlePersist);
       }
       if (options?.onStopped) {
-        get().setOnStopped(targetSessionId, undefined);
+        get().setOnStopped(targetSessionId, options.onStopped);
       }
-    }
 
-    return started;
+      const started = await startLiveSession(set, get, targetSessionId, params);
+      if (!started) {
+        if (options?.handlePersist) {
+          get().setTranscriptPersist(targetSessionId, undefined);
+        }
+        if (options?.onStopped) {
+          get().setOnStopped(targetSessionId, undefined);
+        }
+      }
+
+      return started;
+    });
   },
   stop: () => {
     stopLiveSession(set, get);
