@@ -15,6 +15,11 @@ const mocks = vi.hoisted(() => {
 
   return {
     addDeletion: vi.fn(),
+    auth: {
+      session: null as any,
+      supabase: null as any,
+    },
+    deleteSessionShareBySession: vi.fn(),
     emitTo: vi.fn(() => Promise.resolve()),
     finalizeSessionDeletion: vi.fn(),
     getAllWebviewWindows: vi.fn<
@@ -26,7 +31,10 @@ const mocks = vi.hoisted(() => {
     listenerGetState: vi.fn(),
     listenerStop: vi.fn(),
     listen: vi.fn(),
+    loadManagedSharedNoteForSession: vi.fn(),
+    removeDurableSharedNoteCache: vi.fn(),
     softDeleteSession: vi.fn(() => Promise.resolve(deletedSessionData)),
+    toastError: vi.fn(),
     deletedSessionData,
   };
 });
@@ -44,6 +52,14 @@ vi.mock("@hypr/plugin-windows", () => ({
   getCurrentWebviewWindowLabel: mocks.getCurrentWebviewWindowLabel,
 }));
 
+vi.mock("@hypr/ui/components/ui/toast", () => ({
+  sonnerToast: { error: mocks.toastError },
+}));
+
+vi.mock("~/auth", () => ({
+  useOptionalAuth: () => mocks.auth,
+}));
+
 vi.mock("~/calendar/ignored-events", () => ({
   useIgnoredEvents: () => ({
     ignoreEvent: mocks.ignoreEvent,
@@ -53,6 +69,20 @@ vi.mock("~/calendar/ignored-events", () => ({
 vi.mock("~/session/queries", () => ({
   finalizeSessionDeletion: mocks.finalizeSessionDeletion,
   softDeleteSession: mocks.softDeleteSession,
+}));
+
+vi.mock("~/session-sharing/client", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("~/session-sharing/client")>();
+  return {
+    ...original,
+    deleteSessionShareBySession: mocks.deleteSessionShareBySession,
+  };
+});
+
+vi.mock("~/shared-notes/cache", () => ({
+  loadManagedSharedNoteForSession: mocks.loadManagedSharedNoteForSession,
+  removeDurableSharedNoteCache: mocks.removeDurableSharedNoteCache,
 }));
 
 vi.mock("~/store/zustand/listener/instance", () => ({
@@ -90,6 +120,10 @@ describe("useDeleteSession", () => {
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
+    mocks.auth.session = null;
+    mocks.auth.supabase = null;
+    mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
+    mocks.removeDurableSharedNoteCache.mockResolvedValue(undefined);
     mocks.softDeleteSession.mockResolvedValue(mocks.deletedSessionData);
     mocks.emitTo.mockResolvedValue(undefined);
     mocks.getAllWebviewWindows.mockResolvedValue([]);
@@ -103,6 +137,113 @@ describe("useDeleteSession", () => {
       stop: mocks.listenerStop,
     });
     mocks.listen.mockResolvedValue(vi.fn());
+  });
+
+  it("revokes a known managed share before deleting its local note", async () => {
+    const shareId = "33333333-3333-4333-8333-333333333333";
+    const workspaceId = "22222222-2222-4222-8222-222222222222";
+    mocks.auth.session = {
+      access_token: "expired-pro-access-token",
+      token_type: "bearer",
+      user: {
+        id: "11111111-1111-4111-8111-111111111111",
+        is_anonymous: false,
+      },
+    };
+    mocks.auth.supabase = {};
+    mocks.loadManagedSharedNoteForSession.mockResolvedValue({
+      shareId,
+      workspaceId,
+      sessionId: "session-1",
+    });
+    mocks.deleteSessionShareBySession.mockResolvedValue({
+      shareId,
+      accessVersion: 4,
+      deletedAt: "2026-07-17T01:00:00Z",
+      wasDeleted: true,
+    });
+    const { result } = renderHook(() => useDeleteSession());
+
+    act(() => {
+      result.current("session-1");
+    });
+
+    await waitFor(() => {
+      expect(mocks.softDeleteSession).toHaveBeenCalledWith("session-1");
+    });
+    expect(mocks.deleteSessionShareBySession).toHaveBeenCalledWith(
+      {
+        session: mocks.auth.session,
+        supabase: mocks.auth.supabase,
+      },
+      { workspaceId, sessionId: "session-1" },
+    );
+    expect(mocks.removeDurableSharedNoteCache).toHaveBeenCalledWith(
+      mocks.auth.session.user.id,
+      shareId,
+    );
+    expect(
+      mocks.deleteSessionShareBySession.mock.invocationCallOrder[0],
+    ).toBeLessThan(mocks.softDeleteSession.mock.invocationCallOrder[0]!);
+  });
+
+  it("keeps a known shared note local when remote revocation fails", async () => {
+    const token = "secret-share-token";
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    mocks.auth.session = {
+      access_token: "owner-access-token",
+      token_type: "bearer",
+      user: {
+        id: "11111111-1111-4111-8111-111111111111",
+        is_anonymous: false,
+      },
+    };
+    mocks.auth.supabase = {};
+    mocks.loadManagedSharedNoteForSession.mockResolvedValue({
+      shareId: "33333333-3333-4333-8333-333333333333",
+      workspaceId: "22222222-2222-4222-8222-222222222222",
+      sessionId: "session-1",
+    });
+    mocks.deleteSessionShareBySession.mockRejectedValue(new Error(token));
+    const { result } = renderHook(() => useDeleteSession());
+
+    act(() => {
+      result.current("session-1");
+    });
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce());
+    expect(mocks.softDeleteSession).not.toHaveBeenCalled();
+    expect(mocks.getAllWebviewWindows).not.toHaveBeenCalled();
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain(token);
+    consoleError.mockRestore();
+  });
+
+  it("deletes an unshared signed-in note without a remote mutation", async () => {
+    mocks.auth.session = {
+      access_token: "owner-access-token",
+      token_type: "bearer",
+      user: {
+        id: "11111111-1111-4111-8111-111111111111",
+        is_anonymous: false,
+      },
+    };
+    mocks.auth.supabase = {};
+    const { result } = renderHook(() => useDeleteSession());
+
+    act(() => {
+      result.current("session-1");
+    });
+
+    await waitFor(() => {
+      expect(mocks.softDeleteSession).toHaveBeenCalledWith("session-1");
+    });
+    expect(mocks.loadManagedSharedNoteForSession).toHaveBeenCalledWith(
+      mocks.auth.session.user.id,
+      "session-1",
+    );
+    expect(mocks.deleteSessionShareBySession).not.toHaveBeenCalled();
   });
 
   it("adds the undo deletion locally in the main window", async () => {

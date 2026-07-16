@@ -299,7 +299,7 @@ select ok(
   'Anonymous callers cannot bypass the shared-note gateway'
 );
 
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select throws_ok(
   $$select count(*) from public.session_shares$$,
@@ -325,7 +325,7 @@ select throws_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select lives_ok(
   $$
@@ -497,7 +497,7 @@ select throws_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select lives_ok(
   $$
@@ -576,7 +576,7 @@ select results_eq(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select results_eq(
   $$
@@ -659,7 +659,7 @@ select results_eq(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select results_eq(
   $$
@@ -692,7 +692,7 @@ where workspace_id = (
   and user_id = tests.get_supabase_uid('share_workspace_member');
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select results_eq(
   $$
@@ -731,7 +731,7 @@ select results_eq(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 insert into session_sharing_test_state (name, workspace_id)
 values ('ephemeral_target_workspace', gen_random_uuid());
@@ -757,7 +757,7 @@ from session_sharing_test_state
 where name = 'ephemeral_target_workspace';
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select lives_ok(
   $$
@@ -800,7 +800,7 @@ where id = (
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select results_eq(
   $$
@@ -842,7 +842,7 @@ select results_eq(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select lives_ok(
   $$
@@ -1012,7 +1012,7 @@ select throws_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select lives_ok(
   $$
@@ -1187,7 +1187,7 @@ select results_eq(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select results_eq(
   $$
@@ -1222,7 +1222,7 @@ select results_eq(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select lives_ok(
   $$
@@ -1440,7 +1440,7 @@ select lives_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select lives_ok(
   $$
@@ -1515,7 +1515,7 @@ select results_eq(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select results_eq(
   $$
@@ -1576,7 +1576,7 @@ select throws_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select results_eq(
   $$
@@ -1633,7 +1633,7 @@ select results_eq(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select results_eq(
   $$
@@ -1670,7 +1670,7 @@ select results_eq(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select results_eq(
   $$
@@ -1720,7 +1720,7 @@ select results_eq(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select lives_ok(
   $$
@@ -1777,7 +1777,7 @@ select throws_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select lives_ok(
   $$
@@ -1935,7 +1935,7 @@ select lives_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select results_eq(
   $$
@@ -1996,7 +1996,7 @@ select results_eq(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select results_eq(
   $$
@@ -2116,7 +2116,7 @@ select results_eq(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('share_owner');
+select tests.authenticate_as_hyprnote_pro('share_owner');
 
 select results_eq(
   $$

@@ -34,8 +34,12 @@ export type AuthContextType = AuthState &
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 
+export function useOptionalAuth() {
+  return useContext(AuthContext);
+}
+
 export function useAuth() {
-  const context = useContext(AuthContext);
+  const context = useOptionalAuth();
 
   if (!context) {
     throw new Error("'useAuth' must be used within an 'AuthProvider'");

@@ -1,0 +1,1318 @@
+import { Trans } from "@lingui/react/macro";
+import { useForm } from "@tanstack/react-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  CheckIcon,
+  CopyIcon,
+  Globe2Icon,
+  Link2Icon,
+  Loader2Icon,
+  LockKeyholeIcon,
+  RefreshCwIcon,
+  Share2Icon,
+  Trash2Icon,
+  UserPlusIcon,
+  UsersIcon,
+} from "lucide-react";
+import { useCallback, useRef, useState } from "react";
+
+import { Button } from "@hypr/ui/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@hypr/ui/components/ui/dialog";
+import { Input } from "@hypr/ui/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@hypr/ui/components/ui/select";
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
+
+import {
+  createOrReuseSessionShare,
+  createSessionAccessInvitation,
+  enableSessionShareLink,
+  getSessionShareManagement,
+  listSessionShareAccess,
+  publishSessionShareSnapshot,
+  resendSessionAccessInvitation,
+  reviewSessionAccessRequest,
+  revokeSessionAccessGrant,
+  revokeSessionAccessInvitation,
+  rotateSessionShareLink,
+  setSessionShareScope,
+  type SessionAccessCapability,
+  type SessionShareAccessEntry,
+  type SessionShareManagement,
+  type ShareManagementContext,
+  ShareManagementError,
+  updateSessionAccessGrant,
+} from "./client";
+import { loadSessionShareSource, useAvailableShareWorkspaces } from "./source";
+import {
+  buildAccountSessionShareUrl,
+  buildPublicSessionShareUrl,
+  buildSessionInvitationUrl,
+  buildSessionShareLinkUrl,
+} from "./urls";
+
+import { useAuth } from "~/auth";
+import { useBillingAccess } from "~/auth/billing-context";
+import { env } from "~/env";
+import { upsertDurableSharedNoteCache } from "~/shared-notes/cache";
+
+type SharePanelData = {
+  management: SessionShareManagement;
+  access: SessionShareAccessEntry[];
+};
+
+type DialogIdentity = {
+  ownerUserId: string;
+  shareId: string;
+};
+
+type AccessMutation =
+  | {
+      type: "grant-capability";
+      entry: Extract<SessionShareAccessEntry, { entryType: "grant" }>;
+      capability: SessionAccessCapability;
+    }
+  | {
+      type: "grant-revoke";
+      entry: Extract<SessionShareAccessEntry, { entryType: "grant" }>;
+    }
+  | {
+      type: "invitation-capability";
+      entry: Extract<SessionShareAccessEntry, { entryType: "invitation" }>;
+      capability: SessionAccessCapability;
+    }
+  | {
+      type: "invitation-copy";
+      entry: Extract<SessionShareAccessEntry, { entryType: "invitation" }>;
+    }
+  | {
+      type: "invitation-revoke";
+      entry: Extract<SessionShareAccessEntry, { entryType: "invitation" }>;
+    }
+  | {
+      type: "request-approve";
+      entry: Extract<SessionShareAccessEntry, { entryType: "request" }>;
+    }
+  | {
+      type: "request-deny";
+      entry: Extract<SessionShareAccessEntry, { entryType: "request" }>;
+    };
+
+const capabilityLabels: Record<SessionAccessCapability, string> = {
+  viewer: "Can view",
+  commenter: "Can comment",
+  editor: "Can edit",
+};
+
+const capabilityRanks: Record<SessionAccessCapability, number> = {
+  viewer: 1,
+  commenter: 2,
+  editor: 3,
+};
+
+export function sessionShareManagementQueryKey(
+  ownerUserId: string,
+  shareId: string,
+) {
+  return ["session-share-management", ownerUserId, shareId] as const;
+}
+
+export function SessionShareButton({ sessionId }: { sessionId: string }) {
+  const auth = useAuth();
+  const latestAuthRef = useRef(auth);
+  latestAuthRef.current = auth;
+  const prepareControllersRef = useRef(new Set<AbortController>());
+  const shareButtonLifecycleRef = useCallback(
+    (node: HTMLButtonElement | null) => {
+      if (node) return;
+      for (const controller of prepareControllersRef.current) {
+        controller.abort();
+      }
+      prepareControllersRef.current.clear();
+    },
+    [],
+  );
+  const runPrepareOperation = async <T,>(
+    operation: (signal: AbortSignal) => Promise<T>,
+  ): Promise<T> => {
+    const controller = new AbortController();
+    prepareControllersRef.current.add(controller);
+    try {
+      return await operation(controller.signal);
+    } finally {
+      prepareControllersRef.current.delete(controller);
+    }
+  };
+  const requireActivePrepareContext = (
+    ownerUserId: string,
+    signal: AbortSignal,
+  ) => {
+    if (signal.aborted) throw new ShareManagementError();
+    const context = requireManagementContext(latestAuthRef.current);
+    if (context.session.user.id !== ownerUserId) {
+      throw new ShareManagementError();
+    }
+    return { ...context, signal };
+  };
+  const billing = useBillingAccess();
+  const queryClient = useQueryClient();
+  const [dialogIdentity, setDialogIdentity] = useState<DialogIdentity | null>(
+    null,
+  );
+  const accountUserId = auth.session?.user.id ?? null;
+  const activeDialogIdentity =
+    dialogIdentity?.ownerUserId === accountUserId ? dialogIdentity : null;
+  const workspaces = useAvailableShareWorkspaces(accountUserId);
+
+  const initializeMutation = useMutation({
+    mutationFn: ({
+      publish,
+      ownerUserId,
+    }: {
+      publish: boolean;
+      ownerUserId: string;
+    }) =>
+      runPrepareOperation(async (signal) => {
+        let context = requireActivePrepareContext(ownerUserId, signal);
+        const source = await loadSessionShareSource(sessionId, ownerUserId);
+        context = requireActivePrepareContext(ownerUserId, signal);
+        const share = await createOrReuseSessionShare(context, {
+          workspaceId: source.workspaceId,
+          sessionId: source.sessionId,
+        });
+        context = requireActivePrepareContext(ownerUserId, signal);
+        const management = await getSessionShareManagement(
+          context,
+          share.shareId,
+        );
+        if (
+          management.workspaceId !== source.workspaceId ||
+          management.sessionId !== source.sessionId
+        ) {
+          throw new ShareManagementError();
+        }
+        if (publish) {
+          const published = await publishSessionShareSnapshot({
+            apiBaseUrl: env.VITE_API_URL,
+            session: context.session,
+            shareId: share.shareId,
+            title: source.title,
+            body: source.body,
+            signal,
+          });
+          context = requireActivePrepareContext(ownerUserId, signal);
+          await upsertDurableSharedNoteCache(ownerUserId, {
+            shareId: published.shareId,
+            workspaceId: source.workspaceId,
+            sessionId: source.sessionId,
+            schemaVersion: published.schemaVersion,
+            contentRevision: published.contentRevision,
+            title: published.title,
+            body: published.body,
+            capability: "editor",
+            manageAccess: true,
+            accessVersion: management.accessVersion,
+            publishedAt: published.publishedAt,
+          });
+          context = requireActivePrepareContext(ownerUserId, signal);
+        }
+        const access = await listSessionShareAccess(context, share.shareId);
+        requireActivePrepareContext(ownerUserId, signal);
+        return {
+          identity: { ownerUserId, shareId: share.shareId },
+          data: { management, access },
+        };
+      }),
+    onSuccess: ({ identity, data }) => {
+      if (latestAuthRef.current.session?.user.id !== identity.ownerUserId) {
+        return;
+      }
+      queryClient.setQueryData(
+        sessionShareManagementQueryKey(identity.ownerUserId, identity.shareId),
+        data,
+      );
+      void queryClient.invalidateQueries({
+        queryKey: ["durable-shared-note-cache", identity.ownerUserId],
+      });
+      setDialogIdentity(identity);
+    },
+    onError: (_error, variables) => {
+      if (latestAuthRef.current.session?.user.id !== variables.ownerUserId) {
+        return;
+      }
+      if (!billing.isPaid) {
+        billing.upgradeToPro();
+        return;
+      }
+      sonnerToast.error("Could not prepare this note for sharing.");
+    },
+  });
+
+  const queryKey = sessionShareManagementQueryKey(
+    activeDialogIdentity?.ownerUserId ?? "",
+    activeDialogIdentity?.shareId ?? "",
+  );
+  const shareQuery = useQuery({
+    queryKey,
+    enabled: Boolean(activeDialogIdentity),
+    queryFn: async ({ signal }) => {
+      const context = requireManagementContext(auth);
+      if (context.session.user.id !== activeDialogIdentity?.ownerUserId) {
+        throw new ShareManagementError();
+      }
+      return loadSharePanel(
+        { ...context, signal },
+        activeDialogIdentity.shareId,
+      );
+    },
+  });
+
+  const handleShare = () => {
+    if (!billing.isReady || initializeMutation.isPending) return;
+    if (!auth.session || auth.session.user.is_anonymous === true) {
+      void auth.signIn().catch(() => {
+        sonnerToast.error("Could not start sign-in.");
+      });
+      return;
+    }
+    initializeMutation.mutate({
+      publish: billing.isPaid,
+      ownerUserId: auth.session.user.id,
+    });
+  };
+
+  return (
+    <>
+      <Button
+        key={accountUserId ?? "signed-out"}
+        ref={shareButtonLifecycleRef}
+        type="button"
+        size="sm"
+        variant="ghost"
+        data-tauri-drag-region="false"
+        aria-label="Share note"
+        title="Share note"
+        disabled={!billing.isReady || initializeMutation.isPending}
+        onClick={handleShare}
+        className="text-muted-foreground hover:text-foreground mr-1 rounded-full"
+      >
+        {initializeMutation.isPending ? (
+          <Loader2Icon className="size-3.5 animate-spin" aria-hidden="true" />
+        ) : (
+          <Share2Icon className="size-3.5" aria-hidden="true" />
+        )}
+        <Trans>Share</Trans>
+      </Button>
+      {activeDialogIdentity ? (
+        <SessionShareDialog
+          key={`${activeDialogIdentity.ownerUserId}:${activeDialogIdentity.shareId}:${sessionId}`}
+          sessionId={sessionId}
+          identity={activeDialogIdentity}
+          data={shareQuery.data}
+          loading={shareQuery.isPending}
+          error={shareQuery.isError}
+          canExpand={billing.isPaid}
+          workspaces={workspaces}
+          onRetry={() => void shareQuery.refetch()}
+          onClose={() => setDialogIdentity(null)}
+          onChanged={() =>
+            Promise.all([
+              queryClient.invalidateQueries({ queryKey }),
+              queryClient.invalidateQueries({
+                queryKey: [
+                  "durable-shared-note-cache",
+                  activeDialogIdentity.ownerUserId,
+                ],
+              }),
+            ])
+          }
+        />
+      ) : null}
+    </>
+  );
+}
+
+function SessionShareDialog({
+  sessionId,
+  identity,
+  data,
+  loading,
+  error,
+  canExpand,
+  workspaces,
+  onRetry,
+  onClose,
+  onChanged,
+}: {
+  sessionId: string;
+  identity: DialogIdentity;
+  data: SharePanelData | undefined;
+  loading: boolean;
+  error: boolean;
+  canExpand: boolean;
+  workspaces: Array<{ id: string; name: string }>;
+  onRetry: () => void;
+  onClose: () => void;
+  onChanged: () => Promise<unknown>;
+}) {
+  const auth = useAuth();
+  const latestAuthRef = useRef(auth);
+  latestAuthRef.current = auth;
+  const operationControllersRef = useRef(new Set<AbortController>());
+  const operationLifecycleRef = useCallback((node: HTMLDivElement | null) => {
+    if (node) return;
+    for (const controller of operationControllersRef.current) {
+      controller.abort();
+    }
+    operationControllersRef.current.clear();
+  }, []);
+  const runOperation = async <T,>(
+    operation: (signal: AbortSignal) => Promise<T>,
+  ): Promise<T> => {
+    const controller = new AbortController();
+    operationControllersRef.current.add(controller);
+    try {
+      return await operation(controller.signal);
+    } finally {
+      operationControllersRef.current.delete(controller);
+    }
+  };
+  const requireActiveContext = (signal?: AbortSignal) => {
+    if (signal?.aborted) throw new ShareManagementError();
+    const context = requireManagementContext(latestAuthRef.current);
+    if (context.session.user.id !== identity.ownerUserId) {
+      throw new ShareManagementError();
+    }
+    return { ...context, signal };
+  };
+  const management = data?.management;
+  const inviteForm = useForm({
+    defaultValues: {
+      email: "",
+      capability: "viewer" as SessionAccessCapability,
+    },
+    onSubmit: ({ value }) => {
+      inviteMutation.mutate({
+        email: value.email,
+        capability: value.capability,
+      });
+    },
+  });
+
+  const publishLatest = async (signal?: AbortSignal) => {
+    if (!identity || !management) throw new ShareManagementError();
+    const context = requireActiveContext(signal);
+    const source = await loadSessionShareSource(
+      sessionId,
+      context.session.user.id,
+    );
+    if (
+      source.sessionId !== management.sessionId ||
+      source.workspaceId !== management.workspaceId
+    ) {
+      throw new ShareManagementError();
+    }
+    const activeContext = requireActiveContext(signal);
+    return publishSessionShareSnapshot({
+      apiBaseUrl: env.VITE_API_URL,
+      session: activeContext.session,
+      shareId: identity.shareId,
+      title: source.title,
+      body: source.body,
+      signal,
+    });
+  };
+
+  const inviteMutation = useMutation({
+    mutationFn: (input: {
+      email: string;
+      capability: SessionAccessCapability;
+    }) =>
+      runOperation(async (signal) => {
+        if (!canExpand || !management) throw new ShareManagementError();
+        await publishLatest(signal);
+        const context = requireActiveContext(signal);
+        let invitation = await createSessionAccessInvitation(context, {
+          shareId: identity.shareId,
+          inviteeEmail: input.email,
+          capability: input.capability,
+        });
+        if (!invitation.inviteToken) {
+          invitation = {
+            ...(await resendSessionAccessInvitation(
+              context,
+              invitation.invitationId,
+            )),
+            wasCreated: true,
+          };
+        }
+        if (!invitation.inviteToken) throw new ShareManagementError();
+        await copyInvitationOrRevoke(
+          withoutSignal(context),
+          {
+            invitationId: invitation.invitationId,
+            inviteToken: invitation.inviteToken,
+          },
+          () => requireActiveContext(signal),
+        );
+      }),
+    onSuccess: () => {
+      inviteForm.reset();
+      sonnerToast.success("Invite link copied.");
+    },
+    onError: () => {
+      sonnerToast.error("Could not create this invitation.");
+    },
+    onSettled: onChanged,
+  });
+
+  const refreshMutation = useMutation({
+    mutationFn: () =>
+      runOperation((signal) => {
+        if (!canExpand) throw new ShareManagementError();
+        return publishLatest(signal);
+      }),
+    onSuccess: () => {
+      sonnerToast.success("Shared copy updated.");
+    },
+    onError: () => {
+      sonnerToast.error("Could not update the shared copy.");
+    },
+    onSettled: onChanged,
+  });
+
+  const scopeMutation = useMutation({
+    mutationFn: (target: string) =>
+      runOperation(async (signal) => {
+        if (!management) throw new ShareManagementError();
+        let context = requireActiveContext(signal);
+        if (target === "restricted") {
+          await setSessionShareScope(context, {
+            shareId: identity.shareId,
+            scope: "restricted",
+          });
+          return { copied: false };
+        }
+        if (!canExpand) throw new ShareManagementError();
+        await publishLatest(signal);
+        context = requireActiveContext(signal);
+        if (target === "link") {
+          try {
+            let link = management.hasActiveLink
+              ? await rotateSessionShareLink(context, identity.shareId)
+              : await enableSessionShareLink(context, identity.shareId);
+            if (!link.linkToken) {
+              link = await rotateSessionShareLink(context, identity.shareId);
+            }
+            const linkToken = link.linkToken;
+            if (!linkToken) throw new ShareManagementError();
+            requireActiveContext(signal);
+            await copyText(
+              buildSessionShareLinkUrl({
+                appBaseUrl: env.VITE_APP_URL,
+                shareId: identity.shareId,
+                linkToken,
+              }),
+            );
+            requireActiveContext(signal);
+          } catch {
+            await restrictShare(withoutSignal(context), identity.shareId);
+            throw new ShareManagementError();
+          }
+          return { copied: true };
+        }
+
+        const scopeInput =
+          target === "public"
+            ? ({
+                shareId: identity.shareId,
+                scope: "public" as const,
+              } as const)
+            : (() => {
+                const workspaceId = target.startsWith("workspace:")
+                  ? target.slice("workspace:".length)
+                  : "";
+                if (
+                  !workspaces.some((workspace) => workspace.id === workspaceId)
+                ) {
+                  throw new ShareManagementError();
+                }
+                return {
+                  shareId: identity.shareId,
+                  scope: "workspace" as const,
+                  workspaceId,
+                };
+              })();
+        try {
+          await setSessionShareScope(context, scopeInput);
+          requireActiveContext(signal);
+        } catch {
+          await restrictShare(withoutSignal(context), identity.shareId);
+          throw new ShareManagementError();
+        }
+        return { copied: false };
+      }),
+    onSuccess: ({ copied }) => {
+      sonnerToast.success(copied ? "Share link copied." : "Access updated.");
+    },
+    onError: () => {
+      sonnerToast.error("Could not update general access.");
+    },
+    onSettled: onChanged,
+  });
+
+  const entryMutation = useMutation({
+    mutationFn: (input: AccessMutation) =>
+      runOperation(async (signal) => {
+        if (!management) throw new ShareManagementError();
+        let context = requireActiveContext(signal);
+        if (input.type === "grant-revoke") {
+          await revokeSessionAccessGrant(context, input.entry.entryId);
+          return { copied: false };
+        }
+        if (input.type === "grant-capability") {
+          const expanding =
+            capabilityRanks[input.capability] >
+            capabilityRanks[input.entry.capability];
+          if (expanding) {
+            if (!canExpand) throw new ShareManagementError();
+            await publishLatest(signal);
+            context = requireActiveContext(signal);
+            try {
+              await updateSessionAccessGrant(context, {
+                grantId: input.entry.entryId,
+                capability: input.capability,
+              });
+              requireActiveContext(signal);
+            } catch {
+              await updateSessionAccessGrant(withoutSignal(context), {
+                grantId: input.entry.entryId,
+                capability: input.entry.capability,
+              }).catch(() => undefined);
+              throw new ShareManagementError();
+            }
+          } else {
+            await updateSessionAccessGrant(context, {
+              grantId: input.entry.entryId,
+              capability: input.capability,
+            });
+          }
+          return { copied: false };
+        }
+        if (input.type === "invitation-revoke") {
+          await revokeSessionAccessInvitation(context, input.entry.entryId);
+          return { copied: false };
+        }
+        if (input.type === "invitation-copy") {
+          if (!canExpand) throw new ShareManagementError();
+          await publishLatest(signal);
+          context = requireActiveContext(signal);
+          const invitation = await resendSessionAccessInvitation(
+            context,
+            input.entry.entryId,
+          );
+          await copyInvitationOrRevoke(withoutSignal(context), invitation, () =>
+            requireActiveContext(signal),
+          );
+          return { copied: true };
+        }
+        if (input.type === "invitation-capability") {
+          if (!canExpand) throw new ShareManagementError();
+          if (
+            capabilityRanks[input.capability] >
+            capabilityRanks[input.entry.capability]
+          ) {
+            await publishLatest(signal);
+            context = requireActiveContext(signal);
+          }
+          let invitation = await createSessionAccessInvitation(context, {
+            shareId: identity.shareId,
+            inviteeEmail: input.entry.userEmail,
+            capability: input.capability,
+          });
+          if (!invitation.inviteToken) {
+            invitation = {
+              ...(await resendSessionAccessInvitation(
+                context,
+                invitation.invitationId,
+              )),
+              wasCreated: true,
+            };
+          }
+          if (!invitation.inviteToken) throw new ShareManagementError();
+          await copyInvitationOrRevoke(
+            withoutSignal(context),
+            {
+              invitationId: invitation.invitationId,
+              inviteToken: invitation.inviteToken,
+            },
+            () => requireActiveContext(signal),
+          );
+          return { copied: true };
+        }
+        if (input.type === "request-deny") {
+          await reviewSessionAccessRequest(context, {
+            requestId: input.entry.entryId,
+            decision: "deny",
+          });
+          return { copied: false };
+        }
+        if (!canExpand) throw new ShareManagementError();
+        await publishLatest(signal);
+        context = requireActiveContext(signal);
+        const previousGrant = data?.access.find(
+          (
+            entry,
+          ): entry is Extract<
+            SessionShareAccessEntry,
+            { entryType: "grant" }
+          > =>
+            entry.entryType === "grant" && entry.userId === input.entry.userId,
+        );
+        try {
+          await reviewSessionAccessRequest(context, {
+            requestId: input.entry.entryId,
+            decision: "approve",
+            capability: input.entry.capability,
+          });
+          requireActiveContext(signal);
+        } catch {
+          const rollbackContext = withoutSignal(context);
+          if (previousGrant) {
+            await updateSessionAccessGrant(rollbackContext, {
+              grantId: previousGrant.entryId,
+              capability: previousGrant.capability,
+            }).catch(() => undefined);
+          } else if (input.entry.userId) {
+            const currentAccess = await listSessionShareAccess(
+              rollbackContext,
+              identity.shareId,
+            ).catch(() => []);
+            const createdGrant = currentAccess.find(
+              (entry) =>
+                entry.entryType === "grant" &&
+                entry.userId === input.entry.userId,
+            );
+            if (createdGrant?.entryType === "grant") {
+              await revokeSessionAccessGrant(
+                rollbackContext,
+                createdGrant.entryId,
+              ).catch(() => undefined);
+            }
+          }
+          throw new ShareManagementError();
+        }
+        return { copied: false };
+      }),
+    onSuccess: ({ copied }) => {
+      sonnerToast.success(copied ? "Invite link copied." : "Access updated.");
+    },
+    onError: () => {
+      sonnerToast.error("Could not update this person's access.");
+    },
+    onSettled: onChanged,
+  });
+
+  const generalCopyMutation = useMutation({
+    mutationFn: () =>
+      runOperation(async (signal) => {
+        if (!management) throw new ShareManagementError();
+        requireActiveContext(signal);
+        const url =
+          management.generalScope === "public"
+            ? buildPublicSessionShareUrl({
+                appBaseUrl: env.VITE_APP_URL,
+                publicSlug: management.publicSlug,
+              })
+            : management.generalScope === "workspace"
+              ? buildAccountSessionShareUrl({
+                  appBaseUrl: env.VITE_APP_URL,
+                  shareId: identity.shareId,
+                })
+              : null;
+        if (!url) throw new ShareManagementError();
+        requireActiveContext(signal);
+        await copyText(url);
+        requireActiveContext(signal);
+      }),
+    onSuccess: () => {
+      sonnerToast.success("Share link copied.");
+    },
+    onError: () => {
+      sonnerToast.error("Could not copy the share link.");
+    },
+  });
+
+  const anyPending =
+    inviteMutation.isPending ||
+    refreshMutation.isPending ||
+    scopeMutation.isPending ||
+    entryMutation.isPending ||
+    generalCopyMutation.isPending;
+  const generalScopeValue = management
+    ? management.generalScope === "workspace"
+      ? `workspace:${management.generalWorkspaceId}`
+      : management.generalScope
+    : "restricted";
+
+  return (
+    <Dialog
+      open={Boolean(identity)}
+      onOpenChange={(open) => {
+        if (!open && !anyPending) onClose();
+      }}
+    >
+      <DialogContent className="border-border/45 bg-card/95 flex max-h-[calc(100vh-48px)] w-[calc(100vw-48px)] max-w-[540px] flex-col gap-0 overflow-hidden rounded-[26px] p-0 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:rounded-[26px] [&>button:last-child]:hidden">
+        <div ref={operationLifecycleRef} className="contents">
+          <DialogHeader className="border-border/60 border-b px-6 py-5 text-left sm:text-left">
+            <div className="flex items-center gap-3">
+              <div className="bg-accent flex size-9 items-center justify-center rounded-full">
+                <UsersIcon className="size-4" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-sm leading-5 tracking-normal">
+                  <Trans>Share note</Trans>
+                </DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs leading-4">
+                  <Trans>Choose who can open this note.</Trans>
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+            {loading && !data ? (
+              <div className="text-muted-foreground flex min-h-52 items-center justify-center gap-2 text-xs">
+                <Loader2Icon
+                  className="size-4 animate-spin"
+                  aria-hidden="true"
+                />
+                <Trans>Loading access…</Trans>
+              </div>
+            ) : error || !data || !management ? (
+              <div className="flex min-h-52 flex-col items-center justify-center gap-3 text-center">
+                <p className="text-muted-foreground text-xs">
+                  <Trans>Access settings could not be loaded.</Trans>
+                </p>
+                <Button size="sm" variant="outline" onClick={onRetry}>
+                  <RefreshCwIcon className="size-3.5" aria-hidden="true" />
+                  <Trans>Try again</Trans>
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <section aria-labelledby="invite-people-heading">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <h3
+                        id="invite-people-heading"
+                        className="text-sm font-medium"
+                      >
+                        <Trans>People with access</Trans>
+                      </h3>
+                      <p className="text-muted-foreground mt-0.5 text-xs">
+                        <Trans>
+                          Invite links are copied so you can send them
+                          privately.
+                        </Trans>
+                      </p>
+                    </div>
+                  </div>
+                  <form
+                    className="flex items-center gap-2"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      void inviteForm.handleSubmit();
+                    }}
+                  >
+                    <inviteForm.Field name="email">
+                      {(field) => (
+                        <Input
+                          type="email"
+                          aria-label="Invitee email"
+                          autoComplete="email"
+                          required
+                          value={field.state.value}
+                          disabled={!canExpand || inviteMutation.isPending}
+                          onBlur={field.handleBlur}
+                          onChange={(event) =>
+                            field.handleChange(event.target.value)
+                          }
+                          placeholder="name@example.com"
+                          className="h-8 min-w-0 flex-1 rounded-full text-xs"
+                        />
+                      )}
+                    </inviteForm.Field>
+                    <inviteForm.Field name="capability">
+                      {(field) => (
+                        <CapabilitySelect
+                          value={field.state.value}
+                          disabled={!canExpand || inviteMutation.isPending}
+                          ariaLabel="Invite permission"
+                          onChange={field.handleChange}
+                        />
+                      )}
+                    </inviteForm.Field>
+                    <inviteForm.Subscribe
+                      selector={(state) => state.values.email}
+                    >
+                      {(email) => (
+                        <Button
+                          type="submit"
+                          size="sm"
+                          disabled={
+                            !canExpand ||
+                            !email.trim() ||
+                            inviteMutation.isPending
+                          }
+                          className="shrink-0"
+                        >
+                          {inviteMutation.isPending ? (
+                            <Loader2Icon
+                              className="size-3.5 animate-spin"
+                              aria-hidden="true"
+                            />
+                          ) : (
+                            <UserPlusIcon
+                              className="size-3.5"
+                              aria-hidden="true"
+                            />
+                          )}
+                          <Trans>Copy invite</Trans>
+                        </Button>
+                      )}
+                    </inviteForm.Subscribe>
+                  </form>
+
+                  {data.access.length ? (
+                    <div className="mt-4 space-y-1">
+                      {data.access.map((entry) => (
+                        <AccessEntryRow
+                          key={`${entry.entryType}:${entry.entryId}`}
+                          entry={entry}
+                          pending={
+                            entryMutation.isPending &&
+                            entryMutation.variables?.entry.entryId ===
+                              entry.entryId
+                          }
+                          canExpand={canExpand}
+                          onMutate={entryMutation.mutate}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground mt-4 rounded-xl border border-dashed px-3 py-4 text-center text-xs">
+                      <Trans>No one has individual access yet.</Trans>
+                    </p>
+                  )}
+                </section>
+
+                <section
+                  aria-labelledby="general-access-heading"
+                  className="border-border/60 border-t pt-5"
+                >
+                  <h3
+                    id="general-access-heading"
+                    className="text-sm font-medium"
+                  >
+                    <Trans>General access</Trans>
+                  </h3>
+                  <div className="mt-3 flex items-center gap-2">
+                    <Select
+                      value={generalScopeValue}
+                      disabled={scopeMutation.isPending}
+                      onValueChange={scopeMutation.mutate}
+                    >
+                      <SelectTrigger
+                        aria-label="General access"
+                        className="h-8 min-w-0 flex-1 rounded-full text-xs"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="restricted">Restricted</SelectItem>
+                        <SelectItem value="link" disabled={!canExpand}>
+                          Anyone with the link
+                        </SelectItem>
+                        {workspaces.map((workspace) => (
+                          <SelectItem
+                            key={workspace.id}
+                            value={`workspace:${workspace.id}`}
+                            disabled={!canExpand}
+                          >
+                            {workspace.name}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="public" disabled={!canExpand}>
+                          Public — searchable on the web
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {management.generalScope === "link" ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={!canExpand || scopeMutation.isPending}
+                        onClick={() => scopeMutation.mutate("link")}
+                        className="shrink-0"
+                      >
+                        <RefreshCwIcon
+                          className="size-3.5"
+                          aria-hidden="true"
+                        />
+                        <Trans>Replace link & copy</Trans>
+                      </Button>
+                    ) : management.generalScope === "public" ||
+                      management.generalScope === "workspace" ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={generalCopyMutation.isPending}
+                        onClick={() => generalCopyMutation.mutate()}
+                        className="shrink-0"
+                      >
+                        <CopyIcon className="size-3.5" aria-hidden="true" />
+                        <Trans>Copy link</Trans>
+                      </Button>
+                    ) : null}
+                  </div>
+                  <GeneralAccessDescription management={management} />
+                </section>
+
+                <div className="bg-muted/60 text-muted-foreground rounded-xl px-3 py-2.5 text-xs leading-5">
+                  {!canExpand ? (
+                    <p className="text-foreground mb-1">
+                      <Trans>
+                        Upgrade to expand access. You can still restrict or
+                        revoke existing access.
+                      </Trans>
+                    </p>
+                  ) : null}
+                  <p>
+                    <Trans>
+                      Attachments and recordings stay private and are not
+                      included in the shared copy yet.
+                    </Trans>
+                  </p>
+                  <p className="mt-1">
+                    <Trans>
+                      Comment and edit permissions are saved, but shared notes
+                      are read-only in this build.
+                    </Trans>
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="border-border/60 flex-row items-center justify-between border-t px-6 py-4 sm:justify-between">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={!canExpand || !management || refreshMutation.isPending}
+              onClick={() => refreshMutation.mutate()}
+            >
+              {refreshMutation.isPending ? (
+                <Loader2Icon
+                  className="size-3.5 animate-spin"
+                  aria-hidden="true"
+                />
+              ) : (
+                <RefreshCwIcon className="size-3.5" aria-hidden="true" />
+              )}
+              <Trans>Update shared copy</Trans>
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={onClose}
+              disabled={anyPending}
+            >
+              <CheckIcon className="size-3.5" aria-hidden="true" />
+              <Trans>Done</Trans>
+            </Button>
+          </DialogFooter>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AccessEntryRow({
+  entry,
+  pending,
+  canExpand,
+  onMutate,
+}: {
+  entry: SessionShareAccessEntry;
+  pending: boolean;
+  canExpand: boolean;
+  onMutate: (mutation: AccessMutation) => void;
+}) {
+  const label = entry.userEmail ?? "Anarlog user";
+  return (
+    <div className="hover:bg-accent/50 flex min-h-11 items-center gap-2 rounded-xl px-2 py-1.5">
+      <div className="bg-accent flex size-7 shrink-0 items-center justify-center rounded-full">
+        {entry.entryType === "invitation" ? (
+          <UserPlusIcon className="size-3.5" aria-hidden="true" />
+        ) : (
+          <UsersIcon className="size-3.5" aria-hidden="true" />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-medium">{label}</p>
+        <p className="text-muted-foreground text-[11px]">
+          {entry.entryType === "grant"
+            ? "Active"
+            : entry.entryType === "invitation"
+              ? "Invitation pending"
+              : `Requested ${capabilityLabels[entry.capability].toLowerCase()}`}
+        </p>
+      </div>
+      {pending ? (
+        <Loader2Icon
+          className="text-muted-foreground size-3.5 animate-spin"
+          aria-label="Updating access"
+        />
+      ) : entry.entryType === "request" ? (
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => onMutate({ type: "request-deny", entry })}
+          >
+            <Trans>Deny</Trans>
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={!canExpand}
+            onClick={() => onMutate({ type: "request-approve", entry })}
+          >
+            <Trans>Approve</Trans>
+          </Button>
+        </div>
+      ) : (
+        <>
+          <CapabilitySelect
+            value={entry.capability}
+            disabled={!canExpand && entry.entryType === "invitation"}
+            ariaLabel={`Permission for ${label}`}
+            maximumRank={
+              canExpand
+                ? capabilityRanks.editor
+                : capabilityRanks[entry.capability]
+            }
+            onChange={(capability) =>
+              onMutate({
+                type:
+                  entry.entryType === "grant"
+                    ? "grant-capability"
+                    : "invitation-capability",
+                entry,
+                capability,
+              } as AccessMutation)
+            }
+          />
+          {entry.entryType === "invitation" ? (
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              disabled={!canExpand}
+              aria-label={`Copy a new invite for ${label}`}
+              title="Copy a new invite link"
+              onClick={() => onMutate({ type: "invitation-copy", entry })}
+            >
+              <CopyIcon className="size-3.5" aria-hidden="true" />
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            aria-label={`Remove access for ${label}`}
+            title="Remove access"
+            onClick={() =>
+              onMutate(
+                entry.entryType === "grant"
+                  ? { type: "grant-revoke", entry }
+                  : { type: "invitation-revoke", entry },
+              )
+            }
+            className="text-muted-foreground hover:text-destructive"
+          >
+            <Trash2Icon className="size-3.5" aria-hidden="true" />
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function CapabilitySelect({
+  value,
+  disabled = false,
+  ariaLabel,
+  maximumRank = capabilityRanks.editor,
+  onChange,
+}: {
+  value: SessionAccessCapability;
+  disabled?: boolean;
+  ariaLabel: string;
+  maximumRank?: number;
+  onChange: (value: SessionAccessCapability) => void;
+}) {
+  return (
+    <Select
+      value={value}
+      disabled={disabled}
+      onValueChange={(next) => onChange(next as SessionAccessCapability)}
+    >
+      <SelectTrigger
+        aria-label={ariaLabel}
+        className="h-8 w-[112px] shrink-0 rounded-full text-xs"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem
+          value="viewer"
+          disabled={capabilityRanks.viewer > maximumRank}
+        >
+          Can view
+        </SelectItem>
+        <SelectItem
+          value="commenter"
+          disabled={capabilityRanks.commenter > maximumRank}
+        >
+          Can comment
+        </SelectItem>
+        <SelectItem
+          value="editor"
+          disabled={capabilityRanks.editor > maximumRank}
+        >
+          Can edit
+        </SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+function GeneralAccessDescription({
+  management,
+}: {
+  management: SessionShareManagement;
+}) {
+  const content = (() => {
+    if (management.generalScope === "restricted") {
+      return {
+        icon: LockKeyholeIcon,
+        text: "Only invited people can open this note.",
+      };
+    }
+    if (management.generalScope === "link") {
+      return {
+        icon: Link2Icon,
+        text: "Anyone with the link can view. Replacing it invalidates the old link.",
+      };
+    }
+    if (management.generalScope === "workspace") {
+      return {
+        icon: UsersIcon,
+        text: "Members of this workspace can view the note.",
+      };
+    }
+    return {
+      icon: Globe2Icon,
+      text: "Anyone can view this note, and search engines may index it.",
+    };
+  })();
+  const Icon = content.icon;
+  return (
+    <p className="text-muted-foreground mt-2 flex items-start gap-1.5 text-xs leading-5">
+      <Icon className="mt-1 size-3 shrink-0" aria-hidden="true" />
+      {content.text}
+    </p>
+  );
+}
+
+async function loadSharePanel(
+  context: ShareManagementContext,
+  shareId: string,
+): Promise<SharePanelData> {
+  const [management, access] = await Promise.all([
+    getSessionShareManagement(context, shareId),
+    listSessionShareAccess(context, shareId),
+  ]);
+  return { management, access };
+}
+
+function requireManagementContext(
+  auth: ReturnType<typeof useAuth>,
+): ShareManagementContext {
+  if (
+    !auth.supabase ||
+    !auth.session ||
+    auth.session.user.is_anonymous === true
+  ) {
+    throw new ShareManagementError();
+  }
+  return { supabase: auth.supabase, session: auth.session };
+}
+
+async function copyText(value: string) {
+  await navigator.clipboard.writeText(value);
+}
+
+async function copyInvitationOrRevoke(
+  context: ShareManagementContext,
+  invitation: { invitationId: string; inviteToken: string },
+  assertActive: () => unknown,
+) {
+  try {
+    assertActive();
+    await copyText(
+      buildSessionInvitationUrl({
+        appBaseUrl: env.VITE_APP_URL,
+        invitationId: invitation.invitationId,
+        inviteToken: invitation.inviteToken,
+      }),
+    );
+    assertActive();
+  } catch {
+    await revokeSessionAccessInvitation(context, invitation.invitationId).catch(
+      () => undefined,
+    );
+    throw new ShareManagementError();
+  }
+}
+
+function withoutSignal(
+  context: ShareManagementContext,
+): ShareManagementContext {
+  return { supabase: context.supabase, session: context.session };
+}
+
+async function restrictShare(context: ShareManagementContext, shareId: string) {
+  await setSessionShareScope(context, { shareId, scope: "restricted" }).catch(
+    () => undefined,
+  );
+}

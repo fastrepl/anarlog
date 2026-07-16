@@ -39,6 +39,32 @@ create extension "supabase-dbdev";
 select dbdev.install('basejump-supabase_test_helpers');
 create extension if not exists "basejump-supabase_test_helpers" version '0.0.6';
 
+create or replace function tests.authenticate_as_hyprnote_pro(identifier text)
+returns void
+language plpgsql
+set search_path = ''
+as $$
+declare
+    claims jsonb;
+begin
+    perform tests.authenticate_as(identifier);
+    claims := coalesce(
+        current_setting('request.jwt.claims', true)::jsonb,
+        '{}'::jsonb
+    );
+    perform set_config(
+        'request.jwt.claims',
+        jsonb_set(
+            claims,
+            '{entitlements}',
+            '["hyprnote_pro"]'::jsonb,
+            true
+        )::text,
+        true
+    );
+end;
+$$;
+
 begin;
 select plan(1);
 

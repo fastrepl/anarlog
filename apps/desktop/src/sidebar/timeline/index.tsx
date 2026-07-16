@@ -21,7 +21,7 @@ import { Button } from "@hypr/ui/components/ui/button";
 import { cn } from "@hypr/utils";
 
 import { useAnchor, useAutoScrollToAnchor } from "./anchor";
-import { TimelineItemComponent } from "./item";
+import { ManagedSharedSessionIdsContext, TimelineItemComponent } from "./item";
 import {
   CurrentTimeIndicator,
   useCurrentTimeMs,
@@ -44,9 +44,11 @@ import {
   type TimelineSessionsTable,
 } from "./utils";
 
+import { useAuth } from "~/auth";
 import { useIgnoredEvents } from "~/calendar/ignored-events";
 import { useTimelineTables } from "~/calendar/queries";
 import { useDeleteSession } from "~/session/hooks/useDeleteSession";
+import { useDurableSharedNotes } from "~/shared-notes/cache";
 import { useConfigValue } from "~/shared/config";
 import { scrollElementByWheel } from "~/shared/dom/scroll-wheel";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -70,6 +72,17 @@ export const TimelineView = memo(function TimelineView({
 } = {}) {
   const { t } = useLingui();
   const timezone = useConfigValue("timezone") || undefined;
+  const { session } = useAuth();
+  const durableSharedNotes = useDurableSharedNotes(session?.user.id);
+  const managedSharedSessionIds = useMemo(
+    () =>
+      new Set(
+        durableSharedNotes
+          .filter((note) => note.manageAccess)
+          .map((note) => note.sessionId),
+      ),
+    [durableSharedNotes],
+  );
   const { timelineEventsTable, timelineSessionsTable } = useTimelineTables();
   const [uncontrolledShowIgnored, setUncontrolledShowIgnored] = useState(false);
   const showIgnored = showIgnoredEvents ?? uncontrolledShowIgnored;
@@ -414,189 +427,200 @@ export const TimelineView = memo(function TimelineView({
   );
 
   return (
-    <div
-      data-sidebar-timeline-root
-      className="relative h-full"
-      onWheelCapture={handleWheelCapture}
-    >
+    <ManagedSharedSessionIdsContext.Provider value={managedSharedSessionIds}>
       <div
-        ref={containerRef}
-        data-sidebar-timeline-scroll
-        onContextMenu={showContextMenu}
-        className={cn([
-          "scrollbar-hide flex h-full flex-col overflow-y-auto",
-          "rounded-xl",
-        ])}
+        data-sidebar-timeline-root
+        className="relative h-full"
+        onWheelCapture={handleWheelCapture}
       >
-        {(topChromeInset || hasMoreFutureItems) && (
-          <div
-            aria-hidden
-            data-sidebar-timeline-top-spacer
-            className={cn([topSpacerClassName, "shrink-0"])}
-          />
-        )}
-        {buckets.map((bucket, index) => {
-          const isToday = bucket.label === "Today";
-          const shouldPlaceIndicatorBefore =
-            !hasToday && indicatorIndex === index;
-          const shouldRenderIndicatorBefore =
-            shouldPlaceIndicatorBefore && !hasActiveVisibleSession;
-          const shouldRenderIndicatorAnchorBefore =
-            shouldPlaceIndicatorBefore && hasActiveVisibleSession;
-          const isTopIndicator = shouldRenderIndicatorBefore && index === 0;
-
-          return (
-            <div key={bucket.label} className={cn([isTopIndicator && "pt-3"])}>
-              {shouldRenderIndicatorBefore && (
-                <div data-sidebar-current-time-header-gap className="py-3">
-                  <CurrentTimeIndicator
-                    ref={setCurrentTimeIndicatorRef}
-                    timezone={timezone}
-                  />
-                </div>
-              )}
-              {shouldRenderIndicatorAnchorBefore && (
-                <CurrentTimeAnchor
-                  registerIndicator={setCurrentTimeIndicatorRef}
-                />
-              )}
-              <div
-                data-sidebar-timeline-bucket-header
-                className={cn([
-                  "sticky z-20",
-                  bucketHeaderTopClassName,
-                  "bg-background pt-0 pr-1 pb-1 pl-3",
-                ])}
-              >
-                <div className="text-foreground text-base font-bold">
-                  {bucket.label}
-                </div>
-              </div>
-              {isToday ? (
-                <TodayBucket
-                  items={bucket.items}
-                  precision={bucket.precision}
-                  registerIndicator={setCurrentTimeIndicatorRef}
-                  selectedSessionId={selectedSessionId}
-                  selectedNodeRef={scrollSelectedSessionIntoView}
-                  suppressCurrentTimeIndicator={hasActiveVisibleSession}
-                  timezone={timezone}
-                  selectedIds={selectedIds}
-                  getFlatItemKeys={getFlatItemKeys}
-                  upcomingItemKey={upcomingMeetingStatus?.itemKey}
-                  upcomingItemLabel={upcomingMeetingStatus?.label}
-                  upcomingItemProgress={upcomingMeetingStatus?.progress}
-                  upcomingItemNodeRef={setUpcomingMeetingNodeRef}
-                />
-              ) : (
-                bucket.items.map((item) => {
-                  const itemKey = `${item.type}-${item.id}`;
-                  const selected =
-                    item.type === "session" && item.id === selectedSessionId;
-                  return (
-                    <TimelineItemComponent
-                      key={itemKey}
-                      item={item}
-                      precision={bucket.precision}
-                      selected={selected}
-                      timezone={timezone}
-                      multiSelected={selectedIds.includes(itemKey)}
-                      getFlatItemKeys={getFlatItemKeys}
-                      selectedNodeRef={
-                        selected ? scrollSelectedSessionIntoView : undefined
-                      }
-                      itemNodeRef={
-                        itemKey === upcomingMeetingStatus?.itemKey
-                          ? setUpcomingMeetingNodeRef
-                          : undefined
-                      }
-                      isUpcoming={itemKey === upcomingMeetingStatus?.itemKey}
-                      upcomingLabel={
-                        itemKey === upcomingMeetingStatus?.itemKey
-                          ? upcomingMeetingStatus.label
-                          : undefined
-                      }
-                      upcomingProgress={
-                        itemKey === upcomingMeetingStatus?.itemKey
-                          ? upcomingMeetingStatus.progress
-                          : undefined
-                      }
-                    />
-                  );
-                })
-              )}
-            </div>
-          );
-        })}
-        {!hasToday &&
-          (indicatorIndex === -1 || indicatorIndex === buckets.length) &&
-          (hasActiveVisibleSession ? (
-            <CurrentTimeAnchor registerIndicator={setCurrentTimeIndicatorRef} />
-          ) : (
-            <CurrentTimeIndicator
-              ref={setCurrentTimeIndicatorRef}
-              timezone={timezone}
-            />
-          ))}
-      </div>
-
-      {!isScrolledToBottom && (
         <div
-          aria-hidden
-          data-sidebar-timeline-bottom-fade
-          className="from-background/0 to-background pointer-events-none absolute inset-x-0 bottom-0 z-30 h-7 bg-linear-to-b"
-        />
-      )}
-
-      {topChromeInset && (
-        <div
-          aria-hidden
-          data-sidebar-timeline-top-occluder
-          className="bg-background pointer-events-none absolute inset-x-0 top-0 z-10 h-12"
-        />
-      )}
-
-      {(showOpenCalendarChip || showUpcomingMeetingChip || showTopNowChip) && (
-        <div
-          data-sidebar-timeline-top-chip-stack
+          ref={containerRef}
+          data-sidebar-timeline-scroll
+          onContextMenu={showContextMenu}
           className={cn([
-            "absolute left-1/2 z-20 flex -translate-x-1/2 transform flex-col items-center gap-2",
-            topChipStackTopClassName,
+            "scrollbar-hide flex h-full flex-col overflow-y-auto",
+            "rounded-xl",
           ])}
         >
-          {showOpenCalendarChip && (
-            <TimelineTopChip
-              ariaLabel={t`Open calendar`}
-              icon={<CalendarDaysIcon size={12} />}
-              onClick={handleOpenCalendar}
-            >
-              <Trans>Open calendar</Trans>
-            </TimelineTopChip>
-          )}
-          {upcomingMeetingStatus && showUpcomingMeetingChip && (
-            <SidebarUpcomingMeetingStatus
-              label={upcomingMeetingStatus.label}
-              onClick={scrollToUpcomingMeeting}
-              title={upcomingMeetingStatus.title}
+          {(topChromeInset || hasMoreFutureItems) && (
+            <div
+              aria-hidden
+              data-sidebar-timeline-top-spacer
+              className={cn([topSpacerClassName, "shrink-0"])}
             />
           )}
-          {showTopNowChip && (
-            <TimelineNowChip direction="up" onClick={scrollToToday} />
-          )}
-        </div>
-      )}
+          {buckets.map((bucket, index) => {
+            const isToday = bucket.label === "Today";
+            const shouldPlaceIndicatorBefore =
+              !hasToday && indicatorIndex === index;
+            const shouldRenderIndicatorBefore =
+              shouldPlaceIndicatorBefore && !hasActiveVisibleSession;
+            const shouldRenderIndicatorAnchorBefore =
+              shouldPlaceIndicatorBefore && hasActiveVisibleSession;
+            const isTopIndicator = shouldRenderIndicatorBefore && index === 0;
 
-      {!showUpcomingMeetingChip && !isTodayVisible && !isScrolledPastToday && (
-        <TimelineNowChip
-          onClick={scrollToToday}
-          direction="down"
-          className={cn([
-            "absolute bottom-2 left-1/2 -translate-x-1/2 transform",
-            "z-40",
-          ])}
-        />
-      )}
-    </div>
+            return (
+              <div
+                key={bucket.label}
+                className={cn([isTopIndicator && "pt-3"])}
+              >
+                {shouldRenderIndicatorBefore && (
+                  <div data-sidebar-current-time-header-gap className="py-3">
+                    <CurrentTimeIndicator
+                      ref={setCurrentTimeIndicatorRef}
+                      timezone={timezone}
+                    />
+                  </div>
+                )}
+                {shouldRenderIndicatorAnchorBefore && (
+                  <CurrentTimeAnchor
+                    registerIndicator={setCurrentTimeIndicatorRef}
+                  />
+                )}
+                <div
+                  data-sidebar-timeline-bucket-header
+                  className={cn([
+                    "sticky z-20",
+                    bucketHeaderTopClassName,
+                    "bg-background pt-0 pr-1 pb-1 pl-3",
+                  ])}
+                >
+                  <div className="text-foreground text-base font-bold">
+                    {bucket.label}
+                  </div>
+                </div>
+                {isToday ? (
+                  <TodayBucket
+                    items={bucket.items}
+                    precision={bucket.precision}
+                    registerIndicator={setCurrentTimeIndicatorRef}
+                    selectedSessionId={selectedSessionId}
+                    selectedNodeRef={scrollSelectedSessionIntoView}
+                    suppressCurrentTimeIndicator={hasActiveVisibleSession}
+                    timezone={timezone}
+                    selectedIds={selectedIds}
+                    getFlatItemKeys={getFlatItemKeys}
+                    upcomingItemKey={upcomingMeetingStatus?.itemKey}
+                    upcomingItemLabel={upcomingMeetingStatus?.label}
+                    upcomingItemProgress={upcomingMeetingStatus?.progress}
+                    upcomingItemNodeRef={setUpcomingMeetingNodeRef}
+                  />
+                ) : (
+                  bucket.items.map((item) => {
+                    const itemKey = `${item.type}-${item.id}`;
+                    const selected =
+                      item.type === "session" && item.id === selectedSessionId;
+                    return (
+                      <TimelineItemComponent
+                        key={itemKey}
+                        item={item}
+                        precision={bucket.precision}
+                        selected={selected}
+                        timezone={timezone}
+                        multiSelected={selectedIds.includes(itemKey)}
+                        getFlatItemKeys={getFlatItemKeys}
+                        selectedNodeRef={
+                          selected ? scrollSelectedSessionIntoView : undefined
+                        }
+                        itemNodeRef={
+                          itemKey === upcomingMeetingStatus?.itemKey
+                            ? setUpcomingMeetingNodeRef
+                            : undefined
+                        }
+                        isUpcoming={itemKey === upcomingMeetingStatus?.itemKey}
+                        upcomingLabel={
+                          itemKey === upcomingMeetingStatus?.itemKey
+                            ? upcomingMeetingStatus.label
+                            : undefined
+                        }
+                        upcomingProgress={
+                          itemKey === upcomingMeetingStatus?.itemKey
+                            ? upcomingMeetingStatus.progress
+                            : undefined
+                        }
+                      />
+                    );
+                  })
+                )}
+              </div>
+            );
+          })}
+          {!hasToday &&
+            (indicatorIndex === -1 || indicatorIndex === buckets.length) &&
+            (hasActiveVisibleSession ? (
+              <CurrentTimeAnchor
+                registerIndicator={setCurrentTimeIndicatorRef}
+              />
+            ) : (
+              <CurrentTimeIndicator
+                ref={setCurrentTimeIndicatorRef}
+                timezone={timezone}
+              />
+            ))}
+        </div>
+
+        {!isScrolledToBottom && (
+          <div
+            aria-hidden
+            data-sidebar-timeline-bottom-fade
+            className="from-background/0 to-background pointer-events-none absolute inset-x-0 bottom-0 z-30 h-7 bg-linear-to-b"
+          />
+        )}
+
+        {topChromeInset && (
+          <div
+            aria-hidden
+            data-sidebar-timeline-top-occluder
+            className="bg-background pointer-events-none absolute inset-x-0 top-0 z-10 h-12"
+          />
+        )}
+
+        {(showOpenCalendarChip ||
+          showUpcomingMeetingChip ||
+          showTopNowChip) && (
+          <div
+            data-sidebar-timeline-top-chip-stack
+            className={cn([
+              "absolute left-1/2 z-20 flex -translate-x-1/2 transform flex-col items-center gap-2",
+              topChipStackTopClassName,
+            ])}
+          >
+            {showOpenCalendarChip && (
+              <TimelineTopChip
+                ariaLabel={t`Open calendar`}
+                icon={<CalendarDaysIcon size={12} />}
+                onClick={handleOpenCalendar}
+              >
+                <Trans>Open calendar</Trans>
+              </TimelineTopChip>
+            )}
+            {upcomingMeetingStatus && showUpcomingMeetingChip && (
+              <SidebarUpcomingMeetingStatus
+                label={upcomingMeetingStatus.label}
+                onClick={scrollToUpcomingMeeting}
+                title={upcomingMeetingStatus.title}
+              />
+            )}
+            {showTopNowChip && (
+              <TimelineNowChip direction="up" onClick={scrollToToday} />
+            )}
+          </div>
+        )}
+
+        {!showUpcomingMeetingChip &&
+          !isTodayVisible &&
+          !isScrolledPastToday && (
+            <TimelineNowChip
+              onClick={scrollToToday}
+              direction="down"
+              className={cn([
+                "absolute bottom-2 left-1/2 -translate-x-1/2 transform",
+                "z-40",
+              ])}
+            />
+          )}
+      </div>
+    </ManagedSharedSessionIdsContext.Provider>
   );
 });
 

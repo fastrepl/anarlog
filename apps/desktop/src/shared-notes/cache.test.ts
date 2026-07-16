@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
       _statements: Array<{ sql: string; params?: unknown[] }>,
     ): Promise<number[]> => [],
   ),
+  liveQueryExecute: vi.fn(),
   useDrizzleLiveQuery: vi.fn(
     (
       _query: { toSQL: () => { sql: string; params: unknown[] } },
@@ -25,13 +26,16 @@ vi.mock("~/db", async () => {
   return {
     db: createDb({ executeProxy: vi.fn() }),
     executeTransaction: mocks.executeTransaction,
+    liveQueryClient: { execute: mocks.liveQueryExecute },
     useDrizzleLiveQuery: mocks.useDrizzleLiveQuery,
   };
 });
 
 import {
+  loadManagedSharedNoteForSession,
   mapSharedNoteLiveRows,
   parseDurableSharedNoteSnapshots,
+  removeDurableSharedNoteCache,
   replaceDurableSharedNoteCache,
   upsertDurableSharedNoteCache,
   useDurableSharedNote,
@@ -145,6 +149,42 @@ describe("durable shared-note cache", () => {
     );
     expect(statements[0]?.params).toContain("viewer-1");
     expect(statements[0]?.params).toContain(serverRow.share_id);
+  });
+
+  it("removes only one viewer-owned cache row", async () => {
+    await removeDurableSharedNoteCache("viewer-1", serverRow.share_id);
+
+    const statements = mocks.executeTransaction.mock.calls[0]![0];
+    expect(statements).toEqual([
+      {
+        sql: expect.stringContaining(
+          "WHERE viewer_user_id = ? AND share_id = ?",
+        ),
+        params: ["viewer-1", serverRow.share_id],
+      },
+    ]);
+  });
+
+  it("loads the durable owner mapping used by fail-safe deletion", async () => {
+    mocks.liveQueryExecute.mockResolvedValueOnce([
+      {
+        share_id: serverRow.share_id,
+        workspace_id: serverRow.workspace_id,
+        session_id: "session-1",
+      },
+    ]);
+
+    await expect(
+      loadManagedSharedNoteForSession("viewer-1", "session-1"),
+    ).resolves.toEqual({
+      shareId: serverRow.share_id,
+      workspaceId: serverRow.workspace_id,
+      sessionId: "session-1",
+    });
+    expect(mocks.liveQueryExecute).toHaveBeenCalledWith(
+      expect.stringContaining("manage_access = 1"),
+      ["viewer-1", "session-1"],
+    );
   });
 
   it("serializes replacements for the same viewer", async () => {

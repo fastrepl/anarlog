@@ -147,7 +147,7 @@ vi.mock("~/stt/contexts", () => ({
     }),
 }));
 
-import { TimelineItemComponent } from "./item";
+import { ManagedSharedSessionIdsContext, TimelineItemComponent } from "./item";
 
 describe("TimelineItemComponent", () => {
   beforeEach(() => {
@@ -437,6 +437,32 @@ describe("TimelineItemComponent", () => {
     expect(rowButton?.className).toContain("pr-10");
     expect(spinnerSlot?.className).toContain("absolute");
     expect(spinnerSlot?.className).toContain("right-3");
+  });
+
+  it("marks a locally owned shared note with a people icon", () => {
+    render(
+      <ManagedSharedSessionIdsContext.Provider
+        value={new Set(["session-shared"])}
+      >
+        <TimelineItemComponent
+          item={{
+            type: "session",
+            id: "session-shared",
+            data: {
+              title: "Shared plan",
+              created_at: "2024-01-15T10:30:00.000Z",
+            },
+          }}
+          precision="time"
+          selected={false}
+          timezone="UTC"
+          multiSelected={false}
+          flatItemKeys={["session-session-shared"]}
+        />
+      </ManagedSharedSessionIdsContext.Provider>,
+    );
+
+    expect(screen.getByLabelText("Shared note")).not.toBeNull();
   });
 
   it("opens the current tab after a single-click on a session row", () => {

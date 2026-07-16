@@ -207,7 +207,7 @@ select ok(
   'Issuance and claim avoid cross-row cleanup and share-to-handoff lock inversion'
 );
 
-select tests.authenticate_as('gateway_owner');
+select tests.authenticate_as_hyprnote_pro('gateway_owner');
 
 select lives_ok(
   $query$
@@ -567,7 +567,7 @@ select lives_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('gateway_owner');
+select tests.authenticate_as_hyprnote_pro('gateway_owner');
 
 select lives_ok(
   $$
@@ -610,7 +610,7 @@ select lives_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('gateway_owner');
+select tests.authenticate_as_hyprnote_pro('gateway_owner');
 
 select lives_ok(
   $$

@@ -254,7 +254,7 @@ select ok(
   'Snapshot rows constrain schema, revision, title, and document shape'
 );
 
-select tests.authenticate_as('snapshot_owner');
+select tests.authenticate_as_hyprnote_pro('snapshot_owner');
 
 select throws_ok(
   $$select count(*) from public.session_share_snapshots$$,
@@ -455,7 +455,7 @@ select lives_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('snapshot_owner');
+select tests.authenticate_as_hyprnote_pro('snapshot_owner');
 
 select lives_ok(
   $query$
@@ -731,7 +731,7 @@ select results_eq(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('snapshot_owner');
+select tests.authenticate_as_hyprnote_pro('snapshot_owner');
 
 select results_eq(
   $$
@@ -784,7 +784,7 @@ select results_eq(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('snapshot_admin');
+select tests.authenticate_as_hyprnote_pro('snapshot_admin');
 
 select results_eq(
   $$
@@ -1037,7 +1037,7 @@ select throws_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('snapshot_owner');
+select tests.authenticate_as_hyprnote_pro('snapshot_owner');
 
 select lives_ok(
   $$
@@ -1102,7 +1102,7 @@ select results_eq(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('snapshot_owner');
+select tests.authenticate_as_hyprnote_pro('snapshot_owner');
 
 select lives_ok(
   $$
