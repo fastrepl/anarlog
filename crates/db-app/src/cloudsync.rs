@@ -87,6 +87,8 @@ static CLOUDSYNC_TABLE_REGISTRY: LazyLock<Vec<CloudsyncTableSpec>> = LazyLock::n
         ("tags", false),
         ("templates", false),
         ("transcripts", true),
+        ("workspace_memberships", false),
+        ("workspaces", false),
     ]
     .into_iter()
     .map(|(table_name, enabled)| CloudsyncTableSpec {
@@ -182,6 +184,12 @@ pub async fn claim_cloudsync_workspace(
         .is_some_and(|id| id != account_user_id)
     {
         return Err(CloudsyncWorkspaceError::AccountMismatch);
+    }
+    if binding.workspace_id == account_user_id
+        && binding.account_user_id.as_deref() == Some(account_user_id)
+    {
+        transaction.commit().await?;
+        return Ok(());
     }
 
     for table in cloudsync_table_registry()
@@ -821,5 +829,31 @@ mod tests {
             error,
             CloudsyncWorkspaceError::ForeignWorkspace { table } if table == "sessions"
         ));
+    }
+
+    #[tokio::test]
+    async fn repeated_claim_allows_shared_workspace_rows() {
+        let db = test_db().await;
+        claim_cloudsync_workspace(db.pool(), "user-a")
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id)
+             VALUES ('shared-session', 'workspace-b', 'user-b')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        claim_cloudsync_workspace(db.pool(), "user-a")
+            .await
+            .unwrap();
+
+        let workspace_id: String =
+            sqlx::query_scalar("SELECT workspace_id FROM sessions WHERE id = 'shared-session'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(workspace_id, "workspace-b");
     }
 }

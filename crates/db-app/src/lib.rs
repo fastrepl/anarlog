@@ -110,6 +110,11 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         },
         sql: include_str!("../migrations/20260714120500_search_index_organizations_triggers.sql"),
     },
+    hypr_db_migrate::MigrationStep {
+        id: "20260716120000_personal_workspaces",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260716120000_personal_workspaces.sql"),
+    },
 ];
 
 pub fn schema() -> hypr_db_migrate::DbSchema {
@@ -340,8 +345,100 @@ mod tests {
                 "tags",
                 "templates",
                 "transcripts",
+                "workspace_memberships",
+                "workspaces",
             ]
         );
+    }
+
+    #[tokio::test]
+    async fn personal_workspace_migration_preserves_existing_session_workspace_ids() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(
+            &db,
+            hypr_db_migrate::DbSchema {
+                steps: migration_steps_before("20260716120000_personal_workspaces"),
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
+
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session-1', 'user-1', 'user-1', 'Existing note')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+        sqlx::query(
+            "INSERT INTO workspaces (id, owner_user_id, name)
+             VALUES ('user-1', 'user-1', 'Personal')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO workspace_memberships (id, workspace_id, user_id, role)
+             VALUES ('membership-1', 'user-1', 'user-1', 'owner')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let session_workspace_id: String =
+            sqlx::query_scalar("SELECT workspace_id FROM sessions WHERE id = 'session-1'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        let workspace: (String, String) =
+            sqlx::query_as("SELECT id, kind FROM workspaces WHERE id = 'user-1'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        let membership_role: String =
+            sqlx::query_scalar("SELECT role FROM workspace_memberships WHERE id = 'membership-1'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+
+        assert_eq!(session_workspace_id, "user-1");
+        assert_eq!(workspace, ("user-1".to_string(), "personal".to_string()));
+        assert_eq!(membership_role, "owner");
+
+        let duplicate = sqlx::query(
+            "INSERT INTO workspace_memberships (id, workspace_id, user_id)
+             VALUES ('membership-2', 'user-1', 'user-1')",
+        )
+        .execute(db.pool())
+        .await;
+        assert!(duplicate.is_err());
+    }
+
+    #[cfg(any(
+        all(target_os = "macos", target_arch = "aarch64"),
+        all(target_os = "macos", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "x86_64"),
+        all(target_os = "windows", target_arch = "x86_64"),
+    ))]
+    #[tokio::test]
+    async fn workspace_tables_can_be_initialized_by_cloudsync() {
+        let db = Db::connect_memory().await.unwrap();
+        prepare_schema(&db).await.unwrap();
+
+        for table_name in ["workspaces", "workspace_memberships"] {
+            db.cloudsync_init(table_name, None, None).await.unwrap();
+            assert!(
+                hypr_db_core::cloudsync_is_enabled_on(db.pool(), table_name)
+                    .await
+                    .unwrap()
+            );
+        }
     }
 
     #[cfg(any(
@@ -576,7 +673,7 @@ mod tests {
             .map(|table| table.table_name.as_str())
             .collect();
 
-        assert_eq!(registry.len(), 17);
+        assert_eq!(registry.len(), 19);
         assert_eq!(
             enabled,
             vec![
@@ -601,7 +698,19 @@ mod tests {
                 "search_index_dirty" | "search_index_state"
             )
         }));
+        assert!(
+            registry
+                .iter()
+                .any(|table| { table.table_name == "workspaces" && !table.enabled })
+        );
+        assert!(
+            registry
+                .iter()
+                .any(|table| { table.table_name == "workspace_memberships" && !table.enabled })
+        );
         assert!(cloudsync_alter_guard_required("sessions"));
+        assert!(!cloudsync_alter_guard_required("workspaces"));
+        assert!(!cloudsync_alter_guard_required("workspace_memberships"));
         assert!(!cloudsync_alter_guard_required("calendars"));
     }
 
