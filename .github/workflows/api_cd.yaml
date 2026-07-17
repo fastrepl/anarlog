@@ -38,6 +38,8 @@ jobs:
         run: |
           set -euo pipefail
 
+          python3 .github/scripts/test_verify_cloudsync_e2ee.py
+
           cloudsync_secrets_json="$(mktemp)"
           trap 'rm -f "$cloudsync_secrets_json"' EXIT
 

@@ -2,7 +2,7 @@ import { Trans } from "@lingui/react/macro";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { CopyIcon, KeyRoundIcon, Loader2Icon } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import {
   createE2eeIdentity,
@@ -21,6 +21,18 @@ import {
 import { Input } from "@hypr/ui/components/ui/input";
 
 import { env } from "~/env";
+
+const RECOVERY_KEY_CLIPBOARD_TTL_MS = 60_000;
+
+async function clearRecoveryKeyClipboard(recoveryKey: string) {
+  try {
+    if ((await navigator.clipboard.readText()) === recoveryKey) {
+      await navigator.clipboard.writeText("");
+    }
+  } catch {
+    // Clipboard reads are not available on every platform.
+  }
+}
 
 async function claimE2eeIdentity(accessToken: string, keyId: string) {
   const response = await fetch(
@@ -63,6 +75,7 @@ export function E2eeSetupDialog({
 }) {
   const [mode, setMode] = useState<"choose" | "import">("choose");
   const [recoveryKey, setRecoveryKey] = useState<string | null>(null);
+  const clipboardClearTimer = useRef<number | null>(null);
   const createMutation = useMutation({
     mutationFn: () => createE2eeIdentity(accountUserId),
     onSuccess: setRecoveryKey,
@@ -75,11 +88,24 @@ export function E2eeSetupDialog({
     },
     onSuccess: onReady,
   });
+  const copyMutation = useMutation({
+    mutationFn: async (recoveryKey: string) => {
+      await navigator.clipboard.writeText(recoveryKey);
+      if (clipboardClearTimer.current !== null) {
+        window.clearTimeout(clipboardClearTimer.current);
+      }
+      clipboardClearTimer.current = window.setTimeout(() => {
+        clipboardClearTimer.current = null;
+        void clearRecoveryKeyClipboard(recoveryKey);
+      }, RECOVERY_KEY_CLIPBOARD_TTL_MS);
+    },
+  });
   const importForm = useForm({
     defaultValues: { recoveryKey: "" },
     onSubmit: ({ value }) => importMutation.mutate(value.recoveryKey.trim()),
   });
-  const error = createMutation.error ?? importMutation.error;
+  const error =
+    createMutation.error ?? importMutation.error ?? copyMutation.error;
   const pending = createMutation.isPending || importMutation.isPending;
 
   const setOpen = (nextOpen: boolean) => {
@@ -127,11 +153,15 @@ export function E2eeSetupDialog({
               <Button
                 variant="outline"
                 className="h-8 w-full rounded-full text-xs"
-                onClick={() => navigator.clipboard.writeText(recoveryKey)}
+                onClick={() => copyMutation.mutate(recoveryKey)}
+                disabled={copyMutation.isPending}
               >
                 <CopyIcon className="size-3.5" aria-hidden="true" />
                 <Trans>Copy recovery key</Trans>
               </Button>
+              <p className="text-muted-foreground text-center text-[11px] leading-4">
+                Clipboard copies clear after 60 seconds when supported.
+              </p>
             </div>
           ) : mode === "import" ? (
             <div className="space-y-3">

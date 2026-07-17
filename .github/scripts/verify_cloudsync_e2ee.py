@@ -22,6 +22,16 @@ REQUIRED_SECRETS = (
     "SQLITECLOUD_PROJECT_URL",
     "SQLITECLOUD_TOKEN_ISSUER_API_KEY",
 )
+LEGACY_PLAINTEXT_TABLES = (
+    "action_items",
+    "events",
+    "humans",
+    "organizations",
+    "session_documents",
+    "session_participants",
+    "sessions",
+    "transcripts",
+)
 SENSITIVE_PARENT_ENV = {
     "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
     "ACTIONS_RUNTIME_TOKEN",
@@ -38,6 +48,10 @@ class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 
 HTTP = urllib.request.build_opener(NoRedirectHandler())
+
+
+class ResourceNotFound(RuntimeError):
+    pass
 
 
 def load_secrets(path: str) -> dict[str, str]:
@@ -92,6 +106,8 @@ def request_json(
         with HTTP.open(request, timeout=30) as response:
             envelope = json.load(response)
     except urllib.error.HTTPError as error:
+        if error.code == 404:
+            raise ResourceNotFound(f"{label} returned HTTP 404") from error
         raise RuntimeError(f"{label} failed with HTTP {error.code}") from error
     except urllib.error.URLError as error:
         raise RuntimeError(f"{label} could not connect") from error
@@ -113,6 +129,44 @@ def management_get(path: str, management_key: str, label: str) -> object:
         label,
     )
     return response_data(envelope, label)
+
+
+def verify_legacy_database_retired(legacy_id: str, management_key: str) -> None:
+    encoded_legacy_id = urllib.parse.quote(legacy_id, safe="")
+    try:
+        management_get(
+            f"/v1/databases/{encoded_legacy_id}",
+            management_key,
+            "legacy database retirement check",
+        )
+    except ResourceNotFound:
+        return
+
+    raise ValueError(
+        "Legacy plaintext CloudSync database must be deleted before E2EE deployment"
+    )
+
+
+def verify_no_plaintext_tables(
+    project_url: str,
+    issuer_key: str,
+    database_name: str,
+) -> None:
+    quoted_names = ", ".join(f"'{name}'" for name in LEGACY_PLAINTEXT_TABLES)
+    rows = run_sql(
+        project_url,
+        issuer_key,
+        database_name,
+        "SELECT name FROM sqlite_schema "
+        f"WHERE type = 'table' AND name IN ({quoted_names}) ORDER BY name",
+        "E2EE plaintext table check",
+    )
+    plaintext_tables = [str(row.get("name", "")) for row in rows if row.get("name")]
+    if plaintext_tables:
+        raise ValueError(
+            "E2EE database contains legacy plaintext tables: "
+            + ", ".join(plaintext_tables)
+        )
 
 
 def run_sql(
@@ -144,30 +198,21 @@ def verify_remote_database(values: dict[str, str]) -> None:
 
     management_key = values["SQLITECLOUD_CLOUDSYNC_MANAGEMENT_API_KEY"]
     encoded_database_id = urllib.parse.quote(database_id, safe="")
-    encoded_legacy_id = urllib.parse.quote(legacy_id, safe="")
     database = management_get(
         f"/v1/databases/{encoded_database_id}",
         management_key,
         "E2EE database registration check",
     )
-    legacy_database = management_get(
-        f"/v1/databases/{encoded_legacy_id}",
-        management_key,
-        "legacy database registration check",
-    )
-    if not isinstance(database, dict) or not isinstance(legacy_database, dict):
+    if not isinstance(database, dict):
         raise ValueError("CloudSync database registration metadata is invalid")
 
     database_name = str(database.get("databaseName", "")).strip()
-    legacy_database_name = str(legacy_database.get("databaseName", "")).strip()
     project_id = str(database.get("projectId", "")).strip()
-    legacy_project_id = str(legacy_database.get("projectId", "")).strip()
-    if not all((database_name, legacy_database_name, project_id, legacy_project_id)):
+    if not all((database_name, project_id)):
         raise ValueError(
             "CloudSync database registration is missing its physical target"
         )
-    if (project_id, database_name) == (legacy_project_id, legacy_database_name):
-        raise ValueError("E2EE CloudSync database reuses the legacy physical database")
+    verify_legacy_database_retired(legacy_id, management_key)
 
     connection = management_get(
         f"/v1/databases/{encoded_database_id}/connection",
@@ -196,6 +241,7 @@ def verify_remote_database(values: dict[str, str]) -> None:
     project_url = values["SQLITECLOUD_PROJECT_URL"]
     validate_https_origin(project_url, "SQLITECLOUD_PROJECT_URL")
     issuer_key = values["SQLITECLOUD_TOKEN_ISSUER_API_KEY"]
+    verify_no_plaintext_tables(project_url, issuer_key, database_name)
     ddl_rows = run_sql(
         project_url,
         issuer_key,

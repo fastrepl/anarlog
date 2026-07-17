@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -12,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   import: vi.fn(),
   inspect: vi.fn(),
+  readClipboard: vi.fn(),
+  writeClipboard: vi.fn(),
 }));
 
 vi.mock("@hypr/plugin-db", () => ({
@@ -22,15 +25,35 @@ vi.mock("@hypr/plugin-db", () => ({
 
 import { E2eeSetupDialog } from "./e2ee-setup";
 
+const originalClipboard = Object.getOwnPropertyDescriptor(
+  navigator,
+  "clipboard",
+);
+
 describe("E2eeSetupDialog", () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
+    if (originalClipboard) {
+      Object.defineProperty(navigator, "clipboard", originalClipboard);
+    } else {
+      Reflect.deleteProperty(navigator, "clipboard");
+    }
   });
 
   const renderDialog = (onReady = vi.fn()) => {
     mocks.inspect.mockResolvedValue({ keyId: "abcdefghijklmnopqrstuv" });
+    mocks.readClipboard.mockResolvedValue("");
+    mocks.writeClipboard.mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        readText: mocks.readClipboard,
+        writeText: mocks.writeClipboard,
+      },
+    });
     vi.stubGlobal(
       "fetch",
       vi.fn(() =>
@@ -92,6 +115,48 @@ describe("E2eeSetupDialog", () => {
       ),
     );
     expect(onReady).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears a copied recovery key after one minute when it is still on the clipboard", async () => {
+    const recoveryKey =
+      "anarlog-e2ee-v1:abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG";
+    mocks.create.mockResolvedValue(recoveryKey);
+    renderDialog();
+
+    fireEvent.click(screen.getByText("Create a recovery key"));
+    expect(await screen.findByText(recoveryKey)).toBeTruthy();
+    mocks.readClipboard.mockResolvedValue(recoveryKey);
+    vi.useFakeTimers();
+
+    fireEvent.click(screen.getByText("Copy recovery key"));
+    await act(async () => {});
+    expect(mocks.writeClipboard).toHaveBeenCalledWith(recoveryKey);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(mocks.writeClipboard).toHaveBeenLastCalledWith("");
+  });
+
+  it("preserves clipboard content copied after the recovery key", async () => {
+    const recoveryKey =
+      "anarlog-e2ee-v1:abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG";
+    mocks.create.mockResolvedValue(recoveryKey);
+    renderDialog();
+
+    fireEvent.click(screen.getByText("Create a recovery key"));
+    expect(await screen.findByText(recoveryKey)).toBeTruthy();
+    mocks.readClipboard.mockResolvedValue("new clipboard content");
+    vi.useFakeTimers();
+
+    fireEvent.click(screen.getByText("Copy recovery key"));
+    await act(async () => {});
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+
+    expect(mocks.writeClipboard).toHaveBeenCalledTimes(1);
+    expect(mocks.writeClipboard).toHaveBeenCalledWith(recoveryKey);
   });
 
   it("does not store a recovery key rejected by the account identity", async () => {
