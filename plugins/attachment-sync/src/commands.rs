@@ -1,5 +1,6 @@
 use crate::models::{
-    PreparedUpload, RestoredAttachment, SharedAttachmentCacheResult, UploadDescriptor,
+    PreparedSharedUpload, PreparedUpload, RestoredAttachment, SharedAttachmentCacheResult,
+    SharedUploadVersion, UploadDescriptor,
 };
 use tauri::Manager;
 
@@ -18,6 +19,28 @@ pub(crate) async fn begin_attachment_download(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn cancel_attachment_download(
+    control: tauri::State<'_, crate::control::DownloadControl>,
+    operation_id: String,
+) -> Result<bool, String> {
+    control
+        .cancel(&operation_id)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn begin_shared_upload_operation(
+    control: tauri::State<'_, crate::control::DownloadControl>,
+    operation_id: String,
+) -> Result<(), String> {
+    control
+        .begin(&operation_id, None)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn cancel_shared_upload_operation(
     control: tauri::State<'_, crate::control::DownloadControl>,
     operation_id: String,
 ) -> Result<bool, String> {
@@ -86,14 +109,100 @@ pub(crate) async fn read_upload_range<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn read_attachment_range<R: tauri::Runtime>(
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn prepare_shared_upload<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    control: tauri::State<'_, crate::control::DownloadControl>,
+    state: tauri::State<'_, tauri_plugin_db::ManagedState>,
+    operation_id: String,
+    attachment_id: String,
+    expected: SharedUploadVersion,
+) -> Result<PreparedSharedUpload, String> {
+    let operation = control
+        .start(&operation_id, None)
+        .map_err(|error| error.to_string())?;
+    crate::runtime::prepare_shared_upload(
+        &app,
+        state.inner(),
+        &operation,
+        &attachment_id,
+        &expected.sha256,
+        expected.size_bytes,
+        &expected.filename,
+        &expected.content_type,
+        &expected.cloud_object_key,
+    )
+    .await
+    .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn read_shared_upload_range<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     state: tauri::State<'_, tauri_plugin_db::ManagedState>,
     attachment_id: String,
+    cache_id: String,
+    expected: SharedUploadVersion,
     start: u64,
     end: u64,
 ) -> Result<Vec<u8>, String> {
-    crate::runtime::read_attachment_range(&app, state.inner(), &attachment_id, start, end)
+    crate::runtime::read_shared_upload_range(
+        &app,
+        state.inner(),
+        &attachment_id,
+        &cache_id,
+        &expected.sha256,
+        expected.size_bytes,
+        &expected.filename,
+        &expected.content_type,
+        &expected.cloud_object_key,
+        start,
+        end,
+    )
+    .await
+    .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn validate_shared_upload<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    control: tauri::State<'_, crate::control::DownloadControl>,
+    state: tauri::State<'_, tauri_plugin_db::ManagedState>,
+    operation_id: String,
+    attachment_id: String,
+    cache_id: String,
+    expected: SharedUploadVersion,
+) -> Result<bool, String> {
+    let operation = control
+        .start(&operation_id, None)
+        .map_err(|error| error.to_string())?;
+    crate::runtime::validate_shared_upload(
+        &app,
+        state.inner(),
+        &operation,
+        &attachment_id,
+        &cache_id,
+        &expected.sha256,
+        expected.size_bytes,
+        &expected.filename,
+        &expected.content_type,
+        &expected.cloud_object_key,
+    )
+    .await
+    .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn cleanup_shared_upload<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    cache_id: String,
+) -> Result<bool, String> {
+    crate::runtime::cleanup_shared_upload(&app, &cache_id)
         .await
         .map_err(|error| error.to_string())
 }

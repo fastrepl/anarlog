@@ -3,6 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   beginAttachmentDownload: vi.fn(),
   cancelAttachmentDownload: vi.fn(),
+  beginSharedUploadOperation: vi.fn(),
+  cancelSharedUploadOperation: vi.fn(),
+  prepareSharedUpload: vi.fn(),
+  validateSharedUpload: vi.fn(),
   verifyDeleteSource: vi.fn(),
   downloadAndRestore: vi.fn(),
   downloadSharedAttachment: vi.fn(),
@@ -24,7 +28,7 @@ const privateInput = {
   formatVersion: 1,
 };
 
-describe("native attachment download cancellation", () => {
+describe("native attachment operation cancellation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.beginAttachmentDownload.mockResolvedValue({
@@ -32,6 +36,14 @@ describe("native attachment download cancellation", () => {
       data: null,
     });
     mocks.cancelAttachmentDownload.mockResolvedValue({
+      status: "ok",
+      data: true,
+    });
+    mocks.beginSharedUploadOperation.mockResolvedValue({
+      status: "ok",
+      data: null,
+    });
+    mocks.cancelSharedUploadOperation.mockResolvedValue({
       status: "ok",
       data: true,
     });
@@ -106,6 +118,105 @@ describe("native attachment download cancellation", () => {
     const operationId = mocks.beginAttachmentDownload.mock.calls[0]?.[0];
     expect(mocks.cancelAttachmentDownload).toHaveBeenCalledWith(operationId);
     expect(mocks.downloadAndRestore).not.toHaveBeenCalled();
+  });
+
+  it("cancels a shared upload snapshot and drains its native copy", async () => {
+    const controller = new AbortController();
+    let finish:
+      | ((value: { status: "error"; error: string }) => void)
+      | undefined;
+    mocks.prepareSharedUpload.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+
+    const snapshot = attachmentTransferNative.prepareSharedUpload(
+      "attachment-1",
+      "a".repeat(64),
+      42,
+      "diagram.png",
+      "image/png",
+      "private/object.anb1",
+      controller.signal,
+    );
+    await vi.waitFor(() =>
+      expect(mocks.prepareSharedUpload).toHaveBeenCalled(),
+    );
+    const operationId = mocks.beginSharedUploadOperation.mock.calls[0]?.[0];
+    expect(mocks.prepareSharedUpload).toHaveBeenCalledWith(
+      operationId,
+      "attachment-1",
+      {
+        sha256: "a".repeat(64),
+        sizeBytes: 42,
+        filename: "diagram.png",
+        contentType: "image/png",
+        cloudObjectKey: "private/object.anb1",
+      },
+    );
+
+    controller.abort();
+    await vi.waitFor(() =>
+      expect(mocks.cancelSharedUploadOperation).toHaveBeenCalledWith(
+        operationId,
+      ),
+    );
+    finish?.({ status: "error", error: "attachment transfer was cancelled" });
+    await expect(snapshot).rejects.toThrow("cancelled");
+  });
+
+  it("cancels and drains shared upload validation", async () => {
+    const controller = new AbortController();
+    let finish:
+      | ((value: { status: "error"; error: string }) => void)
+      | undefined;
+    mocks.validateSharedUpload.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+
+    const validation = attachmentTransferNative.validateSharedUpload(
+      "attachment-1",
+      "44444444-4444-4444-8444-444444444444",
+      "a".repeat(64),
+      42,
+      "diagram.png",
+      "image/png",
+      "private/object.anb1",
+      controller.signal,
+    );
+    await vi.waitFor(() =>
+      expect(mocks.validateSharedUpload).toHaveBeenCalled(),
+    );
+    const operationId =
+      mocks.beginSharedUploadOperation.mock.calls[
+        mocks.beginSharedUploadOperation.mock.calls.length - 1
+      ]?.[0];
+    expect(mocks.validateSharedUpload).toHaveBeenCalledWith(
+      operationId,
+      "attachment-1",
+      "44444444-4444-4444-8444-444444444444",
+      {
+        sha256: "a".repeat(64),
+        sizeBytes: 42,
+        filename: "diagram.png",
+        contentType: "image/png",
+        cloudObjectKey: "private/object.anb1",
+      },
+    );
+
+    controller.abort();
+    await vi.waitFor(() =>
+      expect(mocks.cancelSharedUploadOperation).toHaveBeenCalledWith(
+        operationId,
+      ),
+    );
+    finish?.({ status: "error", error: "attachment transfer was cancelled" });
+    await expect(validation).rejects.toThrow("cancelled");
   });
 
   it("registers shared downloads under their purge scope", async () => {

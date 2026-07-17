@@ -17,7 +17,8 @@ use uuid::{Uuid, Version};
 use crate::control::DownloadOperation;
 use crate::error::{Error, Result};
 use crate::models::{
-    PreparedUpload, RestoredAttachment, SharedAttachmentCacheResult, UploadDescriptor,
+    PreparedSharedUpload, PreparedUpload, RestoredAttachment, SharedAttachmentCacheResult,
+    UploadDescriptor,
 };
 
 const FORMAT_VERSION: i16 = 1;
@@ -48,7 +49,7 @@ struct TransferAttachment {
     cloud_sync_enabled: i64,
 }
 
-#[derive(Debug, Clone, FromRow)]
+#[derive(Debug, Clone, FromRow, PartialEq, Eq)]
 struct LocalAttachment {
     attachment_id: String,
     session_id: String,
@@ -57,6 +58,21 @@ struct LocalAttachment {
     source_type: String,
     sha256: String,
     size_bytes: i64,
+}
+
+#[derive(Debug, Clone, FromRow, PartialEq, Eq)]
+struct SharedUploadAttachment {
+    attachment_id: String,
+    session_id: String,
+    workspace_id: String,
+    relative_path: String,
+    source_type: String,
+    sha256: String,
+    size_bytes: i64,
+    filename: String,
+    content_type: String,
+    cloud_sync_enabled: i64,
+    cloud_object_key: String,
 }
 
 #[derive(Debug, Clone, FromRow)]
@@ -94,6 +110,28 @@ impl Drop for CacheFileGuard {
     fn drop(&mut self) {
         if let Some(path) = self.path.take() {
             let _ = std::fs::remove_file(path);
+        }
+    }
+}
+
+struct SharedUploadCacheFileGuard {
+    path: Option<PathBuf>,
+}
+
+impl SharedUploadCacheFileGuard {
+    fn new(path: PathBuf) -> Self {
+        Self { path: Some(path) }
+    }
+
+    fn disarm(mut self) {
+        self.path = None;
+    }
+}
+
+impl Drop for SharedUploadCacheFileGuard {
+    fn drop(&mut self) {
+        if let Some(path) = self.path.take() {
+            let _ = cleanup_shared_upload_path(&path);
         }
     }
 }
@@ -289,21 +327,189 @@ pub async fn read_upload_range<R: Runtime>(
     read_range(path, start, end, size).await
 }
 
-pub async fn read_attachment_range<R: Runtime>(
+#[allow(clippy::too_many_arguments)]
+pub async fn prepare_shared_upload<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    state: &tauri_plugin_db::ManagedState,
+    operation: &DownloadOperation,
+    attachment_id: &str,
+    expected_sha256: &str,
+    expected_size_bytes: u64,
+    expected_filename: &str,
+    expected_content_type: &str,
+    expected_cloud_object_key: &str,
+) -> Result<PreparedSharedUpload> {
+    operation.ensure_active()?;
+    let attachment = load_shared_upload_attachment(state.pool(), attachment_id).await?;
+    validate_shared_upload_version(
+        &attachment,
+        expected_sha256,
+        expected_size_bytes,
+        expected_filename,
+        expected_content_type,
+        expected_cloud_object_key,
+    )?;
+    let source_path = resolve_attachment_path(app, &attachment.local_attachment(), true)?;
+    let cache_root = shared_upload_cache_root(app)?;
+    create_shared_upload_cache_root(&cache_root).await?;
+    let cache_id = Uuid::new_v4().to_string();
+    let cache_path = shared_upload_cache_path(&cache_root, &cache_id)?;
+    let source_path_for_snapshot = source_path.clone();
+    let cache_path_for_snapshot = cache_path.clone();
+    let expected_sha256_for_snapshot = expected_sha256.to_string();
+    let cancellation = operation.cancellation().clone();
+    let snapshot = tokio::task::spawn_blocking(move || {
+        snapshot_verified_file(
+            &source_path_for_snapshot,
+            &cache_path_for_snapshot,
+            expected_size_bytes,
+            &expected_sha256_for_snapshot,
+            &cancellation,
+        )
+    })
+    .await
+    .map_err(|_| Error::CacheUnavailable)?;
+    let cache_guard = match snapshot {
+        Ok(cache_guard) => cache_guard,
+        Err(error) => return Err(error),
+    };
+
+    operation.ensure_active()?;
+    let current = load_shared_upload_attachment(state.pool(), attachment_id).await?;
+    validate_shared_upload_version(
+        &current,
+        expected_sha256,
+        expected_size_bytes,
+        expected_filename,
+        expected_content_type,
+        expected_cloud_object_key,
+    )?;
+    if current != attachment {
+        return Err(Error::InvalidTransferState);
+    }
+
+    operation.begin_commit()?;
+    cache_guard.disarm();
+    Ok(PreparedSharedUpload {
+        cache_id,
+        sha256: expected_sha256.to_string(),
+        size_bytes: expected_size_bytes,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn read_shared_upload_range<R: Runtime>(
     app: &tauri::AppHandle<R>,
     state: &tauri_plugin_db::ManagedState,
     attachment_id: &str,
+    cache_id: &str,
+    expected_sha256: &str,
+    expected_size_bytes: u64,
+    expected_filename: &str,
+    expected_content_type: &str,
+    expected_cloud_object_key: &str,
     start: u64,
     end: u64,
 ) -> Result<Vec<u8>> {
     validate_range(start, end)?;
-    let attachment = load_local_attachment(state.pool(), attachment_id).await?;
-    let size = valid_plaintext_size(attachment.size_bytes)?;
-    if end > size {
+    let attachment = load_shared_upload_attachment(state.pool(), attachment_id).await?;
+    validate_shared_upload_version(
+        &attachment,
+        expected_sha256,
+        expected_size_bytes,
+        expected_filename,
+        expected_content_type,
+        expected_cloud_object_key,
+    )?;
+    if end > expected_size_bytes {
         return Err(Error::InvalidRange);
     }
-    let path = resolve_attachment_path(app, &attachment, true)?;
-    read_range(path, start, end, size).await
+    let path = shared_upload_cache_path(&shared_upload_cache_root(app)?, cache_id)?;
+    read_range(path, start, end, expected_size_bytes).await
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn validate_shared_upload<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    state: &tauri_plugin_db::ManagedState,
+    operation: &DownloadOperation,
+    attachment_id: &str,
+    cache_id: &str,
+    expected_sha256: &str,
+    expected_size_bytes: u64,
+    expected_filename: &str,
+    expected_content_type: &str,
+    expected_cloud_object_key: &str,
+) -> Result<bool> {
+    operation.ensure_active()?;
+    let attachment = match load_shared_upload_attachment(state.pool(), attachment_id).await {
+        Ok(attachment) => attachment,
+        Err(Error::LocalAttachmentUnavailable) => return Ok(false),
+        Err(error) => return Err(error),
+    };
+    if validate_shared_upload_version(
+        &attachment,
+        expected_sha256,
+        expected_size_bytes,
+        expected_filename,
+        expected_content_type,
+        expected_cloud_object_key,
+    )
+    .is_err()
+    {
+        return Ok(false);
+    }
+    let (_, source_path) = attachment_paths(app, &attachment.local_attachment())?;
+    let cache_path = shared_upload_cache_path(&shared_upload_cache_root(app)?, cache_id)?;
+    let cancellation = operation.cancellation().clone();
+    let source_matches = file_matches_cancellable_async(
+        source_path,
+        expected_size_bytes,
+        expected_sha256.to_string(),
+        cancellation.clone(),
+    );
+    let cache_matches = file_matches_cancellable_async(
+        cache_path,
+        expected_size_bytes,
+        expected_sha256.to_string(),
+        cancellation,
+    );
+    let (source_matches, cache_matches) = tokio::join!(source_matches, cache_matches);
+    let source_matches = source_matches?;
+    let cache_matches = cache_matches?;
+    if !source_matches || !cache_matches {
+        return Ok(false);
+    }
+    operation.ensure_active()?;
+    let current = match load_shared_upload_attachment(state.pool(), attachment_id).await {
+        Ok(attachment) => attachment,
+        Err(Error::LocalAttachmentUnavailable) => return Ok(false),
+        Err(error) => return Err(error),
+    };
+    if validate_shared_upload_version(
+        &current,
+        expected_sha256,
+        expected_size_bytes,
+        expected_filename,
+        expected_content_type,
+        expected_cloud_object_key,
+    )
+    .is_err()
+    {
+        return Ok(false);
+    }
+    operation.ensure_active()?;
+    Ok(current == attachment)
+}
+
+pub async fn cleanup_shared_upload<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    cache_id: &str,
+) -> Result<bool> {
+    let path = shared_upload_cache_path(&shared_upload_cache_root(app)?, cache_id)?;
+    tokio::task::spawn_blocking(move || cleanup_shared_upload_path(&path))
+        .await
+        .map_err(|_| Error::CacheUnavailable)?
 }
 
 pub async fn verify_delete_source<R: Runtime>(
@@ -826,6 +1032,10 @@ pub(crate) fn clear_private_attachment_cache_root<R: Runtime>(
     clear_attachment_cache_directory(&private_cache_root(app)?)
 }
 
+pub(crate) fn clear_shared_upload_cache_root<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<()> {
+    clear_attachment_cache_directory(&shared_upload_cache_root(app)?)
+}
+
 impl TransferAttachment {
     fn local_attachment(&self) -> LocalAttachment {
         LocalAttachment {
@@ -836,6 +1046,20 @@ impl TransferAttachment {
             source_type: self.source_type.clone(),
             sha256: self.attachment_sha256.clone(),
             size_bytes: self.attachment_size_bytes,
+        }
+    }
+}
+
+impl SharedUploadAttachment {
+    fn local_attachment(&self) -> LocalAttachment {
+        LocalAttachment {
+            attachment_id: self.attachment_id.clone(),
+            session_id: self.session_id.clone(),
+            workspace_id: self.workspace_id.clone(),
+            relative_path: self.relative_path.clone(),
+            source_type: self.source_type.clone(),
+            sha256: self.sha256.clone(),
+            size_bytes: self.size_bytes,
         }
     }
 }
@@ -941,12 +1165,12 @@ async fn load_transfer_attachment(
     })
 }
 
-async fn load_local_attachment(
+async fn load_shared_upload_attachment(
     pool: &sqlx::SqlitePool,
     attachment_id: &str,
-) -> Result<LocalAttachment> {
+) -> Result<SharedUploadAttachment> {
     validate_opaque_id(attachment_id)?;
-    sqlx::query_as::<_, LocalAttachment>(
+    sqlx::query_as::<_, SharedUploadAttachment>(
         "SELECT
            attachment.id AS attachment_id,
            attachment.session_id,
@@ -954,7 +1178,11 @@ async fn load_local_attachment(
            attachment.relative_path,
            attachment.source_type,
            attachment.sha256,
-           attachment.size_bytes
+           attachment.size_bytes,
+           attachment.filename,
+           attachment.content_type,
+           attachment.cloud_sync_enabled,
+           attachment.cloud_object_key
          FROM session_attachments AS attachment
          JOIN attachment_local_state AS local
            ON local.attachment_id = attachment.id
@@ -966,6 +1194,30 @@ async fn load_local_attachment(
     .fetch_optional(pool)
     .await?
     .ok_or(Error::LocalAttachmentUnavailable)
+}
+
+fn validate_shared_upload_version(
+    attachment: &SharedUploadAttachment,
+    expected_sha256: &str,
+    expected_size_bytes: u64,
+    expected_filename: &str,
+    expected_content_type: &str,
+    expected_cloud_object_key: &str,
+) -> Result<()> {
+    if !valid_sha256(expected_sha256)
+        || expected_size_bytes == 0
+        || expected_size_bytes > MAX_PLAINTEXT_BYTES
+        || attachment.sha256 != expected_sha256
+        || u64::try_from(attachment.size_bytes).ok() != Some(expected_size_bytes)
+        || attachment.filename != expected_filename
+        || attachment.content_type != expected_content_type
+        || attachment.cloud_sync_enabled != 1
+        || expected_cloud_object_key.is_empty()
+        || attachment.cloud_object_key != expected_cloud_object_key
+    {
+        return Err(Error::InvalidTransferState);
+    }
+    Ok(())
 }
 
 fn validate_transfer_version(record: &TransferAttachment) -> Result<()> {
@@ -1177,6 +1429,55 @@ async fn file_matches_async(
         .map_err(|_| Error::CacheUnavailable)?
 }
 
+async fn file_matches_cancellable_async(
+    path: PathBuf,
+    expected_size: u64,
+    expected_sha256: String,
+    cancellation: tokio_util::sync::CancellationToken,
+) -> Result<bool> {
+    tokio::task::spawn_blocking(move || {
+        file_matches_cancellable(&path, expected_size, &expected_sha256, &cancellation)
+    })
+    .await
+    .map_err(|_| Error::CacheUnavailable)?
+}
+
+fn file_matches_cancellable(
+    path: &Path,
+    expected_size: u64,
+    expected_sha256: &str,
+    cancellation: &tokio_util::sync::CancellationToken,
+) -> Result<bool> {
+    if cancellation.is_cancelled() {
+        return Err(Error::Cancelled);
+    }
+    let metadata = match std::fs::metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(error.into()),
+    };
+    if !metadata.is_file() || metadata.len() != expected_size {
+        return Ok(false);
+    }
+    let mut file = std::fs::File::open(path)?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0_u8; 64 * 1024];
+    loop {
+        if cancellation.is_cancelled() {
+            return Err(Error::Cancelled);
+        }
+        let read = file.read(&mut buffer)?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    if cancellation.is_cancelled() {
+        return Err(Error::Cancelled);
+    }
+    Ok(hex_digest(hasher.finalize().as_slice()) == expected_sha256)
+}
+
 fn hash_file(path: &Path) -> Result<String> {
     let mut file = std::fs::File::open(path)?;
     let mut hasher = Sha256::new();
@@ -1189,6 +1490,63 @@ fn hash_file(path: &Path) -> Result<String> {
         hasher.update(&buffer[..read]);
     }
     Ok(hex_digest(hasher.finalize().as_slice()))
+}
+
+fn snapshot_verified_file(
+    source_path: &Path,
+    cache_path: &Path,
+    expected_size: u64,
+    expected_sha256: &str,
+    cancellation: &tokio_util::sync::CancellationToken,
+) -> Result<SharedUploadCacheFileGuard> {
+    if cancellation.is_cancelled() {
+        return Err(Error::Cancelled);
+    }
+    let mut source = std::fs::File::open(source_path)?;
+    let source_metadata = source.metadata()?;
+    if !source_metadata.is_file() || source_metadata.len() != expected_size {
+        return Err(Error::LocalAttachmentUnavailable);
+    }
+    let mut options = std::fs::OpenOptions::new();
+    options.create_new(true).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let cache_guard = SharedUploadCacheFileGuard::new(cache_path.to_path_buf());
+    let mut cache = options.open(cache_path)?;
+    let mut hasher = Sha256::new();
+    let mut total = 0_u64;
+    let mut buffer = [0_u8; 64 * 1024];
+    loop {
+        if cancellation.is_cancelled() {
+            return Err(Error::Cancelled);
+        }
+        let read = source.read(&mut buffer)?;
+        if read == 0 {
+            break;
+        }
+        if cancellation.is_cancelled() {
+            return Err(Error::Cancelled);
+        }
+        total = total
+            .checked_add(read as u64)
+            .ok_or(Error::ChecksumMismatch)?;
+        if total > expected_size {
+            return Err(Error::ChecksumMismatch);
+        }
+        hasher.update(&buffer[..read]);
+        cache.write_all(&buffer[..read])?;
+    }
+    if cancellation.is_cancelled() {
+        return Err(Error::Cancelled);
+    }
+    cache.sync_all()?;
+    if total != expected_size || hex_digest(hasher.finalize().as_slice()) != expected_sha256 {
+        return Err(Error::ChecksumMismatch);
+    }
+    Ok(cache_guard)
 }
 
 fn private_cache_root<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf> {
@@ -1205,6 +1563,47 @@ fn private_cache_path(root: &Path, cache_id: &str) -> Result<PathBuf> {
         return Err(Error::InvalidTransferState);
     }
     Ok(root.join(format!("{cache_id}.anb1")))
+}
+
+fn shared_upload_cache_root<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf> {
+    Ok(app
+        .path()
+        .app_cache_dir()
+        .map_err(|_| Error::CacheUnavailable)?
+        .join("attachment-sync")
+        .join("shared-upload"))
+}
+
+async fn create_shared_upload_cache_root(path: &Path) -> Result<()> {
+    tokio::fs::create_dir_all(path).await?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        tokio::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700)).await?;
+    }
+    Ok(())
+}
+
+fn shared_upload_cache_path(root: &Path, cache_id: &str) -> Result<PathBuf> {
+    if !valid_cache_id(cache_id) {
+        return Err(Error::InvalidTransferState);
+    }
+    Ok(root.join(format!("{cache_id}.bin")))
+}
+
+fn cleanup_shared_upload_path(path: &Path) -> Result<bool> {
+    let mut last_error = None;
+    for delay_ms in [0, 50, 250, 1_000] {
+        if delay_ms > 0 {
+            std::thread::sleep(Duration::from_millis(delay_ms));
+        }
+        match std::fs::remove_file(path) {
+            Ok(()) => return Ok(true),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+            Err(error) => last_error = Some(error),
+        }
+    }
+    Err(last_error.ok_or(Error::CacheUnavailable)?.into())
 }
 
 fn shared_scope_path<R: Runtime>(app: &tauri::AppHandle<R>, scope_id: &str) -> Result<PathBuf> {
@@ -1643,6 +2042,112 @@ mod tests {
         assert!(file_matches(&path, bytes.len() as u64, &sha256).unwrap());
         std::fs::write(&path, b"different attachment").unwrap();
         assert!(!file_matches(&path, bytes.len() as u64, &sha256).unwrap());
+    }
+
+    #[test]
+    fn shared_upload_snapshot_stays_stable_when_the_source_changes() {
+        let directory = tempfile::tempdir().unwrap();
+        let source = directory.path().join("attachment.bin");
+        let snapshot = directory.path().join("snapshot.bin");
+        let bytes = b"stable shared attachment";
+        let sha256 = hex_digest(Sha256::digest(bytes).as_slice());
+        std::fs::write(&source, bytes).unwrap();
+
+        snapshot_verified_file(
+            &source,
+            &snapshot,
+            bytes.len() as u64,
+            &sha256,
+            &tokio_util::sync::CancellationToken::new(),
+        )
+        .unwrap()
+        .disarm();
+        std::fs::write(&source, vec![b'x'; bytes.len()]).unwrap();
+
+        assert_eq!(std::fs::read(&snapshot).unwrap(), bytes);
+        assert!(file_matches(&snapshot, bytes.len() as u64, &sha256).unwrap());
+        assert!(!file_matches(&source, bytes.len() as u64, &sha256).unwrap());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                std::fs::metadata(&snapshot).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+        }
+    }
+
+    #[test]
+    fn shared_upload_snapshot_rejects_and_removes_unregistered_bytes() {
+        let directory = tempfile::tempdir().unwrap();
+        let source = directory.path().join("attachment.bin");
+        let snapshot = directory.path().join("snapshot.bin");
+        let expected = b"expected shared attachment";
+        let sha256 = hex_digest(Sha256::digest(expected).as_slice());
+        std::fs::write(&source, vec![b'x'; expected.len()]).unwrap();
+
+        assert!(matches!(
+            snapshot_verified_file(
+                &source,
+                &snapshot,
+                expected.len() as u64,
+                &sha256,
+                &tokio_util::sync::CancellationToken::new(),
+            ),
+            Err(Error::ChecksumMismatch)
+        ));
+        assert!(!snapshot.exists());
+    }
+
+    #[test]
+    fn cancelled_shared_upload_snapshot_leaves_no_plaintext_cache() {
+        let directory = tempfile::tempdir().unwrap();
+        let source = directory.path().join("attachment.bin");
+        let snapshot = directory.path().join("snapshot.bin");
+        let bytes = b"cancelled shared attachment";
+        let sha256 = hex_digest(Sha256::digest(bytes).as_slice());
+        let cancellation = tokio_util::sync::CancellationToken::new();
+        cancellation.cancel();
+        std::fs::write(&source, bytes).unwrap();
+
+        assert!(matches!(
+            snapshot_verified_file(
+                &source,
+                &snapshot,
+                bytes.len() as u64,
+                &sha256,
+                &cancellation,
+            ),
+            Err(Error::Cancelled)
+        ));
+        assert!(!snapshot.exists());
+    }
+
+    #[test]
+    fn shared_upload_cleanup_is_idempotent() {
+        let directory = tempfile::tempdir().unwrap();
+        let snapshot = directory.path().join("snapshot.bin");
+        std::fs::write(&snapshot, b"shared attachment").unwrap();
+
+        assert!(cleanup_shared_upload_path(&snapshot).unwrap());
+        assert!(!cleanup_shared_upload_path(&snapshot).unwrap());
+    }
+
+    #[tokio::test]
+    async fn shared_upload_cache_directory_is_owner_only() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().join("shared-upload");
+
+        create_shared_upload_cache_root(&root).await.unwrap();
+        assert!(root.is_dir());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                std::fs::metadata(root).unwrap().permissions().mode() & 0o777,
+                0o700
+            );
+        }
     }
 
     #[test]

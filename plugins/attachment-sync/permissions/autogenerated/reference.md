@@ -7,7 +7,12 @@ Attachment transfer and scoped cache permissions
 - `allow-describe-upload`
 - `allow-prepare-upload`
 - `allow-read-upload-range`
-- `allow-read-attachment-range`
+- `allow-begin-shared-upload-operation`
+- `allow-cancel-shared-upload-operation`
+- `allow-prepare-shared-upload`
+- `allow-read-shared-upload-range`
+- `allow-validate-shared-upload`
+- `allow-cleanup-shared-upload`
 - `allow-verify-delete-source`
 - `allow-begin-attachment-download`
 - `allow-cancel-attachment-download`
@@ -56,6 +61,32 @@ Denies the begin_attachment_download command without any pre-configured scope.
 <tr>
 <td>
 
+`attachment-sync:allow-begin-shared-upload-operation`
+
+</td>
+<td>
+
+Enables the begin_shared_upload_operation command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`attachment-sync:deny-begin-shared-upload-operation`
+
+</td>
+<td>
+
+Denies the begin_shared_upload_operation command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `attachment-sync:allow-cancel-attachment-download`
 
 </td>
@@ -75,6 +106,58 @@ Enables the cancel_attachment_download command without any pre-configured scope.
 <td>
 
 Denies the cancel_attachment_download command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`attachment-sync:allow-cancel-shared-upload-operation`
+
+</td>
+<td>
+
+Enables the cancel_shared_upload_operation command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`attachment-sync:deny-cancel-shared-upload-operation`
+
+</td>
+<td>
+
+Denies the cancel_shared_upload_operation command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`attachment-sync:allow-cleanup-shared-upload`
+
+</td>
+<td>
+
+Enables the cleanup_shared_upload command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`attachment-sync:deny-cleanup-shared-upload`
+
+</td>
+<td>
+
+Denies the cleanup_shared_upload command without any pre-configured scope.
 
 </td>
 </tr>
@@ -212,6 +295,32 @@ Denies the download_shared_attachment command without any pre-configured scope.
 <tr>
 <td>
 
+`attachment-sync:allow-prepare-shared-upload`
+
+</td>
+<td>
+
+Enables the prepare_shared_upload command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`attachment-sync:deny-prepare-shared-upload`
+
+</td>
+<td>
+
+Denies the prepare_shared_upload command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `attachment-sync:allow-prepare-upload`
 
 </td>
@@ -238,12 +347,12 @@ Denies the prepare_upload command without any pre-configured scope.
 <tr>
 <td>
 
-`attachment-sync:allow-read-attachment-range`
+`attachment-sync:allow-read-shared-upload-range`
 
 </td>
 <td>
 
-Enables the read_attachment_range command without any pre-configured scope.
+Enables the read_shared_upload_range command without any pre-configured scope.
 
 </td>
 </tr>
@@ -251,12 +360,12 @@ Enables the read_attachment_range command without any pre-configured scope.
 <tr>
 <td>
 
-`attachment-sync:deny-read-attachment-range`
+`attachment-sync:deny-read-shared-upload-range`
 
 </td>
 <td>
 
-Denies the read_attachment_range command without any pre-configured scope.
+Denies the read_shared_upload_range command without any pre-configured scope.
 
 </td>
 </tr>
@@ -335,6 +444,32 @@ Enables the shared_attachment_path command without any pre-configured scope.
 <td>
 
 Denies the shared_attachment_path command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`attachment-sync:allow-validate-shared-upload`
+
+</td>
+<td>
+
+Enables the validate_shared_upload command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`attachment-sync:deny-validate-shared-upload`
+
+</td>
+<td>
+
+Denies the validate_shared_upload command without any pre-configured scope.
 
 </td>
 </tr>

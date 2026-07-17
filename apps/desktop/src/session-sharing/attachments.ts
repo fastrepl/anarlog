@@ -126,6 +126,13 @@ export async function prepareSessionShareAttachment(input: {
   signal?: AbortSignal;
   fetcher?: typeof fetch;
   uploader?: typeof uploadSharedAttachment;
+  native?: Pick<
+    typeof attachmentTransferNative,
+    | "prepareSharedUpload"
+    | "readSharedUploadRange"
+    | "validateSharedUpload"
+    | "cleanupSharedUpload"
+  >;
 }): Promise<SharedNoteAttachment> {
   const attachment = input.attachment;
   if (
@@ -137,6 +144,7 @@ export async function prepareSessionShareAttachment(input: {
   ) {
     throw new Error("This attachment is not available on this device.");
   }
+  input.signal?.throwIfAborted();
   const contentType = normalizeSharedContentType(attachment.contentType);
   const client = createSharedAttachmentClient(input);
   const [attachmentRef, versionRef] = await Promise.all([
@@ -164,46 +172,161 @@ export async function prepareSessionShareAttachment(input: {
     return toSharedNoteAttachment(reserved, attachment);
   }
 
-  const grant = await client.grantUpload({
-    objectKey: reserved.objectKey,
-    sha256: attachment.sha256,
-  });
-  assertSharedAttachmentResponse(grant, attachment, contentType);
-  if (
-    grant.attachmentId !== reserved.attachmentId ||
-    grant.objectKey !== reserved.objectKey ||
-    grant.sha256 !== attachment.sha256
-  ) {
-    throw new Error("The shared attachment upload grant was invalid.");
-  }
-  if (grant.uploadToken) {
-    const upload = (input.uploader ?? uploadSharedAttachment)({
-      objectKey: grant.objectKey,
-      signedUploadToken: grant.uploadToken,
-      contentType,
-      sha256: attachment.sha256,
-      sizeBytes: attachment.sizeBytes,
-      supabaseUrl: input.supabaseUrl,
-      readRange: (start, end) =>
-        attachmentTransferNative.readAttachmentRange(attachment.id, start, end),
+  const native = input.native ?? attachmentTransferNative;
+  const prepared = await native.prepareSharedUpload(
+    attachment.id,
+    attachment.sha256,
+    attachment.sizeBytes,
+    attachment.filename,
+    attachment.contentType,
+    attachment.cloudObjectKey,
+    input.signal,
+  );
+  let operationFailed = false;
+  let operationError: unknown;
+  try {
+    input.signal?.throwIfAborted();
+    if (
+      prepared.sha256 !== attachment.sha256 ||
+      prepared.sizeBytes !== attachment.sizeBytes
+    ) {
+      throw new Error("The shared attachment upload source was invalid.");
+    }
+    const grant = await client.grantUpload({
+      objectKey: reserved.objectKey,
+      sha256: prepared.sha256,
     });
-    const abort = () => void upload.abort();
-    input.signal?.addEventListener("abort", abort, { once: true });
+    assertSharedAttachmentResponse(grant, attachment, contentType);
+    if (
+      grant.attachmentId !== reserved.attachmentId ||
+      grant.objectKey !== reserved.objectKey ||
+      grant.sha256 !== prepared.sha256
+    ) {
+      throw new Error("The shared attachment upload grant was invalid.");
+    }
+    if (grant.uploadToken) {
+      const pendingReads = new Set<Promise<Uint8Array>>();
+      let uploadStopped = false;
+      const readRange = (start: number, end: number) => {
+        if (uploadStopped) {
+          return Promise.reject(
+            new Error("The shared attachment upload stopped."),
+          );
+        }
+        const read = native.readSharedUploadRange(
+          attachment.id,
+          prepared.cacheId,
+          prepared.sha256,
+          prepared.sizeBytes,
+          attachment.filename,
+          attachment.contentType,
+          attachment.cloudObjectKey,
+          start,
+          end,
+        );
+        pendingReads.add(read);
+        void read.then(
+          () => pendingReads.delete(read),
+          () => pendingReads.delete(read),
+        );
+        return read;
+      };
+      const drainReads = async () => {
+        while (pendingReads.size > 0) {
+          await Promise.allSettled([...pendingReads]);
+        }
+      };
+      const upload = (input.uploader ?? uploadSharedAttachment)({
+        objectKey: grant.objectKey,
+        signedUploadToken: grant.uploadToken,
+        contentType,
+        sha256: prepared.sha256,
+        sizeBytes: prepared.sizeBytes,
+        supabaseUrl: input.supabaseUrl,
+        readRange,
+      });
+      let cancellation: Promise<void> | undefined;
+      const cancel = () => (cancellation ??= upload.abort());
+      const abort = () => {
+        void cancel().catch(() => undefined);
+      };
+      input.signal?.addEventListener("abort", abort, { once: true });
+      if (input.signal?.aborted) abort();
+      try {
+        await upload.promise;
+      } finally {
+        uploadStopped = true;
+        input.signal?.removeEventListener("abort", abort);
+        try {
+          if (input.signal?.aborted) await cancel();
+        } finally {
+          await drainReads();
+        }
+      }
+    }
+    input.signal?.throwIfAborted();
+    if (
+      !(await native.validateSharedUpload(
+        attachment.id,
+        prepared.cacheId,
+        prepared.sha256,
+        prepared.sizeBytes,
+        attachment.filename,
+        attachment.contentType,
+        attachment.cloudObjectKey,
+        input.signal,
+      ))
+    ) {
+      throw new Error("The local attachment changed during upload.");
+    }
+    input.signal?.throwIfAborted();
+    const finalized = await client.finalize({ objectKey: grant.objectKey });
+    if (
+      finalized.attachmentId !== reserved.attachmentId ||
+      finalized.objectKey !== reserved.objectKey ||
+      finalized.objectState !== "ready"
+    ) {
+      throw new Error("The shared attachment could not be finalized.");
+    }
+    input.signal?.throwIfAborted();
+    if (
+      !(await native.validateSharedUpload(
+        attachment.id,
+        prepared.cacheId,
+        prepared.sha256,
+        prepared.sizeBytes,
+        attachment.filename,
+        attachment.contentType,
+        attachment.cloudObjectKey,
+        input.signal,
+      ))
+    ) {
+      throw new Error("The local attachment changed before publication.");
+    }
+    input.signal?.throwIfAborted();
+    return toSharedNoteAttachment(reserved, attachment);
+  } catch (error) {
+    operationFailed = true;
+    operationError = error;
+    throw error;
+  } finally {
     try {
-      await upload.promise;
-    } finally {
-      input.signal?.removeEventListener("abort", abort);
+      await native.cleanupSharedUpload(prepared.cacheId);
+    } catch (error) {
+      if (operationFailed) {
+        throw Object.assign(
+          new Error(
+            "The shared attachment upload failed and its snapshot could not be removed.",
+          ),
+          {
+            operationError,
+            cleanupError: error,
+          },
+        );
+      }
+      throw error;
     }
   }
-  const finalized = await client.finalize({ objectKey: grant.objectKey });
-  if (
-    finalized.attachmentId !== reserved.attachmentId ||
-    finalized.objectKey !== reserved.objectKey ||
-    finalized.objectState !== "ready"
-  ) {
-    throw new Error("The shared attachment could not be finalized.");
-  }
-  return toSharedNoteAttachment(reserved, attachment);
 }
 
 export function matchSharedAttachmentsToLocal(
@@ -425,7 +548,7 @@ function normalizeSharedContentType(value: string) {
   return normalized || "application/octet-stream";
 }
 
-function attachmentMetadataMatches(
+export function attachmentMetadataMatches(
   local: SessionShareAttachment,
   shared: SharedNoteAttachment,
 ) {

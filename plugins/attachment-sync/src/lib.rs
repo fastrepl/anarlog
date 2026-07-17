@@ -34,7 +34,12 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::describe_upload,
             commands::prepare_upload::<tauri::Wry>,
             commands::read_upload_range::<tauri::Wry>,
-            commands::read_attachment_range::<tauri::Wry>,
+            commands::begin_shared_upload_operation,
+            commands::cancel_shared_upload_operation,
+            commands::prepare_shared_upload::<tauri::Wry>,
+            commands::read_shared_upload_range::<tauri::Wry>,
+            commands::validate_shared_upload::<tauri::Wry>,
+            commands::cleanup_shared_upload::<tauri::Wry>,
             commands::verify_delete_source::<tauri::Wry>,
             commands::begin_attachment_download,
             commands::cancel_attachment_download,
@@ -55,6 +60,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .setup(|app, _api| {
             app.manage(control::DownloadControl::default());
             runtime::clear_private_attachment_cache_root(app)?;
+            runtime::clear_shared_upload_cache_root(app)?;
             runtime::clear_shared_attachment_cache_root(app)?;
             Ok(())
         })

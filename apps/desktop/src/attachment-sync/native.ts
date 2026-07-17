@@ -68,12 +68,104 @@ export const attachmentTransferNative = {
     );
     return Uint8Array.from(bytes);
   },
-  async readAttachmentRange(attachmentId: string, start: number, end: number) {
+  prepareSharedUpload(
+    attachmentId: string,
+    expectedSha256: string,
+    expectedSizeBytes: number,
+    expectedFilename: string,
+    expectedContentType: string,
+    expectedCloudObjectKey: string,
+    signal?: AbortSignal,
+  ) {
+    return runCancellableNative(
+      signal,
+      "prepare shared attachment upload",
+      {
+        label: "shared attachment upload operation",
+        begin: (operationId) =>
+          attachmentSyncCommands.beginSharedUploadOperation(operationId),
+        cancel: (operationId) =>
+          attachmentSyncCommands.cancelSharedUploadOperation(operationId),
+      },
+      (operationId) =>
+        attachmentSyncCommands.prepareSharedUpload(operationId, attachmentId, {
+          sha256: expectedSha256,
+          sizeBytes: expectedSizeBytes,
+          filename: expectedFilename,
+          contentType: expectedContentType,
+          cloudObjectKey: expectedCloudObjectKey,
+        }),
+    );
+  },
+  async readSharedUploadRange(
+    attachmentId: string,
+    cacheId: string,
+    expectedSha256: string,
+    expectedSizeBytes: number,
+    expectedFilename: string,
+    expectedContentType: string,
+    expectedCloudObjectKey: string,
+    start: number,
+    end: number,
+  ) {
     const bytes = await unwrapNative(
-      attachmentSyncCommands.readAttachmentRange(attachmentId, start, end),
-      "read local attachment",
+      attachmentSyncCommands.readSharedUploadRange(
+        attachmentId,
+        cacheId,
+        {
+          sha256: expectedSha256,
+          sizeBytes: expectedSizeBytes,
+          filename: expectedFilename,
+          contentType: expectedContentType,
+          cloudObjectKey: expectedCloudObjectKey,
+        },
+        start,
+        end,
+      ),
+      "read shared attachment upload snapshot",
     );
     return Uint8Array.from(bytes);
+  },
+  validateSharedUpload(
+    attachmentId: string,
+    cacheId: string,
+    expectedSha256: string,
+    expectedSizeBytes: number,
+    expectedFilename: string,
+    expectedContentType: string,
+    expectedCloudObjectKey: string,
+    signal?: AbortSignal,
+  ) {
+    return runCancellableNative(
+      signal,
+      "validate shared attachment upload",
+      {
+        label: "shared attachment upload operation",
+        begin: (operationId) =>
+          attachmentSyncCommands.beginSharedUploadOperation(operationId),
+        cancel: (operationId) =>
+          attachmentSyncCommands.cancelSharedUploadOperation(operationId),
+      },
+      (operationId) =>
+        attachmentSyncCommands.validateSharedUpload(
+          operationId,
+          attachmentId,
+          cacheId,
+          {
+            sha256: expectedSha256,
+            sizeBytes: expectedSizeBytes,
+            filename: expectedFilename,
+            contentType: expectedContentType,
+            cloudObjectKey: expectedCloudObjectKey,
+          },
+        ),
+    );
+  },
+  cleanupSharedUpload(cacheId: string) {
+    return unwrapNative(
+      attachmentSyncCommands.cleanupSharedUpload(cacheId),
+      "clean shared attachment upload snapshot",
+    );
   },
   verifyDeleteSource(jobId: string, attemptCount: number) {
     return unwrapNative(
@@ -177,6 +269,40 @@ async function runCancellableDownload<T>(
     operationId: string,
   ) => Promise<{ status: "ok"; data: T } | { status: "error"; error: string }>,
 ) {
+  return runCancellableNative(
+    signal,
+    label,
+    {
+      label: "attachment download",
+      begin: (operationId) =>
+        attachmentSyncCommands.beginAttachmentDownload(operationId, scopeId),
+      cancel: (operationId) =>
+        attachmentSyncCommands.cancelAttachmentDownload(operationId),
+    },
+    operation,
+  );
+}
+
+async function runCancellableNative<T>(
+  signal: AbortSignal | undefined,
+  label: string,
+  control: {
+    label: string;
+    begin: (
+      operationId: string,
+    ) => Promise<
+      { status: "ok"; data: unknown } | { status: "error"; error: string }
+    >;
+    cancel: (
+      operationId: string,
+    ) => Promise<
+      { status: "ok"; data: boolean } | { status: "error"; error: string }
+    >;
+  },
+  operation: (
+    operationId: string,
+  ) => Promise<{ status: "ok"; data: T } | { status: "error"; error: string }>,
+) {
   throwIfAborted(signal);
   const operationId = crypto.randomUUID();
   let begun = false;
@@ -184,8 +310,8 @@ async function runCancellableDownload<T>(
   let cancellation: Promise<boolean> | undefined;
   const cancel = () => {
     cancellation ??= unwrapNative(
-      attachmentSyncCommands.cancelAttachmentDownload(operationId),
-      "cancel attachment download",
+      control.cancel(operationId),
+      `cancel ${control.label}`,
     ).catch(() => false);
     return cancellation;
   };
@@ -196,10 +322,7 @@ async function runCancellableDownload<T>(
   signal?.addEventListener("abort", abort, { once: true });
 
   try {
-    await unwrapNative(
-      attachmentSyncCommands.beginAttachmentDownload(operationId, scopeId),
-      "begin attachment download",
-    );
+    await unwrapNative(control.begin(operationId), `begin ${control.label}`);
     begun = true;
     if (abortRequested || signal?.aborted) {
       await cancel();

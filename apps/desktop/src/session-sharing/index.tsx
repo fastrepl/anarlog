@@ -38,6 +38,8 @@ import { sonnerToast } from "@hypr/ui/components/ui/toast";
 import { SessionAttachmentControls } from "./attachment-controls";
 import {
   addSharedAttachmentIds,
+  attachmentMetadataMatches,
+  isAttachmentShareable,
   loadSessionShareAttachments,
   matchSharedAttachmentsToLocal,
   prepareSessionShareAttachment,
@@ -486,6 +488,20 @@ function SessionShareDialog({
       requestedAttachments,
     );
     for (const [localId, sharedId] of localOverrides) {
+      const local = localAttachments.find(
+        (attachment) => attachment.id === localId,
+      );
+      const shared = requestedAttachments.find(
+        (attachment) => attachment.id === sharedId,
+      );
+      if (
+        !local ||
+        !shared ||
+        !isAttachmentShareable(local) ||
+        !attachmentMetadataMatches(local, shared)
+      ) {
+        throw new ShareManagementError();
+      }
       localToShared.set(localId, sharedId);
     }
     const mappedIds = new Set(localToShared.values());

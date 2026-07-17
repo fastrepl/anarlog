@@ -30,9 +30,49 @@ async readUploadRange(jobId: string, attemptCount: number, cacheId: string, star
     else return { status: "error", error: e  as any };
 }
 },
-async readAttachmentRange(attachmentId: string, start: number, end: number) : Promise<Result<number[], string>> {
+async beginSharedUploadOperation(operationId: string) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:attachment-sync|read_attachment_range", { attachmentId, start, end }) };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:attachment-sync|begin_shared_upload_operation", { operationId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async cancelSharedUploadOperation(operationId: string) : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:attachment-sync|cancel_shared_upload_operation", { operationId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async prepareSharedUpload(operationId: string, attachmentId: string, expected: SharedUploadVersion) : Promise<Result<PreparedSharedUpload, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:attachment-sync|prepare_shared_upload", { operationId, attachmentId, expected }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async readSharedUploadRange(attachmentId: string, cacheId: string, expected: SharedUploadVersion, start: number, end: number) : Promise<Result<number[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:attachment-sync|read_shared_upload_range", { attachmentId, cacheId, expected, start, end }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async validateSharedUpload(operationId: string, attachmentId: string, cacheId: string, expected: SharedUploadVersion) : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:attachment-sync|validate_shared_upload", { operationId, attachmentId, cacheId, expected }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async cleanupSharedUpload(cacheId: string) : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:attachment-sync|cleanup_shared_upload", { cacheId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -122,9 +162,11 @@ async clearSharedAttachmentScope(scopeId: string) : Promise<Result<number, strin
 
 /** user-defined types **/
 
+export type PreparedSharedUpload = { cacheId: string; sha256: string; sizeBytes: number }
 export type PreparedUpload = { cacheId: string; ciphertextSha256: string; ciphertextSizeBytes: number }
 export type RestoredAttachment = { attachmentId: string; sessionId: string; relativePath: string; sizeBytes: number; sha256: string }
 export type SharedAttachmentCacheResult = { cacheId: string; localPath: string; sizeBytes: number; sha256: string }
+export type SharedUploadVersion = { sha256: string; sizeBytes: number; filename: string; contentType: string; cloudObjectKey: string }
 export type UploadDescriptor = { attachmentRef: string; versionRef: string; ciphertextSizeBytes: number; formatVersion: number }
 
 /** tauri-specta globals **/

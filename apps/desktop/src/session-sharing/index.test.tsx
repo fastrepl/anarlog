@@ -42,6 +42,10 @@ const mocks = vi.hoisted(() => ({
   sessionAttachments: [] as any[],
   sharedAttachmentMap: new Map<string, string>(),
   attachmentControlProps: null as any,
+  attachmentMetadataMatches: vi.fn(() => true),
+  isAttachmentShareable: vi.fn(
+    (attachment: any) => attachment.localAvailability === "present",
+  ),
   loadSessionShareAttachments: vi.fn(),
   prepareSessionShareAttachment: vi.fn(),
   setAttachmentCloudSyncEnabled: vi.fn(),
@@ -68,6 +72,8 @@ vi.mock("~/shared-notes/cache", () => ({
 
 vi.mock("./attachments", () => ({
   addSharedAttachmentIds: (body: unknown) => body,
+  attachmentMetadataMatches: mocks.attachmentMetadataMatches,
+  isAttachmentShareable: mocks.isAttachmentShareable,
   loadSessionShareAttachments: mocks.loadSessionShareAttachments,
   matchSharedAttachmentsToLocal: () => new Map(mocks.sharedAttachmentMap),
   prepareSessionShareAttachment: mocks.prepareSessionShareAttachment,
@@ -445,6 +451,64 @@ describe("SessionShareButton", () => {
         expect.objectContaining({ attachmentIds: [] }),
       ),
     );
+  });
+
+  it("does not publish a shared attachment after its local source becomes unavailable", async () => {
+    const localAttachment = {
+      id: "local-attachment",
+      filename: "diagram.png",
+      contentType: "image/png",
+      sizeBytes: 42,
+      sha256: "a".repeat(64),
+      sourceType: "note_upload",
+      sourceId: "diagram.png",
+      cloudSyncEnabled: true,
+      cloudObjectKey: "private/object.anb1",
+      localAvailability: "present",
+      transferDirection: null,
+      transferPhase: "completed",
+      transferError: "",
+    };
+    mocks.sessionAttachments = [localAttachment];
+    mocks.loadSessionShareAttachments.mockResolvedValueOnce([
+      { ...localAttachment, localAvailability: "absent" },
+    ]);
+    mocks.prepareSessionShareAttachment.mockResolvedValueOnce({
+      id: "88888888-8888-4888-8888-888888888888",
+      filename: localAttachment.filename,
+      contentType: localAttachment.contentType,
+      sizeBytes: localAttachment.sizeBytes,
+      sha256: localAttachment.sha256,
+    });
+    mocks.createOrReuseSessionShare.mockResolvedValueOnce({
+      shareId: SHARE_ID,
+      generalScope: "restricted",
+      publicSlug: PUBLIC_SLUG,
+      accessVersion: 1,
+      wasCreated: false,
+    });
+    renderShareButton();
+    await openShareDialog();
+
+    act(() => {
+      mocks.attachmentControlProps.onShareChange(localAttachment, true);
+    });
+
+    await waitFor(() =>
+      expect(mocks.toastError).toHaveBeenCalledWith(
+        "Could not update attachment sharing.",
+      ),
+    );
+    expect(mocks.prepareSessionShareAttachment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shareId: SHARE_ID,
+        attachment: localAttachment,
+        signal: expect.any(AbortSignal),
+      }),
+    );
+    expect(mocks.loadSessionShareAttachments).toHaveBeenCalledWith("session-1");
+    expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
   });
 
   it("revokes a shared copy before making its private backup local-only", async () => {
