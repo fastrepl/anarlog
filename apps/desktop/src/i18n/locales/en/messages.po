@@ -1284,6 +1284,10 @@ msgstr "Open on GitHub"
 msgid "Open repository on GitHub"
 msgstr "Open repository on GitHub"
 
+#: src/shared-notes/index.tsx
+msgid "Opening…"
+msgstr "Opening…"
+
 #: src/calendar/components/apple/permission.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "or"
@@ -1746,6 +1750,7 @@ msgid "Show tray icon"
 msgstr "Show tray icon"
 
 #: src/settings/general/account.tsx
+#: src/shared-notes/index.tsx
 msgid "Sign in"
 msgstr "Sign in"
 
