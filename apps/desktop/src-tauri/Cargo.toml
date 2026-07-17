@@ -24,6 +24,7 @@ tauri = { workspace = true, features = ["specta", "macos-private-api", "protocol
 
 tauri-plugin-agent = { workspace = true }
 tauri-plugin-analytics = { workspace = true }
+tauri-plugin-attachment-sync = { workspace = true }
 tauri-plugin-audio-priority = { workspace = true }
 tauri-plugin-auth = { workspace = true }
 tauri-plugin-autostart = { workspace = true }

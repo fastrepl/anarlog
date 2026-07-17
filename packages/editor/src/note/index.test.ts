@@ -155,4 +155,41 @@ describe("createReadOnlyPlugin", () => {
     expect(view?.state.doc.textContent).toBe("shared");
     expect(handleChange).not.toHaveBeenCalled();
   });
+
+  it("hides attachment mutation controls in read-only documents", async () => {
+    const rendered = render(
+      createElement(NoteEditor, {
+        initialContent: {
+          type: "doc",
+          content: [
+            {
+              type: "image",
+              attrs: { src: "https://example.com/image.png" },
+            },
+            {
+              type: "fileAttachment",
+              attrs: {
+                name: "notes.pdf",
+                mimeType: "application/pdf",
+                src: "https://example.com/notes.pdf",
+                path: "https://example.com/notes.pdf",
+              },
+            },
+          ],
+        },
+        readOnly: true,
+      }),
+    );
+
+    await waitFor(() => expect(rendered.getByText("notes.pdf")).not.toBeNull());
+    expect(
+      rendered.queryByRole("button", { name: "Resize image from left" }),
+    ).toBeNull();
+    expect(
+      rendered.queryByRole("button", { name: "Resize image from right" }),
+    ).toBeNull();
+    expect(
+      rendered.queryByRole("button", { name: "Remove attachment" }),
+    ).toBeNull();
+  });
 });

@@ -2,6 +2,7 @@ import { useRouteContext } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef } from "react";
 
 import { useLanguageModel, useLLMConnection } from "~/ai/hooks";
+import { AttachmentTransferLifecycle } from "~/attachment-sync/lifecycle";
 import { useAuth } from "~/auth";
 import { searchCalendarEvents } from "~/calendar/queries";
 import { useSessionTab } from "~/chat/components/use-session-tab";
@@ -12,6 +13,7 @@ import { takePendingWelcomeSession } from "~/onboarding/welcome-note";
 import { useSearchEngine } from "~/search/contexts/engine";
 import { initEnhancerService } from "~/services/enhancer";
 import { OwnedSharedNotePublisher } from "~/session-sharing/sync";
+import { SharedAttachmentCacheLifecycle } from "~/shared-notes/attachment-cache-lifecycle";
 import { SharedNotePreviewAuthLifecycle } from "~/shared-notes/preview";
 import { DurableSharedNoteCacheSync } from "~/shared-notes/sync";
 import { useConfigValue } from "~/shared/config";
@@ -43,7 +45,9 @@ export function useClassicMainLifecycle() {
 export function ClassicMainServices() {
   return (
     <>
+      <AttachmentTransferLifecycle />
       <DurableSharedNoteCacheSync />
+      <SharedAttachmentCacheLifecycle />
       <OwnedSharedNotePublisher />
       <SharedNotePreviewAuthLifecycle />
       <MainListenerControlBridge />

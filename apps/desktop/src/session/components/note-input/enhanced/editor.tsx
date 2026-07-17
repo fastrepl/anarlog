@@ -6,6 +6,7 @@ import {
   NoteEditor,
   type JSONContent,
   type NoteEditorRef,
+  normalizePortableAttachmentUrls,
 } from "@hypr/editor/note";
 
 import { AudioDropTarget } from "../audio-drop-target";
@@ -17,6 +18,7 @@ import { openEditorLink } from "~/editor-bridge/open-editor-link";
 import { sessionMentionDropConfig } from "~/editor-bridge/session-mention-drop";
 import { SessionNodeView } from "~/editor-bridge/session-view";
 import { hasStoredNoteContent } from "~/session/components/shared";
+import { useAttachmentResolver } from "~/session/hooks/useAttachmentResolver";
 import { useUpdateEnhancedNoteContent } from "~/session/queries";
 import {
   ensureFirstLineTitle,
@@ -54,6 +56,7 @@ const EnhancedEditorInner = forwardRef<
   ) => {
     const { audioDropTargetProps, fileHandlerConfig, isAudioDragActive } =
       useNoteFileHandlerConfig(sessionId);
+    const resolveAttachment = useAttachmentResolver(sessionId);
     const updateContent = useUpdateEnhancedNoteContent(
       enhancedNoteId,
       sessionId,
@@ -74,14 +77,17 @@ const EnhancedEditorInner = forwardRef<
 
     const handleChange = useCallback(
       (input: JSONContent) => {
-        const title = extractFirstLineTitle(input);
+        const portableInput = normalizePortableAttachmentUrls(input);
+        const title = extractFirstLineTitle(portableInput);
         const nextTitle =
           title !== null || hasStoredNoteContent(content)
             ? (title ?? "")
             : undefined;
-        void updateContent(JSON.stringify(input), nextTitle).catch((error) => {
-          console.error("[enhanced-editor] failed to persist summary", error);
-        });
+        void updateContent(JSON.stringify(portableInput), nextTitle).catch(
+          (error) => {
+            console.error("[enhanced-editor] failed to persist summary", error);
+          },
+        );
       },
       [content, updateContent],
     );
@@ -99,6 +105,7 @@ const EnhancedEditorInner = forwardRef<
           className="session-note-editor enhanced-summary-editor"
           key={editorKey}
           initialContent={initialContent}
+          resolveAttachment={resolveAttachment}
           handleChange={persistChanges ? handleChange : undefined}
           placeholderComponent={documentTitlePlaceholder}
           mentionConfig={mentionConfig}

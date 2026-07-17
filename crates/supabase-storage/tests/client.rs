@@ -185,6 +185,76 @@ async fn reads_storage_object_metadata() {
 }
 
 #[tokio::test]
+async fn exposes_bounded_generic_user_metadata_for_shared_objects() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path(
+            "/storage/v1/object/info/shared-note-attachments/owner/share/object.sna1",
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "metadata": {
+                "size": 1024,
+                "mimetype": "image/png"
+            },
+            "user_metadata": {
+                "plaintextSha256": "b".repeat(64)
+            }
+        })))
+        .mount(&server)
+        .await;
+
+    let metadata = storage(&server)
+        .object_metadata("shared-note-attachments", "owner/share/object.sna1")
+        .await
+        .unwrap();
+
+    assert_eq!(metadata.size_bytes, 1024);
+    assert_eq!(metadata.content_type, "image/png");
+    assert_eq!(metadata.user_metadata["plaintextSha256"], "b".repeat(64));
+}
+
+#[tokio::test]
+async fn streams_a_trusted_storage_object_digest() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path(
+            "/storage/v1/object/shared-note-attachments/owner/share/object.sna1",
+        ))
+        .and(header("authorization", "Bearer service-secret"))
+        .and(header("apikey", "service-secret"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(b"abc"))
+        .mount(&server)
+        .await;
+
+    let digest = storage(&server)
+        .object_digest("shared-note-attachments", "owner/share/object.sna1", 3)
+        .await
+        .unwrap();
+
+    assert_eq!(digest.size_bytes, 3);
+    assert_eq!(
+        digest.sha256,
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    );
+}
+
+#[tokio::test]
+async fn bounds_storage_object_digest_downloads() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(b"abcd"))
+        .mount(&server)
+        .await;
+
+    let error = storage(&server)
+        .object_digest("shared-note-attachments", "owner/share/object.sna1", 3)
+        .await
+        .unwrap_err();
+
+    assert!(error.to_string().contains("verification limit"));
+}
+
+#[tokio::test]
 async fn rejects_missing_or_malformed_private_object_metadata() {
     for user_metadata in [
         serde_json::json!(null),

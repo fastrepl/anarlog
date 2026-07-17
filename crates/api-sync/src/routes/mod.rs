@@ -15,10 +15,13 @@ use utoipa::OpenApi;
 use uuid::Uuid;
 
 use crate::error::{Result, SyncError};
-use crate::snapshot::{MAX_SNAPSHOT_BODY_BYTES, sanitize_document, sanitize_title};
+use crate::snapshot::{
+    MAX_SNAPSHOT_BODY_BYTES, sanitize_document_with_attachments, sanitize_title,
+};
 use crate::state::AppState;
 
 mod attachment_backups;
+mod shared_attachments;
 
 const WORKSPACE_PROJECTION_SELECT: &str = "id,user_id,role,created_at,updated_at,workspace:workspaces!inner(id,owner_user_id,kind,name,created_at,updated_at)";
 const WORKSPACE_PROJECTION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
@@ -126,6 +129,18 @@ struct WorkspaceRow {
 pub struct PublishSessionShareSnapshotRequest {
     title: String,
     body: Value,
+    #[serde(default)]
+    attachment_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct SharedNoteAttachment {
+    pub(crate) id: String,
+    pub(crate) filename: String,
+    pub(crate) content_type: String,
+    pub(crate) size_bytes: u64,
+    pub(crate) sha256: String,
 }
 
 #[derive(Serialize, utoipa::ToSchema)]
@@ -136,6 +151,7 @@ pub struct PublishedSessionShareSnapshot {
     content_revision: i64,
     title: String,
     body: Value,
+    attachments: Vec<SharedNoteAttachment>,
     published_at: String,
 }
 
@@ -145,6 +161,7 @@ struct PublishSnapshotRpcRequest<'a> {
     p_actor_user_id: &'a str,
     p_title: &'a str,
     p_body_json: &'a Value,
+    p_attachment_ids: &'a [String],
 }
 
 #[derive(Deserialize)]
@@ -154,6 +171,7 @@ struct PublishedSnapshotRow {
     content_revision: i64,
     title: String,
     body_json: Value,
+    attachments_json: Vec<SharedNoteAttachment>,
     published_at: String,
 }
 
@@ -175,7 +193,8 @@ struct PostgrestError {
         ClaimE2eeIdentityRequest,
         E2eeIdentity,
         PublishSessionShareSnapshotRequest,
-        PublishedSessionShareSnapshot
+        PublishedSessionShareSnapshot,
+        SharedNoteAttachment
     ))
 )]
 pub struct ApiDoc;
@@ -183,6 +202,7 @@ pub struct ApiDoc;
 pub fn openapi() -> utoipa::openapi::OpenApi {
     let mut openapi = ApiDoc::openapi();
     openapi.merge(attachment_backups::openapi());
+    openapi.merge(shared_attachments::openapi());
     openapi
 }
 
@@ -196,6 +216,7 @@ pub fn router(state: AppState) -> Router {
                 .layer(DefaultBodyLimit::max(MAX_SNAPSHOT_REQUEST_BYTES)),
         )
         .merge(attachment_backups::router())
+        .merge(shared_attachments::router())
         .with_state(state)
 }
 
@@ -261,12 +282,30 @@ async fn publish_session_share_snapshot(
         .map_err(|_| SyncError::BadRequest("Shared note ID is invalid".to_string()))?
         .to_string();
     let title = sanitize_title(&request.title)?;
-    let body = sanitize_document(&request.body)?;
+    if request.attachment_ids.len() > 64 {
+        return Err(SyncError::BadRequest(
+            "Shared note has too many attachments".to_string(),
+        ));
+    }
+    let mut attachment_ids = HashSet::new();
+    for attachment_id in &request.attachment_ids {
+        let uuid = Uuid::parse_str(attachment_id)
+            .map_err(|_| SyncError::BadRequest("Shared attachment ID is invalid".to_string()))?;
+        if uuid.to_string() != *attachment_id
+            || uuid.get_version() != Some(uuid::Version::Random)
+            || !attachment_ids.insert(attachment_id.clone())
+        {
+            return Err(SyncError::BadRequest(
+                "Shared attachment ID is invalid".to_string(),
+            ));
+        }
+    }
+    let body = sanitize_document_with_attachments(&request.body, &attachment_ids)?;
 
     let response = state
         .client
         .post(format!(
-            "{}/rest/v1/rpc/publish_session_share_snapshot",
+            "{}/rest/v1/rpc/publish_session_share_snapshot_with_attachments",
             state.config.supabase_url
         ))
         .header("apikey", &state.config.supabase_service_role_key)
@@ -277,6 +316,7 @@ async fn publish_session_share_snapshot(
             p_actor_user_id: &auth.claims.sub,
             p_title: &title,
             p_body_json: &body,
+            p_attachment_ids: &request.attachment_ids,
         })
         .send()
         .await
@@ -334,6 +374,8 @@ async fn publish_session_share_snapshot(
         || row.content_revision < 1
         || row.title != title
         || row.body_json != body
+        || validate_shared_attachments(&row.attachments_json, Some(&request.attachment_ids))
+            .is_err()
         || chrono::DateTime::parse_from_rfc3339(&row.published_at).is_err()
     {
         tracing::warn!("Supabase shared-note publication response failed validation");
@@ -348,9 +390,48 @@ async fn publish_session_share_snapshot(
             content_revision: row.content_revision,
             title: row.title,
             body: row.body_json,
+            attachments: row.attachments_json,
             published_at: row.published_at,
         }),
     ))
+}
+
+pub(crate) fn validate_shared_attachments(
+    attachments: &[SharedNoteAttachment],
+    expected_ids: Option<&[String]>,
+) -> std::result::Result<(), ()> {
+    if expected_ids.is_some_and(|expected| attachments.len() != expected.len()) {
+        return Err(());
+    }
+    let mut seen = HashSet::new();
+    for (index, attachment) in attachments.iter().enumerate() {
+        let id = Uuid::parse_str(&attachment.id).map_err(|_| ())?;
+        let valid_content_type = attachment
+            .content_type
+            .split_once('/')
+            .is_some_and(|(kind, subtype)| !kind.is_empty() && !subtype.is_empty());
+        if expected_ids.is_some_and(|expected| attachment.id != expected[index])
+            || id.to_string() != attachment.id
+            || id.get_version() != Some(uuid::Version::Random)
+            || !seen.insert(attachment.id.clone())
+            || attachment.filename.is_empty()
+            || attachment.filename.len() > 1024
+            || attachment.filename.trim() != attachment.filename
+            || attachment.filename.contains(['/', '\\'])
+            || attachment.filename.chars().any(char::is_control)
+            || !valid_content_type
+            || attachment.size_bytes == 0
+            || attachment.size_bytes > 512 * 1024 * 1024
+            || attachment.sha256.len() != 64
+            || !attachment
+                .sha256
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+        {
+            return Err(());
+        }
+    }
+    Ok(())
 }
 
 #[utoipa::path(
@@ -1176,14 +1257,17 @@ mod tests {
             ]
         });
         Mock::given(method("POST"))
-            .and(path("/rest/v1/rpc/publish_session_share_snapshot"))
+            .and(path(
+                "/rest/v1/rpc/publish_session_share_snapshot_with_attachments",
+            ))
             .and(header("apikey", "service-role-key"))
             .and(header("authorization", "Bearer service-role-key"))
             .and(body_partial_json(json!({
                 "p_share_id": share_id,
                 "p_actor_user_id": "user-123",
                 "p_title": "Quarterly plan",
-                "p_body_json": sanitized_body
+                "p_body_json": sanitized_body,
+                "p_attachment_ids": []
             })))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
                 "share_id": share_id,
@@ -1191,6 +1275,7 @@ mod tests {
                 "content_revision": 2,
                 "title": "Quarterly plan",
                 "body_json": sanitized_body,
+                "attachments_json": [],
                 "published_at": "2026-07-16T10:00:00Z"
             }])))
             .expect(1)
@@ -1314,7 +1399,9 @@ mod tests {
     async fn maps_manager_denial_without_leaking_supabase_details() {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
-            .and(path("/rest/v1/rpc/publish_session_share_snapshot"))
+            .and(path(
+                "/rest/v1/rpc/publish_session_share_snapshot_with_attachments",
+            ))
             .respond_with(ResponseTemplate::new(403).set_body_json(json!({
                 "code": "42501",
                 "message": "secret database detail"

@@ -1,6 +1,14 @@
 export { appLinkNodeSpec } from "./app-link-spec";
 export { attachmentNodeSpec, AttachmentChipView } from "./attachment-view";
 export {
+  type AttachmentResolution,
+  type AttachmentResolver,
+  AttachmentEditingContext,
+  AttachmentResolverContext,
+  useAttachmentEditingEnabled,
+  useAttachmentResolver,
+} from "./attachment-resolver";
+export {
   getNodeViewFallbackTag,
   getSafeNodePos,
   withNodeViewErrorBoundary,

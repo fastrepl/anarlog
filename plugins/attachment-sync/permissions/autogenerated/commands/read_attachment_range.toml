@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-read-attachment-range"
+description = "Enables the read_attachment_range command without any pre-configured scope."
+commands.allow = ["read_attachment_range"]
+
+[[permission]]
+identifier = "deny-read-attachment-range"
+description = "Denies the read_attachment_range command without any pre-configured scope."
+commands.deny = ["read_attachment_range"]

@@ -32,6 +32,10 @@ impl E2eeSyncHook {
         self.keys.read().unwrap().contains_key(workspace_id)
     }
 
+    fn workspace_key(&self, workspace_id: &str) -> Option<hypr_e2ee::WorkspaceKey> {
+        self.keys.read().unwrap().get(workspace_id).cloned()
+    }
+
     fn clear(&self) {
         self.keys.write().unwrap().clear();
     }
@@ -150,6 +154,10 @@ impl PluginDbRuntime {
 
     pub fn pool(&self) -> &sqlx::SqlitePool {
         self.db.pool()
+    }
+
+    pub fn workspace_key(&self, workspace_id: &str) -> Option<hypr_e2ee::WorkspaceKey> {
+        self.e2ee_sync_hook.workspace_key(workspace_id)
     }
 
     async fn ensure_app_schema(&self) -> Result<()> {

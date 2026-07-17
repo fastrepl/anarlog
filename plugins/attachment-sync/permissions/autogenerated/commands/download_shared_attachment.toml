@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-download-shared-attachment"
+description = "Enables the download_shared_attachment command without any pre-configured scope."
+commands.allow = ["download_shared_attachment"]
+
+[[permission]]
+identifier = "deny-download-shared-attachment"
+description = "Denies the download_shared_attachment command without any pre-configured scope."
+commands.deny = ["download_shared_attachment"]

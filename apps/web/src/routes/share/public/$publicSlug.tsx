@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useCallback } from "react";
 
+import type { SharedAttachmentResolver } from "@/components/shared-note-document";
 import {
   PublicSharedNoteActions,
 } from "@/components/shared-note-actions";
@@ -14,6 +16,7 @@ import {
   publicShareHeaders,
 } from "@/lib/shared-note-meta";
 import { prepareShareRoutePrivacy } from "@/lib/share-route-privacy";
+import { fetchPublicSharedAttachmentDownload } from "@/lib/shared-note-api";
 import { publicShareSlugSchema } from "@/lib/shared-notes";
 
 export const Route = createFileRoute("/share/public/$publicSlug")({
@@ -37,6 +40,15 @@ export const Route = createFileRoute("/share/public/$publicSlug")({
 function Component() {
   const { snapshot } = Route.useLoaderData();
   const { publicSlug } = Route.useParams();
+  const resolveAttachment = useCallback<SharedAttachmentResolver>(
+    (attachment, signal) =>
+      fetchPublicSharedAttachmentDownload(
+        publicSlug,
+        attachment.id,
+        signal,
+      ),
+    [publicSlug],
+  );
   if (!snapshot) {
     return <SharedNoteUnavailable />;
   }
@@ -44,6 +56,7 @@ function Component() {
   return (
     <SharedNoteViewer
       snapshot={snapshot}
+      resolveAttachment={resolveAttachment}
       accessLabel="Public note · View only"
       actions={<PublicSharedNoteActions publicSlug={publicSlug} />}
     />

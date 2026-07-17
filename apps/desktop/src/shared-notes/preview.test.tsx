@@ -1,8 +1,27 @@
-import { act, cleanup, render, renderHook } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  render,
+  renderHook,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   session: null as any,
+  downloadSharedAttachment: vi.fn(),
+  clearSharedAttachmentScope: vi.fn().mockResolvedValue(0),
+}));
+
+vi.mock("@tauri-apps/api/core", () => ({
+  convertFileSrc: (path: string) => `asset:${path}`,
+}));
+
+vi.mock("~/attachment-sync/native", () => ({
+  attachmentTransferNative: {
+    downloadSharedAttachment: mocks.downloadSharedAttachment,
+    clearSharedAttachmentScope: mocks.clearSharedAttachmentScope,
+  },
 }));
 
 vi.mock("~/auth", () => ({
@@ -10,7 +29,10 @@ vi.mock("~/auth", () => ({
 }));
 
 vi.mock("~/env", () => ({
-  env: { VITE_API_URL: "https://api.test" },
+  env: {
+    VITE_API_URL: "https://api.test",
+    VITE_SUPABASE_URL: "https://project.supabase.co",
+  },
 }));
 
 import {
@@ -37,7 +59,14 @@ const serverSnapshot = {
 describe("ephemeral shared-note previews", () => {
   beforeEach(() => {
     purgeAllSharedNotePreviews();
+    vi.clearAllMocks();
     mocks.session = { user: { id: "viewer-1" } };
+    mocks.downloadSharedAttachment.mockResolvedValue({
+      cacheId: "cache-id",
+      localPath: "/cache/attachment.bin",
+      sizeBytes: 42,
+      sha256: "a".repeat(64),
+    });
   });
 
   afterEach(() => {
@@ -52,12 +81,51 @@ describe("ephemeral shared-note previews", () => {
       contentRevision: 3,
       title: "Shared plan",
       body: serverSnapshot.body,
+      attachments: [],
+      attachmentDownloads: [],
       publishedAt: "2026-07-17T10:00:00.000Z",
     });
     expect(() =>
       parseSharedNotePreviewSnapshot({
         ...serverSnapshot,
         session_id: "private-session",
+      }),
+    ).toThrow("invalid shared-note preview snapshot");
+  });
+
+  it("accepts only matching handoff download grants from Supabase", () => {
+    const attachment = {
+      id: "8df61ab1-3f8b-4218-a947-a5d2dbc579ef",
+      filename: "recording.m4a",
+      contentType: "audio/mp4",
+      sizeBytes: 42,
+      sha256: "a".repeat(64),
+    };
+    const snapshot = parseSharedNotePreviewSnapshot({
+      ...serverSnapshot,
+      attachments: [attachment],
+      attachmentDownloads: [
+        {
+          ...attachment,
+          signedUrl:
+            "https://project.supabase.co/storage/v1/object/sign/shared-note-attachments/file?token=one",
+          expiresAt: "2026-07-17T10:01:00.000Z",
+        },
+      ],
+    });
+    expect(snapshot.attachments).toEqual([attachment]);
+    expect(snapshot.attachmentDownloads[0]?.id).toBe(attachment.id);
+    expect(() =>
+      parseSharedNotePreviewSnapshot({
+        ...serverSnapshot,
+        attachments: [attachment],
+        attachmentDownloads: [
+          {
+            ...attachment,
+            signedUrl: "https://evil.example/file?token=one",
+            expiresAt: "2026-07-17T10:01:00.000Z",
+          },
+        ],
       }),
     ).toThrow("invalid shared-note preview snapshot");
   });
@@ -142,6 +210,52 @@ describe("ephemeral shared-note previews", () => {
 
     act(() => purgeSharedNotePreview(viewId));
     expect(result.current.status).toBe("unavailable");
+  });
+
+  it("caches handoff attachments before their one-time grants expire", async () => {
+    const attachment = {
+      id: "8df61ab1-3f8b-4218-a947-a5d2dbc579ef",
+      filename: "recording.m4a",
+      contentType: "audio/mp4",
+      sizeBytes: 42,
+      sha256: "a".repeat(64),
+    };
+    const snapshot = parseSharedNotePreviewSnapshot({
+      ...serverSnapshot,
+      attachments: [attachment],
+      attachmentDownloads: [
+        {
+          ...attachment,
+          signedUrl:
+            "https://project.supabase.co/storage/v1/object/sign/shared-note-attachments/file?token=one",
+          expiresAt: "2026-07-17T10:05:00.000Z",
+        },
+      ],
+    });
+    const preview = renderHook(() => useSharedNotePreview(viewId));
+
+    act(() => {
+      beginSharedNotePreview(
+        async () => snapshot,
+        () => viewId,
+      );
+    });
+
+    await waitFor(() =>
+      expect(
+        preview.result.current.status === "ready"
+          ? preview.result.current.snapshot.attachmentDownloads[0]?.localPath
+          : null,
+      ).toBe("/cache/attachment.bin"),
+    );
+    expect(mocks.downloadSharedAttachment).toHaveBeenCalledWith({
+      scopeId: viewId,
+      attachmentId: attachment.id,
+      signedUrl: expect.stringContaining("project.supabase.co"),
+      supabaseUrl: "https://project.supabase.co",
+      expectedSha256: attachment.sha256,
+      expectedSizeBytes: attachment.sizeBytes,
+    });
   });
 
   it("aborts an in-flight claim when the preview is purged", () => {

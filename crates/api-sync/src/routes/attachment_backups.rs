@@ -551,6 +551,24 @@ async fn finalize_attachment_backup(
         );
         return Err(SyncError::AttachmentBackupConflict);
     }
+    let object_digest = state
+        .storage
+        .object_digest(ATTACHMENT_BACKUP_BUCKET, &object_key, expected_size)
+        .await
+        .map_err(|_| {
+            tracing::warn!("Supabase Storage object digest verification failed");
+            SyncError::AttachmentBackupServiceUnavailable
+        })?;
+    if object_digest.size_bytes != expected_size
+        || object_digest.sha256 != expected_ciphertext_sha256
+    {
+        tracing::warn!(
+            expected_size,
+            observed_size = object_info.size_bytes,
+            "Attachment backup object metadata did not match the reservation"
+        );
+        return Err(SyncError::AttachmentBackupConflict);
+    }
 
     let row: FinalizedRow = rpc_single(
         &state,
@@ -1236,7 +1254,7 @@ mod tests {
     const ATTACHMENT_REF: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
     const VERSION_REF: &str = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
     const CIPHERTEXT_SHA256: &str =
-        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        "ad47fd9e87159d651a53b3dfba3ef200684a9ed88c2528b62e18f3881fe203b0";
 
     fn object_key() -> String {
         format!("{OWNER}/{OBJECT_UUID}.anb1")
@@ -1327,6 +1345,17 @@ mod tests {
             .and(request_header("apikey", "service-role-key"))
             .and(request_header("authorization", "Bearer service-role-key"))
             .respond_with(response)
+            .mount(server)
+            .await;
+    }
+
+    async fn mount_object_digest(server: &MockServer) {
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/storage/v1/object/{ATTACHMENT_BACKUP_BUCKET}/{}",
+                object_key()
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(vec![0; 1234]))
             .mount(server)
             .await;
     }
@@ -1554,6 +1583,7 @@ mod tests {
             })))
             .mount(&server)
             .await;
+        mount_object_digest(&server).await;
         mount_rpc(
             &server,
             "finalize_attachment_backup",
@@ -1577,14 +1607,15 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(response_json(response).await["objectState"], "ready");
         let requests = server.received_requests().await.unwrap();
-        assert_eq!(requests.len(), 3);
+        assert_eq!(requests.len(), 4);
         assert_eq!(
             requests[0].url.path(),
             "/rest/v1/rpc/read_attachment_backup_by_key"
         );
         assert!(requests[1].url.path().contains("/storage/v1/object/info/"));
+        assert!(requests[2].url.path().contains("/storage/v1/object/"));
         assert_eq!(
-            requests[2].url.path(),
+            requests[3].url.path(),
             "/rest/v1/rpc/finalize_attachment_backup"
         );
     }
@@ -1613,6 +1644,7 @@ mod tests {
             })))
             .mount(&server)
             .await;
+        mount_object_digest(&server).await;
         mount_rpc(
             &server,
             "finalize_attachment_backup",
@@ -1674,6 +1706,52 @@ mod tests {
             .unwrap();
         assert_eq!(response.status(), StatusCode::CONFLICT);
         assert_eq!(server.received_requests().await.unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn rejects_spoofed_storage_metadata_when_object_bytes_do_not_match() {
+        let server = MockServer::start().await;
+        mount_rpc(
+            &server,
+            "read_attachment_backup_by_key",
+            ResponseTemplate::new(200)
+                .set_body_json(json!([object_row("reserved", Some(CIPHERTEXT_SHA256))])),
+        )
+        .await;
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/storage/v1/object/info/{ATTACHMENT_BACKUP_BUCKET}/{}",
+                object_key()
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "metadata": { "size": 1234, "mimetype": "application/octet-stream" },
+                "user_metadata": {
+                    "ciphertextSha256": CIPHERTEXT_SHA256,
+                    "formatVersion": 1
+                }
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/storage/v1/object/{ATTACHMENT_BACKUP_BUCKET}/{}",
+                object_key()
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(vec![1; 1234]))
+            .mount(&server)
+            .await;
+
+        let response = test_router(&server, true)
+            .oneshot(json_request(
+                Method::POST,
+                "/attachment-backups/finalize",
+                json!({ "objectKey": object_key() }),
+            ))
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+        assert_eq!(server.received_requests().await.unwrap().len(), 3);
     }
 
     #[tokio::test]

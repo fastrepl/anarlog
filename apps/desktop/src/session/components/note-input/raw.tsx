@@ -6,6 +6,7 @@ import {
   NoteEditor,
   type JSONContent,
   type NoteEditorRef,
+  normalizePortableAttachmentUrls,
 } from "@hypr/editor/note";
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { cn } from "@hypr/utils";
@@ -20,6 +21,7 @@ import { openEditorLink } from "~/editor-bridge/open-editor-link";
 import { sessionMentionDropConfig } from "~/editor-bridge/session-mention-drop";
 import { SessionNodeView } from "~/editor-bridge/session-view";
 import { hasStoredNoteContent } from "~/session/components/shared";
+import { useAttachmentResolver } from "~/session/hooks/useAttachmentResolver";
 import { useUpdateSession } from "~/session/queries";
 import {
   ensureFirstLineTitle,
@@ -58,6 +60,7 @@ export const RawEditor = forwardRef<
     ref,
   ) => {
     const updateSession = useUpdateSession(sessionId);
+    const resolveAttachment = useAttachmentResolver(sessionId);
     const { audioDropTargetProps, fileHandlerConfig, isAudioDragActive } =
       useNoteFileHandlerConfig(sessionId);
     const initialContent = useMemo<JSONContent>(
@@ -67,9 +70,10 @@ export const RawEditor = forwardRef<
 
     const persistChange = useCallback(
       (input: JSONContent) => {
-        const title = extractFirstLineTitle(input);
+        const portableInput = normalizePortableAttachmentUrls(input);
+        const title = extractFirstLineTitle(portableInput);
         return updateSession({
-          raw_md: JSON.stringify(input),
+          raw_md: JSON.stringify(portableInput),
           ...(title !== null || hasStoredNoteContent(rawMd)
             ? { title: title ?? "" }
             : {}),
@@ -121,6 +125,7 @@ export const RawEditor = forwardRef<
             className={cn(["session-note-editor", className])}
             key={`session-${sessionId}-raw`}
             initialContent={initialContent}
+            resolveAttachment={resolveAttachment}
             handleChange={handleChange}
             placeholderComponent={documentTitlePlaceholder}
             mentionConfig={mentionConfig}

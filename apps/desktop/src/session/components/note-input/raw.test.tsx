@@ -40,6 +40,7 @@ vi.mock("@hypr/editor/markdown", () => ({
 }));
 
 vi.mock("@hypr/editor/note", () => ({
+  normalizePortableAttachmentUrls: (value: unknown) => value,
   NoteEditor: (props: Record<string, unknown>) => {
     hoisted.noteEditorProps.push(props);
 
@@ -83,6 +84,10 @@ vi.mock("~/session/components/shared", () => ({
 
 vi.mock("~/session/queries", () => ({
   useUpdateSession: () => hoisted.persistChange,
+}));
+
+vi.mock("~/session/hooks/useAttachmentResolver", () => ({
+  useAttachmentResolver: () => () => null,
 }));
 
 function RawEditor({

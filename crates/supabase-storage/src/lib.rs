@@ -1,6 +1,7 @@
 use futures_util::StreamExt;
 use serde::Deserialize;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 
 const MAX_STORAGE_RESPONSE_BYTES: usize = 64 * 1024;
@@ -57,6 +58,19 @@ pub struct ObjectInfo {
     pub format_version: u8,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObjectMetadata {
+    pub size_bytes: u64,
+    pub content_type: String,
+    pub user_metadata: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObjectDigest {
+    pub size_bytes: u64,
+    pub sha256: String,
+}
+
 #[derive(Deserialize)]
 struct SignedUploadResponse {
     url: String,
@@ -64,21 +78,14 @@ struct SignedUploadResponse {
 
 #[derive(Deserialize)]
 struct ObjectInfoResponse {
-    metadata: Option<ObjectMetadata>,
-    user_metadata: Option<ObjectUserMetadata>,
+    metadata: Option<StorageObjectMetadata>,
+    user_metadata: Option<Value>,
 }
 
 #[derive(Deserialize)]
-struct ObjectMetadata {
+struct StorageObjectMetadata {
     size: Option<u64>,
     mimetype: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ObjectUserMetadata {
-    ciphertext_sha256: Option<String>,
-    format_version: Option<u8>,
 }
 
 #[derive(Deserialize)]
@@ -323,6 +330,43 @@ impl SupabaseStorage {
     }
 
     pub async fn object_info(&self, bucket: &str, object_path: &str) -> Result<ObjectInfo, Error> {
+        let metadata = self.object_metadata(bucket, object_path).await?;
+        let ciphertext_sha256 = metadata
+            .user_metadata
+            .get("ciphertextSha256")
+            .and_then(Value::as_str)
+            .filter(|value| {
+                value.len() == 64
+                    && value
+                        .bytes()
+                        .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+            })
+            .ok_or_else(|| {
+                Error::Api("storage object ciphertext checksum was not returned".to_string())
+            })?
+            .to_string();
+        let format_version = metadata
+            .user_metadata
+            .get("formatVersion")
+            .and_then(Value::as_u64)
+            .filter(|version| *version == 1)
+            .ok_or_else(|| {
+                Error::Api("storage object format version was not returned".to_string())
+            })? as u8;
+
+        Ok(ObjectInfo {
+            size_bytes: metadata.size_bytes,
+            content_type: metadata.content_type,
+            ciphertext_sha256,
+            format_version,
+        })
+    }
+
+    pub async fn object_metadata(
+        &self,
+        bucket: &str,
+        object_path: &str,
+    ) -> Result<ObjectMetadata, Error> {
         let url = self.object_url("object/info", bucket, object_path)?;
         let response = self.auth_headers(self.client.get(url)).send().await?;
         let (status, body) = Self::read_response(response, "object info").await?;
@@ -347,30 +391,66 @@ impl SupabaseStorage {
         let user_metadata = data.user_metadata.ok_or_else(|| {
             Error::Api("storage object user metadata was not returned".to_string())
         })?;
-        let ciphertext_sha256 = user_metadata
-            .ciphertext_sha256
-            .filter(|value| {
-                value.len() == 64
-                    && value
-                        .bytes()
-                        .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
-            })
-            .ok_or_else(|| {
-                Error::Api("storage object ciphertext checksum was not returned".to_string())
-            })?;
-        let format_version = user_metadata
-            .format_version
-            .filter(|version| *version == 1)
-            .ok_or_else(|| {
-                Error::Api("storage object format version was not returned".to_string())
-            })?;
 
-        Ok(ObjectInfo {
+        Ok(ObjectMetadata {
             size_bytes,
             content_type,
-            ciphertext_sha256,
-            format_version,
+            user_metadata,
         })
+    }
+
+    pub async fn object_digest(
+        &self,
+        bucket: &str,
+        object_path: &str,
+        max_size_bytes: u64,
+    ) -> Result<ObjectDigest, Error> {
+        if max_size_bytes == 0 {
+            return Err(Error::Api(
+                "storage object digest limit was invalid".to_string(),
+            ));
+        }
+
+        let url = self.object_url("object", bucket, object_path)?;
+        let response = self.auth_headers(self.client.get(url)).send().await?;
+        if !response.status().is_success() {
+            let status = response.status();
+            let _ = Self::read_response(response, "object download").await?;
+            return Err(Error::Api(format!(
+                "failed to download object for verification: {status}"
+            )));
+        }
+        if response
+            .content_length()
+            .is_some_and(|length| length > max_size_bytes)
+        {
+            return Err(Error::Api(
+                "storage object exceeded its verification limit".to_string(),
+            ));
+        }
+
+        let mut size_bytes = 0_u64;
+        let mut hasher = Sha256::new();
+        let mut stream = response.bytes_stream();
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk?;
+            size_bytes = size_bytes
+                .checked_add(chunk.len() as u64)
+                .ok_or_else(|| Error::Api("storage object size overflowed".to_string()))?;
+            if size_bytes > max_size_bytes {
+                return Err(Error::Api(
+                    "storage object exceeded its verification limit".to_string(),
+                ));
+            }
+            hasher.update(&chunk);
+        }
+
+        let sha256 = hasher
+            .finalize()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        Ok(ObjectDigest { size_bytes, sha256 })
     }
 
     pub async fn delete_file(&self, bucket: &str, object_path: &str) -> Result<(), Error> {

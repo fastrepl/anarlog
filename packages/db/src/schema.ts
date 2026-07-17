@@ -220,6 +220,9 @@ export const sharedSessionCache = sqliteTable(
     contentRevision: integer("content_revision").notNull(),
     title: text("title").notNull().default(""),
     bodyJson: text("body_json", { mode: "json" }).notNull(),
+    attachmentsJson: text("attachments_json", { mode: "json" })
+      .notNull()
+      .default("[]"),
     capability: text("capability", {
       enum: ["viewer", "commenter", "editor"],
     })
@@ -330,6 +333,7 @@ export const sessionAttachments = sqliteTable(
     sha256: text("sha256").notNull().default(""),
     storageKind: text("storage_kind").notNull().default("local_file"),
     cloudObjectKey: text("cloud_object_key").notNull().default(""),
+    cloudSyncEnabled: integer("cloud_sync_enabled").notNull().default(0),
     sourceType: text("source_type").notNull().default(""),
     sourceId: text("source_id").notNull().default(""),
     metadataJson: text("metadata_json").notNull().default("{}"),
@@ -407,6 +411,54 @@ export const attachmentTransferJobs = sqliteTable(
     ),
     index("idx_attachment_transfer_jobs_attachment_id").on(table.attachmentId),
     index("idx_attachment_transfer_jobs_session_id").on(table.sessionId),
+  ],
+);
+
+export const sharedSessionAttachmentCache = sqliteTable(
+  "shared_session_attachment_cache",
+  {
+    viewerUserId: text("viewer_user_id").notNull(),
+    shareId: text("share_id").notNull(),
+    attachmentId: text("attachment_id").notNull(),
+    filename: text("filename").notNull().default(""),
+    contentType: text("content_type")
+      .notNull()
+      .default("application/octet-stream"),
+    sizeBytes: integer("size_bytes").notNull().default(0),
+    sha256: text("sha256").notNull(),
+    cacheId: text("cache_id").notNull().default(""),
+    claimToken: text("claim_token").notNull().default(""),
+    cacheGeneration: integer("cache_generation").notNull().default(0),
+    availability: text("availability").notNull().default("pending"),
+    accessVersion: integer("access_version").notNull().default(0),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    nextAttemptAt: text("next_attempt_at").notNull().default(currentTimestamp),
+    lastAttemptAt: text("last_attempt_at"),
+    lastError: text("last_error").notNull().default(""),
+    createdAt: text("created_at").notNull().default(currentTimestamp),
+    updatedAt: text("updated_at").notNull().default(currentTimestamp),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.viewerUserId, table.shareId, table.attachmentId],
+    }),
+    uniqueIndex("idx_shared_session_attachment_cache_cache_id")
+      .on(table.cacheId)
+      .where(sql`${table.cacheId} <> ''`),
+    index("idx_shared_session_attachment_cache_cleanup")
+      .on(table.availability, table.updatedAt)
+      .where(
+        sql`${table.availability} IN ('delete_pending', 'deleting', 'failed')`,
+      ),
+    index("idx_shared_session_attachment_cache_due")
+      .on(table.availability, table.nextAttemptAt, table.updatedAt)
+      .where(
+        sql`${table.availability} IN ('pending', 'delete_pending', 'failed')`,
+      ),
+    index("idx_shared_session_attachment_cache_share").on(
+      table.viewerUserId,
+      table.shareId,
+    ),
   ],
 );
 

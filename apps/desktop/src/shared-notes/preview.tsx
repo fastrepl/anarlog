@@ -1,16 +1,24 @@
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { useSyncExternalStore } from "react";
 
 import type { JSONContent } from "@hypr/editor/note";
 
+import type { SharedAttachmentDownload } from "./attachment-client";
+import type { SharedNoteAttachment } from "./cache";
+
+import { attachmentTransferNative } from "~/attachment-sync/native";
 import { useAuth } from "~/auth";
 import { env } from "~/env";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const MAX_PREVIEW_BODY_BYTES = 2 * 1024 * 1024;
-const MAX_PREVIEW_RESPONSE_BYTES = MAX_PREVIEW_BODY_BYTES + 16 * 1024;
+const MAX_PREVIEW_RESPONSE_BYTES = MAX_PREVIEW_BODY_BYTES + 256 * 1024;
 const MAX_PREVIEW_TITLE_BYTES = 4096;
 const MAX_PREVIEW_DEPTH = 64;
 const MAX_PREVIEW_NODES = 50_000;
+const MAX_PREVIEW_ATTACHMENTS = 64;
+const MAX_PREVIEW_ATTACHMENT_BYTES = 512 * 1024 * 1024;
+const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const PREVIEW_KEYS = new Set([
@@ -19,6 +27,8 @@ const PREVIEW_KEYS = new Set([
   "contentRevision",
   "title",
   "body",
+  "attachments",
+  "attachmentDownloads",
   "publishedAt",
 ]);
 
@@ -28,6 +38,10 @@ export type SharedNotePreviewSnapshot = {
   contentRevision: number;
   title: string;
   body: JSONContent;
+  attachments: SharedNoteAttachment[];
+  attachmentDownloads: Array<
+    SharedAttachmentDownload & { localPath?: string; localSrc?: string }
+  >;
   publishedAt: string;
 };
 
@@ -64,6 +78,7 @@ export function beginSharedNotePreview(
       }
       states.set(viewId, { status: "ready", snapshot });
       emitChange();
+      return cachePreviewAttachments(viewId, snapshot, controller.signal);
     })
     .catch(() => {
       if (controllers.get(viewId) !== controller || controller.signal.aborted) {
@@ -96,9 +111,13 @@ export function purgeSharedNotePreview(viewId: string) {
   if (deleted) {
     emitChange();
   }
+  void attachmentTransferNative
+    .clearSharedAttachmentScope(viewId)
+    .catch(() => undefined);
 }
 
 export function purgeAllSharedNotePreviews() {
+  const viewIds = [...states.keys()];
   for (const controller of controllers.values()) {
     controller.abort();
   }
@@ -107,6 +126,70 @@ export function purgeAllSharedNotePreviews() {
     states.clear();
     emitChange();
   }
+  for (const viewId of viewIds) {
+    void attachmentTransferNative
+      .clearSharedAttachmentScope(viewId)
+      .catch(() => undefined);
+  }
+}
+
+async function cachePreviewAttachments(
+  viewId: string,
+  snapshot: SharedNotePreviewSnapshot,
+  signal: AbortSignal,
+) {
+  let nextIndex = 0;
+  const workerCount = Math.min(4, snapshot.attachmentDownloads.length);
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      for (;;) {
+        if (signal.aborted) return;
+        const index = nextIndex;
+        nextIndex += 1;
+        const download = snapshot.attachmentDownloads[index];
+        if (!download) return;
+        try {
+          const cached =
+            await attachmentTransferNative.downloadSharedAttachment({
+              scopeId: viewId,
+              attachmentId: download.id,
+              signedUrl: download.signedUrl,
+              supabaseUrl: env.VITE_SUPABASE_URL ?? "",
+              expectedSha256: download.sha256,
+              expectedSizeBytes: download.sizeBytes,
+            });
+          if (signal.aborted) return;
+          const current = states.get(viewId);
+          if (
+            current?.status !== "ready" ||
+            current.snapshot.shareId !== snapshot.shareId ||
+            current.snapshot.contentRevision !== snapshot.contentRevision
+          ) {
+            return;
+          }
+          states.set(viewId, {
+            status: "ready",
+            snapshot: {
+              ...current.snapshot,
+              attachmentDownloads: current.snapshot.attachmentDownloads.map(
+                (candidate) =>
+                  candidate.id === download.id
+                    ? {
+                        ...candidate,
+                        localPath: cached.localPath,
+                        localSrc: convertFileSrc(cached.localPath),
+                      }
+                    : candidate,
+              ),
+            },
+          });
+          emitChange();
+        } catch {
+          // The note remains usable even if an optional attachment cannot be cached.
+        }
+      }
+    }),
+  );
 }
 
 export async function claimSharedNoteHandoff(
@@ -196,8 +279,125 @@ export function parseSharedNotePreviewSnapshot(
     contentRevision: value.contentRevision as number,
     title: value.title,
     body: value.body as JSONContent,
+    ...parsePreviewAttachments(
+      value.attachments ?? [],
+      value.attachmentDownloads ?? [],
+    ),
     publishedAt: value.publishedAt,
   };
+}
+
+function parsePreviewAttachments(
+  attachmentsValue: unknown,
+  downloadsValue: unknown,
+): Pick<SharedNotePreviewSnapshot, "attachments" | "attachmentDownloads"> {
+  if (
+    !Array.isArray(attachmentsValue) ||
+    attachmentsValue.length > MAX_PREVIEW_ATTACHMENTS ||
+    !Array.isArray(downloadsValue) ||
+    downloadsValue.length !== attachmentsValue.length
+  ) {
+    throw new Error("invalid shared-note preview snapshot");
+  }
+  const ids = new Set<string>();
+  const attachments = attachmentsValue.map((value) => {
+    const attachment = parsePreviewAttachment(value);
+    if (ids.has(attachment.id)) {
+      throw new Error("invalid shared-note preview snapshot");
+    }
+    ids.add(attachment.id);
+    return attachment;
+  });
+  const expectedOrigin = requireSupabaseOrigin(downloadsValue.length > 0);
+  const downloads = downloadsValue.map((value) => {
+    const attachment = parsePreviewAttachment(value);
+    if (!isRecord(value) || typeof value.signedUrl !== "string") {
+      throw new Error("invalid shared-note preview snapshot");
+    }
+    const signedUrl = new URL(value.signedUrl);
+    if (
+      signedUrl.protocol !== "https:" ||
+      signedUrl.origin !== expectedOrigin ||
+      signedUrl.username ||
+      signedUrl.password ||
+      signedUrl.hash ||
+      typeof value.expiresAt !== "string" ||
+      !Number.isFinite(Date.parse(value.expiresAt))
+    ) {
+      throw new Error("invalid shared-note preview snapshot");
+    }
+    const expected = attachments.find(
+      (candidate) => candidate.id === attachment.id,
+    );
+    if (!expected || !sameAttachment(expected, attachment)) {
+      throw new Error("invalid shared-note preview snapshot");
+    }
+    return {
+      ...attachment,
+      signedUrl: value.signedUrl,
+      expiresAt: value.expiresAt,
+    };
+  });
+  if (
+    new Set(downloads.map((download) => download.id)).size !== downloads.length
+  ) {
+    throw new Error("invalid shared-note preview snapshot");
+  }
+  return { attachments, attachmentDownloads: downloads };
+}
+
+function parsePreviewAttachment(value: unknown): SharedNoteAttachment {
+  if (
+    !isRecord(value) ||
+    typeof value.id !== "string" ||
+    !UUID_PATTERN.test(value.id) ||
+    typeof value.filename !== "string" ||
+    value.filename.length === 0 ||
+    value.filename.length > 1024 ||
+    value.filename.trim() !== value.filename ||
+    typeof value.contentType !== "string" ||
+    value.contentType.length === 0 ||
+    value.contentType.length > 512 ||
+    value.contentType.trim() !== value.contentType ||
+    !Number.isSafeInteger(value.sizeBytes) ||
+    (value.sizeBytes as number) < 0 ||
+    (value.sizeBytes as number) > MAX_PREVIEW_ATTACHMENT_BYTES ||
+    typeof value.sha256 !== "string" ||
+    !SHA256_PATTERN.test(value.sha256)
+  ) {
+    throw new Error("invalid shared-note preview snapshot");
+  }
+  return {
+    id: value.id,
+    filename: value.filename,
+    contentType: value.contentType,
+    sizeBytes: value.sizeBytes as number,
+    sha256: value.sha256,
+  };
+}
+
+function requireSupabaseOrigin(required: boolean) {
+  if (!required) return "";
+  try {
+    const url = new URL(env.VITE_SUPABASE_URL ?? "");
+    if (url.protocol !== "https:") throw new Error();
+    return url.origin;
+  } catch {
+    throw new Error("invalid shared-note preview snapshot");
+  }
+}
+
+function sameAttachment(
+  left: SharedNoteAttachment,
+  right: SharedNoteAttachment,
+) {
+  return (
+    left.id === right.id &&
+    left.filename === right.filename &&
+    left.contentType === right.contentType &&
+    left.sizeBytes === right.sizeBytes &&
+    left.sha256 === right.sha256
+  );
 }
 
 export function SharedNotePreviewAuthLifecycle() {

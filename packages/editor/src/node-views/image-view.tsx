@@ -8,6 +8,10 @@ import { forwardRef, useCallback, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
+import {
+  useAttachmentEditingEnabled,
+  useAttachmentResolver,
+} from "./attachment-resolver";
 import { getSafeNodePos } from "./error-boundary";
 
 const MIN_IMAGE_WIDTH = 15;
@@ -41,6 +45,7 @@ export const imageNodeSpec: NodeSpec = {
     alt: { default: null },
     title: { default: null },
     attachmentId: { default: null },
+    sharedAttachmentId: { default: null },
     editorWidth: { default: DEFAULT_IMAGE_WIDTH },
   },
   parseDOM: [
@@ -55,6 +60,7 @@ export const imageNodeSpec: NodeSpec = {
           alt: el.getAttribute("alt"),
           title: metadata.title,
           attachmentId: el.getAttribute("data-attachment-id"),
+          sharedAttachmentId: el.getAttribute("data-shared-attachment-id"),
           editorWidth: clampImageWidth(
             parseInt(
               el.getAttribute("data-editor-width") ??
@@ -74,6 +80,9 @@ export const imageNodeSpec: NodeSpec = {
     if (node.attrs.attachmentId) {
       attrs["data-attachment-id"] = node.attrs.attachmentId;
     }
+    if (node.attrs.sharedAttachmentId) {
+      attrs["data-shared-attachment-id"] = node.attrs.sharedAttachmentId;
+    }
     if (node.attrs.editorWidth) {
       attrs["data-editor-width"] = String(node.attrs.editorWidth);
     }
@@ -86,6 +95,14 @@ export const ResizableImageView = forwardRef<
   NodeViewComponentProps
 >(function ResizableImageView({ nodeProps, ...htmlAttrs }, ref) {
   const { node, getPos } = nodeProps;
+  const resolveAttachment = useAttachmentResolver();
+  const attachmentEditingEnabled = useAttachmentEditingEnabled();
+  const attachmentId =
+    typeof node.attrs.sharedAttachmentId === "string"
+      ? node.attrs.sharedAttachmentId
+      : node.attrs.attachmentId;
+  const resolvedAttachment =
+    typeof attachmentId === "string" ? resolveAttachment?.(attachmentId) : null;
   const [isHovered, setIsHovered] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [draftWidth, setDraftWidth] = useState<number | null>(null);
@@ -118,7 +135,7 @@ export const ResizableImageView = forwardRef<
     ) => {
       const containerEl = containerRef.current;
       const imageEl = imageRef.current;
-      if (!containerEl || !imageEl) return;
+      if (!attachmentEditingEnabled || !containerEl || !imageEl) return;
 
       event.preventDefault();
       event.stopPropagation();
@@ -155,10 +172,11 @@ export const ResizableImageView = forwardRef<
       window.addEventListener("pointermove", handlePointerMove);
       window.addEventListener("pointerup", handlePointerUp);
     },
-    [updateAttributes],
+    [attachmentEditingEnabled, updateAttributes],
   );
 
-  const showControls = isHovered || isSelected || isResizing;
+  const showControls =
+    attachmentEditingEnabled && (isHovered || isSelected || isResizing);
   const editorWidth = clampImageWidth(node.attrs.editorWidth);
   const imageWidth =
     draftWidth !== null ? `${draftWidth}px` : `${editorWidth}%`;
@@ -178,7 +196,7 @@ export const ResizableImageView = forwardRef<
       >
         <img
           ref={imageRef}
-          src={node.attrs.src}
+          src={resolvedAttachment?.src ?? node.attrs.src}
           alt={node.attrs.alt || ""}
           title={parseImageMetadata(node.attrs.title).title ?? undefined}
           className={cn([

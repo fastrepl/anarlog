@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-shared-attachment-path"
+description = "Enables the shared_attachment_path command without any pre-configured scope."
+commands.allow = ["shared_attachment_path"]
+
+[[permission]]
+identifier = "deny-shared-attachment-path"
+description = "Denies the shared_attachment_path command without any pre-configured scope."
+commands.deny = ["shared_attachment_path"]

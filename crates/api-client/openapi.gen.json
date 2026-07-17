@@ -634,14 +634,10 @@
           "error": {
             "nullable": true,
             "type": "string"
-          },
-          "pending": {
-            "type": "boolean"
           }
         },
         "required": [
-          "deleted",
-          "pending"
+          "deleted"
         ],
         "type": "object"
       },
@@ -3070,7 +3066,7 @@
       "delete": {
         "operationId": "delete_account",
         "responses": {
-          "202": {
+          "200": {
             "content": {
               "application/json": {
                 "schema": {
@@ -3078,16 +3074,13 @@
                 }
               }
             },
-            "description": "Account deletion durably accepted"
+            "description": "Account deleted successfully"
           },
           "401": {
             "description": "Unauthorized"
           },
           "500": {
             "description": "Internal server error"
-          },
-          "503": {
-            "description": "Durable account cleanup unavailable"
           }
         },
         "security": [

@@ -402,6 +402,7 @@ describe("session share snapshot publication", () => {
             type: "doc",
             content: [{ type: "paragraph" }],
           },
+          attachmentIds: [],
         });
         return new Response(
           JSON.stringify({
@@ -410,6 +411,7 @@ describe("session share snapshot publication", () => {
             contentRevision: 1,
             title: "Shared title",
             body: { type: "doc", content: [{ type: "paragraph" }] },
+            attachments: [],
             publishedAt: timestamp,
           }),
           { headers: { "content-type": "application/json" } },

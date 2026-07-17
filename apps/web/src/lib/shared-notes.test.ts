@@ -7,6 +7,7 @@ import {
   parseAuthenticatedSharedNote,
   parseGatewaySharedNote,
   parseShareHandoff,
+  parseSharedNoteAttachmentDownload,
   withoutDuplicateLeadingTitle,
 } from "./shared-notes.ts";
 
@@ -58,6 +59,60 @@ test("maps authenticated snake-case RPC rows without internal identifiers", () =
   assert.equal(result.capability, "commenter");
   assert.equal("workspaceId" in result.snapshot, false);
   assert.equal("sessionId" in result.snapshot, false);
+});
+
+test("accepts a bounded opaque attachment manifest and rejects duplicates", () => {
+  const attachment = {
+    id: "00000000-0000-4000-8000-000000000002",
+    filename: "diagram.png",
+    contentType: "image/png",
+    sizeBytes: 4,
+    sha256: "a".repeat(64),
+  };
+  const snapshot = parseGatewaySharedNote({
+    shareId: "00000000-0000-4000-8000-000000000001",
+    schemaVersion: 1,
+    contentRevision: 2,
+    title: "Weekly sync",
+    body: {
+      type: "doc",
+      content: [
+        {
+          type: "image",
+          attrs: { sharedAttachmentId: attachment.id, alt: "Diagram" },
+        },
+      ],
+    },
+    attachments: [attachment],
+    publishedAt: "2026-07-17T12:00:00Z",
+  });
+  assert.deepEqual(snapshot.attachments, [attachment]);
+  assert.throws(() =>
+    parseGatewaySharedNote({
+      ...snapshot,
+      attachments: [attachment, attachment],
+    }),
+  );
+});
+
+test("validates short-lived attachment downloads", () => {
+  const download = parseSharedNoteAttachmentDownload({
+    id: "00000000-0000-4000-8000-000000000002",
+    filename: "diagram.png",
+    contentType: "image/png",
+    sizeBytes: 4,
+    sha256: "a".repeat(64),
+    signedUrl:
+      "https://project.supabase.co/storage/v1/object/sign/shared-note-attachments/file?token=secret",
+    expiresAt: "2026-07-17T12:01:00Z",
+  });
+  assert.equal(download.filename, "diagram.png");
+  assert.throws(() =>
+    parseSharedNoteAttachmentDownload({
+      ...download,
+      signedUrl: "http://project.supabase.co/file?token=secret",
+    }),
+  );
 });
 
 test("rejects unsafe links and accepts sanitized external links", () => {
