@@ -81,6 +81,20 @@ describe("legacy settings snapshots", () => {
     expect(statements[0].params[0]).toBe(LEGACY_SETTINGS_ID);
   });
 
+  it("does not replace the settings snapshot with an empty document", async () => {
+    mocks.load.mockResolvedValue({ status: "ok", data: {} });
+    mocks.getTinybaseValues.mockResolvedValue({
+      status: "ok",
+      data: JSON.stringify({ current_llm_provider: "anthropic" }),
+    });
+
+    await refreshLegacySettingsSnapshots();
+
+    const statements = mocks.executeTransaction.mock.calls[0][0];
+    expect(statements).toHaveLength(1);
+    expect(statements[0].params[0]).toBe(LEGACY_MAIN_VALUES_ID);
+  });
+
   it("does not write when neither legacy source is usable", async () => {
     mocks.load.mockRejectedValue(new Error("unavailable"));
     mocks.getTinybaseValues.mockResolvedValue({

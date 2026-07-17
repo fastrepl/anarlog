@@ -1,3 +1,6 @@
+import { PROVIDERS } from "~/settings/ai/llm/shared";
+import { getProviderSelectionBlockers } from "~/settings/ai/shared/eligibility";
+import { getStoredAiProvider } from "~/settings/providers";
 import { getStoredSettingValues, setSettingValues } from "~/settings/queries";
 import type { SettingValues } from "~/settings/schema";
 
@@ -10,10 +13,30 @@ export async function configurePaidSettings(): Promise<void> {
     updates.current_stt_model = "cloud";
   }
 
-  if (!values.current_llm_provider) {
+  if (await shouldUseHostedLlm(values)) {
     updates.current_llm_provider = "hyprnote";
     updates.current_llm_model = "Auto";
   }
 
   await setSettingValues(updates);
+}
+
+async function shouldUseHostedLlm(values: SettingValues): Promise<boolean> {
+  const providerId = values.current_llm_provider;
+  if (!providerId || !values.current_llm_model) return true;
+
+  const provider = PROVIDERS.find((candidate) => candidate.id === providerId);
+  if (!provider) return true;
+
+  const config = await getStoredAiProvider("llm", providerId);
+  return (
+    getProviderSelectionBlockers(provider.requirements, {
+      isAuthenticated: true,
+      isPaid: true,
+      config: {
+        base_url: config?.base_url || provider.baseUrl || "",
+        api_key: config?.api_key || "",
+      },
+    }).length > 0
+  );
 }

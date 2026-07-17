@@ -16,7 +16,7 @@ export async function refreshLegacySettingsSnapshots(): Promise<void> {
   if (
     settingsResult.status === "fulfilled" &&
     settingsResult.value.status === "ok" &&
-    isJsonObject(settingsResult.value.data)
+    isNonEmptyJsonObject(settingsResult.value.data)
   ) {
     snapshots.push({
       id: LEGACY_SETTINGS_ID,
@@ -57,6 +57,12 @@ export async function refreshLegacySettingsSnapshots(): Promise<void> {
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isNonEmptyJsonObject(
+  value: unknown,
+): value is Record<string, unknown> {
+  return isJsonObject(value) && Object.keys(value).length > 0;
 }
 
 function parseJsonObject(value: string): Record<string, unknown> | null {

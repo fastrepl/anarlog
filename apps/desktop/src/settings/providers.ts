@@ -71,6 +71,30 @@ export function useAiProvider(
   return providerId ? providers[providerRowId(type, providerId)] : undefined;
 }
 
+export async function getStoredAiProvider(
+  type: AiProviderType,
+  providerId: string,
+): Promise<AiProviderConfig | undefined> {
+  const rows = await liveQueryClient.execute<AppSettingRow>(
+    `
+      SELECT id, value_json
+      FROM app_settings
+      WHERE id IN (?, ?)
+    `,
+    [providerStorageId(type, providerId), LEGACY_SETTINGS_ID],
+  );
+  const provider = parseAiProviders(rows, type)[
+    providerRowId(type, providerId)
+  ];
+  if (!provider) return undefined;
+
+  const secureApiKey = await getProviderApiKey(type, providerId);
+  return {
+    ...provider,
+    api_key: secureApiKey ?? provider.api_key,
+  };
+}
+
 export function setAiProvider(
   type: AiProviderType,
   providerId: string,

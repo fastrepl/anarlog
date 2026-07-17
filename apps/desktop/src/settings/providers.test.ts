@@ -44,6 +44,7 @@ vi.mock("~/db/write-queue", () => ({
 }));
 
 import {
+  getStoredAiProvider,
   isKeychainAccessError,
   loadSecureAiProviderApiKeys,
   migratePlaintextAiProviderApiKeys,
@@ -259,6 +260,29 @@ describe("SQLite AI providers", () => {
     );
     expect(mocks.setSecret).not.toHaveBeenCalled();
     expect(mocks.executeTransaction).not.toHaveBeenCalled();
+  });
+
+  it("loads one stored provider with its secure API key", async () => {
+    mocks.execute.mockResolvedValueOnce([
+      {
+        id: "ai_provider:llm:anthropic",
+        value_json: JSON.stringify({
+          type: "llm",
+          base_url: "https://api.anthropic.com/v1",
+          api_key: "",
+        }),
+      },
+    ]);
+    mocks.getSecret.mockResolvedValueOnce({
+      status: "ok",
+      data: "anthropic-key",
+    });
+
+    await expect(getStoredAiProvider("llm", "anthropic")).resolves.toEqual({
+      type: "llm",
+      base_url: "https://api.anthropic.com/v1",
+      api_key: "anthropic-key",
+    });
   });
 
   it("repairs macOS Keychain access through the secure store", async () => {
