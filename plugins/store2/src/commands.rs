@@ -1,11 +1,31 @@
 use crate::Store2PluginExt;
 
 const SECURE_STORE_SUFFIX: &str = "secure-store";
+const NATIVE_SECRET_ACCOUNT_PREFIXES: &[&str] = &["e2ee:"];
 #[cfg(target_os = "macos")]
 const MACOS_KEYCHAIN_ACCESS_ERROR_PREFIX: &str = "macOS couldn't access your login Keychain.";
 
 #[cfg(target_os = "macos")]
 const ERR_SEC_AUTH_FAILED: i32 = -25293;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SecretCaller {
+    Native,
+    Renderer,
+}
+
+fn validate_secret_coordinate(caller: SecretCaller, scope: &str, key: &str) -> Result<(), String> {
+    let account = format!("{scope}:{key}");
+    if caller == SecretCaller::Renderer
+        && NATIVE_SECRET_ACCOUNT_PREFIXES
+            .iter()
+            .any(|prefix| account.starts_with(prefix))
+    {
+        return Err("secure-store account is reserved for native use".to_string());
+    }
+
+    Ok(())
+}
 
 fn secure_store_service(identifier: &str) -> String {
     let identifier = match identifier {
@@ -252,7 +272,7 @@ pub(crate) async fn get_secret<R: tauri::Runtime>(
     scope: String,
     key: String,
 ) -> Result<Option<String>, String> {
-    read_secret(app, scope, key).await
+    read_secret_for(SecretCaller::Renderer, app, scope, key).await
 }
 
 pub async fn read_secret<R: tauri::Runtime>(
@@ -260,6 +280,16 @@ pub async fn read_secret<R: tauri::Runtime>(
     scope: String,
     key: String,
 ) -> Result<Option<String>, String> {
+    read_secret_for(SecretCaller::Native, app, scope, key).await
+}
+
+async fn read_secret_for<R: tauri::Runtime>(
+    caller: SecretCaller,
+    app: tauri::AppHandle<R>,
+    scope: String,
+    key: String,
+) -> Result<Option<String>, String> {
+    validate_secret_coordinate(caller, &scope, &key)?;
     tauri::async_runtime::spawn_blocking(move || {
         let entry = secret_entry(&app, &scope, &key)?;
         match entry.get_password() {
@@ -294,7 +324,7 @@ pub(crate) async fn set_secret<R: tauri::Runtime>(
     key: String,
     value: String,
 ) -> Result<(), String> {
-    write_secret(app, scope, key, value).await
+    write_secret_for(SecretCaller::Renderer, app, scope, key, value).await
 }
 
 pub async fn write_secret<R: tauri::Runtime>(
@@ -303,6 +333,17 @@ pub async fn write_secret<R: tauri::Runtime>(
     key: String,
     value: String,
 ) -> Result<(), String> {
+    write_secret_for(SecretCaller::Native, app, scope, key, value).await
+}
+
+async fn write_secret_for<R: tauri::Runtime>(
+    caller: SecretCaller,
+    app: tauri::AppHandle<R>,
+    scope: String,
+    key: String,
+    value: String,
+) -> Result<(), String> {
+    validate_secret_coordinate(caller, &scope, &key)?;
     tauri::async_runtime::spawn_blocking(move || {
         let entry = secret_entry(&app, &scope, &key)?;
         entry.set_password(&value).map_err(secure_store_error)?;
@@ -322,6 +363,16 @@ pub(crate) async fn delete_secret<R: tauri::Runtime>(
     scope: String,
     key: String,
 ) -> Result<(), String> {
+    delete_secret_for(SecretCaller::Renderer, app, scope, key).await
+}
+
+async fn delete_secret_for<R: tauri::Runtime>(
+    caller: SecretCaller,
+    app: tauri::AppHandle<R>,
+    scope: String,
+    key: String,
+) -> Result<(), String> {
+    validate_secret_coordinate(caller, &scope, &key)?;
     tauri::async_runtime::spawn_blocking(move || {
         for legacy_entry in legacy_secret_entries(&app, &scope, &key)? {
             match legacy_entry.delete_credential() {
@@ -404,6 +455,61 @@ mod tests {
     #[test]
     fn skips_duplicate_legacy_secret_locations() {
         assert!(legacy_secret_locations("com.example.app", "provider", "deepgram").is_empty());
+    }
+
+    #[test]
+    fn isolates_native_secret_accounts_from_renderer_commands() {
+        assert!(validate_secret_coordinate(SecretCaller::Renderer, "provider", "deepgram").is_ok());
+        assert!(
+            validate_secret_coordinate(
+                SecretCaller::Renderer,
+                "e2ee",
+                "account:user-a:recovery-v1"
+            )
+            .is_err()
+        );
+        assert!(
+            validate_secret_coordinate(
+                SecretCaller::Renderer,
+                "e2ee:account",
+                "user-a:recovery-v1"
+            )
+            .is_err()
+        );
+        assert!(
+            validate_secret_coordinate(SecretCaller::Native, "e2ee", "account:user-a:recovery-v1")
+                .is_ok()
+        );
+    }
+
+    #[tokio::test]
+    async fn renderer_secret_commands_reject_native_accounts_before_keychain_access() {
+        let app = tauri::test::mock_builder()
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .unwrap();
+        let app = app.handle().clone();
+        let scope = "e2ee".to_string();
+        let key = "account:user-a:recovery-v1".to_string();
+        let expected = "secure-store account is reserved for native use";
+
+        assert_eq!(
+            get_secret(app.clone(), scope.clone(), key.clone())
+                .await
+                .unwrap_err(),
+            expected
+        );
+        assert_eq!(
+            set_secret(
+                app.clone(),
+                scope.clone(),
+                key.clone(),
+                "replacement".to_string()
+            )
+            .await
+            .unwrap_err(),
+            expected
+        );
+        assert_eq!(delete_secret(app, scope, key).await.unwrap_err(), expected);
     }
 
     #[cfg(target_os = "macos")]

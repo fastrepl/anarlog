@@ -28,4 +28,5 @@ internal
 
 # Agent scratch / reference material (not for commit)
 .tmp/
-
+.codex-security-artifacts-*/
+.codex-security-work-ledger-*.jsonl
