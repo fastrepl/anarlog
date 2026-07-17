@@ -10,23 +10,31 @@ hypr-api-env = { workspace = true }
 hypr-api-error = { workspace = true }
 hypr-loops = { workspace = true }
 hypr-observability = { workspace = true }
+hypr-supabase-storage = { workspace = true }
 
 utoipa = { workspace = true }
 
 axum = { workspace = true }
-reqwest = { workspace = true, features = ["json"] }
+reqwest = { workspace = true, features = ["json", "stream"] }
 sentry = { workspace = true }
 tokio = { workspace = true }
+tokio-util = { workspace = true }
 tracing = { workspace = true }
 
 chrono = { workspace = true }
+futures-util = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 urlencoding = { workspace = true }
+uuid = { workspace = true }
 
 backon = { workspace = true }
 
 async-stripe = { workspace = true }
 async-stripe-billing = { workspace = true, features = ["subscription"] }
 async-stripe-core = { workspace = true, features = ["customer"] }
+
+[dev-dependencies]
+tower = { workspace = true }
+wiremock = { workspace = true }
