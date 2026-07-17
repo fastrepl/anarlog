@@ -24,9 +24,14 @@ const ATTACHMENT_LEASE_SECONDS: i32 = 300;
 const ACCOUNT_BATCH_SIZE: usize = 4;
 const ACCOUNT_LEASE_SECONDS: i32 = 900;
 const POLL_INTERVAL: Duration = Duration::from_secs(30);
+const FULL_BATCH_POLL_INTERVAL: Duration = Duration::from_secs(5);
 const MAX_ACCOUNT_PREFIX_OBJECTS: usize = 20_000;
 const MAX_CIPHERTEXT_SIZE_BYTES: i64 = 545_259_520;
 const STRIPE_DELETE_TIMEOUT: Duration = Duration::from_secs(30);
+
+fn full_batch_poll_delay(full_batch: bool) -> Option<Duration> {
+    full_batch.then_some(FULL_BATCH_POLL_INTERVAL)
+}
 
 #[derive(Clone)]
 pub struct CleanupWorker {
@@ -145,8 +150,8 @@ impl CleanupWorker {
                 _ = cancellation.cancelled() => break,
                 _ = interval.tick() => {
                     let full_batch = self.run_once(&cancellation).await;
-                    if full_batch {
-                        interval.reset_immediately();
+                    if let Some(delay) = full_batch_poll_delay(full_batch) {
+                        interval.reset_after(delay);
                     }
                 }
             }
@@ -739,6 +744,13 @@ mod tests {
     const SHARE: &str = "00000000-0000-4000-8000-000000000503";
     const WORKSPACE: &str = "00000000-0000-4000-8000-000000000504";
     const CUSTOMER: &str = "cus_cleanup501";
+
+    #[test]
+    fn full_batches_back_off_without_changing_idle_polling() {
+        assert_eq!(full_batch_poll_delay(true), Some(Duration::from_secs(5)));
+        assert_eq!(full_batch_poll_delay(false), None);
+        assert_eq!(POLL_INTERVAL, Duration::from_secs(30));
+    }
 
     fn worker(server: &MockServer) -> CleanupWorker {
         let mut worker = CleanupWorker::new(
