@@ -1,5 +1,4 @@
 import { useForm } from "@tanstack/react-form";
-import { useEffect } from "react";
 
 import { Input } from "@hypr/ui/components/ui/input";
 
@@ -40,13 +39,6 @@ export function TodoFilterField({
       setValue(value.value);
     },
   });
-
-  useEffect(() => {
-    if (form.getFieldValue("value") === storedValue) {
-      return;
-    }
-    form.setFieldValue("value", storedValue);
-  }, [form, storedValue]);
 
   return (
     <div className="flex items-center justify-between gap-4">

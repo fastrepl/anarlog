@@ -40,6 +40,7 @@
       "../../../plugins/windows/swift-lib/src/Resources/CabinSketch-Regular.ttf": "CabinSketch-Regular.ttf",
       "../../../plugins/windows/swift-lib/src/Resources/OFL.txt": "CabinSketch-OFL.txt",
       "icons/stable/icon.icns": "icons/stable.icns",
+      "resources/stable-dark/AppIcon.icns": "icons/stable-dark.icns",
       "resources/notification-icons": "notification-icons"
     },
     "macOS": {

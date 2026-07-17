@@ -36,8 +36,10 @@ export function writeStoredThemePreference(theme: ThemePreference): void {
   }
 }
 
-export function applyDocumentTheme(theme: ThemePreference): boolean {
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+export function applyDocumentTheme(
+  theme: ThemePreference,
+  prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches,
+): boolean {
   const isDark = resolveIsDarkMode(theme, prefersDark);
   document.documentElement.classList.toggle("dark", isDark);
   return isDark;

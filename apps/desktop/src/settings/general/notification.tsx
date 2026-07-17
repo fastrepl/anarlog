@@ -2,7 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
   commands as detectCommands,
@@ -44,6 +44,7 @@ import {
 
 import { useSetSettingValues } from "~/settings/queries";
 import { useConfigValues } from "~/shared/config";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export function NotificationSettingsView() {
   const { t } = useLingui();
@@ -59,12 +60,12 @@ export function NotificationSettingsView() {
     "mic_active_threshold",
   ] as const);
 
-  useEffect(() => {
+  useMountEffect(() => {
     void notificationCommands.clearNotifications();
     return () => {
       void notificationCommands.clearNotifications();
     };
-  }, []);
+  });
 
   const { data: installedApps = [] } = useQuery({
     queryKey: ["settings", "all-installed-applications"],
@@ -124,8 +125,6 @@ export function NotificationSettingsView() {
     },
   });
 
-  const anyNotificationEnabled =
-    configs.notification_event || configs.notification_detect;
   const ignoredPlatforms = form.getFieldValue("ignored_platforms");
   const includedPlatforms = form.getFieldValue("included_platforms");
 
@@ -373,28 +372,36 @@ export function NotificationSettingsView() {
           <div className="border-muted min-w-0 flex-1 border-t" />
         </div>
 
-        <form.Field name="respect_dnd">
-          {(field) => (
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <h3 className="mb-1 text-sm font-medium">
-                  <Trans>Respect Do-Not-Disturb mode</Trans>
-                </h3>
-                <p className="text-muted-foreground text-xs">
-                  <Trans>
-                    Don't show notifications when Do-Not-Disturb is enabled on
-                    your system
-                  </Trans>
-                </p>
-              </div>
-              <Switch
-                checked={field.state.value}
-                onCheckedChange={field.handleChange}
-                disabled={!anyNotificationEnabled}
-              />
-            </div>
+        <form.Subscribe
+          selector={(state) =>
+            state.values.notification_event || state.values.notification_detect
+          }
+        >
+          {(anyNotificationEnabled) => (
+            <form.Field name="respect_dnd">
+              {(field) => (
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <h3 className="mb-1 text-sm font-medium">
+                      <Trans>Respect Do-Not-Disturb mode</Trans>
+                    </h3>
+                    <p className="text-muted-foreground text-xs">
+                      <Trans>
+                        Don't show notifications when Do-Not-Disturb is enabled
+                        on your system
+                      </Trans>
+                    </p>
+                  </div>
+                  <Switch
+                    checked={field.state.value}
+                    onCheckedChange={field.handleChange}
+                    disabled={!anyNotificationEnabled}
+                  />
+                </div>
+              )}
+            </form.Field>
           )}
-        </form.Field>
+        </form.Subscribe>
       </div>
     </div>
   );

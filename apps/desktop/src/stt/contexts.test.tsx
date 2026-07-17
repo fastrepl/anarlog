@@ -25,7 +25,7 @@ const {
   listenMock: vi.fn(),
   showNotificationMock: vi.fn(),
   useStoreMock: vi.fn(() => null),
-  useConfigValueMock: vi.fn(() => true),
+  useConfigValueMock: vi.fn((_key: string) => true),
   getNearbyCalendarEventsMock: vi.fn(),
   loadSessionEventMock: vi.fn(),
 }));
@@ -977,6 +977,38 @@ describe("ListenerProvider detect events", () => {
         }),
       ),
     );
+  });
+
+  test("does not show mic-detected prompts when detection notifications are disabled", async () => {
+    const store = createListenerStore();
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "notification_detect" ? false : true,
+    );
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+        duration_secs: 15,
+      },
+    });
+
+    await Promise.resolve();
+
+    expect(showNotificationMock).not.toHaveBeenCalled();
+    expect(getNearbyCalendarEventsMock).not.toHaveBeenCalled();
   });
 
   test("shows iPhone call icon and label for AV Capture mic notifications", async () => {

@@ -1,36 +1,84 @@
-import { type ReactNode, useLayoutEffect } from "react";
+import { getCurrentWindow, type Theme } from "@tauri-apps/api/window";
+import type { ReactNode } from "react";
+
+import { commands as iconCommands } from "@hypr/plugin-icon";
 
 import { applyDocumentTheme, writeStoredThemePreference } from "./apply";
 import type { ThemePreference } from "./resolve";
 import { useSettingsThemeReady } from "./use-settings-theme-ready";
 
 import { useConfigValue } from "~/shared/config";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export function AppThemeProvider({ children }: { children: ReactNode }) {
   const theme = useConfigValue("theme") as ThemePreference;
   const settingsReady = useSettingsThemeReady();
 
-  useLayoutEffect(() => {
-    if (!settingsReady) {
+  return (
+    <>
+      {settingsReady ? <ThemeSync key={theme} theme={theme} /> : null}
+      {children}
+    </>
+  );
+}
+
+function ThemeSync({ theme }: { theme: ThemePreference }) {
+  useMountEffect(() => {
+    if (theme !== "system") {
+      applyTheme(theme);
       return;
     }
 
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const appWindow = getCurrentWindow();
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
 
-    const applyTheme = () => {
-      applyDocumentTheme(theme);
-      writeStoredThemePreference(theme);
+    const applySystemTheme = (systemTheme: Theme | null) => {
+      applyTheme(theme, systemTheme === "dark");
     };
 
-    applyTheme();
+    void (async () => {
+      unlisten = await appWindow.onThemeChanged(({ payload }) => {
+        applySystemTheme(payload);
+      });
 
-    if (theme !== "system") {
-      return;
-    }
+      if (cancelled) {
+        unlisten();
+        return;
+      }
 
-    mediaQuery.addEventListener("change", applyTheme);
-    return () => mediaQuery.removeEventListener("change", applyTheme);
-  }, [theme, settingsReady]);
+      applySystemTheme(await appWindow.theme());
+    })().catch((error) => {
+      if (!cancelled) {
+        console.error("[theme] failed to read system appearance", error);
+        applyTheme(theme);
+      }
+    });
 
-  return children;
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  });
+
+  return null;
+}
+
+function applyTheme(theme: ThemePreference, prefersDark?: boolean) {
+  const isDark =
+    prefersDark === undefined
+      ? applyDocumentTheme(theme)
+      : applyDocumentTheme(theme, prefersDark);
+  writeStoredThemePreference(theme);
+
+  void iconCommands
+    .setDockIcon(isDark ? "stable-dark" : "stable")
+    .then((result) => {
+      if (result.status === "error") {
+        console.error("[theme] failed to update Dock icon", result.error);
+      }
+    })
+    .catch((error) => {
+      console.error("[theme] failed to update Dock icon", error);
+    });
 }

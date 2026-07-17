@@ -878,9 +878,12 @@ const useHandleDetectEvents = (store: ListenerStore) => {
   const stop = useStore(store, (state) => state.stop);
   const setMuted = useStore(store, (state) => state.setMuted);
   const autoStopMeetings = useConfigValue("auto_stop_meetings");
+  const notificationDetect = useConfigValue("notification_detect");
 
   const autoStopMeetingsRef = useRef(autoStopMeetings);
   autoStopMeetingsRef.current = autoStopMeetings;
+  const notificationDetectRef = useRef(notificationDetect);
+  notificationDetectRef.current = notificationDetect;
   const isOnlineRef = useRef(true);
   const pendingAutoStopRef = useRef<PendingAutoStop | null>(null);
   const pendingMicDetectedPromptRef = useRef(false);
@@ -1063,6 +1066,10 @@ const useHandleDetectEvents = (store: ListenerStore) => {
 
           if (shouldCaptureMicDetectedTriggerApps()) {
             captureTriggerAppIds(appIds);
+            return;
+          }
+
+          if (!notificationDetectRef.current) {
             return;
           }
 

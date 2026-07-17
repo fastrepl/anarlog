@@ -64,10 +64,7 @@ export function useStoredSettingValues(): StoredSettingValues {
 }
 
 export function useSettingsReady(): boolean {
-  const { isLoading, error } = useLiveQuery<{ ready: number }, number>({
-    sql: `SELECT 1 AS ready FROM app_settings LIMIT 1`,
-    mapRows: () => 1,
-  });
+  const { isLoading, error } = useStoredSettingValuesQuery();
   return !isLoading && !error;
 }
 

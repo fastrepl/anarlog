@@ -11,6 +11,7 @@ import { SettingsTodo } from "./todo";
 import { LLM } from "~/settings/ai/llm";
 import { STT } from "~/settings/ai/stt";
 import { SettingsDevelopers } from "~/settings/developers";
+import { SettingsHydrationBoundary } from "~/settings/hydration-boundary";
 import { SettingsPersonalization } from "~/settings/personalization";
 import { StandardContentWrapper } from "~/shared/main";
 import { type Tab } from "~/store/zustand/tabs";
@@ -22,7 +23,9 @@ export function TabContentSettings({
 }) {
   return (
     <StandardContentWrapper>
-      <SettingsView tab={tab} />
+      <SettingsHydrationBoundary>
+        <SettingsView tab={tab} />
+      </SettingsHydrationBoundary>
     </StandardContentWrapper>
   );
 }
