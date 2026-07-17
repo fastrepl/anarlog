@@ -331,6 +331,18 @@
           "markdownDescription": "Denies the stop_callback_server command without any pre-configured scope."
         },
         {
+          "description": "Enables the take_pending_deep_links command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-take-pending-deep-links",
+          "markdownDescription": "Enables the take_pending_deep_links command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the take_pending_deep_links command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-take-pending-deep-links",
+          "markdownDescription": "Denies the take_pending_deep_links command without any pre-configured scope."
+        },
+        {
           "description": "Enables the take_pending_share_open command without any pre-configured scope.",
           "type": "string",
           "const": "allow-take-pending-share-open",
@@ -343,10 +355,10 @@
           "markdownDescription": "Denies the take_pending_share_open command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-pending-share-opens`\n- `allow-start-callback-server`\n- `allow-stop-callback-server`\n- `allow-take-pending-share-open`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-pending-share-opens`\n- `allow-start-callback-server`\n- `allow-stop-callback-server`\n- `allow-take-pending-deep-links`\n- `allow-take-pending-share-open`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-pending-share-opens`\n- `allow-start-callback-server`\n- `allow-stop-callback-server`\n- `allow-take-pending-share-open`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-pending-share-opens`\n- `allow-start-callback-server`\n- `allow-stop-callback-server`\n- `allow-take-pending-deep-links`\n- `allow-take-pending-share-open`"
         }
       ]
     }

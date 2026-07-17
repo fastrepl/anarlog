@@ -22,6 +22,14 @@ async stopCallbackServer() : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async takePendingDeepLinks() : Promise<Result<DeepLink[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:deeplink2|take_pending_deep_links") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async listPendingShareOpens() : Promise<Result<string[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:deeplink2|list_pending_share_opens") };

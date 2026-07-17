@@ -7,6 +7,7 @@ Default permissions for the plugin
 - `allow-list-pending-share-opens`
 - `allow-start-callback-server`
 - `allow-stop-callback-server`
+- `allow-take-pending-deep-links`
 - `allow-take-pending-share-open`
 
 ## Permission Table
@@ -92,6 +93,32 @@ Enables the stop_callback_server command without any pre-configured scope.
 <td>
 
 Denies the stop_callback_server command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`deeplink2:allow-take-pending-deep-links`
+
+</td>
+<td>
+
+Enables the take_pending_deep_links command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`deeplink2:deny-take-pending-deep-links`
+
+</td>
+<td>
+
+Denies the take_pending_deep_links command without any pre-configured scope.
 
 </td>
 </tr>

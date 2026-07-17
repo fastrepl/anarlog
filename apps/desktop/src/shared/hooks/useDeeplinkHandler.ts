@@ -3,6 +3,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { useScheduleTaskRunCallback } from "tinytick/ui-react";
 
 import {
+  type DeepLink,
   commands as deeplink2Commands,
   events as deeplink2Events,
 } from "@hypr/plugin-deeplink2";
@@ -14,6 +15,7 @@ import {
   createShareOpenProcessor,
   subscribeThenDrainShareOpens,
 } from "~/shared-notes/deeplink";
+import { subscribeThenDrainDeepLinks } from "~/shared/deeplink";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useTabs } from "~/store/zustand/tabs";
@@ -44,21 +46,7 @@ export function useDeeplinkHandler() {
       });
       scheduleCalendarSyncRef.current();
     };
-    const shareOpenProcessor = createShareOpenProcessor({
-      takePendingShareOpen: deeplink2Commands.takePendingShareOpen,
-      getAuth: () => authRef.current,
-      openNew: (tab) => openNewRef.current(tab),
-    });
-    const shareOpenSubscription = subscribeThenDrainShareOpens({
-      listen: (handler) =>
-        deeplink2Events.shareOpenPendingEvent.listen(({ payload }) => {
-          handler(payload.pending_id);
-        }),
-      listPendingShareOpens: deeplink2Commands.listPendingShareOpens,
-      handle: shareOpenProcessor.handle,
-    });
-
-    const unlisten = deeplink2Events.deepLinkEvent.listen(({ payload }) => {
+    const handleDeepLink = (payload: DeepLink) => {
       if (payload.to === "/auth/callback") {
         const { access_token, refresh_token } = payload.search;
         if (access_token && refresh_token) {
@@ -95,6 +83,27 @@ export function useDeeplinkHandler() {
           });
         }
       }
+    };
+    const deepLinkSubscription = subscribeThenDrainDeepLinks({
+      listen: (handler) =>
+        deeplink2Events.deepLinkEvent.listen(({ payload }) => {
+          handler(payload);
+        }),
+      takePendingDeepLinks: deeplink2Commands.takePendingDeepLinks,
+      handle: handleDeepLink,
+    });
+    const shareOpenProcessor = createShareOpenProcessor({
+      takePendingShareOpen: deeplink2Commands.takePendingShareOpen,
+      getAuth: () => authRef.current,
+      openNew: (tab) => openNewRef.current(tab),
+    });
+    const shareOpenSubscription = subscribeThenDrainShareOpens({
+      listen: (handler) =>
+        deeplink2Events.shareOpenPendingEvent.listen(({ payload }) => {
+          handler(payload.pending_id);
+        }),
+      listPendingShareOpens: deeplink2Commands.listPendingShareOpens,
+      handle: shareOpenProcessor.handle,
     });
 
     return () => {
@@ -102,8 +111,8 @@ export function useDeeplinkHandler() {
       for (const timeoutId of timeoutIds) {
         window.clearTimeout(timeoutId);
       }
+      void deepLinkSubscription.then((fn) => fn()).catch(() => {});
       void shareOpenSubscription.then((fn) => fn()).catch(() => {});
-      void unlisten.then((fn) => fn()).catch(() => {});
     };
   });
 }

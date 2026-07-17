@@ -1,5 +1,6 @@
 mod commands;
 mod error;
+mod pending_deep_link;
 mod pending_share_open;
 pub mod server;
 mod types;
@@ -15,7 +16,7 @@ pub use types::{
 
 use std::str::FromStr;
 
-use tauri::Manager;
+use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_specta::Event;
 
@@ -39,6 +40,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .commands(tauri_specta::collect_commands![
             commands::start_callback_server::<tauri::Wry>,
             commands::stop_callback_server::<tauri::Wry>,
+            commands::take_pending_deep_links,
             commands::list_pending_share_opens,
             commands::take_pending_share_open,
         ])
@@ -50,6 +52,60 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
 
+#[derive(Clone, Copy)]
+enum Delivery {
+    Emit,
+    Queue,
+}
+
+fn process_url<R: Runtime>(app_handle: &AppHandle<R>, url: &url::Url, delivery: Delivery) {
+    let url_str = url.as_str();
+    let redacted = redact_url(url_str);
+    tracing::info!(url = %redacted, "deeplink_received");
+
+    match types::IncomingDeepLink::from_str(url_str) {
+        Ok(types::IncomingDeepLink::Existing(deep_link)) => {
+            tracing::info!(path = deep_link.path(), "deeplink_parsed");
+            match delivery {
+                Delivery::Emit => {
+                    if let Err(error) = DeepLinkEvent(deep_link).emit(app_handle) {
+                        tracing::error!(?error, "deeplink_event_emit_failed");
+                    }
+                }
+                Delivery::Queue => {
+                    if app_handle
+                        .state::<pending_deep_link::PendingDeepLinkState>()
+                        .push(deep_link)
+                        .is_err()
+                    {
+                        tracing::error!("pending_deep_link_queue_unavailable");
+                    }
+                }
+            }
+        }
+        Ok(types::IncomingDeepLink::ShareOpen(request)) => {
+            let state = app_handle.state::<pending_share_open::PendingShareOpenState>();
+            match state.push(request) {
+                Ok(pending_id) => {
+                    tracing::info!(path = "/share/open", "deeplink_parsed");
+                    if matches!(delivery, Delivery::Emit)
+                        && let Err(error) =
+                            (types::ShareOpenPendingEvent { pending_id }).emit(app_handle)
+                    {
+                        tracing::error!(?error, "deeplink_event_emit_failed");
+                    }
+                }
+                Err(()) => {
+                    tracing::error!("pending_share_open_queue_unavailable");
+                }
+            }
+        }
+        Err(error) => {
+            tracing::debug!(?error, url = %redacted, "deeplink_parse_failed");
+        }
+    }
+}
+
 pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     let specta_builder = make_specta_builder();
 
@@ -58,46 +114,29 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .setup(move |app, _api| {
             specta_builder.mount_events(app);
             app.manage(server::CallbackServerState::new());
+            app.manage(pending_deep_link::PendingDeepLinkState::default());
             app.manage(pending_share_open::PendingShareOpenState::default());
 
             let app_handle = app.clone();
+            let startup_app_handle = app_handle.clone();
 
             app.deep_link().on_open_url(move |event| {
                 for url in event.urls() {
-                    let url_str = url.as_str();
-                    let redacted = redact_url(url_str);
-                    tracing::info!(url = %redacted, "deeplink_received");
-
-                    match types::IncomingDeepLink::from_str(url_str) {
-                        Ok(types::IncomingDeepLink::Existing(deep_link)) => {
-                            tracing::info!(path = deep_link.path(), "deeplink_parsed");
-                            if let Err(e) = DeepLinkEvent(deep_link).emit(&app_handle) {
-                                tracing::error!(error = ?e, "deeplink_event_emit_failed");
-                            }
-                        }
-                        Ok(types::IncomingDeepLink::ShareOpen(request)) => {
-                            let state =
-                                app_handle.state::<pending_share_open::PendingShareOpenState>();
-                            match state.push(request) {
-                                Ok(pending_id) => {
-                                    tracing::info!(path = "/share/open", "deeplink_parsed");
-                                    if let Err(e) = (types::ShareOpenPendingEvent { pending_id })
-                                        .emit(&app_handle)
-                                    {
-                                        tracing::error!(error = ?e, "deeplink_event_emit_failed");
-                                    }
-                                }
-                                Err(()) => {
-                                    tracing::error!("pending_share_open_queue_unavailable");
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            tracing::debug!(error = ?e, url = %redacted, "deeplink_parse_failed");
-                        }
-                    }
+                    process_url(&app_handle, &url, Delivery::Emit);
                 }
             });
+
+            match app.deep_link().get_current() {
+                Ok(Some(urls)) => {
+                    for url in urls {
+                        process_url(&startup_app_handle, &url, Delivery::Queue);
+                    }
+                }
+                Ok(None) => {}
+                Err(error) => {
+                    tracing::error!(?error, "deeplink_current_read_failed");
+                }
+            }
 
             Ok(())
         })
