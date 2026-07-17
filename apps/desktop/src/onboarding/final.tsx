@@ -101,7 +101,7 @@ export function FinalSection({
       </OnboardingButton>
       {status === "error" && (
         <p className="text-sm text-red-500" role="alert">
-          <Trans>Retry</Trans>
+          <Trans>Open Anarlog</Trans>
         </p>
       )}
     </div>

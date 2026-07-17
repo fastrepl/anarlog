@@ -93,7 +93,7 @@ it("shows a retryable error when onboarding cannot be persisted", async () => {
     ).disabled,
   ).toBe(true);
   await waitFor(() => {
-    expect(screen.getByRole("alert").textContent).toBe("Retry");
+    expect(screen.getByRole("alert").textContent).toBe("Open Anarlog");
   });
   expect(
     (
