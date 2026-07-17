@@ -48,7 +48,10 @@ async function findOrCreateWelcomeSession(): Promise<string> {
       SELECT id
       FROM sessions
       WHERE deleted_at IS NULL
-        AND json_extract(event_json, '$.tracking_id') = ?
+        AND CASE
+          WHEN json_valid(event_json)
+          THEN json_extract(event_json, '$.tracking_id')
+        END = ?
       ORDER BY created_at, id
       LIMIT 1
     `,

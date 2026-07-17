@@ -1,5 +1,7 @@
 import { Icon } from "@iconify-icon/react";
 import { Trans } from "@lingui/react/macro";
+import { Loader2Icon } from "lucide-react";
+import { useState } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
@@ -11,6 +13,7 @@ import {
   setPendingWelcomeSession,
 } from "./welcome-note";
 
+import { createSession } from "~/session/queries";
 import { flushAutomaticRelaunch } from "~/shared/relaunch";
 import { commands } from "~/types/tauri.gen";
 
@@ -66,13 +69,42 @@ export function FinalSection({
 }: {
   onContinue: (sessionId: string) => void;
 }) {
+  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+
+  const handleContinue = async () => {
+    if (status === "loading") return;
+
+    setStatus("loading");
+    try {
+      await finishOnboarding(onContinue);
+    } catch (error) {
+      console.error("Failed to finish onboarding", error);
+      setStatus("error");
+    }
+  };
+
   return (
-    <OnboardingButton
-      className="px-6 py-2 text-sm"
-      onClick={() => void finishOnboarding(onContinue)}
-    >
-      <Trans>Open Anarlog</Trans>
-    </OnboardingButton>
+    <div className="flex flex-col items-start gap-2">
+      <OnboardingButton
+        className="px-6 py-2 text-sm disabled:cursor-wait disabled:opacity-70"
+        disabled={status === "loading"}
+        onClick={() => void handleContinue()}
+      >
+        {status === "loading" ? (
+          <span className="flex items-center gap-2">
+            <Loader2Icon className="size-4 animate-spin" />
+            <Trans>Opening Anarlog</Trans>
+          </span>
+        ) : (
+          <Trans>Open Anarlog</Trans>
+        )}
+      </OnboardingButton>
+      {status === "error" && (
+        <p className="text-sm text-red-500" role="alert">
+          <Trans>Couldn't open Anarlog. Please try again.</Trans>
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -80,11 +112,19 @@ export async function finishOnboarding(
   onContinue?: (sessionId: string) => void,
 ) {
   await sfxCommands.stop("BGM").catch(console.error);
-  const welcomeSessionId = await getOrCreateWelcomeSession();
+  const welcomeSessionId = await getOrCreateWelcomeSession().catch((error) => {
+    console.error("Failed to create welcome note", error);
+    return createSession();
+  });
   await new Promise((resolve) => setTimeout(resolve, 100));
-  await commands.setOnboardingNeeded(false).catch(console.error);
+  const result = await commands.setOnboardingNeeded(false);
+  if (result.status === "error") {
+    throw new Error(result.error);
+  }
   await new Promise((resolve) => setTimeout(resolve, 100));
-  await analyticsCommands.event({ event: "onboarding_completed" });
+  void analyticsCommands
+    .event({ event: "onboarding_completed" })
+    .catch(console.error);
   setPendingWelcomeSession(welcomeSessionId);
   if (await flushAutomaticRelaunch()) {
     return;

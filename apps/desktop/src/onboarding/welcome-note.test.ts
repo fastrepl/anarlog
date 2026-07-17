@@ -54,6 +54,18 @@ it("creates a prerecorded demo note with normal meeting metadata", async () => {
   expect(initial.raw_md).toContain("Join & record");
 });
 
+it("guards empty event metadata before reading its tracking ID", async () => {
+  mocks.execute.mockResolvedValueOnce([]);
+  mocks.createSession.mockResolvedValueOnce("welcome-session");
+
+  await getOrCreateWelcomeSession();
+
+  const [query] = mocks.execute.mock.calls[0];
+  expect(query).toMatch(
+    /CASE\s+WHEN json_valid\(event_json\)\s+THEN json_extract\(event_json, '\$\.tracking_id'\)\s+END = \?/,
+  );
+});
+
 it("carries the welcome note across a one-time onboarding relaunch", () => {
   setPendingWelcomeSession("welcome-session");
 
