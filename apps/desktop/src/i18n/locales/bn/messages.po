@@ -276,6 +276,10 @@ msgstr "একটি ইভেন্ট-ব্যাকড নোট তার �
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "মিটিং অ্যাপ মাইক্রোফোন প্রকাশ করলে স্বয়ংক্রিয়ভাবে শোনা বন্ধ করুন।"
 
+#: src/settings/general/app-settings.tsx
+msgid "Available with Anarlog Pro."
+msgstr ""
+
 #: src/calendar/components/apple/permission.tsx
 #: src/instruction/index.tsx
 #: src/sidebar/custom-sidebar-header.tsx
@@ -396,6 +400,10 @@ msgstr ""
 
 #: src/task/resource-view.tsx
 msgid "Closed"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx
+msgid "Cloud sync"
 msgstr ""
 
 #: src/task/resource-view.tsx
@@ -906,6 +914,10 @@ msgstr ""
 
 #: src/settings/general/app-settings.tsx
 msgid "Keep Anarlog available from the menu bar."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx
+msgid "Keep notes up to date across signed-in devices. Turning this off does not delete synced data."
 msgstr ""
 
 #: src/settings/general/index.tsx

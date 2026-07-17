@@ -276,6 +276,10 @@ msgstr "Si otomaatig ah u billow dhegeysiga marka qoraalka ay taageerto dhacdo u
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Si toos ah u jooji dhegeysiga marka abka kulanku uu sii daayo makarafoonka."
 
+#: src/settings/general/app-settings.tsx
+msgid "Available with Anarlog Pro."
+msgstr ""
+
 #: src/calendar/components/apple/permission.tsx
 #: src/instruction/index.tsx
 #: src/sidebar/custom-sidebar-header.tsx
@@ -396,6 +400,10 @@ msgstr ""
 
 #: src/task/resource-view.tsx
 msgid "Closed"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx
+msgid "Cloud sync"
 msgstr ""
 
 #: src/task/resource-view.tsx
@@ -906,6 +914,10 @@ msgstr ""
 
 #: src/settings/general/app-settings.tsx
 msgid "Keep Anarlog available from the menu bar."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx
+msgid "Keep notes up to date across signed-in devices. Turning this off does not delete synced data."
 msgstr ""
 
 #: src/settings/general/index.tsx

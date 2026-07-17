@@ -276,6 +276,10 @@ msgstr "Automatically start listening when an event-backed note reaches its sche
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Automatically stop listening when the meeting app releases the microphone."
 
+#: src/settings/general/app-settings.tsx
+msgid "Available with Anarlog Pro."
+msgstr "Available with Anarlog Pro."
+
 #: src/calendar/components/apple/permission.tsx
 #: src/instruction/index.tsx
 #: src/sidebar/custom-sidebar-header.tsx
@@ -397,6 +401,10 @@ msgstr "Close chat"
 #: src/task/resource-view.tsx
 msgid "Closed"
 msgstr "Closed"
+
+#: src/settings/general/app-settings.tsx
+msgid "Cloud sync"
+msgstr "Cloud sync"
 
 #: src/task/resource-view.tsx
 msgid "comment"
@@ -907,6 +915,10 @@ msgstr "Join scheduled meetings"
 #: src/settings/general/app-settings.tsx
 msgid "Keep Anarlog available from the menu bar."
 msgstr "Keep Anarlog available from the menu bar."
+
+#: src/settings/general/app-settings.tsx
+msgid "Keep notes up to date across signed-in devices. Turning this off does not delete synced data."
+msgstr "Keep notes up to date across signed-in devices. Turning this off does not delete synced data."
 
 #: src/settings/general/index.tsx
 msgid "Language & Region"
