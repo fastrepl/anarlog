@@ -22,6 +22,8 @@ pub enum Error {
     ChecksumMismatch,
     #[error("attachment cache is unavailable")]
     CacheUnavailable,
+    #[error("attachment delete guard changed during commit")]
+    DeleteGuardChanged,
     #[error("attachment transfer was cancelled")]
     Cancelled,
     #[error("attachment database operation failed")]

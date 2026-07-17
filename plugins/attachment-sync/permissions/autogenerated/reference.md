@@ -13,7 +13,9 @@ Attachment transfer and scoped cache permissions
 - `allow-read-shared-upload-range`
 - `allow-validate-shared-upload`
 - `allow-cleanup-shared-upload`
-- `allow-verify-delete-source`
+- `allow-prepare-delete-guard`
+- `allow-commit-delete-guard`
+- `allow-reconcile-delete-guards`
 - `allow-begin-attachment-download`
 - `allow-cancel-attachment-download`
 - `allow-download-and-restore`
@@ -217,6 +219,32 @@ Denies the clear_shared_attachment_scope command without any pre-configured scop
 <tr>
 <td>
 
+`attachment-sync:allow-commit-delete-guard`
+
+</td>
+<td>
+
+Enables the commit_delete_guard command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`attachment-sync:deny-commit-delete-guard`
+
+</td>
+<td>
+
+Denies the commit_delete_guard command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `attachment-sync:allow-describe-upload`
 
 </td>
@@ -288,6 +316,32 @@ Enables the download_shared_attachment command without any pre-configured scope.
 <td>
 
 Denies the download_shared_attachment command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`attachment-sync:allow-prepare-delete-guard`
+
+</td>
+<td>
+
+Enables the prepare_delete_guard command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`attachment-sync:deny-prepare-delete-guard`
+
+</td>
+<td>
+
+Denies the prepare_delete_guard command without any pre-configured scope.
 
 </td>
 </tr>
@@ -399,6 +453,32 @@ Denies the read_upload_range command without any pre-configured scope.
 <tr>
 <td>
 
+`attachment-sync:allow-reconcile-delete-guards`
+
+</td>
+<td>
+
+Enables the reconcile_delete_guards command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`attachment-sync:deny-reconcile-delete-guards`
+
+</td>
+<td>
+
+Denies the reconcile_delete_guards command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `attachment-sync:allow-remove-shared-attachment`
 
 </td>
@@ -470,32 +550,6 @@ Enables the validate_shared_upload command without any pre-configured scope.
 <td>
 
 Denies the validate_shared_upload command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`attachment-sync:allow-verify-delete-source`
-
-</td>
-<td>
-
-Enables the verify_delete_source command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`attachment-sync:deny-verify-delete-source`
-
-</td>
-<td>
-
-Denies the verify_delete_source command without any pre-configured scope.
 
 </td>
 </tr>

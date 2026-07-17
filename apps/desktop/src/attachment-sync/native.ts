@@ -167,10 +167,58 @@ export const attachmentTransferNative = {
       "clean shared attachment upload snapshot",
     );
   },
-  verifyDeleteSource(jobId: string, attemptCount: number) {
+  prepareDeleteGuard(
+    jobId: string,
+    attemptCount: number,
+    signal?: AbortSignal,
+  ) {
+    return runCancellableNative(
+      signal,
+      "prepare attachment delete guard",
+      {
+        label: "attachment delete guard operation",
+        begin: (operationId) =>
+          attachmentSyncCommands.beginSharedUploadOperation(operationId),
+        cancel: (operationId) =>
+          attachmentSyncCommands.cancelSharedUploadOperation(operationId),
+      },
+      (operationId) =>
+        attachmentSyncCommands.prepareDeleteGuard(
+          operationId,
+          jobId,
+          attemptCount,
+        ),
+    );
+  },
+  commitDeleteGuard(
+    jobId: string,
+    attemptCount: number,
+    guardId: string,
+    signal?: AbortSignal,
+  ) {
+    return runCancellableNative(
+      signal,
+      "commit attachment delete guard",
+      {
+        label: "attachment delete guard operation",
+        begin: (operationId) =>
+          attachmentSyncCommands.beginSharedUploadOperation(operationId),
+        cancel: (operationId) =>
+          attachmentSyncCommands.cancelSharedUploadOperation(operationId),
+      },
+      (operationId) =>
+        attachmentSyncCommands.commitDeleteGuard(
+          operationId,
+          jobId,
+          attemptCount,
+          guardId,
+        ),
+    );
+  },
+  reconcileDeleteGuards() {
     return unwrapNative(
-      attachmentSyncCommands.verifyDeleteSource(jobId, attemptCount),
-      "verify attachment delete source",
+      attachmentSyncCommands.reconcileDeleteGuards(),
+      "reconcile attachment delete guards",
     );
   },
   downloadAndRestore(

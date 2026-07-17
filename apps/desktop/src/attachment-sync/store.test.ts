@@ -23,7 +23,6 @@ vi.mock("~/shared/utils", () => ({
 
 import {
   claimNextAttachmentTransferJob,
-  completeDelete,
   completeUpload,
   deferAttachmentTransferDeleteForPreservation,
   failAttachmentTransferJob,
@@ -153,7 +152,9 @@ describe("attachment transfer reconciliation", () => {
 
     const [statement] = mocks.executeTransaction.mock.calls[0]![0];
     expect(statement.sql).toContain("attempt_count = attempt_count + 1");
-    expect(statement.sql).toContain("cache_id = ''");
+    expect(statement.sql).toContain(
+      "cache_id = CASE WHEN direction = 'delete' THEN cache_id ELSE '' END",
+    );
     expect(statement.sql).toContain("WHERE phase IN");
     expect(statement.sql).not.toContain("updated_at <");
   });
@@ -237,23 +238,6 @@ describe("attachment transfer reconciliation", () => {
       job.expectedSha256,
       job.expectedSizeBytes,
     ]);
-  });
-
-  it("rejects stale delete completion", async () => {
-    mocks.executeTransaction.mockResolvedValueOnce([0, 0, 0]);
-
-    await expect(
-      completeDelete({
-        ...job,
-        direction: "delete",
-        objectKey: "owner/object.anb1",
-      }),
-    ).rejects.toThrow("Attachment transfer is no longer active");
-
-    const statements = mocks.executeTransaction.mock.calls[0]![0];
-    expect(statements[0].sql).toContain("job.phase = 'finalizing'");
-    expect(statements[1].sql).toContain("job.phase = 'finalizing'");
-    expect(statements[2].sql).toContain("phase = 'finalizing'");
   });
 
   it("atomically queues an exact preservation download before retiring a delete", async () => {

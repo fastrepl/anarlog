@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { NativeAttachmentTransferError } from "./native";
 import {
   runAttachmentTransferJob,
   runAttachmentTransferPass,
@@ -41,7 +42,6 @@ function dependencies() {
     prepareDelete: vi.fn().mockResolvedValue(true),
     deferDeleteForPreservation: vi.fn(),
     completeUpload: vi.fn().mockResolvedValue(true),
-    completeDelete: vi.fn(),
     completeWithoutTransfer: vi.fn(),
     retry: vi.fn(),
     fail: vi.fn(),
@@ -90,7 +90,12 @@ function dependencies() {
       ciphertextSizeBytes: 58,
     }),
     readUploadRange: vi.fn(),
-    verifyDeleteSource: vi.fn().mockResolvedValue(true),
+    prepareDeleteGuard: vi.fn().mockResolvedValue({
+      shouldDelete: true,
+      guardId: "guard-1",
+    }),
+    commitDeleteGuard: vi.fn(),
+    reconcileDeleteGuards: vi.fn().mockResolvedValue(0),
     downloadAndRestore: vi.fn(),
     cleanupTransferCache: vi.fn(),
   };
@@ -392,12 +397,57 @@ describe("attachment transfer runner", () => {
     );
 
     expect(deps.store.prepareDelete).toHaveBeenCalledWith(deleteJob);
-    expect(deps.native.verifyDeleteSource).not.toHaveBeenCalled();
+    expect(deps.native.prepareDeleteGuard).not.toHaveBeenCalled();
     expect(deps.client.delete).not.toHaveBeenCalled();
-    expect(deps.store.completeDelete).not.toHaveBeenCalled();
+    expect(deps.native.commitDeleteGuard).not.toHaveBeenCalled();
   });
 
-  it("verifies the exact local source before deleting its remote object", async () => {
+  it("retains a verified guard through remote deletion and native commit", async () => {
+    const deps = dependencies();
+    let sourceMutated = false;
+    const deleteJob = {
+      ...job,
+      direction: "delete" as const,
+      objectKey: "owner/object.anb1",
+      currentObjectKey: "owner/object.anb1",
+      cloudSyncEnabled: false,
+    };
+    deps.client.delete.mockImplementationOnce(async () => {
+      sourceMutated = true;
+    });
+    deps.native.commitDeleteGuard.mockImplementationOnce(async () => {
+      expect(sourceMutated).toBe(true);
+    });
+
+    await runAttachmentTransferJob(
+      { ...deps, supabaseUrl: "https://project.supabase.co" } as any,
+      deleteJob,
+    );
+
+    expect(deps.native.prepareDeleteGuard).toHaveBeenCalledWith(
+      deleteJob.id,
+      deleteJob.attemptCount,
+      undefined,
+    );
+    expect(deps.client.delete).toHaveBeenCalledWith(
+      deleteJob.objectKey,
+      undefined,
+    );
+    expect(deps.native.commitDeleteGuard).toHaveBeenCalledWith(
+      deleteJob.id,
+      deleteJob.attemptCount,
+      "guard-1",
+      undefined,
+    );
+    expect(
+      deps.native.prepareDeleteGuard.mock.invocationCallOrder[0],
+    ).toBeLessThan(deps.client.delete.mock.invocationCallOrder[0]!);
+    expect(deps.client.delete.mock.invocationCallOrder[0]).toBeLessThan(
+      deps.native.commitDeleteGuard.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("retries with the linked guard when native commit fails after deletion", async () => {
     const deps = dependencies();
     const deleteJob = {
       ...job,
@@ -406,21 +456,61 @@ describe("attachment transfer runner", () => {
       currentObjectKey: "owner/object.anb1",
       cloudSyncEnabled: false,
     };
+    deps.native.commitDeleteGuard.mockRejectedValueOnce(
+      new NativeAttachmentTransferError(
+        "commit attachment delete guard",
+        "attachment delete guard changed during commit",
+      ),
+    );
+    deps.store.claimNext
+      .mockResolvedValueOnce(deleteJob)
+      .mockResolvedValueOnce(undefined);
 
-    await runAttachmentTransferJob(
-      { ...deps, supabaseUrl: "https://project.supabase.co" } as any,
+    await runAttachmentTransferPass({
+      ...deps,
+      supabaseUrl: "https://project.supabase.co",
+    } as any);
+
+    expect(deps.client.delete).toHaveBeenCalledOnce();
+    expect(deps.native.commitDeleteGuard).toHaveBeenCalledOnce();
+    expect(deps.store.retry).toHaveBeenCalledWith(
       deleteJob,
+      "commit attachment delete guard failed: attachment delete guard changed during commit",
+      expect.any(Date),
     );
+  });
 
-    expect(deps.native.verifyDeleteSource).toHaveBeenCalledWith(
-      deleteJob.id,
-      deleteJob.attemptCount,
+  it("retries when the delete source changes while preparing its guard", async () => {
+    const deps = dependencies();
+    const deleteJob = {
+      ...job,
+      direction: "delete" as const,
+      objectKey: "owner/object.anb1",
+      currentObjectKey: "owner/object.anb1",
+      cloudSyncEnabled: false,
+    };
+    deps.native.prepareDeleteGuard.mockRejectedValueOnce(
+      new NativeAttachmentTransferError(
+        "prepare attachment delete guard",
+        "attachment delete guard changed during commit",
+      ),
     );
-    expect(deps.client.delete).toHaveBeenCalledWith(
-      deleteJob.objectKey,
-      undefined,
+    deps.store.claimNext
+      .mockResolvedValueOnce(deleteJob)
+      .mockResolvedValueOnce(undefined);
+
+    await runAttachmentTransferPass({
+      ...deps,
+      supabaseUrl: "https://project.supabase.co",
+    } as any);
+
+    expect(deps.client.delete).not.toHaveBeenCalled();
+    expect(deps.store.retry).toHaveBeenCalledWith(
+      deleteJob,
+      "prepare attachment delete guard failed: attachment delete guard changed during commit",
+      expect.any(Date),
     );
-    expect(deps.store.completeDelete).toHaveBeenCalledWith(deleteJob);
+    expect(deps.store.fail).not.toHaveBeenCalled();
   });
 
   it("preserves the remote object when the exact local source does not match", async () => {
@@ -432,7 +522,10 @@ describe("attachment transfer runner", () => {
       currentObjectKey: "owner/object.anb1",
       cloudSyncEnabled: false,
     };
-    deps.native.verifyDeleteSource.mockResolvedValueOnce(false);
+    deps.native.prepareDeleteGuard.mockResolvedValueOnce({
+      shouldDelete: false,
+      guardId: "",
+    });
 
     await runAttachmentTransferJob(
       { ...deps, supabaseUrl: "https://project.supabase.co" } as any,
@@ -443,7 +536,7 @@ describe("attachment transfer runner", () => {
       deleteJob,
     );
     expect(deps.client.delete).not.toHaveBeenCalled();
-    expect(deps.store.completeDelete).not.toHaveBeenCalled();
+    expect(deps.native.commitDeleteGuard).not.toHaveBeenCalled();
   });
 
   it("moves transient failures to durable retry wait", async () => {
@@ -481,9 +574,15 @@ describe("attachment transfer runner", () => {
     await vi.waitFor(() =>
       expect(deps.store.recoverInterrupted).toHaveBeenCalled(),
     );
+    expect(deps.native.reconcileDeleteGuards).toHaveBeenCalledOnce();
     expect(
       deps.store.resetProcessLocalAttempts.mock.invocationCallOrder[0],
     ).toBeLessThan(deps.store.recoverInterrupted.mock.invocationCallOrder[0]!);
+    expect(
+      deps.store.resetProcessLocalAttempts.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      deps.native.reconcileDeleteGuards.mock.invocationCallOrder[0]!,
+    );
     stop();
   });
 
@@ -509,7 +608,29 @@ describe("attachment transfer runner", () => {
     );
 
     expect(deps.store.resetProcessLocalAttempts).toHaveBeenCalledOnce();
+    expect(deps.native.reconcileDeleteGuards).toHaveBeenCalledOnce();
     secondStop();
+  });
+
+  it("reconciles delete guards again after the orphan grace interval", async () => {
+    vi.useFakeTimers();
+    const deps = dependencies();
+    deps.store.claimNext.mockResolvedValue(undefined);
+
+    try {
+      const stop = startAttachmentTransferRunner({
+        ...deps,
+        supabaseUrl: "https://project.supabase.co",
+      } as any);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(deps.native.reconcileDeleteGuards).toHaveBeenCalledOnce();
+
+      await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
+      expect(deps.native.reconcileDeleteGuards).toHaveBeenCalledTimes(2);
+      stop();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("excludes a live process-local attempt from recurring recovery", async () => {

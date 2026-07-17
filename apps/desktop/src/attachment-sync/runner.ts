@@ -14,7 +14,12 @@ import { type AttachmentTransferJob, attachmentTransferStore } from "./store";
 const MAX_JOBS_PER_PASS = 4;
 const PASS_INTERVAL_MS = 20_000;
 const MAX_RETRY_DELAY_MS = 15 * 60 * 1000;
+const DELETE_GUARD_RECONCILE_INTERVAL_MS = 15 * 60 * 1000;
 const processLocalResetByStore = new WeakMap<object, Promise<void>>();
+const processLocalGuardReconcileByNative = new WeakMap<
+  object,
+  { promise: Promise<void>; completedAt?: number }
+>();
 const processLocalActiveAttemptsByStore = new WeakMap<
   object,
   Map<string, { id: string; attemptCount: number; holders: number }>
@@ -95,7 +100,9 @@ export function startAttachmentTransferRunner(
     if (controller.signal.aborted) return;
     try {
       const store = dependencies.store ?? attachmentTransferStore;
+      const native = dependencies.native ?? attachmentTransferNative;
       await ensureProcessLocalAttemptsReset(store);
+      await ensureDeleteGuardsReconciled(native);
       await runAttachmentTransferPass(dependencies, controller.signal);
     } catch (error) {
       if (!controller.signal.aborted) {
@@ -126,6 +133,35 @@ async function ensureProcessLocalAttemptsReset(
     reset.catch(() => processLocalResetByStore.delete(store));
   }
   await reset;
+}
+
+async function ensureDeleteGuardsReconciled(
+  native: typeof attachmentTransferNative,
+) {
+  const current = processLocalGuardReconcileByNative.get(native);
+  const shouldReconcile =
+    !current ||
+    (current.completedAt !== undefined &&
+      Date.now() - current.completedAt >= DELETE_GUARD_RECONCILE_INTERVAL_MS);
+  let reconciliation = current;
+  if (shouldReconcile) {
+    const state: { promise: Promise<void>; completedAt?: number } = {
+      promise: Promise.resolve(),
+    };
+    state.promise = Promise.resolve()
+      .then(() => native.reconcileDeleteGuards())
+      .then(() => {
+        state.completedAt = Date.now();
+      });
+    reconciliation = state;
+    processLocalGuardReconcileByNative.set(native, state);
+    state.promise.catch(() => {
+      if (processLocalGuardReconcileByNative.get(native) === state) {
+        processLocalGuardReconcileByNative.delete(native);
+      }
+    });
+  }
+  await reconciliation?.promise;
 }
 
 function processLocalActiveAttempts(store: typeof attachmentTransferStore) {
@@ -393,13 +429,23 @@ async function runDelete(
   const shouldDelete = await store.prepareDelete(job);
   if (!shouldDelete) return;
 
-  if (!(await native.verifyDeleteSource(job.id, job.attemptCount))) {
+  const guard = await native.prepareDeleteGuard(
+    job.id,
+    job.attemptCount,
+    signal,
+  );
+  if (!guard.shouldDelete) {
     await store.deferDeleteForPreservation(job);
     return;
   }
 
   await dependencies.client.delete(job.objectKey, signal);
-  await store.completeDelete(job);
+  await native.commitDeleteGuard(
+    job.id,
+    job.attemptCount,
+    guard.guardId,
+    signal,
+  );
 }
 
 async function persistTransferFailure(

@@ -23,6 +23,13 @@ pub struct PreparedSharedUpload {
     pub size_bytes: u64,
 }
 
+#[derive(Debug, Clone, serde::Serialize, specta::Type, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PreparedDeleteGuard {
+    pub should_delete: bool,
+    pub guard_id: String,
+}
+
 #[derive(Debug, Clone, serde::Deserialize, specta::Type, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct SharedUploadVersion {

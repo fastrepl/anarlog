@@ -1,6 +1,7 @@
+use std::collections::HashSet;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Component, Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use futures_util::StreamExt;
 use hypr_e2ee::{
@@ -17,8 +18,8 @@ use uuid::{Uuid, Version};
 use crate::control::DownloadOperation;
 use crate::error::{Error, Result};
 use crate::models::{
-    PreparedSharedUpload, PreparedUpload, RestoredAttachment, SharedAttachmentCacheResult,
-    UploadDescriptor,
+    PreparedDeleteGuard, PreparedSharedUpload, PreparedUpload, RestoredAttachment,
+    SharedAttachmentCacheResult, UploadDescriptor,
 };
 
 const FORMAT_VERSION: i16 = 1;
@@ -26,6 +27,33 @@ const MAX_RANGE_BYTES: u64 = 6 * 1024 * 1024;
 const MAX_PLAINTEXT_BYTES: u64 = hypr_e2ee::ATTACHMENT_BLOB_MAX_PLAINTEXT_BYTES;
 const MAX_CIPHERTEXT_BYTES: u64 = 545_259_520;
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(30 * 60);
+const DELETE_GUARD_ORPHAN_GRACE: Duration = Duration::from_secs(15 * 60);
+const DELETE_PREFLIGHT_SELECT: &str = "SELECT
+   job.attachment_id,
+   job.session_id,
+   job.workspace_id,
+   job.expected_sha256,
+   job.expected_size_bytes,
+   job.object_key,
+   job.cache_id,
+   job.ciphertext_sha256,
+   job.ciphertext_size_bytes,
+   attachment.id AS current_attachment_id,
+   attachment.relative_path,
+   attachment.source_type,
+   attachment.sha256 AS attachment_sha256,
+   attachment.size_bytes AS attachment_size_bytes,
+   attachment.cloud_object_key AS attachment_cloud_object_key,
+   attachment.cloud_sync_enabled,
+   attachment.deleted_at
+ FROM attachment_transfer_jobs AS job
+ LEFT JOIN session_attachments AS attachment
+   ON attachment.id = job.attachment_id
+  AND attachment.session_id = job.session_id
+  AND attachment.workspace_id = job.workspace_id
+ WHERE job.id = ? AND job.attempt_count = ?
+   AND job.direction = 'delete' AND job.phase = 'finalizing'
+ LIMIT 1";
 
 #[derive(Debug, Clone, FromRow)]
 struct TransferAttachment {
@@ -77,11 +105,15 @@ struct SharedUploadAttachment {
 
 #[derive(Debug, Clone, FromRow)]
 struct DeleteSourcePreflight {
+    attachment_id: String,
     session_id: String,
     workspace_id: String,
     expected_sha256: String,
     expected_size_bytes: i64,
     object_key: String,
+    cache_id: String,
+    ciphertext_sha256: String,
+    ciphertext_size_bytes: i64,
     current_attachment_id: Option<String>,
     relative_path: Option<String>,
     source_type: Option<String>,
@@ -116,6 +148,46 @@ impl Drop for CacheFileGuard {
 
 struct SharedUploadCacheFileGuard {
     path: Option<PathBuf>,
+}
+
+struct DeleteGuardFileGuard {
+    path: Option<PathBuf>,
+}
+
+struct CancellableReader<R> {
+    inner: R,
+    cancellation: tokio_util::sync::CancellationToken,
+}
+
+impl<R: Read> Read for CancellableReader<R> {
+    fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+        if self.cancellation.is_cancelled() {
+            return Err(std::io::ErrorKind::ConnectionAborted.into());
+        }
+        let read = self.inner.read(buffer)?;
+        if self.cancellation.is_cancelled() {
+            return Err(std::io::ErrorKind::ConnectionAborted.into());
+        }
+        Ok(read)
+    }
+}
+
+impl DeleteGuardFileGuard {
+    fn new(path: PathBuf) -> Self {
+        Self { path: Some(path) }
+    }
+
+    fn disarm(mut self) {
+        self.path = None;
+    }
+}
+
+impl Drop for DeleteGuardFileGuard {
+    fn drop(&mut self) {
+        if let Some(path) = self.path.take() {
+            let _ = cleanup_delete_guard_path(&path);
+        }
+    }
 }
 
 impl SharedUploadCacheFileGuard {
@@ -512,54 +584,463 @@ pub async fn cleanup_shared_upload<R: Runtime>(
         .map_err(|_| Error::CacheUnavailable)?
 }
 
-pub async fn verify_delete_source<R: Runtime>(
+pub async fn prepare_delete_guard<R: Runtime>(
     app: &tauri::AppHandle<R>,
     state: &tauri_plugin_db::ManagedState,
+    operation: &DownloadOperation,
     job_id: &str,
     attempt_count: i64,
-) -> Result<bool> {
+) -> Result<PreparedDeleteGuard> {
+    operation.ensure_active()?;
     validate_opaque_id(job_id)?;
     if attempt_count <= 0 {
         return Err(Error::InvalidTransferState);
     }
-    let record = sqlx::query_as::<_, DeleteSourcePreflight>(
-        "SELECT
-           job.session_id,
-           job.workspace_id,
-           job.expected_sha256,
-           job.expected_size_bytes,
-           job.object_key,
-           attachment.id AS current_attachment_id,
-           attachment.relative_path,
-           attachment.source_type,
-           attachment.sha256 AS attachment_sha256,
-           attachment.size_bytes AS attachment_size_bytes,
-           attachment.cloud_object_key AS attachment_cloud_object_key,
-           attachment.cloud_sync_enabled,
-           attachment.deleted_at
-         FROM attachment_transfer_jobs AS job
-         LEFT JOIN session_attachments AS attachment
-           ON attachment.id = job.attachment_id
-          AND attachment.session_id = job.session_id
-          AND attachment.workspace_id = job.workspace_id
-         WHERE job.id = ? AND job.attempt_count = ?
-           AND job.direction = 'delete' AND job.phase = 'finalizing'
-         LIMIT 1",
-    )
-    .bind(job_id)
-    .bind(attempt_count)
-    .fetch_optional(state.pool())
-    .await?
-    .ok_or(Error::InvalidTransferState)?;
+    let record = sqlx::query_as::<_, DeleteSourcePreflight>(DELETE_PREFLIGHT_SELECT)
+        .bind(job_id)
+        .bind(attempt_count)
+        .fetch_optional(state.pool())
+        .await?
+        .ok_or(Error::InvalidTransferState)?;
     let expected_size = valid_plaintext_size(record.expected_size_bytes)?;
     if !valid_sha256(&record.expected_sha256) || record.object_key.is_empty() {
         return Err(Error::InvalidMetadata);
     }
     let Some(attachment) = delete_source_attachment(&record)? else {
-        return Ok(true);
+        clear_delete_guard_link(state.pool(), operation, job_id, attempt_count, &record).await?;
+        cleanup_linked_delete_guard(app, &record.cache_id).await;
+        return Ok(PreparedDeleteGuard {
+            should_delete: true,
+            guard_id: String::new(),
+        });
     };
-    let (_, path) = attachment_paths(app, &attachment)?;
-    file_matches_async(path, expected_size, record.expected_sha256).await
+
+    let object_id = private_object_id(&record.object_key)?;
+    let key = workspace_key(state, &record.workspace_id)?;
+    let expected = plaintext_metadata(&record.expected_sha256, record.expected_size_bytes)?;
+    let context = AttachmentBlobContext::new(
+        record.workspace_id.clone(),
+        record.attachment_id.clone(),
+        object_id,
+    )?;
+    let guard_root = delete_guard_root(app)?;
+    create_delete_guard_root(&guard_root).await?;
+
+    if let Some(metadata) = delete_guard_metadata(&record, &key, &expected)? {
+        let guard_path = delete_guard_path(&guard_root, &record.cache_id)?;
+        if guarded_file_matches_async(
+            guard_path,
+            metadata.ciphertext.size_bytes,
+            metadata.ciphertext.sha256_hex(),
+            operation.cancellation().clone(),
+        )
+        .await?
+        {
+            operation.ensure_active()?;
+            return Ok(PreparedDeleteGuard {
+                should_delete: true,
+                guard_id: record.cache_id,
+            });
+        }
+    }
+
+    let source_path = match resolve_attachment_path(app, &attachment, true) {
+        Ok(path) => path,
+        Err(Error::LocalAttachmentUnavailable) => {
+            clear_delete_guard_link(state.pool(), operation, job_id, attempt_count, &record)
+                .await?;
+            cleanup_linked_delete_guard(app, &record.cache_id).await;
+            return Ok(PreparedDeleteGuard {
+                should_delete: false,
+                guard_id: String::new(),
+            });
+        }
+        Err(error) => return Err(error),
+    };
+    if !file_matches_cancellable_async(
+        source_path.clone(),
+        expected_size,
+        record.expected_sha256.clone(),
+        operation.cancellation().clone(),
+    )
+    .await?
+    {
+        clear_delete_guard_link(state.pool(), operation, job_id, attempt_count, &record).await?;
+        cleanup_linked_delete_guard(app, &record.cache_id).await;
+        return Ok(PreparedDeleteGuard {
+            should_delete: false,
+            guard_id: String::new(),
+        });
+    }
+    operation.ensure_active()?;
+
+    let guard_id = Uuid::new_v4().to_string();
+    let guard_path = delete_guard_path(&guard_root, &guard_id)?;
+    let guard_path_for_seal = guard_path.clone();
+    let operation_cancellation = operation.cancellation().clone();
+    let seal_result = tokio::task::spawn_blocking(move || {
+        seal_delete_guard(
+            &key,
+            &context,
+            &source_path,
+            &guard_path_for_seal,
+            &expected,
+            &operation_cancellation,
+        )
+    })
+    .await
+    .map_err(|_| Error::CacheUnavailable)?;
+    let (metadata, guard) = match seal_result {
+        Ok(result) => result,
+        Err(error) if delete_source_changed(&error) => {
+            clear_delete_guard_link(state.pool(), operation, job_id, attempt_count, &record)
+                .await?;
+            cleanup_linked_delete_guard(app, &record.cache_id).await;
+            return Ok(PreparedDeleteGuard {
+                should_delete: false,
+                guard_id: String::new(),
+            });
+        }
+        Err(error) => return Err(error),
+    };
+    operation.ensure_active()?;
+    let guard_root_for_sync = guard_root.clone();
+    tokio::task::spawn_blocking(move || sync_destination_directory(&guard_root_for_sync))
+        .await
+        .map_err(|_| Error::CacheUnavailable)??;
+    operation.ensure_active()?;
+    let ciphertext_sha256 = metadata.ciphertext.sha256_hex();
+    let ciphertext_size_bytes =
+        i64::try_from(metadata.ciphertext.size_bytes).map_err(|_| Error::InvalidMetadata)?;
+    operation.begin_commit()?;
+    let updated = sqlx::query(
+        "UPDATE attachment_transfer_jobs
+         SET cache_id = ?, ciphertext_sha256 = ?, ciphertext_size_bytes = ?,
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE id = ? AND attempt_count = ?
+           AND direction = 'delete' AND phase = 'finalizing'
+           AND attachment_id = ? AND session_id = ? AND workspace_id = ?
+           AND expected_sha256 = ? AND expected_size_bytes = ? AND object_key = ?
+           AND cache_id = ? AND ciphertext_sha256 = ? AND ciphertext_size_bytes = ?
+           AND EXISTS (
+             SELECT 1 FROM session_attachments AS attachment
+             WHERE attachment.id = attachment_transfer_jobs.attachment_id
+               AND attachment.session_id = attachment_transfer_jobs.session_id
+               AND attachment.workspace_id = attachment_transfer_jobs.workspace_id
+               AND attachment.sha256 = attachment_transfer_jobs.expected_sha256
+               AND attachment.size_bytes = attachment_transfer_jobs.expected_size_bytes
+               AND attachment.cloud_object_key = attachment_transfer_jobs.object_key
+               AND attachment.relative_path = ? AND attachment.source_type = ?
+               AND attachment.deleted_at IS NULL
+           )",
+    )
+    .bind(&guard_id)
+    .bind(&ciphertext_sha256)
+    .bind(ciphertext_size_bytes)
+    .bind(job_id)
+    .bind(attempt_count)
+    .bind(&record.attachment_id)
+    .bind(&record.session_id)
+    .bind(&record.workspace_id)
+    .bind(&record.expected_sha256)
+    .bind(record.expected_size_bytes)
+    .bind(&record.object_key)
+    .bind(&record.cache_id)
+    .bind(&record.ciphertext_sha256)
+    .bind(record.ciphertext_size_bytes)
+    .bind(&attachment.relative_path)
+    .bind(&attachment.source_type)
+    .execute(state.pool())
+    .await?;
+    if updated.rows_affected() != 1 {
+        return Err(Error::DeleteGuardChanged);
+    }
+    guard.disarm();
+    cleanup_linked_delete_guard(app, &record.cache_id).await;
+    Ok(PreparedDeleteGuard {
+        should_delete: true,
+        guard_id,
+    })
+}
+
+pub async fn commit_delete_guard<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    state: &tauri_plugin_db::ManagedState,
+    operation: &DownloadOperation,
+    job_id: &str,
+    attempt_count: i64,
+    guard_id: &str,
+) -> Result<()> {
+    operation.ensure_active()?;
+    validate_opaque_id(job_id)?;
+    if attempt_count <= 0 || (!guard_id.is_empty() && !valid_cache_id(guard_id)) {
+        return Err(Error::InvalidTransferState);
+    }
+    let record = sqlx::query_as::<_, DeleteSourcePreflight>(DELETE_PREFLIGHT_SELECT)
+        .bind(job_id)
+        .bind(attempt_count)
+        .fetch_optional(state.pool())
+        .await?
+        .ok_or(Error::InvalidTransferState)?;
+    if record.cache_id != guard_id {
+        return Err(Error::DeleteGuardChanged);
+    }
+    if !valid_sha256(&record.expected_sha256) || record.object_key.is_empty() {
+        return Err(Error::InvalidTransferState);
+    }
+    let initial_attachment = delete_source_attachment(&record)?;
+    let staged = if let Some(attachment) = initial_attachment.as_ref() {
+        if guard_id.is_empty() {
+            return Err(Error::DeleteGuardChanged);
+        }
+        let expected = plaintext_metadata(&record.expected_sha256, record.expected_size_bytes)?;
+        let key = workspace_key(state, &record.workspace_id)?;
+        let metadata =
+            delete_guard_metadata(&record, &key, &expected)?.ok_or(Error::InvalidTransferState)?;
+        let context = AttachmentBlobContext::new(
+            record.workspace_id.clone(),
+            record.attachment_id.clone(),
+            private_object_id(&record.object_key)?,
+        )?;
+        let guard_path = delete_guard_path(&delete_guard_root(app)?, guard_id)?;
+        if !guarded_file_matches_async(
+            guard_path.clone(),
+            metadata.ciphertext.size_bytes,
+            metadata.ciphertext.sha256_hex(),
+            operation.cancellation().clone(),
+        )
+        .await?
+        {
+            return Err(Error::CacheUnavailable);
+        }
+        let (_, destination) = attachment_paths(app, attachment).map_err(|error| match error {
+            Error::InvalidMetadata | Error::LocalAttachmentUnavailable => Error::DeleteGuardChanged,
+            error => error,
+        })?;
+        let destination_parent = destination
+            .parent()
+            .ok_or(Error::LocalAttachmentUnavailable)?
+            .to_path_buf();
+        let operation_cancellation = operation.cancellation().clone();
+        let staged = tokio::task::spawn_blocking(move || {
+            stage_delete_guard_restore(
+                &key,
+                &context,
+                &guard_path,
+                &destination_parent,
+                &metadata,
+                &operation_cancellation,
+            )
+        })
+        .await
+        .map_err(|_| Error::CacheUnavailable)??;
+        Some((staged, destination, attachment.clone()))
+    } else {
+        None
+    };
+    operation.ensure_active()?;
+
+    let _synced_write_guard = state.synced_write_guard().await;
+    let mut transaction = state.pool().begin_with("BEGIN IMMEDIATE").await?;
+    let current = sqlx::query_as::<_, DeleteSourcePreflight>(DELETE_PREFLIGHT_SELECT)
+        .bind(job_id)
+        .bind(attempt_count)
+        .fetch_optional(&mut *transaction)
+        .await?
+        .ok_or(Error::InvalidTransferState)?;
+    if !same_delete_job(&record, &current) || current.cache_id != guard_id {
+        return Err(Error::DeleteGuardChanged);
+    }
+    let current_attachment = delete_source_attachment(&current)?;
+    if current_attachment.is_some()
+        && staged.as_ref().map(|(_, _, attachment)| attachment) != current_attachment.as_ref()
+    {
+        return Err(Error::DeleteGuardChanged);
+    }
+    operation.ensure_active()?;
+    operation.begin_commit()?;
+
+    if let Some((staged, destination, _)) = staged.filter(|_| current_attachment.is_some()) {
+        let expected_size = valid_plaintext_size(current.expected_size_bytes)?;
+        reconcile_staged_delete_guard(
+            staged,
+            &destination,
+            expected_size,
+            &current.expected_sha256,
+        )?;
+        let attachment = current_attachment
+            .as_ref()
+            .ok_or(Error::DeleteGuardChanged)?;
+        let local_state = sqlx::query(
+            "INSERT INTO attachment_local_state (
+               attachment_id, session_id, relative_path, availability, updated_at
+             )
+             SELECT attachment.id, attachment.session_id, attachment.relative_path,
+                    'present', strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+             FROM session_attachments AS attachment
+             JOIN attachment_transfer_jobs AS job
+               ON job.id = ? AND job.attempt_count = ?
+              AND job.direction = 'delete' AND job.phase = 'finalizing'
+              AND job.attachment_id = attachment.id
+              AND job.session_id = attachment.session_id
+              AND job.workspace_id = attachment.workspace_id
+              AND job.expected_sha256 = attachment.sha256
+              AND job.expected_size_bytes = attachment.size_bytes
+              AND job.object_key = attachment.cloud_object_key
+              AND job.cache_id = ? AND job.ciphertext_sha256 = ?
+              AND job.ciphertext_size_bytes = ?
+             WHERE attachment.id = ? AND attachment.session_id = ?
+               AND attachment.workspace_id = ? AND attachment.relative_path = ?
+               AND attachment.source_type = ? AND attachment.deleted_at IS NULL
+             ON CONFLICT(attachment_id) DO UPDATE SET
+               session_id = excluded.session_id,
+               relative_path = excluded.relative_path,
+               availability = excluded.availability,
+               updated_at = excluded.updated_at",
+        )
+        .bind(job_id)
+        .bind(attempt_count)
+        .bind(&current.cache_id)
+        .bind(&current.ciphertext_sha256)
+        .bind(current.ciphertext_size_bytes)
+        .bind(&current.attachment_id)
+        .bind(&current.session_id)
+        .bind(&current.workspace_id)
+        .bind(&attachment.relative_path)
+        .bind(&attachment.source_type)
+        .execute(&mut *transaction)
+        .await?;
+        if local_state.rows_affected() != 1 {
+            return Err(Error::DeleteGuardChanged);
+        }
+    }
+
+    sqlx::query(
+        "UPDATE session_attachments
+         SET storage_kind = 'local_file', cloud_object_key = '',
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE id = ? AND cloud_object_key = ?
+           AND EXISTS (
+             SELECT 1 FROM attachment_transfer_jobs AS job
+             WHERE job.id = ? AND job.attempt_count = ?
+               AND job.direction = 'delete' AND job.phase = 'finalizing'
+               AND job.attachment_id = ? AND job.session_id = ?
+               AND job.workspace_id = ? AND job.expected_sha256 = ?
+               AND job.expected_size_bytes = ? AND job.object_key = ?
+               AND job.cache_id = ? AND job.ciphertext_sha256 = ?
+               AND job.ciphertext_size_bytes = ?
+           )",
+    )
+    .bind(&current.attachment_id)
+    .bind(&current.object_key)
+    .bind(job_id)
+    .bind(attempt_count)
+    .bind(&current.attachment_id)
+    .bind(&current.session_id)
+    .bind(&current.workspace_id)
+    .bind(&current.expected_sha256)
+    .bind(current.expected_size_bytes)
+    .bind(&current.object_key)
+    .bind(&current.cache_id)
+    .bind(&current.ciphertext_sha256)
+    .bind(current.ciphertext_size_bytes)
+    .execute(&mut *transaction)
+    .await?;
+
+    sqlx::query(
+        "INSERT OR IGNORE INTO attachment_transfer_jobs (
+           id, attachment_id, session_id, workspace_id, direction,
+           expected_sha256, expected_size_bytes
+         )
+         SELECT ?, attachment.id, attachment.session_id, attachment.workspace_id,
+                'upload', attachment.sha256, attachment.size_bytes
+         FROM session_attachments AS attachment
+         JOIN attachment_local_state AS local
+           ON local.attachment_id = attachment.id AND local.availability = 'present'
+         WHERE attachment.id = ? AND attachment.cloud_sync_enabled = 1
+           AND attachment.cloud_object_key = '' AND attachment.deleted_at IS NULL
+           AND EXISTS (
+             SELECT 1 FROM attachment_transfer_jobs AS job
+             WHERE job.id = ? AND job.attempt_count = ?
+               AND job.direction = 'delete' AND job.phase = 'finalizing'
+               AND job.attachment_id = ? AND job.session_id = ?
+               AND job.workspace_id = ? AND job.expected_sha256 = ?
+               AND job.expected_size_bytes = ? AND job.object_key = ?
+               AND job.cache_id = ? AND job.ciphertext_sha256 = ?
+               AND job.ciphertext_size_bytes = ?
+           )",
+    )
+    .bind(Uuid::new_v4().to_string())
+    .bind(&current.attachment_id)
+    .bind(job_id)
+    .bind(attempt_count)
+    .bind(&current.attachment_id)
+    .bind(&current.session_id)
+    .bind(&current.workspace_id)
+    .bind(&current.expected_sha256)
+    .bind(current.expected_size_bytes)
+    .bind(&current.object_key)
+    .bind(&current.cache_id)
+    .bind(&current.ciphertext_sha256)
+    .bind(current.ciphertext_size_bytes)
+    .execute(&mut *transaction)
+    .await?;
+
+    let completed = sqlx::query(
+        "UPDATE attachment_transfer_jobs
+         SET phase = 'completed', cache_id = '', ciphertext_sha256 = '',
+             ciphertext_size_bytes = 0, last_error = '',
+             completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE id = ? AND attempt_count = ? AND direction = 'delete'
+           AND phase = 'finalizing' AND attachment_id = ? AND session_id = ?
+           AND workspace_id = ? AND expected_sha256 = ?
+           AND expected_size_bytes = ? AND object_key = ?
+           AND cache_id = ? AND ciphertext_sha256 = ? AND ciphertext_size_bytes = ?",
+    )
+    .bind(job_id)
+    .bind(attempt_count)
+    .bind(&current.attachment_id)
+    .bind(&current.session_id)
+    .bind(&current.workspace_id)
+    .bind(&current.expected_sha256)
+    .bind(current.expected_size_bytes)
+    .bind(&current.object_key)
+    .bind(&current.cache_id)
+    .bind(&current.ciphertext_sha256)
+    .bind(current.ciphertext_size_bytes)
+    .execute(&mut *transaction)
+    .await?;
+    if completed.rows_affected() != 1 {
+        return Err(Error::DeleteGuardChanged);
+    }
+    transaction.commit().await?;
+    cleanup_linked_delete_guard(app, guard_id).await;
+    Ok(())
+}
+
+pub async fn reconcile_delete_guards<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    state: &tauri_plugin_db::ManagedState,
+) -> Result<u64> {
+    let referenced = sqlx::query_scalar::<_, String>(
+        "SELECT cache_id FROM attachment_transfer_jobs
+         WHERE direction = 'delete' AND phase <> 'completed' AND cache_id <> ''",
+    )
+    .fetch_all(state.pool())
+    .await?
+    .into_iter()
+    .filter(|cache_id| valid_cache_id(cache_id))
+    .collect::<HashSet<_>>();
+    let root = delete_guard_root(app)?;
+    let orphan_before = SystemTime::now()
+        .checked_sub(DELETE_GUARD_ORPHAN_GRACE)
+        .ok_or(Error::CacheUnavailable)?;
+    tokio::task::spawn_blocking(move || {
+        reconcile_delete_guard_files(&root, &referenced, orphan_before)
+    })
+    .await
+    .map_err(|_| Error::CacheUnavailable)?
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1108,6 +1589,105 @@ fn delete_source_attachment(record: &DeleteSourcePreflight) -> Result<Option<Loc
     }))
 }
 
+fn same_delete_job(left: &DeleteSourcePreflight, right: &DeleteSourcePreflight) -> bool {
+    left.attachment_id == right.attachment_id
+        && left.session_id == right.session_id
+        && left.workspace_id == right.workspace_id
+        && left.expected_sha256 == right.expected_sha256
+        && left.expected_size_bytes == right.expected_size_bytes
+        && left.object_key == right.object_key
+        && left.cache_id == right.cache_id
+        && left.ciphertext_sha256 == right.ciphertext_sha256
+        && left.ciphertext_size_bytes == right.ciphertext_size_bytes
+}
+
+async fn clear_delete_guard_link(
+    pool: &sqlx::SqlitePool,
+    operation: &DownloadOperation,
+    job_id: &str,
+    attempt_count: i64,
+    record: &DeleteSourcePreflight,
+) -> Result<()> {
+    operation.ensure_active()?;
+    if record.cache_id.is_empty()
+        && record.ciphertext_sha256.is_empty()
+        && record.ciphertext_size_bytes == 0
+    {
+        return Ok(());
+    }
+    operation.begin_commit()?;
+    let cleared = sqlx::query(
+        "UPDATE attachment_transfer_jobs
+         SET cache_id = '', ciphertext_sha256 = '', ciphertext_size_bytes = 0,
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE id = ? AND attempt_count = ?
+           AND direction = 'delete' AND phase = 'finalizing'
+           AND attachment_id = ? AND session_id = ? AND workspace_id = ?
+           AND expected_sha256 = ? AND expected_size_bytes = ? AND object_key = ?
+           AND cache_id = ? AND ciphertext_sha256 = ? AND ciphertext_size_bytes = ?",
+    )
+    .bind(job_id)
+    .bind(attempt_count)
+    .bind(&record.attachment_id)
+    .bind(&record.session_id)
+    .bind(&record.workspace_id)
+    .bind(&record.expected_sha256)
+    .bind(record.expected_size_bytes)
+    .bind(&record.object_key)
+    .bind(&record.cache_id)
+    .bind(&record.ciphertext_sha256)
+    .bind(record.ciphertext_size_bytes)
+    .execute(pool)
+    .await?;
+    if cleared.rows_affected() != 1 {
+        return Err(Error::DeleteGuardChanged);
+    }
+    Ok(())
+}
+
+fn delete_guard_metadata(
+    record: &DeleteSourcePreflight,
+    key: &WorkspaceKey,
+    plaintext: &AttachmentBlobPlaintextMetadata,
+) -> Result<Option<AttachmentBlobMetadata>> {
+    if record.cache_id.is_empty()
+        || !valid_cache_id(&record.cache_id)
+        || !valid_sha256(&record.ciphertext_sha256)
+    {
+        return Ok(None);
+    }
+    let ciphertext_size = match u64::try_from(record.ciphertext_size_bytes) {
+        Ok(size) if size > 0 && size <= MAX_CIPHERTEXT_BYTES => size,
+        _ => return Ok(None),
+    };
+    let expected_size = key.attachment_blob_ciphertext_size(
+        &record.workspace_id,
+        &record.attachment_id,
+        plaintext.size_bytes,
+    )?;
+    if ciphertext_size != expected_size {
+        return Ok(None);
+    }
+    Ok(Some(AttachmentBlobMetadata {
+        version: u8::try_from(FORMAT_VERSION).map_err(|_| Error::InvalidMetadata)?,
+        plaintext: plaintext.clone(),
+        ciphertext: AttachmentBlobCiphertextMetadata::from_hex(
+            ciphertext_size,
+            &record.ciphertext_sha256,
+        )?,
+    }))
+}
+
+fn delete_source_changed(error: &Error) -> bool {
+    match error {
+        Error::LocalAttachmentUnavailable
+        | Error::ChecksumMismatch
+        | Error::E2ee(hypr_e2ee::AttachmentBlobError::SourceMismatch) => true,
+        Error::Io(source) => source.kind() == std::io::ErrorKind::NotFound,
+        _ => false,
+    }
+}
+
 async fn load_transfer_attachment(
     pool: &sqlx::SqlitePool,
     job_id: &str,
@@ -1346,6 +1926,15 @@ fn validate_object_identity(object_id: &str, object_key: &str) -> Result<()> {
     Ok(())
 }
 
+fn private_object_id(object_key: &str) -> Result<String> {
+    let (_, filename) = object_key.split_once('/').ok_or(Error::InvalidMetadata)?;
+    let object_id = filename
+        .strip_suffix(".anb1")
+        .ok_or(Error::InvalidMetadata)?;
+    validate_object_identity(object_id, object_key)?;
+    Ok(object_id.to_string())
+}
+
 fn validate_uuid_v4(value: &str) -> Result<()> {
     let uuid = Uuid::parse_str(value).map_err(|_| Error::InvalidMetadata)?;
     if uuid.to_string() != value || uuid.get_version() != Some(Version::Random) {
@@ -1549,6 +2138,138 @@ fn snapshot_verified_file(
     Ok(cache_guard)
 }
 
+fn seal_delete_guard(
+    key: &WorkspaceKey,
+    context: &AttachmentBlobContext,
+    source_path: &Path,
+    guard_path: &Path,
+    expected: &AttachmentBlobPlaintextMetadata,
+    cancellation: &tokio_util::sync::CancellationToken,
+) -> Result<(AttachmentBlobMetadata, DeleteGuardFileGuard)> {
+    let guard = DeleteGuardFileGuard::new(guard_path.to_path_buf());
+    let mut source = CancellableReader {
+        inner: std::fs::File::open(source_path)?,
+        cancellation: cancellation.clone(),
+    };
+    let mut options = std::fs::OpenOptions::new();
+    options.create_new(true).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut destination = options.open(guard_path)?;
+    let metadata = match key.seal_attachment_blob(context, &mut source, &mut destination, expected)
+    {
+        Ok(metadata) => metadata,
+        Err(hypr_e2ee::AttachmentBlobError::Io(error))
+            if error.kind() == std::io::ErrorKind::ConnectionAborted =>
+        {
+            return Err(Error::Cancelled);
+        }
+        Err(error) => return Err(error.into()),
+    };
+    destination.sync_all()?;
+    Ok((metadata, guard))
+}
+
+fn reconcile_staged_delete_guard(
+    staged: tempfile::NamedTempFile,
+    destination: &Path,
+    expected_size: u64,
+    expected_sha256: &str,
+) -> Result<Vec<PathBuf>> {
+    let parent = destination
+        .parent()
+        .ok_or(Error::LocalAttachmentUnavailable)?;
+    std::fs::create_dir_all(parent)?;
+    let mut staged = staged;
+    let mut conflicts = Vec::new();
+
+    'reconcile: for _ in 0..8 {
+        if regular_file_matches_with_retry(destination, expected_size, expected_sha256)? {
+            return Ok(conflicts);
+        }
+        if std::fs::symlink_metadata(destination).is_ok() {
+            let conflict = unique_attachment_conflict_path(destination)?;
+            if rename_with_retry(destination, &conflict)? {
+                sync_destination_directory(parent)?;
+                conflicts.push(conflict);
+            }
+        }
+
+        for (index, delay_ms) in [0, 50, 250, 1_000].into_iter().enumerate() {
+            if delay_ms > 0 {
+                std::thread::sleep(Duration::from_millis(delay_ms));
+            }
+            match staged.persist_noclobber(destination) {
+                Ok(_) => {
+                    sync_destination_directory(parent)?;
+                    return Ok(conflicts);
+                }
+                Err(error) if error.error.kind() == std::io::ErrorKind::AlreadyExists => {
+                    staged = error.file;
+                    continue 'reconcile;
+                }
+                Err(error) if index < 3 => {
+                    staged = error.file;
+                }
+                Err(error) => return Err(Error::Io(error.error)),
+            }
+        }
+    }
+    Err(Error::CacheUnavailable)
+}
+
+fn regular_file_matches_with_retry(
+    path: &Path,
+    expected_size: u64,
+    expected_sha256: &str,
+) -> Result<bool> {
+    let mut last_error = None;
+    for delay_ms in [0, 50, 250, 1_000] {
+        if delay_ms > 0 {
+            std::thread::sleep(Duration::from_millis(delay_ms));
+        }
+        match std::fs::symlink_metadata(path) {
+            Ok(metadata) if !metadata.file_type().is_file() => return Ok(false),
+            Ok(_) => match file_matches(path, expected_size, expected_sha256) {
+                Ok(matches) => return Ok(matches),
+                Err(error) => last_error = Some(error),
+            },
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+            Err(error) => last_error = Some(error.into()),
+        }
+    }
+    Err(last_error.unwrap_or(Error::CacheUnavailable))
+}
+
+fn rename_with_retry(source: &Path, destination: &Path) -> Result<bool> {
+    let mut last_error = None;
+    for delay_ms in [0, 50, 250, 1_000] {
+        if delay_ms > 0 {
+            std::thread::sleep(Duration::from_millis(delay_ms));
+        }
+        match std::fs::rename(source, destination) {
+            Ok(()) => return Ok(true),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+            Err(error) => last_error = Some(error),
+        }
+    }
+    Err(last_error.ok_or(Error::CacheUnavailable)?.into())
+}
+
+fn unique_attachment_conflict_path(destination: &Path) -> Result<PathBuf> {
+    let parent = destination
+        .parent()
+        .ok_or(Error::LocalAttachmentUnavailable)?;
+    let filename = destination
+        .file_name()
+        .ok_or(Error::LocalAttachmentUnavailable)?
+        .to_string_lossy();
+    Ok(parent.join(format!("{filename}.anarlog-conflict-{}", Uuid::new_v4())))
+}
+
 fn private_cache_root<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf> {
     Ok(app
         .path()
@@ -1589,6 +2310,123 @@ fn shared_upload_cache_path(root: &Path, cache_id: &str) -> Result<PathBuf> {
         return Err(Error::InvalidTransferState);
     }
     Ok(root.join(format!("{cache_id}.bin")))
+}
+
+fn delete_guard_root<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf> {
+    Ok(app
+        .path()
+        .app_data_dir()
+        .map_err(|_| Error::CacheUnavailable)?
+        .join("attachment-sync")
+        .join("delete-guards"))
+}
+
+async fn create_delete_guard_root(path: &Path) -> Result<()> {
+    tokio::fs::create_dir_all(path).await?;
+    let metadata = tokio::fs::symlink_metadata(path).await?;
+    if !metadata.file_type().is_dir() || metadata.file_type().is_symlink() {
+        return Err(Error::CacheUnavailable);
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        tokio::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700)).await?;
+    }
+    Ok(())
+}
+
+fn delete_guard_path(root: &Path, guard_id: &str) -> Result<PathBuf> {
+    if !valid_cache_id(guard_id) {
+        return Err(Error::InvalidTransferState);
+    }
+    Ok(root.join(format!("{guard_id}.anb1")))
+}
+
+async fn guarded_file_matches_async(
+    path: PathBuf,
+    expected_size: u64,
+    expected_sha256: String,
+    cancellation: tokio_util::sync::CancellationToken,
+) -> Result<bool> {
+    tokio::task::spawn_blocking(move || {
+        let metadata = match std::fs::symlink_metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+            Err(error) => return Err(error.into()),
+        };
+        if !metadata.file_type().is_file() {
+            return Ok(false);
+        }
+        file_matches_cancellable(&path, expected_size, &expected_sha256, &cancellation)
+    })
+    .await
+    .map_err(|_| Error::CacheUnavailable)?
+}
+
+async fn cleanup_linked_delete_guard<R: Runtime>(app: &tauri::AppHandle<R>, guard_id: &str) {
+    if !valid_cache_id(guard_id) {
+        return;
+    }
+    let Ok(path) = delete_guard_path(
+        &match delete_guard_root(app) {
+            Ok(root) => root,
+            Err(_) => return,
+        },
+        guard_id,
+    ) else {
+        return;
+    };
+    let _ = tokio::task::spawn_blocking(move || cleanup_delete_guard_path(&path)).await;
+}
+
+fn cleanup_delete_guard_path(path: &Path) -> Result<bool> {
+    cleanup_shared_upload_path(path)
+}
+
+fn reconcile_delete_guard_files(
+    root: &Path,
+    referenced: &HashSet<String>,
+    orphan_before: SystemTime,
+) -> Result<u64> {
+    let root_metadata = match std::fs::symlink_metadata(root) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+        Err(error) => return Err(error.into()),
+    };
+    if !root_metadata.file_type().is_dir() || root_metadata.file_type().is_symlink() {
+        return Err(Error::CacheUnavailable);
+    }
+    let entries = match std::fs::read_dir(root) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+        Err(error) => return Err(error.into()),
+    };
+    let mut removed = 0_u64;
+    for entry in entries {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+        if !file_type.is_file() && !file_type.is_symlink() {
+            continue;
+        }
+        let path = entry.path();
+        if path.extension().is_none_or(|extension| extension != "anb1") {
+            continue;
+        }
+        let guard_id = path
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .unwrap_or("");
+        if valid_cache_id(guard_id) && referenced.contains(guard_id) {
+            continue;
+        }
+        if std::fs::symlink_metadata(&path)?.modified()? > orphan_before {
+            continue;
+        }
+        if cleanup_delete_guard_path(&path)? {
+            removed = removed.saturating_add(1);
+        }
+    }
+    Ok(removed)
 }
 
 fn cleanup_shared_upload_path(path: &Path) -> Result<bool> {
@@ -1921,6 +2759,34 @@ fn stage_attachment_restore(
     Ok(temp)
 }
 
+fn stage_delete_guard_restore(
+    key: &WorkspaceKey,
+    context: &AttachmentBlobContext,
+    guard_path: &Path,
+    destination_parent: &Path,
+    expected: &AttachmentBlobMetadata,
+    cancellation: &tokio_util::sync::CancellationToken,
+) -> Result<tempfile::NamedTempFile> {
+    std::fs::create_dir_all(destination_parent)?;
+    let mut source = CancellableReader {
+        inner: std::fs::File::open(guard_path)?,
+        cancellation: cancellation.clone(),
+    };
+    let mut temp = tempfile::NamedTempFile::new_in(destination_parent)?;
+    match key.open_attachment_blob(context, &mut source, &mut temp, expected) {
+        Ok(_) => {}
+        Err(hypr_e2ee::AttachmentBlobError::Io(error))
+            if error.kind() == std::io::ErrorKind::ConnectionAborted =>
+        {
+            return Err(Error::Cancelled);
+        }
+        Err(error) => return Err(error.into()),
+    }
+    temp.flush()?;
+    temp.as_file().sync_all()?;
+    Ok(temp)
+}
+
 fn persist_staged_attachment(staged: tempfile::NamedTempFile, destination: &Path) -> Result<()> {
     let parent = destination
         .parent()
@@ -1972,11 +2838,15 @@ mod tests {
 
     fn delete_source_record(cloud_sync_enabled: i64) -> DeleteSourcePreflight {
         DeleteSourcePreflight {
+            attachment_id: "attachment-1".to_string(),
             session_id: "session-1".to_string(),
             workspace_id: "workspace-1".to_string(),
             expected_sha256: "a".repeat(64),
             expected_size_bytes: 1,
             object_key: "owner/object.anb1".to_string(),
+            cache_id: String::new(),
+            ciphertext_sha256: String::new(),
+            ciphertext_size_bytes: 0,
             current_attachment_id: Some("attachment-1".to_string()),
             relative_path: Some("attachments/file.bin".to_string()),
             source_type: Some("note_upload".to_string()),
@@ -2307,6 +3177,295 @@ mod tests {
         assert_eq!(std::fs::read(&destination_path).unwrap(), b"old bytes");
         persist_staged_attachment(staged, &destination_path).unwrap();
         assert_eq!(std::fs::read(destination_path).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn delete_guard_restores_canonical_bytes_and_preserves_a_conflict() {
+        let directory = tempfile::tempdir().unwrap();
+        let source_path = directory.path().join("source.bin");
+        let guard_path = directory.path().join(format!("{}.anb1", Uuid::new_v4()));
+        let destination_path = directory.path().join("destination.bin");
+        let canonical = b"canonical private attachment";
+        let local_edit = b"different local attachment";
+        std::fs::write(&source_path, canonical).unwrap();
+
+        let key = hypr_e2ee::RecoveryKey::generate()
+            .unwrap()
+            .workspace_key("workspace-a")
+            .unwrap();
+        let context =
+            AttachmentBlobContext::new("workspace-a", "attachment-a", Uuid::new_v4().to_string())
+                .unwrap();
+        let expected = AttachmentBlobPlaintextMetadata::from_hex(
+            canonical.len() as u64,
+            &hex_digest(Sha256::digest(canonical).as_slice()),
+        )
+        .unwrap();
+        let (metadata, guard) = seal_delete_guard(
+            &key,
+            &context,
+            &source_path,
+            &guard_path,
+            &expected,
+            &tokio_util::sync::CancellationToken::new(),
+        )
+        .unwrap();
+        guard.disarm();
+
+        assert_ne!(std::fs::read(&guard_path).unwrap(), canonical);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                std::fs::metadata(&guard_path).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+        }
+
+        std::fs::write(&source_path, b"source changed after delete began").unwrap();
+        std::fs::write(&destination_path, local_edit).unwrap();
+        let staged = stage_delete_guard_restore(
+            &key,
+            &context,
+            &guard_path,
+            directory.path(),
+            &metadata,
+            &tokio_util::sync::CancellationToken::new(),
+        )
+        .unwrap();
+        let conflicts = reconcile_staged_delete_guard(
+            staged,
+            &destination_path,
+            canonical.len() as u64,
+            &expected.sha256_hex(),
+        )
+        .unwrap();
+
+        assert_eq!(std::fs::read(&destination_path).unwrap(), canonical);
+        assert_eq!(conflicts.len(), 1);
+        assert_eq!(std::fs::read(&conflicts[0]).unwrap(), local_edit);
+
+        let staged = stage_delete_guard_restore(
+            &key,
+            &context,
+            &guard_path,
+            directory.path(),
+            &metadata,
+            &tokio_util::sync::CancellationToken::new(),
+        )
+        .unwrap();
+        assert!(
+            reconcile_staged_delete_guard(
+                staged,
+                &destination_path,
+                canonical.len() as u64,
+                &expected.sha256_hex(),
+            )
+            .unwrap()
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn delete_guard_restores_a_missing_destination() {
+        let directory = tempfile::tempdir().unwrap();
+        let source_path = directory.path().join("source.bin");
+        let guard_path = directory.path().join(format!("{}.anb1", Uuid::new_v4()));
+        let destination_path = directory.path().join("missing.bin");
+        let canonical = b"attachment recovered after remote delete";
+        std::fs::write(&source_path, canonical).unwrap();
+        let key = hypr_e2ee::RecoveryKey::generate()
+            .unwrap()
+            .workspace_key("workspace-a")
+            .unwrap();
+        let context =
+            AttachmentBlobContext::new("workspace-a", "attachment-a", Uuid::new_v4().to_string())
+                .unwrap();
+        let expected = AttachmentBlobPlaintextMetadata::from_hex(
+            canonical.len() as u64,
+            &hex_digest(Sha256::digest(canonical).as_slice()),
+        )
+        .unwrap();
+        let (metadata, guard) = seal_delete_guard(
+            &key,
+            &context,
+            &source_path,
+            &guard_path,
+            &expected,
+            &tokio_util::sync::CancellationToken::new(),
+        )
+        .unwrap();
+        guard.disarm();
+        let staged = stage_delete_guard_restore(
+            &key,
+            &context,
+            &guard_path,
+            directory.path(),
+            &metadata,
+            &tokio_util::sync::CancellationToken::new(),
+        )
+        .unwrap();
+
+        assert!(
+            reconcile_staged_delete_guard(
+                staged,
+                &destination_path,
+                canonical.len() as u64,
+                &expected.sha256_hex(),
+            )
+            .unwrap()
+            .is_empty()
+        );
+        assert_eq!(std::fs::read(destination_path).unwrap(), canonical);
+    }
+
+    #[test]
+    fn cancelled_delete_guard_seal_removes_partial_ciphertext() {
+        let directory = tempfile::tempdir().unwrap();
+        let source_path = directory.path().join("source.bin");
+        let guard_path = directory.path().join(format!("{}.anb1", Uuid::new_v4()));
+        let canonical = b"attachment whose delete was cancelled";
+        std::fs::write(&source_path, canonical).unwrap();
+        let key = hypr_e2ee::RecoveryKey::generate()
+            .unwrap()
+            .workspace_key("workspace-a")
+            .unwrap();
+        let context =
+            AttachmentBlobContext::new("workspace-a", "attachment-a", Uuid::new_v4().to_string())
+                .unwrap();
+        let expected = AttachmentBlobPlaintextMetadata::from_hex(
+            canonical.len() as u64,
+            &hex_digest(Sha256::digest(canonical).as_slice()),
+        )
+        .unwrap();
+        let cancellation = tokio_util::sync::CancellationToken::new();
+        cancellation.cancel();
+
+        assert!(matches!(
+            seal_delete_guard(
+                &key,
+                &context,
+                &source_path,
+                &guard_path,
+                &expected,
+                &cancellation,
+            ),
+            Err(Error::Cancelled)
+        ));
+        assert!(!guard_path.exists());
+    }
+
+    #[test]
+    fn cancelled_delete_guard_restore_removes_plaintext_stage() {
+        let directory = tempfile::tempdir().unwrap();
+        let source_path = directory.path().join("source.bin");
+        let guard_path = directory.path().join(format!("{}.anb1", Uuid::new_v4()));
+        let canonical = b"attachment whose restore was cancelled";
+        std::fs::write(&source_path, canonical).unwrap();
+        let key = hypr_e2ee::RecoveryKey::generate()
+            .unwrap()
+            .workspace_key("workspace-a")
+            .unwrap();
+        let context =
+            AttachmentBlobContext::new("workspace-a", "attachment-a", Uuid::new_v4().to_string())
+                .unwrap();
+        let expected = AttachmentBlobPlaintextMetadata::from_hex(
+            canonical.len() as u64,
+            &hex_digest(Sha256::digest(canonical).as_slice()),
+        )
+        .unwrap();
+        let (metadata, guard) = seal_delete_guard(
+            &key,
+            &context,
+            &source_path,
+            &guard_path,
+            &expected,
+            &tokio_util::sync::CancellationToken::new(),
+        )
+        .unwrap();
+        guard.disarm();
+        let cancellation = tokio_util::sync::CancellationToken::new();
+        cancellation.cancel();
+
+        assert!(matches!(
+            stage_delete_guard_restore(
+                &key,
+                &context,
+                &guard_path,
+                directory.path(),
+                &metadata,
+                &cancellation,
+            ),
+            Err(Error::Cancelled)
+        ));
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 2);
+    }
+
+    #[test]
+    fn recoverable_delete_guard_drift_uses_a_retryable_message() {
+        let message = Error::DeleteGuardChanged.to_string().to_ascii_lowercase();
+        for permanent_marker in ["invalid", "mismatch", "path", "source"] {
+            assert!(!message.contains(permanent_marker));
+        }
+    }
+
+    #[tokio::test]
+    async fn delete_guard_directory_is_owner_only() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().join("delete-guards");
+
+        create_delete_guard_root(&root).await.unwrap();
+        assert!(root.is_dir());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                std::fs::metadata(root).unwrap().permissions().mode() & 0o777,
+                0o700
+            );
+        }
+    }
+
+    #[test]
+    fn delete_guard_reconciliation_retains_only_live_references() {
+        let directory = tempfile::tempdir().unwrap();
+        let live = Uuid::new_v4().to_string();
+        let orphan = Uuid::new_v4().to_string();
+        std::fs::write(directory.path().join(format!("{live}.anb1")), b"live").unwrap();
+        std::fs::write(directory.path().join(format!("{orphan}.anb1")), b"orphan").unwrap();
+        std::fs::write(directory.path().join("malformed.anb1"), b"malformed").unwrap();
+
+        assert_eq!(
+            reconcile_delete_guard_files(
+                directory.path(),
+                &HashSet::from([live.clone()]),
+                SystemTime::now() + Duration::from_secs(1),
+            )
+            .unwrap(),
+            2
+        );
+        assert!(directory.path().join(format!("{live}.anb1")).is_file());
+        assert!(!directory.path().join(format!("{orphan}.anb1")).exists());
+        assert!(!directory.path().join("malformed.anb1").exists());
+    }
+
+    #[test]
+    fn delete_guard_reconciliation_does_not_race_a_new_guard() {
+        let directory = tempfile::tempdir().unwrap();
+        let guard_id = Uuid::new_v4().to_string();
+        let guard_path = directory.path().join(format!("{guard_id}.anb1"));
+        std::fs::write(&guard_path, b"new unlinked guard").unwrap();
+
+        assert_eq!(
+            reconcile_delete_guard_files(
+                directory.path(),
+                &HashSet::new(),
+                SystemTime::now() - DELETE_GUARD_ORPHAN_GRACE,
+            )
+            .unwrap(),
+            0
+        );
+        assert!(guard_path.is_file());
     }
 
     #[test]

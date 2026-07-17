@@ -1,6 +1,6 @@
 use crate::models::{
-    PreparedSharedUpload, PreparedUpload, RestoredAttachment, SharedAttachmentCacheResult,
-    SharedUploadVersion, UploadDescriptor,
+    PreparedDeleteGuard, PreparedSharedUpload, PreparedUpload, RestoredAttachment,
+    SharedAttachmentCacheResult, SharedUploadVersion, UploadDescriptor,
 };
 use tauri::Manager;
 
@@ -209,13 +209,55 @@ pub(crate) async fn cleanup_shared_upload<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn verify_delete_source<R: tauri::Runtime>(
+pub(crate) async fn prepare_delete_guard<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    control: tauri::State<'_, crate::control::DownloadControl>,
     state: tauri::State<'_, tauri_plugin_db::ManagedState>,
+    operation_id: String,
     job_id: String,
     attempt_count: i64,
-) -> Result<bool, String> {
-    crate::runtime::verify_delete_source(&app, state.inner(), &job_id, attempt_count)
+) -> Result<PreparedDeleteGuard, String> {
+    let operation = control
+        .start(&operation_id, None)
+        .map_err(|error| error.to_string())?;
+    crate::runtime::prepare_delete_guard(&app, state.inner(), &operation, &job_id, attempt_count)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn commit_delete_guard<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    control: tauri::State<'_, crate::control::DownloadControl>,
+    state: tauri::State<'_, tauri_plugin_db::ManagedState>,
+    operation_id: String,
+    job_id: String,
+    attempt_count: i64,
+    guard_id: String,
+) -> Result<(), String> {
+    let operation = control
+        .start(&operation_id, None)
+        .map_err(|error| error.to_string())?;
+    crate::runtime::commit_delete_guard(
+        &app,
+        state.inner(),
+        &operation,
+        &job_id,
+        attempt_count,
+        &guard_id,
+    )
+    .await
+    .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn reconcile_delete_guards<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    state: tauri::State<'_, tauri_plugin_db::ManagedState>,
+) -> Result<u64, String> {
+    crate::runtime::reconcile_delete_guards(&app, state.inner())
         .await
         .map_err(|error| error.to_string())
 }

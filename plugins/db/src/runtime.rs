@@ -160,6 +160,10 @@ impl PluginDbRuntime {
         self.e2ee_sync_hook.workspace_key(workspace_id)
     }
 
+    pub async fn synced_write_guard(&self) -> tokio::sync::RwLockReadGuard<'_, ()> {
+        self.synced_write_barrier.read().await
+    }
+
     async fn ensure_app_schema(&self) -> Result<()> {
         self.schema_ready
             .get_or_try_init(|| async { hypr_db_app::prepare_schema(self.db.as_ref()).await })
@@ -871,6 +875,25 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(session_count, 1);
+    }
+
+    #[tokio::test]
+    async fn reconciliation_barrier_blocks_native_synced_writes() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        let runtime = std::sync::Arc::new(PluginDbRuntime::new(db));
+        let guard = runtime.synced_write_barrier.write().await;
+        let write_runtime = std::sync::Arc::clone(&runtime);
+        let mut write = tokio::spawn(async move {
+            let _guard = write_runtime.synced_write_guard().await;
+        });
+
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(25), &mut write)
+                .await
+                .is_err()
+        );
+        drop(guard);
+        write.await.unwrap();
     }
 
     fn unavailable_extension_error() -> DbOpenError {

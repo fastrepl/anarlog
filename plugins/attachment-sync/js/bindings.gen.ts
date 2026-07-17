@@ -78,9 +78,25 @@ async cleanupSharedUpload(cacheId: string) : Promise<Result<boolean, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async verifyDeleteSource(jobId: string, attemptCount: number) : Promise<Result<boolean, string>> {
+async prepareDeleteGuard(operationId: string, jobId: string, attemptCount: number) : Promise<Result<PreparedDeleteGuard, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:attachment-sync|verify_delete_source", { jobId, attemptCount }) };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:attachment-sync|prepare_delete_guard", { operationId, jobId, attemptCount }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async commitDeleteGuard(operationId: string, jobId: string, attemptCount: number, guardId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:attachment-sync|commit_delete_guard", { operationId, jobId, attemptCount, guardId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async reconcileDeleteGuards() : Promise<Result<number, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:attachment-sync|reconcile_delete_guards") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -162,6 +178,7 @@ async clearSharedAttachmentScope(scopeId: string) : Promise<Result<number, strin
 
 /** user-defined types **/
 
+export type PreparedDeleteGuard = { shouldDelete: boolean; guardId: string }
 export type PreparedSharedUpload = { cacheId: string; sha256: string; sizeBytes: number }
 export type PreparedUpload = { cacheId: string; ciphertextSha256: string; ciphertextSizeBytes: number }
 export type RestoredAttachment = { attachmentId: string; sessionId: string; relativePath: string; sizeBytes: number; sha256: string }

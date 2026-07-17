@@ -7,7 +7,9 @@ const mocks = vi.hoisted(() => ({
   cancelSharedUploadOperation: vi.fn(),
   prepareSharedUpload: vi.fn(),
   validateSharedUpload: vi.fn(),
-  verifyDeleteSource: vi.fn(),
+  prepareDeleteGuard: vi.fn(),
+  commitDeleteGuard: vi.fn(),
+  reconcileDeleteGuards: vi.fn(),
   downloadAndRestore: vi.fn(),
   downloadSharedAttachment: vi.fn(),
 }));
@@ -47,18 +49,53 @@ describe("native attachment operation cancellation", () => {
       status: "ok",
       data: true,
     });
-    mocks.verifyDeleteSource.mockResolvedValue({
+    mocks.prepareDeleteGuard.mockResolvedValue({
       status: "ok",
-      data: true,
+      data: { shouldDelete: true, guardId: "guard-1" },
+    });
+    mocks.commitDeleteGuard.mockResolvedValue({
+      status: "ok",
+      data: null,
+    });
+    mocks.reconcileDeleteGuards.mockResolvedValue({
+      status: "ok",
+      data: 0,
     });
   });
 
-  it("forwards an exact delete attempt to native source verification", async () => {
+  it("registers the exact delete attempt while preparing its guard", async () => {
     await expect(
-      attachmentTransferNative.verifyDeleteSource("job-1", 7),
-    ).resolves.toBe(true);
+      attachmentTransferNative.prepareDeleteGuard("job-1", 7),
+    ).resolves.toEqual({ shouldDelete: true, guardId: "guard-1" });
 
-    expect(mocks.verifyDeleteSource).toHaveBeenCalledWith("job-1", 7);
+    const operationId = mocks.beginSharedUploadOperation.mock.calls[0]?.[0];
+    expect(mocks.prepareDeleteGuard).toHaveBeenCalledWith(
+      operationId,
+      "job-1",
+      7,
+    );
+  });
+
+  it("commits the exact guarded delete through the cancellable native path", async () => {
+    await expect(
+      attachmentTransferNative.commitDeleteGuard("job-1", 7, "guard-1"),
+    ).resolves.toBeNull();
+
+    const operationId = mocks.beginSharedUploadOperation.mock.calls[0]?.[0];
+    expect(mocks.commitDeleteGuard).toHaveBeenCalledWith(
+      operationId,
+      "job-1",
+      7,
+      "guard-1",
+    );
+  });
+
+  it("reconciles durable delete guards outside the cache purge path", async () => {
+    await expect(
+      attachmentTransferNative.reconcileDeleteGuards(),
+    ).resolves.toBe(0);
+
+    expect(mocks.reconcileDeleteGuards).toHaveBeenCalledOnce();
   });
 
   it("registers before starting a private download and cancels the same operation", async () => {

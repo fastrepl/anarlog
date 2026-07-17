@@ -87,7 +87,6 @@ export const attachmentTransferStore = {
   prepareDelete: prepareAttachmentTransferDelete,
   deferDeleteForPreservation: deferAttachmentTransferDeleteForPreservation,
   completeUpload,
-  completeDelete,
   completeWithoutTransfer,
   retry: retryAttachmentTransferJob,
   fail: failAttachmentTransferJob,
@@ -289,7 +288,7 @@ export async function resetProcessLocalAttachmentTransferAttempts(): Promise<num
           SET
             phase = 'retry_wait',
             attempt_count = attempt_count + 1,
-            cache_id = '',
+            cache_id = CASE WHEN direction = 'delete' THEN cache_id ELSE '' END,
             next_attempt_at = ?,
             last_error = 'The previous process-local transfer was interrupted.',
             updated_at = ?
@@ -477,6 +476,9 @@ export async function prepareAttachmentTransferDelete(
             UPDATE attachment_transfer_jobs
             SET
               phase = 'completed',
+              cache_id = '',
+              ciphertext_sha256 = '',
+              ciphertext_size_bytes = 0,
               completed_at = ?,
               updated_at = ?,
               last_error = ''
@@ -734,80 +736,6 @@ export async function deferAttachmentTransferDeleteForPreservation(
   );
 }
 
-export async function completeDelete(
-  job: AttachmentTransferJob,
-): Promise<void> {
-  const now = new Date().toISOString();
-  const [, , completed = 0] = await enqueueDatabaseWrite(
-    "attachment-transfers",
-    () =>
-      executeTransaction([
-        {
-          sql: `
-          UPDATE session_attachments
-          SET
-            storage_kind = 'local_file',
-            cloud_object_key = '',
-            updated_at = ?
-          WHERE id = ?
-            AND cloud_object_key = ?
-            AND EXISTS (
-              SELECT 1
-              FROM attachment_transfer_jobs AS job
-                WHERE job.id = ?
-                  AND job.attempt_count = ?
-                  AND job.direction = 'delete'
-                  AND job.phase = 'finalizing'
-            )
-        `,
-          params: [
-            now,
-            job.attachmentId,
-            job.objectKey,
-            job.id,
-            job.attemptCount,
-          ],
-        },
-        {
-          sql: `
-          INSERT OR IGNORE INTO attachment_transfer_jobs (
-            id,
-            attachment_id,
-            session_id,
-            workspace_id,
-            direction,
-            expected_sha256,
-            expected_size_bytes
-          )
-          SELECT ?, attachment.id, attachment.session_id, attachment.workspace_id,
-            'upload', attachment.sha256, attachment.size_bytes
-          FROM session_attachments AS attachment
-          JOIN attachment_local_state AS local
-            ON local.attachment_id = attachment.id
-            AND local.availability = 'present'
-          WHERE attachment.id = ?
-            AND attachment.cloud_sync_enabled = 1
-            AND attachment.cloud_object_key = ''
-            AND attachment.deleted_at IS NULL
-            AND EXISTS (
-              SELECT 1
-              FROM attachment_transfer_jobs AS job
-              WHERE job.id = ?
-                AND job.attempt_count = ?
-                AND job.direction = 'delete'
-                AND job.phase = 'finalizing'
-            )
-        `,
-          params: [id(), job.attachmentId, job.id, job.attemptCount],
-        },
-        completedDeleteJobStatement(job, now),
-      ]),
-  );
-  if (completed !== 1) {
-    throw new Error("Attachment transfer is no longer active");
-  }
-}
-
 export async function completeWithoutTransfer(
   job: AttachmentTransferJob,
 ): Promise<void> {
@@ -924,20 +852,6 @@ function completedJobStatement(job: AttachmentTransferJob, now: string) {
       UPDATE attachment_transfer_jobs
       SET phase = 'completed', completed_at = ?, updated_at = ?, last_error = ''
       WHERE id = ? AND attempt_count = ? AND phase <> 'completed'
-    `,
-    params: [now, now, job.id, job.attemptCount],
-  };
-}
-
-function completedDeleteJobStatement(job: AttachmentTransferJob, now: string) {
-  return {
-    sql: `
-      UPDATE attachment_transfer_jobs
-      SET phase = 'completed', completed_at = ?, updated_at = ?, last_error = ''
-      WHERE id = ?
-        AND attempt_count = ?
-        AND direction = 'delete'
-        AND phase = 'finalizing'
     `,
     params: [now, now, job.id, job.attemptCount],
   };
