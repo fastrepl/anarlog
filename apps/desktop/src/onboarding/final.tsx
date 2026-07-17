@@ -93,7 +93,7 @@ export function FinalSection({
         {status === "loading" ? (
           <span className="flex items-center gap-2">
             <Loader2Icon className="size-4 animate-spin" />
-            <Trans>Opening Anarlog</Trans>
+            <Trans>Open Anarlog</Trans>
           </span>
         ) : (
           <Trans>Open Anarlog</Trans>
@@ -101,7 +101,7 @@ export function FinalSection({
       </OnboardingButton>
       {status === "error" && (
         <p className="text-sm text-red-500" role="alert">
-          <Trans>Couldn't open Anarlog. Please try again.</Trans>
+          <Trans>Retry</Trans>
         </p>
       )}
     </div>
