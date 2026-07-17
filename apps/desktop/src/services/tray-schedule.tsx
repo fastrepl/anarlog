@@ -10,6 +10,7 @@ import { addDays, safeParseDate, startOfDay, TZDate } from "@hypr/utils";
 import { useIgnoredEvents } from "~/calendar/ignored-events";
 import { useTimelineEventsTable } from "~/calendar/queries";
 import { useConfigValue } from "~/shared/config";
+import { useCurrentDay } from "~/shared/hooks/useCurrentDay";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import type { TimelineEventRow } from "~/sidebar/timeline/utils";
 
@@ -91,6 +92,7 @@ export function TrayScheduleSync() {
   const timelineEventsTable = useTimelineEventsTable();
   const { isIgnored } = useIgnoredEvents();
   const timezone = useConfigValue("timezone") || undefined;
+  const currentDay = useCurrentDay(timezone);
   const events = useMemo(
     () =>
       buildTrayScheduleEvents(
@@ -99,7 +101,7 @@ export function TrayScheduleSync() {
         Date.now(),
         timezone,
       ),
-    [isIgnored, timelineEventsTable, timezone],
+    [currentDay, isIgnored, timelineEventsTable, timezone],
   );
 
   return <TraySchedulePublisher key={JSON.stringify(events)} events={events} />;
