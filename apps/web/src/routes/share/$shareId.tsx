@@ -4,11 +4,11 @@ import { useCallback } from "react";
 import { AccountSharedNoteActions } from "@/components/shared-note-actions";
 import { SharedNoteCollaboration } from "@/components/shared-note-collaboration";
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
+import { SharedNoteEditableViewer } from "@/components/shared-note-editable-viewer";
 import {
   SharedNoteLoading,
   SharedNoteTransientError,
   SharedNoteUnavailable,
-  SharedNoteViewer,
 } from "@/components/shared-note-viewer";
 import { fetchUser } from "@/functions/auth";
 import {
@@ -83,9 +83,12 @@ function Component() {
   }
 
   return (
-    <SharedNoteViewer
+    <SharedNoteEditableViewer
+      key={note.snapshot.shareId}
       snapshot={note.snapshot}
+      authenticatedNote={note}
       resolveAttachment={resolveAttachment}
+      revokedBehavior="unavailable"
       accessLabel={formatAuthenticatedSharedNoteAccessLabel(note)}
       collaboration={
         <SharedNoteCollaboration

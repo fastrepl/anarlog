@@ -3,7 +3,8 @@ use std::collections::HashSet;
 use axum::{
     Extension, Json, Router,
     extract::{DefaultBodyLimit, Path, State},
-    http::{HeaderMap, HeaderValue, header},
+    http::{HeaderMap, HeaderValue, StatusCode, header},
+    response::{IntoResponse, Response},
     routing::{post, put},
 };
 use chrono::{SecondsFormat, TimeDelta, Utc};
@@ -30,7 +31,7 @@ const MAX_TOKEN_WORKSPACES: usize = 128;
 const MAX_TOKEN_ATTRIBUTES_BYTES: usize = 8 * 1024;
 const SNAPSHOT_PUBLISH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 const MAX_SNAPSHOT_REQUEST_BYTES: usize = MAX_SNAPSHOT_BODY_BYTES + 16 * 1024;
-const MAX_SNAPSHOT_RESPONSE_BYTES: u64 = (MAX_SNAPSHOT_BODY_BYTES + 16 * 1024) as u64;
+const MAX_SNAPSHOT_RESPONSE_BYTES: usize = MAX_SNAPSHOT_BODY_BYTES + 256 * 1024;
 const CLOUDSYNC_ENCRYPTION_VERSION: u8 = 2;
 const E2EE_KEY_ID_HEADER: &str = "x-anarlog-e2ee-key-id";
 
@@ -128,6 +129,8 @@ struct WorkspaceRow {
 #[derive(Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PublishSessionShareSnapshotRequest {
+    base_revision: i64,
+    mutation_id: String,
     title: String,
     body: Value,
     #[serde(default)]
@@ -153,13 +156,29 @@ pub struct PublishedSessionShareSnapshot {
     title: String,
     body: Value,
     attachments: Vec<SharedNoteAttachment>,
+    web_editable: bool,
+    access_version: i64,
     published_at: String,
 }
 
 #[derive(Serialize)]
-struct PublishSnapshotRpcRequest<'a> {
+struct PublishSnapshotCasRpcRequest<'a> {
     p_share_id: &'a str,
     p_actor_user_id: &'a str,
+    p_expected_content_revision: i64,
+    p_mutation_id: &'a str,
+    p_title: &'a str,
+    p_body_json: &'a Value,
+    p_attachment_ids: &'a [String],
+    p_web_editable: bool,
+}
+
+#[derive(Serialize)]
+struct EditSnapshotCasRpcRequest<'a> {
+    p_share_id: &'a str,
+    p_actor_user_id: &'a str,
+    p_expected_content_revision: i64,
+    p_mutation_id: &'a str,
     p_title: &'a str,
     p_body_json: &'a Value,
     p_attachment_ids: &'a [String],
@@ -167,13 +186,23 @@ struct PublishSnapshotRpcRequest<'a> {
 
 #[derive(Deserialize)]
 struct PublishedSnapshotRow {
+    outcome: String,
     share_id: String,
     schema_version: i16,
     content_revision: i64,
     title: String,
     body_json: Value,
     attachments_json: Vec<SharedNoteAttachment>,
+    web_editable: bool,
+    access_version: i64,
     published_at: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SnapshotConflictResponse {
+    code: &'static str,
+    snapshot: PublishedSessionShareSnapshot,
 }
 
 #[derive(Deserialize)]
@@ -186,7 +215,8 @@ struct PostgrestError {
     paths(
         create_credentials,
         claim_e2ee_identity,
-        publish_session_share_snapshot
+        publish_session_share_snapshot,
+        edit_session_share_snapshot
     ),
     components(schemas(
         CloudsyncCredentials,
@@ -208,7 +238,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     openapi
 }
 
-pub fn router(state: AppState) -> Router {
+pub fn pro_router(state: AppState) -> Router {
     Router::new()
         .route("/token", post(create_credentials))
         .route("/e2ee/identity", put(claim_e2ee_identity))
@@ -220,6 +250,16 @@ pub fn router(state: AppState) -> Router {
         )
         .merge(attachment_backups::router())
         .merge(shared_attachments::router())
+        .with_state(state)
+}
+
+pub fn web_edit_router(state: AppState) -> Router {
+    Router::new()
+        .route(
+            "/shares/{share_id}/web-edit",
+            put(edit_session_share_snapshot)
+                .layer(DefaultBodyLimit::max(MAX_SNAPSHOT_REQUEST_BYTES)),
+        )
         .with_state(state)
 }
 
@@ -264,6 +304,7 @@ async fn claim_e2ee_identity(
         (status = 400, description = "Invalid shared-note snapshot"),
         (status = 401, description = "Authentication required"),
         (status = 403, description = "Anarlog Pro or share-manager access required"),
+        (status = 409, description = "Shared note changed since the supplied base revision"),
         (status = 413, description = "Shared-note snapshot is too large"),
         (status = 502, description = "Shared-note service unavailable")
     )
@@ -273,86 +314,155 @@ async fn publish_session_share_snapshot(
     State(state): State<AppState>,
     Path(share_id): Path<String>,
     Json(request): Json<PublishSessionShareSnapshotRequest>,
-) -> Result<(
-    [(header::HeaderName, HeaderValue); 1],
-    Json<PublishedSessionShareSnapshot>,
-)> {
+) -> Result<Response> {
     if !auth.claims.is_pro() {
         return Err(SyncError::ProPlanRequired);
     }
 
-    let share_id = Uuid::parse_str(&share_id)
-        .map_err(|_| SyncError::BadRequest("Shared note ID is invalid".to_string()))?
-        .to_string();
-    let title = sanitize_title(&request.title)?;
-    if request.attachment_ids.len() > 64 {
+    mutate_session_share_snapshot(
+        &state,
+        &auth.claims.sub,
+        &share_id,
+        request,
+        SnapshotMutationKind::DesktopPublish,
+    )
+    .await
+}
+
+#[utoipa::path(
+    put,
+    path = "/shares/{share_id}/web-edit",
+    tag = "sync",
+    params(("share_id" = String, Path, description = "Session share ID")),
+    request_body = PublishSessionShareSnapshotRequest,
+    responses(
+        (status = 200, description = "Shared-note edit saved", body = PublishedSessionShareSnapshot),
+        (status = 400, description = "Invalid or unsupported shared-note edit"),
+        (status = 401, description = "Authentication required"),
+        (status = 403, description = "Explicit Editor access required"),
+        (status = 409, description = "Shared note changed since the supplied base revision"),
+        (status = 413, description = "Shared-note edit is too large"),
+        (status = 502, description = "Shared-note service unavailable")
+    )
+)]
+async fn edit_session_share_snapshot(
+    Extension(auth): Extension<AuthContext>,
+    State(state): State<AppState>,
+    Path(share_id): Path<String>,
+    Json(request): Json<PublishSessionShareSnapshotRequest>,
+) -> Result<Response> {
+    mutate_session_share_snapshot(
+        &state,
+        &auth.claims.sub,
+        &share_id,
+        request,
+        SnapshotMutationKind::WebEdit,
+    )
+    .await
+}
+
+#[derive(Clone, Copy)]
+enum SnapshotMutationKind {
+    DesktopPublish,
+    WebEdit,
+}
+
+async fn mutate_session_share_snapshot(
+    state: &AppState,
+    actor_user_id: &str,
+    share_id: &str,
+    request: PublishSessionShareSnapshotRequest,
+    kind: SnapshotMutationKind,
+) -> Result<Response> {
+    let share_id = canonical_random_uuid(share_id, "Shared note ID")?;
+    let mutation_id = canonical_random_uuid(&request.mutation_id, "Mutation ID")?;
+    let minimum_revision = match kind {
+        SnapshotMutationKind::DesktopPublish => 0,
+        SnapshotMutationKind::WebEdit => 1,
+    };
+    if request.base_revision < minimum_revision || request.base_revision == i64::MAX {
         return Err(SyncError::BadRequest(
-            "Shared note has too many attachments".to_string(),
+            "Shared note base revision is invalid".to_string(),
         ));
     }
-    let mut attachment_ids = HashSet::new();
-    for attachment_id in &request.attachment_ids {
-        let uuid = Uuid::parse_str(attachment_id)
-            .map_err(|_| SyncError::BadRequest("Shared attachment ID is invalid".to_string()))?;
-        if uuid.to_string() != *attachment_id
-            || uuid.get_version() != Some(uuid::Version::Random)
-            || !attachment_ids.insert(attachment_id.clone())
-        {
-            return Err(SyncError::BadRequest(
-                "Shared attachment ID is invalid".to_string(),
-            ));
-        }
-    }
+    let title = sanitize_title(&request.title)?;
+    let attachment_ids = validate_attachment_ids(&request.attachment_ids)?;
     let body = sanitize_document_with_attachments(&request.body, &attachment_ids)?;
+    let web_editable = attachment_ids.is_empty() && body == request.body;
+    if matches!(kind, SnapshotMutationKind::WebEdit) && !web_editable {
+        return Err(SyncError::BadRequest(
+            "Shared note edit contains unsupported content".to_string(),
+        ));
+    }
 
-    let response = state
+    let rpc_name = match kind {
+        SnapshotMutationKind::DesktopPublish => "publish_session_share_snapshot_cas",
+        SnapshotMutationKind::WebEdit => "edit_session_share_snapshot_cas",
+    };
+    let builder = state
         .client
         .post(format!(
-            "{}/rest/v1/rpc/publish_session_share_snapshot_with_attachments",
+            "{}/rest/v1/rpc/{rpc_name}",
             state.config.supabase_url
         ))
         .header("apikey", &state.config.supabase_service_role_key)
         .bearer_auth(&state.config.supabase_service_role_key)
-        .timeout(SNAPSHOT_PUBLISH_TIMEOUT)
-        .json(&PublishSnapshotRpcRequest {
+        .timeout(SNAPSHOT_PUBLISH_TIMEOUT);
+    let builder = match kind {
+        SnapshotMutationKind::DesktopPublish => builder.json(&PublishSnapshotCasRpcRequest {
             p_share_id: &share_id,
-            p_actor_user_id: &auth.claims.sub,
+            p_actor_user_id: actor_user_id,
+            p_expected_content_revision: request.base_revision,
+            p_mutation_id: &mutation_id,
             p_title: &title,
             p_body_json: &body,
             p_attachment_ids: &request.attachment_ids,
-        })
-        .send()
-        .await
-        .map_err(|error| {
-            tracing::warn!(%error, "Supabase shared-note publication request failed");
-            SyncError::SnapshotServiceUnavailable
-        })?;
+            p_web_editable: web_editable,
+        }),
+        SnapshotMutationKind::WebEdit => builder.json(&EditSnapshotCasRpcRequest {
+            p_share_id: &share_id,
+            p_actor_user_id: actor_user_id,
+            p_expected_content_revision: request.base_revision,
+            p_mutation_id: &mutation_id,
+            p_title: &title,
+            p_body_json: &body,
+            p_attachment_ids: &request.attachment_ids,
+        }),
+    };
+    let mut response = builder.send().await.map_err(|error| {
+        tracing::warn!(%error, rpc_name, "Supabase shared-note mutation request failed");
+        SyncError::SnapshotServiceUnavailable
+    })?;
     let status = response.status();
     if response
         .content_length()
-        .is_some_and(|length| length > MAX_SNAPSHOT_RESPONSE_BYTES)
+        .is_some_and(|length| length > MAX_SNAPSHOT_RESPONSE_BYTES as u64)
     {
-        tracing::warn!(%status, "Supabase shared-note publication response was too large");
+        tracing::warn!(%status, rpc_name, "Supabase shared-note mutation response was too large");
         return Err(SyncError::SnapshotServiceUnavailable);
     }
-    let bytes = response.bytes().await.map_err(|error| {
-        tracing::warn!(%error, "Supabase shared-note publication response could not be read");
+
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|error| {
+        tracing::warn!(%error, rpc_name, "Supabase shared-note mutation response could not be read");
         SyncError::SnapshotServiceUnavailable
-    })?;
-    if bytes.len() as u64 > MAX_SNAPSHOT_RESPONSE_BYTES {
-        tracing::warn!(%status, "Supabase shared-note publication response was too large");
-        return Err(SyncError::SnapshotServiceUnavailable);
+    })? {
+        if bytes.len().saturating_add(chunk.len()) > MAX_SNAPSHOT_RESPONSE_BYTES {
+            tracing::warn!(%status, rpc_name, "Supabase shared-note mutation response was too large");
+            return Err(SyncError::SnapshotServiceUnavailable);
+        }
+        bytes.extend_from_slice(&chunk);
     }
     if !status.is_success() {
         let code = serde_json::from_slice::<PostgrestError>(&bytes)
             .ok()
             .map(|error| error.code);
-        tracing::warn!(%status, ?code, "Supabase shared-note publication was rejected");
+        tracing::warn!(%status, ?code, rpc_name, "Supabase shared-note mutation was rejected");
         return match (status, code.as_deref()) {
             (HttpStatusCode::UNAUTHORIZED | HttpStatusCode::FORBIDDEN, _) | (_, Some("42501")) => {
                 Err(SyncError::SnapshotPublicationForbidden)
             }
-            (_, Some("22023")) => Err(SyncError::BadRequest(
+            (_, Some("22023" | "55000")) => Err(SyncError::BadRequest(
                 "Shared note snapshot is invalid".to_string(),
             )),
             _ => Err(SyncError::SnapshotServiceUnavailable),
@@ -361,42 +471,112 @@ async fn publish_session_share_snapshot(
 
     let mut rows =
         serde_json::from_slice::<Vec<PublishedSnapshotRow>>(&bytes).map_err(|error| {
-            tracing::warn!(%error, "Supabase shared-note publication response was invalid");
+            tracing::warn!(%error, rpc_name, "Supabase shared-note mutation response was invalid");
             SyncError::SnapshotServiceUnavailable
         })?;
     if rows.len() != 1 {
         tracing::warn!(
             row_count = rows.len(),
-            "Supabase shared-note publication returned an invalid row count"
+            "Supabase shared-note mutation returned an invalid row count"
         );
         return Err(SyncError::SnapshotServiceUnavailable);
     }
     let row = rows.pop().expect("row count was checked");
-    if row.share_id != share_id
+    if !matches!(row.outcome.as_str(), "applied" | "replayed" | "conflict")
+        || row.share_id != share_id
         || row.schema_version != 1
         || row.content_revision < 1
-        || row.title != title
-        || row.body_json != body
-        || validate_shared_attachments(&row.attachments_json, Some(&request.attachment_ids))
-            .is_err()
+        || (row.outcome == "conflict" && row.content_revision == request.base_revision)
+        || (row.outcome != "conflict" && row.content_revision != request.base_revision + 1)
+        || row.access_version < 1
         || chrono::DateTime::parse_from_rfc3339(&row.published_at).is_err()
     {
-        tracing::warn!("Supabase shared-note publication response failed validation");
+        tracing::warn!(
+            rpc_name,
+            "Supabase shared-note mutation response failed validation"
+        );
+        return Err(SyncError::SnapshotServiceUnavailable);
+    }
+    let expected_ids = (row.outcome != "conflict").then_some(request.attachment_ids.as_slice());
+    if validate_shared_attachments(&row.attachments_json, expected_ids).is_err()
+        || validate_snapshot_document(&row.body_json, &row.attachments_json).is_err()
+        || !sanitize_title(&row.title).is_ok_and(|title| title == row.title)
+        || (row.outcome != "conflict" && (row.title != title || row.body_json != body))
+        || (matches!(kind, SnapshotMutationKind::WebEdit)
+            && row.outcome != "conflict"
+            && !row.web_editable)
+    {
+        tracing::warn!(
+            rpc_name,
+            "Supabase shared-note mutation payload failed validation"
+        );
         return Err(SyncError::SnapshotServiceUnavailable);
     }
 
-    Ok((
-        [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
-        Json(PublishedSessionShareSnapshot {
-            share_id: row.share_id,
-            schema_version: row.schema_version,
-            content_revision: row.content_revision,
-            title: row.title,
-            body: row.body_json,
-            attachments: row.attachments_json,
-            published_at: row.published_at,
-        }),
-    ))
+    let outcome = row.outcome;
+    let snapshot = PublishedSessionShareSnapshot {
+        share_id: row.share_id,
+        schema_version: row.schema_version,
+        content_revision: row.content_revision,
+        title: row.title,
+        body: row.body_json,
+        attachments: row.attachments_json,
+        web_editable: row.web_editable,
+        access_version: row.access_version,
+        published_at: row.published_at,
+    };
+    let headers = [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))];
+    if outcome == "conflict" {
+        return Ok((
+            StatusCode::CONFLICT,
+            headers,
+            Json(SnapshotConflictResponse {
+                code: "snapshot_conflict",
+                snapshot,
+            }),
+        )
+            .into_response());
+    }
+    Ok((headers, Json(snapshot)).into_response())
+}
+
+fn canonical_random_uuid(value: &str, label: &str) -> Result<String> {
+    let uuid =
+        Uuid::parse_str(value).map_err(|_| SyncError::BadRequest(format!("{label} is invalid")))?;
+    if uuid.to_string() != value || uuid.get_version() != Some(uuid::Version::Random) {
+        return Err(SyncError::BadRequest(format!("{label} is invalid")));
+    }
+    Ok(value.to_string())
+}
+
+fn validate_attachment_ids(values: &[String]) -> Result<HashSet<String>> {
+    if values.len() > 64 {
+        return Err(SyncError::BadRequest(
+            "Shared note has too many attachments".to_string(),
+        ));
+    }
+    let mut ids = HashSet::new();
+    for value in values {
+        canonical_random_uuid(value, "Shared attachment ID")?;
+        if !ids.insert(value.clone()) {
+            return Err(SyncError::BadRequest(
+                "Shared attachment ID is invalid".to_string(),
+            ));
+        }
+    }
+    Ok(ids)
+}
+
+fn validate_snapshot_document(body: &Value, attachments: &[SharedNoteAttachment]) -> Result<()> {
+    let ids = attachments
+        .iter()
+        .map(|attachment| attachment.id.clone())
+        .collect::<HashSet<_>>();
+    let sanitized = sanitize_document_with_attachments(body, &ids)?;
+    if sanitized != *body {
+        return Err(SyncError::SnapshotServiceUnavailable);
+    }
+    Ok(())
 }
 
 pub(crate) fn validate_shared_attachments(
@@ -763,7 +943,7 @@ mod tests {
     const TEST_KEY_ID: &str = "abcdefghijklmnopqrstuv";
 
     fn test_router(server: &MockServer, api_key: &str, entitlements: &[&str]) -> Router {
-        router(AppState::new(SyncConfig {
+        let state = AppState::new(SyncConfig {
             project_url: server.uri(),
             token_issuer_api_key: api_key.to_string(),
             database_id: "database-id".to_string(),
@@ -771,21 +951,23 @@ mod tests {
             supabase_url: server.uri(),
             supabase_anon_key: "anon-key".to_string(),
             supabase_service_role_key: "service-role-key".to_string(),
-        }))
-        .layer(Extension(AuthContext {
-            token: "supabase-token".to_string(),
-            claims: Claims {
-                sub: "user-123".to_string(),
-                email: None,
-                entitlements: entitlements
-                    .iter()
-                    .map(|entitlement| (*entitlement).to_string())
-                    .collect(),
-                subscription_status: None,
-                trial_end: None,
-                has_payment_method: None,
-            },
-        }))
+        });
+        pro_router(state.clone())
+            .merge(web_edit_router(state))
+            .layer(Extension(AuthContext {
+                token: "supabase-token".to_string(),
+                claims: Claims {
+                    sub: "user-123".to_string(),
+                    email: None,
+                    entitlements: entitlements
+                        .iter()
+                        .map(|entitlement| (*entitlement).to_string())
+                        .collect(),
+                    subscription_status: None,
+                    trial_end: None,
+                    has_payment_method: None,
+                },
+            }))
     }
 
     fn personal_workspace(id: &str) -> Value {
@@ -1243,6 +1425,7 @@ mod tests {
     async fn publishes_only_the_sanitized_snapshot_as_the_authenticated_actor() {
         let server = MockServer::start().await;
         let share_id = "11111111-1111-4111-8111-111111111111";
+        let mutation_id = "22222222-2222-4222-8222-222222222222";
         let sanitized_body = json!({
             "type": "doc",
             "content": [
@@ -1260,25 +1443,29 @@ mod tests {
             ]
         });
         Mock::given(method("POST"))
-            .and(path(
-                "/rest/v1/rpc/publish_session_share_snapshot_with_attachments",
-            ))
+            .and(path("/rest/v1/rpc/publish_session_share_snapshot_cas"))
             .and(header("apikey", "service-role-key"))
             .and(header("authorization", "Bearer service-role-key"))
             .and(body_partial_json(json!({
                 "p_share_id": share_id,
                 "p_actor_user_id": "user-123",
+                "p_expected_content_revision": 1,
+                "p_mutation_id": mutation_id,
                 "p_title": "Quarterly plan",
                 "p_body_json": sanitized_body,
-                "p_attachment_ids": []
+                "p_attachment_ids": [],
+                "p_web_editable": false
             })))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "outcome": "applied",
                 "share_id": share_id,
                 "schema_version": 1,
                 "content_revision": 2,
                 "title": "Quarterly plan",
                 "body_json": sanitized_body,
                 "attachments_json": [],
+                "web_editable": false,
+                "access_version": 4,
                 "published_at": "2026-07-16T10:00:00Z"
             }])))
             .expect(1)
@@ -1291,6 +1478,8 @@ mod tests {
                     .header(header::CONTENT_TYPE, "application/json")
                     .body(Body::from(
                         json!({
+                            "baseRevision": 1,
+                            "mutationId": mutation_id,
                             "title": "  Quarterly plan  ",
                             "body": {
                                 "type": "doc",
@@ -1335,6 +1524,8 @@ mod tests {
         assert_eq!(body["contentRevision"], 2);
         assert_eq!(body["title"], "Quarterly plan");
         assert_eq!(body["body"], sanitized_body);
+        assert_eq!(body["webEditable"], false);
+        assert_eq!(body["accessVersion"], 4);
 
         let requests = server.received_requests().await.unwrap();
         let published = String::from_utf8(requests[0].body.clone()).unwrap();
@@ -1350,11 +1541,21 @@ mod tests {
         let cases = [
             (
                 "/shares/not-a-uuid/snapshot".to_string(),
-                json!({ "title": "Title", "body": { "type": "doc" } }),
+                json!({
+                    "baseRevision": 1,
+                    "mutationId": "22222222-2222-4222-8222-222222222222",
+                    "title": "Title",
+                    "body": { "type": "doc" }
+                }),
             ),
             (
                 "/shares/11111111-1111-4111-8111-111111111111/snapshot".to_string(),
-                json!({ "title": "Title", "body": { "type": "paragraph" } }),
+                json!({
+                    "baseRevision": 1,
+                    "mutationId": "22222222-2222-4222-8222-222222222222",
+                    "title": "Title",
+                    "body": { "type": "paragraph" }
+                }),
             ),
         ];
 
@@ -1383,7 +1584,13 @@ mod tests {
                 Request::put("/shares/11111111-1111-4111-8111-111111111111/snapshot")
                     .header(header::CONTENT_TYPE, "application/json")
                     .body(Body::from(
-                        json!({ "title": "Title", "body": { "type": "doc" } }).to_string(),
+                        json!({
+                            "baseRevision": 1,
+                            "mutationId": "22222222-2222-4222-8222-222222222222",
+                            "title": "Title",
+                            "body": { "type": "doc" }
+                        })
+                        .to_string(),
                     ))
                     .unwrap(),
             )
@@ -1402,9 +1609,7 @@ mod tests {
     async fn maps_manager_denial_without_leaking_supabase_details() {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
-            .and(path(
-                "/rest/v1/rpc/publish_session_share_snapshot_with_attachments",
-            ))
+            .and(path("/rest/v1/rpc/publish_session_share_snapshot_cas"))
             .respond_with(ResponseTemplate::new(403).set_body_json(json!({
                 "code": "42501",
                 "message": "secret database detail"
@@ -1417,7 +1622,13 @@ mod tests {
                 Request::put("/shares/11111111-1111-4111-8111-111111111111/snapshot")
                     .header(header::CONTENT_TYPE, "application/json")
                     .body(Body::from(
-                        json!({ "title": "Title", "body": { "type": "doc" } }).to_string(),
+                        json!({
+                            "baseRevision": 1,
+                            "mutationId": "22222222-2222-4222-8222-222222222222",
+                            "title": "Title",
+                            "body": { "type": "doc" }
+                        })
+                        .to_string(),
                     ))
                     .unwrap(),
             )
@@ -1428,6 +1639,262 @@ mod tests {
         let body = response_json(response).await.to_string();
         assert!(body.contains("shared_note_publication_forbidden"));
         assert!(!body.contains("secret database detail"));
+        assert!(!body.contains("service-role-key"));
+    }
+
+    #[tokio::test]
+    async fn saves_an_explicit_editor_web_edit_without_a_pro_entitlement() {
+        let server = MockServer::start().await;
+        let share_id = "11111111-1111-4111-8111-111111111111";
+        let mutation_id = "22222222-2222-4222-8222-222222222222";
+        let body = json!({
+            "type": "doc",
+            "content": [{
+                "type": "heading",
+                "attrs": { "level": 1 },
+                "content": [{ "type": "text", "text": "Edited note" }]
+            }]
+        });
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/edit_session_share_snapshot_cas"))
+            .and(header("apikey", "service-role-key"))
+            .and(header("authorization", "Bearer service-role-key"))
+            .and(body_partial_json(json!({
+                "p_share_id": share_id,
+                "p_actor_user_id": "user-123",
+                "p_expected_content_revision": 3,
+                "p_mutation_id": mutation_id,
+                "p_title": "Edited note",
+                "p_body_json": body,
+                "p_attachment_ids": []
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "outcome": "applied",
+                "share_id": share_id,
+                "schema_version": 1,
+                "content_revision": 4,
+                "title": "Edited note",
+                "body_json": body,
+                "attachments_json": [],
+                "web_editable": true,
+                "access_version": 7,
+                "published_at": "2026-07-17T10:00:00Z"
+            }])))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let response = test_router(&server, "issuer-key", &[])
+            .oneshot(
+                Request::put(format!("/shares/{share_id}/web-edit"))
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        json!({
+                            "baseRevision": 3,
+                            "mutationId": mutation_id,
+                            "title": "Edited note",
+                            "body": body,
+                            "attachmentIds": []
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        let response = response_json(response).await;
+        assert_eq!(response["contentRevision"], 4);
+        assert_eq!(response["webEditable"], true);
+        assert_eq!(response["accessVersion"], 7);
+    }
+
+    #[tokio::test]
+    async fn rejects_an_oversized_chunked_snapshot_mutation_response() {
+        let server = MockServer::start().await;
+        let share_id = "11111111-1111-4111-8111-111111111111";
+        let mutation_id = "22222222-2222-4222-8222-222222222222";
+        let body = json!({
+            "type": "doc",
+            "content": [{ "type": "paragraph" }]
+        });
+        let upstream_body = json!([{
+            "outcome": "applied",
+            "share_id": share_id,
+            "schema_version": 1,
+            "content_revision": 2,
+            "title": "Title",
+            "body_json": body,
+            "attachments_json": [],
+            "web_editable": true,
+            "access_version": 1,
+            "published_at": "2026-07-17T10:00:00Z",
+            "padding": "x".repeat(MAX_SNAPSHOT_RESPONSE_BYTES)
+        }])
+        .to_string();
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/edit_session_share_snapshot_cas"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("transfer-encoding", "chunked")
+                    .set_body_raw(upstream_body, "application/json"),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let response = test_router(&server, "issuer-key", &[])
+            .oneshot(
+                Request::put(format!("/shares/{share_id}/web-edit"))
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        json!({
+                            "baseRevision": 1,
+                            "mutationId": mutation_id,
+                            "title": "Title",
+                            "body": body,
+                            "attachmentIds": []
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
+        assert_eq!(
+            response_json(response).await["error"]["code"],
+            "shared_note_service_unavailable"
+        );
+    }
+
+    #[tokio::test]
+    async fn maps_a_stale_web_edit_to_a_redacted_conflict_snapshot() {
+        let server = MockServer::start().await;
+        let share_id = "11111111-1111-4111-8111-111111111111";
+        let mutation_id = "22222222-2222-4222-8222-222222222222";
+        let draft = json!({
+            "type": "doc",
+            "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Draft" }] }]
+        });
+        let current = json!({
+            "type": "doc",
+            "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Current" }] }]
+        });
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/edit_session_share_snapshot_cas"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "outcome": "conflict",
+                "share_id": share_id,
+                "schema_version": 1,
+                "content_revision": 5,
+                "title": "Current",
+                "body_json": current,
+                "attachments_json": [],
+                "web_editable": true,
+                "access_version": 9,
+                "published_at": "2026-07-17T10:05:00Z"
+            }])))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let response = test_router(&server, "issuer-key", &[])
+            .oneshot(
+                Request::put(format!("/shares/{share_id}/web-edit"))
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        json!({
+                            "baseRevision": 4,
+                            "mutationId": mutation_id,
+                            "title": "Draft",
+                            "body": draft,
+                            "attachmentIds": []
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        let response = response_json(response).await;
+        assert_eq!(response["code"], "snapshot_conflict");
+        assert_eq!(response["snapshot"]["contentRevision"], 5);
+        assert_eq!(response["snapshot"]["body"], current);
+    }
+
+    #[tokio::test]
+    async fn rejects_a_lossy_web_edit_before_calling_supabase() {
+        let server = MockServer::start().await;
+        let response = test_router(&server, "issuer-key", &[])
+            .oneshot(
+                Request::put(
+                    "/shares/11111111-1111-4111-8111-111111111111/web-edit",
+                )
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    json!({
+                        "baseRevision": 1,
+                        "mutationId": "22222222-2222-4222-8222-222222222222",
+                        "title": "Unsupported",
+                        "body": {
+                            "type": "doc",
+                            "content": [{ "type": "privateNode", "attrs": { "secret": "value" } }]
+                        },
+                        "attachmentIds": []
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert!(server.received_requests().await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn maps_revoked_editor_denial_without_leaking_database_details() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/edit_session_share_snapshot_cas"))
+            .respond_with(ResponseTemplate::new(403).set_body_json(json!({
+                "code": "42501",
+                "message": "revoked editor secret detail"
+            })))
+            .mount(&server)
+            .await;
+
+        let response = test_router(&server, "issuer-key", &[])
+            .oneshot(
+                Request::put("/shares/11111111-1111-4111-8111-111111111111/web-edit")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        json!({
+                            "baseRevision": 1,
+                            "mutationId": "22222222-2222-4222-8222-222222222222",
+                            "title": "Title",
+                            "body": { "type": "doc", "content": [{ "type": "paragraph" }] },
+                            "attachmentIds": []
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = response_json(response).await.to_string();
+        assert!(body.contains("shared_note_publication_forbidden"));
+        assert!(!body.contains("revoked editor secret detail"));
         assert!(!body.contains("service-role-key"));
     }
 }
