@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-run-event-hooks"
+description = "Enables the run_event_hooks command without any pre-configured scope."
+commands.allow = ["run_event_hooks"]
+
+[[permission]]
+identifier = "deny-run-event-hooks"
+description = "Denies the run_event_hooks command without any pre-configured scope."
+commands.deny = ["run_event_hooks"]

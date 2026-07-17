@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-fetch-todos"
+description = "Enables the fetch_todos command without any pre-configured scope."
+commands.allow = ["fetch_todos"]
+
+[[permission]]
+identifier = "deny-fetch-todos"
+description = "Denies the fetch_todos command without any pre-configured scope."
+commands.deny = ["fetch_todos"]

@@ -1,0 +1,22 @@
+version: 0.0.2
+patterns:
+  - name: compile_time_env_only
+    level: warn
+    body: |
+      language rust
+
+      `std::env::var($key)` => `env!($key)` where {
+        $filename <: or {
+          includes "src-tauri"
+        }
+      }
+  - name: no_env_in_crate
+    level: warn
+    body: |
+      language rust
+
+      `std::env::var($key)` where {
+        $filename <: and {
+          includes "crates"
+        }
+      }

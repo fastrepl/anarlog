@@ -1,0 +1,242 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Char Webhook API",
+    "description": "Webhook events sent by Char to external systems",
+    "contact": {
+      "name": "Char Team",
+      "url": "https://char.com",
+      "email": "support@char.com"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    },
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://your-server.example.com",
+      "description": "Your webhook endpoint"
+    }
+  ],
+  "paths": {},
+  "components": {
+    "schemas": {
+      "NoteEventData": {
+        "type": "object",
+        "required": ["note_id", "title", "tags", "created_at"],
+        "properties": {
+          "note_id": {
+            "type": "string",
+            "description": "Unique identifier of the note",
+            "example": "note_abc123"
+          },
+          "title": {
+            "type": "string",
+            "description": "Title of the note",
+            "example": "Meeting Notes - Q1 Planning"
+          },
+          "content": {
+            "type": ["string", "null"],
+            "description": "Content of the note (may be truncated for large notes)",
+            "example": "Today we discussed..."
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Tags associated with the note",
+            "example": ["meeting", "planning", "q1"]
+          },
+          "created_at": {
+            "type": "string",
+            "description": "ISO 8601 timestamp when the note was created",
+            "example": "2024-01-10T10:00:00Z"
+          },
+          "updated_at": {
+            "type": ["string", "null"],
+            "description": "ISO 8601 timestamp when the note was last updated",
+            "example": "2024-01-10T10:30:00Z"
+          }
+        }
+      },
+      "RecordingEventData": {
+        "type": "object",
+        "required": ["recording_id", "status", "started_at"],
+        "properties": {
+          "recording_id": {
+            "type": "string",
+            "description": "Unique identifier of the recording",
+            "example": "rec_xyz789"
+          },
+          "duration_seconds": {
+            "type": ["integer", "null"],
+            "format": "int32",
+            "description": "Duration of the recording in seconds",
+            "example": 300,
+            "minimum": 0
+          },
+          "file_size_bytes": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "description": "File size in bytes",
+            "example": 1048576,
+            "minimum": 0
+          },
+          "status": {
+            "$ref": "#/components/schemas/RecordingStatus",
+            "description": "Status of the recording"
+          },
+          "started_at": {
+            "type": "string",
+            "description": "ISO 8601 timestamp when recording started",
+            "example": "2024-01-10T10:00:00Z"
+          },
+          "completed_at": {
+            "type": ["string", "null"],
+            "description": "ISO 8601 timestamp when recording completed",
+            "example": "2024-01-10T10:05:00Z"
+          }
+        }
+      },
+      "RecordingStatus": {
+        "type": "string",
+        "enum": ["started", "in_progress", "completed", "failed"]
+      },
+      "TranscriptionEventData": {
+        "type": "object",
+        "required": ["recording_id", "transcription_id", "text", "processing_time_ms"],
+        "properties": {
+          "recording_id": {
+            "type": "string",
+            "description": "ID of the recording that was transcribed",
+            "example": "rec_xyz789"
+          },
+          "transcription_id": {
+            "type": "string",
+            "description": "ID of the transcription",
+            "example": "trans_qwe456"
+          },
+          "text": {
+            "type": "string",
+            "description": "Transcribed text",
+            "example": "Hello, this is the transcribed text from the recording."
+          },
+          "language": {
+            "type": ["string", "null"],
+            "description": "Language detected in the transcription",
+            "example": "en"
+          },
+          "confidence": {
+            "type": ["number", "null"],
+            "format": "float",
+            "description": "Confidence score of the transcription (0.0 to 1.0)",
+            "example": 0.95
+          },
+          "processing_time_ms": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Duration in milliseconds to complete transcription",
+            "example": 1500,
+            "minimum": 0
+          }
+        }
+      },
+      "WebhookDeliveryRequest": {
+        "type": "object",
+        "required": ["event", "signature"],
+        "properties": {
+          "event": {
+            "$ref": "#/components/schemas/WebhookEvent",
+            "description": "The webhook event being delivered"
+          },
+          "signature": {
+            "type": "string",
+            "description": "Signature for webhook verification (HMAC-SHA256)",
+            "example": "sha256=abcdef1234567890"
+          }
+        }
+      },
+      "WebhookDeliveryResponse": {
+        "type": "object",
+        "required": ["success"],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the webhook was successfully processed"
+          },
+          "message": {
+            "type": ["string", "null"],
+            "description": "Optional message from the receiver"
+          }
+        }
+      },
+      "WebhookEvent": {
+        "type": "object",
+        "required": ["id", "event_type", "timestamp", "api_version", "data"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for this webhook event",
+            "example": "evt_01234567890"
+          },
+          "event_type": {
+            "$ref": "#/components/schemas/WebhookEventType",
+            "description": "Type of the webhook event"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "ISO 8601 timestamp when the event occurred",
+            "example": "2024-01-10T10:30:00Z"
+          },
+          "api_version": {
+            "type": "string",
+            "description": "Version of the webhook API",
+            "example": "1.0"
+          },
+          "data": {
+            "$ref": "#/components/schemas/WebhookEventData",
+            "description": "The actual event data"
+          }
+        }
+      },
+      "WebhookEventData": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/NoteEventData"
+          },
+          {
+            "$ref": "#/components/schemas/RecordingEventData"
+          },
+          {
+            "$ref": "#/components/schemas/TranscriptionEventData"
+          }
+        ]
+      },
+      "WebhookEventType": {
+        "type": "string",
+        "enum": [
+          "note_created",
+          "note_updated",
+          "note_deleted",
+          "recording_started",
+          "recording_completed",
+          "transcription_ready"
+        ]
+      }
+    },
+    "securitySchemes": {
+      "webhook_signature": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Webhook-Signature"
+      }
+    }
+  },
+  "externalDocs": {
+    "url": "https://docs.anarlog.so/",
+    "description": "More information about Char webhooks"
+  }
+}

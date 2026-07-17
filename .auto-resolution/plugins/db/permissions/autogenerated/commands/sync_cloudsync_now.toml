@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-sync-cloudsync-now"
+description = "Enables the sync_cloudsync_now command without any pre-configured scope."
+commands.allow = ["sync_cloudsync_now"]
+
+[[permission]]
+identifier = "deny-sync-cloudsync-now"
+description = "Denies the sync_cloudsync_now command without any pre-configured scope."
+commands.deny = ["sync_cloudsync_now"]

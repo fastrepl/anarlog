@@ -1,0 +1,13 @@
+filter.tag = "^web_v"
+
+[output]
+format = "plain"
+
+[next.patch]
+increment = 1
+
+[next.minor]
+increment = 1
+
+[next.major]
+increment = 1

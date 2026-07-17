@@ -1,0 +1,8 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = [
+  "allow-show",
+  "allow-hide",
+  "allow-set-phase",
+  "allow-update-amplitude",
+]

@@ -1,0 +1,578 @@
+import Cocoa
+
+protocol TrackableButton: AnyObject {
+  var trackingArea: NSTrackingArea? { get set }
+}
+
+extension TrackableButton where Self: NSView {
+  func setupTrackingArea() {
+    if let area = trackingArea { removeTrackingArea(area) }
+    let area = NSTrackingArea(
+      rect: bounds,
+      options: [.activeAlways, .mouseEnteredAndExited, .inVisibleRect],
+      owner: self,
+      userInfo: nil
+    )
+    addTrackingArea(area)
+    trackingArea = area
+  }
+}
+
+class CloseButton: NSButton, TrackableButton {
+  weak var notification: NotificationInstance?
+  weak var backdropView: CloseButtonBackdropView?
+  var trackingArea: NSTrackingArea?
+
+  override init(frame frameRect: NSRect) {
+    super.init(frame: frameRect)
+    setup()
+  }
+
+  required init?(coder: NSCoder) {
+    super.init(coder: coder)
+    setup()
+  }
+
+  private func setup() {
+    wantsLayer = true
+    isBordered = false
+    bezelStyle = .regularSquare
+    imagePosition = .imageOnly
+    imageScaling = .scaleProportionallyDown
+
+    if #available(macOS 11.0, *) {
+      let cfg = NSImage.SymbolConfiguration(
+        pointSize: CloseButtonConfig.symbolPointSize, weight: .medium)
+      image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "Close")?
+        .withSymbolConfiguration(cfg)
+    } else {
+      image = NSImage(named: NSImage.stopProgressTemplateName)
+    }
+    contentTintColor = NSColor.black.withAlphaComponent(0.62)
+
+    layer?.cornerRadius = CloseButtonConfig.size / 2
+    layer?.backgroundColor = NSColor.clear.cgColor
+
+    layer?.shadowColor = NSColor.black.cgColor
+    layer?.shadowOpacity = 0.16
+    layer?.shadowOffset = CGSize(width: 0, height: 1.5)
+    layer?.shadowRadius = 4
+
+    layer?.zPosition = 1001
+
+    alphaValue = 0
+    isHidden = true
+  }
+
+  override var intrinsicContentSize: NSSize {
+    NSSize(width: CloseButtonConfig.size, height: CloseButtonConfig.size)
+  }
+
+  override func layout() {
+    super.layout()
+    layer?.cornerRadius = min(bounds.width, bounds.height) / 2
+  }
+
+  override func updateTrackingAreas() {
+    super.updateTrackingAreas()
+    setupTrackingArea()
+  }
+
+  override func mouseDown(with event: NSEvent) {
+    backdropView?.setFillColor(Colors.closeButtonPressedBg)
+    DispatchQueue.main.asyncAfter(deadline: .now() + Timing.buttonPress) {
+      self.backdropView?.setFillColor(Colors.closeButtonHoverBg)
+    }
+    notification?.dismissWithUserAction()
+  }
+
+  override func mouseEntered(with event: NSEvent) {
+    super.mouseEntered(with: event)
+    NSCursor.pointingHand.push()
+    backdropView?.setFillColor(Colors.closeButtonHoverBg)
+  }
+
+  override func mouseExited(with event: NSEvent) {
+    super.mouseExited(with: event)
+    NSCursor.pop()
+    backdropView?.setFillColor(Colors.closeButtonNormalBg)
+  }
+}
+
+class CloseButtonBackdropView: NSVisualEffectView {
+  private let fillLayer = CALayer()
+  private let borderLayer = CALayer()
+
+  override init(frame frameRect: NSRect) {
+    super.init(frame: frameRect)
+    setup()
+  }
+
+  required init?(coder: NSCoder) {
+    super.init(coder: coder)
+    setup()
+  }
+
+  private func setup() {
+    material = .popover
+    state = .active
+    blendingMode = .behindWindow
+    wantsLayer = true
+
+    layer?.cornerRadius = CloseButtonConfig.size / 2
+    layer?.masksToBounds = true
+    if #available(macOS 11.0, *) {
+      layer?.cornerCurve = .continuous
+    }
+
+    fillLayer.backgroundColor = Colors.closeButtonNormalBg
+    layer?.addSublayer(fillLayer)
+
+    borderLayer.borderWidth = 0.8
+    borderLayer.borderColor = Colors.closeButtonBorder
+    layer?.addSublayer(borderLayer)
+
+    alphaValue = 0
+    isHidden = true
+  }
+
+  func setFillColor(_ color: CGColor) {
+    CATransaction.begin()
+    CATransaction.setAnimationDuration(Timing.hoverFade)
+    fillLayer.backgroundColor = color
+    CATransaction.commit()
+  }
+
+  override func layout() {
+    super.layout()
+    let radius = min(bounds.width, bounds.height) / 2
+    layer?.cornerRadius = radius
+
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    fillLayer.frame = bounds
+    borderLayer.frame = bounds
+    fillLayer.cornerRadius = radius
+    borderLayer.cornerRadius = radius
+    if #available(macOS 11.0, *) {
+      fillLayer.cornerCurve = .continuous
+      borderLayer.cornerCurve = .continuous
+    }
+    CATransaction.commit()
+  }
+}
+
+class NotificationButton: NSButton {
+  weak var notification: NotificationInstance?
+  private var normalBackgroundColor = Colors.buttonNormalBg
+  private var pressedBackgroundColor = Colors.buttonPressedBg
+
+  override init(frame frameRect: NSRect) {
+    super.init(frame: frameRect)
+    setup()
+  }
+
+  required init?(coder: NSCoder) {
+    super.init(coder: coder)
+    setup()
+  }
+
+  private func setup() {
+    wantsLayer = true
+    isBordered = false
+    bezelStyle = .rounded
+    controlSize = .small
+    font = NSFont.systemFont(ofSize: Fonts.buttonSize, weight: Fonts.buttonWeight)
+    focusRingType = .none
+
+    contentTintColor = NSColor(calibratedWhite: 0.1, alpha: 1.0)
+    if #available(macOS 11.0, *) {
+      bezelColor = NSColor(calibratedWhite: 0.9, alpha: 1.0)
+    }
+
+    layer?.cornerRadius = 14
+    layer?.backgroundColor = normalBackgroundColor
+    layer?.borderColor = NSColor.white.withAlphaComponent(0.55).cgColor
+    layer?.borderWidth = 0.5
+
+    layer?.shadowColor = NSColor(calibratedWhite: 0.0, alpha: 0.5).cgColor
+    layer?.shadowOpacity = 0.2
+    layer?.shadowRadius = 2
+    layer?.shadowOffset = CGSize(width: 0, height: 1)
+  }
+
+  override var intrinsicContentSize: NSSize {
+    var s = super.intrinsicContentSize
+    s.width += 18
+    s.height = max(28, s.height + 4)
+    return s
+  }
+
+  override func layout() {
+    super.layout()
+    layer?.cornerRadius = bounds.height / 2
+  }
+
+  func animatePress() {
+    layer?.backgroundColor = pressedBackgroundColor
+    DispatchQueue.main.asyncAfter(deadline: .now() + Timing.buttonPress) {
+      self.layer?.backgroundColor = self.normalBackgroundColor
+    }
+  }
+
+  func setBackgroundColors(normal: CGColor, pressed: CGColor) {
+    normalBackgroundColor = normal
+    pressedBackgroundColor = pressed
+    layer?.backgroundColor = normal
+  }
+
+  func configureDestructiveAction(label: String) {
+    title = label
+    imagePosition = .imageLeft
+    imageHugsTitle = true
+    imageScaling = .scaleProportionallyDown
+
+    if #available(macOS 11.0, *) {
+      let cfg = NSImage.SymbolConfiguration(pointSize: Fonts.buttonSize, weight: .semibold)
+      image = NSImage(systemSymbolName: "square.fill", accessibilityDescription: "Stop")?
+        .withSymbolConfiguration(cfg)
+    } else {
+      image = nil
+    }
+
+    contentTintColor = NSColor.white
+    setBackgroundColors(
+      normal: Colors.actionButtonDestructiveBg,
+      pressed: Colors.actionButtonDestructivePressedBg
+    )
+    layer?.borderColor = NSColor.clear.cgColor
+    invalidateIntrinsicContentSize()
+  }
+
+  func performAction() {}
+
+  override func mouseDown(with event: NSEvent) {
+    animatePress()
+    performAction()
+  }
+}
+
+class ActionButton: NotificationButton {
+  override func performAction() {
+    guard let notification = notification else { return }
+    RustBridge.onExpandedAccept(key: notification.key)
+    notification.dismiss()
+  }
+}
+
+class CompactActionButton: ActionButton {
+  let progressLayer = CALayer()
+
+  private var totalDuration: Double = 0
+  private var remainingDuration: Double = 0
+  private var progressStartTime: Date?
+  private var isPaused: Bool = false
+  private var isCountdownActive: Bool = false
+  private var progressRatio: CGFloat = 1.0
+  var showsProgress = true {
+    didSet {
+      if !showsProgress {
+        clearProgressState()
+      }
+    }
+  }
+  var onProgressComplete: (() -> Void)?
+  private var progressBaseBackgroundColor = Colors.compactActionButtonElapsedBg
+  private var progressFillColor = Colors.compactActionButtonRemainingBg
+
+  override init(frame frameRect: NSRect) {
+    super.init(frame: frameRect)
+    setupCountdownStyle()
+  }
+
+  required init?(coder: NSCoder) {
+    super.init(coder: coder)
+    setupCountdownStyle()
+  }
+
+  private var progressLayerFullWidth: CGFloat {
+    bounds.width
+  }
+
+  private func setupCountdownStyle() {
+    layer?.masksToBounds = true
+    layer?.backgroundColor = Colors.buttonNormalBg
+    if #available(macOS 11.0, *) {
+      layer?.cornerCurve = .continuous
+    }
+
+    progressLayer.backgroundColor = progressFillColor
+    progressLayer.anchorPoint = CGPoint(x: 0, y: 0.5)
+    progressLayer.isHidden = true
+    layer?.addSublayer(progressLayer)
+  }
+
+  override func layout() {
+    super.layout()
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    syncProgressLayerFrame()
+    CATransaction.commit()
+  }
+
+  override func animatePress() {
+    alphaValue = 0.9
+    DispatchQueue.main.asyncAfter(deadline: .now() + Timing.buttonPress) {
+      self.alphaValue = 1.0
+    }
+  }
+
+  func configureDestructiveCountdownStyle() {
+    progressBaseBackgroundColor = Colors.actionButtonDestructivePressedBg
+    progressFillColor = Colors.actionButtonDestructiveBg
+    progressLayer.backgroundColor = progressFillColor
+  }
+
+  private func syncProgressLayerFrame() {
+    let width = isPaused ? progressLayerFullWidth * progressRatio : progressLayerFullWidth
+    progressLayer.frame = CGRect(x: 0, y: 0, width: width, height: bounds.height)
+  }
+
+  private func clearProgressState() {
+    progressLayer.removeAllAnimations()
+    isPaused = false
+    isCountdownActive = false
+    progressStartTime = nil
+    remainingDuration = 0
+    totalDuration = 0
+    progressRatio = 1.0
+    progressLayer.isHidden = true
+
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    progressLayer.bounds.size.width = progressLayerFullWidth
+    CATransaction.commit()
+  }
+
+  private func runProgressAnimation(from startWidth: CGFloat, duration: Double) {
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    progressLayer.bounds.size.width = startWidth
+    CATransaction.commit()
+
+    CATransaction.begin()
+    CATransaction.setCompletionBlock { [weak self] in
+      guard let self = self, !self.isPaused else { return }
+      self.onProgressComplete?()
+    }
+
+    let animation = CABasicAnimation(keyPath: "bounds.size.width")
+    animation.fromValue = startWidth
+    animation.toValue = 0
+    animation.duration = duration
+    animation.fillMode = .forwards
+    animation.isRemovedOnCompletion = false
+    animation.timingFunction = CAMediaTimingFunction(name: .linear)
+
+    progressLayer.add(animation, forKey: "progress")
+    CATransaction.commit()
+  }
+
+  func startProgress(duration: Double) {
+    guard duration > 0 else { return }
+    guard showsProgress else {
+      clearProgressState()
+      return
+    }
+
+    totalDuration = duration
+    remainingDuration = duration
+    progressStartTime = Date()
+    isPaused = false
+    isCountdownActive = true
+    progressRatio = 1.0
+
+    layer?.backgroundColor = progressBaseBackgroundColor
+    progressLayer.backgroundColor = progressFillColor
+    progressLayer.isHidden = false
+    progressLayer.removeAllAnimations()
+    syncProgressLayerFrame()
+    runProgressAnimation(from: progressLayerFullWidth, duration: duration)
+  }
+
+  func pauseProgress() {
+    guard showsProgress else { return }
+    guard isCountdownActive, !isPaused, let startTime = progressStartTime else { return }
+    isPaused = true
+
+    let elapsed = Date().timeIntervalSince(startTime)
+    remainingDuration = max(0, totalDuration - elapsed)
+
+    if let presentation = progressLayer.presentation() {
+      let currentWidth = presentation.bounds.width
+      progressRatio = progressLayerFullWidth > 0 ? currentWidth / progressLayerFullWidth : 0
+    } else {
+      progressRatio = totalDuration > 0 ? remainingDuration / totalDuration : 0
+    }
+
+    progressLayer.removeAllAnimations()
+
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    progressLayer.bounds.size.width = progressLayerFullWidth * progressRatio
+    CATransaction.commit()
+  }
+
+  func resumeProgress() {
+    guard showsProgress else { return }
+    guard isCountdownActive, isPaused, remainingDuration > 0 else { return }
+    isPaused = false
+    progressStartTime = Date()
+
+    runProgressAnimation(
+      from: progressLayerFullWidth * progressRatio,
+      duration: remainingDuration
+    )
+  }
+
+  func resetProgress() {
+    clearProgressState()
+
+    if showsProgress {
+      layer?.backgroundColor = progressBaseBackgroundColor
+    }
+
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    progressLayer.bounds.size.width = progressLayerFullWidth
+    CATransaction.commit()
+  }
+}
+
+class FooterActionButton: NotificationButton {
+  override init(frame frameRect: NSRect) {
+    super.init(frame: frameRect)
+    customizeAppearance()
+  }
+
+  required init?(coder: NSCoder) {
+    super.init(coder: coder)
+    customizeAppearance()
+  }
+
+  private func customizeAppearance() {
+    layer?.backgroundColor = NSColor.clear.cgColor
+    layer?.borderWidth = 0
+  }
+
+  override func performAction() {
+    guard let notification = notification else { return }
+    RustBridge.onFooterAction(key: notification.key)
+    notification.dismiss()
+  }
+}
+
+class DetailsButton: NotificationButton {
+  override func performAction() {
+    notification?.toggleExpansion()
+  }
+}
+
+class OptionsButton: NotificationButton {
+  var options: [String] = []
+
+  override func performAction() {
+    showOptionsMenu()
+  }
+
+  func showOptionsMenu() {
+    guard notification != nil else { return }
+
+    let menu = NSMenu()
+    menu.autoenablesItems = false
+
+    for (index, option) in options.enumerated() {
+      let item = NSMenuItem(
+        title: option, action: #selector(optionSelected(_:)), keyEquivalent: "")
+      item.target = self
+      item.tag = index
+      item.isEnabled = true
+      menu.addItem(item)
+    }
+
+    menu.addItem(NSMenuItem.separator())
+
+    let createNewItem = NSMenuItem(
+      title: "Create New Note...", action: #selector(optionSelected(_:)), keyEquivalent: "")
+    createNewItem.target = self
+    createNewItem.tag = options.count
+    createNewItem.isEnabled = true
+    menu.addItem(createNewItem)
+
+    let location = NSPoint(x: 0, y: bounds.height)
+    menu.popUp(positioning: nil, at: location, in: self)
+  }
+
+  @objc func optionSelected(_ sender: NSMenuItem) {
+    guard let notification = notification else { return }
+    RustBridge.onOptionSelected(key: notification.key, selectedIndex: Int32(sender.tag))
+    notification.dismiss()
+  }
+}
+
+class CollapseButton: NSButton, TrackableButton {
+  weak var notification: NotificationInstance?
+  var trackingArea: NSTrackingArea?
+
+  override init(frame frameRect: NSRect) {
+    super.init(frame: frameRect)
+    setup()
+  }
+
+  required init?(coder: NSCoder) {
+    super.init(coder: coder)
+    setup()
+  }
+
+  private func setup() {
+    wantsLayer = true
+    isBordered = false
+    bezelStyle = .regularSquare
+    imagePosition = .noImage
+    title = "Show less"
+    font = NSFont.systemFont(ofSize: Fonts.bodySize, weight: Fonts.bodyWeight)
+    contentTintColor = NSColor.secondaryLabelColor
+    layer?.backgroundColor = NSColor.clear.cgColor
+  }
+
+  override var intrinsicContentSize: NSSize {
+    var s = super.intrinsicContentSize
+    s.height = max(16, s.height)
+    return s
+  }
+
+  override func updateTrackingAreas() {
+    super.updateTrackingAreas()
+    setupTrackingArea()
+  }
+
+  override func mouseDown(with event: NSEvent) {
+    contentTintColor = NSColor.tertiaryLabelColor
+    DispatchQueue.main.asyncAfter(deadline: .now() + Timing.buttonPress) {
+      self.contentTintColor = NSColor.secondaryLabelColor
+    }
+    notification?.toggleExpansion()
+  }
+
+  override func mouseEntered(with event: NSEvent) {
+    super.mouseEntered(with: event)
+    NSCursor.pointingHand.push()
+    contentTintColor = NSColor.labelColor
+  }
+
+  override func mouseExited(with event: NSEvent) {
+    super.mouseExited(with: event)
+    NSCursor.pop()
+    contentTintColor = NSColor.secondaryLabelColor
+  }
+}

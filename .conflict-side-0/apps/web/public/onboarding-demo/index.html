@@ -1,0 +1,1190 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Anarlog demo meeting</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL@24,400,0&amp;icon_names=auto_awesome,back_hand,call_end,chat,close,content_copy,expand_less,info,mic_off,mood,send,videocam_off&amp;display=block"
+      rel="stylesheet"
+    />
+    <script
+      src="https://cdn.jsdelivr.net/npm/@mux/mux-player@3.11.7"
+      defer
+    ></script>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        overflow: hidden;
+        background: #202124;
+        color: #fff;
+      }
+
+      button {
+        border: 0;
+        color: inherit;
+        font: inherit;
+      }
+
+      .meeting {
+        position: relative;
+        display: grid;
+        grid-template-rows: 70px minmax(0, 1fr) 80px;
+        width: 100%;
+        height: 100%;
+        background: #202124;
+      }
+
+      .top-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 16px 0 24px;
+      }
+
+      .meeting-meta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+      }
+
+      .divider {
+        width: 1px;
+        height: 20px;
+        background: #9aa0a6;
+      }
+
+      .info-button {
+        display: grid;
+        width: 20px;
+        height: 20px;
+        place-items: center;
+        padding: 0;
+        background: transparent;
+        color: #bdc1c6;
+        cursor: pointer;
+      }
+
+      .info-button:hover,
+      .info-button[aria-pressed="true"] {
+        color: #8ab4f8;
+      }
+
+      .material-symbols-rounded.info-icon {
+        font-size: 16px;
+      }
+
+      .top-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .participant-count {
+        display: flex;
+        height: 38px;
+        align-items: center;
+        gap: 7px;
+        padding: 4px 11px 4px 4px;
+        border-radius: 20px;
+        background: #3c4043;
+        color: #e8eaed;
+        font-size: 13px;
+      }
+
+      .avatar {
+        position: relative;
+        display: grid;
+        overflow: hidden;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        border-radius: 50%;
+        background: #70584b;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .avatar-photo {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .top-action,
+      .corner-action {
+        display: grid;
+        place-items: center;
+        background: transparent;
+        color: #e8eaed;
+      }
+
+      .top-action {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #3c4043;
+      }
+
+      .note-status-control {
+        position: relative;
+      }
+
+      .note-status-tooltip {
+        position: absolute;
+        z-index: 20;
+        top: 48px;
+        right: 0;
+        width: max-content;
+        max-width: 220px;
+        padding: 9px 12px;
+        border-radius: 6px;
+        visibility: hidden;
+        background: #3c4043;
+        box-shadow: 0 3px 10px rgb(0 0 0 / 35%);
+        color: #e8eaed;
+        font-size: 13px;
+        line-height: 1.35;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-4px);
+        transition:
+          opacity 120ms ease,
+          transform 120ms ease,
+          visibility 120ms ease;
+      }
+
+      .note-status-control:hover .note-status-tooltip,
+      .note-status-control:focus-within .note-status-tooltip {
+        visibility: visible;
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .material-symbols-rounded {
+        display: inline-block;
+        font-family: "Material Symbols Rounded";
+        font-size: 24px;
+        font-style: normal;
+        font-variation-settings:
+          "FILL" 0,
+          "wght" 400,
+          "GRAD" 0,
+          "opsz" 24;
+        font-weight: normal;
+        letter-spacing: normal;
+        line-height: 1;
+        text-transform: none;
+        white-space: nowrap;
+        word-wrap: normal;
+      }
+
+      .stage {
+        display: grid;
+        min-height: 0;
+        place-items: center;
+        padding: 0 28px;
+      }
+
+      .meeting.panel-open .stage {
+        padding-right: 394px;
+      }
+
+      .tile {
+        position: relative;
+        overflow: hidden;
+        width: min(100%, calc((100vh - 150px) * 16 / 9));
+        max-height: 100%;
+        aspect-ratio: 16 / 9;
+        border-radius: 20px;
+        background: #3c4043;
+      }
+
+      mux-player {
+        display: block;
+        width: 100%;
+        height: 100%;
+        background: #3c4043;
+        --controls: none;
+        --dialog: none;
+        --loading-indicator: none;
+        --media-object-fit: cover;
+        --media-object-position: center;
+      }
+
+      .participant-name {
+        position: absolute;
+        bottom: 18px;
+        left: 18px;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 500;
+        text-shadow: 0 1px 4px rgb(0 0 0 / 80%);
+      }
+
+      .join-layer,
+      .ended-layer,
+      .error-layer {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: rgb(32 33 36 / 72%);
+        backdrop-filter: blur(10px);
+      }
+
+      .dialog {
+        display: grid;
+        max-width: 400px;
+        justify-items: center;
+        gap: 14px;
+        padding: 32px;
+        text-align: center;
+      }
+
+      .dialog h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+      }
+
+      .dialog p {
+        margin: 0 0 8px;
+        color: #e8eaed;
+        font-size: 15px;
+        line-height: 1.5;
+      }
+
+      .primary-button {
+        min-width: 130px;
+        padding: 12px 24px;
+        border-radius: 24px;
+        background: #8ab4f8;
+        color: #202124;
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      .primary-button:hover {
+        background: #aecbfa;
+      }
+
+      .primary-button:disabled {
+        cursor: wait;
+        opacity: 0.6;
+      }
+
+      .bottom-bar {
+        position: relative;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        padding: 0 24px;
+      }
+
+      .bottom-left,
+      .bottom-right,
+      .controls {
+        display: flex;
+        align-items: center;
+      }
+
+      .bottom-left {
+        justify-self: start;
+      }
+
+      .bottom-right {
+        justify-self: end;
+        gap: 14px;
+      }
+
+      .controls {
+        justify-self: center;
+        gap: 8px;
+      }
+
+      .control {
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: #3c4043;
+        color: #e8eaed;
+      }
+
+      .control {
+        width: 48px;
+        height: 48px;
+        cursor: default;
+      }
+
+      .media-control {
+        display: flex;
+        overflow: hidden;
+        height: 48px;
+        border-radius: 12px;
+        background: #7d1b1b;
+      }
+
+      .media-control button {
+        display: grid;
+        height: 48px;
+        place-items: center;
+        padding: 0;
+        background: transparent;
+        color: #fff;
+      }
+
+      .media-options {
+        width: 36px;
+      }
+
+      .media-options .material-symbols-rounded {
+        font-size: 18px;
+      }
+
+      .media-toggle {
+        width: 44px;
+        border-radius: 12px;
+        background: #f9dedc !important;
+        color: #8c1d18 !important;
+      }
+
+      .media-toggle .material-symbols-rounded,
+      .control > .material-symbols-rounded {
+        font-size: 22px;
+      }
+
+      .present-icon {
+        width: 22px;
+        height: 22px;
+      }
+
+      .control.leave {
+        width: 72px;
+        border-radius: 24px;
+        background: #ea4335;
+        cursor: pointer;
+      }
+
+      .control.leave:hover {
+        background: #d93025;
+      }
+
+      .corner-action {
+        width: 32px;
+        height: 40px;
+        cursor: pointer;
+      }
+
+      .corner-action[aria-pressed="true"] {
+        color: #8ab4f8;
+      }
+
+      .side-panel {
+        position: absolute;
+        z-index: 10;
+        top: 78px;
+        right: 16px;
+        bottom: 80px;
+        display: flex;
+        width: 350px;
+        flex-direction: column;
+        gap: 16px;
+        padding: 18px 14px 14px;
+        border-radius: 16px;
+        background: #28292c;
+        box-shadow: 0 4px 18px rgb(0 0 0 / 28%);
+      }
+
+      .panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 4px;
+      }
+
+      .panel-header h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 500;
+      }
+
+      .panel-close,
+      .chat-send {
+        display: grid;
+        place-items: center;
+        background: transparent;
+      }
+
+      .panel-close {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        cursor: pointer;
+      }
+
+      .panel-close:hover {
+        background: #3c4043;
+      }
+
+      .details-panel {
+        gap: 0;
+        padding-inline: 0;
+      }
+
+      .details-panel .panel-header {
+        padding: 0 18px;
+      }
+
+      .details-content {
+        display: grid;
+        gap: 5px;
+        padding: 30px 24px 24px;
+        color: #bdc1c6;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      .details-content h3,
+      .details-content p {
+        margin: 0;
+      }
+
+      .details-content h3 {
+        margin-bottom: 4px;
+        color: #e8eaed;
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      .joining-url {
+        overflow-wrap: anywhere;
+      }
+
+      .details-copy {
+        display: flex;
+        width: max-content;
+        align-items: center;
+        gap: 10px;
+        margin-top: 22px;
+        padding: 6px 4px;
+        background: transparent;
+        color: #8ab4f8;
+        cursor: pointer;
+        font-size: 14px;
+      }
+
+      .details-copy .material-symbols-rounded {
+        font-size: 19px;
+      }
+
+      .details-divider {
+        height: 1px;
+        background: #3c4043;
+      }
+
+      .details-empty {
+        margin: 0;
+        padding: 28px 24px;
+        color: #9aa0a6;
+        font-size: 13px;
+        text-align: center;
+      }
+
+      .chat-permission {
+        display: flex;
+        min-height: 48px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px;
+        border-radius: 4px;
+        background: #303134;
+        color: #e8eaed;
+        font-size: 13px;
+      }
+
+      .chat-toggle {
+        position: relative;
+        width: 38px;
+        height: 22px;
+        border-radius: 12px;
+        background: #3c4043;
+      }
+
+      .chat-toggle::after {
+        position: absolute;
+        top: 3px;
+        right: 3px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #8ab4f8;
+        content: "";
+      }
+
+      .chat-notice {
+        display: flex;
+        gap: 8px;
+        padding: 16px;
+        border-radius: 8px;
+        background: #303134;
+        color: #bdc1c6;
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      .chat-notice .material-symbols-rounded {
+        flex: 0 0 auto;
+        color: #8ab4f8;
+        font-size: 18px;
+      }
+
+      .chat-messages {
+        display: flex;
+        overflow: auto;
+        min-height: 0;
+        flex: 1;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .chat-message {
+        max-width: 82%;
+        align-self: flex-end;
+      }
+
+      .chat-message-time {
+        margin-bottom: 4px;
+        color: #9aa0a6;
+        font-size: 11px;
+        text-align: right;
+      }
+
+      .chat-message-text {
+        padding: 10px 12px;
+        border-radius: 16px 16px 4px 16px;
+        background: #075985;
+        font-size: 14px;
+        line-height: 1.4;
+        white-space: pre-wrap;
+      }
+
+      .chat-compose {
+        display: flex;
+        min-height: 48px;
+        align-items: center;
+        padding: 0 4px 0 14px;
+        border: 1px solid #5f6368;
+        border-radius: 24px;
+      }
+
+      .chat-compose input {
+        min-width: 0;
+        flex: 1;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: #e8eaed;
+        font: inherit;
+      }
+
+      .chat-compose input::placeholder {
+        color: #9aa0a6;
+      }
+
+      .chat-send {
+        width: 40px;
+        height: 40px;
+        color: #8ab4f8;
+        cursor: pointer;
+      }
+
+      .chat-send:disabled {
+        color: #5f6368;
+        cursor: default;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      @media (max-width: 820px) {
+        .meeting {
+          grid-template-rows: 58px minmax(0, 1fr) 72px;
+        }
+
+        .top-bar,
+        .bottom-bar {
+          padding-inline: 14px;
+        }
+
+        .bottom-bar {
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 8px;
+        }
+
+        .bottom-left {
+          display: none;
+        }
+
+        .bottom-right {
+          justify-self: end;
+        }
+
+        .stage {
+          padding-inline: 12px;
+        }
+
+        .meeting.panel-open .stage {
+          padding-inline: 12px;
+        }
+
+        .tile {
+          width: min(100%, calc((100vh - 130px) * 16 / 9));
+          border-radius: 14px;
+        }
+
+        .meeting-meta {
+          gap: 8px;
+          font-size: 14px;
+        }
+
+        .participant-count,
+        .top-action,
+        .control.reaction,
+        .control.hand {
+          display: none;
+        }
+
+        .controls {
+          min-width: 0;
+          justify-self: start;
+          gap: 8px;
+        }
+
+        .media-options {
+          display: none;
+        }
+
+        .control {
+          width: 44px;
+          height: 44px;
+        }
+
+        .control.leave {
+          width: 62px;
+        }
+
+        .side-panel {
+          top: 66px;
+          right: 12px;
+          bottom: 78px;
+          width: calc(100% - 24px);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="meeting">
+      <header class="top-bar">
+        <div class="meeting-meta">
+          <time class="current-time">6:13 PM</time>
+          <span class="divider" aria-hidden="true"></span>
+          <span class="meeting-code">anarlog-demo</span>
+          <button
+            class="info-button"
+            type="button"
+            aria-label="Meeting details"
+            aria-pressed="false"
+          >
+            <span class="material-symbols-rounded info-icon" aria-hidden="true"
+            >info</span>
+          </button>
+        </div>
+
+        <div class="top-actions">
+          <div class="participant-count" aria-label="One participant">
+            <span class="avatar">
+              <span class="avatar-initials">J</span>
+              <img
+                class="avatar-photo"
+                src="https://anarlog.so/api/assets/team/john.png"
+                alt=""
+                decoding="async"
+              />
+            </span>
+            <span>1</span>
+          </div>
+          <div class="note-status-control">
+            <button
+              class="top-action"
+              type="button"
+              aria-label="Anarlog is taking notes"
+              aria-describedby="note-status-tooltip"
+            >
+              <span class="material-symbols-rounded" aria-hidden="true">auto_awesome</span>
+            </button>
+            <div id="note-status-tooltip" class="note-status-tooltip" role="tooltip">
+              Anarlog is taking notes
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section class="stage">
+        <div class="tile">
+          <mux-player
+            playsinline
+            preload="metadata"
+            stream-type="on-demand"
+            nohotkeys
+          ></mux-player>
+          <div class="participant-name">John Jeong</div>
+
+          <div class="join-layer">
+            <div class="dialog">
+              <h1>Ready to join?</h1>
+              <p>
+                This is a private, prerecorded demo meeting. Your microphone and
+                camera are not connected.
+              </p>
+              <button class="primary-button join-button" type="button" disabled>
+                Join now
+              </button>
+            </div>
+          </div>
+
+          <div class="ended-layer" hidden>
+            <div class="dialog">
+              <h1>You left the meeting</h1>
+              <p>You can return to Anarlog to review the transcript and notes.</p>
+              <button class="primary-button replay-button" type="button">
+                Rejoin
+              </button>
+            </div>
+          </div>
+
+          <div class="error-layer" hidden>
+            <div class="dialog">
+              <h1>Couldn't join the meeting</h1>
+              <p class="error-message">The demo video could not be loaded.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side-panel chat-panel" aria-label="In-call messages" hidden>
+        <div class="panel-header">
+          <h2>In-call messages</h2>
+          <button
+            class="panel-close chat-close"
+            type="button"
+            aria-label="Close messages"
+          >
+            <span class="material-symbols-rounded" aria-hidden="true">close</span>
+          </button>
+        </div>
+
+        <div class="chat-permission">
+          <span>Let participants send messages</span>
+          <span class="chat-toggle" aria-hidden="true"></span>
+        </div>
+
+        <div class="chat-notice">
+          <span class="material-symbols-rounded" aria-hidden="true">chat</span>
+          <span>
+            Continuous chat is turned off. Messages will not be saved for meeting
+            participants when the call ends.
+          </span>
+        </div>
+
+        <div class="chat-messages" aria-live="polite"></div>
+
+        <form class="chat-compose">
+          <input
+            type="text"
+            name="message"
+            aria-label="Send a message"
+            placeholder="Send a message"
+            autocomplete="off"
+            maxlength="500"
+          />
+          <button class="chat-send" type="submit" aria-label="Send message" disabled>
+            <span class="material-symbols-rounded" aria-hidden="true">send</span>
+          </button>
+        </form>
+      </aside>
+
+      <aside class="side-panel details-panel" aria-label="Meeting details" hidden>
+        <div class="panel-header">
+          <h2>Meeting details</h2>
+          <button
+            class="panel-close details-close"
+            type="button"
+            aria-label="Close meeting details"
+          >
+            <span class="material-symbols-rounded" aria-hidden="true">close</span>
+          </button>
+        </div>
+
+        <div class="details-content">
+          <h3>Joining info</h3>
+          <p class="joining-url"></p>
+          <p>Private prerecorded onboarding meeting</p>
+          <button class="details-copy" type="button">
+            <span class="material-symbols-rounded" aria-hidden="true"
+            >content_copy</span>
+            <span class="details-copy-label">Copy joining info</span>
+          </button>
+        </div>
+
+        <div class="details-divider" aria-hidden="true"></div>
+        <p class="details-empty">There are no attachments for this demo meeting.</p>
+      </aside>
+
+      <footer class="bottom-bar">
+        <div class="bottom-left"></div>
+
+        <div class="controls">
+          <div class="media-control" role="group" aria-label="Microphone unavailable">
+            <button
+              class="media-options"
+              type="button"
+              aria-label="Microphone options unavailable"
+              disabled
+            >
+              <span class="material-symbols-rounded" aria-hidden="true"
+              >expand_less</span>
+            </button>
+            <button
+              class="media-toggle"
+              type="button"
+              aria-label="Microphone disabled"
+              disabled
+            >
+              <span class="material-symbols-rounded" aria-hidden="true">mic_off</span>
+            </button>
+          </div>
+          <div class="media-control" role="group" aria-label="Camera unavailable">
+            <button
+              class="media-options"
+              type="button"
+              aria-label="Camera options unavailable"
+              disabled
+            >
+              <span class="material-symbols-rounded" aria-hidden="true"
+              >expand_less</span>
+            </button>
+            <button
+              class="media-toggle"
+              type="button"
+              aria-label="Camera disabled"
+              disabled
+            >
+              <span class="material-symbols-rounded" aria-hidden="true"
+              >videocam_off</span>
+            </button>
+          </div>
+          <button class="control" type="button" aria-label="Present now">
+            <svg
+              class="present-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <rect
+                x="3"
+                y="4"
+                width="18"
+                height="14"
+                rx="1.5"
+                stroke="currentColor"
+                stroke-width="1.8"
+              />
+              <path
+                d="M12 14V8m0 0-3 3m3-3 3 3M8 21h8"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+          <button class="control reaction" type="button" aria-label="Send a reaction">
+            <span class="material-symbols-rounded" aria-hidden="true">mood</span>
+          </button>
+          <button class="control hand" type="button" aria-label="Raise hand">
+            <span class="material-symbols-rounded" aria-hidden="true">back_hand</span>
+          </button>
+          <button class="control leave" type="button" aria-label="Leave call">
+            <span class="material-symbols-rounded" aria-hidden="true">call_end</span>
+          </button>
+        </div>
+
+        <div class="bottom-right">
+          <button
+            class="corner-action chat-button"
+            type="button"
+            aria-label="Chat with everyone"
+            aria-pressed="false"
+          >
+            <span class="material-symbols-rounded" aria-hidden="true">chat</span>
+          </button>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const video = document.querySelector("mux-player");
+      const meeting = document.querySelector(".meeting");
+      const joinLayer = document.querySelector(".join-layer");
+      const endedLayer = document.querySelector(".ended-layer");
+      const errorLayer = document.querySelector(".error-layer");
+      const errorMessage = document.querySelector(".error-message");
+      const participantName = document.querySelector(".participant-name");
+      const meetingCode = document.querySelector(".meeting-code");
+      const joinButton = document.querySelector(".join-button");
+      const detailsButton = document.querySelector(".info-button");
+      const detailsPanel = document.querySelector(".details-panel");
+      const chatButton = document.querySelector(".chat-button");
+      const chatPanel = document.querySelector(".chat-panel");
+      const chatForm = document.querySelector(".chat-compose");
+      const chatInput = chatForm.elements.message;
+      const chatSendButton = document.querySelector(".chat-send");
+      const chatMessages = document.querySelector(".chat-messages");
+      const avatarPhoto = document.querySelector(".avatar-photo");
+      const params = new URLSearchParams(window.location.search);
+      const joiningUrl =
+        window.location.protocol === "file:"
+          ? "https://anarlog.so/onboarding-demo"
+          : window.location.href;
+
+      document.querySelector(".joining-url").textContent = joiningUrl;
+
+      function updateTime() {
+        document.querySelector(".current-time").textContent = new Intl.DateTimeFormat(
+          undefined,
+          { hour: "numeric", minute: "2-digit" },
+        ).format(new Date());
+      }
+
+      function getVideoUrl(source) {
+        const url = new URL(source, window.location.href);
+        const isLocal = ["localhost", "127.0.0.1"].includes(url.hostname);
+        if (url.protocol !== "https:" && !isLocal && url.protocol !== "file:") {
+          throw new Error("The demo video must be served over HTTPS.");
+        }
+        return url;
+      }
+
+      function getPlaybackId(value) {
+        if (typeof value !== "string" || !/^[A-Za-z0-9]+$/.test(value)) {
+          throw new Error("The Mux playback ID is invalid.");
+        }
+        return value;
+      }
+
+      function showError(message) {
+        joinLayer.hidden = true;
+        endedLayer.hidden = true;
+        errorMessage.textContent = message;
+        errorLayer.hidden = false;
+      }
+
+      function showJoin() {
+        errorLayer.hidden = true;
+        endedLayer.hidden = true;
+        joinLayer.hidden = false;
+        joinButton.disabled = false;
+      }
+
+      function setOpenPanel(panelName) {
+        const wasChatOpen = !chatPanel.hidden;
+        const wasDetailsOpen = !detailsPanel.hidden;
+        const chatOpen = panelName === "chat";
+        const detailsOpen = panelName === "details";
+        chatPanel.hidden = !chatOpen;
+        detailsPanel.hidden = !detailsOpen;
+        meeting.classList.toggle("panel-open", chatOpen || detailsOpen);
+        chatButton.setAttribute("aria-pressed", String(chatOpen));
+        chatButton.setAttribute(
+          "aria-label",
+          chatOpen ? "Close chat" : "Chat with everyone",
+        );
+        detailsButton.setAttribute("aria-pressed", String(detailsOpen));
+        detailsButton.setAttribute(
+          "aria-label",
+          detailsOpen ? "Close meeting details" : "Meeting details",
+        );
+        if (chatOpen) {
+          chatInput.focus();
+        } else if (!detailsOpen) {
+          if (wasChatOpen) chatButton.focus();
+          if (wasDetailsOpen) detailsButton.focus();
+        }
+      }
+
+      async function loadDemo() {
+        try {
+          await customElements.whenDefined("mux-player");
+
+          const videoOverride = params.get("video");
+          if (videoOverride) {
+            video.src = getVideoUrl(videoOverride).toString();
+            showJoin();
+            return;
+          }
+
+          const response = await fetch("./manifest.json", { cache: "no-store" });
+          if (!response.ok) {
+            throw new Error("The demo configuration could not be loaded.");
+          }
+
+          const manifest = await response.json();
+          const playbackId = getPlaybackId(manifest.playback_id);
+          video.playbackId = playbackId;
+          video.metadata = {
+            video_id: playbackId,
+            video_title: manifest.title,
+            player_name: "Anarlog onboarding demo",
+          };
+          participantName.textContent = manifest.speaker;
+          meetingCode.textContent = manifest.meeting_code ?? "anarlog-demo";
+          document.querySelector(".avatar-initials").textContent = manifest.speaker
+            .split(/\s+/)
+            .map((part) => part[0])
+            .join("")
+            .slice(0, 2);
+          showJoin();
+        } catch (error) {
+          showError(error.message);
+        }
+      }
+
+      async function playFromStart() {
+        endedLayer.hidden = true;
+        errorLayer.hidden = true;
+        joinLayer.hidden = true;
+        video.currentTime = 0;
+        try {
+          await video.play();
+        } catch (error) {
+          showError(
+            error?.name === "NotAllowedError"
+              ? "Your browser blocked playback. Allow media playback and join again."
+              : "The demo video could not be played. Check your connection and try again.",
+          );
+        }
+      }
+
+      function closeMeeting() {
+        setOpenPanel(null);
+        window.close();
+        window.setTimeout(() => {
+          errorLayer.hidden = true;
+          joinLayer.hidden = true;
+          endedLayer.hidden = false;
+        }, 150);
+      }
+
+      updateTime();
+      window.setInterval(updateTime, 30_000);
+
+      avatarPhoto.addEventListener("error", () => {
+        avatarPhoto.hidden = true;
+      });
+
+      video.addEventListener("error", () => {
+        if (errorLayer.hidden) {
+          showError("The demo video could not be loaded.");
+        }
+      });
+      video.addEventListener("ended", () => {
+        closeMeeting();
+      });
+      joinButton.addEventListener("click", playFromStart);
+      chatButton.addEventListener("click", () => {
+        setOpenPanel(chatPanel.hidden ? "chat" : null);
+      });
+      document.querySelector(".chat-close").addEventListener("click", () => {
+        setOpenPanel(null);
+      });
+      detailsButton.addEventListener("click", () => {
+        setOpenPanel(detailsPanel.hidden ? "details" : null);
+      });
+      document.querySelector(".details-close").addEventListener("click", () => {
+        setOpenPanel(null);
+      });
+      document.querySelector(".details-copy").addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(joiningUrl);
+          const label = document.querySelector(".details-copy-label");
+          label.textContent = "Copied";
+          window.setTimeout(() => {
+            label.textContent = "Copy joining info";
+          }, 1_500);
+        } catch {}
+      });
+      chatInput.addEventListener("input", () => {
+        chatSendButton.disabled = chatInput.value.trim().length === 0;
+      });
+      chatForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const message = chatInput.value.trim();
+        if (!message) return;
+
+        const item = document.createElement("div");
+        const time = document.createElement("div");
+        const text = document.createElement("div");
+        item.className = "chat-message";
+        time.className = "chat-message-time";
+        text.className = "chat-message-text";
+        time.textContent = new Intl.DateTimeFormat(undefined, {
+          hour: "numeric",
+          minute: "2-digit",
+        }).format(new Date());
+        text.textContent = message;
+        item.append(time, text);
+        chatMessages.append(item);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        chatInput.value = "";
+        chatSendButton.disabled = true;
+        chatInput.focus();
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && meeting.classList.contains("panel-open")) {
+          setOpenPanel(null);
+        }
+      });
+      document.querySelector(".replay-button").addEventListener("click", playFromStart);
+      document.querySelector(".leave").addEventListener("click", () => {
+        video.pause();
+        closeMeeting();
+      });
+
+      loadDemo();
+    </script>
+  </body>
+</html>

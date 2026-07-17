@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-global-base"
+description = "Enables the global_base command without any pre-configured scope."
+commands.allow = ["global_base"]
+
+[[permission]]
+identifier = "deny-global-base"
+description = "Denies the global_base command without any pre-configured scope."
+commands.deny = ["global_base"]

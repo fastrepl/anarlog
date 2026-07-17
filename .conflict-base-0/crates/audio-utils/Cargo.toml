@@ -1,0 +1,22 @@
+[package]
+name = "audio-utils"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+audioadapter-buffers = "2.0"
+bytes = { workspace = true }
+futures-util = { workspace = true }
+hypr-audio-interface = { workspace = true }
+hypr-audio-mime = { workspace = true }
+hypr-resampler = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+hound = { workspace = true }
+rodio = { workspace = true, features = ["symphonia-all"] }
+rubato = "1.0.1"
+vorbis_rs = { workspace = true }
+
+[dev-dependencies]
+hypr-data = { workspace = true }

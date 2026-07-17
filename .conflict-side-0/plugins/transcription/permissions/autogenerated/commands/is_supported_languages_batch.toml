@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-is-supported-languages-batch"
+description = "Enables the is_supported_languages_batch command without any pre-configured scope."
+commands.allow = ["is_supported_languages_batch"]
+
+[[permission]]
+identifier = "deny-is-supported-languages-batch"
+description = "Denies the is_supported_languages_batch command without any pre-configured scope."
+commands.deny = ["is_supported_languages_batch"]

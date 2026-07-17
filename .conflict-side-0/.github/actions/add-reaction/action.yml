@@ -1,0 +1,27 @@
+name: Add Reaction
+description: Add a reaction to a GitHub issue comment
+
+inputs:
+  token:
+    description: GitHub token
+    required: true
+  repo:
+    description: Repository (owner/repo)
+    required: true
+  comment:
+    description: Comment ID to react to
+    required: true
+  reaction:
+    description: Reaction to add (eyes, +1, -1, laugh, confused, heart, hooray, rocket)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        gh api repos/${{ inputs.repo }}/issues/comments/${{ inputs.comment }}/reactions \
+          -f content='${{ inputs.reaction }}' \
+          --silent

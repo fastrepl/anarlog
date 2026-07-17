@@ -1,0 +1,248 @@
+---
+meta_title: "Meeting Action Items: Template and Tracking Guide"
+display_title: "How to Write Meeting Action Items People Actually Complete"
+meta_description: "Turn meeting notes into clear action items with one owner, a due date, source context, and a simple follow-up loop. Includes a Markdown template."
+author:
+  - "John Jeong"
+featured: false
+category: "Guides"
+date: "2026-07-15"
+---
+
+A meeting action item is a small contract.
+
+It says what will happen, who accepted responsibility, and when everyone can expect the result. Yet most action items are written like reminders:
+
+- Follow up with design.
+- Look into the latency issue.
+- Prepare launch materials.
+
+These notes preserve a topic, but they do not create accountability. The owner may be unclear. The expected result is open to interpretation. There is no deadline, and the next person reading the task cannot recover the discussion that produced it.
+
+A useful meeting action item needs five fields: a concrete action, one owner, a deadline, source context, and a visible definition of done. This guide shows how to capture those fields without turning every meeting into an administrative exercise.
+
+## What is a meeting action item?
+
+A meeting action item is a specific piece of work that someone accepts during or immediately after a meeting. It turns part of the conversation into an observable next step.
+
+Action items are different from decisions. A decision records what the group chose and why. An action item records what one person will do because of that choice.
+
+For example:
+
+- **Decision:** Delay the launch until the import failure rate is below 1%.
+- **Action item:** Priya will publish the latest import failure rate in the launch document by July 18.
+
+The first belongs in a [meeting decision log](/blog/meeting-decision-log). The second belongs in the team's system of execution. Linking them gives the assignee both the work and the reasoning behind it.
+
+## The anatomy of a useful action item
+
+Every action item should answer five questions.
+
+### 1. What is the concrete action?
+
+Start with a verb and name the deliverable or result.
+
+"Investigate billing" can mean reading logs, interviewing customers, proposing a fix, or merely thinking about the problem. "Summarize the three most common billing failures in the incident document" has an observable result.
+
+### 2. Who owns it?
+
+Assign one accountable person, even when several people will contribute. A task owned by "the team" usually has no owner.
+
+The owner does not need to perform every step. They are responsible for moving the work forward, coordinating help, and reporting when the task is done or blocked.
+
+### 3. When is it due?
+
+Use a date or a clear trigger:
+
+- by July 18,
+- before the customer review,
+- within two business days of receiving the data.
+
+"ASAP" communicates pressure without creating a shared expectation. If the deadline is genuinely undecided, write that explicitly and assign someone to resolve it.
+
+### 4. Where did it come from?
+
+Link the meeting note, relevant transcript passage, or decision that created the work. Source context prevents the task description from growing into a second set of meeting minutes.
+
+It also helps when the assignee returns a week later and asks, "Why are we doing this?"
+
+### 5. What does done mean?
+
+Describe the observable completion condition. "Draft shared for review" and "change deployed to production" are different definitions of done.
+
+This field can be a short phrase. Its purpose is to keep the owner and the requester from silently holding different expectations.
+
+![The five parts of a useful meeting action item: action, owner, deadline, source, and definition of done](/api/assets/blog/articles/meeting-action-items/action-item-anatomy.png)
+
+Compare these examples:
+
+| Weak note | Useful action item |
+| --- | --- |
+| Follow up with legal | Elena will ask legal to approve or reject the revised retention language by July 19 and record the response in the launch document. |
+| Fix onboarding | Marcus will propose three changes to the provider-selection step before Thursday's design review. |
+| Look at churn | Imani will add a chart of 30-day retention by acquisition channel to the metrics document by July 22. |
+
+The useful versions are not necessarily longer. They are more precise about the commitment.
+
+## A lightweight meeting action item template
+
+For a single action item, use this Markdown structure:
+
+```md
+## ACT-018: Summarize import failures
+
+- **Owner:** Priya
+- **Due:** 2026-07-18
+- **Status:** Accepted
+- **Source:** [Launch review — July 15](meeting-note-link)
+- **Related decision:** [DEC-024: Delay launch until import reliability improves](decision-link)
+
+### Action
+
+Summarize the three most common import failures in the launch document.
+
+### Done when
+
+The document includes the failure rate, affected platforms, and an owner for
+each proposed fix.
+```
+
+You do not need an identifier for every personal task. IDs become useful when action items are referenced across recurring meetings, decision records, project documents, and issue trackers.
+
+For ordinary meeting notes, a compact checklist is often enough:
+
+```md
+## Action items
+
+- [ ] Priya — Summarize the three most common import failures in the launch
+  document by July 18. Done when each failure has a rate, platform, and fix owner.
+  [Source](meeting-note-link)
+- [ ] Marcus — Propose three provider-selection changes before the July 20
+  design review. [Source](meeting-note-link)
+```
+
+Choose the smallest format that preserves ownership and meaning.
+
+## Capture candidates during the meeting
+
+Writing polished tasks while people are debating them is distracting. Instead, mark action-item candidates in your notes:
+
+```md
+Action candidate: Priya to summarize import failures before launch review.
+```
+
+Calling it a candidate is deliberate. A participant may suggest work without accepting it, or the group may move on without agreeing on a deadline.
+
+Before the meeting ends, review the candidate list and ask three short questions:
+
+1. Who owns this?
+2. What result do we expect?
+3. When should it be ready?
+
+This closing check is more reliable than sending a summary later and hoping silence means agreement.
+
+## Let the action item leave the meeting
+
+Meeting notes should preserve the source. They should not become a second task tracker.
+
+Use two connected layers:
+
+- **Source layer:** the meeting note, transcript, summary, and decision context.
+- **Execution layer:** the task manager, issue tracker, calendar, or personal system where the owner already manages work.
+
+Create the accepted task in one execution system and link it back to the source note. Do not maintain competing status fields in both places. Otherwise one copy will say "done" while the other quietly remains open.
+
+![A meeting action item moving from source evidence into one system of execution and a review checkpoint](/api/assets/blog/articles/meeting-action-items/meeting-action-handoff-v4.png)
+
+This handoff does not require a complicated integration. A copied task with a source link is enough. The important part is deciding which system owns status.
+
+Some tools automate the handoff. For example, [Microsoft lets Teams meeting-note task lists sync to Planner](https://support.microsoft.com/en-us/Planner/add-a-task-list-to-meeting-notes), where assignees can update the tasks. Whether you use an integration or copy the task manually, the design principle is the same: preserve meeting evidence, then manage the work in one place.
+
+## Use AI to find candidates, not invent commitments
+
+Transcripts are useful for locating possible action items, especially after long or fast-moving calls. They are not proof that someone accepted the work.
+
+People use tentative language in meetings:
+
+- "I could take a look."
+- "Maybe Sam can send that."
+- "We should probably revisit this next week."
+
+A generated summary can easily convert those statements into confident assignments. Keep uncertainty visible with a prompt like this:
+
+```text
+Extract possible action items from this meeting.
+
+For each candidate, return:
+- action,
+- proposed owner,
+- stated deadline,
+- definition of done if stated,
+- supporting passage,
+- confidence: accepted, proposed, or ambiguous.
+
+Do not infer an owner or deadline. Write "not stated" when the meeting does not
+provide one.
+```
+
+Then compare each candidate with the source and ask the participants to resolve ambiguous ownership. AI should reduce search time, not manufacture agreement.
+
+## Put action items in a repeatable meeting-note structure
+
+A consistent note template makes action items easier to capture and review:
+
+```md
+# Meeting title
+
+- **Date:** YYYY-MM-DD
+- **Participants:**
+- **Purpose:**
+
+## Decisions
+
+- [Decision with a link to the decision log]
+
+## Action-item candidates
+
+- [Candidate captured during discussion]
+
+## Accepted action items
+
+- [ ] Owner — Action by date. Done when [condition]. [Source](link)
+
+## Open questions
+
+- [Question that still needs an answer]
+```
+
+Separating candidates from accepted items prevents a brainstorming comment from quietly becoming an obligation. Separating decisions from actions preserves the difference between what the team chose and what someone must do next.
+
+If your current notes are scattered, start with a broader system for how to [organize meeting notes](/blog/organize-meeting-notes). If you prefer plain files you control, this structure also fits an [Obsidian meeting-notes workflow](/blog/obsidian-meeting-notes).
+
+## Review open commitments, not old conversations
+
+Action items become reliable when they appear again.
+
+At the start or end of the next recurring meeting, review only the open commitments:
+
+- done,
+- still in progress,
+- blocked,
+- no longer relevant,
+- or overdue and needing a new agreement.
+
+Do not use the review to reconstruct the entire previous meeting. Open the linked source only when the group needs context.
+
+If an item is blocked, record the blocker and its owner. If the task is no longer useful, close it explicitly instead of letting it decay in the backlog. If the deadline changes, treat the new date as a fresh agreement rather than silently editing history.
+
+This creates a simple loop:
+
+1. Capture candidates during the conversation.
+2. Confirm the action, owner, deadline, and definition of done.
+3. Move accepted work into one execution system.
+4. Link back to the meeting evidence.
+5. Review the open commitments at the next useful checkpoint.
+
+The best meeting action-item system is not the one that extracts the most tasks. It is the one that preserves the commitments people actually made and brings them back at the moment accountability matters.
+
+[Anarlog](/download) keeps meeting notes, transcripts, and summaries in local Markdown files, so you can retain the source context and hand accepted work to the task system your team already uses.

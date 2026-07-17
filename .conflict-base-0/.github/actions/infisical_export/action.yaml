@@ -1,0 +1,38 @@
+inputs:
+  project-id:
+    required: true
+  folder:
+    required: true
+  env:
+    required: false
+    default: dev
+
+outputs:
+  secrets:
+    value: ${{ steps.export.outputs.secrets }}
+  secrets_file:
+    value: ${{ steps.export.outputs.secrets_file }}
+
+runs:
+  using: "composite"
+  steps:
+    - uses: ./.github/actions/infisical_install
+    - id: export
+      shell: bash
+      run: |
+        SECRETS=$(
+          infisical export \
+            --token="$INFISICAL_TOKEN" \
+            --projectId=${{ inputs.project-id }} \
+            --path="${{ inputs.folder }}" \
+            --env=${{ inputs.env }} \
+            --format=json \
+          | jq -c 'map({(.key): .value}) | add'
+        )
+        SECRET_FILE=$(mktemp)
+        printf '%s' "$SECRETS" > "$SECRET_FILE"
+        echo "::add-mask::$SECRETS"
+        {
+          echo "secrets=$SECRETS"
+          echo "secrets_file=$SECRET_FILE"
+        } >> $GITHUB_OUTPUT

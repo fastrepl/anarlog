@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-attachment-remove"
+description = "Enables the attachment_remove command without any pre-configured scope."
+commands.allow = ["attachment_remove"]
+
+[[permission]]
+identifier = "deny-attachment-remove"
+description = "Denies the attachment_remove command without any pre-configured scope."
+commands.deny = ["attachment_remove"]

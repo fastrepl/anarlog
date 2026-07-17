@@ -1,0 +1,16 @@
+default_job = "api"
+
+[jobs.api]
+command = ["cargo", "run", "-p", "api"]
+need_stdout = true
+on_change_strategy = "kill_then_restart"
+allow_failures = true
+default_watch = false
+watch = [
+  "apps/api/src",
+  "crates/analytics/src",
+  "crates/llm-proxy/src",
+  "crates/supabase-auth/src",
+  "crates/transcribe-proxy/src",
+  "crates/owhisper-client/src",
+]

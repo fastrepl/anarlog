@@ -1,0 +1,91 @@
+.dark .prosemirror-editor {
+  caret-color: #d6d3d1;
+}
+
+.dark .prosemirror-editor h1,
+.dark .prosemirror-editor h2,
+.dark .prosemirror-editor h3,
+.dark .prosemirror-editor h4,
+.dark .prosemirror-editor h5,
+.dark .prosemirror-editor h6,
+.dark .blog-editor .prosemirror-editor h3,
+.dark .blog-editor .prosemirror-editor h4,
+.dark .blog-editor .prosemirror-editor h5,
+.dark .blog-editor .prosemirror-editor h6 {
+  color: #e7e5e4;
+}
+
+.dark .prosemirror-editor blockquote {
+  border-left-color: #a8a29e;
+  caret-color: #e7e5e4;
+}
+
+.dark .prosemirror-editor a {
+  color: #60a5fa;
+}
+
+.dark .prosemirror-editor a:hover {
+  color: #93c5fd;
+}
+
+.dark .prosemirror-editor code {
+  border-color: #57534e;
+  color: #e7e5e4;
+}
+
+.dark .prosemirror-editor input.task-checkbox {
+  border-color: #78716c;
+}
+
+.dark
+  .prosemirror-editor
+  input.task-checkbox[data-interactive="true"]:hover:not(:checked) {
+  border-color: #a8a29e;
+}
+
+.dark .ProseMirror td,
+.dark .ProseMirror th {
+  border-color: #57534e;
+}
+
+.dark .ProseMirror th {
+  background-color: #292524;
+}
+
+.dark .prosemirror-editor mark {
+  background-color: rgb(113 63 18 / 0.45);
+  color: #fcd34d;
+}
+
+.dark .ProseMirror .ProseMirror-search-match {
+  background-color: rgb(113 63 18 / 0.45);
+}
+
+.dark .ProseMirror .ProseMirror-active-search-match {
+  background-color: rgb(202 138 4);
+}
+
+.dark .ProseMirror .is-editor-empty:first-child::before,
+.dark .ProseMirror .is-empty::before,
+.dark .ProseMirror .react-placeholder-widget {
+  color: #78716c;
+}
+
+.dark .mention-container {
+  background: #292524;
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.08),
+    0 6px 12px -3px rgb(0 0 0 / 0.35);
+}
+
+.dark .mention-item.is-selected {
+  background-color: #44403c;
+}
+
+.dark .mention-item:hover {
+  background-color: #292524;
+}
+
+.dark .mention .mention-avatar-icon {
+  color: #a8a29e;
+}

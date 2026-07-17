@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-list-pending-share-opens"
+description = "Enables the list_pending_share_opens command without any pre-configured scope."
+commands.allow = ["list_pending_share_opens"]
+
+[[permission]]
+identifier = "deny-list-pending-share-opens"
+description = "Denies the list_pending_share_opens command without any pre-configured scope."
+commands.deny = ["list_pending_share_opens"]

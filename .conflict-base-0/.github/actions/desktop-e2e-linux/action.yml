@@ -1,0 +1,59 @@
+name: Run Desktop E2E Tests (Linux)
+description: Run WebDriver E2E tests for the desktop application on Linux
+inputs:
+  channel:
+    description: Release channel (staging or stable)
+    required: true
+  target_triple:
+    description: Rust target triple for the build
+    required: false
+    default: x86_64-unknown-linux-gnu
+runs:
+  using: composite
+  steps:
+    - uses: FedericoCarboni/setup-ffmpeg@v3
+      with:
+        ffmpeg-version: release
+    - shell: bash
+      run: ./scripts/setup-desktop-e2e.sh
+    - shell: bash
+      run: |
+        # Determine binary name based on channel
+        if [[ "${{ inputs.channel }}" == "staging" ]]; then
+          BINARY_NAME="hyprnote-staging"
+        else
+          BINARY_NAME="hyprnote"
+        fi
+
+        # Construct full binary path
+        BINARY_PATH="${{ github.workspace }}/apps/desktop/src-tauri/target/${{ inputs.target_triple }}/release/${BINARY_NAME}"
+
+        echo "Binary path: ${BINARY_PATH}"
+        echo "APP_BINARY_PATH=${BINARY_PATH}" >> $GITHUB_ENV
+
+        # Create logs directory for capturing test output
+        mkdir -p "${{ github.workspace }}/e2e/blackbox/logs"
+        echo "E2E_LOGS_DIR=${{ github.workspace }}/e2e/blackbox/logs" >> $GITHUB_ENV
+    - shell: bash
+      id: e2e-test
+      run: |
+        # Run tests and capture output to log file
+        pnpm -F e2e-blackbox e2e 2>&1 | tee "${{ env.E2E_LOGS_DIR }}/e2e-test-output.log"
+        exit ${PIPESTATUS[0]}
+      env:
+        APP_BINARY_PATH: ${{ env.APP_BINARY_PATH }}
+      continue-on-error: true
+    - name: Upload E2E logs and videos on failure
+      if: steps.e2e-test.outcome == 'failure'
+      uses: actions/upload-artifact@v4
+      with:
+        name: e2e-blackbox-artifacts
+        path: |
+          ${{ github.workspace }}/e2e/blackbox/logs/
+          ${{ github.workspace }}/e2e/blackbox/videos/
+        retention-days: 7
+        if-no-files-found: ignore
+    - name: Fail if tests failed
+      if: steps.e2e-test.outcome == 'failure'
+      shell: bash
+      run: exit 1

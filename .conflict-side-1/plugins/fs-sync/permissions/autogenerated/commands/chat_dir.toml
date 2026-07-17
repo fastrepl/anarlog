@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-chat-dir"
+description = "Enables the chat_dir command without any pre-configured scope."
+commands.allow = ["chat_dir"]
+
+[[permission]]
+identifier = "deny-chat-dir"
+description = "Denies the chat_dir command without any pre-configured scope."
+commands.deny = ["chat_dir"]

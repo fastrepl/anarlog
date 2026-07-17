@@ -1,0 +1,57 @@
+---
+title: "CLI for agents"
+description: "Use structured Anarlog CLI output as an agent-friendly MCP fallback."
+---
+
+Pass the global `--json` flag when an agent consumes CLI output.
+
+Every successful JSON response contains `schema_version`, `command`, `data`, and optional `pagination`. Read meeting results from `data` and continue from `pagination.next_offset` only when needed.
+
+## Resolve meeting context
+
+```bash
+anarlog --json meetings list --query "weekly planning" --limit 10
+anarlog --json meetings get MEETING_ID
+```
+
+Search is case-insensitive across meeting titles and IDs. If several results match, ask the user which meeting they mean.
+
+## Read the smallest useful surface
+
+```bash
+anarlog --json meetings note MEETING_ID --kind note
+anarlog --json meetings note MEETING_ID --kind summary
+anarlog --json meetings history MEETING_ID --limit 10 --offset 0
+```
+
+Use `meetings get` when participants or action items matter. Use `meetings note` when note content alone is enough.
+
+## Transcripts
+
+```bash
+anarlog --json meetings transcript MEETING_ID --limit 200 --offset 0
+```
+
+Transcript limits are measured in words. The default is 200 and the maximum is 500. Continue from `pagination.next_offset` only when the next page is necessary.
+
+## Diagnose setup
+
+```bash
+anarlog --json doctor
+```
+
+The report includes the CLI version, resolved database path, read-only connection status, and schema readiness.
+The command exits with status 1 when `ready` is false while preserving the diagnostic report on standard output.
+
+## Exports
+
+Only export a complete meeting when the user explicitly requests a file:
+
+```bash
+anarlog meetings export MEETING_ID --format markdown --output meeting.md
+anarlog meetings export MEETING_ID --format json --output meeting.json
+```
+
+Export refuses to replace an existing file. Use `--force` only after the user explicitly approves overwriting that exact path.
+
+See the [CLI reference](/reference/cli) for every option.

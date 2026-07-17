@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-reset-dock-icon"
+description = "Enables the reset_dock_icon command without any pre-configured scope."
+commands.allow = ["reset_dock_icon"]
+
+[[permission]]
+identifier = "deny-reset-dock-icon"
+description = "Denies the reset_dock_icon command without any pre-configured scope."
+commands.deny = ["reset_dock_icon"]

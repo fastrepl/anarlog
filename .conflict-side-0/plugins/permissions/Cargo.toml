@@ -1,0 +1,41 @@
+[package]
+name = "tauri-plugin-permissions"
+version = "0.1.0"
+authors = [ "You" ]
+description = ""
+edition = "2024"
+exclude = ["/examples", "/dist-js", "/guest-js", "/node_modules"]
+links = "tauri-plugin-permissions"
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+specta-typescript = { workspace = true }
+tokio = { workspace = true, features = ["macros"] }
+
+[dependencies]
+hypr-audio = { workspace = true }
+
+tauri = { workspace = true, features = ["specta", "test"] }
+tauri-plugin-shell = { workspace = true }
+tauri-plugin-sidecar2 = { workspace = true }
+
+specta = { workspace = true }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+
+serde = { workspace = true }
+thiserror = { workspace = true }
+futures-util = { workspace = true }
+tracing = { workspace = true }
+
+[target."cfg(target_os = \"macos\")".dependencies]
+hypr-bundle = { workspace = true }
+hypr-tcc = { workspace = true }
+block2 = { workspace = true }
+objc2 = { workspace = true }
+objc2-av-foundation = { workspace = true }
+objc2-contacts = { workspace = true, features = ["CNContactStore", "block2"] }
+objc2-event-kit = { workspace = true, features = ["EKEventStore", "EKTypes", "block2"] }
+objc2-foundation = { workspace = true }
+macos-accessibility-client = { workspace = true }

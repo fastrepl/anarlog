@@ -1,0 +1,27 @@
+.prosemirror-editor {
+  a {
+    color: #3b82f6;
+    cursor: text;
+    text-decoration: underline;
+
+    &.mention {
+      text-decoration: none;
+      color: inherit;
+      cursor: pointer;
+    }
+
+    &.mention:hover {
+      color: inherit;
+    }
+
+    &.mention:hover::after,
+    &.mention:hover::before {
+      display: none;
+    }
+
+    &:hover {
+      color: #1d4ed8;
+      cursor: pointer;
+    }
+  }
+}

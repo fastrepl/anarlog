@@ -1,0 +1,29 @@
+## Note Content:
+
+**Title:** {{ title }}
+
+**Content:**
+{{ content }}
+
+{% if existing_hashtags and existing_hashtags|length > 0 %}
+
+## Current Hashtags in Content:
+
+{% for hashtag in existing_hashtags %}#{{ hashtag }}{% if not loop.last %}, {% endif %}{% endfor %}
+{% endif %}
+
+{% if formal_tags and formal_tags|length > 0 %}
+
+## Current Formal Tags:
+
+{% for tag in formal_tags %}{{ tag }}{% if not loop.last %}, {% endif %}{% endfor %}
+{% endif %}
+
+{% if historical_tags and historical_tags|length > 0 %}
+
+## User's Historical Tags (existing tags in the entire database):
+
+{% for tag in historical_tags %}{{ tag }}{% if not loop.last %}, {% endif %}{% endfor %}
+{% endif %}
+
+Based on this note content and the user's tagging patterns, suggest 3-5 relevant tags that would help organize and categorize this note effectively. Respond only with a JSON array of strings, e.g. ["tag1", "tag2"].

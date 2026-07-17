@@ -1,0 +1,32 @@
+[package]
+name = "tauri-plugin-todo"
+version = "0.1.0"
+authors = ["You"]
+edition = "2024"
+exclude = ["/js", "/node_modules"]
+links = "tauri-plugin-todo"
+description = ""
+
+[dependencies]
+hypr-api-client = { workspace = true }
+hypr-apple-todo = { workspace = true, features = ["specta"] }
+hypr-github-issues = { workspace = true, features = ["specta"] }
+hypr-http = { workspace = true }
+hypr-ticket-interface = { workspace = true }
+
+tauri = { workspace = true, features = ["test"] }
+tauri-plugin-auth = { workspace = true }
+tauri-plugin-permissions = { workspace = true }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+
+reqwest = { workspace = true }
+
+serde = { workspace = true, features = ["derive"] }
+specta = { workspace = true, features = ["chrono"] }
+thiserror = { workspace = true }
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+specta-typescript = { workspace = true }

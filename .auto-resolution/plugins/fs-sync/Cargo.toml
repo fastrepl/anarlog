@@ -1,0 +1,34 @@
+[package]
+name = "tauri-plugin-fs-sync"
+version = "0.1.0"
+authors = ["You"]
+edition = "2024"
+exclude = ["/js", "/node_modules"]
+links = "tauri-plugin-fs-sync"
+description = ""
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+specta-typescript = { workspace = true }
+tempfile = { workspace = true }
+
+[dependencies]
+hypr-fs-sync-core = { workspace = true, features = ["tauri-event"] }
+
+tauri = { workspace = true, features = ["test"] }
+tauri-plugin-notify = { workspace = true }
+tauri-plugin-opener = { workspace = true }
+tauri-plugin-settings = { workspace = true }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+specta = { workspace = true, features = ["serde_json"] }
+
+rayon = { workspace = true }
+
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }

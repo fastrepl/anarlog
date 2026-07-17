@@ -1,0 +1,5 @@
+runs:
+  using: "composite"
+  steps:
+    - run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/karlis-vagalis/doxxer/releases/download/v0.7.0/doxxer-installer.sh | sh
+      shell: bash

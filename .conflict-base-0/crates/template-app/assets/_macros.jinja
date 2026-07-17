@@ -1,0 +1,165 @@
+{%- macro transcript(transcript) -%}
+{%- for segment in transcript.segments %}
+{{ segment.speaker }}: {{ segment.text }}
+{%- endfor -%}
+{%- endmacro -%}
+
+{%- macro transcripts(transcripts) -%}
+{%- for transcript in transcripts %}
+{%- for segment in transcript.segments %}
+{{ segment.speaker }}: {{ segment.text }}
+{%- endfor -%}
+{%- endfor -%}
+{%- endmacro -%}
+
+{%- macro participants(participants) -%}
+{%- if !participants.is_empty() -%}
+{%- for p in participants %}
+
+- {{ p.name }}{%- match p.job_title -%}{%- when Some with (job_title) %} ({{ job_title }}){%- when None -%}{%- endmatch -%}
+  {%- endfor -%}
+  {%- endif -%}
+  {%- endmacro -%}
+
+{%- macro session_context(session) -%}
+{%- match session -%}
+{%- when Some with (s) -%}
+{%- if s.event.is_some() -%}
+{%- match s.title -%}
+{%- when Some with (title) %}
+Meeting: {{ title }}
+{%- when None -%}
+{%- endmatch -%}
+{%- match (s.started_at.as_ref(), s.ended_at.as_ref()) -%}
+{%- when (Some(started), Some(ended)) %}
+Time: {{ started }} - {{ ended }}
+{%- when _ -%}
+{%- endmatch -%}
+{%- else -%}
+{%- match s.title -%}
+{%- when Some with (title) %}
+Session: {{ title }}
+{%- when None -%}
+{%- endmatch -%}
+{%- endif -%}
+{%- when None -%}
+{%- endmatch -%}
+{%- endmacro -%}
+
+{%- macro session_context_non_opt(s) -%}
+{%- if s.event.is_some() -%}
+{%- match s.title -%}
+{%- when Some with (title) %}
+Meeting: {{ title }}
+{%- when None -%}
+{%- endmatch -%}
+{%- match (s.started_at.as_ref(), s.ended_at.as_ref()) -%}
+{%- when (Some(started), Some(ended)) %}
+Time: {{ started }} - {{ ended }}
+{%- when _ -%}
+{%- endmatch -%}
+{%- else -%}
+{%- match s.title -%}
+{%- when Some with (title) %}
+Session: {{ title }}
+{%- when None -%}
+{%- endmatch -%}
+{%- endif -%}
+{%- endmacro -%}
+
+{%- macro template_context(template) -%}
+{%- match template -%}
+{%- when Some with (tpl) %}
+Template: {{ tpl.title }}
+{%- match tpl.description -%}
+{%- when Some with (desc) %}
+Description: {{ desc }}
+{%- when None -%}
+{%- endmatch %}
+
+Sections to cover:
+{%- for section in tpl.sections %}
+
+- {{ section.title }}
+  {%- match section.description -%}
+  {%- when Some with (desc) %}: {{ desc }}
+  {%- when None -%}
+  {%- endmatch -%}
+  {%- endfor -%}
+  {%- when None -%}
+  {%- endmatch -%}
+  {%- endmacro -%}
+
+{%- macro participants_list(participants) -%}
+{%- if !participants.is_empty() %}
+Participants:
+{% for p in participants -%}
+
+- {{ p.name }}{% if p.job_title.is_some() %} ({{ p.job_title.as_ref().unwrap() }}){% endif %}
+  {% endfor -%}
+  {%- endif -%}
+  {%- endmacro -%}
+
+{%- macro template_numbered(template) -%}
+{%- match template -%}
+{%- when Some with (tpl) %}
+
+# Summary Template
+
+Name: {{ tpl.title }}
+{%- match tpl.description -%}
+{%- when Some with (desc) %}
+Description: {{ desc }}
+{%- when None -%}
+{%- endmatch %}
+
+Sections:
+{% for section in tpl.sections -%}
+{{ loop.index }}. {{ section.title }}{% if section.description.is_some() %} - {{ section.description.as_ref().unwrap() }}{% endif %}
+{% endfor -%}
+{%- when None %}
+
+# Instructions
+
+1. Analyze the content and decide the sections to use.
+2. Generate a well-formatted markdown summary.
+   {% endmatch -%}
+   {%- endmacro -%}
+
+{%- macro session_context_details(ctx) -%}
+{%- if let Some(title) = ctx.title %}
+
+Title: {{ title }}
+{%- endif -%}
+{%- if let Some(date) = ctx.date %}
+
+Date: {{ date }}
+{%- endif -%}
+{%- if let Some(event) = ctx.event %}
+
+Event: {{ event.name }}
+{%- endif -%}
+{%- if !ctx.participants.is_empty() %}
+
+Participants:{{ participants(participants=ctx.participants) }}
+{%- endif -%}
+{%- if let Some(enhanced_content) = ctx.enhanced_content %}
+
+Enhanced Meeting Summary:
+{{ enhanced_content }}
+{%- else if let Some(raw_content) = ctx.raw_content %}
+
+User written note:
+{{ raw_content }}
+{%- endif -%}
+{%- if let Some(meeting_chat) = ctx.meeting_chat %}
+
+Meeting Chat:
+{{ meeting_chat }}
+{%- endif -%}
+{%- if let Some(transcript) = ctx.transcript %}
+
+Full Meeting Transcript:
+{{ transcript(transcript) }}
+{%- endif -%}
+{%- endmacro -%}

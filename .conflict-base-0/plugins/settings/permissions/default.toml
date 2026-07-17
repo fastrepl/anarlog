@@ -1,0 +1,3 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = ["allow-global-base", "allow-vault-base", "allow-copy-vault", "allow-move-vault", "allow-set-vault-base", "allow-is-empty-or-missing-dir", "allow-obsidian-vaults", "allow-path", "allow-load", "allow-save"]

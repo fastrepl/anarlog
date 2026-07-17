@@ -1,0 +1,67 @@
+name: Trigger Devin Session
+description: Trigger a Devin AI session via API
+
+inputs:
+  api_key:
+    description: Devin API key
+    required: true
+  prompt:
+    description: Prompt template (supports Jinja2 syntax)
+    required: true
+  vars:
+    description: JSON object of template variables
+    required: false
+    default: "{}"
+  title:
+    description: Session title
+    required: false
+  unlisted:
+    description: Whether the session is unlisted
+    required: false
+    default: "false"
+  idempotent:
+    description: Whether the session is idempotent
+    required: false
+    default: "false"
+  tags:
+    description: JSON array of tags
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        VARS_JSON: ${{ inputs.vars }}
+        PROMPT_TEMPLATE: ${{ inputs.prompt }}
+      run: |
+        pip install -q jinja2
+
+        PROMPT=$(python3 -c "
+        import json
+        import os
+        from jinja2 import Template
+        tmpl = Template(os.environ['PROMPT_TEMPLATE'])
+        vars = json.loads(os.environ.get('VARS_JSON', '{}'))
+        print(tmpl.render(**vars))
+        ")
+
+        DATA=$(jq -n \
+          --arg prompt "$PROMPT" \
+          --argjson unlisted ${{ inputs.unlisted }} \
+          --argjson idempotent ${{ inputs.idempotent }} \
+          '{prompt: $prompt, unlisted: $unlisted, idempotent: $idempotent}')
+
+        if [ -n "${{ inputs.title }}" ]; then
+          DATA=$(echo "$DATA" | jq --arg title "${{ inputs.title }}" '. + {title: $title}')
+        fi
+
+        if [ -n "${{ inputs.tags }}" ]; then
+          DATA=$(echo "$DATA" | jq --argjson tags '${{ inputs.tags }}' '. + {tags: $tags}')
+        fi
+
+        curl --request POST \
+          --url https://api.devin.ai/v1/sessions \
+          --header "Authorization: Bearer ${{ inputs.api_key }}" \
+          --header "Content-Type: application/json" \
+          --data "$DATA"

@@ -1,0 +1,114 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Anarlog",
+  "colors": {
+    "primary": "#74540F",
+    "light": "#946F25",
+    "dark": "#5D430D"
+  },
+  "favicon": "/favicon.svg",
+  "seo": {
+    "metatags": {
+      "canonical": "https://docs.anarlog.so"
+    }
+  },
+  "navigation": {
+    "pages": [
+      {
+        "group": "Getting started",
+        "pages": ["index", "quickstart"]
+      },
+      {
+        "group": "Using Anarlog",
+        "pages": [
+          "meetings",
+          "automatic-capture",
+          "import-recordings",
+          "notes",
+          "customize-summaries",
+          "calendar",
+          "languages"
+        ]
+      },
+      {
+        "group": "AI and privacy",
+        "pages": ["ai-setup", "offline", "data-and-privacy"]
+      },
+      {
+        "group": "CLI and agents",
+        "pages": [
+          "installation",
+          "agents/overview",
+          "agents/cli",
+          "agents/mcp",
+          "agents/skills"
+        ]
+      },
+      {
+        "group": "Recipes",
+        "pages": ["recipes/meeting-prep"]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "reference/cli",
+          "reference/mcp",
+          "reference/errors"
+        ]
+      },
+      {
+        "group": "Help",
+        "pages": ["help", "troubleshooting"]
+      }
+    ],
+    "global": {
+      "anchors": [
+        {
+          "anchor": "Anarlog",
+          "href": "https://anarlog.so",
+          "icon": "house"
+        },
+        {
+          "anchor": "GitHub",
+          "href": "https://github.com/fastrepl/anarlog",
+          "icon": "github"
+        }
+      ]
+    }
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Support",
+        "href": "mailto:hello@anarlog.so"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Download Anarlog",
+      "href": "https://anarlog.so/download"
+    }
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/fastrepl/anarlog"
+    }
+  }
+}

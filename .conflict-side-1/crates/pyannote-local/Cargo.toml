@@ -1,0 +1,26 @@
+[package]
+name = "pyannote-local"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = []
+coreml = ["hypr-onnx/coreml"]
+directml = ["hypr-onnx/directml"]
+[dependencies]
+hypr-onnx = { workspace = true }
+
+dasp = { workspace = true }
+knf-rs = { git = "https://github.com/thewh1teagle/pyannote-rs", rev = "e23bd29", package = "knf-rs" }
+simsimd = { version = "6" }
+
+thiserror = { workspace = true }
+
+serde = { workspace = true, features = ["derive"] }
+specta = { workspace = true, features = ["derive"] }
+
+[dev-dependencies]
+hypr-data = { workspace = true }
+
+approx = { workspace = true }
+rodio = { workspace = true }

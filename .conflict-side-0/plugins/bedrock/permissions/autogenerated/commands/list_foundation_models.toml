@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-list-foundation-models"
+description = "Enables the list_foundation_models command without any pre-configured scope."
+commands.allow = ["list_foundation_models"]
+
+[[permission]]
+identifier = "deny-list-foundation-models"
+description = "Denies the list_foundation_models command without any pre-configured scope."
+commands.deny = ["list_foundation_models"]

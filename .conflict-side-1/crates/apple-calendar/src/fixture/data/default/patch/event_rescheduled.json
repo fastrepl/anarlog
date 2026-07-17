@@ -1,0 +1,10 @@
+[
+  { "op": "replace", "path": "/0/last_modified_date", "value": "2025-01-02T08:00:00Z" },
+  { "op": "replace", "path": "/0/start_date", "value": "2025-01-02T10:00:00Z" },
+  { "op": "replace", "path": "/0/end_date", "value": "2025-01-02T10:30:00Z" },
+  { "op": "replace", "path": "/0/notes", "value": "Rescheduled standup" },
+
+  { "op": "replace", "path": "/1/last_modified_date", "value": "2025-01-02T09:00:00Z" },
+  { "op": "replace", "path": "/1/start_date", "value": "2025-01-03T16:00:00Z" },
+  { "op": "replace", "path": "/1/end_date", "value": "2025-01-03T17:00:00Z" }
+]

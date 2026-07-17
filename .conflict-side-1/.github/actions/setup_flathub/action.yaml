@@ -1,0 +1,6 @@
+runs:
+  using: "composite"
+  steps:
+    - if: ${{ runner.os == 'Linux' }}
+      shell: bash
+      run: bash ${{ github.workspace }}/scripts/setup-flathub.sh

@@ -1,0 +1,11 @@
+[package]
+name = "lmstudio"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+dirs = { workspace = true }

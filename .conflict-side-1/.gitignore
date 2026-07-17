@@ -1,0 +1,31 @@
+target/
+node_modules/
+.DS_Store
+.shuttle/
+Secrets*.toml
+.env
+.env.*
+!.env.sample
+.venv
+**/__pycache__/
+.supabase/
+.stripe/
+supabase/.seed/
+
+*storybook.log
+.cache/
+
+internal
+.turbo
+
+**/examples/out/
+
+# Local Netlify folder
+.netlify
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Agent scratch / reference material (not for commit)
+.tmp/
+

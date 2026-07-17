@@ -1,0 +1,26 @@
+{%- import "_macros.jinja" as macros -%}
+
+# Context
+
+{{ macros::session_context_non_opt(s=session) }}
+{{- macros::participants_list(participants=participants) }}
+{% if !pre_meeting_memo.is_empty() %}
+
+# Pre-Meeting Notes
+
+{{ pre_meeting_memo }}
+{% endif %}
+{% if !post_meeting_memo.is_empty() %}
+
+# Meeting Notes
+
+{{ post_meeting_memo }}
+{% endif %}
+
+# Transcript
+
+{{ macros::transcripts(transcripts=transcripts) }}
+
+# Output Template
+
+{{- macros::template_numbered(template=template) }}

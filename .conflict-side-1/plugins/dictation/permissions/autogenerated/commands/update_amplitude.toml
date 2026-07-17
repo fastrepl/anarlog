@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-update-amplitude"
+description = "Enables the update_amplitude command without any pre-configured scope."
+commands.allow = ["update_amplitude"]
+
+[[permission]]
+identifier = "deny-update-amplitude"
+description = "Denies the update_amplitude command without any pre-configured scope."
+commands.deny = ["update_amplitude"]

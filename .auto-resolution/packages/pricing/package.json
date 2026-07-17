@@ -1,0 +1,23 @@
+{
+  "name": "@hypr/pricing",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ui": "./src/plan-feature-list.tsx"
+  },
+  "dependencies": {
+    "@hypr/ui": "workspace:^",
+    "@hypr/utils": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14"
+  },
+  "peerDependencies": {
+    "lucide-react": ">=0.400.0",
+    "react": "^19.0.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-list-microphone-devices"
+description = "Enables the list_microphone_devices command without any pre-configured scope."
+commands.allow = ["list_microphone_devices"]
+
+[[permission]]
+identifier = "deny-list-microphone-devices"
+description = "Denies the list_microphone_devices command without any pre-configured scope."
+commands.deny = ["list_microphone_devices"]

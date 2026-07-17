@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-list-ggml-backends"
+description = "Enables the list_ggml_backends command without any pre-configured scope."
+commands.allow = ["list_ggml_backends"]
+
+[[permission]]
+identifier = "deny-list-ggml-backends"
+description = "Denies the list_ggml_backends command without any pre-configured scope."
+commands.deny = ["list_ggml_backends"]

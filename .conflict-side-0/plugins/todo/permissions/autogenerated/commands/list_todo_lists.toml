@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-list-todo-lists"
+description = "Enables the list_todo_lists command without any pre-configured scope."
+commands.allow = ["list_todo_lists"]
+
+[[permission]]
+identifier = "deny-list-todo-lists"
+description = "Denies the list_todo_lists command without any pre-configured scope."
+commands.deny = ["list_todo_lists"]

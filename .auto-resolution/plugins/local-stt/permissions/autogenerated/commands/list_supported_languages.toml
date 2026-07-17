@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-list-supported-languages"
+description = "Enables the list_supported_languages command without any pre-configured scope."
+commands.allow = ["list_supported_languages"]
+
+[[permission]]
+identifier = "deny-list-supported-languages"
+description = "Denies the list_supported_languages command without any pre-configured scope."
+commands.deny = ["list_supported_languages"]

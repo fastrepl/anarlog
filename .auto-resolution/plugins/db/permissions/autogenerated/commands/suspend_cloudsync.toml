@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-suspend-cloudsync"
+description = "Enables the suspend_cloudsync command without any pre-configured scope."
+commands.allow = ["suspend_cloudsync"]
+
+[[permission]]
+identifier = "deny-suspend-cloudsync"
+description = "Denies the suspend_cloudsync command without any pre-configured scope."
+commands.deny = ["suspend_cloudsync"]

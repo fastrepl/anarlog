@@ -1,0 +1,1 @@
+- no `name:` in workflow steps (keep steps concise without explicit names unless necessary for clarity)

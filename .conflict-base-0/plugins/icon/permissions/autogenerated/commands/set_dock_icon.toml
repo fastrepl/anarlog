@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-dock-icon"
+description = "Enables the set_dock_icon command without any pre-configured scope."
+commands.allow = ["set_dock_icon"]
+
+[[permission]]
+identifier = "deny-set-dock-icon"
+description = "Denies the set_dock_icon command without any pre-configured scope."
+commands.deny = ["set_dock_icon"]

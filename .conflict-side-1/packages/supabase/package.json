@@ -1,0 +1,27 @@
+{
+  "name": "@hypr/supabase",
+  "exports": {
+    ".": "./src/index.ts",
+    "./middleware": "./src/middleware.ts",
+    "./storage": "./src/storage.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.103.0",
+    "jose": "^6.2.2",
+    "tus-js-client": "^4.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.17"
+  },
+  "peerDependencies": {
+    "hono": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "hono": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

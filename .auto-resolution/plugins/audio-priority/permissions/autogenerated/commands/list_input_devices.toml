@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-list-input-devices"
+description = "Enables the list_input_devices command without any pre-configured scope."
+commands.allow = ["list_input_devices"]
+
+[[permission]]
+identifier = "deny-list-input-devices"
+description = "Denies the list_input_devices command without any pre-configured scope."
+commands.deny = ["list_input_devices"]

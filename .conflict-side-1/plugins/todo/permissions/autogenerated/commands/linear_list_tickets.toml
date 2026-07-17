@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-linear-list-tickets"
+description = "Enables the linear_list_tickets command without any pre-configured scope."
+commands.allow = ["linear_list_tickets"]
+
+[[permission]]
+identifier = "deny-linear-list-tickets"
+description = "Denies the linear_list_tickets command without any pre-configured scope."
+commands.deny = ["linear_list_tickets"]

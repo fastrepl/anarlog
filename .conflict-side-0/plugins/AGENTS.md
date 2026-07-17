@@ -1,0 +1,1 @@
+- After updating commands in `plugins/<NAME/src/lib.rs`, run `codegen`, update `plugins/<NAME>/permissions/default.toml`, `plugins/<NAME>/permissions/default.toml` and `apps/desktop/src-tauri/capabilities/default.json`.

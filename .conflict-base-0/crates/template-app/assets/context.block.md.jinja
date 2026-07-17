@@ -1,0 +1,11 @@
+<context>
+{%- import "_macros.jinja" as macros -%}
+{%- for ctx in contexts -%}
+{%- if !loop.first %}
+
+---
+
+{% endif -%}
+{{ macros::session_context_details(ctx=ctx) }}
+{%- endfor %}
+</context>

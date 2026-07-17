@@ -1,0 +1,99 @@
+{
+  "markdown": {
+    "associations": [
+      "**/*.jinja",
+      "crates/db-user/assets/**/*.md"
+    ]
+  },
+  "markup": {
+    "associations": [
+      "!**/*.html",
+      "!**/*.jinja",
+      "**/*.wxs",
+      "**/*.wxl"
+    ]
+  },
+  "excludes": [
+    ".venv",
+    ".drizzle",
+    "**/*-lock.yaml",
+    "**/*-lock.json",
+    "**/locales",
+    "**/*.gen.*",
+    "**/dist",
+    "**/target",
+    "**/.build",
+    "**/public",
+    "**/gen/**",
+    "**/generated/**",
+    "**/permissions/**",
+    "**/migrations/**/*.sql",
+    "**/tests/*.sql",
+    "**/charts/**",
+    "**/schema.json",
+    "**/netlify/edge-functions"
+  ],
+  "exec": {
+    "cwd": "${configDir}",
+    "commands": [
+      {
+        "command": "gofmt",
+        "exts": [
+          "go"
+        ],
+        "cacheKeyFiles": [
+          "go.mod",
+          "go.sum"
+        ]
+      },
+      {
+        "command": "rustfmt --edition 2024",
+        "exts": [
+          "rs"
+        ],
+        "cacheKeyFiles": [
+          "rust-toolchain.toml"
+        ]
+      },
+      {
+        "command": "swift format",
+        "exts": [
+          "swift"
+        ]
+      },
+      {
+        "command": "pnpm exec oxfmt --stdin-filepath {{file_path}}",
+        "exts": [
+          "js",
+          "ts",
+          "jsx",
+          "tsx",
+          "mjs",
+          "mts"
+        ],
+        "cacheKeyFiles": [
+          ".oxfmtrc.json",
+          "package.json"
+        ]
+      },
+      {
+        "command": "node apps/web/scripts/format-mdx.js",
+        "exts": [
+          "mdx"
+        ]
+      }
+    ]
+  },
+  "plugins": [
+    "https://plugins.dprint.dev/g-plane/pretty_yaml-v0.5.0.wasm",
+    "https://plugins.dprint.dev/toml-0.6.4.wasm",
+    "https://plugins.dprint.dev/sql-0.2.0.wasm",
+    "https://plugins.dprint.dev/dockerfile-0.3.2.wasm",
+    "https://plugins.dprint.dev/exec-0.6.0.json@a054130d458f124f9b5c91484833828950723a5af3f8ff2bd1523bd47b83b364",
+    "https://plugins.dprint.dev/ruff-0.3.9.wasm",
+    "https://plugins.dprint.dev/json-0.20.0.wasm",
+    "https://plugins.dprint.dev/markdown-0.17.8.wasm",
+    "https://plugins.dprint.dev/g-plane/markup_fmt-v0.18.0.wasm",
+    "https://plugins.dprint.dev/g-plane/malva-v0.12.1.wasm"
+  ]
+}

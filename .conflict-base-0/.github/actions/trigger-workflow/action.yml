@@ -1,0 +1,48 @@
+name: Trigger Workflow
+description: Trigger a workflow and poll for run ID
+
+inputs:
+  workflow:
+    description: Workflow file name
+    required: true
+  ref:
+    description: Git ref to run on
+    required: true
+  channel:
+    description: Channel input for the workflow
+    required: true
+  publish:
+    description: Publish to Crabnebula and create GitHub release
+    required: false
+    default: "true"
+  token:
+    description: GitHub token
+    required: true
+  repo:
+    description: Repository (owner/repo)
+    required: true
+  max_attempts:
+    description: Max polling attempts
+    required: false
+    default: "10"
+
+outputs:
+  run_id:
+    description: The triggered workflow run ID
+    value: ${{ steps.trigger.outputs.run_id }}
+
+runs:
+  using: composite
+  steps:
+    - id: trigger
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        gh workflow run ${{ inputs.workflow }} --repo ${{ inputs.repo }} --ref "${{ inputs.ref }}" -f channel=${{ inputs.channel }} -f publish=${{ inputs.publish }}
+        for i in $(seq 1 ${{ inputs.max_attempts }}); do
+          sleep 5
+          RUN_ID=$(gh run list --workflow=${{ inputs.workflow }} --repo ${{ inputs.repo }} --branch="${{ inputs.ref }}" --json databaseId,createdAt --jq 'sort_by(.createdAt) | reverse | .[0].databaseId // empty')
+          [ -n "$RUN_ID" ] && break
+        done
+        echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT

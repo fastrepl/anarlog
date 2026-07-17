@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-suggest-providers-for-languages-live"
+description = "Enables the suggest_providers_for_languages_live command without any pre-configured scope."
+commands.allow = ["suggest_providers_for_languages_live"]
+
+[[permission]]
+identifier = "deny-suggest-providers-for-languages-live"
+description = "Denies the suggest_providers_for_languages_live command without any pre-configured scope."
+commands.deny = ["suggest_providers_for_languages_live"]

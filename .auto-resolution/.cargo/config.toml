@@ -1,0 +1,11 @@
+[alias]
+xtask = "run --package xtask --"
+
+[env]
+MACOSX_DEPLOYMENT_TARGET = { value = "14.2", force = true }
+
+[target.'cfg(all(windows, target_env = "msvc"))']
+rustflags = [
+  "-C",
+  "target-feature=-crt-static",
+]

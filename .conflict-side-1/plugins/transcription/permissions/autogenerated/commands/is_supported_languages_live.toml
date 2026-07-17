@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-is-supported-languages-live"
+description = "Enables the is_supported_languages_live command without any pre-configured scope."
+commands.allow = ["is_supported_languages_live"]
+
+[[permission]]
+identifier = "deny-is-supported-languages-live"
+description = "Denies the is_supported_languages_live command without any pre-configured scope."
+commands.deny = ["is_supported_languages_live"]

@@ -1,0 +1,26 @@
+[package]
+name = "api-sync"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hypr-api-auth = { workspace = true }
+hypr-api-error = { workspace = true }
+
+utoipa = { workspace = true }
+
+axum = { workspace = true }
+chrono = { workspace = true }
+reqwest = { workspace = true, features = ["json", "query", "stream"] }
+sentry = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+tower = { workspace = true }
+wiremock = { workspace = true }

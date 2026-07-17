@@ -1,0 +1,37 @@
+name: chrome_ci
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - apps/chrome/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .github/actions/pnpm_install/**
+      - .github/workflows/chrome_ci.yaml
+  pull_request:
+    paths:
+      - apps/chrome/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .github/actions/pnpm_install/**
+      - .github/workflows/chrome_ci.yaml
+
+jobs:
+  chrome_ci:
+    runs-on: depot-ubuntu-24.04-4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/pnpm_install
+      - run: pnpm -F @hypr/chrome typecheck
+      - run: pnpm -F @hypr/chrome build
+
+  ci:
+    if: always()
+    needs: [chrome_ci]
+    runs-on: ubuntu-latest
+    steps:
+      - run: exit 1
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')

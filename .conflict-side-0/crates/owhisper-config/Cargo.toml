@@ -1,0 +1,11 @@
+[package]
+name = "owhisper-config"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+config = { version = "0.15.13", default-features = false, features = ["preserve_order", "yaml", "json", "json5", "convert_case"] }
+dirs = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }

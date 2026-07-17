@@ -1,0 +1,24 @@
+[package]
+name = "tauri-plugin-overlay"
+version = "0.1.0"
+authors = ["You"]
+edition = "2024"
+exclude = ["/js", "/node_modules"]
+links = "tauri-plugin-overlay"
+description = ""
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+specta-typescript = { workspace = true }
+
+[dependencies]
+serde = { workspace = true }
+
+specta = { workspace = true }
+tauri = { workspace = true, features = ["test"] }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+
+tokio = { workspace = true, features = ["time"] }
+tracing = { workspace = true }

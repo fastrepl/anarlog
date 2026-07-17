@@ -1,0 +1,86 @@
+[package]
+name = "tauri-plugin-local-stt"
+version = "0.1.0"
+authors = ["You"]
+edition = "2024"
+exclude = ["/js", "/node_modules"]
+links = "tauri-plugin-local-stt"
+description = ""
+
+[features]
+default = []
+whisper-cpp = ["dep:hypr-transcribe-whisper-local", "dep:hypr-whisper-local"]
+coreml = ["whisper-cpp", "hypr-transcribe-whisper-local/coreml"]
+directml = ["whisper-cpp", "hypr-transcribe-whisper-local/directml"]
+cuda = ["whisper-cpp", "hypr-transcribe-whisper-local/cuda"]
+hipblas = ["whisper-cpp", "hypr-transcribe-whisper-local/hipblas"]
+openblas = ["whisper-cpp", "hypr-transcribe-whisper-local/openblas"]
+metal = ["whisper-cpp", "hypr-transcribe-whisper-local/metal"]
+vulkan = ["whisper-cpp", "hypr-transcribe-whisper-local/vulkan"]
+openmp = ["whisper-cpp", "hypr-transcribe-whisper-local/openmp"]
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+hypr-audio-utils = { workspace = true }
+hypr-data = { workspace = true }
+hypr-language = { workspace = true, features = ["whisper"] }
+
+dirs = { workspace = true }
+reqwest = { workspace = true }
+rodio = { workspace = true }
+similar = { workspace = true }
+specta-typescript = { workspace = true }
+tokio-tungstenite = { workspace = true }
+tower = { workspace = true }
+
+[dependencies]
+hypr-am = { workspace = true }
+hypr-audio-utils = { workspace = true }
+hypr-download-interface = { workspace = true }
+hypr-file = { workspace = true }
+hypr-host = { workspace = true }
+hypr-language = { workspace = true, features = ["whisper"] }
+hypr-local-model = { workspace = true }
+hypr-local-stt-core = { workspace = true, features = ["specta"] }
+hypr-model-downloader = { workspace = true, features = ["specta"] }
+hypr-transcribe-soniqo = { workspace = true }
+hypr-transcribe-whisper-local = { workspace = true, optional = true }
+hypr-whisper-local = { workspace = true, optional = true }
+hypr-whisper-local-model = { workspace = true }
+
+owhisper-client = { workspace = true }
+owhisper-interface = { workspace = true }
+
+tauri = { workspace = true, features = ["test"] }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+
+tauri-plugin-settings = { workspace = true }
+tauri-plugin-shell = { workspace = true }
+tauri-plugin-sidecar2 = { workspace = true }
+tauri-plugin-windows = { workspace = true }
+
+dirs = { workspace = true }
+json-patch = "4"
+serde = { workspace = true }
+serde_json = { workspace = true }
+specta = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+
+axum = { workspace = true, features = ["ws"] }
+axum-extra = { workspace = true, features = ["query"] }
+tower-http = { workspace = true, features = ["cors", "trace"] }
+
+backon = { workspace = true }
+futures-util = { workspace = true }
+reqwest = { workspace = true }
+tokio = { workspace = true, features = ["rt", "macros"] }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+
+hypr-supervisor = { workspace = true }
+ractor = { workspace = true, features = ["async-trait"] }
+
+port-killer = "0.1.0"
+port_check = "0.3.0"

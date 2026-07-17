@@ -1,0 +1,136 @@
+---
+format_version: "23"
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: ios
+
+workflows:
+  archive_and_export_app:
+    summary: Create an IPA for the iOS app.
+    steps:
+      - activate-ssh-key@4: {}
+      - git-clone@8: {}
+      - restore-spm-cache@2: {}
+      - script@1:
+          title: Install Rust toolchain for iOS
+          inputs:
+            - content: |-
+                #!/usr/bin/env bash
+                set -euxo pipefail
+
+                export PATH="$HOME/.cargo/bin:$PATH"
+
+                if ! command -v rustup >/dev/null 2>&1; then
+                  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+                fi
+
+                channel="$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml)"
+
+                rustup toolchain install "$channel" \
+                  --profile minimal \
+                  --component rust-analyzer \
+                  --component rustfmt \
+                  --component clippy
+
+                rustup target add --toolchain "$channel" \
+                  aarch64-apple-ios \
+                  aarch64-apple-ios-sim \
+                  x86_64-apple-ios
+      - script@1:
+          title: Generate iOS mobile bridge
+          inputs:
+            - content: |-
+                #!/usr/bin/env bash
+                set -euxo pipefail
+
+                export PATH="$HOME/.cargo/bin:$PATH"
+
+                channel="$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml)"
+
+                cargo +"$channel" check -p mobile-bridge -p uniffi-bindgen -p xtask
+                cargo +"$channel" xtask mobile-bridge
+      - xcode-archive@5:
+          inputs:
+            - project_path: $BITRISE_PROJECT_PATH
+            - scheme: $BITRISE_SCHEME
+            - distribution_method: $BITRISE_DISTRIBUTION_METHOD
+            - automatic_code_signing: api-key
+            - cache_level: none
+      - save-spm-cache@1: {}
+      - deploy-to-bitrise-io@2: {}
+
+  build:
+    summary: Build the iOS app for testing.
+    steps:
+      - activate-ssh-key@4: {}
+      - git-clone@8: {}
+      - restore-spm-cache@2: {}
+      - script@1:
+          title: Install Rust toolchain for iOS
+          inputs:
+            - content: |-
+                #!/usr/bin/env bash
+                set -euxo pipefail
+
+                export PATH="$HOME/.cargo/bin:$PATH"
+
+                if ! command -v rustup >/dev/null 2>&1; then
+                  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+                fi
+
+                channel="$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml)"
+
+                rustup toolchain install "$channel" \
+                  --profile minimal \
+                  --component rust-analyzer \
+                  --component rustfmt \
+                  --component clippy
+
+                rustup target add --toolchain "$channel" \
+                  aarch64-apple-ios \
+                  aarch64-apple-ios-sim \
+                  x86_64-apple-ios
+      - script@1:
+          title: Generate iOS mobile bridge
+          inputs:
+            - content: |-
+                #!/usr/bin/env bash
+                set -euxo pipefail
+
+                export PATH="$HOME/.cargo/bin:$PATH"
+
+                channel="$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml)"
+
+                cargo +"$channel" check -p mobile-bridge -p uniffi-bindgen -p xtask
+                cargo +"$channel" xtask mobile-bridge
+      - xcode-build-for-test@3:
+          inputs:
+            - project_path: $BITRISE_PROJECT_PATH
+            - scheme: $BITRISE_SCHEME
+            - destination: generic/platform=iOS Simulator
+            - cache_level: none
+      - save-spm-cache@1: {}
+      - deploy-to-bitrise-io@2: {}
+    triggers:
+      push:
+        - branch: main
+          changed_files: "apps/mobile/.*|crates/mobile-bridge/.*|crates/uniffi-bindgen/.*|crates/xtask/.*|Cargo.toml|Cargo.lock|\\.cargo/config.toml|bitrise\\.yml"
+      pull_request:
+        - source_branch: "*"
+          changed_files: "apps/mobile/.*|crates/mobile-bridge/.*|crates/uniffi-bindgen/.*|crates/xtask/.*|Cargo.toml|Cargo.lock|\\.cargo/config.toml|bitrise\\.yml"
+
+meta:
+  bitrise.io:
+    stack: osx-xcode-26.2.x
+    machine_type_id: g2.mac.large
+
+app:
+  envs:
+    - BITRISE_PROJECT_PATH: apps/mobile/ios/HyprMobile/HyprMobile.xcodeproj
+      opts:
+        is_expand: false
+    - BITRISE_SCHEME: HyprMobile
+      opts:
+        is_expand: false
+    - BITRISE_DISTRIBUTION_METHOD: ad-hoc
+      opts:
+        is_expand: false

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-run-legacy-import"
+description = "Enables the run_legacy_import command without any pre-configured scope."
+commands.allow = ["run_legacy_import"]
+
+[[permission]]
+identifier = "deny-run-legacy-import"
+description = "Denies the run_legacy_import command without any pre-configured scope."
+commands.deny = ["run_legacy_import"]

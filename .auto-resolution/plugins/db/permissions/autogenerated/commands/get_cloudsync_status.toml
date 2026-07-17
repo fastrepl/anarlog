@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-cloudsync-status"
+description = "Enables the get_cloudsync_status command without any pre-configured scope."
+commands.allow = ["get_cloudsync_status"]
+
+[[permission]]
+identifier = "deny-get-cloudsync-status"
+description = "Denies the get_cloudsync_status command without any pre-configured scope."
+commands.deny = ["get_cloudsync_status"]

@@ -1,0 +1,8 @@
+{
+  "name": "@hypr/plugin-relay",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./vite": "./js/vite.js"
+  }
+}

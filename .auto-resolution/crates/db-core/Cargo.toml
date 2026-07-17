@@ -1,0 +1,20 @@
+[package]
+name = "db-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hypr-cloudsync = { workspace = true }
+hypr-db-change = { workspace = true }
+
+backon = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt", "time"] }
+uuid = { workspace = true, features = ["v4"] }

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-capture-snapshot"
+description = "Enables the get_capture_snapshot command without any pre-configured scope."
+commands.allow = ["get_capture_snapshot"]
+
+[[permission]]
+identifier = "deny-get-capture-snapshot"
+description = "Denies the get_capture_snapshot command without any pre-configured scope."
+commands.deny = ["get_capture_snapshot"]

@@ -1,0 +1,9 @@
+[package]
+name = "screen-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+image = { workspace = true }
+thiserror = { workspace = true }
+xcap = { workspace = true }

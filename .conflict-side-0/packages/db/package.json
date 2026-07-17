@@ -1,0 +1,26 @@
+{
+  "name": "@hypr/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@hypr/db-runtime": "workspace:*",
+    "drizzle-orm": "^0.44.2"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.3",
+    "typescript": "~5.8.3",
+    "vitest": "^4.1.4"
+  },
+  "scripts": {
+    "introspect": "drizzle-kit introspect",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  }
+}

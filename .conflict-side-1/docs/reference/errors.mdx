@@ -1,0 +1,20 @@
+---
+title: "Errors and exit codes"
+description: "Interpret CLI failures and recover without modifying Anarlog storage."
+---
+
+Without `--json`, CLI errors are written to standard error as human-readable text beginning with `error:`. With `--json`, errors contain `schema_version` and an `error` object with `code`, `message`, and `exit_code`.
+
+| Exit code | Meaning | Recovery |
+| --- | --- | --- |
+| `0` | Success | Consume stdout. |
+| `1` | Database or operation failure, or an unhealthy `doctor` report | Check the reported action or inspect the diagnostic report and confirm app and CLI compatibility. |
+| `2` | Meeting, note, or other requested data not found | List meetings again and use a returned ID. |
+| `3` | Database file not found | Open Anarlog once or provide the correct database path. |
+| `4` | Export output already exists | Choose another path or explicitly pass `--force` to replace the file. |
+
+Invalid arguments use the `invalid_arguments` error code with Clap's nonzero exit code.
+
+MCP reports missing meetings as invalid parameters. Database and serialization failures are internal MCP errors.
+
+Do not recover by creating tables, running migrations, or issuing SQL. The desktop app owns schema initialization and migrations.

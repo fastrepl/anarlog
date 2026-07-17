@@ -1,0 +1,29 @@
+# Event Metadata
+
+{%- match title %}
+{%- when Some with (title) %}
+
+Title: {{ title|safe }}
+{%- when None %}
+{%- endmatch %}
+{%- match description %}
+{%- when Some with (description) %}
+
+Description:
+{{ description|safe }}
+{%- when None %}
+{%- endmatch %}
+
+# Candidate Participant Emails
+
+{% if candidates.is_empty() -%}
+
+- (none){{ "\n" -}}
+  {%- else -%}
+  {%- for candidate in candidates -%}
+- {%- match candidate.name -%}{%- when Some with (name) %} {{ name|safe }}{%- when None %} (no name){%- endmatch %} <{%- match candidate.email -%}{%- when Some with (email) %}{{ email|safe }}{%- when None %}no email{%- endmatch -%}>
+  {%- if candidate.is_current_user || candidate.is_organizer %} ({% if candidate.is_current_user %}current user{% endif %}{% if candidate.is_current_user && candidate.is_organizer %}, {% endif %}{% if candidate.is_organizer %}organizer{% endif %}){% endif %}{{ "\n" -}}
+  {%- endfor -%}
+  {%- endif -%}
+
+Extract contacts from this event.

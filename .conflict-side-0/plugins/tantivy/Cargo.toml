@@ -1,0 +1,33 @@
+[package]
+name = "tauri-plugin-tantivy"
+version = "0.1.0"
+authors = ["You"]
+edition = "2024"
+exclude = ["/js", "/node_modules"]
+links = "tauri-plugin-tantivy"
+description = "Full-text search plugin using Tantivy"
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+specta-typescript = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["macros"] }
+
+[dependencies]
+hypr-language = { workspace = true, features = ["detect"] }
+tantivy = "0.25"
+
+tauri = { workspace = true, features = ["test"] }
+tauri-plugin-notify = { workspace = true }
+tauri-plugin-settings = { workspace = true }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+specta = { workspace = true }
+
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }

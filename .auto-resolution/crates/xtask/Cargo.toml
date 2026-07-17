@@ -1,0 +1,12 @@
+[package]
+name = "xtask"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+anyhow = "1"
+pathdiff = "0.2"
+tempfile = "3"
+toml = "0.8"
+xshell = "0.2"

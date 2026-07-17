@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-move-vault"
+description = "Enables the move_vault command without any pre-configured scope."
+commands.allow = ["move_vault"]
+
+[[permission]]
+identifier = "deny-move-vault"
+description = "Denies the move_vault command without any pre-configured scope."
+commands.deny = ["move_vault"]

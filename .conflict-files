@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/desktop/src/session/attachments.test.ts", "apps/desktop/src/session/attachments.ts"]
+ourEntries = ["apps/desktop/src/session/attachments.test.ts", "apps/desktop/src/session/attachments.ts"]
+theirEntries = ["apps/desktop/src/session/attachments.test.ts", "apps/desktop/src/session/attachments.ts"]

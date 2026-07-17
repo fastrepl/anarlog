@@ -1,0 +1,39 @@
+packages:
+  - apps/*
+  - packages/*
+  - plugins/*
+  - examples/plugins/*
+  - e2e/*
+
+publicHoistPattern:
+  - "!bun-types"
+  - "!@types/bun"
+
+overrides:
+  prosemirror-view: "1.41.7"
+  lightningcss: "1.30.1"
+
+peerDependencyRules:
+  allowedVersions:
+    motion: "11"
+    react: "19"
+    "@lobehub/ui": "3.4.0"
+    unist-util-visit: "5"
+    esbuild: "0.25"
+
+allowBuilds:
+  "@infisical/cli": true
+  "@parcel/watcher": true
+  "@sentry/cli": true
+  cbor-extract: true
+  core-js: true
+  dprint: true
+  edgedriver: true
+  esbuild: true
+  geckodriver: true
+  netlify: true
+  protobufjs: true
+  puppeteer: true
+  sharp: true
+  supabase: true
+  unix-dgram: true

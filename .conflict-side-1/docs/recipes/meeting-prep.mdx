@@ -1,0 +1,48 @@
+---
+title: "Prepare for a recurring meeting"
+description: "Build a focused meeting brief from recent Anarlog context."
+---
+
+This recipe helps an agent prepare for the next occurrence of a recurring meeting without loading every transcript.
+
+<Steps>
+  <Step title="Find the latest meeting">
+    Call `list_meetings` with a short title query, or run:
+
+    ```bash
+    anarlog --json meetings list --query "project sync" --limit 10
+    ```
+
+    Resolve the latest relevant meeting ID from the results.
+  </Step>
+  <Step title="Read its structured context">
+    Call `get_meeting`, or run:
+
+    ```bash
+    anarlog --json meetings get MEETING_ID
+    ```
+
+    Extract open action items, decisions in notes or summaries, participants, and the meeting's series ID.
+  </Step>
+  <Step title="Review recurring history">
+    Call `get_recurring_meeting_history` with the meeting ID, or run:
+
+    ```bash
+    anarlog --json meetings history MEETING_ID --limit 5 --offset 0
+    ```
+
+    Fetch detail only for earlier meetings that appear relevant.
+  </Step>
+  <Step title="Use transcript evidence sparingly">
+    If a decision is unclear, call `get_meeting_transcript` with `limit: 200`, or run:
+
+    ```bash
+    anarlog --json meetings transcript MEETING_ID --limit 200 --offset 0
+    ```
+
+    Continue from `next_offset` only when needed.
+  </Step>
+  <Step title="Produce the brief">
+    Keep the output focused on unresolved actions, prior decisions, discussion topics, and useful context for named participants. Distinguish meeting evidence from your own inference.
+  </Step>
+</Steps>

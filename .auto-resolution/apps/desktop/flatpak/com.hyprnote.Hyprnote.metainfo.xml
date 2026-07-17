@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.hyprnote.Hyprnote</id>
+
+  <name>Anarlog</name>
+  <summary>The AI notepad for private meetings</summary>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <description>
+    <p>
+      Anarlog is an AI notetaking app specifically designed to take meeting notes.
+      With Anarlog, you can transcribe all kinds of meetings whether it be online or offline.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Listens to your meetings so you can only jot down important stuff</li>
+      <li>No bots joining your meetings - Anarlog listens directly to sounds coming in and out of your computer</li>
+      <li>Crafts perfect summaries based on your memos, right after the meeting is over</li>
+      <li>Run completely offline by using LM Studio or Ollama</li>
+      <li>Bring your own LLM - use local models via Ollama or third-party APIs like Gemini, Claude, or Azure-hosted GPT</li>
+      <li>Note templates - choose from predefined templates or create your own</li>
+      <li>AI Chat - ask follow-ups right inside your notes</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">com.hyprnote.Hyprnote.desktop</launchable>
+
+  <url type="homepage">https://hyprnote.com</url>
+  <url type="bugtracker">https://github.com/fastrepl/char/issues</url>
+  <url type="vcs-browser">https://github.com/fastrepl/char</url>
+  <url type="contribute">https://github.com/fastrepl/char/blob/main/CONTRIBUTING.md</url>
+
+  <developer id="com.hyprnote">
+    <name>Fastrepl</name>
+  </developer>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#f5f5f5</color>
+    <color type="primary" scheme_preference="dark">#1a1a1a</color>
+  </branding>
+
+  <content_rating type="oars-1.1" />
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+
+  <categories>
+    <category>Office</category>
+    <category>AudioVideo</category>
+    <category>Recorder</category>
+  </categories>
+
+  <keywords>
+    <keyword>notes</keyword>
+    <keyword>meeting</keyword>
+    <keyword>transcription</keyword>
+    <keyword>ai</keyword>
+    <keyword>audio</keyword>
+    <keyword>recording</keyword>
+    <keyword>speech-to-text</keyword>
+  </keywords>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>Notepad view for taking notes during meetings</caption>
+      <image>https://github.com/user-attachments/assets/268ab859-a194-484b-b895-bc640df18dd4</image>
+    </screenshot>
+    <screenshot>
+      <caption>Real-time transcript while you stay engaged in the conversation</caption>
+      <image>https://github.com/user-attachments/assets/e63ce73f-1a5f-49ce-a14d-dd8ba161e5bc</image>
+    </screenshot>
+    <screenshot>
+      <caption>Bring your own LLM - use local models or third-party APIs</caption>
+      <image>https://github.com/user-attachments/assets/a6552c99-acbc-4d47-9d21-7f1925989344</image>
+    </screenshot>
+    <screenshot>
+      <caption>AI Chat - ask follow-ups right inside your notes</caption>
+      <image>https://github.com/user-attachments/assets/52b7dc14-906f-445f-91f9-b0089d40a495</image>
+    </screenshot>
+  </screenshots>
+
+  <releases>
+    <release version="0.1.0" date="2025-01-01">
+      <description>
+        <p>Initial Flatpak release</p>
+      </description>
+    </release>
+  </releases>
+</component>

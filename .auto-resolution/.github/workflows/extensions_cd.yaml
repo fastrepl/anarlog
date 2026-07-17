@@ -1,0 +1,22 @@
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: depot-ubuntu-24.04-8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - working-directory: ./extensions
+        run: deno task build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: extensions
+          path: extensions/*/dist/
+          retention-days: 7

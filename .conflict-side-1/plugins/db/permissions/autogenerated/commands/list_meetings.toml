@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-list-meetings"
+description = "Enables the list_meetings command without any pre-configured scope."
+commands.allow = ["list_meetings"]
+
+[[permission]]
+identifier = "deny-list-meetings"
+description = "Denies the list_meetings command without any pre-configured scope."
+commands.deny = ["list_meetings"]

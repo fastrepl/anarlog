@@ -1,0 +1,23 @@
+[package]
+name = "language"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["whisper"]
+whisper = ["dep:hypr-whisper"]
+detect = ["dep:whichlang"]
+
+[dependencies]
+codes-iso-639 = { workspace = true }
+
+hypr-whisper = { workspace = true, optional = true }
+whichlang = { workspace = true, optional = true }
+
+schemars = { workspace = true }
+serde = { workspace = true }
+specta = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

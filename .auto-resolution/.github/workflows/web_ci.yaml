@@ -1,0 +1,25 @@
+name: web_ci
+
+# https://github.com/tauri-apps/tauri-action/blob/3013cac/examples/test-build-only.yml
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - apps/web/**
+      - packages/**
+  pull_request:
+    paths:
+      - apps/web/**
+      - packages/**
+jobs:
+  ci:
+    runs-on: depot-ubuntu-24.04-4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/pnpm_install
+      - uses: denoland/setup-deno@v2
+      - run: pnpm -F ui build
+      - run: pnpm -F web typecheck
+      - run: pnpm -F web test

@@ -1,0 +1,164 @@
+---
+meta_title: "AI Meeting Notes Without a Bot: A Practical Guide"
+meta_description: "Learn how to get AI meeting notes without a bot joining your calls, when bot-free notes make sense, and how to choose a private meeting-note workflow."
+author:
+  - "John Jeong"
+featured: false
+category: "Guides"
+date: "2026-07-09"
+---
+
+AI meeting notes do not have to start with a bot joining your Zoom, Google Meet, or Teams call.
+
+That used to be the default mental model: connect your calendar, let a meeting assistant auto-join, record everything in the cloud, then get a summary afterward. It is convenient, and for some teams it is still the right workflow.
+
+But if you are taking notes for founder calls, legal consults, hiring loops, product strategy, customer escalations, board prep, or any conversation where a visible bot changes the room, a bot-free workflow is usually cleaner. You still get transcripts, summaries, action items, and searchable meeting memory. The difference is where capture happens, where data is stored, and who controls the AI stack.
+
+This guide explains how AI meeting notes without a bot work, when they are a better fit, and what to check before choosing a tool.
+
+![Bot-based vs bot-free meeting notes data flow](/api/assets/blog/articles/ai-meeting-notes-without-bot/bot-free-data-flow-napkin-brand-v6.png)
+
+## What "without a bot" actually means
+
+A bot-based AI notetaker joins your meeting as another participant. It may appear as "OtterPilot," "Fireflies," or another assistant name. The bot records the call, sends audio to the vendor's cloud, transcribes it, and produces a summary.
+
+A bot-free AI notetaker captures audio from your own device instead. That can mean:
+
+- a desktop app records microphone and system audio,
+- a browser extension reads meeting captions or tab audio,
+- a local transcription engine runs on your machine,
+- or a hybrid setup captures locally but sends the transcript to a cloud AI model you choose.
+
+The real distinction is control. A bot-free workflow can reduce social friction, avoid calendar auto-join surprises, and make it easier to decide what leaves your machine.
+
+## Bot-based vs bot-free meeting notes
+
+| Question | Bot-based notetaker | Bot-free notetaker |
+| --- | --- | --- |
+| How does it capture the meeting? | A cloud assistant joins the call. | Your device captures microphone, system audio, captions, or the active meeting tab. |
+| Do other participants see it? | Usually yes. | Usually no separate meeting participant appears. |
+| Does it need calendar access? | Often yes, especially for auto-join. | Not always. Some tools work manually from the desktop. |
+| Where is data processed? | Usually vendor cloud first. | Local, cloud, or hybrid depending on the tool. |
+| Best fit | Sales teams, CRM workflows, shareable call libraries, automatic team archives. | Sensitive calls, solo operators, founders, consultants, engineers, and teams that care about data control. |
+| Main risk | Over-collection, accidental auto-join, broad sharing, vendor lock-in. | You must manage consent and workflow discipline yourself. |
+
+Bot-based tools are not automatically bad. They can be excellent when the meeting needs to become a shared team asset, especially in sales, recruiting, customer success, and training. The tradeoff is that the vendor becomes a central part of the meeting workflow.
+
+Bot-free tools are better when the meeting should stay closer to you: private calls, internal planning, sensitive customers, or any meeting where you want notes without adding another participant to the room.
+
+## When AI meeting notes without a bot are the better choice
+
+### 1. The meeting is sensitive
+
+Use a bot-free workflow when a transcript may include confidential customer details, legal strategy, medical context, financial information, security incidents, hiring feedback, internal roadmap plans, or personal context.
+
+The point is not paranoia. The point is data minimization. If the meeting does not need to live in a third-party meeting database, do not put it there by default.
+
+### 2. A visible bot changes the conversation
+
+Some calls become worse the moment an AI participant appears. Candidates get guarded. Customers ask who invited the assistant. Executives pause to discuss recording policy. Teams spend the first two minutes negotiating tooling instead of doing the work.
+
+Bot-free capture lets you handle the consent conversation directly: "I take AI-assisted notes for myself; is it okay if I record this so I do not miss details?" That is often clearer than silently delegating the social work to a bot name in the participant list.
+
+### 3. You want notes as files, not a platform
+
+Many AI meeting tools turn every call into an object inside their product: transcript, summary, clips, comments, share links, permissions, retention rules, integrations. That is useful if the product is your source of truth.
+
+It is less useful if your real system is Obsidian, Notion, VS Code, a project folder, a CRM, or a local knowledge base. In that case, the best meeting note is a durable file you can move, search, edit, and keep even if you stop paying for the app.
+
+### 4. Your company has not approved cloud meeting bots
+
+Some companies ban or discourage cloud AI notetakers because meeting transcripts are high-risk data. A bot-free local or bring-your-own-key workflow gives security teams more options:
+
+- local transcription for audio,
+- approved LLM providers for summaries,
+- plain files instead of proprietary cloud storage,
+- and open-source code that can be audited.
+
+That does not magically make every use compliant, but it gives the organization actual control points.
+
+![Four situations where bot-free AI meeting notes make sense](/api/assets/blog/articles/ai-meeting-notes-without-bot/when-bot-free-makes-sense-napkin-v2.png)
+
+## How to evaluate bot-free AI meeting tools
+
+Do not stop at the phrase "no bot." Bot-free is now common enough that it is not a complete positioning statement by itself. Granola says it works without a meeting bot, Jamie leads with bot-free AI notes, and Fathom now supports both bot and no-bot capture modes.
+
+Ask these questions instead.
+
+### Where does audio go?
+
+The strongest privacy boundary is local capture plus local transcription. If audio is uploaded to a vendor, ask whether it is stored, for how long, who subprocesses it, and whether it is used for training.
+
+If a tool only says "secure" or "private" but does not explain the processing path, keep digging.
+
+### Where does the transcript go?
+
+Some tools avoid uploading raw audio but still send the transcript to a cloud LLM for summarization. That may be fine, especially if you choose the provider. But for sensitive calls, transcript handling matters almost as much as audio handling.
+
+A practical model:
+
+- **Fully local:** audio, transcript, summary, and notes stay on your machine.
+- **Hybrid:** audio/transcription are local, summary uses an approved cloud LLM.
+- **Cloud-selected:** you choose the STT and LLM providers, but data leaves your device by design.
+- **Vendor cloud:** the tool decides the processing stack for you.
+
+![Privacy boundary model for AI meeting notes](/api/assets/blog/articles/ai-meeting-notes-without-bot/privacy-boundary-model-napkin.png)
+
+### Can you bring your own AI provider?
+
+Bring-your-own-key support is not just a power-user feature. It lets you route meeting data through the provider your company already approves, such as OpenAI, Anthropic, Deepgram, Gemini, OpenRouter, Ollama, LM Studio, or an OpenAI-compatible internal endpoint.
+
+That matters more as teams move from individual privacy concerns into enterprise security review.
+
+### Are the notes portable?
+
+Export is not the same as ownership. If the tool stores notes in a proprietary database and gives you a download button, you still depend on the platform.
+
+Look for plain markdown, local folders, predictable filenames, and compatibility with tools you already use. The less ceremony around leaving, the lower the lock-in.
+
+### What happens after the meeting?
+
+Good AI notes should do more than summarize. They should help you do the next thing:
+
+- decisions,
+- action items,
+- unresolved questions,
+- follow-up drafts,
+- links to relevant past meetings,
+- and enough transcript context to verify what was actually said.
+
+If a bot-free tool only captures raw text, you may still need a workflow for turning that text into useful meeting memory.
+
+## Consent still matters
+
+Bot-free does not mean secret recording is okay.
+
+Recording laws vary by location. In the United States, many states require only one-party consent, while others require all-party consent. International calls can add even more complexity. If you are recording, get consent in a way that matches the meeting, your jurisdiction, and your organization's policy.
+
+For sensitive calls, the cleanest habit is simple: say that you are using AI-assisted notes, explain what is being recorded, and say where the notes will live. Bot-free capture removes the awkward bot participant, but it does not remove your responsibility to be clear.
+
+## Where Anarlog fits
+
+[Anarlog](https://anarlog.so) is built for people who want AI meeting notes without handing every meeting to a cloud bot.
+
+It captures system audio from your desktop, transcribes meetings in real time, and saves notes as plain markdown files on your device. You can use Anarlog's managed service, bring your own API keys, or run local models through tools like Ollama or LM Studio.
+
+That makes it a good fit if you want:
+
+- bot-free capture for Zoom, Google Meet, Teams, phone calls, and in-person meetings,
+- local-first storage instead of a proprietary meeting database,
+- markdown files that work with Obsidian, Notion, VS Code, and your file system,
+- open-source code your team can inspect,
+- and control over which AI provider processes your transcripts.
+
+Anarlog is not trying to be a sales call library, CRM automation layer, or enterprise meeting intelligence suite. If your team needs automatic deal notes pushed into Salesforce, a bot-based or sales-focused meeting platform may be a better fit.
+
+If your priority is private meeting memory you control, Anarlog stays close to that job.
+
+## A simple decision rule
+
+Choose a bot-based notetaker when the meeting needs to become a shared cloud asset with recordings, clips, CRM sync, manager visibility, and automatic distribution.
+
+Choose a bot-free notetaker when the meeting is sensitive, the bot would be distracting, or you want the notes to live in your own workflow instead of a vendor database.
+
+Choose a local-first bot-free notetaker when the real requirement is not just "no bot," but ownership: your files, your AI stack, your retention policy, your decision.

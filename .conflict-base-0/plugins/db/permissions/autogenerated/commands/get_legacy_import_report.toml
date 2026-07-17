@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-legacy-import-report"
+description = "Enables the get_legacy_import_report command without any pre-configured scope."
+commands.allow = ["get_legacy_import_report"]
+
+[[permission]]
+identifier = "deny-get-legacy-import-report"
+description = "Denies the get_legacy_import_report command without any pre-configured scope."
+commands.deny = ["get_legacy_import_report"]

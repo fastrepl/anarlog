@@ -1,0 +1,81 @@
+inputs:
+  platform:
+    required: false
+    default: ""
+runs:
+  using: "composite"
+  steps:
+    - id: toolchain
+      run: |
+        echo "channel=$(grep 'channel' rust-toolchain.toml | cut -d'"' -f2)" >> $GITHUB_OUTPUT
+        echo "components=$(grep 'components' rust-toolchain.toml | sed 's/.*\[//' | sed 's/\].*//' | tr -d '"' | tr -d ' ')" >> $GITHUB_OUTPUT
+      shell: bash
+    - id: cache-key
+      run: |
+        if command -v ldd &> /dev/null; then
+          GLIBC_VER=$(ldd --version 2>/dev/null | head -n1 | awk '{print $NF}')
+          echo "suffix=-glibc-${GLIBC_VER}" >> $GITHUB_OUTPUT
+        else
+          echo "suffix=" >> $GITHUB_OUTPUT
+        fi
+      shell: bash
+    - if: inputs.platform == 'macos'
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ steps.toolchain.outputs.channel }}
+        targets: aarch64-apple-darwin,x86_64-apple-darwin
+        components: ${{ steps.toolchain.outputs.components }}
+    - if: inputs.platform == 'ios'
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ steps.toolchain.outputs.channel }}
+        targets: aarch64-apple-ios,x86_64-apple-ios,aarch64-apple-ios-sim
+        components: ${{ steps.toolchain.outputs.components }}
+    - if: inputs.platform == 'android'
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ steps.toolchain.outputs.channel }}
+        targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+        components: ${{ steps.toolchain.outputs.components }}
+    - if: inputs.platform == 'windows'
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ steps.toolchain.outputs.channel }}
+        targets: x86_64-pc-windows-msvc
+        components: ${{ steps.toolchain.outputs.components }}
+    - if: inputs.platform == 'windows'
+      run: cargo install trusted-signing-cli
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+    - if: inputs.platform == 'linux'
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ steps.toolchain.outputs.channel }}
+        components: ${{ steps.toolchain.outputs.components }}
+    - if: inputs.platform == 'linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libasound2-dev
+      shell: bash
+    - if: inputs.platform == 'linux-x86_64'
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ steps.toolchain.outputs.channel }}
+        targets: x86_64-unknown-linux-gnu
+        components: ${{ steps.toolchain.outputs.components }}
+    - if: inputs.platform == 'linux-aarch64'
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ steps.toolchain.outputs.channel }}
+        targets: aarch64-unknown-linux-gnu
+        components: ${{ steps.toolchain.outputs.components }}
+    - if: inputs.platform == ''
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ steps.toolchain.outputs.channel }}
+        components: ${{ steps.toolchain.outputs.components }}
+    - uses: Swatinem/rust-cache@v2
+      with:
+        cache-targets: "true"
+        prefix-key: v0-rust${{ steps.cache-key.outputs.suffix }}

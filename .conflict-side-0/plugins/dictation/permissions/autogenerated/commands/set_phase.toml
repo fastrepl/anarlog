@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-phase"
+description = "Enables the set_phase command without any pre-configured scope."
+commands.allow = ["set_phase"]
+
+[[permission]]
+identifier = "deny-set-phase"
+description = "Denies the set_phase command without any pre-configured scope."
+commands.deny = ["set_phase"]

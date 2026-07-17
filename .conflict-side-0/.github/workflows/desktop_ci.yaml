@@ -1,0 +1,179 @@
+# https://github.com/tauri-apps/tauri-action/blob/3013cac/examples/test-build-only.yml
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/desktop_ci.yaml
+      - apps/cli/**
+      - apps/desktop/**
+      - plugins/**
+      - crates/**
+      - Cargo.toml
+      - Cargo.lock
+  pull_request:
+    paths:
+      - .github/workflows/desktop_ci.yaml
+      - apps/cli/**
+      - apps/desktop/**
+      - plugins/**
+      - crates/**
+      - Cargo.toml
+      - Cargo.lock
+jobs:
+  desktop_ci:
+    if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "macos"
+            runner: "depot-macos-15"
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: ./.github/actions/pnpm_install
+      - uses: denoland/setup-deno@v2
+      - run: pnpm -F ui build
+      - run: pnpm -F desktop typecheck
+      - run: pnpm -F desktop test
+      - uses: ./.github/actions/install_desktop_deps
+        with:
+          target: ${{ matrix.platform }}
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: ${{ matrix.platform }}
+      - if: matrix.platform == 'macos'
+        run: echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> $GITHUB_ENV
+      - run: cargo check -p desktop
+      - run: cargo test -p desktop
+      - run: |
+          cargo test --workspace \
+            --exclude desktop \
+            --exclude control-tauri \
+            --exclude ai \
+            --exclude email \
+            --exclude lago \
+            --exclude mac \
+            --exclude notch \
+            --exclude notification-macos \
+            --exclude notification-macos2 \
+            --exclude tcc \
+            --exclude apple-note \
+            --exclude notification-linux \
+            --exclude am \
+            --exclude aec \
+            --exclude agc \
+            --exclude whisper \
+            --exclude whisper-local \
+            --exclude whisper-local-model \
+            --exclude vad2 \
+            --exclude vad \
+            --exclude vvad \
+            --exclude vad-masking \
+            --exclude vad-chunking \
+            --exclude onnx \
+            --exclude pyannote-local \
+            --exclude llama \
+            --exclude tools \
+            --exclude docs \
+            --exclude bundle \
+            --exclude host \
+            --exclude intercept \
+            --exclude frontmatter \
+            --exclude openstatus \
+            --exclude audio \
+            --exclude audio-device \
+            --exclude transcribe-whisper-local \
+            --exclude device-monitor \
+            --exclude local-llm-core \
+            --exclude local-stt-server \
+            --exclude mobile-bridge \
+            --exclude tauri-plugin-analytics\
+            --exclude tauri-plugin-apple-calendar \
+            --exclude tauri-plugin-audio-priority \
+            --exclude tauri-plugin-auth \
+            --exclude tauri-plugin-bedrock \
+            --exclude tauri-plugin-db2 \
+            --exclude tauri-plugin-deeplink2 \
+            --exclude tauri-plugin-detect \
+            --exclude tauri-plugin-fs-db \
+            --exclude tauri-plugin-fs-sync \
+            --exclude tauri-plugin-fs2 \
+            --exclude tauri-plugin-hooks \
+            --exclude tauri-plugin-icon \
+            --exclude tauri-plugin-importer \
+            --exclude tauri-plugin-js \
+            --exclude tauri-plugin-listener \
+            --exclude tauri-plugin-listener2 \
+            --exclude tauri-plugin-local-llm \
+            --exclude tauri-plugin-local-stt \
+            --exclude tauri-plugin-misc \
+            --exclude tauri-plugin-network \
+            --exclude tauri-plugin-notification \
+            --exclude tauri-plugin-notify \
+            --exclude tauri-plugin-opener2 \
+            --exclude tauri-plugin-overlay \
+            --exclude tauri-plugin-path2 \
+            --exclude tauri-plugin-pdf \
+            --exclude tauri-plugin-permissions \
+            --exclude tauri-plugin-screen \
+            --exclude tauri-plugin-settings \
+            --exclude tauri-plugin-sfx \
+            --exclude tauri-plugin-sidecar2 \
+            --exclude tauri-plugin-store2 \
+            --exclude tauri-plugin-tantivy \
+            --exclude tauri-plugin-template \
+            --exclude tauri-plugin-tracing \
+            --exclude tauri-plugin-tray \
+            --exclude tauri-plugin-updater2 \
+            --exclude tauri-plugin-webhook \
+            --exclude tauri-plugin-windows \
+            --exclude db3 \
+            --exclude db-core \
+            --exclude activity-capture-macos \
+            --exclude tauri-plugin-activity-capture
+      - run: |
+          git diff --exit-code -- \
+            plugins/db/js/bindings.gen.ts \
+            plugins/db/permissions/autogenerated \
+            plugins/db/permissions/schemas/schema.json
+
+  desktop_i18n:
+    if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: ./.github/actions/pnpm_install
+      - run: pnpm -F desktop i18n:check
+
+  desktop_swift:
+    if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
+    runs-on: depot-macos-15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - run: swift build --package-path plugins/windows/swift-lib
+
+  ci:
+    if: always()
+    needs: [desktop_ci, desktop_i18n, desktop_swift]
+    runs-on: ubuntu-latest
+    steps:
+      - run: exit 1
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')

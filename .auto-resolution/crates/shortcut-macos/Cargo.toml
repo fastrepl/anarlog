@@ -1,0 +1,14 @@
+[package]
+name = "shortcut-macos"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+specta = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[[example]]
+name = "manual"
+path = "examples/manual.rs"

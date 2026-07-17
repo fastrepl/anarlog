@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-opinionated-md-to-html"
+description = "Enables the opinionated_md_to_html command without any pre-configured scope."
+commands.allow = ["opinionated_md_to_html"]
+
+[[permission]]
+identifier = "deny-opinionated-md-to-html"
+description = "Denies the opinionated_md_to_html command without any pre-configured scope."
+commands.deny = ["opinionated_md_to_html"]

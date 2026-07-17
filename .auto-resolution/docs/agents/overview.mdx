@@ -1,0 +1,36 @@
+---
+title: "Agent overview"
+description: "Give an agent useful Anarlog context without exposing storage internals or unbounded transcripts."
+---
+
+Anarlog offers two local, read-only agent transports. They share the same meeting model.
+
+| Transport | Choose it when | Output |
+| --- | --- | --- |
+| MCP | The agent supports a local stdio MCP server | Structured tool results and contextual resources |
+| CLI | The agent can run shell commands but MCP is unavailable | JSON with `--json`, or Markdown for people |
+
+## Recommended agent flow
+
+1. List recent meetings or search by a short title fragment.
+2. Use a returned meeting ID. Never infer or invent one.
+3. Fetch the meeting detail before requesting transcript text.
+4. Fetch recurring history only when earlier meetings are relevant.
+5. Read transcript pages only until the task has enough evidence.
+
+Prefer MCP when it is connected because tools carry their input schemas and results directly. The CLI provides the same bounded transcript workflow when an agent only has shell access.
+
+## Safety boundary
+
+Agents should use the CLI or MCP server, not SQLite. Those interfaces apply Anarlog's rules for canonical notes, generated summaries, excluded participants, recurring meetings, and transcript text.
+
+All current Anarlog data operations are read-only. An agent cannot update a note, action item, or meeting through these interfaces. CLI export may create a separate file; replacing an existing file requires `--force`.
+
+<CardGroup cols={2}>
+  <Card title="CLI for agents" icon="terminal" href="/agents/cli">
+    Use JSON output and resolve meeting IDs deliberately.
+  </Card>
+  <Card title="MCP for agents" icon="plug" href="/agents/mcp">
+    Configure the stdio server and use bounded transcript pages.
+  </Card>
+</CardGroup>

@@ -1,0 +1,96 @@
+/* Mention dropdown */
+.mention-container {
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.05),
+    0 6px 12px -3px rgba(0, 0, 0, 0.08);
+  padding: 0.3rem;
+  overflow: hidden;
+  z-index: 999;
+  max-width: 280px;
+}
+
+.mention-item {
+  display: flex;
+  align-items: center;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.3rem;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: background-color 0.15s ease;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.mention-item.is-selected {
+  background-color: #f5f5f5;
+}
+
+.mention-item:hover {
+  background-color: #fafafa;
+}
+
+.mention-label {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.85rem;
+}
+
+.mention-type-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex-shrink: 0;
+  color: #a3a3a3;
+}
+
+/* Inline mention chip */
+.mention {
+  display: inline;
+  font-weight: 500;
+  text-decoration: none;
+  padding: 0;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+
+.mention .mention-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  border-radius: 50%;
+  overflow: hidden;
+  vertical-align: middle;
+  position: relative;
+  top: -2px;
+  margin-right: 0.15em;
+}
+
+.mention .mention-avatar-icon {
+  width: 1em;
+  height: 1em;
+  border-radius: 0;
+  overflow: visible;
+  background: none;
+  color: #737373;
+}
+
+.mention .mention-inline-icon {
+  display: block;
+  width: 1em;
+  height: 1em;
+}
+
+/* NodeView wrapper for inline mention rendering */
+span[data-node-view-wrapper] {
+  display: inline !important;
+  white-space: normal;
+}

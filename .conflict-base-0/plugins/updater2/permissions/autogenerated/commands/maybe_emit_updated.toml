@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-maybe-emit-updated"
+description = "Enables the maybe_emit_updated command without any pre-configured scope."
+commands.allow = ["maybe_emit_updated"]
+
+[[permission]]
+identifier = "deny-maybe-emit-updated"
+description = "Denies the maybe_emit_updated command without any pre-configured scope."
+commands.deny = ["maybe_emit_updated"]

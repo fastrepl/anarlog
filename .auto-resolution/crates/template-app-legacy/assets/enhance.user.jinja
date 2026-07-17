@@ -1,0 +1,48 @@
+{% if session or participants %}
+Context:
+{%- if session %}
+{%- if session.is_event %}
+{%- if session.title %}
+Meeting: {{ session.title }}
+{%- endif %}
+{%- if session.started_at and session.ended_at %}
+Time: {{ session.started_at }} - {{ session.ended_at }}
+{%- endif %}
+{%- if session.location %}
+Location: {{ session.location }}
+{%- endif %}
+{%- else %}
+{%- if session.title %}
+Session: {{ session.title }}
+{%- endif %}
+{%- endif %}
+{%- endif %}
+{%- if participants and participants | length > 0 %}
+Participants: {% for p in participants %}{{ p.name }}{% if p.job_title %} ({{ p.job_title }}){% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+{%- endif %}
+{% endif %}
+{% if template %}
+Workflow:
+
+1. Use the provided template with predefined sections.
+2. Generate a well-formatted markdown summary following the template sections.
+3. Each template section includes a title and description - use these to guide your summary.
+
+Template: {{ template.title }}
+{%- if template.description %}
+Description: {{ template.description }}
+{%- endif %}
+
+Sections to cover:
+{%- for section in template.sections %}
+
+- {{ section.title }}{% if section.description %}: {{ section.description }}{% endif %}
+  {%- endfor %}
+  {% else %}
+  Workflow:
+
+1. Analyze the content and decide the sections to use.
+2. Generate a well-formatted markdown summary, following the format requirements.
+   {% endif %}
+
+{{ segments | transcript }}

@@ -1,0 +1,30 @@
+[package]
+name = "local-stt-server"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = []
+specta = ["dep:specta"]
+tauri-event = ["specta", "dep:tauri-specta"]
+whisper-cpp = ["dep:hypr-transcribe-whisper-local"]
+coreml = ["whisper-cpp", "hypr-transcribe-whisper-local/coreml"]
+directml = ["whisper-cpp", "hypr-transcribe-whisper-local/directml"]
+cuda = ["whisper-cpp", "hypr-transcribe-whisper-local/cuda"]
+hipblas = ["whisper-cpp", "hypr-transcribe-whisper-local/hipblas"]
+openblas = ["whisper-cpp", "hypr-transcribe-whisper-local/openblas"]
+metal = ["whisper-cpp", "hypr-transcribe-whisper-local/metal"]
+vulkan = ["whisper-cpp", "hypr-transcribe-whisper-local/vulkan"]
+openmp = ["whisper-cpp", "hypr-transcribe-whisper-local/openmp"]
+
+[dependencies]
+hypr-transcribe-whisper-local = { workspace = true, optional = true }
+
+axum = { workspace = true }
+tokio = { workspace = true }
+tower-http = { workspace = true, features = ["cors"] }
+tracing = { workspace = true }
+
+serde = { workspace = true }
+specta = { workspace = true, optional = true }
+tauri-specta = { workspace = true, optional = true, features = ["derive"] }

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-uninstall-cli"
+description = "Enables the uninstall_cli command without any pre-configured scope."
+commands.allow = ["uninstall_cli"]
+
+[[permission]]
+identifier = "deny-uninstall-cli"
+description = "Denies the uninstall_cli command without any pre-configured scope."
+commands.deny = ["uninstall_cli"]

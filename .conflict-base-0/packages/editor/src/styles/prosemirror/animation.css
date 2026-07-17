@@ -1,0 +1,14 @@
+.prosemirror-animating {
+  animation: show 500ms linear forwards;
+}
+
+@keyframes show {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

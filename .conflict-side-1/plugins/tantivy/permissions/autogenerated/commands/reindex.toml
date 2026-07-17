@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-reindex"
+description = "Enables the reindex command without any pre-configured scope."
+commands.allow = ["reindex"]
+
+[[permission]]
+identifier = "deny-reindex"
+description = "Denies the reindex command without any pre-configured scope."
+commands.deny = ["reindex"]

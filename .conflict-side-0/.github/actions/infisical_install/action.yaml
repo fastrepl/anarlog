@@ -1,0 +1,7 @@
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      run: |
+        curl -1sLf 'https://artifacts-cli.infisical.com/setup.deb.sh' | sudo -E bash
+        sudo apt-get install -y infisical

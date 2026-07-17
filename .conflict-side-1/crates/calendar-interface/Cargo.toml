@@ -1,0 +1,9 @@
+[package]
+name = "calendar-interface"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = { workspace = true, features = ["serde"] }
+serde = { workspace = true, features = ["derive"] }
+specta = { workspace = true, features = ["derive"] }

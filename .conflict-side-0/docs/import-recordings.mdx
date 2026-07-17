@@ -1,0 +1,33 @@
+---
+title: "Import audio or a transcript"
+description: "Turn an existing recording or subtitle file into an Anarlog meeting note."
+---
+
+You can use Anarlog with a conversation that was recorded elsewhere. Import audio to create a new transcript, or import an existing transcript to create a summary.
+
+## Import audio
+
+1. Create a **New Note** or open an empty note.
+2. Open the **•••** menu and choose **Upload audio**.
+3. Select a supported audio file.
+4. Leave Anarlog open while it imports and transcribes the recording.
+
+You can also drag one audio file onto an open note.
+
+Anarlog accepts WAV, MP3, OGG, MP4, M4A, FLAC, WebM, and AAC files. It uses your selected **Transcription** model, so configure that model before importing.
+
+When transcription finishes, Anarlog creates a summary if an **Intelligence** model is configured.
+
+## Import a transcript
+
+1. Create a **New Note** or open an empty note.
+2. Open the **•••** menu and choose **Upload transcript**.
+3. Select a WebVTT (`.vtt`) or SubRip (`.srt`) file.
+
+Anarlog adds the timed text to the note and generates a summary when an Intelligence model is available. Importing a transcript does not create an audio recording.
+
+## If an import does not start
+
+Confirm that the file uses one of the supported formats and that a Transcription model is selected for audio imports. For local or bring-your-own-key providers, make sure the provider is running and configured.
+
+See [Transcription and AI](/ai-setup) for model setup or [Troubleshooting](/troubleshooting) for common failures.

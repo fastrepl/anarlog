@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-sanitize"
+description = "Enables the sanitize command without any pre-configured scope."
+commands.allow = ["sanitize"]
+
+[[permission]]
+identifier = "deny-sanitize"
+description = "Denies the sanitize command without any pre-configured scope."
+commands.deny = ["sanitize"]

@@ -1,0 +1,2899 @@
+[
+  {
+    "type": "Results",
+    "start": 0.0,
+    "duration": 1.0,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "",
+          "words": [],
+          "confidence": 0.0,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 0.0,
+    "duration": 2.0,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "",
+          "words": [],
+          "confidence": 0.0,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 0.0,
+    "duration": 3.0,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "",
+          "words": [],
+          "confidence": 0.0,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 0.0,
+    "duration": 4.0,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "Maybe this is",
+          "words": [
+            {
+              "word": "maybe",
+              "start": 3.36,
+              "end": 3.6799998,
+              "confidence": 0.94384766,
+              "speaker": 0,
+              "punctuated_word": "Maybe",
+              "language": null
+            },
+            {
+              "word": "this",
+              "start": 3.6799998,
+              "end": 3.84,
+              "confidence": 0.9970703,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "is",
+              "start": 3.84,
+              "end": 3.9199998,
+              "confidence": 0.87597656,
+              "speaker": 0,
+              "punctuated_word": "is",
+              "language": null
+            }
+          ],
+          "confidence": 0.94384766,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 0.0,
+    "duration": 3.08,
+    "is_final": true,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "",
+          "words": [],
+          "confidence": 0.0,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 3.08,
+    "duration": 1.9200001,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "Maybe this is me,",
+          "words": [
+            {
+              "word": "maybe",
+              "start": 3.3999999,
+              "end": 3.7199998,
+              "confidence": 0.9873047,
+              "speaker": 0,
+              "punctuated_word": "Maybe",
+              "language": null
+            },
+            {
+              "word": "this",
+              "start": 3.7199998,
+              "end": 3.96,
+              "confidence": 0.9980469,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "is",
+              "start": 3.96,
+              "end": 4.12,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "is",
+              "language": null
+            },
+            {
+              "word": "me",
+              "start": 4.12,
+              "end": 4.52,
+              "confidence": 0.7385254,
+              "speaker": 0,
+              "punctuated_word": "me,",
+              "language": null
+            }
+          ],
+          "confidence": 0.9980469,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 3.08,
+    "duration": 2.92,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "Maybe this is me talking to the",
+          "words": [
+            {
+              "word": "maybe",
+              "start": 3.3999999,
+              "end": 3.7199998,
+              "confidence": 0.9951172,
+              "speaker": 0,
+              "punctuated_word": "Maybe",
+              "language": null
+            },
+            {
+              "word": "this",
+              "start": 3.7199998,
+              "end": 3.96,
+              "confidence": 0.99902344,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "is",
+              "start": 3.96,
+              "end": 4.12,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "is",
+              "language": null
+            },
+            {
+              "word": "me",
+              "start": 4.12,
+              "end": 4.68,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "me",
+              "language": null
+            },
+            {
+              "word": "talking",
+              "start": 4.84,
+              "end": 5.3199997,
+              "confidence": 0.7114258,
+              "speaker": 0,
+              "punctuated_word": "talking",
+              "language": null
+            },
+            {
+              "word": "to",
+              "start": 5.3199997,
+              "end": 5.64,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "to",
+              "language": null
+            },
+            {
+              "word": "the",
+              "start": 5.64,
+              "end": 5.8,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "the",
+              "language": null
+            }
+          ],
+          "confidence": 1.0,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 3.08,
+    "duration": 3.92,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "Maybe this is me talking to the audience a little bit because I get",
+          "words": [
+            {
+              "word": "maybe",
+              "start": 3.3999999,
+              "end": 3.7199998,
+              "confidence": 0.9951172,
+              "speaker": 0,
+              "punctuated_word": "Maybe",
+              "language": null
+            },
+            {
+              "word": "this",
+              "start": 3.7199998,
+              "end": 3.96,
+              "confidence": 0.99902344,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "is",
+              "start": 3.96,
+              "end": 4.12,
+              "confidence": 0.99902344,
+              "speaker": 0,
+              "punctuated_word": "is",
+              "language": null
+            },
+            {
+              "word": "me",
+              "start": 4.12,
+              "end": 4.3599997,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "me",
+              "language": null
+            },
+            {
+              "word": "talking",
+              "start": 4.3599997,
+              "end": 5.3199997,
+              "confidence": 0.5361328,
+              "speaker": 0,
+              "punctuated_word": "talking",
+              "language": null
+            },
+            {
+              "word": "to",
+              "start": 5.3199997,
+              "end": 5.64,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "to",
+              "language": null
+            },
+            {
+              "word": "the",
+              "start": 5.64,
+              "end": 5.8,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "the",
+              "language": null
+            },
+            {
+              "word": "audience",
+              "start": 5.8,
+              "end": 6.12,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "audience",
+              "language": null
+            },
+            {
+              "word": "a",
+              "start": 6.12,
+              "end": 6.2799997,
+              "confidence": 0.99902344,
+              "speaker": 0,
+              "punctuated_word": "a",
+              "language": null
+            },
+            {
+              "word": "little",
+              "start": 6.2799997,
+              "end": 6.4399996,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "little",
+              "language": null
+            },
+            {
+              "word": "bit",
+              "start": 6.4399996,
+              "end": 6.5199995,
+              "confidence": 0.99609375,
+              "speaker": 0,
+              "punctuated_word": "bit",
+              "language": null
+            },
+            {
+              "word": "because",
+              "start": 6.5199995,
+              "end": 6.68,
+              "confidence": 0.6738281,
+              "speaker": 0,
+              "punctuated_word": "because",
+              "language": null
+            },
+            {
+              "word": "i",
+              "start": 6.68,
+              "end": 6.7599998,
+              "confidence": 0.99609375,
+              "speaker": 0,
+              "punctuated_word": "I",
+              "language": null
+            },
+            {
+              "word": "get",
+              "start": 6.7599998,
+              "end": 6.92,
+              "confidence": 0.53759766,
+              "speaker": 0,
+              "punctuated_word": "get",
+              "language": null
+            }
+          ],
+          "confidence": 0.99902344,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 3.08,
+    "duration": 4.92,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "Maybe this is me talking to the audience a little bit because I get these days",
+          "words": [
+            {
+              "word": "maybe",
+              "start": 3.3999999,
+              "end": 3.7199998,
+              "confidence": 0.9951172,
+              "speaker": 0,
+              "punctuated_word": "Maybe",
+              "language": null
+            },
+            {
+              "word": "this",
+              "start": 3.7199998,
+              "end": 3.96,
+              "confidence": 0.99902344,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "is",
+              "start": 3.96,
+              "end": 4.12,
+              "confidence": 0.9902344,
+              "speaker": 0,
+              "punctuated_word": "is",
+              "language": null
+            },
+            {
+              "word": "me",
+              "start": 4.12,
+              "end": 4.68,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "me",
+              "language": null
+            },
+            {
+              "word": "talking",
+              "start": 4.84,
+              "end": 5.3199997,
+              "confidence": 0.61376953,
+              "speaker": 0,
+              "punctuated_word": "talking",
+              "language": null
+            },
+            {
+              "word": "to",
+              "start": 5.3199997,
+              "end": 5.64,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "to",
+              "language": null
+            },
+            {
+              "word": "the",
+              "start": 5.64,
+              "end": 5.8,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "the",
+              "language": null
+            },
+            {
+              "word": "audience",
+              "start": 5.8,
+              "end": 6.12,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "audience",
+              "language": null
+            },
+            {
+              "word": "a",
+              "start": 6.12,
+              "end": 6.2799997,
+              "confidence": 0.99902344,
+              "speaker": 0,
+              "punctuated_word": "a",
+              "language": null
+            },
+            {
+              "word": "little",
+              "start": 6.2799997,
+              "end": 6.4399996,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "little",
+              "language": null
+            },
+            {
+              "word": "bit",
+              "start": 6.4399996,
+              "end": 6.5199995,
+              "confidence": 0.99902344,
+              "speaker": 0,
+              "punctuated_word": "bit",
+              "language": null
+            },
+            {
+              "word": "because",
+              "start": 6.5199995,
+              "end": 6.7599998,
+              "confidence": 0.59277344,
+              "speaker": 0,
+              "punctuated_word": "because",
+              "language": null
+            },
+            {
+              "word": "i",
+              "start": 6.7599998,
+              "end": 6.92,
+              "confidence": 0.9970703,
+              "speaker": 0,
+              "punctuated_word": "I",
+              "language": null
+            },
+            {
+              "word": "get",
+              "start": 6.92,
+              "end": 7.16,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "get",
+              "language": null
+            },
+            {
+              "word": "these",
+              "start": 7.16,
+              "end": 7.48,
+              "confidence": 0.7895508,
+              "speaker": 0,
+              "punctuated_word": "these",
+              "language": null
+            },
+            {
+              "word": "days",
+              "start": 7.48,
+              "end": 7.72,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "days",
+              "language": null
+            }
+          ],
+          "confidence": 0.99902344,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 3.08,
+    "duration": 4.9700003,
+    "is_final": true,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "Maybe this is me talking to the audience a little bit because I get these days",
+          "words": [
+            {
+              "word": "maybe",
+              "start": 3.3999999,
+              "end": 3.7199998,
+              "confidence": 0.9980469,
+              "speaker": 0,
+              "punctuated_word": "Maybe",
+              "language": null
+            },
+            {
+              "word": "this",
+              "start": 3.7199998,
+              "end": 3.96,
+              "confidence": 0.99902344,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "is",
+              "start": 3.96,
+              "end": 4.12,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "is",
+              "language": null
+            },
+            {
+              "word": "me",
+              "start": 4.12,
+              "end": 4.68,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "me",
+              "language": null
+            },
+            {
+              "word": "talking",
+              "start": 4.84,
+              "end": 5.3199997,
+              "confidence": 0.63378906,
+              "speaker": 0,
+              "punctuated_word": "talking",
+              "language": null
+            },
+            {
+              "word": "to",
+              "start": 5.3199997,
+              "end": 5.64,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "to",
+              "language": null
+            },
+            {
+              "word": "the",
+              "start": 5.64,
+              "end": 5.8,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "the",
+              "language": null
+            },
+            {
+              "word": "audience",
+              "start": 5.8,
+              "end": 6.12,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "audience",
+              "language": null
+            },
+            {
+              "word": "a",
+              "start": 6.12,
+              "end": 6.2799997,
+              "confidence": 0.99902344,
+              "speaker": 0,
+              "punctuated_word": "a",
+              "language": null
+            },
+            {
+              "word": "little",
+              "start": 6.2799997,
+              "end": 6.4399996,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "little",
+              "language": null
+            },
+            {
+              "word": "bit",
+              "start": 6.4399996,
+              "end": 6.5199995,
+              "confidence": 0.99902344,
+              "speaker": 0,
+              "punctuated_word": "bit",
+              "language": null
+            },
+            {
+              "word": "because",
+              "start": 6.5199995,
+              "end": 6.7599998,
+              "confidence": 0.5957031,
+              "speaker": 0,
+              "punctuated_word": "because",
+              "language": null
+            },
+            {
+              "word": "i",
+              "start": 6.7599998,
+              "end": 6.92,
+              "confidence": 0.9970703,
+              "speaker": 0,
+              "punctuated_word": "I",
+              "language": null
+            },
+            {
+              "word": "get",
+              "start": 6.92,
+              "end": 7.16,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "get",
+              "language": null
+            },
+            {
+              "word": "these",
+              "start": 7.16,
+              "end": 7.48,
+              "confidence": 0.77001953,
+              "speaker": 0,
+              "punctuated_word": "these",
+              "language": null
+            },
+            {
+              "word": "days",
+              "start": 7.48,
+              "end": 7.72,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "days",
+              "language": null
+            }
+          ],
+          "confidence": 1.0,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 8.05,
+    "duration": 1.0500002,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "so many",
+          "words": [
+            {
+              "word": "so",
+              "start": 8.05,
+              "end": 8.53,
+              "confidence": 0.9604492,
+              "speaker": 0,
+              "punctuated_word": "so",
+              "language": null
+            },
+            {
+              "word": "many",
+              "start": 8.53,
+              "end": 8.85,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "many",
+              "language": null
+            }
+          ],
+          "confidence": 1.0,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 8.05,
+    "duration": 2.0500002,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "so many messages. I",
+          "words": [
+            {
+              "word": "so",
+              "start": 8.13,
+              "end": 8.690001,
+              "confidence": 0.97509766,
+              "speaker": 0,
+              "punctuated_word": "so",
+              "language": null
+            },
+            {
+              "word": "many",
+              "start": 8.690001,
+              "end": 9.01,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "many",
+              "language": null
+            },
+            {
+              "word": "messages",
+              "start": 9.01,
+              "end": 9.65,
+              "confidence": 0.9914551,
+              "speaker": 0,
+              "punctuated_word": "messages.",
+              "language": null
+            },
+            {
+              "word": "i",
+              "start": 9.7300005,
+              "end": 9.97,
+              "confidence": 0.9873047,
+              "speaker": 0,
+              "punctuated_word": "I",
+              "language": null
+            }
+          ],
+          "confidence": 0.9914551,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 8.05,
+    "duration": 3.0500002,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "so many messages, advice on how",
+          "words": [
+            {
+              "word": "so",
+              "start": 8.05,
+              "end": 8.690001,
+              "confidence": 0.9790039,
+              "speaker": 0,
+              "punctuated_word": "so",
+              "language": null
+            },
+            {
+              "word": "many",
+              "start": 8.690001,
+              "end": 9.01,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "many",
+              "language": null
+            },
+            {
+              "word": "messages",
+              "start": 9.01,
+              "end": 9.73,
+              "confidence": 0.8666992,
+              "speaker": 0,
+              "punctuated_word": "messages,",
+              "language": null
+            },
+            {
+              "word": "advice",
+              "start": 10.05,
+              "end": 10.530001,
+              "confidence": 0.99121094,
+              "speaker": 0,
+              "punctuated_word": "advice",
+              "language": null
+            },
+            {
+              "word": "on",
+              "start": 10.530001,
+              "end": 10.85,
+              "confidence": 0.9326172,
+              "speaker": 0,
+              "punctuated_word": "on",
+              "language": null
+            },
+            {
+              "word": "how",
+              "start": 10.85,
+              "end": 11.01,
+              "confidence": 0.9980469,
+              "speaker": 0,
+              "punctuated_word": "how",
+              "language": null
+            }
+          ],
+          "confidence": 0.99121094,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 8.05,
+    "duration": 3.5999994,
+    "is_final": true,
+    "speech_final": true,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "so many messages, advice on how to, like,",
+          "words": [
+            {
+              "word": "so",
+              "start": 8.05,
+              "end": 8.690001,
+              "confidence": 0.96875,
+              "speaker": 0,
+              "punctuated_word": "so",
+              "language": null
+            },
+            {
+              "word": "many",
+              "start": 8.690001,
+              "end": 9.01,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "many",
+              "language": null
+            },
+            {
+              "word": "messages",
+              "start": 9.01,
+              "end": 9.73,
+              "confidence": 0.84277344,
+              "speaker": 0,
+              "punctuated_word": "messages,",
+              "language": null
+            },
+            {
+              "word": "advice",
+              "start": 10.05,
+              "end": 10.610001,
+              "confidence": 0.9790039,
+              "speaker": 0,
+              "punctuated_word": "advice",
+              "language": null
+            },
+            {
+              "word": "on",
+              "start": 10.610001,
+              "end": 10.93,
+              "confidence": 0.9482422,
+              "speaker": 0,
+              "punctuated_word": "on",
+              "language": null
+            },
+            {
+              "word": "how",
+              "start": 10.93,
+              "end": 11.09,
+              "confidence": 0.99902344,
+              "speaker": 0,
+              "punctuated_word": "how",
+              "language": null
+            },
+            {
+              "word": "to",
+              "start": 11.09,
+              "end": 11.33,
+              "confidence": 0.9641113,
+              "speaker": 0,
+              "punctuated_word": "to,",
+              "language": null
+            },
+            {
+              "word": "like",
+              "start": 11.33,
+              "end": 11.41,
+              "confidence": 0.9855957,
+              "speaker": 0,
+              "punctuated_word": "like,",
+              "language": null
+            }
+          ],
+          "confidence": 0.9790039,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 11.65,
+    "duration": 1.0500002,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "look",
+          "words": [
+            {
+              "word": "look",
+              "start": 12.37,
+              "end": 12.61,
+              "confidence": 0.5029297,
+              "speaker": 0,
+              "punctuated_word": "look",
+              "language": null
+            }
+          ],
+          "confidence": 0.5029297,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 11.65,
+    "duration": 2.0500002,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "learn stuff. Okay?",
+          "words": [
+            {
+              "word": "learn",
+              "start": 12.53,
+              "end": 12.929999,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "learn",
+              "language": null
+            },
+            {
+              "word": "stuff",
+              "start": 12.929999,
+              "end": 13.41,
+              "confidence": 0.9946289,
+              "speaker": 0,
+              "punctuated_word": "stuff.",
+              "language": null
+            },
+            {
+              "word": "okay",
+              "start": 13.41,
+              "end": 13.65,
+              "confidence": 0.78466797,
+              "speaker": 0,
+              "punctuated_word": "Okay?",
+              "language": null
+            }
+          ],
+          "confidence": 0.9946289,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 11.65,
+    "duration": 3.0,
+    "is_final": true,
+    "speech_final": true,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "learn stuff. Okay?",
+          "words": [
+            {
+              "word": "learn",
+              "start": 12.53,
+              "end": 12.929999,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "learn",
+              "language": null
+            },
+            {
+              "word": "stuff",
+              "start": 12.929999,
+              "end": 13.49,
+              "confidence": 0.99853516,
+              "speaker": 0,
+              "punctuated_word": "stuff.",
+              "language": null
+            },
+            {
+              "word": "okay",
+              "start": 13.49,
+              "end": 13.809999,
+              "confidence": 0.9736328,
+              "speaker": 0,
+              "punctuated_word": "Okay?",
+              "language": null
+            }
+          ],
+          "confidence": 0.99853516,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 14.65,
+    "duration": 1.0500002,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "My",
+          "words": [
+            {
+              "word": "my",
+              "start": 15.21,
+              "end": 15.45,
+              "confidence": 0.99902344,
+              "speaker": 0,
+              "punctuated_word": "My",
+              "language": null
+            }
+          ],
+          "confidence": 0.99902344,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 14.65,
+    "duration": 1.3000002,
+    "is_final": true,
+    "speech_final": true,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "My",
+          "words": [
+            {
+              "word": "my",
+              "start": 15.29,
+              "end": 15.53,
+              "confidence": 0.99902344,
+              "speaker": 0,
+              "punctuated_word": "My",
+              "language": null
+            }
+          ],
+          "confidence": 0.99902344,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 15.95,
+    "duration": 1.0500002,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "this this this",
+          "words": [
+            {
+              "word": "this",
+              "start": 15.95,
+              "end": 16.43,
+              "confidence": 0.9902344,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "this",
+              "start": 16.43,
+              "end": 16.67,
+              "confidence": 0.9951172,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "this",
+              "start": 16.67,
+              "end": 16.83,
+              "confidence": 0.9863281,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            }
+          ],
+          "confidence": 0.9902344,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 15.95,
+    "duration": 2.0500002,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "this this this is not me being",
+          "words": [
+            {
+              "word": "this",
+              "start": 16.11,
+              "end": 16.43,
+              "confidence": 0.98828125,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "this",
+              "start": 16.43,
+              "end": 16.75,
+              "confidence": 0.9951172,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "this",
+              "start": 16.75,
+              "end": 16.99,
+              "confidence": 0.9604492,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "is",
+              "start": 16.99,
+              "end": 17.15,
+              "confidence": 0.99609375,
+              "speaker": 0,
+              "punctuated_word": "is",
+              "language": null
+            },
+            {
+              "word": "not",
+              "start": 17.15,
+              "end": 17.39,
+              "confidence": 0.99902344,
+              "speaker": 0,
+              "punctuated_word": "not",
+              "language": null
+            },
+            {
+              "word": "me",
+              "start": 17.39,
+              "end": 17.63,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "me",
+              "language": null
+            },
+            {
+              "word": "being",
+              "start": 17.63,
+              "end": 17.869999,
+              "confidence": 0.99902344,
+              "speaker": 0,
+              "punctuated_word": "being",
+              "language": null
+            }
+          ],
+          "confidence": 0.99609375,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 15.95,
+    "duration": 3.0500002,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "this this this is not me being mean. I think this is",
+          "words": [
+            {
+              "word": "this",
+              "start": 15.95,
+              "end": 16.43,
+              "confidence": 0.984375,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "this",
+              "start": 16.43,
+              "end": 16.75,
+              "confidence": 0.9951172,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "this",
+              "start": 16.75,
+              "end": 16.99,
+              "confidence": 0.9633789,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "is",
+              "start": 16.99,
+              "end": 17.15,
+              "confidence": 0.99609375,
+              "speaker": 0,
+              "punctuated_word": "is",
+              "language": null
+            },
+            {
+              "word": "not",
+              "start": 17.15,
+              "end": 17.39,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "not",
+              "language": null
+            },
+            {
+              "word": "me",
+              "start": 17.39,
+              "end": 17.71,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "me",
+              "language": null
+            },
+            {
+              "word": "being",
+              "start": 17.71,
+              "end": 17.95,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "being",
+              "language": null
+            },
+            {
+              "word": "mean",
+              "start": 17.95,
+              "end": 18.27,
+              "confidence": 0.98950195,
+              "speaker": 0,
+              "punctuated_word": "mean.",
+              "language": null
+            },
+            {
+              "word": "i",
+              "start": 18.27,
+              "end": 18.43,
+              "confidence": 0.99902344,
+              "speaker": 0,
+              "punctuated_word": "I",
+              "language": null
+            },
+            {
+              "word": "think",
+              "start": 18.43,
+              "end": 18.51,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "think",
+              "language": null
+            },
+            {
+              "word": "this",
+              "start": 18.51,
+              "end": 18.67,
+              "confidence": 0.99902344,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "is",
+              "start": 18.67,
+              "end": 18.83,
+              "confidence": 0.9970703,
+              "speaker": 0,
+              "punctuated_word": "is",
+              "language": null
+            }
+          ],
+          "confidence": 0.99902344,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 15.95,
+    "duration": 4.05,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "this this this is not me being mean. I think this is quite profound, actually,",
+          "words": [
+            {
+              "word": "this",
+              "start": 15.95,
+              "end": 16.43,
+              "confidence": 0.99316406,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "this",
+              "start": 16.43,
+              "end": 16.75,
+              "confidence": 0.99609375,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "this",
+              "start": 16.75,
+              "end": 16.99,
+              "confidence": 0.9667969,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "is",
+              "start": 16.99,
+              "end": 17.15,
+              "confidence": 0.99609375,
+              "speaker": 0,
+              "punctuated_word": "is",
+              "language": null
+            },
+            {
+              "word": "not",
+              "start": 17.15,
+              "end": 17.39,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "not",
+              "language": null
+            },
+            {
+              "word": "me",
+              "start": 17.39,
+              "end": 17.71,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "me",
+              "language": null
+            },
+            {
+              "word": "being",
+              "start": 17.71,
+              "end": 17.95,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "being",
+              "language": null
+            },
+            {
+              "word": "mean",
+              "start": 17.95,
+              "end": 18.35,
+              "confidence": 0.9863281,
+              "speaker": 0,
+              "punctuated_word": "mean.",
+              "language": null
+            },
+            {
+              "word": "i",
+              "start": 18.35,
+              "end": 18.43,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "I",
+              "language": null
+            },
+            {
+              "word": "think",
+              "start": 18.43,
+              "end": 18.59,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "think",
+              "language": null
+            },
+            {
+              "word": "this",
+              "start": 18.59,
+              "end": 18.75,
+              "confidence": 0.99902344,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "is",
+              "start": 18.75,
+              "end": 18.91,
+              "confidence": 0.9980469,
+              "speaker": 0,
+              "punctuated_word": "is",
+              "language": null
+            },
+            {
+              "word": "quite",
+              "start": 18.91,
+              "end": 19.15,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "quite",
+              "language": null
+            },
+            {
+              "word": "profound",
+              "start": 19.15,
+              "end": 19.71,
+              "confidence": 0.82836914,
+              "speaker": 0,
+              "punctuated_word": "profound,",
+              "language": null
+            },
+            {
+              "word": "actually",
+              "start": 19.71,
+              "end": 19.95,
+              "confidence": 0.6101074,
+              "speaker": 0,
+              "punctuated_word": "actually,",
+              "language": null
+            }
+          ],
+          "confidence": 0.9980469,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 15.95,
+    "duration": 4.6400003,
+    "is_final": true,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "this this this is not me being mean. I think this is quite profound, actually.",
+          "words": [
+            {
+              "word": "this",
+              "start": 15.95,
+              "end": 16.43,
+              "confidence": 0.9951172,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "this",
+              "start": 16.43,
+              "end": 16.75,
+              "confidence": 0.99121094,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "this",
+              "start": 16.75,
+              "end": 16.99,
+              "confidence": 0.78271484,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "is",
+              "start": 16.99,
+              "end": 17.15,
+              "confidence": 0.9951172,
+              "speaker": 0,
+              "punctuated_word": "is",
+              "language": null
+            },
+            {
+              "word": "not",
+              "start": 17.15,
+              "end": 17.39,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "not",
+              "language": null
+            },
+            {
+              "word": "me",
+              "start": 17.39,
+              "end": 17.71,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "me",
+              "language": null
+            },
+            {
+              "word": "being",
+              "start": 17.71,
+              "end": 17.869999,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "being",
+              "language": null
+            },
+            {
+              "word": "mean",
+              "start": 17.869999,
+              "end": 18.35,
+              "confidence": 0.9863281,
+              "speaker": 0,
+              "punctuated_word": "mean.",
+              "language": null
+            },
+            {
+              "word": "i",
+              "start": 18.35,
+              "end": 18.43,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "I",
+              "language": null
+            },
+            {
+              "word": "think",
+              "start": 18.43,
+              "end": 18.59,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "think",
+              "language": null
+            },
+            {
+              "word": "this",
+              "start": 18.59,
+              "end": 18.75,
+              "confidence": 0.99902344,
+              "speaker": 0,
+              "punctuated_word": "this",
+              "language": null
+            },
+            {
+              "word": "is",
+              "start": 18.75,
+              "end": 18.91,
+              "confidence": 0.9980469,
+              "speaker": 0,
+              "punctuated_word": "is",
+              "language": null
+            },
+            {
+              "word": "quite",
+              "start": 18.91,
+              "end": 19.15,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "quite",
+              "language": null
+            },
+            {
+              "word": "profound",
+              "start": 19.15,
+              "end": 19.789999,
+              "confidence": 0.8364258,
+              "speaker": 0,
+              "punctuated_word": "profound,",
+              "language": null
+            },
+            {
+              "word": "actually",
+              "start": 19.789999,
+              "end": 20.11,
+              "confidence": 0.94433594,
+              "speaker": 0,
+              "punctuated_word": "actually.",
+              "language": null
+            }
+          ],
+          "confidence": 0.9980469,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 20.59,
+    "duration": 1.0100002,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "Is you should",
+          "words": [
+            {
+              "word": "is",
+              "start": 20.67,
+              "end": 21.07,
+              "confidence": 0.99609375,
+              "speaker": 0,
+              "punctuated_word": "Is",
+              "language": null
+            },
+            {
+              "word": "you",
+              "start": 21.07,
+              "end": 21.39,
+              "confidence": 0.97314453,
+              "speaker": 0,
+              "punctuated_word": "you",
+              "language": null
+            },
+            {
+              "word": "should",
+              "start": 21.39,
+              "end": 21.55,
+              "confidence": 0.9980469,
+              "speaker": 0,
+              "punctuated_word": "should",
+              "language": null
+            }
+          ],
+          "confidence": 0.99609375,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 20.59,
+    "duration": 2.0100002,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "Is you should Google it.",
+          "words": [
+            {
+              "word": "is",
+              "start": 20.67,
+              "end": 21.15,
+              "confidence": 0.9970703,
+              "speaker": 0,
+              "punctuated_word": "Is",
+              "language": null
+            },
+            {
+              "word": "you",
+              "start": 21.15,
+              "end": 21.47,
+              "confidence": 0.97802734,
+              "speaker": 0,
+              "punctuated_word": "you",
+              "language": null
+            },
+            {
+              "word": "should",
+              "start": 21.47,
+              "end": 21.710001,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "should",
+              "language": null
+            },
+            {
+              "word": "google",
+              "start": 21.710001,
+              "end": 22.03,
+              "confidence": 0.8510742,
+              "speaker": 0,
+              "punctuated_word": "Google",
+              "language": null
+            },
+            {
+              "word": "it",
+              "start": 22.03,
+              "end": 22.27,
+              "confidence": 0.8942871,
+              "speaker": 0,
+              "punctuated_word": "it.",
+              "language": null
+            }
+          ],
+          "confidence": 0.97802734,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 20.59,
+    "duration": 3.0100002,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "Is you should Google it. Oh, yeah.",
+          "words": [
+            {
+              "word": "is",
+              "start": 20.67,
+              "end": 21.23,
+              "confidence": 0.99609375,
+              "speaker": 0,
+              "punctuated_word": "Is",
+              "language": null
+            },
+            {
+              "word": "you",
+              "start": 21.23,
+              "end": 21.47,
+              "confidence": 0.9770508,
+              "speaker": 0,
+              "punctuated_word": "you",
+              "language": null
+            },
+            {
+              "word": "should",
+              "start": 21.47,
+              "end": 21.710001,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "should",
+              "language": null
+            },
+            {
+              "word": "google",
+              "start": 21.710001,
+              "end": 22.11,
+              "confidence": 0.8378906,
+              "speaker": 0,
+              "punctuated_word": "Google",
+              "language": null
+            },
+            {
+              "word": "it",
+              "start": 22.11,
+              "end": 22.59,
+              "confidence": 0.9926758,
+              "speaker": 0,
+              "punctuated_word": "it.",
+              "language": null
+            },
+            {
+              "word": "oh",
+              "start": 22.91,
+              "end": 23.23,
+              "confidence": 0.85375977,
+              "speaker": 0,
+              "punctuated_word": "Oh,",
+              "language": null
+            },
+            {
+              "word": "yeah",
+              "start": 23.23,
+              "end": 23.31,
+              "confidence": 0.9772949,
+              "speaker": 0,
+              "punctuated_word": "yeah.",
+              "language": null
+            }
+          ],
+          "confidence": 0.9772949,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 20.59,
+    "duration": 4.01,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "Is you should Google it. Oh, yeah. Like,",
+          "words": [
+            {
+              "word": "is",
+              "start": 20.75,
+              "end": 21.15,
+              "confidence": 0.99609375,
+              "speaker": 0,
+              "punctuated_word": "Is",
+              "language": null
+            },
+            {
+              "word": "you",
+              "start": 21.15,
+              "end": 21.47,
+              "confidence": 0.9838867,
+              "speaker": 0,
+              "punctuated_word": "you",
+              "language": null
+            },
+            {
+              "word": "should",
+              "start": 21.47,
+              "end": 21.710001,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "should",
+              "language": null
+            },
+            {
+              "word": "google",
+              "start": 21.710001,
+              "end": 22.11,
+              "confidence": 0.83935547,
+              "speaker": 0,
+              "punctuated_word": "Google",
+              "language": null
+            },
+            {
+              "word": "it",
+              "start": 22.11,
+              "end": 22.59,
+              "confidence": 0.9926758,
+              "speaker": 0,
+              "punctuated_word": "it.",
+              "language": null
+            },
+            {
+              "word": "oh",
+              "start": 22.83,
+              "end": 23.23,
+              "confidence": 0.89990234,
+              "speaker": 0,
+              "punctuated_word": "Oh,",
+              "language": null
+            },
+            {
+              "word": "yeah",
+              "start": 23.23,
+              "end": 23.71,
+              "confidence": 0.9941406,
+              "speaker": 0,
+              "punctuated_word": "yeah.",
+              "language": null
+            },
+            {
+              "word": "like",
+              "start": 23.95,
+              "end": 24.19,
+              "confidence": 0.7956543,
+              "speaker": 0,
+              "punctuated_word": "Like,",
+              "language": null
+            }
+          ],
+          "confidence": 0.9926758,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 20.59,
+    "duration": 3.1399994,
+    "is_final": true,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "Is you should Google it. Oh, yeah.",
+          "words": [
+            {
+              "word": "is",
+              "start": 20.75,
+              "end": 21.15,
+              "confidence": 0.99609375,
+              "speaker": 0,
+              "punctuated_word": "Is",
+              "language": null
+            },
+            {
+              "word": "you",
+              "start": 21.15,
+              "end": 21.47,
+              "confidence": 0.9790039,
+              "speaker": 0,
+              "punctuated_word": "you",
+              "language": null
+            },
+            {
+              "word": "should",
+              "start": 21.47,
+              "end": 21.710001,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "should",
+              "language": null
+            },
+            {
+              "word": "google",
+              "start": 21.710001,
+              "end": 22.11,
+              "confidence": 0.81640625,
+              "speaker": 0,
+              "punctuated_word": "Google",
+              "language": null
+            },
+            {
+              "word": "it",
+              "start": 22.11,
+              "end": 22.59,
+              "confidence": 0.9916992,
+              "speaker": 0,
+              "punctuated_word": "it.",
+              "language": null
+            },
+            {
+              "word": "oh",
+              "start": 22.75,
+              "end": 23.23,
+              "confidence": 0.84814453,
+              "speaker": 0,
+              "punctuated_word": "Oh,",
+              "language": null
+            },
+            {
+              "word": "yeah",
+              "start": 23.23,
+              "end": 23.39,
+              "confidence": 0.9848633,
+              "speaker": 0,
+              "punctuated_word": "yeah.",
+              "language": null
+            }
+          ],
+          "confidence": 0.9848633,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 23.73,
+    "duration": 1.8700008,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "Like,",
+          "words": [
+            {
+              "word": "like",
+              "start": 23.89,
+              "end": 24.289999,
+              "confidence": 0.69763184,
+              "speaker": 0,
+              "punctuated_word": "Like,",
+              "language": null
+            }
+          ],
+          "confidence": 0.69763184,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 23.73,
+    "duration": 2.9700012,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "Like, 1 of the",
+          "words": [
+            {
+              "word": "like",
+              "start": 23.89,
+              "end": 24.609999,
+              "confidence": 0.78515625,
+              "speaker": 0,
+              "punctuated_word": "Like,",
+              "language": null
+            },
+            {
+              "word": "1",
+              "start": 24.689999,
+              "end": 25.17,
+              "confidence": 0.8378906,
+              "speaker": 0,
+              "punctuated_word": "1",
+              "language": null
+            },
+            {
+              "word": "of",
+              "start": 26.369999,
+              "end": 26.529999,
+              "confidence": 0.66064453,
+              "speaker": 0,
+              "punctuated_word": "of",
+              "language": null
+            },
+            {
+              "word": "the",
+              "start": 26.529999,
+              "end": 26.609999,
+              "confidence": 0.5205078,
+              "speaker": 0,
+              "punctuated_word": "the",
+              "language": null
+            }
+          ],
+          "confidence": 0.78515625,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 23.73,
+    "duration": 3.5699997,
+    "is_final": true,
+    "speech_final": true,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "Like, 1 of the",
+          "words": [
+            {
+              "word": "like",
+              "start": 23.89,
+              "end": 24.609999,
+              "confidence": 0.7541504,
+              "speaker": 0,
+              "punctuated_word": "Like,",
+              "language": null
+            },
+            {
+              "word": "1",
+              "start": 24.689999,
+              "end": 25.17,
+              "confidence": 0.85839844,
+              "speaker": 0,
+              "punctuated_word": "1",
+              "language": null
+            },
+            {
+              "word": "of",
+              "start": 26.449999,
+              "end": 26.609999,
+              "confidence": 0.71240234,
+              "speaker": 0,
+              "punctuated_word": "of",
+              "language": null
+            },
+            {
+              "word": "the",
+              "start": 26.609999,
+              "end": 26.77,
+              "confidence": 0.9741211,
+              "speaker": 0,
+              "punctuated_word": "the",
+              "language": null
+            }
+          ],
+          "confidence": 0.85839844,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 27.3,
+    "duration": 1.0,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "like, skills",
+          "words": [
+            {
+              "word": "like",
+              "start": 27.3,
+              "end": 27.779999,
+              "confidence": 0.78466797,
+              "speaker": 0,
+              "punctuated_word": "like,",
+              "language": null
+            },
+            {
+              "word": "skills",
+              "start": 27.779999,
+              "end": 28.019999,
+              "confidence": 0.99902344,
+              "speaker": 0,
+              "punctuated_word": "skills",
+              "language": null
+            }
+          ],
+          "confidence": 0.99902344,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 27.3,
+    "duration": 2.0,
+    "is_final": false,
+    "speech_final": false,
+    "from_finalize": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "like, skills that you should really",
+          "words": [
+            {
+              "word": "like",
+              "start": 27.38,
+              "end": 27.779999,
+              "confidence": 0.8913574,
+              "speaker": 0,
+              "punctuated_word": "like,",
+              "language": null
+            },
+            {
+              "word": "skills",
+              "start": 27.779999,
+              "end": 28.259998,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "skills",
+              "language": null
+            },
+            {
+              "word": "that",
+              "start": 28.259998,
+              "end": 28.5,
+              "confidence": 0.9892578,
+              "speaker": 0,
+              "punctuated_word": "that",
+              "language": null
+            },
+            {
+              "word": "you",
+              "start": 28.5,
+              "end": 28.66,
+              "confidence": 0.9970703,
+              "speaker": 0,
+              "punctuated_word": "you",
+              "language": null
+            },
+            {
+              "word": "should",
+              "start": 28.66,
+              "end": 28.9,
+              "confidence": 0.9970703,
+              "speaker": 0,
+              "punctuated_word": "should",
+              "language": null
+            },
+            {
+              "word": "really",
+              "start": 28.9,
+              "end": 29.06,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "really",
+              "language": null
+            }
+          ],
+          "confidence": 0.9970703,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  },
+  {
+    "type": "Results",
+    "start": 27.3,
+    "duration": 2.1000004,
+    "is_final": true,
+    "speech_final": true,
+    "from_finalize": true,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "like skills that you should really",
+          "words": [
+            {
+              "word": "like",
+              "start": 27.3,
+              "end": 27.619999,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "like",
+              "language": null
+            },
+            {
+              "word": "skills",
+              "start": 27.619999,
+              "end": 28.259998,
+              "confidence": 0.5439453,
+              "speaker": 0,
+              "punctuated_word": "skills",
+              "language": null
+            },
+            {
+              "word": "that",
+              "start": 28.259998,
+              "end": 28.5,
+              "confidence": 0.97998047,
+              "speaker": 0,
+              "punctuated_word": "that",
+              "language": null
+            },
+            {
+              "word": "you",
+              "start": 28.5,
+              "end": 28.66,
+              "confidence": 0.99609375,
+              "speaker": 0,
+              "punctuated_word": "you",
+              "language": null
+            },
+            {
+              "word": "should",
+              "start": 28.66,
+              "end": 28.9,
+              "confidence": 0.99609375,
+              "speaker": 0,
+              "punctuated_word": "should",
+              "language": null
+            },
+            {
+              "word": "really",
+              "start": 28.9,
+              "end": 29.06,
+              "confidence": 1.0,
+              "speaker": 0,
+              "punctuated_word": "really",
+              "language": null
+            }
+          ],
+          "confidence": 0.99609375,
+          "languages": []
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "bd1f9723-50fd-4c5b-95af-4491e460a4b8",
+      "model_info": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bfe8",
+      "extra": null
+    },
+    "channel_index": [
+      0,
+      1
+    ]
+  }
+]

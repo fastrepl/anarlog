@@ -1,0 +1,292 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-hypr-dancing-stick: hypr-dancing-stick 1s ease-in-out infinite;
+  --animate-ios-opacity-spin: ios-opacity-spin 1s linear infinite;
+
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-alert: hsl(var(--alert));
+  --color-alert-foreground: hsl(var(--alert-foreground));
+  --color-alert-border: hsl(var(--alert-border));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-app-floating-chrome: hsl(var(--app-floating-chrome));
+  --color-app-floating-panel: hsl(var(--app-floating-panel));
+  --color-app-floating-border: hsl(var(--app-floating-border));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-sidebar: hsl(var(--sidebar-background));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+@theme inline {
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+
+    to {
+      height: 0;
+    }
+  }
+
+  @keyframes ios-opacity-spin {
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    8.33% {
+      opacity: 0.9;
+    }
+
+    16.67% {
+      opacity: 0.8;
+    }
+
+    25% {
+      opacity: 0.7;
+    }
+
+    33.33% {
+      opacity: 0.6;
+    }
+
+    41.67% {
+      opacity: 0.5;
+    }
+
+    50% {
+      opacity: 0.4;
+    }
+
+    58.33% {
+      opacity: 0.35;
+    }
+
+    66.67% {
+      opacity: 0.3;
+    }
+
+    75% {
+      opacity: 0.25;
+    }
+
+    83.33% {
+      opacity: 0.2;
+    }
+
+    91.67% {
+      opacity: 0.15;
+    }
+  }
+
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+
+    to {
+      transform: translateX(calc(-100% - var(--gap)));
+    }
+  }
+
+  @keyframes marquee-vertical {
+    from {
+      transform: translateY(0);
+    }
+
+    to {
+      transform: translateY(calc(-100% - var(--gap)));
+    }
+  }
+
+  @keyframes hypr-dancing-stick {
+    0%,
+    100% {
+      transform: scaleY(0.2);
+    }
+
+    50% {
+      transform: scaleY(1);
+    }
+  }
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-border, currentcolor);
+  }
+}
+
+@layer base {
+  :root {
+    --background: 60 9% 98%;
+    --foreground: 24 10% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 24 10% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 24 10% 10%;
+    --primary: 24 10% 16%;
+    --primary-foreground: 60 9% 98%;
+    --secondary: 60 5% 96%;
+    --secondary-foreground: 24 10% 10%;
+    --muted: 60 5% 96%;
+    --muted-foreground: 25 5% 45%;
+    --accent: 60 5% 94%;
+    --accent-foreground: 24 10% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --alert: 0 86% 97%;
+    --alert-foreground: 0 72% 42%;
+    --alert-border: 0 90% 86%;
+    --border: 24 6% 90%;
+    --input: 24 6% 90%;
+    --ring: 24 10% 10%;
+    --app-floating-chrome: 60 5% 94%;
+    --app-floating-panel: 60 9% 98%;
+    --app-floating-border: 24 6% 86%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+    --sidebar-accent: 60 5% 90%;
+    --kbd-shadow-outer: rgba(0, 0, 0, 0.1);
+    --kbd-shadow-inset: rgba(255, 255, 255, 0.8);
+    --kbd-shadow-outer-hover: rgba(0, 0, 0, 0.15);
+  }
+
+  .dark {
+    --background: 24 10% 11%;
+    --foreground: 60 9% 98%;
+    --card: 24 10% 16%;
+    --card-foreground: 60 9% 98%;
+    --popover: 24 10% 16%;
+    --popover-foreground: 60 9% 98%;
+    --primary: 24 10% 16%;
+    --primary-foreground: 60 9% 98%;
+    --secondary: 24 6% 20%;
+    --secondary-foreground: 60 9% 98%;
+    --muted: 24 6% 20%;
+    --muted-foreground: 25 5% 55%;
+    --accent: 24 6% 25%;
+    --accent-foreground: 60 9% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --alert: 0 50% 14%;
+    --alert-foreground: 0 86% 72%;
+    --alert-border: 0 45% 24%;
+    --border: 24 6% 28%;
+    --input: 24 6% 28%;
+    --ring: 60 9% 75%;
+    --app-floating-chrome: 24 7% 21%;
+    --app-floating-panel: 24 8% 14%;
+    --app-floating-border: 24 6% 33%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-accent: 24 6% 23%;
+    --kbd-shadow-outer: rgba(0, 0, 0, 0.35);
+    --kbd-shadow-inset: rgba(255, 255, 255, 0.08);
+    --kbd-shadow-outer-hover: rgba(0, 0, 0, 0.5);
+  }
+
+  .theme {
+    --animate-marquee: marquee var(--duration) infinite linear;
+    --animate-marquee-vertical: marquee-vertical var(--duration) linear
+      infinite;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  button,
+  [role="button"],
+  [type="button"],
+  [type="submit"],
+  [type="reset"] {
+    cursor: pointer;
+  }
+}

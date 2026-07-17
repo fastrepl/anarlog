@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-unsubscribe"
+description = "Enables the unsubscribe command without any pre-configured scope."
+commands.allow = ["unsubscribe"]
+
+[[permission]]
+identifier = "deny-unsubscribe"
+description = "Denies the unsubscribe command without any pre-configured scope."
+commands.deny = ["unsubscribe"]

@@ -1,0 +1,142 @@
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const hoisted = vi.hoisted(() => {
+  const transaction = {
+    setNodeMarkup: vi.fn(),
+  };
+  const view = {
+    state: { tr: transaction },
+    dispatch: vi.fn(),
+  };
+
+  return { isNodeSelected: false, transaction, view };
+});
+
+vi.mock("@handlewithcare/react-prosemirror", () => ({
+  useEditorEventCallback:
+    (callback: (view: typeof hoisted.view) => void) => () =>
+      callback(hoisted.view),
+  useIsNodeSelected: () => hoisted.isNodeSelected,
+}));
+
+import { TaskItemView } from "./task-item-view";
+
+describe("TaskItemView", () => {
+  beforeEach(() => {
+    hoisted.isNodeSelected = false;
+    hoisted.transaction.setNodeMarkup.mockClear();
+    hoisted.view.dispatch.mockClear();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("toggles the task status when the checkbox is clicked", () => {
+    hoisted.transaction.setNodeMarkup.mockImplementation(
+      (_pos, _type, attrs) => ({ attrs }),
+    );
+
+    render(
+      <TaskItemView
+        nodeProps={
+          {
+            node: {
+              attrs: {
+                status: "todo",
+                checked: false,
+                taskId: null,
+                taskItemId: null,
+              },
+              nodeSize: 2,
+            },
+            getPos: () => 4,
+          } as any
+        }
+      >
+        <p>All hands</p>
+      </TaskItemView>,
+    );
+
+    fireEvent.click(screen.getByRole("checkbox"));
+
+    expect(hoisted.transaction.setNodeMarkup).toHaveBeenCalledWith(
+      4,
+      undefined,
+      {
+        status: "done",
+        checked: true,
+        taskId: null,
+        taskItemId: null,
+      },
+    );
+    expect(hoisted.view.dispatch).toHaveBeenCalledWith({
+      attrs: {
+        status: "done",
+        checked: true,
+        taskId: null,
+        taskItemId: null,
+      },
+    });
+  });
+
+  it("renders when ProseMirror no longer has a node position", () => {
+    expect(() =>
+      render(
+        <TaskItemView
+          nodeProps={
+            {
+              node: {
+                attrs: {
+                  status: "todo",
+                  checked: false,
+                  taskId: null,
+                  taskItemId: null,
+                },
+                nodeSize: 2,
+              },
+              getPos: () => {
+                throw new Error("detached node");
+              },
+            } as any
+          }
+        >
+          <p>All hands</p>
+        </TaskItemView>,
+      ),
+    ).not.toThrow();
+
+    fireEvent.click(screen.getByRole("checkbox"));
+
+    expect(hoisted.transaction.setNodeMarkup).not.toHaveBeenCalled();
+    expect(hoisted.view.dispatch).not.toHaveBeenCalled();
+  });
+
+  it("marks the checkbox when ProseMirror selects the task node", () => {
+    hoisted.isNodeSelected = true;
+
+    render(
+      <TaskItemView
+        nodeProps={
+          {
+            node: {
+              attrs: {
+                status: "todo",
+                checked: false,
+                taskId: null,
+                taskItemId: null,
+              },
+              nodeSize: 2,
+            },
+            getPos: () => 4,
+          } as any
+        }
+      >
+        <p>All hands</p>
+      </TaskItemView>,
+    );
+
+    expect(screen.getByRole("checkbox").dataset.selected).toBe("true");
+  });
+});

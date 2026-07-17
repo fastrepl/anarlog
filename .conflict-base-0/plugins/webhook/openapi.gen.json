@@ -1,0 +1,407 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Webhook API Documentation",
+    "description": "Webhook system for receiving real-time events",
+    "contact": {
+      "name": "API Support",
+      "email": "api@example.com"
+    },
+    "license": {
+      "name": ""
+    },
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/webhooks": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "list_webhooks",
+        "responses": {
+          "200": {
+            "description": "List of webhooks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api_key": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "create_webhook",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWebhookRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Webhook created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid configuration"
+          }
+        },
+        "security": [
+          {
+            "api_key": []
+          }
+        ]
+      }
+    },
+    "/api/webhooks/{id}": {
+      "delete": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "delete_webhook",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Webhook ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Webhook deleted"
+          },
+          "404": {
+            "description": "Webhook not found"
+          }
+        },
+        "security": [
+          {
+            "api_key": []
+          }
+        ]
+      }
+    },
+    "/api/webhooks/{id}/test": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "test_webhook",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Webhook ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Test event sent"
+          },
+          "404": {
+            "description": "Webhook not found"
+          }
+        },
+        "security": [
+          {
+            "api_key": []
+          }
+        ]
+      }
+    },
+    "/your-webhook-endpoint": {
+      "post": {
+        "tags": [
+          "Events"
+        ],
+        "operationId": "webhook_receiver_example",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookEvent"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Event processed successfully"
+          },
+          "401": {
+            "description": "Invalid signature"
+          },
+          "500": {
+            "description": "Processing error"
+          }
+        },
+        "security": [
+          {
+            "webhook_signature": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateWebhookRequest": {
+        "type": "object",
+        "required": [
+          "config"
+        ],
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/WebhookConfig"
+          }
+        }
+      },
+      "NoteEvent": {
+        "type": "object",
+        "required": [
+          "note_id",
+          "title",
+          "content"
+        ],
+        "properties": {
+          "content": {
+            "type": "string",
+            "example": "Discussion points..."
+          },
+          "note_id": {
+            "type": "string",
+            "example": "note_abc123"
+          },
+          "title": {
+            "type": "string",
+            "example": "Meeting Notes"
+          }
+        }
+      },
+      "RecordingEvent": {
+        "type": "object",
+        "required": [
+          "recording_id",
+          "duration_seconds",
+          "status"
+        ],
+        "properties": {
+          "duration_seconds": {
+            "type": "integer",
+            "format": "int32",
+            "example": 300,
+            "minimum": 0
+          },
+          "recording_id": {
+            "type": "string",
+            "example": "rec_xyz789"
+          },
+          "status": {
+            "type": "string",
+            "example": "completed"
+          }
+        }
+      },
+      "TranscriptionEvent": {
+        "type": "object",
+        "required": [
+          "recording_id",
+          "transcription_id",
+          "text"
+        ],
+        "properties": {
+          "recording_id": {
+            "type": "string",
+            "example": "rec_xyz789"
+          },
+          "text": {
+            "type": "string",
+            "example": "Hello, this is the transcribed text."
+          },
+          "transcription_id": {
+            "type": "string",
+            "example": "trans_qwe456"
+          }
+        }
+      },
+      "WebhookConfig": {
+        "type": "object",
+        "required": [
+          "url",
+          "events",
+          "active"
+        ],
+        "properties": {
+          "active": {
+            "type": "boolean",
+            "description": "Whether the webhook is active",
+            "example": true
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Events to subscribe to",
+            "example": [
+              "note.created",
+              "note.updated",
+              "recording.completed"
+            ]
+          },
+          "url": {
+            "type": "string",
+            "description": "Your webhook endpoint URL",
+            "example": "https://your-app.com/webhooks"
+          }
+        }
+      },
+      "WebhookEvent": {
+        "type": "object",
+        "required": [
+          "id",
+          "event_type",
+          "timestamp",
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "description": "Event payload"
+          },
+          "event_type": {
+            "type": "string",
+            "description": "Event type",
+            "example": "note.created"
+          },
+          "id": {
+            "type": "string",
+            "description": "Unique event identifier",
+            "example": "evt_01234567890"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "ISO 8601 timestamp",
+            "example": "2024-01-10T10:30:00Z"
+          }
+        }
+      },
+      "WebhookListResponse": {
+        "type": "object",
+        "required": [
+          "webhooks",
+          "total"
+        ],
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "webhooks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WebhookResponse"
+            }
+          }
+        }
+      },
+      "WebhookResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "config",
+          "secret",
+          "created_at"
+        ],
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/WebhookConfig"
+          },
+          "created_at": {
+            "type": "string",
+            "example": "2024-01-10T10:00:00Z"
+          },
+          "id": {
+            "type": "string",
+            "example": "webhook_123"
+          },
+          "secret": {
+            "type": "string",
+            "description": "Secret for verifying webhook signatures",
+            "example": "whsec_1234567890abcdef"
+          }
+        }
+      },
+      "WebhookVerification": {
+        "type": "object",
+        "required": [
+          "signature",
+          "timestamp"
+        ],
+        "properties": {
+          "signature": {
+            "type": "string",
+            "description": "HMAC-SHA256 signature",
+            "example": "sha256=abcdef1234567890"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "Unix timestamp",
+            "example": "1704880200"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "api_key": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      },
+      "webhook_signature": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Webhook-Signature"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Webhooks",
+      "description": "Webhook management endpoints"
+    },
+    {
+      "name": "Events",
+      "description": "Event types and payloads"
+    }
+  ]
+}
