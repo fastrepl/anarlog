@@ -213,7 +213,7 @@ describe("attachment catalog", () => {
   });
 
   it("catalogs primary audio with a stable logical identity and root-relative path", async () => {
-    await catalogLocalSessionAudio("session-1");
+    await catalogLocalSessionAudio("session-1", "recorded");
 
     expect(mocks.audioMetadata).toHaveBeenCalledWith("session-1");
     const statements = mocks.executeTransaction.mock.calls[0]![0];
@@ -230,6 +230,7 @@ describe("attachment catalog", () => {
       "audio/mpeg",
       84,
       "d".repeat(64),
+      "recorded",
       "session-1",
       "session-audio:session-1",
     ]);
@@ -249,7 +250,7 @@ describe("attachment catalog", () => {
       },
     });
 
-    await catalogLocalSessionAudio("session-1");
+    await catalogLocalSessionAudio("session-1", "uploaded");
 
     const update = mocks.executeTransaction.mock.calls[0]![0][1];
     expect(update.params).toEqual([
@@ -262,10 +263,12 @@ describe("attachment catalog", () => {
       "e".repeat(64),
       128,
       "e".repeat(64),
+      "uploaded",
       "session-audio:session-1",
       "session-1",
       "session-1",
     ]);
+    expect(update.sql).toContain("'$.audio_origin'");
   });
 
   it("keeps canonical metadata when retention deletes only local audio bytes", async () => {

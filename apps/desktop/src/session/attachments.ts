@@ -195,6 +195,7 @@ export async function catalogLocalNoteAttachment(input: {
 
 export async function catalogLocalSessionAudio(
   inputSessionId: string,
+  audioOrigin: "recorded" | "uploaded",
 ): Promise<void> {
   const sessionId = requireText(inputSessionId, "session ID", 512);
   await enqueueDatabaseWrite(`session:${sessionId}`, async () => {
@@ -255,6 +256,14 @@ export async function catalogLocalSessionAudio(
             sha256 = ?,
             source_type = 'session_audio',
             source_id = 'primary',
+            metadata_json = json_set(
+              CASE
+                WHEN json_valid(metadata_json) THEN metadata_json
+                ELSE '{}'
+              END,
+              '$.audio_origin',
+              ?
+            ),
             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
             deleted_at = NULL
           WHERE id = ?
@@ -276,6 +285,7 @@ export async function catalogLocalSessionAudio(
           result.data.sha256,
           result.data.sizeBytes,
           result.data.sha256,
+          audioOrigin,
           attachmentId,
           sessionId,
           sessionId,
@@ -311,7 +321,7 @@ export async function catalogLocalSessionAudio(
             '',
             'session_audio',
             'primary',
-            '{}'
+            json_object('audio_origin', ?)
           FROM sessions AS session
           WHERE session.id = ?
             AND session.deleted_at IS NULL
@@ -328,6 +338,7 @@ export async function catalogLocalSessionAudio(
           contentType,
           result.data.sizeBytes,
           result.data.sha256,
+          audioOrigin,
           sessionId,
           attachmentId,
         ],

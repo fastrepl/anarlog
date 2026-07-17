@@ -175,7 +175,7 @@ export function useUploadFile(sessionId: string) {
             throw new Error(result.error);
           }
           try {
-            await catalogLocalSessionAudio(sessionId);
+            await catalogLocalSessionAudio(sessionId, "uploaded");
           } catch (error) {
             console.error("[upload] failed to catalog imported audio", error);
           }
