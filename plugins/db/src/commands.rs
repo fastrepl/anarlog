@@ -272,6 +272,7 @@ pub(crate) async fn configure_cloudsync_token<R: tauri::Runtime>(
     token: String,
     workspace_id: String,
     workspace_projection: Option<crate::CloudsyncWorkspaceProjection>,
+    e2ee_witness: crate::CloudsyncE2eeWitness,
 ) -> Result<crate::CloudsyncTokenConfigurationResult, String> {
     let personal_workspace_id = workspace_projection
         .as_ref()
@@ -292,6 +293,7 @@ pub(crate) async fn configure_cloudsync_token<R: tauri::Runtime>(
             token,
             workspace_id,
             workspace_projection.map(Into::into),
+            e2ee_witness,
         )
         .await
         .map_err(|error| error.to_string())

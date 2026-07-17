@@ -57,10 +57,17 @@ function session(accessToken = "supabase-token") {
   } as Session;
 }
 
-function credentialsResponse(workspaceId = "user-id") {
+function witness(accessToken = "supabase-token", workspaceId = "user-id") {
+  return {
+    endpoint: `https://api.test/sync/e2ee/witness/${workspaceId}`,
+    accessToken,
+  };
+}
+
+function credentialsResponse(workspaceId = "user-id", encryptionVersion = 2) {
   return new Response(
     JSON.stringify({
-      encryptionVersion: 1,
+      encryptionVersion,
       encryptionKeyId: E2EE_KEY_ID,
       databaseId: "database-id",
       token: "sqlite-token",
@@ -76,7 +83,7 @@ function credentialsResponse(workspaceId = "user-id") {
 
 function projectedCredentialsPayload() {
   return {
-    encryptionVersion: 1,
+    encryptionVersion: 2,
     encryptionKeyId: E2EE_KEY_ID,
     databaseId: "database-id",
     token: "sqlite-token",
@@ -232,6 +239,7 @@ describe("CloudSync auth lifecycle", () => {
       "database-id",
       "sqlite-token",
       "user-id",
+      witness(),
     );
     expect(startCloudsyncInitialSyncProgress).toHaveBeenCalledWith("user-id");
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
@@ -257,6 +265,7 @@ describe("CloudSync auth lifecycle", () => {
       "database-id",
       "sqlite-token",
       "user-id",
+      witness(),
       {
         accountUserId: "user-id",
         personalWorkspaceId: "user-id",
@@ -343,7 +352,7 @@ describe("CloudSync auth lifecycle", () => {
         Promise.resolve(
           new Response(
             JSON.stringify({
-              encryptionVersion: 1,
+              encryptionVersion: 2,
               encryptionKeyId: E2EE_KEY_ID,
               databaseId: "database-id",
               token: "sqlite-token",
@@ -355,6 +364,18 @@ describe("CloudSync auth lifecycle", () => {
           ),
         ),
       ),
+    );
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await handleCloudsyncAuthChange("SIGNED_IN", session());
+
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
+  });
+
+  test("rejects credentials from the pre-witness encryption protocol", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(credentialsResponse("user-id", 1))),
     );
     vi.spyOn(console, "warn").mockImplementation(() => {});
 
@@ -716,6 +737,7 @@ describe("CloudSync auth lifecycle", () => {
       "database-id",
       "sqlite-token",
       "user-id",
+      witness(),
     );
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
   });
@@ -734,6 +756,7 @@ describe("CloudSync auth lifecycle", () => {
         "database-id",
         "sqlite-token",
         "user-id",
+        witness(),
       );
       expect(suspendCloudsync).toHaveBeenCalledTimes(1);
     },
@@ -855,6 +878,7 @@ describe("CloudSync auth lifecycle", () => {
       "database-id",
       "sqlite-token",
       "user-id",
+      witness(),
     );
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
   });

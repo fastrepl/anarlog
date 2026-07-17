@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use base64::Engine;
@@ -43,6 +44,27 @@ pub struct E2eeReplicaStats {
     pub encrypted_fields: u64,
     pub applied_fields: u64,
     pub skipped_local_changes: u64,
+    pub rejected_rollbacks: u64,
+    pub rejected_unwitnessed: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct E2eeWitnessUpload {
+    pub record_id: String,
+    pub workspace_id: String,
+    pub revision: u64,
+    pub writer_id: String,
+    pub payload_hash: String,
+    pub payload: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct E2eeWitnessEvent {
+    pub sequence: u64,
+    pub record_id: String,
+    pub workspace_id: String,
+    pub payload_hash: String,
+    pub payload: String,
 }
 
 #[derive(Clone, sqlx::FromRow)]
@@ -53,8 +75,10 @@ struct LocalState {
     row_id: String,
     field_name: String,
     revision: i64,
+    writer_id: String,
     value_tag: String,
     payload_hash: String,
+    payload: String,
 }
 
 #[derive(sqlx::FromRow)]
@@ -68,7 +92,19 @@ struct DecryptedRecord {
     record_id: String,
     workspace_id: String,
     payload_hash: String,
+    payload: String,
     field: OpenedField,
+}
+
+#[derive(Clone, sqlx::FromRow)]
+struct WitnessRecord {
+    workspace_id: String,
+    record_id: String,
+    revision: i64,
+    writer_id: String,
+    payload_hash: String,
+    payload: String,
+    sequence: i64,
 }
 
 pub async fn encrypt_e2ee_replica_changes(
@@ -80,6 +116,7 @@ pub async fn encrypt_e2ee_replica_changes(
     }
 
     let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let writer_id = load_or_create_writer_id(&mut transaction).await?;
     let states = load_local_states(&mut transaction).await?;
     let mut active_manifests = HashSet::new();
     let mut stats = E2eeReplicaStats::default();
@@ -110,6 +147,7 @@ pub async fn encrypt_e2ee_replica_changes(
                 table,
                 &row_id,
                 ROW_MANIFEST_FIELD,
+                &writer_id,
                 false,
                 json!(true),
             )
@@ -132,6 +170,7 @@ pub async fn encrypt_e2ee_replica_changes(
                     table,
                     &row_id,
                     field,
+                    &writer_id,
                     false,
                     value,
                 )
@@ -167,6 +206,7 @@ pub async fn encrypt_e2ee_replica_changes(
             &state.table_name,
             &state.row_id,
             ROW_MANIFEST_FIELD,
+            &writer_id,
             true,
             Value::Null,
         )
@@ -184,6 +224,22 @@ pub async fn apply_e2ee_replica_changes(
     pool: &SqlitePool,
     keys: &HashMap<String, WorkspaceKey>,
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
+    apply_e2ee_replica_changes_inner(pool, keys, false).await
+}
+
+pub async fn apply_e2ee_replica_changes_with_witness(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKey>,
+) -> E2eeReplicaResult<E2eeReplicaStats> {
+    repair_e2ee_replica_from_witness(pool, keys).await?;
+    apply_e2ee_replica_changes_inner(pool, keys, true).await
+}
+
+async fn apply_e2ee_replica_changes_inner(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKey>,
+    require_witness: bool,
+) -> E2eeReplicaResult<E2eeReplicaStats> {
     if keys.is_empty() {
         return Ok(E2eeReplicaStats::default());
     }
@@ -194,13 +250,34 @@ pub async fn apply_e2ee_replica_changes(
     )
     .fetch_all(&mut *transaction)
     .await?;
+    let witnessed_payloads = if require_witness {
+        sqlx::query_as::<_, (String, String, String)>(
+            "SELECT workspace_id, record_id, payload
+             FROM e2ee_witness_records",
+        )
+        .fetch_all(&mut *transaction)
+        .await?
+        .into_iter()
+        .map(|(workspace_id, record_id, payload)| ((workspace_id, record_id), payload))
+        .collect::<HashMap<_, _>>()
+    } else {
+        HashMap::new()
+    };
     let mut states = load_local_states(&mut transaction).await?;
     let mut groups = BTreeMap::<(String, String, String), Vec<DecryptedRecord>>::new();
+    let mut stats = E2eeReplicaStats::default();
 
     for record in records {
         let Some(key) = keys.get(&record.workspace_id) else {
             continue;
         };
+        if require_witness
+            && witnessed_payloads.get(&(record.workspace_id.clone(), record.id.clone()))
+                != Some(&record.payload)
+        {
+            stats.rejected_unwitnessed += 1;
+            continue;
+        }
         let field = key.open_field(&record.workspace_id, &record.id, &record.payload)?;
         if !E2EE_DOMAIN_TABLES.contains(&field.table.as_str()) {
             return Err(E2eeReplicaError::InvalidField);
@@ -216,11 +293,11 @@ pub async fn apply_e2ee_replica_changes(
                 record_id: record.id,
                 workspace_id: record.workspace_id,
                 payload_hash: hypr_e2ee::payload_hash(&record.payload),
+                payload: record.payload,
                 field,
             });
     }
 
-    let mut stats = E2eeReplicaStats::default();
     let mut column_cache = HashMap::<String, HashSet<String>>::new();
     for ((workspace_id, table, row_id), mut records) in groups {
         let key = &keys[&workspace_id];
@@ -232,6 +309,25 @@ pub async fn apply_e2ee_replica_changes(
                 columns
             }
         };
+        let mut stale_manifest = false;
+        let mut accepted_records = Vec::with_capacity(records.len());
+        for record in records {
+            let is_stale = match states.get(&record.record_id) {
+                Some(state) => record_version_order(state, &record)? == Ordering::Less,
+                None => false,
+            };
+            if is_stale {
+                restore_local_payload(&mut transaction, &states[&record.record_id]).await?;
+                stale_manifest |= record.field.field == ROW_MANIFEST_FIELD;
+                stats.rejected_rollbacks += 1;
+                continue;
+            }
+            accepted_records.push(record);
+        }
+        records = accepted_records;
+        if stale_manifest {
+            continue;
+        }
         let Some(manifest_index) = records
             .iter()
             .position(|record| record.field.field == ROW_MANIFEST_FIELD)
@@ -240,7 +336,6 @@ pub async fn apply_e2ee_replica_changes(
         };
         let manifest = records.swap_remove(manifest_index);
         let manifest_state = states.get(&manifest.record_id).cloned();
-        reject_rollback(manifest_state.as_ref(), &manifest.field)?;
         let manifest_unchanged = manifest_state
             .as_ref()
             .is_some_and(|state| state.payload_hash == manifest.payload_hash);
@@ -274,8 +369,10 @@ pub async fn apply_e2ee_replica_changes(
                     field_name: ROW_MANIFEST_FIELD.to_string(),
                     revision: i64::try_from(manifest.field.revision)
                         .map_err(|_| E2eeReplicaError::InvalidRow)?,
+                    writer_id: manifest.field.writer_id,
                     value_tag,
                     payload_hash: manifest.payload_hash,
+                    payload: manifest.payload,
                 };
                 upsert_local_state(&mut transaction, &state).await?;
                 stats.applied_fields += 1;
@@ -294,8 +391,10 @@ pub async fn apply_e2ee_replica_changes(
                 field_name: ROW_MANIFEST_FIELD.to_string(),
                 revision: i64::try_from(manifest.field.revision)
                     .map_err(|_| E2eeReplicaError::InvalidRow)?,
+                writer_id: manifest.field.writer_id,
                 value_tag,
                 payload_hash: manifest.payload_hash,
+                payload: manifest.payload,
             };
             upsert_local_state(&mut transaction, &state).await?;
             states.insert(state.record_id.clone(), state);
@@ -320,8 +419,6 @@ pub async fn apply_e2ee_replica_changes(
             {
                 continue;
             }
-            reject_rollback(states.get(&record.record_id), &record.field)?;
-
             if let Some(state) = states.get(&record.record_id) {
                 let Some(current) =
                     read_field(&mut transaction, &table, &workspace_id, &row_id, field_name)
@@ -355,8 +452,10 @@ pub async fn apply_e2ee_replica_changes(
                 field_name: field_name.to_string(),
                 revision: i64::try_from(record.field.revision)
                     .map_err(|_| E2eeReplicaError::InvalidRow)?,
+                writer_id: record.field.writer_id,
                 value_tag,
                 payload_hash: record.payload_hash,
+                payload: record.payload,
             };
             upsert_local_state(&mut transaction, &state).await?;
             states.insert(state.record_id.clone(), state);
@@ -368,6 +467,316 @@ pub async fn apply_e2ee_replica_changes(
     Ok(stats)
 }
 
+pub async fn e2ee_witness_cursor(pool: &SqlitePool, workspace_id: &str) -> E2eeReplicaResult<u64> {
+    let sequence: Option<i64> =
+        sqlx::query_scalar("SELECT last_sequence FROM e2ee_witness_state WHERE workspace_id = ?")
+            .bind(workspace_id)
+            .fetch_optional(pool)
+            .await?;
+    u64::try_from(sequence.unwrap_or(0)).map_err(|_| E2eeReplicaError::RollbackDetected)
+}
+
+pub async fn has_e2ee_local_state(
+    pool: &SqlitePool,
+    workspace_id: &str,
+) -> E2eeReplicaResult<bool> {
+    Ok(sqlx::query_scalar(
+        "SELECT EXISTS(
+           SELECT 1 FROM e2ee_local_state WHERE workspace_id = ?
+         )",
+    )
+    .bind(workspace_id)
+    .fetch_one(pool)
+    .await?)
+}
+
+pub async fn pending_e2ee_witness_uploads(
+    pool: &SqlitePool,
+    workspace_id: &str,
+    key: &WorkspaceKey,
+) -> E2eeReplicaResult<Vec<E2eeWitnessUpload>> {
+    let states: Vec<LocalState> = sqlx::query_as(
+        "SELECT local.record_id, local.workspace_id, local.table_name, local.row_id,
+                local.field_name, local.revision, local.writer_id, local.value_tag,
+                local.payload_hash, local.payload
+         FROM e2ee_local_state AS local
+         LEFT JOIN e2ee_witness_records AS witness
+           ON witness.workspace_id = local.workspace_id
+          AND witness.record_id = local.record_id
+         WHERE local.workspace_id = ?
+           AND (
+             witness.record_id IS NULL
+             OR local.revision > witness.revision
+             OR (local.revision = witness.revision AND local.writer_id > witness.writer_id)
+             OR (
+               local.revision = witness.revision
+               AND local.writer_id = witness.writer_id
+               AND local.payload_hash > witness.payload_hash
+             )
+           )
+         ORDER BY local.record_id",
+    )
+    .bind(workspace_id)
+    .fetch_all(pool)
+    .await?;
+
+    states
+        .into_iter()
+        .map(|state| {
+            validate_witness_payload(
+                key,
+                &state.workspace_id,
+                &state.record_id,
+                &state.payload_hash,
+                &state.payload,
+                state.revision,
+                &state.writer_id,
+            )?;
+            Ok(E2eeWitnessUpload {
+                record_id: state.record_id,
+                workspace_id: state.workspace_id,
+                revision: u64::try_from(state.revision)
+                    .map_err(|_| E2eeReplicaError::InvalidRow)?,
+                writer_id: state.writer_id,
+                payload_hash: state.payload_hash,
+                payload: state.payload,
+            })
+        })
+        .collect()
+}
+
+pub async fn acknowledge_e2ee_witness_uploads(
+    pool: &SqlitePool,
+    key: &WorkspaceKey,
+    uploads: &[E2eeWitnessUpload],
+) -> E2eeReplicaResult<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    for upload in uploads {
+        let revision = i64::try_from(upload.revision).map_err(|_| E2eeReplicaError::InvalidRow)?;
+        validate_witness_payload(
+            key,
+            &upload.workspace_id,
+            &upload.record_id,
+            &upload.payload_hash,
+            &upload.payload,
+            revision,
+            &upload.writer_id,
+        )?;
+        upsert_witness_record(
+            &mut transaction,
+            &WitnessRecord {
+                workspace_id: upload.workspace_id.clone(),
+                record_id: upload.record_id.clone(),
+                revision,
+                writer_id: upload.writer_id.clone(),
+                payload_hash: upload.payload_hash.clone(),
+                payload: upload.payload.clone(),
+                sequence: 0,
+            },
+        )
+        .await?;
+    }
+    transaction.commit().await?;
+    Ok(())
+}
+
+pub async fn merge_e2ee_witness_events(
+    pool: &SqlitePool,
+    key: &WorkspaceKey,
+    workspace_id: &str,
+    events: &[E2eeWitnessEvent],
+) -> E2eeReplicaResult<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let mut previous_sequence = 0;
+    for event in events {
+        if event.workspace_id != workspace_id
+            || event.sequence == 0
+            || event.sequence <= previous_sequence
+        {
+            return Err(E2eeReplicaError::InvalidRow);
+        }
+        let sequence = i64::try_from(event.sequence).map_err(|_| E2eeReplicaError::InvalidRow)?;
+        let field = key.open_field(workspace_id, &event.record_id, &event.payload)?;
+        let revision = i64::try_from(field.revision).map_err(|_| E2eeReplicaError::InvalidRow)?;
+        validate_opened_witness_field(
+            &field,
+            &event.payload_hash,
+            &event.payload,
+            revision,
+            &field.writer_id,
+        )?;
+        upsert_witness_record(
+            &mut transaction,
+            &WitnessRecord {
+                workspace_id: workspace_id.to_string(),
+                record_id: event.record_id.clone(),
+                revision,
+                writer_id: field.writer_id,
+                payload_hash: event.payload_hash.clone(),
+                payload: event.payload.clone(),
+                sequence,
+            },
+        )
+        .await?;
+        previous_sequence = event.sequence;
+    }
+    transaction.commit().await?;
+    Ok(())
+}
+
+pub async fn advance_e2ee_witness_cursor(
+    pool: &SqlitePool,
+    workspace_id: &str,
+    through_sequence: u64,
+) -> E2eeReplicaResult<()> {
+    let through_sequence =
+        i64::try_from(through_sequence).map_err(|_| E2eeReplicaError::InvalidRow)?;
+    let current: Option<i64> =
+        sqlx::query_scalar("SELECT last_sequence FROM e2ee_witness_state WHERE workspace_id = ?")
+            .bind(workspace_id)
+            .fetch_optional(pool)
+            .await?;
+    if current.is_some_and(|current| through_sequence < current) {
+        return Err(E2eeReplicaError::RollbackDetected);
+    }
+    sqlx::query(
+        "INSERT INTO e2ee_witness_state (workspace_id, last_sequence)
+         VALUES (?, ?)
+         ON CONFLICT(workspace_id) DO UPDATE SET
+           last_sequence = excluded.last_sequence,
+           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE excluded.last_sequence >= e2ee_witness_state.last_sequence",
+    )
+    .bind(workspace_id)
+    .bind(through_sequence)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+async fn repair_e2ee_replica_from_witness(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKey>,
+) -> E2eeReplicaResult<()> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let records: Vec<WitnessRecord> = sqlx::query_as(
+        "SELECT workspace_id, record_id, revision, writer_id, payload_hash, payload, sequence
+         FROM e2ee_witness_records
+         ORDER BY workspace_id, record_id",
+    )
+    .fetch_all(&mut *transaction)
+    .await?;
+    for record in records {
+        let Some(key) = keys.get(&record.workspace_id) else {
+            continue;
+        };
+        validate_witness_payload(
+            key,
+            &record.workspace_id,
+            &record.record_id,
+            &record.payload_hash,
+            &record.payload,
+            record.revision,
+            &record.writer_id,
+        )?;
+        let result = sqlx::query(
+            "INSERT INTO e2ee_records (id, workspace_id, payload)
+             VALUES (?, ?, ?)
+             ON CONFLICT(id) DO UPDATE SET
+               payload = excluded.payload,
+               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+             WHERE e2ee_records.workspace_id = excluded.workspace_id",
+        )
+        .bind(&record.record_id)
+        .bind(&record.workspace_id)
+        .bind(&record.payload)
+        .execute(&mut *transaction)
+        .await?;
+        if result.rows_affected() != 1 {
+            return Err(E2eeReplicaError::RollbackDetected);
+        }
+    }
+    transaction.commit().await?;
+    Ok(())
+}
+
+async fn upsert_witness_record(
+    transaction: &mut Transaction<'_, Sqlite>,
+    record: &WitnessRecord,
+) -> E2eeReplicaResult<()> {
+    sqlx::query(
+        "INSERT INTO e2ee_witness_records (
+           workspace_id, record_id, revision, writer_id, payload_hash, payload, sequence
+         ) VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(workspace_id, record_id) DO UPDATE SET
+           revision = excluded.revision,
+           writer_id = excluded.writer_id,
+           payload_hash = excluded.payload_hash,
+           payload = excluded.payload,
+           sequence = MAX(e2ee_witness_records.sequence, excluded.sequence),
+           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE excluded.revision > e2ee_witness_records.revision
+            OR (
+              excluded.revision = e2ee_witness_records.revision
+              AND excluded.writer_id > e2ee_witness_records.writer_id
+            )
+            OR (
+              excluded.revision = e2ee_witness_records.revision
+              AND excluded.writer_id = e2ee_witness_records.writer_id
+              AND excluded.payload_hash > e2ee_witness_records.payload_hash
+            )
+            OR (
+              excluded.revision = e2ee_witness_records.revision
+              AND excluded.writer_id = e2ee_witness_records.writer_id
+              AND excluded.payload_hash = e2ee_witness_records.payload_hash
+              AND excluded.sequence > e2ee_witness_records.sequence
+            )",
+    )
+    .bind(&record.workspace_id)
+    .bind(&record.record_id)
+    .bind(record.revision)
+    .bind(&record.writer_id)
+    .bind(&record.payload_hash)
+    .bind(&record.payload)
+    .bind(record.sequence)
+    .execute(&mut **transaction)
+    .await?;
+    Ok(())
+}
+
+fn validate_witness_payload(
+    key: &WorkspaceKey,
+    workspace_id: &str,
+    record_id: &str,
+    payload_hash: &str,
+    payload: &str,
+    revision: i64,
+    writer_id: &str,
+) -> E2eeReplicaResult<()> {
+    if hypr_e2ee::payload_hash(payload) != payload_hash {
+        return Err(E2eeReplicaError::RollbackDetected);
+    }
+    let field = key.open_field(workspace_id, record_id, payload)?;
+    validate_opened_witness_field(&field, payload_hash, payload, revision, writer_id)
+}
+
+fn validate_opened_witness_field(
+    field: &OpenedField,
+    payload_hash: &str,
+    payload: &str,
+    revision: i64,
+    writer_id: &str,
+) -> E2eeReplicaResult<()> {
+    if !E2EE_DOMAIN_TABLES.contains(&field.table.as_str())
+        || i64::try_from(field.revision).ok() != Some(revision)
+        || field.writer_id != writer_id
+        || hypr_e2ee::payload_hash(payload) != payload_hash
+    {
+        return Err(E2eeReplicaError::RollbackDetected);
+    }
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn encrypt_field_if_changed(
     transaction: &mut Transaction<'_, Sqlite>,
@@ -377,6 +786,7 @@ async fn encrypt_field_if_changed(
     table: &str,
     row_id: &str,
     field: &str,
+    writer_id: &str,
     deleted: bool,
     value: Value,
 ) -> E2eeReplicaResult<bool> {
@@ -394,7 +804,16 @@ async fn encrypt_field_if_changed(
         .map(|state| state.revision.saturating_add(1))
         .unwrap_or(1);
     let revision = u64::try_from(revision).map_err(|_| E2eeReplicaError::InvalidRow)?;
-    let sealed = key.seal_field(workspace_id, table, row_id, field, revision, deleted, value)?;
+    let sealed = key.seal_field(
+        workspace_id,
+        table,
+        row_id,
+        field,
+        writer_id,
+        revision,
+        deleted,
+        value,
+    )?;
     let payload_hash = hypr_e2ee::payload_hash(&sealed.payload);
     sqlx::query(
         "INSERT INTO e2ee_records (id, workspace_id, payload)
@@ -418,8 +837,10 @@ async fn encrypt_field_if_changed(
             row_id: row_id.to_string(),
             field_name: field.to_string(),
             revision: i64::try_from(revision).map_err(|_| E2eeReplicaError::InvalidRow)?,
+            writer_id: writer_id.to_string(),
             value_tag,
             payload_hash,
+            payload: sealed.payload,
         },
     )
     .await?;
@@ -430,7 +851,8 @@ async fn load_local_states(
     transaction: &mut Transaction<'_, Sqlite>,
 ) -> E2eeReplicaResult<HashMap<String, LocalState>> {
     let states: Vec<LocalState> = sqlx::query_as(
-        "SELECT record_id, workspace_id, table_name, row_id, field_name, revision, value_tag, payload_hash
+        "SELECT record_id, workspace_id, table_name, row_id, field_name, revision,
+                writer_id, value_tag, payload_hash, payload
          FROM e2ee_local_state",
     )
     .fetch_all(&mut **transaction)
@@ -447,16 +869,19 @@ async fn upsert_local_state(
 ) -> E2eeReplicaResult<()> {
     sqlx::query(
         "INSERT INTO e2ee_local_state (
-           record_id, workspace_id, table_name, row_id, field_name, revision, value_tag, payload_hash
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           record_id, workspace_id, table_name, row_id, field_name, revision,
+           writer_id, value_tag, payload_hash, payload
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(record_id) DO UPDATE SET
            workspace_id = excluded.workspace_id,
            table_name = excluded.table_name,
            row_id = excluded.row_id,
            field_name = excluded.field_name,
            revision = excluded.revision,
+           writer_id = excluded.writer_id,
            value_tag = excluded.value_tag,
            payload_hash = excluded.payload_hash,
+           payload = excluded.payload,
            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
     )
     .bind(&state.record_id)
@@ -465,8 +890,62 @@ async fn upsert_local_state(
     .bind(&state.row_id)
     .bind(&state.field_name)
     .bind(state.revision)
+    .bind(&state.writer_id)
     .bind(&state.value_tag)
     .bind(&state.payload_hash)
+    .bind(&state.payload)
+    .execute(&mut **transaction)
+    .await?;
+    Ok(())
+}
+
+async fn load_or_create_writer_id(
+    transaction: &mut Transaction<'_, Sqlite>,
+) -> E2eeReplicaResult<String> {
+    if let Some(writer_id) =
+        sqlx::query_scalar("SELECT writer_id FROM e2ee_local_device WHERE id = 'local'")
+            .fetch_optional(&mut **transaction)
+            .await?
+    {
+        return Ok(writer_id);
+    }
+
+    let writer_id = uuid::Uuid::new_v4().simple().to_string();
+    sqlx::query("INSERT INTO e2ee_local_device (id, writer_id) VALUES ('local', ?)")
+        .bind(&writer_id)
+        .execute(&mut **transaction)
+        .await?;
+    Ok(writer_id)
+}
+
+fn record_version_order(
+    state: &LocalState,
+    record: &DecryptedRecord,
+) -> E2eeReplicaResult<Ordering> {
+    let state_revision = u64::try_from(state.revision).map_err(|_| E2eeReplicaError::InvalidRow)?;
+    Ok(record
+        .field
+        .revision
+        .cmp(&state_revision)
+        .then_with(|| record.field.writer_id.cmp(&state.writer_id))
+        .then_with(|| record.payload_hash.cmp(&state.payload_hash)))
+}
+
+async fn restore_local_payload(
+    transaction: &mut Transaction<'_, Sqlite>,
+    state: &LocalState,
+) -> E2eeReplicaResult<()> {
+    if state.payload.is_empty() || hypr_e2ee::payload_hash(&state.payload) != state.payload_hash {
+        return Err(E2eeReplicaError::RollbackDetected);
+    }
+    sqlx::query(
+        "UPDATE e2ee_records
+         SET payload = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE id = ? AND workspace_id = ?",
+    )
+    .bind(&state.payload)
+    .bind(&state.record_id)
+    .bind(&state.workspace_id)
     .execute(&mut **transaction)
     .await?;
     Ok(())
@@ -655,14 +1134,6 @@ fn push_json_bind(query: &mut QueryBuilder<Sqlite>, value: &Value) -> E2eeReplic
         Value::Array(_) | Value::Object(_) => {
             return Err(E2eeReplicaError::UnsupportedValue);
         }
-    }
-    Ok(())
-}
-
-fn reject_rollback(state: Option<&LocalState>, field: &OpenedField) -> E2eeReplicaResult<()> {
-    let revision = i64::try_from(field.revision).map_err(|_| E2eeReplicaError::InvalidRow)?;
-    if state.is_some_and(|state| revision < state.revision) {
-        return Err(E2eeReplicaError::RollbackDetected);
     }
     Ok(())
 }
@@ -958,6 +1429,7 @@ mod tests {
                 "sessions",
                 "session-1",
                 ROW_MANIFEST_FIELD,
+                "00000000000000000000000000000001",
                 1,
                 false,
                 json!(true),
@@ -988,7 +1460,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn rejects_replayed_older_field_revisions() {
+    async fn rejects_and_repairs_replayed_older_field_revisions() {
         let db = test_db().await;
         let workspace_keys = keys("workspace-a");
         sqlx::query(
@@ -1017,19 +1489,316 @@ mod tests {
         encrypt_e2ee_replica_changes(db.pool(), &workspace_keys)
             .await
             .unwrap();
+        let current_payload: String =
+            sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+                .bind(&record_id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
         apply_e2ee_replica_changes(db.pool(), &workspace_keys)
             .await
             .unwrap();
         sqlx::query("UPDATE e2ee_records SET payload = ? WHERE id = ?")
             .bind(old_payload)
-            .bind(record_id)
+            .bind(&record_id)
             .execute(db.pool())
             .await
             .unwrap();
 
-        let error = apply_e2ee_replica_changes(db.pool(), &workspace_keys)
+        let stats = apply_e2ee_replica_changes(db.pool(), &workspace_keys)
             .await
-            .unwrap_err();
-        assert!(matches!(error, E2eeReplicaError::RollbackDetected));
+            .unwrap();
+        let title: String = sqlx::query_scalar("SELECT title FROM sessions WHERE id = 'session-1'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        let repaired_payload: String =
+            sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+                .bind(record_id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(stats.rejected_rollbacks, 1);
+        assert_eq!(title, "Second");
+        assert_eq!(repaired_payload, current_payload);
+    }
+
+    #[tokio::test]
+    async fn equal_revision_payloads_converge_and_repair_the_replica() {
+        let db = test_db().await;
+        let workspace_keys = keys("workspace-a");
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session-1', 'workspace-a', 'user-a', 'Base')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        encrypt_e2ee_replica_changes(db.pool(), &workspace_keys)
+            .await
+            .unwrap();
+
+        let key = &workspace_keys["workspace-a"];
+        let first = key
+            .seal_field(
+                "workspace-a",
+                "sessions",
+                "session-1",
+                "title",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                2,
+                false,
+                json!("Device A"),
+            )
+            .unwrap();
+        let second = key
+            .seal_field(
+                "workspace-a",
+                "sessions",
+                "session-1",
+                "title",
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                2,
+                false,
+                json!("Device B"),
+            )
+            .unwrap();
+        let (winner, winner_title, replay) = (second, "Device B", first);
+
+        sqlx::query("UPDATE e2ee_records SET payload = ? WHERE id = ?")
+            .bind(&winner.payload)
+            .bind(&winner.record_id)
+            .execute(db.pool())
+            .await
+            .unwrap();
+        apply_e2ee_replica_changes(db.pool(), &workspace_keys)
+            .await
+            .unwrap();
+
+        sqlx::query("UPDATE e2ee_records SET payload = ? WHERE id = ?")
+            .bind(&replay.payload)
+            .bind(&replay.record_id)
+            .execute(db.pool())
+            .await
+            .unwrap();
+        apply_e2ee_replica_changes(db.pool(), &workspace_keys)
+            .await
+            .unwrap();
+
+        let title: String = sqlx::query_scalar("SELECT title FROM sessions WHERE id = 'session-1'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        let canonical_payload: String =
+            sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+                .bind(&winner.record_id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(title, winner_title);
+        assert_eq!(canonical_payload, winner.payload);
+
+        let third = key
+            .seal_field(
+                "workspace-a",
+                "sessions",
+                "session-1",
+                "title",
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                3,
+                false,
+                json!("Clone A"),
+            )
+            .unwrap();
+        let fourth = key
+            .seal_field(
+                "workspace-a",
+                "sessions",
+                "session-1",
+                "title",
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                3,
+                false,
+                json!("Clone B"),
+            )
+            .unwrap();
+        let (winner, winner_title, replay) =
+            if hypr_e2ee::payload_hash(&third.payload) > hypr_e2ee::payload_hash(&fourth.payload) {
+                (third, "Clone A", fourth)
+            } else {
+                (fourth, "Clone B", third)
+            };
+
+        sqlx::query("UPDATE e2ee_records SET payload = ? WHERE id = ?")
+            .bind(&winner.payload)
+            .bind(&winner.record_id)
+            .execute(db.pool())
+            .await
+            .unwrap();
+        apply_e2ee_replica_changes(db.pool(), &workspace_keys)
+            .await
+            .unwrap();
+        sqlx::query("UPDATE e2ee_records SET payload = ? WHERE id = ?")
+            .bind(&replay.payload)
+            .bind(&replay.record_id)
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let stats = apply_e2ee_replica_changes(db.pool(), &workspace_keys)
+            .await
+            .unwrap();
+
+        let title: String = sqlx::query_scalar("SELECT title FROM sessions WHERE id = 'session-1'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        let canonical_payload: String =
+            sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+                .bind(&winner.record_id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(stats.rejected_rollbacks, 1);
+        assert_eq!(title, winner_title);
+        assert_eq!(canonical_payload, winner.payload);
+    }
+
+    #[tokio::test]
+    async fn writer_ids_are_stable_per_device_and_unique_across_devices() {
+        let first = test_db().await;
+        encrypt_e2ee_replica_changes(first.pool(), &keys("workspace-a"))
+            .await
+            .unwrap();
+        let first_writer: String =
+            sqlx::query_scalar("SELECT writer_id FROM e2ee_local_device WHERE id = 'local'")
+                .fetch_one(first.pool())
+                .await
+                .unwrap();
+        encrypt_e2ee_replica_changes(first.pool(), &keys("workspace-a"))
+            .await
+            .unwrap();
+        let repeated_writer: String =
+            sqlx::query_scalar("SELECT writer_id FROM e2ee_local_device WHERE id = 'local'")
+                .fetch_one(first.pool())
+                .await
+                .unwrap();
+
+        let second = test_db().await;
+        encrypt_e2ee_replica_changes(second.pool(), &keys("workspace-a"))
+            .await
+            .unwrap();
+        let second_writer: String =
+            sqlx::query_scalar("SELECT writer_id FROM e2ee_local_device WHERE id = 'local'")
+                .fetch_one(second.pool())
+                .await
+                .unwrap();
+
+        assert_eq!(first_writer, repeated_writer);
+        assert_ne!(first_writer, second_writer);
+        assert_eq!(first_writer.len(), 32);
+        assert_eq!(second_writer.len(), 32);
+    }
+
+    #[tokio::test]
+    async fn fresh_device_does_not_materialize_an_unwitnessed_snapshot() {
+        let workspace_keys = keys("workspace-a");
+        let source = test_db().await;
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session-1', 'workspace-a', 'user-a', 'Archived value')",
+        )
+        .execute(source.pool())
+        .await
+        .unwrap();
+        encrypt_e2ee_replica_changes(source.pool(), &workspace_keys)
+            .await
+            .unwrap();
+
+        let fresh = test_db().await;
+        copy_replica(source.pool(), fresh.pool()).await;
+        let stats = apply_e2ee_replica_changes_with_witness(fresh.pool(), &workspace_keys)
+            .await
+            .unwrap();
+
+        let materialized: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM sessions WHERE id = 'session-1'")
+                .fetch_one(fresh.pool())
+                .await
+                .unwrap();
+        assert_eq!(materialized, 0);
+        assert!(stats.rejected_unwitnessed > 0);
+    }
+
+    #[tokio::test]
+    async fn witnessed_snapshot_materializes_and_repairs_the_replica() {
+        let workspace_keys = keys("workspace-a");
+        let source = test_db().await;
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session-1', 'workspace-a', 'user-a', 'Witnessed value')",
+        )
+        .execute(source.pool())
+        .await
+        .unwrap();
+        encrypt_e2ee_replica_changes(source.pool(), &workspace_keys)
+            .await
+            .unwrap();
+
+        let encrypted: Vec<(String, String)> = sqlx::query_as(
+            "SELECT id, payload FROM e2ee_records WHERE workspace_id = 'workspace-a' ORDER BY id",
+        )
+        .fetch_all(source.pool())
+        .await
+        .unwrap();
+        let events = encrypted
+            .iter()
+            .enumerate()
+            .map(|(index, (record_id, payload))| E2eeWitnessEvent {
+                sequence: u64::try_from(index + 1).unwrap(),
+                record_id: record_id.clone(),
+                workspace_id: "workspace-a".to_string(),
+                payload_hash: hypr_e2ee::payload_hash(payload),
+                payload: payload.clone(),
+            })
+            .collect::<Vec<_>>();
+
+        let fresh = test_db().await;
+        copy_replica(source.pool(), fresh.pool()).await;
+        merge_e2ee_witness_events(
+            fresh.pool(),
+            &workspace_keys["workspace-a"],
+            "workspace-a",
+            &events,
+        )
+        .await
+        .unwrap();
+        advance_e2ee_witness_cursor(fresh.pool(), "workspace-a", events.last().unwrap().sequence)
+            .await
+            .unwrap();
+        apply_e2ee_replica_changes_with_witness(fresh.pool(), &workspace_keys)
+            .await
+            .unwrap();
+
+        let title: String = sqlx::query_scalar("SELECT title FROM sessions WHERE id = 'session-1'")
+            .fetch_one(fresh.pool())
+            .await
+            .unwrap();
+        assert_eq!(title, "Witnessed value");
+
+        sqlx::query("DELETE FROM e2ee_records")
+            .execute(fresh.pool())
+            .await
+            .unwrap();
+        apply_e2ee_replica_changes_with_witness(fresh.pool(), &workspace_keys)
+            .await
+            .unwrap();
+
+        let repaired: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM e2ee_records WHERE workspace_id = 'workspace-a'",
+        )
+        .fetch_one(fresh.pool())
+        .await
+        .unwrap();
+        assert_eq!(repaired, i64::try_from(events.len()).unwrap());
     }
 }
