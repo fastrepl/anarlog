@@ -379,7 +379,10 @@ describe("useStartListening", () => {
     });
 
     expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav");
-    expect(catalogLocalSessionAudioMock).toHaveBeenCalledWith("session-1");
+    expect(catalogLocalSessionAudioMock).toHaveBeenCalledWith(
+      "session-1",
+      "recorded",
+    );
     expect(
       catalogLocalSessionAudioMock.mock.invocationCallOrder[0],
     ).toBeLessThan(runBatchMock.mock.invocationCallOrder[0]!);
@@ -449,7 +452,10 @@ describe("useStartListening", () => {
       });
     });
 
-    expect(catalogLocalSessionAudioMock).toHaveBeenCalledWith("session-1");
+    expect(catalogLocalSessionAudioMock).toHaveBeenCalledWith(
+      "session-1",
+      "recorded",
+    );
     expect(runBatchMock).not.toHaveBeenCalled();
     consoleError.mockRestore();
   });
@@ -483,7 +489,10 @@ describe("useStartListening", () => {
     releaseBlocker?.();
     await blocker;
     await act(async () => await stopped);
-    expect(catalogLocalSessionAudioMock).toHaveBeenCalledWith("session-1");
+    expect(catalogLocalSessionAudioMock).toHaveBeenCalledWith(
+      "session-1",
+      "recorded",
+    );
   });
 
   test("cleans up processed audio after live capture stops", async () => {

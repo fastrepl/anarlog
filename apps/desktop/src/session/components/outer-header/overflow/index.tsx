@@ -66,7 +66,8 @@ export function OverflowButton({
     sessionMode === "active" || sessionMode === "finalizing";
   const isRetranscribing = sessionMode === "running_batch";
   const showListeningAction = allowListening;
-  const showRetranscribeAction = audioExists && !isMeetingInProgress;
+  const showRetranscribeAction =
+    (audioExists || hasTranscript) && !isMeetingInProgress;
   const showUploadActions =
     !audioExists &&
     !hasTranscript &&
@@ -94,7 +95,11 @@ export function OverflowButton({
   };
   const handleRetranscribe = () => {
     setOpen(false);
-    void regenerateTranscript();
+    if (audioExists) {
+      void regenerateTranscript();
+    } else {
+      uploadAudio();
+    }
   };
   const handleOpenFloatingPanel = () => {
     setOpen(false);
@@ -146,7 +151,11 @@ export function OverflowButton({
                 className="cursor-pointer"
               >
                 <RefreshCwIcon />
-                <span>Re-transcribe</span>
+                <span>
+                  {audioExists
+                    ? "Re-transcribe"
+                    : "Upload audio to re-transcribe"}
+                </span>
               </DropdownMenuItem>
             )}
             {showUploadActions && (

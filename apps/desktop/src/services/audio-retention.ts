@@ -51,8 +51,11 @@ export function isSessionAudioIdle(sessionId: string) {
   );
 }
 
-async function sessionHasTranscriptWords(sessionId: string): Promise<boolean> {
-  const rows = await liveQueryClient.execute<{ has_words: number }>(
+async function getSessionAudioRetentionState(sessionId: string) {
+  const rows = await liveQueryClient.execute<{
+    has_words: number;
+    is_uploaded: number;
+  }>(
     `
       SELECT EXISTS(
         SELECT 1
@@ -61,11 +64,26 @@ async function sessionHasTranscriptWords(sessionId: string): Promise<boolean> {
           AND deleted_at IS NULL
           AND json_valid(words_json)
           AND json_array_length(words_json) > 0
-      ) AS has_words
+      ) AS has_words,
+      EXISTS(
+        SELECT 1
+        FROM session_attachments
+        WHERE session_id = ?
+          AND source_type = 'session_audio'
+          AND source_id = 'primary'
+          AND deleted_at IS NULL
+          AND json_extract(
+            CASE
+              WHEN json_valid(metadata_json) THEN metadata_json
+              ELSE '{}'
+            END,
+            '$.audio_origin'
+          ) = 'uploaded'
+      ) AS is_uploaded
     `,
-    [sessionId],
+    [sessionId, sessionId],
   );
-  return rows[0]?.has_words === 1;
+  return rows[0] ?? { has_words: 0, is_uploaded: 0 };
 }
 
 export async function deleteProcessedAudioForRetention(
@@ -80,7 +98,8 @@ export async function deleteProcessedAudioForRetention(
     return false;
   }
 
-  if (!(await sessionHasTranscriptWords(sessionId))) {
+  const state = await getSessionAudioRetentionState(sessionId);
+  if (state.is_uploaded === 1 || state.has_words !== 1) {
     return false;
   }
 
@@ -111,6 +130,7 @@ export async function cleanupExpiredAudio(
     id: string;
     created_at: string;
     has_words: number;
+    is_uploaded: number;
   }>(`
     SELECT
       session.id,
@@ -122,13 +142,33 @@ export async function cleanupExpiredAudio(
           AND transcript.deleted_at IS NULL
           AND json_valid(transcript.words_json)
           AND json_array_length(transcript.words_json) > 0
-      ) AS has_words
+      ) AS has_words,
+      EXISTS(
+        SELECT 1
+        FROM session_attachments AS attachment
+        WHERE attachment.session_id = session.id
+          AND attachment.source_type = 'session_audio'
+          AND attachment.source_id = 'primary'
+          AND attachment.deleted_at IS NULL
+          AND json_extract(
+            CASE
+              WHEN json_valid(attachment.metadata_json)
+                THEN attachment.metadata_json
+              ELSE '{}'
+            END,
+            '$.audio_origin'
+          ) = 'uploaded'
+      ) AS is_uploaded
     FROM sessions AS session
     WHERE session.deleted_at IS NULL
     ORDER BY session.created_at, session.id
   `);
 
   for (const session of sessions) {
+    if (session.is_uploaded === 1) {
+      continue;
+    }
+
     if (!isSessionAudioIdle(session.id)) {
       continue;
     }

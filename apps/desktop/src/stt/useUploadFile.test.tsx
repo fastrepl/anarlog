@@ -176,7 +176,10 @@ describe("useUploadFile", () => {
     expect(runBatchMock).toHaveBeenCalledWith(
       "/vault/sessions/session-1/audio.wav",
     );
-    expect(catalogLocalSessionAudioMock).toHaveBeenCalledWith("session-1");
+    expect(catalogLocalSessionAudioMock).toHaveBeenCalledWith(
+      "session-1",
+      "uploaded",
+    );
     expect(audioImportDataMock.mock.invocationCallOrder[0]).toBeLessThan(
       catalogLocalSessionAudioMock.mock.invocationCallOrder[0]!,
     );

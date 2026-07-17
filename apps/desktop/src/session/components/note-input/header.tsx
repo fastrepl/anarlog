@@ -51,6 +51,7 @@ import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
+import { useUploadFile } from "~/stt/useUploadFile";
 import {
   filterWebTemplatesAgainstUserTemplates,
   DEFAULT_TEMPLATE_ICON,
@@ -746,6 +747,7 @@ function HeaderViewTranscriptActive({
   };
 }) {
   const regenerate = useRegenerateTranscript(sessionId);
+  const { uploadAudio } = useUploadFile(sessionId);
   const { request: transcriptExportRequest } =
     useSessionTranscriptRenderData(sessionId);
   const { audioExists, deleteRecording, isDeletingRecording } =
@@ -789,14 +791,19 @@ function HeaderViewTranscriptActive({
       },
     ];
 
-    if (audioExists) {
-      items.push({
-        id: `regenerate-transcript-${sessionId}`,
-        text: "Re-transcribe",
-        action: () => {
+    items.push({
+      id: `regenerate-transcript-${sessionId}`,
+      text: audioExists ? "Re-transcribe" : "Upload audio to re-transcribe",
+      action: () => {
+        if (audioExists) {
           void regenerate();
-        },
-      });
+        } else {
+          uploadAudio();
+        }
+      },
+    });
+
+    if (audioExists) {
       items.push({
         id: `delete-recording-${sessionId}`,
         text: "Delete recording",
@@ -814,6 +821,7 @@ function HeaderViewTranscriptActive({
     isDeletingRecording,
     regenerate,
     sessionId,
+    uploadAudio,
   ]);
   const showContextMenu = useNativeContextMenu(contextMenu);
 

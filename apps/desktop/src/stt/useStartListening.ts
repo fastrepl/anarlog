@@ -308,7 +308,7 @@ export function useStartListening(sessionId: string) {
       if (details.audioPath) {
         try {
           await enqueueSessionAudioOperation(sessionId, () =>
-            catalogLocalSessionAudio(sessionId),
+            catalogLocalSessionAudio(sessionId, "recorded"),
           );
         } catch (error) {
           console.error("[listener] failed to catalog recorded audio", error);
