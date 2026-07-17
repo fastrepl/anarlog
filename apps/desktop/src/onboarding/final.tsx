@@ -73,17 +73,22 @@ export function FinalSection({
   const { i18n } = useLingui();
   const translate = i18n._.bind(i18n);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+  const finishPromiseRef = useRef<Promise<void> | null>(null);
   const welcomeSessionRef = useRef<string | null>(null);
 
   const handleContinue = async () => {
-    if (status === "loading") return;
+    if (finishPromiseRef.current) return;
 
     setStatus("loading");
+    const finishPromise = finishOnboarding(onContinue, welcomeSessionRef);
+    finishPromiseRef.current = finishPromise;
     try {
-      await finishOnboarding(onContinue, welcomeSessionRef);
+      await finishPromise;
     } catch (error) {
       console.error("Failed to finish onboarding", error);
       setStatus("error");
+    } finally {
+      finishPromiseRef.current = null;
     }
   };
 

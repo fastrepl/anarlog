@@ -130,3 +130,25 @@ it("reuses the blank fallback session when persistence is retried", async () => 
   expect(mocks.createSession).toHaveBeenCalledTimes(1);
   consoleError.mockRestore();
 });
+
+it("ignores concurrent finish attempts", async () => {
+  const onContinue = vi.fn();
+  let resolveWelcomeSession: (sessionId: string) => void = () => {};
+  mocks.getOrCreateWelcomeSession.mockReturnValue(
+    new Promise((resolve) => {
+      resolveWelcomeSession = resolve;
+    }),
+  );
+
+  render(<FinalSection onContinue={onContinue} />);
+  const button = screen.getByRole("button", { name: "Open Anarlog" });
+  fireEvent.click(button);
+  fireEvent.click(button);
+  resolveWelcomeSession("welcome-session");
+
+  await waitFor(() => {
+    expect(onContinue).toHaveBeenCalledWith("welcome-session");
+  });
+  expect(mocks.getOrCreateWelcomeSession).toHaveBeenCalledTimes(1);
+  expect(onContinue).toHaveBeenCalledTimes(1);
+});
