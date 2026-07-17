@@ -31,7 +31,7 @@ export type CloudsyncAuthChangeResult = "ok" | "account_mismatch";
 type CloudsyncAccountMismatchHandler = () => Promise<void>;
 
 type CloudsyncCredentialCore = {
-  encryptionVersion: 1;
+  encryptionVersion: 2;
   encryptionKeyId: string;
   databaseId: string;
   token: string;
@@ -246,7 +246,7 @@ function isCredentials(value: unknown): value is CloudsyncCredentials {
 
   const candidate = value as Record<string, unknown>;
   const hasCoreCredentials =
-    candidate.encryptionVersion === 1 &&
+    candidate.encryptionVersion === 2 &&
     typeof candidate.encryptionKeyId === "string" &&
     /^[A-Za-z0-9_-]{22}$/.test(candidate.encryptionKeyId) &&
     typeof candidate.databaseId === "string" &&
@@ -619,6 +619,13 @@ async function activateCloudsync(
             credentials.token,
             accountUserId,
             {
+              endpoint: new URL(
+                `/sync/e2ee/witness/${credentials.personalWorkspaceId}`,
+                env.VITE_API_URL,
+              ).toString(),
+              accessToken: session.access_token,
+            },
+            {
               accountUserId: credentials.accountUserId,
               personalWorkspaceId: credentials.personalWorkspaceId,
               workspaces: credentials.workspaces,
@@ -628,6 +635,13 @@ async function activateCloudsync(
             credentials.databaseId,
             credentials.token,
             accountUserId,
+            {
+              endpoint: new URL(
+                `/sync/e2ee/witness/${credentials.workspaceId}`,
+                env.VITE_API_URL,
+              ).toString(),
+              accessToken: session.access_token,
+            },
           );
 
       if (configuration === "configured" && activeGeneration === generation) {

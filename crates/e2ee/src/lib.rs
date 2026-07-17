@@ -36,6 +36,8 @@ pub enum Error {
     InvalidPayload,
     #[error("the encrypted payload was created with an unavailable key")]
     UnknownKey,
+    #[error("the E2EE writer ID is invalid")]
+    InvalidWriterId,
     #[error("the encrypted payload failed authentication")]
     AuthenticationFailed,
     #[error("cryptographic randomness is unavailable")]
@@ -155,15 +157,20 @@ impl WorkspaceKey {
         table: &str,
         row_id: &str,
         field: &str,
+        writer_id: &str,
         revision: u64,
         deleted: bool,
         value: Value,
     ) -> Result<SealedField> {
+        if !is_valid_writer_id(writer_id) {
+            return Err(Error::InvalidWriterId);
+        }
         let record_id = self.blind_field_id(table, row_id, field);
         let plaintext = serde_json::to_vec(&ProtectedField {
             table,
             row_id,
             field,
+            writer_id,
             revision,
             deleted,
             value,
@@ -231,6 +238,9 @@ impl WorkspaceKey {
             .map_err(|_| Error::AuthenticationFailed)?;
         let field: OwnedProtectedField =
             serde_json::from_slice(&plaintext).map_err(|_| Error::InvalidPayload)?;
+        if !field.writer_id.is_empty() && !is_valid_writer_id(&field.writer_id) {
+            return Err(Error::InvalidPayload);
+        }
         if self.blind_field_id(&field.table, &field.row_id, &field.field) != record_id {
             return Err(Error::AuthenticationFailed);
         }
@@ -239,6 +249,7 @@ impl WorkspaceKey {
             table: field.table,
             row_id: field.row_id,
             field: field.field,
+            writer_id: field.writer_id,
             revision: field.revision,
             deleted: field.deleted,
             value: field.value,
@@ -257,6 +268,7 @@ pub struct OpenedField {
     pub table: String,
     pub row_id: String,
     pub field: String,
+    pub writer_id: String,
     pub revision: u64,
     pub deleted: bool,
     pub value: Value,
@@ -271,6 +283,7 @@ struct ProtectedField<'a> {
     table: &'a str,
     row_id: &'a str,
     field: &'a str,
+    writer_id: &'a str,
     revision: u64,
     deleted: bool,
     value: Value,
@@ -281,6 +294,8 @@ struct OwnedProtectedField {
     table: String,
     row_id: String,
     field: String,
+    #[serde(default)]
+    writer_id: String,
     revision: u64,
     deleted: bool,
     value: Value,
@@ -292,6 +307,13 @@ struct Envelope {
     key_id: String,
     nonce: String,
     ciphertext: String,
+}
+
+fn is_valid_writer_id(writer_id: &str) -> bool {
+    writer_id.len() == 32
+        && writer_id
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
 }
 
 fn update_context(mac: &mut Hmac<Sha256>, domain: &[u8], table: &str, row_id: &str, field: &str) {
@@ -362,6 +384,7 @@ mod tests {
                 "session_documents",
                 "document-1",
                 "body",
+                "00000000000000000000000000000001",
                 1,
                 false,
                 json!({ "type": "doc", "content": [] }),
@@ -371,6 +394,8 @@ mod tests {
         assert!(!sealed.payload.contains("session_documents"));
         assert!(!sealed.payload.contains("document-1"));
         assert!(!sealed.payload.contains("content"));
+        let envelope: Value = serde_json::from_str(&sealed.payload).unwrap();
+        assert_eq!(envelope["version"], 1);
         let opened = key
             .open_field("workspace-a", &sealed.record_id, &sealed.payload)
             .unwrap();
@@ -378,8 +403,38 @@ mod tests {
         assert_eq!(opened.table, "session_documents");
         assert_eq!(opened.row_id, "document-1");
         assert_eq!(opened.field, "body");
+        assert_eq!(opened.writer_id, "00000000000000000000000000000001");
         assert_eq!(opened.revision, 1);
         assert_eq!(opened.value, json!({ "type": "doc", "content": [] }));
+    }
+
+    #[test]
+    fn rejects_invalid_writer_ids_and_decodes_legacy_fields() {
+        let key = recovery_key().workspace_key("workspace-a").unwrap();
+        let error = key
+            .seal_field(
+                "workspace-a",
+                "sessions",
+                "session-1",
+                "title",
+                "short",
+                1,
+                false,
+                json!("Planning"),
+            )
+            .unwrap_err();
+        assert!(matches!(error, Error::InvalidWriterId));
+
+        let legacy: OwnedProtectedField = serde_json::from_value(json!({
+            "table": "sessions",
+            "row_id": "session-1",
+            "field": "title",
+            "revision": 1,
+            "deleted": false,
+            "value": "Planning"
+        }))
+        .unwrap();
+        assert!(legacy.writer_id.is_empty());
     }
 
     #[test]
@@ -391,6 +446,7 @@ mod tests {
                 "sessions",
                 "session-1",
                 "title",
+                "00000000000000000000000000000001",
                 1,
                 false,
                 json!("Planning"),

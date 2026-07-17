@@ -158,9 +158,9 @@ async bindCloudsyncAccount(accountUserId: string) : Promise<Result<boolean, stri
     else return { status: "error", error: e  as any };
 }
 },
-async configureCloudsyncToken(databaseId: string, token: string, workspaceId: string, workspaceProjection: CloudsyncWorkspaceProjection | null) : Promise<Result<CloudsyncTokenConfigurationResult, string>> {
+async configureCloudsyncToken(databaseId: string, token: string, workspaceId: string, workspaceProjection: CloudsyncWorkspaceProjection | null, e2eeWitness: CloudsyncE2eeWitness) : Promise<Result<CloudsyncTokenConfigurationResult, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:db|configure_cloudsync_token", { databaseId, token, workspaceId, workspaceProjection }) };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|configure_cloudsync_token", { databaseId, token, workspaceId, workspaceProjection, e2eeWitness }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -219,6 +219,7 @@ async syncCloudsyncNow() : Promise<Result<JsonValue, string>> {
 /** user-defined types **/
 
 export type ActionItem = { id: string; assignee_human_id: string; status: string; text: string; due_at: string; completed_at: string | null }
+export type CloudsyncE2eeWitness = { endpoint: string; accessToken: string }
 export type CloudsyncTokenConfigurationResult = "configured" | "account_mismatch"
 export type CloudsyncWorkspaceProjection = { accountUserId: string; personalWorkspaceId: string; workspaces: CloudsyncWorkspaceProjectionEntry[] }
 export type CloudsyncWorkspaceProjectionEntry = { id: string; ownerUserId: string; kind: string; name: string; membershipId: string; role: string; membershipCreatedAt: string; membershipUpdatedAt: string; createdAt: string; updatedAt: string }

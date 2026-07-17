@@ -15,6 +15,7 @@ const CLOUDSYNC_WRITE_FILTER: &str =
 #[derive(Default)]
 struct E2eeSyncHook {
     keys: std::sync::RwLock<HashMap<String, hypr_e2ee::WorkspaceKey>>,
+    witness: std::sync::RwLock<Option<crate::e2ee_witness::E2eeWitnessClient>>,
 }
 
 impl E2eeSyncHook {
@@ -38,10 +39,19 @@ impl E2eeSyncHook {
 
     fn clear(&self) {
         self.keys.write().unwrap().clear();
+        *self.witness.write().unwrap() = None;
     }
 
     fn snapshot(&self) -> HashMap<String, hypr_e2ee::WorkspaceKey> {
         self.keys.read().unwrap().clone()
+    }
+
+    fn set_witness(&self, witness: crate::e2ee_witness::E2eeWitnessClient) {
+        *self.witness.write().unwrap() = Some(witness);
+    }
+
+    fn witness(&self) -> Option<crate::e2ee_witness::E2eeWitnessClient> {
+        self.witness.read().unwrap().clone()
     }
 
     async fn prepare_local_snapshot(
@@ -60,7 +70,13 @@ impl hypr_db_core::CloudsyncSyncHook for E2eeSyncHook {
         pool: &'a sqlx::SqlitePool,
     ) -> hypr_db_core::CloudsyncHookFuture<'a> {
         let keys = self.snapshot();
+        let witness = self.witness();
         Box::pin(async move {
+            let witness = witness
+                .ok_or_else(|| std::io::Error::other("E2EE freshness witness is not configured"))?;
+            let key = keys.get(witness.workspace_id()).ok_or_else(|| {
+                std::io::Error::other("E2EE freshness witness identity is not configured")
+            })?;
             let stats = hypr_db_app::encrypt_e2ee_replica_changes(pool, &keys)
                 .await
                 .map_err(|error| {
@@ -69,6 +85,17 @@ impl hypr_db_core::CloudsyncSyncHook for E2eeSyncHook {
             tracing::debug!(
                 encrypted_fields = stats.encrypted_fields,
                 "prepared encrypted CloudSync replica"
+            );
+            witness.publish_and_refresh(pool, key).await?;
+            let stats = hypr_db_app::apply_e2ee_replica_changes_with_witness(pool, &keys)
+                .await
+                .map_err(|error| {
+                    std::io::Error::other(format!("E2EE pre-sync witness apply failed: {error}"))
+                })?;
+            tracing::debug!(
+                applied_fields = stats.applied_fields,
+                rejected_unwitnessed = stats.rejected_unwitnessed,
+                "applied trusted E2EE witness before CloudSync"
             );
             Ok(())
         })
@@ -79,8 +106,15 @@ impl hypr_db_core::CloudsyncSyncHook for E2eeSyncHook {
         pool: &'a sqlx::SqlitePool,
     ) -> hypr_db_core::CloudsyncHookFuture<'a> {
         let keys = self.snapshot();
+        let witness = self.witness();
         Box::pin(async move {
-            let stats = hypr_db_app::apply_e2ee_replica_changes(pool, &keys)
+            let witness = witness
+                .ok_or_else(|| std::io::Error::other("E2EE freshness witness is not configured"))?;
+            let key = keys.get(witness.workspace_id()).ok_or_else(|| {
+                std::io::Error::other("E2EE freshness witness identity is not configured")
+            })?;
+            witness.refresh(pool, key).await?;
+            let stats = hypr_db_app::apply_e2ee_replica_changes_with_witness(pool, &keys)
                 .await
                 .map_err(|error| {
                     std::io::Error::other(format!("E2EE post-sync decryption failed: {error}"))
@@ -88,6 +122,8 @@ impl hypr_db_core::CloudsyncSyncHook for E2eeSyncHook {
             tracing::debug!(
                 applied_fields = stats.applied_fields,
                 skipped_local_changes = stats.skipped_local_changes,
+                rejected_rollbacks = stats.rejected_rollbacks,
+                rejected_unwitnessed = stats.rejected_unwitnessed,
                 "applied encrypted CloudSync replica"
             );
             Ok(())
@@ -274,9 +310,16 @@ impl PluginDbRuntime {
         database_id: String,
         token: String,
         account_user_id: String,
+        e2ee_witness: crate::CloudsyncE2eeWitness,
     ) -> Result<crate::CloudsyncTokenConfigurationResult> {
-        self.configure_cloudsync_token_with_projection(database_id, token, account_user_id, None)
-            .await
+        self.configure_cloudsync_token_with_projection(
+            database_id,
+            token,
+            account_user_id,
+            None,
+            e2ee_witness,
+        )
+        .await
     }
 
     pub async fn configure_cloudsync_token_with_projection(
@@ -285,6 +328,36 @@ impl PluginDbRuntime {
         token: String,
         account_user_id: String,
         workspace_projection: Option<hypr_db_app::CloudsyncWorkspaceProjection>,
+        e2ee_witness: crate::CloudsyncE2eeWitness,
+    ) -> Result<crate::CloudsyncTokenConfigurationResult> {
+        let result = self
+            .configure_cloudsync_token_with_projection_inner(
+                database_id,
+                token,
+                account_user_id,
+                workspace_projection,
+                e2ee_witness,
+            )
+            .await;
+        if result.is_err()
+            || matches!(
+                &result,
+                Ok(crate::CloudsyncTokenConfigurationResult::AccountMismatch)
+            )
+        {
+            let _ = self.db.cloudsync_suspend().await;
+            self.e2ee_sync_hook.clear();
+        }
+        result
+    }
+
+    async fn configure_cloudsync_token_with_projection_inner(
+        &self,
+        database_id: String,
+        token: String,
+        account_user_id: String,
+        workspace_projection: Option<hypr_db_app::CloudsyncWorkspaceProjection>,
+        e2ee_witness: crate::CloudsyncE2eeWitness,
     ) -> Result<crate::CloudsyncTokenConfigurationResult> {
         let _reconciliation_guard = if workspace_projection.is_some() {
             Some(self.synced_write_barrier.write().await)
@@ -318,7 +391,10 @@ impl PluginDbRuntime {
             return Err(crate::Error::E2eeIdentityRequired);
         }
 
-        if !self.claim_cloudsync_workspace(account_user_id).await? {
+        if !self
+            .claim_cloudsync_workspace(account_user_id.clone())
+            .await?
+        {
             return Ok(crate::CloudsyncTokenConfigurationResult::AccountMismatch);
         }
 
@@ -326,6 +402,14 @@ impl PluginDbRuntime {
             self.db.cloudsync_suspend().await?;
         }
         self.prepare_e2ee_cutover().await?;
+        let witness =
+            crate::e2ee_witness::E2eeWitnessClient::new(e2ee_witness, personal_workspace_id)?;
+        let key = self
+            .e2ee_sync_hook
+            .workspace_key(personal_workspace_id)
+            .ok_or(crate::Error::E2eeIdentityRequired)?;
+        witness.initialize(self.db.pool(), &key).await?;
+        self.e2ee_sync_hook.set_witness(witness);
 
         let write_filter_version_current = match workspace_projection.as_ref() {
             Some(_) => hypr_db_app::cloudsync_write_filter_version_current(self.db.pool()).await?,
@@ -643,6 +727,7 @@ impl PluginDbRuntime {
     pub async fn logout_cloudsync(&self, discard_unsent_changes: bool) -> Result<()> {
         let _write_guard = self.synced_write_barrier.write().await;
         self.db.cloudsync_logout(discard_unsent_changes).await?;
+        self.e2ee_sync_hook.clear();
         Ok(())
     }
 }

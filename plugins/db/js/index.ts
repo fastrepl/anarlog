@@ -4,6 +4,7 @@ import type {
   GetMeetingInput,
   GetMeetingTranscriptInput as GeneratedGetMeetingTranscriptInput,
   GetRecurringMeetingHistoryInput as GeneratedGetRecurringMeetingHistoryInput,
+  CloudsyncE2eeWitness,
   CloudsyncTokenConfigurationResult,
   CloudsyncWorkspaceProjection,
   E2eeIdentityStatus,
@@ -19,6 +20,7 @@ import type {
 } from "./bindings.gen";
 
 export type {
+  CloudsyncE2eeWitness,
   CloudsyncTokenConfigurationResult,
   CloudsyncWorkspaceProjection,
   E2eeIdentityStatus,
@@ -205,12 +207,14 @@ export async function configureCloudsyncToken(
   databaseId: string,
   token: string,
   workspaceId: string,
+  e2eeWitness: CloudsyncE2eeWitness,
   workspaceProjection?: CloudsyncWorkspaceProjection,
 ): Promise<CloudsyncTokenConfigurationResult> {
   return invoke("plugin:db|configure_cloudsync_token", {
     databaseId,
     token,
     workspaceId,
+    e2eeWitness,
     workspaceProjection: workspaceProjection ?? null,
   });
 }

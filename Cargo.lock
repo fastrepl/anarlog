@@ -18263,6 +18263,8 @@ dependencies = [
  "db-reactive",
  "e2ee",
  "fs-sync-core",
+ "futures-util",
+ "reqwest 0.13.2",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -18280,6 +18282,7 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+ "wiremock",
 ]
 
 [[package]]
