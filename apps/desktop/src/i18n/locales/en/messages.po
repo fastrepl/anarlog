@@ -241,8 +241,8 @@ msgid "Assignees:"
 msgstr "Assignees:"
 
 #: src/session-sharing/index.tsx
-msgid "Attachments and recordings stay private and are not included in the shared copy yet."
-msgstr "Attachments and recordings stay private and are not included in the shared copy yet."
+msgid "Attachments stay private unless you explicitly include them in this shared note."
+msgstr "Attachments stay private unless you explicitly include them in this shared note."
 
 #: src/settings/general/permissions.tsx
 msgid "Audio"
