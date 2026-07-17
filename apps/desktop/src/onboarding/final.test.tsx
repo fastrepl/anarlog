@@ -93,7 +93,9 @@ it("shows a retryable error when onboarding cannot be persisted", async () => {
     ).disabled,
   ).toBe(true);
   await waitFor(() => {
-    expect(screen.getByRole("alert").textContent).toBe("Open Anarlog");
+    expect(screen.getByRole("alert").textContent).toBe(
+      "Couldn't open Anarlog. Please try again.",
+    );
   });
   expect(
     (
@@ -103,5 +105,28 @@ it("shows a retryable error when onboarding cannot be persisted", async () => {
     ).disabled,
   ).toBe(false);
   expect(onContinue).not.toHaveBeenCalled();
+  consoleError.mockRestore();
+});
+
+it("reuses the blank fallback session when persistence is retried", async () => {
+  const onContinue = vi.fn();
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  mocks.getOrCreateWelcomeSession.mockRejectedValue(
+    new Error("malformed JSON"),
+  );
+  mocks.createSession.mockResolvedValue("blank-session");
+  mocks.setOnboardingNeeded
+    .mockResolvedValueOnce({ status: "error", error: "settings unavailable" })
+    .mockResolvedValueOnce({ status: "ok", data: null });
+
+  render(<FinalSection onContinue={onContinue} />);
+  fireEvent.click(screen.getByRole("button", { name: "Open Anarlog" }));
+  await screen.findByRole("alert");
+  fireEvent.click(screen.getByRole("button", { name: "Open Anarlog" }));
+
+  await waitFor(() => {
+    expect(onContinue).toHaveBeenCalledWith("blank-session");
+  });
+  expect(mocks.createSession).toHaveBeenCalledTimes(1);
   consoleError.mockRestore();
 });

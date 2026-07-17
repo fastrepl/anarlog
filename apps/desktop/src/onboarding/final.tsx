@@ -1,7 +1,7 @@
 import { Icon } from "@iconify-icon/react";
 import { Trans } from "@lingui/react/macro";
 import { Loader2Icon } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
@@ -70,13 +70,14 @@ export function FinalSection({
   onContinue: (sessionId: string) => void;
 }) {
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+  const welcomeSessionRef = useRef<string | null>(null);
 
   const handleContinue = async () => {
     if (status === "loading") return;
 
     setStatus("loading");
     try {
-      await finishOnboarding(onContinue);
+      await finishOnboarding(onContinue, welcomeSessionRef);
     } catch (error) {
       console.error("Failed to finish onboarding", error);
       setStatus("error");
@@ -101,7 +102,7 @@ export function FinalSection({
       </OnboardingButton>
       {status === "error" && (
         <p className="text-sm text-red-500" role="alert">
-          <Trans>Open Anarlog</Trans>
+          Couldn't open Anarlog. Please try again.
         </p>
       )}
     </div>
@@ -110,12 +111,18 @@ export function FinalSection({
 
 export async function finishOnboarding(
   onContinue?: (sessionId: string) => void,
+  welcomeSessionRef?: { current: string | null },
 ) {
   await sfxCommands.stop("BGM").catch(console.error);
-  const welcomeSessionId = await getOrCreateWelcomeSession().catch((error) => {
-    console.error("Failed to create welcome note", error);
-    return createSession();
-  });
+  const welcomeSessionId =
+    welcomeSessionRef?.current ??
+    (await getOrCreateWelcomeSession().catch((error) => {
+      console.error("Failed to create welcome note", error);
+      return createSession();
+    }));
+  if (welcomeSessionRef) {
+    welcomeSessionRef.current = welcomeSessionId;
+  }
   await new Promise((resolve) => setTimeout(resolve, 100));
   const result = await commands.setOnboardingNeeded(false);
   if (result.status === "error") {
