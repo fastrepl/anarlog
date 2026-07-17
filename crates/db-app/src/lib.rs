@@ -412,6 +412,7 @@ mod tests {
                 "session_attachments",
                 "session_documents",
                 "session_participants",
+                "session_share_sync_state",
                 "session_tags",
                 "sessions",
                 "shared_session_attachment_cache",
