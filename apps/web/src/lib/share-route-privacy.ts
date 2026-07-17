@@ -75,11 +75,39 @@ export function getShareRouteToken(pathname: string): string | null {
   return inMemoryToken?.token ?? null;
 }
 
+export function retainShareRouteToken(pathname: string, token: string) {
+  if (typeof window === "undefined" || !isShareRouteToken(token)) {
+    return false;
+  }
+
+  const tokenPathname = canonicalShareRoutePathname(pathname);
+  if (!isCapabilityShareRoutePathname(tokenPathname)) {
+    return false;
+  }
+
+  inMemoryToken = { pathname: tokenPathname, token };
+  try {
+    window.sessionStorage.setItem(
+      SHARE_TOKEN_STORAGE_KEY,
+      JSON.stringify(inMemoryToken),
+    );
+  } catch {
+    // The in-memory copy still supports the current page when storage is unavailable.
+  }
+  return true;
+}
+
 export function clearShareRouteToken(pathname: string) {
   const tokenPathname = canonicalShareRoutePathname(pathname);
   if (inMemoryToken?.pathname === tokenPathname) {
     inMemoryToken = null;
   }
+
+  clearPersistedShareRouteToken(pathname);
+}
+
+export function clearPersistedShareRouteToken(pathname: string) {
+  const tokenPathname = canonicalShareRoutePathname(pathname);
 
   if (typeof window === "undefined") {
     return;

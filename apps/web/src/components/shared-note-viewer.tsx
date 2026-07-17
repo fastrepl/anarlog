@@ -34,11 +34,13 @@ export const sharedSecondaryButtonClassName = cn([
 export function SharedNoteViewer({
   accessLabel,
   actions,
+  collaboration,
   resolveAttachment,
   snapshot,
 }: {
   accessLabel: string;
   actions?: React.ReactNode;
+  collaboration?: React.ReactNode;
   resolveAttachment?: SharedAttachmentResolver;
   snapshot: SharedNoteSnapshot;
 }) {
@@ -69,6 +71,8 @@ export function SharedNoteViewer({
           />
         </div>
       </article>
+
+      {collaboration}
 
       {actions && (
         <aside className="surface-subtle border-color-subtle mt-6 rounded-2xl border p-5 sm:flex sm:items-center sm:justify-between sm:gap-6">

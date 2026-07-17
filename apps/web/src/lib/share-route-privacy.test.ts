@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  clearPersistedShareRouteToken,
   clearShareRouteToken,
   getShareRouteToken,
   isCapabilityShareRoutePathname,
   isShareRoutePathname,
   parseShareFragmentToken,
   prepareShareRoutePrivacy,
+  retainShareRouteToken,
 } from "./share-route-privacy.ts";
 
 const TOKEN = "a".repeat(43);
@@ -71,6 +73,10 @@ test("scrubs a capability fragment before retaining it for the current tab", () 
     assert.equal(replacedUrl, pathname);
     assert.equal(replacedUrl.includes(TOKEN), false);
     assert.equal(getShareRouteToken(pathname), TOKEN);
+    assert.equal(storage.size, 1);
+    clearPersistedShareRouteToken(pathname);
+    assert.equal(storage.size, 0);
+    assert.equal(getShareRouteToken(pathname), TOKEN);
     clearShareRouteToken(pathname);
     assert.equal(getShareRouteToken(pathname), null);
   } finally {
@@ -119,5 +125,34 @@ test("retains capability tokens across trailing-slash normalization", () => {
     } finally {
       Reflect.deleteProperty(globalThis, "window");
     }
+  }
+});
+
+test("restores only valid capability tokens for their exact route", () => {
+  const pathname = "/share/invite/00000000-0000-4000-8000-000000000001/";
+  const storage = new Map<string, string>();
+
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      sessionStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        removeItem: (key: string) => storage.delete(key),
+        setItem: (key: string, value: string) => storage.set(key, value),
+      },
+    },
+  });
+
+  try {
+    assert.equal(retainShareRouteToken(pathname, TOKEN), true);
+    assert.equal(getShareRouteToken(pathname), TOKEN);
+    assert.equal(
+      retainShareRouteToken("/share/public/s_example/", TOKEN),
+      false,
+    );
+    assert.equal(retainShareRouteToken(pathname, "short"), false);
+  } finally {
+    clearShareRouteToken(pathname);
+    Reflect.deleteProperty(globalThis, "window");
   }
 });
