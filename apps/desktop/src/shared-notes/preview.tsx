@@ -2,6 +2,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { useSyncExternalStore } from "react";
 
 import type { JSONContent } from "@hypr/editor/note";
+import { commands as attachmentSyncCommands } from "@hypr/plugin-attachment-sync";
 
 import type { SharedAttachmentDownload } from "./attachment-client";
 import type { SharedNoteAttachment } from "./cache";
@@ -23,6 +24,7 @@ const TRANSIENT_RETRY_ATTEMPTS = 3;
 const TRANSIENT_RETRY_DELAY_MS = 100;
 const RATE_LIMIT_RETRY_DELAY_MS = 1000;
 const MAX_RETRY_DELAY_MS = 5000;
+const PREVIEW_ATTACHMENT_SCOPE_PREFIX = "preview:";
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -79,6 +81,7 @@ type PreviewClaim = (signal: AbortSignal) => Promise<PreviewClaimResult>;
 const unavailableState = { status: "unavailable" } as const;
 const states = new Map<string, SharedNotePreviewState>();
 const controllers = new Map<string, AbortController>();
+const attachmentCacheTasks = new Map<string, Promise<void>>();
 const listeners = new Set<() => void>();
 
 export function beginSharedNotePreview(
@@ -86,7 +89,11 @@ export function beginSharedNotePreview(
   createViewId: () => string = () => crypto.randomUUID(),
 ) {
   const viewId = createViewId();
-  if (!UUID_PATTERN.test(viewId) || states.has(viewId)) {
+  if (
+    !UUID_PATTERN.test(viewId) ||
+    states.has(viewId) ||
+    attachmentCacheTasks.has(viewId)
+  ) {
     throw new Error("shared-note preview unavailable");
   }
 
@@ -102,12 +109,20 @@ export function beginSharedNotePreview(
       }
       states.set(viewId, { status: "ready", snapshot });
       emitChange();
-      return cachePreviewAttachments(
+      const cacheTask = cachePreviewAttachments(
         viewId,
         snapshot,
         downloadAttachment,
         controller.signal,
       );
+      attachmentCacheTasks.set(viewId, cacheTask);
+      const forgetCacheTask = () => {
+        if (attachmentCacheTasks.get(viewId) === cacheTask) {
+          attachmentCacheTasks.delete(viewId);
+        }
+      };
+      void cacheTask.then(forgetCacheTask, forgetCacheTask);
+      return cacheTask;
     })
     .catch(() => {
       if (controllers.get(viewId) !== controller || controller.signal.aborted) {
@@ -136,15 +151,16 @@ export function useSharedNotePreview(viewId: string) {
 export function purgeSharedNotePreview(viewId: string) {
   controllers.get(viewId)?.abort();
   controllers.delete(viewId);
+  const cacheTask = attachmentCacheTasks.get(viewId);
   const deleted = states.delete(viewId);
   if (deleted) {
     emitChange();
   }
-  void clearPreviewAttachmentCache(viewId);
+  clearPreviewAttachmentScope(viewId, cacheTask);
 }
 
 export function purgeAllSharedNotePreviews() {
-  const viewIds = [...states.keys()];
+  const viewIds = new Set([...states.keys(), ...attachmentCacheTasks.keys()]);
   for (const controller of controllers.values()) {
     controller.abort();
   }
@@ -154,7 +170,7 @@ export function purgeAllSharedNotePreviews() {
     emitChange();
   }
   for (const viewId of viewIds) {
-    void clearPreviewAttachmentCache(viewId);
+    clearPreviewAttachmentScope(viewId, attachmentCacheTasks.get(viewId));
   }
 }
 
@@ -181,7 +197,7 @@ async function cachePreviewAttachments(
             const cached =
               await attachmentTransferNative.downloadSharedAttachment(
                 {
-                  scopeId: viewId,
+                  scopeId: previewAttachmentScopeId(viewId),
                   attachmentId: download.id,
                   signedUrl: download.signedUrl,
                   expectedSha256: download.sha256,
@@ -224,15 +240,6 @@ async function cachePreviewAttachments(
       }
     }),
   );
-  if (signal.aborted) {
-    await clearPreviewAttachmentCache(viewId);
-  }
-}
-
-async function clearPreviewAttachmentCache(viewId: string) {
-  await attachmentTransferNative
-    .clearSharedAttachmentScope(viewId)
-    .catch(() => undefined);
 }
 
 export async function claimSharedNoteHandoff(
@@ -594,6 +601,11 @@ function sameAttachment(
 
 export function SharedNotePreviewAuthLifecycle() {
   const { session } = useAuth();
+  useMountEffect(() => {
+    void attachmentSyncCommands
+      .clearSharedAttachmentPreviewScopes()
+      .catch(() => undefined);
+  });
   if (session === undefined) {
     return null;
   }
@@ -603,6 +615,28 @@ export function SharedNotePreviewAuthLifecycle() {
 function SharedNotePreviewAuthScope() {
   useMountEffect(() => purgeAllSharedNotePreviews);
   return null;
+}
+
+function clearPreviewAttachmentScope(
+  viewId: string,
+  cacheTask: Promise<void> | undefined,
+) {
+  const scopeId = previewAttachmentScopeId(viewId);
+  void attachmentTransferNative
+    .clearSharedAttachmentScope(scopeId)
+    .catch(() => undefined);
+  if (cacheTask) {
+    const clearAfterCacheSettles = () => {
+      void attachmentTransferNative
+        .clearSharedAttachmentScope(scopeId)
+        .catch(() => undefined);
+    };
+    void cacheTask.then(clearAfterCacheSettles, clearAfterCacheSettles);
+  }
+}
+
+function previewAttachmentScopeId(viewId: string) {
+  return `${PREVIEW_ATTACHMENT_SCOPE_PREFIX}${viewId}`;
 }
 
 function subscribe(listener: () => void) {

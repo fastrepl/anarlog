@@ -72,6 +72,7 @@ import {
   buildPublicSessionShareUrl,
   buildSessionInvitationUrl,
   buildSessionShareLinkUrl,
+  type ShareDesktopScheme,
 } from "./urls";
 
 import { useAuth } from "~/auth";
@@ -83,6 +84,7 @@ import {
   upsertDurableSharedNoteCache,
   useDurableSharedNote,
 } from "~/shared-notes/cache";
+import { getScheme } from "~/shared/utils";
 
 type SharePanelData = {
   management: SessionShareManagement;
@@ -690,6 +692,7 @@ function SessionShareDialog({
                 appBaseUrl: env.VITE_APP_URL,
                 shareId: identity.shareId,
                 linkToken,
+                desktopScheme: await getSessionShareDesktopScheme(),
               }),
             );
             requireActiveContext(signal);
@@ -896,16 +899,20 @@ function SessionShareDialog({
       runOperation(async (signal) => {
         if (!management) throw new ShareManagementError();
         requireActiveContext(signal);
+        const desktopScheme = await getSessionShareDesktopScheme();
+        requireActiveContext(signal);
         const url =
           management.generalScope === "public"
             ? buildPublicSessionShareUrl({
                 appBaseUrl: env.VITE_APP_URL,
                 publicSlug: management.publicSlug,
+                desktopScheme,
               })
             : management.generalScope === "workspace"
               ? buildAccountSessionShareUrl({
                   appBaseUrl: env.VITE_APP_URL,
                   shareId: identity.shareId,
+                  desktopScheme,
                 })
               : null;
         if (!url) throw new ShareManagementError();
@@ -1498,6 +1505,7 @@ async function copyInvitationOrRevoke(
         appBaseUrl: env.VITE_APP_URL,
         invitationId: invitation.invitationId,
         inviteToken: invitation.inviteToken,
+        desktopScheme: await getSessionShareDesktopScheme(),
       }),
     );
     assertActive();
@@ -1519,4 +1527,10 @@ async function restrictShare(context: ShareManagementContext, shareId: string) {
   await setSessionShareScope(context, { shareId, scope: "restricted" }).catch(
     () => undefined,
   );
+}
+
+async function getSessionShareDesktopScheme(): Promise<ShareDesktopScheme> {
+  return (await getScheme()) === "hyprnote-staging"
+    ? "hyprnote-staging"
+    : "hyprnote";
 }

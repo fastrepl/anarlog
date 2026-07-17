@@ -2,6 +2,7 @@ import type { ShareOpenRequest } from "@hypr/plugin-deeplink2";
 
 import {
   parseDurableSharedNoteSnapshots,
+  removeDurableSharedNoteCache,
   upsertDurableSharedNoteCache,
 } from "./cache";
 import {
@@ -43,8 +44,9 @@ export async function openAccountSharedNote({
     return;
   }
 
+  let response: { data: unknown; error: unknown };
   try {
-    const response: { data: unknown; error: unknown } = await supabase
+    response = await supabase
       .rpc("read_my_session_share_snapshot_with_attachments", {
         p_share_id: shareId,
       })
@@ -53,22 +55,45 @@ export async function openAccountSharedNote({
         `${session.token_type} ${session.access_token}`,
       )
       .abortSignal(signal);
-    if (response.error) {
-      throw new Error("shared-note access unavailable");
-    }
-    const snapshots = parseDurableSharedNoteSnapshots(response.data);
-    if (snapshots.length !== 1 || snapshots[0]?.shareId !== shareId) {
-      throw new Error("shared-note access unavailable");
-    }
-    signal.throwIfAborted();
-    await upsertDurableSharedNoteCache(session.user.id, snapshots[0]);
-    signal.throwIfAborted();
   } catch {
     if (signal.aborted) {
       return;
     }
+    openNew({ type: "shared_sessions", id: shareId });
+    return;
   }
 
+  if (signal.aborted) {
+    return;
+  }
+  if (response.error) {
+    openNew({ type: "shared_sessions", id: shareId });
+    return;
+  }
+
+  let snapshots: ReturnType<typeof parseDurableSharedNoteSnapshots>;
+  try {
+    snapshots = parseDurableSharedNoteSnapshots(response.data);
+  } catch {
+    openNew({ type: "shared_sessions", id: shareId });
+    return;
+  }
+
+  if (snapshots.length === 0) {
+    if (signal.aborted) return;
+    await removeDurableSharedNoteCache(session.user.id, shareId);
+    if (signal.aborted) return;
+    openNew({ type: "shared_sessions", id: shareId });
+    return;
+  }
+  if (snapshots.length !== 1 || snapshots[0]?.shareId !== shareId) {
+    openNew({ type: "shared_sessions", id: shareId });
+    return;
+  }
+
+  if (signal.aborted) return;
+  await upsertDurableSharedNoteCache(session.user.id, snapshots[0]);
+  if (signal.aborted) return;
   openNew({ type: "shared_sessions", id: shareId });
 }
 
@@ -133,13 +158,18 @@ export function createShareOpenProcessor({
     if (result.data.mode === "account") {
       const controller = new AbortController();
       accountControllers.add(controller);
-      await openAccount({
-        shareId: result.data.share_id,
-        auth: getAuth(),
-        openNew,
-        signal: controller.signal,
-      });
-      accountControllers.delete(controller);
+      try {
+        await openAccount({
+          shareId: result.data.share_id,
+          auth: getAuth(),
+          openNew,
+          signal: controller.signal,
+        });
+      } catch {
+        return;
+      } finally {
+        accountControllers.delete(controller);
+      }
       return;
     }
 

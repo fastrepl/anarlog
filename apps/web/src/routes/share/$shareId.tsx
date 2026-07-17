@@ -5,6 +5,7 @@ import { AccountSharedNoteActions } from "@/components/shared-note-actions";
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
 import {
   SharedNoteLoading,
+  SharedNoteTransientError,
   SharedNoteUnavailable,
   SharedNoteViewer,
 } from "@/components/shared-note-viewer";
@@ -18,10 +19,17 @@ import {
   getPrivateShareHead,
   privateShareHeaders,
 } from "@/lib/shared-note-meta";
-import { shareIdSchema } from "@/lib/shared-notes";
+import {
+  buildSharedNoteWebPath,
+  sharedNoteDesktopSchemeSchema,
+  shareIdSchema,
+} from "@/lib/shared-notes";
 
 export const Route = createFileRoute("/share/$shareId")({
-  beforeLoad: async ({ location }) => {
+  validateSearch: (search) => ({
+    scheme: sharedNoteDesktopSchemeSchema.parse(search.scheme),
+  }),
+  beforeLoad: async ({ location, search }) => {
     prepareShareRoutePrivacy();
     const user = await fetchUser();
     if (!user) {
@@ -29,7 +37,7 @@ export const Route = createFileRoute("/share/$shareId")({
         to: "/auth/",
         search: {
           flow: "web",
-          redirect: location.pathname,
+          redirect: buildSharedNoteWebPath(location.pathname, search.scheme),
         },
       });
     }
@@ -38,10 +46,10 @@ export const Route = createFileRoute("/share/$shareId")({
   loader: async ({ params }) => {
     const shareId = shareIdSchema.safeParse(params.shareId);
     if (!shareId.success) {
-      return { note: null };
+      return { result: { status: "unavailable" } as const };
     }
     return {
-      note: await readAuthenticatedSharedNote({ data: shareId.data }),
+      result: await readAuthenticatedSharedNote({ data: shareId.data }),
     };
   },
   head: getPrivateShareHead,
@@ -51,7 +59,9 @@ export const Route = createFileRoute("/share/$shareId")({
 });
 
 function Component() {
-  const { note } = Route.useLoaderData();
+  const { result } = Route.useLoaderData();
+  const { scheme } = Route.useSearch();
+  const note = result.status === "ready" ? result.note : null;
   const resolveAttachment = useCallback<SharedAttachmentResolver>(
     (attachment) =>
       createAuthenticatedSharedAttachmentDownload({
@@ -62,7 +72,10 @@ function Component() {
       }),
     [note?.snapshot.shareId],
   );
-  if (!note) {
+  if (result.status === "error") {
+    return <SharedNoteTransientError />;
+  }
+  if (result.status === "unavailable" || !note) {
     return <SharedNoteUnavailable />;
   }
 
@@ -71,7 +84,12 @@ function Component() {
       snapshot={note.snapshot}
       resolveAttachment={resolveAttachment}
       accessLabel="Shared with you · View only"
-      actions={<AccountSharedNoteActions shareId={note.snapshot.shareId} />}
+      actions={
+        <AccountSharedNoteActions
+          scheme={scheme}
+          shareId={note.snapshot.shareId}
+        />
+      }
     />
   );
 }

@@ -1,7 +1,6 @@
 import { env } from "@/env";
 import { isShareRouteToken } from "@/lib/share-route-privacy";
 import {
-  handoffRequestIdSchema,
   parseGatewaySharedNote,
   parseSharedNoteAttachmentDownload,
   parseShareHandoff,
@@ -15,32 +14,42 @@ import {
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024 + 16 * 1024;
 const MAX_DOWNLOAD_GRANT_BYTES = 32 * 1024;
 
-export async function fetchPublicSharedNote(
+export type SharedNoteReadResult =
+  | { status: "ready"; snapshot: SharedNoteSnapshot }
+  | { status: "unavailable" }
+  | { status: "error" };
+
+type JsonRequestResult =
+  | { status: "ready"; value: unknown }
+  | { status: "unavailable" }
+  | { status: "error" };
+
+export async function fetchPublicSharedNoteResult(
   publicSlug: string,
   signal?: AbortSignal,
-): Promise<SharedNoteSnapshot | null> {
+): Promise<SharedNoteReadResult> {
   const parsedSlug = publicShareSlugSchema.safeParse(publicSlug);
   if (!parsedSlug.success) {
-    return null;
+    return { status: "unavailable" };
   }
 
-  return requestSnapshot(
+  return requestSnapshotResult(
     `/shared-notes/public/${encodeURIComponent(parsedSlug.data)}`,
     { method: "GET", signal },
   );
 }
 
-export async function fetchLinkSharedNote(
+export async function fetchLinkSharedNoteResult(
   shareId: string,
   token: string,
   signal?: AbortSignal,
-): Promise<SharedNoteSnapshot | null> {
+): Promise<SharedNoteReadResult> {
   const parsedShareId = shareIdSchema.safeParse(shareId);
   if (!parsedShareId.success || !isShareRouteToken(token)) {
-    return null;
+    return { status: "unavailable" };
   }
 
-  return requestSnapshot(
+  return requestSnapshotResult(
     `/shared-notes/link/${encodeURIComponent(parsedShareId.data)}`,
     {
       method: "POST",
@@ -124,21 +133,20 @@ export async function createLinkShareHandoff(
   );
 }
 
-export function buildShareHandoffDeepLink(requestId: string) {
-  const parsedRequestId = handoffRequestIdSchema.parse(requestId);
-  return `hyprnote://share/open?mode=handoff&request_id=${parsedRequestId}`;
-}
-
-async function requestSnapshot(path: string, init: RequestInit) {
-  const value = await requestJson(path, init);
-  if (value === null) {
-    return null;
-  }
+async function requestSnapshotResult(
+  path: string,
+  init: RequestInit,
+): Promise<SharedNoteReadResult> {
+  const result = await requestJsonResult(path, init);
+  if (result.status !== "ready") return result;
 
   try {
-    return parseGatewaySharedNote(value);
+    return {
+      status: "ready",
+      snapshot: parseGatewaySharedNote(result.value),
+    };
   } catch {
-    return null;
+    return { status: "error" };
   }
 }
 
@@ -170,6 +178,15 @@ async function requestJson(
   init: RequestInit,
   maxResponseBytes = MAX_RESPONSE_BYTES,
 ) {
+  const result = await requestJsonResult(path, init, maxResponseBytes);
+  return result.status === "ready" ? result.value : null;
+}
+
+async function requestJsonResult(
+  path: string,
+  init: RequestInit,
+  maxResponseBytes = MAX_RESPONSE_BYTES,
+): Promise<JsonRequestResult> {
   try {
     const response = await fetch(new URL(path, apiBaseUrl()), {
       ...init,
@@ -181,22 +198,25 @@ async function requestJson(
         ...init.headers,
       },
     });
+    if (response.status === 404) {
+      return { status: "unavailable" };
+    }
     if (!response.ok) {
-      return null;
+      return { status: "error" };
     }
 
     const contentLength = Number(response.headers.get("content-length"));
     if (Number.isFinite(contentLength) && contentLength > maxResponseBytes) {
-      return null;
+      return { status: "error" };
     }
 
     const text = await response.text();
     if (new TextEncoder().encode(text).byteLength > maxResponseBytes) {
-      return null;
+      return { status: "error" };
     }
-    return JSON.parse(text) as unknown;
+    return { status: "ready", value: JSON.parse(text) as unknown };
   } catch {
-    return null;
+    return { status: "error" };
   }
 }
 

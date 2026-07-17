@@ -13,7 +13,7 @@ pub enum ShareOpenRequest {
 
 impl ShareOpenRequest {
     pub(crate) fn parse(parsed: &url::Url) -> Result<Self, crate::Error> {
-        if parsed.scheme() != "hyprnote"
+        if !matches!(parsed.scheme(), "hyprnote" | "hyprnote-staging")
             || parsed.host_str() != Some("share")
             || parsed.path() != "/open"
             || !parsed.username().is_empty()
@@ -105,24 +105,27 @@ mod tests {
 
     #[test]
     fn parses_only_account_and_handoff_routes() {
-        assert!(matches!(
-            parse(&format!(
-                "hyprnote://share/open?mode=account&share_id={SHARE_ID}"
-            )),
-            Ok(ShareOpenRequest::Account { share_id }) if share_id == SHARE_ID
-        ));
-        assert!(matches!(
-            parse(&format!(
-                "hyprnote://share/open?request_id={REQUEST_ID}&mode=handoff"
-            )),
-            Ok(ShareOpenRequest::Handoff { request_id }) if request_id == REQUEST_ID
-        ));
+        for scheme in ["hyprnote", "hyprnote-staging"] {
+            assert!(matches!(
+                parse(&format!(
+                    "{scheme}://share/open?mode=account&share_id={SHARE_ID}"
+                )),
+                Ok(ShareOpenRequest::Account { share_id }) if share_id == SHARE_ID
+            ));
+            assert!(matches!(
+                parse(&format!(
+                    "{scheme}://share/open?request_id={REQUEST_ID}&mode=handoff"
+                )),
+                Ok(ShareOpenRequest::Handoff { request_id }) if request_id == REQUEST_ID
+            ));
+        }
     }
 
     #[test]
     fn rejects_noncanonical_or_ambiguous_routes() {
         let invalid = [
-            format!("hyprnote-staging://share/open?mode=account&share_id={SHARE_ID}"),
+            format!("hypr://share/open?mode=account&share_id={SHARE_ID}"),
+            format!("char://share/open?mode=account&share_id={SHARE_ID}"),
             format!("hyprnote://share/open/?mode=account&share_id={SHARE_ID}"),
             format!("hyprnote://share/open?mode=account&share_id={SHARE_ID}#fragment"),
             format!("hyprnote://share/open?mode=account&share_id={SHARE_ID}&extra=1"),

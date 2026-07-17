@@ -24,6 +24,7 @@ Attachment transfer and scoped cache permissions
 - `allow-shared-attachment-path`
 - `allow-remove-shared-attachment`
 - `allow-clear-shared-attachment-scope`
+- `allow-clear-shared-attachment-preview-scopes`
 
 ## Permission Table
 
@@ -186,6 +187,32 @@ Enables the cleanup_transfer_cache command without any pre-configured scope.
 <td>
 
 Denies the cleanup_transfer_cache command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`attachment-sync:allow-clear-shared-attachment-preview-scopes`
+
+</td>
+<td>
+
+Enables the clear_shared_attachment_preview_scopes command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`attachment-sync:deny-clear-shared-attachment-preview-scopes`
+
+</td>
+<td>
+
+Denies the clear_shared_attachment_preview_scopes command without any pre-configured scope.
 
 </td>
 </tr>

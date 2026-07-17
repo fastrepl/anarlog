@@ -51,6 +51,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::shared_attachment_path::<tauri::Wry>,
             commands::remove_shared_attachment::<tauri::Wry>,
             commands::clear_shared_attachment_scope::<tauri::Wry>,
+            commands::clear_shared_attachment_preview_scopes::<tauri::Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
@@ -64,6 +65,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             runtime::clear_private_attachment_cache_root(app)?;
             runtime::clear_shared_upload_cache_root(app)?;
             runtime::clear_shared_attachment_cache_root(app)?;
+            runtime::clear_shared_attachment_preview_cache_root(app)?;
             Ok(())
         })
         .build()

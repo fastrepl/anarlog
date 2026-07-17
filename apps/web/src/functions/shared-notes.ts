@@ -4,13 +4,22 @@ import { z } from "zod";
 
 import { env } from "@/env";
 import { getSupabaseServerClient } from "@/functions/supabase";
-import { fetchPublicSharedNote } from "@/lib/shared-note-api";
 import {
+  fetchPublicSharedNoteResult,
+  type SharedNoteReadResult,
+} from "@/lib/shared-note-api";
+import {
+  type AuthenticatedSharedNote,
   parseAuthenticatedSharedNote,
   parseSharedNoteAttachmentDownload,
   publicShareSlugSchema,
   shareIdSchema,
 } from "@/lib/shared-notes";
+
+export type AuthenticatedSharedNoteReadResult =
+  | { status: "ready"; note: AuthenticatedSharedNote }
+  | { status: "unavailable" }
+  | { status: "error" };
 
 const attachmentDownloadInputSchema = z
   .object({
@@ -21,31 +30,39 @@ const attachmentDownloadInputSchema = z
 
 export const readAuthenticatedSharedNote = createServerFn({ method: "GET" })
   .inputValidator(shareIdSchema)
-  .handler(async ({ data: shareId }) => {
-    setPrivateShareResponseHeaders();
+  .handler(
+    async ({ data: shareId }): Promise<AuthenticatedSharedNoteReadResult> => {
+      setPrivateShareResponseHeaders();
 
-    const supabase = getSupabaseServerClient();
-    const { data, error } = await supabase.rpc(
-      "read_my_session_share_snapshot_with_attachments",
-      { p_share_id: shareId },
-    );
-    if (error || !Array.isArray(data) || data.length !== 1) {
-      return null;
-    }
+      const supabase = getSupabaseServerClient();
+      const { data, error } = await supabase.rpc(
+        "read_my_session_share_snapshot_with_attachments",
+        { p_share_id: shareId },
+      );
+      if (error || !Array.isArray(data)) {
+        return { status: "error" };
+      }
+      if (data.length === 0) {
+        return { status: "unavailable" };
+      }
+      if (data.length !== 1) {
+        return { status: "error" };
+      }
 
-    try {
-      return parseAuthenticatedSharedNote(data[0]);
-    } catch {
-      return null;
-    }
-  });
+      try {
+        return { status: "ready", note: parseAuthenticatedSharedNote(data[0]) };
+      } catch {
+        return { status: "error" };
+      }
+    },
+  );
 
 export const readPublicSharedNote = createServerFn({ method: "GET" })
   .inputValidator(publicShareSlugSchema)
-  .handler(async ({ data: publicSlug }) => {
+  .handler(async ({ data: publicSlug }): Promise<SharedNoteReadResult> => {
     setResponseHeader("Cache-Control", "no-store");
     setResponseHeader("Referrer-Policy", "no-referrer");
-    return fetchPublicSharedNote(publicSlug);
+    return fetchPublicSharedNoteResult(publicSlug);
   });
 
 export const createAuthenticatedSharedAttachmentDownload = createServerFn({

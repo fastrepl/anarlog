@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   parseSnapshots: vi.fn(),
+  removeCache: vi.fn(),
   upsertCache: vi.fn(),
   beginPreview: vi.fn(),
   claimHandoff: vi.fn(),
@@ -10,6 +11,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("./cache", () => ({
   parseDurableSharedNoteSnapshots: mocks.parseSnapshots,
+  removeDurableSharedNoteCache: mocks.removeCache,
   upsertDurableSharedNoteCache: mocks.upsertCache,
 }));
 
@@ -34,6 +36,7 @@ const viewId = "b61233de-0ab6-4c30-9750-9516742fef60";
 describe("shared-note desktop deep links", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.removeCache.mockResolvedValue(undefined);
     mocks.upsertCache.mockResolvedValue(undefined);
   });
 
@@ -113,6 +116,104 @@ describe("shared-note desktop deep links", () => {
       { p_share_id: shareId },
     );
     expect(mocks.upsertCache).toHaveBeenCalledWith("viewer-1", snapshot);
+    expect(openNew).toHaveBeenCalledWith({
+      type: "shared_sessions",
+      id: shareId,
+    });
+  });
+
+  it("purges stale cache when an authenticated read authoritatively returns no access", async () => {
+    const abortSignalFn = vi.fn().mockResolvedValue({ data: [], error: null });
+    const setHeader = vi.fn(() => ({ abortSignal: abortSignalFn }));
+    const rpc = vi.fn(() => ({ setHeader }));
+    mocks.parseSnapshots.mockReturnValue([]);
+    const openNew = vi.fn();
+
+    await openAccountSharedNote({
+      shareId,
+      auth: {
+        session: {
+          token_type: "bearer",
+          access_token: "account-token",
+          user: { id: "viewer-1", is_anonymous: false },
+        },
+        supabase: { rpc },
+      } as any,
+      openNew,
+      signal: new AbortController().signal,
+    });
+
+    expect(mocks.removeCache).toHaveBeenCalledWith("viewer-1", shareId);
+    expect(mocks.upsertCache).not.toHaveBeenCalled();
+    expect(mocks.removeCache.mock.invocationCallOrder[0]).toBeLessThan(
+      openNew.mock.invocationCallOrder[0]!,
+    );
+    expect(openNew).toHaveBeenCalledWith({
+      type: "shared_sessions",
+      id: shareId,
+    });
+  });
+
+  it("does not open stale content when a revoked-cache purge is aborted", async () => {
+    let finishRemoval: (() => void) | undefined;
+    mocks.removeCache.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishRemoval = resolve;
+        }),
+    );
+    mocks.parseSnapshots.mockReturnValue([]);
+    const abortSignalFn = vi.fn().mockResolvedValue({ data: [], error: null });
+    const setHeader = vi.fn(() => ({ abortSignal: abortSignalFn }));
+    const rpc = vi.fn(() => ({ setHeader }));
+    const openNew = vi.fn();
+    const controller = new AbortController();
+
+    const opening = openAccountSharedNote({
+      shareId,
+      auth: {
+        session: {
+          token_type: "bearer",
+          access_token: "account-token",
+          user: { id: "viewer-1", is_anonymous: false },
+        },
+        supabase: { rpc },
+      } as any,
+      openNew,
+      signal: controller.signal,
+    });
+    await vi.waitFor(() => expect(mocks.removeCache).toHaveBeenCalledOnce());
+
+    controller.abort();
+    finishRemoval?.();
+
+    await expect(opening).resolves.toBeUndefined();
+    expect(openNew).not.toHaveBeenCalled();
+  });
+
+  it("preserves stale cache when the authenticated read fails in transit", async () => {
+    const abortSignalFn = vi.fn().mockRejectedValue(new Error("offline"));
+    const setHeader = vi.fn(() => ({ abortSignal: abortSignalFn }));
+    const rpc = vi.fn(() => ({ setHeader }));
+    const openNew = vi.fn();
+
+    await openAccountSharedNote({
+      shareId,
+      auth: {
+        session: {
+          token_type: "bearer",
+          access_token: "account-token",
+          user: { id: "viewer-1", is_anonymous: false },
+        },
+        supabase: { rpc },
+      } as any,
+      openNew,
+      signal: new AbortController().signal,
+    });
+
+    expect(mocks.parseSnapshots).not.toHaveBeenCalled();
+    expect(mocks.removeCache).not.toHaveBeenCalled();
+    expect(mocks.upsertCache).not.toHaveBeenCalled();
     expect(openNew).toHaveBeenCalledWith({
       type: "shared_sessions",
       id: shareId,

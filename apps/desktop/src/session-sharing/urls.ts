@@ -3,33 +3,48 @@ const UUID_PATTERN =
 const PUBLIC_SLUG_PATTERN = /^s_[0-9a-f]{32}$/;
 const CAPABILITY_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
+export type ShareDesktopScheme = "hyprnote" | "hyprnote-staging";
+
 export function buildSessionShareLinkUrl({
   appBaseUrl,
   shareId,
   linkToken,
+  desktopScheme,
 }: {
   appBaseUrl: string;
   shareId: string;
   linkToken: string;
+  desktopScheme?: ShareDesktopScheme;
 }) {
   assertUuid(shareId);
   assertCapabilityToken(linkToken);
-  return withToken(appUrl(appBaseUrl, `/share/link/${shareId}`), linkToken);
+  return withToken(
+    withDesktopScheme(
+      appUrl(appBaseUrl, `/share/link/${shareId}/`),
+      desktopScheme,
+    ),
+    linkToken,
+  );
 }
 
 export function buildSessionInvitationUrl({
   appBaseUrl,
   invitationId,
   inviteToken,
+  desktopScheme,
 }: {
   appBaseUrl: string;
   invitationId: string;
   inviteToken: string;
+  desktopScheme?: ShareDesktopScheme;
 }) {
   assertUuid(invitationId);
   assertCapabilityToken(inviteToken);
   return withToken(
-    appUrl(appBaseUrl, `/share/invite/${invitationId}`),
+    withDesktopScheme(
+      appUrl(appBaseUrl, `/share/invite/${invitationId}/`),
+      desktopScheme,
+    ),
     inviteToken,
   );
 }
@@ -37,30 +52,54 @@ export function buildSessionInvitationUrl({
 export function buildPublicSessionShareUrl({
   appBaseUrl,
   publicSlug,
+  desktopScheme,
 }: {
   appBaseUrl: string;
   publicSlug: string;
+  desktopScheme?: ShareDesktopScheme;
 }) {
   if (!PUBLIC_SLUG_PATTERN.test(publicSlug)) {
     throw invalidUrl();
   }
-  return appUrl(appBaseUrl, `/share/public/${publicSlug}`).toString();
+  return withDesktopScheme(
+    appUrl(appBaseUrl, `/share/public/${publicSlug}/`),
+    desktopScheme,
+  ).toString();
 }
 
 export function buildAccountSessionShareUrl({
   appBaseUrl,
   shareId,
+  desktopScheme,
 }: {
   appBaseUrl: string;
   shareId: string;
+  desktopScheme?: ShareDesktopScheme;
 }) {
   assertUuid(shareId);
-  return appUrl(appBaseUrl, `/share/${shareId}`).toString();
+  return withDesktopScheme(
+    appUrl(appBaseUrl, `/share/${shareId}/`),
+    desktopScheme,
+  ).toString();
 }
 
 function withToken(url: URL, token: string) {
   url.hash = new URLSearchParams({ token }).toString();
   return url.toString();
+}
+
+function withDesktopScheme(
+  url: URL,
+  desktopScheme: ShareDesktopScheme | undefined,
+) {
+  if (!desktopScheme || desktopScheme === "hyprnote") {
+    return url;
+  }
+  if (desktopScheme !== "hyprnote-staging") {
+    throw invalidUrl();
+  }
+  url.searchParams.set("scheme", desktopScheme);
+  return url;
 }
 
 function appUrl(appBaseUrl: string, path: string) {

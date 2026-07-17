@@ -20,9 +20,18 @@ import {
   getPrivateShareHead,
   privateShareHeaders,
 } from "@/lib/shared-note-meta";
-import { invitationIdSchema, shareIdSchema } from "@/lib/shared-notes";
+import {
+  type SharedNoteDesktopScheme,
+  buildSharedNoteWebPath,
+  sharedNoteDesktopSchemeSchema,
+  invitationIdSchema,
+  shareIdSchema,
+} from "@/lib/shared-notes";
 
 export const Route = createFileRoute("/share/invite/$invitationId")({
+  validateSearch: (search) => ({
+    scheme: sharedNoteDesktopSchemeSchema.parse(search.scheme),
+  }),
   beforeLoad: () => prepareShareRoutePrivacy(),
   loader: async () => ({ user: await fetchUser() }),
   head: getPrivateShareHead,
@@ -34,9 +43,14 @@ export const Route = createFileRoute("/share/invite/$invitationId")({
 function Component() {
   const { user } = Route.useLoaderData();
   const { invitationId } = Route.useParams();
+  const { scheme } = Route.useSearch();
   return (
     <ClientOnly fallback={<SharedNoteLoading />}>
-      <InvitationClient invitationId={invitationId} signedIn={Boolean(user)} />
+      <InvitationClient
+        invitationId={invitationId}
+        signedIn={Boolean(user)}
+        scheme={scheme}
+      />
     </ClientOnly>
   );
 }
@@ -44,9 +58,11 @@ function Component() {
 function InvitationClient({
   invitationId,
   signedIn,
+  scheme,
 }: {
   invitationId: string;
   signedIn: boolean;
+  scheme: SharedNoteDesktopScheme;
 }) {
   const pathname = window.location.pathname;
   const hasToken = Boolean(getShareRouteToken(pathname));
@@ -78,7 +94,12 @@ function InvitationClient({
     },
     onSuccess: (shareId) => {
       clearShareRouteToken(pathname);
-      window.location.assign(`/share/${encodeURIComponent(shareId)}/`);
+      window.location.assign(
+        buildSharedNoteWebPath(
+          `/share/${encodeURIComponent(shareId)}/`,
+          scheme,
+        ),
+      );
     },
   });
 
@@ -89,7 +110,7 @@ function InvitationClient({
   if (!signedIn) {
     const search = new URLSearchParams({
       flow: "web",
-      redirect: pathname,
+      redirect: buildSharedNoteWebPath(pathname, scheme),
     });
     return (
       <SharedNotePrompt

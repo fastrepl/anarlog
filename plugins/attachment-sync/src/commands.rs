@@ -393,3 +393,18 @@ pub(crate) async fn clear_shared_attachment_scope<R: tauri::Runtime>(
         .await
         .map_err(|error| error.to_string())
 }
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn clear_shared_attachment_preview_scopes<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<bool, String> {
+    let control = app.state::<crate::control::DownloadControl>();
+    let clear = control
+        .begin_scope_prefix_clear(crate::runtime::SHARED_PREVIEW_SCOPE_PREFIX)
+        .map_err(|error| error.to_string())?;
+    clear.wait().await;
+    crate::runtime::clear_shared_attachment_preview_scopes(&app)
+        .await
+        .map_err(|error| error.to_string())
+}

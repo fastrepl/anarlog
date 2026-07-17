@@ -11,6 +11,9 @@ const mocks = vi.hoisted(() => ({
   session: null as any,
   downloadSharedAttachment: vi.fn(),
   clearSharedAttachmentScope: vi.fn().mockResolvedValue(0),
+  clearSharedAttachmentPreviewScopes: vi
+    .fn()
+    .mockResolvedValue({ status: "ok", data: false }),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -21,6 +24,13 @@ vi.mock("~/attachment-sync/native", () => ({
   attachmentTransferNative: {
     downloadSharedAttachment: mocks.downloadSharedAttachment,
     clearSharedAttachmentScope: mocks.clearSharedAttachmentScope,
+  },
+}));
+
+vi.mock("@hypr/plugin-attachment-sync", () => ({
+  commands: {
+    clearSharedAttachmentPreviewScopes:
+      mocks.clearSharedAttachmentPreviewScopes,
   },
 }));
 
@@ -347,7 +357,7 @@ describe("ephemeral shared-note previews", () => {
     );
     expect(mocks.downloadSharedAttachment).toHaveBeenCalledWith(
       {
-        scopeId: viewId,
+        scopeId: `preview:${viewId}`,
         attachmentId: attachment.id,
         signedUrl: expect.stringContaining("project.supabase.co"),
         expectedSha256: attachment.sha256,
@@ -411,6 +421,14 @@ describe("ephemeral shared-note previews", () => {
     });
     await waitFor(() =>
       expect(mocks.clearSharedAttachmentScope).toHaveBeenCalledTimes(2),
+    );
+    expect(mocks.clearSharedAttachmentScope).toHaveBeenNthCalledWith(
+      1,
+      `preview:${viewId}`,
+    );
+    expect(mocks.clearSharedAttachmentScope).toHaveBeenNthCalledWith(
+      2,
+      `preview:${viewId}`,
     );
   });
 
@@ -478,6 +496,16 @@ describe("ephemeral shared-note previews", () => {
       ).toBe("/cache/attachment.bin"),
     );
     expect(mocks.downloadSharedAttachment).toHaveBeenCalledTimes(2);
+    expect(mocks.downloadSharedAttachment).toHaveBeenCalledWith(
+      {
+        scopeId: `preview:${viewId}`,
+        attachmentId: attachment.id,
+        signedUrl: expect.stringContaining("project.supabase.co"),
+        expectedSha256: attachment.sha256,
+        expectedSizeBytes: attachment.sizeBytes,
+      },
+      expect.any(AbortSignal),
+    );
     expect(fetcher).toHaveBeenCalledTimes(4);
     expect(fetcher.mock.calls.slice(1).map((call) => call[1]?.body)).toEqual([
       JSON.stringify({ leaseId }),
@@ -497,6 +525,72 @@ describe("ephemeral shared-note previews", () => {
     purgeSharedNotePreview(viewId);
 
     expect(signal?.aborted).toBe(true);
+  });
+
+  it("clears the preview scope again after a deferred download settles", async () => {
+    let resolveDownload:
+      | ((value: {
+          cacheId: string;
+          localPath: string;
+          sizeBytes: number;
+          sha256: string;
+        }) => void)
+      | undefined;
+    mocks.downloadSharedAttachment.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveDownload = resolve;
+      }),
+    );
+    const attachment = {
+      id: "8df61ab1-3f8b-4218-a947-a5d2dbc579ef",
+      filename: "recording.m4a",
+      contentType: "audio/mp4",
+      sizeBytes: 42,
+      sha256: "a".repeat(64),
+    };
+    const snapshot = parseSharedNotePreviewSnapshot({
+      ...serverSnapshot,
+      attachments: [attachment],
+    });
+    const downloadAttachment = vi.fn().mockResolvedValue({
+      ...attachment,
+      signedUrl:
+        "https://project.supabase.co/storage/v1/object/sign/shared-note-attachments/file?token=one",
+      expiresAt: "2026-07-17T10:05:00.000Z",
+    });
+
+    beginSharedNotePreview(
+      async () => ({ snapshot, downloadAttachment }),
+      () => viewId,
+    );
+    await waitFor(() =>
+      expect(mocks.downloadSharedAttachment).toHaveBeenCalledOnce(),
+    );
+
+    purgeSharedNotePreview(viewId);
+    expect(mocks.clearSharedAttachmentScope).toHaveBeenCalledTimes(1);
+
+    resolveDownload?.({
+      cacheId: "cache-id",
+      localPath: "/cache/attachment.bin",
+      sizeBytes: 42,
+      sha256: attachment.sha256,
+    });
+    await waitFor(() =>
+      expect(mocks.clearSharedAttachmentScope).toHaveBeenCalledTimes(2),
+    );
+    expect(mocks.clearSharedAttachmentScope).toHaveBeenNthCalledWith(
+      2,
+      `preview:${viewId}`,
+    );
+  });
+
+  it("clears crash-orphaned preview scopes on startup", async () => {
+    render(<SharedNotePreviewAuthLifecycle />);
+
+    await waitFor(() =>
+      expect(mocks.clearSharedAttachmentPreviewScopes).toHaveBeenCalledOnce(),
+    );
   });
 
   it("purges previews when the signed-in account changes", () => {

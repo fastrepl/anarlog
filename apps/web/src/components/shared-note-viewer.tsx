@@ -1,6 +1,7 @@
 import {
   AlertCircleIcon,
   LoaderCircleIcon,
+  RefreshCwIcon,
   UsersRoundIcon,
 } from "lucide-react";
 
@@ -111,6 +112,26 @@ export function SharedNoteUnavailable() {
       icon={<AlertCircleIcon className="size-6" aria-hidden="true" />}
       title="This shared note isn’t available"
       description="The link may have expired, access may have changed, or the note may no longer be shared."
+    />
+  );
+}
+
+export function SharedNoteTransientError({ retry }: { retry?: () => void }) {
+  return (
+    <SharedNotePrompt
+      icon={<AlertCircleIcon className="size-6" aria-hidden="true" />}
+      title="We couldn’t load this shared note"
+      description="Anarlog had a temporary problem loading the note. Please try again."
+      actions={
+        <button
+          type="button"
+          className={sharedPrimaryButtonClassName}
+          onClick={retry ?? (() => window.location.reload())}
+        >
+          <RefreshCwIcon className="mr-2 size-4" aria-hidden="true" />
+          Try again
+        </button>
+      }
     />
   );
 }

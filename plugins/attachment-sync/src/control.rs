@@ -15,6 +15,7 @@ pub(crate) struct DownloadControl {
 struct DownloadControlInner {
     operations: HashMap<String, DownloadEntry>,
     clearing_scopes: HashSet<String>,
+    clearing_scope_prefixes: HashSet<String>,
 }
 
 struct DownloadEntry {
@@ -43,6 +44,12 @@ pub(crate) struct SharedScopeClear {
     control: DownloadControl,
 }
 
+pub(crate) struct SharedScopePrefixClear {
+    scope_prefix: String,
+    pending: Vec<CancellationToken>,
+    control: DownloadControl,
+}
+
 impl DownloadControl {
     pub(crate) fn begin(&self, operation_id: &str, scope_id: Option<&str>) -> Result<()> {
         validate_operation_id(operation_id)?;
@@ -52,7 +59,7 @@ impl DownloadControl {
 
         let mut inner = self.inner.lock().map_err(|_| Error::CacheUnavailable)?;
         if inner.operations.contains_key(operation_id)
-            || scope_id.is_some_and(|scope_id| inner.clearing_scopes.contains(scope_id))
+            || scope_id.is_some_and(|scope_id| scope_is_clearing(&inner, scope_id))
         {
             return Err(Error::InvalidTransferState);
         }
@@ -74,7 +81,7 @@ impl DownloadControl {
         scope_id: Option<&str>,
     ) -> Result<DownloadOperation> {
         let mut inner = self.inner.lock().map_err(|_| Error::CacheUnavailable)?;
-        if scope_id.is_some_and(|scope_id| inner.clearing_scopes.contains(scope_id)) {
+        if scope_id.is_some_and(|scope_id| scope_is_clearing(&inner, scope_id)) {
             return Err(Error::InvalidTransferState);
         }
         let entry = inner
@@ -115,7 +122,9 @@ impl DownloadControl {
     pub(crate) fn begin_scope_clear(&self, scope_id: &str) -> Result<SharedScopeClear> {
         validate_scope_id(scope_id)?;
         let mut inner = self.inner.lock().map_err(|_| Error::CacheUnavailable)?;
-        if !inner.clearing_scopes.insert(scope_id.to_string()) {
+        if scope_is_clearing(&inner, scope_id)
+            || !inner.clearing_scopes.insert(scope_id.to_string())
+        {
             return Err(Error::InvalidTransferState);
         }
 
@@ -142,6 +151,59 @@ impl DownloadControl {
 
         Ok(SharedScopeClear {
             scope_id: scope_id.to_string(),
+            pending,
+            control: self.clone(),
+        })
+    }
+
+    pub(crate) fn begin_scope_prefix_clear(
+        &self,
+        scope_prefix: &str,
+    ) -> Result<SharedScopePrefixClear> {
+        validate_scope_id(scope_prefix)?;
+        let mut inner = self.inner.lock().map_err(|_| Error::CacheUnavailable)?;
+        if inner
+            .clearing_scopes
+            .iter()
+            .any(|scope_id| scope_id.starts_with(scope_prefix))
+            || inner.clearing_scope_prefixes.iter().any(|active_prefix| {
+                scope_prefix.starts_with(active_prefix) || active_prefix.starts_with(scope_prefix)
+            })
+        {
+            return Err(Error::InvalidTransferState);
+        }
+        inner
+            .clearing_scope_prefixes
+            .insert(scope_prefix.to_string());
+
+        let operation_ids = inner
+            .operations
+            .iter()
+            .filter(|(_, entry)| {
+                entry
+                    .scope_id
+                    .as_deref()
+                    .is_some_and(|scope_id| scope_id.starts_with(scope_prefix))
+            })
+            .map(|(operation_id, _)| operation_id.clone())
+            .collect::<Vec<_>>();
+        let mut pending = Vec::new();
+        for operation_id in operation_ids {
+            let Some(entry) = inner.operations.get(&operation_id) else {
+                continue;
+            };
+            entry.cancellation.cancel();
+            if entry.state == DownloadState::Registered {
+                if let Some(entry) = inner.operations.remove(&operation_id) {
+                    entry.finished.cancel();
+                }
+            } else {
+                pending.push(entry.finished.clone());
+            }
+        }
+
+        Ok(SharedScopePrefixClear {
+            scope_prefix: scope_prefix.to_string(),
             pending,
             control: self.clone(),
         })
@@ -175,6 +237,12 @@ impl DownloadControl {
     fn finish_scope_clear(&self, scope_id: &str) {
         if let Ok(mut inner) = self.inner.lock() {
             inner.clearing_scopes.remove(scope_id);
+        }
+    }
+
+    fn finish_scope_prefix_clear(&self, scope_prefix: &str) {
+        if let Ok(mut inner) = self.inner.lock() {
+            inner.clearing_scope_prefixes.remove(scope_prefix);
         }
     }
 }
@@ -214,6 +282,28 @@ impl Drop for SharedScopeClear {
     fn drop(&mut self) {
         self.control.finish_scope_clear(&self.scope_id);
     }
+}
+
+impl SharedScopePrefixClear {
+    pub(crate) async fn wait(&self) {
+        for finished in &self.pending {
+            finished.cancelled().await;
+        }
+    }
+}
+
+impl Drop for SharedScopePrefixClear {
+    fn drop(&mut self) {
+        self.control.finish_scope_prefix_clear(&self.scope_prefix);
+    }
+}
+
+fn scope_is_clearing(inner: &DownloadControlInner, scope_id: &str) -> bool {
+    inner.clearing_scopes.contains(scope_id)
+        || inner
+            .clearing_scope_prefixes
+            .iter()
+            .any(|scope_prefix| scope_id.starts_with(scope_prefix))
 }
 
 fn validate_operation_id(value: &str) -> Result<()> {
@@ -297,5 +387,46 @@ mod tests {
         let clear = control.begin_scope_clear("viewer-a").unwrap();
         clear.wait().await;
         assert!(control.start(&operation_id, Some("viewer-a")).is_err());
+    }
+
+    #[tokio::test]
+    async fn scope_prefix_clear_cancels_matching_downloads_and_blocks_new_ones() {
+        let control = DownloadControl::default();
+        let preview_operation_id = operation_id();
+        let durable_operation_id = operation_id();
+        control
+            .begin(&preview_operation_id, Some("preview:viewer-a"))
+            .unwrap();
+        control
+            .begin(&durable_operation_id, Some("durable-viewer"))
+            .unwrap();
+        let preview_operation = control
+            .start(&preview_operation_id, Some("preview:viewer-a"))
+            .unwrap();
+        let durable_operation = control
+            .start(&durable_operation_id, Some("durable-viewer"))
+            .unwrap();
+
+        let clear = control.begin_scope_prefix_clear("preview:").unwrap();
+        assert!(preview_operation.ensure_active().is_err());
+        assert!(durable_operation.ensure_active().is_ok());
+        assert!(
+            control
+                .begin(&operation_id(), Some("preview:viewer-b"))
+                .is_err()
+        );
+        assert!(control.begin_scope_clear("preview:viewer-b").is_err());
+
+        drop(preview_operation);
+        clear.wait().await;
+        assert!(
+            control
+                .begin(&operation_id(), Some("preview:viewer-b"))
+                .is_err()
+        );
+        drop(clear);
+        control
+            .begin(&operation_id(), Some("preview:viewer-b"))
+            .unwrap();
     }
 }

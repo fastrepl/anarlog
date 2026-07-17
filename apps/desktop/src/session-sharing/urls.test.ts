@@ -22,7 +22,7 @@ describe("session share URLs", () => {
       }),
     );
 
-    expect(url.pathname).toBe(`/share/link/${shareId}`);
+    expect(url.pathname).toBe(`/share/link/${shareId}/`);
     expect(url.search).toBe("");
     expect(url.hash).toBe(`#token=${token}`);
   });
@@ -36,7 +36,7 @@ describe("session share URLs", () => {
       }),
     );
 
-    expect(url.pathname).toBe(`/share/invite/${invitationId}`);
+    expect(url.pathname).toBe(`/share/invite/${invitationId}/`);
     expect(url.search).toBe("");
     expect(url.hash).toBe(`#token=${token}`);
   });
@@ -47,13 +47,44 @@ describe("session share URLs", () => {
         appBaseUrl: "https://anarlog.so",
         shareId,
       }),
-    ).toBe(`https://anarlog.so/share/${shareId}`);
+    ).toBe(`https://anarlog.so/share/${shareId}/`);
     expect(
       buildPublicSessionShareUrl({
         appBaseUrl: "https://anarlog.so",
         publicSlug,
       }),
-    ).toBe(`https://anarlog.so/share/public/${publicSlug}`);
+    ).toBe(`https://anarlog.so/share/public/${publicSlug}/`);
+  });
+
+  it("targets staging without changing stable canonical URLs", () => {
+    const linkUrl = new URL(
+      buildSessionShareLinkUrl({
+        appBaseUrl: "https://anarlog.so",
+        shareId,
+        linkToken: token,
+        desktopScheme: "hyprnote-staging",
+      }),
+    );
+    expect(linkUrl.searchParams.get("scheme")).toBe("hyprnote-staging");
+    expect(linkUrl.hash).toBe(`#token=${token}`);
+
+    const publicUrl = new URL(
+      buildPublicSessionShareUrl({
+        appBaseUrl: "https://anarlog.so",
+        publicSlug,
+        desktopScheme: "hyprnote-staging",
+      }),
+    );
+    expect(publicUrl.searchParams.get("scheme")).toBe("hyprnote-staging");
+
+    const stableUrl = new URL(
+      buildAccountSessionShareUrl({
+        appBaseUrl: "https://anarlog.so",
+        shareId,
+        desktopScheme: "hyprnote",
+      }),
+    );
+    expect(stableUrl.search).toBe("");
   });
 
   it("rejects tokens or base URLs that could escape the canonical shape", () => {

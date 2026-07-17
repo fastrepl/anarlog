@@ -1,4 +1,11 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,10 +17,11 @@ const mocks = vi.hoisted(() => ({
     error: null as Error | null,
   },
   preview: { status: "unavailable" } as any,
+  signIn: vi.fn(),
 }));
 
 vi.mock("~/auth", () => ({
-  useAuth: () => ({ session: mocks.session }),
+  useAuth: () => ({ session: mocks.session, signIn: mocks.signIn }),
 }));
 
 vi.mock("~/shared-notes/cache", () => ({
@@ -80,11 +88,24 @@ const tab = {
   pinned: false,
 };
 
+function renderSharedNote() {
+  const queryClient = new QueryClient({
+    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+  });
+  return render(<TabContentSharedNote tab={tab} />, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    ),
+  });
+}
+
 describe("TabContentSharedNote", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     mocks.session = { user: { id: "viewer-1" } };
     mocks.query = { data: null, isLoading: false, error: null };
     mocks.preview = { status: "unavailable" };
+    mocks.signIn.mockResolvedValue(undefined);
   });
 
   it("renders a handoff preview without durable identifiers", () => {
@@ -138,7 +159,7 @@ describe("TabContentSharedNote", () => {
       publishedAt: "2026-07-16T17:30:00.000Z",
     };
 
-    render(<TabContentSharedNote tab={tab} />);
+    renderSharedNote();
 
     expect(screen.getByText("Shared with me · View only")).toBeTruthy();
     expect(
@@ -155,17 +176,30 @@ describe("TabContentSharedNote", () => {
   });
 
   it("removes content when access is no longer cached", () => {
-    render(<TabContentSharedNote tab={tab} />);
+    renderSharedNote();
 
     expect(screen.getByText("Access no longer available")).toBeTruthy();
     expect(screen.queryByTestId("shared-note-editor")).toBeNull();
   });
 
-  it("requires the account the note was shared with", () => {
+  it("requires the account the note was shared with", async () => {
     mocks.session = null;
 
-    render(<TabContentSharedNote tab={tab} />);
+    renderSharedNote();
 
     expect(screen.getByText("Sign in to view this shared note")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await waitFor(() => expect(mocks.signIn).toHaveBeenCalledTimes(1));
+  });
+
+  it("treats an anonymous session as signed out", async () => {
+    mocks.session = { user: { id: "anonymous-1", is_anonymous: true } };
+
+    renderSharedNote();
+
+    expect(screen.getByText("Sign in to view this shared note")).toBeTruthy();
+    expect(screen.queryByText("Access no longer available")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await waitFor(() => expect(mocks.signIn).toHaveBeenCalledTimes(1));
   });
 });

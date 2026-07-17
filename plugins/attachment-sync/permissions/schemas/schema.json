@@ -367,6 +367,18 @@
           "markdownDescription": "Denies the cleanup_transfer_cache command without any pre-configured scope."
         },
         {
+          "description": "Enables the clear_shared_attachment_preview_scopes command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-clear-shared-attachment-preview-scopes",
+          "markdownDescription": "Enables the clear_shared_attachment_preview_scopes command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the clear_shared_attachment_preview_scopes command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-clear-shared-attachment-preview-scopes",
+          "markdownDescription": "Denies the clear_shared_attachment_preview_scopes command without any pre-configured scope."
+        },
+        {
           "description": "Enables the clear_shared_attachment_scope command without any pre-configured scope.",
           "type": "string",
           "const": "allow-clear-shared-attachment-scope",
@@ -535,10 +547,10 @@
           "markdownDescription": "Denies the validate_shared_upload command without any pre-configured scope."
         },
         {
-          "description": "Attachment transfer and scoped cache permissions\n#### This default permission set includes:\n\n- `allow-describe-upload`\n- `allow-prepare-upload`\n- `allow-read-upload-range`\n- `allow-begin-shared-upload-operation`\n- `allow-cancel-shared-upload-operation`\n- `allow-prepare-shared-upload`\n- `allow-read-shared-upload-range`\n- `allow-validate-shared-upload`\n- `allow-cleanup-shared-upload`\n- `allow-prepare-delete-guard`\n- `allow-commit-delete-guard`\n- `allow-reconcile-delete-guards`\n- `allow-begin-attachment-download`\n- `allow-cancel-attachment-download`\n- `allow-download-and-restore`\n- `allow-cleanup-transfer-cache`\n- `allow-download-shared-attachment`\n- `allow-shared-attachment-path`\n- `allow-remove-shared-attachment`\n- `allow-clear-shared-attachment-scope`",
+          "description": "Attachment transfer and scoped cache permissions\n#### This default permission set includes:\n\n- `allow-describe-upload`\n- `allow-prepare-upload`\n- `allow-read-upload-range`\n- `allow-begin-shared-upload-operation`\n- `allow-cancel-shared-upload-operation`\n- `allow-prepare-shared-upload`\n- `allow-read-shared-upload-range`\n- `allow-validate-shared-upload`\n- `allow-cleanup-shared-upload`\n- `allow-prepare-delete-guard`\n- `allow-commit-delete-guard`\n- `allow-reconcile-delete-guards`\n- `allow-begin-attachment-download`\n- `allow-cancel-attachment-download`\n- `allow-download-and-restore`\n- `allow-cleanup-transfer-cache`\n- `allow-download-shared-attachment`\n- `allow-shared-attachment-path`\n- `allow-remove-shared-attachment`\n- `allow-clear-shared-attachment-scope`\n- `allow-clear-shared-attachment-preview-scopes`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Attachment transfer and scoped cache permissions\n#### This default permission set includes:\n\n- `allow-describe-upload`\n- `allow-prepare-upload`\n- `allow-read-upload-range`\n- `allow-begin-shared-upload-operation`\n- `allow-cancel-shared-upload-operation`\n- `allow-prepare-shared-upload`\n- `allow-read-shared-upload-range`\n- `allow-validate-shared-upload`\n- `allow-cleanup-shared-upload`\n- `allow-prepare-delete-guard`\n- `allow-commit-delete-guard`\n- `allow-reconcile-delete-guards`\n- `allow-begin-attachment-download`\n- `allow-cancel-attachment-download`\n- `allow-download-and-restore`\n- `allow-cleanup-transfer-cache`\n- `allow-download-shared-attachment`\n- `allow-shared-attachment-path`\n- `allow-remove-shared-attachment`\n- `allow-clear-shared-attachment-scope`"
+          "markdownDescription": "Attachment transfer and scoped cache permissions\n#### This default permission set includes:\n\n- `allow-describe-upload`\n- `allow-prepare-upload`\n- `allow-read-upload-range`\n- `allow-begin-shared-upload-operation`\n- `allow-cancel-shared-upload-operation`\n- `allow-prepare-shared-upload`\n- `allow-read-shared-upload-range`\n- `allow-validate-shared-upload`\n- `allow-cleanup-shared-upload`\n- `allow-prepare-delete-guard`\n- `allow-commit-delete-guard`\n- `allow-reconcile-delete-guards`\n- `allow-begin-attachment-download`\n- `allow-cancel-attachment-download`\n- `allow-download-and-restore`\n- `allow-cleanup-transfer-cache`\n- `allow-download-shared-attachment`\n- `allow-shared-attachment-path`\n- `allow-remove-shared-attachment`\n- `allow-clear-shared-attachment-scope`\n- `allow-clear-shared-attachment-preview-scopes`"
         }
       ]
     }

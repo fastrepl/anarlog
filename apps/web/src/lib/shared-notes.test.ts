@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildAccountShareDeepLink,
+  buildShareHandoffDeepLink,
+  buildSharedNoteWebPath,
   getSafeSharedNoteHref,
   getSharedNoteDescription,
   parseAuthenticatedSharedNote,
@@ -25,6 +28,40 @@ const BODY = {
     },
   ],
 };
+
+test("builds shared-note desktop links with only the supported schemes", () => {
+  const shareId = "82a163dd-d595-45f8-8d71-cf38bbb1ce12";
+  const requestId = "1b02e758-295d-4ea4-bd0f-6d3f68bcebf6";
+
+  assert.equal(
+    buildAccountShareDeepLink(shareId),
+    `hyprnote://share/open?mode=account&share_id=${shareId}`,
+  );
+  assert.equal(
+    buildAccountShareDeepLink(shareId, "hyprnote-staging"),
+    `hyprnote-staging://share/open?mode=account&share_id=${shareId}`,
+  );
+  assert.equal(
+    buildShareHandoffDeepLink(requestId, "hyprnote-staging"),
+    `hyprnote-staging://share/open?mode=handoff&request_id=${requestId}`,
+  );
+  assert.equal(
+    buildShareHandoffDeepLink(requestId, "char" as "hyprnote"),
+    `hyprnote://share/open?mode=handoff&request_id=${requestId}`,
+  );
+});
+
+test("preserves only the staging scheme in shared-note web paths", () => {
+  assert.equal(buildSharedNoteWebPath("/share/example/"), "/share/example/");
+  assert.equal(
+    buildSharedNoteWebPath("/share/example/", "hyprnote-staging"),
+    "/share/example/?scheme=hyprnote-staging",
+  );
+  assert.equal(
+    buildSharedNoteWebPath("/share/example/", "char" as "hyprnote"),
+    "/share/example/",
+  );
+});
 
 test("parses the exact public gateway DTO", () => {
   const snapshot = parseGatewaySharedNote({

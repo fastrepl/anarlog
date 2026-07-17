@@ -59,6 +59,7 @@ const DELETE_PREFLIGHT_SELECT: &str = "SELECT
  WHERE job.id = ? AND job.attempt_count = ?
    AND job.direction = 'delete' AND job.phase = 'finalizing'
  LIMIT 1";
+pub(crate) const SHARED_PREVIEW_SCOPE_PREFIX: &str = "preview:";
 
 #[derive(Debug, Clone, FromRow)]
 struct TransferAttachment {
@@ -1562,6 +1563,32 @@ pub(crate) fn clear_shared_upload_cache_root<R: Runtime>(app: &tauri::AppHandle<
     clear_attachment_cache_directory(&shared_upload_cache_root(app)?)
 }
 
+pub(crate) fn clear_shared_attachment_preview_cache_root<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> Result<()> {
+    clear_attachment_cache_directory(&shared_preview_cache_root(app)?)
+}
+
+pub async fn clear_shared_attachment_preview_scopes<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> Result<bool> {
+    clear_shared_attachment_preview_scopes_at(&shared_preview_cache_root(app)?).await
+}
+
+async fn clear_shared_attachment_preview_scopes_at(path: &Path) -> Result<bool> {
+    let metadata = match tokio::fs::symlink_metadata(path).await {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(error.into()),
+    };
+    if metadata.is_dir() && !metadata.file_type().is_symlink() {
+        tokio::fs::remove_dir_all(path).await?;
+    } else {
+        tokio::fs::remove_file(path).await?;
+    }
+    Ok(true)
+}
+
 impl TransferAttachment {
     fn local_attachment(&self) -> LocalAttachment {
         LocalAttachment {
@@ -2542,7 +2569,15 @@ fn cleanup_shared_upload_path(path: &Path) -> Result<bool> {
 }
 
 fn shared_scope_path<R: Runtime>(app: &tauri::AppHandle<R>, scope_id: &str) -> Result<PathBuf> {
-    Ok(shared_cache_root(app)?.join(hash_identifier(scope_id)))
+    let root = if let Some(view_id) = scope_id.strip_prefix(SHARED_PREVIEW_SCOPE_PREFIX) {
+        if !valid_cache_id(view_id) {
+            return Err(Error::InvalidMetadata);
+        }
+        shared_preview_cache_root(app)?
+    } else {
+        shared_cache_root(app)?
+    };
+    Ok(root.join(hash_identifier(scope_id)))
 }
 
 fn shared_cache_root<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf> {
@@ -2552,6 +2587,15 @@ fn shared_cache_root<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf> {
         .map_err(|_| Error::CacheUnavailable)?
         .join("attachment-sync")
         .join("shared"))
+}
+
+fn shared_preview_cache_root<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf> {
+    Ok(app
+        .path()
+        .app_cache_dir()
+        .map_err(|_| Error::CacheUnavailable)?
+        .join("attachment-sync")
+        .join("shared-preview"))
 }
 
 fn clear_attachment_cache_directory(path: &Path) -> Result<()> {
@@ -3673,7 +3717,6 @@ mod tests {
                 .unwrap()
         );
     }
-
     #[test]
     fn shared_cache_removes_plaintext_when_sidecar_commit_fails() {
         let directory = tempfile::tempdir().unwrap();
@@ -3721,5 +3764,35 @@ mod tests {
         std::fs::write(&retained, b"complete").unwrap();
         CacheFileGuard::new(retained.clone()).disarm();
         assert!(retained.exists());
+    }
+
+    #[tokio::test]
+    async fn startup_cleanup_removes_only_preview_cache_scopes() {
+        let directory = tempfile::tempdir().unwrap();
+        let attachment_sync_root = directory.path().join("attachment-sync");
+        let preview_root = attachment_sync_root.join("shared-preview");
+        let durable_root = attachment_sync_root.join("shared");
+        let orphan_scope = preview_root.join("orphan-scope");
+        let durable_scope = durable_root.join("viewer-scope");
+        std::fs::create_dir_all(&orphan_scope).unwrap();
+        std::fs::create_dir_all(&durable_scope).unwrap();
+        std::fs::write(orphan_scope.join("attachment.bin"), b"preview").unwrap();
+        std::fs::write(durable_scope.join("attachment.bin"), b"durable").unwrap();
+
+        assert!(
+            clear_shared_attachment_preview_scopes_at(&preview_root)
+                .await
+                .unwrap()
+        );
+        assert!(!preview_root.exists());
+        assert_eq!(
+            std::fs::read(durable_scope.join("attachment.bin")).unwrap(),
+            b"durable"
+        );
+        assert!(
+            !clear_shared_attachment_preview_scopes_at(&preview_root)
+                .await
+                .unwrap()
+        );
     }
 }

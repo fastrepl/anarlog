@@ -667,7 +667,7 @@ describe("SessionShareButton", () => {
       "create-invitation",
     ]);
     const copied = new URL(mocks.clipboardWriteText.mock.calls[0]![0]);
-    expect(copied.pathname).toBe(`/share/invite/${INVITATION_ID}`);
+    expect(copied.pathname).toBe(`/share/invite/${INVITATION_ID}/`);
     expect(copied.search).toBe("");
     expect(copied.hash).toBe(`#token=${TOKEN}`);
   });
