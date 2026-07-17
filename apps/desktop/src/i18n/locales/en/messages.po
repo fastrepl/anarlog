@@ -282,6 +282,7 @@ msgstr "Available with Anarlog Pro."
 
 #: src/calendar/components/apple/permission.tsx
 #: src/instruction/index.tsx
+#: src/settings/general/e2ee-setup.tsx
 #: src/sidebar/custom-sidebar-header.tsx
 msgid "Back"
 msgstr "Back"
@@ -310,6 +311,7 @@ msgid "Can transcribe while the meeting is happening."
 msgstr "Can transcribe while the meeting is happening."
 
 #: src/settings/general/account.tsx
+#: src/settings/general/e2ee-setup.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
 #: src/settings/todo/github.tsx
 msgid "Cancel"
@@ -512,9 +514,17 @@ msgstr "Copy link"
 msgid "Copy message"
 msgstr "Copy message"
 
+#: src/settings/general/e2ee-setup.tsx
+msgid "Copy recovery key"
+msgstr "Copy recovery key"
+
 #: src/onboarding/account/after-login.tsx
 msgid "Could not start trial"
 msgstr "Could not start trial"
+
+#: src/settings/general/e2ee-setup.tsx
+msgid "Create a recovery key"
+msgstr "Create a recovery key"
 
 #: src/onboarding/index.tsx
 msgid "Create account"
@@ -648,6 +658,10 @@ msgstr "Emojis"
 msgid "Enable {0}"
 msgstr "Enable {0}"
 
+#: src/settings/general/app-settings.tsx
+msgid "End-to-end encrypted across your signed-in devices. Anarlog cannot read your synced notes."
+msgstr "End-to-end encrypted across your signed-in devices. Anarlog cannot read your synced notes."
+
 #: src/session/components/outer-header/metadata/participants/chip.tsx
 msgid "Enhance contact"
 msgstr "Enhance contact"
@@ -667,6 +681,10 @@ msgstr "Enter a valid date and time"
 #: src/templates/template-form.tsx
 msgid "Enter template title"
 msgstr "Enter template title"
+
+#: src/settings/general/e2ee-setup.tsx
+msgid "Enter the recovery key from an existing Anarlog device."
+msgstr "Enter the recovery key from an existing Anarlog device."
 
 #: src/settings/ai/shared/index.tsx
 msgid "Enter your API key"
@@ -855,6 +873,10 @@ msgstr "How long the mic must be active before triggering"
 msgid "Human"
 msgstr "Human"
 
+#: src/settings/general/e2ee-setup.tsx
+msgid "I saved it"
+msgstr "I saved it"
+
 #: src/templates/template-icon-picker.tsx
 msgid "Icons"
 msgstr "Icons"
@@ -915,10 +937,6 @@ msgstr "Join scheduled meetings"
 #: src/settings/general/app-settings.tsx
 msgid "Keep Anarlog available from the menu bar."
 msgstr "Keep Anarlog available from the menu bar."
-
-#: src/settings/general/app-settings.tsx
-msgid "Keep notes up to date across signed-in devices. Turning this off does not delete synced data."
-msgstr "Keep notes up to date across signed-in devices. Turning this off does not delete synced data."
 
 #: src/settings/general/index.tsx
 msgid "Language & Region"
@@ -1355,6 +1373,10 @@ msgstr "Pro"
 msgid "Pro trial"
 msgstr "Pro trial"
 
+#: src/settings/general/e2ee-setup.tsx
+msgid "Protect cloud sync"
+msgstr "Protect cloud sync"
+
 #: src/onboarding/permissions.tsx
 msgid "Read meeting controls, visible chat, and participant status"
 msgstr "Read meeting controls, visible chat, and participant status"
@@ -1508,6 +1530,10 @@ msgstr "Save"
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Save date"
 msgstr "Save date"
+
+#: src/settings/general/e2ee-setup.tsx
+msgid "Save this key in a password manager. You need it to add a new device, and it will not be shown again."
+msgstr "Save this key in a password manager. You need it to add a new device, and it will not be shown again."
 
 #: src/contacts/shared.tsx
 msgid "Search contacts..."
@@ -1992,6 +2018,10 @@ msgstr "Unknown"
 msgid "Unknown date"
 msgstr "Unknown date"
 
+#: src/settings/general/e2ee-setup.tsx
+msgid "Unlock sync"
+msgstr "Unlock sync"
+
 #: src/settings/ai/shared/index.tsx
 msgid "Unlock your login Keychain in the macOS prompt. Anarlog will retry saving this API key automatically."
 msgstr "Unlock your login Keychain in the macOS prompt. Anarlog will retry saving this API key automatically."
@@ -2060,6 +2090,10 @@ msgstr "Upload audio"
 msgid "Upload transcript"
 msgstr "Upload transcript"
 
+#: src/settings/general/e2ee-setup.tsx
+msgid "Use an existing key"
+msgstr "Use an existing key"
+
 #: src/onboarding/permissions.tsx
 msgid "Use system audio to capture other speakers"
 msgstr "Use system audio to capture other speakers"
@@ -2119,6 +2153,10 @@ msgstr "You're on the <0>{planLabel}</0> plan"
 #: src/settings/general/account.tsx
 msgid "Your Account"
 msgstr "Your Account"
+
+#: src/settings/general/e2ee-setup.tsx
+msgid "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
+msgstr "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
 
 #: src/templates/template-sidebar.tsx
 msgid "Z to A"

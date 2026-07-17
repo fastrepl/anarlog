@@ -282,6 +282,7 @@ msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
 #: src/instruction/index.tsx
+#: src/settings/general/e2ee-setup.tsx
 #: src/sidebar/custom-sidebar-header.tsx
 msgid "Back"
 msgstr ""
@@ -310,6 +311,7 @@ msgid "Can transcribe while the meeting is happening."
 msgstr ""
 
 #: src/settings/general/account.tsx
+#: src/settings/general/e2ee-setup.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
 #: src/settings/todo/github.tsx
 msgid "Cancel"
@@ -512,8 +514,16 @@ msgstr ""
 msgid "Copy message"
 msgstr ""
 
+#: src/settings/general/e2ee-setup.tsx
+msgid "Copy recovery key"
+msgstr ""
+
 #: src/onboarding/account/after-login.tsx
 msgid "Could not start trial"
+msgstr ""
+
+#: src/settings/general/e2ee-setup.tsx
+msgid "Create a recovery key"
 msgstr ""
 
 #: src/onboarding/index.tsx
@@ -648,6 +658,10 @@ msgstr ""
 msgid "Enable {0}"
 msgstr ""
 
+#: src/settings/general/app-settings.tsx
+msgid "End-to-end encrypted across your signed-in devices. Anarlog cannot read your synced notes."
+msgstr ""
+
 #: src/session/components/outer-header/metadata/participants/chip.tsx
 msgid "Enhance contact"
 msgstr ""
@@ -666,6 +680,10 @@ msgstr ""
 
 #: src/templates/template-form.tsx
 msgid "Enter template title"
+msgstr ""
+
+#: src/settings/general/e2ee-setup.tsx
+msgid "Enter the recovery key from an existing Anarlog device."
 msgstr ""
 
 #: src/settings/ai/shared/index.tsx
@@ -855,6 +873,10 @@ msgstr ""
 msgid "Human"
 msgstr ""
 
+#: src/settings/general/e2ee-setup.tsx
+msgid "I saved it"
+msgstr ""
+
 #: src/templates/template-icon-picker.tsx
 msgid "Icons"
 msgstr ""
@@ -914,10 +936,6 @@ msgstr ""
 
 #: src/settings/general/app-settings.tsx
 msgid "Keep Anarlog available from the menu bar."
-msgstr ""
-
-#: src/settings/general/app-settings.tsx
-msgid "Keep notes up to date across signed-in devices. Turning this off does not delete synced data."
 msgstr ""
 
 #: src/settings/general/index.tsx
@@ -1355,6 +1373,10 @@ msgstr ""
 msgid "Pro trial"
 msgstr ""
 
+#: src/settings/general/e2ee-setup.tsx
+msgid "Protect cloud sync"
+msgstr ""
+
 #: src/onboarding/permissions.tsx
 msgid "Read meeting controls, visible chat, and participant status"
 msgstr ""
@@ -1507,6 +1529,10 @@ msgstr ""
 
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Save date"
+msgstr ""
+
+#: src/settings/general/e2ee-setup.tsx
+msgid "Save this key in a password manager. You need it to add a new device, and it will not be shown again."
 msgstr ""
 
 #: src/contacts/shared.tsx
@@ -1992,6 +2018,10 @@ msgstr ""
 msgid "Unknown date"
 msgstr ""
 
+#: src/settings/general/e2ee-setup.tsx
+msgid "Unlock sync"
+msgstr ""
+
 #: src/settings/ai/shared/index.tsx
 msgid "Unlock your login Keychain in the macOS prompt. Anarlog will retry saving this API key automatically."
 msgstr ""
@@ -2060,6 +2090,10 @@ msgstr ""
 msgid "Upload transcript"
 msgstr ""
 
+#: src/settings/general/e2ee-setup.tsx
+msgid "Use an existing key"
+msgstr ""
+
 #: src/onboarding/permissions.tsx
 msgid "Use system audio to capture other speakers"
 msgstr ""
@@ -2118,6 +2152,10 @@ msgstr ""
 
 #: src/settings/general/account.tsx
 msgid "Your Account"
+msgstr ""
+
+#: src/settings/general/e2ee-setup.tsx
+msgid "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
 msgstr ""
 
 #: src/templates/template-sidebar.tsx
