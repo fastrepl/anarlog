@@ -5,6 +5,7 @@ import {
   primaryKey,
   sqliteTable,
   text,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
 const currentTimestamp = sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`;
@@ -350,6 +351,62 @@ export const attachmentLocalState = sqliteTable(
   },
   (table) => [
     index("idx_attachment_local_state_session_id").on(table.sessionId),
+  ],
+);
+
+export const attachmentTransferJobs = sqliteTable(
+  "attachment_transfer_jobs",
+  {
+    id: text("id").primaryKey().notNull(),
+    attachmentId: text("attachment_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    workspaceId: text("workspace_id").notNull(),
+    direction: text("direction").notNull(),
+    expectedSha256: text("expected_sha256").notNull(),
+    expectedSizeBytes: integer("expected_size_bytes").notNull().default(0),
+    ciphertextSha256: text("ciphertext_sha256").notNull().default(""),
+    ciphertextSizeBytes: integer("ciphertext_size_bytes").notNull().default(0),
+    remoteObjectId: text("remote_object_id").notNull().default(""),
+    objectKey: text("object_key").notNull().default(""),
+    cacheId: text("cache_id").notNull().default(""),
+    phase: text("phase").notNull().default("queued"),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    nextAttemptAt: text("next_attempt_at").notNull().default(currentTimestamp),
+    lastAttemptAt: text("last_attempt_at"),
+    lastError: text("last_error").notNull().default(""),
+    createdAt: text("created_at").notNull().default(currentTimestamp),
+    updatedAt: text("updated_at").notNull().default(currentTimestamp),
+    completedAt: text("completed_at"),
+  },
+  (table) => [
+    uniqueIndex("idx_attachment_transfer_jobs_live_version")
+      .on(table.attachmentId, table.expectedSha256, table.expectedSizeBytes)
+      .where(
+        sql`${table.direction} IN ('upload', 'download') AND ${table.phase} <> 'completed'`,
+      ),
+    uniqueIndex("idx_attachment_transfer_jobs_delete_object")
+      .on(table.objectKey)
+      .where(sql`${table.direction} = 'delete'`),
+    uniqueIndex("idx_attachment_transfer_jobs_upload_object_id")
+      .on(table.remoteObjectId)
+      .where(
+        sql`${table.direction} = 'upload' AND ${table.remoteObjectId} <> ''`,
+      ),
+    uniqueIndex("idx_attachment_transfer_jobs_delete_object_id")
+      .on(table.remoteObjectId)
+      .where(
+        sql`${table.direction} = 'delete' AND ${table.remoteObjectId} <> ''`,
+      ),
+    uniqueIndex("idx_attachment_transfer_jobs_cache_id")
+      .on(table.cacheId)
+      .where(sql`${table.cacheId} <> ''`),
+    index("idx_attachment_transfer_jobs_due").on(
+      table.phase,
+      table.nextAttemptAt,
+      table.createdAt,
+    ),
+    index("idx_attachment_transfer_jobs_attachment_id").on(table.attachmentId),
+    index("idx_attachment_transfer_jobs_session_id").on(table.sessionId),
   ],
 );
 

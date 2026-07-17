@@ -137,6 +137,11 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         scope: hypr_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260717140000_attachment_local_state.sql"),
     },
+    hypr_db_migrate::MigrationStep {
+        id: "20260717150000_attachment_transfer_jobs",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260717150000_attachment_transfer_jobs.sql"),
+    },
 ];
 
 pub fn schema() -> hypr_db_migrate::DbSchema {
@@ -346,6 +351,7 @@ mod tests {
                 "action_items",
                 "app_settings",
                 "attachment_local_state",
+                "attachment_transfer_jobs",
                 "calendars",
                 "chat_groups",
                 "chat_messages",
@@ -765,6 +771,195 @@ mod tests {
         );
         assert!(!E2EE_DOMAIN_TABLES.contains(&"attachment_local_state"));
         assert!(!cloudsync_alter_guard_required("attachment_local_state"));
+    }
+
+    #[test]
+    fn attachment_transfer_jobs_are_plain_and_excluded_from_cloudsync() {
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260717150000_attachment_transfer_jobs")
+            .unwrap();
+
+        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert!(
+            !cloudsync_table_registry()
+                .iter()
+                .any(|table| table.table_name == "attachment_transfer_jobs")
+        );
+        assert!(!E2EE_DOMAIN_TABLES.contains(&"attachment_transfer_jobs"));
+        assert!(!cloudsync_alter_guard_required("attachment_transfer_jobs"));
+    }
+
+    #[tokio::test]
+    async fn attachment_transfer_jobs_deduplicate_work_without_collapsing_old_objects() {
+        let db = test_db().await;
+        let insert = "INSERT INTO attachment_transfer_jobs (
+            id,
+            attachment_id,
+            session_id,
+            workspace_id,
+            direction,
+            expected_sha256,
+            expected_size_bytes,
+            remote_object_id,
+            object_key
+        ) VALUES (?, 'attachment-1', 'session-1', 'workspace-1', ?, ?, 42, ?, ?)";
+        let sha256 = "a".repeat(64);
+
+        sqlx::query(insert)
+            .bind("upload-1")
+            .bind("upload")
+            .bind(&sha256)
+            .bind("remote-object-1")
+            .bind("")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        let duplicate_upload = sqlx::query(insert)
+            .bind("upload-2")
+            .bind("upload")
+            .bind(&sha256)
+            .bind("remote-object-1")
+            .bind("")
+            .execute(db.pool())
+            .await;
+        assert!(duplicate_upload.is_err());
+
+        let competing_download = sqlx::query(insert)
+            .bind("download-1")
+            .bind("download")
+            .bind(&sha256)
+            .bind("remote-object-1")
+            .bind("private/current-object")
+            .execute(db.pool())
+            .await;
+        assert!(competing_download.is_err());
+
+        sqlx::query(
+            "UPDATE attachment_transfer_jobs SET phase = 'completed' WHERE id = 'upload-1'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(insert)
+            .bind("download-1")
+            .bind("download")
+            .bind(&sha256)
+            .bind("remote-object-1")
+            .bind("private/current-object")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        for (id, remote_object_id, object_key) in [
+            ("delete-old-1", "remote-object-1", "private/old-object-1"),
+            ("delete-old-2", "remote-object-2", "private/old-object-2"),
+        ] {
+            sqlx::query(insert)
+                .bind(id)
+                .bind("delete")
+                .bind(&sha256)
+                .bind(remote_object_id)
+                .bind(object_key)
+                .execute(db.pool())
+                .await
+                .unwrap();
+        }
+
+        let delete_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM attachment_transfer_jobs
+             WHERE attachment_id = 'attachment-1' AND direction = 'delete'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(delete_count, 2);
+
+        let duplicate_delete = sqlx::query(insert)
+            .bind("delete-old-1-again")
+            .bind("delete")
+            .bind(&sha256)
+            .bind("remote-object-3")
+            .bind("private/old-object-1")
+            .execute(db.pool())
+            .await;
+        assert!(duplicate_delete.is_err());
+
+        let duplicate_delete_object = sqlx::query(insert)
+            .bind("delete-old-1-different-key")
+            .bind("delete")
+            .bind(&sha256)
+            .bind("remote-object-1")
+            .bind("private/other-key")
+            .execute(db.pool())
+            .await;
+        assert!(duplicate_delete_object.is_err());
+
+        for (id, object_key) in [
+            ("delete-by-key-1", "private/key-only-1"),
+            ("delete-by-key-2", "private/key-only-2"),
+        ] {
+            sqlx::query(insert)
+                .bind(id)
+                .bind("delete")
+                .bind(&sha256)
+                .bind("")
+                .bind(object_key)
+                .execute(db.pool())
+                .await
+                .unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn attachment_transfer_jobs_require_complete_ciphertext_metadata() {
+        let db = test_db().await;
+        let sha256 = "a".repeat(64);
+        sqlx::query(
+            "INSERT INTO attachment_transfer_jobs (
+                id,
+                attachment_id,
+                session_id,
+                workspace_id,
+                direction,
+                expected_sha256,
+                expected_size_bytes
+            ) VALUES ('upload-1', 'attachment-1', 'session-1', 'workspace-1', 'upload', ?, 42)",
+        )
+        .bind(&sha256)
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let incomplete = sqlx::query(
+            "UPDATE attachment_transfer_jobs
+             SET ciphertext_sha256 = ?
+             WHERE id = 'upload-1'",
+        )
+        .bind(&sha256)
+        .execute(db.pool())
+        .await;
+        assert!(incomplete.is_err());
+
+        sqlx::query(
+            "UPDATE attachment_transfer_jobs
+             SET ciphertext_sha256 = ?, ciphertext_size_bytes = 84
+             WHERE id = 'upload-1'",
+        )
+        .bind(&sha256)
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let oversized = sqlx::query(
+            "UPDATE attachment_transfer_jobs
+             SET ciphertext_size_bytes = 545259521
+             WHERE id = 'upload-1'",
+        )
+        .execute(db.pool())
+        .await;
+        assert!(oversized.is_err());
     }
 
     #[tokio::test]

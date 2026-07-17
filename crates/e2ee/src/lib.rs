@@ -1,5 +1,13 @@
 #![forbid(unsafe_code)]
 
+mod blob;
+
+pub use blob::{
+    ATTACHMENT_BLOB_CHUNK_SIZE, ATTACHMENT_BLOB_MAX_PLAINTEXT_BYTES,
+    AttachmentBlobCiphertextMetadata, AttachmentBlobContext, AttachmentBlobError,
+    AttachmentBlobMetadata, AttachmentBlobPlaintextMetadata, AttachmentBlobResult,
+};
+
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use chacha20poly1305::aead::{Aead, Payload};
