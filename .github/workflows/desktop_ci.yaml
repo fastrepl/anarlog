@@ -160,6 +160,42 @@ jobs:
       - run: cargo check --locked -p desktop
       - run: cargo test --locked -p desktop --no-run
       - run: cargo test --locked -p cloudsync loads_bundled_cloudsync
+      - if: github.event_name == 'workflow_dispatch'
+        uses: ./.github/actions/pnpm_install
+      - if: github.event_name == 'workflow_dispatch'
+        run: pnpm -F ui build
+      - if: github.event_name == 'workflow_dispatch'
+        run: pnpm -F desktop tauri build --ci --bundles nsis --no-sign --target x86_64-pc-windows-msvc --config ./src-tauri/tauri.conf.staging.json --config '{"bundle":{"createUpdaterArtifacts":false}}' --features devtools --verbose
+        env:
+          POSTHOG_API_KEY: phc_windows_ci
+          VITE_POSTHOG_API_KEY: phc_windows_ci
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN_HYPRNOTE_2 }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_APP_URL: https://anarlog.so
+          VITE_API_URL: https://api.anarlog.so
+          VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
+      - if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: |
+          $bundleDir = "apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis"
+          $installer = Get-ChildItem $bundleDir -Filter "*.exe" | Select-Object -First 1
+          if (-not $installer) {
+            throw "No NSIS installer found in $bundleDir"
+          }
+
+          $hash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
+          "$hash  $($installer.Name)" |
+            Out-File "$($installer.FullName).sha256" -Encoding ascii
+      - if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: anarlog-windows-x64-nsis-${{ github.sha }}
+          path: |
+            apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+            apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.sha256
+          if-no-files-found: error
+          retention-days: 7
 
   desktop_i18n:
     if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
