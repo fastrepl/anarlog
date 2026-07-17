@@ -70,18 +70,14 @@ describe("UndoDeleteToast", () => {
     );
 
     expect(mocks.message).toHaveBeenCalledWith(
-      "Deleting Design sync",
+      "Design sync deleted",
       expect.objectContaining({
         id: "undo-delete:session-1",
         duration: Infinity,
-        actionButtonStyle: {
-          background: "hsl(var(--destructive))",
-          color: "hsl(var(--destructive-foreground))",
-        },
-        action: expect.objectContaining({ label: "Delete" }),
-        cancel: expect.objectContaining({ label: "Undo" }),
+        action: expect.objectContaining({ label: "Undo" }),
       }),
     );
+    expect(mocks.message.mock.calls[0][1]).not.toHaveProperty("cancel");
 
     view.unmount();
     expect(mocks.dismiss).toHaveBeenCalledWith("undo-delete:session-1");
@@ -108,7 +104,7 @@ describe("UndoDeleteToast", () => {
     });
 
     expect(mocks.message).toHaveBeenLastCalledWith(
-      "Deleting 1 notes",
+      "1 note deleted",
       expect.objectContaining({ id: "undo-delete:batch-1" }),
     );
 
@@ -125,14 +121,14 @@ describe("UndoDeleteToast", () => {
     });
 
     expect(mocks.message).toHaveBeenLastCalledWith(
-      "Deleting 2 notes",
+      "2 notes deleted",
       expect.objectContaining({ id: "undo-delete:batch-1" }),
     );
 
     const options =
       mocks.message.mock.calls[mocks.message.mock.calls.length - 1][1];
     await act(async () => {
-      options.cancel.onClick();
+      options.action.onClick();
       await Promise.resolve();
     });
 

@@ -94,22 +94,6 @@ function useRestoreGroup() {
   );
 }
 
-function useConfirmGroup() {
-  const confirmDeletion = useUndoDelete((state) => state.confirmDeletion);
-  const confirmBatch = useUndoDelete((state) => state.confirmBatch);
-
-  return useCallback(
-    (group: ToastGroup) => {
-      if (group.isBatch) {
-        confirmBatch(group.key);
-      } else {
-        confirmDeletion(group.sessionIds[0]);
-      }
-    },
-    [confirmDeletion, confirmBatch],
-  );
-}
-
 export function UndoDeleteToast() {
   const groups = useToastGroups();
 
@@ -123,14 +107,14 @@ export function UndoDeleteToast() {
 
 function UndoDeleteSonnerToast({ group }: { group: ToastGroup }) {
   const restoreGroup = useRestoreGroup();
-  const confirmGroup = useConfirmGroup();
   const pendingDeletions = useUndoDelete((state) => state.pendingDeletions);
   const title = group.isBatch
     ? null
     : pendingDeletions[group.sessionIds[0]]?.data.session.title || "Untitled";
+  const noteLabel = group.sessionIds.length === 1 ? "note" : "notes";
   const label = group.isBatch
-    ? `Deleting ${group.sessionIds.length} notes`
-    : `Deleting ${title}`;
+    ? `${group.sessionIds.length} ${noteLabel} deleted`
+    : `${title} deleted`;
 
   useMountEffect(() => {
     const toastId = `undo-delete:${group.key}`;
@@ -138,15 +122,7 @@ function UndoDeleteSonnerToast({ group }: { group: ToastGroup }) {
     sonnerToast.message(label, {
       id: toastId,
       duration: Infinity,
-      actionButtonStyle: {
-        background: "hsl(var(--destructive))",
-        color: "hsl(var(--destructive-foreground))",
-      },
       action: {
-        label: "Delete",
-        onClick: () => confirmGroup(group),
-      },
-      cancel: {
         label: "Undo",
         onClick: () => restoreGroup(group),
       },
