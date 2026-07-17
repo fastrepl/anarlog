@@ -138,6 +138,11 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         sql: include_str!("../migrations/20260717140000_attachment_local_state.sql"),
     },
     hypr_db_migrate::MigrationStep {
+        id: "20260717193000_e2ee_freshness_witness",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260717193000_e2ee_freshness_witness.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
         id: "20260717150000_attachment_transfer_jobs",
         scope: hypr_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260717150000_attachment_transfer_jobs.sql"),
@@ -377,6 +382,8 @@ mod tests {
                 "daily_notes",
                 "e2ee_local_state",
                 "e2ee_records",
+                "e2ee_witness_records",
+                "e2ee_witness_state",
                 "entity_mentions",
                 "events",
                 "humans",
@@ -756,6 +763,24 @@ mod tests {
         assert!(!cloudsync_alter_guard_required("workspaces"));
         assert!(!cloudsync_alter_guard_required("workspace_memberships"));
         assert!(!cloudsync_alter_guard_required("calendars"));
+    }
+
+    #[test]
+    fn e2ee_witness_state_is_local_only() {
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260717193000_e2ee_freshness_witness")
+            .unwrap();
+
+        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        for table_name in ["e2ee_witness_records", "e2ee_witness_state"] {
+            assert!(
+                !cloudsync_table_registry()
+                    .iter()
+                    .any(|table| table.table_name == table_name)
+            );
+            assert!(!cloudsync_alter_guard_required(table_name));
+        }
     }
 
     #[test]

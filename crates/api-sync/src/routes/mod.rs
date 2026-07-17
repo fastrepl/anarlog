@@ -21,6 +21,7 @@ use crate::snapshot::{
 use crate::state::AppState;
 
 mod attachment_backups;
+mod e2ee_witness;
 mod shared_attachments;
 
 const WORKSPACE_PROJECTION_SELECT: &str = "id,user_id,role,created_at,updated_at,workspace:workspaces!inner(id,owner_user_id,kind,name,created_at,updated_at)";
@@ -30,7 +31,7 @@ const MAX_TOKEN_ATTRIBUTES_BYTES: usize = 8 * 1024;
 const SNAPSHOT_PUBLISH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 const MAX_SNAPSHOT_REQUEST_BYTES: usize = MAX_SNAPSHOT_BODY_BYTES + 16 * 1024;
 const MAX_SNAPSHOT_RESPONSE_BYTES: u64 = (MAX_SNAPSHOT_BODY_BYTES + 16 * 1024) as u64;
-const CLOUDSYNC_ENCRYPTION_VERSION: u8 = 1;
+const CLOUDSYNC_ENCRYPTION_VERSION: u8 = 2;
 const E2EE_KEY_ID_HEADER: &str = "x-anarlog-e2ee-key-id";
 
 #[derive(Serialize, utoipa::ToSchema)]
@@ -202,6 +203,7 @@ pub struct ApiDoc;
 pub fn openapi() -> utoipa::openapi::OpenApi {
     let mut openapi = ApiDoc::openapi();
     openapi.merge(attachment_backups::openapi());
+    openapi.merge(e2ee_witness::openapi());
     openapi.merge(shared_attachments::openapi());
     openapi
 }
@@ -210,6 +212,7 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/token", post(create_credentials))
         .route("/e2ee/identity", put(claim_e2ee_identity))
+        .merge(e2ee_witness::router())
         .route(
             "/shares/{share_id}/snapshot",
             put(publish_session_share_snapshot)
@@ -892,7 +895,7 @@ mod tests {
         assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
         let body = response_json(response).await;
         assert_eq!(body["databaseId"], "database-id");
-        assert_eq!(body["encryptionVersion"], 1);
+        assert_eq!(body["encryptionVersion"], 2);
         assert_eq!(body["encryptionKeyId"], TEST_KEY_ID);
         assert_eq!(body["token"], "sqlite-token");
         assert_eq!(body["workspaceId"], "user-123");
