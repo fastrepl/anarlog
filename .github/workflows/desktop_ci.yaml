@@ -165,7 +165,7 @@ jobs:
       - if: github.event_name == 'workflow_dispatch'
         run: pnpm -F ui build
       - if: github.event_name == 'workflow_dispatch'
-        run: pnpm -F desktop tauri build --ci --bundles nsis --no-sign --target x86_64-pc-windows-msvc --config ./src-tauri/tauri.conf.staging.json --config '{"bundle":{"createUpdaterArtifacts":false}}' --features devtools --verbose
+        run: pnpm -F desktop tauri build --ci --bundles nsis --no-sign --target x86_64-pc-windows-msvc --config ./src-tauri/tauri.conf.staging.json --features devtools --verbose
         env:
           POSTHOG_API_KEY: phc_windows_ci
           VITE_POSTHOG_API_KEY: phc_windows_ci
