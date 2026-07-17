@@ -2008,8 +2008,8 @@ msgid "Trial"
 msgstr "Trial"
 
 #: src/onboarding/account/after-login.tsx
-msgid "Trial activated - 14 days of Pro"
-msgstr "Trial activated - 14 days of Pro"
+msgid "Trial activated - {trialDays} days of Pro"
+msgstr "Trial activated - {trialDays} days of Pro"
 
 #: src/session-sharing/index.tsx
 msgid "Try again"
