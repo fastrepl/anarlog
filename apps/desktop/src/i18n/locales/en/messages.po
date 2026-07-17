@@ -412,10 +412,6 @@ msgstr "Cloud sync"
 msgid "comment"
 msgstr "comment"
 
-#: src/session-sharing/index.tsx
-msgid "Comment and edit permissions are saved, but shared notes are read-only in this build."
-msgstr "Comment and edit permissions are saved, but shared notes are read-only in this build."
-
 #: src/task/resource-view.tsx
 msgid "commented on"
 msgstr "commented on"
@@ -914,6 +910,10 @@ msgstr "Intelligence"
 msgid "Invite links are copied so you can send them privately."
 msgstr "Invite links are copied so you can send them privately."
 
+#: src/session-sharing/index.tsx
+msgid "Invited editors can edit on the web. If both copies change, sharing pauses until you resolve it."
+msgstr "Invited editors can edit on the web. If both copies change, sharing pauses until you resolve it."
+
 #: src/contacts/details.tsx
 msgid "Job Title"
 msgstr "Job Title"
@@ -937,6 +937,10 @@ msgstr "Join scheduled meetings"
 #: src/settings/general/app-settings.tsx
 msgid "Keep Anarlog available from the menu bar."
 msgstr "Keep Anarlog available from the menu bar."
+
+#: src/session-sharing/index.tsx
+msgid "Keep desktop edits"
+msgstr "Keep desktop edits"
 
 #: src/settings/general/index.tsx
 msgid "Language & Region"
@@ -1283,6 +1287,10 @@ msgstr "Open on GitHub"
 #: src/settings/todo/github.tsx
 msgid "Open repository on GitHub"
 msgstr "Open repository on GitHub"
+
+#: src/session-sharing/index.tsx
+msgid "Open web copy"
+msgstr "Open web copy"
 
 #: src/shared-notes/index.tsx
 msgid "Opening…"
@@ -1708,6 +1716,10 @@ msgstr "Shared with me"
 msgid "Shared with me · View only"
 msgstr "Shared with me · View only"
 
+#: src/session-sharing/index.tsx
+msgid "Sharing paused to protect your edits"
+msgstr "Sharing paused to protect your edits"
+
 #: src/sidebar/timeline/item.tsx
 msgid "Show All Recurring Events"
 msgstr "Show All Recurring Events"
@@ -1966,6 +1978,10 @@ msgstr "These instructions take priority over the selected template when they co
 #: src/chat/components/message/loading.tsx
 msgid "Thinking..."
 msgstr "Thinking..."
+
+#: src/session-sharing/index.tsx
+msgid "This note changed on both desktop and the web. Open the web copy to review it. To keep that version, close this dialog, replace this note with the web content, then switch to another note so Anarlog can reconcile. Otherwise, publish the desktop edits over it."
+msgstr "This note changed on both desktop and the web. Open the web copy to review it. To keep that version, close this dialog, replace this note with the web content, then switch to another note so Anarlog can reconcile. Otherwise, publish the desktop edits over it."
 
 #. placeholder {0}: status.fileCount
 #. placeholder {1}: formatBytes(status.totalBytes)
