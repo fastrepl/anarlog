@@ -16,6 +16,7 @@ use crate::{
 };
 
 const ATTACHMENT_BACKUP_BUCKET: &str = "attachment-backups";
+const SHARED_ATTACHMENT_BUCKET: &str = "shared-note-attachments";
 const AUDIO_BUCKET: &str = "audio-files";
 const ATTACHMENT_BATCH_SIZE: usize = 32;
 const ATTACHMENT_CONCURRENCY: usize = 4;
@@ -55,6 +56,18 @@ struct AttachmentLeaseRow {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct SharedAttachmentLeaseRow {
+    attachment_id: String,
+    owner_user_id: String,
+    share_id: String,
+    object_key: String,
+    size_bytes: i64,
+    gc_lease_id: String,
+    gc_lease_expires_at: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct AccountLeaseRow {
     owner_user_id: String,
     final_sweep_not_before: String,
@@ -72,6 +85,13 @@ struct AccountLeaseRow {
 struct FinishAttachmentRequest<'a> {
     p_owner_user_id: &'a str,
     p_object_id: &'a str,
+    p_object_key: &'a str,
+    p_gc_lease_id: &'a str,
+}
+
+#[derive(Serialize)]
+struct FinishSharedAttachmentRequest<'a> {
+    p_attachment_id: &'a str,
     p_object_key: &'a str,
     p_gc_lease_id: &'a str,
 }
@@ -142,6 +162,13 @@ impl CleanupWorker {
                 0
             }
         };
+        let shared_attachment_count = match self.run_shared_attachment_batch(cancellation).await {
+            Ok(count) => count,
+            Err(error) => {
+                tracing::warn!(error = %error, "shared_attachment_gc_batch_failed");
+                0
+            }
+        };
         let account_count = match self.run_account_batch(cancellation).await {
             Ok(count) => count,
             Err(error) => {
@@ -149,7 +176,9 @@ impl CleanupWorker {
                 0
             }
         };
-        attachment_count == ATTACHMENT_BATCH_SIZE || account_count == ACCOUNT_BATCH_SIZE
+        attachment_count == ATTACHMENT_BATCH_SIZE
+            || shared_attachment_count == ATTACHMENT_BATCH_SIZE
+            || account_count == ACCOUNT_BATCH_SIZE
     }
 
     async fn run_attachment_batch(&self, cancellation: &CancellationToken) -> Result<usize> {
@@ -214,6 +243,71 @@ impl CleanupWorker {
             .await?;
         if !finished {
             tracing::info!("attachment_backup_gc_already_finished");
+        }
+        Ok(())
+    }
+
+    async fn run_shared_attachment_batch(&self, cancellation: &CancellationToken) -> Result<usize> {
+        if cancellation.is_cancelled() {
+            return Ok(0);
+        }
+        let lease_id = Uuid::now_v7().to_string();
+        let rows: Vec<SharedAttachmentLeaseRow> = self
+            .supabase
+            .admin_rpc(
+                "claim_session_share_attachment_gc_leases",
+                &ClaimRequest {
+                    p_lease_id: lease_id.clone(),
+                    p_limit: ATTACHMENT_BATCH_SIZE as i32,
+                    p_lease_seconds: ATTACHMENT_LEASE_SECONDS,
+                },
+            )
+            .await?;
+        if rows.len() > ATTACHMENT_BATCH_SIZE {
+            return Err(invalid_upstream("shared attachment GC lease count"));
+        }
+        for row in &rows {
+            validate_shared_attachment_lease(row, &lease_id)?;
+        }
+        let count = rows.len();
+        let mut results = stream::iter(rows)
+            .map(|row| {
+                let worker = self.clone();
+                let cancellation = cancellation.clone();
+                async move {
+                    if cancellation.is_cancelled() {
+                        return Ok(());
+                    }
+                    worker.delete_shared_attachment(row).await
+                }
+            })
+            .buffer_unordered(ATTACHMENT_CONCURRENCY);
+        while let Some(result) = results.next().await {
+            if let Err(error) = result {
+                tracing::warn!(error = %error, "shared_attachment_gc_object_failed");
+            }
+        }
+        Ok(count)
+    }
+
+    async fn delete_shared_attachment(&self, row: SharedAttachmentLeaseRow) -> Result<()> {
+        self.storage
+            .delete_file(SHARED_ATTACHMENT_BUCKET, &row.object_key)
+            .await
+            .map_err(storage_error)?;
+        let finished: bool = self
+            .supabase
+            .admin_rpc(
+                "finish_session_share_attachment_deletion",
+                &FinishSharedAttachmentRequest {
+                    p_attachment_id: &row.attachment_id,
+                    p_object_key: &row.object_key,
+                    p_gc_lease_id: &row.gc_lease_id,
+                },
+            )
+            .await?;
+        if !finished {
+            tracing::info!("shared_attachment_gc_already_finished");
         }
         Ok(())
     }
@@ -318,6 +412,23 @@ impl CleanupWorker {
                 .clear_prefix_until(AUDIO_BUCKET, &prefix, MAX_ACCOUNT_PREFIX_OBJECTS, || {
                     cancellation.is_cancelled()
                 })
+                .await
+            {
+                Ok(_) => {}
+                Err(hypr_supabase_storage::Error::Cancelled) => return Ok(()),
+                Err(error) => return Err(storage_error(error)),
+            }
+            if cancellation.is_cancelled() {
+                return Ok(());
+            }
+            match self
+                .storage
+                .clear_prefix_until(
+                    SHARED_ATTACHMENT_BUCKET,
+                    &prefix,
+                    MAX_ACCOUNT_PREFIX_OBJECTS,
+                    || cancellation.is_cancelled(),
+                )
                 .await
             {
                 Ok(_) => {}
@@ -521,6 +632,31 @@ fn is_valid_stripe_customer_id(value: &str) -> bool {
         })
 }
 
+fn validate_shared_attachment_lease(
+    row: &SharedAttachmentLeaseRow,
+    expected_lease_id: &str,
+) -> Result<()> {
+    let attachment_id = canonical_uuid(&row.attachment_id, Some(Version::Random))?;
+    let owner_user_id = canonical_uuid(&row.owner_user_id, None)?;
+    let share_id = canonical_uuid(&row.share_id, None)?;
+    let object_key = validate_shared_attachment_object_key(
+        &row.object_key,
+        &owner_user_id,
+        &share_id,
+        &attachment_id,
+    )?;
+    let lease_id = canonical_uuid(&row.gc_lease_id, Some(Version::SortRand))?;
+    let lease_expires_at = validate_lease_expiry(&row.gc_lease_expires_at)?;
+    if object_key != row.object_key
+        || lease_id != expected_lease_id
+        || !(1..=536_870_912).contains(&row.size_bytes)
+        || lease_expires_at <= Utc::now()
+    {
+        return Err(invalid_upstream("shared attachment GC lease"));
+    }
+    Ok(())
+}
+
 fn validate_lease_expiry(value: &str) -> Result<DateTime<Utc>> {
     let expiry = parse_timestamp(value)?;
     if expiry > Utc::now() + TimeDelta::seconds(3605) {
@@ -566,6 +702,19 @@ fn validate_backup_object_key(value: &str, owner_user_id: &str) -> Result<String
     Ok(value.to_string())
 }
 
+fn validate_shared_attachment_object_key(
+    value: &str,
+    owner_user_id: &str,
+    share_id: &str,
+    attachment_id: &str,
+) -> Result<String> {
+    let expected = format!("{owner_user_id}/{share_id}/{attachment_id}.sna1");
+    if value != expected {
+        return Err(invalid_upstream("shared attachment object key"));
+    }
+    Ok(value.to_string())
+}
+
 fn storage_error(error: hypr_supabase_storage::Error) -> SubscriptionError {
     SubscriptionError::Internal(format!("Storage cleanup failed: {error}"))
 }
@@ -587,6 +736,7 @@ mod tests {
 
     const OWNER: &str = "00000000-0000-4000-8000-000000000501";
     const OBJECT: &str = "00000000-0000-4000-8000-000000000502";
+    const SHARE: &str = "00000000-0000-4000-8000-000000000503";
     const WORKSPACE: &str = "00000000-0000-4000-8000-000000000504";
     const CUSTOMER: &str = "cus_cleanup501";
 
@@ -732,6 +882,27 @@ mod tests {
             .await;
     }
 
+    async fn mount_shared_attachment_claim(server: &MockServer) {
+        Mock::given(method("POST"))
+            .and(path(
+                "/rest/v1/rpc/claim_session_share_attachment_gc_leases",
+            ))
+            .respond_with(move |request: &Request| {
+                let lease_id = request_lease(request);
+                ResponseTemplate::new(200).set_body_json(json!([{
+                    "attachment_id": OBJECT,
+                    "owner_user_id": OWNER,
+                    "share_id": SHARE,
+                    "object_key": format!("{OWNER}/{SHARE}/{OBJECT}.sna1"),
+                    "size_bytes": 1024,
+                    "gc_lease_id": lease_id,
+                    "gc_lease_expires_at": (Utc::now() + TimeDelta::minutes(5)).to_rfc3339()
+                }]))
+            })
+            .mount(server)
+            .await;
+    }
+
     #[tokio::test]
     async fn deletes_storage_before_finishing_an_attachment_lease() {
         let server = MockServer::start().await;
@@ -806,6 +977,39 @@ mod tests {
 
         assert!(error.to_string().contains("Invalid attachment object key"));
         assert_eq!(server.received_requests().await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn deletes_shared_storage_before_finishing_its_lease() {
+        let server = MockServer::start().await;
+        mount_shared_attachment_claim(&server).await;
+        Mock::given(method("DELETE"))
+            .and(path(format!(
+                "/storage/v1/object/{SHARED_ATTACHMENT_BUCKET}/{OWNER}/{SHARE}/{OBJECT}.sna1"
+            )))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path(
+                "/rest/v1/rpc/finish_session_share_attachment_deletion",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!(true)))
+            .mount(&server)
+            .await;
+
+        let count = worker(&server)
+            .run_shared_attachment_batch(&CancellationToken::new())
+            .await
+            .unwrap();
+
+        assert_eq!(count, 1);
+        let requests = server.received_requests().await.unwrap();
+        assert_eq!(requests.len(), 3);
+        assert_eq!(
+            requests[2].url.path(),
+            "/rest/v1/rpc/finish_session_share_attachment_deletion"
+        );
     }
 
     #[tokio::test]
@@ -886,6 +1090,13 @@ mod tests {
             .mount(&server)
             .await;
         Mock::given(method("POST"))
+            .and(path(format!(
+                "/storage/v1/object/list/{SHARED_ATTACHMENT_BUCKET}"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
             .and(path("/rest/v1/rpc/mark_account_deletion_prefix_swept"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!(true)))
             .mount(&server)
@@ -924,6 +1135,7 @@ mod tests {
                 "/rest/v1/rpc/mark_account_deletion_stripe_deleted",
                 "/storage/v1/object/list/attachment-backups",
                 "/storage/v1/object/list/audio-files",
+                "/storage/v1/object/list/shared-note-attachments",
                 "/rest/v1/rpc/mark_account_deletion_prefix_swept",
                 "/v1/databases/managed-e2ee",
                 "/v2/weblite/sql",

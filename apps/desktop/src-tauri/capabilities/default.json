@@ -33,6 +33,7 @@
     "tracing:default",
     "hypr-tray:default",
     "analytics:default",
+    "attachment-sync:default",
     "agent:default",
     "bedrock:default",
     "updater:default",

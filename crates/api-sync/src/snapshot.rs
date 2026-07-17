@@ -21,7 +21,15 @@ pub(crate) fn sanitize_title(title: &str) -> Result<String> {
     Ok(title.to_string())
 }
 
-pub(crate) fn sanitize_document(body: &Value) -> Result<Value> {
+#[cfg(test)]
+fn sanitize_document(body: &Value) -> Result<Value> {
+    sanitize_document_with_attachments(body, &HashSet::new())
+}
+
+pub(crate) fn sanitize_document_with_attachments(
+    body: &Value,
+    allowed_attachments: &HashSet<String>,
+) -> Result<Value> {
     let input_size = serde_json::to_vec(body)
         .map_err(|_| SyncError::BadRequest("Shared note body is invalid".to_string()))?
         .len();
@@ -40,7 +48,10 @@ pub(crate) fn sanitize_document(body: &Value) -> Result<Value> {
         ));
     }
 
-    let mut budget = SanitizeBudget::default();
+    let mut budget = SanitizeBudget {
+        nodes: 0,
+        allowed_attachments,
+    };
     budget.visit(0)?;
     let mut content = sanitize_blocks(node_content(root)?, 1, &mut budget)?;
     if content.is_empty() {
@@ -63,12 +74,12 @@ pub(crate) fn sanitize_document(body: &Value) -> Result<Value> {
     Ok(body)
 }
 
-#[derive(Default)]
-struct SanitizeBudget {
+struct SanitizeBudget<'a> {
     nodes: usize,
+    allowed_attachments: &'a HashSet<String>,
 }
 
-impl SanitizeBudget {
+impl SanitizeBudget<'_> {
     fn visit(&mut self, depth: usize) -> Result<()> {
         if depth > MAX_SNAPSHOT_DEPTH {
             return Err(SyncError::BadRequest(
@@ -165,11 +176,34 @@ fn sanitize_block(
             ensure_block_content(&mut content);
             Some(content_node("blockquote", None, content))
         }
-        "image" | "fileAttachment" | "clip" => Some(placeholder("Attachment omitted")),
+        "image" | "fileAttachment" | "clip" => Some(sanitize_attachment(
+            node,
+            node_type,
+            budget.allowed_attachments,
+        )),
         _ => None,
     };
 
     Ok(sanitized)
+}
+
+fn sanitize_attachment(
+    node: &Map<String, Value>,
+    node_type: &str,
+    allowed_attachments: &HashSet<String>,
+) -> Value {
+    let attachment_id = node
+        .get("attrs")
+        .and_then(Value::as_object)
+        .and_then(|attrs| string_attr(attrs, "sharedAttachmentId"))
+        .filter(|id| allowed_attachments.contains(*id));
+    match attachment_id {
+        Some(attachment_id) => json!({
+            "type": node_type,
+            "attrs": { "sharedAttachmentId": attachment_id },
+        }),
+        None => placeholder("Attachment omitted"),
+    }
 }
 
 fn sanitize_inlines(
@@ -725,6 +759,49 @@ mod tests {
                 "{private_value} leaked"
             );
         }
+    }
+
+    #[test]
+    fn keeps_only_explicitly_selected_server_attachments() {
+        let selected = "22222222-2222-4222-8222-222222222222".to_string();
+        let allowed = HashSet::from([selected.clone()]);
+        let sanitized = sanitize_document_with_attachments(
+            &json!({
+                "type": "doc",
+                "content": [
+                    {
+                        "type": "image",
+                        "attrs": {
+                            "sharedAttachmentId": selected,
+                            "src": "asset://localhost/private.png",
+                            "attachmentId": "local-private.png"
+                        }
+                    },
+                    {
+                        "type": "fileAttachment",
+                        "attrs": {
+                            "sharedAttachmentId": "33333333-3333-4333-8333-333333333333",
+                            "path": "/Users/alice/private.pdf"
+                        }
+                    }
+                ]
+            }),
+            &allowed,
+        )
+        .unwrap();
+
+        assert_eq!(
+            sanitized["content"][0],
+            json!({
+                "type": "image",
+                "attrs": { "sharedAttachmentId": selected }
+            })
+        );
+        let serialized = sanitized.to_string();
+        assert!(serialized.contains("Attachment omitted"));
+        assert!(!serialized.contains("asset://"));
+        assert!(!serialized.contains("/Users/alice"));
+        assert!(!serialized.contains("local-private"));
     }
 
     #[test]

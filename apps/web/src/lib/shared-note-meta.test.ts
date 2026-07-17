@@ -41,6 +41,7 @@ test("available public notes receive canonical indexable metadata", () => {
         },
       ],
     },
+    attachments: [],
     publishedAt: "2026-07-17T12:00:00Z",
   });
 

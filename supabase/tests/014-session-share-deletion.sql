@@ -256,13 +256,13 @@ select ok(
       ))
     )
     and lower(pg_get_functiondef(
-      'private.issue_session_share_handoff(uuid,text,uuid,bigint)'::regprocedure
+      'private.issue_session_share_handoff(uuid,text,uuid,bigint,bytea)'::regprocedure
     )) like '%share.deleted_at is null%'
     and lower(pg_get_functiondef(
-      'private.issue_session_share_handoff(uuid,text,uuid,bigint)'::regprocedure
+      'private.issue_session_share_handoff(uuid,text,uuid,bigint,bytea)'::regprocedure
     )) like '%share.access_version = p_access_version%'
     and lower(pg_get_functiondef(
-      'private.issue_session_share_handoff(uuid,text,uuid,bigint)'::regprocedure
+      'private.issue_session_share_handoff(uuid,text,uuid,bigint,bytea)'::regprocedure
     )) not like '%delete from private.session_share_handoffs%',
   'Deletion and issuance share one lock order and issuance revalidates authority'
 );
@@ -470,7 +470,8 @@ select lives_ok(
         select secret
         from session_share_deletion_test_state
         where name = 'active_link'
-      )
+      ),
+      repeat('c', 64)
     )
   $$,
   'The deletion fixture has a pending one-time handoff'
@@ -900,7 +901,8 @@ select ok(
           select secret
           from session_share_deletion_test_state
           where name = 'active_link'
-        )
+        ),
+        repeat('d', 64)
       )
     ),
   'Bearer reads and new handoffs disappear after deletion'
@@ -909,12 +911,13 @@ select ok(
 select results_eq(
   $$
     select count(*)
-    from public.gateway_claim_session_share_handoff(
+    from public.gateway_lease_session_share_handoff(
       (
         select secret
         from session_share_deletion_test_state
         where name = 'link_handoff'
-      )
+      ),
+      '11111111-1111-4111-8111-111111111111'
     )
   $$,
   array[0::bigint],
@@ -1032,7 +1035,8 @@ select lives_ok(
         select slug
         from session_share_deletion_test_state
         where name = 'public_share'
-      )
+      ),
+      repeat('e', 64)
     )
   $$,
   'The public-share fixture has a pending one-time handoff'
@@ -1110,7 +1114,8 @@ select ok(
           select slug
           from session_share_deletion_test_state
           where name = 'public_share'
-        )
+        ),
+        repeat('f', 64)
       )
     ),
   'Public reads and new handoffs disappear after deletion'
@@ -1119,12 +1124,13 @@ select ok(
 select results_eq(
   $$
     select count(*)
-    from public.gateway_claim_session_share_handoff(
+    from public.gateway_lease_session_share_handoff(
       (
         select secret
         from session_share_deletion_test_state
         where name = 'public_handoff'
-      )
+      ),
+      '22222222-2222-4222-8222-222222222222'
     )
   $$,
   array[0::bigint],

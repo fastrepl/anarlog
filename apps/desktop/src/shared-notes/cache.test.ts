@@ -42,6 +42,14 @@ import {
   useDurableSharedNotes,
 } from "./cache";
 
+const attachment = {
+  id: "33333333-3333-4333-8333-333333333333",
+  filename: "diagram.png",
+  contentType: "image/png",
+  sizeBytes: 42,
+  sha256: "a".repeat(64),
+};
+
 const serverRow = {
   share_id: "11111111-1111-4111-8111-111111111111",
   workspace_id: "22222222-2222-4222-8222-222222222222",
@@ -53,6 +61,7 @@ const serverRow = {
     type: "doc",
     content: [{ type: "paragraph" }],
   },
+  attachments_json: [attachment],
   capability: "commenter",
   manage_access: false,
   access_version: 4,
@@ -74,6 +83,7 @@ describe("durable shared-note cache", () => {
         contentRevision: 3,
         title: "Shared plan",
         body: serverRow.body_json,
+        attachments: [attachment],
         capability: "commenter",
         manageAccess: false,
         accessVersion: 4,
@@ -83,9 +93,13 @@ describe("durable shared-note cache", () => {
   });
 
   it("rejects duplicate or malformed snapshots before writes", () => {
+    const { attachments_json: _attachments, ...missingAttachments } = serverRow;
     expect(() =>
       parseDurableSharedNoteSnapshots([serverRow, serverRow]),
     ).toThrow("duplicate");
+    expect(() => parseDurableSharedNoteSnapshots([missingAttachments])).toThrow(
+      "attachments",
+    );
     expect(() =>
       parseDurableSharedNoteSnapshots([
         { ...serverRow, body_json: { type: "paragraph" } },
@@ -101,13 +115,16 @@ describe("durable shared-note cache", () => {
     await replaceDurableSharedNoteCache("viewer-1", [snapshot]);
 
     const statements = mocks.executeTransaction.mock.calls[0]![0];
-    expect(statements).toHaveLength(2);
-    expect(statements[0]).toEqual({
+    expect(statements).toHaveLength(4);
+    expect(statements[0]?.sql).toContain(
+      "UPDATE shared_session_attachment_cache",
+    );
+    expect(statements[1]).toEqual({
       sql: "DELETE FROM shared_session_cache WHERE viewer_user_id = ?",
       params: ["viewer-1"],
     });
-    expect(statements[1].sql).toContain("INSERT INTO shared_session_cache");
-    expect(statements[1].params).toEqual([
+    expect(statements[2].sql).toContain("INSERT INTO shared_session_cache");
+    expect(statements[2].params).toEqual([
       serverRow.share_id,
       "viewer-1",
       serverRow.workspace_id,
@@ -116,22 +133,28 @@ describe("durable shared-note cache", () => {
       3,
       "Shared plan",
       JSON.stringify(serverRow.body_json),
+      JSON.stringify([attachment]),
       "commenter",
       0,
       4,
       "2026-07-16T17:30:00.000Z",
     ]);
+    expect(statements[3].sql).toContain(
+      "INSERT INTO shared_session_attachment_cache",
+    );
+    expect(statements[3].params).toContain(attachment.id);
   });
 
   it("deletes revoked rows after a successful empty response", async () => {
     await replaceDurableSharedNoteCache("viewer-1", []);
 
-    expect(mocks.executeTransaction).toHaveBeenCalledWith([
-      {
-        sql: "DELETE FROM shared_session_cache WHERE viewer_user_id = ?",
-        params: ["viewer-1"],
-      },
-    ]);
+    const statements = mocks.executeTransaction.mock.calls[0]![0];
+    expect(statements).toHaveLength(2);
+    expect(statements[0]?.sql).toContain("availability = 'delete_pending'");
+    expect(statements[1]).toEqual({
+      sql: "DELETE FROM shared_session_cache WHERE viewer_user_id = ?",
+      params: ["viewer-1"],
+    });
   });
 
   it("upserts one account snapshot without replacing other rows", async () => {
@@ -140,29 +163,33 @@ describe("durable shared-note cache", () => {
     await upsertDurableSharedNoteCache("viewer-1", snapshot);
 
     const statements = mocks.executeTransaction.mock.calls[0]![0];
-    expect(statements).toHaveLength(1);
-    expect(statements[0]?.sql).toContain(
+    expect(statements).toHaveLength(3);
+    expect(statements[1]?.sql).toContain(
       "ON CONFLICT(viewer_user_id, share_id) DO UPDATE",
     );
-    expect(statements[0]?.sql).not.toContain(
+    expect(statements[1]?.sql).not.toContain(
       "DELETE FROM shared_session_cache",
     );
-    expect(statements[0]?.params).toContain("viewer-1");
-    expect(statements[0]?.params).toContain(serverRow.share_id);
+    expect(statements[1]?.params).toContain("viewer-1");
+    expect(statements[1]?.params).toContain(serverRow.share_id);
+    expect(statements[2]?.sql).toContain(
+      "ON CONFLICT(viewer_user_id, share_id, attachment_id)",
+    );
   });
 
   it("removes only one viewer-owned cache row", async () => {
     await removeDurableSharedNoteCache("viewer-1", serverRow.share_id);
 
     const statements = mocks.executeTransaction.mock.calls[0]![0];
-    expect(statements).toEqual([
-      {
-        sql: expect.stringContaining(
-          "WHERE viewer_user_id = ? AND share_id = ?",
-        ),
-        params: ["viewer-1", serverRow.share_id],
-      },
-    ]);
+    expect(statements).toHaveLength(2);
+    expect(statements[0]).toEqual({
+      sql: expect.stringContaining("availability = 'delete_pending'"),
+      params: ["viewer-1", serverRow.share_id],
+    });
+    expect(statements[1]).toEqual({
+      sql: expect.stringContaining("WHERE viewer_user_id = ? AND share_id = ?"),
+      params: ["viewer-1", serverRow.share_id],
+    });
   });
 
   it("loads the durable owner mapping used by fail-safe deletion", async () => {
@@ -217,7 +244,7 @@ describe("durable shared-note cache", () => {
     await second;
 
     expect(mocks.executeTransaction).toHaveBeenCalledTimes(2);
-    expect(mocks.executeTransaction.mock.calls[1]![0][1]?.params).toContain(
+    expect(mocks.executeTransaction.mock.calls[1]![0][2]?.params).toContain(
       "Updated plan",
     );
   });
@@ -234,6 +261,7 @@ describe("durable shared-note cache", () => {
           content_revision: 3,
           title: "Shared plan",
           body_json: JSON.stringify(serverRow.body_json),
+          attachments_json: JSON.stringify([attachment]),
           capability: "editor",
           manage_access: 1,
           access_version: 4,

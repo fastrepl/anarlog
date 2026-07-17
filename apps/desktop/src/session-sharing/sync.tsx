@@ -1,5 +1,10 @@
 import { useQueries } from "@tanstack/react-query";
 
+import {
+  addSharedAttachmentIds,
+  loadSessionShareAttachments,
+  matchSharedAttachmentsToLocal,
+} from "./attachments";
 import { publishSessionShareSnapshot } from "./client";
 import { loadSessionShareSource } from "./source";
 
@@ -108,12 +113,34 @@ export function OwnedSharedNotePublisher() {
             ) {
               throw new Error("Shared note source changed");
             }
+            const localAttachments = await loadSessionShareAttachments(
+              revision.sessionId,
+            );
+            const localToShared = matchSharedAttachmentsToLocal(
+              localAttachments,
+              durable.attachments,
+            );
+            const mappedIds = new Set(localToShared.values());
+            if (
+              durable.attachments.some(
+                (attachment) => !mappedIds.has(attachment.id),
+              )
+            ) {
+              throw new Error("Shared attachment metadata is not available");
+            }
             const published = await publishSessionShareSnapshot({
               apiBaseUrl: env.VITE_API_URL,
               session,
               shareId: revision.shareId,
               title: source.title,
-              body: source.body,
+              body: addSharedAttachmentIds(
+                source.body,
+                localAttachments,
+                localToShared,
+              ),
+              attachmentIds: durable.attachments.map(
+                (attachment) => attachment.id,
+              ),
               signal,
             });
             signal.throwIfAborted();
@@ -123,6 +150,7 @@ export function OwnedSharedNotePublisher() {
               contentRevision: published.contentRevision,
               title: published.title,
               body: published.body,
+              attachments: published.attachments,
               publishedAt: published.publishedAt,
             });
             return published.contentRevision;

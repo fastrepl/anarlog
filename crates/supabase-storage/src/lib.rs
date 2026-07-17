@@ -60,6 +60,13 @@ pub struct ObjectInfo {
     pub format_version: u8,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObjectMetadata {
+    pub size_bytes: u64,
+    pub content_type: String,
+    pub user_metadata: Value,
+}
+
 #[derive(Deserialize)]
 struct SignedUploadResponse {
     url: String,
@@ -69,24 +76,8 @@ struct SignedUploadResponse {
 struct ObjectInfoResponse {
     size: Option<u64>,
     content_type: Option<String>,
-    metadata: Option<ObjectMetadata>,
-    user_metadata: Option<ObjectUserMetadata>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ObjectMetadata {
-    size: Option<u64>,
-    mimetype: Option<String>,
-    ciphertext_sha256: Option<String>,
-    format_version: Option<u8>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ObjectUserMetadata {
-    ciphertext_sha256: Option<String>,
-    format_version: Option<u8>,
+    metadata: Option<Value>,
+    user_metadata: Option<Value>,
 }
 
 #[derive(Deserialize)]
@@ -331,6 +322,43 @@ impl SupabaseStorage {
     }
 
     pub async fn object_info(&self, bucket: &str, object_path: &str) -> Result<ObjectInfo, Error> {
+        let metadata = self.object_metadata(bucket, object_path).await?;
+        let ciphertext_sha256 = metadata
+            .user_metadata
+            .get("ciphertextSha256")
+            .and_then(Value::as_str)
+            .filter(|value| {
+                value.len() == 64
+                    && value
+                        .bytes()
+                        .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+            })
+            .ok_or_else(|| {
+                Error::Api("storage object ciphertext checksum was not returned".to_string())
+            })?
+            .to_string();
+        let format_version = metadata
+            .user_metadata
+            .get("formatVersion")
+            .and_then(Value::as_u64)
+            .filter(|version| *version == 1)
+            .ok_or_else(|| {
+                Error::Api("storage object format version was not returned".to_string())
+            })? as u8;
+
+        Ok(ObjectInfo {
+            size_bytes: metadata.size_bytes,
+            content_type: metadata.content_type,
+            ciphertext_sha256,
+            format_version,
+        })
+    }
+
+    pub async fn object_metadata(
+        &self,
+        bucket: &str,
+        object_path: &str,
+    ) -> Result<ObjectMetadata, Error> {
         let url = self.object_url("object/info", bucket, object_path)?;
         let response = self.auth_headers(self.client.get(url)).send().await?;
         let (status, body) = Self::read_response(response, "object info").await?;
@@ -340,58 +368,47 @@ impl SupabaseStorage {
 
         let data: ObjectInfoResponse = serde_json::from_slice(&body)
             .map_err(|_| Error::Api("storage object info response was invalid".to_string()))?;
+        let storage_metadata = data.metadata.as_ref().and_then(Value::as_object);
         let size_bytes = data
             .size
-            .or_else(|| data.metadata.as_ref().and_then(|metadata| metadata.size))
+            .or_else(|| {
+                storage_metadata
+                    .and_then(|metadata| metadata.get("size"))
+                    .and_then(Value::as_u64)
+            })
             .ok_or_else(|| Error::Api("storage object size was not returned".to_string()))?;
         let content_type = data
             .content_type
             .or_else(|| {
-                data.metadata
-                    .as_ref()
-                    .and_then(|metadata| metadata.mimetype.clone())
+                storage_metadata
+                    .and_then(|metadata| metadata.get("mimetype"))
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
             })
             .filter(|value| !value.trim().is_empty())
             .ok_or_else(|| {
                 Error::Api("storage object content type was not returned".to_string())
             })?;
-        let ciphertext_sha256 = data
-            .user_metadata
-            .as_ref()
-            .and_then(|metadata| metadata.ciphertext_sha256.clone())
-            .or_else(|| {
-                data.metadata
-                    .as_ref()
-                    .and_then(|metadata| metadata.ciphertext_sha256.clone())
-            })
-            .filter(|value| {
-                value.len() == 64
-                    && value
-                        .bytes()
-                        .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
-            })
-            .ok_or_else(|| {
-                Error::Api("storage object ciphertext checksum was not returned".to_string())
-            })?;
-        let format_version = data
-            .user_metadata
-            .as_ref()
-            .and_then(|metadata| metadata.format_version)
-            .or_else(|| {
-                data.metadata
-                    .as_ref()
-                    .and_then(|metadata| metadata.format_version)
-            })
-            .filter(|version| *version == 1)
-            .ok_or_else(|| {
-                Error::Api("storage object format version was not returned".to_string())
-            })?;
+        let mut user_metadata = serde_json::Map::new();
+        if let Some(metadata) = storage_metadata {
+            user_metadata.extend(metadata.iter().filter_map(|(key, value)| {
+                (!matches!(key.as_str(), "size" | "mimetype")).then(|| (key.clone(), value.clone()))
+            }));
+        }
+        if let Some(metadata) = data.user_metadata.as_ref().and_then(Value::as_object) {
+            user_metadata.extend(metadata.clone());
+        }
+        if user_metadata.is_empty() {
+            return Err(Error::Api(
+                "storage object user metadata was not returned".to_string(),
+            ));
+        }
+        let user_metadata = Value::Object(user_metadata);
 
-        Ok(ObjectInfo {
+        Ok(ObjectMetadata {
             size_bytes,
             content_type,
-            ciphertext_sha256,
-            format_version,
+            user_metadata,
         })
     }
 
@@ -451,7 +468,6 @@ impl SupabaseStorage {
         }
         Ok(encoded)
     }
-
     pub async fn delete_file(&self, bucket: &str, object_path: &str) -> Result<(), Error> {
         let url = self.object_url("object", bucket, object_path)?;
         let response = self.auth_headers(self.client.delete(url)).send().await?;

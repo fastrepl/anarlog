@@ -74,6 +74,8 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     queryKey: ["tokenInfo", auth?.session?.access_token ?? ""],
     queryFn: () => getClaimsFromToken(auth!.session!.access_token),
     enabled: !!auth?.session?.access_token,
+    placeholderData: (previous) =>
+      previous?.sub === auth?.session?.user.id ? previous : undefined,
   });
 
   const billing = deriveBillingInfo(claimsQuery.data ?? null);

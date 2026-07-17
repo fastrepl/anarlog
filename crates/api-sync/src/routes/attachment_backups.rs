@@ -1832,7 +1832,6 @@ mod tests {
             })))
             .mount(&server)
             .await;
-
         let response = test_router(&server, true)
             .oneshot(json_request(
                 Method::POST,
@@ -1935,6 +1934,52 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
         assert_eq!(server.received_requests().await.unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn rejects_spoofed_storage_metadata_when_object_bytes_do_not_match() {
+        let server = MockServer::start().await;
+        mount_rpc(
+            &server,
+            "read_attachment_backup_by_key",
+            ResponseTemplate::new(200)
+                .set_body_json(json!([object_row("reserved", Some(CIPHERTEXT_SHA256))])),
+        )
+        .await;
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/storage/v1/object/info/{ATTACHMENT_BACKUP_BUCKET}/{}",
+                object_key()
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "metadata": { "size": 1234, "mimetype": "application/octet-stream" },
+                "user_metadata": {
+                    "ciphertextSha256": CIPHERTEXT_SHA256,
+                    "formatVersion": 1
+                }
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/storage/v1/object/authenticated/{ATTACHMENT_BACKUP_BUCKET}/{}",
+                object_key()
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(vec![1; 1234]))
+            .mount(&server)
+            .await;
+
+        let response = test_router(&server, true)
+            .oneshot(json_request(
+                Method::POST,
+                "/attachment-backups/finalize",
+                json!({ "objectKey": object_key() }),
+            ))
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+        assert_eq!(server.received_requests().await.unwrap().len(), 3);
     }
 
     #[tokio::test]

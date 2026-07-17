@@ -142,6 +142,23 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         scope: hypr_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260717150000_attachment_transfer_jobs.sql"),
     },
+    hypr_db_migrate::MigrationStep {
+        id: "20260717170000_attachment_cloud_sync_intent",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "session_attachments",
+        },
+        sql: include_str!("../migrations/20260717170000_attachment_cloud_sync_intent.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260717171000_shared_session_attachment_cache",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260717171000_shared_session_attachment_cache.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260717172000_shared_session_cache_attachments",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260717172000_shared_session_cache_attachments.sql"),
+    },
 ];
 
 pub fn schema() -> hypr_db_migrate::DbSchema {
@@ -374,6 +391,7 @@ mod tests {
                 "session_participants",
                 "session_tags",
                 "sessions",
+                "shared_session_attachment_cache",
                 "shared_session_cache",
                 "storage_migration_state",
                 "tags",
@@ -756,6 +774,64 @@ mod tests {
         assert!(!cloudsync_alter_guard_required("shared_session_cache"));
     }
 
+    #[tokio::test]
+    async fn shared_session_cache_attachment_manifest_is_local_and_bounded() {
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260717172000_shared_session_cache_attachments")
+            .unwrap();
+        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO shared_session_cache (
+                share_id,
+                viewer_user_id,
+                workspace_id,
+                session_id,
+                content_revision,
+                access_version,
+                published_at
+            ) VALUES (
+                '11111111-1111-4111-8111-111111111111',
+                'viewer-1',
+                '22222222-2222-4222-8222-222222222222',
+                'session-1',
+                1,
+                1,
+                '2026-07-17T00:00:00Z'
+            )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let manifest: String = sqlx::query_scalar(
+            "SELECT attachments_json FROM shared_session_cache
+             WHERE viewer_user_id = 'viewer-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(manifest, "[]");
+
+        let oversized = format!(
+            "[{}]",
+            (0..65)
+                .map(|index| format!(r#"{{"id":{index}}}"#))
+                .collect::<Vec<_>>()
+                .join(",")
+        );
+        let invalid = sqlx::query(
+            "UPDATE shared_session_cache SET attachments_json = ?
+             WHERE viewer_user_id = 'viewer-1'",
+        )
+        .bind(oversized)
+        .execute(db.pool())
+        .await;
+        assert!(invalid.is_err());
+    }
+
     #[test]
     fn attachment_local_state_is_plain_and_excluded_from_cloudsync() {
         let migration = APP_MIGRATION_STEPS
@@ -788,6 +864,65 @@ mod tests {
         );
         assert!(!E2EE_DOMAIN_TABLES.contains(&"attachment_transfer_jobs"));
         assert!(!cloudsync_alter_guard_required("attachment_transfer_jobs"));
+    }
+
+    #[tokio::test]
+    async fn attachment_cloud_sync_intent_is_a_synced_additive_column() {
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260717170000_attachment_cloud_sync_intent")
+            .unwrap();
+
+        assert_eq!(
+            migration.scope,
+            hypr_db_migrate::MigrationScope::CloudsyncAlter {
+                table_name: "session_attachments",
+            }
+        );
+
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO session_attachments (id, workspace_id, session_id)
+             VALUES ('attachment-intent', 'workspace-1', 'session-1')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let enabled: i64 = sqlx::query_scalar(
+            "SELECT cloud_sync_enabled FROM session_attachments
+             WHERE id = 'attachment-intent'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(enabled, 0);
+
+        let invalid = sqlx::query(
+            "UPDATE session_attachments SET cloud_sync_enabled = 2
+             WHERE id = 'attachment-intent'",
+        )
+        .execute(db.pool())
+        .await;
+        assert!(invalid.is_err());
+    }
+
+    #[test]
+    fn shared_attachment_cache_is_plain_and_excluded_from_cloudsync() {
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260717171000_shared_session_attachment_cache")
+            .unwrap();
+
+        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert!(
+            !cloudsync_table_registry()
+                .iter()
+                .any(|table| table.table_name == "shared_session_attachment_cache")
+        );
+        assert!(!E2EE_DOMAIN_TABLES.contains(&"shared_session_attachment_cache"));
+        assert!(!cloudsync_alter_guard_required(
+            "shared_session_attachment_cache"
+        ));
     }
 
     #[tokio::test]
@@ -851,6 +986,27 @@ mod tests {
             .execute(db.pool())
             .await
             .unwrap();
+        sqlx::query(
+            "UPDATE attachment_transfer_jobs SET phase = 'completed' WHERE id = 'download-1'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(insert)
+            .bind("upload-2")
+            .bind("upload")
+            .bind(&sha256)
+            .bind("remote-object-1")
+            .bind("")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query(
+            "UPDATE attachment_transfer_jobs SET phase = 'completed' WHERE id = 'upload-2'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
 
         for (id, remote_object_id, object_key) in [
             ("delete-old-1", "remote-object-1", "private/old-object-1"),
@@ -895,6 +1051,22 @@ mod tests {
             .execute(db.pool())
             .await;
         assert!(duplicate_delete_object.is_err());
+
+        sqlx::query(
+            "UPDATE attachment_transfer_jobs SET phase = 'completed' WHERE id = 'delete-old-1'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(insert)
+            .bind("delete-old-1-again")
+            .bind("delete")
+            .bind(&sha256)
+            .bind("remote-object-1")
+            .bind("private/old-object-1")
+            .execute(db.pool())
+            .await
+            .unwrap();
 
         for (id, object_key) in [
             ("delete-by-key-1", "private/key-only-1"),

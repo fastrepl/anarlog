@@ -35,6 +35,15 @@ import {
 } from "@hypr/ui/components/ui/select";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
+import { SessionAttachmentControls } from "./attachment-controls";
+import {
+  addSharedAttachmentIds,
+  loadSessionShareAttachments,
+  matchSharedAttachmentsToLocal,
+  prepareSessionShareAttachment,
+  type SessionShareAttachment,
+  useSessionShareAttachments,
+} from "./attachments";
 import {
   createOrReuseSessionShare,
   createSessionAccessInvitation,
@@ -66,7 +75,12 @@ import {
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { env } from "~/env";
-import { upsertDurableSharedNoteCache } from "~/shared-notes/cache";
+import { setAttachmentCloudSyncEnabled } from "~/session/attachments";
+import {
+  type SharedNoteAttachment,
+  upsertDurableSharedNoteCache,
+  useDurableSharedNote,
+} from "~/shared-notes/cache";
 
 type SharePanelData = {
   management: SessionShareManagement;
@@ -108,6 +122,18 @@ type AccessMutation =
   | {
       type: "request-deny";
       entry: Extract<SessionShareAccessEntry, { entryType: "request" }>;
+    };
+
+type AttachmentMutation =
+  | {
+      type: "cloud";
+      attachment: SessionShareAttachment;
+      enabled: boolean;
+    }
+  | {
+      type: "share";
+      attachment: SessionShareAttachment;
+      included: boolean;
     };
 
 const capabilityLabels: Record<SessionAccessCapability, string> = {
@@ -174,6 +200,10 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
   const accountUserId = auth.session?.user.id ?? null;
   const activeDialogIdentity =
     dialogIdentity?.ownerUserId === accountUserId ? dialogIdentity : null;
+  const durableNoteQuery = useDurableSharedNote(
+    accountUserId,
+    activeDialogIdentity?.shareId ?? "",
+  );
   const workspaces = useAvailableShareWorkspaces(accountUserId);
 
   const initializeMutation = useMutation({
@@ -203,13 +233,14 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
         ) {
           throw new ShareManagementError();
         }
-        if (publish) {
+        if (publish && share.wasCreated) {
           const published = await publishSessionShareSnapshot({
             apiBaseUrl: env.VITE_API_URL,
             session: context.session,
             shareId: share.shareId,
             title: source.title,
             body: source.body,
+            attachmentIds: [],
             signal,
           });
           context = requireActivePrepareContext(ownerUserId, signal);
@@ -221,6 +252,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
             contentRevision: published.contentRevision,
             title: published.title,
             body: published.body,
+            attachments: published.attachments,
             capability: "editor",
             manageAccess: true,
             accessVersion: management.accessVersion,
@@ -278,6 +310,12 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
       );
     },
   });
+  const sharedAttachments = durableNoteQuery.data?.attachments ?? [];
+  const sharedAttachmentsReady = Boolean(
+    activeDialogIdentity &&
+    !durableNoteQuery.isLoading &&
+    durableNoteQuery.data,
+  );
 
   const handleShare = () => {
     if (!billing.isReady || initializeMutation.isPending) return;
@@ -325,6 +363,8 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           error={shareQuery.isError}
           canExpand={billing.isPaid}
           workspaces={workspaces}
+          sharedAttachments={sharedAttachments}
+          sharedAttachmentsReady={sharedAttachmentsReady}
           onRetry={() => void shareQuery.refetch()}
           onClose={() => setDialogIdentity(null)}
           onChanged={() =>
@@ -352,6 +392,8 @@ function SessionShareDialog({
   error,
   canExpand,
   workspaces,
+  sharedAttachments,
+  sharedAttachmentsReady,
   onRetry,
   onClose,
   onChanged,
@@ -363,6 +405,8 @@ function SessionShareDialog({
   error: boolean;
   canExpand: boolean;
   workspaces: Array<{ id: string; name: string }>;
+  sharedAttachments: SharedNoteAttachment[];
+  sharedAttachmentsReady: boolean;
   onRetry: () => void;
   onClose: () => void;
   onChanged: () => Promise<unknown>;
@@ -398,6 +442,12 @@ function SessionShareDialog({
     return { ...context, signal };
   };
   const management = data?.management;
+  const { data: sessionAttachments = [] } =
+    useSessionShareAttachments(sessionId);
+  const sharedAttachmentIds = matchSharedAttachmentsToLocal(
+    sessionAttachments,
+    sharedAttachments,
+  );
   const inviteForm = useForm({
     defaultValues: {
       email: "",
@@ -411,8 +461,13 @@ function SessionShareDialog({
     },
   });
 
-  const publishLatest = async (signal?: AbortSignal) => {
+  const publishLatest = async (
+    signal?: AbortSignal,
+    requestedAttachments = sharedAttachments,
+    localOverrides = new Map<string, string>(),
+  ) => {
     if (!identity || !management) throw new ShareManagementError();
+    if (!sharedAttachmentsReady) throw new ShareManagementError();
     const context = requireActiveContext(signal);
     const source = await loadSessionShareSource(
       sessionId,
@@ -425,15 +480,110 @@ function SessionShareDialog({
       throw new ShareManagementError();
     }
     const activeContext = requireActiveContext(signal);
-    return publishSessionShareSnapshot({
+    const localAttachments = await loadSessionShareAttachments(sessionId);
+    const localToShared = matchSharedAttachmentsToLocal(
+      localAttachments,
+      requestedAttachments,
+    );
+    for (const [localId, sharedId] of localOverrides) {
+      localToShared.set(localId, sharedId);
+    }
+    const mappedIds = new Set(localToShared.values());
+    const publishableAttachments = requestedAttachments.filter((attachment) =>
+      mappedIds.has(attachment.id),
+    );
+    const published = await publishSessionShareSnapshot({
       apiBaseUrl: env.VITE_API_URL,
       session: activeContext.session,
       shareId: identity.shareId,
       title: source.title,
-      body: source.body,
+      body: addSharedAttachmentIds(
+        source.body,
+        localAttachments,
+        localToShared,
+      ),
+      attachmentIds: publishableAttachments.map((attachment) => attachment.id),
       signal,
     });
+    requireActiveContext(signal);
+    await upsertDurableSharedNoteCache(identity.ownerUserId, {
+      shareId: published.shareId,
+      workspaceId: source.workspaceId,
+      sessionId: source.sessionId,
+      schemaVersion: published.schemaVersion,
+      contentRevision: published.contentRevision,
+      title: published.title,
+      body: published.body,
+      attachments: published.attachments,
+      capability: "editor",
+      manageAccess: true,
+      accessVersion: management.accessVersion,
+      publishedAt: published.publishedAt,
+    });
+    requireActiveContext(signal);
+    return published;
   };
+
+  const attachmentMutation = useMutation({
+    mutationFn: (input: AttachmentMutation) =>
+      runOperation(async (signal) => {
+        if (!management) throw new ShareManagementError();
+        const { attachment } = input;
+        const currentId = sharedAttachmentIds.get(attachment.id);
+        if (input.type === "cloud") {
+          if (!input.enabled && currentId) {
+            if (!canExpand) throw new ShareManagementError();
+            await publishLatest(
+              signal,
+              sharedAttachments.filter((item) => item.id !== currentId),
+            );
+          } else if (input.enabled && !canExpand) {
+            throw new ShareManagementError();
+          }
+          requireActiveContext(signal);
+          await setAttachmentCloudSyncEnabled(
+            sessionId,
+            attachment.id,
+            input.enabled,
+          );
+          requireActiveContext(signal);
+          return;
+        }
+
+        if (!canExpand) throw new ShareManagementError();
+        let requested = [...sharedAttachments];
+        if (!input.included) {
+          requested = requested.filter((item) => item.id !== currentId);
+          return publishLatest(signal, requested);
+        }
+
+        const context = requireActiveContext(signal);
+        const prepared = await prepareSessionShareAttachment({
+          apiBaseUrl: env.VITE_API_URL,
+          supabaseUrl: env.VITE_SUPABASE_URL ?? "",
+          session: context.session,
+          shareId: identity.shareId,
+          attachment,
+          signal,
+        });
+        requested = [
+          ...requested.filter((item) => item.id !== currentId),
+          prepared,
+        ];
+        return publishLatest(
+          signal,
+          requested,
+          new Map([[attachment.id, prepared.id]]),
+        );
+      }),
+    onSuccess: () => {
+      sonnerToast.success("Attachment settings updated.");
+    },
+    onError: () => {
+      sonnerToast.error("Could not update attachment sharing.");
+    },
+    onSettled: onChanged,
+  });
 
   const inviteMutation = useMutation({
     mutationFn: (input: {
@@ -760,7 +910,8 @@ function SessionShareDialog({
     refreshMutation.isPending ||
     scopeMutation.isPending ||
     entryMutation.isPending ||
-    generalCopyMutation.isPending;
+    generalCopyMutation.isPending ||
+    attachmentMutation.isPending;
   const generalScopeValue = management
     ? management.generalScope === "workspace"
       ? `workspace:${management.generalWorkspaceId}`
@@ -920,6 +1071,43 @@ function SessionShareDialog({
                   )}
                 </section>
 
+                <SessionAttachmentControls
+                  attachments={sessionAttachments}
+                  sharedAttachmentIds={sharedAttachmentIds}
+                  canUseCloud={canExpand}
+                  canInclude={
+                    canExpand &&
+                    sharedAttachmentsReady &&
+                    Boolean(env.VITE_SUPABASE_URL)
+                  }
+                  cloudPendingAttachmentId={
+                    attachmentMutation.isPending &&
+                    attachmentMutation.variables?.type === "cloud"
+                      ? (attachmentMutation.variables.attachment.id ?? null)
+                      : null
+                  }
+                  sharePendingAttachmentId={
+                    attachmentMutation.isPending &&
+                    attachmentMutation.variables?.type === "share"
+                      ? (attachmentMutation.variables?.attachment.id ?? null)
+                      : null
+                  }
+                  onCloudChange={(attachment, enabled) =>
+                    attachmentMutation.mutate({
+                      type: "cloud",
+                      attachment,
+                      enabled,
+                    })
+                  }
+                  onShareChange={(attachment, included) =>
+                    attachmentMutation.mutate({
+                      type: "share",
+                      attachment,
+                      included,
+                    })
+                  }
+                />
+
                 <section
                   aria-labelledby="general-access-heading"
                   className="border-border/60 border-t pt-5"
@@ -1005,8 +1193,8 @@ function SessionShareDialog({
                   ) : null}
                   <p>
                     <Trans>
-                      Attachments and recordings stay private and are not
-                      included in the shared copy yet.
+                      Attachments stay private unless you explicitly include
+                      them in this shared note.
                     </Trans>
                   </p>
                   <p className="mt-1">

@@ -1,5 +1,5 @@
 begin;
-select plan(35);
+select plan(37);
 
 select tests.create_supabase_user('gateway_owner', 'gateway-owner@example.com');
 
@@ -65,7 +65,7 @@ select ok(
 
 select ok(
   (
-    select count(*) = 8
+    select count(*) = 10
     from pg_constraint as constraint_record
     join pg_class as class
       on class.oid = constraint_record.conrelid
@@ -81,6 +81,8 @@ select ok(
         'session_share_handoffs_link_check',
         'session_share_handoffs_access_version_check',
         'session_share_handoffs_ttl_check',
+        'session_share_handoffs_source_hash_check',
+        'session_share_handoffs_lease_check',
         'session_share_handoffs_share_slot_key'
       )
   )
@@ -90,9 +92,43 @@ select ok(
       from information_schema.columns
       where table_schema = 'private'
         and table_name = 'session_share_handoffs'
-        and column_name = 'slot'
+      and column_name = 'slot'
+    )
+    and (
+      select count(*) = 3
+      from information_schema.columns
+      where table_schema = 'private'
+        and table_name = 'session_share_handoffs'
+        and column_name in ('lease_hash', 'leased_at', 'lease_expires_at')
+        and is_nullable = 'YES'
+    )
+    and (
+      select is_nullable = 'NO'
+        and data_type = 'bytea'
+      from information_schema.columns
+      where table_schema = 'private'
+        and table_name = 'session_share_handoffs'
+        and column_name = 'source_hash'
+    )
+    and (
+      select pg_get_constraintdef(constraint_record.oid) like '%31%'
+      from pg_constraint as constraint_record
+      join pg_class as class
+        on class.oid = constraint_record.conrelid
+      join pg_namespace as namespace
+        on namespace.oid = class.relnamespace
+      where namespace.nspname = 'private'
+        and class.relname = 'session_share_handoffs'
+        and constraint_record.conname = 'session_share_handoffs_slot_check'
+    )
+    and exists (
+      select 1
+      from pg_indexes
+      where schemaname = 'private'
+        and tablename = 'session_share_handoffs'
+        and indexname = 'session_share_handoffs_lease_hash_key'
     ),
-  'Handoffs constrain secrets, audience, version, TTL, and four per-share slots'
+  'Handoffs use opaque source digests, exact TTLs, and a 32-row per-share pool'
 );
 
 select ok(
@@ -110,7 +146,7 @@ select ok(
         'gateway_read_public_session_share_snapshot',
         'gateway_create_session_share_link_handoff',
         'gateway_create_public_session_share_handoff',
-        'gateway_claim_session_share_handoff'
+        'gateway_lease_session_share_handoff'
       )
   ),
   'Only service role can execute public gateway wrappers'
@@ -131,15 +167,27 @@ select ok(
         'gateway_read_public_session_share_snapshot',
         'gateway_create_session_share_link_handoff',
         'gateway_create_public_session_share_handoff',
-        'gateway_claim_session_share_handoff'
+        'gateway_lease_session_share_handoff'
       )
   )
     and not has_function_privilege(
       'service_role',
-      'private.issue_session_share_handoff(uuid,text,uuid,bigint)',
+      'private.issue_session_share_handoff(uuid,text,uuid,bigint,bytea)',
       'EXECUTE'
-    ),
-  'Service role reaches hardened gateway implementations but not issuance internals'
+    )
+    and to_regprocedure(
+      'public.gateway_claim_session_share_handoff(text)'
+    ) is null
+    and to_regprocedure(
+      'private.gateway_claim_session_share_handoff(text)'
+    ) is null
+    and to_regprocedure(
+      'public.gateway_claim_session_share_handoff_v2(text)'
+    ) is null
+    and to_regprocedure(
+      'private.gateway_claim_session_share_handoff_v2(text)'
+    ) is null,
+  'Service role reaches leased gateways and destructive claim RPCs are removed'
 );
 
 select ok(
@@ -183,28 +231,76 @@ select ok(
 select ok(
   (
     select lower(pg_get_functiondef(
-      'private.issue_session_share_handoff(uuid,text,uuid,bigint)'::regprocedure
+      'private.issue_session_share_handoff(uuid,text,uuid,bigint,bytea)'::regprocedure
     )) not like '%delete from private.session_share_handoffs%'
       and lower(pg_get_functiondef(
-        'private.issue_session_share_handoff(uuid,text,uuid,bigint)'::regprocedure
+        'private.issue_session_share_handoff(uuid,text,uuid,bigint,bytea)'::regprocedure
       )) like '%on conflict (share_id, slot) do update%'
       and lower(pg_get_functiondef(
-        'private.issue_session_share_handoff(uuid,text,uuid,bigint)'::regprocedure
+        'private.issue_session_share_handoff(uuid,text,uuid,bigint,bytea)'::regprocedure
       )) like '%pg_advisory_xact_lock%'
+      and lower(pg_get_functiondef(
+        'private.issue_session_share_handoff(uuid,text,uuid,bigint,bytea)'::regprocedure
+      )) like '%generate_series(0, 31)%'
+      and lower(pg_get_functiondef(
+        'private.issue_session_share_handoff(uuid,text,uuid,bigint,bytea)'::regprocedure
+      )) like '%v_source_active_count >= 4%'
   )
     and lower(pg_get_functiondef(
-      'private.gateway_create_session_share_link_handoff(uuid,text)'::regprocedure
+      'private.gateway_create_session_share_link_handoff(uuid,text,text)'::regprocedure
     )) not like '%for update%'
     and lower(pg_get_functiondef(
-      'private.gateway_create_public_session_share_handoff(text)'::regprocedure
+      'private.gateway_create_public_session_share_handoff(text,text)'::regprocedure
     )) not like '%for update%'
     and lower(pg_get_functiondef(
-      'private.gateway_claim_session_share_handoff(text)'::regprocedure
-    )) not like '%for share%'
+      'private.gateway_lease_session_share_handoff(text,text)'::regprocedure
+    )) like '%for share of share%'
     and lower(pg_get_functiondef(
-      'private.gateway_claim_session_share_handoff(text)'::regprocedure
-    )) not like '%request_hash in%',
-  'Issuance and claim avoid cross-row cleanup and share-to-handoff lock inversion'
+      'private.gateway_lease_session_share_handoff(text,text)'::regprocedure
+    )) like '%pg_advisory_xact_lock%'
+    and strpos(
+      lower(pg_get_functiondef(
+        'private.gateway_lease_session_share_handoff(text,text)'::regprocedure
+      )),
+      'select handoff.share_id'
+    ) < strpos(
+      lower(pg_get_functiondef(
+        'private.gateway_lease_session_share_handoff(text,text)'::regprocedure
+      )),
+      'pg_catalog.pg_advisory_xact_lock'
+    )
+    and strpos(
+      lower(pg_get_functiondef(
+        'private.gateway_lease_session_share_handoff(text,text)'::regprocedure
+      )),
+      'pg_catalog.pg_advisory_xact_lock'
+    ) < strpos(
+      lower(pg_get_functiondef(
+        'private.gateway_lease_session_share_handoff(text,text)'::regprocedure
+      )),
+      'for update'
+    )
+    and strpos(
+      lower(pg_get_functiondef(
+        'private.gateway_lease_session_share_handoff(text,text)'::regprocedure
+      )),
+      'for update'
+    ) < strpos(
+      lower(pg_get_functiondef(
+        'private.gateway_lease_session_share_handoff(text,text)'::regprocedure
+      )),
+      'for share of share'
+    )
+    and lower(pg_get_functiondef(
+      'private.gateway_lease_session_share_handoff(text,text)'::regprocedure
+    )) not like '%request_hash in%'
+    and lower(pg_get_functiondef(
+      'private.gateway_lease_session_share_handoff(text,text)'::regprocedure
+    )) like '%private.session_share_attachment_manifest(share.id) as attachments_json%'
+    and lower(pg_get_functiondef(
+      'private.gateway_lease_session_share_handoff(text,text)'::regprocedure
+    )) not like '%private.session_share_attachment_manifest(v_snapshot.share_id%',
+  'Issuance is source-bounded and leasing serializes before locking handoff and share rows'
 );
 
 select tests.authenticate_as_hyprnote_pro('gateway_owner');
@@ -352,8 +448,15 @@ select ok(
         (select share_id from shared_note_gateway_test_state where name = 'link_share'),
         'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA!'
       )
+    )
+    and (
+      select count(*) = 0
+      from public.gateway_create_public_session_share_handoff(
+        (select slug from shared_note_gateway_test_state where name = 'public_share'),
+        repeat('A', 64)
+      )
     ),
-  'Gateway inputs are length-bounded and canonical before lookup or hashing'
+  'Gateway inputs and source digests are length-bounded and canonical before lookup'
 );
 
 select lives_ok(
@@ -364,10 +467,11 @@ select lives_ok(
       request_id,
       expires_at
     from public.gateway_create_public_session_share_handoff(
-      (select slug from shared_note_gateway_test_state where name = 'public_share')
+      (select slug from shared_note_gateway_test_state where name = 'public_share'),
+      repeat('a', 64)
     )
   $query$,
-  'The gateway can create a public one-time handoff'
+  'The gateway can create a public handoff request'
 );
 
 select tests.clear_authentication();
@@ -407,7 +511,7 @@ select ok(
         and table_name = 'session_share_handoffs'
         and column_name in ('request_id', 'request_token', 'link_token', 'secret')
     ),
-  'Handoff capabilities are stored only as SHA-256 digests'
+  'Handoff capabilities and source identities are stored only as opaque digests'
 );
 
 select tests.authenticate_as_service_role();
@@ -415,23 +519,25 @@ select tests.authenticate_as_service_role();
 select results_eq(
   $$
     select title
-    from public.gateway_claim_session_share_handoff(
-      (select secret from shared_note_gateway_test_state where name = 'public_handoff')
+    from public.gateway_lease_session_share_handoff(
+      (select secret from shared_note_gateway_test_state where name = 'public_handoff'),
+      'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
     )
   $$,
   array['Public gateway snapshot'::text],
-  'A valid public handoff atomically returns the latest snapshot'
+  'A valid public handoff atomically creates a lease and returns the snapshot'
 );
 
 select results_eq(
   $$
-    select count(*)
-    from public.gateway_claim_session_share_handoff(
-      (select secret from shared_note_gateway_test_state where name = 'public_handoff')
+    select title
+    from public.gateway_lease_session_share_handoff(
+      (select secret from shared_note_gateway_test_state where name = 'public_handoff'),
+      'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
     )
   $$,
-  array[0::bigint],
-  'A claimed public handoff cannot be replayed'
+  array['Public gateway snapshot'::text],
+  'Retrying the same request and lease pair is idempotent'
 );
 
 select lives_ok(
@@ -443,17 +549,19 @@ select lives_ok(
       expires_at
     from public.gateway_create_session_share_link_handoff(
       (select share_id from shared_note_gateway_test_state where name = 'link_share'),
-      (select secret from shared_note_gateway_test_state where name = 'active_link')
+      (select secret from shared_note_gateway_test_state where name = 'active_link'),
+      repeat('b', 64)
     )
   $query$,
-  'The gateway can create a bearer-link one-time handoff'
+  'The gateway can create a bearer-link handoff request'
 );
 
 select results_eq(
   $$
     select title
-    from public.gateway_claim_session_share_handoff(
-      (select secret from shared_note_gateway_test_state where name = 'link_handoff')
+    from public.gateway_lease_session_share_handoff(
+      (select secret from shared_note_gateway_test_state where name = 'link_handoff'),
+      'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
     )
   $$,
   array['Link gateway snapshot'::text],
@@ -463,12 +571,13 @@ select results_eq(
 select results_eq(
   $$
     select count(*)
-    from public.gateway_claim_session_share_handoff(
-      (select secret from shared_note_gateway_test_state where name = 'link_handoff')
+    from public.gateway_lease_session_share_handoff(
+      (select secret from shared_note_gateway_test_state where name = 'link_handoff'),
+      'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
     )
   $$,
   array[0::bigint],
-  'A claimed bearer-link handoff cannot be replayed'
+  'A different lease cannot take over a claimed handoff'
 );
 
 select lives_ok(
@@ -478,7 +587,8 @@ select lives_ok(
       for handoff_index in 1..6 loop
         perform *
         from public.gateway_create_public_session_share_handoff(
-          (select slug from shared_note_gateway_test_state where name = 'public_share')
+          (select slug from shared_note_gateway_test_state where name = 'public_share'),
+          repeat('a', 64)
         );
       end loop;
     end
@@ -487,20 +597,70 @@ select lives_ok(
   'Repeated creation is accepted without an unbounded per-share queue'
 );
 
+select results_eq(
+  $$
+    select count(*)
+    from public.gateway_create_public_session_share_handoff(
+      (select slug from shared_note_gateway_test_state where name = 'public_share'),
+      repeat('a', 64)
+    )
+  $$,
+  array[0::bigint],
+  'One source cannot exceed four active handoffs for a share'
+);
+
 select tests.clear_authentication();
 reset role;
 
 select results_eq(
   $$
-    select count(*), count(distinct slot), min(slot), max(slot)
+    select
+      count(*),
+      count(distinct slot),
+      min(slot),
+      max(slot),
+      exists (
+        select 1
+        from private.session_share_handoffs as leased
+        where leased.request_hash = extensions.digest(
+          (select secret from shared_note_gateway_test_state where name = 'public_handoff'),
+          'sha256'
+        )
+          and leased.lease_hash = extensions.digest(
+            'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+            'sha256'
+          )
+          and leased.lease_expires_at = leased.leased_at + interval '20 minutes'
+      )
     from private.session_share_handoffs
     where share_id = (
       select share_id from shared_note_gateway_test_state where name = 'public_share'
     )
   $$,
-  $$values (4::bigint, 4::bigint, 0::smallint, 3::smallint)$$,
-  'Four database-enforced slots bound handoffs for each share'
+  $$values (4::bigint, 4::bigint, 0::smallint, 3::smallint, true)$$,
+  'Four database slots stay bounded without overwriting an active lease'
 );
+
+select tests.authenticate_as_service_role();
+
+select results_eq(
+  $$
+    select leased.title
+    from public.gateway_create_public_session_share_handoff(
+      (select slug from shared_note_gateway_test_state where name = 'public_share'),
+      repeat('e', 64)
+    ) as handoff
+    cross join lateral public.gateway_lease_session_share_handoff(
+      handoff.request_id,
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
+    ) as leased
+  $$,
+  array['Public gateway snapshot'::text],
+  'A distinct source can issue and lease while another source is at quota'
+);
+
+select tests.clear_authentication();
+reset role;
 
 select lives_ok(
   $$
@@ -510,6 +670,9 @@ select lives_ok(
         'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
         'sha256'
       ),
+      lease_hash = null,
+      leased_at = null,
+      lease_expires_at = null,
       created_at = timing.instant - interval '61 seconds',
       expires_at = timing.instant - interval '1 second'
     from (select clock_timestamp() as instant) as timing
@@ -526,8 +689,9 @@ select tests.authenticate_as_service_role();
 select results_eq(
   $$
     select count(*)
-    from public.gateway_claim_session_share_handoff(
-      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    from public.gateway_lease_session_share_handoff(
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
     )
   $$,
   array[0::bigint],
@@ -546,8 +710,8 @@ select results_eq(
       'sha256'
     )
   $$,
-  array[0::bigint],
-  'Claim removes its expired handoff without scanning unrelated rows'
+  array[1::bigint],
+  'An expired handoff remains bounded and available for slot reuse'
 );
 
 select tests.authenticate_as_service_role();
@@ -560,7 +724,8 @@ select lives_ok(
       request_id,
       expires_at
     from public.gateway_create_public_session_share_handoff(
-      (select slug from shared_note_gateway_test_state where name = 'public_share')
+      (select slug from shared_note_gateway_test_state where name = 'public_share'),
+      repeat('c', 64)
     )
   $query$,
   'A public handoff exists before scope revocation'
@@ -586,8 +751,9 @@ select tests.authenticate_as_service_role();
 select results_eq(
   $$
     select count(*)
-    from public.gateway_claim_session_share_handoff(
-      (select secret from shared_note_gateway_test_state where name = 'public_revocation_handoff')
+    from public.gateway_lease_session_share_handoff(
+      (select secret from shared_note_gateway_test_state where name = 'public_revocation_handoff'),
+      'ffffffff-ffff-4fff-8fff-ffffffffffff'
     )
   $$,
   array[0::bigint],
@@ -603,7 +769,8 @@ select lives_ok(
       expires_at
     from public.gateway_create_session_share_link_handoff(
       (select share_id from shared_note_gateway_test_state where name = 'link_share'),
-      (select secret from shared_note_gateway_test_state where name = 'active_link')
+      (select secret from shared_note_gateway_test_state where name = 'active_link'),
+      repeat('d', 64)
     )
   $query$,
   'A bearer handoff exists before link rotation'
@@ -628,8 +795,9 @@ select tests.authenticate_as_service_role();
 select results_eq(
   $$
     select count(*)
-    from public.gateway_claim_session_share_handoff(
-      (select secret from shared_note_gateway_test_state where name = 'link_revocation_handoff')
+    from public.gateway_lease_session_share_handoff(
+      (select secret from shared_note_gateway_test_state where name = 'link_revocation_handoff'),
+      '99999999-9999-4999-8999-999999999999'
     )
   $$,
   array[0::bigint],

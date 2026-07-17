@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-describe-upload"
+description = "Enables the describe_upload command without any pre-configured scope."
+commands.allow = ["describe_upload"]
+
+[[permission]]
+identifier = "deny-describe-upload"
+description = "Denies the describe_upload command without any pre-configured scope."
+commands.deny = ["describe_upload"]

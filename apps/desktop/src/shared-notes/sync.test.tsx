@@ -123,7 +123,7 @@ describe("DurableSharedNoteCacheSync", () => {
       expect(mocks.replaceCache).toHaveBeenCalledWith("viewer-1", snapshots);
     });
     expect(mocks.rpc).toHaveBeenCalledWith(
-      "list_my_session_share_snapshot_page",
+      "list_my_session_share_snapshot_page_with_attachments",
       { p_after_share_id: null, p_limit: 100 },
     );
     expect(mocks.setHeader).toHaveBeenCalledWith(
@@ -150,12 +150,12 @@ describe("DurableSharedNoteCacheSync", () => {
     });
     expect(mocks.rpc).toHaveBeenNthCalledWith(
       1,
-      "list_my_session_share_snapshot_page",
+      "list_my_session_share_snapshot_page_with_attachments",
       { p_after_share_id: null, p_limit: 100 },
     );
     expect(mocks.rpc).toHaveBeenNthCalledWith(
       2,
-      "list_my_session_share_snapshot_page",
+      "list_my_session_share_snapshot_page_with_attachments",
       {
         p_after_share_id: firstPage[firstPage.length - 1]?.share_id,
         p_limit: 100,

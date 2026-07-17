@@ -34,6 +34,12 @@ vi.mock("./client", () => ({
   publishSessionShareSnapshot: mocks.publishSessionShareSnapshot,
 }));
 
+vi.mock("./attachments", () => ({
+  addSharedAttachmentIds: (body: unknown) => body,
+  loadSessionShareAttachments: vi.fn().mockResolvedValue([]),
+  matchSharedAttachmentsToLocal: () => new Map(),
+}));
+
 vi.mock("./source", () => ({
   loadSessionShareSource: mocks.loadSessionShareSource,
 }));
@@ -82,6 +88,7 @@ describe("OwnedSharedNotePublisher", () => {
         contentRevision: 2,
         title: "Earlier title",
         body: { type: "doc", content: [] },
+        attachments: [],
         capability: "editor",
         manageAccess: true,
         accessVersion: 3,
@@ -93,6 +100,7 @@ describe("OwnedSharedNotePublisher", () => {
       sessionId: "session-1",
       title: "Current title",
       body: { type: "doc", content: [{ type: "paragraph" }] },
+      attachments: [],
     });
     mocks.publishSessionShareSnapshot.mockResolvedValue({
       ...mocks.durableNotes[0],

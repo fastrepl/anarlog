@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-verify-delete-source"
+description = "Enables the verify_delete_source command without any pre-configured scope."
+commands.allow = ["verify_delete_source"]
+
+[[permission]]
+identifier = "deny-verify-delete-source"
+description = "Denies the verify_delete_source command without any pre-configured scope."
+commands.deny = ["verify_delete_source"]

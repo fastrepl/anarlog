@@ -38,6 +38,13 @@ const mocks = vi.hoisted(() => ({
   reviewSessionAccessRequest: vi.fn(),
   setSessionShareScope: vi.fn(),
   upsertDurableSharedNoteCache: vi.fn().mockResolvedValue(undefined),
+  durableNote: null as any,
+  sessionAttachments: [] as any[],
+  sharedAttachmentMap: new Map<string, string>(),
+  attachmentControlProps: null as any,
+  loadSessionShareAttachments: vi.fn(),
+  prepareSessionShareAttachment: vi.fn(),
+  setAttachmentCloudSyncEnabled: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
   clipboardWriteText: vi.fn().mockResolvedValue(undefined),
@@ -53,6 +60,29 @@ vi.mock("~/auth/billing-context", () => ({
 
 vi.mock("~/shared-notes/cache", () => ({
   upsertDurableSharedNoteCache: mocks.upsertDurableSharedNoteCache,
+  useDurableSharedNote: () => ({
+    data: mocks.durableNote,
+    isLoading: false,
+  }),
+}));
+
+vi.mock("./attachments", () => ({
+  addSharedAttachmentIds: (body: unknown) => body,
+  loadSessionShareAttachments: mocks.loadSessionShareAttachments,
+  matchSharedAttachmentsToLocal: () => new Map(mocks.sharedAttachmentMap),
+  prepareSessionShareAttachment: mocks.prepareSessionShareAttachment,
+  useSessionShareAttachments: () => ({ data: mocks.sessionAttachments }),
+}));
+
+vi.mock("./attachment-controls", () => ({
+  SessionAttachmentControls: (props: unknown) => {
+    mocks.attachmentControlProps = props;
+    return null;
+  },
+}));
+
+vi.mock("~/session/attachments", () => ({
+  setAttachmentCloudSyncEnabled: mocks.setAttachmentCloudSyncEnabled,
 }));
 
 vi.mock("./source", () => ({
@@ -192,6 +222,29 @@ describe("SessionShareButton", () => {
     mocks.billing.isReady = true;
     mocks.billing.isPaid = true;
     mocks.management = defaultManagement();
+    mocks.sessionAttachments = [];
+    mocks.sharedAttachmentMap = new Map();
+    mocks.attachmentControlProps = null;
+    mocks.loadSessionShareAttachments.mockResolvedValue([]);
+    mocks.setAttachmentCloudSyncEnabled.mockImplementation(
+      async (_sessionId: string, _attachmentId: string, enabled: boolean) => {
+        mocks.events.push(enabled ? "cloud-on" : "cloud-off");
+      },
+    );
+    mocks.durableNote = {
+      shareId: SHARE_ID,
+      workspaceId: WORKSPACE_ID,
+      sessionId: "session-1",
+      schemaVersion: 1,
+      contentRevision: 1,
+      title: "Planning",
+      body: { type: "doc", content: [] },
+      attachments: [],
+      capability: "editor",
+      manageAccess: true,
+      accessVersion: 1,
+      publishedAt: "2026-07-17T00:00:00Z",
+    };
     mocks.loadSessionShareSource.mockImplementation(async () => {
       mocks.events.push("load");
       return {
@@ -219,6 +272,7 @@ describe("SessionShareButton", () => {
         contentRevision: 1,
         title: "Planning",
         body: { type: "doc", content: [] },
+        attachments: [],
         publishedAt: "2026-07-17T00:00:00Z",
       };
     });
@@ -326,9 +380,128 @@ describe("SessionShareButton", () => {
     );
     expect(
       screen.getByText(
-        "Attachments and recordings stay private and are not included in the shared copy yet.",
+        "Attachments stay private unless you explicitly include them in this shared note.",
       ),
     ).not.toBeNull();
+  });
+
+  it("does not clear attachment selections when reopening an existing share", async () => {
+    mocks.durableNote.attachments = [
+      {
+        id: "88888888-8888-4888-8888-888888888888",
+        filename: "diagram.png",
+        contentType: "image/png",
+        sizeBytes: 42,
+        sha256: "a".repeat(64),
+      },
+    ];
+    mocks.createOrReuseSessionShare.mockImplementationOnce(async () => {
+      mocks.events.push("create");
+      return {
+        shareId: SHARE_ID,
+        generalScope: "restricted",
+        publicSlug: PUBLIC_SLUG,
+        accessVersion: 1,
+        wasCreated: false,
+      };
+    });
+    renderShareButton();
+
+    await openShareDialog();
+
+    expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
+    expect(mocks.events.slice(0, 4)).toEqual([
+      "load",
+      "create",
+      "management",
+      "access",
+    ]);
+  });
+
+  it("prunes a shared attachment whose local version was replaced", async () => {
+    const remoteAttachment = {
+      id: "88888888-8888-4888-8888-888888888888",
+      filename: "diagram.png",
+      contentType: "image/png",
+      sizeBytes: 42,
+      sha256: "a".repeat(64),
+    };
+    mocks.durableNote.attachments = [remoteAttachment];
+    mocks.createOrReuseSessionShare.mockResolvedValueOnce({
+      shareId: SHARE_ID,
+      generalScope: "restricted",
+      publicSlug: PUBLIC_SLUG,
+      accessVersion: 1,
+      wasCreated: false,
+    });
+    renderShareButton();
+    await openShareDialog();
+    mocks.publishSessionShareSnapshot.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Update shared copy" }));
+
+    await waitFor(() =>
+      expect(mocks.publishSessionShareSnapshot).toHaveBeenCalledWith(
+        expect.objectContaining({ attachmentIds: [] }),
+      ),
+    );
+  });
+
+  it("revokes a shared copy before making its private backup local-only", async () => {
+    const localAttachment = {
+      id: "local-attachment",
+      filename: "diagram.png",
+      contentType: "image/png",
+      sizeBytes: 42,
+      sha256: "a".repeat(64),
+      sourceType: "note_upload",
+      sourceId: "diagram.png",
+      cloudSyncEnabled: true,
+      cloudObjectKey: "private/object.anb1",
+      localAvailability: "present",
+      transferDirection: null,
+      transferPhase: "completed",
+      transferError: "",
+    };
+    const remoteAttachment = {
+      id: "88888888-8888-4888-8888-888888888888",
+      filename: localAttachment.filename,
+      contentType: localAttachment.contentType,
+      sizeBytes: localAttachment.sizeBytes,
+      sha256: localAttachment.sha256,
+    };
+    mocks.sessionAttachments = [localAttachment];
+    mocks.loadSessionShareAttachments.mockResolvedValue([localAttachment]);
+    mocks.sharedAttachmentMap = new Map([
+      [localAttachment.id, remoteAttachment.id],
+    ]);
+    mocks.durableNote.attachments = [remoteAttachment];
+    mocks.createOrReuseSessionShare.mockResolvedValueOnce({
+      shareId: SHARE_ID,
+      generalScope: "restricted",
+      publicSlug: PUBLIC_SLUG,
+      accessVersion: 1,
+      wasCreated: false,
+    });
+    renderShareButton();
+    await openShareDialog();
+    mocks.events = [];
+
+    act(() => {
+      mocks.attachmentControlProps.onCloudChange(localAttachment, false);
+    });
+
+    await waitFor(() =>
+      expect(mocks.setAttachmentCloudSyncEnabled).toHaveBeenCalledWith(
+        "session-1",
+        localAttachment.id,
+        false,
+      ),
+    );
+    expect(mocks.publishSessionShareSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ attachmentIds: [] }),
+    );
+    expect(mocks.events.slice(0, 3)).toEqual(["load", "publish", "cloud-off"]);
   });
 
   it("abandons initial share preparation when the active account changes", async () => {

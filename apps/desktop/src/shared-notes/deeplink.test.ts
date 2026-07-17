@@ -108,9 +108,10 @@ describe("shared-note desktop deep links", () => {
       signal: abortSignal,
     });
 
-    expect(rpc).toHaveBeenCalledWith("read_my_session_share_snapshot", {
-      p_share_id: shareId,
-    });
+    expect(rpc).toHaveBeenCalledWith(
+      "read_my_session_share_snapshot_with_attachments",
+      { p_share_id: shareId },
+    );
     expect(mocks.upsertCache).toHaveBeenCalledWith("viewer-1", snapshot);
     expect(openNew).toHaveBeenCalledWith({
       type: "shared_sessions",

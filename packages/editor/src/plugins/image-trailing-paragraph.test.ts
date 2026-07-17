@@ -21,6 +21,7 @@ describe("imageTrailingParagraphPlugin", () => {
             alt: null,
             title: null,
             attachmentId: null,
+            sharedAttachmentId: null,
             editorWidth: 80,
           },
         },

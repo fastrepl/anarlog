@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { ClientOnly, createFileRoute } from "@tanstack/react-router";
+import { useCallback } from "react";
 
 import { LinkSharedNoteActions } from "@/components/shared-note-actions";
+import type { SharedAttachmentResolver } from "@/components/shared-note-document";
 import {
   SharedNoteLoading,
   SharedNoteUnavailable,
@@ -11,7 +13,10 @@ import {
   getShareRouteToken,
   prepareShareRoutePrivacy,
 } from "@/lib/share-route-privacy";
-import { fetchLinkSharedNote } from "@/lib/shared-note-api";
+import {
+  fetchLinkSharedAttachmentDownload,
+  fetchLinkSharedNote,
+} from "@/lib/shared-note-api";
 import {
   getPrivateShareHead,
   privateShareHeaders,
@@ -51,6 +56,20 @@ function LinkSharedNoteClient({ shareId }: { shareId: string }) {
     retry: false,
     staleTime: 0,
   });
+  const resolveAttachment = useCallback<SharedAttachmentResolver>(
+    (attachment, signal) => {
+      const token = getShareRouteToken(pathname);
+      return token
+        ? fetchLinkSharedAttachmentDownload(
+            shareId,
+            token,
+            attachment.id,
+            signal,
+          )
+        : Promise.resolve(null);
+    },
+    [pathname, shareId],
+  );
 
   if (!hasToken || !validShareId.success) {
     return <SharedNoteUnavailable />;
@@ -65,6 +84,7 @@ function LinkSharedNoteClient({ shareId }: { shareId: string }) {
   return (
     <SharedNoteViewer
       snapshot={snapshotQuery.data}
+      resolveAttachment={resolveAttachment}
       accessLabel="Anyone with the link · View only"
       actions={
         <LinkSharedNoteActions

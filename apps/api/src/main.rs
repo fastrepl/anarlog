@@ -219,13 +219,23 @@ async fn app() -> Router {
             )),
         None => Router::new(),
     };
-    let shared_notes_routes = hypr_api_sync::shared_notes_router(
-        hypr_api_sync::SharedNotesState::new(shared_notes_config),
-    )
-    .route_layer(middleware::from_fn_with_state(
-        shared_notes_rate_limit,
-        rate_limit::rate_limit_by_ip,
-    ));
+    let shared_notes_state = hypr_api_sync::SharedNotesState::new(shared_notes_config);
+    let shared_notes_routes = hypr_api_sync::shared_notes_router(shared_notes_state.clone())
+        .route_layer(middleware::from_fn_with_state(
+            shared_notes_rate_limit.clone(),
+            rate_limit::rate_limit_by_ip,
+        ));
+    let authenticated_shared_notes_routes =
+        hypr_api_sync::authenticated_shared_notes_router(shared_notes_state)
+            .route_layer(middleware::from_fn_with_state(
+                shared_notes_rate_limit,
+                rate_limit::rate_limit_by_ip,
+            ))
+            .route_layer(middleware::from_fn(auth::sentry_and_analytics))
+            .route_layer(middleware::from_fn_with_state(
+                auth_state.clone(),
+                auth::require_auth,
+            ));
 
     let integration_routes = Router::new()
         .nest("/calendar", hypr_api_calendar::router())
@@ -296,6 +306,7 @@ async fn app() -> Router {
         .merge(webhook_routes)
         .merge(paid_routes)
         .merge(shared_notes_routes)
+        .merge(authenticated_shared_notes_routes)
         .nest("/sync", sync_routes)
         .merge(integration_routes)
         .merge(integration_management_routes)

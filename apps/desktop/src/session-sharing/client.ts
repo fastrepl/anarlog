@@ -2,6 +2,8 @@ import type { Session, SupabaseClient } from "@supabase/supabase-js";
 
 import type { JSONContent } from "@hypr/editor/note";
 
+import type { SharedNoteAttachment } from "~/shared-notes/cache";
+
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const PUBLIC_SLUG_PATTERN = /^s_[0-9a-f]{32}$/;
@@ -121,6 +123,7 @@ export type PublishedSessionShareSnapshot = {
   contentRevision: number;
   title: string;
   body: JSONContent;
+  attachments: SharedNoteAttachment[];
   publishedAt: string;
 };
 
@@ -130,6 +133,7 @@ export type PublishSessionShareSnapshotInput = {
   shareId: string;
   title: string;
   body: unknown;
+  attachmentIds?: string[];
   signal?: AbortSignal;
   fetcher?: typeof fetch;
 };
@@ -457,8 +461,16 @@ export async function publishSessionShareSnapshot(
     assertUuid(input.shareId);
     const title = normalizeTitle(input.title);
     const body = parseSessionShareDocument(input.body);
+    const attachmentIds =
+      input.attachmentIds === undefined
+        ? undefined
+        : normalizeAttachmentIds(input.attachmentIds);
     const url = snapshotUrl(input.apiBaseUrl, input.shareId);
-    const requestBody = JSON.stringify({ title, body });
+    const requestBody = JSON.stringify({
+      title,
+      body,
+      ...(attachmentIds === undefined ? {} : { attachmentIds }),
+    });
     if (utf8Length(requestBody) > MAX_SNAPSHOT_RESPONSE_BYTES) {
       throw unavailable();
     }
@@ -801,6 +813,7 @@ function parsePublishedSessionShareSnapshot(
     "contentRevision",
     "title",
     "body",
+    "attachments",
     "publishedAt",
   ]);
   if (row.schemaVersion !== 1) {
@@ -812,8 +825,57 @@ function parsePublishedSessionShareSnapshot(
     contentRevision: expectPositiveInteger(row.contentRevision),
     title: expectTitle(row.title),
     body: parseSessionShareDocument(row.body),
+    attachments: parseSharedNoteAttachments(row.attachments),
     publishedAt: expectTimestamp(row.publishedAt),
   };
+}
+
+function normalizeAttachmentIds(value: string[]) {
+  if (!Array.isArray(value) || value.length > 64) throw unavailable();
+  const ids = value.map(expectUuid);
+  if (new Set(ids).size !== ids.length) throw unavailable();
+  return ids;
+}
+
+function parseSharedNoteAttachments(value: unknown): SharedNoteAttachment[] {
+  if (!Array.isArray(value) || value.length > 64) throw unavailable();
+  const ids = new Set<string>();
+  return value.map((candidate) => {
+    const row = expectRecord(candidate, [
+      "id",
+      "filename",
+      "contentType",
+      "sizeBytes",
+      "sha256",
+    ]);
+    const id = expectUuid(row.id);
+    if (ids.has(id)) throw unavailable();
+    ids.add(id);
+    if (
+      typeof row.filename !== "string" ||
+      row.filename.length === 0 ||
+      row.filename.trim() !== row.filename ||
+      utf8Length(row.filename) > 1024 ||
+      /[\\/\u0000-\u001f\u007f]/.test(row.filename) ||
+      typeof row.contentType !== "string" ||
+      row.contentType.length === 0 ||
+      row.contentType.length > 255 ||
+      !Number.isSafeInteger(row.sizeBytes) ||
+      (row.sizeBytes as number) < 1 ||
+      (row.sizeBytes as number) > 512 * 1024 * 1024 ||
+      typeof row.sha256 !== "string" ||
+      !/^[0-9a-f]{64}$/.test(row.sha256)
+    ) {
+      throw unavailable();
+    }
+    return {
+      id,
+      filename: row.filename,
+      contentType: row.contentType,
+      sizeBytes: row.sizeBytes as number,
+      sha256: row.sha256,
+    };
+  });
 }
 
 function snapshotUrl(apiBaseUrl: string, shareId: string) {

@@ -7,7 +7,10 @@ import {
 import { cn } from "@hypr/utils";
 
 import { AnarlogLogo } from "@/components/anarlog-logo";
-import { SharedNoteDocument } from "@/components/shared-note-document";
+import {
+  type SharedAttachmentResolver,
+  SharedNoteDocument,
+} from "@/components/shared-note-document";
 import {
   type SharedNoteSnapshot,
   withoutDuplicateLeadingTitle,
@@ -30,10 +33,12 @@ export const sharedSecondaryButtonClassName = cn([
 export function SharedNoteViewer({
   accessLabel,
   actions,
+  resolveAttachment,
   snapshot,
 }: {
   accessLabel: string;
   actions?: React.ReactNode;
+  resolveAttachment?: SharedAttachmentResolver;
   snapshot: SharedNoteSnapshot;
 }) {
   const body = withoutDuplicateLeadingTitle(snapshot.body, snapshot.title);
@@ -56,7 +61,11 @@ export function SharedNoteViewer({
         </header>
 
         <div className="px-6 py-7 sm:px-10 sm:py-10">
-          <SharedNoteDocument document={body} />
+          <SharedNoteDocument
+            attachments={snapshot.attachments}
+            document={body}
+            resolveAttachment={resolveAttachment}
+          />
         </div>
       </article>
 

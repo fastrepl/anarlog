@@ -1,0 +1,17 @@
+[default]
+description = "Attachment transfer and scoped cache permissions"
+permissions = [
+  "allow-describe-upload",
+  "allow-prepare-upload",
+  "allow-read-upload-range",
+  "allow-read-attachment-range",
+  "allow-verify-delete-source",
+  "allow-begin-attachment-download",
+  "allow-cancel-attachment-download",
+  "allow-download-and-restore",
+  "allow-cleanup-transfer-cache",
+  "allow-download-shared-attachment",
+  "allow-shared-attachment-path",
+  "allow-remove-shared-attachment",
+  "allow-clear-shared-attachment-scope",
+]

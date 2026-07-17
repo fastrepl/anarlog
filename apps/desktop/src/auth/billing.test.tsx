@@ -6,18 +6,24 @@ import { canStartTrial as canStartTrialApi } from "@hypr/api-client";
 import { commands as authCommands } from "@hypr/plugin-auth";
 
 import * as billingProviderModule from "./billing";
+import { useBillingAccess } from "./billing-context";
 
 const { BillingProvider } = billingProviderModule;
 
 const refreshSession = vi.fn();
+const authState = vi.hoisted(() => ({
+  session: {
+    access_token: "stale-token",
+    user: { id: "user-1", email: "test@example.com" },
+  },
+}));
 
 vi.mock("./auth-context", () => ({
   useAuth: () => ({
-    session: {
-      access_token: "stale-token",
-      user: { id: "user-1", email: "test@example.com" },
-    },
-    getHeaders: () => ({ Authorization: "Bearer stale-token" }),
+    session: authState.session,
+    getHeaders: () => ({
+      Authorization: `Bearer ${authState.session.access_token}`,
+    }),
     refreshSession,
   }),
 }));
@@ -86,13 +92,54 @@ function renderBillingProvider() {
     },
   });
 
-  return render(
+  return {
+    queryClient,
+    view: render(billingTree(queryClient)),
+  };
+}
+
+function billingTree(queryClient: QueryClient) {
+  return (
     <QueryClientProvider client={queryClient}>
       <BillingProvider>
         <div>content</div>
+        <BillingProbe />
       </BillingProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+}
+
+function BillingProbe() {
+  const billing = useBillingAccess();
+  return (
+    <div
+      data-is-paid={billing.isPaid ? "true" : "false"}
+      data-is-ready={billing.isReady ? "true" : "false"}
+      data-testid="billing-access"
+    />
+  );
+}
+
+function paidClaims(userId: string) {
+  return {
+    status: "ok" as const,
+    data: {
+      sub: userId,
+      email: `${userId}@example.com`,
+      entitlements: ["hyprnote_pro"],
+      subscription_status: "active" as const,
+      trial_end: null,
+      has_payment_method: true,
+    },
+  };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
 }
 
 describe("BillingProvider", () => {
@@ -107,18 +154,24 @@ describe("BillingProvider", () => {
     });
 
     refreshSession.mockReset();
+    authState.session = {
+      access_token: "stale-token",
+      user: { id: "user-1", email: "test@example.com" },
+    };
 
-    vi.mocked(authCommands.decodeClaims).mockResolvedValue({
-      status: "ok",
-      data: {
-        sub: "user-1",
-        email: "test@example.com",
-        entitlements: [],
-        subscription_status: null,
-        trial_end: null,
-        has_payment_method: null,
-      },
-    });
+    vi.mocked(authCommands.decodeClaims)
+      .mockReset()
+      .mockResolvedValue({
+        status: "ok",
+        data: {
+          sub: "user-1",
+          email: "test@example.com",
+          entitlements: [],
+          subscription_status: null,
+          trial_end: null,
+          has_payment_method: null,
+        },
+      });
 
     vi.mocked(canStartTrialApi).mockResolvedValue({
       data: { canStartTrial: false, reason: "not_eligible" as const },
@@ -147,6 +200,72 @@ describe("BillingProvider", () => {
         screen.getByTestId("trial-ended-dialog").getAttribute("data-open"),
       ).toBe("true");
     });
+  });
+
+  it("keeps paid access while the same user's refreshed token is decoded", async () => {
+    const refreshedClaims =
+      deferred<Awaited<ReturnType<typeof authCommands.decodeClaims>>>();
+    vi.mocked(authCommands.decodeClaims)
+      .mockResolvedValueOnce(paidClaims("user-1"))
+      .mockReturnValueOnce(refreshedClaims.promise);
+    const { queryClient, view } = renderBillingProvider();
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("billing-access").getAttribute("data-is-paid"),
+      ).toBe("true");
+    });
+
+    authState.session = {
+      ...authState.session,
+      access_token: "refreshed-token",
+    };
+    view.rerender(billingTree(queryClient));
+
+    await waitFor(() => {
+      expect(authCommands.decodeClaims).toHaveBeenCalledTimes(2);
+    });
+    expect(
+      screen.getByTestId("billing-access").getAttribute("data-is-paid"),
+    ).toBe("true");
+    expect(
+      screen.getByTestId("billing-access").getAttribute("data-is-ready"),
+    ).toBe("true");
+
+    refreshedClaims.resolve(paidClaims("user-1"));
+  });
+
+  it("does not retain paid access across account switches", async () => {
+    const switchedClaims =
+      deferred<Awaited<ReturnType<typeof authCommands.decodeClaims>>>();
+    vi.mocked(authCommands.decodeClaims)
+      .mockResolvedValueOnce(paidClaims("user-1"))
+      .mockReturnValueOnce(switchedClaims.promise);
+    const { queryClient, view } = renderBillingProvider();
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("billing-access").getAttribute("data-is-paid"),
+      ).toBe("true");
+    });
+
+    authState.session = {
+      access_token: "user-2-token",
+      user: { id: "user-2", email: "user-2@example.com" },
+    };
+    view.rerender(billingTree(queryClient));
+
+    await waitFor(() => {
+      expect(authCommands.decodeClaims).toHaveBeenCalledTimes(2);
+    });
+    expect(
+      screen.getByTestId("billing-access").getAttribute("data-is-paid"),
+    ).toBe("false");
+    expect(
+      screen.getByTestId("billing-access").getAttribute("data-is-ready"),
+    ).toBe("false");
+
+    switchedClaims.resolve(paidClaims("user-2"));
   });
 
   it("opens a payment reminder during the final seven trial days", async () => {

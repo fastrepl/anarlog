@@ -140,6 +140,7 @@ pub async fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_tracing::init())
         .plugin(tauri_plugin_analytics::init())
+        .plugin(tauri_plugin_attachment_sync::init())
         .plugin(tauri_plugin_agent::init())
         .plugin(tauri_plugin_db::init_with_cloudsync(
             db.clone(),

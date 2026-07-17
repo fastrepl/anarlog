@@ -38,11 +38,16 @@ vi.mock("@hypr/editor/markdown", () => ({
 }));
 
 vi.mock("@hypr/editor/note", () => ({
+  normalizePortableAttachmentUrls: (value: unknown) => value,
   NoteEditor: (props: Record<string, unknown>) => {
     hoisted.noteEditorProps.push(props);
 
     return <div>Note editor</div>;
   },
+}));
+
+vi.mock("~/session/hooks/useAttachmentResolver", () => ({
+  useAttachmentResolver: () => () => null,
 }));
 
 vi.mock("~/editor-bridge/app-link-view", () => ({

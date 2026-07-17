@@ -37,7 +37,21 @@ export type SharedNoteSnapshot = {
   contentRevision: number;
   title: string;
   body: SharedNoteDocument;
+  attachments: SharedNoteAttachment[];
   publishedAt: string;
+};
+
+export type SharedNoteAttachment = {
+  id: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  sha256: string;
+};
+
+export type SharedNoteAttachmentDownload = SharedNoteAttachment & {
+  signedUrl: string;
+  expiresAt: string;
 };
 
 export type AuthenticatedSharedNote = {
@@ -83,6 +97,7 @@ const gatewaySnapshotSchema = z
     contentRevision: z.number().int().positive(),
     title: z.string(),
     body: z.unknown(),
+    attachments: z.array(z.unknown()).max(64),
     publishedAt: z.string(),
   })
   .strict();
@@ -94,6 +109,7 @@ const authenticatedSnapshotRowSchema = z
     content_revision: z.number().int().positive(),
     title: z.string(),
     body_json: z.unknown(),
+    attachments_json: z.array(z.unknown()).max(64),
     capability: z.enum(["viewer", "commenter", "editor"]),
     published_at: z.string(),
   })
@@ -106,12 +122,34 @@ const handoffSchema = z
   })
   .strict();
 
+const attachmentSchema = z
+  .object({
+    id: shareIdSchema,
+    filename: z.string().min(1).max(1024),
+    contentType: z.string().min(1).max(512),
+    sizeBytes: z
+      .number()
+      .int()
+      .nonnegative()
+      .max(512 * 1024 * 1024),
+    sha256: z.string().regex(/^[0-9a-f]{64}$/),
+  })
+  .strict();
+
+const attachmentDownloadSchema = attachmentSchema
+  .extend({
+    signedUrl: z.string().url().max(16_384),
+    expiresAt: z.string(),
+  })
+  .strict();
+
 export function parseGatewaySharedNote(value: unknown): SharedNoteSnapshot {
   const parsed = gatewaySnapshotSchema.parse(value);
   return {
     ...parsed,
     title: parseTitle(parsed.title),
     body: parseSharedNoteDocument(parsed.body),
+    attachments: parseSharedNoteAttachments(parsed.attachments),
     publishedAt: parseTimestamp(parsed.publishedAt),
   };
 }
@@ -128,9 +166,38 @@ export function parseAuthenticatedSharedNote(
       contentRevision: parsed.content_revision,
       title: parseTitle(parsed.title),
       body: parseSharedNoteDocument(parsed.body_json),
+      attachments: parseSharedNoteAttachments(parsed.attachments_json),
       publishedAt: parseTimestamp(parsed.published_at),
     },
   };
+}
+
+export function parseSharedNoteAttachmentDownload(
+  value: unknown,
+): SharedNoteAttachmentDownload {
+  const parsed = attachmentDownloadSchema.parse(value);
+  const signedUrl = new URL(parsed.signedUrl);
+  if (
+    signedUrl.protocol !== "https:" ||
+    signedUrl.username ||
+    signedUrl.password ||
+    signedUrl.hash
+  ) {
+    throw new Error("invalid shared-note attachment download");
+  }
+  return { ...parsed, expiresAt: parseTimestamp(parsed.expiresAt) };
+}
+
+function parseSharedNoteAttachments(value: unknown): SharedNoteAttachment[] {
+  const parsed = z.array(attachmentSchema).max(64).parse(value);
+  const ids = new Set<string>();
+  for (const attachment of parsed) {
+    if (ids.has(attachment.id)) {
+      throw new Error("duplicate shared-note attachment");
+    }
+    ids.add(attachment.id);
+  }
+  return parsed;
 }
 
 export function parseShareHandoff(value: unknown): ShareHandoff {

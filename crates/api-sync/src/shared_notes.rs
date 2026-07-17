@@ -1,46 +1,84 @@
-use std::time::Duration;
+use std::{net::IpAddr, time::Duration};
 
 use axum::{
-    Json, Router,
+    Extension, Json, Router,
     extract::{DefaultBodyLimit, Path, Request, State},
-    http::{HeaderValue, header},
+    http::{HeaderMap, HeaderValue, header},
     middleware::{self, Next},
     response::Response,
     routing::{get, post},
 };
+use chrono::{SecondsFormat, TimeDelta, Utc};
+use hmac::{Hmac, KeyInit, Mac};
+use hypr_api_auth::AuthContext;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
+use sha2::Sha256;
 use utoipa::OpenApi;
 use uuid::Uuid;
 
 use crate::{
     SharedNotesConfig,
     error::{Result, SyncError},
+    routes::{SharedNoteAttachment, validate_shared_attachments},
     snapshot::MAX_SNAPSHOT_BODY_BYTES,
 };
 
 const SHARED_NOTE_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_LINK_REQUEST_BYTES: usize = 1024;
 const MAX_HANDOFF_CLAIM_REQUEST_BYTES: usize = 256;
-const MAX_SNAPSHOT_RESPONSE_BYTES: usize = MAX_SNAPSHOT_BODY_BYTES + 16 * 1024;
+const MAX_SNAPSHOT_RESPONSE_BYTES: usize = MAX_SNAPSHOT_BODY_BYTES + 256 * 1024;
 const MAX_HANDOFF_RESPONSE_BYTES: usize = 16 * 1024;
+const SHARED_ATTACHMENT_BUCKET: &str = "shared-note-attachments";
+const ATTACHMENT_DOWNLOAD_TTL_SECONDS: i64 = 60;
+const FLY_CLIENT_IP_HEADER: &str = "fly-client-ip";
+const HANDOFF_SOURCE_DOMAIN: &[u8] = b"anarlog:shared-note-handoff-source:v1\0";
 
 #[derive(Clone)]
 pub struct SharedNotesState {
     config: SharedNotesConfig,
     client: reqwest::Client,
+    storage: hypr_supabase_storage::SupabaseStorage,
 }
 
 impl SharedNotesState {
     pub fn new(config: SharedNotesConfig) -> Self {
+        let client = reqwest::Client::builder()
+            .timeout(SHARED_NOTE_TIMEOUT)
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .expect("shared-note HTTP client must build");
+        let storage = hypr_supabase_storage::SupabaseStorage::new(
+            client.clone(),
+            &config.supabase_url,
+            &config.supabase_service_role_key,
+        );
         Self {
             config,
-            client: reqwest::Client::builder()
-                .timeout(SHARED_NOTE_TIMEOUT)
-                .redirect(reqwest::redirect::Policy::none())
-                .build()
-                .expect("shared-note HTTP client must build"),
+            client,
+            storage,
         }
+    }
+
+    fn handoff_source_hash(&self, headers: &HeaderMap) -> String {
+        let source = headers
+            .get(FLY_CLIENT_IP_HEADER)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.parse::<IpAddr>().ok())
+            .map(|address| address.to_string())
+            .unwrap_or_else(|| "unknown".to_string());
+        let mut mac =
+            Hmac::<Sha256>::new_from_slice(self.config.supabase_service_role_key.as_bytes())
+                .expect("HMAC accepts service-role keys of any size");
+        mac.update(HANDOFF_SOURCE_DOMAIN);
+        mac.update(source.as_bytes());
+        let bytes = mac.finalize().into_bytes();
+        let mut encoded = String::with_capacity(bytes.len() * 2);
+        for byte in bytes {
+            encoded.push(char::from_digit(u32::from(byte >> 4), 16).unwrap());
+            encoded.push(char::from_digit(u32::from(byte & 0x0f), 16).unwrap());
+        }
+        encoded
     }
 }
 
@@ -54,6 +92,13 @@ pub struct SharedNoteLinkRequest {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SharedNoteHandoffClaimRequest {
     request_id: String,
+    lease_id: String,
+}
+
+#[derive(Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SharedNoteHandoffAttachmentRequest {
+    lease_id: String,
 }
 
 #[derive(Serialize, utoipa::ToSchema)]
@@ -64,7 +109,22 @@ pub struct SharedNoteSnapshot {
     content_revision: i64,
     title: String,
     body: Value,
+    attachments: Vec<SharedNoteAttachment>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    lease_expires_at: Option<String>,
     published_at: String,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SharedAttachmentDownload {
+    id: String,
+    filename: String,
+    content_type: String,
+    size_bytes: u64,
+    sha256: String,
+    signed_url: String,
+    expires_at: String,
 }
 
 #[derive(Serialize, utoipa::ToSchema)]
@@ -86,8 +146,52 @@ struct LinkRpcRequest<'a> {
 }
 
 #[derive(Serialize)]
+struct PublicHandoffRpcRequest<'a> {
+    p_public_slug: &'a str,
+    p_source_hash: &'a str,
+}
+
+#[derive(Serialize)]
+struct LinkHandoffRpcRequest<'a> {
+    p_share_id: &'a str,
+    p_link_token: &'a str,
+    p_source_hash: &'a str,
+}
+
+#[derive(Serialize)]
 struct ClaimHandoffRpcRequest<'a> {
     p_request_id: &'a str,
+    p_lease_id: &'a str,
+}
+
+#[derive(Serialize)]
+struct HandoffAttachmentRpcRequest<'a> {
+    p_lease_id: &'a str,
+    p_attachment_id: &'a str,
+    p_download_expires_at: &'a str,
+}
+
+#[derive(Serialize)]
+struct PublicAttachmentRpcRequest<'a> {
+    p_public_slug: &'a str,
+    p_attachment_id: &'a str,
+    p_download_expires_at: &'a str,
+}
+
+#[derive(Serialize)]
+struct LinkAttachmentRpcRequest<'a> {
+    p_share_id: &'a str,
+    p_attachment_id: &'a str,
+    p_link_token: &'a str,
+    p_download_expires_at: &'a str,
+}
+
+#[derive(Serialize)]
+struct MyAttachmentRpcRequest<'a> {
+    p_share_id: &'a str,
+    p_attachment_id: &'a str,
+    p_actor_user_id: &'a str,
+    p_download_expires_at: &'a str,
 }
 
 #[derive(Deserialize)]
@@ -97,7 +201,34 @@ struct GatewaySnapshotRow {
     content_revision: i64,
     title: String,
     body_json: Value,
+    attachments_json: Vec<SharedNoteAttachment>,
     published_at: String,
+}
+
+#[derive(Deserialize)]
+struct GatewayClaimSnapshotRow {
+    share_id: String,
+    schema_version: i16,
+    content_revision: i64,
+    title: String,
+    body_json: Value,
+    attachments_json: Vec<SharedNoteAttachment>,
+    lease_expires_at: String,
+    published_at: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PreparedAttachmentRow {
+    share_id: String,
+    attachment_id: String,
+    object_key: String,
+    filename: String,
+    content_type: String,
+    size_bytes: i64,
+    sha256: String,
+    access_version: i64,
+    cleanup_not_before: String,
 }
 
 #[derive(Deserialize)]
@@ -113,13 +244,19 @@ struct GatewayHandoffRow {
         read_link_shared_note,
         create_public_shared_note_handoff,
         create_link_shared_note_handoff,
-        claim_shared_note_handoff
+        claim_shared_note_handoff,
+        download_handoff_shared_attachment,
+        download_public_shared_attachment,
+        download_link_shared_attachment,
+        download_access_shared_attachment
     ),
     components(schemas(
         SharedNoteLinkRequest,
         SharedNoteHandoffClaimRequest,
+        SharedNoteHandoffAttachmentRequest,
         SharedNoteSnapshot,
-        SharedNoteHandoff
+        SharedNoteHandoff,
+        SharedAttachmentDownload
     ))
 )]
 pub struct SharedNotesApiDoc;
@@ -148,6 +285,30 @@ pub fn router(state: SharedNotesState) -> Router {
             "/shared-notes/handoffs/claim",
             post(claim_shared_note_handoff)
                 .layer(DefaultBodyLimit::max(MAX_HANDOFF_CLAIM_REQUEST_BYTES)),
+        )
+        .route(
+            "/shared-notes/handoffs/attachments/{attachment_id}/download",
+            post(download_handoff_shared_attachment)
+                .layer(DefaultBodyLimit::max(MAX_HANDOFF_CLAIM_REQUEST_BYTES)),
+        )
+        .route(
+            "/shared-notes/public/{slug}/attachments/{attachment_id}/download",
+            post(download_public_shared_attachment),
+        )
+        .route(
+            "/shared-notes/link/{share_id}/attachments/{attachment_id}/download",
+            post(download_link_shared_attachment)
+                .layer(DefaultBodyLimit::max(MAX_LINK_REQUEST_BYTES)),
+        )
+        .layer(middleware::from_fn(add_no_store))
+        .with_state(state)
+}
+
+pub fn authenticated_router(state: SharedNotesState) -> Router {
+    Router::new()
+        .route(
+            "/shared-notes/access/{share_id}/attachments/{attachment_id}/download",
+            post(download_access_shared_attachment),
         )
         .layer(middleware::from_fn(add_no_store))
         .with_state(state)
@@ -182,7 +343,7 @@ async fn read_public_shared_note(
 
     let row = rpc_single(
         &state,
-        "gateway_read_public_session_share_snapshot",
+        "gateway_read_public_session_share_snapshot_v2",
         &PublicSlugRpcRequest {
             p_public_slug: &slug,
         },
@@ -217,7 +378,7 @@ async fn read_link_shared_note(
 
     let row = rpc_single(
         &state,
-        "gateway_read_session_share_link_snapshot",
+        "gateway_read_session_share_link_snapshot_v2",
         &LinkRpcRequest {
             p_share_id: &share_id,
             p_link_token: &request.token,
@@ -242,16 +403,19 @@ async fn read_link_shared_note(
 async fn create_public_shared_note_handoff(
     State(state): State<SharedNotesState>,
     Path(slug): Path<String>,
+    headers: HeaderMap,
 ) -> Result<Json<SharedNoteHandoff>> {
     if !is_valid_public_slug(&slug) {
         return Err(SyncError::SharedNoteNotFound);
     }
 
+    let source_hash = state.handoff_source_hash(&headers);
     let row = rpc_single(
         &state,
         "gateway_create_public_session_share_handoff",
-        &PublicSlugRpcRequest {
+        &PublicHandoffRpcRequest {
             p_public_slug: &slug,
+            p_source_hash: &source_hash,
         },
         MAX_HANDOFF_RESPONSE_BYTES,
     )
@@ -275,6 +439,7 @@ async fn create_public_shared_note_handoff(
 async fn create_link_shared_note_handoff(
     State(state): State<SharedNotesState>,
     Path(share_id): Path<String>,
+    headers: HeaderMap,
     Json(request): Json<SharedNoteLinkRequest>,
 ) -> Result<Json<SharedNoteHandoff>> {
     let share_id = canonical_uuid(&share_id).ok_or(SyncError::SharedNoteNotFound)?;
@@ -282,12 +447,14 @@ async fn create_link_shared_note_handoff(
         return Err(SyncError::SharedNoteNotFound);
     }
 
+    let source_hash = state.handoff_source_hash(&headers);
     let row = rpc_single(
         &state,
         "gateway_create_session_share_link_handoff",
-        &LinkRpcRequest {
+        &LinkHandoffRpcRequest {
             p_share_id: &share_id,
             p_link_token: &request.token,
+            p_source_hash: &source_hash,
         },
         MAX_HANDOFF_RESPONSE_BYTES,
     )
@@ -301,7 +468,7 @@ async fn create_link_shared_note_handoff(
     tag = "shared-notes",
     request_body = SharedNoteHandoffClaimRequest,
     responses(
-        (status = 200, description = "Claimed shared note", body = SharedNoteSnapshot),
+        (status = 200, description = "Claimed shared note with a retryable attachment lease", body = SharedNoteSnapshot),
         (status = 404, description = "Shared note unavailable"),
         (status = 502, description = "Shared note service unavailable")
     )
@@ -311,16 +478,341 @@ async fn claim_shared_note_handoff(
     Json(request): Json<SharedNoteHandoffClaimRequest>,
 ) -> Result<Json<SharedNoteSnapshot>> {
     let request_id = canonical_uuid_v4(&request.request_id).ok_or(SyncError::SharedNoteNotFound)?;
-    let row = rpc_single(
+    let lease_id = canonical_uuid_v4(&request.lease_id).ok_or(SyncError::SharedNoteNotFound)?;
+    let row: GatewayClaimSnapshotRow = rpc_single(
         &state,
-        "gateway_claim_session_share_handoff",
+        "gateway_lease_session_share_handoff",
         &ClaimHandoffRpcRequest {
             p_request_id: &request_id,
+            p_lease_id: &lease_id,
         },
         MAX_SNAPSHOT_RESPONSE_BYTES,
     )
     .await?;
-    Ok(Json(validate_snapshot(row, None)?))
+    let lease_expires_at = validate_handoff_lease(&row.lease_expires_at)?;
+    let mut snapshot = validate_snapshot(
+        GatewaySnapshotRow {
+            share_id: row.share_id,
+            schema_version: row.schema_version,
+            content_revision: row.content_revision,
+            title: row.title,
+            body_json: row.body_json,
+            attachments_json: row.attachments_json,
+            published_at: row.published_at,
+        },
+        None,
+    )?;
+    snapshot.lease_expires_at = Some(lease_expires_at);
+    Ok(Json(snapshot))
+}
+
+#[utoipa::path(
+    post,
+    path = "/shared-notes/handoffs/attachments/{attachment_id}/download",
+    tag = "shared-notes",
+    params(("attachment_id" = String, Path, description = "Published attachment ID")),
+    request_body = SharedNoteHandoffAttachmentRequest,
+    responses(
+        (status = 200, description = "Short-lived leased attachment download", body = SharedAttachmentDownload),
+        (status = 404, description = "Shared attachment unavailable"),
+        (status = 502, description = "Shared attachment service unavailable")
+    )
+)]
+async fn download_handoff_shared_attachment(
+    State(state): State<SharedNotesState>,
+    Path(attachment_id): Path<String>,
+    Json(request): Json<SharedNoteHandoffAttachmentRequest>,
+) -> Result<Json<SharedAttachmentDownload>> {
+    let lease_id =
+        canonical_uuid_v4(&request.lease_id).ok_or(SyncError::SharedAttachmentNotFound)?;
+    let attachment_id =
+        canonical_uuid_v4(&attachment_id).ok_or(SyncError::SharedAttachmentNotFound)?;
+    let expires_at = future_timestamp(ATTACHMENT_DOWNLOAD_TTL_SECONDS)?;
+    let row = attachment_rpc_single(
+        &state,
+        "gateway_prepare_session_share_handoff_attachment_download",
+        &HandoffAttachmentRpcRequest {
+            p_lease_id: &lease_id,
+            p_attachment_id: &attachment_id,
+            p_download_expires_at: &expires_at,
+        },
+    )
+    .await?;
+    Ok(Json(
+        sign_attachment_download(
+            &state,
+            row,
+            &attachment_id,
+            &expires_at,
+            ATTACHMENT_DOWNLOAD_TTL_SECONDS,
+        )
+        .await?,
+    ))
+}
+
+#[utoipa::path(
+    post,
+    path = "/shared-notes/public/{slug}/attachments/{attachment_id}/download",
+    tag = "shared-notes",
+    params(
+        ("slug" = String, Path, description = "Public share slug"),
+        ("attachment_id" = String, Path, description = "Published attachment ID")
+    ),
+    responses(
+        (status = 200, description = "Short-lived public attachment download", body = SharedAttachmentDownload),
+        (status = 404, description = "Shared attachment unavailable"),
+        (status = 502, description = "Shared attachment service unavailable")
+    )
+)]
+async fn download_public_shared_attachment(
+    State(state): State<SharedNotesState>,
+    Path((slug, attachment_id)): Path<(String, String)>,
+) -> Result<Json<SharedAttachmentDownload>> {
+    if !is_valid_public_slug(&slug) {
+        return Err(SyncError::SharedAttachmentNotFound);
+    }
+    let attachment_id =
+        canonical_uuid_v4(&attachment_id).ok_or(SyncError::SharedAttachmentNotFound)?;
+    let expires_at = future_timestamp(ATTACHMENT_DOWNLOAD_TTL_SECONDS)?;
+    let row = attachment_rpc_single(
+        &state,
+        "gateway_prepare_public_session_share_attachment_download",
+        &PublicAttachmentRpcRequest {
+            p_public_slug: &slug,
+            p_attachment_id: &attachment_id,
+            p_download_expires_at: &expires_at,
+        },
+    )
+    .await?;
+    Ok(Json(
+        sign_attachment_download(
+            &state,
+            row,
+            &attachment_id,
+            &expires_at,
+            ATTACHMENT_DOWNLOAD_TTL_SECONDS,
+        )
+        .await?,
+    ))
+}
+
+#[utoipa::path(
+    post,
+    path = "/shared-notes/link/{share_id}/attachments/{attachment_id}/download",
+    tag = "shared-notes",
+    params(
+        ("share_id" = String, Path, description = "Session share ID"),
+        ("attachment_id" = String, Path, description = "Published attachment ID")
+    ),
+    request_body = SharedNoteLinkRequest,
+    responses(
+        (status = 200, description = "Short-lived bearer-link attachment download", body = SharedAttachmentDownload),
+        (status = 404, description = "Shared attachment unavailable"),
+        (status = 502, description = "Shared attachment service unavailable")
+    )
+)]
+async fn download_link_shared_attachment(
+    State(state): State<SharedNotesState>,
+    Path((share_id, attachment_id)): Path<(String, String)>,
+    Json(request): Json<SharedNoteLinkRequest>,
+) -> Result<Json<SharedAttachmentDownload>> {
+    let share_id = canonical_uuid(&share_id).ok_or(SyncError::SharedAttachmentNotFound)?;
+    let attachment_id =
+        canonical_uuid_v4(&attachment_id).ok_or(SyncError::SharedAttachmentNotFound)?;
+    if !is_valid_link_token(&request.token) {
+        return Err(SyncError::SharedAttachmentNotFound);
+    }
+    let expires_at = future_timestamp(ATTACHMENT_DOWNLOAD_TTL_SECONDS)?;
+    let row = attachment_rpc_single(
+        &state,
+        "gateway_prepare_session_share_link_attachment_download",
+        &LinkAttachmentRpcRequest {
+            p_share_id: &share_id,
+            p_attachment_id: &attachment_id,
+            p_link_token: &request.token,
+            p_download_expires_at: &expires_at,
+        },
+    )
+    .await?;
+    Ok(Json(
+        sign_attachment_download(
+            &state,
+            row,
+            &attachment_id,
+            &expires_at,
+            ATTACHMENT_DOWNLOAD_TTL_SECONDS,
+        )
+        .await?,
+    ))
+}
+
+#[utoipa::path(
+    post,
+    path = "/shared-notes/access/{share_id}/attachments/{attachment_id}/download",
+    tag = "shared-notes",
+    params(
+        ("share_id" = String, Path, description = "Session share ID"),
+        ("attachment_id" = String, Path, description = "Published attachment ID")
+    ),
+    responses(
+        (status = 200, description = "Short-lived authorized attachment download", body = SharedAttachmentDownload),
+        (status = 401, description = "Authentication required"),
+        (status = 404, description = "Shared attachment unavailable"),
+        (status = 502, description = "Shared attachment service unavailable")
+    )
+)]
+async fn download_access_shared_attachment(
+    Extension(auth): Extension<AuthContext>,
+    State(state): State<SharedNotesState>,
+    Path((share_id, attachment_id)): Path<(String, String)>,
+) -> Result<Json<SharedAttachmentDownload>> {
+    let share_id = canonical_uuid(&share_id).ok_or(SyncError::SharedAttachmentNotFound)?;
+    let attachment_id =
+        canonical_uuid_v4(&attachment_id).ok_or(SyncError::SharedAttachmentNotFound)?;
+    let actor_user_id =
+        canonical_uuid(&auth.claims.sub).ok_or(SyncError::SharedAttachmentNotFound)?;
+    let expires_at = future_timestamp(ATTACHMENT_DOWNLOAD_TTL_SECONDS)?;
+    let row = attachment_rpc_single(
+        &state,
+        "prepare_my_session_share_attachment_download",
+        &MyAttachmentRpcRequest {
+            p_share_id: &share_id,
+            p_attachment_id: &attachment_id,
+            p_actor_user_id: &actor_user_id,
+            p_download_expires_at: &expires_at,
+        },
+    )
+    .await?;
+    Ok(Json(
+        sign_attachment_download(
+            &state,
+            row,
+            &attachment_id,
+            &expires_at,
+            ATTACHMENT_DOWNLOAD_TTL_SECONDS,
+        )
+        .await?,
+    ))
+}
+
+async fn attachment_rpc_single<RequestBody>(
+    state: &SharedNotesState,
+    function: &str,
+    request: &RequestBody,
+) -> Result<PreparedAttachmentRow>
+where
+    RequestBody: Serialize + ?Sized,
+{
+    rpc_single(state, function, request, MAX_HANDOFF_RESPONSE_BYTES)
+        .await
+        .map_err(|error| match error {
+            SyncError::SharedNoteNotFound => SyncError::SharedAttachmentNotFound,
+            SyncError::SnapshotServiceUnavailable => SyncError::SharedAttachmentServiceUnavailable,
+            other => other,
+        })
+}
+
+async fn sign_attachment_download(
+    state: &SharedNotesState,
+    row: PreparedAttachmentRow,
+    expected_attachment_id: &str,
+    expires_at: &str,
+    expires_in_seconds: i64,
+) -> Result<SharedAttachmentDownload> {
+    validate_prepared_attachment(&row, expected_attachment_id, expires_at)?;
+    let signed_url = state
+        .storage
+        .create_signed_url(
+            SHARED_ATTACHMENT_BUCKET,
+            &row.object_key,
+            expires_in_seconds as u64,
+        )
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "shared attachment download signing failed");
+            SyncError::SharedAttachmentServiceUnavailable
+        })?;
+    Ok(SharedAttachmentDownload {
+        id: row.attachment_id,
+        filename: row.filename,
+        content_type: row.content_type,
+        size_bytes: row.size_bytes as u64,
+        sha256: row.sha256,
+        signed_url,
+        expires_at: expires_at.to_string(),
+    })
+}
+
+fn validate_prepared_attachment(
+    row: &PreparedAttachmentRow,
+    expected_attachment_id: &str,
+    expires_at: &str,
+) -> Result<()> {
+    let share_id =
+        canonical_uuid(&row.share_id).ok_or(SyncError::SharedAttachmentServiceUnavailable)?;
+    if row.attachment_id != expected_attachment_id
+        || canonical_uuid_v4(&row.attachment_id).is_none()
+        || !is_valid_attachment_object_key(&row.object_key, &share_id, expected_attachment_id)
+        || row.filename.is_empty()
+        || row.filename.len() > 1024
+        || row.filename.trim() != row.filename
+        || row.filename.contains(['/', '\\'])
+        || row.filename.chars().any(char::is_control)
+        || !is_valid_content_type(&row.content_type)
+        || !(1..=512 * 1024 * 1024).contains(&row.size_bytes)
+        || row.sha256.len() != 64
+        || !row
+            .sha256
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+        || row.access_version < 1
+        || chrono::DateTime::parse_from_rfc3339(&row.cleanup_not_before).is_err()
+        || chrono::DateTime::parse_from_rfc3339(expires_at).is_err()
+    {
+        return Err(SyncError::SharedAttachmentServiceUnavailable);
+    }
+    Ok(())
+}
+
+fn is_valid_attachment_object_key(value: &str, share_id: &str, attachment_id: &str) -> bool {
+    let mut parts = value.split('/');
+    let Some(owner) = parts.next() else {
+        return false;
+    };
+    let Some(share) = parts.next() else {
+        return false;
+    };
+    let Some(filename) = parts.next() else {
+        return false;
+    };
+    parts.next().is_none()
+        && canonical_uuid(owner).as_deref() == Some(owner)
+        && share == share_id
+        && filename == format!("{attachment_id}.sna1")
+}
+
+fn is_valid_content_type(value: &str) -> bool {
+    value.len() <= 255
+        && value == value.to_ascii_lowercase()
+        && value
+            .split_once('/')
+            .is_some_and(|(kind, subtype)| !kind.is_empty() && !subtype.is_empty())
+}
+
+fn future_timestamp(seconds: i64) -> Result<String> {
+    Utc::now()
+        .checked_add_signed(TimeDelta::seconds(seconds))
+        .map(|value| value.to_rfc3339_opts(SecondsFormat::Millis, true))
+        .ok_or_else(|| SyncError::Internal("shared attachment expiry overflow".to_string()))
+}
+
+fn validate_handoff_lease(value: &str) -> Result<String> {
+    let expires_at = chrono::DateTime::parse_from_rfc3339(value)
+        .map_err(|_| invalid_gateway_response("handoff lease expiry"))?;
+    if expires_at <= Utc::now() {
+        return Err(invalid_gateway_response("handoff lease expiry"));
+    }
+    Ok(value.to_string())
 }
 
 async fn rpc_single<RequestBody, Row>(
@@ -403,6 +895,7 @@ fn validate_snapshot(
         || row.title.len() > 4096
         || row.body_json.get("type").and_then(Value::as_str) != Some("doc")
         || body_size > MAX_SNAPSHOT_BODY_BYTES
+        || validate_shared_attachments(&row.attachments_json, None).is_err()
         || chrono::DateTime::parse_from_rfc3339(&row.published_at).is_err()
     {
         return Err(invalid_gateway_response("snapshot"));
@@ -414,6 +907,8 @@ fn validate_snapshot(
         content_revision: row.content_revision,
         title: row.title,
         body: row.body_json,
+        attachments: row.attachments_json,
+        lease_expires_at: None,
         published_at: row.published_at,
     })
 }
@@ -479,11 +974,25 @@ mod tests {
     const PUBLIC_SLUG: &str = "s_0123456789abcdef0123456789abcdef";
     const LINK_TOKEN: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
     const HANDOFF_ID: &str = "22222222-2222-4222-8222-222222222222";
+    const LEASE_ID: &str = "55555555-5555-4555-8555-555555555555";
+    const ATTACHMENT_ID: &str = "33333333-3333-4333-8333-333333333333";
+    const OWNER_ID: &str = "44444444-4444-4444-8444-444444444444";
 
     fn test_router(server: &MockServer) -> Router {
         router(SharedNotesState::new(
             SharedNotesConfig::new(server.uri(), "service-role-key").unwrap(),
         ))
+    }
+
+    fn test_source_hash(client_ip: Option<&str>) -> String {
+        let state = SharedNotesState::new(
+            SharedNotesConfig::new("https://project.supabase.co", "service-role-key").unwrap(),
+        );
+        let mut headers = HeaderMap::new();
+        if let Some(client_ip) = client_ip {
+            headers.insert(FLY_CLIENT_IP_HEADER, client_ip.parse().unwrap());
+        }
+        state.handoff_source_hash(&headers)
     }
 
     fn snapshot_row(title: &str) -> Value {
@@ -496,6 +1005,7 @@ mod tests {
                 "type": "doc",
                 "content": [{ "type": "paragraph" }]
             },
+            "attachments_json": [],
             "published_at": "2026-07-16T10:00:00Z"
         })
     }
@@ -522,7 +1032,7 @@ mod tests {
         let server = MockServer::start().await;
         mount_rpc(
             &server,
-            "gateway_read_public_session_share_snapshot",
+            "gateway_read_public_session_share_snapshot_v2",
             json!({ "p_public_slug": PUBLIC_SLUG }),
             json!([snapshot_row("Public note")]),
         )
@@ -547,6 +1057,71 @@ mod tests {
         assert!(body.get("accessVersion").is_none());
         assert!(body.get("workspaceId").is_none());
         assert!(body.get("sessionId").is_none());
+        assert_eq!(body["attachments"], json!([]));
+    }
+
+    #[tokio::test]
+    async fn authorizes_before_signing_a_public_attachment_download() {
+        let server = MockServer::start().await;
+        let object_key = format!("{OWNER_ID}/{SHARE_ID}/{ATTACHMENT_ID}.sna1");
+        Mock::given(method("POST"))
+            .and(path(
+                "/rest/v1/rpc/gateway_prepare_public_session_share_attachment_download",
+            ))
+            .and(body_partial_json(json!({
+                "p_public_slug": PUBLIC_SLUG,
+                "p_attachment_id": ATTACHMENT_ID
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "share_id": SHARE_ID,
+                "attachment_id": ATTACHMENT_ID,
+                "object_key": object_key,
+                "filename": "diagram.png",
+                "content_type": "image/png",
+                "size_bytes": 1024,
+                "sha256": "a".repeat(64),
+                "access_version": 3,
+                "cleanup_not_before": "2026-07-16T10:10:00Z"
+            }])))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/storage/v1/object/sign/{SHARED_ATTACHMENT_BUCKET}/{object_key}"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "signedURL": format!(
+                    "/object/sign/{SHARED_ATTACHMENT_BUCKET}/{object_key}?token=download-token"
+                )
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let response = test_router(&server)
+            .oneshot(
+                Request::post(format!(
+                    "/shared-notes/public/{PUBLIC_SLUG}/attachments/{ATTACHMENT_ID}/download"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        let body = response_json(response).await;
+        assert_eq!(body["id"], ATTACHMENT_ID);
+        assert_eq!(body["filename"], "diagram.png");
+        assert_eq!(body["contentType"], "image/png");
+        assert!(
+            body["signedUrl"]
+                .as_str()
+                .unwrap()
+                .contains("download-token")
+        );
     }
 
     #[tokio::test]
@@ -575,7 +1150,7 @@ mod tests {
         assert!(gateway_response_size <= MAX_SNAPSHOT_RESPONSE_BYTES);
         mount_rpc(
             &server,
-            "gateway_read_public_session_share_snapshot",
+            "gateway_read_public_session_share_snapshot_v2",
             json!({ "p_public_slug": PUBLIC_SLUG }),
             gateway_response,
         )
@@ -599,7 +1174,7 @@ mod tests {
         let server = MockServer::start().await;
         mount_rpc(
             &server,
-            "gateway_read_session_share_link_snapshot",
+            "gateway_read_session_share_link_snapshot_v2",
             json!({ "p_share_id": SHARE_ID, "p_link_token": LINK_TOKEN }),
             json!([snapshot_row("Link note")]),
         )
@@ -633,29 +1208,35 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn creates_and_claims_canonical_one_time_handoffs() {
+    async fn creates_and_leases_canonical_handoffs() {
         let server = MockServer::start().await;
         mount_rpc(
             &server,
             "gateway_create_public_session_share_handoff",
-            json!({ "p_public_slug": PUBLIC_SLUG }),
+            json!({
+                "p_public_slug": PUBLIC_SLUG,
+                "p_source_hash": test_source_hash(Some("203.0.113.8"))
+            }),
             json!([{
                 "request_id": HANDOFF_ID,
                 "expires_at": "2026-07-16T10:01:00Z"
             }]),
         )
         .await;
+        let mut claimed_row = snapshot_row("Claimed note");
+        claimed_row["lease_expires_at"] = json!("2099-07-16T10:20:00Z");
         mount_rpc(
             &server,
-            "gateway_claim_session_share_handoff",
-            json!({ "p_request_id": HANDOFF_ID }),
-            json!([snapshot_row("Claimed note")]),
+            "gateway_lease_session_share_handoff",
+            json!({ "p_request_id": HANDOFF_ID, "p_lease_id": LEASE_ID }),
+            json!([claimed_row]),
         )
         .await;
 
         let create_response = test_router(&server)
             .oneshot(
                 Request::post(format!("/shared-notes/public/{PUBLIC_SLUG}/handoff"))
+                    .header(FLY_CLIENT_IP_HEADER, "203.0.113.8")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -670,13 +1251,116 @@ mod tests {
             .oneshot(
                 Request::post("/shared-notes/handoffs/claim")
                     .header(header::CONTENT_TYPE, "application/json")
-                    .body(Body::from(json!({ "requestId": HANDOFF_ID }).to_string()))
+                    .body(Body::from(
+                        json!({ "requestId": HANDOFF_ID, "leaseId": LEASE_ID }).to_string(),
+                    ))
                     .unwrap(),
             )
             .await
             .unwrap();
         assert_eq!(claim_response.status(), StatusCode::OK);
-        assert_eq!(response_json(claim_response).await["title"], "Claimed note");
+        let claimed = response_json(claim_response).await;
+        assert_eq!(claimed["title"], "Claimed note");
+        assert_eq!(claimed["leaseExpiresAt"], "2099-07-16T10:20:00Z");
+    }
+
+    #[tokio::test]
+    async fn claims_manifest_without_signing_and_grants_one_attachment_just_in_time() {
+        let server = MockServer::start().await;
+        let object_key = format!("{OWNER_ID}/{SHARE_ID}/{ATTACHMENT_ID}.sna1");
+        let attachment = json!({
+            "id": ATTACHMENT_ID,
+            "filename": "diagram.png",
+            "contentType": "image/png",
+            "sizeBytes": 1024,
+            "sha256": "a".repeat(64)
+        });
+        let mut claimed_row = snapshot_row("Claimed attachment");
+        claimed_row["attachments_json"] = json!([attachment]);
+        claimed_row["lease_expires_at"] = json!("2099-07-16T10:20:00Z");
+        mount_rpc(
+            &server,
+            "gateway_lease_session_share_handoff",
+            json!({ "p_request_id": HANDOFF_ID, "p_lease_id": LEASE_ID }),
+            json!([claimed_row]),
+        )
+        .await;
+        Mock::given(method("POST"))
+            .and(path(
+                "/rest/v1/rpc/gateway_prepare_session_share_handoff_attachment_download",
+            ))
+            .and(body_partial_json(json!({
+                "p_lease_id": LEASE_ID,
+                "p_attachment_id": ATTACHMENT_ID
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "share_id": SHARE_ID,
+                "attachment_id": ATTACHMENT_ID,
+                "object_key": object_key,
+                "filename": "diagram.png",
+                "content_type": "image/png",
+                "size_bytes": 1024,
+                "sha256": "a".repeat(64),
+                "access_version": 3,
+                "cleanup_not_before": "2026-07-16T10:10:00Z"
+            }])))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/storage/v1/object/sign/{SHARED_ATTACHMENT_BUCKET}/{object_key}"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "signedURL": format!(
+                    "/object/sign/{SHARED_ATTACHMENT_BUCKET}/{object_key}?token=handoff-download"
+                )
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let response = test_router(&server)
+            .oneshot(
+                Request::post("/shared-notes/handoffs/claim")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        json!({ "requestId": HANDOFF_ID, "leaseId": LEASE_ID }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["attachments"], json!([attachment]));
+        assert!(body.get("attachmentDownloads").is_none());
+
+        let response = test_router(&server)
+            .oneshot(
+                Request::post(format!(
+                    "/shared-notes/handoffs/attachments/{ATTACHMENT_ID}/download"
+                ))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(json!({ "leaseId": LEASE_ID }).to_string()))
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["id"], ATTACHMENT_ID);
+        assert_eq!(body["filename"], "diagram.png");
+        assert!(
+            body["signedUrl"]
+                .as_str()
+                .unwrap()
+                .contains("handoff-download")
+        );
+        assert!(body["expiresAt"].is_string());
+        assert!(body.get("objectKey").is_none());
     }
 
     #[tokio::test]
@@ -685,7 +1369,11 @@ mod tests {
         mount_rpc(
             &server,
             "gateway_create_session_share_link_handoff",
-            json!({ "p_share_id": SHARE_ID, "p_link_token": LINK_TOKEN }),
+            json!({
+                "p_share_id": SHARE_ID,
+                "p_link_token": LINK_TOKEN,
+                "p_source_hash": test_source_hash(None)
+            }),
             json!([{
                 "request_id": HANDOFF_ID,
                 "expires_at": "2026-07-16T10:01:00Z"
@@ -709,6 +1397,19 @@ mod tests {
         assert!(!body.to_string().contains(LINK_TOKEN));
     }
 
+    #[test]
+    fn handoff_source_hashes_are_canonical_and_do_not_expose_client_ips() {
+        let canonical = test_source_hash(Some("2001:db8::1"));
+        let expanded = test_source_hash(Some("2001:0db8:0000:0000:0000:0000:0000:0001"));
+        let other = test_source_hash(Some("2001:db8::2"));
+
+        assert_eq!(canonical, expanded);
+        assert_ne!(canonical, other);
+        assert_eq!(canonical.len(), 64);
+        assert!(canonical.bytes().all(|byte| byte.is_ascii_hexdigit()));
+        assert!(!canonical.contains("2001"));
+    }
+
     #[tokio::test]
     async fn rejects_invalid_capabilities_before_the_gateway() {
         let server = MockServer::start().await;
@@ -728,7 +1429,8 @@ mod tests {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     json!({
-                        "requestId": "22222222-2222-3222-8222-222222222222"
+                        "requestId": "22222222-2222-3222-8222-222222222222",
+                        "leaseId": LEASE_ID
                     })
                     .to_string(),
                 ))
@@ -778,7 +1480,7 @@ mod tests {
 
         Mock::given(method("POST"))
             .and(path(
-                "/rest/v1/rpc/gateway_read_public_session_share_snapshot",
+                "/rest/v1/rpc/gateway_read_public_session_share_snapshot_v2",
             ))
             .respond_with(ResponseTemplate::new(403).set_body_string("secret database detail"))
             .mount(&server)
@@ -802,7 +1504,7 @@ mod tests {
         let server = MockServer::start().await;
         mount_rpc(
             &server,
-            "gateway_read_public_session_share_snapshot",
+            "gateway_read_public_session_share_snapshot_v2",
             json!({ "p_public_slug": PUBLIC_SLUG }),
             json!([]),
         )
@@ -820,7 +1522,7 @@ mod tests {
         let invalid_server = MockServer::start().await;
         mount_rpc(
             &invalid_server,
-            "gateway_read_public_session_share_snapshot",
+            "gateway_read_public_session_share_snapshot_v2",
             json!({ "p_public_slug": PUBLIC_SLUG }),
             json!([{
                 "share_id": SHARE_ID,
@@ -828,6 +1530,7 @@ mod tests {
                 "content_revision": 1,
                 "title": "Private metadata",
                 "body_json": { "type": "paragraph" },
+                "attachments_json": [],
                 "published_at": "2026-07-16T10:00:00Z"
             }]),
         )
@@ -858,7 +1561,7 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path(
-                "/rest/v1/rpc/gateway_read_public_session_share_snapshot",
+                "/rest/v1/rpc/gateway_read_public_session_share_snapshot_v2",
             ))
             .respond_with(
                 ResponseTemplate::new(307)

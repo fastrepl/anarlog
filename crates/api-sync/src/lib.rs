@@ -9,6 +9,7 @@ pub use config::{SharedNotesConfig, SyncConfig, SyncEnv};
 pub use error::{Result, SyncError};
 pub use routes::{openapi, router};
 pub use shared_notes::{
-    SharedNotesState, openapi as shared_notes_openapi, router as shared_notes_router,
+    SharedNotesState, authenticated_router as authenticated_shared_notes_router,
+    openapi as shared_notes_openapi, router as shared_notes_router,
 };
 pub use state::AppState;

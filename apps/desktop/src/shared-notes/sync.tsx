@@ -25,7 +25,7 @@ export async function fetchDurableSharedNoteSnapshots(
   for (;;) {
     signal.throwIfAborted();
     const response: { data: unknown; error: unknown } = await supabase
-      .rpc("list_my_session_share_snapshot_page", {
+      .rpc("list_my_session_share_snapshot_page_with_attachments", {
         p_after_share_id: afterShareId,
         p_limit: PAGE_SIZE,
       })

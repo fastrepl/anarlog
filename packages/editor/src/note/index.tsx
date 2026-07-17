@@ -35,6 +35,9 @@ import { cn } from "@hypr/utils";
 
 import { EditorErrorBoundary } from "../editor-error-boundary";
 import {
+  type AttachmentResolver,
+  AttachmentEditingContext,
+  AttachmentResolverContext,
   FileAttachmentView,
   getNodeViewFallbackTag,
   MentionNodeView,
@@ -95,6 +98,7 @@ import {
 } from "./trailing-empty-line-click";
 
 export type { MentionConfig, FileHandlerConfig, PlaceholderFunction };
+export { normalizePortableAttachmentUrls } from "./portable-attachments";
 export { schema };
 export { useLinkedItemOpenBehavior };
 
@@ -153,6 +157,7 @@ export interface NoteEditorProps {
   className?: string;
   handleChange?: (content: JSONContent) => void;
   initialContent?: JSONContent;
+  resolveAttachment?: AttachmentResolver;
   mentionConfig?: MentionConfig;
   placeholderComponent?: PlaceholderFunction;
   fileHandlerConfig?: FileHandlerConfig;
@@ -544,6 +549,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       handleChange,
       className,
       initialContent,
+      resolveAttachment,
       mentionConfig,
       placeholderComponent,
       fileHandlerConfig,
@@ -813,45 +819,51 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
 
     return (
       <TaskSourceProvider source={taskSource ?? null}>
-        <LinkedItemOpenBehaviorContext.Provider value={linkedItemOpenBehavior}>
-          <EditorErrorBoundary
-            resetKey={
-              taskSource ? `${taskSource.type}:${taskSource.id}` : "note"
-            }
-          >
-            <ProseMirror
-              defaultState={defaultState}
-              nodeViewComponents={nodeViews}
-              editable={() => !readOnly}
-              attributes={{
-                spellCheck: "false",
-                autoComplete: "off",
-                autoCorrect: "off",
-                autoCapitalize: "off",
-                role: readOnly ? "document" : "textbox",
-                "aria-readonly": readOnly ? "true" : "false",
-                class: cn([
-                  "prosemirror-editor",
-                  enforceTitleHeading && "note-title-editor",
-                  className,
-                ]),
-              }}
+        <AttachmentEditingContext.Provider value={!readOnly}>
+          <AttachmentResolverContext.Provider value={resolveAttachment ?? null}>
+            <LinkedItemOpenBehaviorContext.Provider
+              value={linkedItemOpenBehavior}
             >
-              <ProseMirrorDoc />
-              <ViewCapture
-                viewRef={viewRef}
-                onViewReady={onViewReady}
-                onViewDisposed={handleViewDisposed}
-              />
-              <EditorCommandsBridge commandsRef={commandsRef} />
-              {showFormatToolbar && !readOnly && <FormatToolbar />}
-              {!readOnly && <SlashCommandMenu />}
-              {mentionConfig && !readOnly && (
-                <MentionSuggestion config={mentionConfig} />
-              )}
-            </ProseMirror>
-          </EditorErrorBoundary>
-        </LinkedItemOpenBehaviorContext.Provider>
+              <EditorErrorBoundary
+                resetKey={
+                  taskSource ? `${taskSource.type}:${taskSource.id}` : "note"
+                }
+              >
+                <ProseMirror
+                  defaultState={defaultState}
+                  nodeViewComponents={nodeViews}
+                  editable={() => !readOnly}
+                  attributes={{
+                    spellCheck: "false",
+                    autoComplete: "off",
+                    autoCorrect: "off",
+                    autoCapitalize: "off",
+                    role: readOnly ? "document" : "textbox",
+                    "aria-readonly": readOnly ? "true" : "false",
+                    class: cn([
+                      "prosemirror-editor",
+                      enforceTitleHeading && "note-title-editor",
+                      className,
+                    ]),
+                  }}
+                >
+                  <ProseMirrorDoc />
+                  <ViewCapture
+                    viewRef={viewRef}
+                    onViewReady={onViewReady}
+                    onViewDisposed={handleViewDisposed}
+                  />
+                  <EditorCommandsBridge commandsRef={commandsRef} />
+                  {showFormatToolbar && !readOnly && <FormatToolbar />}
+                  {!readOnly && <SlashCommandMenu />}
+                  {mentionConfig && !readOnly && (
+                    <MentionSuggestion config={mentionConfig} />
+                  )}
+                </ProseMirror>
+              </EditorErrorBoundary>
+            </LinkedItemOpenBehaviorContext.Provider>
+          </AttachmentResolverContext.Provider>
+        </AttachmentEditingContext.Provider>
       </TaskSourceProvider>
     );
   },

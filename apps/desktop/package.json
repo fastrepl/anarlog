@@ -34,6 +34,7 @@
     "@hypr/db-tauri": "workspace:*",
     "@hypr/editor": "workspace:^",
     "@hypr/plugin-analytics": "workspace:*",
+    "@hypr/plugin-attachment-sync": "workspace:*",
     "@hypr/plugin-auth": "workspace:*",
     "@hypr/plugin-calendar": "workspace:*",
     "@hypr/plugin-db": "workspace:*",

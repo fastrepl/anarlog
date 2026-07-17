@@ -12,10 +12,21 @@ import { enqueueDatabaseWrite, flushDatabaseWrites } from "~/db/write-queue";
 const MAX_SHARED_NOTE_BODY_BYTES = 2 * 1024 * 1024;
 const MAX_SHARED_NOTE_TITLE_BYTES = 4096;
 const MAX_DURABLE_SHARED_NOTES = 5000;
+const MAX_SHARED_NOTE_ATTACHMENTS = 64;
+const MAX_SHARED_ATTACHMENT_BYTES = 512 * 1024 * 1024;
+const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type SharedNoteCapability = "viewer" | "commenter" | "editor";
+
+export type SharedNoteAttachment = {
+  id: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  sha256: string;
+};
 
 export type SharedNoteSnapshot = {
   shareId: string;
@@ -25,6 +36,7 @@ export type SharedNoteSnapshot = {
   contentRevision: number;
   title: string;
   body: JSONContent;
+  attachments: SharedNoteAttachment[];
   capability: SharedNoteCapability;
   manageAccess: boolean;
   accessVersion: number;
@@ -40,6 +52,7 @@ type SharedNoteLiveRow = {
   content_revision: number;
   title: string;
   body_json: unknown;
+  attachments_json: unknown;
   capability: string;
   manage_access: number | boolean;
   access_version: number;
@@ -79,11 +92,25 @@ export async function replaceDurableSharedNoteCache(
 
   const statements = [
     {
+      sql: `
+        UPDATE shared_session_attachment_cache
+        SET availability = 'delete_pending',
+            claim_token = '',
+            attempt_count = 0,
+            next_attempt_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+            last_error = '',
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        WHERE viewer_user_id = ?
+      `,
+      params: [viewerUserId],
+    },
+    {
       sql: "DELETE FROM shared_session_cache WHERE viewer_user_id = ?",
       params: [viewerUserId],
     },
-    ...snapshots.map((snapshot) => ({
-      sql: `
+    ...snapshots.flatMap((snapshot) => [
+      {
+        sql: `
         INSERT INTO shared_session_cache (
           share_id,
           viewer_user_id,
@@ -93,28 +120,18 @@ export async function replaceDurableSharedNoteCache(
           content_revision,
           title,
           body_json,
+          attachments_json,
           capability,
           manage_access,
           access_version,
           published_at,
           cached_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
       `,
-      params: [
-        snapshot.shareId,
-        viewerUserId,
-        snapshot.workspaceId,
-        snapshot.sessionId,
-        snapshot.schemaVersion,
-        snapshot.contentRevision,
-        snapshot.title,
-        JSON.stringify(snapshot.body),
-        snapshot.capability,
-        snapshot.manageAccess ? 1 : 0,
-        snapshot.accessVersion,
-        snapshot.publishedAt,
-      ],
-    })),
+        params: sharedNoteParams(viewerUserId, snapshot),
+      },
+      ...attachmentReconciliationStatements(viewerUserId, snapshot),
+    ]),
   ];
 
   await enqueueDatabaseWrite(`shared-note-cache:${viewerUserId}`, () =>
@@ -132,6 +149,19 @@ export async function upsertDurableSharedNoteCache(
     executeTransaction([
       {
         sql: `
+          UPDATE shared_session_attachment_cache
+          SET availability = 'delete_pending',
+              claim_token = '',
+              attempt_count = 0,
+              next_attempt_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+              last_error = '',
+              updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+          WHERE viewer_user_id = ? AND share_id = ?
+        `,
+        params: [viewerUserId, snapshot.shareId],
+      },
+      {
+        sql: `
           INSERT INTO shared_session_cache (
             share_id,
             viewer_user_id,
@@ -141,12 +171,13 @@ export async function upsertDurableSharedNoteCache(
             content_revision,
             title,
             body_json,
+            attachments_json,
             capability,
             manage_access,
             access_version,
             published_at,
             cached_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
           ON CONFLICT(viewer_user_id, share_id) DO UPDATE SET
             viewer_user_id = excluded.viewer_user_id,
             workspace_id = excluded.workspace_id,
@@ -155,27 +186,16 @@ export async function upsertDurableSharedNoteCache(
             content_revision = excluded.content_revision,
             title = excluded.title,
             body_json = excluded.body_json,
+            attachments_json = excluded.attachments_json,
             capability = excluded.capability,
             manage_access = excluded.manage_access,
             access_version = excluded.access_version,
             published_at = excluded.published_at,
             cached_at = excluded.cached_at
         `,
-        params: [
-          snapshot.shareId,
-          viewerUserId,
-          snapshot.workspaceId,
-          snapshot.sessionId,
-          snapshot.schemaVersion,
-          snapshot.contentRevision,
-          snapshot.title,
-          JSON.stringify(snapshot.body),
-          snapshot.capability,
-          snapshot.manageAccess ? 1 : 0,
-          snapshot.accessVersion,
-          snapshot.publishedAt,
-        ],
+        params: sharedNoteParams(viewerUserId, snapshot),
       },
+      ...attachmentReconciliationStatements(viewerUserId, snapshot),
     ]),
   );
 }
@@ -189,6 +209,19 @@ export async function removeDurableSharedNoteCache(
 
   await enqueueDatabaseWrite(`shared-note-cache:${viewerUserId}`, () =>
     executeTransaction([
+      {
+        sql: `
+          UPDATE shared_session_attachment_cache
+          SET availability = 'delete_pending',
+              claim_token = '',
+              attempt_count = 0,
+              next_attempt_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+              last_error = '',
+              updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+          WHERE viewer_user_id = ? AND share_id = ?
+        `,
+        params: [viewerUserId, shareId],
+      },
       {
         sql: `
           DELETE FROM shared_session_cache
@@ -288,6 +321,10 @@ export function mapSharedNoteLiveRows(
         typeof row.body_json === "string"
           ? JSON.parse(row.body_json)
           : row.body_json;
+      const attachments =
+        typeof row.attachments_json === "string"
+          ? JSON.parse(row.attachments_json)
+          : row.attachments_json;
       return [
         parseSnapshot({
           share_id: row.share_id,
@@ -297,6 +334,7 @@ export function mapSharedNoteLiveRows(
           content_revision: row.content_revision,
           title: row.title,
           body_json: body,
+          attachments_json: attachments,
           capability: row.capability,
           manage_access: row.manage_access === true || row.manage_access === 1,
           access_version: row.access_version,
@@ -324,6 +362,7 @@ function parseSnapshot(value: unknown): SharedNoteSnapshot {
   );
   const title = requireTitle(value.title);
   const body = requireDocument(value.body_json);
+  const attachments = requireAttachments(value.attachments_json);
   const capability = requireCapability(value.capability);
   if (typeof value.manage_access !== "boolean") {
     throw new Error("invalid shared-note management capability");
@@ -346,11 +385,141 @@ function parseSnapshot(value: unknown): SharedNoteSnapshot {
     contentRevision,
     title,
     body,
+    attachments,
     capability,
     manageAccess: value.manage_access,
     accessVersion,
     publishedAt,
   };
+}
+
+function sharedNoteParams(
+  viewerUserId: string,
+  snapshot: SharedNoteSnapshot,
+): unknown[] {
+  return [
+    snapshot.shareId,
+    viewerUserId,
+    snapshot.workspaceId,
+    snapshot.sessionId,
+    snapshot.schemaVersion,
+    snapshot.contentRevision,
+    snapshot.title,
+    JSON.stringify(snapshot.body),
+    JSON.stringify(snapshot.attachments),
+    snapshot.capability,
+    snapshot.manageAccess ? 1 : 0,
+    snapshot.accessVersion,
+    snapshot.publishedAt,
+  ];
+}
+
+function attachmentReconciliationStatements(
+  viewerUserId: string,
+  snapshot: SharedNoteSnapshot,
+) {
+  return snapshot.attachments.map((attachment) => ({
+    sql: `
+      INSERT INTO shared_session_attachment_cache (
+        viewer_user_id,
+        share_id,
+        attachment_id,
+        filename,
+        content_type,
+        size_bytes,
+        sha256,
+        availability,
+        access_version,
+        updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+      ON CONFLICT(viewer_user_id, share_id, attachment_id) DO UPDATE SET
+        filename = excluded.filename,
+        content_type = excluded.content_type,
+        size_bytes = excluded.size_bytes,
+        sha256 = excluded.sha256,
+        cache_id = CASE
+          WHEN shared_session_attachment_cache.sha256 = excluded.sha256
+            AND shared_session_attachment_cache.size_bytes = excluded.size_bytes
+            AND shared_session_attachment_cache.cache_id <> ''
+            AND shared_session_attachment_cache.availability IN (
+              'present',
+              'delete_pending'
+            )
+          THEN shared_session_attachment_cache.cache_id
+          ELSE ''
+        END,
+        availability = CASE
+          WHEN shared_session_attachment_cache.sha256 = excluded.sha256
+            AND shared_session_attachment_cache.size_bytes = excluded.size_bytes
+            AND shared_session_attachment_cache.cache_id <> ''
+            AND shared_session_attachment_cache.availability IN (
+              'present',
+              'delete_pending'
+            )
+          THEN 'present'
+          ELSE 'pending'
+        END,
+        access_version = excluded.access_version,
+        claim_token = '',
+        attempt_count = 0,
+        next_attempt_at = excluded.updated_at,
+        last_attempt_at = NULL,
+        last_error = '',
+        updated_at = excluded.updated_at
+    `,
+    params: [
+      viewerUserId,
+      snapshot.shareId,
+      attachment.id,
+      attachment.filename,
+      attachment.contentType,
+      attachment.sizeBytes,
+      attachment.sha256,
+      snapshot.accessVersion,
+    ],
+  }));
+}
+
+function requireAttachments(value: unknown): SharedNoteAttachment[] {
+  if (!Array.isArray(value) || value.length > MAX_SHARED_NOTE_ATTACHMENTS) {
+    throw new Error("invalid shared-note attachments");
+  }
+
+  const ids = new Set<string>();
+  return value.map((candidate) => {
+    if (!isRecord(candidate)) {
+      throw new Error("invalid shared-note attachment");
+    }
+    const id = requireUuid(candidate.id, "attachment");
+    if (ids.has(id)) {
+      throw new Error("duplicate shared-note attachment");
+    }
+    ids.add(id);
+    if (
+      typeof candidate.filename !== "string" ||
+      candidate.filename.length === 0 ||
+      candidate.filename.length > 1024 ||
+      candidate.filename.trim() !== candidate.filename ||
+      typeof candidate.contentType !== "string" ||
+      candidate.contentType.length === 0 ||
+      candidate.contentType.length > 512 ||
+      candidate.contentType.trim() !== candidate.contentType ||
+      !Number.isSafeInteger(candidate.sizeBytes) ||
+      (candidate.sizeBytes as number) < 0 ||
+      (candidate.sizeBytes as number) > MAX_SHARED_ATTACHMENT_BYTES ||
+      typeof candidate.sha256 !== "string" ||
+      !SHA256_PATTERN.test(candidate.sha256)
+    ) {
+      throw new Error("invalid shared-note attachment");
+    }
+    return {
+      id,
+      filename: candidate.filename,
+      contentType: candidate.contentType,
+      sizeBytes: candidate.sizeBytes as number,
+      sha256: candidate.sha256,
+    };
+  });
 }
 
 function requireUuid(value: unknown, label: string): string {

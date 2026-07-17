@@ -24,6 +24,14 @@ vi.mock("~/shared-notes/preview", () => ({
   useSharedNotePreview: () => mocks.preview,
 }));
 
+vi.mock("~/shared-notes/use-shared-attachment-resolver", () => ({
+  useSharedAttachmentResolver: () => () => null,
+}));
+
+vi.mock("@hypr/plugin-opener2", () => ({
+  commands: { openPath: vi.fn() },
+}));
+
 vi.mock("~/session/components/session-surface", () => ({
   SessionSurface: ({
     header,
@@ -88,6 +96,8 @@ describe("TabContentSharedNote", () => {
         contentRevision: 1,
         title: "Public plan",
         body: { type: "doc", content: [{ type: "paragraph" }] },
+        attachments: [],
+        attachmentDownloads: [],
         publishedAt: "2026-07-17T10:00:00.000Z",
       },
     };
@@ -121,6 +131,7 @@ describe("TabContentSharedNote", () => {
       contentRevision: 2,
       title: "Shared plan",
       body: { type: "doc", content: [{ type: "paragraph" }] },
+      attachments: [],
       capability: "viewer",
       manageAccess: false,
       accessVersion: 3,

@@ -76,15 +76,19 @@ WHERE direction IN ('upload', 'download')
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_attachment_transfer_jobs_delete_object
 ON attachment_transfer_jobs(object_key)
-WHERE direction = 'delete';
+WHERE direction = 'delete' AND phase <> 'completed';
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_attachment_transfer_jobs_upload_object_id
 ON attachment_transfer_jobs(remote_object_id)
-WHERE direction = 'upload' AND remote_object_id <> '';
+WHERE direction = 'upload'
+  AND remote_object_id <> ''
+  AND phase <> 'completed';
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_attachment_transfer_jobs_delete_object_id
 ON attachment_transfer_jobs(remote_object_id)
-WHERE direction = 'delete' AND remote_object_id <> '';
+WHERE direction = 'delete'
+  AND remote_object_id <> ''
+  AND phase <> 'completed';
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_attachment_transfer_jobs_cache_id
 ON attachment_transfer_jobs(cache_id)

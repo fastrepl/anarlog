@@ -47,6 +47,24 @@ pub enum SyncError {
     #[error("Attachment backup verification is busy")]
     AttachmentBackupVerificationBusy,
 
+    #[error("Shared attachment access is not permitted")]
+    SharedAttachmentForbidden,
+
+    #[error("Shared attachment is unavailable")]
+    SharedAttachmentNotFound,
+
+    #[error("Shared attachment changed")]
+    SharedAttachmentConflict,
+
+    #[error("Shared attachment quota is exhausted")]
+    SharedAttachmentQuotaExceeded,
+
+    #[error("Shared attachment service is unavailable")]
+    SharedAttachmentServiceUnavailable,
+
+    #[error("Shared attachment verification is busy")]
+    SharedAttachmentVerificationBusy,
+
     #[error("Internal error: {0}")]
     Internal(String),
 }
@@ -114,6 +132,36 @@ impl IntoResponse for SyncError {
                 StatusCode::SERVICE_UNAVAILABLE,
                 "attachment_backup_verification_busy",
                 "Attachment backup verification is busy".to_string(),
+            ),
+            Self::SharedAttachmentForbidden => (
+                StatusCode::FORBIDDEN,
+                "shared_attachment_forbidden",
+                "Shared attachment access is not permitted".to_string(),
+            ),
+            Self::SharedAttachmentNotFound => (
+                StatusCode::NOT_FOUND,
+                "shared_attachment_not_found",
+                "Shared attachment is unavailable".to_string(),
+            ),
+            Self::SharedAttachmentConflict => (
+                StatusCode::CONFLICT,
+                "shared_attachment_conflict",
+                "Shared attachment changed".to_string(),
+            ),
+            Self::SharedAttachmentQuotaExceeded => (
+                StatusCode::INSUFFICIENT_STORAGE,
+                "shared_attachment_quota_exceeded",
+                "Shared attachment quota is exhausted".to_string(),
+            ),
+            Self::SharedAttachmentServiceUnavailable => (
+                StatusCode::BAD_GATEWAY,
+                "shared_attachment_service_unavailable",
+                "Shared attachment service is unavailable".to_string(),
+            ),
+            Self::SharedAttachmentVerificationBusy => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "shared_attachment_verification_busy",
+                "Shared attachment verification is busy".to_string(),
             ),
             Self::Internal(message) => (
                 StatusCode::INTERNAL_SERVER_ERROR,

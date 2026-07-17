@@ -410,6 +410,7 @@ describe("session share snapshot publication", () => {
             contentRevision: 1,
             title: "Shared title",
             body: { type: "doc", content: [{ type: "paragraph" }] },
+            attachments: [],
             publishedAt: timestamp,
           }),
           { headers: { "content-type": "application/json" } },
@@ -437,6 +438,42 @@ describe("session share snapshot publication", () => {
 
     expect(result).toBe("changed");
     expect(events).toEqual(["publish", "mutate"]);
+  });
+
+  it("sends an explicit empty attachment replacement when requested", async () => {
+    const fetcher = vi.fn(
+      async (_url: URL | RequestInfo, init?: RequestInit) => {
+        expect(JSON.parse(String(init?.body))).toEqual({
+          title: "Shared title",
+          body: { type: "doc", content: [{ type: "paragraph" }] },
+          attachmentIds: [],
+        });
+        return new Response(
+          JSON.stringify({
+            shareId,
+            schemaVersion: 1,
+            contentRevision: 2,
+            title: "Shared title",
+            body: { type: "doc", content: [{ type: "paragraph" }] },
+            attachments: [],
+            publishedAt: timestamp,
+          }),
+          { headers: { "content-type": "application/json" } },
+        );
+      },
+    );
+
+    await expect(
+      publishSessionShareSnapshot({
+        apiBaseUrl: "https://api.example.com",
+        session: session(),
+        shareId,
+        title: "Shared title",
+        body: { type: "doc", content: [{ type: "paragraph" }] },
+        attachmentIds: [],
+        fetcher,
+      }),
+    ).resolves.toMatchObject({ contentRevision: 2, attachments: [] });
   });
 
   it("does not mutate access when publication fails size validation", async () => {
