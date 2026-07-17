@@ -13,6 +13,7 @@ use std::time::SystemTime;
 use axum::{Router, body::Body, extract::MatchedPath, http::HeaderMap, http::Request, middleware};
 use sentry::integrations::tower::{NewSentryLayer, SentryHttpLayer};
 use sentry::protocol::{Context, Value};
+use tokio_util::sync::CancellationToken;
 use tower::ServiceBuilder;
 use tower_http::{
     classify::ServerErrorsFailureClass,
@@ -147,7 +148,8 @@ async fn app() -> Router {
     let nango_connection_state = hypr_api_nango::NangoConnectionState::from_config(&nango_config);
     let subscription_config =
         hypr_api_subscription::SubscriptionConfig::new(&env.supabase, &env.stripe, &env.loops)
-            .with_analytics(analytics.clone());
+            .with_analytics(analytics.clone())
+            .with_durable_cleanup_enabled(env.anarlog_attachment_backup_gc_enabled);
     let support_config = hypr_api_support::SupportConfig::new(
         &env.github_app,
         &env.llm,
@@ -519,12 +521,56 @@ fn main() -> std::io::Result<()> {
             let addr = SocketAddr::from(([0, 0, 0, 0], env.port));
             let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
             let app = app().await;
+            let cancellation = CancellationToken::new();
+            let worker_task = env.anarlog_attachment_backup_gc_enabled.then(|| {
+                let cloudsync_cleanup = hypr_api_subscription::CloudsyncCleanupConfig::new(
+                    env.sync
+                        .sqlitecloud_project_url
+                        .as_deref()
+                        .unwrap_or_default(),
+                    env.sync
+                        .sqlitecloud_token_issuer_api_key
+                        .as_deref()
+                        .unwrap_or_default(),
+                    env.sync
+                        .anarlog_cloudsync_e2ee_database_id
+                        .as_deref()
+                        .unwrap_or_default(),
+                    env.sqlitecloud_cloudsync_management_api_key
+                        .as_deref()
+                        .unwrap_or_default(),
+                )
+                .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
+                let config = hypr_api_subscription::SubscriptionConfig::new(
+                    &env.supabase,
+                    &env.stripe,
+                    &env.loops,
+                )
+                .with_cloudsync_cleanup(cloudsync_cleanup);
+                let worker = hypr_api_subscription::CleanupWorker::new(&config);
+                let worker_cancellation = cancellation.clone();
+                tokio::spawn(worker.run(worker_cancellation))
+            });
             tracing::info!(addr = %addr, "server_listening");
 
-            axum::serve(listener, app)
-                .with_graceful_shutdown(shutdown_signal())
-                .await
-                .unwrap();
+            let shutdown_cancellation = cancellation.clone();
+            let server_result = axum::serve(listener, app)
+                .with_graceful_shutdown(async move {
+                    shutdown_signal().await;
+                    shutdown_cancellation.cancel();
+                })
+                .await;
+            cancellation.cancel();
+            if let Some(mut worker_task) = worker_task {
+                if tokio::time::timeout(Duration::from_secs(20), &mut worker_task)
+                    .await
+                    .is_err()
+                {
+                    tracing::warn!("durable_cleanup_worker_shutdown_timed_out");
+                    worker_task.abort();
+                }
+            }
+            server_result.unwrap();
         });
 
     if let Some(client) = sentry::Hub::current().client() {
@@ -536,9 +582,29 @@ fn main() -> std::io::Result<()> {
 }
 
 async fn shutdown_signal() {
-    tokio::signal::ctrl_c()
-        .await
-        .expect("failed to install CTRL+C signal handler");
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install CTRL+C signal handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(unix)]
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+
+    #[cfg(not(unix))]
+    ctrl_c.await;
+
     tracing::info!("shutdown_signal_received");
 }
 

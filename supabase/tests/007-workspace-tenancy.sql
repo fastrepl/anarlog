@@ -1,5 +1,5 @@
 begin;
-select plan(13);
+select plan(14);
 
 select tests.create_supabase_user('workspace_owner', 'workspace-owner@example.com');
 select tests.create_supabase_user('workspace_other', 'workspace-other@example.com');
@@ -140,8 +140,15 @@ select tests.create_supabase_user('workspace_delete', 'workspace-delete@example.
 create temporary table workspace_delete_user AS
 select tests.get_supabase_uid('workspace_delete') AS id;
 
-delete from auth.users
-where id = (select id from workspace_delete_user);
+select throws_ok(
+  $$
+    delete from auth.users
+    where id = (select id from workspace_delete_user)
+  $$,
+  '55000',
+  'account durable cleanup is incomplete',
+  'A workspace owner cannot bypass durable account cleanup'
+);
 
 select results_eq(
   $$
@@ -156,8 +163,8 @@ select results_eq(
       where user_id = (select id from workspace_delete_user)
     ) AS workspace_authority_rows
   $$,
-  array[0::bigint],
-  'Deleting an auth user cascades their personal workspace authority rows'
+  array[2::bigint],
+  'Rejected Auth deletion preserves personal workspace authority rows'
 );
 
 select ok(

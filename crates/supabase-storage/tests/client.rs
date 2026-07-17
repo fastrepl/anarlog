@@ -387,3 +387,174 @@ async fn rejects_traversal_before_sending_a_request() {
     assert!(matches!(error, Error::InvalidPath));
     assert!(server.received_requests().await.unwrap().is_empty());
 }
+
+#[tokio::test]
+async fn clears_nested_prefixes_through_bounded_storage_api_calls() {
+    let server = MockServer::start().await;
+    let list_path = "/storage/v1/object/list/audio-files";
+    let root_body = serde_json::json!({
+        "prefix": "user-id/",
+        "limit": 100,
+        "offset": 0,
+        "sortBy": { "column": "name", "order": "asc" }
+    });
+    let child_body = serde_json::json!({
+        "prefix": "user-id/nested/",
+        "limit": 100,
+        "offset": 0,
+        "sortBy": { "column": "name", "order": "asc" }
+    });
+    Mock::given(method("POST"))
+        .and(path(list_path))
+        .and(body_json(root_body.clone()))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(serde_json::json!([{
+                "name": "nested",
+                "id": null,
+                "updated_at": null,
+                "created_at": null,
+                "last_accessed_at": null,
+                "metadata": null
+            }])),
+        )
+        .up_to_n_times(1)
+        .with_priority(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path(list_path))
+        .and(body_json(root_body))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([])))
+        .with_priority(2)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path(list_path))
+        .and(body_json(child_body.clone()))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(serde_json::json!([{
+                "name": "recording.wav",
+                "id": "object-id",
+                "updated_at": "2026-07-17T00:00:00Z",
+                "created_at": "2026-07-17T00:00:00Z",
+                "last_accessed_at": "2026-07-17T00:00:00Z",
+                "metadata": { "size": 42 }
+            }])),
+        )
+        .up_to_n_times(1)
+        .with_priority(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path(list_path))
+        .and(body_json(child_body))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([])))
+        .with_priority(2)
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/storage/v1/object/audio-files"))
+        .and(body_json(serde_json::json!({
+            "prefixes": ["user-id/nested/recording.wav"]
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([])))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let deleted = storage(&server)
+        .clear_prefix("audio-files", "user-id/", 10)
+        .await
+        .unwrap();
+
+    assert_eq!(deleted, 1);
+}
+
+#[tokio::test]
+async fn rejects_malformed_or_traversing_storage_list_entries() {
+    for object in [
+        serde_json::json!({
+            "name": "..",
+            "id": null,
+            "updated_at": null,
+            "created_at": null,
+            "last_accessed_at": null,
+            "metadata": null
+        }),
+        serde_json::json!({
+            "name": "ambiguous.wav",
+            "id": "object-id",
+            "updated_at": null,
+            "created_at": null,
+            "last_accessed_at": null,
+            "metadata": null
+        }),
+    ] {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([object])))
+            .mount(&server)
+            .await;
+
+        let error = storage(&server)
+            .clear_prefix("audio-files", "user-id/", 10)
+            .await
+            .unwrap_err();
+
+        assert!(error.to_string().contains("invalid object"));
+        assert_eq!(server.received_requests().await.unwrap().len(), 1);
+    }
+}
+
+#[tokio::test]
+async fn fails_closed_when_prefix_cleanup_exceeds_its_limit() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([
+            {
+                "name": "one.wav",
+                "id": "one",
+                "updated_at": "2026-07-17T00:00:00Z",
+                "created_at": "2026-07-17T00:00:00Z",
+                "last_accessed_at": "2026-07-17T00:00:00Z",
+                "metadata": {}
+            },
+            {
+                "name": "two.wav",
+                "id": "two",
+                "updated_at": "2026-07-17T00:00:00Z",
+                "created_at": "2026-07-17T00:00:00Z",
+                "last_accessed_at": "2026-07-17T00:00:00Z",
+                "metadata": {}
+            }
+        ])))
+        .mount(&server)
+        .await;
+
+    let error = storage(&server)
+        .clear_prefix("audio-files", "user-id/", 1)
+        .await
+        .unwrap_err();
+
+    assert!(error.to_string().contains("cleanup limit"));
+    assert_eq!(server.received_requests().await.unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn propagates_storage_list_failures_without_deleting() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(503).set_body_json(serde_json::json!({
+            "message": "unavailable"
+        })))
+        .mount(&server)
+        .await;
+
+    let error = storage(&server)
+        .clear_prefix("audio-files", "user-id/", 10)
+        .await
+        .unwrap_err();
+
+    assert!(error.to_string().contains("failed to list folder: 503"));
+    assert_eq!(server.received_requests().await.unwrap().len(), 1);
+}

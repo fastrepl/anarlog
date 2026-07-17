@@ -1,11 +1,15 @@
-use std::time::Duration;
+use std::{collections::HashSet, time::Duration};
 
 use futures_util::StreamExt;
 use serde::Deserialize;
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 const MAX_STORAGE_RESPONSE_BYTES: usize = 64 * 1024;
 const OBJECT_VERIFICATION_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+const MAX_LIST_RESPONSE_BYTES: usize = 256 * 1024;
+const STORAGE_LIST_LIMIT: usize = 100;
+const STORAGE_DELETE_LIMIT: usize = 1000;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -13,6 +17,8 @@ pub enum Error {
     Request(#[from] reqwest::Error),
     #[error("the storage object path is invalid")]
     InvalidPath,
+    #[error("storage prefix cleanup was cancelled")]
+    Cancelled,
     #[error("{0}")]
     Api(String),
 }
@@ -88,6 +94,16 @@ struct StorageErrorResponse {
     code: Option<String>,
 }
 
+#[derive(Deserialize)]
+struct ListedObject {
+    name: String,
+    id: Option<String>,
+    updated_at: Option<String>,
+    created_at: Option<String>,
+    last_accessed_at: Option<String>,
+    metadata: Option<Value>,
+}
+
 impl SupabaseStorage {
     pub fn new(client: reqwest::Client, supabase_url: &str, service_role_key: &str) -> Self {
         Self {
@@ -109,10 +125,18 @@ impl SupabaseStorage {
         response: reqwest::Response,
         operation: &str,
     ) -> Result<(reqwest::StatusCode, Vec<u8>), Error> {
+        Self::read_bounded_response(response, operation, MAX_STORAGE_RESPONSE_BYTES).await
+    }
+
+    async fn read_bounded_response(
+        response: reqwest::Response,
+        operation: &str,
+        max_response_bytes: usize,
+    ) -> Result<(reqwest::StatusCode, Vec<u8>), Error> {
         let status = response.status();
         if response
             .content_length()
-            .is_some_and(|length| length > MAX_STORAGE_RESPONSE_BYTES as u64)
+            .is_some_and(|length| length > max_response_bytes as u64)
         {
             return Err(Error::Api(format!(
                 "{operation} response from Supabase Storage was too large"
@@ -123,7 +147,7 @@ impl SupabaseStorage {
         let mut stream = response.bytes_stream();
         while let Some(chunk) = stream.next().await {
             let chunk = chunk?;
-            if body.len().saturating_add(chunk.len()) > MAX_STORAGE_RESPONSE_BYTES {
+            if body.len().saturating_add(chunk.len()) > max_response_bytes {
                 return Err(Error::Api(format!(
                     "{operation} response from Supabase Storage was too large"
                 )));
@@ -133,17 +157,19 @@ impl SupabaseStorage {
         Ok((status, body))
     }
 
-    fn object_url(
-        &self,
-        operation: &str,
-        bucket: &str,
-        object_path: &str,
-    ) -> Result<String, Error> {
+    fn validate_bucket(bucket: &str) -> Result<(), Error> {
         if bucket.is_empty()
             || bucket.len() > 100
             || bucket.contains(['/', '\\'])
             || bucket.chars().any(char::is_control)
-            || object_path.is_empty()
+        {
+            return Err(Error::InvalidPath);
+        }
+        Ok(())
+    }
+
+    fn validate_object_path(object_path: &str) -> Result<Vec<&str>, Error> {
+        if object_path.is_empty()
             || object_path.len() > 1024
             || object_path.contains('\\')
             || object_path.chars().any(char::is_control)
@@ -151,15 +177,47 @@ impl SupabaseStorage {
             return Err(Error::InvalidPath);
         }
 
-        let segments = object_path
+        object_path
             .split('/')
             .map(|segment| {
                 if segment.is_empty() || matches!(segment, "." | "..") {
                     return Err(Error::InvalidPath);
                 }
-                Ok(urlencoding::encode(segment))
+                Ok(segment)
             })
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect()
+    }
+
+    fn validate_folder_prefix(prefix: &str) -> Result<(), Error> {
+        let path = prefix.strip_suffix('/').ok_or(Error::InvalidPath)?;
+        Self::validate_object_path(path).map(|_| ())
+    }
+
+    fn validate_listed_name(name: &str) -> Result<(), Error> {
+        if name.is_empty()
+            || name.len() > 255
+            || matches!(name, "." | "..")
+            || name.contains(['/', '\\'])
+            || name.chars().any(char::is_control)
+        {
+            return Err(Error::Api(
+                "storage list response contained an invalid object".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn object_url(
+        &self,
+        operation: &str,
+        bucket: &str,
+        object_path: &str,
+    ) -> Result<String, Error> {
+        Self::validate_bucket(bucket)?;
+        let segments = Self::validate_object_path(object_path)?
+            .into_iter()
+            .map(urlencoding::encode)
+            .collect::<Vec<_>>();
 
         Ok(format!(
             "{}/storage/v1/{operation}/{}/{}",
@@ -409,5 +467,171 @@ impl SupabaseStorage {
         }
 
         Ok(())
+    }
+
+    async fn list_folder(&self, bucket: &str, prefix: &str) -> Result<Vec<ListedObject>, Error> {
+        Self::validate_bucket(bucket)?;
+        Self::validate_folder_prefix(prefix)?;
+        let url = format!(
+            "{}/storage/v1/object/list/{}",
+            self.base_url,
+            urlencoding::encode(bucket)
+        );
+        let response = self
+            .auth_headers(self.client.post(url))
+            .json(&serde_json::json!({
+                "prefix": prefix,
+                "limit": STORAGE_LIST_LIMIT,
+                "offset": 0,
+                "sortBy": { "column": "name", "order": "asc" }
+            }))
+            .send()
+            .await?;
+        let (status, body) =
+            Self::read_bounded_response(response, "list folder", MAX_LIST_RESPONSE_BYTES).await?;
+        if !status.is_success() {
+            return Err(Error::Api(format!("failed to list folder: {status}")));
+        }
+
+        let objects = serde_json::from_slice::<Vec<ListedObject>>(&body)
+            .map_err(|_| Error::Api("storage list response was invalid".to_string()))?;
+        if objects.len() > STORAGE_LIST_LIMIT {
+            return Err(Error::Api(
+                "storage list response exceeded its requested limit".to_string(),
+            ));
+        }
+        for object in &objects {
+            Self::validate_listed_name(&object.name)?;
+            let is_file =
+                object.id.as_ref().is_some_and(|id| !id.is_empty()) && object.metadata.is_some();
+            let is_folder = object.id.is_none()
+                && object.metadata.is_none()
+                && object.updated_at.is_none()
+                && object.created_at.is_none()
+                && object.last_accessed_at.is_none();
+            if !is_file && !is_folder {
+                return Err(Error::Api(
+                    "storage list response contained an invalid object".to_string(),
+                ));
+            }
+        }
+        Ok(objects)
+    }
+
+    async fn delete_files(&self, bucket: &str, object_paths: &[String]) -> Result<(), Error> {
+        Self::validate_bucket(bucket)?;
+        if object_paths.is_empty() || object_paths.len() > STORAGE_DELETE_LIMIT {
+            return Err(Error::InvalidPath);
+        }
+        for object_path in object_paths {
+            Self::validate_object_path(object_path)?;
+        }
+
+        let url = format!(
+            "{}/storage/v1/object/{}",
+            self.base_url,
+            urlencoding::encode(bucket)
+        );
+        let response = self
+            .auth_headers(self.client.delete(url))
+            .json(&serde_json::json!({ "prefixes": object_paths }))
+            .send()
+            .await?;
+        let (status, _) =
+            Self::read_bounded_response(response, "delete files", MAX_LIST_RESPONSE_BYTES).await?;
+        if !status.is_success() {
+            return Err(Error::Api(format!("failed to delete files: {status}")));
+        }
+        Ok(())
+    }
+
+    pub async fn clear_prefix(
+        &self,
+        bucket: &str,
+        prefix: &str,
+        max_objects: usize,
+    ) -> Result<usize, Error> {
+        self.clear_prefix_until(bucket, prefix, max_objects, || false)
+            .await
+    }
+
+    pub async fn clear_prefix_until<ShouldCancel>(
+        &self,
+        bucket: &str,
+        prefix: &str,
+        max_objects: usize,
+        should_cancel: ShouldCancel,
+    ) -> Result<usize, Error>
+    where
+        ShouldCancel: Fn() -> bool,
+    {
+        Self::validate_bucket(bucket)?;
+        Self::validate_folder_prefix(prefix)?;
+        if max_objects == 0 {
+            return Err(Error::InvalidPath);
+        }
+
+        let mut pending = vec![prefix.to_string()];
+        let mut discovered_folders = HashSet::from([prefix.to_string()]);
+        let mut deleted = 0usize;
+        while let Some(folder) = pending.pop() {
+            if should_cancel() {
+                return Err(Error::Cancelled);
+            }
+            let objects = self.list_folder(bucket, &folder).await?;
+            if objects.is_empty() {
+                continue;
+            }
+
+            let mut files = Vec::new();
+            let mut child_folders = Vec::new();
+            for object in objects {
+                let path = format!("{folder}{}", object.name);
+                if object.id.is_some() {
+                    files.push(path);
+                } else {
+                    child_folders.push(format!("{path}/"));
+                }
+            }
+
+            if deleted.saturating_add(files.len()) > max_objects {
+                return Err(Error::Api(
+                    "storage prefix exceeded the cleanup limit".to_string(),
+                ));
+            }
+            if !files.is_empty() {
+                if should_cancel() {
+                    return Err(Error::Cancelled);
+                }
+                self.delete_files(bucket, &files).await?;
+                deleted += files.len();
+            }
+
+            if child_folders.is_empty() {
+                pending.push(folder);
+                continue;
+            }
+
+            pending.push(folder);
+            let mut discovered_child = false;
+            for child in child_folders {
+                if discovered_folders.insert(child.clone()) {
+                    discovered_child = true;
+                    if discovered_folders.len() > max_objects.saturating_add(1) {
+                        return Err(Error::Api(
+                            "storage prefix exceeded the cleanup limit".to_string(),
+                        ));
+                    }
+                    pending.push(child);
+                }
+            }
+            if files.is_empty() && !discovered_child {
+                return Err(Error::Api(
+                    "storage prefix cleanup made no progress".to_string(),
+                ));
+            }
+        }
+
+        Ok(deleted)
     }
 }

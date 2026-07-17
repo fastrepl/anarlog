@@ -1676,9 +1676,9 @@ select throws_ok(
       where name = 'quota_owner'
     )
   $$,
-  '23503',
-  null,
-  'Account deletion remains blocked until physical backup cleanup completes'
+  '55000',
+  'account durable cleanup is incomplete',
+  'Account deletion remains blocked until durable cleanup completes'
 );
 
 select * from finish();

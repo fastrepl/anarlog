@@ -12,15 +12,48 @@ import { env, requireEnv } from "@/env";
 import { getRequestAppOrigin } from "@/functions/app-origin";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import { getStripeClient } from "@/functions/stripe";
-import { getSupabaseServerClient } from "@/functions/supabase";
+import {
+  getSupabaseAdminClient,
+  getSupabaseServerClient,
+} from "@/functions/supabase";
 
 type SupabaseClient = ReturnType<typeof getSupabaseServerClient>;
 
 type AuthUser = {
   id: string;
+  email?: string | null;
   user_metadata?: {
     stripe_customer_id?: string;
   } | null;
+};
+
+const assertStripeCustomerOwnership = async (
+  stripe: Stripe,
+  customerId: string,
+  user: AuthUser,
+) => {
+  const customer = await stripe.customers.retrieve(customerId);
+  if ("deleted" in customer && customer.deleted) {
+    throw new Error("Stripe customer is unavailable");
+  }
+  const metadataUserIds = [
+    customer.metadata?.userId,
+    customer.metadata?.user_id,
+    customer.metadata?.userID,
+  ].filter((value): value is string => Boolean(value));
+  const metadataMatches =
+    metadataUserIds.length > 0 &&
+    metadataUserIds.every((userId) => userId === user.id);
+  const emailMatches =
+    metadataUserIds.length === 0 &&
+    Boolean(
+      customer.email &&
+      user.email &&
+      customer.email.toLowerCase() === user.email.toLowerCase(),
+    );
+  if (!metadataMatches && !emailMatches) {
+    throw new Error("Stripe customer ownership could not be verified");
+  }
 };
 
 const getStripeCustomerIdForUser = async (
@@ -44,8 +77,13 @@ const getStripeCustomerIdForUser = async (
     | null
     | undefined;
 
-  const stripeCustomerId =
-    profileCustomerId ?? (metadataCustomerId as string | undefined);
+  if (profileCustomerId) {
+    await assertStripeCustomerOwnership(
+      getStripeClient(),
+      profileCustomerId,
+      user,
+    );
+  }
 
   if (profileCustomerId && profileCustomerId !== metadataCustomerId) {
     await supabase.auth.updateUser({
@@ -55,7 +93,7 @@ const getStripeCustomerIdForUser = async (
     });
   }
 
-  return stripeCustomerId;
+  return profileCustomerId;
 };
 
 const getBillingReturnUrl = (scheme?: z.infer<typeof desktopSchemeSchema>) => {
@@ -99,6 +137,7 @@ async function ensureStripeCustomerId(
 ) {
   const existingStripeCustomerId = await getStripeCustomerIdForUser(supabase, {
     id: user.id,
+    email: user.email,
     user_metadata: user.user_metadata,
   });
 
@@ -107,27 +146,75 @@ async function ensureStripeCustomerId(
   }
 
   const stripe = getStripeClient();
-  const newCustomer = await stripe.customers.create({
-    email: user.email ?? undefined,
-    metadata: {
-      userId: user.id,
-      posthog_person_distinct_id: user.id,
+  const newCustomer = await stripe.customers.create(
+    {
+      email: user.email ?? undefined,
+      metadata: {
+        userId: user.id,
+        posthog_person_distinct_id: user.id,
+      },
+    },
+    { idempotencyKey: `create-customer-${user.id}` },
+  );
+
+  const admin = getSupabaseAdminClient();
+  const { data, error } = await admin.rpc("assign_profile_stripe_customer", {
+    p_owner_user_id: user.id,
+    p_stripe_customer_id: newCustomer.id,
+  });
+  let assignedCustomerId = data?.[0]?.assigned_customer_id as
+    | string
+    | null
+    | undefined;
+  if (error) {
+    if (error.code === "PGRST202") {
+      const { error: legacyAssignmentError } = await supabase
+        .from("profiles")
+        .update({ stripe_customer_id: newCustomer.id })
+        .eq("id", user.id)
+        .is("stripe_customer_id", null);
+      if (legacyAssignmentError) {
+        await stripe.customers.del(newCustomer.id).catch(() => undefined);
+        throw legacyAssignmentError;
+      }
+    }
+    const { data: linkedProfile, error: lookupError } = await admin
+      .from("profiles")
+      .select("stripe_customer_id")
+      .eq("id", user.id)
+      .single();
+    if (lookupError) {
+      throw error;
+    }
+    assignedCustomerId = linkedProfile?.stripe_customer_id as
+      | string
+      | null
+      | undefined;
+    if (!assignedCustomerId) {
+      await stripe.customers.del(newCustomer.id).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  if (!assignedCustomerId) {
+    await stripe.customers.del(newCustomer.id).catch(() => undefined);
+    throw new Error("Billing is unavailable while account deletion is pending");
+  }
+  await assertStripeCustomerOwnership(stripe, assignedCustomerId, user);
+  if (assignedCustomerId !== newCustomer.id) {
+    await stripe.customers.del(newCustomer.id).catch(() => undefined);
+  }
+
+  const { error: metadataError } = await supabase.auth.updateUser({
+    data: {
+      stripe_customer_id: assignedCustomerId,
     },
   });
+  if (metadataError) {
+    console.warn("Failed to refresh Stripe customer metadata", metadataError);
+  }
 
-  await Promise.all([
-    supabase.auth.updateUser({
-      data: {
-        stripe_customer_id: newCustomer.id,
-      },
-    }),
-    supabase
-      .from("profiles")
-      .update({ stripe_customer_id: newCustomer.id })
-      .eq("id", user.id),
-  ]);
-
-  return newCustomer.id;
+  return assignedCustomerId;
 }
 
 async function createCheckoutUrl({
@@ -226,7 +313,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user?.id) {
+    if (!user?.id || user.is_anonymous) {
       throw new Error("Unauthorized");
     }
 
@@ -253,6 +340,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
     const stripeCustomerId = await getStripeCustomerIdForUser(supabase, {
       id: user.id,
+      email: user.email,
       user_metadata: user.user_metadata,
     });
 
@@ -299,7 +387,7 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user?.id) {
+    if (!user?.id || user.is_anonymous) {
       throw new Error("Unauthorized");
     }
 
@@ -307,6 +395,7 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
 
     const stripeCustomerId = await getStripeCustomerIdForUser(supabase, {
       id: user.id,
+      email: user.email,
       user_metadata: user.user_metadata,
     });
 
@@ -399,6 +488,7 @@ export const createPortalSession = createServerFn({ method: "POST" })
 
     const stripeCustomerId = await getStripeCustomerIdForUser(supabase, {
       id: user.id,
+      email: user.email,
       user_metadata: user.user_metadata,
     });
 
@@ -429,6 +519,7 @@ export const syncAfterSuccess = createServerFn({ method: "POST" }).handler(
 
     const stripeCustomerId = await getStripeCustomerIdForUser(supabase, {
       id: user.id,
+      email: user.email,
       user_metadata: user.user_metadata,
     });
 

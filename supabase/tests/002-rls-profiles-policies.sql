@@ -12,9 +12,11 @@ select results_eq(
   'Owner can view own profile (auto-created by trigger)'
 );
 
-select lives_ok(
+select throws_ok(
   $$update profiles set stripe_customer_id = 'cus_test' where id = auth.uid()$$,
-  'Owner can update own profile'
+  '42501',
+  'permission denied for table profiles',
+  'Authenticated users cannot mutate their billing authority profile'
 );
 
 select tests.clear_authentication();

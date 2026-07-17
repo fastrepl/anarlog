@@ -84,6 +84,7 @@ jobs:
           cloudsync_runtime_keys = {
               "ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID",
               "ANARLOG_CLOUDSYNC_TOKEN_TTL_SECONDS",
+              "SQLITECLOUD_CLOUDSYNC_MANAGEMENT_API_KEY",
               "SQLITECLOUD_PROJECT_URL",
               "SQLITECLOUD_TOKEN_ISSUER_API_KEY",
           }

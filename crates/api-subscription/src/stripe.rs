@@ -1,5 +1,5 @@
 use chrono::Utc;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::time::Instant;
 use stripe::StripeRequest;
@@ -8,7 +8,9 @@ use stripe_billing::subscription::{
     CreateSubscriptionTrialSettingsEndBehavior,
     CreateSubscriptionTrialSettingsEndBehaviorMissingPaymentMethod,
 };
-use stripe_core::customer::CreateCustomer;
+use stripe_core::customer::{
+    CreateCustomer, DeleteCustomer, RetrieveCustomer, RetrieveCustomerReturned,
+};
 
 use crate::error::{Result, SubscriptionError};
 use crate::supabase::SupabaseClient;
@@ -36,7 +38,13 @@ pub(crate) async fn get_or_create_customer(
     if let Some(profile) = profiles.first()
         && let Some(customer_id) = &profile.stripe_customer_id
     {
-        return Ok(Some(customer_id.clone()));
+        let email = supabase.get_user_email(auth_token).await?;
+        if stripe_customer_belongs_to_user(stripe, customer_id, user_id, email.as_deref()).await? {
+            return Ok(Some(customer_id.clone()));
+        }
+        return Err(SubscriptionError::Internal(
+            "Stripe customer ownership could not be verified".to_string(),
+        ));
     }
 
     let email = supabase.get_user_email(auth_token).await?;
@@ -73,37 +81,97 @@ pub(crate) async fn get_or_create_customer(
         "stripe_request_finished"
     );
 
-    #[derive(Serialize)]
-    struct UpdateData {
-        stripe_customer_id: String,
+    let created_customer_id = customer.id.to_string();
+    match supabase
+        .assign_profile_stripe_customer(auth_token, user_id, &created_customer_id)
+        .await
+    {
+        Ok(Some(assigned_customer_id)) if assigned_customer_id == created_customer_id => {
+            Ok(Some(assigned_customer_id))
+        }
+        Ok(Some(assigned_customer_id)) => {
+            delete_unassigned_customer(stripe, &created_customer_id).await;
+            Ok(Some(assigned_customer_id))
+        }
+        Ok(None) => {
+            delete_unassigned_customer(stripe, &created_customer_id).await;
+            Ok(None)
+        }
+        Err(assignment_error) => {
+            let profiles: Vec<Profile> = match supabase
+                .select(
+                    "profiles",
+                    auth_token,
+                    "stripe_customer_id",
+                    &[("id", &format!("eq.{}", user_id))],
+                )
+                .await
+            {
+                Ok(profiles) => profiles,
+                Err(_) => return Err(assignment_error),
+            };
+            let assigned_customer_id = profiles
+                .first()
+                .and_then(|profile| profile.stripe_customer_id.clone());
+            if assigned_customer_id.as_deref() != Some(&created_customer_id) {
+                delete_unassigned_customer(stripe, &created_customer_id).await;
+            }
+            match assigned_customer_id {
+                Some(customer_id) => Ok(Some(customer_id)),
+                None => Err(assignment_error),
+            }
+        }
+    }
+}
+
+async fn delete_unassigned_customer(stripe: &stripe::Client, customer_id: &str) {
+    match DeleteCustomer::new(customer_id).send(stripe).await {
+        Ok(_) | Err(stripe::StripeError::Stripe(_, 404)) => {}
+        Err(error) => {
+            tracing::error!(
+                error = %error,
+                hyprnote.billing.customer.id = %customer_id,
+                "unassigned_stripe_customer_deletion_failed"
+            );
+        }
+    }
+}
+
+async fn stripe_customer_belongs_to_user(
+    stripe: &stripe::Client,
+    customer_id: &str,
+    user_id: &str,
+    user_email: Option<&str>,
+) -> Result<bool> {
+    let customer = match RetrieveCustomer::new(customer_id).send(stripe).await {
+        Ok(RetrieveCustomerReturned::Customer(customer)) => customer,
+        Ok(RetrieveCustomerReturned::DeletedCustomer(_))
+        | Err(stripe::StripeError::Stripe(_, 404)) => return Ok(false),
+        Err(error) => return Err(SubscriptionError::Stripe(error.to_string())),
+    };
+    let metadata_user_ids = customer
+        .metadata
+        .as_ref()
+        .map(|metadata| {
+            ["userId", "user_id", "userID"]
+                .into_iter()
+                .filter_map(|key| metadata.get(key).map(String::as_str))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !metadata_user_ids.is_empty() {
+        return Ok(metadata_user_ids
+            .iter()
+            .all(|metadata_user_id| *metadata_user_id == user_id));
     }
 
-    supabase
-        .update(
-            "profiles",
-            auth_token,
-            &[
-                ("id", &format!("eq.{}", user_id)),
-                ("stripe_customer_id", "is.null"),
-            ],
-            &UpdateData {
-                stripe_customer_id: customer.id.to_string(),
-            },
-        )
-        .await?;
-
-    let updated_profiles: Vec<Profile> = supabase
-        .select(
-            "profiles",
-            auth_token,
-            "stripe_customer_id",
-            &[("id", &format!("eq.{}", user_id))],
-        )
-        .await?;
-
-    Ok(updated_profiles
-        .first()
-        .and_then(|p| p.stripe_customer_id.clone()))
+    Ok(customer
+        .email
+        .as_deref()
+        .zip(user_email)
+        .is_some_and(|(customer_email, user_email)| {
+            customer_email.eq_ignore_ascii_case(user_email)
+        }))
 }
 
 pub(crate) async fn create_trial_subscription(

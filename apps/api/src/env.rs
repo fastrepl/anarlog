@@ -16,6 +16,10 @@ pub struct Env {
     pub sentry_dsn: Option<String>,
     #[serde(default, deserialize_with = "hypr_api_env::filter_empty")]
     pub posthog_api_key: Option<String>,
+    #[serde(default)]
+    pub anarlog_attachment_backup_gc_enabled: bool,
+    #[serde(default, deserialize_with = "hypr_api_env::filter_empty")]
+    pub sqlitecloud_cloudsync_management_api_key: Option<String>,
 
     #[serde(flatten)]
     pub observability: crate::observability::Env,
@@ -114,5 +118,24 @@ mod tests {
         .unwrap();
 
         assert_eq!(env.sync.anarlog_cloudsync_token_ttl_seconds, Some(300));
+    }
+
+    #[test]
+    fn durable_cleanup_is_opt_in() {
+        #[derive(Deserialize)]
+        struct CleanupOnlyEnv {
+            #[serde(default)]
+            anarlog_attachment_backup_gc_enabled: bool,
+        }
+
+        let disabled: CleanupOnlyEnv = envy::from_iter(Vec::<(String, String)>::new()).unwrap();
+        let enabled: CleanupOnlyEnv = envy::from_iter([(
+            "ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED".to_string(),
+            "true".to_string(),
+        )])
+        .unwrap();
+
+        assert!(!disabled.anarlog_attachment_backup_gc_enabled);
+        assert!(enabled.anarlog_attachment_backup_gc_enabled);
     }
 }
