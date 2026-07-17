@@ -71,6 +71,7 @@ export function FinalSection({
   onContinue: (sessionId: string) => void;
 }) {
   const { i18n } = useLingui();
+  const translate = i18n._.bind(i18n);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const welcomeSessionRef = useRef<string | null>(null);
 
@@ -104,7 +105,7 @@ export function FinalSection({
       </OnboardingButton>
       {status === "error" && (
         <p className="text-sm text-red-500" role="alert">
-          {i18n._({
+          {translate({
             id: "onboarding.finish-error",
             message: "Couldn't open Anarlog. Please try again.",
           })}
