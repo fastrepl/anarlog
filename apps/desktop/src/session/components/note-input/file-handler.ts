@@ -28,7 +28,10 @@ export function useNoteFileHandlerConfig(sessionId: string) {
       }
 
       if (audioDrop.allowUnknownAudio) {
-        processAudioFile(audioDrop.audioFile, { allowUnknownAudio: true });
+        processAudioFile(audioDrop.audioFile, {
+          allowUnknownAudio: true,
+          contentType: audioDrop.contentType,
+        });
       } else {
         processAudioFile(audioDrop.audioFile);
       }
@@ -47,6 +50,12 @@ export function useNoteFileHandlerConfig(sessionId: string) {
       return result.remainingFiles.length === 0 ? true : result;
     },
     [processAudioDrop],
+  );
+
+  const handlePaste = useCallback(
+    (files: File[], items?: DataTransferItemList) =>
+      handleDrop(files, undefined, items),
+    [handleDrop],
   );
 
   const resetAudioDrag = useCallback(() => {
@@ -131,7 +140,10 @@ export function useNoteFileHandlerConfig(sessionId: string) {
       }
 
       if (audioDrop.allowUnknownAudio) {
-        processAudioFile(audioDrop.audioFile, { allowUnknownAudio: true });
+        processAudioFile(audioDrop.audioFile, {
+          allowUnknownAudio: true,
+          contentType: audioDrop.contentType,
+        });
       } else {
         processAudioFile(audioDrop.audioFile);
       }
@@ -143,8 +155,8 @@ export function useNoteFileHandlerConfig(sessionId: string) {
   );
 
   const fileHandlerConfig = useMemo<FileHandlerConfig>(
-    () => ({ onFileUpload, onDrop: handleDrop }),
-    [handleDrop, onFileUpload],
+    () => ({ onFileUpload, onDrop: handleDrop, onPaste: handlePaste }),
+    [handleDrop, handlePaste, onFileUpload],
   );
 
   const audioDropTargetProps = useMemo<HTMLAttributes<HTMLDivElement>>(
@@ -199,17 +211,22 @@ function hasSingleAudioUploadDrag(dataTransfer: DataTransfer) {
 }
 
 function getAudioDrop(files: File[], items?: DataTransferItemList) {
-  const dataTransferItems = Array.from(items ?? []);
-  const audioFile = files.find((file, index) =>
+  const dataTransferItems = Array.from(items ?? []).filter(
+    (item) => item.kind === "file",
+  );
+  const audioFileIndex = files.findIndex((file, index) =>
     isAudioDropFile(file, dataTransferItems[index]),
   );
-  if (!audioFile) {
+  if (audioFileIndex === -1) {
     return null;
   }
+  const audioFile = files[audioFileIndex];
 
   return {
     allowUnknownAudio: !isAudioUploadFile(audioFile),
     audioFile,
+    contentType:
+      audioFile.type || dataTransferItems[audioFileIndex]?.type || undefined,
     remainingFiles: files.filter((file) => file !== audioFile),
   };
 }

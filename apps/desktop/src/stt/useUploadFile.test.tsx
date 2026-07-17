@@ -170,6 +170,7 @@ describe("useUploadFile", () => {
       "session-1",
       [1, 2, 3],
       "drop.wav",
+      "audio/wav",
     );
     expect(audioImportMock).not.toHaveBeenCalled();
     expect(runBatchMock).toHaveBeenCalledWith(
@@ -212,9 +213,35 @@ describe("useUploadFile", () => {
         "session-1",
         [1, 2, 3],
         `drop.${extension}`,
+        null,
       );
     },
   );
+
+  test("imports copied Voice Memos audio using its QuickTime MIME", async () => {
+    const { result } = renderHook(() => useUploadFile("session-1"), {
+      wrapper: createWrapper(),
+    });
+    const file = new File([new Uint8Array([1, 2, 3])], "Brian Shin.qta", {
+      type: "audio/quicktime",
+      lastModified: 1_700_000_000_000,
+    });
+    Object.defineProperty(file, "arrayBuffer", {
+      value: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3]).buffer),
+    });
+
+    act(() => {
+      result.current.processAudioFile(file);
+    });
+
+    await waitFor(() => expect(runBatchMock).toHaveBeenCalled());
+    expect(audioImportDataMock).toHaveBeenCalledWith(
+      "session-1",
+      [1, 2, 3],
+      "Brian Shin.qta",
+      "audio/quicktime",
+    );
+  });
 
   test("continues transcription when imported audio cataloging fails", async () => {
     catalogLocalSessionAudioMock.mockRejectedValueOnce(

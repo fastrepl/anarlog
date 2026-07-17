@@ -288,20 +288,47 @@ pub(crate) async fn audio_import<R: tauri::Runtime>(
     })
 }
 
-fn audio_import_source_extension(filename: &str) -> String {
+fn audio_import_source_extension(filename: &str, content_type: Option<&str>) -> String {
     let extension = Path::new(filename)
         .extension()
         .and_then(|extension| extension.to_str())
         .map(str::to_ascii_lowercase);
 
     match extension.as_deref() {
-        Some("wav" | "mp3" | "ogg" | "mp4" | "m4a" | "flac") => extension.unwrap(),
-        _ => "mp3".to_string(),
+        Some("wav" | "mp3" | "ogg" | "mp4" | "m4a" | "flac" | "webm" | "aac") => {
+            return extension.unwrap();
+        }
+        Some("qta") => return "m4a".to_string(),
+        _ => {}
     }
+
+    let content_type = content_type
+        .and_then(|value| value.split(';').next())
+        .map(str::trim)
+        .map(str::to_ascii_lowercase);
+
+    match content_type.as_deref() {
+        Some("audio/wav" | "audio/x-wav" | "audio/wave" | "audio/vnd.wave") => "wav",
+        Some("audio/mpeg" | "audio/mp3") => "mp3",
+        Some("audio/ogg") => "ogg",
+        Some(
+            "audio/mp4" | "audio/x-m4a" | "audio/m4a" | "audio/quicktime" | "audio/x-quicktime"
+            | "video/mp4" | "video/quicktime",
+        ) => "m4a",
+        Some("audio/flac" | "audio/x-flac") => "flac",
+        Some("audio/webm") => "webm",
+        Some("audio/aac" | "audio/x-aac") => "aac",
+        _ => "mp3",
+    }
+    .to_string()
 }
 
-fn audio_import_source_path(session_dir: &Path, filename: &str) -> PathBuf {
-    let extension = audio_import_source_extension(filename);
+fn audio_import_source_path(
+    session_dir: &Path,
+    filename: &str,
+    content_type: Option<&str>,
+) -> PathBuf {
+    let extension = audio_import_source_extension(filename, content_type);
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_nanos())
@@ -322,13 +349,15 @@ pub(crate) async fn audio_import_data<R: tauri::Runtime>(
     session_id: String,
     data: Vec<u8>,
     filename: String,
+    content_type: Option<String>,
 ) -> Result<String, String> {
     let session_dir = resolve_session_dir(&app, &session_id)?;
     let runtime = crate::runtime::TauriAudioImportRuntime::new(app);
     spawn_blocking!({
         std::fs::create_dir_all(&session_dir).map_err(|e| e.to_string())?;
 
-        let source_path = audio_import_source_path(&session_dir, &filename);
+        let source_path =
+            audio_import_source_path(&session_dir, &filename, content_type.as_deref());
         std::fs::write(&source_path, data).map_err(|e| e.to_string())?;
 
         let result =
@@ -500,6 +529,28 @@ pub(crate) async fn attachment_remove<R: tauri::Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn audio_import_source_extension_uses_supported_filename_extension() {
+        assert_eq!(
+            audio_import_source_extension("recording.WEBM", Some("audio/mp4")),
+            "webm"
+        );
+        assert_eq!(audio_import_source_extension("recording.aac", None), "aac");
+    }
+
+    #[test]
+    fn audio_import_source_extension_recognizes_voice_memos_transfers() {
+        assert_eq!(audio_import_source_extension("Brian Shin.qta", None), "m4a");
+        assert_eq!(
+            audio_import_source_extension("Brian Shin", Some("audio/mp4; codecs=alac")),
+            "m4a"
+        );
+        assert_eq!(
+            audio_import_source_extension("Brian Shin", Some("audio/quicktime")),
+            "m4a"
+        );
+    }
 
     #[test]
     fn create_parent_dir_error_includes_parent_and_target_paths() {

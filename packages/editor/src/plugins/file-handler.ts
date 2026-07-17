@@ -15,7 +15,7 @@ export type FileHandlerConfig = {
     pos?: number,
     items?: DataTransferItemList,
   ) => FileDropResult;
-  onPaste?: (files: File[]) => boolean | void;
+  onPaste?: (files: File[], items?: DataTransferItemList) => FileDropResult;
   onFileUpload?: (file: File) => Promise<FileUploadResult>;
 };
 
@@ -142,9 +142,15 @@ export function fileHandlerPlugin(config: FileHandlerConfig) {
         if (files.length === 0) return false;
 
         if (config.onPaste) {
-          const result = config.onPaste(files);
+          const result = config.onPaste(files, event.clipboardData?.items);
           if (result === true) return true;
           if (result === false) return false;
+          if (isFileDropRemainder(result)) {
+            if (result.remainingFiles.length === 0) return true;
+
+            handleFiles(view, result.remainingFiles);
+            return true;
+          }
         }
 
         handleFiles(view, files);

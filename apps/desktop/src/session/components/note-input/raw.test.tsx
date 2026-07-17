@@ -124,7 +124,7 @@ vi.mock("~/stt/useUploadFile", () => ({
   AUDIO_EXTENSIONS: ["wav", "mp3", "ogg", "mp4", "m4a", "flac", "webm", "aac"],
   isAudioUploadFile: (file: Pick<File, "name" | "type">) =>
     file.type.startsWith("audio/") ||
-    ["wav", "mp3", "ogg", "mp4", "m4a", "flac", "webm", "aac"].some(
+    ["wav", "mp3", "ogg", "mp4", "m4a", "flac", "webm", "aac", "qta"].some(
       (extension) => file.name.endsWith(`.${extension}`),
     ),
   useUploadFile: () => ({ processAudioFile: hoisted.processAudioFile }),
@@ -256,7 +256,25 @@ describe("RawEditor", () => {
     });
     expect(hoisted.processAudioFile).toHaveBeenCalledWith(audioFile, {
       allowUnknownAudio: true,
+      contentType: "audio/mpeg",
     });
+  });
+
+  it("routes pasted Voice Memos audio to transcription", () => {
+    render(<RawEditor sessionId="session-1" />);
+
+    const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
+    const fileHandlerConfig = props?.fileHandlerConfig as {
+      onPaste: (
+        files: File[],
+        items?: DataTransferItemList,
+      ) => boolean | void | { remainingFiles: File[] };
+    };
+    const file = new File(["audio"], "Brian Shin.qta", { type: "" });
+    const dataTransfer = audioDataTransfer(file, "audio/quicktime");
+
+    expect(fileHandlerConfig.onPaste([file], dataTransfer.items)).toBe(true);
+    expect(hoisted.processAudioFile).toHaveBeenCalledWith(file);
   });
 
   it("only imports the first audio file from a multi-audio drop", () => {
@@ -341,6 +359,7 @@ describe("RawEditor", () => {
 
     expect(hoisted.processAudioFile).toHaveBeenCalledWith(file, {
       allowUnknownAudio: true,
+      contentType: "audio/mpeg",
     });
   });
 });
