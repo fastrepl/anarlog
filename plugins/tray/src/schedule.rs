@@ -7,7 +7,8 @@ pub struct TrayScheduleEvent {
     pub title: String,
     pub starts_at_ms: f64,
     pub ends_at_ms: Option<f64>,
-    pub day_label: Option<String>,
+    pub day_start_ms: f64,
+    pub previous_day_start_ms: f64,
     pub time_label: String,
 }
 
@@ -28,23 +29,19 @@ pub fn agenda_sections(
 
     let mut sections: Vec<TrayAgendaSection> = Vec::new();
 
-    for event in events
+    for (event, label) in events
         .iter()
         .filter(|event| {
-            event.day_label.is_some()
-                && event
-                    .ends_at_ms
-                    .map_or(event.starts_at_ms > now_ms, |end_ms| end_ms > now_ms)
+            event
+                .ends_at_ms
+                .map_or(event.starts_at_ms > now_ms, |end_ms| end_ms > now_ms)
         })
+        .filter_map(|event| agenda_day_label(event, now_ms).map(|label| (event, label)))
         .take(3)
     {
-        let label = event.day_label.as_ref().unwrap();
-        if sections
-            .last()
-            .is_none_or(|section| section.label != *label)
-        {
+        if sections.last().is_none_or(|section| section.label != label) {
             sections.push(TrayAgendaSection {
-                label: label.clone(),
+                label: label.to_string(),
                 events: Vec::new(),
             });
         }
@@ -57,6 +54,20 @@ pub fn agenda_sections(
     }
 
     sections
+}
+
+fn agenda_day_label(event: &TrayScheduleEvent, now_ms: f64) -> Option<&'static str> {
+    if !event.day_start_ms.is_finite() || !event.previous_day_start_ms.is_finite() {
+        return None;
+    }
+
+    if now_ms >= event.day_start_ms {
+        Some("Today")
+    } else if now_ms >= event.previous_day_start_ms {
+        Some("Tomorrow")
+    } else {
+        None
+    }
 }
 
 pub fn menu_bar_title(
@@ -184,7 +195,8 @@ mod tests {
             title: title.to_string(),
             starts_at_ms,
             ends_at_ms,
-            day_label: Some("Today".to_string()),
+            day_start_ms: 0.0,
+            previous_day_start_ms: -86_400_000.0,
             time_label: "9:00 AM – 9:30 AM".to_string(),
         }
     }
@@ -267,9 +279,10 @@ mod tests {
             event("Tomorrow one", now + 120_000.0, Some(now + 180_000.0)),
             event("Tomorrow two", now + 180_000.0, Some(now + 240_000.0)),
         ];
-        events[2].day_label = Some("Tomorrow".to_string());
-        events[3].day_label = Some("Tomorrow".to_string());
-        events[4].day_label = Some("Tomorrow".to_string());
+        for event in &mut events[2..] {
+            event.day_start_ms = now + 1.0;
+            event.previous_day_start_ms = now - 86_400_000.0;
+        }
 
         assert_eq!(
             agenda_sections(&events, now, true),
@@ -286,6 +299,23 @@ mod tests {
                     ],
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn relabels_tomorrow_after_local_midnight() {
+        let midnight = 2_000_000.0;
+        let mut next_day = event("Morning sync", midnight + 60_000.0, None);
+        next_day.day_start_ms = midnight;
+        next_day.previous_day_start_ms = midnight - 86_400_000.0;
+
+        assert_eq!(
+            agenda_sections(&[next_day.clone()], midnight - 1.0, true)[0].label,
+            "Tomorrow"
+        );
+        assert_eq!(
+            agenda_sections(&[next_day], midnight, true)[0].label,
+            "Today"
         );
     }
 }

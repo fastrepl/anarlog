@@ -44,7 +44,8 @@ export type TrayScheduleEvent = {
   title: string;
   startsAtMs: number;
   endsAtMs: number | null;
-  dayLabel: string | null;
+  dayStartMs: number;
+  previousDayStartMs: number;
   timeLabel: string;
 };
 

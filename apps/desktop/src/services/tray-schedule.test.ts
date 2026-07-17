@@ -39,14 +39,16 @@ describe("buildTrayScheduleEvents", () => {
         title: "Standup",
         startsAtMs: Date.parse("2026-07-16T23:55:00.000Z"),
         endsAtMs: Date.parse("2026-07-17T00:25:00.000Z"),
-        dayLabel: "Today",
+        dayStartMs: Date.parse("2026-07-16T00:00:00.000Z"),
+        previousDayStartMs: Date.parse("2026-07-15T00:00:00.000Z"),
         timeLabel: "11:55 PM – 12:25 AM",
       },
       {
         title: "Design sync",
         startsAtMs: Date.parse("2026-07-17T01:00:00.000Z"),
         endsAtMs: Date.parse("2026-07-17T02:00:00.000Z"),
-        dayLabel: "Today",
+        dayStartMs: NOW,
+        previousDayStartMs: Date.parse("2026-07-16T00:00:00.000Z"),
         timeLabel: "1:00 AM – 2:00 AM",
       },
     ]);
@@ -100,7 +102,8 @@ describe("buildTrayScheduleEvents", () => {
     );
 
     expect(events[0]).toMatchObject({
-      dayLabel: "Tomorrow",
+      dayStartMs: Date.parse("2026-07-18T00:00:00.000Z"),
+      previousDayStartMs: NOW,
       timeLabel: "1:00 AM – 2:00 AM",
     });
   });
