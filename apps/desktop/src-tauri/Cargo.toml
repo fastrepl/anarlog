@@ -71,7 +71,7 @@ tauri-plugin-sfx = { workspace = true }
 tauri-plugin-shell = { workspace = true }
 tauri-plugin-shortcut = { workspace = true }
 tauri-plugin-sidecar2 = { workspace = true }
-tauri-plugin-single-instance = { workspace = true }
+tauri-plugin-single-instance = { workspace = true, features = ["deep-link"] }
 tauri-plugin-store = { workspace = true }
 tauri-plugin-store2 = { workspace = true }
 tauri-plugin-tantivy = { workspace = true }
