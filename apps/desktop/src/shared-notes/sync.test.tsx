@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   invalidateResource: vi.fn(),
   history: new Map<string, { stack: Array<{ type: string; id: string }> }>(),
   parseSnapshots: vi.fn((value: unknown) => value),
+  reconcile: vi.fn(async (_input?: any) => "idle"),
   replaceCache: vi.fn(async () => {}),
   rpc: vi.fn(),
   setHeader: vi.fn(),
@@ -25,6 +26,10 @@ vi.mock("~/auth", () => ({
 vi.mock("./cache", () => ({
   parseDurableSharedNoteSnapshots: mocks.parseSnapshots,
   replaceDurableSharedNoteCache: mocks.replaceCache,
+}));
+
+vi.mock("~/session-sharing/reconciliation", () => ({
+  reconcileManagedSessionShareSnapshot: mocks.reconcile,
 }));
 
 vi.mock("~/store/zustand/tabs", () => ({
@@ -123,8 +128,8 @@ describe("DurableSharedNoteCacheSync", () => {
       expect(mocks.replaceCache).toHaveBeenCalledWith("viewer-1", snapshots);
     });
     expect(mocks.rpc).toHaveBeenCalledWith(
-      "list_my_session_share_snapshot_page",
-      { p_after_share_id: null, p_limit: 100 },
+      "list_my_session_share_snapshot_page_v2",
+      { p_after_share_id: null, p_limit: 8 },
     );
     expect(mocks.setHeader).toHaveBeenCalledWith(
       "Authorization",
@@ -133,11 +138,48 @@ describe("DurableSharedNoteCacheSync", () => {
     expect(mocks.abortSignal).toHaveBeenCalledWith(expect.any(AbortSignal));
   });
 
+  it("reconciles manager snapshots and acknowledges only through the supplied post-import callback", async () => {
+    const snapshot = {
+      shareId: "share-1",
+      manageAccess: true,
+      contentRevision: 3,
+      accessVersion: 4,
+    };
+    mocks.abortSignal
+      .mockResolvedValueOnce({ data: ["server-row"], error: null })
+      .mockResolvedValueOnce({ data: null, error: null });
+    mocks.parseSnapshots.mockReturnValue([snapshot]);
+    mocks.reconcile.mockImplementationOnce(async (input: any) => {
+      await input.acknowledge("share-1", 3);
+      return "imported";
+    });
+
+    render(<DurableSharedNoteCacheSync />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(mocks.replaceCache).toHaveBeenCalledWith("viewer-1", [snapshot]);
+    });
+    expect(mocks.reconcile).toHaveBeenCalledWith(
+      expect.objectContaining({ viewerUserId: "viewer-1", snapshot }),
+    );
+    expect(mocks.rpc).toHaveBeenNthCalledWith(
+      2,
+      "acknowledge_session_share_web_edits",
+      {
+        p_share_id: "share-1",
+        p_expected_content_revision: 3,
+      },
+    );
+    expect(mocks.reconcile.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.replaceCache.mock.invocationCallOrder[0]!,
+    );
+  });
+
   it("reconciles only after every result page succeeds", async () => {
-    const firstPage = Array.from({ length: 100 }, (_, index) => ({
+    const firstPage = Array.from({ length: 8 }, (_, index) => ({
       share_id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
     }));
-    const lastPage = [{ share_id: "00000000-0000-4000-8000-000000000100" }];
+    const lastPage = [{ share_id: "00000000-0000-4000-8000-000000000008" }];
     mocks.abortSignal
       .mockResolvedValueOnce({ data: firstPage, error: null })
       .mockResolvedValueOnce({ data: lastPage, error: null });
@@ -150,15 +192,15 @@ describe("DurableSharedNoteCacheSync", () => {
     });
     expect(mocks.rpc).toHaveBeenNthCalledWith(
       1,
-      "list_my_session_share_snapshot_page",
-      { p_after_share_id: null, p_limit: 100 },
+      "list_my_session_share_snapshot_page_v2",
+      { p_after_share_id: null, p_limit: 8 },
     );
     expect(mocks.rpc).toHaveBeenNthCalledWith(
       2,
-      "list_my_session_share_snapshot_page",
+      "list_my_session_share_snapshot_page_v2",
       {
         p_after_share_id: firstPage[firstPage.length - 1]?.share_id,
-        p_limit: 100,
+        p_limit: 8,
       },
     );
     expect(mocks.parseSnapshots).toHaveBeenCalledWith([
@@ -170,7 +212,7 @@ describe("DurableSharedNoteCacheSync", () => {
   it("preserves the cache when a later result page fails", async () => {
     mocks.abortSignal
       .mockResolvedValueOnce({
-        data: Array.from({ length: 100 }, (_, index) => ({
+        data: Array.from({ length: 8 }, (_, index) => ({
           share_id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
         })),
         error: null,
@@ -190,7 +232,7 @@ describe("DurableSharedNoteCacheSync", () => {
   });
 
   it("rejects a full page that does not advance the share cursor", async () => {
-    const page = Array.from({ length: 100 }, (_, index) => ({
+    const page = Array.from({ length: 8 }, (_, index) => ({
       share_id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
     }));
     mocks.abortSignal

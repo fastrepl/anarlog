@@ -3,10 +3,10 @@
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { EditorState, TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
-import { createElement } from "react";
+import { createElement, createRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { JSONContent } from "./index";
+import type { JSONContent, NoteEditorRef } from "./index";
 import {
   createReadOnlyPlugin,
   getEditorCompositionWaitMs,
@@ -191,5 +191,63 @@ describe("createReadOnlyPlugin", () => {
     expect(
       rendered.queryByRole("button", { name: "Remove attachment" }),
     ).toBeNull();
+  });
+});
+
+describe("browser-safe editor controls", () => {
+  it("flushes the current document through the change handler immediately", async () => {
+    const ref = createRef<NoteEditorRef>();
+    const handleChange = vi.fn();
+    render(
+      createElement(NoteEditor, {
+        ref,
+        initialContent: baseDoc,
+        handleChange,
+        enforceTitleHeading: false,
+      }),
+    );
+
+    await waitFor(() => expect(ref.current?.view).not.toBeNull());
+
+    act(() => ref.current?.flushPendingChanges());
+
+    expect(handleChange).toHaveBeenCalledOnce();
+    expect(handleChange).toHaveBeenCalledWith(baseDoc);
+  });
+
+  it("does not mount the slash command surface when disabled", async () => {
+    let view: EditorView | null = null;
+    const rendered = render(
+      createElement(NoteEditor, {
+        initialContent: {
+          type: "doc",
+          content: [
+            {
+              type: "heading",
+              attrs: { level: 1 },
+              content: [{ type: "text", text: "Title" }],
+            },
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: "/" }],
+            },
+          ],
+        },
+        onViewReady: (nextView) => {
+          view = nextView;
+        },
+        showSlashCommand: false,
+      }),
+    );
+
+    await waitFor(() => expect(view).not.toBeNull());
+    act(() => {
+      if (!view) return;
+      view.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 9)),
+      );
+    });
+
+    expect(rendered.queryByText("Commands")).toBeNull();
   });
 });

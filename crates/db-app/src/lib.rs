@@ -169,6 +169,16 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         scope: hypr_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260717172000_shared_session_cache_attachments.sql"),
     },
+    hypr_db_migrate::MigrationStep {
+        id: "20260717190000_shared_session_cache_web_edits",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260717190000_shared_session_cache_web_edits.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260717191000_session_share_sync_state",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260717191000_session_share_sync_state.sql"),
+    },
 ];
 
 pub fn schema() -> hypr_db_migrate::DbSchema {
@@ -857,6 +867,166 @@ mod tests {
                 .any(|table| table.table_name == "shared_session_cache")
         );
         assert!(!cloudsync_alter_guard_required("shared_session_cache"));
+    }
+
+    #[test]
+    fn session_share_sync_state_is_plain_and_excluded_from_replication() {
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260717191000_session_share_sync_state")
+            .unwrap();
+
+        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert!(
+            !cloudsync_table_registry()
+                .iter()
+                .any(|table| table.table_name == "session_share_sync_state")
+        );
+        assert!(!E2EE_DOMAIN_TABLES.contains(&"session_share_sync_state"));
+        assert!(!cloudsync_alter_guard_required("session_share_sync_state"));
+    }
+
+    #[tokio::test]
+    async fn session_share_sync_state_enforces_local_reconciliation_contract() {
+        let db = test_db().await;
+        let insert = "INSERT INTO session_share_sync_state (
+            viewer_user_id,
+            share_id,
+            session_id,
+            acknowledged_content_revision,
+            baseline_source_hash,
+            status
+        ) VALUES (?, ?, ?, ?, ?, ?)";
+
+        sqlx::query(insert)
+            .bind("viewer-1")
+            .bind("share-1")
+            .bind("session-1")
+            .bind(3_i64)
+            .bind("a".repeat(64))
+            .bind("clean")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        for (viewer, share, session, revision, hash, status) in [
+            ("", "share-2", "session-2", 1_i64, "b".repeat(64), "clean"),
+            (
+                "viewer-2",
+                "share-2",
+                "session-2",
+                0_i64,
+                "b".repeat(64),
+                "clean",
+            ),
+            (
+                "viewer-2",
+                "share-2",
+                "session-2",
+                1_i64,
+                "B".repeat(64),
+                "clean",
+            ),
+            (
+                "viewer-2",
+                "share-2",
+                "session-2",
+                1_i64,
+                "b".repeat(63),
+                "clean",
+            ),
+            (
+                "viewer-2",
+                "share-2",
+                "session-2",
+                1_i64,
+                "b".repeat(64),
+                "pending",
+            ),
+        ] {
+            assert!(
+                sqlx::query(insert)
+                    .bind(viewer)
+                    .bind(share)
+                    .bind(session)
+                    .bind(revision)
+                    .bind(hash)
+                    .bind(status)
+                    .execute(db.pool())
+                    .await
+                    .is_err()
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn shared_session_cache_enforces_manager_web_edit_base() {
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260717190000_shared_session_cache_web_edits")
+            .unwrap();
+        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+
+        let db = test_db().await;
+        let insert = "INSERT INTO shared_session_cache (
+            share_id,
+            viewer_user_id,
+            workspace_id,
+            session_id,
+            content_revision,
+            manage_access,
+            access_version,
+            web_editable,
+            web_edit_base_content_revision,
+            web_edit_base_title,
+            web_edit_base_body_json,
+            published_at
+        ) VALUES (?, ?, 'workspace-1', 'session-1', 2, ?, 1, 0, ?, ?, ?, '2026-07-17T00:00:00Z')";
+        let body = r#"{"type":"doc","content":[{"type":"paragraph"}]}"#;
+
+        sqlx::query(insert)
+            .bind("share-1")
+            .bind("viewer-1")
+            .bind(1_i64)
+            .bind(1_i64)
+            .bind("Before")
+            .bind(body)
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        for (share, viewer, manager, revision, title, body) in [
+            (
+                "share-2",
+                "viewer-2",
+                0_i64,
+                Some(1_i64),
+                Some("Before"),
+                Some(body),
+            ),
+            (
+                "share-3",
+                "viewer-3",
+                1_i64,
+                Some(2_i64),
+                Some("Before"),
+                Some(body),
+            ),
+            ("share-4", "viewer-4", 1_i64, Some(1_i64), None, Some(body)),
+        ] {
+            assert!(
+                sqlx::query(insert)
+                    .bind(share)
+                    .bind(viewer)
+                    .bind(manager)
+                    .bind(revision)
+                    .bind(title)
+                    .bind(body)
+                    .execute(db.pool())
+                    .await
+                    .is_err()
+            );
+        }
     }
 
     #[tokio::test]

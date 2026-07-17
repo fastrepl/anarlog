@@ -40,6 +40,12 @@ export type SharedNoteSnapshot = {
   capability: SharedNoteCapability;
   manageAccess: boolean;
   accessVersion: number;
+  webEditable: boolean;
+  webEditBase: {
+    contentRevision: number;
+    title: string;
+    body: JSONContent;
+  } | null;
   publishedAt: string;
 };
 
@@ -56,6 +62,10 @@ type SharedNoteLiveRow = {
   capability: string;
   manage_access: number | boolean;
   access_version: number;
+  web_editable: number | boolean;
+  web_edit_base_content_revision: number | null;
+  web_edit_base_title: string | null;
+  web_edit_base_body_json: unknown | null;
   published_at: string;
   cached_at: string;
 };
@@ -124,19 +134,44 @@ export async function replaceDurableSharedNoteCache(
           capability,
           manage_access,
           access_version,
+          web_editable,
+          web_edit_base_content_revision,
+          web_edit_base_title,
+          web_edit_base_body_json,
           published_at,
           cached_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
       `,
         params: sharedNoteParams(viewerUserId, snapshot),
       },
       ...attachmentReconciliationStatements(viewerUserId, snapshot),
     ]),
+    sessionShareSyncStatePruneStatement(viewerUserId, snapshots),
   ];
 
   await enqueueDatabaseWrite(`shared-note-cache:${viewerUserId}`, () =>
     executeTransaction(statements),
   );
+}
+
+function sessionShareSyncStatePruneStatement(
+  viewerUserId: string,
+  snapshots: SharedNoteSnapshot[],
+) {
+  if (snapshots.length === 0) {
+    return {
+      sql: "DELETE FROM session_share_sync_state WHERE viewer_user_id = ?",
+      params: [viewerUserId],
+    };
+  }
+  return {
+    sql: `
+      DELETE FROM session_share_sync_state
+      WHERE viewer_user_id = ?
+        AND share_id NOT IN (${snapshots.map(() => "?").join(", ")})
+    `,
+    params: [viewerUserId, ...snapshots.map((snapshot) => snapshot.shareId)],
+  };
 }
 
 export async function upsertDurableSharedNoteCache(
@@ -175,9 +210,13 @@ export async function upsertDurableSharedNoteCache(
             capability,
             manage_access,
             access_version,
+            web_editable,
+            web_edit_base_content_revision,
+            web_edit_base_title,
+            web_edit_base_body_json,
             published_at,
             cached_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
           ON CONFLICT(viewer_user_id, share_id) DO UPDATE SET
             viewer_user_id = excluded.viewer_user_id,
             workspace_id = excluded.workspace_id,
@@ -190,6 +229,10 @@ export async function upsertDurableSharedNoteCache(
             capability = excluded.capability,
             manage_access = excluded.manage_access,
             access_version = excluded.access_version,
+            web_editable = excluded.web_editable,
+            web_edit_base_content_revision = excluded.web_edit_base_content_revision,
+            web_edit_base_title = excluded.web_edit_base_title,
+            web_edit_base_body_json = excluded.web_edit_base_body_json,
             published_at = excluded.published_at,
             cached_at = excluded.cached_at
         `,
@@ -225,6 +268,13 @@ export async function removeDurableSharedNoteCache(
       {
         sql: `
           DELETE FROM shared_session_cache
+          WHERE viewer_user_id = ? AND share_id = ?
+        `,
+        params: [viewerUserId, shareId],
+      },
+      {
+        sql: `
+          DELETE FROM session_share_sync_state
           WHERE viewer_user_id = ? AND share_id = ?
         `,
         params: [viewerUserId, shareId],
@@ -338,6 +388,13 @@ export function mapSharedNoteLiveRows(
           capability: row.capability,
           manage_access: row.manage_access === true || row.manage_access === 1,
           access_version: row.access_version,
+          web_editable: row.web_editable === true || row.web_editable === 1,
+          web_edit_base_content_revision: row.web_edit_base_content_revision,
+          web_edit_base_title: row.web_edit_base_title,
+          web_edit_base_body_json:
+            typeof row.web_edit_base_body_json === "string"
+              ? JSON.parse(row.web_edit_base_body_json)
+              : row.web_edit_base_body_json,
           published_at: row.published_at,
         }),
       ];
@@ -371,6 +428,16 @@ function parseSnapshot(value: unknown): SharedNoteSnapshot {
     value.access_version,
     "access version",
   );
+  if (typeof value.web_editable !== "boolean") {
+    throw new Error("invalid shared-note web editability");
+  }
+  if (value.web_editable && attachments.length > 0) {
+    throw new Error("attachment-bearing shared notes cannot be web editable");
+  }
+  const webEditBase = requireWebEditBase(value, {
+    contentRevision,
+    manageAccess: value.manage_access,
+  });
   const publishedAt = requireTimestamp(value.published_at);
 
   if (schemaVersion !== 1) {
@@ -389,6 +456,8 @@ function parseSnapshot(value: unknown): SharedNoteSnapshot {
     capability,
     manageAccess: value.manage_access,
     accessVersion,
+    webEditable: value.web_editable,
+    webEditBase,
     publishedAt,
   };
 }
@@ -410,8 +479,38 @@ function sharedNoteParams(
     snapshot.capability,
     snapshot.manageAccess ? 1 : 0,
     snapshot.accessVersion,
+    snapshot.webEditable ? 1 : 0,
+    snapshot.webEditBase?.contentRevision ?? null,
+    snapshot.webEditBase?.title ?? null,
+    snapshot.webEditBase ? JSON.stringify(snapshot.webEditBase.body) : null,
     snapshot.publishedAt,
   ];
+}
+
+function requireWebEditBase(
+  value: Record<string, unknown>,
+  context: { contentRevision: number; manageAccess: boolean },
+): SharedNoteSnapshot["webEditBase"] {
+  const revision = value.web_edit_base_content_revision;
+  const title = value.web_edit_base_title;
+  const body = value.web_edit_base_body_json;
+  if (revision === null && title === null && body === null) return null;
+  if (revision === null || title === null || body === null) {
+    throw new Error("invalid shared-note web edit base");
+  }
+  if (
+    !context.manageAccess ||
+    !Number.isSafeInteger(revision) ||
+    (revision as number) < 1 ||
+    (revision as number) >= context.contentRevision
+  ) {
+    throw new Error("invalid shared-note web edit base");
+  }
+  return {
+    contentRevision: revision as number,
+    title: requireTitle(title),
+    body: requireDocument(body),
+  };
 }
 
 function attachmentReconciliationStatements(

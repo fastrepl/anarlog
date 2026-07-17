@@ -4,6 +4,7 @@ import {
   addSharedAttachmentIds,
   isAttachmentShareable,
   prepareSessionShareAttachment,
+  restoreLocalAttachmentIds,
   type SessionShareAttachment,
 } from "./attachments";
 
@@ -83,5 +84,39 @@ describe("shared attachment selection", () => {
       sharedAttachmentId: "33333333-3333-4333-8333-333333333333",
     });
     expect(body.content?.[1]?.attrs).toEqual({});
+  });
+
+  it("restores local attachment IDs from a shared snapshot and fails closed when unmatched", () => {
+    const sharedId = "33333333-3333-4333-8333-333333333333";
+    const restored = restoreLocalAttachmentIds(
+      {
+        type: "doc",
+        content: [
+          {
+            type: "image",
+            attrs: { sharedAttachmentId: sharedId },
+          },
+        ],
+      },
+      new Map([["local-attachment", sharedId]]),
+    );
+
+    expect(restored.content?.[0]?.attrs).toEqual({
+      attachmentId: "local-attachment",
+    });
+    expect(() =>
+      restoreLocalAttachmentIds(
+        {
+          type: "doc",
+          content: [
+            {
+              type: "fileAttachment",
+              attrs: { sharedAttachmentId: sharedId },
+            },
+          ],
+        },
+        new Map(),
+      ),
+    ).toThrow("unavailable locally");
   });
 });

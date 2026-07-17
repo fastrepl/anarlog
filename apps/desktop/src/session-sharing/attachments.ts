@@ -226,6 +226,16 @@ export function addSharedAttachmentIds(
   return mapDocumentNode(document, localToShared) as JSONContent;
 }
 
+export function restoreLocalAttachmentIds(
+  document: JSONContent,
+  localToShared: Map<string, string>,
+): JSONContent {
+  const sharedToLocal = new Map(
+    Array.from(localToShared, ([localId, sharedId]) => [sharedId, localId]),
+  );
+  return restoreDocumentNode(document, sharedToLocal) as JSONContent;
+}
+
 export function isAttachmentShareable(attachment: SessionShareAttachment) {
   return (
     attachment.localAvailability === "present" &&
@@ -447,6 +457,42 @@ function mapDocumentNode(
         ? localToShared.get(attachmentId)
         : undefined;
     mapped.attrs = sharedId ? { sharedAttachmentId: sharedId } : {};
+  }
+  return mapped;
+}
+
+function restoreDocumentNode(
+  value: unknown,
+  sharedToLocal: Map<string, string>,
+): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => restoreDocumentNode(item, sharedToLocal));
+  }
+  if (!value || typeof value !== "object") return value;
+  const node = value as Record<string, unknown>;
+  const mapped = Object.fromEntries(
+    Object.entries(node).map(([key, child]) => [
+      key,
+      key === "attrs" ? child : restoreDocumentNode(child, sharedToLocal),
+    ]),
+  );
+  if (
+    (node.type === "image" ||
+      node.type === "fileAttachment" ||
+      node.type === "clip") &&
+    node.attrs &&
+    typeof node.attrs === "object"
+  ) {
+    const attrs = node.attrs as Record<string, unknown>;
+    const sharedId = attrs.sharedAttachmentId;
+    if (typeof sharedId === "string") {
+      const localId = sharedToLocal.get(sharedId);
+      if (!localId) {
+        throw new Error("Shared attachment is unavailable locally");
+      }
+      const { sharedAttachmentId: _, ...portableAttrs } = attrs;
+      mapped.attrs = { ...portableAttrs, attachmentId: localId };
+    }
   }
   return mapped;
 }
