@@ -1,31 +1,42 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { ClientOnly, createFileRoute } from "@tanstack/react-router";
-import { LogInIcon, MailCheckIcon } from "lucide-react";
+import {
+  CircleCheckIcon,
+  Clock3Icon,
+  LogInIcon,
+  MailCheckIcon,
+  MailXIcon,
+} from "lucide-react";
 
+import { useShareRouteContinuation } from "@/components/share-route-continuation";
 import {
   sharedPrimaryButtonClassName,
   sharedSecondaryButtonClassName,
   SharedNoteLoading,
   SharedNotePrompt,
+  SharedNoteTransientError,
   SharedNoteUnavailable,
 } from "@/components/shared-note-viewer";
 import { fetchUser } from "@/functions/auth";
-import { getSupabaseBrowserClient } from "@/functions/supabase";
+import { clearShareRouteContinuation } from "@/functions/share-route-continuation";
+import {
+  acceptSharedNoteInvitation,
+  inspectMySharedNoteInvitation,
+} from "@/functions/shared-notes";
 import {
   clearShareRouteToken,
-  getShareRouteToken,
   prepareShareRoutePrivacy,
 } from "@/lib/share-route-privacy";
 import {
   getPrivateShareHead,
   privateShareHeaders,
 } from "@/lib/shared-note-meta";
+import { getInvitationRouteFailure } from "@/lib/shared-note-route-state";
 import {
   type SharedNoteDesktopScheme,
   buildSharedNoteWebPath,
   sharedNoteDesktopSchemeSchema,
   invitationIdSchema,
-  shareIdSchema,
 } from "@/lib/shared-notes";
 
 export const Route = createFileRoute("/share/invite/$invitationId")({
@@ -65,35 +76,48 @@ function InvitationClient({
   scheme: SharedNoteDesktopScheme;
 }) {
   const pathname = window.location.pathname;
-  const hasToken = Boolean(getShareRouteToken(pathname));
+  const continuation = useShareRouteContinuation(pathname);
   const validInvitationId = invitationIdSchema.safeParse(invitationId);
+  const parsedInvitationId = validInvitationId.success
+    ? validInvitationId.data
+    : null;
+  const invitationQuery = useQuery({
+    queryKey: ["shared-note-invitation", parsedInvitationId],
+    queryFn: async () => {
+      if (!parsedInvitationId || !continuation.token) {
+        throw new Error("shared note unavailable");
+      }
+      return inspectMySharedNoteInvitation({
+        data: {
+          invitationId: parsedInvitationId,
+          token: continuation.token,
+        },
+      });
+    },
+    enabled: Boolean(signedIn && parsedInvitationId && continuation.token),
+    gcTime: 0,
+    retry: false,
+    staleTime: Infinity,
+  });
   const acceptMutation = useMutation({
     mutationFn: async () => {
-      const token = getShareRouteToken(pathname);
-      if (!token || !validInvitationId.success) {
+      if (!continuation.token || !parsedInvitationId) {
         throw new Error("shared note unavailable");
       }
 
-      const supabase = getSupabaseBrowserClient();
-      const { data, error } = await supabase.rpc(
-        "accept_session_access_invitation",
-        {
-          p_invitation_id: validInvitationId.data,
-          p_invite_token: token,
+      const result = await acceptSharedNoteInvitation({
+        data: {
+          invitationId: parsedInvitationId,
+          token: continuation.token,
         },
-      );
-      if (error || !Array.isArray(data) || data.length !== 1) {
+      });
+      if (result.status !== "ready") {
         throw new Error("shared note unavailable");
       }
-
-      const shareId = shareIdSchema.safeParse(data[0]?.share_id);
-      if (!shareId.success) {
-        throw new Error("shared note unavailable");
-      }
-      return shareId.data;
+      return result.shareId;
     },
-    onSuccess: (shareId) => {
-      clearShareRouteToken(pathname);
+    onSuccess: async (shareId) => {
+      await clearInvitationContinuation(pathname);
       window.location.assign(
         buildSharedNoteWebPath(
           `/share/${encodeURIComponent(shareId)}/`,
@@ -103,7 +127,21 @@ function InvitationClient({
     },
   });
 
-  if (!hasToken || !validInvitationId.success) {
+  if (continuation.isPending) {
+    return <SharedNoteLoading />;
+  }
+
+  if (continuation.isError) {
+    return (
+      <SharedNoteTransientError
+        retry={() => {
+          void continuation.retry();
+        }}
+      />
+    );
+  }
+
+  if (!continuation.token || !parsedInvitationId) {
     return <SharedNoteUnavailable />;
   }
 
@@ -129,6 +167,77 @@ function InvitationClient({
     );
   }
 
+  if (invitationQuery.isPending) {
+    return <SharedNoteLoading />;
+  }
+
+  const invitationFailure = getInvitationRouteFailure({
+    acceptanceFailed: acceptMutation.isError,
+    inspectionFailed: invitationQuery.isError,
+    inspectionReady: invitationQuery.data?.status === "ready",
+  });
+  if (
+    invitationFailure === "unavailable" ||
+    invitationQuery.data?.status !== "ready"
+  ) {
+    return <SharedNoteUnavailable />;
+  }
+
+  const invitation = invitationQuery.data.invitation;
+
+  if (invitation.status === "accepted") {
+    const acceptedShareId = invitation.shareId;
+    if (!acceptedShareId) {
+      return <SharedNoteUnavailable />;
+    }
+
+    return (
+      <SharedNotePrompt
+        icon={<CircleCheckIcon className="size-6" aria-hidden="true" />}
+        title="Invitation accepted"
+        description="This note is already available in your shared notes."
+        actions={
+          <button
+            type="button"
+            className={sharedPrimaryButtonClassName}
+            onClick={() => {
+              void clearInvitationContinuation(pathname).then(() => {
+                window.location.assign(
+                  buildSharedNoteWebPath(
+                    `/share/${encodeURIComponent(acceptedShareId)}/`,
+                    scheme,
+                  ),
+                );
+              });
+            }}
+          >
+            Open note
+          </button>
+        }
+      />
+    );
+  }
+
+  if (invitation.status === "revoked") {
+    return (
+      <SharedNotePrompt
+        icon={<MailXIcon className="size-6" aria-hidden="true" />}
+        title="This invitation was revoked"
+        description="The person who shared the note has withdrawn this invitation."
+      />
+    );
+  }
+
+  if (invitation.status === "expired") {
+    return (
+      <SharedNotePrompt
+        icon={<Clock3Icon className="size-6" aria-hidden="true" />}
+        title="This invitation has expired"
+        description="Ask the person who shared the note to send a new invitation."
+      />
+    );
+  }
+
   return (
     <SharedNotePrompt
       icon={<MailCheckIcon className="size-6" aria-hidden="true" />}
@@ -148,19 +257,25 @@ function InvitationClient({
             type="button"
             className={sharedSecondaryButtonClassName}
             onClick={() => {
-              clearShareRouteToken(pathname);
-              window.location.assign("/");
+              void clearInvitationContinuation(pathname).then(() => {
+                window.location.assign("/");
+              });
             }}
           >
             Not now
           </button>
-          {acceptMutation.isError && (
-            <p className="text-color-muted basis-full text-sm" role="status">
-              This invitation isn’t available for the signed-in account.
+          {invitationFailure === "accept-retry" && (
+            <p className="basis-full text-sm text-red-700" role="status">
+              We couldn’t accept this invitation. Please try again.
             </p>
           )}
         </>
       }
     />
   );
+}
+
+async function clearInvitationContinuation(pathname: string) {
+  clearShareRouteToken(pathname);
+  await clearShareRouteContinuation({ data: pathname }).catch(() => undefined);
 }

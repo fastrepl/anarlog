@@ -2,16 +2,24 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback } from "react";
 
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
-import {
-  PublicSharedNoteActions,
-} from "@/components/shared-note-actions";
+import { PublicSharedNoteActions } from "@/components/shared-note-actions";
+import { SharedNoteCollaboration } from "@/components/shared-note-collaboration";
 import {
   SharedNoteLoading,
   SharedNoteTransientError,
   SharedNoteUnavailable,
   SharedNoteViewer,
 } from "@/components/shared-note-viewer";
-import { readPublicSharedNote } from "@/functions/shared-notes";
+import { fetchUser } from "@/functions/auth";
+import {
+  createAuthenticatedSharedAttachmentDownload,
+  readAuthenticatedSharedNote,
+  readPublicSharedNote,
+} from "@/functions/shared-notes";
+import {
+  formatAuthenticatedSharedNoteAccessLabel,
+  shouldUseAuthenticatedSharedNoteAccessLabel,
+} from "@/lib/shared-note-collaboration";
 import {
   getPublicShareHead,
   publicShareHeaders,
@@ -19,6 +27,7 @@ import {
 import { prepareShareRoutePrivacy } from "@/lib/share-route-privacy";
 import { fetchPublicSharedAttachmentDownload } from "@/lib/shared-note-api";
 import {
+  buildSharedNoteWebPath,
   publicShareSlugSchema,
   sharedNoteDesktopSchemeSchema,
 } from "@/lib/shared-notes";
@@ -31,10 +40,24 @@ export const Route = createFileRoute("/share/public/$publicSlug")({
   loader: async ({ params }) => {
     const publicSlug = publicShareSlugSchema.safeParse(params.publicSlug);
     if (!publicSlug.success) {
-      return { result: { status: "unavailable" } as const };
+      return {
+        authenticatedResult: null,
+        result: { status: "unavailable" } as const,
+        user: null,
+      };
     }
+    const [result, user] = await Promise.all([
+      readPublicSharedNote({ data: publicSlug.data }),
+      fetchUser(),
+    ]);
+    const authenticatedResult =
+      user && result.status === "ready"
+        ? await readAuthenticatedSharedNote({ data: result.snapshot.shareId })
+        : null;
     return {
-      result: await readPublicSharedNote({ data: publicSlug.data }),
+      authenticatedResult,
+      result,
+      user,
     };
   },
   head: ({ loaderData, params }) =>
@@ -50,17 +73,28 @@ export const Route = createFileRoute("/share/public/$publicSlug")({
 });
 
 function Component() {
-  const { result } = Route.useLoaderData();
+  const { authenticatedResult, result, user } = Route.useLoaderData();
   const { publicSlug } = Route.useParams();
   const { scheme } = Route.useSearch();
+  const authenticatedNote =
+    authenticatedResult?.status === "ready"
+      ? authenticatedResult.note
+      : null;
   const resolveAttachment = useCallback<SharedAttachmentResolver>(
     (attachment, signal) =>
-      fetchPublicSharedAttachmentDownload(
-        publicSlug,
-        attachment.id,
-        signal,
-      ),
-    [publicSlug],
+      authenticatedNote
+        ? createAuthenticatedSharedAttachmentDownload({
+            data: {
+              shareId: authenticatedNote.snapshot.shareId,
+              attachmentId: attachment.id,
+            },
+          })
+        : fetchPublicSharedAttachmentDownload(
+            publicSlug,
+            attachment.id,
+            signal,
+          ),
+    [authenticatedNote, publicSlug],
   );
   if (result.status === "error") {
     return <SharedNoteTransientError />;
@@ -69,11 +103,30 @@ function Component() {
     return <SharedNoteUnavailable />;
   }
 
+  const snapshot = authenticatedNote?.snapshot ?? result.snapshot;
+  const accessLabel =
+    authenticatedNote &&
+    shouldUseAuthenticatedSharedNoteAccessLabel(authenticatedNote)
+      ? formatAuthenticatedSharedNoteAccessLabel(authenticatedNote)
+      : "Public note · View only";
+
   return (
     <SharedNoteViewer
-      snapshot={result.snapshot}
+      snapshot={snapshot}
       resolveAttachment={resolveAttachment}
-      accessLabel="Public note · View only"
+      accessLabel={accessLabel}
+      collaboration={
+        <SharedNoteCollaboration
+          capability={authenticatedNote?.capability ?? "viewer"}
+          currentUserId={user?.id ?? null}
+          manageAccess={authenticatedNote?.manageAccess ?? false}
+          returnPath={buildSharedNoteWebPath(
+            `/share/public/${encodeURIComponent(publicSlug)}/`,
+            scheme,
+          )}
+          shareId={snapshot.shareId}
+        />
+      }
       actions={
         <PublicSharedNoteActions publicSlug={publicSlug} scheme={scheme} />
       }

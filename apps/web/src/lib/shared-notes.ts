@@ -92,6 +92,82 @@ export type SharedNoteAttachmentDownload = SharedNoteAttachment & {
 export type AuthenticatedSharedNote = {
   snapshot: SharedNoteSnapshot;
   capability: SharedNoteCapability;
+  manageAccess: boolean;
+  accessVersion: number;
+};
+
+export type SharedNoteComment = {
+  commentId: string;
+  isAuthor: boolean;
+  body: string;
+  snapshotRevision: number;
+  createdAt: string;
+};
+
+export type SharedNoteCommentCursor = {
+  beforeCreatedAt: string;
+  beforeCommentId: string;
+};
+
+export type SharedNoteCommentPage = {
+  comments: SharedNoteComment[];
+  nextCursor: SharedNoteCommentCursor | null;
+};
+
+export type SessionAccessRequestState = {
+  requestId: string;
+  requestedCapability: SharedNoteCapability;
+  status: "pending" | "approved" | "denied" | "cancelled";
+  createdAt: string;
+  reviewedAt: string | null;
+};
+
+export type SessionInvitationState = {
+  status: "pending" | "accepted" | "revoked" | "expired";
+  capability: SharedNoteCapability;
+  shareId: string | null;
+};
+
+export type SessionShareAccessEntry =
+  | {
+      entryType: "grant";
+      entryId: string;
+      userId: string;
+      userEmail: string | null;
+      capability: SharedNoteCapability;
+      status: "active";
+      createdAt: string;
+      expiresAt: null;
+    }
+  | {
+      entryType: "invitation";
+      entryId: string;
+      userId: string | null;
+      userEmail: string;
+      capability: SharedNoteCapability;
+      status: "pending";
+      createdAt: string;
+      expiresAt: string;
+    }
+  | {
+      entryType: "request";
+      entryId: string;
+      userId: string;
+      userEmail: string;
+      capability: SharedNoteCapability;
+      status: "pending";
+      createdAt: string;
+      expiresAt: null;
+    };
+
+export type SessionShareAccessCursor = {
+  beforeCreatedAt: string;
+  beforeEntryId: string;
+};
+
+export type SessionShareAccessPage = {
+  entries: SessionShareAccessEntry[];
+  nextCursor: SessionShareAccessCursor | null;
 };
 
 export type ShareHandoff = {
@@ -146,9 +222,91 @@ const authenticatedSnapshotRowSchema = z
     body_json: z.unknown(),
     attachments_json: z.array(z.unknown()).max(64),
     capability: z.enum(["viewer", "commenter", "editor"]),
+    manage_access: z.boolean(),
+    access_version: z.number().int().positive().safe(),
     published_at: z.string(),
   })
   .passthrough();
+
+const sharedNoteCapabilitySchema = z.enum(["viewer", "commenter", "editor"]);
+const rpcTimestampSchema = z.iso.datetime({ offset: true }).max(64);
+const normalizedEmailSchema = z
+  .string()
+  .regex(/^[^\s@]+@[^\s@]+$/)
+  .max(320)
+  .refine((value) => value === value.trim().toLowerCase());
+
+const sharedNoteCommentRowSchema = z
+  .object({
+    comment_id: shareIdSchema,
+    is_author: z.boolean(),
+    body: z.string().min(1).max(16384),
+    snapshot_content_revision: z.number().int().positive().safe(),
+    created_at: rpcTimestampSchema,
+  })
+  .strict();
+
+const sessionAccessRequestStateRowSchema = z
+  .object({
+    request_id: shareIdSchema,
+    requested_capability: sharedNoteCapabilitySchema,
+    status: z.enum(["pending", "approved", "denied", "cancelled"]),
+    created_at: rpcTimestampSchema,
+    reviewed_at: rpcTimestampSchema.nullable(),
+  })
+  .strict()
+  .refine(({ reviewed_at, status }) =>
+    status === "approved" || status === "denied"
+      ? reviewed_at !== null
+      : reviewed_at === null,
+  );
+
+const sessionInvitationStateRowSchema = z
+  .object({
+    status: z.enum(["pending", "accepted", "revoked", "expired"]),
+    capability: sharedNoteCapabilitySchema,
+    share_id: shareIdSchema.nullable(),
+  })
+  .strict();
+
+const sessionShareAccessEntryRowSchema = z.discriminatedUnion("entry_type", [
+  z
+    .object({
+      entry_type: z.literal("grant"),
+      entry_id: shareIdSchema,
+      user_id: shareIdSchema,
+      user_email: normalizedEmailSchema.nullable(),
+      capability: sharedNoteCapabilitySchema,
+      status: z.literal("active"),
+      created_at: rpcTimestampSchema,
+      expires_at: z.null(),
+    })
+    .strict(),
+  z
+    .object({
+      entry_type: z.literal("invitation"),
+      entry_id: shareIdSchema,
+      user_id: shareIdSchema.nullable(),
+      user_email: normalizedEmailSchema,
+      capability: sharedNoteCapabilitySchema,
+      status: z.literal("pending"),
+      created_at: rpcTimestampSchema,
+      expires_at: rpcTimestampSchema,
+    })
+    .strict(),
+  z
+    .object({
+      entry_type: z.literal("request"),
+      entry_id: shareIdSchema,
+      user_id: shareIdSchema,
+      user_email: normalizedEmailSchema,
+      capability: sharedNoteCapabilitySchema,
+      status: z.literal("pending"),
+      created_at: rpcTimestampSchema,
+      expires_at: z.null(),
+    })
+    .strict(),
+]);
 
 const handoffSchema = z
   .object({
@@ -195,6 +353,8 @@ export function parseAuthenticatedSharedNote(
   const parsed = authenticatedSnapshotRowSchema.parse(value);
   return {
     capability: parsed.capability,
+    manageAccess: parsed.manage_access,
+    accessVersion: parsed.access_version,
     snapshot: {
       shareId: parsed.share_id,
       schemaVersion: parsed.schema_version,
@@ -204,6 +364,125 @@ export function parseAuthenticatedSharedNote(
       attachments: parseSharedNoteAttachments(parsed.attachments_json),
       publishedAt: parseTimestamp(parsed.published_at),
     },
+  };
+}
+
+export function parseSharedNoteComment(value: unknown): SharedNoteComment {
+  const parsed = sharedNoteCommentRowSchema.parse(value);
+  return {
+    commentId: parsed.comment_id,
+    isAuthor: parsed.is_author,
+    body: parsed.body,
+    snapshotRevision: parsed.snapshot_content_revision,
+    createdAt: parsed.created_at,
+  };
+}
+
+export function parseSharedNoteCommentPage(
+  value: unknown,
+): SharedNoteCommentPage {
+  if (!Array.isArray(value) || value.length > 101) {
+    throw new Error("invalid shared-note comment page");
+  }
+
+  const parsed = value.map(parseSharedNoteComment);
+  const descendingComments = parsed.slice(0, 100);
+  const oldestComment = descendingComments.at(-1);
+  return {
+    comments: descendingComments.reverse(),
+    nextCursor:
+      parsed.length > descendingComments.length && oldestComment
+        ? {
+            beforeCreatedAt: oldestComment.createdAt,
+            beforeCommentId: oldestComment.commentId,
+          }
+        : null,
+  };
+}
+
+export function parseSessionAccessRequestState(
+  value: unknown,
+): SessionAccessRequestState {
+  const parsed = sessionAccessRequestStateRowSchema.parse(value);
+  return {
+    requestId: parsed.request_id,
+    requestedCapability: parsed.requested_capability,
+    status: parsed.status,
+    createdAt: parsed.created_at,
+    reviewedAt: parsed.reviewed_at,
+  };
+}
+
+export function parseSessionInvitationState(
+  value: unknown,
+): SessionInvitationState {
+  const parsed = sessionInvitationStateRowSchema.parse(value);
+  return {
+    status: parsed.status,
+    capability: parsed.capability,
+    shareId: parsed.share_id,
+  };
+}
+
+export function parseSessionShareAccessEntry(
+  value: unknown,
+): SessionShareAccessEntry {
+  const parsed = sessionShareAccessEntryRowSchema.parse(value);
+  if (parsed.entry_type === "grant") {
+    return {
+      entryType: parsed.entry_type,
+      entryId: parsed.entry_id,
+      userId: parsed.user_id,
+      userEmail: parsed.user_email,
+      capability: parsed.capability,
+      status: parsed.status,
+      createdAt: parsed.created_at,
+      expiresAt: parsed.expires_at,
+    };
+  }
+  if (parsed.entry_type === "invitation") {
+    return {
+      entryType: parsed.entry_type,
+      entryId: parsed.entry_id,
+      userId: parsed.user_id,
+      userEmail: parsed.user_email,
+      capability: parsed.capability,
+      status: parsed.status,
+      createdAt: parsed.created_at,
+      expiresAt: parsed.expires_at,
+    };
+  }
+  return {
+    entryType: parsed.entry_type,
+    entryId: parsed.entry_id,
+    userId: parsed.user_id,
+    userEmail: parsed.user_email,
+    capability: parsed.capability,
+    status: parsed.status,
+    createdAt: parsed.created_at,
+    expiresAt: parsed.expires_at,
+  };
+}
+
+export function parseSessionShareAccessPage(
+  value: unknown,
+): SessionShareAccessPage {
+  if (!Array.isArray(value) || value.length > 101) {
+    throw new Error("invalid shared-note access page");
+  }
+
+  const parsed = value.map(parseSessionShareAccessEntry);
+  const entries = parsed.slice(0, 100);
+  const lastEntry = entries.at(-1);
+  return {
+    entries,
+    nextCursor:
+      parsed.length > entries.length && lastEntry
+        ? {
+            beforeCreatedAt: lastEntry.createdAt,
+            beforeEntryId: lastEntry.entryId,
+          }
+        : null,
   };
 }
 

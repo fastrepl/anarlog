@@ -2,6 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useCallback } from "react";
 
 import { AccountSharedNoteActions } from "@/components/shared-note-actions";
+import { SharedNoteCollaboration } from "@/components/shared-note-collaboration";
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
 import {
   SharedNoteLoading,
@@ -15,6 +16,7 @@ import {
   readAuthenticatedSharedNote,
 } from "@/functions/shared-notes";
 import { prepareShareRoutePrivacy } from "@/lib/share-route-privacy";
+import { formatAuthenticatedSharedNoteAccessLabel } from "@/lib/shared-note-collaboration";
 import {
   getPrivateShareHead,
   privateShareHeaders,
@@ -60,6 +62,7 @@ export const Route = createFileRoute("/share/$shareId")({
 
 function Component() {
   const { result } = Route.useLoaderData();
+  const { user } = Route.useRouteContext();
   const { scheme } = Route.useSearch();
   const note = result.status === "ready" ? result.note : null;
   const resolveAttachment = useCallback<SharedAttachmentResolver>(
@@ -83,7 +86,19 @@ function Component() {
     <SharedNoteViewer
       snapshot={note.snapshot}
       resolveAttachment={resolveAttachment}
-      accessLabel="Shared with you · View only"
+      accessLabel={formatAuthenticatedSharedNoteAccessLabel(note)}
+      collaboration={
+        <SharedNoteCollaboration
+          capability={note.capability}
+          currentUserId={user.id}
+          manageAccess={note.manageAccess}
+          returnPath={buildSharedNoteWebPath(
+            `/share/${encodeURIComponent(note.snapshot.shareId)}/`,
+            scheme,
+          )}
+          shareId={note.snapshot.shareId}
+        />
+      }
       actions={
         <AccountSharedNoteActions
           scheme={scheme}

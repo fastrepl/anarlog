@@ -32,6 +32,58 @@ export function isShareRouteToken(value: string) {
   return SHARE_TOKEN_PATTERN.test(value);
 }
 
+export function readShareRouteContinuationCookie(
+  value: string | undefined,
+  clearInvalid: () => void,
+) {
+  if (!value) {
+    return null;
+  }
+  if (!isShareRouteToken(value)) {
+    clearInvalid();
+    return null;
+  }
+  return value;
+}
+
+export async function loadShareRouteContinuation({
+  clearPersisted,
+  localToken,
+  persist,
+  restore,
+  retain,
+  signal,
+}: {
+  clearPersisted: () => void;
+  localToken: string | null;
+  persist: (token: string) => Promise<boolean>;
+  restore: () => Promise<string | null>;
+  retain: (token: string) => boolean;
+  signal?: AbortSignal;
+}) {
+  signal?.throwIfAborted();
+  let token = localToken;
+  if (!token) {
+    token = await restore();
+    signal?.throwIfAborted();
+    if (!token) {
+      return null;
+    }
+    if (!retain(token)) {
+      throw new Error("share continuation unavailable");
+    }
+  }
+
+  const persisted = await persist(token);
+  signal?.throwIfAborted();
+  if (!persisted) {
+    throw new Error("share continuation unavailable");
+  }
+
+  clearPersisted();
+  return token;
+}
+
 export function prepareShareRoutePrivacy() {
   if (typeof window === "undefined") {
     return;
@@ -75,11 +127,39 @@ export function getShareRouteToken(pathname: string): string | null {
   return inMemoryToken?.token ?? null;
 }
 
+export function retainShareRouteToken(pathname: string, token: string) {
+  if (typeof window === "undefined" || !isShareRouteToken(token)) {
+    return false;
+  }
+
+  const tokenPathname = canonicalShareRoutePathname(pathname);
+  if (!isCapabilityShareRoutePathname(tokenPathname)) {
+    return false;
+  }
+
+  inMemoryToken = { pathname: tokenPathname, token };
+  try {
+    window.sessionStorage.setItem(
+      SHARE_TOKEN_STORAGE_KEY,
+      JSON.stringify(inMemoryToken),
+    );
+  } catch {
+    // The in-memory copy still supports the current page when storage is unavailable.
+  }
+  return true;
+}
+
 export function clearShareRouteToken(pathname: string) {
   const tokenPathname = canonicalShareRoutePathname(pathname);
   if (inMemoryToken?.pathname === tokenPathname) {
     inMemoryToken = null;
   }
+
+  clearPersistedShareRouteToken(pathname);
+}
+
+export function clearPersistedShareRouteToken(pathname: string) {
+  const tokenPathname = canonicalShareRoutePathname(pathname);
 
   if (typeof window === "undefined") {
     return;

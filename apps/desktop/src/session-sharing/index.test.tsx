@@ -168,6 +168,7 @@ const SHARE_ID = "33333333-3333-4333-8333-333333333333";
 const LINK_ID = "44444444-4444-4444-8444-444444444444";
 const INVITATION_ID = "55555555-5555-4555-8555-555555555555";
 const GRANT_ID = "66666666-6666-4666-8666-666666666666";
+const REQUEST_ID = "88888888-8888-4888-8888-888888888888";
 const TOKEN = "t".repeat(43);
 const PUBLIC_SLUG = `s_${"a".repeat(32)}`;
 
@@ -778,6 +779,87 @@ describe("SessionShareButton", () => {
     );
     expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
     expect(mocks.events[0]).toBe("revoke-grant");
+  });
+
+  it("publishes before approving a pending access request", async () => {
+    mocks.access = [
+      {
+        entryType: "request",
+        entryId: REQUEST_ID,
+        userId: OTHER_USER_ID,
+        userEmail: "requester@example.com",
+        capability: "commenter",
+        status: "pending",
+        createdAt: "2026-07-17T00:00:00Z",
+        expiresAt: null,
+      },
+    ];
+    mocks.reviewSessionAccessRequest.mockImplementation(
+      async (_context: unknown, input: { decision: "approve" | "deny" }) => {
+        mocks.events.push(`${input.decision}-request`);
+      },
+    );
+    renderShareButton();
+    await openShareDialog();
+    expect(screen.getByText("Requested can comment")).not.toBeNull();
+    mocks.events = [];
+    mocks.publishSessionShareSnapshot.mockClear();
+    mocks.reviewSessionAccessRequest.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+
+    await waitFor(() =>
+      expect(mocks.reviewSessionAccessRequest).toHaveBeenCalledWith(
+        expect.anything(),
+        {
+          requestId: REQUEST_ID,
+          decision: "approve",
+          capability: "commenter",
+        },
+      ),
+    );
+    expect(mocks.publishSessionShareSnapshot).toHaveBeenCalledOnce();
+    expect(mocks.events.indexOf("publish")).toBeGreaterThanOrEqual(0);
+    expect(mocks.events.indexOf("approve-request")).toBeGreaterThan(
+      mocks.events.indexOf("publish"),
+    );
+  });
+
+  it("denies a pending access request without publishing", async () => {
+    mocks.access = [
+      {
+        entryType: "request",
+        entryId: REQUEST_ID,
+        userId: OTHER_USER_ID,
+        userEmail: "requester@example.com",
+        capability: "editor",
+        status: "pending",
+        createdAt: "2026-07-17T00:00:00Z",
+        expiresAt: null,
+      },
+    ];
+    mocks.reviewSessionAccessRequest.mockImplementation(
+      async (_context: unknown, input: { decision: "approve" | "deny" }) => {
+        mocks.events.push(`${input.decision}-request`);
+      },
+    );
+    renderShareButton();
+    await openShareDialog();
+    expect(screen.getByText("Requested can edit")).not.toBeNull();
+    mocks.events = [];
+    mocks.publishSessionShareSnapshot.mockClear();
+    mocks.reviewSessionAccessRequest.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Deny" }));
+
+    await waitFor(() =>
+      expect(mocks.reviewSessionAccessRequest).toHaveBeenCalledWith(
+        expect.anything(),
+        { requestId: REQUEST_ID, decision: "deny" },
+      ),
+    );
+    expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
+    expect(mocks.events[0]).toBe("deny-request");
   });
 
   it("lets an expired Pro user reopen an existing share to revoke access", async () => {
