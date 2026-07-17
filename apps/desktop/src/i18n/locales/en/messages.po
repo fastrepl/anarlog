@@ -59,6 +59,14 @@ msgstr "3 days"
 msgid "A to Z"
 msgstr "A to Z"
 
+#: src/shared-notes/index.tsx
+msgid "Access no longer available"
+msgstr "Access no longer available"
+
+#: src/session-sharing/index.tsx
+msgid "Access settings could not be loaded."
+msgstr "Access settings could not be loaded."
+
 #: src/onboarding/permissions.tsx
 #: src/settings/general/permissions.tsx
 msgid "Accessibility"
@@ -162,6 +170,10 @@ msgstr "Anarlog can hear your voice"
 msgid "Anarlog can read meeting details"
 msgstr "Anarlog can read meeting details"
 
+#: src/shared-notes/index.tsx
+msgid "Anarlog could not read the local shared-note cache."
+msgstr "Anarlog could not read the local shared-note cache."
+
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Anarlog could not verify the migration status"
 msgstr "Anarlog could not verify the migration status"
@@ -207,6 +219,10 @@ msgstr "Applied to every generated or regenerated meeting summary."
 msgid "Apply to all"
 msgstr "Apply to all"
 
+#: src/session-sharing/index.tsx
+msgid "Approve"
+msgstr "Approve"
+
 #: src/chat/components/input/index.tsx
 msgid "Ask & search about anything, or be creative!"
 msgstr "Ask & search about anything, or be creative!"
@@ -223,6 +239,10 @@ msgstr "Ask anything"
 #: src/task/resource-view.tsx
 msgid "Assignees:"
 msgstr "Assignees:"
+
+#: src/session-sharing/index.tsx
+msgid "Attachments and recordings stay private and are not included in the shared copy yet."
+msgstr "Attachments and recordings stay private and are not included in the shared copy yet."
 
 #: src/settings/general/permissions.tsx
 msgid "Audio"
@@ -335,6 +355,10 @@ msgstr "Choose storage location"
 msgid "Choose template icon"
 msgstr "Choose template icon"
 
+#: src/session-sharing/index.tsx
+msgid "Choose who can open this note."
+msgstr "Choose who can open this note."
+
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Clean Up"
 msgstr "Clean Up"
@@ -377,6 +401,10 @@ msgstr "Closed"
 #: src/task/resource-view.tsx
 msgid "comment"
 msgstr "comment"
+
+#: src/session-sharing/index.tsx
+msgid "Comment and edit permissions are saved, but shared notes are read-only in this build."
+msgstr "Comment and edit permissions are saved, but shared notes are read-only in this build."
 
 #: src/task/resource-view.tsx
 msgid "commented on"
@@ -464,6 +492,14 @@ msgstr "Continue"
 msgid "Continuing without trial"
 msgstr "Continuing without trial"
 
+#: src/session-sharing/index.tsx
+msgid "Copy invite"
+msgstr "Copy invite"
+
+#: src/session-sharing/index.tsx
+msgid "Copy link"
+msgstr "Copy link"
+
 #: src/chat/components/message/normal.tsx
 msgid "Copy message"
 msgstr "Copy message"
@@ -530,6 +566,10 @@ msgstr "Delete This Event"
 msgid "Deleting..."
 msgstr "Deleting..."
 
+#: src/session-sharing/index.tsx
+msgid "Deny"
+msgstr "Deny"
+
 #: src/templates/template-form.tsx
 msgid "Describe the template purpose..."
 msgstr "Describe the template purpose..."
@@ -561,6 +601,10 @@ msgstr "Don't save"
 #: src/settings/general/notification.tsx
 msgid "Don't show notifications when Do-Not-Disturb is enabled on your system"
 msgstr "Don't show notifications when Do-Not-Disturb is enabled on your system"
+
+#: src/session-sharing/index.tsx
+msgid "Done"
+msgstr "Done"
 
 #: src/settings/ai/stt/select.tsx
 msgid "Download"
@@ -726,6 +770,10 @@ msgstr "Frequently used"
 msgid "General"
 msgstr "General"
 
+#: src/session-sharing/index.tsx
+msgid "General access"
+msgstr "General access"
+
 #: src/session/components/note-input/enhanced/streaming.tsx
 #: src/session/components/title-input.tsx
 msgid "Generating title..."
@@ -832,6 +880,10 @@ msgstr "Insert below"
 msgid "Intelligence"
 msgstr "Intelligence"
 
+#: src/session-sharing/index.tsx
+msgid "Invite links are copied so you can send them privately."
+msgstr "Invite links are copied so you can send them privately."
+
 #: src/contacts/details.tsx
 msgid "Job Title"
 msgstr "Job Title"
@@ -887,6 +939,10 @@ msgstr "LinkedIn"
 #: src/settings/ai/stt/select.tsx
 msgid "Live"
 msgstr "Live"
+
+#: src/session-sharing/index.tsx
+msgid "Loading access…"
+msgstr "Loading access…"
 
 #: src/calendar/components/calendar-selection.tsx
 msgid "Loading calendars..."
@@ -1093,6 +1149,10 @@ msgstr "No models ready to use."
 msgid "No notes found."
 msgstr "No notes found."
 
+#: src/session-sharing/index.tsx
+msgid "No one has individual access yet."
+msgstr "No one has individual access yet."
+
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "No people"
 msgstr "No people"
@@ -1229,6 +1289,10 @@ msgstr "Paste the browser URL here if the browser button did not reopen Anarlog.
 msgid "People"
 msgstr "People"
 
+#: src/session-sharing/index.tsx
+msgid "People with access"
+msgstr "People with access"
+
 #: src/calendar/components/apple/permission.tsx
 msgid "permission panel."
 msgstr "permission panel."
@@ -1351,6 +1415,10 @@ msgstr "Replace"
 #: src/session/components/note-input/search/bar.tsx
 msgid "Replace all"
 msgstr "Replace all"
+
+#: src/session-sharing/index.tsx
+msgid "Replace link & copy"
+msgstr "Replace link & copy"
 
 #: src/settings/todo/github.tsx
 msgid "Replace repository"
@@ -1562,9 +1630,41 @@ msgstr "Set up AI summaries"
 msgid "Settings"
 msgstr "Settings"
 
+#: src/session-sharing/index.tsx
+msgid "Share"
+msgstr "Share"
+
+#: src/session-sharing/index.tsx
+msgid "Share note"
+msgstr "Share note"
+
 #: src/settings/general/app-settings.tsx
 msgid "Share usage data"
 msgstr "Share usage data"
+
+#: src/shared-notes/index.tsx
+msgid "Shared link · View only"
+msgstr "Shared link · View only"
+
+#: src/sidebar/timeline/item.tsx
+msgid "Shared note"
+msgstr "Shared note"
+
+#: src/shared-notes/index.tsx
+msgid "Shared note unavailable"
+msgstr "Shared note unavailable"
+
+#: src/shared-notes/index.tsx
+msgid "Shared notes are tied to the account they were shared with."
+msgstr "Shared notes are tied to the account they were shared with."
+
+#: src/sidebar/shared-notes.tsx
+msgid "Shared with me"
+msgstr "Shared with me"
+
+#: src/shared-notes/index.tsx
+msgid "Shared with me · View only"
+msgstr "Shared with me · View only"
 
 #: src/sidebar/timeline/item.tsx
 msgid "Show All Recurring Events"
@@ -1639,6 +1739,10 @@ msgstr "Sign in to unlock cloud transcription and AI models, plus Pro features l
 #: src/onboarding/index.tsx
 msgid "Sign in to unlock powerful AI models, sync across devices, and personalization."
 msgstr "Sign in to unlock powerful AI models, sync across devices, and personalization."
+
+#: src/shared-notes/index.tsx
+msgid "Sign in to view this shared note"
+msgstr "Sign in to view this shared note"
 
 #: src/instruction/index.tsx
 msgid "Sign in to your account"
@@ -1800,9 +1904,17 @@ msgstr "Templates"
 msgid "The app will restart after onboarding to apply your storage changes"
 msgstr "The app will restart after onboarding to apply your storage changes"
 
+#: src/shared-notes/index.tsx
+msgid "The link may have expired or its access may have changed."
+msgstr "The link may have expired or its access may have changed."
+
 #: src/settings/general/spoken-languages.tsx
 msgid "The main language is always included for transcription"
 msgstr "The main language is always included for transcription"
+
+#: src/shared-notes/index.tsx
+msgid "The note may have been unshared or moved out of a workspace you can access."
+msgstr "The note may have been unshared or moved out of a workspace you can access."
 
 #: src/settings/personalization/index.tsx
 msgid "These instructions take priority over the selected template when they conflict. Clear them to use templates as written."
@@ -1856,6 +1968,10 @@ msgstr "Trial"
 msgid "Trial activated - 14 days of Pro"
 msgstr "Trial activated - 14 days of Pro"
 
+#: src/session-sharing/index.tsx
+msgid "Try again"
+msgstr "Try again"
+
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Unknown"
 msgstr "Unknown"
@@ -1874,8 +1990,10 @@ msgstr "Unnamed"
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
 #: src/session/components/title-input.tsx
+#: src/shared-notes/index.tsx
 #: src/shared/open-note-dialog.tsx
 #: src/shared/ui/resource-list/preview-header.tsx
+#: src/sidebar/shared-notes.tsx
 #: src/sidebar/timeline/item.tsx
 #: src/templates/details.tsx
 #: src/templates/sections-editor.tsx
@@ -1886,6 +2004,10 @@ msgstr "Untitled"
 msgid "Untitled Note"
 msgstr "Untitled Note"
 
+#: src/session-sharing/index.tsx
+msgid "Update shared copy"
+msgstr "Update shared copy"
+
 #: src/settings/todo/github.tsx
 msgid "Upgrade for private repos."
 msgstr "Upgrade for private repos."
@@ -1893,6 +2015,10 @@ msgstr "Upgrade for private repos."
 #: src/settings/todo/provider-content.tsx
 msgid "Upgrade to connect"
 msgstr "Upgrade to connect"
+
+#: src/session-sharing/index.tsx
+msgid "Upgrade to expand access. You can still restrict or revoke existing access."
+msgstr "Upgrade to expand access. You can still restrict or revoke existing access."
 
 #: src/calendar/components/sidebar.tsx
 msgid "Upgrade to Pro"
