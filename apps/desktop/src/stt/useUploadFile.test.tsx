@@ -6,9 +6,12 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { isAudioUploadFile, useUploadFile } from "./useUploadFile";
 
 const {
+  audioSourceMetadataMock,
   audioImportDataMock,
   audioImportMock,
   audioImportListenMock,
+  downloadDirMock,
+  selectFileMock,
   parseSubtitleMock,
   createTranscriptMock,
   enhanceMock,
@@ -23,9 +26,12 @@ const {
   useTabsMock,
   updateSessionTabStateMock,
 } = vi.hoisted(() => ({
+  audioSourceMetadataMock: vi.fn(),
   audioImportDataMock: vi.fn(),
   audioImportMock: vi.fn(),
   audioImportListenMock: vi.fn(),
+  downloadDirMock: vi.fn(),
+  selectFileMock: vi.fn(),
   parseSubtitleMock: vi.fn(),
   createTranscriptMock: vi.fn(),
   enhanceMock: vi.fn(),
@@ -42,7 +48,7 @@ const {
 }));
 
 vi.mock("@tauri-apps/api/path", () => ({
-  downloadDir: vi.fn(),
+  downloadDir: downloadDirMock,
   resolveResource: vi.fn((path: string) =>
     Promise.resolve(`/resources/${path}`),
   ),
@@ -50,14 +56,14 @@ vi.mock("@tauri-apps/api/path", () => ({
 }));
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
-  open: vi.fn(),
+  open: selectFileMock,
 }));
 
 vi.mock("@hypr/plugin-fs-sync", () => ({
   commands: {
     audioImport: audioImportMock,
     audioImportData: audioImportDataMock,
-    audioSourceMetadata: vi.fn(),
+    audioSourceMetadata: audioSourceMetadataMock,
   },
   events: {
     audioImportEvent: {
@@ -129,7 +135,21 @@ describe("useUploadFile", () => {
       status: "ok",
       data: "/vault/sessions/session-1/audio.wav",
     });
+    audioImportMock.mockResolvedValue({
+      status: "ok",
+      data: "/vault/sessions/session-1/audio.wav",
+    });
     audioImportListenMock.mockResolvedValue(vi.fn());
+    audioSourceMetadataMock.mockResolvedValue({
+      status: "ok",
+      data: {
+        createdAt: "2026-03-26T12:00:00.000Z",
+        modifiedAt: null,
+        durationMs: 30_000,
+      },
+    });
+    downloadDirMock.mockResolvedValue("/downloads");
+    selectFileMock.mockResolvedValue("/tmp/replacement.wav");
     catalogLocalSessionAudioMock.mockResolvedValue(undefined);
     runBatchMock.mockResolvedValue(undefined);
     createTranscriptMock.mockResolvedValue(undefined);
@@ -146,6 +166,39 @@ describe("useUploadFile", () => {
         tabs: [],
         updateSessionTabState: updateSessionTabStateMock,
       }),
+    );
+  });
+
+  test("preserves the session date when replacement audio is selected", async () => {
+    const { result } = renderHook(() => useUploadFile("session-1"), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.uploadAudio({ preserveSessionDate: true });
+    });
+
+    await waitFor(() => expect(runBatchMock).toHaveBeenCalled());
+    expect(audioSourceMetadataMock).not.toHaveBeenCalled();
+    expect(updateSessionMock).not.toHaveBeenCalled();
+  });
+
+  test("infers the session date for an ordinary audio upload", async () => {
+    const { result } = renderHook(() => useUploadFile("session-1"), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.uploadAudio();
+    });
+
+    await waitFor(() => {
+      expect(updateSessionMock).toHaveBeenCalledWith({
+        created_at: "2026-03-26T11:59:30.000Z",
+      });
+    });
+    expect(audioSourceMetadataMock).toHaveBeenCalledWith(
+      "/tmp/replacement.wav",
     );
   });
 

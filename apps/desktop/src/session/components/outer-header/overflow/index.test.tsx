@@ -165,7 +165,7 @@ describe("OverflowButton", () => {
     expect(uploadTranscriptMock).toHaveBeenCalledTimes(1);
   });
 
-  it("hides upload actions when the session already has a transcript", () => {
+  it("offers audio upload for re-transcription when recording is missing", () => {
     render(
       <OverflowButton
         sessionId="session-1"
@@ -177,12 +177,21 @@ describe("OverflowButton", () => {
     expect(
       screen.queryByRole("button", { name: "Upload transcript" }),
     ).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Upload audio to re-transcribe" }),
+    );
     expect(
       screen.getByRole("button", { name: "Resume listening" }),
     ).not.toBeNull();
+    expect(uploadAudioMock).toHaveBeenCalledWith({
+      preserveSessionDate: true,
+    });
   });
 
   it("renders one separator when meeting actions are disabled", () => {
+    useHasTranscriptMock.mockReturnValue(false);
+    currentNoteContent.value = "Existing content";
+
     const { container } = render(
       <OverflowButton
         allowListening={false}

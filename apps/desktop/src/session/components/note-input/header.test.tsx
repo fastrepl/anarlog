@@ -22,6 +22,7 @@ type CapturedMenuItem =
 const hoisted = vi.hoisted(() => ({
   enhance: vi.fn(),
   regenerateTranscript: vi.fn(),
+  uploadAudio: vi.fn(),
   startListening: vi.fn(),
   stopListening: vi.fn(),
   stopTranscription: vi.fn(),
@@ -192,6 +193,10 @@ vi.mock("~/session/queries", () => ({
 
 vi.mock("~/session/components/note-input/transcript/actions", () => ({
   useRegenerateTranscript: () => hoisted.regenerateTranscript,
+}));
+
+vi.mock("~/stt/useUploadFile", () => ({
+  useUploadFile: () => ({ uploadAudio: hoisted.uploadAudio }),
 }));
 
 vi.mock("~/session/components/note-input/transcript/export-data", () => ({
@@ -559,7 +564,7 @@ describe("Header", () => {
     expect(hoisted.transcriptRenderDataCalls).toBe(1);
   });
 
-  it("omits transcript recording actions when recording is missing", () => {
+  it("offers audio upload for re-transcription when recording is missing", () => {
     hoisted.audioExists = false;
     const editorTabs: EditorView[] = [
       { type: "enhanced", id: "note-1" },
@@ -580,7 +585,18 @@ describe("Header", () => {
 
     expect(
       menu.map((item) => ("text" in item ? item.text : "separator")),
-    ).toEqual(["Copy"]);
+    ).toEqual(["Copy", "Upload audio to re-transcribe"]);
+
+    menu
+      .find(
+        (item): item is Extract<CapturedMenuItem, { id: string }> =>
+          "id" in item && item.id === "regenerate-transcript-session-1",
+      )
+      ?.action();
+
+    expect(hoisted.uploadAudio).toHaveBeenCalledWith({
+      preserveSessionDate: true,
+    });
   });
 
   it("replaces the current enhanced note when changing templates", async () => {

@@ -256,7 +256,11 @@ export function useUploadFile(sessionId: string) {
   );
 
   const processFile = useCallback(
-    (filePath: string, kind: "audio" | "transcript") => {
+    (
+      filePath: string,
+      kind: "audio" | "transcript",
+      options?: { preserveSessionDate?: boolean },
+    ) => {
       const normalizedPath = filePath.toLowerCase();
 
       if (kind === "transcript") {
@@ -333,7 +337,10 @@ export function useUploadFile(sessionId: string) {
           importWithProgress(() =>
             fsSyncCommands.audioImport(sessionId, filePath),
           ),
-        () => applyEstimatedAudioNoteDate(filePath),
+        () =>
+          options?.preserveSessionDate
+            ? Promise.resolve()
+            : applyEstimatedAudioNoteDate(filePath),
       );
     },
     [
@@ -381,7 +388,10 @@ export function useUploadFile(sessionId: string) {
   );
 
   const selectAndUpload = useCallback(
-    (kind: "audio" | "transcript") => {
+    (
+      kind: "audio" | "transcript",
+      options?: { preserveSessionDate?: boolean },
+    ) => {
       const filters =
         kind === "audio"
           ? [{ name: "Audio", extensions: AUDIO_EXTENSIONS }]
@@ -406,7 +416,7 @@ export function useUploadFile(sessionId: string) {
         .then((selection) => {
           const path = Array.isArray(selection) ? selection[0] : selection;
           if (path) {
-            processFile(path, kind);
+            processFile(path, kind, options);
           }
         })
         .catch((error) => {
@@ -417,7 +427,8 @@ export function useUploadFile(sessionId: string) {
   );
 
   const uploadAudio = useCallback(
-    () => selectAndUpload("audio"),
+    (options?: { preserveSessionDate?: boolean }) =>
+      selectAndUpload("audio", options),
     [selectAndUpload],
   );
   const uploadTranscript = useCallback(
