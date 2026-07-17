@@ -34,6 +34,7 @@ export const AUDIO_EXTENSIONS = [
   "webm",
   "aac",
 ];
+const AUDIO_TRANSFER_EXTENSIONS = [...AUDIO_EXTENSIONS, "qta"];
 const TRANSCRIPT_EXTENSIONS = ["vtt", "srt"];
 
 function fileExtension(value: string) {
@@ -43,7 +44,7 @@ function fileExtension(value: string) {
 
 export function isAudioUploadFile(file: Pick<File, "name" | "type">) {
   return (
-    AUDIO_EXTENSIONS.includes(fileExtension(file.name)) ||
+    AUDIO_TRANSFER_EXTENSIONS.includes(fileExtension(file.name)) ||
     file.type.startsWith("audio/")
   );
 }
@@ -233,6 +234,7 @@ export function useUploadFile(sessionId: string) {
               return;
             }
             const msg = error instanceof Error ? error.message : String(error);
+            console.error("[upload] audio import failed:", error);
             handleBatchFailed(sessionId, msg);
           }),
         ),
@@ -345,7 +347,10 @@ export function useUploadFile(sessionId: string) {
   );
 
   const processAudioFile = useCallback(
-    (file: File, options?: { allowUnknownAudio?: boolean }) => {
+    (
+      file: File,
+      options?: { allowUnknownAudio?: boolean; contentType?: string },
+    ) => {
       if (!options?.allowUnknownAudio && !isAudioUploadFile(file)) {
         return;
       }
@@ -361,7 +366,12 @@ export function useUploadFile(sessionId: string) {
 
           const data = Array.from(new Uint8Array(await file.arrayBuffer()));
           return importWithProgress(() =>
-            fsSyncCommands.audioImportData(sessionId, data, file.name),
+            fsSyncCommands.audioImportData(
+              sessionId,
+              data,
+              file.name,
+              options?.contentType || file.type || null,
+            ),
           );
         },
         () => applyDroppedAudioNoteDate(file),
