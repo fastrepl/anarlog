@@ -6,6 +6,18 @@ export const STORAGE_CONFIG = {
   retryDelays: [0, 3000, 5000, 10000, 20000],
 } as const;
 
+export const PRIVATE_ATTACHMENT_STORAGE_CONFIG = {
+  bucketName: "attachment-backups",
+  contentType: "application/octet-stream",
+  chunkSize: 6 * 1024 * 1024,
+  maxCiphertextSizeBytes: 520 * 1024 * 1024,
+  retryDelays: [0, 3000, 5000, 10000, 20000],
+} as const;
+
+const PRIVATE_ATTACHMENT_OBJECT_KEY_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.anb1$/;
+const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+
 export function getTusEndpoint(supabaseUrl: string): string {
   const parsed = new URL(supabaseUrl);
   const isHostedSupabase = parsed.hostname.endsWith(".supabase.co");
@@ -16,6 +28,10 @@ export function getTusEndpoint(supabaseUrl: string): string {
   }
 
   return new URL("/storage/v1/upload/resumable", parsed.origin).toString();
+}
+
+function getSignedTusEndpoint(supabaseUrl: string): string {
+  return `${getTusEndpoint(supabaseUrl)}/sign`;
 }
 
 export function buildObjectName(userId: string, fileName: string): string {
@@ -78,6 +94,160 @@ export function uploadAudio(options: {
     promise,
     abort: () => {
       upload?.abort();
+    },
+  };
+}
+
+export function uploadPrivateAttachment(options: {
+  objectKey: string;
+  signedUploadToken: string;
+  ciphertextSha256: string;
+  ciphertextSizeBytes: number;
+  supabaseUrl: string;
+  readRange: (start: number, end: number) => Promise<Uint8Array>;
+  onProgress?: (percentage: number) => void;
+}): { promise: Promise<string>; abort: () => Promise<void> } {
+  if (!PRIVATE_ATTACHMENT_OBJECT_KEY_PATTERN.test(options.objectKey)) {
+    throw new Error("invalid private attachment object key");
+  }
+  if (
+    options.signedUploadToken.length === 0 ||
+    options.signedUploadToken.length > 8192 ||
+    /[\u0000-\u001f\u007f]/.test(options.signedUploadToken)
+  ) {
+    throw new Error("invalid private attachment upload token");
+  }
+  if (!SHA256_PATTERN.test(options.ciphertextSha256)) {
+    throw new Error("invalid private attachment checksum");
+  }
+  if (
+    !Number.isSafeInteger(options.ciphertextSizeBytes) ||
+    options.ciphertextSizeBytes <= 0 ||
+    options.ciphertextSizeBytes >
+      PRIVATE_ATTACHMENT_STORAGE_CONFIG.maxCiphertextSizeBytes
+  ) {
+    throw new Error("invalid private attachment size");
+  }
+
+  const endpoint = getSignedTusEndpoint(options.supabaseUrl);
+  const fingerprint = [
+    "anarlog-private-attachment-v1",
+    options.objectKey,
+    options.ciphertextSizeBytes,
+    options.ciphertextSha256,
+  ].join(":");
+  let upload: Upload | null = null;
+  let cancelled = false;
+  let settled = false;
+  let rejectTransfer = (_error: Error) => {};
+
+  const promise = new Promise<string>((resolve, reject) => {
+    const settleResolve = (value: string) => {
+      if (!settled) {
+        settled = true;
+        resolve(value);
+      }
+    };
+    const settleReject = (error: Error) => {
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
+    };
+    rejectTransfer = settleReject;
+
+    upload = new Upload(new Blob([]), {
+      endpoint,
+      retryDelays: [...PRIVATE_ATTACHMENT_STORAGE_CONFIG.retryDelays],
+      headers: {
+        "x-signature": options.signedUploadToken,
+      },
+      uploadSize: options.ciphertextSizeBytes,
+      uploadDataDuringCreation: true,
+      removeFingerprintOnSuccess: true,
+      fingerprint: async () => fingerprint,
+      fileReader: {
+        openFile: async () => ({
+          size: options.ciphertextSizeBytes,
+          slice: async (start: number, end: number) => {
+            if (
+              !Number.isSafeInteger(start) ||
+              !Number.isSafeInteger(end) ||
+              start < 0 ||
+              end <= start ||
+              end > options.ciphertextSizeBytes ||
+              end - start > PRIVATE_ATTACHMENT_STORAGE_CONFIG.chunkSize
+            ) {
+              throw new Error("invalid private attachment read range");
+            }
+
+            const bytes = await options.readRange(start, end);
+            if (
+              !(bytes instanceof Uint8Array) ||
+              bytes.byteLength !== end - start
+            ) {
+              throw new Error("private attachment read was incomplete");
+            }
+
+            return {
+              value: new Blob([bytes]),
+              done: end === options.ciphertextSizeBytes,
+            };
+          },
+          close: () => {},
+        }),
+      },
+      metadata: {
+        bucketName: PRIVATE_ATTACHMENT_STORAGE_CONFIG.bucketName,
+        objectName: options.objectKey,
+        contentType: PRIVATE_ATTACHMENT_STORAGE_CONFIG.contentType,
+        cacheControl: "0",
+        metadata: JSON.stringify({
+          formatVersion: 1,
+          ciphertextSha256: options.ciphertextSha256,
+        }),
+      },
+      chunkSize: PRIVATE_ATTACHMENT_STORAGE_CONFIG.chunkSize,
+      onError: settleReject,
+      onProgress: (bytesUploaded, bytesTotal) => {
+        if (options.onProgress && bytesTotal > 0) {
+          options.onProgress((bytesUploaded / bytesTotal) * 100);
+        }
+      },
+      onSuccess: () => settleResolve(options.objectKey),
+    });
+
+    upload
+      .findPreviousUploads()
+      .then((previousUploads) => {
+        if (cancelled) {
+          return;
+        }
+        const previous = previousUploads.find(
+          (candidate) => candidate.size === options.ciphertextSizeBytes,
+        );
+        if (previous) {
+          upload!.resumeFromPreviousUpload(previous);
+        }
+        if (cancelled) {
+          return;
+        }
+        upload!.start();
+      })
+      .catch(settleReject);
+  });
+
+  return {
+    promise,
+    abort: async () => {
+      if (cancelled || settled) {
+        return;
+      }
+      cancelled = true;
+      const error = new Error("private attachment upload aborted");
+      error.name = "AbortError";
+      rejectTransfer(error);
+      await upload?.abort();
     },
   };
 }

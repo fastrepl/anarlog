@@ -47,8 +47,11 @@ export async function catalogLocalNoteAttachment(input: {
               WHEN session_attachments.sha256 = ? THEN cloud_object_key
               ELSE ''
             END,
+            storage_kind = CASE
+              WHEN session_attachments.sha256 = ? THEN storage_kind
+              ELSE 'local_file'
+            END,
             sha256 = ?,
-            storage_kind = 'local_file',
             source_type = 'note_upload',
             source_id = ?,
             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
@@ -71,6 +74,7 @@ export async function catalogLocalNoteAttachment(input: {
           filename,
           contentType,
           input.sizeBytes,
+          input.sha256,
           input.sha256,
           input.sha256,
           attachmentId,
@@ -132,10 +136,40 @@ export async function catalogLocalNoteAttachment(input: {
           relativePath,
         ],
       },
+      {
+        sql: `
+          INSERT INTO attachment_local_state (
+            attachment_id,
+            session_id,
+            relative_path,
+            availability,
+            updated_at
+          )
+          SELECT
+            attachment.id,
+            attachment.session_id,
+            attachment.relative_path,
+            'present',
+            strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+          FROM session_attachments AS attachment
+          WHERE attachment.session_id = ?
+            AND attachment.relative_path = ?
+            AND attachment.deleted_at IS NULL
+          ORDER BY attachment.updated_at DESC, attachment.id
+          LIMIT 1
+          ON CONFLICT(attachment_id) DO UPDATE SET
+            session_id = excluded.session_id,
+            relative_path = excluded.relative_path,
+            availability = excluded.availability,
+            updated_at = excluded.updated_at
+        `,
+        params: [sessionId, relativePath],
+        expectedRowsAffected: 1,
+      },
     ]),
   );
 
-  if ((results[0] ?? 0) + (results[1] ?? 0) !== 1) {
+  if ((results[0] ?? 0) + (results[1] ?? 0) !== 1 || (results[2] ?? 0) !== 1) {
     throw new Error("attachment session is unavailable");
   }
 }
@@ -183,8 +217,11 @@ export async function catalogLocalSessionAudio(
               WHEN session_attachments.sha256 = ? THEN cloud_object_key
               ELSE ''
             END,
+            storage_kind = CASE
+              WHEN session_attachments.sha256 = ? THEN storage_kind
+              ELSE 'local_file'
+            END,
             sha256 = ?,
-            storage_kind = 'local_file',
             source_type = 'session_audio',
             source_id = 'primary',
             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
@@ -203,6 +240,7 @@ export async function catalogLocalSessionAudio(
           filename,
           contentType,
           result.data.sizeBytes,
+          result.data.sha256,
           result.data.sha256,
           result.data.sha256,
           attachmentId,
@@ -287,10 +325,14 @@ export async function catalogLocalSessionAudio(
             updated_at = excluded.updated_at
         `,
         params: [attachmentId, sessionId],
+        expectedRowsAffected: 1,
       },
     ]);
 
-    if ((results[0] ?? 0) + (results[1] ?? 0) !== 1) {
+    if (
+      (results[0] ?? 0) + (results[1] ?? 0) !== 1 ||
+      (results[2] ?? 0) !== 1
+    ) {
       throw new Error("audio session is unavailable");
     }
   });

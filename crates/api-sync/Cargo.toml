@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 hypr-api-auth = { workspace = true }
 hypr-api-error = { workspace = true }
+hypr-supabase-storage = { workspace = true }
 
 utoipa = { workspace = true }
 
@@ -13,7 +14,7 @@ axum = { workspace = true }
 chrono = { workspace = true }
 reqwest = { workspace = true, features = ["json", "query", "stream"] }
 sentry = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
 
 serde = { workspace = true, features = ["derive"] }

@@ -21,5 +21,7 @@ jobs:
       - uses: ./.github/actions/pnpm_install
       - uses: denoland/setup-deno@v2
       - run: pnpm -F ui build
+      - run: pnpm -F @hypr/supabase typecheck
+      - run: pnpm -F @hypr/supabase test
       - run: pnpm -F web typecheck
       - run: pnpm -F web test

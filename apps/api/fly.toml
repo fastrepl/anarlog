@@ -18,6 +18,9 @@ auto_stop_machines = 'stop'
 auto_start_machines = true
 min_machines_running = 1
 
+[http_service.http_options]
+idle_timeout = 660
+
 [http_service.concurrency]
 type = "connections"
 hard_limit = 200

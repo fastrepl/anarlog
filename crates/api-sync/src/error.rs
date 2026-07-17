@@ -29,6 +29,24 @@ pub enum SyncError {
     #[error("CloudSync credential service is unavailable")]
     Upstream,
 
+    #[error("Attachment backup access is not permitted")]
+    AttachmentBackupForbidden,
+
+    #[error("Attachment backup is unavailable")]
+    AttachmentBackupNotFound,
+
+    #[error("Attachment backup changed")]
+    AttachmentBackupConflict,
+
+    #[error("Attachment backup quota is exhausted")]
+    AttachmentBackupQuotaExceeded,
+
+    #[error("Attachment backup service is unavailable")]
+    AttachmentBackupServiceUnavailable,
+
+    #[error("Attachment backup verification is busy")]
+    AttachmentBackupVerificationBusy,
+
     #[error("Internal error: {0}")]
     Internal(String),
 }
@@ -66,6 +84,36 @@ impl IntoResponse for SyncError {
                 StatusCode::BAD_GATEWAY,
                 "cloudsync_credential_service_unavailable",
                 "CloudSync credential service is unavailable".to_string(),
+            ),
+            Self::AttachmentBackupForbidden => (
+                StatusCode::FORBIDDEN,
+                "attachment_backup_forbidden",
+                "Attachment backup access is not permitted".to_string(),
+            ),
+            Self::AttachmentBackupNotFound => (
+                StatusCode::NOT_FOUND,
+                "attachment_backup_not_found",
+                "Attachment backup is unavailable".to_string(),
+            ),
+            Self::AttachmentBackupConflict => (
+                StatusCode::CONFLICT,
+                "attachment_backup_conflict",
+                "Attachment backup changed".to_string(),
+            ),
+            Self::AttachmentBackupQuotaExceeded => (
+                StatusCode::INSUFFICIENT_STORAGE,
+                "attachment_backup_quota_exceeded",
+                "Attachment backup quota is exhausted".to_string(),
+            ),
+            Self::AttachmentBackupServiceUnavailable => (
+                StatusCode::BAD_GATEWAY,
+                "attachment_backup_service_unavailable",
+                "Attachment backup service is unavailable".to_string(),
+            ),
+            Self::AttachmentBackupVerificationBusy => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "attachment_backup_verification_busy",
+                "Attachment backup verification is busy".to_string(),
             ),
             Self::Internal(message) => (
                 StatusCode::INTERNAL_SERVER_ERROR,

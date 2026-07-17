@@ -873,6 +873,7 @@ dependencies = [
  "sentry",
  "serde",
  "serde_json",
+ "supabase-storage",
  "thiserror 2.0.18",
  "tokio",
  "tower 0.5.3",
@@ -17195,12 +17196,16 @@ dependencies = [
 name = "supabase-storage"
 version = "0.1.0"
 dependencies = [
+ "futures-util",
  "observability",
  "reqwest 0.13.2",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "thiserror 2.0.18",
  "tokio",
+ "urlencoding",
+ "wiremock",
 ]
 
 [[package]]

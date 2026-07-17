@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({
   audioDelete: vi.fn(),
   audioMetadata: vi.fn(),
   execute: vi.fn(),
-  executeTransaction: vi.fn().mockResolvedValue([0, 1]),
+  executeTransaction: vi.fn().mockResolvedValue([0, 1, 1]),
   enqueueDatabaseWrite: vi.fn(
     async (_key: string, write: () => Promise<number[]>) => write(),
   ),
@@ -38,7 +38,7 @@ import {
 describe("attachment catalog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.executeTransaction.mockResolvedValue([0, 1]);
+    mocks.executeTransaction.mockResolvedValue([0, 1, 1]);
     mocks.execute.mockResolvedValue([{ is_deleted: 1 }]);
     mocks.audioDelete.mockResolvedValue({ status: "ok", data: true });
     mocks.audioMetadata.mockResolvedValue({
@@ -67,10 +67,13 @@ describe("attachment catalog", () => {
       expect.any(Function),
     );
     const statements = mocks.executeTransaction.mock.calls[0]![0];
-    expect(statements).toHaveLength(2);
+    expect(statements).toHaveLength(3);
     expect(statements[1].sql).toContain("session.workspace_id");
     expect(statements[1].sql).toContain("session.deleted_at IS NULL");
     expect(statements[1].sql).not.toContain("/vault/");
+    expect(statements[0].sql).toMatch(
+      /WHEN session_attachments\.sha256 = \? THEN storage_kind/,
+    );
     expect(statements[1].params).toEqual([
       expect.stringMatching(
         /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
@@ -84,10 +87,18 @@ describe("attachment catalog", () => {
       "session-1",
       "attachments/diagram 1.png",
     ]);
+    expect(statements[2].sql).toContain("attachment_local_state");
+    expect(statements[2].sql).toContain("'present'");
+    expect(statements[2].sql).toContain("ON CONFLICT(attachment_id)");
+    expect(statements[2].params).toEqual([
+      "session-1",
+      "attachments/diagram 1.png",
+    ]);
+    expect(statements[2].expectedRowsAffected).toBe(1);
   });
 
   it("updates an existing physical attachment without creating a duplicate", async () => {
-    mocks.executeTransaction.mockResolvedValue([1, 0]);
+    mocks.executeTransaction.mockResolvedValue([1, 0, 1]);
 
     await expect(
       catalogLocalNoteAttachment({
@@ -99,10 +110,37 @@ describe("attachment catalog", () => {
         sha256: "b".repeat(64),
       }),
     ).resolves.toBeUndefined();
+
+    expect(mocks.executeTransaction.mock.calls[0]![0][0].params).toEqual([
+      "diagram.png",
+      "image/png",
+      42,
+      "b".repeat(64),
+      "b".repeat(64),
+      "b".repeat(64),
+      "diagram.png",
+      "session-1",
+      "attachments/diagram.png",
+    ]);
+  });
+
+  it("fails cataloging when local presence cannot be recorded", async () => {
+    mocks.executeTransaction.mockResolvedValue([0, 1, 0]);
+
+    await expect(
+      catalogLocalNoteAttachment({
+        sessionId: "session-1",
+        attachmentId: "diagram.png",
+        filename: "diagram.png",
+        contentType: "image/png",
+        sizeBytes: 42,
+        sha256: "b".repeat(64),
+      }),
+    ).rejects.toThrow("attachment session is unavailable");
   });
 
   it("rejects missing or deleted sessions and unsafe attachment IDs", async () => {
-    mocks.executeTransaction.mockResolvedValue([0, 0]);
+    mocks.executeTransaction.mockResolvedValue([0, 0, 0]);
     await expect(
       catalogLocalNoteAttachment({
         sessionId: "missing-session",
@@ -166,10 +204,11 @@ describe("attachment catalog", () => {
     ]);
     expect(statements[2].sql).toContain("attachment_local_state");
     expect(statements[2].sql).toContain("'present'");
+    expect(statements[2].expectedRowsAffected).toBe(1);
   });
 
   it("updates the same audio row when the finalized format changes", async () => {
-    mocks.executeTransaction.mockResolvedValue([1, 0]);
+    mocks.executeTransaction.mockResolvedValue([1, 0, 1]);
     mocks.audioMetadata.mockResolvedValue({
       status: "ok",
       data: {
@@ -188,6 +227,7 @@ describe("attachment catalog", () => {
       "audio.wav",
       "audio/wav",
       128,
+      "e".repeat(64),
       "e".repeat(64),
       "e".repeat(64),
       "session-audio:session-1",
