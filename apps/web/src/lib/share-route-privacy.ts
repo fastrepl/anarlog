@@ -43,9 +43,10 @@ export function prepareShareRoutePrivacy() {
   }
 
   if (isCapabilityShareRoutePathname(pathname)) {
+    const tokenPathname = canonicalShareRoutePathname(pathname);
     const fragmentToken = parseShareFragmentToken(hash);
     if (fragmentToken) {
-      inMemoryToken = { pathname, token: fragmentToken };
+      inMemoryToken = { pathname: tokenPathname, token: fragmentToken };
       try {
         window.sessionStorage.setItem(
           SHARE_TOKEN_STORAGE_KEY,
@@ -55,7 +56,7 @@ export function prepareShareRoutePrivacy() {
         // The in-memory copy still supports the current page when storage is unavailable.
       }
     } else {
-      inMemoryToken = readStoredToken(pathname);
+      inMemoryToken = readStoredToken(tokenPathname);
     }
   }
 
@@ -65,16 +66,18 @@ export function prepareShareRoutePrivacy() {
 }
 
 export function getShareRouteToken(pathname: string): string | null {
-  if (inMemoryToken?.pathname === pathname) {
+  const tokenPathname = canonicalShareRoutePathname(pathname);
+  if (inMemoryToken?.pathname === tokenPathname) {
     return inMemoryToken.token;
   }
 
-  inMemoryToken = readStoredToken(pathname);
+  inMemoryToken = readStoredToken(tokenPathname);
   return inMemoryToken?.token ?? null;
 }
 
 export function clearShareRouteToken(pathname: string) {
-  if (inMemoryToken?.pathname === pathname) {
+  const tokenPathname = canonicalShareRoutePathname(pathname);
+  if (inMemoryToken?.pathname === tokenPathname) {
     inMemoryToken = null;
   }
 
@@ -86,7 +89,7 @@ export function clearShareRouteToken(pathname: string) {
     const stored = parseStoredToken(
       window.sessionStorage.getItem(SHARE_TOKEN_STORAGE_KEY),
     );
-    if (stored?.pathname === pathname) {
+    if (stored?.pathname === tokenPathname) {
       window.sessionStorage.removeItem(SHARE_TOKEN_STORAGE_KEY);
     }
   } catch {
@@ -103,7 +106,9 @@ function readStoredToken(pathname: string) {
     const stored = parseStoredToken(
       window.sessionStorage.getItem(SHARE_TOKEN_STORAGE_KEY),
     );
-    return stored?.pathname === pathname ? stored : null;
+    return stored?.pathname === canonicalShareRoutePathname(pathname)
+      ? stored
+      : null;
   } catch {
     return null;
   }
@@ -126,11 +131,18 @@ function parseStoredToken(value: string | null) {
       isCapabilityShareRoutePathname(parsed.pathname) &&
       isShareRouteToken(parsed.token)
     ) {
-      return { pathname: parsed.pathname, token: parsed.token };
+      return {
+        pathname: canonicalShareRoutePathname(parsed.pathname),
+        token: parsed.token,
+      };
     }
   } catch {
     return null;
   }
 
   return null;
+}
+
+function canonicalShareRoutePathname(pathname: string) {
+  return pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
 }

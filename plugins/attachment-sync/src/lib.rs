@@ -22,6 +22,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::shared_attachment_path::<tauri::Wry>,
             commands::remove_shared_attachment::<tauri::Wry>,
             commands::clear_shared_attachment_scope::<tauri::Wry>,
+            commands::clear_shared_attachment_preview_scopes::<tauri::Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

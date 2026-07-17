@@ -9,6 +9,7 @@ const COMMANDS: &[&str] = &[
     "shared_attachment_path",
     "remove_shared_attachment",
     "clear_shared_attachment_scope",
+    "clear_shared_attachment_preview_scopes",
 ];
 
 fn main() {

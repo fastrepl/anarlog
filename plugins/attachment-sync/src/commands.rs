@@ -155,3 +155,13 @@ pub(crate) async fn clear_shared_attachment_scope<R: tauri::Runtime>(
         .await
         .map_err(|error| error.to_string())
 }
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn clear_shared_attachment_preview_scopes<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<bool, String> {
+    crate::runtime::clear_shared_attachment_preview_scopes(&app)
+        .await
+        .map_err(|error| error.to_string())
+}

@@ -1,4 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { useMutation } from "@tanstack/react-query";
 import {
   AlertCircleIcon,
   LinkIcon,
@@ -9,6 +10,7 @@ import {
 
 import { NoteEditor } from "@hypr/editor/note";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
+import { Button } from "@hypr/ui/components/ui/button";
 
 import { useAuth } from "~/auth";
 import { openEditorLink } from "~/editor-bridge/open-editor-link";
@@ -28,20 +30,27 @@ export function TabContentSharedNote({
   tab: Extract<Tab, { type: "shared_sessions" }>;
 }) {
   const { t } = useLingui();
-  const { session } = useAuth();
-  const snapshotQuery = useDurableSharedNote(session?.user.id, tab.id);
+  const auth = useAuth();
+  const { session } = auth;
+  const viewerUserId =
+    session && session.user.is_anonymous !== true ? session.user.id : null;
+  const snapshotQuery = useDurableSharedNote(viewerUserId, tab.id);
 
-  if (session === undefined || snapshotQuery.isLoading) {
+  if (session === undefined) {
     return <SharedNoteLoading />;
   }
-  if (!session) {
+  if (!viewerUserId) {
     return (
       <SharedNoteUnavailable
+        action={<SharedNoteSignInAction />}
         icon={LogInIcon}
         title={t`Sign in to view this shared note`}
         description={t`Shared notes are tied to the account they were shared with.`}
       />
     );
+  }
+  if (snapshotQuery.isLoading) {
+    return <SharedNoteLoading />;
   }
   if (snapshotQuery.error) {
     return (
@@ -67,8 +76,27 @@ export function TabContentSharedNote({
   return (
     <AuthenticatedSharedNoteDocument
       snapshot={snapshot}
-      viewerUserId={session.user.id}
+      viewerUserId={viewerUserId}
     />
+  );
+}
+
+function SharedNoteSignInAction() {
+  const auth = useAuth();
+  const signInMutation = useMutation({ mutationFn: () => auth.signIn() });
+
+  return (
+    <Button
+      className="mt-4"
+      disabled={signInMutation.isPending}
+      onClick={() => signInMutation.mutate()}
+    >
+      {signInMutation.isPending ? (
+        <Trans>Opening…</Trans>
+      ) : (
+        <Trans>Sign in</Trans>
+      )}
+    </Button>
   );
 }
 
@@ -347,10 +375,12 @@ function SharedNoteLoading() {
 }
 
 function SharedNoteUnavailable({
+  action,
   icon: Icon,
   title,
   description,
 }: {
+  action?: React.ReactNode;
   icon: typeof UsersRoundIcon;
   title: string;
   description: string;
@@ -362,6 +392,7 @@ function SharedNoteUnavailable({
           <Icon className="text-muted-foreground mx-auto mb-3 size-6" />
           <h1 className="text-sm font-medium">{title}</h1>
           <p className="text-muted-foreground mt-1 text-sm">{description}</p>
+          {action}
         </div>
       </div>
     </SessionSurface>

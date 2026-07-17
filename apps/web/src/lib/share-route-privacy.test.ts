@@ -77,3 +77,47 @@ test("scrubs a capability fragment before retaining it for the current tab", () 
     Reflect.deleteProperty(globalThis, "window");
   }
 });
+
+test("retains capability tokens across trailing-slash normalization", () => {
+  for (const route of ["link", "invite"]) {
+    const pathname = `/share/${route}/00000000-0000-4000-8000-000000000001`;
+    const location = {
+      hash: `#token=${TOKEN}`,
+      pathname,
+      search: "?scheme=hyprnote-staging",
+    };
+    const storage = new Map<string, string>();
+    let replacedUrl = "";
+
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        history: {
+          state: null,
+          replaceState: (_state: unknown, _title: string, url: string) => {
+            replacedUrl = url;
+            location.hash = "";
+          },
+        },
+        location,
+        sessionStorage: {
+          getItem: (key: string) => storage.get(key) ?? null,
+          removeItem: (key: string) => storage.delete(key),
+          setItem: (key: string, value: string) => storage.set(key, value),
+        },
+      },
+    });
+
+    try {
+      prepareShareRoutePrivacy();
+      assert.equal(replacedUrl, `${pathname}${location.search}`);
+      location.pathname = `${pathname}/`;
+      prepareShareRoutePrivacy();
+      assert.equal(getShareRouteToken(location.pathname), TOKEN);
+      clearShareRouteToken(location.pathname);
+      assert.equal(getShareRouteToken(pathname), null);
+    } finally {
+      Reflect.deleteProperty(globalThis, "window");
+    }
+  }
+});

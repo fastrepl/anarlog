@@ -85,6 +85,14 @@ async clearSharedAttachmentScope(scopeId: string) : Promise<Result<number, strin
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async clearSharedAttachmentPreviewScopes() : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:attachment-sync|clear_shared_attachment_preview_scopes") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 

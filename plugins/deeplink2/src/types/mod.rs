@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::str::FromStr;
 
-const SHARE_OPEN_PREFIX: &str = "hyprnote://share/open";
+const SHARE_OPEN_PREFIXES: [&str; 2] = ["hyprnote://share/open", "hyprnote-staging://share/open"];
 const MAX_SHARE_OPEN_URL_BYTES: usize = 512;
 
 #[derive(Debug, Clone, serde::Serialize, specta::Type, tauri_specta::Event)]
@@ -40,9 +40,11 @@ impl FromStr for IncomingDeepLink {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let candidate = s.trim_matches(|character: char| character.is_ascii_whitespace());
         if candidate.len() > MAX_SHARE_OPEN_URL_BYTES
-            && candidate
-                .get(..SHARE_OPEN_PREFIX.len())
-                .is_some_and(|prefix| prefix.eq_ignore_ascii_case(SHARE_OPEN_PREFIX))
+            && SHARE_OPEN_PREFIXES.iter().any(|expected| {
+                candidate
+                    .get(..expected.len())
+                    .is_some_and(|prefix| prefix.eq_ignore_ascii_case(expected))
+            })
         {
             return Err(crate::Error::InvalidShareOpen);
         }
@@ -70,16 +72,18 @@ mod incoming_tests {
 
     #[test]
     fn rejects_oversized_share_open_before_url_parsing() {
-        let value = format!("{SHARE_OPEN_PREFIX}?{}", "unknown=x&".repeat(64));
-        assert!(value.len() > MAX_SHARE_OPEN_URL_BYTES);
-        assert!(matches!(
-            IncomingDeepLink::from_str(&value),
-            Err(crate::Error::InvalidShareOpen)
-        ));
-        assert!(matches!(
-            IncomingDeepLink::from_str(&format!(" \n{value}")),
-            Err(crate::Error::InvalidShareOpen)
-        ));
+        for prefix in SHARE_OPEN_PREFIXES {
+            let value = format!("{prefix}?{}", "unknown=x&".repeat(64));
+            assert!(value.len() > MAX_SHARE_OPEN_URL_BYTES);
+            assert!(matches!(
+                IncomingDeepLink::from_str(&value),
+                Err(crate::Error::InvalidShareOpen)
+            ));
+            assert!(matches!(
+                IncomingDeepLink::from_str(&format!(" \n{value}")),
+                Err(crate::Error::InvalidShareOpen)
+            ));
+        }
     }
 }
 

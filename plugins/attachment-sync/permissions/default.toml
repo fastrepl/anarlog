@@ -11,4 +11,5 @@ permissions = [
   "allow-shared-attachment-path",
   "allow-remove-shared-attachment",
   "allow-clear-shared-attachment-scope",
+  "allow-clear-shared-attachment-preview-scopes",
 ]
