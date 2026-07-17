@@ -634,10 +634,14 @@
           "error": {
             "nullable": true,
             "type": "string"
+          },
+          "pending": {
+            "type": "boolean"
           }
         },
         "required": [
-          "deleted"
+          "deleted",
+          "pending"
         ],
         "type": "object"
       },
@@ -3066,7 +3070,7 @@
       "delete": {
         "operationId": "delete_account",
         "responses": {
-          "200": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
@@ -3074,13 +3078,16 @@
                 }
               }
             },
-            "description": "Account deleted successfully"
+            "description": "Account deletion durably accepted"
           },
           "401": {
             "description": "Unauthorized"
           },
           "500": {
             "description": "Internal server error"
+          },
+          "503": {
+            "description": "Durable account cleanup unavailable"
           }
         },
         "security": [
@@ -3523,6 +3530,10 @@
     {
       "description": "CloudSync credential management",
       "name": "sync"
+    },
+    {
+      "description": "Public shared-note delivery",
+      "name": "shared-notes"
     },
     {
       "description": "Subscription and trial management",
