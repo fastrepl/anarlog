@@ -7,10 +7,15 @@ import { getRequestAppOrigin } from "@/functions/app-origin";
 import { mintDesktopSessionForAuthenticatedUser } from "@/functions/auth-session";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import {
+  type NewAccountAuthMethod,
+  shouldOfferNewAccountTrialCheckout,
+} from "@/functions/new-account-trial-policy";
+import {
   getSupabaseAdminClient,
   getSupabaseDesktopFlowClient,
   getSupabaseServerClient,
 } from "@/functions/supabase";
+import { sanitizeInternalReturnPath } from "@/lib/auth-redirect";
 
 const shared = z.object({
   flow: z.enum(["desktop", "web"]).default("desktop"),
@@ -24,6 +29,18 @@ type FlowTokenResult =
   | { ok: true; access_token: string; refresh_token: string }
   | { ok: false; error: string };
 
+function isNewWebAccount(
+  flow: Flow,
+  session: Session,
+  method: NewAccountAuthMethod,
+) {
+  return shouldOfferNewAccountTrialCheckout({
+    flow,
+    method,
+    user: session.user,
+  });
+}
+
 function buildAuthCallbackParams(data: {
   flow: Flow;
   scheme?: string;
@@ -31,7 +48,9 @@ function buildAuthCallbackParams(data: {
 }) {
   const params = new URLSearchParams({ flow: data.flow });
   if (data.scheme) params.set("scheme", data.scheme);
-  if (data.redirect) params.set("redirect", data.redirect);
+  if (data.redirect) {
+    params.set("redirect", sanitizeInternalReturnPath(data.redirect));
+  }
   return params;
 }
 
@@ -259,11 +278,13 @@ export const exchangeOAuthCode = createServerFn({ method: "POST" })
     }
 
     await upsertAdminGithubTokenIfNeeded(supabase, authData.session);
+    const newAccount = isNewWebAccount(data.flow, authData.session, "oauth");
     const tokens = await resolveTokensForFlow({
       flow: data.flow,
       session: authData.session,
     });
-    return toSuccessTokenResponse(tokens);
+    const response = toSuccessTokenResponse(tokens);
+    return response.success ? { ...response, newAccount } : response;
   });
 
 export const doPasswordSignUp = createServerFn({ method: "POST" })
@@ -290,12 +311,18 @@ export const doPasswordSignUp = createServerFn({ method: "POST" })
     }
 
     if (authData.session) {
+      const newAccount = isNewWebAccount(
+        data.flow,
+        authData.session,
+        "password-signup",
+      );
       const tokens = await resolveTokensForFlow({
         flow: data.flow,
         session: authData.session,
         email: data.email,
       });
-      return toMutationTokenResponse(tokens);
+      const response = toMutationTokenResponse(tokens);
+      return response.success ? { ...response, newAccount } : response;
     }
 
     return { success: true, needsConfirmation: true };
@@ -358,6 +385,8 @@ export const exchangeOtpToken = createServerFn({ method: "POST" })
       return { success: false, error: error?.message || "Unknown error" };
     }
 
+    const newAccount = isNewWebAccount(data.flow, authData.session, data.type);
+
     const shouldMintDesktopSession =
       data.flow === "desktop" &&
       data.type !== "recovery" &&
@@ -367,7 +396,8 @@ export const exchangeOtpToken = createServerFn({ method: "POST" })
       flow,
       session: authData.session,
     });
-    return toSuccessTokenResponse(tokens);
+    const response = toSuccessTokenResponse(tokens);
+    return response.success ? { ...response, newAccount } : response;
   });
 
 export const createDesktopSession = createServerFn({ method: "POST" }).handler(

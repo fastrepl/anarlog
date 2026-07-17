@@ -12,23 +12,36 @@ import { env, requireEnv } from "@/env";
 import { getRequestAppOrigin } from "@/functions/app-origin";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import { getStripeClient } from "@/functions/stripe";
-import { getSupabaseServerClient } from "@/functions/supabase";
+import {
+  getSupabaseAdminClient,
+  getSupabaseServerClient,
+} from "@/functions/supabase";
+import {
+  addInternalReturnPathSearch,
+  sanitizeInternalReturnPath,
+  toAbsoluteInternalReturnUrl,
+} from "@/lib/auth-redirect";
+import { getStripeCustomerOwnership } from "@/lib/stripe-customer";
+import { WEB_TRIAL_CHECKOUT_FIELDS } from "@/lib/trial-policy";
 
 type SupabaseClient = ReturnType<typeof getSupabaseServerClient>;
 
 type AuthUser = {
   id: string;
-  user_metadata?: {
-    stripe_customer_id?: string;
-  } | null;
+  email?: string | null;
 };
+
+class TrialCheckoutCreationError extends Error {
+  constructor(readonly checkoutError: unknown) {
+    super("Could not create trial checkout session");
+  }
+}
 
 const getStripeCustomerIdForUser = async (
   supabase: SupabaseClient,
+  stripe: Stripe,
   user: AuthUser,
 ) => {
-  const metadataCustomerId = user.user_metadata?.stripe_customer_id;
-
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("stripe_customer_id")
@@ -39,23 +52,63 @@ const getStripeCustomerIdForUser = async (
     throw profileError;
   }
 
-  const profileCustomerId = profile?.stripe_customer_id as
+  const stripeCustomerId = profile?.stripe_customer_id as
     | string
     | null
     | undefined;
 
-  const stripeCustomerId =
-    profileCustomerId ?? (metadataCustomerId as string | undefined);
+  if (!stripeCustomerId) {
+    return null;
+  }
 
-  if (profileCustomerId && profileCustomerId !== metadataCustomerId) {
-    await supabase.auth.updateUser({
-      data: {
-        stripe_customer_id: profileCustomerId,
-      },
+  const customer = await stripe.customers.retrieve(stripeCustomerId);
+  if ("deleted" in customer && customer.deleted) {
+    throw new Error("Stripe customer is unavailable");
+  }
+
+  const ownership = getStripeCustomerOwnership(customer, user);
+  if (ownership === "unowned") {
+    throw new Error("Stripe customer does not belong to authenticated user");
+  }
+
+  if (ownership === "claimable") {
+    await stripe.customers.update(stripeCustomerId, {
+      metadata: { userId: user.id },
     });
   }
 
   return stripeCustomerId;
+};
+
+const linkStripeCustomerToUser = async (userId: string, customerId: string) => {
+  const admin = getSupabaseAdminClient();
+  const { data: linked, error: linkError } = await admin
+    .from("profiles")
+    .update({ stripe_customer_id: customerId })
+    .eq("id", userId)
+    .is("stripe_customer_id", null)
+    .select("stripe_customer_id")
+    .maybeSingle();
+
+  if (linkError) {
+    throw linkError;
+  }
+
+  if (linked?.stripe_customer_id) {
+    return linked.stripe_customer_id;
+  }
+
+  const { data: profile, error: profileError } = await admin
+    .from("profiles")
+    .select("stripe_customer_id")
+    .eq("id", userId)
+    .single();
+
+  if (profileError || !profile?.stripe_customer_id) {
+    throw profileError ?? new Error("Stripe customer link was not persisted");
+  }
+
+  return profile.stripe_customer_id;
 };
 
 const getBillingReturnUrl = (scheme?: z.infer<typeof desktopSchemeSchema>) => {
@@ -97,37 +150,35 @@ async function ensureStripeCustomerId(
   supabase: SupabaseClient,
   user: AuthUser & { email?: string | null },
 ) {
-  const existingStripeCustomerId = await getStripeCustomerIdForUser(supabase, {
-    id: user.id,
-    user_metadata: user.user_metadata,
-  });
+  const stripe = getStripeClient();
+  const existingStripeCustomerId = await getStripeCustomerIdForUser(
+    supabase,
+    stripe,
+    user,
+  );
 
   if (existingStripeCustomerId) {
     return existingStripeCustomerId;
   }
 
-  const stripe = getStripeClient();
-  const newCustomer = await stripe.customers.create({
-    email: user.email ?? undefined,
-    metadata: {
-      userId: user.id,
-      posthog_person_distinct_id: user.id,
-    },
-  });
-
-  await Promise.all([
-    supabase.auth.updateUser({
-      data: {
-        stripe_customer_id: newCustomer.id,
+  const newCustomer = await stripe.customers.create(
+    {
+      email: user.email ?? undefined,
+      metadata: {
+        userId: user.id,
+        posthog_person_distinct_id: user.id,
       },
-    }),
-    supabase
-      .from("profiles")
-      .update({ stripe_customer_id: newCustomer.id })
-      .eq("id", user.id),
-  ]);
+    },
+    { idempotencyKey: `create-customer-${user.id}` },
+  );
 
-  return newCustomer.id;
+  const customerId = await linkStripeCustomerToUser(user.id, newCustomer.id);
+
+  if (customerId !== newCustomer.id) {
+    return getStripeCustomerIdForUser(supabase, stripe, user);
+  }
+
+  return customerId;
 }
 
 async function createCheckoutUrl({
@@ -136,74 +187,101 @@ async function createCheckoutUrl({
   period,
   scheme,
   trial = false,
+  reservationId,
   source = "unknown",
+  returnTo,
 }: {
   supabase: SupabaseClient;
   user: AuthUser & { email?: string | null };
   period: "monthly" | "yearly";
   scheme?: z.infer<typeof desktopSchemeSchema>;
   trial?: boolean;
+  reservationId?: string;
   source?:
     | "onboarding"
     | "settings"
     | "trial_ended"
     | "feature_gate"
     | "unknown";
+  returnTo?: string;
 }) {
   const stripe = getStripeClient();
   const stripeCustomerId = await ensureStripeCustomerId(supabase, user);
 
+  if (trial) {
+    if (!reservationId) {
+      throw new Error("Trial reservation is required");
+    }
+
+    const subscriptions = await stripe.subscriptions.list({
+      customer: stripeCustomerId,
+      status: "all",
+      limit: 1,
+    });
+    if (subscriptions.data.length > 0) {
+      throw new Error("Trial is not available for this account");
+    }
+  }
+
   const checkoutType = trial ? "trial" : "paid";
-  const successParams = new URLSearchParams({
+  const appOrigin = getRequestAppOrigin();
+  const successReturnPath = addInternalReturnPathSearch(returnTo, {
     success: "true",
     checkout: checkoutType,
     source,
   });
-  if (scheme) {
-    successParams.set("scheme", scheme);
-  }
-  const appOrigin = getRequestAppOrigin();
+  const cancelReturnPath = addInternalReturnPathSearch(returnTo, {
+    checkout: "canceled",
+    checkout_type: checkoutType,
+    source,
+  });
 
   const successUrl = scheme
     ? `${getBillingReturnUrl(scheme)}&checkout=${checkoutType}&source=${source}`
-    : `${appOrigin}/app/account?${successParams.toString()}`;
+    : toAbsoluteInternalReturnUrl(appOrigin, successReturnPath);
   const cancelUrl = scheme
     ? `${getBillingReturnUrl(scheme)}&checkout=canceled&checkout_type=${checkoutType}&source=${source}`
-    : `${appOrigin}/app/account?checkout=canceled&checkout_type=${checkoutType}&source=${source}`;
+    : toAbsoluteInternalReturnUrl(appOrigin, cancelReturnPath);
 
-  const checkout = await stripe.checkout.sessions.create({
-    customer: stripeCustomerId,
-    success_url: successUrl,
-    cancel_url: cancelUrl,
-    line_items: [
+  let checkout: Stripe.Checkout.Session;
+  try {
+    checkout = await stripe.checkout.sessions.create(
       {
-        price: getProPriceId(period),
-        quantity: 1,
+        customer: stripeCustomerId,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        line_items: [
+          {
+            price: getProPriceId(period),
+            quantity: 1,
+          },
+        ],
+        mode: "subscription",
+        payment_method_collection: trial
+          ? WEB_TRIAL_CHECKOUT_FIELDS.payment_method_collection
+          : undefined,
+        metadata: {
+          checkout_type: checkoutType,
+          source,
+          user_id: user.id,
+        },
+        subscription_data: {
+          metadata: {
+            checkout_type: checkoutType,
+            source,
+            user_id: user.id,
+          },
+          ...(trial ? WEB_TRIAL_CHECKOUT_FIELDS.subscription_data : {}),
+        },
       },
-    ],
-    mode: "subscription",
-    payment_method_collection: trial ? "always" : undefined,
-    metadata: {
-      checkout_type: checkoutType,
-      source,
-      user_id: user.id,
-    },
-    subscription_data: {
-      metadata: {
-        checkout_type: checkoutType,
-        source,
-        user_id: user.id,
-      },
-      ...(trial
-        ? {
-            trial_period_days: 14,
-            trial_settings: {
-              end_behavior: { missing_payment_method: "cancel" as const },
-            },
-          }
-        : {}),
-    },
-  });
+      trial ? { idempotencyKey: `trial-checkout-${reservationId}` } : undefined,
+    );
+  } catch (error) {
+    if (trial) {
+      throw new TrialCheckoutCreationError(error);
+    }
+    throw error;
+  }
 
   return { url: checkout.url, stripeCustomerId };
 }
@@ -216,6 +294,7 @@ const createCheckoutSessionInput = z.object({
   source: z
     .enum(["onboarding", "settings", "trial_ended", "feature_gate", "unknown"])
     .default("unknown"),
+  returnTo: z.string().optional(),
 });
 
 export const createCheckoutSession = createServerFn({ method: "POST" })
@@ -230,60 +309,100 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       throw new Error("Unauthorized");
     }
 
+    const returnTo = sanitizeInternalReturnPath(data.returnTo);
+
+    let reservationId: string | undefined;
     if (data.trial) {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
+      const { data: reservations, error } = await supabase.rpc(
+        "reserve_pro_trial",
+        { p_channel: "web" },
+      );
+      const reservation = Array.isArray(reservations)
+        ? reservations[0]
+        : undefined;
+      const parsedReservationId = z
+        .string()
+        .uuid()
+        .safeParse(reservation?.reservation_id);
 
-      if (!accessToken) {
-        throw new Error("Unauthorized");
-      }
-
-      const client = createClient({
-        baseUrl: env.VITE_API_URL,
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const { data: eligibility, error } = await canStartTrialApi({ client });
-
-      if (error || !eligibility?.canStartTrial) {
+      if (error || reservations?.length !== 1 || !parsedReservationId.success) {
         throw new Error("Trial is not available for this account");
       }
+      reservationId = parsedReservationId.data;
     }
 
-    const stripe = getStripeClient();
+    try {
+      const stripe = getStripeClient();
 
-    const stripeCustomerId = await getStripeCustomerIdForUser(supabase, {
-      id: user.id,
-      user_metadata: user.user_metadata,
-    });
-
-    if (stripeCustomerId) {
-      const activeSubscription = await getCurrentSubscription(
+      const stripeCustomerId = await getStripeCustomerIdForUser(
+        supabase,
         stripe,
-        stripeCustomerId,
+        { id: user.id, email: user.email },
       );
 
-      if (activeSubscription) {
-        const portalSession = await stripe.billingPortal.sessions.create({
-          customer: stripeCustomerId,
-          return_url: getBillingReturnUrl(data.scheme),
-        });
-        return { url: portalSession.url };
-      }
-    }
+      if (stripeCustomerId) {
+        const activeSubscription = await getCurrentSubscription(
+          stripe,
+          stripeCustomerId,
+        );
 
-    return createCheckoutUrl({
-      supabase,
-      user: {
-        id: user.id,
-        email: user.email,
-        user_metadata: user.user_metadata,
-      },
-      period: data.period,
-      scheme: data.scheme,
-      trial: data.trial,
-      source: data.source,
-    });
+        if (activeSubscription) {
+          if (reservationId) {
+            await releaseTrialReservation(user.id, reservationId);
+          }
+          const portalSession = await stripe.billingPortal.sessions.create({
+            customer: stripeCustomerId,
+            return_url: data.scheme
+              ? getBillingReturnUrl(data.scheme)
+              : toAbsoluteInternalReturnUrl(getRequestAppOrigin(), returnTo),
+          });
+          return { url: portalSession.url };
+        }
+      }
+
+      return await createCheckoutUrl({
+        supabase,
+        user: {
+          id: user.id,
+          email: user.email,
+        },
+        period: data.period,
+        scheme: data.scheme,
+        trial: data.trial,
+        reservationId,
+        source: data.source,
+        returnTo,
+      });
+    } catch (error) {
+      if (reservationId && !(error instanceof TrialCheckoutCreationError)) {
+        await releaseTrialReservation(user.id, reservationId).catch(
+          (releaseError) => {
+            console.error("release_pro_trial_reservation error:", releaseError);
+          },
+        );
+      }
+      if (error instanceof TrialCheckoutCreationError) {
+        throw error.checkoutError;
+      }
+      throw error;
+    }
   });
+
+const releaseTrialReservation = async (
+  userId: string,
+  reservationId: string,
+) => {
+  const { error } = await getSupabaseAdminClient().rpc(
+    "release_pro_trial_reservation",
+    {
+      p_user_id: userId,
+      p_reservation_id: reservationId,
+    },
+  );
+  if (error) {
+    throw error;
+  }
+};
 
 const createPlanSwitchSessionInput = z.object({
   targetPlan: z.enum(["pro"]).default("pro").optional(),
@@ -305,10 +424,11 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
 
     const stripe = getStripeClient();
 
-    const stripeCustomerId = await getStripeCustomerIdForUser(supabase, {
-      id: user.id,
-      user_metadata: user.user_metadata,
-    });
+    const stripeCustomerId = await getStripeCustomerIdForUser(
+      supabase,
+      stripe,
+      { id: user.id, email: user.email },
+    );
 
     if (!stripeCustomerId) {
       return createCheckoutUrl({
@@ -316,7 +436,6 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
         user: {
           id: user.id,
           email: user.email,
-          user_metadata: user.user_metadata,
         },
         period: data.targetPeriod,
         scheme: data.scheme,
@@ -334,7 +453,6 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
         user: {
           id: user.id,
           email: user.email,
-          user_metadata: user.user_metadata,
         },
         period: data.targetPeriod,
         scheme: data.scheme,
@@ -347,7 +465,6 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
         user: {
           id: user.id,
           email: user.email,
-          user_metadata: user.user_metadata,
         },
         period: data.targetPeriod,
         scheme: data.scheme,
@@ -397,16 +514,16 @@ export const createPortalSession = createServerFn({ method: "POST" })
       throw new Error("Unauthorized");
     }
 
-    const stripeCustomerId = await getStripeCustomerIdForUser(supabase, {
-      id: user.id,
-      user_metadata: user.user_metadata,
-    });
+    const stripe = getStripeClient();
+    const stripeCustomerId = await getStripeCustomerIdForUser(
+      supabase,
+      stripe,
+      { id: user.id, email: user.email },
+    );
 
     if (!stripeCustomerId) {
       throw new Error("No Stripe customer found");
     }
-
-    const stripe = getStripeClient();
 
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,
@@ -427,16 +544,16 @@ export const syncAfterSuccess = createServerFn({ method: "POST" }).handler(
       throw new Error("Unauthorized");
     }
 
-    const stripeCustomerId = await getStripeCustomerIdForUser(supabase, {
-      id: user.id,
-      user_metadata: user.user_metadata,
-    });
+    const stripe = getStripeClient();
+    const stripeCustomerId = await getStripeCustomerIdForUser(
+      supabase,
+      stripe,
+      { id: user.id, email: user.email },
+    );
 
     if (!stripeCustomerId) {
       return { status: "none" };
     }
-
-    const stripe = getStripeClient();
 
     const subscriptions = await stripe.subscriptions.list({
       customer: stripeCustomerId,

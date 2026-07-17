@@ -224,61 +224,6 @@ impl SupabaseClient {
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))
     }
 
-    pub async fn update<T: Serialize>(
-        &self,
-        table: &str,
-        auth_token: &str,
-        filters: &[(&str, &str)],
-        data: &T,
-    ) -> Result<()> {
-        let mut url = format!("{}/rest/v1/{}", self.base_url, url_encode(table));
-        if !filters.is_empty() {
-            url.push('?');
-            for (i, (key, value)) in filters.iter().enumerate() {
-                if i > 0 {
-                    url.push('&');
-                }
-                url.push_str(&format!("{}={}", url_encode(key), url_encode(value)));
-            }
-        }
-
-        let start = Instant::now();
-        let response = self
-            .with_trace_context(
-                self.http_client
-                    .patch(&url)
-                    .header("Authorization", format!("Bearer {}", auth_token))
-                    .header("apikey", &self.anon_key)
-                    .header("Content-Type", "application/json")
-                    .json(data),
-            )
-            .send()
-            .await
-            .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
-        tracing::info!(
-            service.peer.name = "supabase",
-            hyprnote.supabase.operation = "update",
-            hyprnote.supabase.table = %table,
-            http.response.status_code = response.status().as_u16(),
-            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
-            "supabase_request_finished"
-        );
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "unknown".to_string());
-            return Err(SubscriptionError::SupabaseRequest(format!(
-                "UPDATE {} failed: {} - {}",
-                table, status, body
-            )));
-        }
-
-        Ok(())
-    }
-
     pub async fn admin_get_stripe_customer_id(&self, user_id: &str) -> Result<Option<String>> {
         let url = format!(
             "{}/rest/v1/profiles?select=stripe_customer_id&id=eq.{}",
@@ -328,6 +273,93 @@ impl SupabaseClient {
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
 
         Ok(rows.into_iter().next().and_then(|r| r.stripe_customer_id))
+    }
+
+    pub async fn admin_link_stripe_customer(
+        &self,
+        user_id: &str,
+        customer_id: &str,
+    ) -> Result<String> {
+        #[derive(Serialize)]
+        struct UpdateData<'a> {
+            stripe_customer_id: &'a str,
+        }
+
+        #[derive(Deserialize)]
+        struct Row {
+            stripe_customer_id: String,
+        }
+
+        let url = format!(
+            "{}/rest/v1/profiles?id=eq.{}&stripe_customer_id=is.null&select=stripe_customer_id",
+            self.base_url,
+            url_encode(user_id)
+        );
+        let response = self
+            .with_trace_context(
+                self.http_client
+                    .patch(&url)
+                    .header("Authorization", format!("Bearer {}", self.service_role_key))
+                    .header("apikey", &self.service_role_key)
+                    .header("Content-Type", "application/json")
+                    .header("Prefer", "return=representation")
+                    .json(&UpdateData {
+                        stripe_customer_id: customer_id,
+                    }),
+            )
+            .send()
+            .await
+            .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "unknown".to_string());
+            return Err(SubscriptionError::SupabaseRequest(format!(
+                "Link Stripe customer failed: {status} - {body}"
+            )));
+        }
+
+        let rows: Vec<Row> = response
+            .json()
+            .await
+            .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
+        if let Some(row) = rows.into_iter().next() {
+            return Ok(row.stripe_customer_id);
+        }
+
+        self.admin_get_stripe_customer_id(user_id)
+            .await?
+            .ok_or_else(|| {
+                SubscriptionError::SupabaseRequest(
+                    "Stripe customer link was not persisted".to_string(),
+                )
+            })
+    }
+
+    pub async fn admin_release_pro_trial_reservation(
+        &self,
+        user_id: &str,
+        reservation_id: &str,
+    ) -> Result<()> {
+        #[derive(Serialize)]
+        struct Request<'a> {
+            p_user_id: &'a str,
+            p_reservation_id: &'a str,
+        }
+
+        let _: Value = self
+            .admin_rpc(
+                "release_pro_trial_reservation",
+                &Request {
+                    p_user_id: user_id,
+                    p_reservation_id: reservation_id,
+                },
+            )
+            .await?;
+        Ok(())
     }
 
     pub async fn begin_account_deletion(&self, user_id: &str) -> Result<()> {

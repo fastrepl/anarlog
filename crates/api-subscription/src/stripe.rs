@@ -1,17 +1,20 @@
-use chrono::Utc;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::time::Instant;
 use stripe::StripeRequest;
 use stripe_billing::subscription::{
     CreateSubscription, CreateSubscriptionItems, CreateSubscriptionTrialSettings,
     CreateSubscriptionTrialSettingsEndBehavior,
-    CreateSubscriptionTrialSettingsEndBehaviorMissingPaymentMethod,
+    CreateSubscriptionTrialSettingsEndBehaviorMissingPaymentMethod, ListSubscription,
+    ListSubscriptionStatus,
 };
-use stripe_core::customer::CreateCustomer;
+use stripe_core::customer::{
+    CreateCustomer, RetrieveCustomer, RetrieveCustomerReturned, UpdateCustomer,
+};
 
 use crate::error::{Result, SubscriptionError};
 use crate::supabase::SupabaseClient;
+use crate::trial::pro_trial_days;
 
 #[derive(Debug, Deserialize)]
 struct Profile {
@@ -24,6 +27,7 @@ pub(crate) async fn get_or_create_customer(
     auth_token: &str,
     user_id: &str,
 ) -> Result<Option<String>> {
+    let email = supabase.get_user_email(auth_token).await?;
     let profiles: Vec<Profile> = supabase
         .select(
             "profiles",
@@ -36,10 +40,9 @@ pub(crate) async fn get_or_create_customer(
     if let Some(profile) = profiles.first()
         && let Some(customer_id) = &profile.stripe_customer_id
     {
+        verify_customer_ownership(stripe, customer_id, user_id, email.as_deref()).await?;
         return Ok(Some(customer_id.clone()));
     }
-
-    let email = supabase.get_user_email(auth_token).await?;
 
     let metadata: HashMap<String, String> = [
         ("userId".to_string(), user_id.to_string()),
@@ -73,65 +76,82 @@ pub(crate) async fn get_or_create_customer(
         "stripe_request_finished"
     );
 
-    #[derive(Serialize)]
-    struct UpdateData {
-        stripe_customer_id: String,
+    supabase
+        .admin_link_stripe_customer(user_id, customer.id.as_str())
+        .await
+        .map(Some)
+}
+
+async fn verify_customer_ownership(
+    stripe: &stripe::Client,
+    customer_id: &str,
+    user_id: &str,
+    user_email: Option<&str>,
+) -> Result<()> {
+    let customer = RetrieveCustomer::new(customer_id)
+        .send(stripe)
+        .await
+        .map_err(|e: stripe::StripeError| SubscriptionError::Stripe(e.to_string()))?;
+    let RetrieveCustomerReturned::Customer(customer) = customer else {
+        return Err(SubscriptionError::Stripe(
+            "Stripe customer is unavailable".to_string(),
+        ));
+    };
+
+    let metadata = customer.metadata.as_ref();
+    let owner_id = metadata.and_then(|values| {
+        values
+            .get("userId")
+            .or_else(|| values.get("user_id"))
+            .or_else(|| values.get("userID"))
+    });
+    let email_matches =
+        customer
+            .email
+            .as_deref()
+            .zip(user_email)
+            .is_some_and(|(customer_email, user_email)| {
+                customer_email
+                    .trim()
+                    .eq_ignore_ascii_case(user_email.trim())
+            });
+    let belongs_to_user = owner_id.map_or(email_matches, |owner_id| owner_id == user_id);
+
+    if !belongs_to_user {
+        return Err(SubscriptionError::Stripe(
+            "Stripe customer does not belong to authenticated user".to_string(),
+        ));
     }
 
-    supabase
-        .update(
-            "profiles",
-            auth_token,
-            &[
-                ("id", &format!("eq.{}", user_id)),
-                ("stripe_customer_id", "is.null"),
-            ],
-            &UpdateData {
-                stripe_customer_id: customer.id.to_string(),
-            },
-        )
-        .await?;
+    if owner_id.is_none() {
+        let metadata: HashMap<String, String> = [
+            ("userId".to_string(), user_id.to_string()),
+            (
+                "posthog_person_distinct_id".to_string(),
+                user_id.to_string(),
+            ),
+        ]
+        .into();
+        UpdateCustomer::new(customer_id)
+            .metadata(metadata)
+            .send(stripe)
+            .await
+            .map_err(|e: stripe::StripeError| SubscriptionError::Stripe(e.to_string()))?;
+    }
 
-    let updated_profiles: Vec<Profile> = supabase
-        .select(
-            "profiles",
-            auth_token,
-            "stripe_customer_id",
-            &[("id", &format!("eq.{}", user_id))],
-        )
-        .await?;
-
-    Ok(updated_profiles
-        .first()
-        .and_then(|p| p.stripe_customer_id.clone()))
+    Ok(())
 }
 
 pub(crate) async fn create_trial_subscription(
     stripe: &stripe::Client,
     customer_id: &str,
     price_id: &str,
-    user_id: &str,
-) -> Result<()> {
-    let mut item = CreateSubscriptionItems::new();
-    item.price = Some(price_id.to_string());
-
-    let create_sub = CreateSubscription::new()
-        .customer(customer_id)
-        .items(vec![item])
-        .trial_period_days(14u32)
-        .trial_settings(CreateSubscriptionTrialSettings::new(
-            CreateSubscriptionTrialSettingsEndBehavior::new(
-                CreateSubscriptionTrialSettingsEndBehaviorMissingPaymentMethod::Cancel,
-            ),
-        ));
-
-    let date = Utc::now().format("%Y-%m-%d").to_string();
-    let idempotency_key: stripe::IdempotencyKey = format!("trial-{}-{}", user_id, date)
-        .try_into()
-        .map_err(|e: stripe::IdempotentKeyError| SubscriptionError::Internal(e.to_string()))?;
+    idempotency_key: stripe::IdempotencyKey,
+) -> Result<Option<i64>> {
+    let create_sub = build_trial_subscription(customer_id, price_id);
 
     let start = Instant::now();
-    create_sub
+    let subscription = create_sub
         .customize()
         .request_strategy(stripe::RequestStrategy::Idempotent(idempotency_key))
         .send(stripe)
@@ -144,5 +164,76 @@ pub(crate) async fn create_trial_subscription(
         "stripe_request_finished"
     );
 
-    Ok(())
+    Ok(subscription.trial_end)
+}
+
+pub(crate) fn trial_subscription_idempotency_key(
+    reservation_id: &str,
+) -> Result<stripe::IdempotencyKey> {
+    format!("trial-{reservation_id}")
+        .try_into()
+        .map_err(|e: stripe::IdempotentKeyError| SubscriptionError::Internal(e.to_string()))
+}
+
+pub(crate) async fn customer_has_subscription_history(
+    stripe: &stripe::Client,
+    customer_id: &str,
+) -> Result<bool> {
+    let subscriptions = ListSubscription::new()
+        .customer(customer_id)
+        .status(ListSubscriptionStatus::All)
+        .limit(1)
+        .send(stripe)
+        .await
+        .map_err(|e: stripe::StripeError| SubscriptionError::Stripe(e.to_string()))?;
+
+    Ok(!subscriptions.data.is_empty())
+}
+
+fn build_trial_subscription(customer_id: &str, price_id: &str) -> CreateSubscription {
+    let mut item = CreateSubscriptionItems::new();
+    item.price = Some(price_id.to_string());
+
+    CreateSubscription::new()
+        .customer(customer_id)
+        .items(vec![item])
+        .trial_period_days(pro_trial_days())
+        .trial_settings(CreateSubscriptionTrialSettings::new(
+            CreateSubscriptionTrialSettingsEndBehavior::new(
+                CreateSubscriptionTrialSettingsEndBehaviorMissingPaymentMethod::Cancel,
+            ),
+        ))
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use crate::trial::pro_trial_days;
+
+    use super::{build_trial_subscription, trial_subscription_idempotency_key};
+
+    #[test]
+    fn native_trials_are_cardless_and_cancel_if_no_card_is_added() {
+        let request = serde_json::to_value(build_trial_subscription("cus_test", "price_test"))
+            .expect("trial subscription should serialize");
+        let request = &request["inner"];
+
+        assert_eq!(request["customer"], json!("cus_test"));
+        assert_eq!(request["trial_period_days"], json!(pro_trial_days()));
+        assert_eq!(
+            request["trial_settings"]["end_behavior"]["missing_payment_method"],
+            json!("cancel")
+        );
+        assert!(request.get("default_payment_method").is_none());
+    }
+
+    #[test]
+    fn retrying_a_trial_reservation_reuses_the_idempotency_key() {
+        let first = trial_subscription_idempotency_key("reservation-123").unwrap();
+        let retry = trial_subscription_idempotency_key("reservation-123").unwrap();
+
+        assert_eq!(first, retry);
+        assert_eq!(first.as_str(), "trial-reservation-123");
+    }
 }

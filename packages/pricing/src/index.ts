@@ -10,3 +10,5 @@ export {
 } from "./tiers";
 
 export { PlanFeatureList } from "./plan-feature-list";
+
+export { PRO_TRIAL_DAYS } from "./trial";

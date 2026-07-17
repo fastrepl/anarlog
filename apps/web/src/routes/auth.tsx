@@ -23,6 +23,10 @@ import {
   fetchUser,
 } from "@/functions/auth";
 import { type DesktopScheme, flowSearchSchema } from "@/functions/desktop-flow";
+import {
+  buildPostAuthDestination,
+  sanitizeInternalReturnPath,
+} from "@/lib/auth-redirect";
 
 const commonSearch = {
   redirect: z.string().optional(),
@@ -46,7 +50,9 @@ export const Route = createFileRoute("/auth")({
         search.flow === "web" && !!search.provider;
 
       if (search.flow === "web" && !shouldReauthWithProvider) {
-        throw redirect({ to: search.redirect || "/app/account/" } as any);
+        throw redirect({
+          href: sanitizeInternalReturnPath(search.redirect),
+        } as any);
       }
 
       if (search.flow === "desktop") {
@@ -346,6 +352,7 @@ function PasswordForm({
           flow,
           scheme,
           redirect,
+          false,
         );
       }
     },
@@ -375,6 +382,7 @@ function PasswordForm({
             flow,
             scheme,
             redirect,
+            "newAccount" in result && result.newAccount,
           );
         }
       }
@@ -486,6 +494,7 @@ function handlePasswordSuccess(
   flow: "desktop" | "web",
   scheme?: DesktopScheme,
   redirectPath?: string,
+  newAccount = false,
 ) {
   if (flow === "desktop") {
     const params = new URLSearchParams();
@@ -495,7 +504,10 @@ function handlePasswordSuccess(
     params.set("refresh_token", refreshToken);
     window.location.href = `/callback/auth?${params.toString()}`;
   } else {
-    window.location.href = redirectPath || "/app/account/";
+    window.location.href = buildPostAuthDestination({
+      newAccount,
+      returnTo: redirectPath,
+    });
   }
 }
 

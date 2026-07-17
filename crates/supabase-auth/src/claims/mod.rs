@@ -35,12 +35,31 @@ pub struct Claims {
 }
 
 impl Claims {
+    pub fn has_active_trial(&self) -> bool {
+        self.has_active_trial_at(Utc::now())
+    }
+
+    fn has_active_trial_at(&self, now: DateTime<Utc>) -> bool {
+        matches!(self.subscription_status, Some(SubscriptionStatus::Trialing))
+            && self.trial_end.as_ref().is_some_and(|end| end > &now)
+    }
+
+    pub fn has_entitlement(&self, entitlement: &str) -> bool {
+        if entitlement == "hyprnote_pro"
+            && matches!(self.subscription_status, Some(SubscriptionStatus::Trialing))
+        {
+            return self.has_active_trial();
+        }
+
+        self.entitlements.iter().any(|value| value == entitlement)
+    }
+
     pub fn is_pro(&self) -> bool {
-        self.entitlements.contains(&"hyprnote_pro".to_string())
+        self.has_entitlement("hyprnote_pro")
     }
 
     pub fn is_lite(&self) -> bool {
-        self.entitlements.contains(&"hyprnote_lite".to_string())
+        self.has_entitlement("hyprnote_lite")
     }
 
     pub fn is_paid(&self) -> bool {
@@ -66,7 +85,7 @@ impl Claims {
 #[cfg(test)]
 mod tests {
     use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
-    use chrono::Datelike;
+    use chrono::{Datelike, Duration};
 
     use super::*;
 
@@ -152,6 +171,57 @@ mod tests {
         assert!(!claims.is_pro());
         assert!(!claims.is_lite());
         assert!(!claims.is_paid());
+    }
+
+    #[test]
+    fn test_active_status_without_entitlement_is_not_paid() {
+        let payload = r#"{
+            "sub": "user-201",
+            "subscription_status": "active"
+        }"#;
+        let token = make_test_token(payload);
+
+        let claims = Claims::decode_insecure(&token).unwrap();
+        assert!(!claims.is_pro());
+        assert!(!claims.is_lite());
+        assert!(!claims.is_paid());
+    }
+
+    #[test]
+    fn test_active_trial_grants_pro_access() {
+        let claims = Claims {
+            sub: "trial-user".to_string(),
+            email: None,
+            entitlements: vec![],
+            subscription_status: Some(SubscriptionStatus::Trialing),
+            trial_end: Some(Utc::now() + Duration::minutes(5)),
+            has_payment_method: Some(false),
+        };
+
+        assert!(claims.has_active_trial());
+        assert!(claims.has_entitlement("hyprnote_pro"));
+        assert!(claims.is_pro());
+        assert!(claims.is_paid());
+    }
+
+    #[test]
+    fn test_expired_or_unbounded_trial_fails_closed() {
+        let mut claims = Claims {
+            sub: "trial-user".to_string(),
+            email: None,
+            entitlements: vec!["hyprnote_pro".to_string()],
+            subscription_status: Some(SubscriptionStatus::Trialing),
+            trial_end: Some(Utc::now() - Duration::minutes(5)),
+            has_payment_method: Some(false),
+        };
+
+        assert!(!claims.has_active_trial());
+        assert!(!claims.is_pro());
+
+        claims.trial_end = None;
+
+        assert!(!claims.has_active_trial());
+        assert!(!claims.is_pro());
     }
 
     #[test]

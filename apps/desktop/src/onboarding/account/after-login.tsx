@@ -1,10 +1,14 @@
 import { Trans } from "@lingui/react/macro";
 import { CheckCircle2Icon } from "lucide-react";
 
+import { PRO_TRIAL_DAYS } from "@hypr/pricing";
+
 import { StepRow } from "../shared";
 import { type TrialPhase, useTrialFlow } from "./trial";
 
 function TrialStatusDisplay({ trialPhase }: { trialPhase: TrialPhase }) {
+  const trialDays = PRO_TRIAL_DAYS;
+
   return (
     <div className="flex flex-col gap-1.5">
       <StepRow status="done" label={<Trans>Signed in</Trans>} />
@@ -45,7 +49,7 @@ function TrialStatusDisplay({ trialPhase }: { trialPhase: TrialPhase }) {
           />
           <StepRow
             status="done"
-            label={<Trans>Trial activated - 14 days of Pro</Trans>}
+            label={<Trans>Trial activated - {trialDays} days of Pro</Trans>}
           />
         </>
       )}

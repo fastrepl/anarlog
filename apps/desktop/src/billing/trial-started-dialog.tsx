@@ -1,3 +1,4 @@
+import { PRO_TRIAL_DAYS } from "@hypr/pricing";
 import { Button } from "@hypr/ui/components/ui/button";
 import {
   Dialog,
@@ -23,7 +24,7 @@ export function TrialStartedDialog({
   trialDaysRemaining,
   hasPaymentMethod,
 }: TrialStartedDialogProps) {
-  const days = trialDaysRemaining ?? 14;
+  const days = trialDaysRemaining ?? PRO_TRIAL_DAYS;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

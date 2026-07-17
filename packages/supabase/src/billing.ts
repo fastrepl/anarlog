@@ -33,22 +33,20 @@ export function deriveBillingInfo(
 
   const isTrialing =
     subscriptionStatus === "trialing" &&
-    (trialDaysRemaining === null || trialDaysRemaining > 0);
+    trialDaysRemaining !== null &&
+    trialDaysRemaining > 0;
 
   const hasProEntitlement = entitlements.includes("hyprnote_pro");
   const hasLiteEntitlement = entitlements.includes("hyprnote_lite");
-  const hasPaidEntitlement = hasProEntitlement || hasLiteEntitlement;
+  const hasEffectiveProEntitlement =
+    subscriptionStatus === "trialing" ? isTrialing : hasProEntitlement;
+  const hasPaidEntitlement = hasEffectiveProEntitlement || hasLiteEntitlement;
 
-  const isPro = hasPaidEntitlement || isTrialing;
-  const isLite = false;
-  const isPaid =
-    hasPaidEntitlement || isTrialing || subscriptionStatus === "active";
+  const isPro = hasEffectiveProEntitlement;
+  const isLite = hasLiteEntitlement;
+  const isPaid = hasPaidEntitlement;
 
-  const plan: Plan = isTrialing
-    ? "trial"
-    : hasPaidEntitlement || subscriptionStatus === "active"
-      ? "pro"
-      : "free";
+  const plan: Plan = isTrialing ? "trial" : hasPaidEntitlement ? "pro" : "free";
 
   return {
     entitlements,

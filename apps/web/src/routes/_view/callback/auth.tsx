@@ -15,6 +15,10 @@ import {
 import { exchangeOAuthCode, exchangeOtpToken } from "@/functions/auth";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import { useAnalytics } from "@/hooks/use-posthog";
+import {
+  buildPostAuthDestination,
+  sanitizeInternalReturnPath,
+} from "@/lib/auth-redirect";
 
 const validateSearch = z.object({
   code: z.string().optional(),
@@ -56,9 +60,11 @@ export const Route = createFileRoute("/_view/callback/auth")({
           throw redirect({ to: "/update-password/", search: {} });
         }
         throw redirect({
-          to: search.redirect || "/app/account/",
-          search: {},
-        });
+          href: buildPostAuthDestination({
+            newAccount: result.newAccount,
+            returnTo: search.redirect,
+          }),
+        } as any);
       } else {
         console.error(result.error);
       }
@@ -111,9 +117,11 @@ export const Route = createFileRoute("/_view/callback/auth")({
         if (result.success) {
           if (search.flow === "web") {
             throw redirect({
-              to: search.redirect || "/app/account/",
-              search: {},
-            });
+              href: buildPostAuthDestination({
+                newAccount: result.newAccount,
+                returnTo: search.redirect,
+              }),
+            } as any);
           }
 
           if (search.flow === "desktop") {
@@ -196,7 +204,7 @@ function Component() {
   useEffect(() => {
     if (search.flow === "web" && !search.error) {
       navigate({
-        to: search.redirect || "/app/account/",
+        to: sanitizeInternalReturnPath(search.redirect),
         search: {},
         replace: true,
       });
