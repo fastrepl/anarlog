@@ -30,7 +30,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: linux
       - uses: ./.github/actions/infisical_install
+      - name: Verify encrypted CloudSync
+        run: |
+          set -euo pipefail
+
+          cloudsync_secrets_json="$(mktemp)"
+          trap 'rm -f "$cloudsync_secrets_json"' EXIT
+
+          infisical export \
+            --token="$INFISICAL_TOKEN" \
+            --env="$INFISICAL_ENV" \
+            --projectId="$INFISICAL_PROJECT_ID" \
+            --path="/anarlog/cloudsync" \
+            --format=json \
+            --output-file="$cloudsync_secrets_json"
+
+          python3 .github/scripts/verify_cloudsync_e2ee.py "$cloudsync_secrets_json"
+        env:
+          INFISICAL_TOKEN: ${{ secrets.INFISICAL_TOKEN }}
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
       - run: |
           set -euo pipefail
 

@@ -1,19 +1,16 @@
+use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use db_app::{
-    claim_cloudsync_workspace, cloudsync_table_registry, ensure_cloudsync_workspace_binding,
-    prepare_schema,
+    apply_e2ee_replica_changes, claim_cloudsync_workspace, cloudsync_table_registry,
+    encrypt_e2ee_replica_changes, prepare_schema,
 };
-use hypr_db_core::{
-    CloudsyncAuth, CloudsyncRuntimeConfig, CloudsyncRuntimeError, Db, DbOpenOptions, DbStorage,
-};
-use sqlx::{AssertSqlSafe, SqlitePool};
+use hypr_db_core::{CloudsyncAuth, CloudsyncRuntimeConfig, Db, DbOpenOptions, DbStorage};
+use hypr_e2ee::{RecoveryKey, WorkspaceKey};
 
 const SYNC_TIMEOUT: Duration = Duration::from_secs(90);
 const SYNC_ATTEMPTS: usize = 3;
 const POLICY_SYNC_TIMEOUT: Duration = Duration::from_secs(30);
-const STALE_SNAPSHOT_SYNC_ATTEMPTS: usize = 2;
-const SYNCED_TABLES: [&str; 1] = ["e2ee_records"];
 
 fn cloudsync_config(auth: CloudsyncAuth, wait_ms: i64, max_retries: i64) -> CloudsyncRuntimeConfig {
     CloudsyncRuntimeConfig {
@@ -27,9 +24,27 @@ fn cloudsync_config(auth: CloudsyncAuth, wait_ms: i64, max_retries: i64) -> Clou
     }
 }
 
+fn token_auth(token: &str) -> CloudsyncAuth {
+    CloudsyncAuth::Token {
+        token: token.to_string(),
+    }
+}
+
+fn workspace_keys(workspace_id: &str, recovery_key_env: &str) -> HashMap<String, WorkspaceKey> {
+    let recovery_key = RecoveryKey::parse(
+        &std::env::var(recovery_key_env)
+            .unwrap_or_else(|_| panic!("{recovery_key_env} must be set")),
+    )
+    .unwrap_or_else(|error| panic!("{recovery_key_env} is invalid: {error}"));
+    HashMap::from([(
+        workspace_id.to_string(),
+        recovery_key.workspace_key(workspace_id).unwrap(),
+    )])
+}
+
 async fn setup_db_with_network_options(
     auth: CloudsyncAuth,
-    workspace_id: Option<&str>,
+    workspace_id: &str,
     wait_ms: i64,
     max_retries: i64,
 ) -> Db {
@@ -44,11 +59,9 @@ async fn setup_db_with_network_options(
     .unwrap();
 
     prepare_schema(&db).await.unwrap();
-    if let Some(workspace_id) = workspace_id {
-        claim_cloudsync_workspace(db.pool(), workspace_id)
-            .await
-            .unwrap();
-    }
+    claim_cloudsync_workspace(db.pool(), workspace_id)
+        .await
+        .unwrap();
     db.cloudsync_configure(cloudsync_config(auth, wait_ms, max_retries))
         .await
         .unwrap();
@@ -59,12 +72,19 @@ async fn setup_db_with_network_options(
     db
 }
 
-async fn setup_db(auth: CloudsyncAuth, workspace_id: Option<&str>) -> Db {
-    setup_db_with_network_options(auth, workspace_id, 5_000, 3).await
+async fn setup_db(token: &str, workspace_id: &str) -> Db {
+    setup_db_with_network_options(token_auth(token), workspace_id, 5_000, 3).await
 }
 
-async fn setup_policy_db(auth: CloudsyncAuth, workspace_id: &str) -> Db {
-    setup_db_with_network_options(auth, Some(workspace_id), 2_500, 1).await
+async fn setup_policy_db(token: &str, workspace_id: &str) -> Db {
+    setup_db_with_network_options(token_auth(token), workspace_id, 2_500, 1).await
+}
+
+async fn stop_db(db: &Db, label: &str) {
+    tokio::time::timeout(Duration::from_secs(15), db.cloudsync_stop())
+        .await
+        .unwrap_or_else(|_| panic!("{label} stop timed out"))
+        .unwrap();
 }
 
 async fn sync_ok(db: &Db, label: &str) {
@@ -109,495 +129,15 @@ async fn sync_ok(db: &Db, label: &str) {
     );
 }
 
-#[derive(Debug)]
-struct SyncedFixture {
-    organization: String,
-    human: String,
-    session: String,
-    document: String,
-    transcript: String,
-    participant: String,
-    action_item: String,
-    attachment: String,
-}
-
-impl SyncedFixture {
-    fn rows(&self) -> [(&'static str, &str); 8] {
-        [
-            ("organizations", &self.organization),
-            ("humans", &self.human),
-            ("sessions", &self.session),
-            ("session_documents", &self.document),
-            ("transcripts", &self.transcript),
-            ("session_participants", &self.participant),
-            ("action_items", &self.action_item),
-            ("session_attachments", &self.attachment),
-        ]
-    }
-
-    fn rows_child_first(&self) -> [(&'static str, &str); 8] {
-        [
-            ("session_attachments", &self.attachment),
-            ("action_items", &self.action_item),
-            ("session_participants", &self.participant),
-            ("transcripts", &self.transcript),
-            ("session_documents", &self.document),
-            ("sessions", &self.session),
-            ("humans", &self.human),
-            ("organizations", &self.organization),
-        ]
-    }
-}
-
-async fn insert_synced_fixture(
-    pool: &SqlitePool,
-    workspace_id: &str,
-    marker: &str,
-) -> SyncedFixture {
-    let (
-        organization,
-        human,
-        session,
-        document,
-        transcript,
-        participant,
-        action_item,
-        attachment,
-    ): (String, String, String, String, String, String, String, String) = sqlx::query_as(
-        "SELECT cloudsync_uuid(), cloudsync_uuid(), cloudsync_uuid(), cloudsync_uuid(), \
-                cloudsync_uuid(), cloudsync_uuid(), cloudsync_uuid(), cloudsync_uuid()",
-    )
-    .fetch_one(pool)
-    .await
-    .unwrap();
-    let fixture = SyncedFixture {
-        organization,
-        human,
-        session,
-        document,
-        transcript,
-        participant,
-        action_item,
-        attachment,
-    };
-    let mut transaction = pool.begin().await.unwrap();
-
-    sqlx::query(
-        "INSERT INTO organizations (id, workspace_id, owner_user_id, name) VALUES (?, ?, ?, ?)",
-    )
-    .bind(&fixture.organization)
-    .bind(workspace_id)
-    .bind(workspace_id)
-    .bind(marker)
-    .execute(&mut *transaction)
-    .await
-    .unwrap();
-    sqlx::query(
-        "INSERT INTO humans (id, workspace_id, owner_user_id, organization_id, name) \
-         VALUES (?, ?, ?, ?, ?)",
-    )
-    .bind(&fixture.human)
-    .bind(workspace_id)
-    .bind(workspace_id)
-    .bind(&fixture.organization)
-    .bind(marker)
-    .execute(&mut *transaction)
-    .await
-    .unwrap();
-    sqlx::query(
-        "INSERT INTO sessions (id, workspace_id, owner_user_id, title) VALUES (?, ?, ?, ?)",
-    )
-    .bind(&fixture.session)
-    .bind(workspace_id)
-    .bind(workspace_id)
-    .bind(marker)
-    .execute(&mut *transaction)
-    .await
-    .unwrap();
-    sqlx::query(
-        "INSERT INTO session_documents (id, workspace_id, session_id, title, body) \
-         VALUES (?, ?, ?, ?, ?)",
-    )
-    .bind(&fixture.document)
-    .bind(workspace_id)
-    .bind(&fixture.session)
-    .bind(marker)
-    .bind(marker)
-    .execute(&mut *transaction)
-    .await
-    .unwrap();
-    sqlx::query(
-        "INSERT INTO transcripts (id, workspace_id, owner_user_id, session_id, memo) \
-         VALUES (?, ?, ?, ?, ?)",
-    )
-    .bind(&fixture.transcript)
-    .bind(workspace_id)
-    .bind(workspace_id)
-    .bind(&fixture.session)
-    .bind(marker)
-    .execute(&mut *transaction)
-    .await
-    .unwrap();
-    sqlx::query(
-        "INSERT INTO session_participants \
-             (id, workspace_id, owner_user_id, session_id, human_id, display_name) \
-         VALUES (?, ?, ?, ?, ?, ?)",
-    )
-    .bind(&fixture.participant)
-    .bind(workspace_id)
-    .bind(workspace_id)
-    .bind(&fixture.session)
-    .bind(&fixture.human)
-    .bind(marker)
-    .execute(&mut *transaction)
-    .await
-    .unwrap();
-    sqlx::query(
-        "INSERT INTO action_items \
-             (id, workspace_id, session_id, assignee_human_id, text, created_by, updated_by) \
-         VALUES (?, ?, ?, ?, ?, ?, ?)",
-    )
-    .bind(&fixture.action_item)
-    .bind(workspace_id)
-    .bind(&fixture.session)
-    .bind(&fixture.human)
-    .bind(marker)
-    .bind(workspace_id)
-    .bind(workspace_id)
-    .execute(&mut *transaction)
-    .await
-    .unwrap();
-    sqlx::query(
-        "INSERT INTO session_attachments (id, workspace_id, session_id, filename) \
-         VALUES (?, ?, ?, ?)",
-    )
-    .bind(&fixture.attachment)
-    .bind(workspace_id)
-    .bind(&fixture.session)
-    .bind(marker)
-    .execute(&mut *transaction)
-    .await
-    .unwrap();
-
-    transaction.commit().await.unwrap();
-    fixture
-}
-
-async fn delete_synced_fixture(pool: &SqlitePool, fixture: &SyncedFixture) {
-    let mut transaction = pool.begin().await.unwrap();
-    for (table, id) in fixture.rows_child_first() {
-        sqlx::query(AssertSqlSafe(format!("DELETE FROM {table} WHERE id = ?")))
-            .bind(id)
-            .execute(&mut *transaction)
-            .await
-            .unwrap();
-    }
-    transaction.commit().await.unwrap();
-}
-
-async fn row_count(pool: &SqlitePool, table: &str, id: &str, workspace_id: &str) -> i64 {
-    sqlx::query_scalar(AssertSqlSafe(format!(
-        "SELECT COUNT(*) FROM {table} WHERE id = ? AND workspace_id = ?"
-    )))
-    .bind(id)
-    .bind(workspace_id)
-    .fetch_one(pool)
-    .await
-    .unwrap()
-}
-
-async fn row_count_by_id(pool: &SqlitePool, table: &str, id: &str) -> i64 {
-    sqlx::query_scalar(AssertSqlSafe(format!(
-        "SELECT COUNT(*) FROM {table} WHERE id = ?"
-    )))
-    .bind(id)
-    .fetch_one(pool)
-    .await
-    .unwrap()
-}
-
-async fn assert_fixture_visibility(
-    pool: &SqlitePool,
-    workspace_id: &str,
-    own: &SyncedFixture,
-    foreign_workspace_id: &str,
-    foreign: &SyncedFixture,
-) {
-    for (table, id) in own.rows() {
-        assert_eq!(
-            row_count(pool, table, id, workspace_id).await,
-            1,
-            "{table} did not download its own workspace row"
-        );
-    }
-    for (table, id) in foreign.rows() {
-        assert_eq!(
-            row_count(pool, table, id, foreign_workspace_id).await,
-            0,
-            "{table} leaked a foreign workspace row"
-        );
-    }
-}
-
-async fn insert_foreign_row(
-    pool: &SqlitePool,
-    table: &str,
-    foreign_workspace_id: &str,
-    target: &SyncedFixture,
-    marker: &str,
-) -> String {
-    let id: String = sqlx::query_scalar("SELECT cloudsync_uuid()")
-        .fetch_one(pool)
-        .await
-        .unwrap();
-
-    match table {
-        "e2ee_records" => {
-            sqlx::query("INSERT INTO e2ee_records (id, workspace_id, payload) VALUES (?, ?, ?)")
-                .bind(&id)
-                .bind(foreign_workspace_id)
-                .bind(marker)
-                .execute(pool)
-                .await
-                .unwrap();
-        }
-        "organizations" => {
-            sqlx::query(
-                "INSERT INTO organizations (id, workspace_id, owner_user_id, name) \
-                 VALUES (?, ?, ?, ?)",
-            )
-            .bind(&id)
-            .bind(foreign_workspace_id)
-            .bind(foreign_workspace_id)
-            .bind(marker)
-            .execute(pool)
-            .await
-            .unwrap();
-        }
-        "humans" => {
-            sqlx::query(
-                "INSERT INTO humans (id, workspace_id, owner_user_id, organization_id, name) \
-                 VALUES (?, ?, ?, ?, ?)",
-            )
-            .bind(&id)
-            .bind(foreign_workspace_id)
-            .bind(foreign_workspace_id)
-            .bind(&target.organization)
-            .bind(marker)
-            .execute(pool)
-            .await
-            .unwrap();
-        }
-        "sessions" => {
-            sqlx::query(
-                "INSERT INTO sessions (id, workspace_id, owner_user_id, title) \
-                 VALUES (?, ?, ?, ?)",
-            )
-            .bind(&id)
-            .bind(foreign_workspace_id)
-            .bind(foreign_workspace_id)
-            .bind(marker)
-            .execute(pool)
-            .await
-            .unwrap();
-        }
-        "session_documents" => {
-            sqlx::query(
-                "INSERT INTO session_documents (id, workspace_id, session_id, title) \
-                 VALUES (?, ?, ?, ?)",
-            )
-            .bind(&id)
-            .bind(foreign_workspace_id)
-            .bind(&target.session)
-            .bind(marker)
-            .execute(pool)
-            .await
-            .unwrap();
-        }
-        "transcripts" => {
-            sqlx::query(
-                "INSERT INTO transcripts (id, workspace_id, owner_user_id, session_id, memo) \
-                 VALUES (?, ?, ?, ?, ?)",
-            )
-            .bind(&id)
-            .bind(foreign_workspace_id)
-            .bind(foreign_workspace_id)
-            .bind(&target.session)
-            .bind(marker)
-            .execute(pool)
-            .await
-            .unwrap();
-        }
-        "session_participants" => {
-            sqlx::query(
-                "INSERT INTO session_participants \
-                     (id, workspace_id, owner_user_id, session_id, human_id, display_name) \
-                 VALUES (?, ?, ?, ?, ?, ?)",
-            )
-            .bind(&id)
-            .bind(foreign_workspace_id)
-            .bind(foreign_workspace_id)
-            .bind(&target.session)
-            .bind(&target.human)
-            .bind(marker)
-            .execute(pool)
-            .await
-            .unwrap();
-        }
-        "action_items" => {
-            sqlx::query(
-                "INSERT INTO action_items \
-                     (id, workspace_id, session_id, assignee_human_id, text, created_by, updated_by) \
-                 VALUES (?, ?, ?, ?, ?, ?, ?)",
-            )
-            .bind(&id)
-            .bind(foreign_workspace_id)
-            .bind(&target.session)
-            .bind(&target.human)
-            .bind(marker)
-            .bind(foreign_workspace_id)
-            .bind(foreign_workspace_id)
-            .execute(pool)
-            .await
-            .unwrap();
-        }
-        "session_attachments" => {
-            sqlx::query(
-                "INSERT INTO session_attachments (id, workspace_id, session_id, filename) \
-                 VALUES (?, ?, ?, ?)",
-            )
-            .bind(&id)
-            .bind(foreign_workspace_id)
-            .bind(&target.session)
-            .bind(marker)
-            .execute(pool)
-            .await
-            .unwrap();
-        }
-        _ => panic!("unsupported synced table: {table}"),
-    }
-
-    id
-}
-
-fn fixture_value_column(table: &str) -> &'static str {
-    match table {
-        "e2ee_records" => "payload",
-        "organizations" | "humans" => "name",
-        "sessions" | "session_documents" => "title",
-        "transcripts" => "memo",
-        "session_participants" => "display_name",
-        "action_items" => "text",
-        "session_attachments" => "filename",
-        _ => panic!("unsupported synced table: {table}"),
-    }
-}
-
-async fn setup_snapshot_policy_db(
-    token: &str,
-    local_workspace: &str,
-    row_workspace: &str,
-    table: &str,
-    id: &str,
-) -> Db {
-    let db = setup_db(
-        CloudsyncAuth::Token {
-            token: token.to_string(),
-        },
-        Some(local_workspace),
-    )
-    .await;
+async fn sync_full_snapshot(db: &Db, label: &str) {
     db.cloudsync_network_reset_sync_version()
         .await
-        .unwrap_or_else(|error| panic!("{table} snapshot fixture reset failed: {error}"));
-    for attempt in 1..=STALE_SNAPSHOT_SYNC_ATTEMPTS {
-        sync_ok(
-            &db,
-            &format!("{table} snapshot fixture download attempt {attempt}"),
-        )
-        .await;
-        if row_count(db.pool(), table, id, row_workspace).await == 1 {
-            break;
-        }
-    }
-    let downloaded_rows = row_count(db.pool(), table, id, row_workspace).await;
-    let status = db.cloudsync_status().await.unwrap();
-    assert_eq!(
-        downloaded_rows, 1,
-        "{table} snapshot fixture was not downloaded after a reset and \
-         {STALE_SNAPSHOT_SYNC_ATTEMPTS} bounded attempts; last sync: {:?}; last error: {:?}",
-        status.last_sync, status.last_error,
-    );
-    if status.has_unsent_changes != Some(false) {
-        sync_ok(&db, &format!("{table} snapshot fixture upload drain")).await;
-    }
-    assert_eq!(
-        db.cloudsync_status().await.unwrap().has_unsent_changes,
-        Some(false),
-        "{table} snapshot client had unrelated pending changes"
-    );
-
-    db
+        .unwrap_or_else(|error| panic!("{label} snapshot reset failed: {error}"));
+    sync_ok(db, label).await;
+    sync_ok(db, &format!("{label} retry")).await;
 }
 
-async fn setup_stale_policy_db(
-    token_b: &str,
-    token_a: &str,
-    workspace_b: &str,
-    table: &str,
-    id: &str,
-) -> Db {
-    let db = setup_snapshot_policy_db(token_b, workspace_b, workspace_b, table, id).await;
-
-    // Keep the downloaded B-owned row, but switch only the network identity to A.
-    tokio::time::timeout(Duration::from_secs(15), db.cloudsync_stop())
-        .await
-        .unwrap_or_else(|_| panic!("{table} B-authenticated client stop timed out"))
-        .unwrap();
-    db.cloudsync_configure(cloudsync_config(
-        CloudsyncAuth::Token {
-            token: token_a.to_string(),
-        },
-        2_500,
-        1,
-    ))
-    .await
-    .unwrap();
-    tokio::time::timeout(Duration::from_secs(15), db.cloudsync_start())
-        .await
-        .unwrap_or_else(|_| panic!("{table} A-authenticated client start timed out"))
-        .unwrap();
-    assert_eq!(
-        db.cloudsync_status().await.unwrap().has_unsent_changes,
-        Some(false),
-        "{table} reauthentication introduced unrelated pending changes"
-    );
-    db
-}
-
-async fn update_stale_foreign_row(pool: &SqlitePool, table: &str, id: &str, marker: &str) {
-    let column = fixture_value_column(table);
-    let result = sqlx::query(AssertSqlSafe(format!(
-        "UPDATE {table} SET {column} = ? WHERE id = ?"
-    )))
-    .bind(marker)
-    .bind(id)
-    .execute(pool)
-    .await
-    .unwrap();
-    assert_eq!(result.rows_affected(), 1, "{table} stale UPDATE missed");
-}
-
-async fn delete_stale_foreign_row(pool: &SqlitePool, table: &str, id: &str) {
-    let result = sqlx::query(AssertSqlSafe(format!("DELETE FROM {table} WHERE id = ?")))
-        .bind(id)
-        .execute(pool)
-        .await
-        .unwrap();
-    assert_eq!(result.rows_affected(), 1, "{table} stale DELETE missed");
-}
-
-async fn assert_policy_change_pending(db: &Db, operation: &str) {
+async fn assert_pending_change(db: &Db, operation: &str) {
     assert_eq!(
         db.cloudsync_status().await.unwrap().has_unsent_changes,
         Some(true),
@@ -605,34 +145,138 @@ async fn assert_policy_change_pending(db: &Db, operation: &str) {
     );
 }
 
-async fn fixture_state_violations(
-    pool: &SqlitePool,
+struct EncryptedNote {
+    session_id: String,
+    document_id: String,
+    title: String,
+    body: String,
+    record_ids: Vec<String>,
+}
+
+async fn insert_encrypted_note(
+    db: &Db,
     workspace_id: &str,
-    fixture: &SyncedFixture,
-    expected_value: &str,
-) -> Vec<String> {
-    let mut violations = Vec::new();
-    for (table, id) in fixture.rows() {
-        let column = fixture_value_column(table);
-        let row: Option<(String, String)> = sqlx::query_as(AssertSqlSafe(format!(
-            "SELECT workspace_id, {column} FROM {table} WHERE id = ?"
-        )))
-        .bind(id)
-        .fetch_optional(pool)
+    keys: &HashMap<String, WorkspaceKey>,
+    marker: u128,
+) -> EncryptedNote {
+    let note = EncryptedNote {
+        session_id: format!("cloudsync-e2ee-session-{marker}"),
+        document_id: format!("cloudsync-e2ee-document-{marker}"),
+        title: format!("Encrypted note {marker}"),
+        body: format!(
+            r#"{{"type":"doc","content":[{{"type":"paragraph","content":[{{"type":"text","text":"private note {marker}"}}]}}]}}"#
+        ),
+        record_ids: Vec::new(),
+    };
+
+    let mut transaction = db.pool().begin().await.unwrap();
+    sqlx::query(
+        "INSERT INTO sessions (id, workspace_id, owner_user_id, title) VALUES (?, ?, ?, ?)",
+    )
+    .bind(&note.session_id)
+    .bind(workspace_id)
+    .bind(workspace_id)
+    .bind(&note.title)
+    .execute(&mut *transaction)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO session_documents (id, workspace_id, session_id, title, body) \
+         VALUES (?, ?, ?, ?, ?)",
+    )
+    .bind(&note.document_id)
+    .bind(workspace_id)
+    .bind(&note.session_id)
+    .bind(&note.title)
+    .bind(&note.body)
+    .execute(&mut *transaction)
+    .await
+    .unwrap();
+    transaction.commit().await.unwrap();
+
+    let stats = encrypt_e2ee_replica_changes(db.pool(), keys).await.unwrap();
+    assert!(stats.encrypted_fields > 0);
+    let records: Vec<(String, String)> =
+        sqlx::query_as("SELECT id, payload FROM e2ee_records WHERE workspace_id = ?")
+            .bind(workspace_id)
+            .fetch_all(db.pool())
+            .await
+            .unwrap();
+    assert!(!records.is_empty());
+    assert!(records.iter().all(|(_, payload)| {
+        !payload.contains(&note.session_id)
+            && !payload.contains(&note.document_id)
+            && !payload.contains(&note.title)
+            && !payload.contains(&note.body)
+            && !payload.contains(&marker.to_string())
+    }));
+
+    EncryptedNote {
+        record_ids: records.into_iter().map(|(id, _)| id).collect(),
+        ..note
+    }
+}
+
+async fn cleanup_encrypted_records(db: &Db, record_ids: &[String], label: &str) {
+    let mut transaction = db.pool().begin().await.unwrap();
+    for id in record_ids {
+        sqlx::query("DELETE FROM e2ee_records WHERE id = ?")
+            .bind(id)
+            .execute(&mut *transaction)
+            .await
+            .unwrap();
+    }
+    transaction.commit().await.unwrap();
+    sync_ok(db, label).await;
+}
+
+async fn cleanup_verification_workspace(token: &str, workspace_id: &str, label: &str) {
+    let db = setup_db(token, workspace_id).await;
+    sync_full_snapshot(&db, &format!("{label} cleanup snapshot")).await;
+    let deleted = sqlx::query("DELETE FROM e2ee_records WHERE workspace_id = ?")
+        .bind(workspace_id)
+        .execute(db.pool())
         .await
         .unwrap();
-        match row {
-            None => violations.push(format!("{table} was deleted")),
-            Some((actual_workspace_id, _)) if actual_workspace_id != workspace_id => {
-                violations.push(format!("{table} changed workspace"));
-            }
-            Some((_, actual_value)) if actual_value != expected_value => {
-                violations.push(format!("{table} was updated"));
-            }
-            Some(_) => {}
-        }
+    if deleted.rows_affected() > 0 {
+        sync_ok(&db, &format!("{label} cleanup delete")).await;
     }
-    violations
+    stop_db(&db, label).await;
+}
+
+async fn setup_stale_record_client(
+    owner_token: &str,
+    attacker_token: &str,
+    owner_workspace_id: &str,
+    record_id: &str,
+    operation: &str,
+) -> Db {
+    let db = setup_db(owner_token, owner_workspace_id).await;
+    sync_full_snapshot(&db, &format!("{operation} owner snapshot")).await;
+    let record_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_records WHERE id = ?")
+        .bind(record_id)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    assert_eq!(
+        record_count, 1,
+        "{operation} owner record was not downloaded"
+    );
+
+    stop_db(&db, &format!("{operation} owner-authenticated client")).await;
+    db.cloudsync_configure(cloudsync_config(token_auth(attacker_token), 2_500, 1))
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(15), db.cloudsync_start())
+        .await
+        .unwrap_or_else(|_| panic!("{operation} attacker-authenticated client start timed out"))
+        .unwrap();
+    assert_eq!(
+        db.cloudsync_status().await.unwrap().has_unsent_changes,
+        Some(false),
+        "{operation} reauthentication introduced pending changes"
+    );
+    db
 }
 
 fn is_rls_policy_denial(message: &str) -> bool {
@@ -659,10 +303,10 @@ fn is_rls_policy_denial(message: &str) -> bool {
     mentions_rls && mentions_denial
 }
 
-async fn expect_policy_sync_completed_or_denied(db: &Db, table: &str) -> Result<(), String> {
+async fn expect_policy_sync_completed_or_denied(db: &Db, operation: &str) -> Result<(), String> {
     let outcome = tokio::time::timeout(POLICY_SYNC_TIMEOUT, db.cloudsync_trigger_sync())
         .await
-        .unwrap_or_else(|_| panic!("{table} foreign-write sync timed out"));
+        .unwrap_or_else(|_| panic!("{operation} foreign-write sync timed out"));
     let mut evidence = Vec::new();
     let mut clean_send = false;
     let mut clean_receive = true;
@@ -695,15 +339,13 @@ async fn expect_policy_sync_completed_or_denied(db: &Db, table: &str) -> Result<
         evidence.push(format!("runtime error: {error}"));
     }
 
-    let explicit_denial = evidence.iter().any(|entry| is_rls_policy_denial(entry));
-
-    // SQLite Cloud can silently discard an RLS-blocked send while reporting it as synced.
-    // The final B-authenticated state checks prove whether the mutation reached the server.
-    if explicit_denial || (clean_send && clean_receive && runtime_clean) {
+    if evidence.iter().any(|entry| is_rls_policy_denial(entry))
+        || (clean_send && clean_receive && runtime_clean)
+    {
         Ok(())
     } else {
         Err(format!(
-            "{table} neither completed a clean policy send nor returned an RLS denial; sync evidence: {}",
+            "{operation} neither completed a clean policy send nor returned an RLS denial; sync evidence: {}",
             evidence.join(" | ")
         ))
     }
@@ -711,7 +353,9 @@ async fn expect_policy_sync_completed_or_denied(db: &Db, table: &str) -> Result<
 
 #[test]
 fn rls_policy_denial_matcher_rejects_generic_failures() {
-    assert!(is_rls_policy_denial("RLS policy denied INSERT on sessions"));
+    assert!(is_rls_policy_denial(
+        "RLS policy denied INSERT on e2ee_records"
+    ));
     assert!(is_rls_policy_denial(
         "row-level security policy check failed"
     ));
@@ -724,919 +368,369 @@ fn rls_policy_denial_matcher_rejects_generic_failures() {
 }
 
 #[test]
-fn policy_fixture_covers_every_enabled_table() {
-    let mut enabled_tables: Vec<&str> = cloudsync_table_registry()
+fn cloudsync_enables_only_the_encrypted_replica() {
+    let enabled_tables: Vec<&str> = cloudsync_table_registry()
         .iter()
         .filter(|table| table.enabled)
         .map(|table| table.table_name.as_str())
         .collect();
-    enabled_tables.sort_unstable();
-    let mut covered_tables = SYNCED_TABLES;
-    covered_tables.sort_unstable();
 
-    assert_eq!(enabled_tables, covered_tables);
+    assert_eq!(enabled_tables, ["e2ee_records"]);
 }
 
 #[tokio::test]
-#[ignore = "external verification only; requires the anarlog-dev SQLite Cloud credentials"]
-async fn core_session_syncs_between_two_clients() {
-    let marker = format!(
-        "anarlog-cloudsync-e2e-{}",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    );
-    let auth = || CloudsyncAuth::ApiKey {
-        api_key: std::env::var("ANARLOG_CLOUDSYNC_API_KEY")
-            .expect("ANARLOG_CLOUDSYNC_API_KEY must be set"),
-    };
-    let db_a = setup_db(auth(), None).await;
-    let workspace_id = ensure_cloudsync_workspace_binding(db_a.pool())
+#[ignore = "external E2EE verification only; requires ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID, ANARLOG_CLOUDSYNC_WORKSPACE_A, ANARLOG_CLOUDSYNC_TOKEN_A, and ANARLOG_CLOUDSYNC_RECOVERY_KEY_A"]
+async fn same_personal_workspace_syncs_and_decrypts_a_real_note() {
+    let workspace_id = std::env::var("ANARLOG_CLOUDSYNC_WORKSPACE_A")
+        .expect("ANARLOG_CLOUDSYNC_WORKSPACE_A must be set");
+    let token =
+        std::env::var("ANARLOG_CLOUDSYNC_TOKEN_A").expect("ANARLOG_CLOUDSYNC_TOKEN_A must be set");
+    let keys = workspace_keys(&workspace_id, "ANARLOG_CLOUDSYNC_RECOVERY_KEY_A");
+    let marker = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+
+    let db_a = setup_db(&token, &workspace_id).await;
+    let note = insert_encrypted_note(&db_a, &workspace_id, &keys, marker).await;
+    sync_ok(&db_a, "first personal client upload").await;
+
+    let db_b = setup_db(&token, &workspace_id).await;
+    db_b.cloudsync_network_reset_sync_version()
+        .await
+        .expect("second personal client snapshot reset failed");
+    sync_ok(&db_b, "second personal client download").await;
+    sync_ok(&db_b, "second personal client download retry").await;
+    let stats = apply_e2ee_replica_changes(db_b.pool(), &keys)
         .await
         .unwrap();
+    assert!(stats.applied_fields > 0);
 
-    sqlx::query("INSERT INTO sessions (id, workspace_id, title) VALUES (cloudsync_uuid(), ?, ?)")
-        .bind(&workspace_id)
-        .bind(&marker)
-        .execute(db_a.pool())
-        .await
-        .unwrap();
-    tokio::time::timeout(SYNC_TIMEOUT, db_a.cloudsync_trigger_sync())
-        .await
-        .expect("first client sync timed out")
-        .unwrap();
-
-    let db_b = setup_db(auth(), None).await;
-    for _ in 0..2 {
-        tokio::time::timeout(SYNC_TIMEOUT, db_b.cloudsync_trigger_sync())
-            .await
-            .expect("second client sync timed out")
-            .unwrap();
-    }
-
-    let title: Option<String> =
-        sqlx::query_scalar("SELECT title FROM sessions WHERE title = ? LIMIT 1")
-            .bind(&marker)
+    let downloaded_title: Option<String> =
+        sqlx::query_scalar("SELECT title FROM sessions WHERE id = ? AND workspace_id = ?")
+            .bind(&note.session_id)
+            .bind(&workspace_id)
             .fetch_optional(db_b.pool())
             .await
             .unwrap();
+    let downloaded_body: Option<String> = sqlx::query_scalar(
+        "SELECT body FROM session_documents WHERE id = ? AND session_id = ? AND workspace_id = ?",
+    )
+    .bind(&note.document_id)
+    .bind(&note.session_id)
+    .bind(&workspace_id)
+    .fetch_optional(db_b.pool())
+    .await
+    .unwrap();
 
-    assert_eq!(title.as_deref(), Some(marker.as_str()));
+    cleanup_encrypted_records(&db_a, &note.record_ids, "personal note cleanup").await;
+    stop_db(&db_a, "first personal client").await;
+    stop_db(&db_b, "second personal client").await;
 
-    sqlx::query("DELETE FROM sessions WHERE title = ?")
-        .bind(&marker)
-        .execute(db_a.pool())
-        .await
-        .unwrap();
-    tokio::time::timeout(SYNC_TIMEOUT, db_a.cloudsync_trigger_sync())
-        .await
-        .expect("cleanup sync timed out")
-        .unwrap();
-
-    tokio::time::timeout(Duration::from_secs(15), db_a.cloudsync_stop())
-        .await
-        .expect("first client stop timed out")
-        .unwrap();
-    tokio::time::timeout(Duration::from_secs(15), db_b.cloudsync_stop())
-        .await
-        .expect("second client stop timed out")
-        .unwrap();
+    assert_eq!(downloaded_title.as_deref(), Some(note.title.as_str()));
+    assert_eq!(downloaded_body.as_deref(), Some(note.body.as_str()));
 }
 
 #[tokio::test]
-#[ignore = "external smoke test only; creates four dev devices and requires two short-lived access tokens"]
-async fn access_tokens_sync_two_clients_and_isolate_workspace() {
+#[ignore = "external E2EE policy verification only; requires ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID, ANARLOG_CLOUDSYNC_WORKSPACE_A/B, ANARLOG_CLOUDSYNC_TOKEN_A/B, and ANARLOG_CLOUDSYNC_RECOVERY_KEY_B"]
+async fn personal_workspace_tokens_block_foreign_encrypted_writes() {
     let workspace_a = std::env::var("ANARLOG_CLOUDSYNC_WORKSPACE_A")
         .expect("ANARLOG_CLOUDSYNC_WORKSPACE_A must be set");
     let workspace_b = std::env::var("ANARLOG_CLOUDSYNC_WORKSPACE_B")
         .expect("ANARLOG_CLOUDSYNC_WORKSPACE_B must be set");
     assert_ne!(workspace_a, workspace_b);
-
     let token_a =
         std::env::var("ANARLOG_CLOUDSYNC_TOKEN_A").expect("ANARLOG_CLOUDSYNC_TOKEN_A must be set");
     let token_b =
         std::env::var("ANARLOG_CLOUDSYNC_TOKEN_B").expect("ANARLOG_CLOUDSYNC_TOKEN_B must be set");
-    let auth_a = || CloudsyncAuth::Token {
-        token: token_a.clone(),
-    };
-    let db_a1 = setup_db(auth_a(), Some(&workspace_a)).await;
-    let db_a2 = setup_db(auth_a(), Some(&workspace_a)).await;
-    let db_b = setup_db(
-        CloudsyncAuth::Token {
-            token: token_b.clone(),
-        },
-        Some(&workspace_b),
-    )
-    .await;
-
+    let keys_b = workspace_keys(&workspace_b, "ANARLOG_CLOUDSYNC_RECOVERY_KEY_B");
     let marker = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let session_a: String = sqlx::query_scalar("SELECT cloudsync_uuid()")
-        .fetch_one(db_a1.pool())
-        .await
-        .unwrap();
-    let title_a = format!("anarlog-smoke-a-{marker}");
-    sqlx::query(
-        "INSERT INTO sessions (id, workspace_id, owner_user_id, title) VALUES (?, ?, ?, ?)",
-    )
-    .bind(&session_a)
-    .bind(&workspace_a)
-    .bind(&workspace_a)
-    .bind(&title_a)
-    .execute(db_a1.pool())
-    .await
-    .unwrap();
-    sync_ok(&db_a1, "workspace A client 1 upload").await;
-    sync_ok(&db_a2, "workspace A client 2 download").await;
-    sync_ok(&db_a2, "workspace A client 2 download retry").await;
-    let a1_uploaded = sqlx::query_scalar::<_, String>("SELECT title FROM sessions WHERE id = ?")
-        .bind(&session_a)
-        .fetch_optional(db_a2.pool())
-        .await
-        .unwrap()
-        .as_deref()
-        == Some(title_a.as_str());
 
-    let updated_title_a = format!("anarlog-smoke-a-updated-{marker}");
+    let owner = setup_db(&token_b, &workspace_b).await;
+    let note = insert_encrypted_note(&owner, &workspace_b, &keys_b, marker).await;
+    let owner_record_id =
+        keys_b[&workspace_b].blind_field_id("sessions", &note.session_id, "title");
+    let initial_owner_payload: String =
+        sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+            .bind(&owner_record_id)
+            .fetch_one(owner.pool())
+            .await
+            .unwrap();
+    sync_ok(&owner, "workspace B initial encrypted note upload").await;
+
+    let updated_title = format!("Updated encrypted note {marker}");
     sqlx::query("UPDATE sessions SET title = ? WHERE id = ?")
-        .bind(&updated_title_a)
-        .bind(&session_a)
-        .execute(db_a2.pool())
+        .bind(&updated_title)
+        .bind(&note.session_id)
+        .execute(owner.pool())
         .await
         .unwrap();
-    sync_ok(&db_a2, "workspace A client 2 update").await;
-    sync_ok(&db_a1, "workspace A client 1 update download").await;
-    sync_ok(&db_a1, "workspace A client 1 update download retry").await;
-    let a2_uploaded = sqlx::query_scalar::<_, String>("SELECT title FROM sessions WHERE id = ?")
-        .bind(&session_a)
-        .fetch_optional(db_a1.pool())
-        .await
-        .unwrap()
-        .as_deref()
-        == Some(updated_title_a.as_str());
-
-    let session_b: String = sqlx::query_scalar("SELECT cloudsync_uuid()")
-        .fetch_one(db_b.pool())
+    let update_stats = encrypt_e2ee_replica_changes(owner.pool(), &keys_b)
         .await
         .unwrap();
-    let title_b = format!("anarlog-smoke-b-{marker}");
-    sqlx::query(
-        "INSERT INTO sessions (id, workspace_id, owner_user_id, title) VALUES (?, ?, ?, ?)",
-    )
-    .bind(&session_b)
-    .bind(&workspace_b)
-    .bind(&workspace_b)
-    .bind(&title_b)
-    .execute(db_b.pool())
-    .await
-    .unwrap();
-    sync_ok(&db_b, "workspace B upload").await;
+    assert!(update_stats.encrypted_fields > 0);
+    let owner_payload: String = sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+        .bind(&owner_record_id)
+        .fetch_one(owner.pool())
+        .await
+        .unwrap();
+    assert_ne!(owner_payload, initial_owner_payload);
+    sync_ok(&owner, "workspace B encrypted note update").await;
 
-    let db_b_verifier = setup_db(
-        CloudsyncAuth::Token {
-            token: token_b.clone(),
-        },
-        Some(&workspace_b),
+    let owner_round_trip = setup_db(&token_b, &workspace_b).await;
+    sync_full_snapshot(&owner_round_trip, "workspace B update round trip").await;
+    let round_trip_stats = apply_e2ee_replica_changes(owner_round_trip.pool(), &keys_b)
+        .await
+        .unwrap();
+    assert!(round_trip_stats.applied_fields > 0);
+    let round_trip_title: Option<String> =
+        sqlx::query_scalar("SELECT title FROM sessions WHERE id = ? AND workspace_id = ?")
+            .bind(&note.session_id)
+            .bind(&workspace_b)
+            .fetch_optional(owner_round_trip.pool())
+            .await
+            .unwrap();
+    stop_db(&owner_round_trip, "workspace B update round-trip client").await;
+
+    let insert_attacker = setup_policy_db(&token_a, &workspace_a).await;
+    sync_full_snapshot(&insert_attacker, "workspace A foreign read check").await;
+    let foreign_read_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_records WHERE id = ?")
+            .bind(&owner_record_id)
+            .fetch_one(insert_attacker.pool())
+            .await
+            .unwrap();
+    let foreign_insert_id = format!("cloudsync-e2ee-foreign-insert-{marker}");
+    sqlx::query("INSERT INTO e2ee_records (id, workspace_id, payload) VALUES (?, ?, ?)")
+        .bind(&foreign_insert_id)
+        .bind(&workspace_b)
+        .bind(format!("blocked-insert-{marker}"))
+        .execute(insert_attacker.pool())
+        .await
+        .unwrap();
+    assert_pending_change(&insert_attacker, "foreign INSERT").await;
+    let insert_result =
+        expect_policy_sync_completed_or_denied(&insert_attacker, "workspace A foreign INSERT")
+            .await;
+    stop_db(&insert_attacker, "foreign INSERT attacker").await;
+
+    let reassignment_attacker = setup_policy_db(&token_a, &workspace_a).await;
+    let reassignment_id = format!("cloudsync-e2ee-workspace-reassignment-{marker}");
+    let reassignment_payload = format!("workspace-a-owned-{marker}");
+    sqlx::query("INSERT INTO e2ee_records (id, workspace_id, payload) VALUES (?, ?, ?)")
+        .bind(&reassignment_id)
+        .bind(&workspace_a)
+        .bind(&reassignment_payload)
+        .execute(reassignment_attacker.pool())
+        .await
+        .unwrap();
+    sync_ok(
+        &reassignment_attacker,
+        "workspace A reassignment fixture upload",
     )
     .await;
-    sync_ok(&db_b_verifier, "workspace B verifier download").await;
-    sync_ok(&db_b_verifier, "workspace B verifier download retry").await;
-    let b_uploaded = sqlx::query_scalar::<_, String>("SELECT title FROM sessions WHERE id = ?")
-        .bind(&session_b)
-        .fetch_optional(db_b_verifier.pool())
-        .await
-        .unwrap()
-        .as_deref()
-        == Some(title_b.as_str());
-
-    db_a2
-        .cloudsync_network_reset_sync_version()
-        .await
-        .expect("workspace A isolation sync reset failed");
-    sync_ok(&db_a2, "workspace A isolation download").await;
-    sync_ok(&db_a2, "workspace A isolation download retry").await;
-    let b_hidden_from_a = row_count_by_id(db_a2.pool(), "sessions", &session_b).await == 0;
-
-    let pending_session: String = sqlx::query_scalar("SELECT cloudsync_uuid()")
-        .fetch_one(db_a1.pool())
+    let reassigned = sqlx::query("UPDATE e2ee_records SET workspace_id = ? WHERE id = ?")
+        .bind(&workspace_b)
+        .bind(&reassignment_id)
+        .execute(reassignment_attacker.pool())
         .await
         .unwrap();
-    sqlx::query(
-        "INSERT INTO sessions (id, workspace_id, owner_user_id, title) VALUES (?, ?, ?, ?)",
-    )
-    .bind(&pending_session)
-    .bind(&workspace_a)
-    .bind(&workspace_a)
-    .bind(format!("anarlog-smoke-pending-{marker}"))
-    .execute(db_a1.pool())
-    .await
-    .unwrap();
-    let unsent_logout_rejected = matches!(
-        db_a1.cloudsync_logout(false).await,
-        Err(CloudsyncRuntimeError::UnsentChanges)
-    );
-    sync_ok(&db_a1, "workspace A pending upload").await;
-    sqlx::query("DELETE FROM sessions WHERE id = ? OR id = ?")
-        .bind(&session_a)
-        .bind(&pending_session)
-        .execute(db_a1.pool())
-        .await
-        .unwrap();
-    sync_ok(&db_a1, "workspace A cleanup").await;
-    db_a2
-        .cloudsync_network_reset_sync_version()
-        .await
-        .expect("workspace A cleanup sync reset failed");
-    sync_ok(&db_a2, "workspace A cleanup verification").await;
-    sync_ok(&db_a2, "workspace A cleanup verification retry").await;
-    let a_cleanup_counts = (
-        row_count_by_id(db_a2.pool(), "sessions", &session_a).await,
-        row_count_by_id(db_a2.pool(), "sessions", &pending_session).await,
-    );
-    let a1_logout =
-        match tokio::time::timeout(Duration::from_secs(15), db_a1.cloudsync_logout(false)).await {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(error)) => Err(error.to_string()),
-            Err(_) => Err("timed out".to_string()),
-        };
-    if a1_logout.is_err() {
-        let _ = tokio::time::timeout(Duration::from_secs(15), db_a1.cloudsync_logout(true)).await;
-    }
-
-    let foreign_session: String = sqlx::query_scalar("SELECT cloudsync_uuid()")
-        .fetch_one(db_a2.pool())
-        .await
-        .unwrap();
-    sqlx::query(
-        "INSERT INTO sessions (id, workspace_id, owner_user_id, title) VALUES (?, ?, ?, ?)",
-    )
-    .bind(&foreign_session)
-    .bind(&workspace_b)
-    .bind(&workspace_b)
-    .bind(format!("anarlog-smoke-foreign-{marker}"))
-    .execute(db_a2.pool())
-    .await
-    .unwrap();
-    let foreign_sync = expect_policy_sync_completed_or_denied(&db_a2, "sessions").await;
-    db_b_verifier
-        .cloudsync_network_reset_sync_version()
-        .await
-        .expect("workspace B foreign-write sync reset failed");
-    sync_ok(&db_b_verifier, "workspace B foreign-write check").await;
-    sync_ok(&db_b_verifier, "workspace B foreign-write check retry").await;
-    let foreign_write_blocked =
-        row_count_by_id(db_b_verifier.pool(), "sessions", &foreign_session).await == 0;
-
-    sqlx::query("DELETE FROM sessions WHERE id = ? OR id = ?")
-        .bind(&session_b)
-        .bind(&foreign_session)
-        .execute(db_b_verifier.pool())
-        .await
-        .unwrap();
-    sync_ok(&db_b_verifier, "workspace B cleanup").await;
-    db_b.cloudsync_network_reset_sync_version()
-        .await
-        .expect("workspace B cleanup sync reset failed");
-    sync_ok(&db_b, "workspace B cleanup verification").await;
-    sync_ok(&db_b, "workspace B cleanup verification retry").await;
-    let b_cleanup_counts = (
-        row_count_by_id(db_b.pool(), "sessions", &session_b).await,
-        row_count_by_id(db_b.pool(), "sessions", &foreign_session).await,
-    );
-
-    let b_logout =
-        match tokio::time::timeout(Duration::from_secs(15), db_b.cloudsync_logout(false)).await {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(error)) => Err(error.to_string()),
-            Err(_) => Err("timed out".to_string()),
-        };
-    let b_verifier_logout = match tokio::time::timeout(
-        Duration::from_secs(15),
-        db_b_verifier.cloudsync_logout(false),
-    )
-    .await
-    {
-        Ok(Ok(())) => Ok(()),
-        Ok(Err(error)) => Err(error.to_string()),
-        Err(_) => Err("timed out".to_string()),
-    };
-    let a2_logout =
-        match tokio::time::timeout(Duration::from_secs(15), db_a2.cloudsync_logout(true)).await {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(error)) => Err(error.to_string()),
-            Err(_) => Err("timed out".to_string()),
-        };
-
-    assert!(a1_uploaded, "workspace A client 1 upload was not visible");
-    assert!(a2_uploaded, "workspace A client 2 update was not visible");
-    assert!(b_uploaded, "workspace B upload was not visible remotely");
-    assert!(b_hidden_from_a, "workspace A downloaded workspace B data");
-    assert!(
-        unsent_logout_rejected,
-        "logout did not reject workspace A's unsent change"
-    );
-    assert_eq!(
-        a_cleanup_counts,
-        (0, 0),
-        "workspace A cleanup was not visible"
-    );
-    assert!(
-        foreign_sync.is_ok(),
-        "workspace A foreign write had an unexpected sync result: {:?}",
-        foreign_sync.err()
-    );
-    assert!(foreign_write_blocked, "workspace A wrote into workspace B");
-    assert_eq!(
-        b_cleanup_counts,
-        (0, 0),
-        "workspace B cleanup was not visible"
-    );
-    assert!(
-        a1_logout.is_ok(),
-        "workspace A client 1 logout failed: {a1_logout:?}"
-    );
-    assert!(
-        a2_logout.is_ok(),
-        "workspace A client 2 logout failed: {a2_logout:?}"
-    );
-    assert!(
-        b_logout.is_ok(),
-        "workspace B client logout failed: {b_logout:?}"
-    );
-    assert!(
-        b_verifier_logout.is_ok(),
-        "workspace B verifier logout failed: {b_verifier_logout:?}"
-    );
-}
-
-#[tokio::test]
-#[ignore = "external verification only; requires two short-lived anarlog-dev access tokens"]
-async fn access_tokens_isolate_two_workspaces() {
-    let workspace_a = std::env::var("ANARLOG_CLOUDSYNC_WORKSPACE_A")
-        .expect("ANARLOG_CLOUDSYNC_WORKSPACE_A must be set");
-    let workspace_b = std::env::var("ANARLOG_CLOUDSYNC_WORKSPACE_B")
-        .expect("ANARLOG_CLOUDSYNC_WORKSPACE_B must be set");
-    assert_ne!(workspace_a, workspace_b);
-
-    let token_a =
-        std::env::var("ANARLOG_CLOUDSYNC_TOKEN_A").expect("ANARLOG_CLOUDSYNC_TOKEN_A must be set");
-    let token_b =
-        std::env::var("ANARLOG_CLOUDSYNC_TOKEN_B").expect("ANARLOG_CLOUDSYNC_TOKEN_B must be set");
-    let db_a = setup_db(
-        CloudsyncAuth::Token {
-            token: token_a.clone(),
-        },
-        Some(&workspace_a),
+    assert_eq!(reassigned.rows_affected(), 1);
+    assert_pending_change(&reassignment_attacker, "foreign workspace reassignment").await;
+    let reassignment_result = expect_policy_sync_completed_or_denied(
+        &reassignment_attacker,
+        "workspace A foreign workspace reassignment",
     )
     .await;
-    let db_b = setup_db(
-        CloudsyncAuth::Token {
-            token: token_b.clone(),
-        },
-        Some(&workspace_b),
-    )
-    .await;
+    stop_db(&reassignment_attacker, "workspace reassignment attacker").await;
 
-    let marker = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    let fixture_a_value = format!("anarlog-tenant-a-{marker}");
-    let fixture_b_value = format!("anarlog-tenant-b-{marker}");
-    let fixture_a = insert_synced_fixture(db_a.pool(), &workspace_a, &fixture_a_value).await;
-    sync_ok(&db_a, "workspace A upload").await;
-    let fixture_b = insert_synced_fixture(db_b.pool(), &workspace_b, &fixture_b_value).await;
-    sync_ok(&db_b, "workspace B upload").await;
-
-    let db_a_fresh = setup_db(
-        CloudsyncAuth::Token {
-            token: token_a.clone(),
-        },
-        Some(&workspace_a),
-    )
-    .await;
-    let db_b_fresh = setup_db(
-        CloudsyncAuth::Token {
-            token: token_b.clone(),
-        },
-        Some(&workspace_b),
-    )
-    .await;
-    for (db, label) in [
-        (&db_a_fresh, "fresh workspace A download"),
-        (&db_b_fresh, "fresh workspace B download"),
-    ] {
-        sync_ok(db, label).await;
-        sync_ok(db, label).await;
-    }
-
-    assert_fixture_visibility(
-        db_a_fresh.pool(),
-        &workspace_a,
-        &fixture_a,
+    let update_attacker = setup_stale_record_client(
+        &token_b,
+        &token_a,
         &workspace_b,
-        &fixture_b,
+        &owner_record_id,
+        "foreign UPDATE",
     )
     .await;
-    assert_fixture_visibility(
-        db_b_fresh.pool(),
-        &workspace_b,
-        &fixture_b,
-        &workspace_a,
-        &fixture_a,
-    )
-    .await;
-
-    let mut foreign_rows = Vec::with_capacity(SYNCED_TABLES.len());
-    let mut policy_failures = Vec::new();
-    for table in SYNCED_TABLES {
-        let attacker = setup_policy_db(
-            CloudsyncAuth::Token {
-                token: token_a.clone(),
-            },
-            &workspace_a,
-        )
-        .await;
-        let foreign_id = insert_foreign_row(
-            attacker.pool(),
-            table,
-            &workspace_b,
-            &fixture_b,
-            &format!("anarlog-foreign-{table}-{marker}"),
-        )
-        .await;
-        if let Err(error) = expect_policy_sync_completed_or_denied(&attacker, table).await {
-            policy_failures.push(error);
-        }
-        foreign_rows.push((table, foreign_id));
-        tokio::time::timeout(Duration::from_secs(15), attacker.cloudsync_stop())
-            .await
-            .unwrap_or_else(|_| panic!("{table} policy client stop timed out"))
-            .unwrap();
-    }
-
-    for (table, id) in fixture_b.rows() {
-        let attacker = setup_stale_policy_db(&token_b, &token_a, &workspace_b, table, id).await;
-        update_stale_foreign_row(
-            attacker.pool(),
-            table,
-            id,
-            &format!("anarlog-foreign-update-{table}-{marker}"),
-        )
-        .await;
-        assert_policy_change_pending(&attacker, &format!("{table} UPDATE")).await;
-        if let Err(error) =
-            expect_policy_sync_completed_or_denied(&attacker, &format!("{table} UPDATE")).await
-        {
-            policy_failures.push(error);
-        }
-        tokio::time::timeout(Duration::from_secs(15), attacker.cloudsync_stop())
-            .await
-            .unwrap_or_else(|_| panic!("{table} UPDATE policy client stop timed out"))
-            .unwrap();
-    }
-
-    for (table, id) in fixture_b.rows_child_first() {
-        let attacker = setup_stale_policy_db(&token_b, &token_a, &workspace_b, table, id).await;
-        delete_stale_foreign_row(attacker.pool(), table, id).await;
-        assert_policy_change_pending(&attacker, &format!("{table} DELETE")).await;
-        if let Err(error) =
-            expect_policy_sync_completed_or_denied(&attacker, &format!("{table} DELETE")).await
-        {
-            policy_failures.push(error);
-        }
-        tokio::time::timeout(Duration::from_secs(15), attacker.cloudsync_stop())
-            .await
-            .unwrap_or_else(|_| panic!("{table} DELETE policy client stop timed out"))
-            .unwrap();
-    }
-
-    let db_b_verifier = setup_db(
-        CloudsyncAuth::Token {
-            token: token_b.clone(),
-        },
-        Some(&workspace_b),
-    )
-    .await;
-    db_b_verifier
-        .cloudsync_network_reset_sync_version()
-        .await
-        .expect("workspace B verifier sync reset failed");
-    sync_ok(&db_b_verifier, "foreign-write full snapshot check").await;
-    sync_ok(&db_b_verifier, "foreign-write full snapshot check").await;
-    let fixture_b_violations = fixture_state_violations(
-        db_b_verifier.pool(),
-        &workspace_b,
-        &fixture_b,
-        &fixture_b_value,
-    )
-    .await;
-    let mut leaked_tables = Vec::new();
-    for (table, id) in &foreign_rows {
-        if row_count(db_b_verifier.pool(), table, id, &workspace_b).await != 0 {
-            leaked_tables.push(*table);
-        }
-    }
-    if !leaked_tables.is_empty() {
-        let mut transaction = db_b_verifier.pool().begin().await.unwrap();
-        for (table, id) in foreign_rows.iter().rev() {
-            sqlx::query(AssertSqlSafe(format!("DELETE FROM {table} WHERE id = ?")))
-                .bind(id)
-                .execute(&mut *transaction)
-                .await
-                .unwrap();
-        }
-        transaction.commit().await.unwrap();
-        sync_ok(&db_b_verifier, "leaked foreign-write cleanup").await;
-    }
-
-    delete_synced_fixture(db_a.pool(), &fixture_a).await;
-    delete_synced_fixture(db_b.pool(), &fixture_b).await;
-    sync_ok(&db_a, "workspace A cleanup").await;
-    sync_ok(&db_b, "workspace B cleanup").await;
-
-    for db in [&db_a, &db_b, &db_a_fresh, &db_b_fresh, &db_b_verifier] {
-        tokio::time::timeout(Duration::from_secs(15), db.cloudsync_stop())
-            .await
-            .expect("tenant client stop timed out")
-            .unwrap();
-    }
-
-    assert!(policy_failures.is_empty(), "{}", policy_failures.join("\n"));
-    assert!(
-        leaked_tables.is_empty(),
-        "workspace A wrote into workspace B tables: {}",
-        leaked_tables.join(", ")
-    );
-    assert!(
-        fixture_b_violations.is_empty(),
-        "workspace A mutated workspace B rows: {}",
-        fixture_b_violations.join(", ")
-    );
-}
-
-#[tokio::test]
-#[ignore = "external verification only; requires ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID, ANARLOG_CLOUDSYNC_WORKSPACE_A/B/C, ANARLOG_CLOUDSYNC_TOKEN_A_WITH_SHARED_C, ANARLOG_CLOUDSYNC_TOKEN_A_WITHOUT_SHARED_C, ANARLOG_CLOUDSYNC_TOKEN_B, and ANARLOG_CLOUDSYNC_TOKEN_C_OWNER"]
-async fn access_token_workspace_attributes_allow_shared_reads_but_not_writes() {
-    let workspace_a = std::env::var("ANARLOG_CLOUDSYNC_WORKSPACE_A")
-        .expect("ANARLOG_CLOUDSYNC_WORKSPACE_A must be set");
-    let workspace_b = std::env::var("ANARLOG_CLOUDSYNC_WORKSPACE_B")
-        .expect("ANARLOG_CLOUDSYNC_WORKSPACE_B must be set");
-    let workspace_c = std::env::var("ANARLOG_CLOUDSYNC_WORKSPACE_C")
-        .expect("ANARLOG_CLOUDSYNC_WORKSPACE_C must be set");
-    assert_ne!(workspace_a, workspace_b);
-    assert_ne!(workspace_a, workspace_c);
-    assert_ne!(workspace_b, workspace_c);
-
-    let token_a_with_shared_c = std::env::var("ANARLOG_CLOUDSYNC_TOKEN_A_WITH_SHARED_C")
-        .expect("ANARLOG_CLOUDSYNC_TOKEN_A_WITH_SHARED_C must be set");
-    let token_a_without_shared_c = std::env::var("ANARLOG_CLOUDSYNC_TOKEN_A_WITHOUT_SHARED_C")
-        .expect("ANARLOG_CLOUDSYNC_TOKEN_A_WITHOUT_SHARED_C must be set");
-    let token_b =
-        std::env::var("ANARLOG_CLOUDSYNC_TOKEN_B").expect("ANARLOG_CLOUDSYNC_TOKEN_B must be set");
-    let token_c_owner = std::env::var("ANARLOG_CLOUDSYNC_TOKEN_C_OWNER")
-        .expect("ANARLOG_CLOUDSYNC_TOKEN_C_OWNER must be set");
-
-    let db_a_owner = setup_db(
-        CloudsyncAuth::Token {
-            token: token_a_without_shared_c.clone(),
-        },
-        Some(&workspace_a),
-    )
-    .await;
-    let db_b_owner = setup_db(
-        CloudsyncAuth::Token {
-            token: token_b.clone(),
-        },
-        Some(&workspace_b),
-    )
-    .await;
-    let db_c_owner = setup_db(
-        CloudsyncAuth::Token {
-            token: token_c_owner.clone(),
-        },
-        Some(&workspace_c),
-    )
-    .await;
-
-    let marker = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    let session_a: String = sqlx::query_scalar("SELECT cloudsync_uuid()")
-        .fetch_one(db_a_owner.pool())
-        .await
-        .unwrap();
-    let session_b: String = sqlx::query_scalar("SELECT cloudsync_uuid()")
-        .fetch_one(db_b_owner.pool())
-        .await
-        .unwrap();
-    let session_c: String = sqlx::query_scalar("SELECT cloudsync_uuid()")
-        .fetch_one(db_c_owner.pool())
-        .await
-        .unwrap();
-    let foreign_insert_c: String = sqlx::query_scalar("SELECT cloudsync_uuid()")
-        .fetch_one(db_a_owner.pool())
-        .await
-        .unwrap();
-    let title_a = format!("anarlog-workspace-attributes-a-{marker}");
-    let title_b = format!("anarlog-workspace-attributes-b-{marker}");
-    let title_c = format!("anarlog-workspace-attributes-c-{marker}");
-
-    for (db, id, workspace_id, title) in [
-        (&db_a_owner, &session_a, &workspace_a, &title_a),
-        (&db_b_owner, &session_b, &workspace_b, &title_b),
-        (&db_c_owner, &session_c, &workspace_c, &title_c),
-    ] {
-        sqlx::query(
-            "INSERT INTO sessions (id, workspace_id, owner_user_id, title) VALUES (?, ?, ?, ?)",
-        )
-        .bind(id)
-        .bind(workspace_id)
-        .bind(workspace_id)
-        .bind(title)
-        .execute(db.pool())
-        .await
-        .unwrap();
-    }
-    sync_ok(&db_a_owner, "workspace attribute A fixture upload").await;
-    sync_ok(&db_b_owner, "workspace attribute B fixture upload").await;
-    sync_ok(&db_c_owner, "workspace attribute C fixture upload").await;
-
-    let db_a_shared = setup_db(
-        CloudsyncAuth::Token {
-            token: token_a_with_shared_c.clone(),
-        },
-        Some(&workspace_a),
-    )
-    .await;
-    let db_b_reader = setup_db(
-        CloudsyncAuth::Token {
-            token: token_b.clone(),
-        },
-        Some(&workspace_b),
-    )
-    .await;
-    for (db, label) in [
-        (&db_a_shared, "workspace A shared-read snapshot"),
-        (&db_b_reader, "workspace B isolation snapshot"),
-    ] {
-        sync_ok(db, label).await;
-        sync_ok(db, label).await;
-    }
-
-    let a_reads_personal =
-        row_count(db_a_shared.pool(), "sessions", &session_a, &workspace_a).await == 1;
-    let a_reads_shared_c =
-        row_count(db_a_shared.pool(), "sessions", &session_c, &workspace_c).await == 1;
-    let a_cannot_read_b = row_count_by_id(db_a_shared.pool(), "sessions", &session_b).await == 0;
-    let b_reads_personal =
-        row_count(db_b_reader.pool(), "sessions", &session_b, &workspace_b).await == 1;
-    let b_cannot_read_c = row_count_by_id(db_b_reader.pool(), "sessions", &session_c).await == 0;
-
-    let insert_attacker = setup_policy_db(
-        CloudsyncAuth::Token {
-            token: token_a_with_shared_c.clone(),
-        },
-        &workspace_a,
-    )
-    .await;
-    sqlx::query(
-        "INSERT INTO sessions (id, workspace_id, owner_user_id, title) VALUES (?, ?, ?, ?)",
-    )
-    .bind(&foreign_insert_c)
-    .bind(&workspace_c)
-    .bind(&workspace_c)
-    .bind(format!(
-        "anarlog-workspace-attributes-foreign-insert-{marker}"
-    ))
-    .execute(insert_attacker.pool())
-    .await
-    .unwrap();
-    let insert_policy =
-        expect_policy_sync_completed_or_denied(&insert_attacker, "shared workspace C INSERT").await;
-
-    let update_attacker = setup_snapshot_policy_db(
-        &token_a_with_shared_c,
-        &workspace_a,
-        &workspace_c,
-        "sessions",
-        &session_c,
-    )
-    .await;
-    let update_rows = sqlx::query("UPDATE sessions SET title = ? WHERE id = ?")
-        .bind(format!(
-            "anarlog-workspace-attributes-foreign-update-{marker}"
-        ))
-        .bind(&session_c)
+    let updated = sqlx::query("UPDATE e2ee_records SET payload = ? WHERE id = ?")
+        .bind(format!("blocked-update-{marker}"))
+        .bind(&owner_record_id)
         .execute(update_attacker.pool())
         .await
-        .unwrap()
-        .rows_affected();
-    let update_policy = if update_rows == 1 {
-        expect_policy_sync_completed_or_denied(&update_attacker, "shared workspace C UPDATE").await
-    } else {
-        Err("shared workspace C was not available for the UPDATE attempt".to_string())
-    };
+        .unwrap();
+    assert_eq!(updated.rows_affected(), 1);
+    assert_pending_change(&update_attacker, "foreign payload UPDATE").await;
+    let update_result =
+        expect_policy_sync_completed_or_denied(&update_attacker, "workspace A foreign UPDATE")
+            .await;
+    stop_db(&update_attacker, "foreign UPDATE attacker").await;
 
-    let delete_attacker = setup_snapshot_policy_db(
-        &token_a_with_shared_c,
-        &workspace_a,
-        &workspace_c,
-        "sessions",
-        &session_c,
+    let delete_attacker = setup_stale_record_client(
+        &token_b,
+        &token_a,
+        &workspace_b,
+        &owner_record_id,
+        "foreign DELETE",
     )
     .await;
-    let delete_rows = sqlx::query("DELETE FROM sessions WHERE id = ?")
-        .bind(&session_c)
+    let deleted = sqlx::query("DELETE FROM e2ee_records WHERE id = ?")
+        .bind(&owner_record_id)
         .execute(delete_attacker.pool())
         .await
-        .unwrap()
-        .rows_affected();
-    let delete_policy = if delete_rows == 1 {
-        expect_policy_sync_completed_or_denied(&delete_attacker, "shared workspace C DELETE").await
-    } else {
-        Err("shared workspace C was not available for the DELETE attempt".to_string())
-    };
+        .unwrap();
+    assert_eq!(deleted.rows_affected(), 1);
+    assert_pending_change(&delete_attacker, "foreign DELETE").await;
+    let delete_result =
+        expect_policy_sync_completed_or_denied(&delete_attacker, "workspace A foreign DELETE")
+            .await;
+    stop_db(&delete_attacker, "foreign DELETE attacker").await;
 
-    let db_c_verifier = setup_db(
-        CloudsyncAuth::Token {
-            token: token_c_owner.clone(),
-        },
-        Some(&workspace_c),
-    )
-    .await;
-    db_c_verifier
-        .cloudsync_network_reset_sync_version()
-        .await
-        .expect("workspace C verification sync reset failed");
-    sync_ok(
-        &db_c_verifier,
-        "shared workspace C write-policy verification",
-    )
-    .await;
-    sync_ok(
-        &db_c_verifier,
-        "shared workspace C write-policy verification retry",
-    )
-    .await;
-    let verified_title_c: Option<String> =
-        sqlx::query_scalar("SELECT title FROM sessions WHERE id = ?")
-            .bind(&session_c)
-            .fetch_optional(db_c_verifier.pool())
+    let verifier = setup_db(&token_b, &workspace_b).await;
+    sync_full_snapshot(&verifier, "workspace B policy verification").await;
+    let verified_payload: Option<String> =
+        sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+            .bind(&owner_record_id)
+            .fetch_optional(verifier.pool())
             .await
             .unwrap();
-    let foreign_insert_count =
-        row_count_by_id(db_c_verifier.pool(), "sessions", &foreign_insert_c).await;
-
-    db_a_shared
-        .cloudsync_reconfigure(cloudsync_config(
-            CloudsyncAuth::Token {
-                token: token_a_without_shared_c.clone(),
-            },
-            5_000,
-            3,
-        ))
-        .await
-        .expect("same-client workspace A token reconfiguration failed");
-    if db_a_shared
-        .cloudsync_status()
-        .await
-        .expect("same-client workspace A status failed")
-        .has_unsent_changes
-        .unwrap_or(true)
-    {
-        sync_ok(&db_a_shared, "same-client workspace A pre-revocation drain").await;
-    }
-    db_a_shared
-        .cloudsync_logout(false)
-        .await
-        .expect("same-client workspace A replica logout failed");
-    let revoked_a_was_purged = row_count_by_id(db_a_shared.pool(), "sessions", &session_a).await
-        == 0
-        && row_count_by_id(db_a_shared.pool(), "sessions", &session_c).await == 0;
-
-    db_a_shared
-        .cloudsync_configure(cloudsync_config(
-            CloudsyncAuth::Token {
-                token: token_a_without_shared_c.clone(),
-            },
-            5_000,
-            3,
-        ))
-        .await
-        .expect("same-client workspace A post-logout configuration failed");
-    db_a_shared
-        .cloudsync_start()
-        .await
-        .expect("same-client workspace A post-logout start failed");
-    db_a_shared
-        .cloudsync_network_reset_sync_version()
-        .await
-        .expect("same-client workspace A token sync reset failed");
-    sync_ok(
-        &db_a_shared,
-        "same-client workspace A token without C snapshot",
-    )
-    .await;
-    sync_ok(
-        &db_a_shared,
-        "same-client workspace A token without C snapshot retry",
-    )
-    .await;
-    let revoked_a_reads_personal =
-        row_count(db_a_shared.pool(), "sessions", &session_a, &workspace_a).await == 1;
-    let revoked_a_cannot_read_c =
-        row_count_by_id(db_a_shared.pool(), "sessions", &session_c).await == 0;
-
-    sqlx::query("DELETE FROM sessions WHERE id = ?")
-        .bind(&session_a)
-        .execute(db_a_owner.pool())
-        .await
-        .unwrap();
-    sqlx::query("DELETE FROM sessions WHERE id = ?")
-        .bind(&session_b)
-        .execute(db_b_owner.pool())
-        .await
-        .unwrap();
-    sqlx::query("DELETE FROM sessions WHERE id = ? OR id = ?")
-        .bind(&session_c)
-        .bind(&foreign_insert_c)
-        .execute(db_c_verifier.pool())
-        .await
-        .unwrap();
-    sync_ok(&db_a_owner, "workspace attribute A fixture cleanup").await;
-    sync_ok(&db_b_owner, "workspace attribute B fixture cleanup").await;
-    sync_ok(&db_c_verifier, "workspace attribute C fixture cleanup").await;
-
-    for (db, label) in [
-        (&db_a_owner, "workspace A owner"),
-        (&db_b_owner, "workspace B owner"),
-        (&db_c_owner, "workspace C owner"),
-        (&db_a_shared, "workspace A shared reader"),
-        (&db_b_reader, "workspace B reader"),
-        (&insert_attacker, "workspace C insert attacker"),
-        (&update_attacker, "workspace C update attacker"),
-        (&delete_attacker, "workspace C delete attacker"),
-        (&db_c_verifier, "workspace C verifier"),
-    ] {
-        tokio::time::timeout(Duration::from_secs(15), db.cloudsync_stop())
+    let foreign_insert_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_records WHERE id = ?")
+            .bind(&foreign_insert_id)
+            .fetch_one(verifier.pool())
             .await
-            .unwrap_or_else(|_| panic!("{label} stop timed out"))
             .unwrap();
+    let reassigned_foreign_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_records WHERE id = ?")
+            .bind(&reassignment_id)
+            .fetch_one(verifier.pool())
+            .await
+            .unwrap();
+    let mut leaked_record_ids = Vec::new();
+    if foreign_insert_count != 0 {
+        leaked_record_ids.push(foreign_insert_id.clone());
+    }
+    if reassigned_foreign_count != 0 {
+        leaked_record_ids.push(reassignment_id.clone());
+    }
+    if !leaked_record_ids.is_empty() {
+        cleanup_encrypted_records(&verifier, &leaked_record_ids, "leaked foreign row cleanup")
+            .await;
     }
 
+    let workspace_a_verifier = setup_db(&token_a, &workspace_a).await;
+    sync_full_snapshot(
+        &workspace_a_verifier,
+        "workspace A reassignment verification",
+    )
+    .await;
+    let reassignment_owner_row: Option<(String, String)> =
+        sqlx::query_as("SELECT workspace_id, payload FROM e2ee_records WHERE id = ?")
+            .bind(&reassignment_id)
+            .fetch_optional(workspace_a_verifier.pool())
+            .await
+            .unwrap();
+    if reassignment_owner_row.is_some() {
+        cleanup_encrypted_records(
+            &workspace_a_verifier,
+            std::slice::from_ref(&reassignment_id),
+            "workspace A reassignment fixture cleanup",
+        )
+        .await;
+    }
+
+    cleanup_encrypted_records(
+        &owner,
+        &note.record_ids,
+        "workspace B encrypted record cleanup",
+    )
+    .await;
+    stop_db(&owner, "workspace B owner").await;
+    stop_db(&verifier, "workspace B verifier").await;
+    stop_db(&workspace_a_verifier, "workspace A verifier").await;
+
+    assert_eq!(foreign_read_count, 0, "workspace A read workspace B");
+    assert_eq!(round_trip_title.as_deref(), Some(updated_title.as_str()));
     assert!(
-        a_reads_personal,
-        "workspace A could not read its personal row"
+        insert_result.is_ok(),
+        "foreign INSERT returned an unexpected sync result: {:?}",
+        insert_result.err()
     );
     assert!(
-        a_reads_shared_c,
-        "workspace A could not read shared workspace C"
-    );
-    assert!(a_cannot_read_b, "workspace A read unrelated workspace B");
-    assert!(
-        b_reads_personal,
-        "workspace B could not read its personal row"
-    );
-    assert!(b_cannot_read_c, "workspace B read shared workspace C");
-    assert!(
-        insert_policy.is_ok(),
-        "workspace A shared INSERT returned an unexpected sync result: {:?}",
-        insert_policy.err()
+        update_result.is_ok(),
+        "foreign UPDATE returned an unexpected sync result: {:?}",
+        update_result.err()
     );
     assert!(
-        update_policy.is_ok(),
-        "workspace A shared UPDATE returned an unexpected sync result: {:?}",
-        update_policy.err()
+        delete_result.is_ok(),
+        "foreign DELETE returned an unexpected sync result: {:?}",
+        delete_result.err()
     );
     assert!(
-        delete_policy.is_ok(),
-        "workspace A shared DELETE returned an unexpected sync result: {:?}",
-        delete_policy.err()
+        reassignment_result.is_ok(),
+        "foreign workspace reassignment returned an unexpected sync result: {:?}",
+        reassignment_result.err()
     );
     assert_eq!(
-        verified_title_c.as_deref(),
-        Some(title_c.as_str()),
-        "workspace A updated or deleted workspace C's row"
+        verified_payload.as_deref(),
+        Some(owner_payload.as_str()),
+        "workspace A updated or deleted workspace B's encrypted record"
     );
     assert_eq!(
         foreign_insert_count, 0,
-        "workspace A inserted a row into workspace C"
+        "workspace A inserted an encrypted record into workspace B"
+    );
+    assert_eq!(
+        reassigned_foreign_count, 0,
+        "workspace A reassigned its encrypted record into workspace B"
+    );
+    assert_eq!(
+        reassignment_owner_row,
+        Some((workspace_a, reassignment_payload)),
+        "workspace A's encrypted record did not remain in workspace A"
+    );
+}
+
+#[tokio::test]
+#[ignore = "deployment cleanup only; requires ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID, ANARLOG_CLOUDSYNC_WORKSPACE_A/B with deploy-e2ee-a-/deploy-e2ee-b- prefixes, and ANARLOG_CLOUDSYNC_TOKEN_A/B"]
+async fn cleanup_e2ee_verification_workspaces() {
+    let workspace_a = std::env::var("ANARLOG_CLOUDSYNC_WORKSPACE_A")
+        .expect("ANARLOG_CLOUDSYNC_WORKSPACE_A must be set");
+    let workspace_b = std::env::var("ANARLOG_CLOUDSYNC_WORKSPACE_B")
+        .expect("ANARLOG_CLOUDSYNC_WORKSPACE_B must be set");
+    assert!(
+        workspace_a.starts_with("deploy-e2ee-a-"),
+        "cleanup is restricted to deploy-e2ee-a-* workspaces"
     );
     assert!(
-        revoked_a_was_purged,
-        "same-client workspace A logout did not purge its prior replica"
+        workspace_b.starts_with("deploy-e2ee-b-"),
+        "cleanup is restricted to deploy-e2ee-b-* workspaces"
     );
+    let token_a =
+        std::env::var("ANARLOG_CLOUDSYNC_TOKEN_A").expect("ANARLOG_CLOUDSYNC_TOKEN_A must be set");
+    let token_b =
+        std::env::var("ANARLOG_CLOUDSYNC_TOKEN_B").expect("ANARLOG_CLOUDSYNC_TOKEN_B must be set");
+
+    let cleanup_a = tokio::spawn(async move {
+        cleanup_verification_workspace(&token_a, &workspace_a, "workspace A verification").await;
+    })
+    .await;
+    let cleanup_b = tokio::spawn(async move {
+        cleanup_verification_workspace(&token_b, &workspace_b, "workspace B verification").await;
+    })
+    .await;
+    let failures = [
+        cleanup_a.err().map(|error| format!("workspace A: {error}")),
+        cleanup_b.err().map(|error| format!("workspace B: {error}")),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>();
     assert!(
-        revoked_a_reads_personal,
-        "same-client workspace A token could not restore its personal row"
-    );
-    assert!(
-        revoked_a_cannot_read_c,
-        "same-client workspace A token without C restored workspace C"
+        failures.is_empty(),
+        "verification workspace cleanup failed: {}",
+        failures.join("; ")
     );
 }
