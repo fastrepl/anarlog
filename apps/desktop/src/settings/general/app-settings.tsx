@@ -83,8 +83,8 @@ export function AppSettingsView({
             description={
               cloudSync.available ? (
                 <Trans>
-                  Keep notes up to date across signed-in devices. Turning this
-                  off does not delete synced data.
+                  End-to-end encrypted across your signed-in devices. Anarlog
+                  cannot read your synced notes.
                 </Trans>
               ) : (
                 <Trans>Available with Anarlog Pro.</Trans>

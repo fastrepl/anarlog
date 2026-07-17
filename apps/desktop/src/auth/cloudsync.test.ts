@@ -6,6 +6,7 @@ import {
   configureCloudsyncToken,
   execute,
   getCloudsyncStatus,
+  getE2eeIdentityStatus,
   suspendCloudsync,
 } from "@hypr/plugin-db";
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
@@ -47,6 +48,7 @@ vi.mock("~/settings/queries", () => ({
 }));
 
 const NOW = new Date("2026-07-13T00:00:00Z");
+const E2EE_KEY_ID = "abcdefghijklmnopqrstuv";
 
 function session(accessToken = "supabase-token") {
   return {
@@ -58,6 +60,8 @@ function session(accessToken = "supabase-token") {
 function credentialsResponse(workspaceId = "user-id") {
   return new Response(
     JSON.stringify({
+      encryptionVersion: 1,
+      encryptionKeyId: E2EE_KEY_ID,
       databaseId: "database-id",
       token: "sqlite-token",
       expiresAt: new Date(NOW.getTime() + 15 * 60 * 1000).toISOString(),
@@ -72,6 +76,8 @@ function credentialsResponse(workspaceId = "user-id") {
 
 function projectedCredentialsPayload() {
   return {
+    encryptionVersion: 1,
+    encryptionKeyId: E2EE_KEY_ID,
     databaseId: "database-id",
     token: "sqlite-token",
     expiresAt: new Date(NOW.getTime() + 15 * 60 * 1000).toISOString(),
@@ -131,6 +137,10 @@ describe("CloudSync auth lifecycle", () => {
     vi.mocked(bindCloudsyncAccount).mockResolvedValue(true);
     vi.mocked(configureCloudsyncToken).mockResolvedValue("configured");
     vi.mocked(execute).mockResolvedValue([]);
+    vi.mocked(getE2eeIdentityStatus).mockResolvedValue({
+      configured: true,
+      keyId: E2EE_KEY_ID,
+    });
     vi.mocked(fsSyncCommands.deleteSessionFolder).mockResolvedValue({
       status: "ok",
       data: null,
@@ -185,6 +195,23 @@ describe("CloudSync auth lifecycle", () => {
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
   });
 
+  test("does not request cloud credentials before E2EE recovery setup", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    vi.mocked(getE2eeIdentityStatus).mockResolvedValue({
+      configured: false,
+      keyId: null,
+    });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await handleCloudsyncAuthChange("SIGNED_IN", session());
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
+    expect(suspendCloudsync).toHaveBeenCalledTimes(1);
+  });
+
   test("exchanges the Supabase token and refreshes before expiry", async () => {
     const fetchMock = vi.fn(() => Promise.resolve(credentialsResponse()));
     vi.stubGlobal("fetch", fetchMock);
@@ -197,6 +224,7 @@ describe("CloudSync auth lifecycle", () => {
         method: "POST",
         headers: {
           Authorization: "Bearer supabase-token",
+          "X-Anarlog-E2EE-Key-Id": E2EE_KEY_ID,
         },
       }),
     );
@@ -315,6 +343,8 @@ describe("CloudSync auth lifecycle", () => {
         Promise.resolve(
           new Response(
             JSON.stringify({
+              encryptionVersion: 1,
+              encryptionKeyId: E2EE_KEY_ID,
               databaseId: "database-id",
               token: "sqlite-token",
               expiresAt: new Date(NOW.getTime() + 15 * 60 * 1000).toISOString(),
@@ -402,8 +432,10 @@ describe("CloudSync auth lifecycle", () => {
     );
 
     const activation = handleCloudsyncAuthChange("SIGNED_IN", session());
-    await Promise.resolve();
-    await Promise.resolve();
+    for (let index = 0; index < 20 && !resolveFetch; index += 1) {
+      await Promise.resolve();
+    }
+    expect(resolveFetch).toBeDefined();
     await handleCloudsyncAuthChange("SIGNED_OUT", null);
     resolveFetch?.(credentialsResponse());
     await activation;

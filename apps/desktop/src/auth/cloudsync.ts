@@ -6,6 +6,7 @@ import {
   configureCloudsyncToken,
   execute,
   getCloudsyncStatus,
+  getE2eeIdentityStatus,
   suspendCloudsync,
 } from "@hypr/plugin-db";
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
@@ -30,6 +31,8 @@ export type CloudsyncAuthChangeResult = "ok" | "account_mismatch";
 type CloudsyncAccountMismatchHandler = () => Promise<void>;
 
 type CloudsyncCredentialCore = {
+  encryptionVersion: 1;
+  encryptionKeyId: string;
   databaseId: string;
   token: string;
   expiresAt: string;
@@ -243,6 +246,9 @@ function isCredentials(value: unknown): value is CloudsyncCredentials {
 
   const candidate = value as Record<string, unknown>;
   const hasCoreCredentials =
+    candidate.encryptionVersion === 1 &&
+    typeof candidate.encryptionKeyId === "string" &&
+    /^[A-Za-z0-9_-]{22}$/.test(candidate.encryptionKeyId) &&
     typeof candidate.databaseId === "string" &&
     candidate.databaseId.length > 0 &&
     typeof candidate.token === "string" &&
@@ -388,6 +394,31 @@ async function activateCloudsync(
     return "ok";
   }
 
+  let encryptionKeyId: string;
+  try {
+    const identity = await enqueuePluginOperation(() =>
+      getE2eeIdentityStatus(session.user.id),
+    );
+    if (
+      !identity.configured ||
+      !identity.keyId ||
+      !/^[A-Za-z0-9_-]{22}$/.test(identity.keyId)
+    ) {
+      await suspendCloudsyncAfterCredentialRejection(activeGeneration);
+      console.warn(
+        "[cloudsync] E2EE recovery key setup is required; sync remains disabled",
+      );
+      return "ok";
+    }
+    encryptionKeyId = identity.keyId;
+  } catch {
+    await suspendCloudsyncAfterCredentialRejection(activeGeneration);
+    console.warn(
+      "[cloudsync] E2EE recovery key is unavailable; sync remains disabled",
+    );
+    return "ok";
+  }
+
   if (
     suspendBeforeExchange &&
     !(await suspendCloudsyncForGeneration(activeGeneration))
@@ -450,6 +481,7 @@ async function activateCloudsync(
       method: "POST",
       headers: {
         Authorization: `Bearer ${session.access_token}`,
+        "X-Anarlog-E2EE-Key-Id": encryptionKeyId,
       },
       signal: controller.signal,
     });
@@ -538,6 +570,14 @@ async function activateCloudsync(
       activeGeneration,
       RETRY_DELAY_MS,
       onAccountMismatch,
+    );
+    return "ok";
+  }
+
+  if (credentials.encryptionKeyId !== encryptionKeyId) {
+    await suspendCloudsyncAfterCredentialRejection(activeGeneration);
+    console.warn(
+      "[cloudsync] credential exchange returned a different E2EE key identity",
     );
     return "ok";
   }

@@ -70,6 +70,14 @@ describe("AppSettingsView", () => {
     expect(cloudSync.onChange).toHaveBeenCalledWith(false);
   });
 
+  it("describes cloud sync as unreadable to Anarlog", () => {
+    renderAppSettings();
+
+    expect(
+      screen.getByText(/Anarlog cannot read your synced notes/),
+    ).toBeTruthy();
+  });
+
   it("shows cloud sync as unavailable without Pro", () => {
     renderAppSettings({ cloudSyncAvailable: false });
 
