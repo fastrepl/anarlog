@@ -1,4 +1,4 @@
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo } from "react";
 
 import {
   commands as trayCommands,
@@ -10,6 +10,7 @@ import { addDays, format, safeParseDate, TZDate } from "@hypr/utils";
 import { useIgnoredEvents } from "~/calendar/ignored-events";
 import { useTimelineEventsTable } from "~/calendar/queries";
 import { useConfigValue } from "~/shared/config";
+import { useCurrentDay } from "~/shared/hooks/useCurrentDay";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import type { TimelineEventRow } from "~/sidebar/timeline/utils";
 
@@ -119,39 +120,6 @@ export function TrayScheduleSync() {
 
 function toTimezone(date: Date, timezone?: string): Date {
   return timezone ? new TZDate(date, timezone) : date;
-}
-
-function useCurrentDay(timezone?: string) {
-  const store = useMemo(() => createCurrentDayStore(timezone), [timezone]);
-  return useSyncExternalStore(
-    store.subscribe,
-    store.getSnapshot,
-    store.getSnapshot,
-  );
-}
-
-function createCurrentDayStore(timezone?: string) {
-  const getCurrentDay = () =>
-    format(toTimezone(new Date(), timezone), "yyyy-MM-dd");
-  let currentDay = getCurrentDay();
-
-  const subscribe = (listener: () => void) => {
-    const refresh = () => {
-      const nextDay = getCurrentDay();
-      if (nextDay === currentDay) return;
-      currentDay = nextDay;
-      listener();
-    };
-    const interval = setInterval(refresh, 60_000);
-    window.addEventListener("focus", refresh);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("focus", refresh);
-    };
-  };
-
-  return { getSnapshot: () => currentDay, subscribe };
 }
 
 function TraySchedulePublisher({ events }: { events: TrayScheduleEvent[] }) {
