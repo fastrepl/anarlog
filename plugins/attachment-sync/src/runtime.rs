@@ -781,7 +781,7 @@ pub async fn commit_delete_guard<R: Runtime>(
         .bind(attempt_count)
         .fetch_optional(state.pool())
         .await?
-        .ok_or(Error::InvalidTransferState)?;
+        .ok_or(Error::DeleteGuardChanged)?;
     if record.cache_id != guard_id {
         return Err(Error::DeleteGuardChanged);
     }
@@ -796,7 +796,7 @@ pub async fn commit_delete_guard<R: Runtime>(
         let expected = plaintext_metadata(&record.expected_sha256, record.expected_size_bytes)?;
         let key = workspace_key(state, &record.workspace_id)?;
         let metadata =
-            delete_guard_metadata(&record, &key, &expected)?.ok_or(Error::InvalidTransferState)?;
+            delete_guard_metadata(&record, &key, &expected)?.ok_or(Error::DeleteGuardChanged)?;
         let context = AttachmentBlobContext::new(
             record.workspace_id.clone(),
             record.attachment_id.clone(),
@@ -840,34 +840,73 @@ pub async fn commit_delete_guard<R: Runtime>(
     };
     operation.ensure_active()?;
 
-    let _synced_write_guard = state.synced_write_guard().await;
-    let mut transaction = state.pool().begin_with("BEGIN IMMEDIATE").await?;
-    let current = sqlx::query_as::<_, DeleteSourcePreflight>(DELETE_PREFLIGHT_SELECT)
-        .bind(job_id)
-        .bind(attempt_count)
-        .fetch_optional(&mut *transaction)
-        .await?
-        .ok_or(Error::InvalidTransferState)?;
-    if !same_delete_job(&record, &current) || current.cache_id != guard_id {
-        return Err(Error::DeleteGuardChanged);
-    }
-    let current_attachment = delete_source_attachment(&current)?;
-    if current_attachment.is_some()
-        && staged.as_ref().map(|(_, _, attachment)| attachment) != current_attachment.as_ref()
-    {
-        return Err(Error::DeleteGuardChanged);
-    }
+    let mut staged =
+        staged.map(|(file, destination, attachment)| (file, destination, attachment, Vec::new()));
+    let mut retry_delays = [0, 50, 250, 1_000].into_iter();
+    let mut last_retry_error = None;
+    let (_synced_write_guard, mut transaction, current, current_attachment) = loop {
+        let Some(delay_ms) = retry_delays.next() else {
+            return Err(last_retry_error.unwrap_or(Error::CacheUnavailable));
+        };
+        operation.ensure_active()?;
+        if delay_ms > 0 {
+            tokio::select! {
+                () = tokio::time::sleep(Duration::from_millis(delay_ms)) => {}
+                () = operation.cancellation().cancelled() => return Err(Error::Cancelled),
+            }
+        }
+
+        let synced_write_guard = state.synced_write_guard().await;
+        let mut transaction = state.pool().begin_with("BEGIN IMMEDIATE").await?;
+        let current = sqlx::query_as::<_, DeleteSourcePreflight>(DELETE_PREFLIGHT_SELECT)
+            .bind(job_id)
+            .bind(attempt_count)
+            .fetch_optional(&mut *transaction)
+            .await?
+            .ok_or(Error::DeleteGuardChanged)?;
+        if !same_delete_job(&record, &current) || current.cache_id != guard_id {
+            return Err(Error::DeleteGuardChanged);
+        }
+        let current_attachment = delete_source_attachment(&current)?;
+        if current_attachment.is_some()
+            && staged.as_ref().map(|(_, _, attachment, _)| attachment)
+                != current_attachment.as_ref()
+        {
+            return Err(Error::DeleteGuardChanged);
+        }
+
+        if current_attachment.is_some() {
+            let (file, destination, attachment, conflicts) =
+                staged.take().ok_or(Error::DeleteGuardChanged)?;
+            let expected_size = valid_plaintext_size(current.expected_size_bytes)?;
+            match reconcile_staged_delete_guard_once(
+                file,
+                &destination,
+                expected_size,
+                &current.expected_sha256,
+                conflicts,
+            )? {
+                DeleteGuardReconcile::Ready(conflicts) => drop(conflicts),
+                DeleteGuardReconcile::Retry {
+                    staged: file,
+                    conflicts,
+                    error,
+                } => {
+                    staged = Some((file, destination, attachment, conflicts));
+                    last_retry_error = Some(error);
+                    transaction.rollback().await?;
+                    drop(synced_write_guard);
+                    continue;
+                }
+            }
+        }
+
+        break (synced_write_guard, transaction, current, current_attachment);
+    };
     operation.ensure_active()?;
     operation.begin_commit()?;
 
-    if let Some((staged, destination, _)) = staged.filter(|_| current_attachment.is_some()) {
-        let expected_size = valid_plaintext_size(current.expected_size_bytes)?;
-        reconcile_staged_delete_guard(
-            staged,
-            &destination,
-            expected_size,
-            &current.expected_sha256,
-        )?;
+    if current_attachment.is_some() {
         let attachment = current_attachment
             .as_ref()
             .ok_or(Error::DeleteGuardChanged)?;
@@ -1015,6 +1054,7 @@ pub async fn commit_delete_guard<R: Runtime>(
         return Err(Error::DeleteGuardChanged);
     }
     transaction.commit().await?;
+    drop(_synced_write_guard);
     cleanup_linked_delete_guard(app, guard_id).await;
     Ok(())
 }
@@ -2173,90 +2213,123 @@ fn seal_delete_guard(
     Ok((metadata, guard))
 }
 
+enum DeleteGuardReconcile {
+    Ready(Vec<PathBuf>),
+    Retry {
+        staged: tempfile::NamedTempFile,
+        conflicts: Vec<PathBuf>,
+        error: Error,
+    },
+}
+
+#[cfg(test)]
 fn reconcile_staged_delete_guard(
     staged: tempfile::NamedTempFile,
     destination: &Path,
     expected_size: u64,
     expected_sha256: &str,
 ) -> Result<Vec<PathBuf>> {
+    match reconcile_staged_delete_guard_once(
+        staged,
+        destination,
+        expected_size,
+        expected_sha256,
+        Vec::new(),
+    )? {
+        DeleteGuardReconcile::Ready(conflicts) => Ok(conflicts),
+        DeleteGuardReconcile::Retry { error, .. } => Err(error),
+    }
+}
+
+fn reconcile_staged_delete_guard_once(
+    staged: tempfile::NamedTempFile,
+    destination: &Path,
+    expected_size: u64,
+    expected_sha256: &str,
+    mut conflicts: Vec<PathBuf>,
+) -> Result<DeleteGuardReconcile> {
     let parent = destination
         .parent()
         .ok_or(Error::LocalAttachmentUnavailable)?;
-    std::fs::create_dir_all(parent)?;
-    let mut staged = staged;
-    let mut conflicts = Vec::new();
+    if let Err(error) = std::fs::create_dir_all(parent) {
+        return Ok(DeleteGuardReconcile::Retry {
+            staged,
+            conflicts,
+            error: error.into(),
+        });
+    }
 
-    'reconcile: for _ in 0..8 {
-        if regular_file_matches_with_retry(destination, expected_size, expected_sha256)? {
-            return Ok(conflicts);
+    match regular_file_matches(destination, expected_size, expected_sha256) {
+        Ok(true) => return Ok(DeleteGuardReconcile::Ready(conflicts)),
+        Ok(false) => {}
+        Err(error) => {
+            return Ok(DeleteGuardReconcile::Retry {
+                staged,
+                conflicts,
+                error,
+            });
         }
-        if std::fs::symlink_metadata(destination).is_ok() {
+    }
+    match std::fs::symlink_metadata(destination) {
+        Ok(_) => {
             let conflict = unique_attachment_conflict_path(destination)?;
-            if rename_with_retry(destination, &conflict)? {
-                sync_destination_directory(parent)?;
-                conflicts.push(conflict);
+            match std::fs::rename(destination, &conflict) {
+                Ok(()) => {
+                    conflicts.push(conflict);
+                    if let Err(error) = sync_destination_directory(parent) {
+                        return Ok(DeleteGuardReconcile::Retry {
+                            staged,
+                            conflicts,
+                            error,
+                        });
+                    }
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => {
+                    return Ok(DeleteGuardReconcile::Retry {
+                        staged,
+                        conflicts,
+                        error: error.into(),
+                    });
+                }
             }
         }
-
-        for (index, delay_ms) in [0, 50, 250, 1_000].into_iter().enumerate() {
-            if delay_ms > 0 {
-                std::thread::sleep(Duration::from_millis(delay_ms));
-            }
-            match staged.persist_noclobber(destination) {
-                Ok(_) => {
-                    sync_destination_directory(parent)?;
-                    return Ok(conflicts);
-                }
-                Err(error) if error.error.kind() == std::io::ErrorKind::AlreadyExists => {
-                    staged = error.file;
-                    continue 'reconcile;
-                }
-                Err(error) if index < 3 => {
-                    staged = error.file;
-                }
-                Err(error) => return Err(Error::Io(error.error)),
-            }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => {
+            return Ok(DeleteGuardReconcile::Retry {
+                staged,
+                conflicts,
+                error: error.into(),
+            });
         }
     }
-    Err(Error::CacheUnavailable)
+    match staged.persist_noclobber(destination) {
+        Ok(_) => {
+            sync_destination_directory(parent)?;
+            Ok(DeleteGuardReconcile::Ready(conflicts))
+        }
+        Err(error) if error.error.kind() == std::io::ErrorKind::AlreadyExists => {
+            Ok(DeleteGuardReconcile::Retry {
+                staged: error.file,
+                conflicts,
+                error: Error::DeleteGuardChanged,
+            })
+        }
+        Err(error) => Ok(DeleteGuardReconcile::Retry {
+            staged: error.file,
+            conflicts,
+            error: Error::Io(error.error),
+        }),
+    }
 }
 
-fn regular_file_matches_with_retry(
-    path: &Path,
-    expected_size: u64,
-    expected_sha256: &str,
-) -> Result<bool> {
-    let mut last_error = None;
-    for delay_ms in [0, 50, 250, 1_000] {
-        if delay_ms > 0 {
-            std::thread::sleep(Duration::from_millis(delay_ms));
-        }
-        match std::fs::symlink_metadata(path) {
-            Ok(metadata) if !metadata.file_type().is_file() => return Ok(false),
-            Ok(_) => match file_matches(path, expected_size, expected_sha256) {
-                Ok(matches) => return Ok(matches),
-                Err(error) => last_error = Some(error),
-            },
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
-            Err(error) => last_error = Some(error.into()),
-        }
+fn regular_file_matches(path: &Path, expected_size: u64, expected_sha256: &str) -> Result<bool> {
+    match std::fs::symlink_metadata(path) {
+        Ok(metadata) if !metadata.file_type().is_file() => Ok(false),
+        Ok(_) => file_matches(path, expected_size, expected_sha256),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error.into()),
     }
-    Err(last_error.unwrap_or(Error::CacheUnavailable))
-}
-
-fn rename_with_retry(source: &Path, destination: &Path) -> Result<bool> {
-    let mut last_error = None;
-    for delay_ms in [0, 50, 250, 1_000] {
-        if delay_ms > 0 {
-            std::thread::sleep(Duration::from_millis(delay_ms));
-        }
-        match std::fs::rename(source, destination) {
-            Ok(()) => return Ok(true),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
-            Err(error) => last_error = Some(error),
-        }
-    }
-    Err(last_error.ok_or(Error::CacheUnavailable)?.into())
 }
 
 fn unique_attachment_conflict_path(destination: &Path) -> Result<PathBuf> {
@@ -3317,6 +3390,53 @@ mod tests {
             .is_empty()
         );
         assert_eq!(std::fs::read(destination_path).unwrap(), canonical);
+    }
+
+    #[test]
+    fn delete_guard_retry_keeps_the_plaintext_stage() {
+        let directory = tempfile::tempdir().unwrap();
+        let blocked_parent = directory.path().join("blocked-parent");
+        let destination = blocked_parent.join("attachment.bin");
+        let canonical = b"attachment retained across filesystem retry";
+        let expected_sha256 = hex_digest(Sha256::digest(canonical).as_slice());
+        let staged = tempfile::NamedTempFile::new_in(directory.path()).unwrap();
+        std::fs::write(staged.path(), canonical).unwrap();
+        std::fs::write(&blocked_parent, b"not a directory").unwrap();
+
+        let (staged, conflicts) = match reconcile_staged_delete_guard_once(
+            staged,
+            &destination,
+            canonical.len() as u64,
+            &expected_sha256,
+            Vec::new(),
+        )
+        .unwrap()
+        {
+            DeleteGuardReconcile::Retry {
+                staged,
+                conflicts,
+                error: Error::Io(_),
+            } => (staged, conflicts),
+            _ => panic!("blocked parent should produce a retryable filesystem error"),
+        };
+        assert!(staged.path().exists());
+
+        std::fs::remove_file(blocked_parent).unwrap();
+        let conflicts = match reconcile_staged_delete_guard_once(
+            staged,
+            &destination,
+            canonical.len() as u64,
+            &expected_sha256,
+            conflicts,
+        )
+        .unwrap()
+        {
+            DeleteGuardReconcile::Ready(conflicts) => conflicts,
+            DeleteGuardReconcile::Retry { .. } => panic!("retry should restore the attachment"),
+        };
+
+        assert!(conflicts.is_empty());
+        assert_eq!(std::fs::read(destination).unwrap(), canonical);
     }
 
     #[test]
