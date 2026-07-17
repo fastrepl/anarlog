@@ -33,7 +33,7 @@ For most people, the decision looks like this:
 | Anarlog | Desktop audio capture and local transcription | No | Markdown files on your computer | Local-first, bot-free meeting notes |
 | Tactiq | Browser extension using Teams web | No guest participant | Tactiq dashboard | Live transcription in the Teams web app |
 | Otter | Automated guest participant | Yes | Otter workspace | Auto-join, catch-up, and meeting automation |
-| Fireflies | Automated meeting participant | Yes | Fireflies and connected tools | Integration-heavy team workflows |
+| Fireflies | Meeting participant or desktop system-audio capture | Optional | Fireflies and connected tools | Integration-heavy team workflows |
 
 ![Bot-based and bot-free meeting-note workflows use different capture, storage, and AI architectures](/api/assets/blog/articles/best-ai-notetaker-for-microsoft-teams/teams-workflow-architecture.png)
 
@@ -46,6 +46,10 @@ A native Teams feature inherits Microsoft 365 policies. A meeting bot becomes an
 Yes. Teams provides both ordinary meeting recaps and AI-enhanced recap features.
 
 A standard Teams recap can contain the recording, transcript, shared files, notes, agenda, and follow-up tasks after a meeting that was recorded or transcribed. Intelligent Recap adds AI-generated notes, tasks, topics, chapters, and personalized timeline markers. Microsoft says Intelligent Recap is available through Teams Premium and Microsoft 365 Copilot licensing. [Microsoft documents the current recap experience here](https://support.microsoft.com/en-us/teams/meetings/recap-in-microsoft-teams).
+
+![Microsoft Teams Recap showing meeting content, AI summary, transcript, and speaker timeline](/api/assets/blog/library/products/microsoft-teams/recap/2026-07-17-recap.png)
+
+*Microsoft's official Recap example shows the meeting artifact, AI summary, transcript, and speaker timeline in one Teams view. [View the current Microsoft guide](https://support.microsoft.com/en-us/teams/meetings/recap-in-microsoft-teams).*
 
 That makes Microsoft's native workflow the logical starting point, not another product you should automatically replace.
 
@@ -104,7 +108,9 @@ Because capture happens on your device, Anarlog does not need to join the Teams 
 
 You can use a supported AI provider with your own key or connect a local model. This separates the transcription and note files from the model used to summarize them.
 
-![Anarlog displaying a locally stored meeting summary](/api/assets/blog/articles/best-ai-notetaker-for-microsoft-teams/anarlog-meeting-notes.png)
+![Anarlog displaying a locally stored meeting summary](/api/assets/blog/library/products/anarlog/desktop/2026-07-17-meeting-note.png)
+
+*A current Anarlog desktop note using staged sample data, captured from an isolated demo profile on July 17, 2026.*
 
 If the underlying workflow matters more than a feature checklist, see how [bot-free meeting notes differ from meeting-bot workflows](/blog/ai-meeting-notes-without-bot) and what to evaluate in a [local AI meeting-notes system](/blog/local-ai-meeting-notes).
 
@@ -132,6 +138,10 @@ Anarlog is the strongest fit when "private" means controlling the artifact itsel
 **Best for:** Teams users who join through a browser and want a live transcript without a guest participant.
 
 Tactiq uses a Chrome or Edge extension to transcribe Teams meetings in real time. Its official instructions require the web version of Teams rather than the desktop application. Transcripts are available afterward through the Tactiq dashboard. [Tactiq documents the Teams web requirement in its current setup guide](https://help.tactiq.io/en/articles/9560779-how-to-use-tactiq-with-microsoft-teams).
+
+![Tactiq opening live transcription for a meeting in Microsoft Teams on the web](/api/assets/blog/library/products/tactiq/microsoft-teams/2026-07-17-live-transcription.gif)
+
+*Tactiq's official Teams guide demonstrates the browser-extension workflow from the meeting calendar into live transcription. [View the current Tactiq guide](https://help.tactiq.io/en/articles/9560779-how-to-use-tactiq-with-microsoft-teams).*
 
 This is a useful middle ground between a meeting bot and a desktop recorder. The extension operates in the browser session instead of joining the call as another attendee.
 
@@ -163,6 +173,10 @@ Otter can also attend a meeting when the user is absent. That is a meaningful di
 
 Otter explicitly states that its Notetaker cannot join anonymously: it appears as a guest participant and may need to be admitted under the meeting's guest policies. [Otter's current Notetaker documentation describes its Teams behavior and visibility](https://help.otter.ai/hc/en-us/articles/4425393298327-Otter-Notetaker-Overview).
 
+![Otter Notetaker calendar controls, visible meeting participant, and live transcript workspace](/api/assets/blog/library/products/otter/notetaker/2026-07-17-notetaker-overview.png)
+
+*Otter's official overview shows the Notetaker joining a call as a visible guest while the user follows the live transcript in Otter. [View the current Otter guide](https://help.otter.ai/hc/en-us/articles/4425393298327-Otter-Notetaker-Overview).*
+
 ### Strengths
 
 - Calendar synchronization and automatic joining
@@ -187,13 +201,17 @@ Choose Otter when unattended capture and a centralized meeting archive justify h
 
 **Best for:** Teams that want meeting notes routed into other business systems.
 
-Fireflies uses a meeting participant to record, transcribe, and take notes. Its value is less about disappearing into Teams and more about connecting meeting output to a wider automation workflow.
+Fireflies now offers two relevant capture paths. Its Notetaker can join a Teams meeting as a visible participant, or its desktop app can capture system audio without adding a bot. The bot-free mode generates a transcript and summary but does not save separate audio or video files, and it does not provide named speaker labels. For Microsoft Teams Business accounts, Fireflies can post a consent message in the meeting chat when system-audio capture starts. [Fireflies documents the current bot-free desktop workflow and its limitations](https://guide.fireflies.ai/articles/6666374717-how-to-record-meetings-without-a-bot-on-the-fireflies-desktop-app).
 
-Fireflies' own Teams integration documentation states that its Notetaker joins as a participant and can route the resulting transcript, audio, and notes into connected tools. [The official workflow page describes this capture model](https://fireflies.ai/integrations/workflows/microsoft-teams-meet/workplace).
+Fireflies' Microsoft Teams integration can then send meeting notes, summaries, transcripts, recordings when available, and links into a selected Teams channel. [Its current Teams integration guide explains that delivery workflow](https://guide.fireflies.ai/articles/8966445661-how-to-set-up-fireflies-microsoft-teams-integration).
+
+![Fireflies meeting summary and action items posted in a Microsoft Teams channel](/api/assets/blog/library/products/fireflies/microsoft-teams/2026-07-17-meeting-notes.png)
+
+*This still from Fireflies' official integration guide shows a generated meeting summary delivered into a Teams channel. [View the current Fireflies guide](https://guide.fireflies.ai/articles/8966445661-how-to-set-up-fireflies-microsoft-teams-integration).*
 
 ### Strengths
 
-- Automated capture through a meeting participant
+- Choice of a meeting participant or desktop system-audio capture
 - Broad integration catalog
 - Centralized transcripts and recordings
 - Useful for sales, recruiting, and other repeatable workflows
@@ -201,8 +219,8 @@ Fireflies' own Teams integration documentation states that its Notetaker joins a
 
 ### Tradeoffs
 
-- A bot is visible in the meeting
-- Lobby and external-participant policies can interfere
+- Bot mode is visible in the meeting and depends on lobby policy
+- Bot-free mode loses named speaker labels and separate audio or video files
 - The resulting archive lives in another cloud workspace
 - Integration breadth can create additional administration
 - Teams need clear controls for auto-join, sharing, and retention
