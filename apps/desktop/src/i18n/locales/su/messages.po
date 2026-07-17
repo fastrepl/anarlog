@@ -412,10 +412,6 @@ msgstr ""
 msgid "comment"
 msgstr ""
 
-#: src/session-sharing/index.tsx
-msgid "Comment and edit permissions are saved, but shared notes are read-only in this build."
-msgstr ""
-
 #: src/task/resource-view.tsx
 msgid "commented on"
 msgstr ""
@@ -914,6 +910,10 @@ msgstr ""
 msgid "Invite links are copied so you can send them privately."
 msgstr ""
 
+#: src/session-sharing/index.tsx
+msgid "Invited editors can edit on the web. If both copies change, sharing pauses until you resolve it."
+msgstr ""
+
 #: src/contacts/details.tsx
 msgid "Job Title"
 msgstr ""
@@ -936,6 +936,10 @@ msgstr ""
 
 #: src/settings/general/app-settings.tsx
 msgid "Keep Anarlog available from the menu bar."
+msgstr ""
+
+#: src/session-sharing/index.tsx
+msgid "Keep desktop edits"
 msgstr ""
 
 #: src/settings/general/index.tsx
@@ -1282,6 +1286,10 @@ msgstr ""
 
 #: src/settings/todo/github.tsx
 msgid "Open repository on GitHub"
+msgstr ""
+
+#: src/session-sharing/index.tsx
+msgid "Open web copy"
 msgstr ""
 
 #: src/shared-notes/index.tsx
@@ -1708,6 +1716,10 @@ msgstr ""
 msgid "Shared with me · View only"
 msgstr ""
 
+#: src/session-sharing/index.tsx
+msgid "Sharing paused to protect your edits"
+msgstr ""
+
 #: src/sidebar/timeline/item.tsx
 msgid "Show All Recurring Events"
 msgstr ""
@@ -1965,6 +1977,10 @@ msgstr ""
 
 #: src/chat/components/message/loading.tsx
 msgid "Thinking..."
+msgstr ""
+
+#: src/session-sharing/index.tsx
+msgid "This note changed on both desktop and the web. Open the web copy to review it. To keep that version, close this dialog, replace this note with the web content, then switch to another note so Anarlog can reconcile. Otherwise, publish the desktop edits over it."
 msgstr ""
 
 #. placeholder {0}: status.fileCount
