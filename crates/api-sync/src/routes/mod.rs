@@ -18,6 +18,8 @@ use crate::error::{Result, SyncError};
 use crate::snapshot::{MAX_SNAPSHOT_BODY_BYTES, sanitize_document, sanitize_title};
 use crate::state::AppState;
 
+mod attachment_backups;
+
 const WORKSPACE_PROJECTION_SELECT: &str = "id,user_id,role,created_at,updated_at,workspace:workspaces!inner(id,owner_user_id,kind,name,created_at,updated_at)";
 const WORKSPACE_PROJECTION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 const MAX_TOKEN_WORKSPACES: usize = 128;
@@ -179,7 +181,9 @@ struct PostgrestError {
 pub struct ApiDoc;
 
 pub fn openapi() -> utoipa::openapi::OpenApi {
-    ApiDoc::openapi()
+    let mut openapi = ApiDoc::openapi();
+    openapi.merge(attachment_backups::openapi());
+    openapi
 }
 
 pub fn router(state: AppState) -> Router {
@@ -191,6 +195,7 @@ pub fn router(state: AppState) -> Router {
             put(publish_session_share_snapshot)
                 .layer(DefaultBodyLimit::max(MAX_SNAPSHOT_REQUEST_BYTES)),
         )
+        .merge(attachment_backups::router())
         .with_state(state)
 }
 
