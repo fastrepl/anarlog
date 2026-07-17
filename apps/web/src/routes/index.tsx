@@ -369,16 +369,6 @@ function Component() {
               Jot notes during the call. Anarlog turns them into an editable
               summary.
             </p>
-            <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-[#6f675d]">
-              Connect Google Calendar or Outlook Calendar to view upcoming
-              events and attach private notes and memos.{" "}
-              <a
-                href="https://docs.anarlog.so/calendar"
-                className="underline underline-offset-4 hover:text-[#181613]"
-              >
-                Learn about calendar connections.
-              </a>
-            </p>
             <div className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-3 text-sm">
               <DownloadButton />
             </div>
