@@ -147,7 +147,7 @@ vi.mock("@lingui/react", () => ({
   useLingui: () => ({
     _: translate,
     t: translate,
-    i18n: { locale: "en" },
+    i18n: { _: translate, locale: "en" },
   }),
 }));
 

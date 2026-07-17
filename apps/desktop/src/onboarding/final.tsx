@@ -1,4 +1,5 @@
 import { Icon } from "@iconify-icon/react";
+import { useLingui } from "@lingui/react";
 import { Trans } from "@lingui/react/macro";
 import { Loader2Icon } from "lucide-react";
 import { useRef, useState } from "react";
@@ -69,6 +70,7 @@ export function FinalSection({
 }: {
   onContinue: (sessionId: string) => void;
 }) {
+  const { i18n } = useLingui();
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const welcomeSessionRef = useRef<string | null>(null);
 
@@ -102,7 +104,10 @@ export function FinalSection({
       </OnboardingButton>
       {status === "error" && (
         <p className="text-sm text-red-500" role="alert">
-          Couldn't open Anarlog. Please try again.
+          {i18n._({
+            id: "onboarding.finish-error",
+            message: "Couldn't open Anarlog. Please try again.",
+          })}
         </p>
       )}
     </div>
