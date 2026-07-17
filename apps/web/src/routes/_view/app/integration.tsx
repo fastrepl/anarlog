@@ -24,8 +24,16 @@ export const INTEGRATION_DISPLAY: Record<
 > = {
   "google-calendar": {
     name: "Google Calendar",
-    description: "Connect your Google Calendar to sync your meetings",
-    connectingHint: "Follow the prompts to connect your Google account",
+    description:
+      "Review how Anarlog uses Google Calendar data, then continue to Google",
+    connectingHint: "Finish authorization with Google, then return to Anarlog",
+  },
+  outlook: {
+    name: "Outlook Calendar",
+    description:
+      "Review how Anarlog uses Outlook Calendar data, then continue to Microsoft",
+    connectingHint:
+      "Finish authorization with Microsoft, then return to Anarlog",
   },
   linear: {
     name: "Linear",

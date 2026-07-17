@@ -7,7 +7,6 @@ import { createClient } from "@hypr/api-client/client";
 
 import { env } from "@/env";
 import { getAccessToken } from "@/functions/access-token";
-import { useMountEffect } from "@/hooks/useMountEffect";
 
 import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
 import { getIntegrationDisplay, Route } from "./integration";
@@ -16,13 +15,15 @@ export function ConnectFlow() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const isGoogleCalendar = search.integration_id === "google-calendar";
+  const isOutlookCalendar = search.integration_id === "outlook";
+  const isConnectedCalendar = isGoogleCalendar || isOutlookCalendar;
   const [nango] = useState(() => new Nango());
   const [status, setStatus] = useState<
     "idle" | "loading" | "connecting" | "success" | "error"
-  >(isGoogleCalendar ? "loading" : "idle");
+  >("idle");
   const statusRef = useRef<
     "idle" | "loading" | "connecting" | "success" | "error"
-  >(isGoogleCalendar ? "loading" : "idle");
+  >("idle");
   const inFlightRef = useRef(false);
 
   const display = getIntegrationDisplay(search.integration_id);
@@ -109,13 +110,9 @@ export function ConnectFlow() {
     connect.setSessionToken(sessionToken);
   };
 
-  useMountEffect(() => {
-    if (!isGoogleCalendar) return;
-    void handleConnect();
-  });
-
   const isLoading = status === "loading";
   const isConnecting = status === "connecting";
+  const consentProvider = isGoogleCalendar ? "Google" : "Microsoft";
 
   return (
     <IntegrationPageLayout>
@@ -127,6 +124,42 @@ export function ConnectFlow() {
           {isConnecting ? display.connectingHint : display.description}
         </p>
       </div>
+
+      {isConnectedCalendar && !isConnecting && status !== "success" && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-stone-200 bg-stone-50 p-5 text-left text-sm leading-6 text-stone-700">
+          <p>
+            Anarlog will read your calendar list and event details—including
+            titles, times, participants, locations, and meeting links—to show
+            upcoming events and associate them with your private notes.
+          </p>
+          <p>
+            Access is read-only. Anarlog cannot create, edit, or delete events.
+            Calendar API responses pass through Nango's encrypted proxy before
+            reaching Anarlog, and Nango stores the encrypted OAuth credentials
+            needed to maintain the connection. Calendar data is then stored
+            locally on your device.
+          </p>
+          <p>
+            If you enable encrypted Cloud Sync or share a note, event context
+            associated with that note can be included in the content you choose
+            to sync or share.
+          </p>
+          <p>
+            Read our{" "}
+            <a className="underline" href="/privacy">
+              Privacy Policy
+            </a>{" "}
+            and{" "}
+            <a
+              className="underline"
+              href="https://docs.anarlog.so/calendar#manage-or-delete-connected-calendar-data"
+            >
+              calendar data instructions
+            </a>
+            .
+          </p>
+        </div>
+      )}
 
       {(status === "idle" || isLoading) && (
         <IntegrationButton onClick={handleConnect} disabled={isLoading}>
@@ -152,7 +185,11 @@ export function ConnectFlow() {
               />
             </svg>
           )}
-          {isLoading ? "Connecting…" : `Connect ${display.name}`}
+          {isLoading
+            ? "Connecting…"
+            : isConnectedCalendar
+              ? `Continue to ${consentProvider}`
+              : `Connect ${display.name}`}
         </IntegrationButton>
       )}
 

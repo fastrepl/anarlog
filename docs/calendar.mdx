@@ -7,6 +7,8 @@ Open **Calendar** in the sidebar, add an account, and enable the calendars you w
 
 Anarlog uses calendar events for titles, times, participants, reminders, and meeting links. It does not add a bot to your calls.
 
+Google and Outlook connections are read-only. Anarlog reads calendar and event details to show upcoming events and associate them with your notes. It does not create, edit, or delete events in Google Calendar or Outlook.
+
 ## Apple Calendar
 
 Apple Calendar is available on macOS.
@@ -28,6 +30,32 @@ If access was denied, open **Settings → Permissions** in Anarlog. Use **Open**
 1. Sign in to Anarlog.
 2. Choose **Outlook Calendar**, then finish authorization in your browser.
 3. Return to Anarlog and enable the calendars you want to sync.
+
+## Manage or delete connected calendar data
+
+To control which calendars appear in Anarlog, open **Calendar**, expand the provider, and turn individual calendars on or off.
+
+To disconnect Google Calendar or Outlook Calendar:
+
+1. Open **Calendar** and expand **Google** or **Outlook**.
+2. Hover over or right-click the connected account heading.
+3. Open **•••** and choose **Disconnect**.
+
+Disconnecting stops future access and syncs. After Anarlog refreshes, the account's cached calendars and events disappear from active calendar views. Your notes and memos remain, including event context already associated with a note. The OAuth connection becomes inaccessible immediately and its stored credentials are scheduled for permanent deletion within 31 days.
+
+You can also revoke Anarlog's access from your [Google Account connections](https://myaccount.google.com/connections), the [Microsoft My Apps portal](https://myapplications.microsoft.com) for a work or school account, or [Microsoft account app access](https://account.live.com/consent/Manage) for a personal account.
+
+To permanently remove calendar-derived data retained on a Mac, you currently need to remove all local Anarlog app data from that Mac:
+
+1. Export anything you want to keep, then quit Anarlog.
+2. In Finder, choose **Go → Go to Folder**.
+3. Move any of these folders that exist to Trash:
+   - `~/Library/Application Support/anarlog`
+   - `~/Library/Application Support/hyprnote`
+   - `~/Library/Application Support/com.hyprnote.stable`
+4. Empty Trash before reopening Anarlog.
+
+This removes Anarlog's local database and settings on that Mac, including cached calendar data and event context stored with local records. It can also remove other Anarlog data stored in those folders. It does not delete files you exported or copies you chose to sync or share. You can request deletion of your Anarlog account and cloud-stored data at [hello@anarlog.so](mailto:hello@anarlog.so). Contact us before deleting anything if you need help identifying the correct folder.
 
 <Note>
   Google and Outlook connections are included with Anarlog Pro. Apple Calendar uses the calendar accounts already connected to your Mac.

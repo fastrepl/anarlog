@@ -1,5 +1,5 @@
 ---
-date: "2026-07-16"
+date: "2026-07-17"
 title: "Privacy Policy"
 summary: "How we collect, use, and protect your personal information"
 ---
@@ -37,13 +37,13 @@ Analytics and telemetry events are designed to avoid raw meeting audio, transcri
 
 ### 3.3 Google Calendar and Microsoft Outlook Calendar Accounts
 
-If you connect Google Calendar or Microsoft Outlook Calendar through Microsoft Graph, we collect and process the data needed to display your calendars and upcoming events in Anarlog and let you create personal notes and memos associated with those events. This may include:
+If you connect Google Calendar or Microsoft Outlook Calendar, we use the Google Calendar API or Microsoft Graph, respectively, to collect and process the data needed to display your calendars and upcoming events in Anarlog and let you create personal notes and memos associated with those events. This may include:
 
 - **Calendar Information:** Calendar IDs, names, colors, access or ownership metadata, and source or account identifiers
 - **Event Information:** Event IDs, titles, descriptions, locations, meeting links, start and end times, time zones, recurrence metadata, organizer details, and attendee details such as names, email addresses, and RSVP status
 - **Connection Information:** Provider connection IDs, connection status, and the Google or Microsoft account identity associated with the connection
 
-We use connected calendar data to display calendars and upcoming events and to support the personal notes and memos you create for those events. We do not use connected calendar data for advertising, marketing personalization, sale to data brokers, or training generalized AI models. The use of information received from Google Workspace APIs adheres to the [Google Workspace API User Data and Developer Policy](https://developers.google.com/workspace/workspace-api-user-data-developer-policy), including the Limited Use requirements.
+We use connected calendar data to display calendars and upcoming events and to support the personal notes and memos you create for those events. Calendar API responses pass through Nango's encrypted API proxy before reaching Anarlog. We do not use connected calendar data for advertising, marketing personalization, sale to data brokers, or training generalized AI models. The use of information received from Google Workspace APIs adheres to the [Google Workspace API User Data and Developer Policy](https://developers.google.com/workspace/workspace-api-user-data-developer-policy), including the Limited Use requirements.
 
 ## 4. How We Use Your Information
 
@@ -60,9 +60,9 @@ We use your information to:
 
 ## 5. Data Storage and Security
 
-We implement appropriate technical and organizational security measures to protect your information against unauthorized access, alteration, disclosure, or destruction. Your data is encrypted in transit and at rest.
+We implement appropriate technical and organizational security measures to protect your information against unauthorized access, alteration, disclosure, or destruction. We use HTTPS/TLS to protect data transmitted over external networks. The operating system controls at-rest protection for data stored locally on your device, including any device-level encryption you enable.
 
-For connected calendars, synced calendar and event data is primarily stored locally on your device. We may store limited connection metadata on our backend (integration ID, connection ID, connection status, error state, timestamps) needed to operate the integration securely. We protect this data in transit using HTTPS/TLS and at rest using encryption and access controls.
+For connected calendars, calendar and event data is primarily stored in Anarlog's local application database on your device. Nango, our integration provider, stores the OAuth access and refresh tokens needed to maintain the connection. Nango encrypts these credentials at rest using AES-256-GCM and protects data in transit using TLS. We store limited connection metadata on our backend (integration ID, connection ID, connection status, error state, and timestamps) needed to operate the integration securely.
 
 No method of transmission over the Internet or electronic storage is 100% secure. While we strive to use commercially acceptable means to protect your information, we cannot guarantee its absolute security.
 
@@ -77,7 +77,7 @@ We do not sell, trade, or rent your personal information to third parties, inclu
 We may share your information with third-party service providers who perform services on our behalf, such as:
 
 - **Cloud hosting and infrastructure providers** (e.g., Fly.io, Netlify, Cloudflare, Supabase) for hosting our application and storing data securely
-- **Integration providers** (e.g., Nango) for OAuth connection management and calendar sync infrastructure
+- **Integration providers** (e.g., Nango) for encrypted OAuth credential storage, token refresh, and the API proxy used to retrieve calendar data
 - **Payment processors** (e.g., Stripe) for processing payments securely
 - **Analytics services** (e.g., PostHog, Google Analytics) for understanding how users interact with our Service
 - **Speech-to-text providers** (e.g., Deepgram, AssemblyAI, Soniox) for cloud-based transcription when you enable this feature
@@ -90,11 +90,14 @@ We may share your information with third-party service providers who perform ser
 When you connect Google Calendar or Microsoft Outlook Calendar, we may share connected calendar data only:
 
 - With service providers directly involved in authenticating the connection, syncing calendars and events, and delivering the calendar features you enable
+- Through encrypted Cloud Sync or content you choose to share when event context has been associated with a note and you enable that user-facing feature
 - For security purposes, such as investigating abuse, preventing fraud, or fixing integration failures
 - To comply with applicable law, regulation, legal process, or enforceable governmental request
-- As part of a merger, acquisition, or asset sale, subject to applicable legal requirements
+- As part of a merger, acquisition, or asset sale, only after obtaining your explicit prior consent
 
 We do not sell connected calendar data or transfer it to third parties for advertising, marketing, or data broker purposes.
+
+We do not permit employees, contractors, or other people to read connected calendar data unless you give explicit consent for support involving specific data, access is necessary to investigate a security issue or abuse, or access is required by applicable law.
 
 ### 6.4 Legal Requirements
 
@@ -104,7 +107,7 @@ We may disclose your information if required by law or in response to valid requ
 
 ### 7.1 Access and Portability
 
-Your notes are stored as plain markdown files on your device — you have full access at all times.
+Your notes are stored locally on your device. You can access them in Anarlog and use Anarlog's export tools to create portable copies.
 
 ### 7.2 Correction and Deletion
 
@@ -112,7 +115,7 @@ You may request account deletion at any time by contacting us at hello@anarlog.s
 
 ### 7.3 Data Retention
 
-If you connect Google Calendar or Microsoft Outlook Calendar, synced calendar and event data is retained locally on your device until you delete it, disconnect the account, or remove local Anarlog data. On our systems, we retain limited connection metadata while the integration is active and for up to 30 days after disconnection or account deletion, except where a longer period is required by law. If you delete your account, we will delete your cloud-stored data within 30 days, except where required to retain it for legal purposes.
+If you connect Google Calendar or Microsoft Outlook Calendar, calendar and event data is retained locally on your device. Disconnecting stops future access and removes the data from active calendar views after Anarlog refreshes, but underlying local records and event context already associated with notes may remain until you remove local Anarlog app data. When a connection is deleted, our integration provider makes it inaccessible immediately and permanently deletes its credentials and associated metadata after its default 31-day retention period. Before requesting account deletion, disconnect each connected calendar account. If you cannot access the app, contact us so we can delete the connection for you. We delete cloud-stored data controlled by Anarlog within 30 days, except where required to retain it for legal purposes.
 
 ### 7.4 Analytics and Telemetry Controls
 
@@ -121,7 +124,7 @@ If you connect Google Calendar or Microsoft Outlook Calendar, synced calendar an
 
 ### 7.5 Connected Account Controls
 
-You can disconnect Google Calendar or Microsoft Outlook Calendar in your account integrations settings. Disconnecting stops future syncs. Calendar and event data already synced locally to your device remains until you remove it or delete local app data.
+You can choose which calendars Anarlog displays or disconnect an account from the Calendar sidebar. Disconnecting stops future access and syncs; it does not delete personal notes or memos you created. Follow our [connected calendar data instructions](https://docs.anarlog.so/calendar#manage-or-delete-connected-calendar-data) to manage calendars, disconnect an account, revoke provider access, or permanently remove locally retained calendar data. Permanently removing local calendar data currently requires removing all local Anarlog app data from that device.
 
 ## 8. International Data Transfers
 
