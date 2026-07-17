@@ -1,7 +1,9 @@
 {
   "name": "@hypr/supabase",
+  "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./billing": "./src/billing.ts",
     "./middleware": "./src/middleware.ts",
     "./storage": "./src/storage.ts"
   },

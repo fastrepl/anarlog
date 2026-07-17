@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./trial": "./src/trial.ts",
     "./ui": "./src/plan-feature-list.tsx"
   },
   "dependencies": {

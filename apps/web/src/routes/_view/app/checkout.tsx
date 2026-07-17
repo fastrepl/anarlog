@@ -3,6 +3,10 @@ import { z } from "zod";
 
 import { createCheckoutSession } from "@/functions/billing";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
+import {
+  addInternalReturnPathSearch,
+  sanitizeInternalReturnPath,
+} from "@/lib/auth-redirect";
 
 const validateSearch = z.object({
   period: z.enum(["monthly", "yearly"]).catch("monthly"),
@@ -15,11 +19,13 @@ const validateSearch = z.object({
   source: z
     .enum(["onboarding", "settings", "trial_ended", "feature_gate", "unknown"])
     .catch("unknown"),
+  return_to: z.string().optional(),
 });
 
 export const Route = createFileRoute("/_view/app/checkout")({
   validateSearch,
   beforeLoad: async ({ search }) => {
+    const returnTo = sanitizeInternalReturnPath(search.return_to);
     let url: string | null | undefined;
     try {
       ({ url } = await createCheckoutSession({
@@ -29,6 +35,7 @@ export const Route = createFileRoute("/_view/app/checkout")({
           scheme: search.scheme,
           trial: search.trial,
           source: search.source,
+          returnTo,
         },
       }));
     } catch (e) {
@@ -49,6 +56,8 @@ export const Route = createFileRoute("/_view/app/checkout")({
       throw redirect({ href: `/callback/billing?${params.toString()}` } as any);
     }
 
-    throw redirect({ href: `/app/account?${params.toString()}` } as any);
+    throw redirect({
+      href: addInternalReturnPathSearch(returnTo, Object.fromEntries(params)),
+    } as any);
   },
 });

@@ -516,6 +516,7 @@ impl CleanupWorker {
                         ["userId", "user_id", "userID"]
                             .into_iter()
                             .filter_map(|key| metadata.get(key).map(String::as_str))
+                            .filter(|owner_id| !owner_id.is_empty())
                             .collect::<Vec<_>>()
                     })
                     .unwrap_or_default();
@@ -1284,7 +1285,10 @@ mod tests {
         mount_account_claim_with_stripe(&server, false, false, Some(CUSTOMER), false, true).await;
         mount_stripe_customer(
             &server,
-            json!({ "userId": "00000000-0000-4000-8000-000000000599" }),
+            json!({
+                "userId": OWNER,
+                "user_id": "00000000-0000-4000-8000-000000000599"
+            }),
             None,
         )
         .await;
@@ -1307,7 +1311,12 @@ mod tests {
     async fn verifies_a_legacy_stripe_customer_by_the_auth_email() {
         let server = MockServer::start().await;
         mount_account_claim_with_stripe(&server, false, false, Some(CUSTOMER), false, true).await;
-        mount_stripe_customer(&server, json!({}), Some("owner@example.com")).await;
+        mount_stripe_customer(
+            &server,
+            json!({ "userId": "", "user_id": "" }),
+            Some("owner@example.com"),
+        )
+        .await;
         Mock::given(method("GET"))
             .and(path(format!("/auth/v1/admin/users/{OWNER}")))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({

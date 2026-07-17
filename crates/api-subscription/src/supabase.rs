@@ -224,6 +224,29 @@ impl SupabaseClient {
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))
     }
 
+    pub async fn admin_release_pro_trial_reservation(
+        &self,
+        user_id: &str,
+        reservation_id: &str,
+    ) -> Result<()> {
+        #[derive(Serialize)]
+        struct Request<'a> {
+            p_user_id: &'a str,
+            p_reservation_id: &'a str,
+        }
+
+        let _: Value = self
+            .admin_rpc(
+                "release_pro_trial_reservation",
+                &Request {
+                    p_user_id: user_id,
+                    p_reservation_id: reservation_id,
+                },
+            )
+            .await?;
+        Ok(())
+    }
+
     pub async fn begin_account_deletion(&self, user_id: &str) -> Result<()> {
         #[derive(Serialize)]
         struct Request<'a> {

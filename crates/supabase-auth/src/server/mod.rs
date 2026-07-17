@@ -63,7 +63,7 @@ impl SupabaseAuth {
     ) -> Result<crate::Claims> {
         let claims = self.verify_token(token).await?;
 
-        if !claims.entitlements.contains(&entitlement.to_string()) {
+        if !claims.has_entitlement(entitlement) {
             return Err(Error::MissingEntitlement(entitlement.to_string()));
         }
 
@@ -79,7 +79,7 @@ impl SupabaseAuth {
 
         let has_any = entitlements
             .iter()
-            .any(|e| claims.entitlements.contains(&e.to_string()));
+            .any(|entitlement| claims.has_entitlement(entitlement));
 
         if !has_any {
             return Err(Error::MissingEntitlement(entitlements.join(" or ")));

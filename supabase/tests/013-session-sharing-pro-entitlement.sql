@@ -1,5 +1,5 @@
 begin;
-select plan(59);
+select plan(62);
 
 select tests.create_supabase_user('pro_share_owner', 'pro-share-owner@example.com');
 select tests.create_supabase_user('pro_share_recipient', 'pro-share-recipient@example.com');
@@ -196,6 +196,65 @@ select throws_ok(
   '42501',
   'hyprnote pro entitlement required',
   'User-editable metadata cannot forge the Pro entitlement'
+);
+
+select tests.authenticate_as('pro_share_owner');
+
+select set_config(
+  'request.jwt.claims',
+  jsonb_set(
+    jsonb_set(
+      (select auth.jwt()),
+      '{subscription_status}',
+      '"trialing"'::jsonb,
+      true
+    ),
+    '{trial_end}',
+    to_jsonb(extract(epoch from now() + interval '1 day')::bigint),
+    true
+  )::text,
+  true
+);
+
+select lives_ok(
+  $$
+    select *
+    from public.create_session_share(auth.uid(), 'valid-trial-share')
+  $$,
+  'An unexpired server-issued trial receives Pro sharing access'
+);
+
+select tests.authenticate_as('pro_share_owner');
+
+select set_config(
+  'request.jwt.claims',
+  jsonb_set(
+    jsonb_set(
+      jsonb_set(
+        (select auth.jwt()),
+        '{entitlements}',
+        '["hyprnote_pro"]'::jsonb,
+        true
+      ),
+      '{subscription_status}',
+      '"trialing"'::jsonb,
+      true
+    ),
+    '{trial_end}',
+    to_jsonb(extract(epoch from now() - interval '1 day')::bigint),
+    true
+  )::text,
+  true
+);
+
+select throws_ok(
+  $$
+    select *
+    from public.create_session_share(auth.uid(), 'expired-trial-share')
+  $$,
+  '42501',
+  'hyprnote pro entitlement required',
+  'An expired trial no longer receives Pro sharing access even before entitlement propagation catches up'
 );
 
 select tests.authenticate_as_hyprnote_pro('pro_share_owner');
@@ -925,6 +984,43 @@ select results_eq(
   array['commenter'::text],
   'An expired owner can downgrade a named grant'
 );
+
+select tests.clear_authentication();
+select tests.authenticate_as('pro_share_recipient');
+
+select set_config(
+  'request.jwt.claims',
+  jsonb_set(
+    jsonb_set(
+      (select auth.jwt()),
+      '{subscription_status}',
+      '"trialing"'::jsonb,
+      true
+    ),
+    '{trial_end}',
+    to_jsonb(extract(epoch from now() - interval '1 day')::bigint),
+    true
+  )::text,
+  true
+);
+
+select results_eq(
+  $$
+    select capability
+    from public.resolve_my_session_access(
+      (
+        select share_id
+        from session_sharing_pro_test_state
+        where name = 'main_share'
+      )
+    )
+  $$,
+  array['commenter'::text],
+  'Trial expiry does not revoke a separately granted collaboration role'
+);
+
+select tests.clear_authentication();
+select tests.authenticate_as('pro_share_owner');
 
 select lives_ok(
   $$

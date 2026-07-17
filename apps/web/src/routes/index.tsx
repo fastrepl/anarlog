@@ -13,6 +13,7 @@ import { z } from "zod";
 
 import {
   MARKETING_PLAN_TIERS,
+  PRO_TRIAL_DAYS,
   type MarketingPlanData,
   PlanFeatureList,
 } from "@hypr/pricing";
@@ -549,7 +550,9 @@ function PricingCard({ plan }: { plan: MarketingPlanData }) {
               : "bg-[#f4efe6] text-[#181613] hover:bg-[#eadfce]",
           ])}
         >
-          {plan.price ? "Start 14-day trial" : "Download for free"}
+          {plan.price
+            ? `Download and start your ${PRO_TRIAL_DAYS}-day Pro trial`
+            : "Download for free"}
         </a>
       </div>
     </article>

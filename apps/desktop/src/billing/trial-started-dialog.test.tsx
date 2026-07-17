@@ -1,6 +1,8 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { PRO_TRIAL_DAYS } from "@hypr/pricing";
+
 import { TrialStartedDialog } from "./trial-started-dialog";
 
 describe("TrialStartedDialog", () => {
@@ -11,7 +13,7 @@ describe("TrialStartedDialog", () => {
       <TrialStartedDialog
         open
         onOpenChange={() => {}}
-        trialDaysRemaining={14}
+        trialDaysRemaining={PRO_TRIAL_DAYS}
         hasPaymentMethod
       />,
     );
@@ -25,11 +27,24 @@ describe("TrialStartedDialog", () => {
       <TrialStartedDialog
         open
         onOpenChange={() => {}}
-        trialDaysRemaining={14}
+        trialDaysRemaining={PRO_TRIAL_DAYS}
         hasPaymentMethod={false}
       />,
     );
 
     expect(screen.getByText(/Add a payment method/)).toBeTruthy();
+  });
+
+  it("uses the product trial duration while billing refreshes", () => {
+    render(
+      <TrialStartedDialog
+        open
+        onOpenChange={() => {}}
+        trialDaysRemaining={null}
+        hasPaymentMethod={false}
+      />,
+    );
+
+    expect(screen.getByText(new RegExp(`${PRO_TRIAL_DAYS}-day`))).toBeTruthy();
   });
 });
