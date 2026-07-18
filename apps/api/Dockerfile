@@ -26,6 +26,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
 COPY Cargo.toml Cargo.lock ./
 RUN sed -i '/^members = \[/,/^\]/c\members = ["apps/api", "crates/*"]' Cargo.toml
 COPY crates crates
+COPY packages/pricing/src/trial-policy.json packages/pricing/src/trial-policy.json
 COPY apps/api apps/api
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
