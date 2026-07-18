@@ -208,6 +208,16 @@ function resolveSourceWorkspace(
     ) {
       return accountUserId;
     }
+    if (
+      !row.assigned_workspace_kind &&
+      isLegacyWorkspaceBinding(
+        assignedWorkspaceId,
+        row.binding_json,
+        accountUserId,
+      )
+    ) {
+      return accountUserId;
+    }
     throw new Error("The personal workspace is unavailable for sharing");
   }
 

@@ -380,6 +380,7 @@ describe("SessionShareButton", () => {
 
   afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
   });
 
   it("starts sign-in before attempting to share for a signed-out user", () => {
@@ -443,6 +444,9 @@ describe("SessionShareButton", () => {
   });
 
   it("bootstraps an existing share after its first snapshot publish failed", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
     mocks.createOrReuseSessionShare
       .mockResolvedValueOnce({
@@ -469,6 +473,10 @@ describe("SessionShareButton", () => {
       expect(mocks.toastError).toHaveBeenCalledWith(
         "Could not prepare this note for sharing.",
       ),
+    );
+    expect(consoleError).toHaveBeenCalledWith(
+      "[session-sharing] could not prepare note",
+      expect.objectContaining({ message: "connection lost" }),
     );
     expect(screen.queryByRole("dialog")).toBeNull();
 

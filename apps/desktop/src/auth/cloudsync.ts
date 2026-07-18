@@ -681,7 +681,10 @@ async function activateCloudsync(
       console.warn("[cloudsync] local sync suspension failed");
     }
 
-    console.warn("[cloudsync] local sync configuration failed; retrying");
+    console.warn(
+      "[cloudsync] local sync configuration failed; retrying",
+      error,
+    );
     scheduleExchange(
       session,
       activeGeneration,

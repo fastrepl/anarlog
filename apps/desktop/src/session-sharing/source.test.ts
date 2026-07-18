@@ -114,6 +114,39 @@ describe("loadSessionShareSource", () => {
     );
   });
 
+  it("uses the bound personal workspace while its local projection is missing", async () => {
+    mocks.execute.mockResolvedValue([
+      sourceRow({
+        personal_workspace_available: 0,
+        assigned_workspace_kind: null,
+        assigned_workspace_role: null,
+        binding_json: JSON.stringify({
+          workspace_id: ACCOUNT_ID,
+          account_user_id: ACCOUNT_ID,
+        }),
+      }),
+    ]);
+
+    await expect(
+      loadSessionShareSource("session-1", ACCOUNT_ID),
+    ).resolves.toMatchObject({ workspaceId: ACCOUNT_ID });
+  });
+
+  it("rejects an unprojected personal workspace without an account binding", async () => {
+    mocks.execute.mockResolvedValue([
+      sourceRow({
+        personal_workspace_available: 0,
+        assigned_workspace_kind: null,
+        assigned_workspace_role: null,
+        binding_json: null,
+      }),
+    ]);
+
+    await expect(
+      loadSessionShareSource("session-1", ACCOUNT_ID),
+    ).rejects.toThrow("personal workspace is unavailable");
+  });
+
   it.each(["owner", "admin"])(
     "allows an active shared-workspace %s to share the note",
     async (role) => {

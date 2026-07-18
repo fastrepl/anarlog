@@ -331,7 +331,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
       });
       setDialogIdentity(identity);
     },
-    onError: (_error, variables) => {
+    onError: (error, variables) => {
       if (latestAuthRef.current.session?.user.id !== variables.ownerUserId) {
         return;
       }
@@ -339,6 +339,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
         billing.upgradeToPro();
         return;
       }
+      console.error("[session-sharing] could not prepare note", error);
       sonnerToast.error("Could not prepare this note for sharing.");
     },
   });
