@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useCallback } from "react";
 
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
@@ -73,6 +73,7 @@ export const Route = createFileRoute("/share/public/$publicSlug")({
 });
 
 function Component() {
+  const router = useRouter();
   const { authenticatedResult, result, user } = Route.useLoaderData();
   const { publicSlug } = Route.useParams();
   const { scheme } = Route.useSearch();
@@ -120,6 +121,9 @@ function Component() {
       authenticatedNote={authenticatedNote}
       fallbackAccessLabel="Public note · View only"
       fallbackSnapshot={result.snapshot}
+      onAccessChanged={() => {
+        void router.invalidate();
+      }}
       resolveAttachment={resolveAttachment}
       revokedBehavior="read-only"
       accessLabel={accessLabel}
