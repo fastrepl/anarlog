@@ -181,6 +181,49 @@ describe("enhanceSuccess.onSuccess", () => {
     );
   });
 
+  it("persists a short summary and tags within the transcript length and section cap", async () => {
+    mocks.loadSessionContentSnapshot.mockResolvedValue(
+      createSnapshot("Meeting title"),
+    );
+    const transformedArgs = createTransformedArgs();
+    transformedArgs.preMeetingMemo = "Follow up with #launch";
+    transformedArgs.transcripts = [
+      {
+        startedAt: null,
+        endedAt: null,
+        segments: [{ speaker: "John", text: "x".repeat(160) }],
+      },
+    ];
+
+    await enhanceSuccess.onSuccess?.(
+      createParams({
+        text: `# First
+
+- ${"a".repeat(100)}
+
+# Second
+
+- ${"b".repeat(100)}
+
+# Third
+
+- ${"c".repeat(100)}`,
+        transformedArgs,
+      }),
+    );
+
+    const content =
+      mocks.persistGeneratedEnhancedNote.mock.calls[0][0].note.nextContent;
+    const markdown = json2md(JSON.parse(content)).trim();
+    expect(markdown).toContain("# First");
+    expect(markdown).toContain("# Second");
+    expect(markdown).not.toContain("# Third");
+    expect(markdown).toContain("#launch");
+    expect(
+      Array.from(markdown.replace(/\s+/gu, " ")).length,
+    ).toBeLessThanOrEqual(160);
+  });
+
   it("does not claim success when the guarded SQLite write fails", async () => {
     mocks.persistGeneratedEnhancedNote.mockRejectedValueOnce(
       new Error("stale summary"),

@@ -343,9 +343,17 @@ describe("EnhancerService", () => {
       wordCount: 4,
     });
     snapshot = createSnapshot({ wordCount: 5 });
+    await expect(service.checkEligibility("session-1")).resolves.toMatchObject({
+      eligible: false,
+      characterCount: 24,
+      reason: "Transcript too short to summarize (24/160 characters minimum)",
+      wordCount: 5,
+    });
+    snapshot = createSnapshot({ wordCount: 40 });
     await expect(service.checkEligibility("session-1")).resolves.toEqual({
       eligible: true,
-      wordCount: 5,
+      characterCount: 199,
+      wordCount: 40,
     });
   });
 
@@ -363,7 +371,7 @@ describe("EnhancerService", () => {
   });
 
   it("deduplicates eligible auto-enhance requests", async () => {
-    snapshot = createSnapshot({ wordCount: 5 });
+    snapshot = createSnapshot({ wordCount: 40 });
     const ai = createMockAITaskStore();
     const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
 
@@ -374,7 +382,7 @@ describe("EnhancerService", () => {
   });
 
   it("emits no-model and started auto-enhance outcomes", async () => {
-    snapshot = createSnapshot({ wordCount: 5 });
+    snapshot = createSnapshot({ wordCount: 40 });
     const noModelService = new EnhancerService(
       createDeps({ getModel: () => null }),
     );
