@@ -624,6 +624,10 @@ msgstr ""
 msgid "Download"
 msgstr ""
 
+#: src/settings/general/e2ee-setup.tsx
+msgid "Download recovery key (.txt)"
+msgstr ""
+
 #: src/templates/details.tsx
 #: src/templates/template-form.tsx
 msgid "Duplicate"

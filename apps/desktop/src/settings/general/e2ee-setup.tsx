@@ -1,7 +1,13 @@
 import { Trans } from "@lingui/react/macro";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
-import { CopyIcon, KeyRoundIcon, Loader2Icon } from "lucide-react";
+import { downloadDir, join } from "@tauri-apps/api/path";
+import {
+  CopyIcon,
+  DownloadIcon,
+  KeyRoundIcon,
+  Loader2Icon,
+} from "lucide-react";
 import { useRef, useState } from "react";
 
 import {
@@ -9,6 +15,8 @@ import {
   importE2eeIdentity,
   inspectE2eeRecoveryKey,
 } from "@hypr/plugin-db";
+import { commands as fs2Commands } from "@hypr/plugin-fs2";
+import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { Button } from "@hypr/ui/components/ui/button";
 import {
   Dialog,
@@ -100,12 +108,31 @@ export function E2eeSetupDialog({
       }, RECOVERY_KEY_CLIPBOARD_TTL_MS);
     },
   });
+  const downloadMutation = useMutation({
+    mutationFn: async (recoveryKey: string) => {
+      const downloadsPath = await downloadDir();
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const path = await join(
+        downloadsPath,
+        `anarlog-recovery-key_${timestamp}.txt`,
+      );
+      const result = await fs2Commands.writeTextFile(path, `${recoveryKey}\n`);
+      if (result.status === "error") {
+        throw new Error(result.error);
+      }
+      return path;
+    },
+    onSuccess: (path) => void openerCommands.revealItemInDir(path),
+  });
   const importForm = useForm({
     defaultValues: { recoveryKey: "" },
     onSubmit: ({ value }) => importMutation.mutate(value.recoveryKey.trim()),
   });
   const error =
-    createMutation.error ?? importMutation.error ?? copyMutation.error;
+    createMutation.error ??
+    importMutation.error ??
+    copyMutation.error ??
+    downloadMutation.error;
   const pending = createMutation.isPending || importMutation.isPending;
 
   const setOpen = (nextOpen: boolean) => {
@@ -116,21 +143,23 @@ export function E2eeSetupDialog({
       setRecoveryKey(null);
       createMutation.reset();
       importMutation.reset();
+      copyMutation.reset();
+      downloadMutation.reset();
     }
     onOpenChange(nextOpen);
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="border-border/45 bg-card/95 w-[calc(100vw-48px)] max-w-[420px] gap-0 overflow-hidden rounded-[26px] p-0 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:rounded-[26px] [&>button:last-child]:hidden">
-        <DialogHeader className="items-center gap-2 px-6 pt-6 text-center sm:text-center">
+      <DialogContent className="border-border/45 bg-card/95 w-[calc(100vw-48px)] max-w-[320px] gap-0 overflow-hidden rounded-[26px] p-0 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:rounded-[26px] [&>button:last-child]:hidden">
+        <DialogHeader className="items-center gap-2 px-5 pt-7 text-center sm:text-center">
           <div className="bg-accent flex size-9 items-center justify-center rounded-full">
             <KeyRoundIcon className="size-4" aria-hidden="true" />
           </div>
-          <DialogTitle className="text-foreground text-sm leading-5 font-semibold tracking-normal">
+          <DialogTitle className="text-foreground text-[13px] leading-5 font-semibold tracking-normal">
             <Trans>Protect cloud sync</Trans>
           </DialogTitle>
-          <DialogDescription className="text-foreground w-full text-center text-[13px] leading-[1.45]">
+          <DialogDescription className="text-foreground max-w-[260px] text-center text-[13px] leading-[1.36]">
             <Trans>
               Your recovery key encrypts synced notes before they leave this
               device. Anarlog cannot read or recover it.
@@ -138,7 +167,7 @@ export function E2eeSetupDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="px-5 pt-5">
+        <div className="px-4 pt-4">
           {recoveryKey ? (
             <div className="space-y-3">
               <p className="text-muted-foreground text-center text-xs leading-5">
@@ -158,6 +187,19 @@ export function E2eeSetupDialog({
               >
                 <CopyIcon className="size-3.5" aria-hidden="true" />
                 <Trans>Copy recovery key</Trans>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-full rounded-full text-xs"
+                onClick={() => downloadMutation.mutate(recoveryKey)}
+                disabled={downloadMutation.isPending}
+              >
+                {downloadMutation.isPending ? (
+                  <Loader2Icon className="size-3.5 animate-spin" />
+                ) : (
+                  <DownloadIcon className="size-3.5" aria-hidden="true" />
+                )}
+                <Trans>Download recovery key (.txt)</Trans>
               </Button>
               <p className="text-muted-foreground text-center text-[11px] leading-4">
                 Clipboard copies clear after 60 seconds when supported.
@@ -187,7 +229,7 @@ export function E2eeSetupDialog({
           ) : (
             <div className="grid gap-2">
               <Button
-                className="h-9 rounded-full text-xs"
+                className="h-8 rounded-full px-4 text-xs font-medium"
                 onClick={() => createMutation.mutate()}
                 disabled={pending}
               >
@@ -198,11 +240,19 @@ export function E2eeSetupDialog({
               </Button>
               <Button
                 variant="outline"
-                className="h-9 rounded-full text-xs"
+                className="h-8 rounded-full px-4 text-xs font-medium"
                 onClick={() => setMode("import")}
                 disabled={pending}
               >
                 <Trans>Use an existing key</Trans>
+              </Button>
+              <Button
+                variant="ghost"
+                className="text-muted-foreground hover:text-foreground h-6 justify-self-center rounded-full px-3 text-[11px] font-normal shadow-none hover:bg-transparent"
+                onClick={() => setOpen(false)}
+                disabled={pending}
+              >
+                <Trans>Cancel</Trans>
               </Button>
             </div>
           )}
@@ -214,55 +264,55 @@ export function E2eeSetupDialog({
           )}
         </div>
 
-        <DialogFooter className="grid grid-cols-2 gap-2 px-5 pt-5 pb-5 sm:grid-cols-2 sm:justify-normal">
-          <Button
-            variant="ghost"
-            className="bg-accent/80 h-8 rounded-full px-4 text-xs font-medium shadow-none"
-            onClick={() =>
-              mode === "import" && !recoveryKey
-                ? setMode("choose")
-                : setOpen(false)
-            }
-            disabled={pending}
-          >
-            {mode === "import" && !recoveryKey ? (
-              <Trans>Back</Trans>
-            ) : (
-              <Trans>Cancel</Trans>
-            )}
-          </Button>
-          {recoveryKey ? (
+        {(recoveryKey || mode === "import") && (
+          <DialogFooter className="grid grid-cols-2 gap-2 px-4 pt-4 pb-4 sm:grid-cols-2 sm:justify-normal">
             <Button
-              className="h-8 rounded-full px-4 text-xs font-medium"
-              onClick={() => importMutation.mutate(recoveryKey)}
+              variant="ghost"
+              className="bg-accent/80 h-8 rounded-full px-4 text-xs font-medium shadow-none"
+              onClick={() =>
+                mode === "import" && !recoveryKey
+                  ? setMode("choose")
+                  : setOpen(false)
+              }
               disabled={pending}
             >
-              {importMutation.isPending && (
-                <Loader2Icon className="size-3.5 animate-spin" />
+              {mode === "import" && !recoveryKey ? (
+                <Trans>Back</Trans>
+              ) : (
+                <Trans>Cancel</Trans>
               )}
-              <Trans>I saved it</Trans>
             </Button>
-          ) : mode === "import" ? (
-            <importForm.Subscribe
-              selector={(state) => state.values.recoveryKey}
-            >
-              {(importedKey) => (
-                <Button
-                  className="h-8 rounded-full px-4 text-xs font-medium"
-                  onClick={() => void importForm.handleSubmit()}
-                  disabled={!importedKey.trim() || pending}
-                >
-                  {importMutation.isPending && (
-                    <Loader2Icon className="size-3.5 animate-spin" />
-                  )}
-                  <Trans>Unlock sync</Trans>
-                </Button>
-              )}
-            </importForm.Subscribe>
-          ) : (
-            <span />
-          )}
-        </DialogFooter>
+            {recoveryKey ? (
+              <Button
+                className="h-8 rounded-full px-4 text-xs font-medium"
+                onClick={() => importMutation.mutate(recoveryKey)}
+                disabled={pending}
+              >
+                {importMutation.isPending && (
+                  <Loader2Icon className="size-3.5 animate-spin" />
+                )}
+                <Trans>I saved it</Trans>
+              </Button>
+            ) : (
+              <importForm.Subscribe
+                selector={(state) => state.values.recoveryKey}
+              >
+                {(importedKey) => (
+                  <Button
+                    className="h-8 rounded-full px-4 text-xs font-medium"
+                    onClick={() => void importForm.handleSubmit()}
+                    disabled={!importedKey.trim() || pending}
+                  >
+                    {importMutation.isPending && (
+                      <Loader2Icon className="size-3.5 animate-spin" />
+                    )}
+                    <Trans>Unlock sync</Trans>
+                  </Button>
+                )}
+              </importForm.Subscribe>
+            )}
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

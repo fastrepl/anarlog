@@ -13,6 +13,10 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   import: vi.fn(),
   inspect: vi.fn(),
+  downloadDir: vi.fn(),
+  join: vi.fn(),
+  writeTextFile: vi.fn(),
+  revealItemInDir: vi.fn(),
   readClipboard: vi.fn(),
   writeClipboard: vi.fn(),
 }));
@@ -21,6 +25,19 @@ vi.mock("@hypr/plugin-db", () => ({
   createE2eeIdentity: mocks.create,
   importE2eeIdentity: mocks.import,
   inspectE2eeRecoveryKey: mocks.inspect,
+}));
+
+vi.mock("@tauri-apps/api/path", () => ({
+  downloadDir: mocks.downloadDir,
+  join: mocks.join,
+}));
+
+vi.mock("@hypr/plugin-fs2", () => ({
+  commands: { writeTextFile: mocks.writeTextFile },
+}));
+
+vi.mock("@hypr/plugin-opener2", () => ({
+  commands: { revealItemInDir: mocks.revealItemInDir },
 }));
 
 import { E2eeSetupDialog } from "./e2ee-setup";
@@ -43,8 +60,17 @@ describe("E2eeSetupDialog", () => {
     }
   });
 
-  const renderDialog = (onReady = vi.fn()) => {
+  const renderDialog = (
+    onReady = vi.fn(),
+    onOpenChange: (open: boolean) => void = vi.fn(),
+  ) => {
     mocks.inspect.mockResolvedValue({ keyId: "abcdefghijklmnopqrstuv" });
+    mocks.downloadDir.mockResolvedValue("/Downloads");
+    mocks.join.mockImplementation((...parts: string[]) =>
+      Promise.resolve(parts.join("/")),
+    );
+    mocks.writeTextFile.mockResolvedValue({ status: "ok", data: null });
+    mocks.revealItemInDir.mockResolvedValue({ status: "ok", data: null });
     mocks.readClipboard.mockResolvedValue("");
     mocks.writeClipboard.mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
@@ -71,7 +97,7 @@ describe("E2eeSetupDialog", () => {
       <QueryClientProvider client={queryClient}>
         <E2eeSetupDialog
           open
-          onOpenChange={vi.fn()}
+          onOpenChange={onOpenChange}
           accountUserId="11111111-1111-4111-8111-111111111111"
           accessToken="access-token"
           onReady={onReady}
@@ -80,6 +106,23 @@ describe("E2eeSetupDialog", () => {
     );
     return onReady;
   };
+
+  it("presents recovery key choices with a compact dismissal action", () => {
+    const onOpenChange = vi.fn();
+    renderDialog(vi.fn(), onOpenChange);
+
+    expect(
+      screen.getByRole("button", { name: "Create a recovery key" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Use an existing key" }),
+    ).toBeTruthy();
+
+    const cancel = screen.getByRole("button", { name: "Cancel" });
+    expect(cancel.className).toContain("text-muted-foreground");
+    fireEvent.click(cancel);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
 
   it("requires the generated recovery key to be acknowledged before enabling sync", async () => {
     const onReady = vi.fn();
@@ -136,6 +179,50 @@ describe("E2eeSetupDialog", () => {
       await vi.advanceTimersByTimeAsync(60_000);
     });
     expect(mocks.writeClipboard).toHaveBeenLastCalledWith("");
+  });
+
+  it("downloads the recovery key as a reusable text file", async () => {
+    const recoveryKey =
+      "anarlog-e2ee-v1:abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG";
+    mocks.create.mockResolvedValue(recoveryKey);
+    renderDialog();
+
+    fireEvent.click(screen.getByText("Create a recovery key"));
+    expect(await screen.findByText(recoveryKey)).toBeTruthy();
+    fireEvent.click(screen.getByText("Download recovery key (.txt)"));
+
+    await waitFor(() => expect(mocks.writeTextFile).toHaveBeenCalledTimes(1));
+    const [path, content] = mocks.writeTextFile.mock.calls[0];
+    expect(path).toMatch(
+      /^\/Downloads\/anarlog-recovery-key_\d{4}-\d{2}-\d{2}T.*Z\.txt$/,
+    );
+    expect(content).toBe(`${recoveryKey}\n`);
+    await waitFor(() =>
+      expect(mocks.revealItemInDir).toHaveBeenCalledWith(path),
+    );
+  });
+
+  it("clears download errors when the dialog is dismissed", async () => {
+    const recoveryKey =
+      "anarlog-e2ee-v1:abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG";
+    mocks.create.mockResolvedValue(recoveryKey);
+    renderDialog();
+
+    fireEvent.click(screen.getByText("Create a recovery key"));
+    expect(await screen.findByText(recoveryKey)).toBeTruthy();
+    mocks.writeTextFile.mockResolvedValue({
+      status: "error",
+      error: "Could not save recovery key",
+    });
+    fireEvent.click(screen.getByText("Download recovery key (.txt)"));
+    expect(await screen.findByText("Could not save recovery key")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("Cancel"));
+
+    expect(screen.queryByText("Could not save recovery key")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Create a recovery key" }),
+    ).toBeTruthy();
   });
 
   it("preserves clipboard content copied after the recovery key", async () => {
