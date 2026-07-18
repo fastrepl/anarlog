@@ -28,6 +28,7 @@ const linkId = "44444444-4444-4444-8444-444444444444";
 const invitationId = "55555555-5555-4555-8555-555555555555";
 const grantId = "66666666-6666-4666-8666-666666666666";
 const requestId = "77777777-7777-4777-8777-777777777777";
+const mutationId = "88888888-8888-4888-8888-888888888888";
 const linkToken = "l".repeat(43);
 const inviteToken = "i".repeat(43);
 const publicSlug = `s_${"a".repeat(32)}`;
@@ -397,6 +398,8 @@ describe("session share snapshot publication", () => {
           Authorization: "Bearer authenticated-access-token",
         });
         expect(JSON.parse(String(init?.body))).toEqual({
+          baseRevision: 0,
+          mutationId,
           title: "Shared title",
           body: {
             type: "doc",
@@ -411,6 +414,8 @@ describe("session share snapshot publication", () => {
             title: "Shared title",
             body: { type: "doc", content: [{ type: "paragraph" }] },
             attachments: [],
+            webEditable: true,
+            accessVersion: 1,
             publishedAt: timestamp,
           }),
           { headers: { "content-type": "application/json" } },
@@ -423,6 +428,8 @@ describe("session share snapshot publication", () => {
         apiBaseUrl: "https://api.example.com/base",
         session: session(),
         shareId,
+        baseRevision: 0,
+        mutationId,
         title: " Shared title ",
         body: JSON.stringify({
           type: "doc",
@@ -444,6 +451,8 @@ describe("session share snapshot publication", () => {
     const fetcher = vi.fn(
       async (_url: URL | RequestInfo, init?: RequestInit) => {
         expect(JSON.parse(String(init?.body))).toEqual({
+          baseRevision: 1,
+          mutationId,
           title: "Shared title",
           body: { type: "doc", content: [{ type: "paragraph" }] },
           attachmentIds: [],
@@ -456,6 +465,8 @@ describe("session share snapshot publication", () => {
             title: "Shared title",
             body: { type: "doc", content: [{ type: "paragraph" }] },
             attachments: [],
+            webEditable: true,
+            accessVersion: 1,
             publishedAt: timestamp,
           }),
           { headers: { "content-type": "application/json" } },
@@ -468,6 +479,8 @@ describe("session share snapshot publication", () => {
         apiBaseUrl: "https://api.example.com",
         session: session(),
         shareId,
+        baseRevision: 1,
+        mutationId,
         title: "Shared title",
         body: { type: "doc", content: [{ type: "paragraph" }] },
         attachmentIds: [],
@@ -482,7 +495,7 @@ describe("session share snapshot publication", () => {
       async () =>
         new Response("{}", {
           headers: {
-            "content-length": String(2 * 1024 * 1024 + 16 * 1024 + 1),
+            "content-length": String(2 * 1024 * 1024 + 256 * 1024 + 1),
             "content-type": "application/json",
           },
         }),
@@ -494,6 +507,8 @@ describe("session share snapshot publication", () => {
           apiBaseUrl: "https://api.example.com",
           session: session(),
           shareId,
+          baseRevision: 1,
+          mutationId,
           title: "Title",
           body: { type: "doc" },
           fetcher,
@@ -514,11 +529,50 @@ describe("session share snapshot publication", () => {
         apiBaseUrl: "https://api.example.com",
         session: session(),
         shareId,
+        baseRevision: 1,
+        mutationId,
         title: "Title",
         body: "not-json",
         fetcher,
       }),
     ).rejects.toBeInstanceOf(ShareManagementError);
     expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a validated stale-write snapshot without hiding it as a generic failure", async () => {
+    const snapshot = {
+      shareId,
+      schemaVersion: 1,
+      contentRevision: 3,
+      title: "Latest",
+      body: { type: "doc", content: [{ type: "paragraph" }] },
+      attachments: [],
+      webEditable: true,
+      accessVersion: 4,
+      publishedAt: timestamp,
+    };
+    const fetcher = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ code: "snapshot_conflict", snapshot }), {
+          status: 409,
+          headers: { "content-type": "application/json" },
+        }),
+    );
+
+    await expect(
+      publishSessionShareSnapshot({
+        apiBaseUrl: "https://api.example.com",
+        session: session(),
+        shareId,
+        baseRevision: 2,
+        mutationId,
+        title: "Stale",
+        body: { type: "doc" },
+        fetcher,
+      }),
+    ).rejects.toMatchObject({
+      name: "ShareSnapshotConflictError",
+      snapshot,
+    });
   });
 });

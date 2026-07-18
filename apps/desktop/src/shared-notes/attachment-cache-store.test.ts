@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   executeTransaction: vi.fn(),
   enqueueDatabaseWrite: vi.fn(
-    async (_key: string, write: () => Promise<number[]>) => write(),
+    async (_key: string, write: () => Promise<unknown>) => write(),
   ),
 }));
 
@@ -18,6 +18,7 @@ vi.mock("~/db/write-queue", () => ({
 }));
 
 import {
+  purgeViewerSharedNoteCache,
   type SharedAttachmentCacheJob,
   sharedAttachmentCacheStore,
 } from "./attachment-cache-store";
@@ -60,5 +61,61 @@ describe("shared attachment cache store", () => {
       job.attachmentId,
       job.cacheId,
     ]);
+  });
+
+  it("serializes viewer purges with full shared-note cache replacements", async () => {
+    mocks.executeTransaction.mockResolvedValueOnce([]);
+    const removeScope = vi.fn(async () => {});
+    const signal = new AbortController().signal;
+
+    await purgeViewerSharedNoteCache(job.viewerUserId, removeScope, signal);
+
+    expect(removeScope).toHaveBeenCalledWith(job.viewerUserId);
+    expect(mocks.enqueueDatabaseWrite.mock.calls.map(([key]) => key)).toEqual([
+      `shared-note-cache:${job.viewerUserId}`,
+      "shared-attachment-cache-runner",
+    ]);
+    const statements = mocks.executeTransaction.mock.calls[0]![0];
+    expect(statements).toHaveLength(2);
+    expect(statements[1].sql).toContain("DELETE FROM shared_session_cache");
+  });
+
+  it("does not let a stopped account purge clear a viewer that became active while queued", async () => {
+    let runQueuedPurge: (() => void) | undefined;
+    mocks.enqueueDatabaseWrite.mockImplementationOnce(
+      (_key, write) =>
+        new Promise((resolve, reject) => {
+          runQueuedPurge = () => {
+            void write().then(resolve, reject);
+          };
+        }),
+    );
+    const controller = new AbortController();
+    const removeScope = vi.fn(async () => {});
+
+    const purge = purgeViewerSharedNoteCache(
+      "viewer-b",
+      removeScope,
+      controller.signal,
+    );
+    await vi.waitFor(() => expect(runQueuedPurge).toBeTypeOf("function"));
+    controller.abort();
+    runQueuedPurge?.();
+
+    await expect(purge).rejects.toMatchObject({ name: "AbortError" });
+    expect(removeScope).not.toHaveBeenCalled();
+    expect(mocks.executeTransaction).not.toHaveBeenCalled();
+  });
+
+  it("preserves durable rows when the account switches during native clearing", async () => {
+    const controller = new AbortController();
+    const removeScope = vi.fn(async () => controller.abort());
+
+    await expect(
+      purgeViewerSharedNoteCache("viewer-b", removeScope, controller.signal),
+    ).rejects.toMatchObject({ name: "AbortError" });
+
+    expect(removeScope).toHaveBeenCalledWith("viewer-b");
+    expect(mocks.executeTransaction).not.toHaveBeenCalled();
   });
 });

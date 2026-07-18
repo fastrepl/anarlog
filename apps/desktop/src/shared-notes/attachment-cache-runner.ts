@@ -154,6 +154,7 @@ export function startSharedAttachmentCacheRunner(
         await purgeForeignViewerSharedNoteCaches(
           dependencies.viewerUserId,
           (viewerUserId) => native.clearSharedAttachmentScope(viewerUserId),
+          controller.signal,
         );
         initialized = true;
       }

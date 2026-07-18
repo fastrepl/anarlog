@@ -33,6 +33,7 @@ const ACCOUNT_ID = "account-1";
 function sourceRow(
   overrides: Partial<{
     id: string;
+    document_id: string | null;
     workspace_id: string;
     title: string;
     body: string;
@@ -46,6 +47,7 @@ function sourceRow(
 ) {
   return {
     id: "session-1",
+    document_id: "session-1",
     workspace_id: ACCOUNT_ID,
     title: "Planning notes",
     body: JSON.stringify({
@@ -81,6 +83,7 @@ describe("loadSessionShareSource", () => {
       loadSessionShareSource("session-1", ACCOUNT_ID),
     ).resolves.toEqual({
       sessionId: "session-1",
+      documentId: "session-1",
       workspaceId: ACCOUNT_ID,
       title: "Planning notes",
       body: {
@@ -92,6 +95,8 @@ describe("loadSessionShareSource", () => {
           },
         ],
       },
+      rawBody: sourceRow().body,
+      bodyFormat: "prosemirror_json",
     });
 
     const [sql, params] = mocks.execute.mock.calls[0]!;

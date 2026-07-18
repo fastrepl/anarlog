@@ -1,3 +1,5 @@
+import { enqueueDurableSharedNoteCacheMutation } from "./cache";
+
 import { executeTransaction, liveQueryClient } from "~/db";
 import { enqueueDatabaseWrite, flushDatabaseWrites } from "~/db/write-queue";
 
@@ -334,27 +336,36 @@ export const sharedAttachmentCacheStore = {
 export async function purgeViewerSharedNoteCache(
   viewerUserId: string,
   removeScope: (scopeId: string) => Promise<unknown>,
+  signal: AbortSignal,
 ) {
-  await removeScope(viewerUserId);
-  await enqueueDatabaseWrite(WRITE_KEY, () =>
-    executeTransaction([
-      {
-        sql: "DELETE FROM shared_session_attachment_cache WHERE viewer_user_id = ?",
-        params: [viewerUserId],
-      },
-      {
-        sql: "DELETE FROM shared_session_cache WHERE viewer_user_id = ?",
-        params: [viewerUserId],
-      },
-    ]),
-  );
+  signal.throwIfAborted();
+  await enqueueDurableSharedNoteCacheMutation(viewerUserId, async () => {
+    signal.throwIfAborted();
+    await removeScope(viewerUserId);
+    signal.throwIfAborted();
+    await enqueueDatabaseWrite(WRITE_KEY, () =>
+      executeTransaction([
+        {
+          sql: "DELETE FROM shared_session_attachment_cache WHERE viewer_user_id = ?",
+          params: [viewerUserId],
+        },
+        {
+          sql: "DELETE FROM shared_session_cache WHERE viewer_user_id = ?",
+          params: [viewerUserId],
+        },
+      ]),
+    );
+  });
 }
 
 export async function purgeForeignViewerSharedNoteCaches(
   activeViewerUserId: string,
   removeScope: (scopeId: string) => Promise<unknown>,
+  signal: AbortSignal,
 ) {
+  signal.throwIfAborted();
   await flushDatabaseWrites();
+  signal.throwIfAborted();
   const viewers = await liveQueryClient.execute<{ viewer_user_id: string }>(
     `
       SELECT DISTINCT viewer_user_id
@@ -368,6 +379,11 @@ export async function purgeForeignViewerSharedNoteCaches(
     [activeViewerUserId],
   );
   for (const viewer of viewers) {
-    await purgeViewerSharedNoteCache(viewer.viewer_user_id, removeScope);
+    signal.throwIfAborted();
+    await purgeViewerSharedNoteCache(
+      viewer.viewer_user_id,
+      removeScope,
+      signal,
+    );
   }
 }

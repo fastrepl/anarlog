@@ -32,6 +32,7 @@ vi.mock("~/db", async () => {
 });
 
 import {
+  captureDurableSharedNoteCacheMutationVersion,
   loadManagedSharedNoteForSession,
   mapSharedNoteLiveRows,
   parseDurableSharedNoteSnapshots,
@@ -65,6 +66,10 @@ const serverRow = {
   capability: "commenter",
   manage_access: false,
   access_version: 4,
+  web_editable: false,
+  web_edit_base_content_revision: null,
+  web_edit_base_title: null,
+  web_edit_base_body_json: null,
   published_at: "2026-07-16T17:30:00.000Z",
 };
 
@@ -87,6 +92,8 @@ describe("durable shared-note cache", () => {
         capability: "commenter",
         manageAccess: false,
         accessVersion: 4,
+        webEditable: false,
+        webEditBase: null,
         publishedAt: "2026-07-16T17:30:00.000Z",
       },
     ]);
@@ -115,7 +122,7 @@ describe("durable shared-note cache", () => {
     await replaceDurableSharedNoteCache("viewer-1", [snapshot]);
 
     const statements = mocks.executeTransaction.mock.calls[0]![0];
-    expect(statements).toHaveLength(4);
+    expect(statements).toHaveLength(5);
     expect(statements[0]?.sql).toContain(
       "UPDATE shared_session_attachment_cache",
     );
@@ -137,22 +144,34 @@ describe("durable shared-note cache", () => {
       "commenter",
       0,
       4,
+      0,
+      null,
+      null,
+      null,
       "2026-07-16T17:30:00.000Z",
     ]);
     expect(statements[3].sql).toContain(
       "INSERT INTO shared_session_attachment_cache",
     );
     expect(statements[3].params).toContain(attachment.id);
+    expect(statements[4]).toEqual({
+      sql: expect.stringContaining("DELETE FROM session_share_sync_state"),
+      params: ["viewer-1", serverRow.share_id],
+    });
   });
 
   it("deletes revoked rows after a successful empty response", async () => {
     await replaceDurableSharedNoteCache("viewer-1", []);
 
     const statements = mocks.executeTransaction.mock.calls[0]![0];
-    expect(statements).toHaveLength(2);
+    expect(statements).toHaveLength(3);
     expect(statements[0]?.sql).toContain("availability = 'delete_pending'");
     expect(statements[1]).toEqual({
       sql: "DELETE FROM shared_session_cache WHERE viewer_user_id = ?",
+      params: ["viewer-1"],
+    });
+    expect(statements[2]).toEqual({
+      sql: "DELETE FROM session_share_sync_state WHERE viewer_user_id = ?",
       params: ["viewer-1"],
     });
   });
@@ -181,13 +200,17 @@ describe("durable shared-note cache", () => {
     await removeDurableSharedNoteCache("viewer-1", serverRow.share_id);
 
     const statements = mocks.executeTransaction.mock.calls[0]![0];
-    expect(statements).toHaveLength(2);
+    expect(statements).toHaveLength(3);
     expect(statements[0]).toEqual({
       sql: expect.stringContaining("availability = 'delete_pending'"),
       params: ["viewer-1", serverRow.share_id],
     });
     expect(statements[1]).toEqual({
       sql: expect.stringContaining("WHERE viewer_user_id = ? AND share_id = ?"),
+      params: ["viewer-1", serverRow.share_id],
+    });
+    expect(statements[2]).toEqual({
+      sql: expect.stringContaining("DELETE FROM session_share_sync_state"),
       params: ["viewer-1", serverRow.share_id],
     });
   });
@@ -249,6 +272,23 @@ describe("durable shared-note cache", () => {
     );
   });
 
+  it("skips a stale full replacement after a newer local cache mutation", async () => {
+    const snapshot = parseDurableSharedNoteSnapshots([serverRow])[0]!;
+    const capturedVersion =
+      captureDurableSharedNoteCacheMutationVersion("viewer-1");
+    await upsertDurableSharedNoteCache("viewer-1", {
+      ...snapshot,
+      contentRevision: 4,
+      title: "Newer local publish",
+    });
+    mocks.executeTransaction.mockClear();
+
+    await expect(
+      replaceDurableSharedNoteCache("viewer-1", [snapshot], capturedVersion),
+    ).resolves.toBe(false);
+    expect(mocks.executeTransaction).not.toHaveBeenCalled();
+  });
+
   it("maps raw SQLite JSON and boolean values", () => {
     expect(
       mapSharedNoteLiveRows([
@@ -265,6 +305,10 @@ describe("durable shared-note cache", () => {
           capability: "editor",
           manage_access: 1,
           access_version: 4,
+          web_editable: 0,
+          web_edit_base_content_revision: null,
+          web_edit_base_title: null,
+          web_edit_base_body_json: null,
           published_at: "2026-07-16T17:30:00.000Z",
           cached_at: "2026-07-16T17:31:00.000Z",
         },
@@ -276,6 +320,47 @@ describe("durable shared-note cache", () => {
         manageAccess: true,
       }),
     ]);
+  });
+
+  it("admits manager-only pending web edit bases and rejects incomplete tuples", () => {
+    const pending = {
+      ...serverRow,
+      attachments_json: [],
+      manage_access: true,
+      capability: "editor",
+      content_revision: 4,
+      web_editable: true,
+      web_edit_base_content_revision: 3,
+      web_edit_base_title: "Shared plan",
+      web_edit_base_body_json: serverRow.body_json,
+    };
+    expect(parseDurableSharedNoteSnapshots([pending])[0]).toMatchObject({
+      webEditable: true,
+      webEditBase: {
+        contentRevision: 3,
+        title: "Shared plan",
+        body: serverRow.body_json,
+      },
+    });
+    expect(() =>
+      parseDurableSharedNoteSnapshots([
+        { ...pending, web_edit_base_title: null },
+      ]),
+    ).toThrow("web edit base");
+    expect(() =>
+      parseDurableSharedNoteSnapshots([{ ...pending, manage_access: false }]),
+    ).toThrow("web edit base");
+  });
+
+  it("preserves attachment manifests on web-editable snapshots", () => {
+    expect(
+      parseDurableSharedNoteSnapshots([
+        { ...serverRow, web_editable: true },
+      ])[0],
+    ).toMatchObject({
+      webEditable: true,
+      attachments: [attachment],
+    });
   });
 
   it("scopes list and detail live queries to the signed-in viewer", () => {

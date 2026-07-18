@@ -2,8 +2,10 @@ import { Trans } from "@lingui/react/macro";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertTriangleIcon,
   CheckIcon,
   CopyIcon,
+  ExternalLinkIcon,
   Globe2Icon,
   Link2Icon,
   Loader2Icon,
@@ -16,6 +18,7 @@ import {
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 
+import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { Button } from "@hypr/ui/components/ui/button";
 import {
   Dialog,
@@ -66,7 +69,15 @@ import {
   ShareManagementError,
   updateSessionAccessGrant,
 } from "./client";
+import { flushCanonicalSessionEditorChanges } from "./editor-activity";
+import {
+  createSessionShareMutationId,
+  hashSessionShareProjection,
+  loadSessionShareSyncState,
+  recordPublishedSessionShareState,
+} from "./reconciliation";
 import { loadSessionShareSource, useAvailableShareWorkspaces } from "./source";
+import { useSessionShareSyncStatus } from "./sync-state";
 import {
   buildAccountSessionShareUrl,
   buildPublicSessionShareUrl,
@@ -80,7 +91,9 @@ import { useBillingAccess } from "~/auth/billing-context";
 import { env } from "~/env";
 import { setAttachmentCloudSyncEnabled } from "~/session/attachments";
 import {
+  loadManagedSharedNoteForSession,
   type SharedNoteAttachment,
+  type SharedNoteSnapshot,
   upsertDurableSharedNoteCache,
   useDurableSharedNote,
 } from "~/shared-notes/cache";
@@ -220,6 +233,8 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     }) =>
       runPrepareOperation(async (signal) => {
         let context = requireActivePrepareContext(ownerUserId, signal);
+        await flushCanonicalSessionEditorChanges(sessionId);
+        context = requireActivePrepareContext(ownerUserId, signal);
         const source = await loadSessionShareSource(sessionId, ownerUserId);
         context = requireActivePrepareContext(ownerUserId, signal);
         const share = await createOrReuseSessionShare(context, {
@@ -237,17 +252,47 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
         ) {
           throw new ShareManagementError();
         }
-        if (publish && share.wasCreated) {
+        const cachedManagedShare = publish
+          ? await loadManagedSharedNoteForSession(ownerUserId, source.sessionId)
+          : null;
+        context = requireActivePrepareContext(ownerUserId, signal);
+        if (
+          cachedManagedShare &&
+          (cachedManagedShare.shareId !== share.shareId ||
+            cachedManagedShare.workspaceId !== source.workspaceId ||
+            cachedManagedShare.sessionId !== source.sessionId)
+        ) {
+          throw new ShareManagementError();
+        }
+        if (publish && (share.wasCreated || !cachedManagedShare)) {
+          const sourceHash = await hashSessionShareProjection({
+            title: source.title,
+            body: source.body,
+          });
           const published = await publishSessionShareSnapshot({
             apiBaseUrl: env.VITE_API_URL,
             session: context.session,
             shareId: share.shareId,
+            baseRevision: 0,
+            mutationId: await createSessionShareMutationId({
+              shareId: share.shareId,
+              baseRevision: 0,
+              sourceHash,
+              attachmentIds: [],
+            }),
             title: source.title,
             body: source.body,
             attachmentIds: [],
             signal,
           });
           context = requireActivePrepareContext(ownerUserId, signal);
+          await recordPublishedSessionShareState({
+            viewerUserId: ownerUserId,
+            shareId: published.shareId,
+            sessionId: source.sessionId,
+            contentRevision: published.contentRevision,
+            sourceHash,
+          });
           await upsertDurableSharedNoteCache(ownerUserId, {
             shareId: published.shareId,
             workspaceId: source.workspaceId,
@@ -259,7 +304,9 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
             attachments: published.attachments,
             capability: "editor",
             manageAccess: true,
-            accessVersion: management.accessVersion,
+            accessVersion: published.accessVersion,
+            webEditable: published.webEditable,
+            webEditBase: null,
             publishedAt: published.publishedAt,
           });
           context = requireActivePrepareContext(ownerUserId, signal);
@@ -368,6 +415,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           canExpand={billing.isPaid}
           workspaces={workspaces}
           sharedAttachments={sharedAttachments}
+          sharedSnapshot={durableNoteQuery.data ?? null}
           sharedAttachmentsReady={sharedAttachmentsReady}
           onRetry={() => void shareQuery.refetch()}
           onClose={() => setDialogIdentity(null)}
@@ -397,6 +445,7 @@ function SessionShareDialog({
   canExpand,
   workspaces,
   sharedAttachments,
+  sharedSnapshot,
   sharedAttachmentsReady,
   onRetry,
   onClose,
@@ -410,6 +459,7 @@ function SessionShareDialog({
   canExpand: boolean;
   workspaces: Array<{ id: string; name: string }>;
   sharedAttachments: SharedNoteAttachment[];
+  sharedSnapshot: SharedNoteSnapshot | null;
   sharedAttachmentsReady: boolean;
   onRetry: () => void;
   onClose: () => void;
@@ -446,6 +496,13 @@ function SessionShareDialog({
     return { ...context, signal };
   };
   const management = data?.management;
+  const syncStatus = useSessionShareSyncStatus(
+    identity.ownerUserId,
+    identity.shareId,
+    sessionId,
+  );
+  const hasConflict = syncStatus === "conflict";
+  const canPublish = canExpand && !hasConflict;
   const { data: sessionAttachments = [] } =
     useSessionShareAttachments(sessionId);
   const sharedAttachmentIds = matchSharedAttachmentsToLocal(
@@ -469,9 +526,34 @@ function SessionShareDialog({
     signal?: AbortSignal,
     requestedAttachments = sharedAttachments,
     localOverrides = new Map<string, string>(),
+    resolveConflict = false,
   ) => {
     if (!identity || !management) throw new ShareManagementError();
-    if (!sharedAttachmentsReady) throw new ShareManagementError();
+    if (!sharedAttachmentsReady || !sharedSnapshot) {
+      throw new ShareManagementError();
+    }
+    await flushCanonicalSessionEditorChanges(sessionId);
+    requireActiveContext(signal);
+    const syncState = await loadSessionShareSyncState(
+      identity.ownerUserId,
+      identity.shareId,
+    );
+    const syncStateIsCurrent =
+      syncState?.status === "clean" &&
+      syncState.sessionId === sharedSnapshot.sessionId &&
+      syncState.acknowledgedContentRevision === sharedSnapshot.contentRevision;
+    const canResolveCurrentConflict = Boolean(
+      resolveConflict &&
+      syncState?.status === "conflict" &&
+      syncState.sessionId === sharedSnapshot.sessionId &&
+      syncState.acknowledgedContentRevision <= sharedSnapshot.contentRevision,
+    );
+    if (sharedSnapshot.webEditBase && !canResolveCurrentConflict) {
+      throw new ShareManagementError();
+    }
+    if (!syncStateIsCurrent && !canResolveCurrentConflict) {
+      throw new ShareManagementError();
+    }
     const context = requireActiveContext(signal);
     const source = await loadSessionShareSource(
       sessionId,
@@ -510,20 +592,42 @@ function SessionShareDialog({
     const publishableAttachments = requestedAttachments.filter((attachment) =>
       mappedIds.has(attachment.id),
     );
+    const body = addSharedAttachmentIds(
+      source.body,
+      localAttachments,
+      localToShared,
+    );
+    const sourceHash = await hashSessionShareProjection({
+      title: source.title,
+      body,
+    });
+    const baseRevision = sharedSnapshot.contentRevision;
     const published = await publishSessionShareSnapshot({
       apiBaseUrl: env.VITE_API_URL,
       session: activeContext.session,
       shareId: identity.shareId,
+      baseRevision,
+      mutationId: await createSessionShareMutationId({
+        shareId: identity.shareId,
+        baseRevision,
+        sourceHash,
+        attachmentIds: publishableAttachments.map(
+          (attachment) => attachment.id,
+        ),
+      }),
       title: source.title,
-      body: addSharedAttachmentIds(
-        source.body,
-        localAttachments,
-        localToShared,
-      ),
+      body,
       attachmentIds: publishableAttachments.map((attachment) => attachment.id),
       signal,
     });
     requireActiveContext(signal);
+    await recordPublishedSessionShareState({
+      viewerUserId: identity.ownerUserId,
+      shareId: identity.shareId,
+      sessionId: source.sessionId,
+      contentRevision: published.contentRevision,
+      sourceHash,
+    });
     await upsertDurableSharedNoteCache(identity.ownerUserId, {
       shareId: published.shareId,
       workspaceId: source.workspaceId,
@@ -535,7 +639,9 @@ function SessionShareDialog({
       attachments: published.attachments,
       capability: "editor",
       manageAccess: true,
-      accessVersion: management.accessVersion,
+      accessVersion: published.accessVersion,
+      webEditable: published.webEditable,
+      webEditBase: null,
       publishedAt: published.publishedAt,
     });
     requireActiveContext(signal);
@@ -659,6 +765,45 @@ function SessionShareDialog({
       sonnerToast.error("Could not update the shared copy.");
     },
     onSettled: onChanged,
+  });
+
+  const keepDesktopMutation = useMutation({
+    mutationFn: () =>
+      runOperation((signal) =>
+        publishLatest(
+          signal,
+          sharedAttachments,
+          new Map<string, string>(),
+          true,
+        ),
+      ),
+    onSuccess: () => {
+      sonnerToast.success("Desktop edits published. Sharing resumed.");
+    },
+    onError: () => {
+      sonnerToast.error(
+        "Could not publish the desktop edits. Check the latest web copy and try again.",
+      );
+    },
+    onSettled: onChanged,
+  });
+
+  const openWebCopyMutation = useMutation({
+    mutationFn: () =>
+      runOperation(async (signal) => {
+        requireActiveContext(signal);
+        await openerCommands.openUrl(
+          buildAccountSessionShareUrl({
+            appBaseUrl: env.VITE_APP_URL,
+            shareId: identity.shareId,
+          }),
+          null,
+        );
+        requireActiveContext(signal);
+      }),
+    onError: () => {
+      sonnerToast.error("Could not open the web copy.");
+    },
   });
 
   const scopeMutation = useMutation({
@@ -934,7 +1079,9 @@ function SessionShareDialog({
     scopeMutation.isPending ||
     entryMutation.isPending ||
     generalCopyMutation.isPending ||
-    attachmentMutation.isPending;
+    attachmentMutation.isPending ||
+    keepDesktopMutation.isPending ||
+    openWebCopyMutation.isPending;
   const generalScopeValue = management
     ? management.generalScope === "workspace"
       ? `workspace:${management.generalWorkspaceId}`
@@ -987,6 +1134,76 @@ function SessionShareDialog({
               </div>
             ) : (
               <div className="space-y-6">
+                {hasConflict ? (
+                  <section
+                    aria-labelledby="sharing-conflict-heading"
+                    className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-3"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <AlertTriangleIcon
+                        className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400"
+                        aria-hidden="true"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <h3
+                          id="sharing-conflict-heading"
+                          className="text-xs font-medium"
+                        >
+                          <Trans>Sharing paused to protect your edits</Trans>
+                        </h3>
+                        <p className="text-muted-foreground mt-1 text-xs leading-5">
+                          <Trans>
+                            This note changed on both desktop and the web. Open
+                            the web copy to review it. To keep that version,
+                            close this dialog, replace this note with the web
+                            content, then switch to another note so Anarlog can
+                            reconcile. Otherwise, publish the desktop edits over
+                            it.
+                          </Trans>
+                        </p>
+                        <div className="mt-2.5 flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={openWebCopyMutation.isPending}
+                            onClick={() => openWebCopyMutation.mutate()}
+                          >
+                            {openWebCopyMutation.isPending ? (
+                              <Loader2Icon
+                                className="size-3.5 animate-spin"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <ExternalLinkIcon
+                                className="size-3.5"
+                                aria-hidden="true"
+                              />
+                            )}
+                            <Trans>Open web copy</Trans>
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={
+                              !canExpand || keepDesktopMutation.isPending
+                            }
+                            onClick={() => keepDesktopMutation.mutate()}
+                          >
+                            {keepDesktopMutation.isPending ? (
+                              <Loader2Icon
+                                className="size-3.5 animate-spin"
+                                aria-hidden="true"
+                              />
+                            ) : null}
+                            <Trans>Keep desktop edits</Trans>
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
+
                 <section aria-labelledby="invite-people-heading">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div>
@@ -1020,7 +1237,7 @@ function SessionShareDialog({
                           autoComplete="email"
                           required
                           value={field.state.value}
-                          disabled={!canExpand || inviteMutation.isPending}
+                          disabled={!canPublish || inviteMutation.isPending}
                           onBlur={field.handleBlur}
                           onChange={(event) =>
                             field.handleChange(event.target.value)
@@ -1034,7 +1251,7 @@ function SessionShareDialog({
                       {(field) => (
                         <CapabilitySelect
                           value={field.state.value}
-                          disabled={!canExpand || inviteMutation.isPending}
+                          disabled={!canPublish || inviteMutation.isPending}
                           ariaLabel="Invite permission"
                           onChange={field.handleChange}
                         />
@@ -1048,7 +1265,7 @@ function SessionShareDialog({
                           type="submit"
                           size="sm"
                           disabled={
-                            !canExpand ||
+                            !canPublish ||
                             !email.trim() ||
                             inviteMutation.isPending
                           }
@@ -1097,9 +1314,9 @@ function SessionShareDialog({
                 <SessionAttachmentControls
                   attachments={sessionAttachments}
                   sharedAttachmentIds={sharedAttachmentIds}
-                  canUseCloud={canExpand}
+                  canUseCloud={canPublish}
                   canInclude={
-                    canExpand &&
+                    canPublish &&
                     sharedAttachmentsReady &&
                     Boolean(env.VITE_SUPABASE_URL)
                   }
@@ -1155,19 +1372,19 @@ function SessionShareDialog({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="restricted">Restricted</SelectItem>
-                        <SelectItem value="link" disabled={!canExpand}>
+                        <SelectItem value="link" disabled={!canPublish}>
                           Anyone with the link
                         </SelectItem>
                         {workspaces.map((workspace) => (
                           <SelectItem
                             key={workspace.id}
                             value={`workspace:${workspace.id}`}
-                            disabled={!canExpand}
+                            disabled={!canPublish}
                           >
                             {workspace.name}
                           </SelectItem>
                         ))}
-                        <SelectItem value="public" disabled={!canExpand}>
+                        <SelectItem value="public" disabled={!canPublish}>
                           Public — searchable on the web
                         </SelectItem>
                       </SelectContent>
@@ -1177,7 +1394,7 @@ function SessionShareDialog({
                         type="button"
                         size="sm"
                         variant="outline"
-                        disabled={!canExpand || scopeMutation.isPending}
+                        disabled={!canPublish || scopeMutation.isPending}
                         onClick={() => scopeMutation.mutate("link")}
                         className="shrink-0"
                       >
@@ -1222,8 +1439,8 @@ function SessionShareDialog({
                   </p>
                   <p className="mt-1">
                     <Trans>
-                      Comment and edit permissions are saved, but shared notes
-                      are read-only in this build.
+                      Invited editors can edit on the web. If both copies
+                      change, sharing pauses until you resolve it.
                     </Trans>
                   </p>
                 </div>
@@ -1236,7 +1453,7 @@ function SessionShareDialog({
               type="button"
               size="sm"
               variant="ghost"
-              disabled={!canExpand || !management || refreshMutation.isPending}
+              disabled={!canPublish || !management || refreshMutation.isPending}
               onClick={() => refreshMutation.mutate()}
             >
               {refreshMutation.isPending ? (

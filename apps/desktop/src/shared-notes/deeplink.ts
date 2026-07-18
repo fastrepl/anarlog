@@ -47,9 +47,7 @@ export async function openAccountSharedNote({
   let response: { data: unknown; error: unknown };
   try {
     response = await supabase
-      .rpc("read_my_session_share_snapshot_with_attachments", {
-        p_share_id: shareId,
-      })
+      .rpc("read_my_session_share_snapshot_v2", { p_share_id: shareId })
       .setHeader(
         "Authorization",
         `${session.token_type} ${session.access_token}`,

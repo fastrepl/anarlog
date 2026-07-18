@@ -232,6 +232,12 @@ export const sharedSessionCache = sqliteTable(
       .notNull()
       .default(false),
     accessVersion: integer("access_version").notNull(),
+    webEditable: integer("web_editable", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    webEditBaseContentRevision: integer("web_edit_base_content_revision"),
+    webEditBaseTitle: text("web_edit_base_title"),
+    webEditBaseBodyJson: text("web_edit_base_body_json", { mode: "json" }),
     publishedAt: text("published_at").notNull(),
     cachedAt: text("cached_at").notNull().default(currentTimestamp),
   },
@@ -240,6 +246,30 @@ export const sharedSessionCache = sqliteTable(
     index("idx_shared_session_cache_viewer_workspace").on(
       table.viewerUserId,
       table.workspaceId,
+    ),
+  ],
+);
+
+export const sessionShareSyncState = sqliteTable(
+  "session_share_sync_state",
+  {
+    viewerUserId: text("viewer_user_id").notNull(),
+    shareId: text("share_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    acknowledgedContentRevision: integer(
+      "acknowledged_content_revision",
+    ).notNull(),
+    baselineSourceHash: text("baseline_source_hash").notNull(),
+    status: text("status", { enum: ["clean", "conflict"] })
+      .notNull()
+      .default("clean"),
+    updatedAt: text("updated_at").notNull().default(currentTimestamp),
+  },
+  (table) => [
+    primaryKey({ columns: [table.viewerUserId, table.shareId] }),
+    index("idx_session_share_sync_state_session").on(
+      table.viewerUserId,
+      table.sessionId,
     ),
   ],
 );

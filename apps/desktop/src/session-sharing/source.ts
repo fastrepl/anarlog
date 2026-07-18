@@ -12,6 +12,7 @@ const MAX_DOCUMENT_NODES = 50_000;
 
 type SessionShareSourceSqlRow = {
   id: string;
+  document_id: string | null;
   workspace_id: string;
   title: string;
   body: string;
@@ -30,9 +31,12 @@ type AvailableShareWorkspaceSqlRow = {
 
 export type SessionShareSource = {
   sessionId: string;
+  documentId: string | null;
   workspaceId: string;
   title: string;
   body: JSONContent;
+  rawBody: string;
+  bodyFormat: string;
 };
 
 export type AvailableShareWorkspace = {
@@ -43,6 +47,7 @@ export type AvailableShareWorkspace = {
 const SESSION_SHARE_SOURCE_SQL = `
   SELECT
     session.id,
+    note.id AS document_id,
     session.workspace_id,
     session.title,
     COALESCE(note.body, '') AS body,
@@ -155,9 +160,12 @@ export async function loadSessionShareSource(
 
   return {
     sessionId: row.id,
+    documentId: row.document_id,
     workspaceId: resolveSourceWorkspace(row, normalizedAccountUserId),
     title: row.title,
     body: parseShareDocument(row.body, row.body_format),
+    rawBody: row.body,
+    bodyFormat: row.body_format,
   };
 }
 

@@ -5,6 +5,7 @@ import {
   isAttachmentShareable,
   matchSharedAttachmentsToLocal,
   prepareSessionShareAttachment,
+  restoreLocalAttachmentIds,
   type SessionShareAttachment,
 } from "./attachments";
 
@@ -389,7 +390,6 @@ describe("shared attachment selection", () => {
     });
     expect(body.content?.[1]?.attrs).toEqual({});
   });
-
   it("preserves YouTube clip sources instead of treating them as local files", () => {
     const clip = {
       type: "clip",
@@ -444,5 +444,97 @@ describe("shared attachment selection", () => {
     expect(body.content?.[0]?.attrs).toEqual({
       sharedAttachmentId: legacySharedId,
     });
+  });
+  it("restores local attachment IDs from a shared snapshot and fails closed when unmatched", () => {
+    const sharedId = "33333333-3333-4333-8333-333333333333";
+    const fileSharedId = "44444444-4444-4444-8444-444444444444";
+    const fileAttachment: SessionShareAttachment = {
+      ...attachment,
+      id: "local-file-record",
+      filename: "notes.pdf",
+      contentType: "application/pdf",
+      sizeBytes: 84,
+      sha256: "b".repeat(64),
+      sourceId: "notes.pdf",
+    };
+    const localDocument = {
+      type: "doc",
+      content: [
+        {
+          type: "image",
+          attrs: {
+            attachmentId: attachment.sourceId,
+            src: "asset://local/diagram.png",
+            alt: "Architecture diagram",
+            title: "System overview",
+            editorWidth: 42,
+          },
+        },
+        {
+          type: "fileAttachment",
+          attrs: {
+            attachmentId: fileAttachment.sourceId,
+            src: "asset://local/notes.pdf",
+            path: "/Users/private/notes.pdf",
+            name: fileAttachment.filename,
+            mimeType: fileAttachment.contentType,
+            size: fileAttachment.sizeBytes,
+          },
+        },
+        {
+          type: "image",
+          attrs: {
+            attachmentId: attachment.sourceId,
+            src: "asset://local/diagram.png",
+            alt: "Architecture detail",
+            title: "Second placement",
+            editorWidth: 80,
+          },
+        },
+      ],
+    };
+    const restored = restoreLocalAttachmentIds(
+      {
+        type: "doc",
+        content: [
+          {
+            type: "image",
+            attrs: { sharedAttachmentId: sharedId },
+          },
+          {
+            type: "fileAttachment",
+            attrs: { sharedAttachmentId: fileSharedId },
+          },
+          {
+            type: "image",
+            attrs: { sharedAttachmentId: sharedId },
+          },
+        ],
+      },
+      localDocument,
+      [attachment, fileAttachment],
+      new Map([
+        [attachment.id, sharedId],
+        [fileAttachment.id, fileSharedId],
+      ]),
+    );
+
+    expect(restored).toEqual(localDocument);
+    expect(() =>
+      restoreLocalAttachmentIds(
+        {
+          type: "doc",
+          content: [
+            {
+              type: "fileAttachment",
+              attrs: { sharedAttachmentId: sharedId },
+            },
+          ],
+        },
+        localDocument,
+        [attachment],
+        new Map(),
+      ),
+    ).toThrow("unavailable locally");
   });
 });

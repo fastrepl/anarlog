@@ -2,15 +2,21 @@ import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { useQuery } from "@tanstack/react-query";
 
 import {
+  captureDurableSharedNoteCacheMutationVersion,
   parseDurableSharedNoteSnapshots,
   replaceDurableSharedNoteCache,
 } from "./cache";
 
 import { useAuth } from "~/auth";
+import {
+  isCanonicalSessionEditorActive,
+  tryAcquireCanonicalSessionImportLock,
+} from "~/session-sharing/editor-activity";
+import { reconcileManagedSessionShareSnapshot } from "~/session-sharing/reconciliation";
 import { useTabs } from "~/store/zustand/tabs";
 
 const REFRESH_INTERVAL_MS = 60 * 1000;
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 8;
 const MAX_AGGREGATE_BYTES = 64 * 1024 * 1024;
 
 export async function fetchDurableSharedNoteSnapshots(
@@ -25,7 +31,7 @@ export async function fetchDurableSharedNoteSnapshots(
   for (;;) {
     signal.throwIfAborted();
     const response: { data: unknown; error: unknown } = await supabase
-      .rpc("list_my_session_share_snapshot_page_with_attachments", {
+      .rpc("list_my_session_share_snapshot_page_v2", {
         p_after_share_id: afterShareId,
         p_limit: PAGE_SIZE,
       })
@@ -73,14 +79,42 @@ export async function syncDurableSharedNoteCache(
   session: Session,
   signal: AbortSignal,
 ) {
+  const cacheMutationVersion = captureDurableSharedNoteCacheMutationVersion(
+    session.user.id,
+  );
   const snapshots = await fetchDurableSharedNoteSnapshots(
     supabase,
     session,
     signal,
   );
+  const result = {
+    count: snapshots.length,
+    accessVersion: Math.max(
+      0,
+      ...snapshots.map((snapshot) => snapshot.accessVersion),
+    ),
+  };
   signal.throwIfAborted();
-  await replaceDurableSharedNoteCache(session.user.id, snapshots);
+  for (const snapshot of snapshots) {
+    if (!snapshot.manageAccess) continue;
+    await reconcileManagedSessionShareSnapshot({
+      viewerUserId: session.user.id,
+      snapshot,
+      signal,
+      isSessionEditorActive: isCanonicalSessionEditorActive,
+      acquireSessionImportLock: tryAcquireCanonicalSessionImportLock,
+      acknowledge: (shareId, contentRevision) =>
+        acknowledgeWebEdit(supabase, session, shareId, contentRevision, signal),
+    });
+    signal.throwIfAborted();
+  }
+  const cacheReplaced = await replaceDurableSharedNoteCache(
+    session.user.id,
+    snapshots,
+    cacheMutationVersion,
+  );
   signal.throwIfAborted();
+  if (!cacheReplaced) return result;
 
   const authorizedShareIds = new Set(
     snapshots.map((snapshot) => snapshot.shareId),
@@ -105,13 +139,24 @@ export async function syncDurableSharedNoteCache(
     }
   }
 
-  return {
-    count: snapshots.length,
-    accessVersion: Math.max(
-      0,
-      ...snapshots.map((snapshot) => snapshot.accessVersion),
-    ),
-  };
+  return result;
+}
+
+async function acknowledgeWebEdit(
+  supabase: SupabaseClient,
+  session: Session,
+  shareId: string,
+  contentRevision: number,
+  signal: AbortSignal,
+) {
+  const { error } = await supabase
+    .rpc("acknowledge_session_share_web_edits", {
+      p_share_id: shareId,
+      p_expected_content_revision: contentRevision,
+    })
+    .setHeader("Authorization", `${session.token_type} ${session.access_token}`)
+    .abortSignal(signal);
+  if (error) throw error;
 }
 
 export function DurableSharedNoteCacheSync() {

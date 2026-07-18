@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
     upgradeToPro: vi.fn(),
   },
   events: [] as string[],
+  flushCanonicalSessionEditorChanges: vi.fn().mockResolvedValue(undefined),
   access: [] as any[],
   management: null as any,
   loadSessionShareSource: vi.fn(),
@@ -38,6 +39,7 @@ const mocks = vi.hoisted(() => ({
   reviewSessionAccessRequest: vi.fn(),
   setSessionShareScope: vi.fn(),
   upsertDurableSharedNoteCache: vi.fn().mockResolvedValue(undefined),
+  loadManagedSharedNoteForSession: vi.fn(),
   durableNote: null as any,
   sessionAttachments: [] as any[],
   sharedAttachmentMap: new Map<string, string>(),
@@ -49,6 +51,10 @@ const mocks = vi.hoisted(() => ({
   loadSessionShareAttachments: vi.fn(),
   prepareSessionShareAttachment: vi.fn(),
   setAttachmentCloudSyncEnabled: vi.fn(),
+  loadSessionShareSyncState: vi.fn(),
+  syncStatus: "clean" as "clean" | "conflict" | null,
+  recordPublishedSessionShareState: vi.fn().mockResolvedValue(undefined),
+  openUrl: vi.fn().mockResolvedValue(undefined),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
   clipboardWriteText: vi.fn().mockResolvedValue(undefined),
@@ -62,7 +68,12 @@ vi.mock("~/auth/billing-context", () => ({
   useBillingAccess: () => mocks.billing,
 }));
 
+vi.mock("@hypr/plugin-opener2", () => ({
+  commands: { openUrl: mocks.openUrl },
+}));
+
 vi.mock("~/shared-notes/cache", () => ({
+  loadManagedSharedNoteForSession: mocks.loadManagedSharedNoteForSession,
   upsertDurableSharedNoteCache: mocks.upsertDurableSharedNoteCache,
   useDurableSharedNote: () => ({
     data: mocks.durableNote,
@@ -95,6 +106,23 @@ vi.mock("./source", () => ({
   loadSessionShareSource: mocks.loadSessionShareSource,
   useAvailableShareWorkspaces: () => [],
 }));
+
+vi.mock("./sync-state", () => ({
+  useSessionShareSyncStatus: () => mocks.syncStatus,
+}));
+
+vi.mock("./editor-activity", () => ({
+  flushCanonicalSessionEditorChanges: mocks.flushCanonicalSessionEditorChanges,
+}));
+
+vi.mock("./reconciliation", async (importOriginal) => {
+  const original = await importOriginal<typeof import("./reconciliation")>();
+  return {
+    ...original,
+    loadSessionShareSyncState: mocks.loadSessionShareSyncState,
+    recordPublishedSessionShareState: mocks.recordPublishedSessionShareState,
+  };
+});
 
 vi.mock("./client", async (importOriginal) => {
   const original = await importOriginal<typeof import("./client")>();
@@ -228,7 +256,13 @@ describe("SessionShareButton", () => {
     mocks.auth.supabase = {};
     mocks.billing.isReady = true;
     mocks.billing.isPaid = true;
+    mocks.syncStatus = "clean";
     mocks.management = defaultManagement();
+    mocks.loadManagedSharedNoteForSession.mockResolvedValue({
+      shareId: SHARE_ID,
+      workspaceId: WORKSPACE_ID,
+      sessionId: "session-1",
+    });
     mocks.sessionAttachments = [];
     mocks.sharedAttachmentMap = new Map();
     mocks.attachmentControlProps = null;
@@ -250,8 +284,18 @@ describe("SessionShareButton", () => {
       capability: "editor",
       manageAccess: true,
       accessVersion: 1,
+      webEditable: true,
+      webEditBase: null,
       publishedAt: "2026-07-17T00:00:00Z",
     };
+    mocks.loadSessionShareSyncState.mockResolvedValue({
+      viewerUserId: USER_ID,
+      shareId: SHARE_ID,
+      sessionId: "session-1",
+      acknowledgedContentRevision: 1,
+      baselineSourceHash: "a".repeat(64),
+      status: "clean",
+    });
     mocks.loadSessionShareSource.mockImplementation(async () => {
       mocks.events.push("load");
       return {
@@ -369,6 +413,12 @@ describe("SessionShareButton", () => {
 
     await openShareDialog();
 
+    expect(mocks.flushCanonicalSessionEditorChanges).toHaveBeenCalledWith(
+      "session-1",
+    );
+    expect(
+      mocks.flushCanonicalSessionEditorChanges.mock.invocationCallOrder[0],
+    ).toBeLessThan(mocks.loadSessionShareSource.mock.invocationCallOrder[0]!);
     expect(mocks.events.slice(0, 5)).toEqual([
       "load",
       "create",
@@ -390,6 +440,51 @@ describe("SessionShareButton", () => {
         "Attachments stay private unless you explicitly include them in this shared note.",
       ),
     ).not.toBeNull();
+  });
+
+  it("bootstraps an existing share after its first snapshot publish failed", async () => {
+    mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
+    mocks.createOrReuseSessionShare
+      .mockResolvedValueOnce({
+        shareId: SHARE_ID,
+        generalScope: "restricted",
+        publicSlug: PUBLIC_SLUG,
+        accessVersion: 1,
+        wasCreated: true,
+      })
+      .mockResolvedValueOnce({
+        shareId: SHARE_ID,
+        generalScope: "restricted",
+        publicSlug: PUBLIC_SLUG,
+        accessVersion: 1,
+        wasCreated: false,
+      });
+    mocks.publishSessionShareSnapshot.mockRejectedValueOnce(
+      new Error("connection lost"),
+    );
+    renderShareButton();
+
+    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
+    await waitFor(() =>
+      expect(mocks.toastError).toHaveBeenCalledWith(
+        "Could not prepare this note for sharing.",
+      ),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
+    await screen.findByRole("heading", { name: "Share note" });
+
+    expect(mocks.publishSessionShareSnapshot).toHaveBeenCalledTimes(2);
+    expect(mocks.publishSessionShareSnapshot.mock.calls[0]![0].mutationId).toBe(
+      mocks.publishSessionShareSnapshot.mock.calls[1]![0].mutationId,
+    );
+    expect(mocks.publishSessionShareSnapshot.mock.calls[1]![0]).toMatchObject({
+      shareId: SHARE_ID,
+      baseRevision: 0,
+      attachmentIds: [],
+    });
+    expect(mocks.upsertDurableSharedNoteCache).toHaveBeenCalledOnce();
   });
 
   it("does not clear attachment selections when reopening an existing share", async () => {
@@ -510,6 +605,190 @@ describe("SessionShareButton", () => {
     expect(mocks.loadSessionShareAttachments).toHaveBeenCalledWith("session-1");
     expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
     expect(mocks.toastSuccess).not.toHaveBeenCalled();
+  });
+
+  it("blocks a manual publish before an editable snapshot is reconciled locally", async () => {
+    mocks.createOrReuseSessionShare.mockResolvedValueOnce({
+      shareId: SHARE_ID,
+      generalScope: "restricted",
+      publicSlug: PUBLIC_SLUG,
+      accessVersion: 1,
+      wasCreated: false,
+    });
+    mocks.loadSessionShareSyncState.mockResolvedValue(null);
+    renderShareButton();
+    await openShareDialog();
+    mocks.publishSessionShareSnapshot.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Update shared copy" }));
+
+    await waitFor(() =>
+      expect(mocks.loadSessionShareSyncState).toHaveBeenCalledWith(
+        USER_ID,
+        SHARE_ID,
+      ),
+    );
+    expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
+    expect(mocks.toastError).toHaveBeenCalledWith(
+      "Could not update the shared copy.",
+    );
+  });
+
+  it("blocks a manual publish for a legacy read-only snapshot without reconciliation state", async () => {
+    mocks.durableNote.webEditable = false;
+    mocks.createOrReuseSessionShare.mockResolvedValueOnce({
+      shareId: SHARE_ID,
+      generalScope: "restricted",
+      publicSlug: PUBLIC_SLUG,
+      accessVersion: 1,
+      wasCreated: false,
+    });
+    mocks.loadSessionShareSyncState.mockResolvedValue(null);
+    renderShareButton();
+    await openShareDialog();
+    mocks.publishSessionShareSnapshot.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Update shared copy" }));
+
+    await waitFor(() =>
+      expect(mocks.loadSessionShareSyncState).toHaveBeenCalledWith(
+        USER_ID,
+        SHARE_ID,
+      ),
+    );
+    expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
+    expect(mocks.toastError).toHaveBeenCalledWith(
+      "Could not update the shared copy.",
+    );
+  });
+
+  it("surfaces a durable conflict and explicitly publishes desktop edits over the web copy", async () => {
+    mocks.syncStatus = "conflict";
+    mocks.durableNote.contentRevision = 2;
+    mocks.durableNote.webEditBase = {
+      contentRevision: 1,
+      title: "Planning",
+      body: { type: "doc", content: [] },
+    };
+    mocks.loadSessionShareSyncState.mockResolvedValue({
+      viewerUserId: USER_ID,
+      shareId: SHARE_ID,
+      sessionId: "session-1",
+      acknowledgedContentRevision: 1,
+      baselineSourceHash: "a".repeat(64),
+      status: "conflict",
+    });
+    mocks.createOrReuseSessionShare.mockResolvedValueOnce({
+      shareId: SHARE_ID,
+      generalScope: "restricted",
+      publicSlug: PUBLIC_SLUG,
+      accessVersion: 1,
+      wasCreated: false,
+    });
+    mocks.publishSessionShareSnapshot.mockResolvedValueOnce({
+      shareId: SHARE_ID,
+      schemaVersion: 1,
+      contentRevision: 3,
+      title: "Planning",
+      body: { type: "doc", content: [] },
+      attachments: [],
+      accessVersion: 1,
+      webEditable: true,
+      publishedAt: "2026-07-17T00:01:00Z",
+    });
+    renderShareButton();
+    await openShareDialog();
+
+    expect(
+      screen.getByRole("heading", {
+        name: "Sharing paused to protect your edits",
+      }),
+    ).not.toBeNull();
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Update shared copy",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open web copy" }));
+    await waitFor(() => expect(mocks.openUrl).toHaveBeenCalledOnce());
+    expect(mocks.openUrl).toHaveBeenCalledWith(
+      expect.stringContaining(`/share/${SHARE_ID}/`),
+      null,
+    );
+
+    mocks.flushCanonicalSessionEditorChanges.mockClear();
+    mocks.loadSessionShareSource.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Keep desktop edits" }));
+
+    await waitFor(() =>
+      expect(mocks.publishSessionShareSnapshot).toHaveBeenCalledWith(
+        expect.objectContaining({
+          shareId: SHARE_ID,
+          baseRevision: 2,
+          title: "Planning",
+        }),
+      ),
+    );
+    expect(mocks.recordPublishedSessionShareState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shareId: SHARE_ID,
+        contentRevision: 3,
+      }),
+    );
+    expect(mocks.flushCanonicalSessionEditorChanges).toHaveBeenCalledWith(
+      "session-1",
+    );
+    expect(
+      mocks.flushCanonicalSessionEditorChanges.mock.invocationCallOrder[0],
+    ).toBeLessThan(mocks.loadSessionShareSource.mock.invocationCallOrder[0]!);
+    expect(mocks.toastSuccess).toHaveBeenCalledWith(
+      "Desktop edits published. Sharing resumed.",
+    );
+  });
+
+  it("keeps the conflict durable when a newer web revision wins the resolution CAS", async () => {
+    mocks.syncStatus = "conflict";
+    mocks.durableNote.contentRevision = 2;
+    mocks.durableNote.webEditBase = {
+      contentRevision: 1,
+      title: "Planning",
+      body: { type: "doc", content: [] },
+    };
+    mocks.loadSessionShareSyncState.mockResolvedValue({
+      viewerUserId: USER_ID,
+      shareId: SHARE_ID,
+      sessionId: "session-1",
+      acknowledgedContentRevision: 1,
+      baselineSourceHash: "a".repeat(64),
+      status: "conflict",
+    });
+    mocks.createOrReuseSessionShare.mockResolvedValueOnce({
+      shareId: SHARE_ID,
+      generalScope: "restricted",
+      publicSlug: PUBLIC_SLUG,
+      accessVersion: 1,
+      wasCreated: false,
+    });
+    mocks.publishSessionShareSnapshot.mockRejectedValueOnce(
+      new Error("snapshot conflict"),
+    );
+    renderShareButton();
+    await openShareDialog();
+    mocks.recordPublishedSessionShareState.mockClear();
+    mocks.upsertDurableSharedNoteCache.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Keep desktop edits" }));
+
+    await waitFor(() =>
+      expect(mocks.toastError).toHaveBeenCalledWith(
+        "Could not publish the desktop edits. Check the latest web copy and try again.",
+      ),
+    );
+    expect(mocks.recordPublishedSessionShareState).not.toHaveBeenCalled();
+    expect(mocks.upsertDurableSharedNoteCache).not.toHaveBeenCalled();
   });
 
   it("revokes a shared copy before making its private backup local-only", async () => {

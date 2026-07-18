@@ -1,3 +1,4 @@
+import type { EditorView } from "prosemirror-view";
 import {
   forwardRef,
   type MouseEventHandler,
@@ -20,6 +21,10 @@ import { SearchBar } from "./search/bar";
 import { useSearch } from "./search/context";
 import { Transcript } from "./transcript";
 
+import {
+  registerCanonicalSessionEditor,
+  unregisterCanonicalSessionEditor,
+} from "~/session-sharing/editor-activity";
 import { useCurrentNoteTab } from "~/session/components/shared";
 import { useScrollPreservation } from "~/shared/hooks/useScrollPreservation";
 import type { SessionMode } from "~/store/zustand/listener/general";
@@ -295,6 +300,22 @@ const NoteInputContent = forwardRef<
       internalEditorRef.current?.commands.focusAtTrailingEmptyLine();
     };
 
+    const handleSessionViewReady = useCallback(
+      (view: EditorView) =>
+        registerCanonicalSessionEditor(sessionId, view, () => {
+          const editor = internalEditorRef.current;
+          if (!editor || editor.view !== view) {
+            throw new Error("Canonical session editor changed");
+          }
+          editor.flushPendingChanges();
+        }),
+      [sessionId],
+    );
+    const handleSessionViewDisposed = useCallback(
+      (view: EditorView) => unregisterCanonicalSessionEditor(sessionId, view),
+      [sessionId],
+    );
+
     return (
       <div className="-mx-2 flex h-full flex-col">
         {!hideHeader && (
@@ -335,6 +356,8 @@ const NoteInputContent = forwardRef<
                 sessionTitle={sessionTitle}
                 enhancedNoteId={renderedCurrentTab.id}
                 onNavigateToTitle={onNavigateToTitle}
+                onViewReady={handleSessionViewReady}
+                onViewDisposed={handleSessionViewDisposed}
               />
             )}
             {renderedCurrentTab.type === "raw" && (
@@ -344,6 +367,8 @@ const NoteInputContent = forwardRef<
                 rawMd={rawMd}
                 sessionTitle={sessionTitle}
                 onNavigateToTitle={onNavigateToTitle}
+                onViewReady={handleSessionViewReady}
+                onViewDisposed={handleSessionViewDisposed}
               />
             )}
             {renderedCurrentTab.type === "transcript" && (

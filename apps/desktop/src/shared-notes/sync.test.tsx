@@ -9,10 +9,12 @@ const mocks = vi.hoisted(() => ({
     supabase: null as any,
   },
   abortSignal: vi.fn(),
+  captureCacheMutationVersion: vi.fn(() => 7),
   invalidateResource: vi.fn(),
   history: new Map<string, { stack: Array<{ type: string; id: string }> }>(),
   parseSnapshots: vi.fn((value: unknown) => value),
-  replaceCache: vi.fn(async () => {}),
+  reconcile: vi.fn(async (_input?: any) => "idle"),
+  replaceCache: vi.fn(async () => true),
   rpc: vi.fn(),
   setHeader: vi.fn(),
   tabs: [] as Array<{ type: string; id: string }>,
@@ -23,8 +25,14 @@ vi.mock("~/auth", () => ({
 }));
 
 vi.mock("./cache", () => ({
+  captureDurableSharedNoteCacheMutationVersion:
+    mocks.captureCacheMutationVersion,
   parseDurableSharedNoteSnapshots: mocks.parseSnapshots,
   replaceDurableSharedNoteCache: mocks.replaceCache,
+}));
+
+vi.mock("~/session-sharing/reconciliation", () => ({
+  reconcileManagedSessionShareSnapshot: mocks.reconcile,
 }));
 
 vi.mock("~/store/zustand/tabs", () => ({
@@ -120,11 +128,11 @@ describe("DurableSharedNoteCacheSync", () => {
     render(<DurableSharedNoteCacheSync />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(mocks.replaceCache).toHaveBeenCalledWith("viewer-1", snapshots);
+      expect(mocks.replaceCache).toHaveBeenCalledWith("viewer-1", snapshots, 7);
     });
     expect(mocks.rpc).toHaveBeenCalledWith(
-      "list_my_session_share_snapshot_page_with_attachments",
-      { p_after_share_id: null, p_limit: 100 },
+      "list_my_session_share_snapshot_page_v2",
+      { p_after_share_id: null, p_limit: 8 },
     );
     expect(mocks.setHeader).toHaveBeenCalledWith(
       "Authorization",
@@ -133,11 +141,84 @@ describe("DurableSharedNoteCacheSync", () => {
     expect(mocks.abortSignal).toHaveBeenCalledWith(expect.any(AbortSignal));
   });
 
+  it("reconciles manager snapshots and acknowledges only through the supplied post-import callback", async () => {
+    const snapshot = {
+      shareId: "share-1",
+      manageAccess: true,
+      contentRevision: 3,
+      accessVersion: 4,
+    };
+    mocks.abortSignal
+      .mockResolvedValueOnce({ data: ["server-row"], error: null })
+      .mockResolvedValueOnce({ data: null, error: null });
+    mocks.parseSnapshots.mockReturnValue([snapshot]);
+    mocks.reconcile.mockImplementationOnce(async (input: any) => {
+      await input.acknowledge("share-1", 3);
+      return "imported";
+    });
+
+    render(<DurableSharedNoteCacheSync />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(mocks.replaceCache).toHaveBeenCalledWith(
+        "viewer-1",
+        [snapshot],
+        7,
+      );
+    });
+    expect(mocks.reconcile).toHaveBeenCalledWith(
+      expect.objectContaining({ viewerUserId: "viewer-1", snapshot }),
+    );
+    expect(mocks.rpc).toHaveBeenNthCalledWith(
+      2,
+      "acknowledge_session_share_web_edits",
+      {
+        p_share_id: "share-1",
+        p_expected_content_revision: 3,
+      },
+    );
+    expect(mocks.reconcile.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.replaceCache.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("passes cancellation into reconciliation before replacing the cache", async () => {
+    const snapshot = {
+      shareId: "share-1",
+      manageAccess: true,
+      contentRevision: 3,
+      accessVersion: 4,
+    };
+    mocks.abortSignal.mockResolvedValue({
+      data: ["server-row"],
+      error: null,
+    });
+    mocks.parseSnapshots.mockReturnValue([snapshot]);
+    const controller = new AbortController();
+    mocks.reconcile.mockImplementationOnce(async (input: any) => {
+      expect(input.signal).toBe(controller.signal);
+      controller.abort();
+      input.signal.throwIfAborted();
+      return "idle";
+    });
+
+    await expect(
+      syncDurableSharedNoteCache(
+        mocks.auth.supabase,
+        mocks.auth.session,
+        controller.signal,
+      ),
+    ).rejects.toMatchObject({ name: "AbortError" });
+
+    expect(mocks.replaceCache).not.toHaveBeenCalled();
+    expect(mocks.invalidateResource).not.toHaveBeenCalled();
+  });
+
   it("reconciles only after every result page succeeds", async () => {
-    const firstPage = Array.from({ length: 100 }, (_, index) => ({
+    const firstPage = Array.from({ length: 8 }, (_, index) => ({
       share_id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
     }));
-    const lastPage = [{ share_id: "00000000-0000-4000-8000-000000000100" }];
+    const lastPage = [{ share_id: "00000000-0000-4000-8000-000000000008" }];
     mocks.abortSignal
       .mockResolvedValueOnce({ data: firstPage, error: null })
       .mockResolvedValueOnce({ data: lastPage, error: null });
@@ -146,19 +227,19 @@ describe("DurableSharedNoteCacheSync", () => {
     render(<DurableSharedNoteCacheSync />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(mocks.replaceCache).toHaveBeenCalledWith("viewer-1", []);
+      expect(mocks.replaceCache).toHaveBeenCalledWith("viewer-1", [], 7);
     });
     expect(mocks.rpc).toHaveBeenNthCalledWith(
       1,
-      "list_my_session_share_snapshot_page_with_attachments",
-      { p_after_share_id: null, p_limit: 100 },
+      "list_my_session_share_snapshot_page_v2",
+      { p_after_share_id: null, p_limit: 8 },
     );
     expect(mocks.rpc).toHaveBeenNthCalledWith(
       2,
-      "list_my_session_share_snapshot_page_with_attachments",
+      "list_my_session_share_snapshot_page_v2",
       {
         p_after_share_id: firstPage[firstPage.length - 1]?.share_id,
-        p_limit: 100,
+        p_limit: 8,
       },
     );
     expect(mocks.parseSnapshots).toHaveBeenCalledWith([
@@ -170,7 +251,7 @@ describe("DurableSharedNoteCacheSync", () => {
   it("preserves the cache when a later result page fails", async () => {
     mocks.abortSignal
       .mockResolvedValueOnce({
-        data: Array.from({ length: 100 }, (_, index) => ({
+        data: Array.from({ length: 8 }, (_, index) => ({
           share_id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
         })),
         error: null,
@@ -190,7 +271,7 @@ describe("DurableSharedNoteCacheSync", () => {
   });
 
   it("rejects a full page that does not advance the share cursor", async () => {
-    const page = Array.from({ length: 100 }, (_, index) => ({
+    const page = Array.from({ length: 8 }, (_, index) => ({
       share_id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
     }));
     mocks.abortSignal
@@ -211,8 +292,8 @@ describe("DurableSharedNoteCacheSync", () => {
     let finishCacheWrite: (() => void) | undefined;
     mocks.replaceCache.mockImplementationOnce(
       () =>
-        new Promise<void>((resolve) => {
-          finishCacheWrite = resolve;
+        new Promise<boolean>((resolve) => {
+          finishCacheWrite = () => resolve(true);
         }),
     );
     mocks.parseSnapshots.mockReturnValue([
@@ -233,6 +314,29 @@ describe("DurableSharedNoteCacheSync", () => {
     finishCacheWrite?.();
 
     await expect(reconciliation).rejects.toMatchObject({ name: "AbortError" });
+    expect(mocks.invalidateResource).not.toHaveBeenCalled();
+  });
+
+  it("does not invalidate tabs when a local mutation supersedes the fetch", async () => {
+    mocks.parseSnapshots.mockReturnValue([
+      { shareId: "active-share", accessVersion: 1 },
+    ]);
+    mocks.tabs = [{ type: "shared_sessions", id: "newer-local-share" }];
+    mocks.replaceCache.mockResolvedValueOnce(false);
+
+    await expect(
+      syncDurableSharedNoteCache(
+        mocks.auth.supabase,
+        mocks.auth.session,
+        new AbortController().signal,
+      ),
+    ).resolves.toEqual({ count: 1, accessVersion: 1 });
+
+    expect(mocks.replaceCache).toHaveBeenCalledWith(
+      "viewer-1",
+      [{ shareId: "active-share", accessVersion: 1 }],
+      7,
+    );
     expect(mocks.invalidateResource).not.toHaveBeenCalled();
   });
 

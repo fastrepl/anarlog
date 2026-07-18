@@ -11,7 +11,7 @@ const CAPABILITY_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const MAX_ACCESS_ROWS = 1_000;
 const MAX_RPC_DATA_BYTES = 1024 * 1024;
 const MAX_SNAPSHOT_BODY_BYTES = 2 * 1024 * 1024;
-const MAX_SNAPSHOT_RESPONSE_BYTES = MAX_SNAPSHOT_BODY_BYTES + 16 * 1024;
+const MAX_SNAPSHOT_RESPONSE_BYTES = MAX_SNAPSHOT_BODY_BYTES + 256 * 1024;
 const MAX_SNAPSHOT_TITLE_BYTES = 4_096;
 const MAX_ACCESS_TOKEN_BYTES = 16 * 1024;
 const SNAPSHOT_TIMEOUT_MS = 10_000;
@@ -124,6 +124,8 @@ export type PublishedSessionShareSnapshot = {
   title: string;
   body: JSONContent;
   attachments: SharedNoteAttachment[];
+  webEditable: boolean;
+  accessVersion: number;
   publishedAt: string;
 };
 
@@ -131,6 +133,8 @@ export type PublishSessionShareSnapshotInput = {
   apiBaseUrl: string;
   session: Session;
   shareId: string;
+  baseRevision: number;
+  mutationId: string;
   title: string;
   body: unknown;
   attachmentIds?: string[];
@@ -142,6 +146,13 @@ export class ShareManagementError extends Error {
   constructor() {
     super("Share management is unavailable");
     this.name = "ShareManagementError";
+  }
+}
+
+export class ShareSnapshotConflictError extends ShareManagementError {
+  constructor(public readonly snapshot: PublishedSessionShareSnapshot) {
+    super();
+    this.name = "ShareSnapshotConflictError";
   }
 }
 
@@ -459,6 +470,10 @@ export async function publishSessionShareSnapshot(
   try {
     assertAuthenticatedSession(input.session);
     assertUuid(input.shareId);
+    if (!Number.isSafeInteger(input.baseRevision) || input.baseRevision < 0) {
+      throw unavailable();
+    }
+    assertUuid(input.mutationId);
     const title = normalizeTitle(input.title);
     const body = parseSessionShareDocument(input.body);
     const attachmentIds =
@@ -467,6 +482,8 @@ export async function publishSessionShareSnapshot(
         : normalizeAttachmentIds(input.attachmentIds);
     const url = snapshotUrl(input.apiBaseUrl, input.shareId);
     const requestBody = JSON.stringify({
+      baseRevision: input.baseRevision,
+      mutationId: input.mutationId,
       title,
       body,
       ...(attachmentIds === undefined ? {} : { attachmentIds }),
@@ -491,6 +508,24 @@ export async function publishSessionShareSnapshot(
         signal: request.signal,
       });
       if (!response.ok) {
+        if (response.status === 409) {
+          const contentType = response.headers.get("content-type");
+          if (!contentType?.toLowerCase().includes("application/json")) {
+            throw unavailable();
+          }
+          const responseText = await readLimitedResponse(
+            response,
+            MAX_SNAPSHOT_RESPONSE_BYTES,
+          );
+          const conflict = expectRecord(JSON.parse(responseText), [
+            "code",
+            "snapshot",
+          ]);
+          if (conflict.code !== "snapshot_conflict") throw unavailable();
+          throw new ShareSnapshotConflictError(
+            parsePublishedSessionShareSnapshot(conflict.snapshot),
+          );
+        }
         throw unavailable();
       }
       const contentType = response.headers.get("content-type");
@@ -814,6 +849,8 @@ function parsePublishedSessionShareSnapshot(
     "title",
     "body",
     "attachments",
+    "webEditable",
+    "accessVersion",
     "publishedAt",
   ]);
   if (row.schemaVersion !== 1) {
@@ -826,6 +863,8 @@ function parsePublishedSessionShareSnapshot(
     title: expectTitle(row.title),
     body: parseSessionShareDocument(row.body),
     attachments: parseSharedNoteAttachments(row.attachments),
+    webEditable: expectBoolean(row.webEditable),
+    accessVersion: expectPositiveInteger(row.accessVersion),
     publishedAt: expectTimestamp(row.publishedAt),
   };
 }

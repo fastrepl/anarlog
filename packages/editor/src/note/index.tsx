@@ -133,6 +133,7 @@ export interface EditorCommands {
 export interface NoteEditorRef {
   view: EditorView | null;
   commands: EditorCommands;
+  flushPendingChanges: () => void;
 }
 
 export type SessionMentionDropData = {
@@ -168,6 +169,7 @@ export interface NoteEditorProps {
   extraNodeViews?: NodeViewComponents;
   sessionMentionDropConfig?: SessionMentionDropConfig;
   showFormatToolbar?: boolean;
+  showSlashCommand?: boolean;
   readOnly?: boolean;
   onViewReady?: (view: EditorView) => void;
   onViewDisposed?: (view: EditorView) => void;
@@ -560,6 +562,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       extraNodeViews,
       sessionMentionDropConfig,
       showFormatToolbar = true,
+      showSlashCommand = true,
       readOnly = false,
       onViewReady: onViewReadyProp,
       onViewDisposed,
@@ -602,19 +605,6 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       endedAt: 0,
     });
 
-    useImperativeHandle(
-      ref,
-      () => ({
-        get view() {
-          return viewRef.current;
-        },
-        get commands() {
-          return commandsRef.current;
-        },
-      }),
-      [],
-    );
-
     const syncTasks = useCallback(
       (content: JSONContent) => {
         if (readOnly || !taskSource || !taskStorage) {
@@ -647,9 +637,33 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       [handleChange, syncTasks],
     );
 
-    const onUpdate = useDebounceCallback(flushChange, 500);
+    const flushChangeRef = useRef(flushChange);
+    flushChangeRef.current = flushChange;
+    const flushLatestChange = useCallback(
+      (doc: PMNode) => flushChangeRef.current(doc),
+      [],
+    );
+    const onUpdate = useDebounceCallback(flushLatestChange, 500);
     const onUpdateRef = useRef(onUpdate);
     onUpdateRef.current = onUpdate;
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        get view() {
+          return viewRef.current;
+        },
+        get commands() {
+          return commandsRef.current;
+        },
+        flushPendingChanges: () => {
+          const view = viewRef.current;
+          onUpdate.cancel();
+          if (view) flushChangeRef.current(view.state.doc);
+        },
+      }),
+      [onUpdate],
+    );
 
     const setCompositionActive = useCallback((active: boolean) => {
       compositionStateRef.current = {
@@ -808,13 +822,14 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
 
     const handleViewDisposed = useCallback(
       (view: EditorView) => {
+        onUpdate.flush();
         compositionStateRef.current = {
           active: false,
           endedAt: 0,
         };
         onViewDisposed?.(view);
       },
-      [onViewDisposed],
+      [onUpdate, onViewDisposed],
     );
 
     return (
@@ -855,7 +870,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
                   />
                   <EditorCommandsBridge commandsRef={commandsRef} />
                   {showFormatToolbar && !readOnly && <FormatToolbar />}
-                  {!readOnly && <SlashCommandMenu />}
+                  {showSlashCommand && !readOnly && <SlashCommandMenu />}
                   {mentionConfig && !readOnly && (
                     <MentionSuggestion config={mentionConfig} />
                   )}

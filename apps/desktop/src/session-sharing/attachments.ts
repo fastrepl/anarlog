@@ -351,13 +351,33 @@ export function addSharedAttachmentIds(
   localAttachments: SessionShareAttachment[],
   localToShared: Map<string, string>,
 ): JSONContent {
-  const sourceToShared = new Map<string, string>();
-  for (const attachment of localAttachments) {
-    if (attachment.sourceType === "session_audio") continue;
-    const sharedId = localToShared.get(attachment.id);
-    if (sharedId) sourceToShared.set(attachment.sourceId, sharedId);
-  }
+  const sourceToShared = mapLocalSourcesToShared(
+    localAttachments,
+    localToShared,
+  );
   return mapDocumentNode(document, sourceToShared) as JSONContent;
+}
+
+export function restoreLocalAttachmentIds(
+  document: JSONContent,
+  localDocument: JSONContent,
+  localAttachments: SessionShareAttachment[],
+  localToShared: Map<string, string>,
+): JSONContent {
+  const sourceToShared = mapLocalSourcesToShared(
+    localAttachments,
+    localToShared,
+  );
+  const sharedToSource = new Map<string, string>();
+  for (const [sourceId, sharedId] of sourceToShared) {
+    sharedToSource.set(sharedId, sourceId);
+  }
+  const localAttrs = collectLocalAttachmentAttrs(localDocument, sourceToShared);
+  return restoreDocumentNode(
+    document,
+    sharedToSource,
+    localAttrs,
+  ) as JSONContent;
 }
 
 export function isAttachmentShareable(attachment: SessionShareAttachment) {
@@ -588,6 +608,111 @@ function mapDocumentNode(
     mapped.attrs = sharedId ? { sharedAttachmentId: sharedId } : {};
   }
   return mapped;
+}
+
+function restoreDocumentNode(
+  value: unknown,
+  sharedToLocal: Map<string, string>,
+  localAttrs: Map<string, Record<string, unknown>[]>,
+): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) =>
+      restoreDocumentNode(item, sharedToLocal, localAttrs),
+    );
+  }
+  if (!value || typeof value !== "object") return value;
+  const node = value as Record<string, unknown>;
+  const mapped = Object.fromEntries(
+    Object.entries(node).map(([key, child]) => [
+      key,
+      key === "attrs"
+        ? child
+        : restoreDocumentNode(child, sharedToLocal, localAttrs),
+    ]),
+  );
+  if (
+    (node.type === "image" ||
+      node.type === "fileAttachment" ||
+      node.type === "clip") &&
+    node.attrs &&
+    typeof node.attrs === "object"
+  ) {
+    const attrs = node.attrs as Record<string, unknown>;
+    const sharedId = attrs.sharedAttachmentId;
+    if (typeof sharedId === "string") {
+      const localId = sharedToLocal.get(sharedId);
+      if (!localId) {
+        throw new Error("Shared attachment is unavailable locally");
+      }
+      const preserved = localAttrs
+        .get(attachmentNodeKey(node.type, sharedId))
+        ?.shift();
+      const {
+        attachmentId: _,
+        sharedAttachmentId: __,
+        ...preservedAttrs
+      } = preserved ?? {};
+      mapped.attrs = { ...preservedAttrs, attachmentId: localId };
+    }
+  }
+  return mapped;
+}
+
+function mapLocalSourcesToShared(
+  localAttachments: SessionShareAttachment[],
+  localToShared: Map<string, string>,
+) {
+  const sourceToShared = new Map<string, string>();
+  for (const attachment of localAttachments) {
+    if (attachment.sourceType === "session_audio") continue;
+    const sharedId = localToShared.get(attachment.id);
+    if (sharedId && attachment.sourceId) {
+      sourceToShared.set(attachment.sourceId, sharedId);
+    }
+  }
+  return sourceToShared;
+}
+
+function collectLocalAttachmentAttrs(
+  value: unknown,
+  sourceToShared: Map<string, string>,
+  attrs = new Map<string, Record<string, unknown>[]>(),
+): Map<string, Record<string, unknown>[]> {
+  if (Array.isArray(value)) {
+    for (const child of value) {
+      collectLocalAttachmentAttrs(child, sourceToShared, attrs);
+    }
+    return attrs;
+  }
+  if (!value || typeof value !== "object") return attrs;
+  const node = value as Record<string, unknown>;
+  if (
+    (node.type === "image" || node.type === "fileAttachment") &&
+    node.attrs &&
+    typeof node.attrs === "object"
+  ) {
+    const nodeAttrs = node.attrs as Record<string, unknown>;
+    const attachmentId = nodeAttrs.attachmentId;
+    const sharedId =
+      typeof attachmentId === "string"
+        ? sourceToShared.get(attachmentId)
+        : undefined;
+    if (sharedId) {
+      const key = attachmentNodeKey(node.type, sharedId);
+      const occurrences = attrs.get(key) ?? [];
+      occurrences.push(nodeAttrs);
+      attrs.set(key, occurrences);
+    }
+  }
+  for (const [key, child] of Object.entries(node)) {
+    if (key !== "attrs")
+      collectLocalAttachmentAttrs(child, sourceToShared, attrs);
+  }
+  return attrs;
+}
+
+function attachmentNodeKey(type: unknown, sharedId: string) {
+  return `${String(type)}\0${sharedId}`;
 }
 
 async function deriveBlindRef(value: string) {
