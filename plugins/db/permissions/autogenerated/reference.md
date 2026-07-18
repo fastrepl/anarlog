@@ -19,14 +19,11 @@ Default permissions for the plugin
 - `allow-import-e2ee-identity`
 - `allow-subscribe`
 - `allow-unsubscribe`
-- `allow-configure-cloudsync`
 - `allow-bind-cloudsync-account`
 - `allow-configure-cloudsync-token`
-- `allow-start-cloudsync`
 - `allow-stop-cloudsync`
 - `allow-suspend-cloudsync`
 - `allow-get-cloudsync-status`
-- `allow-sync-cloudsync-now`
 
 ## Permission Table
 

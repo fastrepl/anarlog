@@ -14,6 +14,9 @@ pub enum SyncError {
     #[error("Anarlog Pro is required for CloudSync")]
     ProPlanRequired,
 
+    #[error("A newer Anarlog version is required for encrypted CloudSync")]
+    CloudsyncUpgradeRequired,
+
     #[error("This account is protected by a different E2EE recovery key")]
     E2eeKeyMismatch,
 
@@ -95,6 +98,11 @@ impl IntoResponse for SyncError {
                 StatusCode::FORBIDDEN,
                 "subscription_required",
                 "Anarlog Pro is required for CloudSync".to_string(),
+            ),
+            Self::CloudsyncUpgradeRequired => (
+                StatusCode::UPGRADE_REQUIRED,
+                "cloudsync_upgrade_required",
+                "Update Anarlog to continue using encrypted CloudSync".to_string(),
             ),
             Self::E2eeKeyMismatch => (
                 StatusCode::CONFLICT,

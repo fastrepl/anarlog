@@ -12,8 +12,34 @@ pub struct SyncEnv {
     pub sqlitecloud_token_issuer_api_key: Option<String>,
     #[serde(default)]
     pub anarlog_cloudsync_e2ee_database_id: Option<String>,
+    #[serde(default)]
+    pub anarlog_cloudsync_database_id: Option<String>,
+    #[serde(default)]
+    pub anarlog_cloudsync_protocol_mode: Option<String>,
     #[serde(default, deserialize_with = "deserialize_optional_u64")]
     pub anarlog_cloudsync_token_ttl_seconds: Option<u64>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum CloudsyncProtocolMode {
+    Dual,
+    E2eeOnly,
+    #[default]
+    E2eeEnforced,
+}
+
+impl CloudsyncProtocolMode {
+    fn parse(value: Option<&str>) -> Result<Self, String> {
+        match value.map(str::trim).filter(|value| !value.is_empty()) {
+            None | Some("e2ee_enforced") => Ok(Self::E2eeEnforced),
+            Some("dual") => Ok(Self::Dual),
+            Some("e2ee_only") => Ok(Self::E2eeOnly),
+            Some(_) => Err(
+                "ANARLOG_CLOUDSYNC_PROTOCOL_MODE must be dual, e2ee_only, or e2ee_enforced"
+                    .to_string(),
+            ),
+        }
+    }
 }
 
 fn deserialize_optional_u64<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
@@ -30,6 +56,8 @@ pub struct SyncConfig {
     pub(crate) project_url: String,
     pub(crate) token_issuer_api_key: String,
     pub(crate) database_id: String,
+    pub(crate) legacy_database_id: Option<String>,
+    pub(crate) protocol_mode: CloudsyncProtocolMode,
     pub(crate) token_ttl_seconds: u64,
     pub(crate) supabase_url: String,
     pub(crate) supabase_anon_key: String,
@@ -87,6 +115,8 @@ impl SyncConfig {
             project_url: validate_project_url(project_url.into())?,
             token_issuer_api_key: token_issuer_api_key.into(),
             database_id: database_id.into(),
+            legacy_database_id: None,
+            protocol_mode: CloudsyncProtocolMode::E2eeEnforced,
             token_ttl_seconds: DEFAULT_TOKEN_TTL_SECONDS,
             supabase_url: validate_supabase_url(supabase_url.into())?,
             supabase_anon_key,
@@ -100,6 +130,21 @@ impl SyncConfig {
         Ok(self)
     }
 
+    pub(crate) fn with_protocol_mode(
+        mut self,
+        protocol_mode: CloudsyncProtocolMode,
+        legacy_database_id: Option<String>,
+    ) -> Result<Self, String> {
+        validate_protocol_databases(
+            &self.database_id,
+            legacy_database_id.as_deref(),
+            protocol_mode,
+        )?;
+        self.legacy_database_id = legacy_database_id;
+        self.protocol_mode = protocol_mode;
+        Ok(self)
+    }
+
     pub fn from_env(
         env: &SyncEnv,
         supabase_url: &str,
@@ -109,8 +154,15 @@ impl SyncConfig {
         let project_url = nonempty(env.sqlitecloud_project_url.as_deref());
         let token_issuer_api_key = nonempty(env.sqlitecloud_token_issuer_api_key.as_deref());
         let database_id = nonempty(env.anarlog_cloudsync_e2ee_database_id.as_deref());
+        let legacy_database_id = nonempty(env.anarlog_cloudsync_database_id.as_deref());
+        let protocol_mode_value = nonempty(env.anarlog_cloudsync_protocol_mode.as_deref());
 
-        if project_url.is_none() && token_issuer_api_key.is_none() && database_id.is_none() {
+        if project_url.is_none()
+            && token_issuer_api_key.is_none()
+            && database_id.is_none()
+            && legacy_database_id.is_none()
+            && protocol_mode_value.is_none()
+        {
             return Ok(None);
         }
         let project_url = project_url.ok_or_else(|| {
@@ -125,6 +177,7 @@ impl SyncConfig {
             "ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID is required when CloudSync token exchange is configured"
                 .to_string()
         })?;
+        let protocol_mode = CloudsyncProtocolMode::parse(protocol_mode_value.as_deref())?;
         let token_ttl_seconds = env
             .anarlog_cloudsync_token_ttl_seconds
             .unwrap_or(DEFAULT_TOKEN_TTL_SECONDS);
@@ -139,9 +192,27 @@ impl SyncConfig {
                 supabase_anon_key,
                 supabase_service_role_key,
             )?
+            .with_protocol_mode(protocol_mode, legacy_database_id)?
             .with_token_ttl_seconds(token_ttl_seconds)?,
         ))
     }
+}
+
+fn validate_protocol_databases(
+    database_id: &str,
+    legacy_database_id: Option<&str>,
+    protocol_mode: CloudsyncProtocolMode,
+) -> Result<(), String> {
+    if legacy_database_id == Some(database_id) {
+        return Err(
+            "ANARLOG_CLOUDSYNC_DATABASE_ID must differ from ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID"
+                .to_string(),
+        );
+    }
+    if protocol_mode == CloudsyncProtocolMode::Dual && legacy_database_id.is_none() {
+        return Err("ANARLOG_CLOUDSYNC_DATABASE_ID is required in dual protocol mode".to_string());
+    }
+    Ok(())
 }
 
 fn validate_project_url(value: String) -> Result<String, String> {
@@ -221,8 +292,61 @@ mod tests {
             sqlitecloud_project_url: Some(project_url.to_string()),
             sqlitecloud_token_issuer_api_key: Some("issuer-key".to_string()),
             anarlog_cloudsync_e2ee_database_id: Some("database-id".to_string()),
+            anarlog_cloudsync_database_id: None,
+            anarlog_cloudsync_protocol_mode: None,
             anarlog_cloudsync_token_ttl_seconds: token_ttl_seconds,
         }
+    }
+
+    #[test]
+    fn defaults_to_enforced_e2ee_protocol_mode() {
+        let config = config(&env("https://project.region.gateway.sqlite.cloud/", None))
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(config.protocol_mode, CloudsyncProtocolMode::E2eeEnforced);
+        assert!(config.legacy_database_id.is_none());
+    }
+
+    #[test]
+    fn validates_dual_protocol_database_configuration() {
+        let mut sync_env = env("https://project.region.gateway.sqlite.cloud/", None);
+        sync_env.anarlog_cloudsync_protocol_mode = Some("dual".to_string());
+        assert!(config(&sync_env).is_err());
+
+        sync_env.anarlog_cloudsync_database_id = Some("database-id".to_string());
+        assert!(config(&sync_env).is_err());
+
+        sync_env.anarlog_cloudsync_database_id = Some("legacy-database-id".to_string());
+        let config = config(&sync_env).unwrap().unwrap();
+        assert_eq!(config.protocol_mode, CloudsyncProtocolMode::Dual);
+        assert_eq!(
+            config.legacy_database_id.as_deref(),
+            Some("legacy-database-id")
+        );
+    }
+
+    #[test]
+    fn rejects_reusing_the_e2ee_database_in_every_protocol_mode() {
+        for mode in ["dual", "e2ee_only", "e2ee_enforced"] {
+            let mut sync_env = env("https://project.region.gateway.sqlite.cloud/", None);
+            sync_env.anarlog_cloudsync_protocol_mode = Some(mode.to_string());
+            sync_env.anarlog_cloudsync_database_id = Some("database-id".to_string());
+            assert!(config(&sync_env).is_err());
+        }
+    }
+
+    #[test]
+    fn accepts_only_known_protocol_modes() {
+        for mode in ["e2ee_only", "e2ee_enforced"] {
+            let mut sync_env = env("https://project.region.gateway.sqlite.cloud/", None);
+            sync_env.anarlog_cloudsync_protocol_mode = Some(mode.to_string());
+            assert!(config(&sync_env).is_ok());
+        }
+
+        let mut sync_env = env("https://project.region.gateway.sqlite.cloud/", None);
+        sync_env.anarlog_cloudsync_protocol_mode = Some("legacy".to_string());
+        assert!(config(&sync_env).is_err());
     }
 
     fn config(env: &SyncEnv) -> Result<Option<SyncConfig>, String> {

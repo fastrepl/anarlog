@@ -14,6 +14,7 @@ use serde_json::Value;
 use utoipa::OpenApi;
 use uuid::Uuid;
 
+use crate::config::CloudsyncProtocolMode;
 use crate::error::{Result, SyncError};
 use crate::snapshot::{
     MAX_SNAPSHOT_BODY_BYTES, sanitize_document_with_attachments, sanitize_title,
@@ -46,6 +47,22 @@ pub struct CloudsyncCredentials {
     account_user_id: String,
     personal_workspace_id: String,
     workspaces: Vec<CloudsyncWorkspace>,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LegacyCloudsyncCredentials {
+    database_id: String,
+    token: String,
+    expires_at: String,
+    workspace_id: String,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+#[serde(untagged)]
+pub enum CloudsyncCredentialResponse {
+    Legacy(LegacyCloudsyncCredentials),
+    E2ee(CloudsyncCredentials),
 }
 
 #[derive(Deserialize, utoipa::ToSchema)]
@@ -88,11 +105,19 @@ pub struct CloudsyncWorkspace {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct CreateTokenRequest<'a> {
+struct E2eeCreateTokenRequest<'a> {
     name: &'static str,
     user_id: &'a str,
     expires_at: &'a str,
     attributes: &'a str,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyCreateTokenRequest<'a> {
+    name: &'static str,
+    user_id: &'a str,
+    expires_at: &'a str,
 }
 
 #[derive(Deserialize)]
@@ -188,10 +213,12 @@ struct PostgrestError {
         publish_session_share_snapshot
     ),
     components(schemas(
+        CloudsyncCredentialResponse,
         CloudsyncCredentials,
         CloudsyncWorkspace,
         ClaimE2eeIdentityRequest,
         E2eeIdentity,
+        LegacyCloudsyncCredentials,
         PublishSessionShareSnapshotRequest,
         PublishedSessionShareSnapshot,
         SharedNoteAttachment
@@ -443,11 +470,12 @@ pub(crate) fn validate_shared_attachments(
     post,
     path = "/token",
     tag = "sync",
-    params(("x-anarlog-e2ee-key-id" = String, Header, description = "Local recovery-key identity")),
+    params(("x-anarlog-e2ee-key-id" = Option<String>, Header, description = "Local recovery-key identity")),
     responses(
-        (status = 200, description = "Short-lived CloudSync credentials", body = CloudsyncCredentials),
+        (status = 200, description = "Short-lived CloudSync credentials", body = CloudsyncCredentialResponse),
         (status = 401, description = "Authentication required"),
         (status = 403, description = "Anarlog Pro subscription required"),
+        (status = 426, description = "Desktop upgrade required"),
         (status = 502, description = "Credential issuer unavailable")
     )
 )]
@@ -457,7 +485,7 @@ async fn create_credentials(
     headers: HeaderMap,
 ) -> Result<(
     [(header::HeaderName, HeaderValue); 1],
-    Json<CloudsyncCredentials>,
+    Json<CloudsyncCredentialResponse>,
 )> {
     if !auth.claims.is_pro() {
         return Err(SyncError::ProPlanRequired);
@@ -465,8 +493,51 @@ async fn create_credentials(
 
     let requested_key_id = headers
         .get(E2EE_KEY_ID_HEADER)
-        .and_then(|value| value.to_str().ok())
-        .ok_or_else(|| SyncError::BadRequest("E2EE key identity is required".to_string()))?;
+        .map(|value| {
+            value
+                .to_str()
+                .map_err(|_| SyncError::BadRequest("E2EE key identity is invalid".to_string()))
+        })
+        .transpose()?;
+    if requested_key_id.is_some_and(|key_id| !is_valid_e2ee_key_id(key_id)) {
+        return Err(SyncError::BadRequest(
+            "E2EE key identity is invalid".to_string(),
+        ));
+    }
+
+    let expires_at = token_expiry(state.config.token_ttl_seconds)?;
+    if requested_key_id.is_none() {
+        if state.config.protocol_mode != CloudsyncProtocolMode::Dual {
+            return Err(SyncError::CloudsyncUpgradeRequired);
+        }
+
+        let database_id = state.config.legacy_database_id.clone().ok_or_else(|| {
+            SyncError::Internal("Legacy CloudSync database is missing".to_string())
+        })?;
+        let token = mint_cloudsync_token(
+            &state,
+            &LegacyCreateTokenRequest {
+                name: "anarlog-cloudsync",
+                user_id: &auth.claims.sub,
+                expires_at: &expires_at,
+            },
+        )
+        .await?;
+        tracing::info!(protocol_version = 1, "issued legacy CloudSync credentials");
+
+        return Ok((
+            [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
+            Json(CloudsyncCredentialResponse::Legacy(
+                LegacyCloudsyncCredentials {
+                    database_id,
+                    token,
+                    expires_at,
+                    workspace_id: auth.claims.sub,
+                },
+            )),
+        ));
+    }
+    let requested_key_id = requested_key_id.expect("header presence was checked");
 
     let workspace_rows = fetch_workspace_projection(&state, &auth).await?;
     let (personal_workspace_id, workspaces) =
@@ -475,24 +546,50 @@ async fn create_credentials(
         claim_personal_e2ee_key(&state, &auth.claims.sub, requested_key_id).await?;
     let token_attributes = encode_workspace_token_attributes(&workspaces)?;
 
-    let ttl = i64::try_from(state.config.token_ttl_seconds)
-        .map_err(|_| SyncError::Internal("CloudSync token TTL is too large".to_string()))?;
-    let ttl = TimeDelta::try_seconds(ttl)
-        .ok_or_else(|| SyncError::Internal("CloudSync token TTL is too large".to_string()))?;
-    let expires_at = Utc::now()
-        .checked_add_signed(ttl)
-        .ok_or_else(|| SyncError::Internal("CloudSync token expiry is invalid".to_string()))?
-        .to_rfc3339_opts(SecondsFormat::Secs, true);
-    let response = state
-        .client
-        .post(format!("{}/v2/tokens", state.config.project_url))
-        .bearer_auth(&state.config.token_issuer_api_key)
-        .json(&CreateTokenRequest {
+    let token = mint_cloudsync_token(
+        &state,
+        &E2eeCreateTokenRequest {
             name: "anarlog-cloudsync",
             user_id: &auth.claims.sub,
             expires_at: &expires_at,
             attributes: &token_attributes,
-        })
+        },
+    )
+    .await?;
+
+    Ok((
+        [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
+        Json(CloudsyncCredentialResponse::E2ee(CloudsyncCredentials {
+            encryption_version: CLOUDSYNC_ENCRYPTION_VERSION,
+            encryption_key_id,
+            database_id: state.config.database_id,
+            token,
+            expires_at,
+            workspace_id: personal_workspace_id.clone(),
+            account_user_id: auth.claims.sub,
+            personal_workspace_id,
+            workspaces,
+        })),
+    ))
+}
+
+fn token_expiry(token_ttl_seconds: u64) -> Result<String> {
+    let ttl = i64::try_from(token_ttl_seconds)
+        .map_err(|_| SyncError::Internal("CloudSync token TTL is too large".to_string()))?;
+    let ttl = TimeDelta::try_seconds(ttl)
+        .ok_or_else(|| SyncError::Internal("CloudSync token TTL is too large".to_string()))?;
+    Utc::now()
+        .checked_add_signed(ttl)
+        .ok_or_else(|| SyncError::Internal("CloudSync token expiry is invalid".to_string()))
+        .map(|expiry| expiry.to_rfc3339_opts(SecondsFormat::Secs, true))
+}
+
+async fn mint_cloudsync_token(state: &AppState, request: &impl Serialize) -> Result<String> {
+    let response = state
+        .client
+        .post(format!("{}/v2/tokens", state.config.project_url))
+        .bearer_auth(&state.config.token_issuer_api_key)
+        .json(request)
         .send()
         .await
         .map_err(|error| {
@@ -510,21 +607,7 @@ async fn create_credentials(
     if response.data.token.trim().is_empty() {
         return Err(SyncError::Upstream);
     }
-
-    Ok((
-        [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
-        Json(CloudsyncCredentials {
-            encryption_version: CLOUDSYNC_ENCRYPTION_VERSION,
-            encryption_key_id,
-            database_id: state.config.database_id,
-            token: response.data.token,
-            expires_at,
-            workspace_id: personal_workspace_id.clone(),
-            account_user_id: auth.claims.sub,
-            personal_workspace_id,
-            workspaces,
-        }),
-    ))
+    Ok(response.data.token)
 }
 
 async fn claim_personal_e2ee_key(
@@ -765,10 +848,28 @@ mod tests {
     const TEST_KEY_ID: &str = "abcdefghijklmnopqrstuv";
 
     fn test_router(server: &MockServer, api_key: &str, entitlements: &[&str]) -> Router {
+        test_router_with_protocol(
+            server,
+            api_key,
+            entitlements,
+            CloudsyncProtocolMode::E2eeEnforced,
+            None,
+        )
+    }
+
+    fn test_router_with_protocol(
+        server: &MockServer,
+        api_key: &str,
+        entitlements: &[&str],
+        protocol_mode: CloudsyncProtocolMode,
+        legacy_database_id: Option<&str>,
+    ) -> Router {
         router(AppState::new(SyncConfig {
             project_url: server.uri(),
             token_issuer_api_key: api_key.to_string(),
             database_id: "database-id".to_string(),
+            legacy_database_id: legacy_database_id.map(ToString::to_string),
+            protocol_mode,
             token_ttl_seconds: 60,
             supabase_url: server.uri(),
             supabase_anon_key: "anon-key".to_string(),
@@ -995,12 +1096,96 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn rejects_token_requests_without_a_key_identity() {
-        let server = MockServer::start().await;
-        let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+    async fn requires_an_upgrade_for_legacy_clients_after_dual_mode() {
+        for protocol_mode in [
+            CloudsyncProtocolMode::E2eeOnly,
+            CloudsyncProtocolMode::E2eeEnforced,
+        ] {
+            let server = MockServer::start().await;
+            let response = test_router_with_protocol(
+                &server,
+                "issuer-key",
+                &["hyprnote_pro"],
+                protocol_mode,
+                Some("legacy-database-id"),
+            )
             .oneshot(Request::post("/token").body(Body::empty()).unwrap())
             .await
             .unwrap();
+
+            assert_eq!(response.status(), StatusCode::UPGRADE_REQUIRED);
+            assert_eq!(
+                response_json(response).await["error"]["code"],
+                "cloudsync_upgrade_required"
+            );
+            assert!(server.received_requests().await.unwrap().is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn preserves_the_desktop_1_2_2_credential_and_issuer_contract_in_dual_mode() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v2/tokens"))
+            .and(header("authorization", "Bearer issuer-key"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": { "token": "legacy-sqlite-token" }
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let response = test_router_with_protocol(
+            &server,
+            "issuer-key",
+            &["hyprnote_pro"],
+            CloudsyncProtocolMode::Dual,
+            Some("legacy-database-id"),
+        )
+        .oneshot(Request::post("/token").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        let body = response_json(response).await;
+        assert_eq!(body.as_object().unwrap().len(), 4);
+        assert_eq!(body["databaseId"], "legacy-database-id");
+        assert_eq!(body["token"], "legacy-sqlite-token");
+        assert_eq!(body["workspaceId"], "user-123");
+        assert!(body["expiresAt"].as_str().unwrap().ends_with('Z'));
+
+        let requests = server.received_requests().await.unwrap();
+        assert_eq!(requests.len(), 1);
+        let token_request: Value = serde_json::from_slice(&requests[0].body).unwrap();
+        assert_eq!(token_request.as_object().unwrap().len(), 3);
+        assert_eq!(token_request["name"], "anarlog-cloudsync");
+        assert_eq!(token_request["userId"], "user-123");
+        assert!(token_request["expiresAt"].as_str().unwrap().ends_with('Z'));
+        assert!(token_request.get("attributes").is_none());
+    }
+
+    #[tokio::test]
+    async fn rejects_a_malformed_e2ee_header_instead_of_downgrading_to_legacy() {
+        let server = MockServer::start().await;
+        let response = test_router_with_protocol(
+            &server,
+            "issuer-key",
+            &["hyprnote_pro"],
+            CloudsyncProtocolMode::Dual,
+            Some("legacy-database-id"),
+        )
+        .oneshot(
+            Request::post("/token")
+                .header(
+                    E2EE_KEY_ID_HEADER,
+                    HeaderValue::from_bytes(&[0xff]).unwrap(),
+                )
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         assert!(server.received_requests().await.unwrap().is_empty());

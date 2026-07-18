@@ -303,6 +303,16 @@ mod test {
         std::fs::write(OUTPUT_FILE, format!("// @ts-nocheck\n{content}")).unwrap();
     }
 
+    #[test]
+    fn default_permissions_exclude_generic_cloudsync_control() {
+        let permissions = include_str!("../permissions/default.toml");
+
+        assert!(permissions.contains("allow-configure-cloudsync-token"));
+        assert!(!permissions.contains("\"allow-configure-cloudsync\""));
+        assert!(!permissions.contains("allow-start-cloudsync"));
+        assert!(!permissions.contains("allow-sync-cloudsync-now"));
+    }
+
     fn capture_channel() -> (Channel<QueryEvent>, Arc<Mutex<Vec<QueryEvent>>>) {
         let events = Arc::new(Mutex::new(Vec::new()));
         let captured = Arc::clone(&events);

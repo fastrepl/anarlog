@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import base64
 import datetime
 import json
@@ -18,10 +20,12 @@ CLOUDSYNC_MANAGEMENT_URL = "https://cloudsync.sqlite.ai"
 REQUIRED_SECRETS = (
     "ANARLOG_CLOUDSYNC_DATABASE_ID",
     "ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID",
+    "ANARLOG_CLOUDSYNC_PROTOCOL_MODE",
     "SQLITECLOUD_CLOUDSYNC_MANAGEMENT_API_KEY",
     "SQLITECLOUD_PROJECT_URL",
     "SQLITECLOUD_TOKEN_ISSUER_API_KEY",
 )
+PROTOCOL_MODES = {"dual", "e2ee_only", "e2ee_enforced"}
 LEGACY_PLAINTEXT_TABLES = (
     "action_items",
     "events",
@@ -63,6 +67,15 @@ def load_secrets(path: str) -> dict[str, str]:
     if missing:
         raise ValueError("Missing required CloudSync secrets: " + ", ".join(missing))
     return values
+
+
+def protocol_mode(values: dict[str, str]) -> str:
+    mode = values["ANARLOG_CLOUDSYNC_PROTOCOL_MODE"].strip()
+    if mode not in PROTOCOL_MODES:
+        raise ValueError(
+            "ANARLOG_CLOUDSYNC_PROTOCOL_MODE must be dual, e2ee_only, or e2ee_enforced"
+        )
+    return mode
 
 
 def validate_https_url(url: str, label: str) -> None:
@@ -147,6 +160,49 @@ def verify_legacy_database_retired(legacy_id: str, management_key: str) -> None:
     )
 
 
+def verify_legacy_database_transition(
+    mode: str,
+    legacy_id: str,
+    management_key: str,
+    e2ee_target: tuple[str, str],
+) -> None:
+    if mode == "e2ee_enforced":
+        verify_legacy_database_retired(legacy_id, management_key)
+        return
+
+    encoded_legacy_id = urllib.parse.quote(legacy_id, safe="")
+    try:
+        database = management_get(
+            f"/v1/databases/{encoded_legacy_id}",
+            management_key,
+            "legacy database transition check",
+        )
+    except ResourceNotFound:
+        if mode == "dual":
+            raise ValueError(
+                "Legacy plaintext CloudSync database must exist in dual protocol mode"
+            )
+        return
+
+    if not isinstance(database, dict):
+        raise ValueError("Legacy CloudSync database registration metadata is invalid")
+    database_name = str(database.get("databaseName", "")).strip()
+    project_id = str(database.get("projectId", "")).strip()
+    if not all((database_name, project_id)):
+        raise ValueError(
+            "Legacy CloudSync database registration is missing its physical target"
+        )
+    if (project_id, database_name) == e2ee_target:
+        raise ValueError("E2EE CloudSync database reuses the legacy physical database")
+    connection = management_get(
+        f"/v1/databases/{encoded_legacy_id}/connection",
+        management_key,
+        "legacy database connection check",
+    )
+    if not isinstance(connection, dict) or connection.get("ok") is not True:
+        raise ValueError("Legacy CloudSync database connection check failed")
+
+
 def verify_no_plaintext_tables(
     project_url: str,
     issuer_key: str,
@@ -189,6 +245,7 @@ def run_sql(
 
 
 def verify_remote_database(values: dict[str, str]) -> None:
+    mode = protocol_mode(values)
     legacy_id = values["ANARLOG_CLOUDSYNC_DATABASE_ID"].strip()
     database_id = values["ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID"].strip()
     if database_id == legacy_id:
@@ -212,7 +269,12 @@ def verify_remote_database(values: dict[str, str]) -> None:
         raise ValueError(
             "CloudSync database registration is missing its physical target"
         )
-    verify_legacy_database_retired(legacy_id, management_key)
+    verify_legacy_database_transition(
+        mode,
+        legacy_id,
+        management_key,
+        (project_id, database_name),
+    )
 
     connection = management_get(
         f"/v1/databases/{encoded_database_id}/connection",

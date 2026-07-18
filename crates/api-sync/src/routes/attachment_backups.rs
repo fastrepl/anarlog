@@ -1463,6 +1463,8 @@ mod tests {
             project_url: server.uri(),
             token_issuer_api_key: "issuer-key".to_string(),
             database_id: "database-id".to_string(),
+            legacy_database_id: None,
+            protocol_mode: crate::config::CloudsyncProtocolMode::E2eeEnforced,
             token_ttl_seconds: 60,
             supabase_url: server.uri(),
             supabase_anon_key: "anon-key".to_string(),

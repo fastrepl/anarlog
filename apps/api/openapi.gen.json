@@ -912,6 +912,414 @@
         ]
       }
     },
+    "/shared-notes/access/{share_id}/attachments/{attachment_id}/download": {
+      "post": {
+        "tags": [
+          "shared-notes"
+        ],
+        "operationId": "download_access_shared_attachment",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "description": "Session share ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attachment_id",
+            "in": "path",
+            "description": "Published attachment ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Short-lived authorized attachment download",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedAttachmentDownload"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Shared attachment unavailable"
+          },
+          "502": {
+            "description": "Shared attachment service unavailable"
+          }
+        }
+      }
+    },
+    "/shared-notes/handoffs/attachments/{attachment_id}/download": {
+      "post": {
+        "tags": [
+          "shared-notes"
+        ],
+        "operationId": "download_handoff_shared_attachment",
+        "parameters": [
+          {
+            "name": "attachment_id",
+            "in": "path",
+            "description": "Published attachment ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SharedNoteHandoffAttachmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Short-lived leased attachment download",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedAttachmentDownload"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Shared attachment unavailable"
+          },
+          "502": {
+            "description": "Shared attachment service unavailable"
+          }
+        }
+      }
+    },
+    "/shared-notes/handoffs/claim": {
+      "post": {
+        "tags": [
+          "shared-notes"
+        ],
+        "operationId": "claim_shared_note_handoff",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SharedNoteHandoffClaimRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Claimed shared note with a retryable attachment lease",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedNoteSnapshot"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Shared note unavailable"
+          },
+          "502": {
+            "description": "Shared note service unavailable"
+          }
+        }
+      }
+    },
+    "/shared-notes/link/{share_id}": {
+      "post": {
+        "tags": [
+          "shared-notes"
+        ],
+        "operationId": "read_link_shared_note",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "description": "Session share ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SharedNoteLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Bearer-link shared note",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedNoteSnapshot"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Shared note unavailable"
+          },
+          "413": {
+            "description": "Request too large"
+          },
+          "502": {
+            "description": "Shared note service unavailable"
+          }
+        }
+      }
+    },
+    "/shared-notes/link/{share_id}/attachments/{attachment_id}/download": {
+      "post": {
+        "tags": [
+          "shared-notes"
+        ],
+        "operationId": "download_link_shared_attachment",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "description": "Session share ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attachment_id",
+            "in": "path",
+            "description": "Published attachment ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SharedNoteLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Short-lived bearer-link attachment download",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedAttachmentDownload"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Shared attachment unavailable"
+          },
+          "502": {
+            "description": "Shared attachment service unavailable"
+          }
+        }
+      }
+    },
+    "/shared-notes/link/{share_id}/handoff": {
+      "post": {
+        "tags": [
+          "shared-notes"
+        ],
+        "operationId": "create_link_shared_note_handoff",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "description": "Session share ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SharedNoteLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "One-time desktop handoff",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedNoteHandoff"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Shared note unavailable"
+          },
+          "413": {
+            "description": "Request too large"
+          },
+          "502": {
+            "description": "Shared note service unavailable"
+          }
+        }
+      }
+    },
+    "/shared-notes/public/{slug}": {
+      "get": {
+        "tags": [
+          "shared-notes"
+        ],
+        "operationId": "read_public_shared_note",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "description": "Public share slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Public shared note",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedNoteSnapshot"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Shared note unavailable"
+          },
+          "502": {
+            "description": "Shared note service unavailable"
+          }
+        }
+      }
+    },
+    "/shared-notes/public/{slug}/attachments/{attachment_id}/download": {
+      "post": {
+        "tags": [
+          "shared-notes"
+        ],
+        "operationId": "download_public_shared_attachment",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "description": "Public share slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attachment_id",
+            "in": "path",
+            "description": "Published attachment ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Short-lived public attachment download",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedAttachmentDownload"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Shared attachment unavailable"
+          },
+          "502": {
+            "description": "Shared attachment service unavailable"
+          }
+        }
+      }
+    },
+    "/shared-notes/public/{slug}/handoff": {
+      "post": {
+        "tags": [
+          "shared-notes"
+        ],
+        "operationId": "create_public_shared_note_handoff",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "description": "Public share slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One-time desktop handoff",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedNoteHandoff"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Shared note unavailable"
+          },
+          "502": {
+            "description": "Shared note service unavailable"
+          }
+        }
+      }
+    },
     "/stt/listen": {
       "get": {
         "tags": [
@@ -1236,8 +1644,8 @@
         ],
         "operationId": "delete_account",
         "responses": {
-          "200": {
-            "description": "Account deleted successfully",
+          "202": {
+            "description": "Account deletion durably accepted",
             "content": {
               "application/json": {
                 "schema": {
@@ -1251,6 +1659,9 @@
           },
           "500": {
             "description": "Internal server error"
+          },
+          "503": {
+            "description": "Durable account cleanup unavailable"
           }
         },
         "security": [
@@ -1493,6 +1904,428 @@
         }
       }
     },
+    "/sync/attachment-backups/delete": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "delete_attachment_backup",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteAttachmentBackupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Backup deletion scheduled behind a dependency fence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledAttachmentBackupDeletion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid deletion identity"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Anarlog Pro subscription or backup access required"
+          },
+          "404": {
+            "description": "Backup unavailable"
+          },
+          "409": {
+            "description": "Backup changed, deletion was canceled, or a dependency appeared"
+          },
+          "502": {
+            "description": "Backup service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/attachment-backups/delete/cancel": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "cancel_attachment_backup_deletion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteAttachmentBackupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Exact deletion request canceled or durably prevented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanceledAttachmentBackupDeletion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid deletion identity"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Anarlog Pro subscription or backup access required"
+          },
+          "409": {
+            "description": "Backup changed or deletion is already being collected"
+          },
+          "502": {
+            "description": "Backup service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/attachment-backups/download": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "download_attachment_backup",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachmentBackupObjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Short-lived download for the server-current backup",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentBackupDownload"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid object key"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Anarlog Pro subscription or backup access required"
+          },
+          "404": {
+            "description": "Current backup unavailable"
+          },
+          "409": {
+            "description": "Backup is no longer current"
+          },
+          "502": {
+            "description": "Backup service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/attachment-backups/finalize": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "finalize_attachment_backup",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachmentBackupObjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Uploaded backup verified and finalized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinalizedAttachmentBackup"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid object key"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Anarlog Pro subscription or backup access required"
+          },
+          "404": {
+            "description": "Backup unavailable"
+          },
+          "409": {
+            "description": "Uploaded object does not match its reservation"
+          },
+          "502": {
+            "description": "Backup service unavailable"
+          },
+          "503": {
+            "description": "Backup verification capacity is busy"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/attachment-backups/head": {
+      "put": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "promote_attachment_backup",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromoteAttachmentBackupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Backup promoted with compare-and-swap semantics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromotedAttachmentBackup"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid object key"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Anarlog Pro subscription or backup access required"
+          },
+          "404": {
+            "description": "Backup unavailable"
+          },
+          "409": {
+            "description": "Current backup changed"
+          },
+          "502": {
+            "description": "Backup service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/attachment-backups/head/{attachment_ref}": {
+      "get": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "read_current_attachment_backup",
+        "parameters": [
+          {
+            "name": "attachment_ref",
+            "in": "path",
+            "description": "Blind attachment reference",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current backup head",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentAttachmentBackup"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid attachment reference"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Anarlog Pro subscription or backup access required"
+          },
+          "404": {
+            "description": "Current backup unavailable"
+          },
+          "502": {
+            "description": "Backup service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/attachment-backups/reserve": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "reserve_attachment_backup",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReserveAttachmentBackupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Reserved immutable backup identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservedAttachmentBackup"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid backup metadata"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Anarlog Pro subscription or backup access required"
+          },
+          "409": {
+            "description": "Backup reservation conflict"
+          },
+          "502": {
+            "description": "Backup service unavailable"
+          },
+          "507": {
+            "description": "Backup quota exhausted"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/attachment-backups/upload-grant": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "grant_attachment_backup_upload",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantAttachmentBackupUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Time-limited grant for an immutable backup upload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentBackupUploadGrant"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid object key or ciphertext hash"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Anarlog Pro subscription or backup access required"
+          },
+          "404": {
+            "description": "Backup reservation unavailable"
+          },
+          "409": {
+            "description": "Backup state or ciphertext hash conflict"
+          },
+          "502": {
+            "description": "Backup service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/sync/e2ee/identity": {
       "put": {
         "tags": [
@@ -1543,6 +2376,391 @@
         ]
       }
     },
+    "/sync/e2ee/witness/{workspace_id}": {
+      "get": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "read_e2ee_witness",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "description": "Personal workspace ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "afterSequence",
+            "in": "query",
+            "description": "Last applied witness sequence",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "throughSequence",
+            "in": "query",
+            "description": "Stable witness page boundary",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Append-only E2EE witness page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/E2eeWitnessPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid witness cursor"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Witness workspace access denied"
+          },
+          "502": {
+            "description": "Witness service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "publish_e2ee_witness",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "description": "Personal workspace ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishE2eeWitnessRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Ciphertext events appended",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishE2eeWitnessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid witness event"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Witness workspace access denied"
+          },
+          "409": {
+            "description": "Legacy witness requires an established device"
+          },
+          "502": {
+            "description": "Witness service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/shares/{share_id}/attachments/finalize": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "finalize_shared_attachment",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "description": "Session share ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SharedAttachmentObjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Verified shared attachment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinalizedSharedAttachment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid object key"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Pro or share-manager access required"
+          },
+          "404": {
+            "description": "Attachment unavailable"
+          },
+          "409": {
+            "description": "Uploaded object does not match the reservation"
+          },
+          "502": {
+            "description": "Shared attachment service unavailable"
+          },
+          "503": {
+            "description": "Shared attachment verification capacity is busy"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/shares/{share_id}/attachments/reserve": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "reserve_shared_attachment",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "description": "Session share ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReserveSharedAttachmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Reserved immutable shared attachment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservedSharedAttachment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid attachment metadata"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Pro or share-manager access required"
+          },
+          "409": {
+            "description": "Attachment reservation conflict"
+          },
+          "502": {
+            "description": "Shared attachment service unavailable"
+          },
+          "507": {
+            "description": "Shared attachment quota exhausted"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/shares/{share_id}/attachments/upload-grant": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "grant_shared_attachment_upload",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "description": "Session share ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantSharedAttachmentUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Time-limited immutable upload grant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedAttachmentUploadGrant"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid object key or checksum"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Pro or share-manager access required"
+          },
+          "404": {
+            "description": "Attachment reservation unavailable"
+          },
+          "409": {
+            "description": "Attachment state conflict"
+          },
+          "502": {
+            "description": "Shared attachment service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/shares/{share_id}/snapshot": {
+      "put": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "publish_session_share_snapshot",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "description": "Session share ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishSessionShareSnapshotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sanitized shared-note snapshot published",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedSessionShareSnapshot"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid shared-note snapshot"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Anarlog Pro or share-manager access required"
+          },
+          "413": {
+            "description": "Shared-note snapshot is too large"
+          },
+          "502": {
+            "description": "Shared-note service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/sync/token": {
       "post": {
         "tags": [
@@ -1554,9 +2772,12 @@
             "name": "x-anarlog-e2ee-key-id",
             "in": "header",
             "description": "Local recovery-key identity",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string"
+              "type": [
+                "string",
+                "null"
+              ]
             }
           }
         ],
@@ -1566,7 +2787,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CloudsyncCredentials"
+                  "$ref": "#/components/schemas/CloudsyncCredentialResponse"
                 }
               }
             }
@@ -1576,6 +2797,9 @@
           },
           "403": {
             "description": "Anarlog Pro subscription required"
+          },
+          "426": {
+            "description": "Desktop upgrade required"
           },
           "502": {
             "description": "Credential issuer unavailable"
@@ -1781,6 +3005,102 @@
             ],
             "format": "int32",
             "minimum": 0
+          }
+        }
+      },
+      "AttachmentBackupDownload": {
+        "type": "object",
+        "required": [
+          "objectId",
+          "objectKey",
+          "ciphertextSizeBytes",
+          "ciphertextSha256",
+          "formatVersion",
+          "signedUrl",
+          "expiresAt"
+        ],
+        "properties": {
+          "ciphertextSha256": {
+            "type": "string"
+          },
+          "ciphertextSizeBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "formatVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "objectId": {
+            "type": "string"
+          },
+          "objectKey": {
+            "type": "string"
+          },
+          "signedUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "AttachmentBackupObjectRequest": {
+        "type": "object",
+        "required": [
+          "objectKey"
+        ],
+        "properties": {
+          "objectKey": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AttachmentBackupUploadGrant": {
+        "type": "object",
+        "required": [
+          "objectId",
+          "objectKey",
+          "objectState",
+          "ciphertextSizeBytes",
+          "ciphertextSha256",
+          "formatVersion"
+        ],
+        "properties": {
+          "ciphertextSha256": {
+            "type": "string"
+          },
+          "ciphertextSizeBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "formatVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "objectId": {
+            "type": "string"
+          },
+          "objectKey": {
+            "type": "string"
+          },
+          "objectState": {
+            "type": "string"
+          },
+          "uploadExpiresAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uploadToken": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -2436,6 +3756,29 @@
           }
         }
       },
+      "CanceledAttachmentBackupDeletion": {
+        "type": "object",
+        "required": [
+          "objectKey",
+          "attachmentRef",
+          "versionRef",
+          "deleteRequestId"
+        ],
+        "properties": {
+          "attachmentRef": {
+            "type": "string"
+          },
+          "deleteRequestId": {
+            "type": "string"
+          },
+          "objectKey": {
+            "type": "string"
+          },
+          "versionRef": {
+            "type": "string"
+          }
+        }
+      },
       "CharTask": {
         "type": "string",
         "enum": [
@@ -2463,6 +3806,16 @@
           }
         },
         "additionalProperties": false
+      },
+      "CloudsyncCredentialResponse": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/LegacyCloudsyncCredentials"
+          },
+          {
+            "$ref": "#/components/schemas/CloudsyncCredentials"
+          }
+        ]
       },
       "CloudsyncCredentials": {
         "type": "object",
@@ -2967,6 +4320,36 @@
           }
         }
       },
+      "CurrentAttachmentBackup": {
+        "type": "object",
+        "required": [
+          "versionRef",
+          "objectKey",
+          "ciphertextSha256",
+          "ciphertextSizeBytes",
+          "formatVersion"
+        ],
+        "properties": {
+          "ciphertextSha256": {
+            "type": "string"
+          },
+          "ciphertextSizeBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "formatVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "objectKey": {
+            "type": "string"
+          },
+          "versionRef": {
+            "type": "string"
+          }
+        }
+      },
       "CustomLocation": {
         "type": "object",
         "properties": {
@@ -3011,7 +4394,8 @@
       "DeleteAccountResponse": {
         "type": "object",
         "required": [
-          "deleted"
+          "deleted",
+          "pending"
         ],
         "properties": {
           "deleted": {
@@ -3022,8 +4406,35 @@
               "string",
               "null"
             ]
+          },
+          "pending": {
+            "type": "boolean"
           }
         }
+      },
+      "DeleteAttachmentBackupRequest": {
+        "type": "object",
+        "required": [
+          "objectKey",
+          "attachmentRef",
+          "versionRef",
+          "deleteRequestId"
+        ],
+        "properties": {
+          "attachmentRef": {
+            "type": "string"
+          },
+          "deleteRequestId": {
+            "type": "string"
+          },
+          "objectKey": {
+            "type": "string"
+          },
+          "versionRef": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "DeleteConnectionRequest": {
         "type": "object",
@@ -3293,6 +4704,93 @@
         "properties": {
           "keyId": {
             "type": "string"
+          }
+        }
+      },
+      "E2eeWitnessEvent": {
+        "type": "object",
+        "required": [
+          "recordId",
+          "payloadHash",
+          "payload"
+        ],
+        "properties": {
+          "payload": {
+            "type": "string"
+          },
+          "payloadHash": {
+            "type": "string"
+          },
+          "recordId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "E2eeWitnessPage": {
+        "type": "object",
+        "required": [
+          "initialized",
+          "headSequence",
+          "throughSequence",
+          "nextAfterSequence",
+          "events"
+        ],
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/E2eeWitnessPageEvent"
+            }
+          },
+          "headSequence": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "initialized": {
+            "type": "boolean"
+          },
+          "initializedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nextAfterSequence": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "throughSequence": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "E2eeWitnessPageEvent": {
+        "type": "object",
+        "required": [
+          "sequence",
+          "recordId",
+          "payloadHash",
+          "payload"
+        ],
+        "properties": {
+          "payload": {
+            "type": "string"
+          },
+          "payloadHash": {
+            "type": "string"
+          },
+          "recordId": {
+            "type": "string"
+          },
+          "sequence": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           }
         }
       },
@@ -3588,6 +5086,48 @@
           "bug",
           "feature"
         ]
+      },
+      "FinalizedAttachmentBackup": {
+        "type": "object",
+        "required": [
+          "objectKey",
+          "objectState",
+          "wasFinalized"
+        ],
+        "properties": {
+          "objectKey": {
+            "type": "string"
+          },
+          "objectState": {
+            "type": "string"
+          },
+          "wasFinalized": {
+            "type": "boolean"
+          }
+        }
+      },
+      "FinalizedSharedAttachment": {
+        "type": "object",
+        "required": [
+          "attachmentId",
+          "objectKey",
+          "objectState",
+          "wasFinalized"
+        ],
+        "properties": {
+          "attachmentId": {
+            "type": "string"
+          },
+          "objectKey": {
+            "type": "string"
+          },
+          "objectState": {
+            "type": "string"
+          },
+          "wasFinalized": {
+            "type": "boolean"
+          }
+        }
       },
       "FocusTimeProperties": {
         "type": "object",
@@ -4162,6 +5702,38 @@
           }
         }
       },
+      "GrantAttachmentBackupUploadRequest": {
+        "type": "object",
+        "required": [
+          "objectKey",
+          "ciphertextSha256"
+        ],
+        "properties": {
+          "ciphertextSha256": {
+            "type": "string"
+          },
+          "objectKey": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "GrantSharedAttachmentUploadRequest": {
+        "type": "object",
+        "required": [
+          "objectKey",
+          "sha256"
+        ],
+        "properties": {
+          "objectKey": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "History": {
         "type": "object",
         "required": [
@@ -4728,6 +6300,29 @@
           "user",
           "unknown"
         ]
+      },
+      "LegacyCloudsyncCredentials": {
+        "type": "object",
+        "required": [
+          "databaseId",
+          "token",
+          "expiresAt",
+          "workspaceId"
+        ],
+        "properties": {
+          "databaseId": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          }
+        }
       },
       "LinearListTeamsRequest": {
         "type": "object",
@@ -5812,6 +7407,150 @@
           }
         }
       },
+      "PromoteAttachmentBackupRequest": {
+        "type": "object",
+        "required": [
+          "objectKey"
+        ],
+        "properties": {
+          "expectedCurrentObjectKey": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "objectKey": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PromotedAttachmentBackup": {
+        "type": "object",
+        "required": [
+          "currentObjectKey",
+          "currentVersionRef",
+          "currentCiphertextSha256",
+          "wasPromoted"
+        ],
+        "properties": {
+          "currentCiphertextSha256": {
+            "type": "string"
+          },
+          "currentObjectKey": {
+            "type": "string"
+          },
+          "currentVersionRef": {
+            "type": "string"
+          },
+          "displacedObjectKey": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "wasPromoted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PublishE2eeWitnessRequest": {
+        "type": "object",
+        "required": [
+          "initialize",
+          "events"
+        ],
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/E2eeWitnessEvent"
+            }
+          },
+          "initialize": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublishE2eeWitnessResponse": {
+        "type": "object",
+        "required": [
+          "initializedAt",
+          "headSequence"
+        ],
+        "properties": {
+          "headSequence": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "initializedAt": {
+            "type": "string"
+          }
+        }
+      },
+      "PublishSessionShareSnapshotRequest": {
+        "type": "object",
+        "required": [
+          "title",
+          "body"
+        ],
+        "properties": {
+          "attachmentIds": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "body": {},
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublishedSessionShareSnapshot": {
+        "type": "object",
+        "required": [
+          "shareId",
+          "schemaVersion",
+          "contentRevision",
+          "title",
+          "body",
+          "attachments",
+          "publishedAt"
+        ],
+        "properties": {
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SharedNoteAttachment"
+            }
+          },
+          "body": {},
+          "contentRevision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "publishedAt": {
+            "type": "string"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "shareId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
       "PullRequestDetail": {
         "type": "object",
         "required": [
@@ -6040,6 +7779,154 @@
           }
         }
       },
+      "ReserveAttachmentBackupRequest": {
+        "type": "object",
+        "required": [
+          "attachmentRef",
+          "versionRef",
+          "ciphertextSizeBytes",
+          "formatVersion"
+        ],
+        "properties": {
+          "attachmentRef": {
+            "type": "string"
+          },
+          "ciphertextSizeBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "formatVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "versionRef": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReserveSharedAttachmentRequest": {
+        "type": "object",
+        "required": [
+          "attachmentRef",
+          "versionRef",
+          "filename",
+          "contentType",
+          "sizeBytes"
+        ],
+        "properties": {
+          "attachmentRef": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "versionRef": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReservedAttachmentBackup": {
+        "type": "object",
+        "required": [
+          "objectId",
+          "objectKey",
+          "objectState",
+          "ciphertextSizeBytes",
+          "formatVersion",
+          "reservationExpiresAt",
+          "wasCreated"
+        ],
+        "properties": {
+          "ciphertextSha256": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ciphertextSizeBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "formatVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "objectId": {
+            "type": "string"
+          },
+          "objectKey": {
+            "type": "string"
+          },
+          "objectState": {
+            "type": "string"
+          },
+          "reservationExpiresAt": {
+            "type": "string"
+          },
+          "wasCreated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ReservedSharedAttachment": {
+        "type": "object",
+        "required": [
+          "attachmentId",
+          "objectKey",
+          "objectState",
+          "filename",
+          "contentType",
+          "sizeBytes",
+          "reservationExpiresAt",
+          "wasCreated"
+        ],
+        "properties": {
+          "attachmentId": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "objectKey": {
+            "type": "string"
+          },
+          "objectState": {
+            "type": "string"
+          },
+          "reservationExpiresAt": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "wasCreated": {
+            "type": "boolean"
+          }
+        }
+      },
       "ResponseStatus": {
         "type": "object",
         "properties": {
@@ -6073,6 +7960,42 @@
           "notResponded",
           "unknown"
         ]
+      },
+      "ScheduledAttachmentBackupDeletion": {
+        "type": "object",
+        "required": [
+          "objectKey",
+          "attachmentRef",
+          "versionRef",
+          "deleteRequestId",
+          "deleteFenceId",
+          "deleteGeneration",
+          "deleteNotBefore"
+        ],
+        "properties": {
+          "attachmentRef": {
+            "type": "string"
+          },
+          "deleteFenceId": {
+            "type": "string"
+          },
+          "deleteGeneration": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "deleteNotBefore": {
+            "type": "string"
+          },
+          "deleteRequestId": {
+            "type": "string"
+          },
+          "objectKey": {
+            "type": "string"
+          },
+          "versionRef": {
+            "type": "string"
+          }
+        }
       },
       "SendMessageRequest": {
         "type": "object",
@@ -6133,6 +8056,233 @@
             "type": "string"
           },
           "token": {
+            "type": "string"
+          }
+        }
+      },
+      "SharedAttachmentDownload": {
+        "type": "object",
+        "required": [
+          "id",
+          "filename",
+          "contentType",
+          "sizeBytes",
+          "sha256",
+          "signedUrl",
+          "expiresAt"
+        ],
+        "properties": {
+          "contentType": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "signedUrl": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "SharedAttachmentObjectRequest": {
+        "type": "object",
+        "required": [
+          "objectKey"
+        ],
+        "properties": {
+          "objectKey": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SharedAttachmentUploadGrant": {
+        "type": "object",
+        "required": [
+          "attachmentId",
+          "objectKey",
+          "objectState",
+          "filename",
+          "contentType",
+          "sizeBytes",
+          "sha256"
+        ],
+        "properties": {
+          "attachmentId": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "objectKey": {
+            "type": "string"
+          },
+          "objectState": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "uploadExpiresAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uploadToken": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "SharedNoteAttachment": {
+        "type": "object",
+        "required": [
+          "id",
+          "filename",
+          "contentType",
+          "sizeBytes",
+          "sha256"
+        ],
+        "properties": {
+          "contentType": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "SharedNoteHandoff": {
+        "type": "object",
+        "required": [
+          "requestId",
+          "expiresAt"
+        ],
+        "properties": {
+          "expiresAt": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          }
+        }
+      },
+      "SharedNoteHandoffAttachmentRequest": {
+        "type": "object",
+        "required": [
+          "leaseId"
+        ],
+        "properties": {
+          "leaseId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SharedNoteHandoffClaimRequest": {
+        "type": "object",
+        "required": [
+          "requestId",
+          "leaseId"
+        ],
+        "properties": {
+          "leaseId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SharedNoteLinkRequest": {
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SharedNoteSnapshot": {
+        "type": "object",
+        "required": [
+          "shareId",
+          "schemaVersion",
+          "contentRevision",
+          "title",
+          "body",
+          "attachments",
+          "publishedAt"
+        ],
+        "properties": {
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SharedNoteAttachment"
+            }
+          },
+          "body": {},
+          "contentRevision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "leaseExpiresAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "publishedAt": {
+            "type": "string"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "shareId": {
+            "type": "string"
+          },
+          "title": {
             "type": "string"
           }
         }
@@ -8282,6 +10432,10 @@
     {
       "name": "sync",
       "description": "CloudSync credential management"
+    },
+    {
+      "name": "shared-notes",
+      "description": "Public shared-note delivery"
     },
     {
       "name": "subscription",
