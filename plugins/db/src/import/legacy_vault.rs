@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -14,6 +15,8 @@ use sha2::{Digest, Sha256};
 use sqlx::SqlitePool;
 
 static IMPORT_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+const RECOVERED_MISSING_SESSION_METADATA: &str = "recovered_missing_session_metadata";
+const RECOVERED_DUPLICATE_DOCUMENT_ID: &str = "recovered_duplicate_document_id";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SourceKind {
@@ -96,6 +99,13 @@ struct SummaryPair {
     hide_hidden_source: bool,
 }
 
+#[derive(Debug)]
+struct DocumentVariant {
+    document: LegacyDocument,
+    source_path: String,
+    target_id: String,
+}
+
 pub async fn import_legacy_vault(
     pool: &SqlitePool,
     vault_base: &Path,
@@ -113,6 +123,7 @@ pub async fn import_legacy_vault(
             return Err(error.into());
         }
     };
+    let mut document_variants = HashMap::<String, Vec<DocumentVariant>>::new();
 
     for source in discovery.files {
         let bytes = match std::fs::read(&source.path) {
@@ -144,6 +155,7 @@ pub async fn import_legacy_vault(
 
         if !dry_run
             && !recheck_summary_pair
+            && source.kind != SourceKind::SessionDocument
             && hypr_db_app::legacy_source_already_imported(
                 pool,
                 &source.relative_path,
@@ -174,7 +186,7 @@ pub async fn import_legacy_vault(
         };
 
         match parse_source(vault_base, &source, &bytes, &source_sha256) {
-            Ok(batch) => {
+            Ok(mut batch) => {
                 if !dry_run
                     && let Some(summary_pair) = discovery
                         .summary_pairs
@@ -183,6 +195,14 @@ pub async fn import_legacy_vault(
                     && let Some(LegacyImportRow::Document(document)) = batch.rows.first()
                 {
                     promote_canonical_summary(pool, summary_pair, document).await?;
+                }
+                if let Some(LegacyImportRow::Document(document)) = batch.rows.first_mut() {
+                    recover_duplicate_document_id(
+                        document,
+                        &source.relative_path,
+                        &source_sha256,
+                        &mut document_variants,
+                    );
                 }
                 hypr_db_app::apply_legacy_import_item(pool, item, &batch, dry_run).await?;
             }
@@ -387,6 +407,67 @@ fn legacy_document_body_is_empty(body: &str) -> bool {
     body.is_empty() || body == "&nbsp;"
 }
 
+fn recover_duplicate_document_id(
+    document: &mut LegacyDocument,
+    source_path: &str,
+    source_sha256: &str,
+    variants_by_id: &mut HashMap<String, Vec<DocumentVariant>>,
+) {
+    let original_id = document.id.clone();
+    let variants = variants_by_id.entry(original_id.clone()).or_default();
+
+    if let Some(variant) = variants
+        .iter()
+        .find(|variant| documents_share_variant(&variant.document, document))
+    {
+        document.id.clone_from(&variant.target_id);
+        return;
+    }
+
+    if let Some(conflicting_source) = variants.first() {
+        let recovered_id = stable_id(&format!(
+            "legacy-recovered-document:{original_id}:{source_path}:{source_sha256}"
+        ));
+        document.id.clone_from(&recovered_id);
+        document.generation_metadata_json = serde_json::json!({
+            "legacy_recovery": {
+                "reason": "duplicate_document_id",
+                "original_id": original_id,
+                "source_path": source_path,
+                "source_sha256": source_sha256,
+                "conflicting_source_path": conflicting_source.source_path,
+            }
+        })
+        .to_string();
+        document.recovery_status = Some(RECOVERED_DUPLICATE_DOCUMENT_ID.to_string());
+        variants.push(DocumentVariant {
+            document: document.clone(),
+            source_path: source_path.to_string(),
+            target_id: recovered_id,
+        });
+        return;
+    }
+
+    variants.push(DocumentVariant {
+        document: document.clone(),
+        source_path: source_path.to_string(),
+        target_id: original_id,
+    });
+}
+
+fn documents_share_variant(left: &LegacyDocument, right: &LegacyDocument) -> bool {
+    left.session_id == right.session_id
+        && left.kind == right.kind
+        && left.template_id == right.template_id
+        && left.body_format == right.body_format
+        && (left.body == right.body
+            || legacy_document_body_is_empty(&left.body)
+            || legacy_document_body_is_empty(&right.body))
+        && (left.title == right.title
+            || left.title.trim().is_empty()
+            || right.title.trim().is_empty())
+}
+
 fn classify_source(relative_path: &str) -> Option<SourceKind> {
     let parts = relative_path.split('/').collect::<Vec<_>>();
     let filename = parts.last().copied()?;
@@ -432,7 +513,9 @@ fn parse_source(
                 SourceKind::SessionDocument => {
                     parse_session_document(vault_base, &source.path, content, source_sha256)
                 }
-                SourceKind::Transcript => parse_transcript(vault_base, &source.path, content),
+                SourceKind::Transcript => {
+                    parse_transcript(vault_base, &source.path, content, source_sha256)
+                }
                 SourceKind::Human => parse_human(&source.path, content),
                 SourceKind::Organization => parse_organization(&source.path, content),
                 SourceKind::Tasks => parse_tasks(content),
@@ -499,7 +582,9 @@ fn parse_session_meta(
         external_provider: String::new(),
         series_id,
         event_json,
+        metadata_json: "{}".to_string(),
         folder_path,
+        recovery_status: None,
     }));
 
     if let Some(participants) = meta.get("participants").and_then(Value::as_array) {
@@ -549,6 +634,8 @@ fn parse_session_meta(
                     .unwrap_or_default(),
                 created_at: value_string(key_facts.get("created_at")).unwrap_or_default(),
                 updated_at: value_string(key_facts.get("updated_at")).unwrap_or_default(),
+                generation_metadata_json: "{}".to_string(),
+                recovery_status: None,
             }));
         }
     }
@@ -653,6 +740,8 @@ fn parse_session_document(
             created_by: String::new(),
             created_at: String::new(),
             updated_at: String::new(),
+            generation_metadata_json: "{}".to_string(),
+            recovery_status: None,
         })],
         ..Default::default()
     })
@@ -662,14 +751,28 @@ fn parse_transcript(
     vault_base: &Path,
     path: &Path,
     content: &str,
+    source_sha256: &str,
 ) -> Result<LegacyImportBatch, String> {
     let root = parse_json_object(content)?;
     let transcripts = root
         .get("transcripts")
         .and_then(Value::as_array)
         .ok_or_else(|| "transcript file has no transcripts array".to_string())?;
-    let inferred_session_id = infer_session_id_and_folder(vault_base, path)?.0;
+    let (inferred_session_id, folder_path) = infer_session_id_and_folder(vault_base, path)?;
+    let source_path = normalized_relative_path(vault_base, path);
+    let missing_session_metadata = !path.with_file_name("_meta.json").is_file();
+    let recovery_metadata_json = missing_session_metadata.then(|| {
+        serde_json::json!({
+            "legacy_recovery": {
+                "reason": "missing_session_metadata",
+                "source_path": source_path,
+                "source_sha256": source_sha256,
+            }
+        })
+        .to_string()
+    });
     let mut batch = LegacyImportBatch::default();
+    let mut recovered_sessions = HashMap::<String, (String, String)>::new();
 
     for (index, transcript) in transcripts.iter().enumerate() {
         let Some(transcript) = transcript.as_object() else {
@@ -718,22 +821,81 @@ fn parse_transcript(
             .and_then(Value::as_array)
             .cloned()
             .unwrap_or_default();
+        let owner_user_id = value_string(transcript.get("user_id")).unwrap_or_default();
+        let created_at = value_string(transcript.get("created_at")).unwrap_or_default();
+        if missing_session_metadata {
+            let recovered = recovered_sessions
+                .entry(session_id.clone())
+                .or_insert_with(|| (owner_user_id.clone(), created_at.clone()));
+            if recovered.0.is_empty() && !owner_user_id.is_empty() {
+                recovered.0.clone_from(&owner_user_id);
+            }
+            if !created_at.is_empty() && (recovered.1.is_empty() || created_at < recovered.1) {
+                recovered.1.clone_from(&created_at);
+            }
+        }
         batch
             .rows
             .push(LegacyImportRow::Transcript(LegacyTranscript {
                 id,
-                owner_user_id: value_string(transcript.get("user_id")).unwrap_or_default(),
-                session_id,
+                owner_user_id,
+                session_id: session_id.clone(),
                 started_at_ms: value_i64(transcript.get("started_at")).unwrap_or(0),
                 ended_at_ms: value_i64(transcript.get("ended_at")),
                 memo: value_string(transcript.get("memo_md")).unwrap_or_default(),
                 words_json: Value::Array(words).to_string(),
                 speaker_hints_json: Value::Array(speaker_hints).to_string(),
-                created_at: value_string(transcript.get("created_at")).unwrap_or_default(),
+                created_at,
+                metadata_json: recovery_metadata_json
+                    .clone()
+                    .unwrap_or_else(|| "{}".to_string()),
+                recovery_status: missing_session_metadata
+                    .then(|| RECOVERED_MISSING_SESSION_METADATA.to_string()),
             }));
     }
 
+    if let Some(metadata_json) = recovery_metadata_json {
+        let mut sessions = recovered_sessions.into_iter().collect::<Vec<_>>();
+        sessions.sort_by(|left, right| left.0.cmp(&right.0));
+        let mut rows = sessions
+            .into_iter()
+            .map(|(session_id, (owner_user_id, created_at))| {
+                LegacyImportRow::Session(LegacySession {
+                    id: session_id.clone(),
+                    owner_user_id,
+                    title: recovered_transcript_title(&session_id, &created_at),
+                    created_at,
+                    started_at: String::new(),
+                    ended_at: String::new(),
+                    event_id: String::new(),
+                    external_event_id: String::new(),
+                    external_provider: String::new(),
+                    series_id: String::new(),
+                    event_json: String::new(),
+                    metadata_json: metadata_json.clone(),
+                    folder_path: folder_path.clone(),
+                    recovery_status: Some(RECOVERED_MISSING_SESSION_METADATA.to_string()),
+                })
+            })
+            .collect::<Vec<_>>();
+        rows.append(&mut batch.rows);
+        batch.rows = rows;
+    }
+
     Ok(batch)
+}
+
+fn recovered_transcript_title(session_id: &str, created_at: &str) -> String {
+    let date = created_at.get(..10).filter(|date| {
+        date.as_bytes().iter().enumerate().all(|(index, byte)| {
+            matches!(index, 4 | 7) && *byte == b'-'
+                || !matches!(index, 4 | 7) && byte.is_ascii_digit()
+        })
+    });
+    match date {
+        Some(date) => format!("Recovered transcript — {date}"),
+        None => format!("Recovered transcript — {session_id}"),
+    }
 }
 
 fn parse_attachment(
@@ -1108,18 +1270,341 @@ mod tests {
                 "speaker_hints": []
               }]
             }"#,
+            "transcript-hash",
         )
         .unwrap();
 
-        let LegacyImportRow::Transcript(transcript) = &batch.rows[0] else {
-            panic!("expected transcript");
-        };
+        let transcript = batch
+            .rows
+            .iter()
+            .find_map(|row| match row {
+                LegacyImportRow::Transcript(transcript) => Some(transcript),
+                _ => None,
+            })
+            .expect("expected transcript");
         assert_eq!(transcript.started_at_ms, 10);
         let words: Vec<Value> = serde_json::from_str(&transcript.words_json).unwrap();
         assert_eq!(words[0]["id"], "transcript-1:word:0");
         assert_eq!(words[1]["id"], "word-existing");
         assert_eq!(words[0]["text"], "hello");
         assert_eq!(words[1]["text"], "world");
+    }
+
+    #[tokio::test]
+    async fn orphan_transcript_recovers_a_visible_session_losslessly_and_idempotently() {
+        let db = test_db().await;
+        let dir = tempfile::tempdir().unwrap();
+        let session_dir = dir.path().join("sessions/session-1");
+        std::fs::create_dir_all(&session_dir).unwrap();
+        let transcript_path = session_dir.join("transcript.json");
+        std::fs::write(
+            &transcript_path,
+            r#"{"transcripts":[{"id":"transcript-1","user_id":"user-1","session_id":"session-1","created_at":"2026-07-11T09:30:00Z","started_at":10,"ended_at":30,"memo_md":"Recovered memo","words":[{"text":"hello","start_ms":10,"end_ms":20,"channel":0},{"text":"again","start_ms":21,"end_ms":30,"channel":0}],"speaker_hints":[]}]}"#,
+        )
+        .unwrap();
+        let source_before = std::fs::read(&transcript_path).unwrap();
+
+        let run_id = import_legacy_vault(db.pool(), dir.path(), false)
+            .await
+            .unwrap();
+
+        let run: (String, i64, i64) = sqlx::query_as(
+            "SELECT status, imported_count, conflict_count FROM migration_import_runs WHERE id = ?",
+        )
+        .bind(&run_id)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(run, ("completed".to_string(), 2, 0));
+        let session: (String, String) =
+            sqlx::query_as("SELECT title, metadata_json FROM sessions WHERE id = 'session-1'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(session.0, "Recovered transcript — 2026-07-11");
+        assert_eq!(
+            serde_json::from_str::<Value>(&session.1).unwrap()["legacy_recovery"]["reason"],
+            "missing_session_metadata"
+        );
+        let transcript: (String, String, String) = sqlx::query_as(
+            "SELECT memo, words_json, metadata_json FROM transcripts WHERE id = 'transcript-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(transcript.0, "Recovered memo");
+        assert_eq!(
+            serde_json::from_str::<Vec<Value>>(&transcript.1)
+                .unwrap()
+                .len(),
+            2
+        );
+        assert_eq!(
+            serde_json::from_str::<Value>(&transcript.2).unwrap()["legacy_recovery"]["reason"],
+            "missing_session_metadata"
+        );
+        let targets: Vec<(String, String)> = sqlx::query_as(
+            "SELECT table_name, status FROM migration_import_targets WHERE run_id = ? ORDER BY table_name",
+        )
+        .bind(&run_id)
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(
+            targets,
+            vec![
+                (
+                    "sessions".to_string(),
+                    RECOVERED_MISSING_SESSION_METADATA.to_string()
+                ),
+                (
+                    "transcripts".to_string(),
+                    RECOVERED_MISSING_SESSION_METADATA.to_string()
+                ),
+            ]
+        );
+        assert!(
+            sqlx::query_scalar::<_, bool>(
+                "SELECT parity_verified FROM storage_migration_state WHERE id = 'legacy_v1'",
+            )
+            .fetch_one(db.pool())
+            .await
+            .unwrap()
+        );
+
+        import_legacy_vault(db.pool(), dir.path(), false)
+            .await
+            .unwrap();
+        assert_eq!(row_count(&db, "SELECT COUNT(*) FROM sessions").await, 1);
+        assert_eq!(row_count(&db, "SELECT COUNT(*) FROM transcripts").await, 1);
+        assert_eq!(std::fs::read(&transcript_path).unwrap(), source_before);
+    }
+
+    #[tokio::test]
+    async fn divergent_duplicate_document_ids_are_recovered_with_provenance() {
+        let db = test_db().await;
+        let dir = tempfile::tempdir().unwrap();
+        let session_dir = dir.path().join("sessions/session-1");
+        std::fs::create_dir_all(&session_dir).unwrap();
+        std::fs::write(
+            session_dir.join("_meta.json"),
+            r#"{"id":"session-1","created_at":"2026-07-11T09:30:00Z","title":"Planning"}"#,
+        )
+        .unwrap();
+        let first = "---\nid: shared-document\nsession_id: session-1\n---\n\nFirst body";
+        let second = "---\nid: shared-document\nsession_id: session-1\n---\n\nSecond body";
+        std::fs::write(session_dir.join("a.md"), first).unwrap();
+        std::fs::write(session_dir.join("b.md"), second).unwrap();
+        let recovered_id = stable_id(&format!(
+            "legacy-recovered-document:shared-document:sessions/session-1/b.md:{}",
+            sha256(second.as_bytes())
+        ));
+
+        let run_id = import_legacy_vault(db.pool(), dir.path(), false)
+            .await
+            .unwrap();
+
+        let documents: Vec<(String, String, String)> = sqlx::query_as(
+            "SELECT id, body, generation_metadata_json FROM session_documents ORDER BY id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(documents.len(), 2);
+        assert_eq!(
+            documents
+                .iter()
+                .find(|document| document.0 == "shared-document")
+                .unwrap()
+                .1,
+            "First body"
+        );
+        let recovered = documents
+            .iter()
+            .find(|document| document.0 == recovered_id)
+            .unwrap();
+        assert_eq!(recovered.1, "Second body");
+        let provenance = serde_json::from_str::<Value>(&recovered.2).unwrap();
+        assert_eq!(
+            provenance["legacy_recovery"]["reason"],
+            "duplicate_document_id"
+        );
+        assert_eq!(
+            provenance["legacy_recovery"]["original_id"],
+            "shared-document"
+        );
+        let recovered_status: String = sqlx::query_scalar(
+            "SELECT status FROM migration_import_targets WHERE run_id = ? AND target_id = ?",
+        )
+        .bind(&run_id)
+        .bind(&recovered_id)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(recovered_status, RECOVERED_DUPLICATE_DOCUMENT_ID);
+        assert_eq!(
+            sqlx::query_scalar::<_, String>(
+                "SELECT status FROM migration_import_runs WHERE id = ?",
+            )
+            .bind(&run_id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap(),
+            "completed"
+        );
+
+        import_legacy_vault(db.pool(), dir.path(), false)
+            .await
+            .unwrap();
+        assert_eq!(
+            row_count(&db, "SELECT COUNT(*) FROM session_documents").await,
+            2
+        );
+    }
+
+    #[tokio::test]
+    async fn identical_duplicate_document_ids_do_not_fork() {
+        let db = test_db().await;
+        let dir = tempfile::tempdir().unwrap();
+        let session_dir = dir.path().join("sessions/session-1");
+        std::fs::create_dir_all(&session_dir).unwrap();
+        std::fs::write(
+            session_dir.join("_meta.json"),
+            r#"{"id":"session-1","created_at":"2026-07-11T09:30:00Z","title":"Planning"}"#,
+        )
+        .unwrap();
+        let document = "---\nid: shared-document\nsession_id: session-1\n---\n\nSame body";
+        std::fs::write(session_dir.join("a.md"), document).unwrap();
+        std::fs::write(session_dir.join("b.md"), document).unwrap();
+
+        let run_id = import_legacy_vault(db.pool(), dir.path(), false)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            row_count(&db, "SELECT COUNT(*) FROM session_documents").await,
+            1
+        );
+        let run: (String, i64) =
+            sqlx::query_as("SELECT status, conflict_count FROM migration_import_runs WHERE id = ?")
+                .bind(&run_id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(run, ("completed".to_string(), 0));
+    }
+
+    #[tokio::test]
+    async fn canonical_session_wins_when_an_orphan_transcript_is_recovered() {
+        let db = test_db().await;
+        let dir = tempfile::tempdir().unwrap();
+        let session_dir = dir.path().join("sessions/session-1");
+        std::fs::create_dir_all(&session_dir).unwrap();
+        let meta_path = session_dir.join("_meta.json");
+        std::fs::write(
+            &meta_path,
+            r#"{"id":"session-1","created_at":"2026-07-11T09:30:00Z","title":"Canonical title"}"#,
+        )
+        .unwrap();
+        import_legacy_vault(db.pool(), dir.path(), false)
+            .await
+            .unwrap();
+        std::fs::remove_file(meta_path).unwrap();
+        std::fs::write(
+            session_dir.join("transcript.json"),
+            r#"{"transcripts":[{"id":"transcript-1","session_id":"session-1","created_at":"2026-07-12T09:30:00Z","words":[{"text":"hello"}],"speaker_hints":[]}]}"#,
+        )
+        .unwrap();
+
+        let run_id = import_legacy_vault(db.pool(), dir.path(), false)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            sqlx::query_scalar::<_, String>("SELECT title FROM sessions WHERE id = 'session-1'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            "Canonical title"
+        );
+        assert_eq!(row_count(&db, "SELECT COUNT(*) FROM transcripts").await, 1);
+        let targets: Vec<(String, String)> = sqlx::query_as(
+            "SELECT table_name, status FROM migration_import_targets WHERE run_id = ? ORDER BY table_name",
+        )
+        .bind(&run_id)
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(
+            targets,
+            vec![
+                ("sessions".to_string(), "retained_existing".to_string()),
+                (
+                    "transcripts".to_string(),
+                    RECOVERED_MISSING_SESSION_METADATA.to_string()
+                ),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn deleted_session_is_not_reused_for_an_orphan_transcript() {
+        let db = test_db().await;
+        let dir = tempfile::tempdir().unwrap();
+        let session_dir = dir.path().join("sessions/session-1");
+        std::fs::create_dir_all(&session_dir).unwrap();
+        let meta_path = session_dir.join("_meta.json");
+        std::fs::write(
+            &meta_path,
+            r#"{"id":"session-1","created_at":"2026-07-11T09:30:00Z","title":"Deleted"}"#,
+        )
+        .unwrap();
+        import_legacy_vault(db.pool(), dir.path(), false)
+            .await
+            .unwrap();
+        sqlx::query(
+            "UPDATE sessions SET deleted_at = '2026-07-12T00:00:00Z' WHERE id = 'session-1'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        std::fs::remove_file(meta_path).unwrap();
+        let transcript_path = session_dir.join("transcript.json");
+        std::fs::write(
+            &transcript_path,
+            r#"{"transcripts":[{"id":"transcript-1","session_id":"session-1","words":[{"text":"hello"}],"speaker_hints":[]}]}"#,
+        )
+        .unwrap();
+
+        let run_id = import_legacy_vault(db.pool(), dir.path(), false)
+            .await
+            .unwrap();
+
+        assert_eq!(row_count(&db, "SELECT COUNT(*) FROM transcripts").await, 0);
+        assert!(transcript_path.is_file());
+        let run: (String, i64) =
+            sqlx::query_as("SELECT status, skipped_count FROM migration_import_runs WHERE id = ?")
+                .bind(&run_id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(run, ("completed_with_issues".to_string(), 1));
+        let transcript_status: String = sqlx::query_scalar(
+            "SELECT status FROM migration_import_targets WHERE run_id = ? AND table_name = 'transcripts'",
+        )
+        .bind(&run_id)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(transcript_status, "missing_dependency");
+        assert!(
+            !sqlx::query_scalar::<_, bool>(
+                "SELECT parity_verified FROM storage_migration_state WHERE id = 'legacy_v1'",
+            )
+            .fetch_one(db.pool())
+            .await
+            .unwrap()
+        );
     }
 
     #[tokio::test]
@@ -1259,7 +1744,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn divergent_summaries_import_canonical_content_and_preserve_the_hidden_conflict() {
+    async fn divergent_summaries_preserve_both_documents_without_conflict() {
         let db = test_db().await;
         let dir = tempfile::tempdir().unwrap();
         let session_dir = dir.path().join("sessions/session-1");
@@ -1290,9 +1775,9 @@ mod tests {
                 .fetch_one(db.pool())
                 .await
                 .unwrap();
-        let body: String =
-            sqlx::query_scalar("SELECT body FROM session_documents WHERE id = 'summary-1'")
-                .fetch_one(db.pool())
+        let bodies: Vec<String> =
+            sqlx::query_scalar("SELECT body FROM session_documents ORDER BY body")
+                .fetch_all(db.pool())
                 .await
                 .unwrap();
         let targets: Vec<(String, String)> = sqlx::query_as(
@@ -1305,12 +1790,15 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(run, ("completed_with_conflicts".to_string(), 1));
-        assert_eq!(body, "Canonical summary");
+        assert_eq!(run, ("completed".to_string(), 0));
+        assert_eq!(bodies, vec!["Canonical summary", "Hidden recovery copy"]);
         assert_eq!(
             targets,
             vec![
-                ("sessions/session-1/.md".to_string(), "conflict".to_string()),
+                (
+                    "sessions/session-1/.md".to_string(),
+                    RECOVERED_DUPLICATE_DOCUMENT_ID.to_string()
+                ),
                 (
                     "sessions/session-1/_summary.md".to_string(),
                     "inserted".to_string()
@@ -1348,7 +1836,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn divergent_nonempty_summaries_remain_conflicted_without_overwrite() {
+    async fn divergent_nonempty_summaries_recover_after_a_partial_import() {
         let db = test_db().await;
         let dir = tempfile::tempdir().unwrap();
         let session_dir = dir.path().join("sessions/session-1");
@@ -1439,9 +1927,9 @@ mod tests {
         let recovery_run_id = import_legacy_vault(db.pool(), dir.path(), false)
             .await
             .unwrap();
-        let body: String =
-            sqlx::query_scalar("SELECT body FROM session_documents WHERE id = 'summary-1'")
-                .fetch_one(db.pool())
+        let bodies: Vec<String> =
+            sqlx::query_scalar("SELECT body FROM session_documents ORDER BY body")
+                .fetch_all(db.pool())
                 .await
                 .unwrap();
         let status: String =
@@ -1457,9 +1945,9 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(body, "Current summary");
-        assert_eq!(status, "completed_with_conflicts");
-        assert!(!parity_verified);
+        assert_eq!(bodies, vec!["Current summary", "Stale summary"]);
+        assert_eq!(status, "completed");
+        assert!(parity_verified);
     }
 
     #[tokio::test]
@@ -1618,19 +2106,44 @@ mod tests {
         .fetch_one(db.pool())
         .await
         .unwrap();
-        assert_eq!(unchanged_count, 13);
+        assert_eq!(unchanged_count, 12);
 
         let report = super::super::get_legacy_import_report(db.pool())
             .await
             .unwrap();
         assert_eq!(report.items.len(), 13);
-        assert!(report.items.iter().all(|item| item.status == "unchanged"));
+        assert_eq!(
+            report
+                .items
+                .iter()
+                .filter(|item| item.status == "unchanged")
+                .count(),
+            12
+        );
+        assert_eq!(
+            report
+                .items
+                .iter()
+                .filter(|item| item.status == "complete")
+                .count(),
+            1
+        );
         assert_eq!(report.targets.len(), 18);
-        assert!(
+        assert_eq!(
             report
                 .targets
                 .iter()
-                .all(|target| target.status == "unchanged")
+                .filter(|target| target.status == "unchanged")
+                .count(),
+            17
+        );
+        assert_eq!(
+            report
+                .targets
+                .iter()
+                .filter(|target| target.status == "matched")
+                .count(),
+            1
         );
         let latest_run = report.latest_run.unwrap();
         assert_eq!(latest_run.status, "completed");

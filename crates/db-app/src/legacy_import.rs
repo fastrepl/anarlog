@@ -77,6 +77,16 @@ impl LegacyImportRow {
 
     fn existing_sqlite_is_authoritative(&self) -> bool {
         matches!(self, Self::Calendar(_) | Self::Event(_) | Self::Template(_))
+            || matches!(self, Self::Session(row) if row.recovery_status.is_some())
+    }
+
+    fn recovery_status(&self) -> Option<&str> {
+        match self {
+            Self::Session(row) => row.recovery_status.as_deref(),
+            Self::Document(row) => row.recovery_status.as_deref(),
+            Self::Transcript(row) => row.recovery_status.as_deref(),
+            _ => None,
+        }
     }
 }
 
@@ -163,10 +173,12 @@ pub struct LegacySession {
     pub external_provider: String,
     pub series_id: String,
     pub event_json: String,
+    pub metadata_json: String,
     pub folder_path: String,
+    pub recovery_status: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LegacyDocument {
     pub id: String,
     pub session_id: String,
@@ -180,6 +192,8 @@ pub struct LegacyDocument {
     pub created_by: String,
     pub created_at: String,
     pub updated_at: String,
+    pub generation_metadata_json: String,
+    pub recovery_status: Option<String>,
 }
 
 #[derive(Debug)]
@@ -193,6 +207,8 @@ pub struct LegacyTranscript {
     pub words_json: String,
     pub speaker_hints_json: String,
     pub created_at: String,
+    pub metadata_json: String,
+    pub recovery_status: Option<String>,
 }
 
 #[derive(Debug)]
@@ -661,6 +677,12 @@ async fn record_import_target(
     outcome: InsertOutcome,
 ) -> Result<(), sqlx::Error> {
     let id = format!("{}:{}:{}", item.id, row.table_name(), row.id());
+    let status = match outcome {
+        InsertOutcome::Inserted | InsertOutcome::Matched | InsertOutcome::FilledFromLegacy => {
+            row.recovery_status().unwrap_or(outcome.as_str())
+        }
+        _ => outcome.as_str(),
+    };
     sqlx::query(
         "INSERT INTO migration_import_targets \
          (id, run_id, item_id, source_path, source_kind, table_name, target_id, status) \
@@ -673,7 +695,7 @@ async fn record_import_target(
     .bind(item.source_kind)
     .bind(row.table_name())
     .bind(row.id())
-    .bind(outcome.as_str())
+    .bind(status)
     .execute(&mut **transaction)
     .await?;
 
@@ -793,10 +815,11 @@ async fn insert_row_if_missing(
         LegacyImportRow::Session(row) => sqlx::query(
             "INSERT INTO sessions \
              (id, workspace_id, owner_user_id, title, created_at, updated_at, started_at, \
-              ended_at, event_id, external_event_id, external_provider, series_id, event_json, folder_path) \
+              ended_at, event_id, external_event_id, external_provider, series_id, event_json, \
+              metadata_json, folder_path) \
              VALUES (?, NULLIF((SELECT json_extract(value_json, '$.workspace_id') \
                FROM app_settings WHERE id = 'cloudsync_workspace_binding'), ''), \
-               ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING",
+               ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING",
         )
         .bind(&row.id)
         .bind(&row.owner_user_id)
@@ -810,16 +833,17 @@ async fn insert_row_if_missing(
         .bind(&row.external_provider)
         .bind(&row.series_id)
         .bind(&row.event_json)
+        .bind(&row.metadata_json)
         .bind(&row.folder_path)
         .execute(&mut **transaction)
         .await?,
         LegacyImportRow::Document(row) => sqlx::query(
             "INSERT INTO session_documents \
              (id, workspace_id, session_id, kind, template_id, title, body_format, body, source_hash, \
-              sort_order, created_by, updated_by, created_at, updated_at) \
-             SELECT ?, session.workspace_id, session.id, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? \
+              sort_order, created_by, updated_by, created_at, updated_at, generation_metadata_json) \
+             SELECT ?, session.workspace_id, session.id, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? \
              FROM sessions AS session \
-             WHERE session.id = ? \
+             WHERE session.id = ? AND session.deleted_at IS NULL \
              ON CONFLICT(id) DO NOTHING",
         )
         .bind(&row.id)
@@ -834,16 +858,17 @@ async fn insert_row_if_missing(
         .bind(&row.created_by)
         .bind(&row.created_at)
         .bind(&row.updated_at)
+        .bind(&row.generation_metadata_json)
         .bind(&row.session_id)
         .execute(&mut **transaction)
         .await?,
         LegacyImportRow::Transcript(row) => sqlx::query(
             "INSERT INTO transcripts \
              (id, workspace_id, owner_user_id, session_id, started_at_ms, ended_at_ms, memo, \
-              words_json, speaker_hints_json, created_at, updated_at) \
-             SELECT ?, session.workspace_id, ?, session.id, ?, ?, ?, ?, ?, ?, ? \
+              words_json, speaker_hints_json, created_at, updated_at, metadata_json) \
+             SELECT ?, session.workspace_id, ?, session.id, ?, ?, ?, ?, ?, ?, ?, ? \
              FROM sessions AS session \
-             WHERE session.id = ? \
+             WHERE session.id = ? AND session.deleted_at IS NULL \
              ON CONFLICT(id) DO NOTHING",
         )
         .bind(&row.id)
@@ -855,6 +880,7 @@ async fn insert_row_if_missing(
         .bind(&row.speaker_hints_json)
         .bind(&row.created_at)
         .bind(&row.created_at)
+        .bind(&row.metadata_json)
         .bind(&row.session_id)
         .execute(&mut **transaction)
         .await?,
@@ -863,7 +889,7 @@ async fn insert_row_if_missing(
              (id, workspace_id, owner_user_id, session_id, human_id, source) \
              SELECT ?, session.workspace_id, ?, session.id, ?, ? \
              FROM sessions AS session \
-             WHERE session.id = ? \
+             WHERE session.id = ? AND session.deleted_at IS NULL \
              ON CONFLICT(id) DO NOTHING",
         )
         .bind(&row.id)
@@ -879,7 +905,7 @@ async fn insert_row_if_missing(
               status, text, body_json, due_at) \
              SELECT ?, session.workspace_id, ?, session.id, ?, ?, ?, ?, ?, ?, ? \
              FROM sessions AS session \
-             WHERE session.id = ? \
+             WHERE session.id = ? AND session.deleted_at IS NULL \
              ON CONFLICT(id) DO NOTHING",
         )
         .bind(&row.id)
@@ -900,7 +926,7 @@ async fn insert_row_if_missing(
               sha256, source_type, source_id) \
              SELECT ?, session.workspace_id, session.id, ?, ?, ?, ?, ?, 'legacy_file', ? \
              FROM sessions AS session \
-             WHERE session.id = ? \
+             WHERE session.id = ? AND session.deleted_at IS NULL \
              ON CONFLICT(id) DO NOTHING",
         )
         .bind(&row.id)
@@ -924,12 +950,14 @@ async fn insert_row_if_missing(
         .await?,
         LegacyImportRow::SessionTag(row) => sqlx::query(
             "INSERT INTO session_tags (id, owner_user_id, session_id, tag_id) \
-             VALUES (?, ?, ?, ?) ON CONFLICT(id) DO NOTHING",
+             SELECT ?, ?, session.id, ? FROM sessions AS session \
+             WHERE session.id = ? AND session.deleted_at IS NULL \
+             ON CONFLICT(id) DO NOTHING",
         )
         .bind(&row.id)
         .bind(&row.owner_user_id)
-        .bind(&row.session_id)
         .bind(&row.tag_id)
+        .bind(&row.session_id)
         .execute(&mut **transaction)
         .await?,
         LegacyImportRow::ChatGroup(row) => sqlx::query(
@@ -1436,6 +1464,7 @@ async fn row_matches_existing(
                  AND external_provider IS ?
                  AND series_id IS ?
                  AND event_json IS ?
+                 AND metadata_json IS ?
                  AND folder_path IS ?
                  AND deleted_at IS NULL
              )",
@@ -1451,6 +1480,7 @@ async fn row_matches_existing(
             .bind(&row.external_provider)
             .bind(&row.series_id)
             .bind(&row.event_json)
+            .bind(&row.metadata_json)
             .bind(&row.folder_path)
             .fetch_one(&mut **transaction)
             .await
@@ -1471,6 +1501,7 @@ async fn row_matches_existing(
                  AND created_by IS ?
                  AND created_at IS ?
                  AND updated_at IS ?
+                 AND generation_metadata_json IS ?
                  AND deleted_at IS NULL
              )",
             )
@@ -1486,6 +1517,7 @@ async fn row_matches_existing(
             .bind(&row.created_by)
             .bind(&row.created_at)
             .bind(&row.updated_at)
+            .bind(&row.generation_metadata_json)
             .fetch_one(&mut **transaction)
             .await
         }
@@ -1502,6 +1534,7 @@ async fn row_matches_existing(
                  AND words_json IS ?
                  AND speaker_hints_json IS ?
                  AND created_at IS ?
+                 AND metadata_json IS ?
                  AND deleted_at IS NULL
              )",
             )
@@ -1514,6 +1547,7 @@ async fn row_matches_existing(
             .bind(&row.words_json)
             .bind(&row.speaker_hints_json)
             .bind(&row.created_at)
+            .bind(&row.metadata_json)
             .fetch_one(&mut **transaction)
             .await
         }
@@ -1730,7 +1764,9 @@ mod tests {
                 external_provider: String::new(),
                 series_id: String::new(),
                 event_json: String::new(),
+                metadata_json: "{}".to_string(),
                 folder_path: "work".to_string(),
+                recovery_status: None,
             })],
             ..Default::default()
         }
@@ -1770,6 +1806,8 @@ mod tests {
             created_by: String::new(),
             created_at: String::new(),
             updated_at: String::new(),
+            generation_metadata_json: "{}".to_string(),
+            recovery_status: None,
         })
     }
 
@@ -1784,6 +1822,8 @@ mod tests {
             words_json: words_json.to_string(),
             speaker_hints_json: "[]".to_string(),
             created_at: "2026-07-10T12:00:00Z".to_string(),
+            metadata_json: "{}".to_string(),
+            recovery_status: None,
         })
     }
 
@@ -2303,6 +2343,8 @@ mod tests {
                 created_by: "user-1".to_string(),
                 created_at: "2026-07-10T12:00:00Z".to_string(),
                 updated_at: "2026-07-10T12:00:00Z".to_string(),
+                generation_metadata_json: "{}".to_string(),
+                recovery_status: None,
             }),
             LegacyImportRow::Transcript(LegacyTranscript {
                 id: "transcript-1".to_string(),
@@ -2314,6 +2356,8 @@ mod tests {
                 words_json: "[]".to_string(),
                 speaker_hints_json: "[]".to_string(),
                 created_at: "2026-07-10T12:00:00Z".to_string(),
+                metadata_json: "{}".to_string(),
+                recovery_status: None,
             }),
             LegacyImportRow::Participant(LegacyParticipant {
                 id: "participant-1".to_string(),
