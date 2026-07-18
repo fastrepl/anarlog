@@ -715,7 +715,7 @@ function ModelSelectItem({
       />
       <div className="flex shrink-0 items-center gap-2 text-[11px]">
         <LocalModelBackendBadge model={model.id} />
-        <ModelModeBadge mode={model.mode} />
+        {model.mode !== "realtime" && <ModelModeBadge mode={model.mode} />}
         {!model.isDownloaded && sizeLabel && (
           <span className="text-muted-foreground font-mono">{sizeLabel}</span>
         )}
