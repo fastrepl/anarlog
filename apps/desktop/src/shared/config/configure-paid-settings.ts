@@ -28,13 +28,33 @@ async function shouldUseHostedLlm(values: SettingValues): Promise<boolean> {
   const provider = PROVIDERS.find((candidate) => candidate.id === providerId);
   if (!provider) return true;
 
-  const config = await getStoredAiProvider("llm", providerId);
+  const defaultConfig = {
+    base_url: provider.baseUrl || "",
+    api_key: "",
+  };
+  if (
+    getProviderSelectionBlockers(provider.requirements, {
+      isAuthenticated: true,
+      isPaid: true,
+      config: defaultConfig,
+    }).length === 0
+  ) {
+    return false;
+  }
+
+  let config;
+  try {
+    config = await getStoredAiProvider("llm", providerId);
+  } catch {
+    return true;
+  }
+
   return (
     getProviderSelectionBlockers(provider.requirements, {
       isAuthenticated: true,
       isPaid: true,
       config: {
-        base_url: config?.base_url || provider.baseUrl || "",
+        base_url: config?.base_url || defaultConfig.base_url,
         api_key: config?.api_key || "",
       },
     }).length > 0

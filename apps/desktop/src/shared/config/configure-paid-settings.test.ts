@@ -58,6 +58,28 @@ describe("configurePaidSettings", () => {
     });
   });
 
+  it("repairs hosted defaults when secure provider lookup fails", async () => {
+    mocks.getStoredSettingValues.mockResolvedValue({
+      values: {
+        current_llm_provider: "anthropic",
+        current_llm_model: "claude-opus-4-5-20251101",
+      },
+      hasValues: new Set(),
+    });
+    mocks.getStoredAiProvider.mockRejectedValue(
+      new Error("secure store unavailable"),
+    );
+
+    await configurePaidSettings();
+
+    expect(mocks.setSettingValues).toHaveBeenCalledWith({
+      current_stt_provider: "hyprnote",
+      current_stt_model: "cloud",
+      current_llm_provider: "hyprnote",
+      current_llm_model: "Auto",
+    });
+  });
+
   it("preserves a configured bring-your-own provider", async () => {
     mocks.getStoredSettingValues.mockResolvedValue({
       values: {
@@ -93,5 +115,6 @@ describe("configurePaidSettings", () => {
     await configurePaidSettings();
 
     expect(mocks.setSettingValues).toHaveBeenCalledWith({});
+    expect(mocks.getStoredAiProvider).not.toHaveBeenCalled();
   });
 });

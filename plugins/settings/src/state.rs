@@ -22,12 +22,18 @@ impl StartupSnapshot {
         &self.startup_vault_base
     }
 
-    async fn read_or_default_at(path: &Path) -> crate::Result<serde_json::Value> {
+    async fn read_at(path: &Path) -> crate::Result<Option<serde_json::Value>> {
         match tokio::fs::read_to_string(path).await {
-            Ok(content) => Ok(serde_json::from_str(&content)?),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(serde_json::json!({})),
+            Ok(content) => Ok(Some(serde_json::from_str(&content)?)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(e) => Err(e.into()),
         }
+    }
+
+    async fn read_or_default_at(path: &Path) -> crate::Result<serde_json::Value> {
+        Ok(Self::read_at(path)
+            .await?
+            .unwrap_or_else(|| serde_json::json!({})))
     }
 
     async fn read_or_default(&self) -> crate::Result<serde_json::Value> {
@@ -44,19 +50,18 @@ impl StartupSnapshot {
         legacy_base: &Path,
     ) -> crate::Result<serde_json::Value> {
         let _guard = self.io_lock.read().await;
-        let settings = self.read_or_default().await?;
-        if is_non_empty_object(&settings) {
+        if let Some(settings) = Self::read_at(&self.settings_path()).await? {
             return Ok(settings);
         }
 
         let legacy_path = hypr_storage::vault::compute_settings_path(legacy_base);
         if legacy_path == self.settings_path() {
-            return Ok(settings);
+            return Ok(serde_json::json!({}));
         }
 
         Ok(match Self::read_or_default_at(&legacy_path).await {
             Ok(legacy) if is_non_empty_object(&legacy) => legacy,
-            _ => settings,
+            _ => serde_json::json!({}),
         })
     }
 
@@ -100,7 +105,7 @@ mod tests {
     use tempfile::tempdir;
 
     #[tokio::test]
-    async fn load_uses_global_legacy_settings_when_custom_vault_is_empty() {
+    async fn load_uses_global_legacy_settings_when_custom_vault_is_missing() {
         let temp = tempdir().unwrap();
         let vault_base = temp.path().join("vault");
         let global_base = temp.path().join("global");
@@ -120,6 +125,35 @@ mod tests {
                 .await
                 .unwrap(),
             json!({"ai": {"current_llm_provider": "hyprnote"}}),
+        );
+    }
+
+    #[tokio::test]
+    async fn load_preserves_an_explicit_custom_vault_reset() {
+        let temp = tempdir().unwrap();
+        let vault_base = temp.path().join("vault");
+        let global_base = temp.path().join("global");
+        std::fs::create_dir_all(&vault_base).unwrap();
+        std::fs::create_dir_all(&global_base).unwrap();
+        std::fs::write(
+            hypr_storage::vault::compute_settings_path(&vault_base),
+            "{}",
+        )
+        .unwrap();
+        std::fs::write(
+            hypr_storage::vault::compute_settings_path(&global_base),
+            r#"{"general":{"theme":"light"}}"#,
+        )
+        .unwrap();
+
+        let snapshot = StartupSnapshot::new(vault_base);
+
+        assert_eq!(
+            snapshot
+                .load_with_legacy_fallback(&global_base)
+                .await
+                .unwrap(),
+            json!({}),
         );
     }
 
