@@ -1,5 +1,5 @@
 begin;
-select plan(13);
+select plan(14);
 
 select tests.create_supabase_user('pro', 'pro@example.com');
 select tests.create_supabase_user('free', 'free@example.com');
@@ -38,6 +38,15 @@ select results_eq(
   $$select has_table_privilege('supabase_auth_admin', 'stripe.subscriptions', 'SELECT')$$,
   array[true],
   'supabase_auth_admin has SELECT privilege on stripe.subscriptions'
+);
+
+select results_eq(
+  $$
+  select bool_and(has_column_privilege('supabase_auth_admin', 'stripe.customers', column_name, 'SELECT'))
+  from unnest(array['id', 'invoice_settings', 'default_source']) as required_columns(column_name)
+  $$,
+  array[true],
+  'supabase_auth_admin can read the stripe customer columns used by the auth hook'
 );
 
 select results_eq(
