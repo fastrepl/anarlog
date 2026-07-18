@@ -51,7 +51,6 @@ export function OuterHeader({
   const showSidebarTimelineHeaderGutter =
     !standaloneWindow && !leftsidebar.expanded;
   const showExpandedSidebarTimelineHeader = leftsidebar.expanded;
-  const showShareAction = currentView.type === "raw";
 
   return (
     <div
@@ -68,7 +67,7 @@ export function OuterHeader({
           className={cn([
             "pointer-events-none absolute inset-y-0 flex items-center",
             centerTitle && "justify-center",
-            showShareAction ? "right-[140px]" : "right-[70px]",
+            "right-[140px]",
             standaloneWindow
               ? "left-[76px]"
               : showSidebarTimelineHeaderGutter
@@ -91,7 +90,7 @@ export function OuterHeader({
         className="relative z-10 ml-auto flex shrink-0 items-center gap-0 pr-1"
       >
         <HeaderMeetingControl sessionId={sessionId} sessionMode={sessionMode} />
-        {showShareAction ? <SessionShareButton sessionId={sessionId} /> : null}
+        <SessionShareButton sessionId={sessionId} />
         <OverflowButton
           standaloneWindow={standaloneWindow}
           sessionId={sessionId}

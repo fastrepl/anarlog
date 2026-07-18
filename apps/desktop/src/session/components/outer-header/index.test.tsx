@@ -280,21 +280,25 @@ describe("OuterHeader", () => {
     expect(titleSlot?.className).toContain("justify-center");
   });
 
-  it("shows sharing only for the canonical raw note", () => {
+  it.each([
+    ["summary", { type: "enhanced", id: "summary-1" }],
+    ["memos", { type: "raw" }],
+    ["transcript", { type: "transcript" }],
+  ])("shows sharing from the %s view", (_label, currentView) => {
     render(
       <OuterHeader
         sessionId="session-1"
-        currentView={{ type: "enhanced", id: "summary-1" } as EditorView}
-        title={<span>Summary title</span>}
+        currentView={currentView as EditorView}
+        title={<span>Session title</span>}
       />,
     );
 
-    const title = screen.getByText("Summary title");
+    const title = screen.getByText("Session title");
     const titleSlot = title.parentElement?.parentElement;
 
-    expect(mocks.shareSessionIds).toEqual([]);
-    expect(screen.queryByRole("button", { name: "Share" })).toBeNull();
-    expect(titleSlot?.className).toContain("right-[70px]");
+    expect(mocks.shareSessionIds).toEqual(["session-1"]);
+    expect(screen.getByRole("button", { name: "Share" })).not.toBeNull();
+    expect(titleSlot?.className).toContain("right-[140px]");
   });
 
   it("keeps sidebar header controls hidden while the sidebar is expanded", () => {
