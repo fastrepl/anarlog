@@ -17,6 +17,8 @@ import {
   parseSharedNoteAttachmentDownload,
   parseSharedNoteComment,
   parseSharedNoteCommentPage,
+  parseSharedNoteWebEditConflict,
+  parseSharedNoteWebEditSnapshot,
   withoutDuplicateLeadingTitle,
 } from "./shared-notes.ts";
 
@@ -85,6 +87,52 @@ test("parses the exact public gateway DTO", () => {
   assert.throws(() =>
     parseGatewaySharedNote({ snapshot: { shareId: snapshot.shareId } }),
   );
+  assert.throws(() =>
+    parseGatewaySharedNote({
+      ...snapshot,
+      accessVersion: 4,
+      webEditable: true,
+    }),
+  );
+});
+
+test("parses the exact web-edit snapshot without weakening public reads", () => {
+  const response = {
+    shareId: "00000000-0000-4000-8000-000000000001",
+    schemaVersion: 1,
+    contentRevision: 3,
+    title: "Weekly sync",
+    body: BODY,
+    attachments: [],
+    publishedAt: "2026-07-17T12:00:00Z",
+    accessVersion: 8,
+    webEditable: true,
+  };
+  const edited = parseSharedNoteWebEditSnapshot(response);
+
+  assert.equal(edited.snapshot.contentRevision, 3);
+  assert.equal(edited.accessVersion, 8);
+  assert.equal(edited.webEditable, true);
+  assert.throws(() =>
+    parseSharedNoteWebEditSnapshot({
+      ...edited.snapshot,
+      webEditable: true,
+    }),
+  );
+  assert.deepEqual(
+    parseSharedNoteWebEditConflict({
+      code: "snapshot_conflict",
+      snapshot: response,
+    }),
+    edited,
+  );
+  assert.throws(() =>
+    parseSharedNoteWebEditConflict({
+      code: "snapshot_conflict",
+      snapshot: response,
+      internalReason: "do not expose",
+    }),
+  );
 });
 
 test("maps authenticated snake-case RPC rows without internal identifiers", () => {
@@ -100,12 +148,14 @@ test("maps authenticated snake-case RPC rows without internal identifiers", () =
     capability: "commenter",
     manage_access: true,
     access_version: 7,
+    web_editable: false,
     published_at: "2026-07-17T12:00:00Z",
   });
 
   assert.equal(result.capability, "commenter");
   assert.equal(result.manageAccess, true);
   assert.equal(result.accessVersion, 7);
+  assert.equal(result.webEditable, false);
   assert.equal("workspaceId" in result.snapshot, false);
   assert.equal("sessionId" in result.snapshot, false);
   assert.throws(() =>
@@ -130,6 +180,7 @@ test("maps authenticated snake-case RPC rows without internal identifiers", () =
       capability: "commenter",
       manage_access: true,
       access_version: 0,
+      web_editable: false,
       published_at: "2026-07-17T12:00:00Z",
     }),
   );

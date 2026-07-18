@@ -35,13 +35,21 @@ export function SharedNoteViewer({
   accessLabel,
   actions,
   collaboration,
+  documentContent,
+  headerActions,
+  notice,
   resolveAttachment,
+  showTitle = true,
   snapshot,
 }: {
   accessLabel: string;
   actions?: React.ReactNode;
   collaboration?: React.ReactNode;
+  documentContent?: React.ReactNode;
+  headerActions?: React.ReactNode;
+  notice?: React.ReactNode;
   resolveAttachment?: SharedAttachmentResolver;
+  showTitle?: boolean;
   snapshot: SharedNoteSnapshot;
 }) {
   const body = withoutDuplicateLeadingTitle(snapshot.body, snapshot.title);
@@ -50,25 +58,33 @@ export function SharedNoteViewer({
     <SharedNoteShell>
       <article className="surface border-color-subtle overflow-hidden rounded-3xl border shadow-sm">
         <header className="border-color-subtle border-b px-6 py-7 sm:px-10 sm:py-10">
-          <div className="text-color-muted flex items-center gap-2 text-sm">
-            <UsersRoundIcon className="size-4" aria-hidden="true" />
-            <span>{accessLabel}</span>
-            <span aria-hidden="true">·</span>
-            <time dateTime={snapshot.publishedAt}>
-              {formatPublishedAt(snapshot.publishedAt)}
-            </time>
+          <div className="flex items-start justify-between gap-4">
+            <div className="text-color-muted flex min-w-0 flex-wrap items-center gap-2 text-sm">
+              <UsersRoundIcon className="size-4" aria-hidden="true" />
+              <span>{accessLabel}</span>
+              <span aria-hidden="true">·</span>
+              <time dateTime={snapshot.publishedAt}>
+                {formatPublishedAt(snapshot.publishedAt)}
+              </time>
+            </div>
+            {headerActions}
           </div>
-          <h1 className="text-color mt-5 font-mono text-3xl font-medium text-balance sm:text-4xl">
-            {snapshot.title || "Untitled note"}
-          </h1>
+          {showTitle && (
+            <h1 className="text-color mt-5 font-mono text-3xl font-medium text-balance sm:text-4xl">
+              {snapshot.title || "Untitled note"}
+            </h1>
+          )}
         </header>
 
         <div className="px-6 py-7 sm:px-10 sm:py-10">
-          <SharedNoteDocument
-            attachments={snapshot.attachments}
-            document={body}
-            resolveAttachment={resolveAttachment}
-          />
+          {notice}
+          {documentContent ?? (
+            <SharedNoteDocument
+              attachments={snapshot.attachments}
+              document={body}
+              resolveAttachment={resolveAttachment}
+            />
+          )}
         </div>
       </article>
 

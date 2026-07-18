@@ -488,6 +488,9 @@ importers:
       '@hypr/changelog':
         specifier: workspace:^
         version: link:../../packages/changelog
+      '@hypr/editor':
+        specifier: workspace:*
+        version: link:../../packages/editor
       '@hypr/pricing':
         specifier: workspace:^
         version: link:../../packages/pricing

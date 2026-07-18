@@ -1,14 +1,14 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { useCallback } from "react";
 
 import { AccountSharedNoteActions } from "@/components/shared-note-actions";
 import { SharedNoteCollaboration } from "@/components/shared-note-collaboration";
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
+import { SharedNoteEditableViewer } from "@/components/shared-note-editable-viewer";
 import {
   SharedNoteLoading,
   SharedNoteTransientError,
   SharedNoteUnavailable,
-  SharedNoteViewer,
 } from "@/components/shared-note-viewer";
 import { fetchUser } from "@/functions/auth";
 import {
@@ -61,6 +61,7 @@ export const Route = createFileRoute("/share/$shareId")({
 });
 
 function Component() {
+  const router = useRouter();
   const { result } = Route.useLoaderData();
   const { user } = Route.useRouteContext();
   const { scheme } = Route.useSearch();
@@ -83,9 +84,17 @@ function Component() {
   }
 
   return (
-    <SharedNoteViewer
+    <SharedNoteEditableViewer
+      key={note.snapshot.shareId}
       snapshot={note.snapshot}
+      authenticatedNote={note}
+      fallbackAccessLabel="Shared note · View only"
+      fallbackSnapshot={note.snapshot}
+      onAccessChanged={() => {
+        void router.invalidate();
+      }}
       resolveAttachment={resolveAttachment}
+      revokedBehavior="read-only"
       accessLabel={formatAuthenticatedSharedNoteAccessLabel(note)}
       collaboration={
         <SharedNoteCollaboration

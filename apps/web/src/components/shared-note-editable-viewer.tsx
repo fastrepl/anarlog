@@ -1,0 +1,218 @@
+import { lazy, Suspense, useState } from "react";
+
+import type { SharedAttachmentResolver } from "@/components/shared-note-document";
+import {
+  sharedSecondaryButtonClassName,
+  SharedNoteUnavailable,
+  SharedNoteViewer,
+} from "@/components/shared-note-viewer";
+import {
+  canEditSharedNoteOnWeb,
+  getSharedNoteWebEditPreparationMessage,
+  hasUnsupportedSharedNoteEditorNode,
+  shouldRenderSharedNoteUnavailable,
+} from "@/lib/shared-note-editing";
+import type {
+  AuthenticatedSharedNote,
+  SharedNoteSnapshot,
+  SharedNoteWebEditSnapshot,
+} from "@/lib/shared-notes";
+
+const SharedNoteEditorSurface = lazy(() =>
+  import("@/components/shared-note-editor-surface").then((module) => ({
+    default: module.SharedNoteEditorSurface,
+  })),
+);
+
+export function SharedNoteEditableViewer({
+  accessLabel,
+  actions,
+  authenticatedNote,
+  collaboration,
+  fallbackAccessLabel,
+  fallbackSnapshot,
+  onAccessChanged,
+  resolveAttachment,
+  revokedBehavior,
+  snapshot: initialSnapshot,
+}: {
+  accessLabel: string;
+  actions?: React.ReactNode;
+  authenticatedNote: AuthenticatedSharedNote | null;
+  collaboration?: React.ReactNode;
+  fallbackAccessLabel?: string;
+  fallbackSnapshot?: SharedNoteSnapshot | null;
+  onAccessChanged?: () => void;
+  resolveAttachment?: SharedAttachmentResolver;
+  revokedBehavior: "read-only" | "unavailable";
+  snapshot: SharedNoteSnapshot;
+}) {
+  const [snapshot, setSnapshot] = useState(initialSnapshot);
+  const [activeAuthenticatedNote, setActiveAuthenticatedNote] =
+    useState(authenticatedNote);
+  const [source, setSource] = useState({
+    authenticatedNote,
+    snapshot: initialSnapshot,
+  });
+  const [isEditing, setIsEditing] = useState(false);
+  const [accessRevoked, setAccessRevoked] = useState(false);
+  const [requiresSignIn, setRequiresSignIn] = useState(false);
+
+  if (
+    !isEditing &&
+    (source.snapshot !== initialSnapshot ||
+      source.authenticatedNote !== authenticatedNote)
+  ) {
+    const priorAccessVersion = source.authenticatedNote?.accessVersion ?? 0;
+    setSource({ authenticatedNote, snapshot: initialSnapshot });
+    setSnapshot((current) =>
+      initialSnapshot.contentRevision >= current.contentRevision
+        ? initialSnapshot
+        : current,
+    );
+    setActiveAuthenticatedNote(authenticatedNote);
+    if (authenticatedNote) {
+      setRequiresSignIn(false);
+      if (authenticatedNote.accessVersion > priorAccessVersion) {
+        setAccessRevoked(false);
+      }
+    }
+  }
+
+  const activeSnapshot =
+    accessRevoked && fallbackSnapshot ? fallbackSnapshot : snapshot;
+  const hasUnsupportedContent = hasUnsupportedSharedNoteEditorNode(
+    activeSnapshot.body,
+  );
+  const canEdit =
+    !accessRevoked &&
+    canEditSharedNoteOnWeb(activeAuthenticatedNote) &&
+    !hasUnsupportedContent;
+  const preparationMessage = getSharedNoteWebEditPreparationMessage(
+    accessRevoked ? null : activeAuthenticatedNote,
+    hasUnsupportedContent,
+  );
+
+  if (
+    shouldRenderSharedNoteUnavailable({
+      accessRevoked,
+      hasFallbackSnapshot: Boolean(fallbackSnapshot),
+      revokedBehavior,
+    })
+  ) {
+    return <SharedNoteUnavailable />;
+  }
+
+  const preparationNotice = preparationMessage ? (
+    <SharedNoteEditNotice>{preparationMessage}</SharedNoteEditNotice>
+  ) : null;
+  const accessNotice = accessRevoked ? (
+    <SharedNoteEditNotice>
+      Your editing access changed. The view-only shared note is still available.
+    </SharedNoteEditNotice>
+  ) : null;
+  const signInNotice = requiresSignIn ? (
+    <SharedNoteEditNotice>
+      Your session expired.{" "}
+      <a className="underline underline-offset-4" href="/auth/?flow=web">
+        Sign in again
+      </a>{" "}
+      to continue editing.
+    </SharedNoteEditNotice>
+  ) : null;
+
+  return (
+    <SharedNoteViewer
+      accessLabel={
+        accessRevoked
+          ? (fallbackAccessLabel ?? "Shared note · View only")
+          : requiresSignIn
+            ? "Shared note · Sign in required"
+            : accessLabel
+      }
+      actions={actions}
+      collaboration={
+        accessRevoked || requiresSignIn ? undefined : collaboration
+      }
+      documentContent={
+        isEditing ? (
+          <Suspense
+            fallback={
+              <p className="text-color-muted py-10 text-center text-sm">
+                Loading editor…
+              </p>
+            }
+          >
+            <SharedNoteEditorSurface
+              key={`${activeSnapshot.shareId}:${activeSnapshot.contentRevision}`}
+              snapshot={activeSnapshot}
+              onCancel={() => setIsEditing(false)}
+              onReloadLatest={(edited) => {
+                applyEditedSnapshot(edited);
+                if (
+                  !edited.webEditable ||
+                  hasUnsupportedSharedNoteEditorNode(edited.snapshot.body)
+                ) {
+                  setIsEditing(false);
+                }
+              }}
+              onSaved={(edited) => {
+                applyEditedSnapshot(edited);
+                setIsEditing(false);
+              }}
+              onUnavailable={(reason) => {
+                if (reason === "access_changed") {
+                  setAccessRevoked(true);
+                  onAccessChanged?.();
+                } else {
+                  setRequiresSignIn(true);
+                  setActiveAuthenticatedNote(null);
+                }
+                setIsEditing(false);
+              }}
+            />
+          </Suspense>
+        ) : undefined
+      }
+      headerActions={
+        canEdit && !isEditing ? (
+          <button
+            type="button"
+            className={sharedSecondaryButtonClassName}
+            onClick={() => setIsEditing(true)}
+          >
+            Edit
+          </button>
+        ) : undefined
+      }
+      notice={accessNotice ?? signInNotice ?? preparationNotice}
+      resolveAttachment={resolveAttachment}
+      showTitle={!isEditing}
+      snapshot={activeSnapshot}
+    />
+  );
+
+  function applyEditedSnapshot(edited: SharedNoteWebEditSnapshot) {
+    setSource({ authenticatedNote, snapshot: initialSnapshot });
+    setSnapshot(edited.snapshot);
+    setRequiresSignIn(false);
+    setActiveAuthenticatedNote((note) =>
+      note
+        ? {
+            ...note,
+            accessVersion: edited.accessVersion,
+            snapshot: edited.snapshot,
+            webEditable: edited.webEditable,
+          }
+        : note,
+    );
+  }
+}
+
+function SharedNoteEditNotice({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="border-color-subtle bg-surface-subtle mb-6 rounded-2xl border px-4 py-3 text-sm leading-6">
+      {children}
+    </div>
+  );
+}

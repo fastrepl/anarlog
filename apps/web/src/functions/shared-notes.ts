@@ -12,12 +12,17 @@ import {
   MAX_SHARED_NOTE_COMMENT_BYTES,
   validateSharedNoteCommentBody,
 } from "@/lib/shared-note-collaboration";
+import { deriveSharedNoteEditorTitle } from "@/lib/shared-note-editing";
 import {
   type AuthenticatedSharedNote,
+  handoffRequestIdSchema,
   parseSessionAccessRequestState,
   parseSessionInvitationState,
   parseSessionShareAccessPage,
   parseAuthenticatedSharedNote,
+  parseSharedNoteDocument,
+  parseSharedNoteWebEditConflict,
+  parseSharedNoteWebEditSnapshot,
   parseSharedNoteComment,
   parseSharedNoteCommentPage,
   parseSharedNoteAttachmentDownload,
@@ -28,10 +33,18 @@ import {
   shareIdSchema,
   type SharedNoteComment,
   type SharedNoteCommentPage,
+  type SharedNoteWebEditSnapshot,
 } from "@/lib/shared-notes";
 
 export type AuthenticatedSharedNoteReadResult =
   | { status: "ready"; note: AuthenticatedSharedNote }
+  | { status: "unavailable" }
+  | { status: "error" };
+
+export type SharedNoteWebEditResult =
+  | ({ status: "ready" } & SharedNoteWebEditSnapshot)
+  | ({ status: "conflict" } & SharedNoteWebEditSnapshot)
+  | { status: "sign_in_required" }
   | { status: "unavailable" }
   | { status: "error" };
 
@@ -41,6 +54,23 @@ const attachmentDownloadInputSchema = z
     attachmentId: shareIdSchema,
   })
   .strict();
+
+const sharedNoteWebEditInputSchema = z
+  .object({
+    shareId: shareIdSchema,
+    baseRevision: z.number().int().positive().safe(),
+    mutationId: handoffRequestIdSchema,
+    title: z.string().trim().max(4096),
+    body: z.unknown(),
+    attachmentIds: z.array(handoffRequestIdSchema).max(64),
+  })
+  .strict()
+  .refine(
+    ({ attachmentIds }) => new Set(attachmentIds).size === attachmentIds.length,
+    { path: ["attachmentIds"] },
+  );
+
+const MAX_WEB_EDIT_RESPONSE_BYTES = 2_250_000;
 
 const sharedNoteCommentInputSchema = z
   .object({
@@ -165,7 +195,7 @@ export const readAuthenticatedSharedNote = createServerFn({ method: "GET" })
 
       const supabase = getSupabaseServerClient();
       const { data, error } = await supabase.rpc(
-        "read_my_session_share_snapshot_with_attachments",
+        "read_my_session_share_snapshot_v2",
         { p_share_id: shareId },
       );
       if (error || !Array.isArray(data)) {
@@ -535,6 +565,107 @@ export const createAuthenticatedSharedAttachmentDownload = createServerFn({
     }
   });
 
+export const editAuthenticatedSharedNote = createServerFn({ method: "POST" })
+  .inputValidator(sharedNoteWebEditInputSchema)
+  .handler(async ({ data: input }): Promise<SharedNoteWebEditResult> => {
+    setPrivateShareResponseHeaders();
+
+    let body;
+    try {
+      body = parseSharedNoteDocument(input.body);
+    } catch {
+      return { status: "error" };
+    }
+
+    const first = body.content?.[0];
+    if (
+      new TextEncoder().encode(input.title).byteLength > 4096 ||
+      first?.type !== "heading" ||
+      (first.attrs?.level ?? 1) !== 1 ||
+      deriveSharedNoteEditorTitle(body) !== input.title
+    ) {
+      return { status: "error" };
+    }
+
+    const supabase = getSupabaseServerClient();
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) return { status: "sign_in_required" };
+
+    try {
+      const response = await fetch(
+        new URL(
+          `/sync/shares/${encodeURIComponent(input.shareId)}/web-edit`,
+          apiBaseUrl(),
+        ),
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            baseRevision: input.baseRevision,
+            mutationId: input.mutationId,
+            title: input.title,
+            body,
+            attachmentIds: input.attachmentIds,
+          }),
+          cache: "no-store",
+          credentials: "omit",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          redirect: "error",
+          referrerPolicy: "no-referrer",
+        },
+      );
+
+      if (response.status === 401) {
+        return { status: "sign_in_required" };
+      }
+      if (response.status === 403 || response.status === 404) {
+        return { status: "unavailable" };
+      }
+      if (
+        !response.headers
+          .get("content-type")
+          ?.toLowerCase()
+          .startsWith("application/json")
+      ) {
+        return { status: "error" };
+      }
+
+      const responseBody = await readBoundedJson(
+        response,
+        MAX_WEB_EDIT_RESPONSE_BYTES,
+      );
+      if (responseBody === null) return { status: "error" };
+
+      if (response.status === 409) {
+        const edited = parseSharedNoteWebEditConflict(responseBody);
+        return edited.snapshot.shareId === input.shareId &&
+          edited.snapshot.contentRevision > input.baseRevision
+          ? { status: "conflict", ...edited }
+          : { status: "error" };
+      }
+      if (!response.ok) return { status: "error" };
+
+      const edited = parseSharedNoteWebEditSnapshot(responseBody);
+      if (
+        edited.snapshot.shareId !== input.shareId ||
+        edited.snapshot.contentRevision <= input.baseRevision ||
+        !sameOrderedIds(
+          edited.snapshot.attachments.map(({ id }) => id),
+          input.attachmentIds,
+        )
+      ) {
+        return { status: "error" };
+      }
+      return { status: "ready", ...edited };
+    } catch {
+      return { status: "error" };
+    }
+  });
+
 function setPrivateShareResponseHeaders() {
   setResponseHeader("Cache-Control", "private, no-store");
   setResponseHeader("Referrer-Policy", "no-referrer");
@@ -577,4 +708,29 @@ function apiBaseUrl() {
   return env.VITE_API_URL.endsWith("/")
     ? env.VITE_API_URL
     : `${env.VITE_API_URL}/`;
+}
+
+async function readBoundedJson(response: Response, maxBytes: number) {
+  const contentLength = response.headers.get("content-length");
+  if (
+    contentLength &&
+    (!/^\d+$/.test(contentLength) || Number(contentLength) > maxBytes)
+  ) {
+    return null;
+  }
+
+  const text = await response.text();
+  if (new TextEncoder().encode(text).byteLength > maxBytes) return null;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function sameOrderedIds(left: string[], right: string[]) {
+  return (
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
 }

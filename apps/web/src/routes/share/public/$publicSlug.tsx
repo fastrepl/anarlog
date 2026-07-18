@@ -4,11 +4,11 @@ import { useCallback } from "react";
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
 import { PublicSharedNoteActions } from "@/components/shared-note-actions";
 import { SharedNoteCollaboration } from "@/components/shared-note-collaboration";
+import { SharedNoteEditableViewer } from "@/components/shared-note-editable-viewer";
 import {
   SharedNoteLoading,
   SharedNoteTransientError,
   SharedNoteUnavailable,
-  SharedNoteViewer,
 } from "@/components/shared-note-viewer";
 import { fetchUser } from "@/functions/auth";
 import {
@@ -81,19 +81,22 @@ function Component() {
       ? authenticatedResult.note
       : null;
   const resolveAttachment = useCallback<SharedAttachmentResolver>(
-    (attachment, signal) =>
-      authenticatedNote
-        ? createAuthenticatedSharedAttachmentDownload({
+    async (attachment, signal) => {
+      if (authenticatedNote) {
+        const download = await createAuthenticatedSharedAttachmentDownload({
             data: {
               shareId: authenticatedNote.snapshot.shareId,
               attachmentId: attachment.id,
             },
-          })
-        : fetchPublicSharedAttachmentDownload(
-            publicSlug,
-            attachment.id,
-            signal,
-          ),
+          });
+        if (download) return download;
+      }
+      return fetchPublicSharedAttachmentDownload(
+        publicSlug,
+        attachment.id,
+        signal,
+      );
+    },
     [authenticatedNote, publicSlug],
   );
   if (result.status === "error") {
@@ -111,9 +114,14 @@ function Component() {
       : "Public note · View only";
 
   return (
-    <SharedNoteViewer
+    <SharedNoteEditableViewer
+      key={snapshot.shareId}
       snapshot={snapshot}
+      authenticatedNote={authenticatedNote}
+      fallbackAccessLabel="Public note · View only"
+      fallbackSnapshot={result.snapshot}
       resolveAttachment={resolveAttachment}
+      revokedBehavior="read-only"
       accessLabel={accessLabel}
       collaboration={
         <SharedNoteCollaboration

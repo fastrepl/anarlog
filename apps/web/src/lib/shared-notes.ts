@@ -76,6 +76,12 @@ export type SharedNoteSnapshot = {
   publishedAt: string;
 };
 
+export type SharedNoteWebEditSnapshot = {
+  snapshot: SharedNoteSnapshot;
+  accessVersion: number;
+  webEditable: boolean;
+};
+
 export type SharedNoteAttachment = {
   id: string;
   filename: string;
@@ -94,6 +100,7 @@ export type AuthenticatedSharedNote = {
   capability: SharedNoteCapability;
   manageAccess: boolean;
   accessVersion: number;
+  webEditable: boolean;
 };
 
 export type SharedNoteComment = {
@@ -205,7 +212,7 @@ const gatewaySnapshotSchema = z
   .object({
     shareId: shareIdSchema,
     schemaVersion: z.literal(1),
-    contentRevision: z.number().int().positive(),
+    contentRevision: z.number().int().positive().safe(),
     title: z.string(),
     body: z.unknown(),
     attachments: z.array(z.unknown()).max(64),
@@ -213,17 +220,32 @@ const gatewaySnapshotSchema = z
   })
   .strict();
 
+const webEditSnapshotSchema = gatewaySnapshotSchema
+  .extend({
+    accessVersion: z.number().int().positive().safe(),
+    webEditable: z.boolean(),
+  })
+  .strict();
+
+const webEditConflictResponseSchema = z
+  .object({
+    code: z.literal("snapshot_conflict"),
+    snapshot: z.unknown(),
+  })
+  .strict();
+
 const authenticatedSnapshotRowSchema = z
   .object({
     share_id: shareIdSchema,
     schema_version: z.literal(1),
-    content_revision: z.number().int().positive(),
+    content_revision: z.number().int().positive().safe(),
     title: z.string(),
     body_json: z.unknown(),
     attachments_json: z.array(z.unknown()).max(64),
     capability: z.enum(["viewer", "commenter", "editor"]),
     manage_access: z.boolean(),
     access_version: z.number().int().positive().safe(),
+    web_editable: z.boolean(),
     published_at: z.string(),
   })
   .passthrough();
@@ -347,6 +369,25 @@ export function parseGatewaySharedNote(value: unknown): SharedNoteSnapshot {
   };
 }
 
+export function parseSharedNoteWebEditSnapshot(
+  value: unknown,
+): SharedNoteWebEditSnapshot {
+  const parsed = webEditSnapshotSchema.parse(value);
+  const { accessVersion, webEditable, ...snapshot } = parsed;
+  return {
+    accessVersion,
+    webEditable,
+    snapshot: parseGatewaySharedNote(snapshot),
+  };
+}
+
+export function parseSharedNoteWebEditConflict(
+  value: unknown,
+): SharedNoteWebEditSnapshot {
+  const parsed = webEditConflictResponseSchema.parse(value);
+  return parseSharedNoteWebEditSnapshot(parsed.snapshot);
+}
+
 export function parseAuthenticatedSharedNote(
   value: unknown,
 ): AuthenticatedSharedNote {
@@ -355,6 +396,7 @@ export function parseAuthenticatedSharedNote(
     capability: parsed.capability,
     manageAccess: parsed.manage_access,
     accessVersion: parsed.access_version,
+    webEditable: parsed.web_editable,
     snapshot: {
       shareId: parsed.share_id,
       schemaVersion: parsed.schema_version,
