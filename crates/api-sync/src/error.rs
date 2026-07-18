@@ -32,6 +32,9 @@ pub enum SyncError {
     #[error("Shared note publication is not permitted")]
     SnapshotPublicationForbidden,
 
+    #[error("Shared note changed")]
+    SnapshotChanged,
+
     #[error("Shared note service is unavailable")]
     SnapshotServiceUnavailable,
 
@@ -129,6 +132,12 @@ impl IntoResponse for SyncError {
                 StatusCode::FORBIDDEN,
                 "shared_note_publication_forbidden",
                 "Shared note publication is not permitted".to_string(),
+            ),
+            Self::SnapshotChanged => (
+                StatusCode::CONFLICT,
+                "snapshot_conflict",
+                "Shared note changed; update Anarlog and reload before publishing again"
+                    .to_string(),
             ),
             Self::SnapshotServiceUnavailable => (
                 StatusCode::BAD_GATEWAY,

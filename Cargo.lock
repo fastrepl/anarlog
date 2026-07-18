@@ -586,6 +586,7 @@ dependencies = [
  "transcribe-proxy",
  "url",
  "utoipa",
+ "wiremock",
 ]
 
 [[package]]

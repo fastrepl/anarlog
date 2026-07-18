@@ -2747,8 +2747,75 @@
           "403": {
             "description": "Anarlog Pro or share-manager access required"
           },
+          "409": {
+            "description": "Shared note changed since the supplied base revision"
+          },
           "413": {
             "description": "Shared-note snapshot is too large"
+          },
+          "502": {
+            "description": "Shared-note service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/shares/{share_id}/web-edit": {
+      "put": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "edit_session_share_snapshot",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "description": "Session share ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishSessionShareSnapshotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Shared-note edit saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedSessionShareSnapshot"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unsupported shared-note edit"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Explicit Editor access required"
+          },
+          "409": {
+            "description": "Shared note changed since the supplied base revision"
+          },
+          "413": {
+            "description": "Shared-note edit is too large"
           },
           "502": {
             "description": "Shared-note service unavailable"
@@ -3778,6 +3845,36 @@
             "type": "string"
           }
         }
+      },
+      "CasSessionShareSnapshotRequest": {
+        "type": "object",
+        "required": [
+          "baseRevision",
+          "mutationId",
+          "title",
+          "body",
+          "attachmentIds"
+        ],
+        "properties": {
+          "attachmentIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "baseRevision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "body": {},
+          "mutationId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "CharTask": {
         "type": "string",
@@ -6324,6 +6421,29 @@
           }
         }
       },
+      "LegacySessionShareSnapshotRequest": {
+        "type": "object",
+        "required": [
+          "title",
+          "body"
+        ],
+        "properties": {
+          "attachmentIds": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "body": {},
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "LinearListTeamsRequest": {
         "type": "object",
         "required": [
@@ -7491,27 +7611,14 @@
         }
       },
       "PublishSessionShareSnapshotRequest": {
-        "type": "object",
-        "required": [
-          "title",
-          "body"
-        ],
-        "properties": {
-          "attachmentIds": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "string"
-            }
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CasSessionShareSnapshotRequest"
           },
-          "body": {},
-          "title": {
-            "type": "string"
+          {
+            "$ref": "#/components/schemas/LegacySessionShareSnapshotRequest"
           }
-        },
-        "additionalProperties": false
+        ]
       },
       "PublishedSessionShareSnapshot": {
         "type": "object",
@@ -7522,9 +7629,15 @@
           "title",
           "body",
           "attachments",
+          "webEditable",
+          "accessVersion",
           "publishedAt"
         ],
         "properties": {
+          "accessVersion": {
+            "type": "integer",
+            "format": "int64"
+          },
           "attachments": {
             "type": "array",
             "items": {
@@ -7548,6 +7661,9 @@
           },
           "title": {
             "type": "string"
+          },
+          "webEditable": {
+            "type": "boolean"
           }
         }
       },

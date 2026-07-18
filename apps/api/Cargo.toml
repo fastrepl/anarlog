@@ -46,3 +46,6 @@ jsonwebtoken = { workspace = true }
 sentry = { workspace = true, features = ["tower", "tower-axum-matched-path", "tracing"] }
 tower = { workspace = true }
 utoipa = { workspace = true }
+
+[dev-dependencies]
+wiremock = { workspace = true }
