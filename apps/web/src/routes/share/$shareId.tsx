@@ -90,8 +90,12 @@ function Component() {
       authenticatedNote={note}
       fallbackAccessLabel="Shared note · View only"
       fallbackSnapshot={note.snapshot}
-      onAccessChanged={() => {
-        void router.invalidate();
+      onAccessChanged={async () => {
+        await router.invalidate();
+        const refreshed = await readAuthenticatedSharedNote({
+          data: note.snapshot.shareId,
+        });
+        return refreshed.status === "ready" ? refreshed.note : null;
       }}
       resolveAttachment={resolveAttachment}
       revokedBehavior="read-only"

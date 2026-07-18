@@ -189,9 +189,15 @@ function LinkSharedNoteClient({
           : "Shared note · View only"
       }
       fallbackSnapshot={fallbackSnapshot}
-      onAccessChanged={() => {
-        void authenticatedQuery.refetch();
-        if (hasToken) void snapshotQuery.refetch();
+      onAccessChanged={async () => {
+        const [refreshed] = await Promise.all([
+          authenticatedQuery.refetch(),
+          hasToken ? snapshotQuery.refetch() : Promise.resolve(null),
+        ]);
+        return refreshed.status === "success" &&
+          refreshed.data.status === "ready"
+          ? refreshed.data.note
+          : null;
       }}
       resolveAttachment={resolveAttachment}
       revokedBehavior="read-only"

@@ -10,10 +10,16 @@ import {
   getSharedNoteReadOnlySnapshot,
   getSharedNoteWebEditPreparationMessage,
   hasUnsupportedSharedNoteEditorNode,
+  resolveSharedNoteViewerAuthorization,
   reuseSharedNoteMutationIdForUnchangedDraft,
   shouldRenderSharedNoteUnavailable,
+  syncSharedNoteViewerAuthorization,
 } from "./shared-note-editing.ts";
-import type { SharedNoteDocument, SharedNoteSnapshot } from "./shared-notes.ts";
+import type {
+  AuthenticatedSharedNote,
+  SharedNoteDocument,
+  SharedNoteSnapshot,
+} from "./shared-notes.ts";
 
 const BODY: SharedNoteDocument = {
   type: "doc",
@@ -43,6 +49,35 @@ test("allows web editing only for an authenticated editable editor", () => {
   assert.equal(
     canEditSharedNoteOnWeb({ capability: "editor", webEditable: true }),
     true,
+  );
+});
+
+test("keeps sign-in expiry sticky across stale authenticated prop updates", () => {
+  const expired = {
+    note: null,
+    state: "sign_in_required" as const,
+  };
+  const staleAuthenticatedNote = authenticatedEditor(3);
+
+  assert.equal(
+    syncSharedNoteViewerAuthorization(expired, staleAuthenticatedNote),
+    expired,
+  );
+});
+
+test("restores confirmed edit access without requiring a version increase", () => {
+  const refreshed = authenticatedEditor(3);
+
+  assert.deepEqual(resolveSharedNoteViewerAuthorization(refreshed), {
+    note: refreshed,
+    state: "ready",
+  });
+  assert.equal(
+    resolveSharedNoteViewerAuthorization({
+      ...refreshed,
+      capability: "viewer",
+    }).state,
+    "access_changed",
   );
 });
 
@@ -148,6 +183,16 @@ function sharedNoteSnapshot(contentRevision: number): SharedNoteSnapshot {
     body: BODY,
     attachments: [],
     publishedAt: "2026-07-17T12:00:00Z",
+  };
+}
+
+function authenticatedEditor(accessVersion: number): AuthenticatedSharedNote {
+  return {
+    snapshot: sharedNoteSnapshot(7),
+    capability: "editor",
+    manageAccess: false,
+    accessVersion,
+    webEditable: true,
   };
 }
 

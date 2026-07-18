@@ -17,10 +17,31 @@ export type SharedNoteWebEditInput = {
   attachmentIds: string[];
 };
 
+export type SharedNoteViewerAuthorization = {
+  note: AuthenticatedSharedNote | null;
+  state: "ready" | "access_changed" | "sign_in_required";
+};
+
 export function canEditSharedNoteOnWeb(
   note: Pick<AuthenticatedSharedNote, "capability" | "webEditable"> | null,
 ) {
   return note?.capability === "editor" && note.webEditable;
+}
+
+export function syncSharedNoteViewerAuthorization(
+  current: SharedNoteViewerAuthorization,
+  note: AuthenticatedSharedNote | null,
+): SharedNoteViewerAuthorization {
+  return current.state === "sign_in_required" ? current : { ...current, note };
+}
+
+export function resolveSharedNoteViewerAuthorization(
+  note: AuthenticatedSharedNote | null,
+): SharedNoteViewerAuthorization {
+  return {
+    note,
+    state: canEditSharedNoteOnWeb(note) ? "ready" : "access_changed",
+  };
 }
 
 export function getSharedNoteWebEditPreparationMessage(

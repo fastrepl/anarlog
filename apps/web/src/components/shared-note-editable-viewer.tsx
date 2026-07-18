@@ -11,7 +11,10 @@ import {
   getSharedNoteReadOnlySnapshot,
   getSharedNoteWebEditPreparationMessage,
   hasUnsupportedSharedNoteEditorNode,
+  resolveSharedNoteViewerAuthorization,
   shouldRenderSharedNoteUnavailable,
+  syncSharedNoteViewerAuthorization,
+  type SharedNoteViewerAuthorization,
 } from "@/lib/shared-note-editing";
 import type {
   AuthenticatedSharedNote,
@@ -43,43 +46,43 @@ export function SharedNoteEditableViewer({
   collaboration?: React.ReactNode;
   fallbackAccessLabel?: string;
   fallbackSnapshot?: SharedNoteSnapshot | null;
-  onAccessChanged?: () => void;
+  onAccessChanged?: () => Promise<AuthenticatedSharedNote | null>;
   resolveAttachment?: SharedAttachmentResolver;
   revokedBehavior: "read-only" | "unavailable";
   snapshot: SharedNoteSnapshot;
 }) {
   const [snapshot, setSnapshot] = useState(initialSnapshot);
-  const [activeAuthenticatedNote, setActiveAuthenticatedNote] =
-    useState(authenticatedNote);
+  const [authorization, setAuthorization] =
+    useState<SharedNoteViewerAuthorization>({
+      note: authenticatedNote,
+      state: "ready",
+    });
   const [source, setSource] = useState({
     authenticatedNote,
     snapshot: initialSnapshot,
   });
   const [isEditing, setIsEditing] = useState(false);
-  const [accessRevoked, setAccessRevoked] = useState(false);
-  const [requiresSignIn, setRequiresSignIn] = useState(false);
 
   if (
     !isEditing &&
     (source.snapshot !== initialSnapshot ||
       source.authenticatedNote !== authenticatedNote)
   ) {
-    const priorAccessVersion = source.authenticatedNote?.accessVersion ?? 0;
     setSource({ authenticatedNote, snapshot: initialSnapshot });
     setSnapshot((current) =>
       initialSnapshot.contentRevision >= current.contentRevision
         ? initialSnapshot
         : current,
     );
-    setActiveAuthenticatedNote(authenticatedNote);
-    if (authenticatedNote) {
-      setRequiresSignIn(false);
-      if (authenticatedNote.accessVersion > priorAccessVersion) {
-        setAccessRevoked(false);
-      }
+    if (authorization.state !== "sign_in_required") {
+      setAuthorization((current) =>
+        syncSharedNoteViewerAuthorization(current, authenticatedNote),
+      );
     }
   }
 
+  const accessRevoked = authorization.state === "access_changed";
+  const requiresSignIn = authorization.state === "sign_in_required";
   const readOnlySnapshot = getSharedNoteReadOnlySnapshot(
     snapshot,
     fallbackSnapshot,
@@ -90,11 +93,11 @@ export function SharedNoteEditableViewer({
     activeSnapshot.body,
   );
   const canEdit =
-    !accessRevoked &&
-    canEditSharedNoteOnWeb(activeAuthenticatedNote) &&
+    authorization.state === "ready" &&
+    canEditSharedNoteOnWeb(authorization.note) &&
     !hasUnsupportedContent;
   const preparationMessage = getSharedNoteWebEditPreparationMessage(
-    accessRevoked ? null : activeAuthenticatedNote,
+    authorization.state === "ready" ? authorization.note : null,
     hasUnsupportedContent,
   );
 
@@ -167,11 +170,27 @@ export function SharedNoteEditableViewer({
               }}
               onUnavailable={(reason) => {
                 if (reason === "access_changed") {
-                  setAccessRevoked(true);
-                  onAccessChanged?.();
+                  setAuthorization((current) => ({
+                    ...current,
+                    state: "access_changed",
+                  }));
+                  const refresh = onAccessChanged?.();
+                  if (refresh) {
+                    void refresh
+                      .then((note) => {
+                        setAuthorization((current) =>
+                          current.state === "sign_in_required"
+                            ? current
+                            : resolveSharedNoteViewerAuthorization(note),
+                        );
+                      })
+                      .catch(() => {});
+                  }
                 } else {
-                  setRequiresSignIn(true);
-                  setActiveAuthenticatedNote(null);
+                  setAuthorization({
+                    note: null,
+                    state: "sign_in_required",
+                  });
                 }
                 setIsEditing(false);
               }}
@@ -200,17 +219,17 @@ export function SharedNoteEditableViewer({
   function applyEditedSnapshot(edited: SharedNoteWebEditSnapshot) {
     setSource({ authenticatedNote, snapshot: initialSnapshot });
     setSnapshot(edited.snapshot);
-    setRequiresSignIn(false);
-    setActiveAuthenticatedNote((note) =>
-      note
+    setAuthorization((current) => ({
+      state: "ready",
+      note: current.note
         ? {
-            ...note,
+            ...current.note,
             accessVersion: edited.accessVersion,
             snapshot: edited.snapshot,
             webEditable: edited.webEditable,
           }
-        : note,
-    );
+        : null,
+    }));
   }
 }
 
