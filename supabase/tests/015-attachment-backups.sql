@@ -1798,7 +1798,7 @@ select throws_ok(
         version_ref,
         object_key,
         outcome
-      ) values (%L::uuid, %L::uuid, %L, %L, %L, 'scheduled')
+      ) values (%L::uuid, %L::uuid, %L, %L, %L, 'dependency_appeared')
     $sql$,
     tests.get_supabase_uid('backup_fence'),
     '00000000-0000-4000-8000-000000000399',
@@ -1808,7 +1808,7 @@ select throws_ok(
   ),
   '23514',
   null,
-  'Scheduled request rows require a complete immutable fence snapshot'
+  'Only explicit cancellation tombstones may omit a fence snapshot'
 );
 
 select lives_ok(
@@ -1943,7 +1943,7 @@ select throws_ok(
 
 select ok(
   (
-    select outcome = 'dependency_appeared' and was_cancelled
+    select outcome = 'cancelled' and was_cancelled
     from public.cancel_attachment_backup_deletion(
       tests.get_supabase_uid('backup_fence'),
       repeat('G', 43),
@@ -1962,7 +1962,7 @@ select ok(
       and backup.delete_fence_id is null
       and backup.delete_not_before is null
       and backup.delete_generation = 2
-      and deletion.outcome = 'dependency_appeared'
+      and deletion.outcome = 'cancelled'
     from public.attachment_backup_objects as backup
     join private.attachment_backup_delete_requests as deletion
       on deletion.owner_user_id = backup.owner_user_id
@@ -1973,8 +1973,9 @@ select ok(
 );
 
 select ok(
-  not (
-    select was_cancelled
+  (
+    select outcome = 'cancelled'
+      and not was_cancelled
     from public.cancel_attachment_backup_deletion(
       tests.get_supabase_uid('backup_fence'),
       repeat('G', 43),
@@ -1983,12 +1984,12 @@ select ok(
       '00000000-0000-4000-8000-000000000301'::uuid
     )
   ),
-  'Exact cancellation replay is idempotent'
+  'Exact cancellation replay remains terminal and idempotent'
 );
 
 select ok(
   (
-    select outcome = 'dependency_appeared'
+    select outcome = 'cancelled'
       and delete_fence_id is null
       and not was_created
     from public.schedule_attachment_backup_deletion(
@@ -2003,8 +2004,9 @@ select ok(
 );
 
 select ok(
-  not (
-    select was_cancelled
+  (
+    select outcome = 'cancelled'
+      and not was_cancelled
     from public.cancel_attachment_backup_deletion(
       tests.get_supabase_uid('backup_fence'),
       repeat('G', 43),
@@ -2013,12 +2015,12 @@ select ok(
       '00000000-0000-4000-8000-000000000300'::uuid
     )
   ),
-  'Cancellation can durably arrive before scheduling'
+  'Cancellation can durably arrive before scheduling as a distinct tombstone'
 );
 
 select ok(
   (
-    select outcome = 'dependency_appeared'
+    select outcome = 'cancelled'
       and object_id is null
       and delete_fence_id is null
       and delete_generation is null
@@ -2066,7 +2068,7 @@ from public.schedule_attachment_backup_deletion(
 
 select ok(
   (
-    select old.outcome = 'dependency_appeared'
+    select old.outcome = 'cancelled'
       and current.delete_request_id = newer.delete_request_id
       and current.delete_fence_id = newer.delete_fence_id
     from public.schedule_attachment_backup_deletion(
@@ -2086,7 +2088,7 @@ select ok(
 
 select ok(
   (
-    select old.outcome = 'dependency_appeared'
+    select old.outcome = 'cancelled'
       and not old.was_cancelled
       and current.delete_request_id = newer.delete_request_id
       and current.delete_fence_id = newer.delete_fence_id

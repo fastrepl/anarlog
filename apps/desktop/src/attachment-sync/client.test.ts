@@ -4,6 +4,7 @@ import {
   AttachmentBackupGatewayError,
   createAttachmentBackupClient,
   isAttachmentBackupDependencyAppeared,
+  isAttachmentBackupDeleteCancelled,
 } from "./client";
 
 const deleteRequest = {
@@ -161,6 +162,20 @@ describe("attachment backup client", () => {
       .scheduleDelete(deleteRequest)
       .catch((error: unknown) => error);
     expect(isAttachmentBackupDependencyAppeared(nestedError)).toBe(true);
+
+    const cancelled = client(
+      vi.fn(async () =>
+        Response.json(
+          { error: { code: "attachment_backup_delete_cancelled" } },
+          { status: 409 },
+        ),
+      ) as typeof fetch,
+    );
+    const cancelledError = await cancelled
+      .scheduleDelete(deleteRequest)
+      .catch((error: unknown) => error);
+    expect(isAttachmentBackupDeleteCancelled(cancelledError)).toBe(true);
+    expect(isAttachmentBackupDependencyAppeared(cancelledError)).toBe(false);
 
     const topLevel = client(
       vi.fn(async () =>

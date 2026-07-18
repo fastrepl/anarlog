@@ -302,6 +302,22 @@ export function isAttachmentBackupDependencyAppeared(error: unknown) {
   );
 }
 
+export function isAttachmentBackupDeleteCancelled(error: unknown) {
+  return (
+    error instanceof AttachmentBackupGatewayError &&
+    error.status === 409 &&
+    error.code === "attachment_backup_delete_cancelled"
+  );
+}
+
+export function isAttachmentBackupDeleteTooLate(error: unknown) {
+  return (
+    error instanceof AttachmentBackupGatewayError &&
+    error.status === 409 &&
+    error.code === "attachment_backup_delete_too_late"
+  );
+}
+
 function ensureTrailingSlash(value: string) {
   return value.endsWith("/") ? value : `${value}/`;
 }

@@ -849,7 +849,7 @@ async fn download_attachment_backup(
         (status = 401, description = "Authentication required"),
         (status = 403, description = "Anarlog Pro subscription or backup access required"),
         (status = 404, description = "Backup unavailable"),
-        (status = 409, description = "Backup changed or a dependency appeared"),
+        (status = 409, description = "Backup changed, deletion was canceled, or a dependency appeared"),
         (status = 502, description = "Backup service unavailable")
     )
 )]
@@ -881,11 +881,11 @@ async fn delete_attachment_backup(
         &request,
         "deletion scheduling",
     )?;
-    if row.outcome == "dependency_appeared" {
-        return Err(SyncError::AttachmentBackupDependencyAppeared);
-    }
-    if row.outcome != "scheduled" {
-        return Err(invalid_upstream_response("deletion scheduling"));
+    match row.outcome.as_str() {
+        "scheduled" => {}
+        "dependency_appeared" => return Err(SyncError::AttachmentBackupDependencyAppeared),
+        "cancelled" => return Err(SyncError::AttachmentBackupDeleteCancelled),
+        _ => return Err(invalid_upstream_response("deletion scheduling")),
     }
 
     row.object_id
@@ -953,7 +953,9 @@ async fn cancel_attachment_backup_deletion(
     .await
     .map_err(map_cancel_deletion_error)?;
 
-    if row.outcome != "dependency_appeared" || row.object_key != request.object_key {
+    if !matches!(row.outcome.as_str(), "cancelled" | "dependency_appeared")
+        || row.object_key != request.object_key
+    {
         return Err(invalid_upstream_response("deletion cancellation"));
     }
     Ok(Json(CanceledAttachmentBackupDeletion {
@@ -2511,10 +2513,47 @@ mod tests {
                 .iter()
                 .all(|request| !request.url.path().contains("/storage/v1/"))
         );
+
+        let dependency_server = MockServer::start().await;
+        mount_rpc(
+            &dependency_server,
+            "cancel_attachment_backup_deletion",
+            ResponseTemplate::new(200).set_body_json(json!([{
+                "outcome": "dependency_appeared",
+                "object_key": object_key(),
+                "was_cancelled": false
+            }])),
+        )
+        .await;
+        let dependency = test_router(&dependency_server, true)
+            .oneshot(json_request(
+                Method::POST,
+                "/attachment-backups/delete/cancel",
+                delete_request_body(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(dependency.status(), StatusCode::OK);
+        assert_eq!(
+            response_json(dependency).await,
+            json!({
+                "objectKey": object_key(),
+                "attachmentRef": ATTACHMENT_REF,
+                "versionRef": VERSION_REF,
+                "deleteRequestId": DELETE_REQUEST_ID
+            })
+        );
+        let dependency_requests = dependency_server.received_requests().await.unwrap();
+        assert_eq!(dependency_requests.len(), 1);
+        assert!(
+            dependency_requests
+                .iter()
+                .all(|request| !request.url.path().contains("/storage/v1/"))
+        );
     }
 
     #[tokio::test]
-    async fn distinguishes_delete_dependencies_from_generic_conflicts() {
+    async fn distinguishes_delete_outcomes_from_generic_conflicts_without_storage() {
         let dependency_server = MockServer::start().await;
         mount_rpc(
             &dependency_server,
@@ -2544,6 +2583,50 @@ mod tests {
             response_json(dependency).await["error"]["code"],
             "attachment_backup_dependency_appeared"
         );
+        let dependency_requests = dependency_server.received_requests().await.unwrap();
+        assert_eq!(dependency_requests.len(), 1);
+        assert!(
+            dependency_requests
+                .iter()
+                .all(|request| !request.url.path().contains("/storage/v1/"))
+        );
+
+        let cancelled_server = MockServer::start().await;
+        mount_rpc(
+            &cancelled_server,
+            "schedule_attachment_backup_deletion",
+            ResponseTemplate::new(200).set_body_json(json!([{
+                "outcome": "cancelled",
+                "object_id": null,
+                "object_key": object_key(),
+                "delete_request_id": DELETE_REQUEST_ID,
+                "delete_fence_id": null,
+                "delete_generation": null,
+                "delete_not_before": null,
+                "was_created": false
+            }])),
+        )
+        .await;
+        let cancelled = test_router(&cancelled_server, true)
+            .oneshot(json_request(
+                Method::POST,
+                "/attachment-backups/delete",
+                delete_request_body(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(cancelled.status(), StatusCode::CONFLICT);
+        assert_eq!(
+            response_json(cancelled).await["error"]["code"],
+            "attachment_backup_delete_cancelled"
+        );
+        let cancelled_requests = cancelled_server.received_requests().await.unwrap();
+        assert_eq!(cancelled_requests.len(), 1);
+        assert!(
+            cancelled_requests
+                .iter()
+                .all(|request| !request.url.path().contains("/storage/v1/"))
+        );
 
         let conflict_server = MockServer::start().await;
         mount_rpc(
@@ -2568,6 +2651,13 @@ mod tests {
             response_json(conflict).await["error"]["code"],
             "attachment_backup_conflict"
         );
+        let conflict_requests = conflict_server.received_requests().await.unwrap();
+        assert_eq!(conflict_requests.len(), 1);
+        assert!(
+            conflict_requests
+                .iter()
+                .all(|request| !request.url.path().contains("/storage/v1/"))
+        );
     }
 
     #[tokio::test]
@@ -2577,7 +2667,7 @@ mod tests {
             &created_server,
             "cancel_attachment_backup_deletion",
             ResponseTemplate::new(200).set_body_json(json!([{
-                "outcome": "dependency_appeared",
+                "outcome": "cancelled",
                 "object_key": object_key(),
                 "was_cancelled": true
             }])),
@@ -2629,7 +2719,7 @@ mod tests {
             &replay_server,
             "cancel_attachment_backup_deletion",
             ResponseTemplate::new(200).set_body_json(json!([{
-                "outcome": "dependency_appeared",
+                "outcome": "cancelled",
                 "object_key": object_key(),
                 "was_cancelled": false
             }])),
@@ -2645,6 +2735,13 @@ mod tests {
             .unwrap();
         assert_eq!(replay.status(), StatusCode::OK);
         assert_eq!(response_json(replay).await, created_body);
+        let replay_requests = replay_server.received_requests().await.unwrap();
+        assert_eq!(replay_requests.len(), 1);
+        assert!(
+            replay_requests
+                .iter()
+                .all(|request| !request.url.path().contains("/storage/v1/"))
+        );
     }
 
     #[tokio::test]

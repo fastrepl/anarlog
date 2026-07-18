@@ -590,6 +590,99 @@ describe("attachment transfer runner", () => {
     expect(deps.client.scheduleDelete).toHaveBeenCalledOnce();
   });
 
+  it("retires a cancelled replay without committing its local guard", async () => {
+    const deps = dependencies();
+    const deleteJob = {
+      ...job,
+      direction: "delete" as const,
+      objectKey: "owner/old-object.anb1",
+      currentObjectKey: "owner/old-object.anb1",
+      cloudSyncEnabled: false,
+    };
+    deps.client.scheduleDelete.mockRejectedValueOnce(
+      new AttachmentBackupGatewayError(
+        409,
+        "attachment_backup_delete_cancelled",
+      ),
+    );
+
+    await runAttachmentTransferJob(
+      { ...deps, supabaseUrl: "https://project.supabase.co" } as any,
+      deleteJob,
+    );
+
+    expect(deps.store.completeCancelledDelete).toHaveBeenCalledWith(deleteJob);
+    expect(deps.native.commitDeleteGuard).not.toHaveBeenCalled();
+  });
+
+  it("retries a cancelled replay when local completion fails", async () => {
+    const deps = dependencies();
+    const deleteJob = {
+      ...job,
+      direction: "delete" as const,
+      objectKey: "owner/old-object.anb1",
+      currentObjectKey: "owner/old-object.anb1",
+      cloudSyncEnabled: false,
+    };
+    deps.client.scheduleDelete.mockRejectedValueOnce(
+      new AttachmentBackupGatewayError(
+        409,
+        "attachment_backup_delete_cancelled",
+      ),
+    );
+    deps.store.completeCancelledDelete.mockRejectedValueOnce(
+      new Error("cancelled delete changed locally"),
+    );
+    deps.store.claimNext
+      .mockResolvedValueOnce(deleteJob)
+      .mockResolvedValueOnce(undefined);
+
+    await runAttachmentTransferPass({
+      ...deps,
+      supabaseUrl: "https://project.supabase.co",
+    } as any);
+
+    expect(deps.native.commitDeleteGuard).not.toHaveBeenCalled();
+    expect(deps.store.retry).toHaveBeenCalledWith(
+      deleteJob,
+      "cancelled delete changed locally",
+      expect.any(Date),
+    );
+  });
+
+  it("fails a too-late cancellation without completing locally", async () => {
+    const deps = dependencies();
+    const deleteJob = {
+      ...job,
+      direction: "delete" as const,
+      objectKey: "owner/old-object.anb1",
+      currentObjectKey: "owner/old-object.anb1",
+      cloudSyncEnabled: false,
+    };
+    deps.store.prepareDelete.mockResolvedValueOnce(false);
+    deps.client.cancelDelete.mockRejectedValueOnce(
+      new AttachmentBackupGatewayError(
+        409,
+        "attachment_backup_delete_too_late",
+      ),
+    );
+    deps.store.claimNext
+      .mockResolvedValueOnce(deleteJob)
+      .mockResolvedValueOnce(undefined);
+
+    await runAttachmentTransferPass({
+      ...deps,
+      supabaseUrl: "https://project.supabase.co",
+    } as any);
+
+    expect(deps.store.completeCancelledDelete).not.toHaveBeenCalled();
+    expect(deps.store.fail).toHaveBeenCalledWith(
+      deleteJob,
+      "Attachment backup request failed (409: attachment_backup_delete_too_late)",
+    );
+    expect(deps.store.retry).not.toHaveBeenCalled();
+  });
+
   it("retries a generic delete conflict without committing locally", async () => {
     const deps = dependencies();
     const deleteJob = {

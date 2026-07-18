@@ -41,6 +41,9 @@ pub enum SyncError {
     #[error("Attachment backup dependency appeared")]
     AttachmentBackupDependencyAppeared,
 
+    #[error("Attachment backup deletion was canceled")]
+    AttachmentBackupDeleteCancelled,
+
     #[error("Attachment backup deletion can no longer be canceled")]
     AttachmentBackupDeleteTooLate,
 
@@ -128,6 +131,11 @@ impl IntoResponse for SyncError {
                 StatusCode::CONFLICT,
                 "attachment_backup_dependency_appeared",
                 "Attachment backup dependency appeared".to_string(),
+            ),
+            Self::AttachmentBackupDeleteCancelled => (
+                StatusCode::CONFLICT,
+                "attachment_backup_delete_cancelled",
+                "Attachment backup deletion was canceled".to_string(),
             ),
             Self::AttachmentBackupDeleteTooLate => (
                 StatusCode::CONFLICT,

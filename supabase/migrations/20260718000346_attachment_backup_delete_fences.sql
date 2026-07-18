@@ -58,7 +58,7 @@ CREATE TABLE private.attachment_backup_delete_requests (
     )
   ),
   CONSTRAINT attachment_backup_delete_requests_outcome_check CHECK (
-    outcome IN ('scheduled', 'dependency_appeared')
+    outcome IN ('scheduled', 'dependency_appeared', 'cancelled')
   ),
   CONSTRAINT attachment_backup_delete_requests_generation_check CHECK (
     fence_generation IS NULL OR fence_generation >= 0
@@ -71,7 +71,7 @@ CREATE TABLE private.attachment_backup_delete_requests (
       AND delete_not_before IS NOT NULL
     )
     OR (
-      outcome = 'dependency_appeared'
+      outcome = 'cancelled'
       AND object_id IS NULL
       AND fence_id IS NULL
       AND fence_generation IS NULL
@@ -439,7 +439,7 @@ BEGIN
       p_attachment_ref,
       p_version_ref,
       p_object_key,
-      'dependency_appeared',
+      'cancelled',
       v_now,
       v_now
     )
@@ -448,7 +448,7 @@ BEGIN
     RETURNING * INTO v_request;
 
     IF FOUND THEN
-      RETURN QUERY SELECT 'dependency_appeared'::text, p_object_key, false;
+      RETURN QUERY SELECT 'cancelled'::text, p_object_key, false;
       RETURN;
     END IF;
 
@@ -467,7 +467,7 @@ BEGIN
       USING ERRCODE = '40001';
   END IF;
 
-  IF v_request.outcome = 'dependency_appeared' THEN
+  IF v_request.outcome IN ('dependency_appeared', 'cancelled') THEN
     RETURN QUERY SELECT v_request.outcome, v_request.object_key, false;
     RETURN;
   END IF;
@@ -491,7 +491,7 @@ BEGIN
     AND deletion.delete_request_id = p_delete_request_id
   FOR UPDATE;
 
-  IF v_locked_request.outcome = 'dependency_appeared' THEN
+  IF v_locked_request.outcome IN ('dependency_appeared', 'cancelled') THEN
     RETURN QUERY SELECT v_locked_request.outcome, v_locked_request.object_key, false;
     RETURN;
   END IF;
@@ -508,16 +508,42 @@ BEGIN
       USING ERRCODE = '40001';
   END IF;
 
-  PERFORM private.invalidate_attachment_backup_delete(
-    p_owner_user_id,
-    v_backup.id,
-    p_delete_request_id,
-    v_locked_request.fence_id,
-    v_locked_request.fence_generation,
-    v_now
-  );
+  UPDATE private.attachment_backup_delete_requests AS deletion
+  SET
+    outcome = 'cancelled',
+    updated_at = GREATEST(deletion.updated_at, v_now)
+  WHERE deletion.owner_user_id = p_owner_user_id
+    AND deletion.delete_request_id = p_delete_request_id
+    AND deletion.object_id = v_backup.id
+    AND deletion.fence_id = v_locked_request.fence_id
+    AND deletion.fence_generation = v_locked_request.fence_generation
+    AND deletion.outcome = 'scheduled';
 
-  RETURN QUERY SELECT 'dependency_appeared'::text, p_object_key, true;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'attachment backup delete request is unavailable'
+      USING ERRCODE = '55000';
+  END IF;
+
+  UPDATE public.attachment_backup_objects AS backup
+  SET
+    delete_generation = backup.delete_generation + 1,
+    delete_request_id = NULL,
+    delete_fence_id = NULL,
+    delete_not_before = NULL,
+    updated_at = GREATEST(backup.updated_at, v_now)
+  WHERE backup.id = v_backup.id
+    AND backup.owner_user_id = p_owner_user_id
+    AND backup.state = 'current'
+    AND backup.delete_request_id = p_delete_request_id
+    AND backup.delete_fence_id = v_locked_request.fence_id
+    AND backup.delete_generation = v_locked_request.fence_generation;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'attachment backup delete fence changed'
+      USING ERRCODE = '40001';
+  END IF;
+
+  RETURN QUERY SELECT 'cancelled'::text, p_object_key, true;
 END;
 $$;
 

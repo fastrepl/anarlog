@@ -4,6 +4,8 @@ import {
   AttachmentBackupGatewayError,
   createAttachmentBackupClient,
   isAttachmentBackupDependencyAppeared,
+  isAttachmentBackupDeleteCancelled,
+  isAttachmentBackupDeleteTooLate,
   type AttachmentBackupDeleteRequest,
   type ScheduledAttachmentBackupDelete,
 } from "./client";
@@ -458,6 +460,10 @@ async function runDelete(
     const scheduled = await dependencies.client.scheduleDelete(request, signal);
     if (scheduled) validateScheduledDelete(scheduled, request);
   } catch (error) {
+    if (isAttachmentBackupDeleteCancelled(error)) {
+      await store.completeCancelledDelete(job);
+      return;
+    }
     if (!isAttachmentBackupDependencyAppeared(error)) throw error;
   }
   await native.commitDeleteGuard(
@@ -503,6 +509,7 @@ async function persistTransferFailure(
 function isPermanentFailure(error: unknown) {
   if (error instanceof PermanentAttachmentTransferError) return true;
   if (error instanceof AttachmentBackupGatewayError) {
+    if (isAttachmentBackupDeleteTooLate(error)) return true;
     return [400, 404, 507].includes(error.status);
   }
   if (error instanceof NativeAttachmentTransferError) {
