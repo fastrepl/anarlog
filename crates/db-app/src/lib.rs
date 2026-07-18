@@ -21,6 +21,7 @@ pub use event_types::*;
 pub use legacy_import::*;
 pub use session_ops::*;
 pub use session_types::*;
+use sha2::{Digest, Sha384};
 pub use template_ops::*;
 pub use template_types::*;
 
@@ -188,11 +189,16 @@ pub fn schema() -> hypr_db_migrate::DbSchema {
     }
 }
 
+const SHARED_SESSION_CACHE_MIGRATION_VERSION: i64 = 20260716173000;
+const LEGACY_SHARED_SESSION_CACHE_CHECKSUM: &str = "4813db532e44e6db8a3ba85e0b248ff99a927ec40b6aa971210452b588bcb2361d3661bd23d045a32ac3a9fcbed99b4a";
+const CURRENT_SHARED_SESSION_CACHE_CHECKSUM: &str = "84376d223c0b1ca3298810b101fef7f599d50267dca4e5693feaddd481e4a082b87a12d37360e11b94b3cb39e8c58dee";
+
 #[derive(Debug)]
 pub enum AppSchemaError {
     Migrate(hypr_db_migrate::MigrateError),
     Sqlx(sqlx::Error),
     CloudsyncWorkspace(CloudsyncWorkspaceError),
+    SharedSessionCacheRepair(&'static str),
 }
 
 impl std::fmt::Display for AppSchemaError {
@@ -201,6 +207,7 @@ impl std::fmt::Display for AppSchemaError {
             Self::Migrate(error) => write!(f, "{error}"),
             Self::Sqlx(error) => write!(f, "{error}"),
             Self::CloudsyncWorkspace(error) => write!(f, "{error}"),
+            Self::SharedSessionCacheRepair(error) => write!(f, "{error}"),
         }
     }
 }
@@ -227,10 +234,241 @@ impl From<CloudsyncWorkspaceError> for AppSchemaError {
 
 pub async fn prepare_schema(db: &hypr_db_core::Db) -> Result<(), AppSchemaError> {
     let templates_missing_before_migration = !templates_table_exists(db.pool()).await?;
+    repair_legacy_shared_session_cache_migration(db.pool()).await?;
     hypr_db_migrate::migrate(db, schema()).await?;
     repair_missing_core_tables(db.pool(), templates_missing_before_migration).await?;
     ensure_cloudsync_workspace_binding(db.pool()).await?;
     Ok(())
+}
+
+async fn repair_legacy_shared_session_cache_migration(
+    pool: &sqlx::SqlitePool,
+) -> Result<(), AppSchemaError> {
+    let migration_table_exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM sqlite_master
+            WHERE type = 'table' AND name = '_sqlx_migrations'
+        )",
+    )
+    .fetch_one(pool)
+    .await?;
+    if !migration_table_exists {
+        return Ok(());
+    }
+
+    let checksum: Option<String> = sqlx::query_scalar(
+        "SELECT lower(hex(checksum))
+         FROM _sqlx_migrations
+         WHERE version = ? AND success = 1",
+    )
+    .bind(SHARED_SESSION_CACHE_MIGRATION_VERSION)
+    .fetch_optional(pool)
+    .await?;
+    match checksum.as_deref() {
+        None | Some(CURRENT_SHARED_SESSION_CACHE_CHECKSUM) => return Ok(()),
+        Some(LEGACY_SHARED_SESSION_CACHE_CHECKSUM) => {}
+        Some(_) => {
+            return Err(AppSchemaError::SharedSessionCacheRepair(
+                "shared-session cache migration has an unknown checksum",
+            ));
+        }
+    }
+
+    let current_migration_checksum = migration_checksum(include_str!(
+        "../migrations/20260716173000_shared_session_cache.sql"
+    ));
+    if checksum_hex(&current_migration_checksum) != CURRENT_SHARED_SESSION_CACHE_CHECKSUM {
+        return Err(AppSchemaError::SharedSessionCacheRepair(
+            "compiled shared-session cache migration has an unexpected checksum",
+        ));
+    }
+
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let locked_checksum: Option<String> = sqlx::query_scalar(
+        "SELECT lower(hex(checksum))
+         FROM _sqlx_migrations
+         WHERE version = ? AND success = 1",
+    )
+    .bind(SHARED_SESSION_CACHE_MIGRATION_VERSION)
+    .fetch_optional(&mut *transaction)
+    .await?;
+    match locked_checksum.as_deref() {
+        Some(LEGACY_SHARED_SESSION_CACHE_CHECKSUM) => {}
+        Some(CURRENT_SHARED_SESSION_CACHE_CHECKSUM) => {
+            transaction.commit().await?;
+            return Ok(());
+        }
+        _ => {
+            return Err(AppSchemaError::SharedSessionCacheRepair(
+                "shared-session cache migration changed during repair",
+            ));
+        }
+    }
+
+    let table_exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM sqlite_master
+            WHERE type = 'table' AND name = 'shared_session_cache'
+        )",
+    )
+    .fetch_one(&mut *transaction)
+    .await?;
+    let has_viewer_user_id = table_exists
+        && shared_session_cache_column_exists(&mut transaction, "viewer_user_id").await?;
+    let share_id_is_primary_key: bool = if table_exists {
+        sqlx::query_scalar(
+            "SELECT EXISTS(
+                SELECT 1 FROM pragma_table_info('shared_session_cache')
+                WHERE name = 'share_id' AND pk = 1
+            )",
+        )
+        .fetch_one(&mut *transaction)
+        .await?
+    } else {
+        false
+    };
+    if !table_exists || has_viewer_user_id || !share_id_is_primary_key {
+        return Err(AppSchemaError::SharedSessionCacheRepair(
+            "legacy shared-session cache migration has an unexpected schema",
+        ));
+    }
+
+    let attachments_checksum = applied_migration_checksum(&mut transaction, 20260717172000).await?;
+    let expected_attachments_checksum = migration_checksum(include_str!(
+        "../migrations/20260717172000_shared_session_cache_attachments.sql"
+    ));
+    if attachments_checksum
+        .as_deref()
+        .is_some_and(|checksum| checksum != expected_attachments_checksum.as_slice())
+    {
+        return Err(AppSchemaError::SharedSessionCacheRepair(
+            "shared-session cache attachment migration has an unknown checksum",
+        ));
+    }
+    let attachments_applied = attachments_checksum.is_some();
+    let attachments_present =
+        shared_session_cache_column_exists(&mut transaction, "attachments_json").await?;
+    let web_edits_checksum = applied_migration_checksum(&mut transaction, 20260717190000).await?;
+    let expected_web_edits_checksum = migration_checksum(include_str!(
+        "../migrations/20260717190000_shared_session_cache_web_edits.sql"
+    ));
+    if web_edits_checksum
+        .as_deref()
+        .is_some_and(|checksum| checksum != expected_web_edits_checksum.as_slice())
+    {
+        return Err(AppSchemaError::SharedSessionCacheRepair(
+            "shared-session cache web-edit migration has an unknown checksum",
+        ));
+    }
+    let web_edits_applied = web_edits_checksum.is_some();
+    let web_edit_columns = [
+        "web_editable",
+        "web_edit_base_content_revision",
+        "web_edit_base_title",
+        "web_edit_base_body_json",
+    ];
+    let mut web_edit_columns_present = Vec::with_capacity(web_edit_columns.len());
+    for column in web_edit_columns {
+        web_edit_columns_present
+            .push(shared_session_cache_column_exists(&mut transaction, column).await?);
+    }
+    if attachments_applied != attachments_present
+        || web_edit_columns_present
+            .iter()
+            .any(|present| *present != web_edits_applied)
+    {
+        return Err(AppSchemaError::SharedSessionCacheRepair(
+            "legacy shared-session cache migration history does not match its schema",
+        ));
+    }
+
+    // The legacy cache has no viewer identity, so its derived rows cannot be
+    // assigned to an account safely. Rebuild it and let sync repopulate it.
+    sqlx::query("DROP TABLE shared_session_cache")
+        .execute(&mut *transaction)
+        .await?;
+    sqlx::raw_sql(include_str!(
+        "../migrations/20260716173000_shared_session_cache.sql"
+    ))
+    .execute(&mut *transaction)
+    .await?;
+    if attachments_applied {
+        sqlx::raw_sql(include_str!(
+            "../migrations/20260717172000_shared_session_cache_attachments.sql"
+        ))
+        .execute(&mut *transaction)
+        .await?;
+    }
+    if web_edits_applied {
+        sqlx::raw_sql(include_str!(
+            "../migrations/20260717190000_shared_session_cache_web_edits.sql"
+        ))
+        .execute(&mut *transaction)
+        .await?;
+    }
+
+    let result = sqlx::query(
+        "UPDATE _sqlx_migrations
+         SET checksum = ?
+         WHERE version = ? AND lower(hex(checksum)) = ?",
+    )
+    .bind(current_migration_checksum.as_slice())
+    .bind(SHARED_SESSION_CACHE_MIGRATION_VERSION)
+    .bind(LEGACY_SHARED_SESSION_CACHE_CHECKSUM)
+    .execute(&mut *transaction)
+    .await?;
+    if result.rows_affected() != 1 {
+        return Err(AppSchemaError::SharedSessionCacheRepair(
+            "legacy shared-session cache migration changed during repair",
+        ));
+    }
+
+    transaction.commit().await?;
+    Ok(())
+}
+
+async fn shared_session_cache_column_exists(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    column: &str,
+) -> Result<bool, sqlx::Error> {
+    sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM pragma_table_info('shared_session_cache')
+            WHERE name = ?
+        )",
+    )
+    .bind(column)
+    .fetch_one(&mut **transaction)
+    .await
+}
+
+async fn applied_migration_checksum(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    version: i64,
+) -> Result<Option<Vec<u8>>, sqlx::Error> {
+    sqlx::query_scalar(
+        "SELECT checksum FROM _sqlx_migrations
+         WHERE version = ? AND success = 1",
+    )
+    .bind(version)
+    .fetch_optional(&mut **transaction)
+    .await
+}
+
+fn migration_checksum(sql: &str) -> Vec<u8> {
+    Sha384::digest(sql.as_bytes()).to_vec()
+}
+
+fn checksum_hex(checksum: &[u8]) -> String {
+    use std::fmt::Write as _;
+
+    checksum.iter().fold(
+        String::with_capacity(checksum.len() * 2),
+        |mut hex, byte| {
+            write!(hex, "{byte:02x}").expect("writing to a string cannot fail");
+            hex
+        },
+    )
 }
 
 async fn templates_table_exists(pool: &sqlx::SqlitePool) -> Result<bool, sqlx::Error> {
@@ -285,6 +523,45 @@ mod tests {
     use hypr_db_core::Db;
     use sqlx::Row;
 
+    const LEGACY_SHARED_SESSION_CACHE_SQL: &str = r#"CREATE TABLE IF NOT EXISTS shared_session_cache (
+  share_id          TEXT PRIMARY KEY NOT NULL CHECK (
+    share_id = trim(share_id) AND length(share_id) > 0
+  ),
+  workspace_id      TEXT NOT NULL CHECK (
+    workspace_id = trim(workspace_id) AND length(workspace_id) > 0
+  ),
+  session_id        TEXT NOT NULL CHECK (
+    session_id = trim(session_id) AND length(session_id) > 0
+  ),
+  schema_version    INTEGER NOT NULL DEFAULT 1 CHECK (schema_version = 1),
+  content_revision  INTEGER NOT NULL CHECK (content_revision > 0),
+  title             TEXT NOT NULL DEFAULT '' CHECK (
+    title = trim(title) AND length(CAST(title AS BLOB)) <= 4096
+  ),
+  body_json         TEXT NOT NULL DEFAULT '{"type":"doc","content":[{"type":"paragraph"}]}' CHECK (
+    CASE
+      WHEN json_valid(body_json) THEN
+        json_type(body_json) = 'object'
+        AND json_extract(body_json, '$.type') = 'doc'
+        AND length(CAST(body_json AS BLOB)) <= 2097152
+      ELSE 0
+    END
+  ),
+  capability        TEXT NOT NULL DEFAULT 'viewer' CHECK (
+    capability IN ('viewer', 'commenter', 'editor')
+  ),
+  manage_access     INTEGER NOT NULL DEFAULT 0 CHECK (manage_access IN (0, 1)),
+  access_version    INTEGER NOT NULL CHECK (access_version > 0),
+  published_at      TEXT NOT NULL CHECK (
+    published_at = trim(published_at) AND length(published_at) > 0
+  ),
+  cached_at         TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+) STRICT;
+
+CREATE INDEX IF NOT EXISTS idx_shared_session_cache_workspace_id
+ON shared_session_cache(workspace_id);
+"#;
+
     async fn test_db() -> Db {
         let db = Db::open(hypr_db_core::DbOpenOptions {
             storage: hypr_db_core::DbStorage::Memory,
@@ -320,6 +597,30 @@ mod tests {
             .position(|step| step.id == id)
             .unwrap();
         &APP_MIGRATION_STEPS[..index]
+    }
+
+    fn schema_with_legacy_shared_session_cache(
+        include_later_migrations: bool,
+    ) -> hypr_db_migrate::DbSchema {
+        let migration_index = APP_MIGRATION_STEPS
+            .iter()
+            .position(|step| step.id == "20260716173000_shared_session_cache")
+            .unwrap();
+        let mut steps = if include_later_migrations {
+            APP_MIGRATION_STEPS.to_vec()
+        } else {
+            APP_MIGRATION_STEPS[..=migration_index].to_vec()
+        };
+        let migration = steps
+            .iter_mut()
+            .find(|step| step.id == "20260716173000_shared_session_cache")
+            .unwrap();
+        migration.sql = LEGACY_SHARED_SESSION_CACHE_SQL;
+
+        hypr_db_migrate::DbSchema {
+            steps: Box::leak(steps.into_boxed_slice()),
+            validate_cloudsync_table: cloudsync_alter_guard_required,
+        }
     }
 
     async fn test_db_without_default_templates() -> Db {
@@ -893,6 +1194,257 @@ mod tests {
                 .any(|table| table.table_name == "shared_session_cache")
         );
         assert!(!cloudsync_alter_guard_required("shared_session_cache"));
+    }
+
+    #[test]
+    fn shared_session_cache_migration_checksums_are_pinned() {
+        assert_eq!(
+            checksum_hex(&migration_checksum(LEGACY_SHARED_SESSION_CACHE_SQL)),
+            LEGACY_SHARED_SESSION_CACHE_CHECKSUM
+        );
+        assert_eq!(
+            checksum_hex(&migration_checksum(include_str!(
+                "../migrations/20260716173000_shared_session_cache.sql"
+            ))),
+            CURRENT_SHARED_SESSION_CACHE_CHECKSUM
+        );
+    }
+
+    #[tokio::test]
+    async fn repairs_the_base_only_dev_cache_without_touching_notes() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(&db, schema_with_legacy_shared_session_cache(false))
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session-1', 'workspace-1', 'user-1', 'Important note')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO session_documents (id, workspace_id, session_id, title, body)
+             VALUES ('document-1', 'workspace-1', 'session-1', 'Notes', '{\"type\":\"doc\"}')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO transcripts (id, workspace_id, owner_user_id, session_id, words_json)
+             VALUES ('transcript-1', 'workspace-1', 'user-1', 'session-1', '[{\"text\":\"hello\"}]')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO shared_session_cache (
+                share_id, workspace_id, session_id, content_revision,
+                access_version, published_at
+             ) VALUES (
+                'share-1', 'workspace-1', 'shared-session-1', 1,
+                1, '2026-07-18T00:00:00Z'
+             )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        prepare_schema(&db).await.unwrap();
+
+        let source_rows: (i64, i64, i64) = sqlx::query_as(
+            "SELECT
+                (SELECT COUNT(*) FROM sessions WHERE id = 'session-1'),
+                (SELECT COUNT(*) FROM session_documents WHERE id = 'document-1'),
+                (SELECT COUNT(*) FROM transcripts WHERE id = 'transcript-1')",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(source_rows, (1, 1, 1));
+        let cache_rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM shared_session_cache")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(cache_rows, 0);
+    }
+
+    #[tokio::test]
+    async fn repairs_the_known_legacy_shared_session_cache_migration() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(&db, schema_with_legacy_shared_session_cache(true))
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO shared_session_cache (
+                share_id, workspace_id, session_id, content_revision,
+                access_version, published_at
+             ) VALUES (
+                'share-1', 'workspace-1', 'session-1', 1,
+                1, '2026-07-18T00:00:00Z'
+             )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let legacy_checksum: String = sqlx::query_scalar(
+            "SELECT lower(hex(checksum))
+             FROM _sqlx_migrations
+             WHERE version = ?",
+        )
+        .bind(SHARED_SESSION_CACHE_MIGRATION_VERSION)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(legacy_checksum, LEGACY_SHARED_SESSION_CACHE_CHECKSUM);
+
+        prepare_schema(&db).await.unwrap();
+        prepare_schema(&db).await.unwrap();
+
+        let checksum: String = sqlx::query_scalar(
+            "SELECT lower(hex(checksum))
+             FROM _sqlx_migrations
+             WHERE version = ?",
+        )
+        .bind(SHARED_SESSION_CACHE_MIGRATION_VERSION)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(checksum, CURRENT_SHARED_SESSION_CACHE_CHECKSUM);
+        for column in [
+            "viewer_user_id",
+            "attachments_json",
+            "web_editable",
+            "web_edit_base_content_revision",
+            "web_edit_base_title",
+            "web_edit_base_body_json",
+        ] {
+            assert!(
+                sqlx::query_scalar::<_, bool>(
+                    "SELECT EXISTS(
+                        SELECT 1 FROM pragma_table_info('shared_session_cache')
+                        WHERE name = ?
+                    )",
+                )
+                .bind(column)
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+                "missing repaired column {column}"
+            );
+        }
+        let primary_key_columns: Vec<String> = sqlx::query_scalar(
+            "SELECT name
+             FROM pragma_table_info('shared_session_cache')
+             WHERE pk > 0
+             ORDER BY pk",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(primary_key_columns, ["viewer_user_id", "share_id"]);
+        let cache_rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM shared_session_cache")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(cache_rows, 0);
+    }
+
+    #[tokio::test]
+    async fn current_shared_session_cache_is_left_untouched() {
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO shared_session_cache (
+                share_id, viewer_user_id, workspace_id, session_id,
+                content_revision, access_version, published_at
+             ) VALUES (
+                'share-1', 'user-1', 'workspace-1', 'session-1',
+                1, 1, '2026-07-18T00:00:00Z'
+             )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        prepare_schema(&db).await.unwrap();
+
+        let cache_rows: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM shared_session_cache
+             WHERE viewer_user_id = 'user-1' AND share_id = 'share-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(cache_rows, 1);
+    }
+
+    #[tokio::test]
+    async fn unknown_shared_session_cache_checksum_fails_without_mutation() {
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO shared_session_cache (
+                share_id, viewer_user_id, workspace_id, session_id,
+                content_revision, access_version, published_at
+             ) VALUES (
+                'share-1', 'user-1', 'workspace-1', 'session-1',
+                1, 1, '2026-07-18T00:00:00Z'
+             )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "UPDATE _sqlx_migrations
+             SET checksum = X'00'
+             WHERE version = ?",
+        )
+        .bind(SHARED_SESSION_CACHE_MIGRATION_VERSION)
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let error = prepare_schema(&db).await.unwrap_err();
+        assert!(matches!(
+            error,
+            AppSchemaError::SharedSessionCacheRepair(
+                "shared-session cache migration has an unknown checksum"
+            )
+        ));
+        let cache_rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM shared_session_cache")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(cache_rows, 1);
+        let checksum: Vec<u8> =
+            sqlx::query_scalar("SELECT checksum FROM _sqlx_migrations WHERE version = ?")
+                .bind(SHARED_SESSION_CACHE_MIGRATION_VERSION)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(checksum, [0]);
+    }
+
+    #[tokio::test]
+    async fn rejects_a_legacy_checksum_with_the_current_cache_schema() {
+        let db = test_db().await;
+        sqlx::query(
+            "UPDATE _sqlx_migrations
+             SET checksum = X'4813DB532E44E6DB8A3BA85E0B248FF99A927EC40B6AA971210452B588BCB2361D3661BD23D045A32AC3A9FCBED99B4A'
+             WHERE version = ?",
+        )
+        .bind(SHARED_SESSION_CACHE_MIGRATION_VERSION)
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let error = prepare_schema(&db).await.unwrap_err();
+        assert!(matches!(
+            error,
+            AppSchemaError::SharedSessionCacheRepair(
+                "legacy shared-session cache migration has an unexpected schema"
+            )
+        ));
     }
 
     #[test]

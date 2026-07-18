@@ -4544,6 +4544,7 @@ dependencies = [
  "e2ee",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "sqlx",
  "thiserror 2.0.18",
  "tokio",
