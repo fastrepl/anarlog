@@ -22,7 +22,6 @@ type CapturedMenuItem =
 const hoisted = vi.hoisted(() => ({
   enhance: vi.fn(),
   regenerateTranscript: vi.fn(),
-  uploadAudio: vi.fn(),
   startListening: vi.fn(),
   stopListening: vi.fn(),
   stopTranscription: vi.fn(),
@@ -195,10 +194,6 @@ vi.mock("~/session/queries", () => ({
 
 vi.mock("~/session/components/note-input/transcript/actions", () => ({
   useRegenerateTranscript: () => hoisted.regenerateTranscript,
-}));
-
-vi.mock("~/stt/useUploadFile", () => ({
-  useUploadFile: () => ({ uploadAudio: hoisted.uploadAudio }),
 }));
 
 vi.mock("~/session/components/note-input/transcript/export-data", () => ({
@@ -567,7 +562,7 @@ describe("Header", () => {
     expect(hoisted.transcriptRenderDataCalls).toBe(1);
   });
 
-  it("offers audio upload for re-transcription when recording is missing", () => {
+  it("does not offer re-transcription when recording is missing", () => {
     hoisted.audioExists = false;
     const editorTabs: EditorView[] = [
       { type: "enhanced", id: "note-1" },
@@ -588,18 +583,7 @@ describe("Header", () => {
 
     expect(
       menu.map((item) => ("text" in item ? item.text : "separator")),
-    ).toEqual(["Copy", "Upload audio to re-transcribe"]);
-
-    menu
-      .find(
-        (item): item is Extract<CapturedMenuItem, { id: string }> =>
-          "id" in item && item.id === "regenerate-transcript-session-1",
-      )
-      ?.action();
-
-    expect(hoisted.uploadAudio).toHaveBeenCalledWith({
-      preserveSessionDate: true,
-    });
+    ).toEqual(["Copy"]);
   });
 
   it.each(["active", "finalizing", "running_batch"])(
@@ -629,12 +613,9 @@ describe("Header", () => {
     },
   );
 
-  it.each([
-    ["no stored transcript", { hasTranscript: false }],
-    ["audio lookup is pending or failed", { audioExistsResolved: false }],
-  ])("hides replacement upload when %s", (_label, state) => {
-    hoisted.audioExists = false;
-    Object.assign(hoisted, state);
+  it("hides re-transcription while the audio lookup is pending", () => {
+    hoisted.audioExists = true;
+    hoisted.audioExistsResolved = false;
 
     render(
       <Header
@@ -653,7 +634,7 @@ describe("Header", () => {
       findContextMenu("copy-transcript-session-1").map((item) =>
         "text" in item ? item.text : "separator",
       ),
-    ).toEqual(["Copy"]);
+    ).toEqual(["Copy", "Delete recording"]);
   });
 
   it("replaces the current enhanced note when changing templates", async () => {

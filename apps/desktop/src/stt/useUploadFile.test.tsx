@@ -169,20 +169,6 @@ describe("useUploadFile", () => {
     );
   });
 
-  test("preserves the session date when replacement audio is selected", async () => {
-    const { result } = renderHook(() => useUploadFile("session-1"), {
-      wrapper: createWrapper(),
-    });
-
-    act(() => {
-      result.current.uploadAudio({ preserveSessionDate: true });
-    });
-
-    await waitFor(() => expect(runBatchMock).toHaveBeenCalled());
-    expect(audioSourceMetadataMock).not.toHaveBeenCalled();
-    expect(updateSessionMock).not.toHaveBeenCalled();
-  });
-
   test("infers the session date for an ordinary audio upload", async () => {
     const { result } = renderHook(() => useUploadFile("session-1"), {
       wrapper: createWrapper(),

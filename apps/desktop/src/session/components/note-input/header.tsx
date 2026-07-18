@@ -34,10 +34,7 @@ import {
   formatTranscriptExportSegments,
 } from "~/session/components/note-input/transcript/export-data";
 import { useSessionTranscriptRenderData } from "~/session/components/note-input/transcript/render-request-hooks";
-import {
-  useCanShowTranscript,
-  useHasTranscript,
-} from "~/session/components/shared";
+import { useCanShowTranscript } from "~/session/components/shared";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
 import {
   deleteEnhancedNote,
@@ -54,7 +51,6 @@ import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
-import { useUploadFile } from "~/stt/useUploadFile";
 import {
   filterWebTemplatesAgainstUserTemplates,
   DEFAULT_TEMPLATE_ICON,
@@ -750,7 +746,6 @@ function HeaderViewTranscriptActive({
   };
 }) {
   const regenerate = useRegenerateTranscript(sessionId);
-  const { uploadAudio } = useUploadFile(sessionId);
   const { request: transcriptExportRequest } =
     useSessionTranscriptRenderData(sessionId);
   const {
@@ -759,7 +754,6 @@ function HeaderViewTranscriptActive({
     deleteRecording,
     isDeletingRecording,
   } = AudioPlayer.useAudioPlayer();
-  const hasTranscript = useHasTranscript(sessionId);
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const canCopyTranscript = Boolean(transcriptExportRequest);
   const handleCopyTranscript = useCallback(async () => {
@@ -800,20 +794,12 @@ function HeaderViewTranscriptActive({
       },
     ];
 
-    if (
-      audioExistsResolved &&
-      sessionMode === "inactive" &&
-      (audioExists || hasTranscript)
-    ) {
+    if (audioExistsResolved && sessionMode === "inactive" && audioExists) {
       items.push({
         id: `regenerate-transcript-${sessionId}`,
-        text: audioExists ? "Re-transcribe" : "Upload audio to re-transcribe",
+        text: "Re-transcribe",
         action: () => {
-          if (audioExists) {
-            void regenerate();
-          } else {
-            uploadAudio({ preserveSessionDate: true });
-          }
+          void regenerate();
         },
       });
     }
@@ -834,12 +820,10 @@ function HeaderViewTranscriptActive({
     canCopyTranscript,
     handleCopyTranscript,
     handleDeleteRecording,
-    hasTranscript,
     isDeletingRecording,
     regenerate,
     sessionMode,
     sessionId,
-    uploadAudio,
   ]);
   const showContextMenu = useNativeContextMenu(contextMenu);
 

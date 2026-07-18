@@ -171,7 +171,7 @@ describe("OverflowButton", () => {
     expect(uploadTranscriptMock).toHaveBeenCalledTimes(1);
   });
 
-  it("offers audio upload for re-transcription when recording is missing", () => {
+  it("does not offer re-transcription when recording is missing", () => {
     render(
       <OverflowButton
         sessionId="session-1"
@@ -183,18 +183,15 @@ describe("OverflowButton", () => {
     expect(
       screen.queryByRole("button", { name: "Upload transcript" }),
     ).toBeNull();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Upload audio to re-transcribe" }),
-    );
+    expect(screen.queryByRole("button", { name: "Re-transcribe" })).toBeNull();
     expect(
       screen.getByRole("button", { name: "Resume listening" }),
     ).not.toBeNull();
-    expect(uploadAudioMock).toHaveBeenCalledWith({
-      preserveSessionDate: true,
-    });
+    expect(uploadAudioMock).not.toHaveBeenCalled();
   });
 
-  it("hides replacement upload until the audio lookup succeeds", () => {
+  it("hides re-transcription until the audio lookup succeeds", () => {
+    audioExists.value = true;
     audioExistsResolved.value = false;
 
     render(
@@ -204,9 +201,7 @@ describe("OverflowButton", () => {
       />,
     );
 
-    expect(
-      screen.queryByRole("button", { name: "Upload audio to re-transcribe" }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Re-transcribe" })).toBeNull();
   });
 
   it("hides initial upload actions until the audio lookup succeeds", () => {
@@ -229,6 +224,7 @@ describe("OverflowButton", () => {
   it.each(["active", "finalizing", "running_batch"])(
     "hides re-transcription actions while the session is %s",
     (sessionMode) => {
+      audioExists.value = true;
       useListenerMock.mockImplementation((selector) =>
         selector({
           getSessionMode: () => sessionMode,
@@ -244,7 +240,7 @@ describe("OverflowButton", () => {
 
       expect(
         screen.queryByRole("button", {
-          name: "Upload audio to re-transcribe",
+          name: "Re-transcribe",
         }),
       ).toBeNull();
     },
