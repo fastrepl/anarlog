@@ -3,7 +3,15 @@ import { describe, expect, it, vi } from "vitest";
 import {
   AttachmentBackupGatewayError,
   createAttachmentBackupClient,
+  isAttachmentBackupDependencyAppeared,
 } from "./client";
+
+const deleteRequest = {
+  objectKey: "owner/object.anb1",
+  attachmentRef: "attachment-ref",
+  versionRef: "version-ref",
+  deleteRequestId: "11111111-1111-4111-8111-111111111111",
+};
 
 function client(fetcher: typeof fetch) {
   return createAttachmentBackupClient({
@@ -82,18 +90,88 @@ describe("attachment backup client", () => {
     ).toBe("Bearer refreshed-token");
   });
 
-  it("treats absent heads and deletes as idempotent", async () => {
+  it("sends the exact stable delete tuple for schedule and cancellation", async () => {
+    const fetcher = vi.fn(
+      async (url: URL | RequestInfo, init?: RequestInit) => {
+        expect(JSON.parse(String(init?.body))).toEqual(deleteRequest);
+        if (url.toString().endsWith("/delete/cancel")) {
+          return Response.json(deleteRequest);
+        }
+        return Response.json({
+          ...deleteRequest,
+          deleteFenceId: "22222222-2222-4222-8222-222222222222",
+          deleteGeneration: 3,
+          deleteNotBefore: "2026-07-19T12:00:00.000Z",
+        });
+      },
+    );
+    const gateway = client(fetcher as typeof fetch);
+
+    await expect(gateway.scheduleDelete(deleteRequest)).resolves.toMatchObject({
+      deleteRequestId: deleteRequest.deleteRequestId,
+      deleteGeneration: 3,
+    });
+    await expect(gateway.cancelDelete(deleteRequest)).resolves.toMatchObject({
+      deleteRequestId: deleteRequest.deleteRequestId,
+    });
+
+    expect(fetcher.mock.calls[0]![0].toString()).toBe(
+      "https://api.example.com/sync/attachment-backups/delete",
+    );
+    expect(fetcher.mock.calls[1]![0].toString()).toBe(
+      "https://api.example.com/sync/attachment-backups/delete/cancel",
+    );
+  });
+
+  it("treats absent heads and schedules as idempotent but fails closed on cancel", async () => {
     const fetcher = vi.fn(
       async () =>
-        new Response(JSON.stringify({ code: "not_found" }), { status: 404 }),
+        new Response(
+          JSON.stringify({ error: { code: "attachment_backup_not_found" } }),
+          { status: 404 },
+        ),
     );
     const gateway = client(fetcher as typeof fetch);
 
     await expect(gateway.head("attachment-ref")).resolves.toBeNull();
-    await expect(gateway.delete("owner/object.anb1")).resolves.toEqual({
-      objectKey: "owner/object.anb1",
-      wasMarked: false,
-    });
+    await expect(gateway.scheduleDelete(deleteRequest)).resolves.toBeNull();
+    await expect(gateway.cancelDelete(deleteRequest)).rejects.toEqual(
+      expect.objectContaining<Partial<AttachmentBackupGatewayError>>({
+        status: 503,
+        code: "attachment_backup_cancel_unavailable",
+      }),
+    );
+  });
+
+  it("reads typed nested API error codes with a top-level fallback", async () => {
+    const nested = client(
+      vi.fn(async () =>
+        Response.json(
+          {
+            error: {
+              code: "attachment_backup_dependency_appeared",
+              message: "dependency appeared",
+            },
+          },
+          { status: 409 },
+        ),
+      ) as typeof fetch,
+    );
+    const nestedError = await nested
+      .scheduleDelete(deleteRequest)
+      .catch((error: unknown) => error);
+    expect(isAttachmentBackupDependencyAppeared(nestedError)).toBe(true);
+
+    const topLevel = client(
+      vi.fn(async () =>
+        Response.json({ code: "attachment_backup_conflict" }, { status: 409 }),
+      ) as typeof fetch,
+    );
+    await expect(topLevel.scheduleDelete(deleteRequest)).rejects.toEqual(
+      expect.objectContaining<Partial<AttachmentBackupGatewayError>>({
+        code: "attachment_backup_conflict",
+      }),
+    );
   });
 
   it("rejects oversized gateway responses before parsing", async () => {

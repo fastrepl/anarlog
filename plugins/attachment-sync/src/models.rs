@@ -28,6 +28,8 @@ pub struct PreparedSharedUpload {
 pub struct PreparedDeleteGuard {
     pub should_delete: bool,
     pub guard_id: String,
+    pub attachment_ref: String,
+    pub version_ref: String,
 }
 
 #[derive(Debug, Clone, serde::Deserialize, specta::Type, PartialEq, Eq)]

@@ -38,6 +38,12 @@ pub enum SyncError {
     #[error("Attachment backup changed")]
     AttachmentBackupConflict,
 
+    #[error("Attachment backup dependency appeared")]
+    AttachmentBackupDependencyAppeared,
+
+    #[error("Attachment backup deletion can no longer be canceled")]
+    AttachmentBackupDeleteTooLate,
+
     #[error("Attachment backup quota is exhausted")]
     AttachmentBackupQuotaExceeded,
 
@@ -117,6 +123,16 @@ impl IntoResponse for SyncError {
                 StatusCode::CONFLICT,
                 "attachment_backup_conflict",
                 "Attachment backup changed".to_string(),
+            ),
+            Self::AttachmentBackupDependencyAppeared => (
+                StatusCode::CONFLICT,
+                "attachment_backup_dependency_appeared",
+                "Attachment backup dependency appeared".to_string(),
+            ),
+            Self::AttachmentBackupDeleteTooLate => (
+                StatusCode::CONFLICT,
+                "attachment_backup_delete_too_late",
+                "Attachment backup deletion can no longer be canceled".to_string(),
             ),
             Self::AttachmentBackupQuotaExceeded => (
                 StatusCode::INSUFFICIENT_STORAGE,

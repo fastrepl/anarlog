@@ -23,6 +23,7 @@ vi.mock("~/shared/utils", () => ({
 
 import {
   claimNextAttachmentTransferJob,
+  completeCancelledAttachmentTransferDelete,
   completeUpload,
   deferAttachmentTransferDeleteForPreservation,
   failAttachmentTransferJob,
@@ -208,6 +209,69 @@ describe("attachment transfer reconciliation", () => {
         objectKey: "owner/object.anb1",
       }),
     ).resolves.toBe(false);
+
+    const [, superseded] = mocks.executeTransaction.mock.calls[0]![0];
+    expect(superseded.sql).toContain("phase = 'finalizing'");
+    expect(superseded.sql).not.toContain("phase = 'completed'");
+  });
+
+  it("completes a cancelled delete only while the exact intent stays superseded", async () => {
+    const deleteJob = {
+      ...job,
+      direction: "delete" as const,
+      objectKey: "owner/object.anb1",
+    };
+    mocks.executeTransaction.mockResolvedValueOnce([1]);
+
+    await expect(
+      completeCancelledAttachmentTransferDelete(deleteJob),
+    ).resolves.toBeUndefined();
+
+    const [complete] = mocks.executeTransaction.mock.calls[0]![0];
+    expect(complete.sql).toContain("phase = 'completed'");
+    expect(complete.sql).toContain("phase = 'finalizing'");
+    expect(complete.sql).toContain("AND NOT");
+    expect(complete.sql).toContain("attachment_id = ?");
+    expect(complete.params.slice(2, 12)).toEqual([
+      deleteJob.id,
+      deleteJob.attemptCount,
+      deleteJob.attachmentId,
+      deleteJob.sessionId,
+      deleteJob.workspaceId,
+      deleteJob.expectedSha256,
+      deleteJob.expectedSizeBytes,
+      deleteJob.objectKey,
+      deleteJob.attachmentId,
+      deleteJob.sessionId,
+    ]);
+  });
+
+  it("uses a fresh request id when delete intent returns after cancellation", async () => {
+    const deleteJob = {
+      ...job,
+      direction: "delete" as const,
+      objectKey: "owner/object.anb1",
+    };
+    mocks.executeTransaction.mockResolvedValueOnce([0, 1, 1]);
+
+    await expect(
+      completeCancelledAttachmentTransferDelete(deleteJob),
+    ).resolves.toBeUndefined();
+
+    const [, restart, replacement] = mocks.executeTransaction.mock.calls[0]![0];
+    expect(restart.sql).toContain("phase = 'completed'");
+    expect(restart.sql).toContain("AND (");
+    expect(replacement.sql).toContain("INSERT INTO attachment_transfer_jobs");
+    expect(replacement.sql).toContain("job.completed_at = ?");
+    expect(replacement.params[0]).toBe("new-job-id");
+    expect(replacement.params.slice(4, 10)).toEqual([
+      deleteJob.attachmentId,
+      deleteJob.sessionId,
+      deleteJob.workspaceId,
+      deleteJob.expectedSha256,
+      deleteJob.expectedSizeBytes,
+      deleteJob.objectKey,
+    ]);
   });
 
   it("keeps an old-object delete valid after the attachment is replaced", async () => {

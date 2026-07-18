@@ -40,6 +40,19 @@ export type AttachmentBackupDownload = {
   expiresAt: string;
 };
 
+export type AttachmentBackupDeleteRequest = {
+  objectKey: string;
+  attachmentRef: string;
+  versionRef: string;
+  deleteRequestId: string;
+};
+
+export type ScheduledAttachmentBackupDelete = AttachmentBackupDeleteRequest & {
+  deleteFenceId: string;
+  deleteGeneration: number;
+  deleteNotBefore: string;
+};
+
 export function createAttachmentBackupClient(input: {
   apiBaseUrl: string;
   getAccessToken: () => string;
@@ -141,11 +154,14 @@ export function createAttachmentBackupClient(input: {
         signal,
       );
     },
-    async delete(objectKey: string, signal?: AbortSignal) {
+    async scheduleDelete(
+      body: AttachmentBackupDeleteRequest,
+      signal?: AbortSignal,
+    ): Promise<ScheduledAttachmentBackupDelete | null> {
       try {
-        return await request<{ objectKey: string; wasMarked: boolean }>(
+        return await request<ScheduledAttachmentBackupDelete>(
           "sync/attachment-backups/delete",
-          jsonRequest("POST", { objectKey }),
+          jsonRequest("POST", body),
           signal,
         );
       } catch (error) {
@@ -153,7 +169,30 @@ export function createAttachmentBackupClient(input: {
           error instanceof AttachmentBackupGatewayError &&
           error.status === 404
         ) {
-          return { objectKey, wasMarked: false };
+          return null;
+        }
+        throw error;
+      }
+    },
+    async cancelDelete(
+      body: AttachmentBackupDeleteRequest,
+      signal?: AbortSignal,
+    ) {
+      try {
+        return await request<AttachmentBackupDeleteRequest>(
+          "sync/attachment-backups/delete/cancel",
+          jsonRequest("POST", body),
+          signal,
+        );
+      } catch (error) {
+        if (
+          error instanceof AttachmentBackupGatewayError &&
+          error.status === 404
+        ) {
+          throw new AttachmentBackupGatewayError(
+            503,
+            "attachment_backup_cancel_unavailable",
+          );
         }
         throw error;
       }
@@ -244,11 +283,23 @@ async function readBoundedBody(response: Response): Promise<string> {
 
 function parseErrorCode(body: string): string {
   try {
-    const value = JSON.parse(body) as { code?: unknown };
+    const value = JSON.parse(body) as {
+      code?: unknown;
+      error?: { code?: unknown };
+    };
+    if (typeof value.error?.code === "string") return value.error.code;
     return typeof value.code === "string" ? value.code : "request_failed";
   } catch {
     return "request_failed";
   }
+}
+
+export function isAttachmentBackupDependencyAppeared(error: unknown) {
+  return (
+    error instanceof AttachmentBackupGatewayError &&
+    error.status === 409 &&
+    error.code === "attachment_backup_dependency_appeared"
+  );
 }
 
 function ensureTrailingSlash(value: string) {

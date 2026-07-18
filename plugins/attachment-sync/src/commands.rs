@@ -216,13 +216,21 @@ pub(crate) async fn prepare_delete_guard<R: tauri::Runtime>(
     operation_id: String,
     job_id: String,
     attempt_count: i64,
+    create_guard: bool,
 ) -> Result<PreparedDeleteGuard, String> {
     let operation = control
         .start(&operation_id, None)
         .map_err(|error| error.to_string())?;
-    crate::runtime::prepare_delete_guard(&app, state.inner(), &operation, &job_id, attempt_count)
-        .await
-        .map_err(|error| error.to_string())
+    crate::runtime::prepare_delete_guard(
+        &app,
+        state.inner(),
+        &operation,
+        &job_id,
+        attempt_count,
+        create_guard,
+    )
+    .await
+    .map_err(|error| error.to_string())
 }
 
 #[tauri::command]

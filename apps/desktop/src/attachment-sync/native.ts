@@ -170,6 +170,7 @@ export const attachmentTransferNative = {
   prepareDeleteGuard(
     jobId: string,
     attemptCount: number,
+    createGuard: boolean,
     signal?: AbortSignal,
   ) {
     return runCancellableNative(
@@ -187,6 +188,7 @@ export const attachmentTransferNative = {
           operationId,
           jobId,
           attemptCount,
+          createGuard,
         ),
     );
   },

@@ -1,5 +1,5 @@
 begin;
-select plan(88);
+select plan(119);
 
 select tests.create_supabase_user('backup_owner', 'backup-owner@example.com');
 select tests.create_supabase_user('backup_other', 'backup-other@example.com');
@@ -7,6 +7,8 @@ select tests.create_supabase_user('backup_no_e2ee', 'backup-no-e2ee@example.com'
 select tests.create_supabase_user('backup_limit', 'backup-limit@example.com');
 select tests.create_supabase_user('backup_quota', 'backup-quota@example.com');
 select tests.create_supabase_user('backup_count', 'backup-count@example.com');
+select tests.create_supabase_user('backup_fence', 'backup-fence@example.com');
+select tests.create_supabase_user('backup_fence_account', 'backup-fence-account@example.com');
 
 create temporary table attachment_backup_test_state (
   name text primary key,
@@ -30,6 +32,30 @@ create temporary table attachment_backup_test_state (
 );
 
 grant all on attachment_backup_test_state to anon, authenticated, service_role;
+
+create temporary table attachment_backup_delete_test_state (
+  name text primary key,
+  outcome text,
+  object_id uuid,
+  object_key text,
+  delete_request_id uuid,
+  delete_fence_id uuid,
+  delete_generation bigint,
+  delete_not_before timestamptz,
+  was_created boolean
+);
+
+grant all on attachment_backup_delete_test_state
+  to anon, authenticated, service_role;
+
+create temporary table attachment_backup_fenced_object (
+  name text primary key,
+  id uuid not null,
+  object_key text not null
+);
+
+grant all on attachment_backup_fenced_object
+  to anon, authenticated, service_role;
 
 insert into attachment_backup_test_state (name, object_id)
 values ('quota_owner', tests.get_supabase_uid('backup_quota'));
@@ -351,6 +377,14 @@ begin
   perform * from public.claim_personal_workspace_e2ee_key(
     tests.get_supabase_uid('backup_count'),
     'efghijklmnopqrstuvwxyz'
+  );
+  perform * from public.claim_personal_workspace_e2ee_key(
+    tests.get_supabase_uid('backup_fence'),
+    'fghijklmnopqrstuvwxyza'
+  );
+  perform * from public.claim_personal_workspace_e2ee_key(
+    tests.get_supabase_uid('backup_fence_account'),
+    'ghijklmnopqrstuvwxyzab'
   );
 end;
 $$;
@@ -1662,6 +1696,695 @@ select throws_ok(
   '54000',
   'attachment backup object limit exceeded',
   'An account cannot exceed 10,000 tracked backup objects'
+);
+
+select has_table(
+  'private',
+  'attachment_backup_delete_requests',
+  'Attachment deletion requests have a durable private replay ledger'
+);
+
+select ok(
+  not has_table_privilege(
+      'authenticated',
+      'private.attachment_backup_delete_requests',
+      'SELECT'
+    )
+    and has_table_privilege(
+      'service_role',
+      'private.attachment_backup_delete_requests',
+      'SELECT'
+    )
+    and not has_function_privilege(
+      'authenticated',
+      'public.schedule_attachment_backup_deletion(uuid,text,text,text,uuid)',
+      'EXECUTE'
+    )
+    and not has_function_privilege(
+      'authenticated',
+      'public.cancel_attachment_backup_deletion(uuid,text,text,text,uuid)',
+      'EXECUTE'
+    )
+    and has_function_privilege(
+      'service_role',
+      'public.schedule_attachment_backup_deletion(uuid,text,text,text,uuid)',
+      'EXECUTE'
+    )
+    and has_function_privilege(
+      'service_role',
+      'public.cancel_attachment_backup_deletion(uuid,text,text,text,uuid)',
+      'EXECUTE'
+    ),
+  'Delete fencing remains private and service-role-only'
+);
+
+with created as (
+  insert into public.attachment_backup_objects (
+    owner_user_id,
+    attachment_ref,
+    version_ref,
+    object_key,
+    ciphertext_size_bytes,
+    ciphertext_sha256,
+    state,
+    reservation_expires_at,
+    cleanup_not_before,
+    finalized_at,
+    created_at,
+    updated_at
+  ) values (
+    tests.get_supabase_uid('backup_fence'),
+    repeat('G', 43),
+    repeat('H', 43),
+    tests.get_supabase_uid('backup_fence')::text
+      || '/00000000-0000-4000-8000-000000000501.anb1',
+    4096,
+    repeat('d', 64),
+    'current',
+    now() - interval '29 hours',
+    now() - interval '2 hours',
+    now() - interval '28 hours',
+    now() - interval '30 hours',
+    now() - interval '1 hour'
+  )
+  returning id, object_key
+)
+insert into attachment_backup_fenced_object (name, id, object_key)
+select 'fenced_object', created.id, created.object_key
+from created;
+
+select throws_ok(
+  format(
+    $sql$
+      update public.attachment_backup_objects
+      set delete_request_id = %L::uuid
+      where id = %L::uuid
+    $sql$,
+    '00000000-0000-4000-8000-000000000301',
+    (select id from attachment_backup_fenced_object)
+  ),
+  '23514',
+  null,
+  'Object fences cannot be partially populated'
+);
+
+select throws_ok(
+  format(
+    $sql$
+      insert into private.attachment_backup_delete_requests (
+        owner_user_id,
+        delete_request_id,
+        attachment_ref,
+        version_ref,
+        object_key,
+        outcome
+      ) values (%L::uuid, %L::uuid, %L, %L, %L, 'scheduled')
+    $sql$,
+    tests.get_supabase_uid('backup_fence'),
+    '00000000-0000-4000-8000-000000000399',
+    repeat('G', 43),
+    repeat('H', 43),
+    (select object_key from attachment_backup_fenced_object)
+  ),
+  '23514',
+  null,
+  'Scheduled request rows require a complete immutable fence snapshot'
+);
+
+select lives_ok(
+  format(
+    $sql$
+      insert into attachment_backup_delete_test_state (
+        name,
+        outcome,
+        object_id,
+        object_key,
+        delete_request_id,
+        delete_fence_id,
+        delete_generation,
+        delete_not_before,
+        was_created
+      )
+      select
+        'request_one',
+        outcome,
+        object_id,
+        object_key,
+        delete_request_id,
+        delete_fence_id,
+        delete_generation,
+        delete_not_before,
+        was_created
+      from public.schedule_attachment_backup_deletion(
+        %L::uuid,
+        %L,
+        %L,
+        %L,
+        %L::uuid
+      )
+    $sql$,
+    tests.get_supabase_uid('backup_fence'),
+    repeat('G', 43),
+    repeat('H', 43),
+    (select object_key from attachment_backup_fenced_object),
+    '00000000-0000-4000-8000-000000000301'
+  ),
+  'An exact current backup receives a durable conditional deletion fence'
+);
+
+select ok(
+  (
+    select request.outcome = 'scheduled'
+      and request.object_id = object.id
+      and request.delete_fence_id is not null
+      and request.delete_generation = 1
+      and request.delete_not_before >= now() + interval '23 hours 59 minutes'
+      and request.was_created
+    from attachment_backup_delete_test_state as request
+    cross join attachment_backup_fenced_object as object
+    where request.name = 'request_one'
+  ),
+  'A new fence records a bounded server generation and grace deadline'
+);
+
+select results_eq(
+  format(
+    $sql$
+      select
+        outcome,
+        object_id,
+        object_key,
+        delete_request_id,
+        delete_fence_id,
+        delete_generation,
+        delete_not_before,
+        was_created
+      from public.schedule_attachment_backup_deletion(
+        %L::uuid, %L, %L, %L, %L::uuid
+      )
+    $sql$,
+    tests.get_supabase_uid('backup_fence'),
+    repeat('G', 43),
+    repeat('H', 43),
+    (select object_key from attachment_backup_fenced_object),
+    '00000000-0000-4000-8000-000000000301'
+  ),
+  $$
+    select
+      outcome,
+      object_id,
+      object_key,
+      delete_request_id,
+      delete_fence_id,
+      delete_generation,
+      delete_not_before,
+      false
+    from attachment_backup_delete_test_state
+    where name = 'request_one'
+  $$,
+  'An ambiguous schedule replay returns the exact fence without extending it'
+);
+
+select throws_ok(
+  format(
+    $sql$
+      select * from public.schedule_attachment_backup_deletion(
+        %L::uuid, %L, %L, %L, %L::uuid
+      )
+    $sql$,
+    tests.get_supabase_uid('backup_fence'),
+    repeat('G', 43),
+    repeat('H', 43),
+    (select object_key from attachment_backup_fenced_object),
+    '00000000-0000-4000-8000-000000000302'
+  ),
+  '40001',
+  'attachment backup deletion is already pending',
+  'A competing request cannot replace an active fence'
+);
+
+select throws_ok(
+  format(
+    $sql$
+      select * from public.cancel_attachment_backup_deletion(
+        %L::uuid, %L, %L, %L, %L::uuid
+      )
+    $sql$,
+    tests.get_supabase_uid('backup_fence'),
+    repeat('G', 43),
+    repeat('I', 43),
+    (select object_key from attachment_backup_fenced_object),
+    '00000000-0000-4000-8000-000000000301'
+  ),
+  '40001',
+  'attachment backup delete request conflicts with existing identity',
+  'A request identifier cannot be rebound to different blinded metadata'
+);
+
+select ok(
+  (
+    select outcome = 'dependency_appeared' and was_cancelled
+    from public.cancel_attachment_backup_deletion(
+      tests.get_supabase_uid('backup_fence'),
+      repeat('G', 43),
+      repeat('H', 43),
+      (select object_key from attachment_backup_fenced_object),
+      '00000000-0000-4000-8000-000000000301'::uuid
+    )
+  ),
+  'Exact cancellation terminalizes the active fence'
+);
+
+select ok(
+  (
+    select backup.state = 'current'
+      and backup.delete_request_id is null
+      and backup.delete_fence_id is null
+      and backup.delete_not_before is null
+      and backup.delete_generation = 2
+      and deletion.outcome = 'dependency_appeared'
+    from public.attachment_backup_objects as backup
+    join private.attachment_backup_delete_requests as deletion
+      on deletion.owner_user_id = backup.owner_user_id
+      and deletion.delete_request_id = '00000000-0000-4000-8000-000000000301'::uuid
+    where backup.id = (select id from attachment_backup_fenced_object)
+  ),
+  'Cancellation preserves the current object and advances its server generation'
+);
+
+select ok(
+  not (
+    select was_cancelled
+    from public.cancel_attachment_backup_deletion(
+      tests.get_supabase_uid('backup_fence'),
+      repeat('G', 43),
+      repeat('H', 43),
+      (select object_key from attachment_backup_fenced_object),
+      '00000000-0000-4000-8000-000000000301'::uuid
+    )
+  ),
+  'Exact cancellation replay is idempotent'
+);
+
+select ok(
+  (
+    select outcome = 'dependency_appeared'
+      and delete_fence_id is null
+      and not was_created
+    from public.schedule_attachment_backup_deletion(
+      tests.get_supabase_uid('backup_fence'),
+      repeat('G', 43),
+      repeat('H', 43),
+      (select object_key from attachment_backup_fenced_object),
+      '00000000-0000-4000-8000-000000000301'::uuid
+    )
+  ),
+  'A canceled request replay cannot re-arm deletion'
+);
+
+select ok(
+  not (
+    select was_cancelled
+    from public.cancel_attachment_backup_deletion(
+      tests.get_supabase_uid('backup_fence'),
+      repeat('G', 43),
+      repeat('H', 43),
+      (select object_key from attachment_backup_fenced_object),
+      '00000000-0000-4000-8000-000000000300'::uuid
+    )
+  ),
+  'Cancellation can durably arrive before scheduling'
+);
+
+select ok(
+  (
+    select outcome = 'dependency_appeared'
+      and object_id is null
+      and delete_fence_id is null
+      and delete_generation is null
+      and delete_not_before is null
+      and not was_created
+    from public.schedule_attachment_backup_deletion(
+      tests.get_supabase_uid('backup_fence'),
+      repeat('G', 43),
+      repeat('H', 43),
+      (select object_key from attachment_backup_fenced_object),
+      '00000000-0000-4000-8000-000000000300'::uuid
+    )
+  ),
+  'A cancel-first tombstone deterministically defeats a later schedule'
+);
+
+insert into attachment_backup_delete_test_state (
+  name,
+  outcome,
+  object_id,
+  object_key,
+  delete_request_id,
+  delete_fence_id,
+  delete_generation,
+  delete_not_before,
+  was_created
+)
+select
+  'request_two',
+  outcome,
+  object_id,
+  object_key,
+  delete_request_id,
+  delete_fence_id,
+  delete_generation,
+  delete_not_before,
+  was_created
+from public.schedule_attachment_backup_deletion(
+  tests.get_supabase_uid('backup_fence'),
+  repeat('G', 43),
+  repeat('H', 43),
+  (select object_key from attachment_backup_fenced_object),
+  '00000000-0000-4000-8000-000000000302'::uuid
+);
+
+select ok(
+  (
+    select old.outcome = 'dependency_appeared'
+      and current.delete_request_id = newer.delete_request_id
+      and current.delete_fence_id = newer.delete_fence_id
+    from public.schedule_attachment_backup_deletion(
+      tests.get_supabase_uid('backup_fence'),
+      repeat('G', 43),
+      repeat('H', 43),
+      (select object_key from attachment_backup_fenced_object),
+      '00000000-0000-4000-8000-000000000301'::uuid
+    ) as old
+    cross join attachment_backup_delete_test_state as newer
+    join public.attachment_backup_objects as current
+      on current.id = newer.object_id
+    where newer.name = 'request_two'
+  ),
+  'An old replay cannot replace a newer request fence'
+);
+
+select ok(
+  (
+    select old.outcome = 'dependency_appeared'
+      and not old.was_cancelled
+      and current.delete_request_id = newer.delete_request_id
+      and current.delete_fence_id = newer.delete_fence_id
+    from public.cancel_attachment_backup_deletion(
+      tests.get_supabase_uid('backup_fence'),
+      repeat('G', 43),
+      repeat('H', 43),
+      (select object_key from attachment_backup_fenced_object),
+      '00000000-0000-4000-8000-000000000301'::uuid
+    ) as old
+    cross join attachment_backup_delete_test_state as newer
+    join public.attachment_backup_objects as current
+      on current.id = newer.object_id
+    where newer.name = 'request_two'
+  ),
+  'A stale cancellation cannot clear a newer request fence'
+);
+
+select ok(
+  (
+    select object_state = 'current' and not was_created
+    from public.reserve_attachment_backup(
+      tests.get_supabase_uid('backup_fence'),
+      repeat('G', 43),
+      repeat('H', 43),
+      4096,
+      1::smallint
+    )
+  ),
+  'Reusing a current version is an explicit relink'
+);
+
+select ok(
+  (
+    select deletion.outcome = 'dependency_appeared'
+      and backup.delete_request_id is null
+    from private.attachment_backup_delete_requests as deletion
+    join public.attachment_backup_objects as backup
+      on backup.id = deletion.object_id
+    where deletion.owner_user_id = tests.get_supabase_uid('backup_fence')
+      and deletion.delete_request_id = '00000000-0000-4000-8000-000000000302'::uuid
+  ),
+  'Relinking terminalizes the active delete request before returning current'
+);
+
+insert into attachment_backup_delete_test_state
+select
+  'request_three',
+  scheduled.outcome,
+  scheduled.object_id,
+  scheduled.object_key,
+  scheduled.delete_request_id,
+  scheduled.delete_fence_id,
+  scheduled.delete_generation,
+  scheduled.delete_not_before,
+  scheduled.was_created
+from public.schedule_attachment_backup_deletion(
+  tests.get_supabase_uid('backup_fence'),
+  repeat('G', 43),
+  repeat('H', 43),
+  (select object_key from attachment_backup_fenced_object),
+  '00000000-0000-4000-8000-000000000303'::uuid
+) as scheduled;
+
+select ok(
+  (
+    select cleanup_not_before >= now() + interval '59 minutes'
+    from public.prepare_attachment_backup_download(
+      tests.get_supabase_uid('backup_fence'),
+      (select object_key from attachment_backup_fenced_object),
+      now() + interval '1 hour'
+    )
+  ),
+  'Download preparation remains available during the delete grace window'
+);
+
+select ok(
+  (
+    select deletion.outcome = 'dependency_appeared'
+      and backup.delete_request_id is null
+    from private.attachment_backup_delete_requests as deletion
+    join public.attachment_backup_objects as backup
+      on backup.id = deletion.object_id
+    where deletion.owner_user_id = tests.get_supabase_uid('backup_fence')
+      and deletion.delete_request_id = '00000000-0000-4000-8000-000000000303'::uuid
+  ),
+  'Download authorization cancels the fence before URL signing'
+);
+
+insert into attachment_backup_delete_test_state
+select
+  'request_four',
+  scheduled.outcome,
+  scheduled.object_id,
+  scheduled.object_key,
+  scheduled.delete_request_id,
+  scheduled.delete_fence_id,
+  scheduled.delete_generation,
+  scheduled.delete_not_before,
+  scheduled.was_created
+from public.schedule_attachment_backup_deletion(
+  tests.get_supabase_uid('backup_fence'),
+  repeat('G', 43),
+  repeat('H', 43),
+  (select object_key from attachment_backup_fenced_object),
+  '00000000-0000-4000-8000-000000000304'::uuid
+) as scheduled;
+
+select ok(
+  not (
+    select was_promoted
+    from public.promote_attachment_backup(
+      tests.get_supabase_uid('backup_fence'),
+      (select id from attachment_backup_fenced_object),
+      (select object_key from attachment_backup_fenced_object),
+      null
+    )
+  ),
+  'Reaffirming an already-current candidate is an idempotent relink'
+);
+
+select ok(
+  (
+    select deletion.outcome = 'dependency_appeared'
+      and backup.delete_request_id is null
+    from private.attachment_backup_delete_requests as deletion
+    join public.attachment_backup_objects as backup
+      on backup.id = deletion.object_id
+    where deletion.owner_user_id = tests.get_supabase_uid('backup_fence')
+      and deletion.delete_request_id = '00000000-0000-4000-8000-000000000304'::uuid
+  ),
+  'Current-candidate promotion terminalizes an active fence'
+);
+
+select lives_ok(
+  $$
+    select *
+    from public.claim_attachment_backup_gc_leases(
+      '00000000-0000-4000-8000-000000000401'::uuid,
+      100,
+      300
+    )
+  $$,
+  'GC can scan safely after a fenced request was canceled'
+);
+
+select ok(
+  (
+    select state = 'current'
+      and gc_lease_id is null
+      and delete_request_id is null
+    from public.attachment_backup_objects
+    where id = (select id from attachment_backup_fenced_object)
+  ),
+  'Canceled current objects are excluded from GC'
+);
+
+insert into attachment_backup_delete_test_state
+select
+  'request_five',
+  scheduled.outcome,
+  scheduled.object_id,
+  scheduled.object_key,
+  scheduled.delete_request_id,
+  scheduled.delete_fence_id,
+  scheduled.delete_generation,
+  scheduled.delete_not_before,
+  scheduled.was_created
+from public.schedule_attachment_backup_deletion(
+  tests.get_supabase_uid('backup_fence'),
+  repeat('G', 43),
+  repeat('H', 43),
+  (select object_key from attachment_backup_fenced_object),
+  '00000000-0000-4000-8000-000000000305'::uuid
+) as scheduled;
+
+update public.attachment_backup_objects
+set
+  cleanup_not_before = now() - interval '2 hours',
+  delete_not_before = now() - interval '1 hour',
+  updated_at = now()
+where id = (select id from attachment_backup_fenced_object);
+
+update private.attachment_backup_delete_requests
+set
+  created_at = now() - interval '2 hours',
+  delete_not_before = now() - interval '1 hour',
+  updated_at = clock_timestamp()
+where owner_user_id = tests.get_supabase_uid('backup_fence')
+  and delete_request_id = '00000000-0000-4000-8000-000000000305'::uuid;
+
+select is(
+  (
+    select count(*)
+    from public.claim_attachment_backup_gc_leases(
+      '00000000-0000-4000-8000-000000000402'::uuid,
+      100,
+      300
+    ) as claimed
+    where claimed.object_id = (select id from attachment_backup_fenced_object)
+  ),
+  1::bigint,
+  'GC claims a due current object only through its exact durable fence'
+);
+
+select ok(
+  (
+    select state = 'deleting'
+      and deletion_requested_at is not null
+      and delete_request_id is null
+      and delete_fence_id is null
+      and delete_not_before is null
+      and gc_lease_id = '00000000-0000-4000-8000-000000000402'::uuid
+    from public.attachment_backup_objects
+    where id = (select id from attachment_backup_fenced_object)
+  ),
+  'A claimed current fence becomes an irreversible leased deletion'
+);
+
+select throws_ok(
+  format(
+    $sql$
+      select * from public.cancel_attachment_backup_deletion(
+        %L::uuid, %L, %L, %L, %L::uuid
+      )
+    $sql$,
+    tests.get_supabase_uid('backup_fence'),
+    repeat('G', 43),
+    repeat('H', 43),
+    (select object_key from attachment_backup_fenced_object),
+    '00000000-0000-4000-8000-000000000305'
+  ),
+  '55006',
+  'attachment backup deletion is too late to cancel',
+  'Cancellation reports a distinct condition after GC acquires deletion'
+);
+
+insert into public.attachment_backup_objects (
+  owner_user_id,
+  attachment_ref,
+  version_ref,
+  object_key,
+  ciphertext_size_bytes,
+  ciphertext_sha256,
+  state,
+  finalized_at
+) values (
+  tests.get_supabase_uid('backup_fence_account'),
+  repeat('I', 43),
+  repeat('J', 43),
+  tests.get_supabase_uid('backup_fence_account')::text
+    || '/00000000-0000-4000-8000-000000000502.anb1',
+  8192,
+  repeat('e', 64),
+  'current',
+  now()
+);
+
+select lives_ok(
+  format(
+    $sql$
+      select * from public.schedule_attachment_backup_deletion(
+        %L::uuid, %L, %L, %L, %L::uuid
+      )
+    $sql$,
+    tests.get_supabase_uid('backup_fence_account'),
+    repeat('I', 43),
+    repeat('J', 43),
+    tests.get_supabase_uid('backup_fence_account')::text
+      || '/00000000-0000-4000-8000-000000000502.anb1',
+    '00000000-0000-4000-8000-000000000306'
+  ),
+  'Account cleanup can begin with an active conditional fence'
+);
+
+select lives_ok(
+  format(
+    'select * from public.begin_account_deletion(%L::uuid)',
+    tests.get_supabase_uid('backup_fence_account')
+  ),
+  'Account deletion preserves its existing irreversible cleanup path'
+);
+
+select ok(
+  (
+    select backup.state = 'deleting'
+      and backup.deletion_requested_at is not null
+      and backup.delete_request_id is null
+      and backup.delete_fence_id is null
+      and backup.delete_not_before is null
+      and deletion.outcome = 'dependency_appeared'
+    from public.attachment_backup_objects as backup
+    join private.attachment_backup_delete_requests as deletion
+      on deletion.owner_user_id = backup.owner_user_id
+      and deletion.object_id = backup.id
+    where backup.owner_user_id = tests.get_supabase_uid('backup_fence_account')
+  ),
+  'Account deletion terminalizes active fences before irreversible cleanup'
 );
 
 select tests.clear_authentication();

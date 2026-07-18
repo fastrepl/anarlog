@@ -126,11 +126,34 @@ pub(super) struct AttachmentBackupDownload {
     expires_at: String,
 }
 
+#[derive(Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(super) struct DeleteAttachmentBackupRequest {
+    object_key: String,
+    attachment_ref: String,
+    version_ref: String,
+    delete_request_id: String,
+}
+
 #[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub(super) struct DeletedAttachmentBackup {
+pub(super) struct ScheduledAttachmentBackupDeletion {
     object_key: String,
-    was_marked: bool,
+    attachment_ref: String,
+    version_ref: String,
+    delete_request_id: String,
+    delete_fence_id: String,
+    delete_generation: i64,
+    delete_not_before: String,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct CanceledAttachmentBackupDeletion {
+    object_key: String,
+    attachment_ref: String,
+    version_ref: String,
+    delete_request_id: String,
 }
 
 #[derive(Serialize)]
@@ -269,14 +292,36 @@ struct PreparedDownloadRow {
     cleanup_not_before: String,
 }
 
+#[derive(Serialize)]
+struct DeleteRpcRequest<'a> {
+    p_owner_user_id: &'a str,
+    p_attachment_ref: &'a str,
+    p_version_ref: &'a str,
+    p_object_key: &'a str,
+    p_delete_request_id: &'a str,
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct DeletingRow {
-    object_id: String,
+struct ScheduledDeletionRow {
+    outcome: String,
+    object_id: Option<String>,
     object_key: String,
-    ciphertext_size_bytes: i64,
-    cleanup_not_before: String,
-    was_marked: bool,
+    delete_request_id: String,
+    delete_fence_id: Option<String>,
+    delete_generation: Option<i64>,
+    delete_not_before: Option<String>,
+    #[serde(rename = "was_created")]
+    _was_created: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CanceledDeletionRow {
+    outcome: String,
+    object_key: String,
+    #[serde(rename = "was_cancelled")]
+    _was_cancelled: bool,
 }
 
 #[derive(Deserialize)]
@@ -293,7 +338,8 @@ struct PostgrestError {
         promote_attachment_backup,
         read_current_attachment_backup,
         download_attachment_backup,
-        delete_attachment_backup
+        delete_attachment_backup,
+        cancel_attachment_backup_deletion
     ),
     components(schemas(
         ReserveAttachmentBackupRequest,
@@ -306,7 +352,9 @@ struct PostgrestError {
         PromotedAttachmentBackup,
         CurrentAttachmentBackup,
         AttachmentBackupDownload,
-        DeletedAttachmentBackup
+        DeleteAttachmentBackupRequest,
+        ScheduledAttachmentBackupDeletion,
+        CanceledAttachmentBackupDeletion
     ))
 )]
 struct AttachmentBackupsApiDoc;
@@ -339,6 +387,10 @@ pub(super) fn router() -> Router<AppState> {
             post(download_attachment_backup),
         )
         .route("/attachment-backups/delete", post(delete_attachment_backup))
+        .route(
+            "/attachment-backups/delete/cancel",
+            post(cancel_attachment_backup_deletion),
+        )
         .layer(DefaultBodyLimit::max(MAX_BACKUP_REQUEST_BYTES))
         .layer(middleware::from_fn(add_no_store))
 }
@@ -790,45 +842,125 @@ async fn download_attachment_backup(
     post,
     path = "/attachment-backups/delete",
     tag = "sync",
-    request_body = AttachmentBackupObjectRequest,
+    request_body = DeleteAttachmentBackupRequest,
     responses(
-        (status = 200, description = "Backup marked for asynchronous physical deletion", body = DeletedAttachmentBackup),
-        (status = 400, description = "Invalid object key"),
+        (status = 200, description = "Backup deletion scheduled behind a dependency fence", body = ScheduledAttachmentBackupDeletion),
+        (status = 400, description = "Invalid deletion identity"),
         (status = 401, description = "Authentication required"),
         (status = 403, description = "Anarlog Pro subscription or backup access required"),
         (status = 404, description = "Backup unavailable"),
+        (status = 409, description = "Backup changed or a dependency appeared"),
         (status = 502, description = "Backup service unavailable")
     )
 )]
 async fn delete_attachment_backup(
     Extension(auth): Extension<AuthContext>,
     State(state): State<AppState>,
-    Json(request): Json<AttachmentBackupObjectRequest>,
-) -> Result<Json<DeletedAttachmentBackup>> {
+    Json(request): Json<DeleteAttachmentBackupRequest>,
+) -> Result<Json<ScheduledAttachmentBackupDeletion>> {
     require_pro(&auth)?;
     let owner_user_id = canonical_owner(&auth)?;
-    let object_key = validate_object_key(&request.object_key, &owner_user_id)?;
-    let row: DeletingRow = rpc_single(
+    let request = validate_delete_request(request, &owner_user_id)?;
+    let row: ScheduledDeletionRow = rpc_single(
         &state,
-        "mark_attachment_backup_deleting_by_key",
-        &ObjectKeyRpcRequest {
+        "schedule_attachment_backup_deletion",
+        &DeleteRpcRequest {
             p_owner_user_id: &owner_user_id,
-            p_object_key: &object_key,
+            p_attachment_ref: &request.attachment_ref,
+            p_version_ref: &request.version_ref,
+            p_object_key: &request.object_key,
+            p_delete_request_id: &request.delete_request_id,
         },
     )
     .await
     .map_err(map_deletion_error)?;
-    if canonical_object_id(&row.object_id).is_none()
-        || row.object_key != object_key
-        || valid_size(row.ciphertext_size_bytes).is_err()
-        || parse_timestamp(&row.cleanup_not_before).is_none()
-    {
-        return Err(invalid_upstream_response("deletion"));
+
+    validate_deletion_row_identity(
+        &row.object_key,
+        &row.delete_request_id,
+        &request,
+        "deletion scheduling",
+    )?;
+    if row.outcome == "dependency_appeared" {
+        return Err(SyncError::AttachmentBackupDependencyAppeared);
+    }
+    if row.outcome != "scheduled" {
+        return Err(invalid_upstream_response("deletion scheduling"));
     }
 
-    Ok(Json(DeletedAttachmentBackup {
-        object_key,
-        was_marked: row.was_marked,
+    row.object_id
+        .as_deref()
+        .and_then(canonical_object_id)
+        .ok_or_else(|| invalid_upstream_response("deletion scheduling"))?;
+    let delete_fence_id = row
+        .delete_fence_id
+        .as_deref()
+        .and_then(canonical_object_id)
+        .ok_or_else(|| invalid_upstream_response("deletion scheduling"))?;
+    let delete_generation = row
+        .delete_generation
+        .filter(|generation| *generation > 0)
+        .ok_or_else(|| invalid_upstream_response("deletion scheduling"))?;
+    let delete_not_before = row
+        .delete_not_before
+        .filter(|value| parse_timestamp(value).is_some())
+        .ok_or_else(|| invalid_upstream_response("deletion scheduling"))?;
+
+    Ok(Json(ScheduledAttachmentBackupDeletion {
+        object_key: request.object_key,
+        attachment_ref: request.attachment_ref,
+        version_ref: request.version_ref,
+        delete_request_id: request.delete_request_id,
+        delete_fence_id,
+        delete_generation,
+        delete_not_before,
+    }))
+}
+
+#[utoipa::path(
+    post,
+    path = "/attachment-backups/delete/cancel",
+    tag = "sync",
+    request_body = DeleteAttachmentBackupRequest,
+    responses(
+        (status = 200, description = "Exact deletion request canceled or durably prevented", body = CanceledAttachmentBackupDeletion),
+        (status = 400, description = "Invalid deletion identity"),
+        (status = 401, description = "Authentication required"),
+        (status = 403, description = "Anarlog Pro subscription or backup access required"),
+        (status = 409, description = "Backup changed or deletion is already being collected"),
+        (status = 502, description = "Backup service unavailable")
+    )
+)]
+async fn cancel_attachment_backup_deletion(
+    Extension(auth): Extension<AuthContext>,
+    State(state): State<AppState>,
+    Json(request): Json<DeleteAttachmentBackupRequest>,
+) -> Result<Json<CanceledAttachmentBackupDeletion>> {
+    require_pro(&auth)?;
+    let owner_user_id = canonical_owner(&auth)?;
+    let request = validate_delete_request(request, &owner_user_id)?;
+    let row: CanceledDeletionRow = rpc_single(
+        &state,
+        "cancel_attachment_backup_deletion",
+        &DeleteRpcRequest {
+            p_owner_user_id: &owner_user_id,
+            p_attachment_ref: &request.attachment_ref,
+            p_version_ref: &request.version_ref,
+            p_object_key: &request.object_key,
+            p_delete_request_id: &request.delete_request_id,
+        },
+    )
+    .await
+    .map_err(map_cancel_deletion_error)?;
+
+    if row.outcome != "dependency_appeared" || row.object_key != request.object_key {
+        return Err(invalid_upstream_response("deletion cancellation"));
+    }
+    Ok(Json(CanceledAttachmentBackupDeletion {
+        object_key: request.object_key,
+        attachment_ref: request.attachment_ref,
+        version_ref: request.version_ref,
+        delete_request_id: request.delete_request_id,
     }))
 }
 
@@ -954,6 +1086,15 @@ fn map_deletion_error(error: RpcFailure) -> SyncError {
     }
 }
 
+fn map_cancel_deletion_error(error: RpcFailure) -> SyncError {
+    match &error {
+        RpcFailure::Rejected { code, .. } if code.as_deref() == Some("55006") => {
+            SyncError::AttachmentBackupDeleteTooLate
+        }
+        _ => map_backup_error(error),
+    }
+}
+
 fn map_backup_error(error: RpcFailure) -> SyncError {
     match error {
         RpcFailure::Empty => SyncError::AttachmentBackupNotFound,
@@ -1039,6 +1180,36 @@ fn validate_object_key(value: &str, owner_user_id: &str) -> Result<String> {
         return Err(invalid_request());
     }
     Ok(value.to_string())
+}
+
+fn validate_delete_request(
+    request: DeleteAttachmentBackupRequest,
+    owner_user_id: &str,
+) -> Result<DeleteAttachmentBackupRequest> {
+    validate_object_key(&request.object_key, owner_user_id)?;
+    validate_ref(&request.attachment_ref, "attachment")?;
+    validate_ref(&request.version_ref, "version")?;
+    if request.attachment_ref == request.version_ref
+        || canonical_uuid(&request.delete_request_id).is_none()
+    {
+        return Err(invalid_request());
+    }
+    Ok(request)
+}
+
+fn validate_deletion_row_identity(
+    object_key: &str,
+    delete_request_id: &str,
+    request: &DeleteAttachmentBackupRequest,
+    operation: &str,
+) -> Result<()> {
+    if object_key != request.object_key
+        || delete_request_id != request.delete_request_id
+        || canonical_uuid(delete_request_id).is_none()
+    {
+        return Err(invalid_upstream_response(operation));
+    }
+    Ok(())
 }
 
 fn validate_reserved_row(
@@ -1265,7 +1436,9 @@ mod tests {
     const OWNER: &str = "11111111-1111-4111-8111-111111111111";
     const OBJECT_ID: &str = "22222222-2222-4222-8222-222222222222";
     const OBJECT_UUID: &str = "33333333-3333-4333-8333-333333333333";
+    const DELETE_REQUEST_ID: &str = "44444444-4444-4444-8444-444444444444";
     const DISPLACED_UUID: &str = "55555555-5555-4555-8555-555555555555";
+    const DELETE_FENCE_ID: &str = "66666666-6666-4666-8666-666666666666";
     const ATTACHMENT_REF: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
     const VERSION_REF: &str = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
     const CIPHERTEXT_SHA256: &str =
@@ -1357,6 +1530,28 @@ mod tests {
             "reservation_expires_at": timestamp_after(15 * 60),
             "upload_expires_at": hash.map(|_| timestamp_after(2 * 60 * 60)),
             "cleanup_not_before": timestamp_after(26 * 60 * 60)
+        })
+    }
+
+    fn delete_request_body() -> Value {
+        json!({
+            "objectKey": object_key(),
+            "attachmentRef": ATTACHMENT_REF,
+            "versionRef": VERSION_REF,
+            "deleteRequestId": DELETE_REQUEST_ID
+        })
+    }
+
+    fn scheduled_deletion_row(delete_not_before: &str, was_created: bool) -> Value {
+        json!({
+            "outcome": "scheduled",
+            "object_id": OBJECT_ID,
+            "object_key": object_key(),
+            "delete_request_id": DELETE_REQUEST_ID,
+            "delete_fence_id": DELETE_FENCE_ID,
+            "delete_generation": 7,
+            "delete_not_before": delete_not_before,
+            "was_created": was_created
         })
     }
 
@@ -2241,33 +2436,242 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn marks_delete_without_physically_deleting_storage() {
+    async fn schedules_exact_delete_identity_with_stable_replay_shape_without_storage() {
+        let delete_not_before = timestamp_after(24 * 60 * 60);
+        let created_server = MockServer::start().await;
+        mount_rpc(
+            &created_server,
+            "schedule_attachment_backup_deletion",
+            ResponseTemplate::new(200)
+                .set_body_json(json!([scheduled_deletion_row(&delete_not_before, true)])),
+        )
+        .await;
+
+        let created_response = test_router(&created_server, true)
+            .oneshot(json_request(
+                Method::POST,
+                "/attachment-backups/delete",
+                delete_request_body(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(created_response.status(), StatusCode::OK);
+        let created_body = response_json(created_response).await;
+        assert_eq!(
+            created_body,
+            json!({
+                "objectKey": object_key(),
+                "attachmentRef": ATTACHMENT_REF,
+                "versionRef": VERSION_REF,
+                "deleteRequestId": DELETE_REQUEST_ID,
+                "deleteFenceId": DELETE_FENCE_ID,
+                "deleteGeneration": 7,
+                "deleteNotBefore": delete_not_before
+            })
+        );
+        let created_requests = created_server.received_requests().await.unwrap();
+        assert_eq!(created_requests.len(), 1);
+        assert_eq!(
+            created_requests[0].url.path(),
+            "/rest/v1/rpc/schedule_attachment_backup_deletion"
+        );
+        assert_eq!(
+            serde_json::from_slice::<Value>(&created_requests[0].body).unwrap(),
+            json!({
+                "p_owner_user_id": OWNER,
+                "p_attachment_ref": ATTACHMENT_REF,
+                "p_version_ref": VERSION_REF,
+                "p_object_key": object_key(),
+                "p_delete_request_id": DELETE_REQUEST_ID
+            })
+        );
+
+        let replay_server = MockServer::start().await;
+        mount_rpc(
+            &replay_server,
+            "schedule_attachment_backup_deletion",
+            ResponseTemplate::new(200)
+                .set_body_json(json!([scheduled_deletion_row(&delete_not_before, false)])),
+        )
+        .await;
+        let replay_response = test_router(&replay_server, true)
+            .oneshot(json_request(
+                Method::POST,
+                "/attachment-backups/delete",
+                delete_request_body(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(replay_response.status(), StatusCode::OK);
+        assert_eq!(response_json(replay_response).await, created_body);
+        let replay_requests = replay_server.received_requests().await.unwrap();
+        assert_eq!(replay_requests.len(), 1);
+        assert!(
+            replay_requests
+                .iter()
+                .all(|request| !request.url.path().contains("/storage/v1/"))
+        );
+    }
+
+    #[tokio::test]
+    async fn distinguishes_delete_dependencies_from_generic_conflicts() {
+        let dependency_server = MockServer::start().await;
+        mount_rpc(
+            &dependency_server,
+            "schedule_attachment_backup_deletion",
+            ResponseTemplate::new(200).set_body_json(json!([{
+                "outcome": "dependency_appeared",
+                "object_id": null,
+                "object_key": object_key(),
+                "delete_request_id": DELETE_REQUEST_ID,
+                "delete_fence_id": null,
+                "delete_generation": null,
+                "delete_not_before": null,
+                "was_created": false
+            }])),
+        )
+        .await;
+        let dependency = test_router(&dependency_server, true)
+            .oneshot(json_request(
+                Method::POST,
+                "/attachment-backups/delete",
+                delete_request_body(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(dependency.status(), StatusCode::CONFLICT);
+        assert_eq!(
+            response_json(dependency).await["error"]["code"],
+            "attachment_backup_dependency_appeared"
+        );
+
+        let conflict_server = MockServer::start().await;
+        mount_rpc(
+            &conflict_server,
+            "schedule_attachment_backup_deletion",
+            ResponseTemplate::new(409).set_body_json(json!({
+                "code": "40001",
+                "message": "delete identity changed"
+            })),
+        )
+        .await;
+        let conflict = test_router(&conflict_server, true)
+            .oneshot(json_request(
+                Method::POST,
+                "/attachment-backups/delete",
+                delete_request_body(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(conflict.status(), StatusCode::CONFLICT);
+        assert_eq!(
+            response_json(conflict).await["error"]["code"],
+            "attachment_backup_conflict"
+        );
+    }
+
+    #[tokio::test]
+    async fn cancels_exact_delete_identity_with_a_stable_idempotent_shape() {
+        let created_server = MockServer::start().await;
+        mount_rpc(
+            &created_server,
+            "cancel_attachment_backup_deletion",
+            ResponseTemplate::new(200).set_body_json(json!([{
+                "outcome": "dependency_appeared",
+                "object_key": object_key(),
+                "was_cancelled": true
+            }])),
+        )
+        .await;
+        let created = test_router(&created_server, true)
+            .oneshot(json_request(
+                Method::POST,
+                "/attachment-backups/delete/cancel",
+                delete_request_body(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(created.status(), StatusCode::OK);
+        let created_body = response_json(created).await;
+        assert_eq!(
+            created_body,
+            json!({
+                "objectKey": object_key(),
+                "attachmentRef": ATTACHMENT_REF,
+                "versionRef": VERSION_REF,
+                "deleteRequestId": DELETE_REQUEST_ID
+            })
+        );
+        let requests = created_server.received_requests().await.unwrap();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(
+            requests[0].url.path(),
+            "/rest/v1/rpc/cancel_attachment_backup_deletion"
+        );
+        assert_eq!(
+            serde_json::from_slice::<Value>(&requests[0].body).unwrap(),
+            json!({
+                "p_owner_user_id": OWNER,
+                "p_attachment_ref": ATTACHMENT_REF,
+                "p_version_ref": VERSION_REF,
+                "p_object_key": object_key(),
+                "p_delete_request_id": DELETE_REQUEST_ID
+            })
+        );
+        assert!(
+            requests
+                .iter()
+                .all(|request| !request.url.path().contains("/storage/v1/"))
+        );
+
+        let replay_server = MockServer::start().await;
+        mount_rpc(
+            &replay_server,
+            "cancel_attachment_backup_deletion",
+            ResponseTemplate::new(200).set_body_json(json!([{
+                "outcome": "dependency_appeared",
+                "object_key": object_key(),
+                "was_cancelled": false
+            }])),
+        )
+        .await;
+        let replay = test_router(&replay_server, true)
+            .oneshot(json_request(
+                Method::POST,
+                "/attachment-backups/delete/cancel",
+                delete_request_body(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(replay.status(), StatusCode::OK);
+        assert_eq!(response_json(replay).await, created_body);
+    }
+
+    #[tokio::test]
+    async fn reports_delete_cancellation_after_gc_as_too_late() {
         let server = MockServer::start().await;
         mount_rpc(
             &server,
-            "mark_attachment_backup_deleting_by_key",
-            ResponseTemplate::new(200).set_body_json(json!([{
-                "object_id": OBJECT_ID,
-                "object_key": object_key(),
-                "ciphertext_size_bytes": 1234,
-                "cleanup_not_before": timestamp_after(60 * 60),
-                "was_marked": true
-            }])),
+            "cancel_attachment_backup_deletion",
+            ResponseTemplate::new(409).set_body_json(json!({
+                "code": "55006",
+                "message": "gc already owns the object"
+            })),
         )
         .await;
         let response = test_router(&server, true)
             .oneshot(json_request(
                 Method::POST,
-                "/attachment-backups/delete",
-                json!({ "objectKey": object_key() }),
+                "/attachment-backups/delete/cancel",
+                delete_request_body(),
             ))
             .await
             .unwrap();
-        assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(response_json(response).await["wasMarked"], true);
-        let requests = server.received_requests().await.unwrap();
-        assert_eq!(requests.len(), 1);
-        assert!(!requests[0].url.path().contains("/storage/v1/object/"));
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+        assert_eq!(
+            response_json(response).await["error"]["code"],
+            "attachment_backup_delete_too_late"
+        );
     }
 
     #[tokio::test]
@@ -2286,6 +2690,21 @@ mod tests {
             response_json(non_pro).await["error"]["code"],
             "subscription_required"
         );
+
+        for path in [
+            "/attachment-backups/delete",
+            "/attachment-backups/delete/cancel",
+        ] {
+            let non_pro_delete = test_router(&server, false)
+                .oneshot(json_request(Method::POST, path, delete_request_body()))
+                .await
+                .unwrap();
+            assert_eq!(non_pro_delete.status(), StatusCode::FORBIDDEN);
+            assert_eq!(
+                response_json(non_pro_delete).await["error"]["code"],
+                "subscription_required"
+            );
+        }
 
         let invalid_key = test_router(&server, true)
             .oneshot(json_request(
@@ -2311,11 +2730,32 @@ mod tests {
             .oneshot(json_request(
                 Method::POST,
                 "/attachment-backups/delete",
-                json!({ "objectKey": object_key(), "ownerUserId": "attacker" }),
+                json!({
+                    "objectKey": object_key(),
+                    "attachmentRef": ATTACHMENT_REF,
+                    "versionRef": VERSION_REF,
+                    "deleteRequestId": DELETE_REQUEST_ID,
+                    "ownerUserId": "attacker"
+                }),
             ))
             .await
             .unwrap();
         assert_eq!(unknown_field.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+        let noncanonical_request_id = test_router(&server, true)
+            .oneshot(json_request(
+                Method::POST,
+                "/attachment-backups/delete/cancel",
+                json!({
+                    "objectKey": object_key(),
+                    "attachmentRef": ATTACHMENT_REF,
+                    "versionRef": VERSION_REF,
+                    "deleteRequestId": "{44444444-4444-4444-8444-444444444444}"
+                }),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(noncanonical_request_id.status(), StatusCode::BAD_REQUEST);
         assert!(server.received_requests().await.unwrap().is_empty());
     }
 

@@ -45,12 +45,17 @@ const DELETE_PREFLIGHT_SELECT: &str = "SELECT
    attachment.size_bytes AS attachment_size_bytes,
    attachment.cloud_object_key AS attachment_cloud_object_key,
    attachment.cloud_sync_enabled,
-   attachment.deleted_at
+   attachment.deleted_at,
+   COALESCE(local.availability, 'absent') AS local_availability
  FROM attachment_transfer_jobs AS job
  LEFT JOIN session_attachments AS attachment
    ON attachment.id = job.attachment_id
   AND attachment.session_id = job.session_id
   AND attachment.workspace_id = job.workspace_id
+ LEFT JOIN attachment_local_state AS local
+   ON local.attachment_id = attachment.id
+  AND local.session_id = attachment.session_id
+  AND local.relative_path = attachment.relative_path
  WHERE job.id = ? AND job.attempt_count = ?
    AND job.direction = 'delete' AND job.phase = 'finalizing'
  LIMIT 1";
@@ -122,6 +127,7 @@ struct DeleteSourcePreflight {
     attachment_cloud_object_key: Option<String>,
     cloud_sync_enabled: Option<i64>,
     deleted_at: Option<String>,
+    local_availability: String,
 }
 
 struct CacheFileGuard {
@@ -219,14 +225,16 @@ pub async fn describe_upload(
     let plaintext = plaintext_metadata(&record.expected_sha256, record.expected_size_bytes)?;
     let key = workspace_key(state, &record.workspace_id)?;
 
+    let (attachment_ref, version_ref) = attachment_backup_refs(
+        &key,
+        &record.workspace_id,
+        &record.attachment_id,
+        &plaintext,
+    )?;
+
     Ok(UploadDescriptor {
-        attachment_ref: key
-            .blind_attachment_backup_ref(&record.workspace_id, &record.attachment_id)?,
-        version_ref: key.blind_attachment_backup_version_ref(
-            &record.workspace_id,
-            &record.attachment_id,
-            &plaintext,
-        )?,
+        attachment_ref,
+        version_ref,
         ciphertext_size_bytes: key.attachment_blob_ciphertext_size(
             &record.workspace_id,
             &record.attachment_id,
@@ -590,6 +598,7 @@ pub async fn prepare_delete_guard<R: Runtime>(
     operation: &DownloadOperation,
     job_id: &str,
     attempt_count: i64,
+    create_guard: bool,
 ) -> Result<PreparedDeleteGuard> {
     operation.ensure_active()?;
     validate_opaque_id(job_id)?;
@@ -602,22 +611,30 @@ pub async fn prepare_delete_guard<R: Runtime>(
         .fetch_optional(state.pool())
         .await?
         .ok_or(Error::InvalidTransferState)?;
-    let expected_size = valid_plaintext_size(record.expected_size_bytes)?;
     if !valid_sha256(&record.expected_sha256) || record.object_key.is_empty() {
         return Err(Error::InvalidMetadata);
+    }
+    let expected = plaintext_metadata(&record.expected_sha256, record.expected_size_bytes)?;
+    let expected_size = expected.size_bytes;
+    let key = workspace_key(state, &record.workspace_id)?;
+    let (attachment_ref, version_ref) =
+        attachment_backup_refs(&key, &record.workspace_id, &record.attachment_id, &expected)?;
+    let prepared = |should_delete, guard_id| PreparedDeleteGuard {
+        should_delete,
+        guard_id,
+        attachment_ref: attachment_ref.clone(),
+        version_ref: version_ref.clone(),
+    };
+    if !create_guard {
+        return Ok(prepared(false, String::new()));
     }
     let Some(attachment) = delete_source_attachment(&record)? else {
         clear_delete_guard_link(state.pool(), operation, job_id, attempt_count, &record).await?;
         cleanup_linked_delete_guard(app, &record.cache_id).await;
-        return Ok(PreparedDeleteGuard {
-            should_delete: true,
-            guard_id: String::new(),
-        });
+        return Ok(prepared(true, String::new()));
     };
 
     let object_id = private_object_id(&record.object_key)?;
-    let key = workspace_key(state, &record.workspace_id)?;
-    let expected = plaintext_metadata(&record.expected_sha256, record.expected_size_bytes)?;
     let context = AttachmentBlobContext::new(
         record.workspace_id.clone(),
         record.attachment_id.clone(),
@@ -637,10 +654,7 @@ pub async fn prepare_delete_guard<R: Runtime>(
         .await?
         {
             operation.ensure_active()?;
-            return Ok(PreparedDeleteGuard {
-                should_delete: true,
-                guard_id: record.cache_id,
-            });
+            return Ok(prepared(true, record.cache_id));
         }
     }
 
@@ -650,10 +664,7 @@ pub async fn prepare_delete_guard<R: Runtime>(
             clear_delete_guard_link(state.pool(), operation, job_id, attempt_count, &record)
                 .await?;
             cleanup_linked_delete_guard(app, &record.cache_id).await;
-            return Ok(PreparedDeleteGuard {
-                should_delete: false,
-                guard_id: String::new(),
-            });
+            return Ok(prepared(false, String::new()));
         }
         Err(error) => return Err(error),
     };
@@ -667,10 +678,7 @@ pub async fn prepare_delete_guard<R: Runtime>(
     {
         clear_delete_guard_link(state.pool(), operation, job_id, attempt_count, &record).await?;
         cleanup_linked_delete_guard(app, &record.cache_id).await;
-        return Ok(PreparedDeleteGuard {
-            should_delete: false,
-            guard_id: String::new(),
-        });
+        return Ok(prepared(false, String::new()));
     }
     operation.ensure_active()?;
 
@@ -696,10 +704,7 @@ pub async fn prepare_delete_guard<R: Runtime>(
             clear_delete_guard_link(state.pool(), operation, job_id, attempt_count, &record)
                 .await?;
             cleanup_linked_delete_guard(app, &record.cache_id).await;
-            return Ok(PreparedDeleteGuard {
-                should_delete: false,
-                guard_id: String::new(),
-            });
+            return Ok(prepared(false, String::new()));
         }
         Err(error) => return Err(error),
     };
@@ -757,10 +762,7 @@ pub async fn prepare_delete_guard<R: Runtime>(
     }
     guard.disarm();
     cleanup_linked_delete_guard(app, &record.cache_id).await;
-    Ok(PreparedDeleteGuard {
-        should_delete: true,
-        guard_id,
-    })
+    Ok(prepared(true, guard_id))
 }
 
 pub async fn commit_delete_guard<R: Runtime>(
@@ -865,6 +867,9 @@ pub async fn commit_delete_guard<R: Runtime>(
             .await?
             .ok_or(Error::DeleteGuardChanged)?;
         if !same_delete_job(&record, &current) || current.cache_id != guard_id {
+            return Err(Error::DeleteGuardChanged);
+        }
+        if exact_delete_dependency(&current)? {
             return Err(Error::DeleteGuardChanged);
         }
         let current_attachment = delete_source_attachment(&current)?;
@@ -1629,6 +1634,13 @@ fn delete_source_attachment(record: &DeleteSourcePreflight) -> Result<Option<Loc
     }))
 }
 
+fn exact_delete_dependency(record: &DeleteSourcePreflight) -> Result<bool> {
+    if delete_source_attachment(record)?.is_none() {
+        return Ok(false);
+    }
+    Ok(record.cloud_sync_enabled == Some(1) || record.local_availability != "present")
+}
+
 fn same_delete_job(left: &DeleteSourcePreflight, right: &DeleteSourcePreflight) -> bool {
     left.attachment_id == right.attachment_id
         && left.session_id == right.session_id
@@ -1866,6 +1878,18 @@ fn plaintext_metadata(sha256: &str, size_bytes: i64) -> Result<AttachmentBlobPla
         return Err(Error::InvalidMetadata);
     }
     AttachmentBlobPlaintextMetadata::from_hex(size_bytes, sha256).map_err(Into::into)
+}
+
+fn attachment_backup_refs(
+    key: &WorkspaceKey,
+    workspace_id: &str,
+    attachment_id: &str,
+    plaintext: &AttachmentBlobPlaintextMetadata,
+) -> Result<(String, String)> {
+    Ok((
+        key.blind_attachment_backup_ref(workspace_id, attachment_id)?,
+        key.blind_attachment_backup_version_ref(workspace_id, attachment_id, plaintext)?,
+    ))
 }
 
 fn valid_plaintext_size(value: i64) -> Result<u64> {
@@ -2928,6 +2952,7 @@ mod tests {
             attachment_cloud_object_key: Some("owner/object.anb1".to_string()),
             cloud_sync_enabled: Some(cloud_sync_enabled),
             deleted_at: None,
+            local_availability: "present".to_string(),
         }
     }
 
@@ -2971,6 +2996,39 @@ mod tests {
         let mut other_object = delete_source_record(0);
         other_object.attachment_cloud_object_key = Some("owner/other.anb1".to_string());
         assert!(delete_source_attachment(&other_object).unwrap().is_none());
+    }
+
+    #[test]
+    fn exact_remote_dependency_blocks_delete_commit() {
+        let mut enabled = delete_source_record(1);
+        assert!(exact_delete_dependency(&enabled).unwrap());
+
+        enabled.cloud_sync_enabled = Some(0);
+        enabled.local_availability = "absent".to_string();
+        assert!(exact_delete_dependency(&enabled).unwrap());
+
+        enabled.local_availability = "present".to_string();
+        assert!(!exact_delete_dependency(&enabled).unwrap());
+
+        enabled.attachment_cloud_object_key = Some("owner/newer.anb1".to_string());
+        assert!(!exact_delete_dependency(&enabled).unwrap());
+    }
+
+    #[test]
+    fn delete_backup_refs_are_stable_for_persisted_job_metadata() {
+        let key = hypr_e2ee::RecoveryKey::generate()
+            .unwrap()
+            .workspace_key("workspace-1")
+            .unwrap();
+        let expected = plaintext_metadata(&"a".repeat(64), 42).unwrap();
+        let first = attachment_backup_refs(&key, "workspace-1", "attachment-1", &expected).unwrap();
+        let retry = attachment_backup_refs(&key, "workspace-1", "attachment-1", &expected).unwrap();
+        assert_eq!(first, retry);
+
+        let newer = plaintext_metadata(&"b".repeat(64), 42).unwrap();
+        let newer = attachment_backup_refs(&key, "workspace-1", "attachment-1", &newer).unwrap();
+        assert_eq!(first.0, newer.0);
+        assert_ne!(first.1, newer.1);
     }
 
     #[test]

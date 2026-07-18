@@ -85,6 +85,7 @@ export const attachmentTransferStore = {
   setDownloadGrant,
   markPhase,
   prepareDelete: prepareAttachmentTransferDelete,
+  completeCancelledDelete: completeCancelledAttachmentTransferDelete,
   deferDeleteForPreservation: deferAttachmentTransferDeleteForPreservation,
   completeUpload,
   completeWithoutTransfer,
@@ -402,59 +403,64 @@ export function markPhase(
   return updateJob(job, phase, {});
 }
 
-export async function prepareAttachmentTransferDelete(
-  job: AttachmentTransferJob,
-): Promise<boolean> {
-  const now = new Date().toISOString();
-  const deleteIntent = `(
-    NOT EXISTS (
-      SELECT 1
-      FROM session_attachments AS attachment
-      WHERE attachment.id = ?
-        AND attachment.session_id = ?
-        AND attachment.workspace_id = ?
-    )
-    OR EXISTS (
-      SELECT 1
-      FROM session_attachments AS attachment
-      LEFT JOIN attachment_local_state AS local
-        ON local.attachment_id = attachment.id
-      WHERE attachment.id = ?
-        AND attachment.session_id = ?
-        AND attachment.workspace_id = ?
-        AND (
-          attachment.deleted_at IS NOT NULL
-          OR (
-            attachment.cloud_object_key = ?
-            AND attachment.cloud_sync_enabled = 0
-            AND COALESCE(local.availability, 'absent') = 'present'
-          )
-          OR (
-            attachment.cloud_object_key <> ?
-            AND (
-              attachment.cloud_sync_enabled = 0
-              OR attachment.cloud_object_key <> ''
-              OR attachment.sha256 <> ?
-              OR attachment.size_bytes <> ?
-            )
-          )
-        )
-    )
-  )
-  `;
+function deleteIntent(job: AttachmentTransferJob) {
   const attachmentIdentityParams = [
     job.attachmentId,
     job.sessionId,
     job.workspaceId,
   ];
-  const intentParams = [
-    ...attachmentIdentityParams,
-    ...attachmentIdentityParams,
-    job.objectKey,
-    job.objectKey,
-    job.expectedSha256,
-    job.expectedSizeBytes,
-  ];
+  return {
+    sql: `(
+      NOT EXISTS (
+        SELECT 1
+        FROM session_attachments AS attachment
+        WHERE attachment.id = ?
+          AND attachment.session_id = ?
+          AND attachment.workspace_id = ?
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM session_attachments AS attachment
+        LEFT JOIN attachment_local_state AS local
+          ON local.attachment_id = attachment.id
+        WHERE attachment.id = ?
+          AND attachment.session_id = ?
+          AND attachment.workspace_id = ?
+          AND (
+            attachment.deleted_at IS NOT NULL
+            OR (
+              attachment.cloud_object_key = ?
+              AND attachment.cloud_sync_enabled = 0
+              AND COALESCE(local.availability, 'absent') = 'present'
+            )
+            OR (
+              attachment.cloud_object_key <> ?
+              AND (
+                attachment.cloud_sync_enabled = 0
+                OR attachment.cloud_object_key <> ''
+                OR attachment.sha256 <> ?
+                OR attachment.size_bytes <> ?
+              )
+            )
+          )
+      )
+    )`,
+    params: [
+      ...attachmentIdentityParams,
+      ...attachmentIdentityParams,
+      job.objectKey,
+      job.objectKey,
+      job.expectedSha256,
+      job.expectedSizeBytes,
+    ],
+  };
+}
+
+export async function prepareAttachmentTransferDelete(
+  job: AttachmentTransferJob,
+): Promise<boolean> {
+  const now = new Date().toISOString();
+  const intent = deleteIntent(job);
   const [prepared = 0, superseded = 0] = await enqueueDatabaseWrite(
     "attachment-transfers",
     () =>
@@ -467,9 +473,74 @@ export async function prepareAttachmentTransferDelete(
               AND attempt_count = ?
               AND direction = 'delete'
               AND phase IN (${ACTIVE_PHASES})
-              AND ${deleteIntent}
+              AND ${intent.sql}
           `,
-          params: [now, job.id, job.attemptCount, ...intentParams],
+          params: [now, job.id, job.attemptCount, ...intent.params],
+        },
+        {
+          sql: `
+            UPDATE attachment_transfer_jobs
+            SET phase = 'finalizing', updated_at = ?
+            WHERE id = ?
+              AND attempt_count = ?
+              AND direction = 'delete'
+              AND phase IN (${ACTIVE_PHASES})
+              AND NOT ${intent.sql}
+          `,
+          params: [now, job.id, job.attemptCount, ...intent.params],
+        },
+      ]),
+  );
+  if (prepared === 1 && superseded === 0) return true;
+  if (prepared === 0 && superseded === 1) return false;
+  throw new Error("Attachment transfer is no longer active");
+}
+
+export async function completeCancelledAttachmentTransferDelete(
+  job: AttachmentTransferJob,
+): Promise<void> {
+  const now = new Date().toISOString();
+  const intent = deleteIntent(job);
+  const replacementId = id();
+  const [completed = 0, restarted = 0, replacement = 0] =
+    await enqueueDatabaseWrite("attachment-transfers", () =>
+      executeTransaction([
+        {
+          sql: `
+            UPDATE attachment_transfer_jobs
+            SET
+              phase = 'completed',
+              cache_id = '',
+              ciphertext_sha256 = '',
+              ciphertext_size_bytes = 0,
+              completed_at = ?,
+              updated_at = ?,
+              last_error = ''
+            WHERE id = ?
+              AND attempt_count = ?
+              AND direction = 'delete'
+              AND phase = 'finalizing'
+              AND attachment_id = ?
+              AND session_id = ?
+              AND workspace_id = ?
+              AND expected_sha256 = ?
+              AND expected_size_bytes = ?
+              AND object_key = ?
+              AND NOT ${intent.sql}
+          `,
+          params: [
+            now,
+            now,
+            job.id,
+            job.attemptCount,
+            job.attachmentId,
+            job.sessionId,
+            job.workspaceId,
+            job.expectedSha256,
+            job.expectedSizeBytes,
+            job.objectKey,
+            ...intent.params,
+          ],
         },
         {
           sql: `
@@ -485,16 +556,82 @@ export async function prepareAttachmentTransferDelete(
             WHERE id = ?
               AND attempt_count = ?
               AND direction = 'delete'
-              AND phase IN (${ACTIVE_PHASES})
-              AND NOT ${deleteIntent}
+              AND phase = 'finalizing'
+              AND attachment_id = ?
+              AND session_id = ?
+              AND workspace_id = ?
+              AND expected_sha256 = ?
+              AND expected_size_bytes = ?
+              AND object_key = ?
+              AND ${intent.sql}
           `,
-          params: [now, now, job.id, job.attemptCount, ...intentParams],
+          params: [
+            now,
+            now,
+            job.id,
+            job.attemptCount,
+            job.attachmentId,
+            job.sessionId,
+            job.workspaceId,
+            job.expectedSha256,
+            job.expectedSizeBytes,
+            job.objectKey,
+            ...intent.params,
+          ],
+        },
+        {
+          sql: `
+            INSERT INTO attachment_transfer_jobs (
+              id,
+              attachment_id,
+              session_id,
+              workspace_id,
+              direction,
+              expected_sha256,
+              expected_size_bytes,
+              object_key
+            )
+            SELECT ?, job.attachment_id, job.session_id, job.workspace_id,
+              'delete', job.expected_sha256, job.expected_size_bytes,
+              job.object_key
+            FROM attachment_transfer_jobs AS job
+            WHERE job.id = ?
+              AND job.attempt_count = ?
+              AND job.direction = 'delete'
+              AND job.phase = 'completed'
+              AND job.completed_at = ?
+              AND job.attachment_id = ?
+              AND job.session_id = ?
+              AND job.workspace_id = ?
+              AND job.expected_sha256 = ?
+              AND job.expected_size_bytes = ?
+              AND job.object_key = ?
+              AND ${intent.sql}
+          `,
+          params: [
+            replacementId,
+            job.id,
+            job.attemptCount,
+            now,
+            job.attachmentId,
+            job.sessionId,
+            job.workspaceId,
+            job.expectedSha256,
+            job.expectedSizeBytes,
+            job.objectKey,
+            ...intent.params,
+          ],
         },
       ]),
-  );
-  if (prepared === 1 && superseded === 0) return true;
-  if (prepared === 0 && superseded === 1) return false;
-  throw new Error("Attachment transfer is no longer active");
+    );
+  if (
+    !(
+      (completed === 1 && restarted === 0 && replacement === 0) ||
+      (completed === 0 && restarted === 1 && replacement === 1)
+    )
+  ) {
+    throw new Error("Attachment transfer is no longer cancelled");
+  }
 }
 
 export async function completeUpload(

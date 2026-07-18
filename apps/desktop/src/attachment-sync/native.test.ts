@@ -51,7 +51,12 @@ describe("native attachment operation cancellation", () => {
     });
     mocks.prepareDeleteGuard.mockResolvedValue({
       status: "ok",
-      data: { shouldDelete: true, guardId: "guard-1" },
+      data: {
+        shouldDelete: true,
+        guardId: "guard-1",
+        attachmentRef: "attachment-ref",
+        versionRef: "version-ref",
+      },
     });
     mocks.commitDeleteGuard.mockResolvedValue({
       status: "ok",
@@ -65,14 +70,20 @@ describe("native attachment operation cancellation", () => {
 
   it("registers the exact delete attempt while preparing its guard", async () => {
     await expect(
-      attachmentTransferNative.prepareDeleteGuard("job-1", 7),
-    ).resolves.toEqual({ shouldDelete: true, guardId: "guard-1" });
+      attachmentTransferNative.prepareDeleteGuard("job-1", 7, true),
+    ).resolves.toEqual({
+      shouldDelete: true,
+      guardId: "guard-1",
+      attachmentRef: "attachment-ref",
+      versionRef: "version-ref",
+    });
 
     const operationId = mocks.beginSharedUploadOperation.mock.calls[0]?.[0];
     expect(mocks.prepareDeleteGuard).toHaveBeenCalledWith(
       operationId,
       "job-1",
       7,
+      true,
     );
   });
 
