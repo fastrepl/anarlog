@@ -13,9 +13,9 @@ if (!command) {
   process.exit(1);
 }
 
-if (command === "run") {
+if (command === "run" || command === "build") {
   const cargoArgs = [];
-  if (process.platform === "darwin") {
+  if (command === "run" && process.platform === "darwin") {
     cargoArgs.push(
       "--config",
       `target.'cfg(target_os = "macos")'.runner = [${JSON.stringify(scriptPath)}]`,
