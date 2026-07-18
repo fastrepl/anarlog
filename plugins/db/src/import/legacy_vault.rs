@@ -1548,6 +1548,65 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn canonical_metadata_replaces_a_recovered_placeholder() {
+        let db = test_db().await;
+        let dir = tempfile::tempdir().unwrap();
+        let session_dir = dir.path().join("sessions/session-1");
+        std::fs::create_dir_all(&session_dir).unwrap();
+        std::fs::write(
+            session_dir.join("transcript.json"),
+            r#"{"transcripts":[{"id":"transcript-1","user_id":"transcript-user","session_id":"session-1","created_at":"2026-07-11T09:30:00Z","words":[{"text":"hello"}],"speaker_hints":[]}]}"#,
+        )
+        .unwrap();
+        import_legacy_vault(db.pool(), dir.path(), false)
+            .await
+            .unwrap();
+        std::fs::write(
+            session_dir.join("_meta.json"),
+            r#"{"id":"session-1","user_id":"canonical-user","created_at":"2026-07-10T08:00:00Z","title":"Canonical title"}"#,
+        )
+        .unwrap();
+
+        let run_id = import_legacy_vault(db.pool(), dir.path(), false)
+            .await
+            .unwrap();
+
+        let session: (String, String, String, String) = sqlx::query_as(
+            "SELECT owner_user_id, title, created_at, metadata_json FROM sessions WHERE id = 'session-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(
+            session,
+            (
+                "canonical-user".to_string(),
+                "Canonical title".to_string(),
+                "2026-07-10T08:00:00Z".to_string(),
+                "{}".to_string(),
+            )
+        );
+        let target_status: String = sqlx::query_scalar(
+            "SELECT status FROM migration_import_targets WHERE run_id = ? AND source_kind = 'session_meta'",
+        )
+        .bind(&run_id)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(target_status, "filled_from_legacy");
+        assert_eq!(
+            sqlx::query_scalar::<_, String>(
+                "SELECT status FROM migration_import_runs WHERE id = ?",
+            )
+            .bind(&run_id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap(),
+            "completed"
+        );
+    }
+
+    #[tokio::test]
     async fn deleted_session_is_not_reused_for_an_orphan_transcript() {
         let db = test_db().await;
         let dir = tempfile::tempdir().unwrap();
@@ -1588,15 +1647,21 @@ mod tests {
                 .fetch_one(db.pool())
                 .await
                 .unwrap();
-        assert_eq!(run, ("completed_with_issues".to_string(), 1));
-        let transcript_status: String = sqlx::query_scalar(
-            "SELECT status FROM migration_import_targets WHERE run_id = ? AND table_name = 'transcripts'",
+        assert_eq!(run, ("completed_with_issues".to_string(), 2));
+        let target_statuses: Vec<(String, String)> = sqlx::query_as(
+            "SELECT table_name, status FROM migration_import_targets WHERE run_id = ? ORDER BY table_name",
         )
         .bind(&run_id)
-        .fetch_one(db.pool())
+        .fetch_all(db.pool())
         .await
         .unwrap();
-        assert_eq!(transcript_status, "missing_dependency");
+        assert_eq!(
+            target_statuses,
+            vec![
+                ("sessions".to_string(), "missing_dependency".to_string()),
+                ("transcripts".to_string(), "missing_dependency".to_string()),
+            ]
+        );
         assert!(
             !sqlx::query_scalar::<_, bool>(
                 "SELECT parity_verified FROM storage_migration_state WHERE id = 'legacy_v1'",

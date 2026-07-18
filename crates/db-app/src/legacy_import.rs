@@ -1030,6 +1030,14 @@ async fn import_target_exists(
     transaction: &mut Transaction<'_, Sqlite>,
     row: &LegacyImportRow,
 ) -> Result<bool, sqlx::Error> {
+    if matches!(row, LegacyImportRow::Session(_)) {
+        return sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM sessions WHERE id = ? AND deleted_at IS NULL)",
+        )
+        .bind(row.id())
+        .fetch_one(&mut **transaction)
+        .await;
+    }
     let query = format!(
         "SELECT EXISTS(SELECT 1 FROM {} WHERE id = ?)",
         row.table_name()
@@ -1045,6 +1053,51 @@ async fn reconcile_content_conflict(
     row: &LegacyImportRow,
 ) -> Result<Option<InsertOutcome>, sqlx::Error> {
     match row {
+        LegacyImportRow::Session(row) => {
+            if row.recovery_status.is_some() {
+                return Ok(None);
+            }
+            let Some((metadata_json, deleted_at)) = sqlx::query_as::<_, (String, Option<String>)>(
+                "SELECT metadata_json, deleted_at FROM sessions WHERE id = ?",
+            )
+            .bind(&row.id)
+            .fetch_optional(&mut **transaction)
+            .await?
+            else {
+                return Ok(None);
+            };
+            if deleted_at.is_some() || !is_recovered_session_placeholder(&metadata_json) {
+                return Ok(None);
+            }
+
+            let result = sqlx::query(
+                "UPDATE sessions
+                 SET owner_user_id = ?, title = ?, created_at = ?, updated_at = ?,
+                     started_at = ?, ended_at = ?, event_id = ?, external_event_id = ?,
+                     external_provider = ?, series_id = ?, event_json = ?, metadata_json = ?,
+                     folder_path = ?
+                 WHERE id = ? AND metadata_json IS ? AND deleted_at IS NULL",
+            )
+            .bind(&row.owner_user_id)
+            .bind(&row.title)
+            .bind(&row.created_at)
+            .bind(&row.created_at)
+            .bind(&row.started_at)
+            .bind(&row.ended_at)
+            .bind(&row.event_id)
+            .bind(&row.external_event_id)
+            .bind(&row.external_provider)
+            .bind(&row.series_id)
+            .bind(&row.event_json)
+            .bind(&row.metadata_json)
+            .bind(&row.folder_path)
+            .bind(&row.id)
+            .bind(&metadata_json)
+            .execute(&mut **transaction)
+            .await?;
+
+            Ok((result.rows_affected() == 1).then_some(InsertOutcome::FilledFromLegacy))
+        }
         LegacyImportRow::Document(row) => {
             let Some((session_id, title, body_format, body, deleted_at)) =
                 sqlx::query_as::<_, (String, String, String, String, Option<String>)>(
@@ -1301,6 +1354,19 @@ fn json_payloads_are_equivalent(left: &str, right: &str) -> bool {
         (Ok(left), Ok(right)) => left == right,
         _ => left == right,
     }
+}
+
+fn is_recovered_session_placeholder(metadata_json: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(metadata_json)
+        .ok()
+        .and_then(|metadata| {
+            metadata
+                .get("legacy_recovery")?
+                .get("reason")?
+                .as_str()
+                .map(|reason| reason == "missing_session_metadata")
+        })
+        .unwrap_or(false)
 }
 
 async fn row_matches_existing(
