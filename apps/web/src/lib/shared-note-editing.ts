@@ -40,7 +40,7 @@ export function resolveSharedNoteViewerAuthorization(
 ): SharedNoteViewerAuthorization {
   return {
     note,
-    state: canEditSharedNoteOnWeb(note) ? "ready" : "access_changed",
+    state: note?.capability === "editor" ? "ready" : "access_changed",
   };
 }
 

@@ -79,6 +79,13 @@ test("restores confirmed edit access without requiring a version increase", () =
     }).state,
     "access_changed",
   );
+  assert.equal(
+    resolveSharedNoteViewerAuthorization({
+      ...refreshed,
+      webEditable: false,
+    }).state,
+    "ready",
+  );
 });
 
 test("shows the preparation message only to authenticated editors", () => {
