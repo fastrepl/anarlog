@@ -101,6 +101,7 @@ mod test {
         impl ScopedStoreKey for TestKey {}
 
         let scoped_store = app.store2().scoped_store::<TestKey>("test")?;
+        scoped_store.clear()?;
         assert!(scoped_store.get::<String>(TestKey::KeyA)?.is_none());
 
         scoped_store.set(TestKey::KeyA, "test".to_string())?;
