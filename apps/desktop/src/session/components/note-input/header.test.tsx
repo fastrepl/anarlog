@@ -30,6 +30,7 @@ const hoisted = vi.hoisted(() => ({
   deleteRecording: vi.fn(),
   activeTemplateTitle: "Customer Call",
   audioExists: true,
+  audioExistsResolved: true,
   hasTranscript: true,
   liveSegments: [] as unknown[],
   liveSessionId: null as string | null,
@@ -134,6 +135,7 @@ vi.mock("@hypr/ui/components/ui/dancing-sticks", () => ({
 vi.mock("~/audio-player", () => ({
   useAudioPlayer: () => ({
     audioExists: hoisted.audioExists,
+    audioExistsResolved: hoisted.audioExistsResolved,
     deleteRecording: hoisted.deleteRecording,
     isDeletingRecording: hoisted.isDeletingRecording,
   }),
@@ -320,6 +322,7 @@ describe("Header", () => {
     hoisted.deleteRecording.mockReset();
     hoisted.activeTemplateTitle = "Customer Call";
     hoisted.audioExists = true;
+    hoisted.audioExistsResolved = true;
     hoisted.hasTranscript = true;
     hoisted.liveSegments = [];
     hoisted.liveSessionId = null;
@@ -597,6 +600,60 @@ describe("Header", () => {
     expect(hoisted.uploadAudio).toHaveBeenCalledWith({
       preserveSessionDate: true,
     });
+  });
+
+  it.each(["active", "finalizing", "running_batch"])(
+    "hides re-transcription actions while the session is %s",
+    (sessionMode) => {
+      hoisted.audioExists = false;
+      hoisted.sessionMode = sessionMode;
+
+      render(
+        <Header
+          sessionId="session-1"
+          editorTabs={[
+            { type: "enhanced", id: "note-1" },
+            { type: "raw" },
+            { type: "transcript" },
+          ]}
+          currentTab={{ type: "transcript" }}
+          handleTabChange={vi.fn()}
+        />,
+      );
+
+      expect(
+        findContextMenu("copy-transcript-session-1").map((item) =>
+          "text" in item ? item.text : "separator",
+        ),
+      ).toEqual(["Copy"]);
+    },
+  );
+
+  it.each([
+    ["no stored transcript", { hasTranscript: false }],
+    ["audio lookup is pending or failed", { audioExistsResolved: false }],
+  ])("hides replacement upload when %s", (_label, state) => {
+    hoisted.audioExists = false;
+    Object.assign(hoisted, state);
+
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={[
+          { type: "enhanced", id: "note-1" },
+          { type: "raw" },
+          { type: "transcript" },
+        ]}
+        currentTab={{ type: "transcript" }}
+        handleTabChange={vi.fn()}
+      />,
+    );
+
+    expect(
+      findContextMenu("copy-transcript-session-1").map((item) =>
+        "text" in item ? item.text : "separator",
+      ),
+    ).toEqual(["Copy"]);
   });
 
   it("replaces the current enhanced note when changing templates", async () => {

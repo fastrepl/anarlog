@@ -77,6 +77,7 @@ interface AudioPlayerContextValue {
   stop: () => void;
   seek: (sec: number) => void;
   audioExists: boolean;
+  audioExistsResolved: boolean;
   playbackRate: number;
   setPlaybackRate: (rate: number) => void;
   deleteRecording: () => Promise<void>;
@@ -98,7 +99,7 @@ export function useAudioTime(): TimeSnapshot {
   return useSyncExternalStore(timeStore.subscribe, timeStore.getSnapshot);
 }
 
-export function useAudioExists(sessionId: string): boolean {
+function useAudioExistence(sessionId: string) {
   const audioExists = useQuery({
     queryKey: ["audio", sessionId, "exist"],
     queryFn: () => fsSyncCommands.audioExist(sessionId),
@@ -110,7 +111,14 @@ export function useAudioExists(sessionId: string): boolean {
     },
   });
 
-  return audioExists.data ?? false;
+  return {
+    audioExists: audioExists.data ?? false,
+    audioExistsResolved: audioExists.isSuccess,
+  };
+}
+
+export function useAudioExists(sessionId: string): boolean {
+  return useAudioExistence(sessionId).audioExists;
 }
 
 export function AudioPlayerProvider({
@@ -130,7 +138,8 @@ export function AudioPlayerProvider({
   const [playbackRate, setPlaybackRateState] = useState(1);
   const timeStoreRef = useRef(new TimeStore());
   const stopRequestedRef = useRef(false);
-  const audioExistsValue = useAudioExists(sessionId);
+  const { audioExists: audioExistsValue, audioExistsResolved } =
+    useAudioExistence(sessionId);
 
   const registerContainer = useCallback((el: HTMLDivElement | null) => {
     setContainer((prev) => (prev === el ? prev : el));
@@ -349,6 +358,7 @@ export function AudioPlayerProvider({
       stop,
       seek,
       audioExists: audioExistsValue,
+      audioExistsResolved,
       playbackRate,
       setPlaybackRate,
       deleteRecording: deleteRecordingMutation.mutateAsync,
@@ -364,6 +374,7 @@ export function AudioPlayerProvider({
       stop,
       seek,
       audioExistsValue,
+      audioExistsResolved,
       playbackRate,
       setPlaybackRate,
       deleteRecordingMutation.mutateAsync,

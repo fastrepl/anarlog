@@ -34,7 +34,10 @@ import {
   formatTranscriptExportSegments,
 } from "~/session/components/note-input/transcript/export-data";
 import { useSessionTranscriptRenderData } from "~/session/components/note-input/transcript/render-request-hooks";
-import { useCanShowTranscript } from "~/session/components/shared";
+import {
+  useCanShowTranscript,
+  useHasTranscript,
+} from "~/session/components/shared";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
 import {
   deleteEnhancedNote,
@@ -750,8 +753,14 @@ function HeaderViewTranscriptActive({
   const { uploadAudio } = useUploadFile(sessionId);
   const { request: transcriptExportRequest } =
     useSessionTranscriptRenderData(sessionId);
-  const { audioExists, deleteRecording, isDeletingRecording } =
-    AudioPlayer.useAudioPlayer();
+  const {
+    audioExists,
+    audioExistsResolved,
+    deleteRecording,
+    isDeletingRecording,
+  } = AudioPlayer.useAudioPlayer();
+  const hasTranscript = useHasTranscript(sessionId);
+  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const canCopyTranscript = Boolean(transcriptExportRequest);
   const handleCopyTranscript = useCallback(async () => {
     if (!transcriptExportRequest) {
@@ -791,17 +800,23 @@ function HeaderViewTranscriptActive({
       },
     ];
 
-    items.push({
-      id: `regenerate-transcript-${sessionId}`,
-      text: audioExists ? "Re-transcribe" : "Upload audio to re-transcribe",
-      action: () => {
-        if (audioExists) {
-          void regenerate();
-        } else {
-          uploadAudio({ preserveSessionDate: true });
-        }
-      },
-    });
+    if (
+      audioExistsResolved &&
+      sessionMode === "inactive" &&
+      (audioExists || hasTranscript)
+    ) {
+      items.push({
+        id: `regenerate-transcript-${sessionId}`,
+        text: audioExists ? "Re-transcribe" : "Upload audio to re-transcribe",
+        action: () => {
+          if (audioExists) {
+            void regenerate();
+          } else {
+            uploadAudio({ preserveSessionDate: true });
+          }
+        },
+      });
+    }
 
     if (audioExists) {
       items.push({
@@ -815,11 +830,14 @@ function HeaderViewTranscriptActive({
     return items;
   }, [
     audioExists,
+    audioExistsResolved,
     canCopyTranscript,
     handleCopyTranscript,
     handleDeleteRecording,
+    hasTranscript,
     isDeletingRecording,
     regenerate,
+    sessionMode,
     sessionId,
     uploadAudio,
   ]);

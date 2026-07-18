@@ -57,18 +57,20 @@ export function OverflowButton({
     sessionId,
     currentView,
   );
-  const { audioExists } = useAudioPlayer();
+  const { audioExists, audioExistsResolved } = useAudioPlayer();
   const { uploadAudio, uploadTranscript } = useUploadFile(sessionId);
   const regenerateTranscript = useRegenerateTranscript(sessionId);
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const floatingBarEnabled = useConfigValue("floating_bar_enabled");
   const isMeetingInProgress =
     sessionMode === "active" || sessionMode === "finalizing";
-  const isRetranscribing = sessionMode === "running_batch";
   const showListeningAction = allowListening;
   const showRetranscribeAction =
-    (audioExists || hasTranscript) && !isMeetingInProgress;
+    audioExistsResolved &&
+    sessionMode === "inactive" &&
+    (audioExists || hasTranscript);
   const showUploadActions =
+    audioExistsResolved &&
     !audioExists &&
     !hasTranscript &&
     !currentNoteHasContent &&
@@ -147,7 +149,6 @@ export function OverflowButton({
             {showRetranscribeAction && (
               <DropdownMenuItem
                 onClick={handleRetranscribe}
-                disabled={isRetranscribing}
                 className="cursor-pointer"
               >
                 <RefreshCwIcon />
