@@ -774,6 +774,8 @@ mod tests {
     #[tokio::test]
     async fn e2ee_order_migration_backfills_the_canonical_payload_locally() {
         let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
+        let payload = "ciphertext";
+        let payload_hash = hypr_e2ee::payload_hash(payload);
         sqlx::raw_sql(include_str!(
             "../migrations/20260717120000_e2ee_replica.sql"
         ))
@@ -782,8 +784,9 @@ mod tests {
         .unwrap();
         sqlx::query(
             "INSERT INTO e2ee_records (id, workspace_id, payload)
-             VALUES ('record-1', 'workspace-a', 'ciphertext')",
+             VALUES ('record-1', 'workspace-a', ?)",
         )
+        .bind(payload)
         .execute(db.pool())
         .await
         .unwrap();
@@ -793,7 +796,20 @@ mod tests {
                revision, value_tag, payload_hash
              ) VALUES (
                'record-1', 'workspace-a', 'sessions', 'session-1',
-               'title', 1, 'tag', 'hash'
+               'title', 1, 'tag', ?
+             )",
+        )
+        .bind(&payload_hash)
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO e2ee_local_state (
+               record_id, workspace_id, table_name, row_id, field_name,
+               revision, value_tag, payload_hash
+             ) VALUES (
+               'orphan-record', 'workspace-a', 'sessions', 'session-2',
+               'title', 1, 'tag', 'stale-hash'
              )",
         )
         .execute(db.pool())
@@ -810,13 +826,22 @@ mod tests {
             .await
             .unwrap();
 
-        let state: (String, String) = sqlx::query_as(
-            "SELECT writer_id, payload FROM e2ee_local_state WHERE record_id = 'record-1'",
+        let state: (String, String, String) = sqlx::query_as(
+            "SELECT writer_id, payload, payload_hash
+             FROM e2ee_local_state
+             WHERE record_id = 'record-1'",
         )
         .fetch_one(db.pool())
         .await
         .unwrap();
-        assert_eq!(state, (String::new(), "ciphertext".to_string()));
+        assert_eq!(state, (String::new(), payload.to_string(), payload_hash));
+        let orphan_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM e2ee_local_state WHERE record_id = 'orphan-record'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(orphan_count, 0);
         assert!(
             !cloudsync_table_registry()
                 .iter()
