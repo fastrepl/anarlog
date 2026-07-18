@@ -1,6 +1,25 @@
 import { describe, expect, test } from "vitest";
 
-import { getDefaultLlmSelection, getPreferredProviderModel } from "./selection";
+import {
+  getDefaultLlmSelection,
+  getPreferredProviderModel,
+  isSameModelSelection,
+  shouldShowMissingModelWarning,
+} from "./selection";
+
+describe("isSameModelSelection", () => {
+  test("matches only when both provider and model match", () => {
+    expect(isSameModelSelection("openai", "gpt-5.5", "openai", "gpt-5.5")).toBe(
+      true,
+    );
+    expect(isSameModelSelection("openai", "gpt-5.5", "openai", "gpt-5")).toBe(
+      false,
+    );
+    expect(
+      isSameModelSelection("openai", "gpt-5.5", "anthropic", "gpt-5.5"),
+    ).toBe(false);
+  });
+});
 
 describe("getPreferredProviderModel", () => {
   test("returns the remembered model when it is still available", () => {
@@ -82,5 +101,40 @@ describe("getDefaultLlmSelection", () => {
     );
 
     expect(selection).toBeNull();
+  });
+});
+
+describe("shouldShowMissingModelWarning", () => {
+  test("stays quiet while a provider selection is resolving", () => {
+    expect(
+      shouldShowMissingModelWarning({
+        isConfigured: false,
+        isResolvingSelection: true,
+        providerSettingsReady: true,
+        settingsReady: true,
+      }),
+    ).toBe(false);
+  });
+
+  test("stays quiet until application settings are loaded", () => {
+    expect(
+      shouldShowMissingModelWarning({
+        isConfigured: false,
+        isResolvingSelection: false,
+        providerSettingsReady: true,
+        settingsReady: false,
+      }),
+    ).toBe(false);
+  });
+
+  test("warns when the settled selection has no model", () => {
+    expect(
+      shouldShowMissingModelWarning({
+        isConfigured: false,
+        isResolvingSelection: false,
+        providerSettingsReady: true,
+        settingsReady: true,
+      }),
+    ).toBe(true);
   });
 });

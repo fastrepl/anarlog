@@ -13,7 +13,12 @@ import { cn } from "@hypr/utils";
 
 import { useLlmSettings } from "./context";
 import { HealthStatusIndicator, useConnectionHealth } from "./health";
-import { getDefaultLlmSelection, getPreferredProviderModel } from "./selection";
+import {
+  getDefaultLlmSelection,
+  getPreferredProviderModel,
+  isSameModelSelection,
+  shouldShowMissingModelWarning,
+} from "./selection";
 import { type Provider, PROVIDERS } from "./shared";
 
 import { useAuth } from "~/auth";
@@ -48,7 +53,7 @@ import {
   getVisibleModelSelection,
 } from "~/settings/ai/shared/selection";
 import { useAiProvidersState } from "~/settings/providers";
-import { useSetSettingValues } from "~/settings/queries";
+import { setSettingValues, useSettingsReady } from "~/settings/queries";
 import { useConfigValues } from "~/shared/config";
 import { SettingsAlertToast } from "~/shared/ui/settings-alert";
 
@@ -56,10 +61,17 @@ export function SelectProviderAndModel() {
   const { t } = useLingui();
   const { providers: configuredProviders, isReady: providerSettingsReady } =
     useConfiguredMapping();
+  const settingsReady = useSettingsReady();
   const billing = useBillingAccess();
   const queryClient = useQueryClient();
   const { setAccordionValue } = useLlmSettings();
-  const [pendingProvider, setPendingProvider] = useState<string | null>(null);
+  const [pendingSelection, setPendingSelection] = useState<{
+    provider: string;
+    model: string;
+    originProvider: string | undefined;
+    originModel: string | undefined;
+  } | null>(null);
+  const [isResolvingProvider, setIsResolvingProvider] = useState(false);
 
   const { current_llm_model, current_llm_provider } = useConfigValues([
     "current_llm_model",
@@ -82,14 +94,51 @@ export function SelectProviderAndModel() {
     configuredProviders,
     current_llm_provider,
   );
+  const pendingSelectionSettled =
+    pendingSelection &&
+    isSameModelSelection(
+      current_llm_provider,
+      current_llm_model,
+      pendingSelection.provider,
+      pendingSelection.model,
+    );
+  if (pendingSelectionSettled) {
+    setPendingSelection(null);
+  }
+  const activePendingSelection =
+    pendingSelection &&
+    !pendingSelectionSettled &&
+    isSameModelSelection(
+      current_llm_provider,
+      current_llm_model,
+      pendingSelection.originProvider,
+      pendingSelection.originModel,
+    )
+      ? pendingSelection
+      : null;
 
-  const setSelection = useSetSettingValues();
   const lastSelectedModelsRef = useRef<Record<string, string>>(
     current_llm_provider && current_llm_model
       ? { [current_llm_provider]: current_llm_model }
       : {},
   );
   const selectionRequestRef = useRef(0);
+
+  const persistSelection = (
+    provider: string,
+    model: string,
+    requestId: number,
+  ) => {
+    void setSettingValues({
+      current_llm_provider: provider,
+      current_llm_model: model,
+    }).catch((error) => {
+      console.error("[settings] failed to update LLM selection", error);
+      if (selectionRequestRef.current === requestId) {
+        setPendingSelection(null);
+      }
+    });
+  };
 
   const rememberModel = (provider?: string, model?: string) => {
     if (!provider || model === undefined) {
@@ -151,7 +200,7 @@ export function SelectProviderAndModel() {
         fetchModels,
       ),
     enabled:
-      !pendingProvider &&
+      !activePendingSelection &&
       providerSettingsReady &&
       needsDefaultSelection &&
       configuredProviderIds.length > 0,
@@ -161,22 +210,35 @@ export function SelectProviderAndModel() {
   const defaultSelection = needsDefaultSelection
     ? defaultSelectionQuery.data
     : null;
-  const effectiveSelection = pendingProvider
-    ? { provider: pendingProvider, model: "" }
+  const effectiveSelection = activePendingSelection
+    ? {
+        provider: activePendingSelection.provider,
+        model: activePendingSelection.model,
+      }
     : (defaultSelection ?? visibleSelection);
 
   const health = useConnectionHealth();
   const isConfigured = !!(
     effectiveSelection.provider && effectiveSelection.model
   );
-  const hasError = isConfigured && health.status === "error";
-  const alertDescription = !providerSettingsReady
-    ? undefined
-    : !isConfigured
-      ? t`Language model is needed to make Anarlog summarize and chat about your conversations.`
-      : hasError
-        ? health.message
-        : undefined;
+  const hasError =
+    isConfigured && !activePendingSelection && health.status === "error";
+  const isResolvingSelection =
+    isResolvingProvider || defaultSelectionQuery.isFetching;
+  const showMissingModelWarning = shouldShowMissingModelWarning({
+    isConfigured,
+    isResolvingSelection,
+    providerSettingsReady,
+    settingsReady,
+  });
+  const alertDescription = showMissingModelWarning
+    ? t`Language model is needed to make Anarlog summarize and chat about your conversations.`
+    : providerSettingsReady &&
+        settingsReady &&
+        !isResolvingSelection &&
+        hasError
+      ? health.message
+      : undefined;
 
   const handleProviderChange = (provider: string) => {
     if (provider === "hyprnote" && !billing.isPaid) {
@@ -192,7 +254,12 @@ export function SelectProviderAndModel() {
     }
 
     rememberModel(current_llm_provider, current_llm_model);
-    setPendingProvider(provider);
+    const originSelection = {
+      originProvider: current_llm_provider,
+      originModel: current_llm_model,
+    };
+    setPendingSelection({ provider, model: "", ...originSelection });
+    setIsResolvingProvider(false);
 
     const nextModel = getPreferredProviderModel(
       lastSelectedModelsRef.current[provider],
@@ -201,20 +268,24 @@ export function SelectProviderAndModel() {
     );
 
     if (nextModel) {
-      setPendingProvider(null);
+      setPendingSelection({ provider, model: nextModel, ...originSelection });
       rememberModel(provider, nextModel);
-      setSelection({
-        current_llm_provider: provider,
-        current_llm_model: nextModel,
-      });
+      persistSelection(provider, nextModel, requestId);
       return;
     }
 
+    setIsResolvingProvider(true);
     void (async () => {
       let models: string[];
       try {
         models = await fetchModels(provider);
       } catch {
+        if (selectionRequestRef.current === requestId) {
+          setIsResolvingProvider(false);
+          if (provider !== "custom") {
+            setPendingSelection(null);
+          }
+        }
         return;
       }
       const resolvedModel = getPreferredProviderModel(
@@ -227,16 +298,21 @@ export function SelectProviderAndModel() {
         return;
       }
 
+      setIsResolvingProvider(false);
       if (!resolvedModel) {
+        if (provider !== "custom") {
+          setPendingSelection(null);
+        }
         return;
       }
 
-      setPendingProvider(null);
-      rememberModel(provider, resolvedModel);
-      setSelection({
-        current_llm_provider: provider,
-        current_llm_model: resolvedModel,
+      setPendingSelection({
+        provider,
+        model: resolvedModel,
+        ...originSelection,
       });
+      rememberModel(provider, resolvedModel);
+      persistSelection(provider, resolvedModel, requestId);
     })();
   };
 
@@ -245,18 +321,21 @@ export function SelectProviderAndModel() {
       return;
     }
 
-    selectionRequestRef.current += 1;
+    const requestId = ++selectionRequestRef.current;
     rememberModel(effectiveSelection.provider, model);
-    setPendingProvider(null);
-    setSelection({
-      current_llm_provider: effectiveSelection.provider,
-      current_llm_model: model,
+    setPendingSelection({
+      provider: effectiveSelection.provider,
+      model,
+      originProvider: current_llm_provider,
+      originModel: current_llm_model,
     });
+    setIsResolvingProvider(false);
+    persistSelection(effectiveSelection.provider, model, requestId);
   };
 
   return (
     <div className="flex flex-col gap-4">
-      {defaultSelection && !pendingProvider ? (
+      {defaultSelection && !activePendingSelection ? (
         <PersistAiSelection
           key={`llm:${defaultSelection.provider}:${defaultSelection.model}`}
           type="llm"

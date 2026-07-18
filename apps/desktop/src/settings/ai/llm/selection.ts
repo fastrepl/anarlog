@@ -2,6 +2,15 @@ type PreferredProviderModelOptions = {
   allowSavedModelWithoutChoices?: boolean;
 };
 
+export function isSameModelSelection(
+  provider: string | undefined,
+  model: string | undefined,
+  otherProvider: string | undefined,
+  otherModel: string | undefined,
+) {
+  return provider === otherProvider && model === otherModel;
+}
+
 export function getPreferredProviderModel(
   savedModel: string | undefined,
   models: string[],
@@ -46,4 +55,23 @@ export async function getDefaultLlmSelection(
   }
 
   return null;
+}
+
+export function shouldShowMissingModelWarning({
+  isConfigured,
+  isResolvingSelection,
+  providerSettingsReady,
+  settingsReady,
+}: {
+  isConfigured: boolean;
+  isResolvingSelection: boolean;
+  providerSettingsReady: boolean;
+  settingsReady: boolean;
+}) {
+  return (
+    providerSettingsReady &&
+    settingsReady &&
+    !isResolvingSelection &&
+    !isConfigured
+  );
 }
