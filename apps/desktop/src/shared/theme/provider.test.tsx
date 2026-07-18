@@ -42,7 +42,7 @@ vi.mock("~/shared/config", () => ({
   useConfigValue: () => themeState.theme,
 }));
 
-import { AppThemeProvider } from "./provider";
+import { AppThemeProvider, applyThemePreference } from "./provider";
 
 describe("AppThemeProvider", () => {
   beforeEach(() => {
@@ -112,5 +112,58 @@ describe("AppThemeProvider", () => {
     await waitFor(() =>
       expect(setDockIcon).toHaveBeenCalledWith("stable-dark"),
     );
+  });
+
+  it("ignores a stale native theme after leaving system appearance", async () => {
+    let resolveNativeTheme!: (theme: string) => void;
+    nativeTheme.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveNativeTheme = resolve;
+        }),
+    );
+    themeState.settingsReady = true;
+    themeState.theme = "system";
+
+    const { rerender } = render(
+      <AppThemeProvider>
+        <div>child</div>
+      </AppThemeProvider>,
+    );
+
+    await waitFor(() => expect(nativeTheme).toHaveBeenCalledOnce());
+
+    themeState.theme = "light";
+    rerender(
+      <AppThemeProvider>
+        <div>child</div>
+      </AppThemeProvider>,
+    );
+    resolveNativeTheme("dark");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(applyDocumentTheme).toHaveBeenCalledTimes(1);
+    expect(applyDocumentTheme).toHaveBeenCalledWith("light");
+    expect(setDockIcon).toHaveBeenCalledWith("stable");
+  });
+
+  it("applies a selected system theme and Dock icon from the native source", async () => {
+    nativeTheme.mockResolvedValue("dark");
+
+    await applyThemePreference("system");
+
+    expect(nativeTheme).toHaveBeenCalledOnce();
+    expect(applyDocumentTheme).toHaveBeenCalledWith("system", true);
+    expect(writeStoredThemePreference).toHaveBeenCalledWith("system");
+    expect(setDockIcon).toHaveBeenCalledWith("stable-dark");
+  });
+
+  it("applies an explicit selection and matching Dock icon immediately", async () => {
+    await applyThemePreference("light");
+
+    expect(nativeTheme).not.toHaveBeenCalled();
+    expect(applyDocumentTheme).toHaveBeenCalledWith("light");
+    expect(writeStoredThemePreference).toHaveBeenCalledWith("light");
+    expect(setDockIcon).toHaveBeenCalledWith("stable");
   });
 });

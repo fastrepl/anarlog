@@ -25,7 +25,7 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
 function ThemeSync({ theme }: { theme: ThemePreference }) {
   useMountEffect(() => {
     if (theme !== "system") {
-      applyTheme(theme);
+      applyAppTheme(theme);
       return;
     }
 
@@ -34,7 +34,11 @@ function ThemeSync({ theme }: { theme: ThemePreference }) {
     let unlisten: (() => void) | undefined;
 
     const applySystemTheme = (systemTheme: Theme | null) => {
-      applyTheme(theme, systemTheme === "dark");
+      if (cancelled) {
+        return;
+      }
+
+      applyAppTheme(theme, systemTheme === "dark");
     };
 
     void (async () => {
@@ -51,7 +55,7 @@ function ThemeSync({ theme }: { theme: ThemePreference }) {
     })().catch((error) => {
       if (!cancelled) {
         console.error("[theme] failed to read system appearance", error);
-        applyTheme(theme);
+        applyAppTheme(theme);
       }
     });
 
@@ -64,7 +68,22 @@ function ThemeSync({ theme }: { theme: ThemePreference }) {
   return null;
 }
 
-function applyTheme(theme: ThemePreference, prefersDark?: boolean) {
+export async function applyThemePreference(theme: ThemePreference) {
+  if (theme !== "system") {
+    applyAppTheme(theme);
+    return;
+  }
+
+  try {
+    const systemTheme = await getCurrentWindow().theme();
+    applyAppTheme(theme, systemTheme === "dark");
+  } catch (error) {
+    console.error("[theme] failed to read system appearance", error);
+    applyAppTheme(theme);
+  }
+}
+
+function applyAppTheme(theme: ThemePreference, prefersDark?: boolean) {
   const isDark =
     prefersDark === undefined
       ? applyDocumentTheme(theme)

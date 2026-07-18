@@ -11,10 +11,7 @@ import {
 
 import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
-import {
-  applyDocumentTheme,
-  writeStoredThemePreference,
-} from "~/shared/theme/apply";
+import { applyThemePreference } from "~/shared/theme/provider";
 import type { ThemePreference } from "~/shared/theme/resolve";
 
 const THEME_OPTIONS: ThemePreference[] = ["light", "dark", "system"];
@@ -47,8 +44,7 @@ export function ThemeSelector() {
         value={THEME_OPTIONS.includes(value) ? value : "system"}
         onValueChange={(next) => {
           const preference = next as ThemePreference;
-          writeStoredThemePreference(preference);
-          applyDocumentTheme(preference);
+          void applyThemePreference(preference);
           setTheme(next);
         }}
       >
