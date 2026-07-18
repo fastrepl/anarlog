@@ -31,6 +31,7 @@ macro_rules! common_derives {
 
 common_derives! {
     pub enum EditableTemplate {
+        EnhanceSystem,
         EnhanceUser,
         TitleUser,
     }
@@ -60,6 +61,8 @@ common_derives! {
 pub enum Error {
     #[error(transparent)]
     AskamaError(#[from] askama::Error),
+    #[error(transparent)]
+    JinjaError(#[from] minijinja::Error),
     #[error("parse error: {0}")]
     ParseError(String),
     #[error("validation error: {0}")]
@@ -67,29 +70,28 @@ pub enum Error {
 }
 
 pub fn render(t: Template) -> Result<String, Error> {
-    let value = match t {
-        Template::ActivityCaptureSystem(t) => askama::Template::render(&t),
-        Template::ActivityCaptureUser(t) => askama::Template::render(&*t),
-        Template::DailySummarySystem(t) => askama::Template::render(&t),
-        Template::DailySummaryUser(t) => askama::Template::render(&*t),
-        Template::EnhanceSystem(t) => askama::Template::render(&t),
-        Template::EnhanceUser(t) => askama::Template::render(&*t),
-        Template::EventContactSystem(t) => askama::Template::render(&t),
-        Template::EventContactUser(t) => askama::Template::render(&t),
-        Template::TitleSystem(t) => askama::Template::render(&t),
-        Template::TitleUser(t) => askama::Template::render(&t),
-        Template::ChatSystem(t) => askama::Template::render(&t),
-        Template::ContextBlock(t) => askama::Template::render(&t),
-        Template::ToolSearchSessions(t) => askama::Template::render(&t),
-        Template::TranscriptPatchSystem(t) => askama::Template::render(&t),
-        Template::TranscriptPatchUser(t) => askama::Template::render(&*t),
-    }?;
-
-    Ok(value)
+    match t {
+        Template::EnhanceSystem(t) => render_enhance_system(&t),
+        Template::ActivityCaptureSystem(t) => Ok(askama::Template::render(&t)?),
+        Template::ActivityCaptureUser(t) => Ok(askama::Template::render(&*t)?),
+        Template::DailySummarySystem(t) => Ok(askama::Template::render(&t)?),
+        Template::DailySummaryUser(t) => Ok(askama::Template::render(&*t)?),
+        Template::EnhanceUser(t) => Ok(askama::Template::render(&*t)?),
+        Template::EventContactSystem(t) => Ok(askama::Template::render(&t)?),
+        Template::EventContactUser(t) => Ok(askama::Template::render(&t)?),
+        Template::TitleSystem(t) => Ok(askama::Template::render(&t)?),
+        Template::TitleUser(t) => Ok(askama::Template::render(&t)?),
+        Template::ChatSystem(t) => Ok(askama::Template::render(&t)?),
+        Template::ContextBlock(t) => Ok(askama::Template::render(&t)?),
+        Template::ToolSearchSessions(t) => Ok(askama::Template::render(&t)?),
+        Template::TranscriptPatchSystem(t) => Ok(askama::Template::render(&t)?),
+        Template::TranscriptPatchUser(t) => Ok(askama::Template::render(&*t)?),
+    }
 }
 
 pub fn template_source(template: EditableTemplate) -> &'static str {
     match template {
+        EditableTemplate::EnhanceSystem => include_str!("../assets/enhance.system.md.jinja"),
         EditableTemplate::EnhanceUser => include_str!("../assets/enhance.user.md.jinja"),
         EditableTemplate::TitleUser => include_str!("../assets/title.user.md.jinja"),
     }
@@ -101,6 +103,10 @@ mod source_tests {
 
     #[test]
     fn editable_template_source_matches_assets() {
+        assert_eq!(
+            template_source(EditableTemplate::EnhanceSystem),
+            include_str!("../assets/enhance.system.md.jinja")
+        );
         assert_eq!(
             template_source(EditableTemplate::EnhanceUser),
             include_str!("../assets/enhance.user.md.jinja")

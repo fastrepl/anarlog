@@ -11,8 +11,8 @@ import { SettingsTodo } from "./todo";
 import { LLM } from "~/settings/ai/llm";
 import { STT } from "~/settings/ai/stt";
 import { SettingsDevelopers } from "~/settings/developers";
+import { SettingsDictionary } from "~/settings/dictionary";
 import { SettingsHydrationBoundary } from "~/settings/hydration-boundary";
-import { SettingsPersonalization } from "~/settings/personalization";
 import { StandardContentWrapper } from "~/shared/main";
 import { type Tab } from "~/store/zustand/tabs";
 
@@ -32,7 +32,12 @@ export function TabContentSettings({
 
 function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
   const requestedTab = tab.state.tab as string | undefined;
-  const activeTab = requestedTab === "data" ? "app" : (tab.state.tab ?? "app");
+  const activeTab =
+    requestedTab === "data"
+      ? "app"
+      : requestedTab === "personalization"
+        ? "dictionary"
+        : (tab.state.tab ?? "app");
 
   const renderContent = () => {
     switch (activeTab) {
@@ -46,8 +51,8 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <SettingsPermissions />;
       case "developers":
         return <SettingsDevelopers />;
-      case "personalization":
-        return <SettingsPersonalization />;
+      case "dictionary":
+        return <SettingsDictionary />;
       case "transcription":
         return <STT />;
       case "intelligence":

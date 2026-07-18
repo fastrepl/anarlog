@@ -83,7 +83,7 @@ msgid "Activity"
 msgstr ""
 
 #: src/contacts/shared.tsx
-#: src/settings/personalization/index.tsx
+#: src/settings/dictionary/index.tsx
 #: src/settings/todo/github.tsx
 msgid "Add"
 msgstr ""
@@ -106,7 +106,11 @@ msgstr ""
 msgid "Add language"
 msgstr "Onjezani chilankhulo"
 
-#: src/settings/personalization/index.tsx
+#: src/settings/dictionary/index.tsx
+msgid "Add names, jargon, and product terms to improve transcription."
+msgstr ""
+
+#: src/settings/dictionary/index.tsx
 msgid "Add names, jargon, or product terms to prefer"
 msgstr ""
 
@@ -190,6 +194,10 @@ msgstr ""
 msgid "Anarlog needs microphone and system audio to transcribe your meetings, plus Accessibility to read meeting controls, visible chat, and participant status."
 msgstr ""
 
+#: src/templates/auto-form.tsx
+msgid "Anarlog sends these separately, so editing the prompt cannot remove the meeting source material."
+msgstr ""
+
 #: src/onboarding/index.tsx
 msgid "Anarlog will sync your calendar to get meeting reminders"
 msgstr ""
@@ -209,10 +217,6 @@ msgstr "Mapulogalamu"
 
 #: src/settings/general/theme.tsx
 msgid "Appearance"
-msgstr ""
-
-#: src/settings/personalization/index.tsx
-msgid "Applied to every generated or regenerated meeting summary."
 msgstr ""
 
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
@@ -254,6 +258,14 @@ msgstr ""
 
 #: src/instruction/index.tsx
 msgid "Authorize access in your browser, then return to Anarlog."
+msgstr ""
+
+#: src/templates/auto-form.tsx
+msgid "Auto prompt cannot be empty."
+msgstr ""
+
+#: src/templates/auto-form.tsx
+msgid "Auto summary prompt"
 msgstr ""
 
 #: src/settings/general/notification.tsx
@@ -490,6 +502,10 @@ msgstr ""
 msgid "Context"
 msgstr ""
 
+#: src/templates/auto-form.tsx
+msgid "Context always provided"
+msgstr ""
+
 #: src/onboarding/calendar.tsx
 msgid "Continue"
 msgstr ""
@@ -534,12 +550,29 @@ msgstr ""
 msgid "Created"
 msgstr ""
 
+#: src/templates/auto-form.tsx
+msgid "Current default"
+msgstr ""
+
+#: src/templates/auto-form.tsx
+msgid "Customize Auto"
+msgstr ""
+
+#: src/templates/auto-form.tsx
+#: src/templates/template-sidebar.tsx
+msgid "Customized"
+msgstr ""
+
 #: src/settings/general/theme.tsx
 msgid "Dark"
 msgstr ""
 
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Date and time are required"
+msgstr ""
+
+#: src/templates/auto-form.tsx
+msgid "Default"
 msgstr ""
 
 #: src/session/components/outer-header/overflow/delete.tsx
@@ -596,7 +629,8 @@ msgstr ""
 msgid "Developers"
 msgstr ""
 
-#: src/settings/personalization/index.tsx
+#: src/settings/dictionary/index.tsx
+#: src/sidebar/settings.tsx
 msgid "Dictionary"
 msgstr ""
 
@@ -639,6 +673,10 @@ msgstr ""
 
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Edit date"
+msgstr ""
+
+#: src/templates/auto-form.tsx
+msgid "Edit the complete system prompt used when Auto generates a summary."
 msgstr ""
 
 #: src/onboarding/account/after-login.tsx
@@ -696,10 +734,6 @@ msgstr ""
 
 #: src/settings/general/notification.tsx
 msgid "Event notifications"
-msgstr ""
-
-#: src/settings/personalization/index.tsx
-msgid "Example: Start with a two-sentence overview, then list decisions and action items with owners. Do not use headings."
 msgstr ""
 
 #: src/settings/general/notification.tsx
@@ -982,6 +1016,10 @@ msgstr ""
 msgid "Loading access…"
 msgstr ""
 
+#: src/templates/auto-form.tsx
+msgid "Loading Auto prompt..."
+msgstr ""
+
 #: src/calendar/components/calendar-selection.tsx
 msgid "Loading calendars..."
 msgstr ""
@@ -1025,6 +1063,10 @@ msgstr ""
 
 #: src/onboarding/permissions.tsx
 msgid "Meeting details access turned on"
+msgstr ""
+
+#: src/templates/auto-form.tsx
+msgid "Meeting notes"
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
@@ -1162,7 +1204,7 @@ msgstr ""
 msgid "No legacy JSON or Markdown files remain"
 msgstr ""
 
-#: src/settings/personalization/index.tsx
+#: src/settings/dictionary/index.tsx
 msgid "No match"
 msgstr ""
 
@@ -1323,6 +1365,7 @@ msgstr ""
 
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/templates/auto-form.tsx
 msgid "Participants"
 msgstr ""
 
@@ -1350,11 +1393,6 @@ msgstr ""
 
 #: src/onboarding/index.tsx
 msgid "Permissions granted"
-msgstr ""
-
-#: src/settings/personalization/index.tsx
-#: src/sidebar/settings.tsx
-msgid "Personalization"
 msgstr ""
 
 #: src/contacts/details.tsx
@@ -1434,7 +1472,7 @@ msgstr ""
 msgid "Reminders"
 msgstr ""
 
-#: src/settings/personalization/index.tsx
+#: src/settings/dictionary/index.tsx
 msgid "Remove {term}"
 msgstr ""
 
@@ -1512,8 +1550,8 @@ msgstr ""
 msgid "Reset"
 msgstr ""
 
-#: src/settings/personalization/index.tsx
-msgid "Reset to default"
+#: src/templates/auto-form.tsx
+msgid "Reset to Anarlog default"
 msgstr ""
 
 #: src/settings/general/notification.tsx
@@ -1539,7 +1577,7 @@ msgstr ""
 msgid "Runs after the recording finishes, not during the meeting."
 msgstr ""
 
-#: src/settings/personalization/index.tsx
+#: src/templates/auto-form.tsx
 msgid "Save"
 msgstr ""
 
@@ -1663,6 +1701,10 @@ msgstr ""
 msgid "Send message"
 msgstr ""
 
+#: src/templates/auto-form.tsx
+msgid "Session details"
+msgstr ""
+
 #: src/session/components/note-input/header.tsx
 msgid "Session note views"
 msgstr ""
@@ -1671,6 +1713,7 @@ msgstr ""
 msgid "Session title"
 msgstr ""
 
+#: src/templates/auto-form.tsx
 #: src/templates/details.tsx
 msgid "Set as default"
 msgstr ""
@@ -1916,10 +1959,6 @@ msgstr ""
 msgid "Summary"
 msgstr ""
 
-#: src/settings/personalization/index.tsx
-msgid "Summary instructions"
-msgstr ""
-
 #: src/settings/general/week-start.tsx
 msgid "Sunday"
 msgstr ""
@@ -1975,10 +2014,6 @@ msgstr "Chiyankhulo chachikulu chimaphatikizidwa nthawi zonse kuti chilembedwe"
 msgid "The note may have been unshared or moved out of a workspace you can access."
 msgstr ""
 
-#: src/settings/personalization/index.tsx
-msgid "These instructions take priority over the selected template when they conflict. Clear them to use templates as written."
-msgstr ""
-
 #: src/chat/components/message/loading.tsx
 msgid "Thinking..."
 msgstr ""
@@ -2007,6 +2042,7 @@ msgstr ""
 
 #: src/session/components/note-input/header.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/templates/auto-form.tsx
 msgid "Transcript"
 msgstr ""
 
@@ -2125,6 +2161,10 @@ msgstr ""
 
 #: src/onboarding/permissions.tsx
 msgid "Use your microphone to capture your voice"
+msgstr ""
+
+#: src/templates/auto-form.tsx
+msgid "Variables"
 msgstr ""
 
 #: src/settings/general/storage/legacy-cleanup.tsx

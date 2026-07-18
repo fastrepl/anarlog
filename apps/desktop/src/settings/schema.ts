@@ -139,6 +139,11 @@ export const SETTING_DEFINITIONS = {
     path: ["personalization", "custom_summary_instructions_token_aware"],
     default: false as boolean,
   },
+  auto_summary_prompt: {
+    type: "string",
+    path: ["ai", "auto_summary_prompt"],
+    default: "" as string,
+  },
   ignored_platforms: {
     type: "string",
     path: ["notification", "ignored_platforms"],

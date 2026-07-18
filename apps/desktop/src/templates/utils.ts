@@ -14,6 +14,8 @@ import { useOwnerUserId } from "~/shared/owner-user";
 import { useWebResources } from "~/shared/ui/resource-list";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
+export const AUTO_TEMPLATE_ID = "__auto__";
+
 export function resolveTemplateTabSelection({
   isWebMode,
   selectedMineId,
@@ -65,9 +67,12 @@ export function resolveTemplateTabSelection({
   return {
     isWebMode: false,
     selectedMineId:
-      userTemplates.find((template) => template.id === selectedMineId)?.id ??
-      userTemplates[0]?.id ??
-      null,
+      selectedMineId === AUTO_TEMPLATE_ID
+        ? AUTO_TEMPLATE_ID
+        : (userTemplates.find((template) => template.id === selectedMineId)
+            ?.id ??
+          userTemplates[0]?.id ??
+          AUTO_TEMPLATE_ID),
     selectedWebIndex: null,
     selectedWebTemplate: null,
   };

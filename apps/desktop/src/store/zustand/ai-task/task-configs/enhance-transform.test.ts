@@ -2,8 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { enhanceTransform } from "./enhance-transform";
 
-import { DEFAULT_SUMMARY_PROMPT } from "~/shared/summary-prompt";
-
 const mocks = vi.hoisted(() => ({
   collectEnhanceImageContext: vi.fn(),
   getTemplateById: vi.fn(),
@@ -122,40 +120,41 @@ describe("enhanceTransform.transformArgs", () => {
     ]);
   });
 
-  it("keeps templates in legacy custom summary instructions", async () => {
+  it("uses the saved prompt override for Auto summaries", async () => {
     const result = await enhanceTransform.transformArgs(
       { sessionId: "session-1", enhancedNoteId: "note-1" },
       {
         ...settingsValues,
-        custom_summary_instructions: "  Start with decisions.  ",
+        auto_summary_prompt: "  Start with decisions.  ",
       },
     );
 
-    expect(result.customInstructions).toBe(
-      "Start with decisions.\n\n{{ template }}",
-    );
+    expect(result.promptOverride).toBe("  Start with decisions.  ");
   });
 
-  it("allows token-aware custom instructions to ignore templates", async () => {
+  it("ignores the Auto override when a named template is selected", async () => {
     const result = await enhanceTransform.transformArgs(
-      { sessionId: "session-1", enhancedNoteId: "note-1" },
+      {
+        sessionId: "session-1",
+        enhancedNoteId: "note-1",
+        templateId: "template-1",
+      },
       {
         ...settingsValues,
-        custom_summary_instructions: "Start with decisions.",
-        custom_summary_instructions_token_aware: true,
+        auto_summary_prompt: "Start with decisions.",
       },
     );
 
-    expect(result.customInstructions).toBe("Start with decisions.");
+    expect(result.promptOverride).toBe("");
   });
 
-  it("uses the built-in summary prompt when no override is saved", async () => {
+  it("uses the built-in Auto prompt when no override is saved", async () => {
     const result = await enhanceTransform.transformArgs(
       { sessionId: "session-1", enhancedNoteId: "note-1" },
       settingsValues,
     );
 
-    expect(result.customInstructions).toBe(DEFAULT_SUMMARY_PROMPT);
+    expect(result.promptOverride).toBe("");
   });
 
   it("falls back to generic enhancement when template loading fails", async () => {
@@ -171,6 +170,7 @@ describe("enhanceTransform.transformArgs", () => {
     );
 
     expect(result.template).toBeNull();
+    expect(result.promptOverride).toBe("");
     expect(result.session.title).toBe("Weekly Review");
     expect(consoleError).toHaveBeenCalledWith(
       "[enhance] failed to load template",

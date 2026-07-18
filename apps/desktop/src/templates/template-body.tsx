@@ -2,7 +2,7 @@ import { useCallback } from "react";
 
 import { TemplateDetailsColumn } from "./details";
 import { getTemplateCopyTitle, type UserTemplateDraft } from "./queries";
-import { useTemplateTab } from "./utils";
+import { AUTO_TEMPLATE_ID, useTemplateTab } from "./utils";
 
 import { setSettingValue } from "~/settings/queries";
 import { type Tab } from "~/store/zustand/tabs";
@@ -92,6 +92,7 @@ export function TemplateView({
   return (
     <div className="h-full">
       <TemplateDetailsColumn
+        isAutoSelected={!isWebMode && selectedMineId === AUTO_TEMPLATE_ID}
         isWebMode={isWebMode}
         selectedMineTemplate={selectedMineTemplate}
         selectedWebTemplate={selectedWebTemplate}

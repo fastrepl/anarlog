@@ -2,7 +2,8 @@ pub mod filters;
 mod validate;
 
 pub use filters::{
-    TEMPLATE_FILTERS, current_date, is_english, is_korean, language, set_current_date_override,
+    TEMPLATE_FILTERS, current_date, current_date_value, is_english, is_korean, language,
+    language_name, set_current_date_override,
 };
 pub use validate::{TemplateUsage, extract};
 

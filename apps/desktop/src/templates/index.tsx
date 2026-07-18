@@ -13,7 +13,9 @@ export {
 export type { UserTemplate, UserTemplateDraft } from "./queries";
 export { DEFAULT_TEMPLATE_ICON, TemplateIconGlyph } from "./template-icon";
 export type { TemplateIcon } from "./template-icon";
+export { useOpenTemplatesTab } from "./use-open-templates-tab";
 export {
+  AUTO_TEMPLATE_ID,
   filterWebTemplatesAgainstUserTemplates,
   getTemplateCreatorLabel,
   useTemplateCreatorName,

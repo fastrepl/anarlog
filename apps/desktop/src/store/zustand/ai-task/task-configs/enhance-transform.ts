@@ -16,7 +16,6 @@ import {
 } from "~/session/content-queries";
 import { modelSupportsImageInput } from "~/settings/ai/shared/model-capabilities";
 import type { SettingValues } from "~/settings/schema";
-import { getTokenAwareSummaryPrompt } from "~/shared/summary-prompt";
 import {
   formatMeetingChatContext,
   loadMeetingChatRecords,
@@ -71,7 +70,7 @@ async function transformArgs(
       }
     : null;
   const language = getLanguage(settingsValues);
-  const customInstructions = getCustomInstructions(settingsValues);
+  const promptOverride = getPromptOverride(settingsValues, templateId);
   const segments = await getTranscriptSegments(snapshot);
   const imageContext = modelSupportsImageInput(
     getOptionalSettingsValue(settingsValues, "current_llm_provider"),
@@ -85,7 +84,7 @@ async function transformArgs(
 
   return {
     language,
-    customInstructions,
+    promptOverride,
     session: sessionContext.session,
     participants: sessionContext.participants,
     template,
@@ -146,12 +145,16 @@ function getLanguage(settingsValues: SettingValues): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
-function getCustomInstructions(settingsValues: SettingValues): string {
-  const value = settingsValues.custom_summary_instructions;
-  return getTokenAwareSummaryPrompt(
-    typeof value === "string" ? value : "",
-    settingsValues.custom_summary_instructions_token_aware === true,
-  );
+function getPromptOverride(
+  settingsValues: SettingValues,
+  templateId: string | undefined,
+): string {
+  if (templateId) {
+    return "";
+  }
+
+  const value = settingsValues.auto_summary_prompt;
+  return typeof value === "string" && value.trim() ? value : "";
 }
 
 function getOptionalSettingsValue(

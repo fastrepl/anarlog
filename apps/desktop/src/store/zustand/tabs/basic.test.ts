@@ -306,6 +306,21 @@ describe("Basic Tab Actions", () => {
     ]);
   });
 
+  test("openNew redirects legacy personalization settings to dictionary", () => {
+    useTabs.getState().openNew({
+      type: "settings",
+      state: { tab: "personalization" },
+    });
+
+    expect(useTabs.getState()).toHaveCurrentTab({
+      type: "settings",
+      state: { tab: "dictionary" },
+    });
+    expect(useTabs.getState()).toMatchTabsInOrder([
+      { type: "settings", active: true, state: { tab: "dictionary" } },
+    ]);
+  });
+
   test("openNew preserves account settings tab requests", () => {
     useTabs.getState().openNew({ type: "settings", state: { tab: "account" } });
 

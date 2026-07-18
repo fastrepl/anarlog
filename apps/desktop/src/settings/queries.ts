@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as detectCommands } from "@hypr/plugin-detect";
 import { commands as localSttCommands } from "@hypr/plugin-local-stt";
+import { commands as templateCommands } from "@hypr/plugin-template";
 import { commands as trayCommands } from "@hypr/plugin-tray";
 import { commands as windowsCommands } from "@hypr/plugin-windows";
 
@@ -46,6 +47,12 @@ const JSON_ARRAY_KEYS = new Set<SettingKey>([
   "ignored_platforms",
   "included_platforms",
 ]);
+const LEGACY_SUMMARY_TEMPLATE_TOKEN = /\{\{\s*template\s*\}\}/g;
+const LEGACY_DEFAULT_SUMMARY_INSTRUCTION =
+  "Use the selected summary template for the summary structure and section headings.";
+const MIGRATED_SUMMARY_INSTRUCTIONS_HEADER = `# Custom Summary Instructions
+
+For structure, formatting, tone, and emphasis, these instructions take precedence over the Format Requirements. They do not override the requirements to stay accurate, use only the provided source material, and return only the summary.`;
 
 export function useStoredSettingValuesQuery() {
   return useLiveQuery<AppSettingRow, StoredSettingValues>({
@@ -111,12 +118,58 @@ export async function initializeApplicationSettings(): Promise<void> {
     }
   }
 
+  const migratedAutoPrompt = await migrateLegacyAutoSummaryPrompt(stored);
+  if (migratedAutoPrompt !== null) {
+    updates.auto_summary_prompt = migratedAutoPrompt;
+  }
+
   if (Object.keys(updates).length > 0) {
     await setSettingValues(updates);
   }
   const current =
     Object.keys(updates).length > 0 ? await getStoredSettingValues() : stored;
   applySettingSideEffects(current.values);
+}
+
+async function migrateLegacyAutoSummaryPrompt(
+  stored: StoredSettingValues,
+): Promise<string | null> {
+  if (
+    stored.hasValues.has("auto_summary_prompt") ||
+    !stored.hasValues.has("custom_summary_instructions")
+  ) {
+    return null;
+  }
+
+  const legacyInstructions = cleanLegacySummaryInstructions(
+    stored.values.custom_summary_instructions ?? "",
+  );
+  if (!legacyInstructions) {
+    return null;
+  }
+
+  try {
+    const sourceResult =
+      await templateCommands.getTemplateSource("enhanceSystem");
+    if (sourceResult.status === "error" || !sourceResult.data.trim()) {
+      return null;
+    }
+
+    return `${sourceResult.data.trimEnd()}\n\n${MIGRATED_SUMMARY_INSTRUCTIONS_HEADER}\n\n${escapeJinjaOpeners(legacyInstructions)}`;
+  } catch {
+    return null;
+  }
+}
+
+function cleanLegacySummaryInstructions(value: string): string {
+  return value
+    .replace(LEGACY_SUMMARY_TEMPLATE_TOKEN, "")
+    .replace(LEGACY_DEFAULT_SUMMARY_INSTRUCTION, "")
+    .trim();
+}
+
+function escapeJinjaOpeners(value: string): string {
+  return value.replace(/\{\{|\{%|\{#/g, (opener) => `{{ "${opener}" }}`);
 }
 
 export function setSettingValue<K extends SettingKey>(

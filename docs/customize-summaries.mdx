@@ -1,9 +1,9 @@
 ---
 title: "Customize meeting summaries"
-description: "Choose a structure, add standing instructions, and teach Anarlog your terminology."
+description: "Choose a named format or customize how Auto writes meeting summaries."
 ---
 
-Use a template for the shape of one summary. Use summary instructions and the dictionary for preferences that should apply across meetings.
+Use a named template when you want fixed sections. Customize Auto when you want to control Anarlog's default summary prompt.
 
 ## Choose a template
 
@@ -11,26 +11,26 @@ Open a meeting and use the template picker beside **Summary**. Templates can emp
 
 Changing the selected template does not rewrite an existing summary automatically. Regenerate the summary to apply the new template.
 
-## Set instructions for every summary
+## Customize Auto
 
-1. Open **Settings → Personalization**.
-2. Edit **Summary instructions**.
-3. Describe the result you want, then click **Save**.
+1. Open **Settings → Templates**.
+2. Select **Auto**.
+3. Edit the prompt, then click **Save**.
 
 For example:
 
-> Start with a two-sentence overview. Then list decisions and action items with owners. Do not use headings.
+The editor shows the complete system prompt used by Auto. Use the **Current date** and **Language** chips wherever those values should appear.
 
-The **Template** chip inserts the selected meeting template into your instructions. Keep it when you want both your standing instructions and the selected template. Remove it when you want the instructions to replace templates entirely.
+Meeting notes, transcript, session details, and participants are always sent separately. Editing the Auto prompt cannot remove that source material.
 
-Summary instructions take priority when they conflict with a template. Use **Reset to default** to return to Anarlog's standard behavior.
+The Auto prompt applies only when **Auto** is selected. Named templates continue to use their configured sections and do not inherit the Auto customization. Use **Reset to Anarlog default** to restore the built-in prompt.
 
 ## Improve names and specialized terms
 
-Under **Settings → Personalization → Dictionary**, add names, acronyms, product names, and other terms that transcription often gets wrong.
+Under **Settings → Dictionary**, add names, acronyms, product names, and other terms that transcription often gets wrong.
 
 The dictionary helps recognition, but it does not replace choosing the correct spoken languages or a model that supports them. See [Languages](/languages) for multilingual meetings.
 
 ## Apply your changes
 
-New summaries use the latest template and instructions. Regenerate an older summary when you want it to use the new settings.
+New summaries use the currently selected format. Regenerate an older summary when you want it to use the latest template or Auto prompt.

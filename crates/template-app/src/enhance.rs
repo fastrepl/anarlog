@@ -1,13 +1,45 @@
-use crate::{EnhanceTemplate, Participant, Session, Transcript, common_derives};
-use hypr_askama_utils::filters;
+use crate::{
+    EnhanceTemplate, Error, Participant, Session, Transcript, ValidationError, common_derives,
+};
+use minijinja::{Environment, UndefinedBehavior, context};
 
 common_derives! {
-    #[derive(askama::Template)]
-    #[template(path = "enhance.system.md.jinja")]
     pub struct EnhanceSystem {
         pub language: Option<String>,
-        pub custom_instructions: String,
+        pub prompt_override: String,
     }
+}
+
+pub fn render_enhance_system(input: &EnhanceSystem) -> Result<String, Error> {
+    let default_source = include_str!("../assets/enhance.system.md.jinja");
+    let source = if input.prompt_override.trim().is_empty() {
+        default_source
+    } else {
+        input.prompt_override.as_str()
+    };
+
+    let mut env = Environment::new();
+    env.set_undefined_behavior(UndefinedBehavior::Strict);
+    let template = env.template_from_str(source)?;
+
+    let mut unknown_variables = template
+        .undeclared_variables(false)
+        .into_iter()
+        .filter(|variable| !["current_date", "language"].contains(&variable.as_str()))
+        .collect::<Vec<_>>();
+    unknown_variables.sort();
+
+    if !unknown_variables.is_empty() {
+        return Err(Error::ValidationError(ValidationError {
+            unknown_variables,
+            unknown_filters: Vec::new(),
+        }));
+    }
+
+    Ok(template.render(context! {
+        current_date => hypr_askama_utils::current_date_value(),
+        language => hypr_askama_utils::language_name(input.language.as_deref()),
+    })?)
 }
 
 common_derives! {
@@ -27,38 +59,31 @@ common_derives! {
 mod tests {
     use super::*;
     use crate::{Segment, TemplateSection};
-    use hypr_askama_utils::{tpl_assert, tpl_snapshot};
+    use hypr_askama_utils::tpl_snapshot;
 
-    tpl_assert!(
-        test_language_as_specified,
-        EnhanceSystem {
+    #[test]
+    fn test_language_as_specified() {
+        let rendered = render_enhance_system(&EnhanceSystem {
             language: Some("ko".to_string()),
-            custom_instructions: String::new(),
-        },
-        |v| { v.contains("Korean") }
-    );
+            prompt_override: String::new(),
+        })
+        .unwrap();
 
-    tpl_assert!(
-        test_custom_instructions,
-        EnhanceSystem {
-            language: None,
-            custom_instructions: "Start with decisions and do not use headings.".to_string(),
-        },
-        |v| {
-            v.contains("# Custom Summary Instructions")
-                && v.contains("take precedence over the Format Requirements or Output Template")
-                && v.contains("Start with decisions and do not use headings.")
-        }
-    );
+        assert!(rendered.contains("Korean"));
+        assert!(rendered.contains("문장 끝을"));
+    }
 
-    tpl_snapshot!(
-        test_enhance_system_formatting,
-        EnhanceSystem {
+    #[test]
+    fn test_enhance_system_formatting() {
+        hypr_askama_utils::set_current_date_override(Some("2025-01-01".to_string()));
+        let rendered = render_enhance_system(&EnhanceSystem {
             language: None,
-            custom_instructions: String::new(),
-        },
-        fixed_date = "2025-01-01",
-        @r#"
+            prompt_override: String::new(),
+        })
+        .unwrap();
+        hypr_askama_utils::set_current_date_override(None);
+
+        insta::assert_snapshot!(rendered, @r#"
     # General Instructions
 
     Current date: 2025-01-01
@@ -97,6 +122,51 @@ mod tests {
     - Pay close attention to emphasized text in notes. Users highlight information using four styles: bold(**text**), italic(_text_), underline(<u>text</u>), strikethrough(~~text~~).
     - Recognize H3 headers (### Header) in notes—these indicate highly important topics that the user wants to retain no matter what.
     "#);
+    }
+
+    #[test]
+    fn test_custom_system_prompt() {
+        let rendered = render_enhance_system(&EnhanceSystem {
+            language: Some("ko".to_string()),
+            prompt_override: "Summarize in {{ language }} on {{ current_date }}.".to_string(),
+        })
+        .unwrap();
+
+        assert!(rendered.starts_with("Summarize in Korean on "));
+    }
+
+    #[test]
+    fn test_custom_system_prompt_rejects_unknown_variables() {
+        let error = render_enhance_system(&EnhanceSystem {
+            language: None,
+            prompt_override: "Summarize {{ transcript }}.".to_string(),
+        })
+        .unwrap_err();
+
+        assert!(error.to_string().contains("unknown variables: transcript"));
+    }
+
+    #[test]
+    fn test_custom_system_prompt_can_render_literal_jinja_text() {
+        let rendered = render_enhance_system(&EnhanceSystem {
+            language: None,
+            prompt_override: "Group by {{ \"{{\" }} customer_name }}.".to_string(),
+        })
+        .unwrap();
+
+        assert_eq!(rendered, "Group by {{ customer_name }}.");
+    }
+
+    #[test]
+    fn test_custom_system_prompt_supports_minijinja_filters() {
+        let rendered = render_enhance_system(&EnhanceSystem {
+            language: Some("ko".to_string()),
+            prompt_override: "Summarize in {{ language|upper }}.".to_string(),
+        })
+        .unwrap();
+
+        assert_eq!(rendered, "Summarize in KOREAN.");
+    }
 
     tpl_snapshot!(
         test_enhance_user_formatting_1,
@@ -158,6 +228,7 @@ mod tests {
 
     John Doe: Hello
 
+
     # Output Template
 
     # Summary Template
@@ -215,13 +286,6 @@ mod tests {
 
 
     Alice: Shipped the feature
-
-    # Output Template
-
-    # Instructions
-
-    1. Analyze the content and decide the sections to use.
-    2. Generate a well-formatted markdown summary.
     "
     );
 }

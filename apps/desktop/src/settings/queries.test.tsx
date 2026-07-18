@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   execute: vi.fn(),
   getPreferredLanguages: vi.fn(),
+  getTemplateSource: vi.fn(),
   setProperties: vi.fn(async () => undefined),
   executeTransaction: vi.fn(
     (_statements: Array<{ sql: string; params: unknown[] }>) =>
@@ -20,6 +21,12 @@ vi.mock("@hypr/plugin-analytics", () => ({
 vi.mock("@hypr/plugin-detect", () => ({
   commands: {
     getPreferredLanguages: mocks.getPreferredLanguages,
+  },
+}));
+
+vi.mock("@hypr/plugin-template", () => ({
+  commands: {
+    getTemplateSource: mocks.getTemplateSource,
   },
 }));
 
@@ -48,6 +55,10 @@ describe("SQLite settings", () => {
     mocks.getPreferredLanguages.mockResolvedValue({
       status: "error",
       error: "unavailable",
+    });
+    mocks.getTemplateSource.mockResolvedValue({
+      status: "ok",
+      data: "# General Instructions\n\nBuilt-in prompt.",
     });
   });
 
@@ -207,6 +218,111 @@ describe("SQLite settings", () => {
     expect(statements.map((statement) => statement.params.slice(0, 2))).toEqual(
       [["current_stt_model", JSON.stringify("nova-3-general")]],
     );
+  });
+
+  it("migrates legacy summary instructions into the editable Auto prompt", async () => {
+    let rows = [
+      {
+        id: "custom_summary_instructions",
+        value_json: JSON.stringify(
+          "Use the selected summary template for the summary structure and section headings.\n\nStart with decisions.\n\n{{ template }}",
+        ),
+      },
+    ];
+    mocks.execute.mockImplementation(async () => rows);
+    mocks.executeTransaction.mockImplementation(async (statements) => {
+      for (const statement of statements) {
+        const id = String(statement.params[0]);
+        const next = {
+          id,
+          value_json: String(statement.params[1]),
+        };
+        const index = rows.findIndex((row) => row.id === id);
+        if (index === -1) rows.push(next);
+        else rows[index] = next;
+      }
+      return statements.map(() => 1);
+    });
+
+    await initializeApplicationSettings();
+
+    expect(mocks.getTemplateSource).toHaveBeenCalledWith("enhanceSystem");
+    const statement = mocks.executeTransaction.mock.calls[0][0][0];
+    expect(statement.params[0]).toBe("auto_summary_prompt");
+    expect(JSON.parse(String(statement.params[1]))).toBe(`# General Instructions
+
+Built-in prompt.
+
+# Custom Summary Instructions
+
+For structure, formatting, tone, and emphasis, these instructions take precedence over the Format Requirements. They do not override the requirements to stay accurate, use only the provided source material, and return only the summary.
+
+Start with decisions.`);
+  });
+
+  it("does not overwrite an explicitly reset Auto prompt", async () => {
+    mocks.execute.mockResolvedValue([
+      {
+        id: "custom_summary_instructions",
+        value_json: JSON.stringify("Start with decisions."),
+      },
+      { id: "auto_summary_prompt", value_json: JSON.stringify("") },
+    ]);
+
+    await initializeApplicationSettings();
+
+    expect(mocks.getTemplateSource).not.toHaveBeenCalled();
+    expect(mocks.executeTransaction).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "",
+    "Use the selected summary template for the summary structure and section headings.\n\n{{ template }}",
+  ])(
+    "ignores legacy default-only summary instructions",
+    async (instructions) => {
+      mocks.execute.mockResolvedValue([
+        {
+          id: "custom_summary_instructions",
+          value_json: JSON.stringify(instructions),
+        },
+      ]);
+
+      await initializeApplicationSettings();
+
+      expect(mocks.getTemplateSource).not.toHaveBeenCalled();
+      expect(mocks.executeTransaction).not.toHaveBeenCalled();
+    },
+  );
+
+  it("keeps legacy Jinja-like text literal in the migrated prompt", async () => {
+    mocks.execute.mockResolvedValue([
+      {
+        id: "custom_summary_instructions",
+        value_json: JSON.stringify("Group by {{ customer_name }}."),
+      },
+    ]);
+
+    await initializeApplicationSettings();
+
+    const statement = mocks.executeTransaction.mock.calls[0][0][0];
+    expect(JSON.parse(String(statement.params[1]))).toContain(
+      'Group by {{ "{{" }} customer_name }}.',
+    );
+  });
+
+  it("leaves legacy instructions untouched when the prompt source is unavailable", async () => {
+    mocks.execute.mockResolvedValue([
+      {
+        id: "custom_summary_instructions",
+        value_json: JSON.stringify("Start with decisions."),
+      },
+    ]);
+    mocks.getTemplateSource.mockRejectedValue(new Error("plugin unavailable"));
+
+    await expect(initializeApplicationSettings()).resolves.toBeUndefined();
+
+    expect(mocks.executeTransaction).not.toHaveBeenCalled();
   });
 
   it("updates against the latest SQLite value inside the write queue", async () => {

@@ -14,22 +14,30 @@ fn extract_iso639(code: &str) -> &str {
     code.split(['-', '_']).next().unwrap_or(code)
 }
 
-#[askama::filter_fn]
-pub fn current_date<T: ?Sized>(_value: &T, _env: &dyn askama::Values) -> askama::Result<String> {
+pub fn current_date_value() -> String {
     CURRENT_DATE_OVERRIDE.with(|v| {
         if let Some(ref date) = *v.borrow() {
-            return Ok(date.clone());
+            return date.clone();
         }
-        Ok(chrono::Utc::now().format("%Y-%m-%d").to_string())
+        chrono::Utc::now().format("%Y-%m-%d").to_string()
     })
+}
+
+pub fn language_name(value: Option<&str>) -> String {
+    let raw = value.unwrap_or("").to_lowercase();
+    let v = extract_iso639(&raw);
+    let lang = Language::from_639_1(v).unwrap_or(Language::from_639_1("en").unwrap());
+    lang.to_name().to_string()
+}
+
+#[askama::filter_fn]
+pub fn current_date<T: ?Sized>(_value: &T, _env: &dyn askama::Values) -> askama::Result<String> {
+    Ok(current_date_value())
 }
 
 #[askama::filter_fn]
 pub fn language(value: &Option<String>, _env: &dyn askama::Values) -> askama::Result<String> {
-    let raw = value.as_deref().unwrap_or("").to_lowercase();
-    let v = extract_iso639(&raw);
-    let lang = Language::from_639_1(v).unwrap_or(Language::from_639_1("en").unwrap());
-    Ok(lang.to_name().to_string())
+    Ok(language_name(value.as_deref()))
 }
 
 #[askama::filter_fn]

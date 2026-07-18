@@ -1,5 +1,12 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ArrowDownUp, BookText, Plus, Search, X } from "lucide-react";
+import {
+  ArrowDownUp,
+  BookText,
+  Plus,
+  Search,
+  SparklesIcon,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
@@ -15,8 +22,9 @@ import { cn } from "@hypr/utils";
 import { type WebTemplate } from "./codec";
 import { getTemplateCopyTitle, type UserTemplate } from "./queries";
 import { TemplateIconGlyph } from "./template-icon";
-import { useTemplateTab } from "./utils";
+import { AUTO_TEMPLATE_ID, useTemplateTab } from "./utils";
 
+import { useConfigValue } from "~/shared/config";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 import { CustomSidebarHeader } from "~/sidebar/custom-sidebar-header";
 import { type Tab } from "~/store/zustand/tabs";
@@ -32,6 +40,7 @@ export function TemplatesSidebarContent({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [search, setSearch] = useState("");
   const [sortOption, setSortOption] = useState<SortOption>("alphabetical");
+  const autoPrompt = useConfigValue("auto_summary_prompt");
 
   const {
     userTemplates,
@@ -153,6 +162,13 @@ export function TemplatesSidebarContent({
   const combinedTemplates = useMemo<
     Array<
       | {
+          key: typeof AUTO_TEMPLATE_ID;
+          title: "Auto";
+          selected: boolean;
+          source: "auto";
+          customized: boolean;
+        }
+      | {
           key: string;
           title: string;
           selected: boolean;
@@ -171,6 +187,20 @@ export function TemplatesSidebarContent({
         }
     >
   >(() => {
+    const query = search.trim().toLowerCase();
+    const auto =
+      !query || "auto".includes(query)
+        ? [
+            {
+              key: AUTO_TEMPLATE_ID as typeof AUTO_TEMPLATE_ID,
+              title: "Auto" as const,
+              selected:
+                !isWebMode && effectiveSelectedMineId === AUTO_TEMPLATE_ID,
+              source: "auto" as const,
+              customized: Boolean(autoPrompt.trim()),
+            },
+          ]
+        : [];
     const mine = filteredMine.map((template) => ({
       key: template.id,
       title: template.title?.trim() || "Untitled",
@@ -190,13 +220,15 @@ export function TemplatesSidebarContent({
       template,
     }));
 
-    return [...mine, ...web];
+    return [...auto, ...mine, ...web];
   }, [
+    autoPrompt,
     effectiveSelectedMineId,
     effectiveSelectedWebIndex,
     filteredMine,
     filteredWeb,
     isWebMode,
+    search,
   ]);
 
   const hasResults = combinedTemplates.length > 0;
@@ -206,6 +238,9 @@ export function TemplatesSidebarContent({
     (
       item:
         | {
+            source: "auto";
+          }
+        | {
             source: "user";
             template: UserTemplate;
           }
@@ -214,6 +249,11 @@ export function TemplatesSidebarContent({
             index: number;
           },
     ) => {
+      if (item.source === "auto") {
+        setSelectedMineId(AUTO_TEMPLATE_ID);
+        return;
+      }
+
       if (item.source === "user") {
         setSelectedMineId(item.template.id);
         return;
@@ -400,7 +440,32 @@ export function TemplatesSidebarContent({
             {hasResults && (
               <div className="pt-1">
                 {combinedTemplates.map((item) =>
-                  item.source === "user" ? (
+                  item.source === "auto" ? (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => setSelectedMineId(AUTO_TEMPLATE_ID)}
+                      data-template-selected={item.selected}
+                      className={cn([
+                        "w-full rounded-lg px-3 py-2 text-left text-sm transition-colors select-none",
+                        item.selected ? "bg-accent" : "hover:bg-accent/50",
+                      ])}
+                    >
+                      <div className="flex items-center gap-2">
+                        <SparklesIcon className="size-4 text-violet-500" />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-medium">
+                            {item.title}
+                          </div>
+                          {item.customized ? (
+                            <div className="text-muted-foreground truncate text-xs">
+                              <Trans>Customized</Trans>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    </button>
+                  ) : item.source === "user" ? (
                     <TemplateListItem
                       key={item.key}
                       template={item.template}

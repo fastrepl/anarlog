@@ -48,7 +48,6 @@ import {
 } from "~/shared/hooks/useNativeContextMenu";
 import { useWebResources } from "~/shared/ui/resource-list";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
-import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 import {
@@ -56,6 +55,7 @@ import {
   DEFAULT_TEMPLATE_ICON,
   parseWebTemplates,
   TemplateIconGlyph,
+  useOpenTemplatesTab,
   useCreateTemplate,
   useUserTemplate,
   useUserTemplates,
@@ -835,34 +835,6 @@ function HeaderViewTranscriptActive({
       onContextMenu={showContextMenu}
       live={live}
     />
-  );
-}
-
-function useOpenTemplatesTab() {
-  const openNew = useTabs((state) => state.openNew);
-  const selectTab = useTabs((state) => state.select);
-  const updateTemplatesTabState = useTabs(
-    (state) => state.updateTemplatesTabState,
-  );
-
-  return useCallback(
-    (state: Extract<Tab, { type: "templates" }>["state"]) => {
-      const existingTemplatesTab = useTabs
-        .getState()
-        .tabs.find(
-          (tab): tab is Extract<Tab, { type: "templates" }> =>
-            tab.type === "templates",
-        );
-
-      if (!existingTemplatesTab) {
-        openNew({ type: "templates", state });
-        return;
-      }
-
-      updateTemplatesTabState(existingTemplatesTab, state);
-      selectTab(existingTemplatesTab);
-    },
-    [openNew, selectTab, updateTemplatesTabState],
   );
 }
 

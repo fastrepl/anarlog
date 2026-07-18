@@ -12,6 +12,7 @@ import {
 } from "@hypr/ui/components/ui/dropdown-menu";
 import { cn } from "@hypr/utils";
 
+import { AutoTemplateDetails } from "./auto-form";
 import { type WebTemplate } from "./codec";
 import { type UserTemplate, type UserTemplateDraft } from "./queries";
 import { SectionsList } from "./sections-editor";
@@ -24,6 +25,7 @@ import {
 } from "~/shared/ui/resource-list";
 
 export function TemplateDetailsColumn({
+  isAutoSelected,
   isWebMode,
   selectedMineTemplate,
   selectedWebTemplate,
@@ -34,6 +36,7 @@ export function TemplateDetailsColumn({
   handleFavoriteTemplate,
   handleSetDefaultTemplate,
 }: {
+  isAutoSelected: boolean;
   isWebMode: boolean;
   selectedMineTemplate: UserTemplate | null;
   selectedWebTemplate: WebTemplate | null;
@@ -45,6 +48,10 @@ export function TemplateDetailsColumn({
   handleSetDefaultTemplate: (template: UserTemplateDraft) => void;
 }) {
   const { t } = useLingui();
+  if (isAutoSelected) {
+    return <AutoTemplateDetails />;
+  }
+
   if (isWebMode) {
     if (!selectedWebTemplate) {
       return (

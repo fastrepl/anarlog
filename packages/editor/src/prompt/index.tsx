@@ -26,22 +26,40 @@ import { cn } from "@hypr/utils";
 import { EditorErrorBoundary } from "../editor-error-boundary";
 import { docChangeListenerPlugin, placeholderPlugin } from "../plugins";
 
-export type PromptTokenName = "template";
+export type PromptTokenName = "template" | "current_date" | "language";
 
-const TOKEN_PATTERN = /\{\{\s*(template)\s*\}\}/g;
+export type PromptTokenDefinition = {
+  name: PromptTokenName;
+  label: string;
+};
+
+const DEFAULT_PROMPT_TOKENS: readonly PromptTokenDefinition[] = [
+  { name: "template", label: "Template" },
+];
+const TOKEN_PATTERN = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g;
 
 const promptTokenNodeSpec: NodeSpec = {
   group: "inline",
   inline: true,
   atom: true,
   selectable: true,
-  attrs: { name: { default: "template" } },
+  draggable: false,
+  attrs: {
+    name: { default: "template" },
+    label: { default: "Variable" },
+  },
+  leafText(node) {
+    return `{{ ${String(node.attrs.name)} }}`;
+  },
   parseDOM: [
     {
       tag: "span[data-prompt-token]",
       getAttrs(dom) {
         const name = (dom as HTMLElement).getAttribute("data-prompt-token");
-        return name === "template" ? { name } : false;
+        const label = (dom as HTMLElement).getAttribute(
+          "data-prompt-token-label",
+        );
+        return name ? { name, label: label || name } : false;
       },
     },
   ],
@@ -52,8 +70,9 @@ const promptTokenNodeSpec: NodeSpec = {
         class: "prompt-token",
         contenteditable: "false",
         "data-prompt-token": node.attrs.name,
+        "data-prompt-token-label": node.attrs.label,
       },
-      "Template",
+      String(node.attrs.label),
     ];
   },
 };
@@ -83,7 +102,11 @@ export const promptSchema = new Schema({
   },
 });
 
-export function promptTextToDoc(value: string): PMNode {
+export function promptTextToDoc(
+  value: string,
+  tokens: readonly PromptTokenDefinition[] = DEFAULT_PROMPT_TOKENS,
+): PMNode {
+  const tokenDefinitions = new Map(tokens.map((token) => [token.name, token]));
   const paragraphs = value
     .replace(/\r\n/g, "\n")
     .split("\n")
@@ -92,12 +115,18 @@ export function promptTextToDoc(value: string): PMNode {
       let cursor = 0;
 
       for (const match of line.matchAll(TOKEN_PATTERN)) {
+        const token = tokenDefinitions.get(match[1] as PromptTokenName);
+        if (!token) continue;
+
         const index = match.index;
         if (index > cursor) {
           content.push(promptSchema.text(line.slice(cursor, index)));
         }
         content.push(
-          promptSchema.nodes.promptToken.create({ name: "template" }),
+          promptSchema.nodes.promptToken.create({
+            name: token.name,
+            label: token.label,
+          }),
         );
         cursor = index + match[0].length;
       }
@@ -147,6 +176,7 @@ export function PromptEditor({
   onBlur,
   onChange,
   placeholder,
+  tokens = DEFAULT_PROMPT_TOKENS,
 }: {
   ref?: Ref<PromptEditorHandle>;
   ariaLabel: string;
@@ -156,8 +186,11 @@ export function PromptEditor({
   onBlur?: () => void;
   onChange: (value: string) => void;
   placeholder?: string;
+  tokens?: readonly PromptTokenDefinition[];
 }) {
   const viewRef = useRef<EditorView | null>(null);
+  const tokensRef = useRef(tokens);
+  tokensRef.current = tokens;
   const onBlurRef = useRef(onBlur);
   onBlurRef.current = onBlur;
   const onChangeRef = useRef(onChange);
@@ -173,7 +206,15 @@ export function PromptEditor({
         const view = viewRef.current;
         if (!view) return;
 
-        const token = promptSchema.nodes.promptToken.create({ name });
+        const definition = tokensRef.current.find(
+          (token) => token.name === name,
+        );
+        if (!definition) return;
+
+        const token = promptSchema.nodes.promptToken.create({
+          name: definition.name,
+          label: definition.label,
+        });
         view.dispatch(
           view.state.tr.replaceSelectionWith(token).scrollIntoView(),
         );
@@ -183,7 +224,7 @@ export function PromptEditor({
         const view = viewRef.current;
         if (!view) return;
 
-        const doc = promptTextToDoc(value);
+        const doc = promptTextToDoc(value, tokensRef.current);
         view.dispatch(
           view.state.tr.replaceWith(
             0,
@@ -231,12 +272,15 @@ export function PromptEditor({
   const defaultState = useMemo(
     () =>
       EditorState.create({
-        doc: promptTextToDoc(initialValue),
+        doc: promptTextToDoc(initialValue, tokens),
         plugins,
       }),
-    [initialValue, plugins],
+    [initialValue, plugins, tokens],
   );
-  const editorKey = `${maxLength ?? ""}:${placeholder ?? ""}`;
+  const tokenKey = tokens
+    .map(({ name, label }) => `${name}:${label}`)
+    .join(",");
+  const editorKey = `${maxLength ?? ""}:${placeholder ?? ""}:${tokenKey}`;
 
   return (
     <EditorErrorBoundary>

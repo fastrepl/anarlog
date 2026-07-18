@@ -83,7 +83,7 @@ msgid "Activity"
 msgstr "Activity"
 
 #: src/contacts/shared.tsx
-#: src/settings/personalization/index.tsx
+#: src/settings/dictionary/index.tsx
 #: src/settings/todo/github.tsx
 msgid "Add"
 msgstr "Add"
@@ -106,7 +106,11 @@ msgstr "Add API key"
 msgid "Add language"
 msgstr "Add language"
 
-#: src/settings/personalization/index.tsx
+#: src/settings/dictionary/index.tsx
+msgid "Add names, jargon, and product terms to improve transcription."
+msgstr "Add names, jargon, and product terms to improve transcription."
+
+#: src/settings/dictionary/index.tsx
 msgid "Add names, jargon, or product terms to prefer"
 msgstr "Add names, jargon, or product terms to prefer"
 
@@ -190,6 +194,10 @@ msgstr "Anarlog needs access to your microphone and system audio to record and t
 msgid "Anarlog needs microphone and system audio to transcribe your meetings, plus Accessibility to read meeting controls, visible chat, and participant status."
 msgstr "Anarlog needs microphone and system audio to transcribe your meetings, plus Accessibility to read meeting controls, visible chat, and participant status."
 
+#: src/templates/auto-form.tsx
+msgid "Anarlog sends these separately, so editing the prompt cannot remove the meeting source material."
+msgstr "Anarlog sends these separately, so editing the prompt cannot remove the meeting source material."
+
 #: src/onboarding/index.tsx
 msgid "Anarlog will sync your calendar to get meeting reminders"
 msgstr "Anarlog will sync your calendar to get meeting reminders"
@@ -210,10 +218,6 @@ msgstr "App"
 #: src/settings/general/theme.tsx
 msgid "Appearance"
 msgstr "Appearance"
-
-#: src/settings/personalization/index.tsx
-msgid "Applied to every generated or regenerated meeting summary."
-msgstr "Applied to every generated or regenerated meeting summary."
 
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Apply to all"
@@ -255,6 +259,14 @@ msgstr "Audio file retention"
 #: src/instruction/index.tsx
 msgid "Authorize access in your browser, then return to Anarlog."
 msgstr "Authorize access in your browser, then return to Anarlog."
+
+#: src/templates/auto-form.tsx
+msgid "Auto prompt cannot be empty."
+msgstr "Auto prompt cannot be empty."
+
+#: src/templates/auto-form.tsx
+msgid "Auto summary prompt"
+msgstr "Auto summary prompt"
 
 #: src/settings/general/notification.tsx
 msgid "Automatically detect when a meeting starts based on microphone activity."
@@ -490,6 +502,10 @@ msgstr "Contacts"
 msgid "Context"
 msgstr "Context"
 
+#: src/templates/auto-form.tsx
+msgid "Context always provided"
+msgstr "Context always provided"
+
 #: src/onboarding/calendar.tsx
 msgid "Continue"
 msgstr "Continue"
@@ -534,6 +550,19 @@ msgstr "Create template"
 msgid "Created"
 msgstr "Created"
 
+#: src/templates/auto-form.tsx
+msgid "Current default"
+msgstr "Current default"
+
+#: src/templates/auto-form.tsx
+msgid "Customize Auto"
+msgstr "Customize Auto"
+
+#: src/templates/auto-form.tsx
+#: src/templates/template-sidebar.tsx
+msgid "Customized"
+msgstr "Customized"
+
 #: src/settings/general/theme.tsx
 msgid "Dark"
 msgstr "Dark"
@@ -541,6 +570,10 @@ msgstr "Dark"
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Date and time are required"
 msgstr "Date and time are required"
+
+#: src/templates/auto-form.tsx
+msgid "Default"
+msgstr "Default"
 
 #: src/session/components/outer-header/overflow/delete.tsx
 #: src/templates/sections-editor.tsx
@@ -596,7 +629,8 @@ msgstr "Detection delay"
 msgid "Developers"
 msgstr "Developers"
 
-#: src/settings/personalization/index.tsx
+#: src/settings/dictionary/index.tsx
+#: src/sidebar/settings.tsx
 msgid "Dictionary"
 msgstr "Dictionary"
 
@@ -640,6 +674,10 @@ msgstr "Duration"
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Edit date"
 msgstr "Edit date"
+
+#: src/templates/auto-form.tsx
+msgid "Edit the complete system prompt used when Auto generates a summary."
+msgstr "Edit the complete system prompt used when Auto generates a summary."
 
 #: src/onboarding/account/after-login.tsx
 msgid "Eligible for free trial"
@@ -697,10 +735,6 @@ msgstr "Enter your API key (optional)"
 #: src/settings/general/notification.tsx
 msgid "Event notifications"
 msgstr "Event notifications"
-
-#: src/settings/personalization/index.tsx
-msgid "Example: Start with a two-sentence overview, then list decisions and action items with owners. Do not use headings."
-msgstr "Example: Start with a two-sentence overview, then list decisions and action items with owners. Do not use headings."
 
 #: src/settings/general/notification.tsx
 msgid "Exclude apps from detection"
@@ -982,6 +1016,10 @@ msgstr "Live"
 msgid "Loading access…"
 msgstr "Loading access…"
 
+#: src/templates/auto-form.tsx
+msgid "Loading Auto prompt..."
+msgstr "Loading Auto prompt..."
+
 #: src/calendar/components/calendar-selection.tsx
 msgid "Loading calendars..."
 msgstr "Loading calendars..."
@@ -1026,6 +1064,10 @@ msgstr "Meeting"
 #: src/onboarding/permissions.tsx
 msgid "Meeting details access turned on"
 msgstr "Meeting details access turned on"
+
+#: src/templates/auto-form.tsx
+msgid "Meeting notes"
+msgstr "Meeting notes"
 
 #: src/settings/general/app-settings.tsx
 msgid "Meetings"
@@ -1162,7 +1204,7 @@ msgstr "No items today"
 msgid "No legacy JSON or Markdown files remain"
 msgstr "No legacy JSON or Markdown files remain"
 
-#: src/settings/personalization/index.tsx
+#: src/settings/dictionary/index.tsx
 msgid "No match"
 msgstr "No match"
 
@@ -1323,6 +1365,7 @@ msgstr "Override the timezone used for the sidebar timeline"
 
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/templates/auto-form.tsx
 msgid "Participants"
 msgstr "Participants"
 
@@ -1351,11 +1394,6 @@ msgstr "Permissions"
 #: src/onboarding/index.tsx
 msgid "Permissions granted"
 msgstr "Permissions granted"
-
-#: src/settings/personalization/index.tsx
-#: src/sidebar/settings.tsx
-msgid "Personalization"
-msgstr "Personalization"
 
 #: src/contacts/details.tsx
 msgid "Phone"
@@ -1434,7 +1472,7 @@ msgstr "Related Notes"
 msgid "Reminders"
 msgstr "Reminders"
 
-#: src/settings/personalization/index.tsx
+#: src/settings/dictionary/index.tsx
 msgid "Remove {term}"
 msgstr "Remove {term}"
 
@@ -1512,9 +1550,9 @@ msgstr "Required to sync Apple Calendar events into Anarlog"
 msgid "Reset"
 msgstr "Reset"
 
-#: src/settings/personalization/index.tsx
-msgid "Reset to default"
-msgstr "Reset to default"
+#: src/templates/auto-form.tsx
+msgid "Reset to Anarlog default"
+msgstr "Reset to Anarlog default"
 
 #: src/settings/general/notification.tsx
 msgid "Respect Do-Not-Disturb mode"
@@ -1539,7 +1577,7 @@ msgstr "Retry"
 msgid "Runs after the recording finishes, not during the meeting."
 msgstr "Runs after the recording finishes, not during the meeting."
 
-#: src/settings/personalization/index.tsx
+#: src/templates/auto-form.tsx
 msgid "Save"
 msgstr "Save"
 
@@ -1663,6 +1701,10 @@ msgstr "Send email"
 msgid "Send message"
 msgstr "Send message"
 
+#: src/templates/auto-form.tsx
+msgid "Session details"
+msgstr "Session details"
+
 #: src/session/components/note-input/header.tsx
 msgid "Session note views"
 msgstr "Session note views"
@@ -1671,6 +1713,7 @@ msgstr "Session note views"
 msgid "Session title"
 msgstr "Session title"
 
+#: src/templates/auto-form.tsx
 #: src/templates/details.tsx
 msgid "Set as default"
 msgstr "Set as default"
@@ -1916,10 +1959,6 @@ msgstr "Submit callback URL"
 msgid "Summary"
 msgstr "Summary"
 
-#: src/settings/personalization/index.tsx
-msgid "Summary instructions"
-msgstr "Summary instructions"
-
 #: src/settings/general/week-start.tsx
 msgid "Sunday"
 msgstr "Sunday"
@@ -1975,10 +2014,6 @@ msgstr "The main language is always included for transcription"
 msgid "The note may have been unshared or moved out of a workspace you can access."
 msgstr "The note may have been unshared or moved out of a workspace you can access."
 
-#: src/settings/personalization/index.tsx
-msgid "These instructions take priority over the selected template when they conflict. Clear them to use templates as written."
-msgstr "These instructions take priority over the selected template when they conflict. Clear them to use templates as written."
-
 #: src/chat/components/message/loading.tsx
 msgid "Thinking..."
 msgstr "Thinking..."
@@ -2007,6 +2042,7 @@ msgstr "Tip: The Anarlog team loves our users!"
 
 #: src/session/components/note-input/header.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/templates/auto-form.tsx
 msgid "Transcript"
 msgstr "Transcript"
 
@@ -2126,6 +2162,10 @@ msgstr "Use system audio to capture other speakers"
 #: src/onboarding/permissions.tsx
 msgid "Use your microphone to capture your voice"
 msgstr "Use your microphone to capture your voice"
+
+#: src/templates/auto-form.tsx
+msgid "Variables"
+msgstr "Variables"
 
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Verifying the SQLite migration status"

@@ -19541,6 +19541,7 @@ dependencies = [
  "askama 0.15.6",
  "askama-utils",
  "insta",
+ "minijinja",
  "serde",
  "specta",
  "template-eval",

@@ -299,6 +299,7 @@ vi.mock("~/templates", () => ({
   getTemplateCreatorLabel: () => "You",
   parseWebTemplates: () => [],
   useCreateTemplate: () => vi.fn(),
+  useOpenTemplatesTab: () => vi.fn(),
   useTemplateCreatorName: () => "You",
   useUserTemplate: () => ({ data: { title: hoisted.activeTemplateTitle } }),
   useUserTemplates: () => hoisted.userTemplates,

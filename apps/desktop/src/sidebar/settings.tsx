@@ -4,12 +4,12 @@ import {
   AudioLinesIcon,
   ArrowUpRightIcon,
   BellIcon,
+  BookOpenIcon,
   BookText,
   CalendarIcon,
   Code2Icon,
   CogIcon,
   LockIcon,
-  SmileIcon,
   SparklesIcon,
   type LucideIcon,
   UserIcon,
@@ -22,6 +22,7 @@ import { cn } from "@hypr/utils";
 import { CustomSidebarHeader } from "./custom-sidebar-header";
 
 import { type SettingsTab, useTabs } from "~/store/zustand/tabs";
+import { AUTO_TEMPLATE_ID, useOpenTemplatesTab } from "~/templates";
 
 type SettingsNavItem =
   | { id: SettingsTab; label: string; icon: LucideIcon }
@@ -40,6 +41,7 @@ export function SettingsNav() {
   const updateSettingsTabState = useTabs(
     (state) => state.updateSettingsTabState,
   );
+  const openTemplatesTab = useOpenTemplatesTab();
 
   const activeTab =
     currentTab?.type === "settings" ? (currentTab.state.tab ?? "app") : "app";
@@ -54,8 +56,13 @@ export function SettingsNav() {
   );
 
   const handleOpenTemplates = useCallback(() => {
-    openNew({ type: "templates" });
-  }, [openNew]);
+    openTemplatesTab({
+      showHomepage: false,
+      isWebMode: false,
+      selectedMineId: AUTO_TEMPLATE_ID,
+      selectedWebIndex: null,
+    });
+  }, [openTemplatesTab]);
 
   const handleOpenCalendar = useCallback(() => {
     openNew({ type: "calendar" });
@@ -88,11 +95,6 @@ export function SettingsNav() {
           label: t`Contacts`,
           icon: UsersIcon,
         },
-        {
-          action: "open-templates",
-          label: t`Templates`,
-          icon: BookText,
-        },
       ],
     },
     {
@@ -101,9 +103,14 @@ export function SettingsNav() {
         { id: "transcription", label: t`Transcription`, icon: AudioLinesIcon },
         { id: "intelligence", label: t`Intelligence`, icon: SparklesIcon },
         {
-          id: "personalization",
-          label: t`Personalization`,
-          icon: SmileIcon,
+          id: "dictionary",
+          label: t`Dictionary`,
+          icon: BookOpenIcon,
+        },
+        {
+          action: "open-templates",
+          label: t`Templates`,
+          icon: BookText,
         },
       ],
     },

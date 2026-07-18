@@ -4,6 +4,7 @@ import type { WebTemplate } from "./codec";
 import type { UserTemplate } from "./queries";
 import { DEFAULT_TEMPLATE_ICON } from "./template-icon";
 import {
+  AUTO_TEMPLATE_ID,
   filterWebTemplatesAgainstUserTemplates,
   resolveTemplateTabSelection,
 } from "./utils";
@@ -38,7 +39,7 @@ describe("resolveTemplateTabSelection", () => {
       }),
     ).toEqual({
       isWebMode: false,
-      selectedMineId: null,
+      selectedMineId: AUTO_TEMPLATE_ID,
       selectedWebIndex: null,
       selectedWebTemplate: null,
     });
@@ -73,6 +74,23 @@ describe("resolveTemplateTabSelection", () => {
     ).toEqual({
       isWebMode: false,
       selectedMineId: "template-1",
+      selectedWebIndex: null,
+      selectedWebTemplate: null,
+    });
+  });
+
+  it("preserves an explicit Auto selection when local templates exist", () => {
+    expect(
+      resolveTemplateTabSelection({
+        isWebMode: false,
+        selectedMineId: AUTO_TEMPLATE_ID,
+        selectedWebIndex: null,
+        userTemplates: [userTemplate],
+        webTemplates: [webTemplate],
+      }),
+    ).toEqual({
+      isWebMode: false,
+      selectedMineId: AUTO_TEMPLATE_ID,
       selectedWebIndex: null,
       selectedWebTemplate: null,
     });
