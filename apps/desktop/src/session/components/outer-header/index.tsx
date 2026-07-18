@@ -17,6 +17,7 @@ import { OverflowButton } from "./overflow";
 import { useAudioPlayer } from "~/audio-player";
 import { useNow } from "~/calendar/hooks";
 import { useShell } from "~/contexts/shell";
+import { WELCOME_NOTE_TRACKING_ID } from "~/onboarding/welcome-note.constants";
 import { SessionShareButton } from "~/session-sharing";
 import { useEventCountdown } from "~/session/hooks/useEventCountdown";
 import {
@@ -129,7 +130,11 @@ function HeaderMeetingActionPill({
   sessionMode,
 }: {
   sessionId: string;
-  event: { ended_at?: string; meeting_link?: string } | null;
+  event: {
+    ended_at?: string;
+    meeting_link?: string;
+    tracking_id?: string;
+  } | null;
   now: Date;
   sessionMode: string;
 }) {
@@ -215,7 +220,12 @@ function HeaderMeetingActionPill({
       return {
         label: t`Join & record`,
         title: t`Join meeting and record`,
-        icon: remote ? getMeetingDisplay(remote.type).icon : undefined,
+        icon:
+          event?.tracking_id === WELCOME_NOTE_TRACKING_ID ? (
+            <img src="/assets/anarlog-icon.png" alt="" className="size-4" />
+          ) : remote ? (
+            getMeetingDisplay(remote.type).icon
+          ) : undefined,
         onClick: () => {
           void openerCommands.openUrl(meetingLink, null);
           start();

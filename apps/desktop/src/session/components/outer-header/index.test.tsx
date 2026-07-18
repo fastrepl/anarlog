@@ -447,6 +447,28 @@ describe("OuterHeader", () => {
     expect(mocks.startListening).toHaveBeenCalledTimes(1);
   });
 
+  it("shows the Anarlog logo for the welcome note meeting", () => {
+    mocks.sessionEvents = {
+      "session-1": {
+        tracking_id: "anarlog-onboarding-demo-v1",
+        meeting_link: "https://anarlog.so/onboarding-demo/",
+      },
+    };
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+      />,
+    );
+
+    const joinButton = screen.getByRole("button", { name: "Join & record" });
+    const logo = joinButton.querySelector("img");
+
+    expect(logo?.getAttribute("src")).toBe("/assets/anarlog-icon.png");
+    expect(logo?.getAttribute("alt")).toBe("");
+  });
+
   it("shows the meeting countdown to the left of the header action", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-05T09:55:30.000Z"));

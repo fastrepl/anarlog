@@ -52,6 +52,12 @@ it("creates a prerecorded demo note with normal meeting metadata", async () => {
   expect(event.tracking_id).toBe("anarlog-onboarding-demo-v1");
   expect(initial.raw_md).toContain("prerecorded demo meeting");
   expect(initial.raw_md).toContain("Join & record");
+
+  const note = JSON.parse(initial.raw_md);
+  expect(note.content).toHaveLength(7);
+  expect(note.content[1]).toEqual({ type: "paragraph" });
+  expect(note.content[3]).toEqual({ type: "paragraph" });
+  expect(note.content[5]).toEqual({ type: "paragraph" });
 });
 
 it("guards empty event metadata before reading its tracking ID", async () => {
