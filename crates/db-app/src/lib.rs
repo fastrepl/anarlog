@@ -192,6 +192,11 @@ pub fn schema() -> hypr_db_migrate::DbSchema {
 const SHARED_SESSION_CACHE_MIGRATION_VERSION: i64 = 20260716173000;
 const LEGACY_SHARED_SESSION_CACHE_CHECKSUM: &str = "4813db532e44e6db8a3ba85e0b248ff99a927ec40b6aa971210452b588bcb2361d3661bd23d045a32ac3a9fcbed99b4a";
 const CURRENT_SHARED_SESSION_CACHE_CHECKSUM: &str = "84376d223c0b1ca3298810b101fef7f599d50267dca4e5693feaddd481e4a082b87a12d37360e11b94b3cb39e8c58dee";
+const ATTACHMENT_TRANSFER_JOBS_MIGRATION_VERSION: i64 = 20260717150000;
+const LEGACY_ATTACHMENT_TRANSFER_JOBS_CHECKSUM: &str = "fd846a54c653d8e737371a950747b442bba2da055566dbcd35907b36fe7829a3a09c81052346bb05100ba71be552efc0";
+const CURRENT_ATTACHMENT_TRANSFER_JOBS_CHECKSUM: &str = "9250233e7b51b83bb74ef4e4af159a9c2bbc753ee64751cac8316968b66bb1b2e0e224770d8b63a631350183dc81c2e0";
+const LEGACY_ATTACHMENT_TRANSFER_JOBS_SCHEMA_CHECKSUM: &str = "5702d2831ccfe75bfca957aa6d37cacc54347090c0d106aaaa9c3af124fcf7e57e49b0432ad5191ff3075f2d9d489916";
+const CURRENT_ATTACHMENT_TRANSFER_JOBS_SCHEMA_CHECKSUM: &str = "3beb182b60f84e0f53ae6069fc7a6e4ba28e51e87d37e4fda7e5ab9b8e8ca713bd43bb8bd79100c6116a4d23dfff55ef";
 
 #[derive(Debug)]
 pub enum AppSchemaError {
@@ -199,6 +204,7 @@ pub enum AppSchemaError {
     Sqlx(sqlx::Error),
     CloudsyncWorkspace(CloudsyncWorkspaceError),
     SharedSessionCacheRepair(&'static str),
+    AttachmentTransferJobsRepair(&'static str),
 }
 
 impl std::fmt::Display for AppSchemaError {
@@ -208,6 +214,7 @@ impl std::fmt::Display for AppSchemaError {
             Self::Sqlx(error) => write!(f, "{error}"),
             Self::CloudsyncWorkspace(error) => write!(f, "{error}"),
             Self::SharedSessionCacheRepair(error) => write!(f, "{error}"),
+            Self::AttachmentTransferJobsRepair(error) => write!(f, "{error}"),
         }
     }
 }
@@ -235,10 +242,170 @@ impl From<CloudsyncWorkspaceError> for AppSchemaError {
 pub async fn prepare_schema(db: &hypr_db_core::Db) -> Result<(), AppSchemaError> {
     let templates_missing_before_migration = !templates_table_exists(db.pool()).await?;
     repair_legacy_shared_session_cache_migration(db.pool()).await?;
+    repair_legacy_attachment_transfer_jobs_migration(db.pool()).await?;
     hypr_db_migrate::migrate(db, schema()).await?;
     repair_missing_core_tables(db.pool(), templates_missing_before_migration).await?;
     ensure_cloudsync_workspace_binding(db.pool()).await?;
     Ok(())
+}
+
+async fn repair_legacy_attachment_transfer_jobs_migration(
+    pool: &sqlx::SqlitePool,
+) -> Result<(), AppSchemaError> {
+    let migration_table_exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM sqlite_master
+            WHERE type = 'table' AND name = '_sqlx_migrations'
+        )",
+    )
+    .fetch_one(pool)
+    .await?;
+    if !migration_table_exists {
+        return Ok(());
+    }
+
+    let checksum: Option<String> = sqlx::query_scalar(
+        "SELECT lower(hex(checksum))
+         FROM _sqlx_migrations
+         WHERE version = ? AND success = 1",
+    )
+    .bind(ATTACHMENT_TRANSFER_JOBS_MIGRATION_VERSION)
+    .fetch_optional(pool)
+    .await?;
+    match checksum.as_deref() {
+        None | Some(CURRENT_ATTACHMENT_TRANSFER_JOBS_CHECKSUM) => return Ok(()),
+        Some(LEGACY_ATTACHMENT_TRANSFER_JOBS_CHECKSUM) => {}
+        Some(_) => {
+            return Err(AppSchemaError::AttachmentTransferJobsRepair(
+                "attachment-transfer jobs migration has an unknown checksum",
+            ));
+        }
+    }
+
+    let current_migration_checksum = migration_checksum(include_str!(
+        "../migrations/20260717150000_attachment_transfer_jobs.sql"
+    ));
+    if checksum_hex(&current_migration_checksum) != CURRENT_ATTACHMENT_TRANSFER_JOBS_CHECKSUM {
+        return Err(AppSchemaError::AttachmentTransferJobsRepair(
+            "compiled attachment-transfer jobs migration has an unexpected checksum",
+        ));
+    }
+
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let locked_checksum: Option<String> = sqlx::query_scalar(
+        "SELECT lower(hex(checksum))
+         FROM _sqlx_migrations
+         WHERE version = ? AND success = 1",
+    )
+    .bind(ATTACHMENT_TRANSFER_JOBS_MIGRATION_VERSION)
+    .fetch_optional(&mut *transaction)
+    .await?;
+    match locked_checksum.as_deref() {
+        Some(LEGACY_ATTACHMENT_TRANSFER_JOBS_CHECKSUM) => {}
+        Some(CURRENT_ATTACHMENT_TRANSFER_JOBS_CHECKSUM) => {
+            transaction.commit().await?;
+            return Ok(());
+        }
+        _ => {
+            return Err(AppSchemaError::AttachmentTransferJobsRepair(
+                "attachment-transfer jobs migration changed during repair",
+            ));
+        }
+    }
+
+    let legacy_schema_checksum = attachment_transfer_jobs_schema_checksum(&mut transaction).await?;
+    if legacy_schema_checksum != LEGACY_ATTACHMENT_TRANSFER_JOBS_SCHEMA_CHECKSUM {
+        return Err(AppSchemaError::AttachmentTransferJobsRepair(
+            "attachment-transfer jobs migration has an unexpected schema",
+        ));
+    }
+
+    // Only the queue's uniqueness rules changed; keep every transfer job intact.
+    sqlx::raw_sql(
+        "DROP INDEX idx_attachment_transfer_jobs_delete_object;
+         DROP INDEX idx_attachment_transfer_jobs_upload_object_id;
+         DROP INDEX idx_attachment_transfer_jobs_delete_object_id;
+
+         CREATE UNIQUE INDEX idx_attachment_transfer_jobs_delete_object
+         ON attachment_transfer_jobs(object_key)
+         WHERE direction = 'delete' AND phase <> 'completed';
+
+         CREATE UNIQUE INDEX idx_attachment_transfer_jobs_upload_object_id
+         ON attachment_transfer_jobs(remote_object_id)
+         WHERE direction = 'upload'
+           AND remote_object_id <> ''
+           AND phase <> 'completed';
+
+         CREATE UNIQUE INDEX idx_attachment_transfer_jobs_delete_object_id
+         ON attachment_transfer_jobs(remote_object_id)
+         WHERE direction = 'delete'
+           AND remote_object_id <> ''
+           AND phase <> 'completed';",
+    )
+    .execute(&mut *transaction)
+    .await?;
+
+    let current_schema_checksum =
+        attachment_transfer_jobs_schema_checksum(&mut transaction).await?;
+    if current_schema_checksum != CURRENT_ATTACHMENT_TRANSFER_JOBS_SCHEMA_CHECKSUM {
+        return Err(AppSchemaError::AttachmentTransferJobsRepair(
+            "attachment-transfer jobs repair produced an unexpected schema",
+        ));
+    }
+
+    let result = sqlx::query(
+        "UPDATE _sqlx_migrations
+         SET checksum = ?
+         WHERE version = ? AND success = 1 AND lower(hex(checksum)) = ?",
+    )
+    .bind(current_migration_checksum.as_slice())
+    .bind(ATTACHMENT_TRANSFER_JOBS_MIGRATION_VERSION)
+    .bind(LEGACY_ATTACHMENT_TRANSFER_JOBS_CHECKSUM)
+    .execute(&mut *transaction)
+    .await?;
+    if result.rows_affected() != 1 {
+        return Err(AppSchemaError::AttachmentTransferJobsRepair(
+            "attachment-transfer jobs migration changed during repair",
+        ));
+    }
+
+    transaction.commit().await?;
+    Ok(())
+}
+
+async fn attachment_transfer_jobs_schema_checksum(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+) -> Result<String, sqlx::Error> {
+    let objects: Vec<(String, String, String)> = sqlx::query_as(
+        "SELECT type, name, sql
+         FROM sqlite_master
+         WHERE sql IS NOT NULL
+           AND (
+             (type = 'table' AND name = 'attachment_transfer_jobs')
+             OR (
+               type IN ('index', 'trigger')
+               AND tbl_name = 'attachment_transfer_jobs'
+             )
+           )
+         ORDER BY type, name",
+    )
+    .fetch_all(&mut **transaction)
+    .await?;
+    let mut schema = String::new();
+    for (object_type, name, sql) in objects {
+        schema.push_str(&object_type);
+        schema.push('\n');
+        schema.push_str(&name);
+        schema.push('\n');
+        schema.push_str(&normalize_schema_sql(&sql));
+        schema.push('\n');
+    }
+
+    Ok(checksum_hex(&migration_checksum(&schema)))
+}
+
+fn normalize_schema_sql(sql: &str) -> String {
+    sql.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 async fn repair_legacy_shared_session_cache_migration(
@@ -621,6 +788,45 @@ ON shared_session_cache(workspace_id);
             steps: Box::leak(steps.into_boxed_slice()),
             validate_cloudsync_table: cloudsync_alter_guard_required,
         }
+    }
+
+    fn legacy_attachment_transfer_jobs_sql() -> String {
+        include_str!("../migrations/20260717150000_attachment_transfer_jobs.sql")
+            .replace(
+                "WHERE direction = 'delete' AND phase <> 'completed';",
+                "WHERE direction = 'delete';",
+            )
+            .replace(
+                "WHERE direction = 'upload'\n  AND remote_object_id <> ''\n  AND phase <> 'completed';",
+                "WHERE direction = 'upload' AND remote_object_id <> '';",
+            )
+            .replace(
+                "WHERE direction = 'delete'\n  AND remote_object_id <> ''\n  AND phase <> 'completed';",
+                "WHERE direction = 'delete' AND remote_object_id <> '';",
+            )
+    }
+
+    fn schema_with_legacy_attachment_transfer_jobs() -> hypr_db_migrate::DbSchema {
+        let mut steps = APP_MIGRATION_STEPS.to_vec();
+        let migration = steps
+            .iter_mut()
+            .find(|step| step.id == "20260717150000_attachment_transfer_jobs")
+            .unwrap();
+        migration.sql = Box::leak(legacy_attachment_transfer_jobs_sql().into_boxed_str());
+
+        hypr_db_migrate::DbSchema {
+            steps: Box::leak(steps.into_boxed_slice()),
+            validate_cloudsync_table: cloudsync_alter_guard_required,
+        }
+    }
+
+    async fn attachment_transfer_jobs_schema_checksum_for_test(db: &Db) -> String {
+        let mut transaction = db.pool().begin().await.unwrap();
+        let checksum = attachment_transfer_jobs_schema_checksum(&mut transaction)
+            .await
+            .unwrap();
+        transaction.rollback().await.unwrap();
+        checksum
     }
 
     async fn test_db_without_default_templates() -> Db {
@@ -1697,6 +1903,268 @@ ON shared_session_cache(workspace_id);
         );
         assert!(!E2EE_DOMAIN_TABLES.contains(&"attachment_transfer_jobs"));
         assert!(!cloudsync_alter_guard_required("attachment_transfer_jobs"));
+    }
+
+    #[test]
+    fn attachment_transfer_jobs_migration_checksums_are_pinned() {
+        assert_eq!(
+            checksum_hex(&migration_checksum(&legacy_attachment_transfer_jobs_sql())),
+            LEGACY_ATTACHMENT_TRANSFER_JOBS_CHECKSUM
+        );
+        assert_eq!(
+            checksum_hex(&migration_checksum(include_str!(
+                "../migrations/20260717150000_attachment_transfer_jobs.sql"
+            ))),
+            CURRENT_ATTACHMENT_TRANSFER_JOBS_CHECKSUM
+        );
+        assert_ne!(
+            normalize_schema_sql("WHERE direction = 'delete'"),
+            normalize_schema_sql("WHERE direction = 'DELETE'")
+        );
+    }
+
+    #[tokio::test]
+    async fn repairs_known_attachment_transfer_job_indexes_without_dropping_jobs() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(&db, schema_with_legacy_attachment_transfer_jobs())
+            .await
+            .unwrap();
+        assert_eq!(
+            attachment_transfer_jobs_schema_checksum_for_test(&db).await,
+            LEGACY_ATTACHMENT_TRANSFER_JOBS_SCHEMA_CHECKSUM
+        );
+        sqlx::query(
+            "INSERT INTO attachment_transfer_jobs (
+                id, attachment_id, session_id, workspace_id, direction,
+                expected_sha256, expected_size_bytes, ciphertext_sha256,
+                ciphertext_size_bytes, remote_object_id, object_key, cache_id,
+                phase, attempt_count, next_attempt_at, last_attempt_at,
+                last_error, created_at, updated_at, completed_at
+             ) VALUES (
+                'job-1', 'attachment-1', 'session-1', 'workspace-1', 'upload',
+                'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+                42,
+                'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+                99, 'object-1', 'objects/object-1', 'cache-1', 'completed', 2,
+                '2026-07-17T01:00:00.000Z', '2026-07-17T00:30:00.000Z',
+                'previous retry', '2026-07-17T00:00:00.000Z',
+                '2026-07-17T00:45:00.000Z', '2026-07-17T00:45:00.000Z'
+             )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let row_snapshot_sql = "SELECT json_object(
+            'id', id,
+            'attachment_id', attachment_id,
+            'session_id', session_id,
+            'workspace_id', workspace_id,
+            'direction', direction,
+            'expected_sha256', expected_sha256,
+            'expected_size_bytes', expected_size_bytes,
+            'ciphertext_sha256', ciphertext_sha256,
+            'ciphertext_size_bytes', ciphertext_size_bytes,
+            'remote_object_id', remote_object_id,
+            'object_key', object_key,
+            'cache_id', cache_id,
+            'phase', phase,
+            'attempt_count', attempt_count,
+            'next_attempt_at', next_attempt_at,
+            'last_attempt_at', last_attempt_at,
+            'last_error', last_error,
+            'created_at', created_at,
+            'updated_at', updated_at,
+            'completed_at', completed_at
+         ) FROM attachment_transfer_jobs WHERE id = 'job-1'";
+        let row_before: String = sqlx::query_scalar(row_snapshot_sql)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+
+        prepare_schema(&db).await.unwrap();
+        prepare_schema(&db).await.unwrap();
+
+        let checksum: String = sqlx::query_scalar(
+            "SELECT lower(hex(checksum))
+             FROM _sqlx_migrations WHERE version = ?",
+        )
+        .bind(ATTACHMENT_TRANSFER_JOBS_MIGRATION_VERSION)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(checksum, CURRENT_ATTACHMENT_TRANSFER_JOBS_CHECKSUM);
+        assert_eq!(
+            attachment_transfer_jobs_schema_checksum_for_test(&db).await,
+            CURRENT_ATTACHMENT_TRANSFER_JOBS_SCHEMA_CHECKSUM
+        );
+        let row_after: String = sqlx::query_scalar(row_snapshot_sql)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(row_after, row_before);
+
+        sqlx::query(
+            "INSERT INTO attachment_transfer_jobs (
+                id, attachment_id, session_id, workspace_id, direction,
+                expected_sha256, remote_object_id
+             ) VALUES (
+                'job-2', 'attachment-2', 'session-1', 'workspace-1', 'upload',
+                'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+                'object-1'
+             )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let jobs: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM attachment_transfer_jobs")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(jobs, 2);
+    }
+
+    #[tokio::test]
+    async fn unknown_attachment_transfer_jobs_checksum_fails_without_mutation() {
+        let db = test_db().await;
+        let original_index_sql: String = sqlx::query_scalar(
+            "SELECT sql FROM sqlite_master
+             WHERE type = 'index'
+               AND name = 'idx_attachment_transfer_jobs_upload_object_id'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "UPDATE _sqlx_migrations SET checksum = X'00'
+             WHERE version = ?",
+        )
+        .bind(ATTACHMENT_TRANSFER_JOBS_MIGRATION_VERSION)
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let error = prepare_schema(&db).await.unwrap_err();
+        assert!(matches!(
+            error,
+            AppSchemaError::AttachmentTransferJobsRepair(
+                "attachment-transfer jobs migration has an unknown checksum"
+            )
+        ));
+        let index_sql: String = sqlx::query_scalar(
+            "SELECT sql FROM sqlite_master
+             WHERE type = 'index'
+               AND name = 'idx_attachment_transfer_jobs_upload_object_id'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(index_sql, original_index_sql);
+        let checksum: Vec<u8> =
+            sqlx::query_scalar("SELECT checksum FROM _sqlx_migrations WHERE version = ?")
+                .bind(ATTACHMENT_TRANSFER_JOBS_MIGRATION_VERSION)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(checksum, [0]);
+    }
+
+    #[tokio::test]
+    async fn legacy_attachment_transfer_checksum_rejects_a_changed_schema() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(&db, schema_with_legacy_attachment_transfer_jobs())
+            .await
+            .unwrap();
+        sqlx::raw_sql(
+            "DROP INDEX idx_attachment_transfer_jobs_due;
+             CREATE INDEX idx_attachment_transfer_jobs_due
+             ON attachment_transfer_jobs(created_at, phase, next_attempt_at);",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let changed_schema = attachment_transfer_jobs_schema_checksum_for_test(&db).await;
+
+        let error = prepare_schema(&db).await.unwrap_err();
+        assert!(matches!(
+            error,
+            AppSchemaError::AttachmentTransferJobsRepair(
+                "attachment-transfer jobs migration has an unexpected schema"
+            )
+        ));
+        assert_eq!(
+            attachment_transfer_jobs_schema_checksum_for_test(&db).await,
+            changed_schema
+        );
+        let checksum: String = sqlx::query_scalar(
+            "SELECT lower(hex(checksum))
+             FROM _sqlx_migrations WHERE version = ?",
+        )
+        .bind(ATTACHMENT_TRANSFER_JOBS_MIGRATION_VERSION)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(checksum, LEGACY_ATTACHMENT_TRANSFER_JOBS_CHECKSUM);
+    }
+
+    #[tokio::test]
+    async fn legacy_attachment_transfer_checksum_rejects_current_indexes() {
+        let db = test_db().await;
+        sqlx::query(
+            "UPDATE _sqlx_migrations
+             SET checksum = X'FD846A54C653D8E737371A950747B442BBA2DA055566DBCD35907B36FE7829A3A09C81052346BB05100BA71BE552EFC0'
+             WHERE version = ?",
+        )
+        .bind(ATTACHMENT_TRANSFER_JOBS_MIGRATION_VERSION)
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let error = prepare_schema(&db).await.unwrap_err();
+        assert!(matches!(
+            error,
+            AppSchemaError::AttachmentTransferJobsRepair(
+                "attachment-transfer jobs migration has an unexpected schema"
+            )
+        ));
+        assert_eq!(
+            attachment_transfer_jobs_schema_checksum_for_test(&db).await,
+            CURRENT_ATTACHMENT_TRANSFER_JOBS_SCHEMA_CHECKSUM
+        );
+    }
+
+    #[tokio::test]
+    async fn attachment_transfer_job_index_repair_rolls_back_when_checksum_update_fails() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(&db, schema_with_legacy_attachment_transfer_jobs())
+            .await
+            .unwrap();
+        sqlx::raw_sql(
+            "CREATE TRIGGER block_attachment_transfer_jobs_checksum_update
+             BEFORE UPDATE OF checksum ON _sqlx_migrations
+             WHEN OLD.version = 20260717150000
+             BEGIN
+               SELECT RAISE(ABORT, 'blocked checksum update');
+             END;",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let error = prepare_schema(&db).await.unwrap_err();
+        assert!(matches!(error, AppSchemaError::Sqlx(_)));
+        assert_eq!(
+            attachment_transfer_jobs_schema_checksum_for_test(&db).await,
+            LEGACY_ATTACHMENT_TRANSFER_JOBS_SCHEMA_CHECKSUM
+        );
+        let checksum: String = sqlx::query_scalar(
+            "SELECT lower(hex(checksum))
+             FROM _sqlx_migrations WHERE version = ?",
+        )
+        .bind(ATTACHMENT_TRANSFER_JOBS_MIGRATION_VERSION)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(checksum, LEGACY_ATTACHMENT_TRANSFER_JOBS_CHECKSUM);
     }
 
     #[tokio::test]
