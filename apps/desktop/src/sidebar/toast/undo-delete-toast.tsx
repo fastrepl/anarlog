@@ -1,12 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useMemo } from "react";
+import { type CSSProperties, useCallback, useMemo } from "react";
 
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import { restoreDeletedSession } from "~/session/queries";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useTabs } from "~/store/zustand/tabs";
-import { useUndoDelete } from "~/store/zustand/undo-delete";
+import { UNDO_TIMEOUT_MS, useUndoDelete } from "~/store/zustand/undo-delete";
 
 type ToastGroup = {
   key: string;
@@ -115,6 +115,11 @@ function UndoDeleteSonnerToast({ group }: { group: ToastGroup }) {
   const label = group.isBatch
     ? `${group.sessionIds.length} ${noteLabel} deleted`
     : `${title} deleted`;
+  const remainingDuration = Math.max(
+    0,
+    group.addedAt + UNDO_TIMEOUT_MS - Date.now(),
+  );
+  const progress = remainingDuration / UNDO_TIMEOUT_MS;
 
   useMountEffect(() => {
     const toastId = `undo-delete:${group.key}`;
@@ -122,6 +127,20 @@ function UndoDeleteSonnerToast({ group }: { group: ToastGroup }) {
     sonnerToast.message(label, {
       id: toastId,
       duration: Infinity,
+      description: (
+        <span
+          aria-hidden="true"
+          className="undo-delete-toast-gauge bg-primary block h-full w-full"
+          style={
+            {
+              "--undo-delete-duration": `${remainingDuration}ms`,
+              "--undo-delete-progress": progress,
+            } as CSSProperties
+          }
+        />
+      ),
+      descriptionClassName:
+        "bg-muted absolute inset-x-0 bottom-0 h-1 overflow-hidden",
       action: {
         label: "Undo",
         onClick: () => restoreGroup(group),

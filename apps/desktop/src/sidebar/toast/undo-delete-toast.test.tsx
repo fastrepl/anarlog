@@ -78,6 +78,20 @@ describe("UndoDeleteToast", () => {
       }),
     );
     expect(mocks.message.mock.calls[0][1]).not.toHaveProperty("cancel");
+    expect(mocks.message.mock.calls[0][1]).toEqual(
+      expect.objectContaining({
+        description: expect.objectContaining({
+          props: expect.objectContaining({
+            className: expect.stringContaining("undo-delete-toast-gauge"),
+            style: expect.objectContaining({
+              "--undo-delete-duration": "5000ms",
+              "--undo-delete-progress": 1,
+            }),
+          }),
+        }),
+        descriptionClassName: expect.stringContaining("bottom-0"),
+      }),
+    );
 
     view.unmount();
     expect(mocks.dismiss).toHaveBeenCalledWith("undo-delete:session-1");
