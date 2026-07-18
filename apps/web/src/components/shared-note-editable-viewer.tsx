@@ -8,6 +8,7 @@ import {
 } from "@/components/shared-note-viewer";
 import {
   canEditSharedNoteOnWeb,
+  getSharedNoteReadOnlySnapshot,
   getSharedNoteWebEditPreparationMessage,
   hasUnsupportedSharedNoteEditorNode,
   shouldRenderSharedNoteUnavailable,
@@ -79,8 +80,12 @@ export function SharedNoteEditableViewer({
     }
   }
 
+  const readOnlySnapshot = getSharedNoteReadOnlySnapshot(
+    snapshot,
+    fallbackSnapshot,
+  );
   const activeSnapshot =
-    accessRevoked && fallbackSnapshot ? fallbackSnapshot : snapshot;
+    accessRevoked && readOnlySnapshot ? readOnlySnapshot : snapshot;
   const hasUnsupportedContent = hasUnsupportedSharedNoteEditorNode(
     activeSnapshot.body,
   );
@@ -96,7 +101,7 @@ export function SharedNoteEditableViewer({
   if (
     shouldRenderSharedNoteUnavailable({
       accessRevoked,
-      hasFallbackSnapshot: Boolean(fallbackSnapshot),
+      hasFallbackSnapshot: Boolean(readOnlySnapshot),
       revokedBehavior,
     })
   ) {

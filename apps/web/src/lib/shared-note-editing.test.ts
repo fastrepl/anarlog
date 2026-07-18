@@ -7,6 +7,7 @@ import {
   canonicalizeSharedNoteWebDraft,
   deriveSharedNoteEditorTitle,
   ensureSharedNoteEditorTitle,
+  getSharedNoteReadOnlySnapshot,
   getSharedNoteWebEditPreparationMessage,
   hasUnsupportedSharedNoteEditorNode,
   reuseSharedNoteMutationIdForUnchangedDraft,
@@ -103,6 +104,25 @@ test("keeps a read-only fallback visible while changed access is refreshed", () 
   );
 });
 
+test("keeps the newest same-note snapshot when editing access changes", () => {
+  const current = sharedNoteSnapshot(8);
+  const staleFallback = sharedNoteSnapshot(7);
+  const newerFallback = sharedNoteSnapshot(9);
+
+  assert.equal(getSharedNoteReadOnlySnapshot(current, staleFallback), current);
+  assert.equal(
+    getSharedNoteReadOnlySnapshot(current, newerFallback),
+    newerFallback,
+  );
+  assert.equal(
+    getSharedNoteReadOnlySnapshot(current, {
+      ...newerFallback,
+      shareId: "00000000-0000-4000-8000-000000000099",
+    }),
+    null,
+  );
+});
+
 test("keeps or restores the canonical leading title heading", () => {
   assert.equal(ensureSharedNoteEditorTitle(BODY, "Weekly sync"), BODY);
 
@@ -118,6 +138,18 @@ test("keeps or restores the canonical leading title heading", () => {
   });
   assert.equal(prepared.content?.[1], bodyWithoutTitle.content?.[0]);
 });
+
+function sharedNoteSnapshot(contentRevision: number): SharedNoteSnapshot {
+  return {
+    shareId: "00000000-0000-4000-8000-000000000001",
+    schemaVersion: 1,
+    contentRevision,
+    title: "Weekly sync",
+    body: BODY,
+    attachments: [],
+    publishedAt: "2026-07-17T12:00:00Z",
+  };
+}
 
 test("builds a revision-safe payload from the live canonical document", () => {
   const snapshot: SharedNoteSnapshot = {

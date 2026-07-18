@@ -30,7 +30,10 @@ import {
   getPrivateShareHead,
   privateShareHeaders,
 } from "@/lib/shared-note-meta";
-import { getLinkSharedNoteRouteGate } from "@/lib/shared-note-route-state";
+import {
+  getLinkSharedNoteFallbackSnapshot,
+  getLinkSharedNoteRouteGate,
+} from "@/lib/shared-note-route-state";
 import {
   buildSharedNoteWebPath,
   sharedNoteDesktopSchemeSchema,
@@ -170,14 +173,26 @@ function LinkSharedNoteClient({
   if (!snapshot) {
     return <SharedNoteUnavailable />;
   }
+  const fallbackSnapshot = getLinkSharedNoteFallbackSnapshot({
+    authenticatedSnapshot: authenticatedNote?.snapshot ?? null,
+    linkSnapshot,
+  });
 
   return (
     <SharedNoteEditableViewer
       key={snapshot.shareId}
       snapshot={snapshot}
       authenticatedNote={authenticatedNote}
-      fallbackAccessLabel="Anyone with the link · View only"
-      fallbackSnapshot={linkSnapshot}
+      fallbackAccessLabel={
+        linkSnapshot
+          ? "Anyone with the link · View only"
+          : "Shared note · View only"
+      }
+      fallbackSnapshot={fallbackSnapshot}
+      onAccessChanged={() => {
+        void authenticatedQuery.refetch();
+        if (hasToken) void snapshotQuery.refetch();
+      }}
       resolveAttachment={resolveAttachment}
       revokedBehavior="read-only"
       accessLabel={

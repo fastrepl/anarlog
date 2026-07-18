@@ -50,6 +50,18 @@ export function shouldRenderSharedNoteUnavailable({
   );
 }
 
+export function getSharedNoteReadOnlySnapshot(
+  current: SharedNoteSnapshot,
+  fallback: SharedNoteSnapshot | null | undefined,
+): SharedNoteSnapshot | null {
+  if (!fallback || fallback.shareId !== current.shareId) {
+    return null;
+  }
+  return fallback.contentRevision > current.contentRevision
+    ? fallback
+    : current;
+}
+
 export function hasUnsupportedSharedNoteEditorNode(
   document: SharedNoteDocument,
 ) {
