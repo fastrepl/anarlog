@@ -265,14 +265,9 @@ async fn setup_stale_record_client(
         "{operation} owner record was not downloaded"
     );
 
-    stop_db(&db, &format!("{operation} owner-authenticated client")).await;
-    db.cloudsync_configure(cloudsync_config(token_auth(attacker_token), 2_500, 1))
+    db.cloudsync_network_set_token(attacker_token)
         .await
-        .unwrap();
-    tokio::time::timeout(Duration::from_secs(15), db.cloudsync_start())
-        .await
-        .unwrap_or_else(|_| panic!("{operation} attacker-authenticated client start timed out"))
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{operation} attacker reauthentication failed: {error}"));
     assert_eq!(
         db.cloudsync_status().await.unwrap().has_unsent_changes,
         Some(false),
