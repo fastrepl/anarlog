@@ -4,44 +4,46 @@ import { vi } from "vitest";
 
 Object.defineProperty(globalThis.crypto, "randomUUID", { value: randomUUID });
 
-Object.defineProperty(globalThis.window, "__TAURI_INTERNALS__", {
-  value: {
-    metadata: {
-      currentWindow: {
-        label: "main",
+if (typeof globalThis.window !== "undefined") {
+  Object.defineProperty(globalThis.window, "__TAURI_INTERNALS__", {
+    value: {
+      metadata: {
+        currentWindow: {
+          label: "main",
+        },
+        currentWebview: {
+          label: "main",
+        },
       },
-      currentWebview: {
-        label: "main",
-      },
+      transformCallback: vi.fn((callback: unknown) => {
+        const callbackId = Math.trunc(Math.random() * Number.MAX_SAFE_INTEGER);
+        Object.assign(globalThis.window, {
+          [`_${callbackId}`]: callback,
+        });
+
+        return callbackId;
+      }),
+      unregisterCallback: vi.fn((callbackId: number) => {
+        delete (globalThis.window as unknown as Record<string, unknown>)[
+          `_${callbackId}`
+        ];
+      }),
+      invoke: vi.fn((command: string) =>
+        Promise.resolve(command === "plugin:event|listen" ? 0 : null),
+      ),
     },
-    transformCallback: vi.fn((callback: unknown) => {
-      const callbackId = Math.trunc(Math.random() * Number.MAX_SAFE_INTEGER);
-      Object.assign(globalThis.window, {
-        [`_${callbackId}`]: callback,
-      });
+    writable: true,
+    configurable: true,
+  });
 
-      return callbackId;
-    }),
-    unregisterCallback: vi.fn((callbackId: number) => {
-      delete (globalThis.window as unknown as Record<string, unknown>)[
-        `_${callbackId}`
-      ];
-    }),
-    invoke: vi.fn((command: string) =>
-      Promise.resolve(command === "plugin:event|listen" ? 0 : null),
-    ),
-  },
-  writable: true,
-  configurable: true,
-});
-
-Object.defineProperty(globalThis.window, "__TAURI_EVENT_PLUGIN_INTERNALS__", {
-  value: {
-    unregisterListener: vi.fn(),
-  },
-  writable: true,
-  configurable: true,
-});
+  Object.defineProperty(globalThis.window, "__TAURI_EVENT_PLUGIN_INTERNALS__", {
+    value: {
+      unregisterListener: vi.fn(),
+    },
+    writable: true,
+    configurable: true,
+  });
+}
 
 vi.mock("@tauri-apps/api/path", () => ({
   resolveResource: vi.fn((path: string) =>

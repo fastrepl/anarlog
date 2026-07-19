@@ -12,7 +12,13 @@ import type { CharTask } from "@hypr/api-client";
 import type { AIProviderStorage } from "@hypr/store";
 
 import { createAuthFetch } from "../auth-fetch";
+import {
+  isOnDeviceLlmConnection,
+  resolveGoogleCalendarLlmBoundary,
+} from "../data-boundary";
+import { createGoogleCalendarBoundaryFetch } from "../google-calendar-boundary-fetch";
 import { createTracedFetch, tracedFetch } from "../traced-fetch";
+import { useGoogleCalendarDataState } from "./useGoogleCalendarDataState";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
@@ -37,9 +43,21 @@ type LLMConnectionInfo = {
 export type LLMConnectionStatus =
   | { status: "pending"; reason: "missing_provider" }
   | { status: "pending"; reason: "missing_model"; providerId: ProviderId }
+  | {
+      status: "pending";
+      reason: "checking_google_calendar_data";
+      providerId: ProviderId;
+    }
   | { status: "error"; reason: "provider_not_found"; providerId: string }
   | { status: "error"; reason: "unauthenticated"; providerId: "hyprnote" }
   | { status: "error"; reason: "not_pro"; providerId: "hyprnote" }
+  | {
+      status: "error";
+      reason:
+        | "google_calendar_data_check_failed"
+        | "google_calendar_remote_ai_blocked";
+      providerId: ProviderId;
+    }
   | {
       status: "error";
       reason: "missing_config";
@@ -80,6 +98,7 @@ export const useLanguageModel = (task?: CharTask): LanguageModelV3 | null => {
 export const useLLMConnection = (): LLMConnectionResult => {
   const auth = useAuth();
   const billing = useBillingAccess();
+  const googleCalendarDataState = useGoogleCalendarDataState();
 
   const { current_llm_provider, current_llm_model } = useConfigValues([
     "current_llm_provider",
@@ -97,10 +116,12 @@ export const useLLMConnection = (): LLMConnectionResult => {
         providerConfig,
         session: auth?.session,
         isPaid: billing.isPaid,
+        googleCalendarDataState,
       }),
     [
       auth,
       billing.isPaid,
+      googleCalendarDataState,
       current_llm_model,
       current_llm_provider,
       providerConfig,
@@ -119,6 +140,7 @@ const resolveLLMConnection = (params: {
   providerConfig: AIProviderStorage | undefined;
   session: { access_token: string } | null | undefined;
   isPaid: boolean;
+  googleCalendarDataState: ReturnType<typeof useGoogleCalendarDataState>;
 }): LLMConnectionResult => {
   const {
     providerId: rawProviderId,
@@ -126,6 +148,7 @@ const resolveLLMConnection = (params: {
     providerConfig,
     session,
     isPaid,
+    googleCalendarDataState,
   } = params;
 
   if (!rawProviderId) {
@@ -201,6 +224,42 @@ const resolveLLMConnection = (params: {
     }
   }
 
+  const boundary = resolveGoogleCalendarLlmBoundary({
+    googleCalendarDataState,
+    providerId,
+    baseUrl,
+  });
+  if (boundary === "checking") {
+    return {
+      conn: null,
+      status: {
+        status: "pending",
+        reason: "checking_google_calendar_data",
+        providerId,
+      },
+    };
+  }
+  if (boundary === "check_failed") {
+    return {
+      conn: null,
+      status: {
+        status: "error",
+        reason: "google_calendar_data_check_failed",
+        providerId,
+      },
+    };
+  }
+  if (boundary === "blocked") {
+    return {
+      conn: null,
+      status: {
+        status: "error",
+        reason: "google_calendar_remote_ai_blocked",
+        providerId,
+      },
+    };
+  }
+
   if (providerId === "hyprnote" && session) {
     return {
       conn: {
@@ -236,10 +295,17 @@ const createLanguageModel = (
   task?: CharTask,
   hostedFetch?: typeof fetch,
 ): LanguageModelV3 => {
+  const providerFetch = isOnDeviceLlmConnection(conn)
+    ? tauriFetch
+    : createGoogleCalendarBoundaryFetch(tauriFetch);
+
   switch (conn.providerId) {
     case "hyprnote": {
+      const fetchImpl = createGoogleCalendarBoundaryFetch(
+        hostedFetch ?? (task ? createTracedFetch(task) : tracedFetch),
+      );
       const provider = createOpenRouter({
-        fetch: hostedFetch ?? (task ? createTracedFetch(task) : tracedFetch),
+        fetch: fetchImpl,
         baseURL: conn.baseUrl,
         apiKey: conn.apiKey,
       });
@@ -248,7 +314,7 @@ const createLanguageModel = (
 
     case "anthropic": {
       const provider = createAnthropic({
-        fetch: tauriFetch,
+        fetch: providerFetch,
         apiKey: conn.apiKey,
         headers: {
           "anthropic-version": "2023-06-01",
@@ -260,7 +326,7 @@ const createLanguageModel = (
 
     case "google_generative_ai": {
       const provider = createGoogleGenerativeAI({
-        fetch: tauriFetch,
+        fetch: providerFetch,
         baseURL: conn.baseUrl,
         apiKey: conn.apiKey,
       });
@@ -269,7 +335,7 @@ const createLanguageModel = (
 
     case "openrouter": {
       const provider = createOpenRouter({
-        fetch: tauriFetch,
+        fetch: providerFetch,
         apiKey: conn.apiKey,
       });
       return wrapWithThinkingMiddleware(provider.chat(conn.modelId));
@@ -277,7 +343,7 @@ const createLanguageModel = (
 
     case "openai": {
       const provider = createOpenAI({
-        fetch: tauriFetch,
+        fetch: providerFetch,
         baseURL: conn.baseUrl,
         apiKey: conn.apiKey,
       });
@@ -286,7 +352,7 @@ const createLanguageModel = (
 
     case "azure_openai": {
       const provider = createAzure({
-        fetch: tauriFetch,
+        fetch: providerFetch,
         baseURL: conn.baseUrl,
         apiKey: conn.apiKey,
       });
@@ -295,7 +361,7 @@ const createLanguageModel = (
 
     case "azure_ai": {
       const provider = createOpenAICompatible({
-        fetch: tauriFetch,
+        fetch: providerFetch,
         name: "azure_ai",
         baseURL: conn.baseUrl,
         apiKey: conn.apiKey,
@@ -309,7 +375,7 @@ const createLanguageModel = (
       const ollamaFetch: typeof fetch = async (input, init) => {
         const headers = new Headers(init?.headers);
         headers.set("Origin", ollamaOrigin);
-        return tauriFetch(input as RequestInfo | URL, {
+        return providerFetch(input as RequestInfo | URL, {
           ...init,
           headers,
         });
@@ -324,7 +390,7 @@ const createLanguageModel = (
 
     default: {
       const config: Parameters<typeof createOpenAICompatible>[0] = {
-        fetch: tauriFetch,
+        fetch: providerFetch,
         name: conn.providerId,
         baseURL: conn.baseUrl,
       };

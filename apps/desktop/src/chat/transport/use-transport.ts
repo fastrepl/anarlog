@@ -1,4 +1,4 @@
-import type { LanguageModel, ToolSet } from "ai";
+import type { ToolSet } from "ai";
 import { useEffect, useMemo, useState } from "react";
 
 import { commands as templateCommands } from "@hypr/plugin-template";
@@ -80,14 +80,12 @@ async function renderOrganizationContext(
 }
 
 export function useTransport(
-  modelOverride?: LanguageModel,
   extraTools?: ToolSet,
   systemPromptOverride?: string,
   userId?: string,
 ) {
   const registry = useToolRegistry();
-  const configuredModel = useLanguageModel("chat");
-  const model = modelOverride ?? configuredModel;
+  const model = useLanguageModel("chat");
   const language = useConfigValue("ai_language") || "en";
   const [systemPrompt, setSystemPrompt] = useState<string | undefined>();
 

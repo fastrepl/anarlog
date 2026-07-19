@@ -69,6 +69,10 @@ vi.mock("./config-error", () => ({
   ConfigError: () => <div>Config error</div>,
 }));
 
+vi.mock("./google-calendar-ai-boundary-error", () => ({
+  GoogleCalendarAiBoundaryError: () => <div>Google Calendar AI boundary</div>,
+}));
+
 vi.mock("./editor", () => ({
   EnhancedEditor: ({
     content,
@@ -375,6 +379,19 @@ describe("Enhanced", () => {
 
     expect(screen.getByText("Config error")).not.toBeNull();
     expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("shows the Google Calendar boundary instead of generic AI setup", () => {
+    hoisted.llmStatus = {
+      status: "error",
+      reason: "google_calendar_remote_ai_blocked",
+      providerId: "hyprnote",
+    };
+
+    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+
+    expect(screen.getByText("Google Calendar AI boundary")).not.toBeNull();
+    expect(screen.queryByText("Config error")).toBeNull();
   });
 
   it("shows config errors for missing provider setup", () => {
