@@ -2019,8 +2019,8 @@ msgid "Thinking..."
 msgstr "Thinking..."
 
 #: src/session-sharing/index.tsx
-msgid "This note changed on both desktop and the web. Open the web copy to review it. To keep that version, close this dialog, replace this note with the web content, then switch to another note so Anarlog can reconcile. Otherwise, publish the desktop edits over it."
-msgstr "This note changed on both desktop and the web. Open the web copy to review it. To keep that version, close this dialog, replace this note with the web content, then switch to another note so Anarlog can reconcile. Otherwise, publish the desktop edits over it."
+msgid "This note changed on both desktop and the web. Open the web copy to review it. To keep that version, close this panel, replace this note with the web content, then switch to another note so Anarlog can reconcile. Otherwise, publish the desktop edits over it."
+msgstr "This note changed on both desktop and the web. Open the web copy to review it. To keep that version, close this panel, replace this note with the web content, then switch to another note so Anarlog can reconcile. Otherwise, publish the desktop edits over it."
 
 #. placeholder {0}: status.fileCount
 #. placeholder {1}: formatBytes(status.totalBytes)

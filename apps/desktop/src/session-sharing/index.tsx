@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangleIcon,
   CheckIcon,
+  ChevronDownIcon,
   CopyIcon,
   ExternalLinkIcon,
   Globe2Icon,
@@ -16,19 +17,17 @@ import {
   UserPlusIcon,
   UsersIcon,
 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { type MutableRefObject, useCallback, useRef, useState } from "react";
 
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { Button } from "@hypr/ui/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@hypr/ui/components/ui/dialog";
 import { Input } from "@hypr/ui/components/ui/input";
+import {
+  AppFloatingPanel,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@hypr/ui/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -37,6 +36,7 @@ import {
   SelectValue,
 } from "@hypr/ui/components/ui/select";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
+import { cn } from "@hypr/utils";
 
 import { SessionAttachmentControls } from "./attachment-controls";
 import {
@@ -104,7 +104,7 @@ type SharePanelData = {
   access: SessionShareAccessEntry[];
 };
 
-type DialogIdentity = {
+type SharePanelIdentity = {
   ownerUserId: string;
   shareId: string;
 };
@@ -211,15 +211,17 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
   };
   const billing = useBillingAccess();
   const queryClient = useQueryClient();
-  const [dialogIdentity, setDialogIdentity] = useState<DialogIdentity | null>(
-    null,
-  );
+  const [sharePanelIdentity, setSharePanelIdentity] =
+    useState<SharePanelIdentity | null>(null);
+  const sharePanelPendingRef = useRef(false);
   const accountUserId = auth.session?.user.id ?? null;
-  const activeDialogIdentity =
-    dialogIdentity?.ownerUserId === accountUserId ? dialogIdentity : null;
+  const activeSharePanelIdentity =
+    sharePanelIdentity?.ownerUserId === accountUserId
+      ? sharePanelIdentity
+      : null;
   const durableNoteQuery = useDurableSharedNote(
     accountUserId,
-    activeDialogIdentity?.shareId ?? "",
+    activeSharePanelIdentity?.shareId ?? "",
   );
   const workspaces = useAvailableShareWorkspaces(accountUserId);
 
@@ -329,7 +331,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
       void queryClient.invalidateQueries({
         queryKey: ["durable-shared-note-cache", identity.ownerUserId],
       });
-      setDialogIdentity(identity);
+      setSharePanelIdentity(identity);
     },
     onError: (error, variables) => {
       if (latestAuthRef.current.session?.user.id !== variables.ownerUserId) {
@@ -345,31 +347,35 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
   });
 
   const queryKey = sessionShareManagementQueryKey(
-    activeDialogIdentity?.ownerUserId ?? "",
-    activeDialogIdentity?.shareId ?? "",
+    activeSharePanelIdentity?.ownerUserId ?? "",
+    activeSharePanelIdentity?.shareId ?? "",
   );
   const shareQuery = useQuery({
     queryKey,
-    enabled: Boolean(activeDialogIdentity),
+    enabled: Boolean(activeSharePanelIdentity),
     queryFn: async ({ signal }) => {
       const context = requireManagementContext(auth);
-      if (context.session.user.id !== activeDialogIdentity?.ownerUserId) {
+      if (context.session.user.id !== activeSharePanelIdentity?.ownerUserId) {
         throw new ShareManagementError();
       }
       return loadSharePanel(
         { ...context, signal },
-        activeDialogIdentity.shareId,
+        activeSharePanelIdentity.shareId,
       );
     },
   });
   const sharedAttachments = durableNoteQuery.data?.attachments ?? [];
   const sharedAttachmentsReady = Boolean(
-    activeDialogIdentity &&
+    activeSharePanelIdentity &&
     !durableNoteQuery.isLoading &&
     durableNoteQuery.data,
   );
 
   const handleShare = () => {
+    if (activeSharePanelIdentity) {
+      if (!sharePanelPendingRef.current) setSharePanelIdentity(null);
+      return;
+    }
     if (!billing.isReady || initializeMutation.isPending) return;
     if (!auth.session || auth.session.user.is_anonymous === true) {
       void auth.signIn().catch(() => {
@@ -384,32 +390,52 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
   };
 
   return (
-    <>
-      <Button
-        key={accountUserId ?? "signed-out"}
-        ref={shareButtonLifecycleRef}
-        type="button"
-        size="sm"
-        variant="ghost"
-        data-tauri-drag-region="false"
-        aria-label="Share note"
-        title="Share note"
-        disabled={!billing.isReady || initializeMutation.isPending}
-        onClick={handleShare}
-        className="text-muted-foreground hover:text-foreground mr-1 rounded-full"
-      >
-        {initializeMutation.isPending ? (
-          <Loader2Icon className="size-3.5 animate-spin" aria-hidden="true" />
-        ) : (
-          <Share2Icon className="size-3.5" aria-hidden="true" />
-        )}
-        <Trans>Share</Trans>
-      </Button>
-      {activeDialogIdentity ? (
-        <SessionShareDialog
-          key={`${activeDialogIdentity.ownerUserId}:${activeDialogIdentity.shareId}:${sessionId}`}
+    <Popover
+      open={Boolean(activeSharePanelIdentity)}
+      onOpenChange={(open) => {
+        if (!open && !sharePanelPendingRef.current) {
+          setSharePanelIdentity(null);
+        }
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          key={accountUserId ?? "signed-out"}
+          ref={shareButtonLifecycleRef}
+          type="button"
+          size="sm"
+          variant="ghost"
+          data-tauri-drag-region="false"
+          aria-label="Share note"
+          aria-expanded={Boolean(activeSharePanelIdentity)}
+          title="Share note"
+          disabled={!billing.isReady || initializeMutation.isPending}
+          onClick={handleShare}
+          className={cn([
+            "text-muted-foreground hover:text-foreground mr-1 rounded-full",
+            activeSharePanelIdentity && "bg-accent text-foreground",
+          ])}
+        >
+          {initializeMutation.isPending ? (
+            <Loader2Icon className="size-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <Share2Icon className="size-3.5" aria-hidden="true" />
+          )}
+          <Trans>Share</Trans>
+          <ChevronDownIcon
+            className={cn([
+              "size-3 transition-transform",
+              activeSharePanelIdentity && "rotate-180",
+            ])}
+            aria-hidden="true"
+          />
+        </Button>
+      </PopoverTrigger>
+      {activeSharePanelIdentity ? (
+        <SessionSharePopoverContent
+          key={`${activeSharePanelIdentity.ownerUserId}:${activeSharePanelIdentity.shareId}:${sessionId}`}
           sessionId={sessionId}
-          identity={activeDialogIdentity}
+          identity={activeSharePanelIdentity}
           data={shareQuery.data}
           loading={shareQuery.isPending}
           error={shareQuery.isError}
@@ -418,26 +444,27 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           sharedAttachments={sharedAttachments}
           sharedSnapshot={durableNoteQuery.data ?? null}
           sharedAttachmentsReady={sharedAttachmentsReady}
+          pendingRef={sharePanelPendingRef}
           onRetry={() => void shareQuery.refetch()}
-          onClose={() => setDialogIdentity(null)}
+          onClose={() => setSharePanelIdentity(null)}
           onChanged={() =>
             Promise.all([
               queryClient.invalidateQueries({ queryKey }),
               queryClient.invalidateQueries({
                 queryKey: [
                   "durable-shared-note-cache",
-                  activeDialogIdentity.ownerUserId,
+                  activeSharePanelIdentity.ownerUserId,
                 ],
               }),
             ])
           }
         />
       ) : null}
-    </>
+    </Popover>
   );
 }
 
-function SessionShareDialog({
+function SessionSharePopoverContent({
   sessionId,
   identity,
   data,
@@ -448,12 +475,13 @@ function SessionShareDialog({
   sharedAttachments,
   sharedSnapshot,
   sharedAttachmentsReady,
+  pendingRef,
   onRetry,
   onClose,
   onChanged,
 }: {
   sessionId: string;
-  identity: DialogIdentity;
+  identity: SharePanelIdentity;
   data: SharePanelData | undefined;
   loading: boolean;
   error: boolean;
@@ -462,6 +490,7 @@ function SessionShareDialog({
   sharedAttachments: SharedNoteAttachment[];
   sharedSnapshot: SharedNoteSnapshot | null;
   sharedAttachmentsReady: boolean;
+  pendingRef: MutableRefObject<boolean>;
   onRetry: () => void;
   onClose: () => void;
   onChanged: () => Promise<unknown>;
@@ -470,13 +499,17 @@ function SessionShareDialog({
   const latestAuthRef = useRef(auth);
   latestAuthRef.current = auth;
   const operationControllersRef = useRef(new Set<AbortController>());
-  const operationLifecycleRef = useCallback((node: HTMLDivElement | null) => {
-    if (node) return;
-    for (const controller of operationControllersRef.current) {
-      controller.abort();
-    }
-    operationControllersRef.current.clear();
-  }, []);
+  const operationLifecycleRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (node) return;
+      pendingRef.current = false;
+      for (const controller of operationControllersRef.current) {
+        controller.abort();
+      }
+      operationControllersRef.current.clear();
+    },
+    [pendingRef],
+  );
   const runOperation = async <T,>(
     operation: (signal: AbortSignal) => Promise<T>,
   ): Promise<T> => {
@@ -1083,6 +1116,7 @@ function SessionShareDialog({
     attachmentMutation.isPending ||
     keepDesktopMutation.isPending ||
     openWebCopyMutation.isPending;
+  pendingRef.current = anyPending;
   const generalScopeValue = management
     ? management.generalScope === "workspace"
       ? `workspace:${management.generalWorkspaceId}`
@@ -1090,31 +1124,45 @@ function SessionShareDialog({
     : "restricted";
 
   return (
-    <Dialog
-      open={Boolean(identity)}
-      onOpenChange={(open) => {
-        if (!open && !anyPending) onClose();
+    <PopoverContent
+      variant="app"
+      align="end"
+      sideOffset={8}
+      aria-labelledby="session-share-heading"
+      aria-describedby="session-share-description"
+      className="w-[min(500px,calc(100vw-16px))] overflow-hidden"
+      onEscapeKeyDown={(event) => {
+        if (anyPending) event.preventDefault();
+      }}
+      onInteractOutside={(event) => {
+        if (anyPending) event.preventDefault();
       }}
     >
-      <DialogContent className="border-border/45 bg-card/95 flex max-h-[calc(100vh-48px)] w-[calc(100vw-48px)] max-w-[540px] flex-col gap-0 overflow-hidden rounded-[26px] p-0 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:rounded-[26px] [&>button:last-child]:hidden">
+      <AppFloatingPanel className="flex max-h-[calc(100vh-64px)] flex-col overflow-hidden">
         <div ref={operationLifecycleRef} className="contents">
-          <DialogHeader className="border-border/60 border-b px-6 py-5 text-left sm:text-left">
+          <header className="border-border/60 border-b px-5 py-4 text-left">
             <div className="flex items-center gap-3">
               <div className="bg-accent flex size-9 items-center justify-center rounded-full">
                 <UsersIcon className="size-4" aria-hidden="true" />
               </div>
               <div className="min-w-0">
-                <DialogTitle className="text-sm leading-5 tracking-normal">
+                <h2
+                  id="session-share-heading"
+                  className="text-sm leading-5 font-semibold tracking-normal"
+                >
                   <Trans>Share note</Trans>
-                </DialogTitle>
-                <DialogDescription className="mt-0.5 text-xs leading-4">
+                </h2>
+                <p
+                  id="session-share-description"
+                  className="text-muted-foreground mt-0.5 text-xs leading-4"
+                >
                   <Trans>Choose who can open this note.</Trans>
-                </DialogDescription>
+                </p>
               </div>
             </div>
-          </DialogHeader>
+          </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <div className="scrollbar-soft min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
             {loading && !data ? (
               <div className="text-muted-foreground flex min-h-52 items-center justify-center gap-2 text-xs">
                 <Loader2Icon
@@ -1156,7 +1204,7 @@ function SessionShareDialog({
                           <Trans>
                             This note changed on both desktop and the web. Open
                             the web copy to review it. To keep that version,
-                            close this dialog, replace this note with the web
+                            close this panel, replace this note with the web
                             content, then switch to another note so Anarlog can
                             reconcile. Otherwise, publish the desktop edits over
                             it.
@@ -1449,7 +1497,7 @@ function SessionShareDialog({
             )}
           </div>
 
-          <DialogFooter className="border-border/60 flex-row items-center justify-between border-t px-6 py-4 sm:justify-between">
+          <footer className="border-border/60 flex items-center justify-between border-t px-5 py-3">
             <Button
               type="button"
               size="sm"
@@ -1476,10 +1524,10 @@ function SessionShareDialog({
               <CheckIcon className="size-3.5" aria-hidden="true" />
               <Trans>Done</Trans>
             </Button>
-          </DialogFooter>
+          </footer>
         </div>
-      </DialogContent>
-    </Dialog>
+      </AppFloatingPanel>
+    </PopoverContent>
   );
 }
 

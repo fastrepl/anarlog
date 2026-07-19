@@ -144,23 +144,16 @@ vi.mock("./client", async (importOriginal) => {
   };
 });
 
-vi.mock("@hypr/ui/components/ui/dialog", () => ({
-  Dialog: ({ open, children }: { open: boolean; children: React.ReactNode }) =>
-    open ? <div role="dialog">{children}</div> : null,
-  DialogContent: ({ children }: { children: React.ReactNode }) => (
+vi.mock("@hypr/ui/components/ui/popover", () => ({
+  AppFloatingPanel: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  DialogDescription: ({ children }: { children: React.ReactNode }) => (
-    <p>{children}</p>
+  Popover: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  PopoverContent: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="share-popover">{children}</div>
   ),
-  DialogFooter: ({ children }: { children: React.ReactNode }) => (
-    <footer>{children}</footer>
-  ),
-  DialogHeader: ({ children }: { children: React.ReactNode }) => (
-    <header>{children}</header>
-  ),
-  DialogTitle: ({ children }: { children: React.ReactNode }) => (
-    <h2>{children}</h2>
+  PopoverTrigger: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
   ),
 }));
 
@@ -242,7 +235,7 @@ function renderShareButtonView() {
   };
 }
 
-async function openShareDialog() {
+async function openSharePopover() {
   fireEvent.click(screen.getByRole("button", { name: "Share note" }));
   await screen.findByRole("heading", { name: "Share note" });
 }
@@ -409,10 +402,28 @@ describe("SessionShareButton", () => {
     expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
   });
 
+  it("opens sharing as a popover anchored to the toolbar button", async () => {
+    renderShareButton();
+
+    const trigger = screen.getByRole("button", { name: "Share note" });
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+
+    await openSharePopover();
+
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByTestId("share-popover")).not.toBeNull();
+
+    fireEvent.click(trigger);
+
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByTestId("share-popover")).toBeNull();
+    expect(mocks.loadSessionShareSource).toHaveBeenCalledOnce();
+  });
+
   it("validates the remote identity before publishing and then loads access", async () => {
     renderShareButton();
 
-    await openShareDialog();
+    await openSharePopover();
 
     expect(mocks.flushCanonicalSessionEditorChanges).toHaveBeenCalledWith(
       "session-1",
@@ -478,7 +489,7 @@ describe("SessionShareButton", () => {
       "[session-sharing] could not prepare note",
       expect.objectContaining({ message: "connection lost" }),
     );
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByTestId("share-popover")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Share note" }));
     await screen.findByRole("heading", { name: "Share note" });
@@ -517,7 +528,7 @@ describe("SessionShareButton", () => {
     });
     renderShareButton();
 
-    await openShareDialog();
+    await openSharePopover();
 
     expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
     expect(mocks.events.slice(0, 4)).toEqual([
@@ -545,7 +556,7 @@ describe("SessionShareButton", () => {
       wasCreated: false,
     });
     renderShareButton();
-    await openShareDialog();
+    await openSharePopover();
     mocks.publishSessionShareSnapshot.mockClear();
 
     fireEvent.click(screen.getByRole("button", { name: "Update shared copy" }));
@@ -592,7 +603,7 @@ describe("SessionShareButton", () => {
       wasCreated: false,
     });
     renderShareButton();
-    await openShareDialog();
+    await openSharePopover();
 
     act(() => {
       mocks.attachmentControlProps.onShareChange(localAttachment, true);
@@ -625,7 +636,7 @@ describe("SessionShareButton", () => {
     });
     mocks.loadSessionShareSyncState.mockResolvedValue(null);
     renderShareButton();
-    await openShareDialog();
+    await openSharePopover();
     mocks.publishSessionShareSnapshot.mockClear();
 
     fireEvent.click(screen.getByRole("button", { name: "Update shared copy" }));
@@ -653,7 +664,7 @@ describe("SessionShareButton", () => {
     });
     mocks.loadSessionShareSyncState.mockResolvedValue(null);
     renderShareButton();
-    await openShareDialog();
+    await openSharePopover();
     mocks.publishSessionShareSnapshot.mockClear();
 
     fireEvent.click(screen.getByRole("button", { name: "Update shared copy" }));
@@ -705,7 +716,7 @@ describe("SessionShareButton", () => {
       publishedAt: "2026-07-17T00:01:00Z",
     });
     renderShareButton();
-    await openShareDialog();
+    await openSharePopover();
 
     expect(
       screen.getByRole("heading", {
@@ -784,7 +795,7 @@ describe("SessionShareButton", () => {
       new Error("snapshot conflict"),
     );
     renderShareButton();
-    await openShareDialog();
+    await openSharePopover();
     mocks.recordPublishedSessionShareState.mockClear();
     mocks.upsertDurableSharedNoteCache.mockClear();
 
@@ -836,7 +847,7 @@ describe("SessionShareButton", () => {
       wasCreated: false,
     });
     renderShareButton();
-    await openShareDialog();
+    await openSharePopover();
     mocks.events = [];
 
     act(() => {
@@ -897,7 +908,7 @@ describe("SessionShareButton", () => {
     );
     expect(mocks.createOrReuseSessionShare).not.toHaveBeenCalled();
     expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByTestId("share-popover")).toBeNull();
   });
 
   it("publishes before rotating a bearer link and keeps the token out of query keys", async () => {
@@ -906,7 +917,7 @@ describe("SessionShareButton", () => {
       hasActiveLink: true,
     });
     const queryClient = renderShareButton();
-    await openShareDialog();
+    await openSharePopover();
     mocks.events = [];
     mocks.clipboardWriteText.mockClear();
 
@@ -937,7 +948,7 @@ describe("SessionShareButton", () => {
 
   it("publishes before creating an invitation and copies its fragment URL", async () => {
     renderShareButton();
-    await openShareDialog();
+    await openSharePopover();
     mocks.events = [];
     mocks.clipboardWriteText.mockClear();
 
@@ -966,7 +977,7 @@ describe("SessionShareButton", () => {
       hasActiveLink: true,
     });
     renderShareButton();
-    await openShareDialog();
+    await openSharePopover();
     mocks.clipboardWriteText.mockRejectedValueOnce(new Error("clipboard"));
     mocks.setSessionShareScope.mockClear();
 
@@ -1004,7 +1015,7 @@ describe("SessionShareButton", () => {
       });
     });
     const view = renderShareButtonView();
-    await openShareDialog();
+    await openSharePopover();
     mocks.clipboardWriteText.mockClear();
     mocks.setSessionShareScope.mockClear();
 
@@ -1034,7 +1045,7 @@ describe("SessionShareButton", () => {
       ),
     );
     expect(mocks.clipboardWriteText).not.toHaveBeenCalled();
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByTestId("share-popover")).toBeNull();
   });
 
   it("revokes a grant even when no new snapshot is published", async () => {
@@ -1051,7 +1062,7 @@ describe("SessionShareButton", () => {
       },
     ];
     renderShareButton();
-    await openShareDialog();
+    await openSharePopover();
     mocks.events = [];
     mocks.publishSessionShareSnapshot.mockClear();
 
@@ -1087,7 +1098,7 @@ describe("SessionShareButton", () => {
       },
     );
     renderShareButton();
-    await openShareDialog();
+    await openSharePopover();
     expect(screen.getByText("Requested can comment")).not.toBeNull();
     mocks.events = [];
     mocks.publishSessionShareSnapshot.mockClear();
@@ -1131,7 +1142,7 @@ describe("SessionShareButton", () => {
       },
     );
     renderShareButton();
-    await openShareDialog();
+    await openSharePopover();
     expect(screen.getByText("Requested can edit")).not.toBeNull();
     mocks.events = [];
     mocks.publishSessionShareSnapshot.mockClear();
@@ -1165,7 +1176,7 @@ describe("SessionShareButton", () => {
     ];
     renderShareButton();
 
-    await openShareDialog();
+    await openSharePopover();
 
     expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
     expect(
