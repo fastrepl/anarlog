@@ -144,13 +144,6 @@ export function ConnectFlow() {
             associated with that note can be included in the content you choose
             to sync or share.
           </p>
-          {isGoogleCalendar && (
-            <p>
-              Google Calendar data is not sent to hosted AI or cloud
-              transcription providers. While that data remains on your device,
-              hosted and remote AI is disabled; on-device AI remains available.
-            </p>
-          )}
           <p>
             Read our{" "}
             <a className="underline" href="/privacy">

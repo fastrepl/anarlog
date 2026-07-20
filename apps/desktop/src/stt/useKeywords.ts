@@ -18,10 +18,7 @@ import { normalizeKeywordList } from "~/stt/keywords";
 
 const MAX_TRANSCRIPTION_HINTS = 50;
 
-export function useKeywords(
-  sessionId: string,
-  allowCalendarDerivedHints: boolean,
-) {
+export function useKeywords(sessionId: string) {
   const session = useSession(sessionId);
   const participants = useSessionParticipants(sessionId);
   const eventParticipants = useSessionEventParticipants(sessionId);
@@ -30,7 +27,6 @@ export function useKeywords(
   return useMemo(
     () =>
       buildKeywords({
-        allowCalendarDerivedHints,
         rawMd: session?.raw_md,
         title: session?.title,
         eventJson: session?.event_json,
@@ -46,13 +42,7 @@ export function useKeywords(
         ),
         dictionaryTerms,
       }),
-    [
-      allowCalendarDerivedHints,
-      dictionaryTerms,
-      eventParticipants,
-      participants,
-      session,
-    ],
+    [dictionaryTerms, eventParticipants, participants, session],
   );
 }
 
@@ -67,11 +57,9 @@ type KeywordSnapshotSqlRow = {
 export async function getSessionKeywords({
   sessionId,
   dictionaryTerms,
-  allowCalendarDerivedHints,
 }: {
   sessionId: string;
   dictionaryTerms: string[];
-  allowCalendarDerivedHints: boolean;
 }): Promise<string[]> {
   const [snapshot] = await liveQueryClient.execute<KeywordSnapshotSqlRow>(
     `
@@ -128,7 +116,6 @@ export async function getSessionKeywords({
   );
 
   return buildKeywords({
-    allowCalendarDerivedHints,
     rawMd: snapshot?.raw_md,
     title: snapshot?.title,
     eventJson: snapshot?.event_json,
@@ -141,7 +128,6 @@ export async function getSessionKeywords({
 }
 
 export function buildKeywords({
-  allowCalendarDerivedHints,
   rawMd,
   title,
   eventJson,
@@ -149,7 +135,6 @@ export function buildKeywords({
   eventParticipantTerms = [],
   dictionaryTerms,
 }: {
-  allowCalendarDerivedHints: boolean;
   rawMd: unknown;
   title: unknown;
   eventJson: unknown;
@@ -159,8 +144,8 @@ export function buildKeywords({
 }) {
   const sourceText = buildKeywordSourceText({
     rawMd,
-    title: allowCalendarDerivedHints ? title : "",
-    eventJson: allowCalendarDerivedHints ? eventJson : "",
+    title,
+    eventJson,
   });
   const { keywords, keyphrases } =
     sourceText.length > 0
@@ -168,8 +153,8 @@ export function buildKeywords({
       : { keywords: [], keyphrases: [] };
 
   return normalizeKeywordList([
-    ...(allowCalendarDerivedHints ? sessionParticipantTerms : []),
-    ...(allowCalendarDerivedHints ? eventParticipantTerms : []),
+    ...sessionParticipantTerms,
+    ...eventParticipantTerms,
     ...dictionaryTerms,
     ...keywords,
     ...keyphrases,

@@ -377,19 +377,6 @@ describe("Enhanced", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
-  it("keeps an empty summary editable when Google Calendar blocks remote AI", () => {
-    hoisted.llmStatus = {
-      status: "error",
-      reason: "google_calendar_remote_ai_blocked",
-      providerId: "hyprnote",
-    };
-
-    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
-
-    expect(screen.getByText("Enhanced editor")).not.toBeNull();
-    expect(screen.queryByText("Config error")).toBeNull();
-  });
-
   it("shows config errors for missing provider setup", () => {
     hoisted.llmStatus = { status: "pending", reason: "missing_provider" };
 

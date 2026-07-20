@@ -7,12 +7,6 @@ import { useListener } from "./contexts";
 import { getSessionKeywords } from "./useKeywords";
 import { useSTTConnection } from "./useSTTConnection";
 
-import {
-  canSendCalendarDerivedSttHints,
-  isOnDeviceSttTarget,
-} from "~/ai/data-boundary";
-import { hasGoogleCalendarData } from "~/ai/google-calendar-data";
-import { useGoogleCalendarDataState } from "~/ai/hooks/useGoogleCalendarDataState";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { env } from "~/env";
@@ -36,6 +30,7 @@ type RunOptions = {
   model?: string;
   baseUrl?: string;
   apiKey?: string;
+  keywords?: string[];
   languages?: string[];
   numSpeakers?: number;
   minSpeakers?: number;
@@ -175,7 +170,6 @@ export const useRunBatch = (sessionId: string) => {
 
   const startTranscription = useListener((state) => state.startTranscription);
   const { conn } = useSTTConnection();
-  const googleCalendarDataState = useGoogleCalendarDataState();
   const auth = useAuth();
   const billing = useBillingAccess();
   const aiLanguage = useConfigValue("ai_language");
@@ -242,20 +236,14 @@ export const useRunBatch = (sessionId: string) => {
 
       const createdAt = new Date().toISOString();
       const memoMd = session?.raw_md ?? "";
-      const targetIsOnDevice = isOnDeviceSttTarget({
-        provider: target.provider,
-        baseUrl: target.baseUrl,
-      });
-      const allowCalendarDerivedHintsAtSnapshot =
-        targetIsOnDevice || googleCalendarDataState === "absent";
-      let keywords = await getSessionKeywords({
-        sessionId,
-        dictionaryTerms,
-        allowCalendarDerivedHints: allowCalendarDerivedHintsAtSnapshot,
-      });
+      const keywords =
+        options?.keywords ??
+        (await getSessionKeywords({
+          sessionId,
+          dictionaryTerms,
+        }));
       let transcriptId: string | null = null;
       const inferredNumSpeakers =
-        allowCalendarDerivedHintsAtSnapshot &&
         options?.numSpeakers === undefined &&
         options?.minSpeakers === undefined &&
         options?.maxSpeakers === undefined
@@ -361,19 +349,6 @@ export const useRunBatch = (sessionId: string) => {
           }
         });
 
-      const allowCalendarDerivedHints = await canSendCalendarDerivedSttHints({
-        targetIsOnDevice,
-        googleCalendarDataState,
-        checkHasGoogleCalendarData: hasGoogleCalendarData,
-      });
-      if (allowCalendarDerivedHintsAtSnapshot && !allowCalendarDerivedHints) {
-        keywords = await getSessionKeywords({
-          sessionId,
-          dictionaryTerms,
-          allowCalendarDerivedHints: false,
-        });
-      }
-
       const params: TranscriptionParams = {
         session_id: sessionId,
         provider: target.provider,
@@ -383,15 +358,9 @@ export const useRunBatch = (sessionId: string) => {
         api_key: target.apiKey,
         keywords,
         languages,
-        num_speakers: allowCalendarDerivedHints
-          ? (options?.numSpeakers ?? inferredNumSpeakers)
-          : undefined,
-        min_speakers: allowCalendarDerivedHints
-          ? options?.minSpeakers
-          : undefined,
-        max_speakers: allowCalendarDerivedHints
-          ? options?.maxSpeakers
-          : undefined,
+        num_speakers: options?.numSpeakers ?? inferredNumSpeakers,
+        min_speakers: options?.minSpeakers,
+        max_speakers: options?.maxSpeakers,
       };
 
       try {
@@ -411,7 +380,6 @@ export const useRunBatch = (sessionId: string) => {
       audioRetention,
       billing.isPaid,
       dictionaryTerms,
-      googleCalendarDataState,
       session,
       participants,
       spokenLanguages,

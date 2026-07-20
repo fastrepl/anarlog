@@ -14,12 +14,6 @@ import {
 } from "./useRunBatch";
 import { useSTTConnection } from "./useSTTConnection";
 
-import {
-  canSendCalendarDerivedSttHints,
-  isOnDeviceLiveSttConnection,
-} from "~/ai/data-boundary";
-import { hasGoogleCalendarData } from "~/ai/google-calendar-data";
-import { useGoogleCalendarDataState } from "~/ai/hooks/useGoogleCalendarDataState";
 import { useShell } from "~/contexts/shell";
 import {
   deleteProcessedAudioForRetention,
@@ -273,8 +267,7 @@ export function useStartListening(sessionId: string) {
   );
 
   const start = useListener((state) => state.start);
-  const { conn, isLocalModel } = useSTTConnection();
-  const googleCalendarDataState = useGoogleCalendarDataState();
+  const { conn } = useSTTConnection();
   const runBatch = useRunBatch(sessionId);
   const { leftsidebar } = useShell();
   const setLeftSidebarExpanded = leftsidebar.setExpanded;
@@ -304,16 +297,9 @@ export function useStartListening(sessionId: string) {
         console.error("[listener] failed to persist transcript", error);
       });
     };
-    const targetIsOnDevice = isOnDeviceLiveSttConnection({
-      isLocalModel,
-      baseUrl: conn?.baseUrl,
-    });
-    const allowCalendarDerivedHintsAtSnapshot =
-      targetIsOnDevice || googleCalendarDataState === "absent";
-    let keywords = await getSessionKeywords({
+    const keywords = await getSessionKeywords({
       sessionId,
       dictionaryTerms,
-      allowCalendarDerivedHints: allowCalendarDerivedHintsAtSnapshot,
     });
 
     const onStopped: OnStoppedCallback = async (_sessionId, details) => {
@@ -406,18 +392,7 @@ export function useStartListening(sessionId: string) {
       model: conn?.model,
       languages,
     });
-    const allowCalendarDerivedHints = await canSendCalendarDerivedSttHints({
-      targetIsOnDevice,
-      googleCalendarDataState,
-      checkHasGoogleCalendarData: hasGoogleCalendarData,
-    });
-    if (allowCalendarDerivedHintsAtSnapshot && !allowCalendarDerivedHints) {
-      keywords = await getSessionKeywords({
-        sessionId,
-        dictionaryTerms,
-        allowCalendarDerivedHints: false,
-      });
-    }
+
     const started = await start(
       {
         session_id: sessionId,
@@ -428,9 +403,7 @@ export function useStartListening(sessionId: string) {
         api_key: conn?.apiKey ?? "",
         keywords,
         transcription_mode: liveTranscriptionConfig.transcriptionMode,
-        participant_human_ids: allowCalendarDerivedHints
-          ? participantHumanIds
-          : [],
+        participant_human_ids: participantHumanIds,
         self_human_id: session?.user_id || null,
       },
       {
@@ -480,9 +453,7 @@ export function useStartListening(sessionId: string) {
     conn,
     dictionaryTerms,
     getSessionMode,
-    googleCalendarDataState,
     hadTranscriptBeforeStart,
-    isLocalModel,
     participantHumanIds,
     session,
     sessionId,

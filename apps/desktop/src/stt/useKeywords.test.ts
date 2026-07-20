@@ -170,7 +170,6 @@ describe("getSessionKeywords", () => {
       getSessionKeywords({
         sessionId: "session-1",
         dictionaryTerms: ["Anarlog"],
-        allowCalendarDerivedHints: true,
       }),
     ).resolves.toEqual(expect.arrayContaining(["Anarlog", "Launch"]));
   });
@@ -201,82 +200,17 @@ describe("getSessionKeywords", () => {
     const result = await getSessionKeywords({
       sessionId: "session-1",
       dictionaryTerms: ["Anarlog"],
-      allowCalendarDerivedHints: true,
     });
 
     expect(result.slice(0, 3)).toEqual(["Alice Kim", "Mina Park", "Anarlog"]);
     expect(result).toEqual(expect.arrayContaining(["Launch"]));
     expect(result).not.toContain("John Jeong");
   });
-
-  it("withholds calendar event and attendee hints from off-device STT", async () => {
-    execute.mockResolvedValue([
-      {
-        raw_md: "Remember #UserMemo",
-        title: "GoogleOnlyTitle",
-        event_json: JSON.stringify({
-          title: "GoogleOnlyEvent",
-          description: "GoogleOnlyDescription",
-          location: "GoogleOnlyLocation",
-        }),
-        participant_names_json: JSON.stringify(["GoogleOnlyParticipant"]),
-        event_participants_json: JSON.stringify([
-          { name: "GoogleOnlyAttendee" },
-        ]),
-      },
-    ]);
-
-    const result = await getSessionKeywords({
-      sessionId: "session-google",
-      dictionaryTerms: ["UserDictionary"],
-      allowCalendarDerivedHints: false,
-    });
-
-    expect(result).toEqual(
-      expect.arrayContaining(["UserMemo", "UserDictionary"]),
-    );
-    expect(result.join(" ")).not.toContain("GoogleOnly");
-  });
-
-  it("retains Google hints for explicitly on-device STT", async () => {
-    execute.mockResolvedValue([
-      {
-        raw_md: "",
-        title: "GoogleLocalTitle",
-        event_json: "",
-        participant_names_json: JSON.stringify(["Google Local Participant"]),
-        event_participants_json: "[]",
-      },
-    ]);
-
-    await expect(
-      getSessionKeywords({
-        sessionId: "session-google",
-        dictionaryTerms: [],
-        allowCalendarDerivedHints: true,
-      }),
-    ).resolves.toEqual(
-      expect.arrayContaining(["Google Local Participant", "GoogleLocalTitle"]),
-    );
-  });
-
-  it("returns dictionary-only hints when session provenance is unresolved", async () => {
-    execute.mockResolvedValue([]);
-
-    await expect(
-      getSessionKeywords({
-        sessionId: "missing-session",
-        dictionaryTerms: ["UserDictionary"],
-        allowCalendarDerivedHints: false,
-      }),
-    ).resolves.toEqual(["UserDictionary"]);
-  });
 });
 
 describe("buildKeywords", () => {
   it("dedupes higher-priority hints and caps the result", () => {
     const result = buildKeywords({
-      allowCalendarDerivedHints: true,
       rawMd: "",
       title: "",
       eventJson: "",

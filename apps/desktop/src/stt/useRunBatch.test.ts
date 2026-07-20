@@ -1,7 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { getSessionKeywords } from "./useKeywords";
 import {
   canRunBatchTranscription,
   getBatchFallbackTarget,
@@ -16,8 +15,6 @@ const {
   useSessionMock,
   useSessionParticipantsMock,
   useSTTConnectionMock,
-  useGoogleCalendarDataStateMock,
-  hasGoogleCalendarDataMock,
   useAuthMock,
   useBillingAccessMock,
   useConfigValueMock,
@@ -33,8 +30,6 @@ const {
   useSessionMock: vi.fn(),
   useSessionParticipantsMock: vi.fn(),
   useSTTConnectionMock: vi.fn(),
-  useGoogleCalendarDataStateMock: vi.fn(),
-  hasGoogleCalendarDataMock: vi.fn(),
   useAuthMock: vi.fn(),
   useBillingAccessMock: vi.fn(),
   useConfigValueMock: vi.fn(),
@@ -57,14 +52,6 @@ vi.mock("./useKeywords", () => ({
 
 vi.mock("./useSTTConnection", () => ({
   useSTTConnection: useSTTConnectionMock,
-}));
-
-vi.mock("~/ai/hooks/useGoogleCalendarDataState", () => ({
-  useGoogleCalendarDataState: useGoogleCalendarDataStateMock,
-}));
-
-vi.mock("~/ai/google-calendar-data", () => ({
-  hasGoogleCalendarData: hasGoogleCalendarDataMock,
 }));
 
 vi.mock("@hypr/ui/components/ui/toast", () => ({
@@ -244,8 +231,6 @@ describe("useRunBatch", () => {
         apiKey: "test-key",
       },
     });
-    useGoogleCalendarDataStateMock.mockReturnValue("absent");
-    hasGoogleCalendarDataMock.mockResolvedValue(false);
     useAuthMock.mockReturnValue({
       session: {
         access_token: "paid-token",
@@ -368,146 +353,6 @@ describe("useRunBatch", () => {
       }),
       expect.any(Object),
     );
-  });
-
-  test("withholds Google attendee speaker hints from off-device batch STT", async () => {
-    useSessionMock.mockReturnValue({
-      id: "session-1",
-      user_id: "user-1",
-      raw_md: "Existing memo",
-    });
-    useGoogleCalendarDataStateMock.mockReturnValue("present");
-    useSessionParticipantsMock.mockReturnValue([
-      {
-        source: "auto",
-        humanId: "google-attendee-human",
-      },
-    ]);
-    startTranscriptionMock.mockResolvedValue(undefined);
-
-    const { result } = renderHook(() => useRunBatch("session-1"));
-
-    await act(async () => {
-      await result.current("/tmp/session.wav", {
-        numSpeakers: 4,
-        minSpeakers: 2,
-        maxSpeakers: 6,
-      });
-    });
-
-    expect(startTranscriptionMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        num_speakers: undefined,
-        min_speakers: undefined,
-        max_speakers: undefined,
-      }),
-      expect.any(Object),
-    );
-    expect(getSessionKeywords).toHaveBeenCalledWith({
-      sessionId: "session-1",
-      dictionaryTerms: [],
-      allowCalendarDerivedHints: false,
-    });
-  });
-
-  test("rechecks Google data before starting off-device batch STT", async () => {
-    useSessionParticipantsMock.mockReturnValue([
-      { source: "auto", humanId: "google-attendee-human" },
-    ]);
-    hasGoogleCalendarDataMock.mockResolvedValue(true);
-    vi.mocked(getSessionKeywords).mockImplementation(
-      async ({ allowCalendarDerivedHints }) =>
-        allowCalendarDerivedHints ? ["Google event"] : ["safe note"],
-    );
-    startTranscriptionMock.mockResolvedValue(undefined);
-
-    const { result } = renderHook(() => useRunBatch("session-1"));
-
-    await act(async () => {
-      await result.current("/tmp/session.wav", { numSpeakers: 4 });
-    });
-
-    expect(getSessionKeywords).toHaveBeenNthCalledWith(1, {
-      sessionId: "session-1",
-      dictionaryTerms: [],
-      allowCalendarDerivedHints: true,
-    });
-    expect(getSessionKeywords).toHaveBeenNthCalledWith(2, {
-      sessionId: "session-1",
-      dictionaryTerms: [],
-      allowCalendarDerivedHints: false,
-    });
-    expect(startTranscriptionMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        keywords: ["safe note"],
-        num_speakers: undefined,
-      }),
-      expect.any(Object),
-    );
-  });
-
-  test("redacts batch hints when the request-time check fails", async () => {
-    hasGoogleCalendarDataMock.mockRejectedValue(new Error("database offline"));
-    startTranscriptionMock.mockResolvedValue(undefined);
-
-    const { result } = renderHook(() => useRunBatch("session-1"));
-
-    await act(async () => {
-      await result.current("/tmp/session.wav", {
-        minSpeakers: 2,
-        maxSpeakers: 5,
-      });
-    });
-
-    expect(getSessionKeywords).toHaveBeenLastCalledWith({
-      sessionId: "session-1",
-      dictionaryTerms: [],
-      allowCalendarDerivedHints: false,
-    });
-    expect(startTranscriptionMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        min_speakers: undefined,
-        max_speakers: undefined,
-      }),
-      expect.any(Object),
-    );
-  });
-
-  test("retains Google speaker hints for on-device batch STT", async () => {
-    useSessionMock.mockReturnValue({
-      id: "session-1",
-      user_id: "user-1",
-      raw_md: "Existing memo",
-    });
-    useGoogleCalendarDataStateMock.mockReturnValue("present");
-    useSessionParticipantsMock.mockReturnValue([
-      { source: "auto", humanId: "google-attendee-human" },
-    ]);
-    useSTTConnectionMock.mockReturnValue({
-      conn: {
-        provider: "hyprnote",
-        model: "soniqo-parakeet-batch",
-        baseUrl: "soniqo://local",
-        apiKey: "",
-      },
-    });
-    startTranscriptionMock.mockResolvedValue(undefined);
-
-    const { result } = renderHook(() => useRunBatch("session-1"));
-
-    await act(async () => {
-      await result.current("/tmp/session.wav");
-    });
-
-    expect(startTranscriptionMock).toHaveBeenCalledWith(
-      expect.objectContaining({ num_speakers: 2 }),
-      expect.any(Object),
-    );
-    expect(getSessionKeywords).toHaveBeenCalledWith({
-      sessionId: "session-1",
-      dictionaryTerms: [],
-      allowCalendarDerivedHints: true,
-    });
   });
 
   test("falls back to local Soniqo when the selected provider is not batch-capable", async () => {

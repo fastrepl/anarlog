@@ -1,5 +1,5 @@
 import { Chat, useChat } from "@ai-sdk/react";
-import type { ChatStatus, ChatTransport, ToolSet } from "ai";
+import type { ChatStatus, ChatTransport, LanguageModel, ToolSet } from "ai";
 import {
   type ReactNode,
   useCallback,
@@ -57,6 +57,7 @@ interface ChatSessionProps {
   sessionId: string;
   chatGroupId?: string;
   currentSessionId?: string;
+  modelOverride?: LanguageModel;
   extraTools?: ToolSet;
   systemPromptOverride?: string;
   unstyled?: boolean;
@@ -84,6 +85,7 @@ export function ChatSession({
   sessionId,
   chatGroupId,
   currentSessionId,
+  modelOverride,
   extraTools,
   systemPromptOverride,
   unstyled = false,
@@ -123,6 +125,7 @@ export function ChatSession({
   }, [sessionId, chatGroupId]);
 
   const { transport, isSystemPromptReady } = useTransport(
+    modelOverride,
     extraTools,
     systemPromptOverride,
     ownerUserId || undefined,

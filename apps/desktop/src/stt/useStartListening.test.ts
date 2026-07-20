@@ -26,8 +26,6 @@ const {
   softDeleteTranscriptMock,
   useConfigValueMock,
   useSTTConnectionMock,
-  useGoogleCalendarDataStateMock,
-  hasGoogleCalendarDataMock,
   isSupportedLanguagesLiveMock,
   leftSidebarExpanded,
   setLeftSidebarExpandedMock,
@@ -54,8 +52,6 @@ const {
   softDeleteTranscriptMock: vi.fn(),
   useConfigValueMock: vi.fn(),
   useSTTConnectionMock: vi.fn(),
-  useGoogleCalendarDataStateMock: vi.fn(),
-  hasGoogleCalendarDataMock: vi.fn(),
   isSupportedLanguagesLiveMock: vi.fn(),
   leftSidebarExpanded: { value: true },
   setLeftSidebarExpandedMock: vi.fn(),
@@ -111,14 +107,6 @@ vi.mock("./useRunBatch", () => ({
 
 vi.mock("./useSTTConnection", () => ({
   useSTTConnection: useSTTConnectionMock,
-}));
-
-vi.mock("~/ai/hooks/useGoogleCalendarDataState", () => ({
-  useGoogleCalendarDataState: useGoogleCalendarDataStateMock,
-}));
-
-vi.mock("~/ai/google-calendar-data", () => ({
-  hasGoogleCalendarData: hasGoogleCalendarDataMock,
 }));
 
 vi.mock("~/services/enhancer", () => ({
@@ -283,10 +271,7 @@ describe("useStartListening", () => {
         baseUrl: "http://localhost:8080",
         apiKey: "",
       },
-      isLocalModel: true,
     });
-    useGoogleCalendarDataStateMock.mockReturnValue("absent");
-    hasGoogleCalendarDataMock.mockResolvedValue(false);
     startMock.mockResolvedValue(true);
     runBatchMock.mockResolvedValue(undefined);
     isSupportedLanguagesLiveMock.mockResolvedValue({
@@ -371,141 +356,6 @@ describe("useStartListening", () => {
     expect(startMock.mock.calls[0]?.[0]).toMatchObject({
       keywords: ["launch"],
     });
-    expect(getSessionKeywords).toHaveBeenCalledWith({
-      sessionId: "session-1",
-      dictionaryTerms: [],
-      allowCalendarDerivedHints: true,
-    });
-  });
-
-  test("withholds Google attendee speaker hints from off-device STT", async () => {
-    useSessionMock.mockReturnValue({
-      id: "session-1",
-      user_id: "user-1",
-      raw_md: "Existing memo",
-    });
-    useGoogleCalendarDataStateMock.mockReturnValue("present");
-    useSessionParticipantHumanIdsMock.mockReturnValue([
-      "google-attendee-human",
-    ]);
-    useSTTConnectionMock.mockReturnValue({
-      conn: {
-        provider: "deepgram",
-        model: "nova-3-general",
-        baseUrl: "https://api.deepgram.com/v1/listen",
-        apiKey: "test-key",
-      },
-      isLocalModel: false,
-    });
-
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
-      participant_human_ids: [],
-    });
-    expect(getSessionKeywords).toHaveBeenCalledWith({
-      sessionId: "session-1",
-      dictionaryTerms: [],
-      allowCalendarDerivedHints: false,
-    });
-  });
-
-  test("rechecks Google data before starting off-device STT", async () => {
-    useSessionParticipantHumanIdsMock.mockReturnValue(["google-attendee"]);
-    useSTTConnectionMock.mockReturnValue({
-      conn: {
-        provider: "deepgram",
-        model: "nova-3-general",
-        baseUrl: "https://api.deepgram.com/v1/listen",
-        apiKey: "test-key",
-      },
-      isLocalModel: false,
-    });
-    hasGoogleCalendarDataMock.mockResolvedValue(true);
-    vi.mocked(getSessionKeywords).mockImplementation(
-      async ({ allowCalendarDerivedHints }) =>
-        allowCalendarDerivedHints ? ["Google event"] : ["safe note"],
-    );
-
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    expect(getSessionKeywords).toHaveBeenNthCalledWith(1, {
-      sessionId: "session-1",
-      dictionaryTerms: [],
-      allowCalendarDerivedHints: true,
-    });
-    expect(getSessionKeywords).toHaveBeenNthCalledWith(2, {
-      sessionId: "session-1",
-      dictionaryTerms: [],
-      allowCalendarDerivedHints: false,
-    });
-    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
-      keywords: ["safe note"],
-      participant_human_ids: [],
-    });
-  });
-
-  test("redacts off-device STT hints when the request-time check fails", async () => {
-    useSTTConnectionMock.mockReturnValue({
-      conn: {
-        provider: "deepgram",
-        model: "nova-3-general",
-        baseUrl: "https://api.deepgram.com/v1/listen",
-        apiKey: "test-key",
-      },
-      isLocalModel: false,
-    });
-    hasGoogleCalendarDataMock.mockRejectedValue(new Error("database offline"));
-
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    expect(getSessionKeywords).toHaveBeenLastCalledWith({
-      sessionId: "session-1",
-      dictionaryTerms: [],
-      allowCalendarDerivedHints: false,
-    });
-    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
-      participant_human_ids: [],
-    });
-  });
-
-  test("does not trust a local model label with a remote endpoint", async () => {
-    useGoogleCalendarDataStateMock.mockReturnValue("present");
-    useSessionParticipantHumanIdsMock.mockReturnValue(["google-attendee"]);
-    useSTTConnectionMock.mockReturnValue({
-      conn: {
-        provider: "hyprnote",
-        model: "soniqo-parakeet-streaming",
-        baseUrl: "https://remote.example.com/stt",
-        apiKey: "test-key",
-      },
-      isLocalModel: true,
-    });
-
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
-      participant_human_ids: [],
-    });
-    expect(getSessionKeywords).toHaveBeenCalledWith(
-      expect.objectContaining({ allowCalendarDerivedHints: false }),
-    );
   });
 
   test("runs batch transcription after record-only capture stops", async () => {
