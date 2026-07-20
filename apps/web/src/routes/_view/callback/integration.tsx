@@ -4,8 +4,12 @@ import { CheckIcon, CopyIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
-import { cn } from "@hypr/utils";
-
+import {
+  AuthShell,
+  authNoticeClassName,
+  authPrimaryButtonClassName,
+  authSecondaryButtonClassName,
+} from "@/components/auth-shell";
 import { flowSearchSchema } from "@/functions/desktop-flow";
 
 const commonSearch = {
@@ -106,64 +110,53 @@ function Component() {
 
   if (search.flow === "desktop") {
     return (
-      <div className="flex min-h-screen items-center justify-center p-6">
-        <div className="flex w-full max-w-md flex-col gap-8 text-center">
+      <AuthShell
+        title={isSuccess ? "You’re connected" : "Connection didn’t work"}
+        description={
+          isSuccess
+            ? "Return to Anarlog to keep going."
+            : "Something went wrong while connecting."
+        }
+      >
+        {isSuccess ? (
           <div className="flex flex-col gap-3">
-            <h1 className="font-sans text-3xl tracking-tight text-stone-700">
-              {isSuccess ? "Connection successful" : "Connection failed"}
-            </h1>
-            <p className="text-neutral-600">
-              {isSuccess
-                ? "Click the button below to return to the app"
-                : "Something went wrong during the connection"}
-            </p>
-          </div>
+            <button
+              onClick={handleDeeplink}
+              className={authPrimaryButtonClassName}
+            >
+              Open Anarlog
+            </button>
 
-          {isSuccess && (
-            <div className="flex flex-col gap-4">
-              <button
-                onClick={handleDeeplink}
-                className={cn([
-                  "flex h-12 w-full cursor-pointer items-center justify-center text-base font-medium transition-all",
-                  "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
-                ])}
-              >
-                Open Anarlog
-              </button>
-
+            <div className="rounded-xl border border-[#e5ddcf] bg-[#fbfaf7] p-4 text-center">
+              <p className="mb-3 text-sm leading-6 text-[#756b5d]">
+                Button not working? Copy the link instead
+              </p>
               <button
                 onClick={handleCopy}
-                className={cn([
-                  "flex w-full cursor-pointer flex-col items-center gap-3 p-4 text-left transition-all",
-                  "rounded-lg border border-stone-100 bg-stone-50 hover:bg-stone-100 active:scale-[99%]",
-                ])}
+                className={authSecondaryButtonClassName}
               >
-                <p className="text-sm text-stone-500">
-                  Button not working? Copy the link instead
-                </p>
-                <span
-                  className={cn([
-                    "flex h-10 w-full items-center justify-center gap-2 text-sm font-medium",
-                    "rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs",
-                  ])}
-                >
-                  {copied ? (
-                    <>
-                      <CheckIcon className="size-4" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <CopyIcon className="size-4" />
-                      Copy URL
-                    </>
-                  )}
-                </span>
+                {copied ? (
+                  <>
+                    <CheckIcon className="size-4" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <CopyIcon className="size-4" />
+                    Copy URL
+                  </>
+                )}
               </button>
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+        ) : (
+          <div className={authNoticeClassName}>
+            <p className="text-sm font-medium text-[#4f4940]">
+              Close this window and try again from Anarlog.
+            </p>
+          </div>
+        )}
+      </AuthShell>
     );
   }
 
