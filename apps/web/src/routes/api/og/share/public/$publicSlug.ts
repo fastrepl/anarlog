@@ -15,7 +15,8 @@ export const Route = createFileRoute("/api/og/share/public/$publicSlug")({
         if (!publicSlug.success) return notFound();
 
         const result = await fetchPublicSharedNoteResult(publicSlug.data);
-        if (result.status !== "ready") return notFound();
+        if (result.status === "unavailable") return notFound();
+        if (result.status === "error") return serviceUnavailable();
 
         return renderSharedNoteOgImage({
           title: result.snapshot.title || "Shared note",
@@ -31,6 +32,13 @@ export const Route = createFileRoute("/api/og/share/public/$publicSlug")({
 function notFound() {
   return new Response("Not found", {
     status: 404,
+    headers: { "Cache-Control": "no-store" },
+  });
+}
+
+function serviceUnavailable() {
+  return new Response("Unable to load shared note", {
+    status: 503,
     headers: { "Cache-Control": "no-store" },
   });
 }

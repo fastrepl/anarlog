@@ -2,7 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import sharp from "sharp";
 
-import { renderSharedNoteOgImage } from "./og-image.ts";
+import { createSharedNoteOgSvg, renderSharedNoteOgImage } from "./og-image.ts";
+
+test("normalizes shared note metadata", () => {
+  const svg = createSharedNoteOgSvg({
+    title: "   ",
+    publishedAt: "2026-07-02T23:30:00Z",
+  });
+
+  assert.match(svg, />Shared note<\/text>/);
+  assert.match(svg, /Published July 2, 2026/);
+});
 
 test("renders a large social image for a shared note", async () => {
   const response = await renderSharedNoteOgImage({

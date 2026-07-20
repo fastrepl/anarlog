@@ -75,6 +75,7 @@ function formatDate(date: string | undefined) {
   return parsed.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
+    timeZone: "UTC",
     year: "numeric",
   });
 }
@@ -122,8 +123,8 @@ function createBlogOgSvg(input: BlogOgImageInput) {
 </svg>`;
 }
 
-function createSharedNoteOgSvg(input: SharedNoteOgImageInput) {
-  const normalizedTitle = clampText(input.title || "Shared note", 110);
+export function createSharedNoteOgSvg(input: SharedNoteOgImageInput) {
+  const normalizedTitle = clampText(input.title, 110) || "Shared note";
   const titleFontSize = normalizedTitle.length > 72 ? 62 : 72;
   const title = wrapText(
     normalizedTitle,
