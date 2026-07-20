@@ -305,19 +305,17 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
             }
         }
 
-        if !agenda.is_empty() {
-            menu.append(&PredefinedMenuItem::separator(app)?)?;
-        }
-
-        menu.append(&TrayVersion::build(app)?)?;
+        menu.append(&TrayShowEvents::build(app)?)?;
         menu.append(&PredefinedMenuItem::separator(app)?)?;
+
         menu.append(&TrayOpen::build(app)?)?;
         menu.append(&TrayStart::build_with_disabled(
             app,
             START_DISABLED.load(Ordering::SeqCst),
         )?)?;
-        menu.append(&TrayShowEvents::build(app)?)?;
+        menu.append(&TraySettings::build(app)?)?;
         menu.append(&PredefinedMenuItem::separator(app)?)?;
+        menu.append(&TrayVersion::build(app)?)?;
         menu.append(&TrayCheckUpdate::build(app)?)?;
         menu.append(&PredefinedMenuItem::separator(app)?)?;
         menu.append(&TrayQuit::build(app)?)?;

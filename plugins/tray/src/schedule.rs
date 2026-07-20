@@ -1,4 +1,5 @@
 const DISPLAY_HORIZON_MS: f64 = 24.0 * 60.0 * 60.0 * 1000.0;
+const MAX_AGENDA_LABEL_CHARS: usize = 24;
 const MAX_MENU_BAR_LABEL_CHARS: usize = 30;
 
 #[derive(Debug, Clone, serde::Deserialize, specta::Type, PartialEq)]
@@ -46,11 +47,11 @@ pub fn agenda_sections(
             });
         }
 
-        sections.last_mut().unwrap().events.push(format!(
-            "{}  {}",
-            event.time_label,
-            compact_agenda_title(&event.title)
-        ));
+        sections
+            .last_mut()
+            .unwrap()
+            .events
+            .push(compact_agenda_label(event));
     }
 
     sections
@@ -143,26 +144,17 @@ fn compact_title(title: &str, max_chars: usize) -> String {
     format!("{}…", title.chars().take(max_chars - 1).collect::<String>())
 }
 
-fn compact_agenda_title(title: &str) -> String {
-    const MAX_AGENDA_TITLE_CHARS: usize = 32;
-    let title = title.split_whitespace().collect::<Vec<_>>().join(" ");
-    let title = if title.is_empty() {
-        "Untitled event".to_string()
-    } else {
-        title
-    };
+fn compact_agenda_label(event: &TrayScheduleEvent) -> String {
+    let start_time = event
+        .time_label
+        .split('–')
+        .next()
+        .unwrap_or_default()
+        .trim();
+    let suffix = format!(" · {start_time}");
+    let title_limit = MAX_AGENDA_LABEL_CHARS.saturating_sub(suffix.chars().count());
 
-    if title.chars().count() <= MAX_AGENDA_TITLE_CHARS {
-        return title;
-    }
-
-    format!(
-        "{}…",
-        title
-            .chars()
-            .take(MAX_AGENDA_TITLE_CHARS - 1)
-            .collect::<String>()
-    )
+    format!("{}{suffix}", compact_title(&event.title, title_limit))
 }
 
 fn duration_label(diff_ms: f64) -> String {
@@ -289,17 +281,29 @@ mod tests {
             vec![
                 TrayAgendaSection {
                     label: "Today".to_string(),
-                    events: vec!["9:00 AM – 9:30 AM  Active".to_string()],
+                    events: vec!["Active · 9:00 AM".to_string()],
                 },
                 TrayAgendaSection {
                     label: "Tomorrow".to_string(),
                     events: vec![
-                        "9:00 AM – 9:30 AM  Next".to_string(),
-                        "9:00 AM – 9:30 AM  Tomorrow one".to_string(),
+                        "Next · 9:00 AM".to_string(),
+                        "Tomorrow one · 9:00 AM".to_string(),
                     ],
                 },
             ]
         );
+    }
+
+    #[test]
+    fn keeps_agenda_labels_compact() {
+        let label = compact_agenda_label(&event(
+            "Sprint retrospective and planning",
+            1_000_000.0,
+            None,
+        ));
+
+        assert_eq!(label, "Sprint retros… · 9:00 AM");
+        assert_eq!(label.chars().count(), MAX_AGENDA_LABEL_CHARS);
     }
 
     #[test]
