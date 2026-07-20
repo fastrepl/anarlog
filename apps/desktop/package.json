@@ -82,6 +82,7 @@
     "@tanstack/react-router": "^1.168.19",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-autostart": "^2.5.1",
+    "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
     "@tauri-apps/plugin-dialog": "^2.7.0",
     "@tauri-apps/plugin-http": "^2.5.8",
     "@tauri-apps/plugin-os": "^2.3.2",

@@ -1,6 +1,8 @@
 import { Trans } from "@lingui/react/macro";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { isTauri } from "@tauri-apps/api/core";
+import { writeText as writeClipboardText } from "@tauri-apps/plugin-clipboard-manager";
 import {
   AlertTriangleIcon,
   CheckIcon,
@@ -1810,6 +1812,10 @@ function requireManagementContext(
 }
 
 async function copyText(value: string) {
+  if (isTauri()) {
+    await writeClipboardText(value);
+    return;
+  }
   await navigator.clipboard.writeText(value);
 }
 

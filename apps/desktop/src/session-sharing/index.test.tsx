@@ -72,6 +72,14 @@ vi.mock("@hypr/plugin-opener2", () => ({
   commands: { openUrl: mocks.openUrl },
 }));
 
+vi.mock("@tauri-apps/api/core", () => ({
+  isTauri: () => true,
+}));
+
+vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
+  writeText: mocks.clipboardWriteText,
+}));
+
 vi.mock("~/shared-notes/cache", () => ({
   loadManagedSharedNoteForSession: mocks.loadManagedSharedNoteForSession,
   upsertDurableSharedNoteCache: mocks.upsertDurableSharedNoteCache,
@@ -364,10 +372,6 @@ describe("SessionShareButton", () => {
         publicSlug: PUBLIC_SLUG,
         accessVersion: 2,
       };
-    });
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText: mocks.clipboardWriteText },
     });
   });
 

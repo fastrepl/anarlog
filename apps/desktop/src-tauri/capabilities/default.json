@@ -56,6 +56,7 @@
     "notify:default",
     "tantivy:default",
     "clipboard-manager:allow-write-image",
+    "clipboard-manager:allow-write-text",
     "shell:allow-open",
     "misc:default",
     "fs-sync:default",
