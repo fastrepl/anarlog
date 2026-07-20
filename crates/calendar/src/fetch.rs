@@ -1,8 +1,13 @@
+use std::time::Duration;
+
 use hypr_calendar_interface::EventFilter;
 use hypr_google_calendar::{CalendarListEntry as GoogleCalendar, Event as GoogleEvent};
 use hypr_outlook_calendar::{Calendar as OutlookCalendar, Event as OutlookEvent};
 
 use crate::error::Error;
+
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub async fn list_all_connection_ids(
     api_base_url: &str,
@@ -32,6 +37,8 @@ fn make_client(api_base_url: &str, access_token: &str) -> Result<hypr_api_client
     headers.insert(reqwest::header::AUTHORIZATION, auth_value);
     let http = reqwest::Client::builder()
         .default_headers(headers)
+        .connect_timeout(CONNECT_TIMEOUT)
+        .timeout(REQUEST_TIMEOUT)
         .build()?;
     Ok(hypr_api_client::Client::new_with_client(api_base_url, http))
 }

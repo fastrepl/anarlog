@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { createManager } from "tinytick";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const ctxMocks = vi.hoisted(() => ({
   createCtx: vi.fn(),
@@ -42,7 +43,10 @@ vi.mock("~/db/write-queue", () => ({
 }));
 
 import {
+  CALENDAR_SYNC_TASK_ID,
   removeDisconnectedCalendarConnection,
+  scheduleCalendarSync,
+  syncCalendarEvents,
   syncCalendarEventsForRange,
 } from ".";
 
@@ -54,6 +58,8 @@ const ctx = {
   calendarIds: new Set(["cal-1"]),
   calendarTrackingIdToId: new Map([["primary", "cal-1"]]),
 };
+
+const managers: ReturnType<typeof createManager>[] = [];
 
 describe("syncCalendarEventsForRange", () => {
   beforeEach(() => {
@@ -89,6 +95,14 @@ describe("syncCalendarEventsForRange", () => {
     storageMocks.tombstoneCalendarConnection.mockResolvedValue(undefined);
   });
 
+  afterEach(() => {
+    for (const manager of managers) {
+      manager.stop(true);
+    }
+    managers.length = 0;
+    vi.useRealTimers();
+  });
+
   test("removes the exact disconnected calendar connection", async () => {
     await removeDisconnectedCalendarConnection(
       "google-calendar",
@@ -116,6 +130,72 @@ describe("syncCalendarEventsForRange", () => {
 
     expect(ctxMocks.getProviderConnections).not.toHaveBeenCalled();
     expect(fetchMocks.fetchIncomingEvents).not.toHaveBeenCalled();
+  });
+
+  test("does not start a scheduled sync when already aborted", async () => {
+    const abortController = new AbortController();
+    abortController.abort();
+
+    await syncCalendarEvents({ signal: abortController.signal });
+
+    expect(ctxMocks.getProviderConnections).not.toHaveBeenCalled();
+  });
+
+  test("reuses an active scheduled calendar sync", () => {
+    const manager = createManager();
+    managers.push(manager);
+    manager.setTask(CALENDAR_SYNC_TASK_ID, async () => undefined);
+
+    const firstTaskRunId = scheduleCalendarSync(manager);
+    const secondTaskRunId = scheduleCalendarSync(manager);
+
+    expect(firstTaskRunId).toBeDefined();
+    expect(secondTaskRunId).toBe(firstTaskRunId);
+  });
+
+  test("reuses a running calendar sync", async () => {
+    vi.useFakeTimers();
+    const manager = createManager();
+    managers.push(manager);
+    manager.setTask(
+      CALENDAR_SYNC_TASK_ID,
+      async (_arg, signal) =>
+        await new Promise<void>((resolve) => {
+          signal.addEventListener("abort", () => resolve(), { once: true });
+        }),
+    );
+    manager.start();
+
+    const firstTaskRunId = scheduleCalendarSync(manager);
+    await vi.advanceTimersByTimeAsync(100);
+    const secondTaskRunId = scheduleCalendarSync(manager);
+
+    expect(manager.getRunningTaskRunIds()).toContain(firstTaskRunId);
+    expect(secondTaskRunId).toBe(firstTaskRunId);
+  });
+
+  test("can schedule a new calendar sync after a timeout", async () => {
+    const manager = createManager();
+    managers.push(manager);
+    manager.setTask(
+      CALENDAR_SYNC_TASK_ID,
+      async (_arg, signal) =>
+        await new Promise<void>((resolve) => {
+          signal.addEventListener("abort", () => resolve(), { once: true });
+        }),
+      undefined,
+      { maxDuration: 50 },
+    );
+    manager.start();
+
+    const timedOutTaskRunId = scheduleCalendarSync(manager);
+    if (!timedOutTaskRunId) throw new Error("Failed to schedule calendar sync");
+    await manager.untilTaskRunDone(timedOutTaskRunId);
+    const nextTaskRunId = scheduleCalendarSync(manager);
+
+    expect(manager.getTaskRunInfo(timedOutTaskRunId)).toBeUndefined();
+    expect(nextTaskRunId).toBeDefined();
+    expect(nextTaskRunId).not.toBe(timedOutTaskRunId);
   });
 
   test("does not write fetched events after aborting a range sync", async () => {

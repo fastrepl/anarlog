@@ -1,3 +1,5 @@
+import type { Manager } from "tinytick";
+
 import type { CalendarProviderType } from "@hypr/plugin-calendar";
 
 import {
@@ -32,13 +34,27 @@ type CalendarSyncOptions = {
   signal?: AbortSignal;
 };
 
-export function syncCalendarEvents(): Promise<void> {
+export function syncCalendarEvents(
+  options: CalendarSyncOptions = {},
+): Promise<void> {
   return enqueueDatabaseWrite("calendar-sync", async () => {
     await Promise.all([
       new Promise((resolve) => setTimeout(resolve, 250)),
-      run(),
+      run(undefined, options),
     ]);
   });
+}
+
+export function scheduleCalendarSync(manager: Manager): string | undefined {
+  const activeTaskRunId = [
+    ...manager.getScheduledTaskRunIds(),
+    ...manager.getRunningTaskRunIds(),
+  ].find(
+    (taskRunId) =>
+      manager.getTaskRunInfo(taskRunId)?.taskId === CALENDAR_SYNC_TASK_ID,
+  );
+
+  return activeTaskRunId ?? manager.scheduleTaskRun(CALENDAR_SYNC_TASK_ID);
 }
 
 export function syncCalendarEventsForRange(
@@ -75,7 +91,7 @@ async function run(
   const providerConnections = await getProviderConnections();
   if (isAborted(options.signal)) return;
 
-  await syncCalendars(providerConnections);
+  await syncCalendars(providerConnections, options.signal);
   if (isAborted(options.signal)) return;
 
   for (const { provider, connection_ids } of providerConnections) {

@@ -2,20 +2,22 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useRef,
   useState,
 } from "react";
 import {
-  useScheduleTaskRunCallback,
-  useTaskRunRunning,
+  useManager,
+  useRunningTaskRunIds,
+  useScheduledTaskRunIds,
 } from "tinytick/ui-react";
 
 import {
   type CalendarSyncRange,
   CALENDAR_SYNC_TASK_ID,
+  scheduleCalendarSync,
   syncCalendarEventsForRange,
 } from "~/services/calendar";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export const TOGGLE_SYNC_DEBOUNCE_MS = 5000;
 
@@ -33,51 +35,45 @@ interface SyncContextValue {
 const SyncContext = createContext<SyncContextValue | null>(null);
 
 export function SyncProvider({ children }: { children: React.ReactNode }) {
-  const scheduleEventSync = useScheduleTaskRunCallback(
-    CALENDAR_SYNC_TASK_ID,
-    undefined,
-    0,
-  );
+  const manager = useManager();
+  const scheduledTaskRunIds = useScheduledTaskRunIds() ?? [];
+  const runningTaskRunIds = useRunningTaskRunIds() ?? [];
   const toggleSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
-  const [pendingTaskRunId, setPendingTaskRunId] = useState<string | null>(null);
   const [isDebouncing, setIsDebouncing] = useState(false);
   const [rangeSyncCount, setRangeSyncCount] = useState(0);
 
-  const isTaskRunning = useTaskRunRunning(pendingTaskRunId ?? "");
-  const isSyncing = pendingTaskRunId !== null && isTaskRunning === true;
+  const isCalendarTaskRun = (taskRunId: string) =>
+    manager?.getTaskRunInfo(taskRunId)?.taskId === CALENDAR_SYNC_TASK_ID;
+  const isScheduled = scheduledTaskRunIds.some(isCalendarTaskRun);
+  const isSyncing = runningTaskRunIds.some(isCalendarTaskRun);
   const isRangeSyncing = rangeSyncCount > 0;
-  const canSync = true;
+  const canSync = manager !== undefined;
 
   const status: SyncStatus =
     isSyncing || isRangeSyncing
       ? "syncing"
-      : isDebouncing
+      : isDebouncing || isScheduled
         ? "scheduled"
         : "idle";
 
-  useEffect(() => {
-    if (pendingTaskRunId && isTaskRunning === false) {
-      setPendingTaskRunId(null);
+  const scheduleSync = useCallback(() => {
+    if (manager) {
+      scheduleCalendarSync(manager);
     }
-  }, [pendingTaskRunId, isTaskRunning]);
+  }, [manager]);
 
-  useEffect(() => {
+  useMountEffect(() => {
     return () => {
       if (toggleSyncTimeoutRef.current) {
         clearTimeout(toggleSyncTimeoutRef.current);
-        scheduleEventSync();
+        if (manager) {
+          scheduleCalendarSync(manager);
+        }
       }
     };
-  }, [scheduleEventSync]);
-
-  const scheduleSync = useCallback(() => {
-    const taskRunId = scheduleEventSync();
-    if (taskRunId) {
-      setPendingTaskRunId(taskRunId);
-    }
-  }, [scheduleEventSync]);
+  });
 
   const scheduleDebouncedSync = useCallback(() => {
     if (toggleSyncTimeoutRef.current) {

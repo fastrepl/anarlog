@@ -136,4 +136,19 @@ describe("calendar sync context", () => {
       successfulConnections: [{ connectionId: "conn-ok", calendars: [] }],
     });
   });
+
+  test("does not write calendar inventory after cancellation", async () => {
+    const abortController = new AbortController();
+    pluginCalendar.listCalendars.mockImplementation(async () => {
+      abortController.abort();
+      return { status: "success", data: [] };
+    });
+
+    await syncCalendars(
+      [{ provider: "google", connection_ids: ["conn-work"] }],
+      abortController.signal,
+    );
+
+    expect(storage.applyCalendarInventory).not.toHaveBeenCalled();
+  });
 });
