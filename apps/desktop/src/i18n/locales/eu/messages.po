@@ -98,6 +98,10 @@ msgstr ""
 msgid "Add {0} account"
 msgstr ""
 
+#: src/onboarding/calendar.tsx
+msgid "Add another account"
+msgstr ""
+
 #: src/session/components/note-input/enhanced/config-error.tsx
 msgid "Add API key"
 msgstr ""
@@ -473,6 +477,7 @@ msgstr ""
 msgid "Connect {0}"
 msgstr ""
 
+#: src/onboarding/calendar.tsx
 #: src/onboarding/index.tsx
 msgid "Connect calendar"
 msgstr ""
