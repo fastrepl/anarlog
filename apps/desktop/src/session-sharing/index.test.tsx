@@ -7,6 +7,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -227,25 +228,37 @@ function renderShareButton() {
   return renderShareButtonView().queryClient;
 }
 
-function renderShareButtonView() {
+function renderShareButtonView(
+  initialSessionId = "session-1",
+  strictMode = false,
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  const element = () => (
-    <QueryClientProvider client={queryClient}>
-      <SessionShareButton sessionId="session-1" />
-    </QueryClientProvider>
-  );
+  let currentSessionId = initialSessionId;
+  const element = () => {
+    const content = (
+      <QueryClientProvider client={queryClient}>
+        <SessionShareButton sessionId={currentSessionId} />
+      </QueryClientProvider>
+    );
+    return strictMode ? <StrictMode>{content}</StrictMode> : content;
+  };
   const view = render(element());
   return {
     queryClient,
-    rerender: () => view.rerender(element()),
+    rerender: (sessionId = currentSessionId) => {
+      currentSessionId = sessionId;
+      view.rerender(element());
+    },
   };
 }
 
 async function openSharePopover() {
   fireEvent.click(screen.getByRole("button", { name: "Share note" }));
-  await screen.findByRole("heading", { name: "Share note" });
+  await screen.findByText(
+    "Attachments stay private unless you explicitly include them in this shared note.",
+  );
 }
 
 describe("SessionShareButton", () => {
@@ -297,10 +310,10 @@ describe("SessionShareButton", () => {
       baselineSourceHash: "a".repeat(64),
       status: "clean",
     });
-    mocks.loadSessionShareSource.mockImplementation(async () => {
+    mocks.loadSessionShareSource.mockImplementation(async (sessionId) => {
       mocks.events.push("load");
       return {
-        sessionId: "session-1",
+        sessionId,
         workspaceId: WORKSPACE_ID,
         title: "Planning",
         body: { type: "doc", content: [] },
@@ -382,6 +395,7 @@ describe("SessionShareButton", () => {
 
   it("starts sign-in before attempting to share for a signed-out user", () => {
     mocks.auth.session = null;
+    mocks.billing.isReady = false;
     renderShareButton();
 
     fireEvent.click(screen.getByRole("button", { name: "Share note" }));
@@ -416,17 +430,45 @@ describe("SessionShareButton", () => {
     expect(mocks.billing.upgradeToPro).toHaveBeenCalledOnce();
   });
 
-  it("keeps the share button enabled while billing access loads", () => {
-    mocks.billing.isReady = false;
-    renderShareButton();
+  it("closes a free-plan upgrade state when the account changes", async () => {
+    mocks.billing.isPaid = false;
+    mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
+    const view = renderShareButtonView();
 
+    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
     expect(
-      (
-        screen.getByRole("button", {
-          name: "Share note",
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(false);
+      await screen.findByRole("heading", { name: "Share notes with others" }),
+    ).not.toBeNull();
+
+    mocks.auth.session = createSession(OTHER_USER_ID);
+    view.rerender();
+
+    expect(screen.queryByTestId("share-popover")).toBeNull();
+  });
+
+  it("opens immediately and continues after billing access loads", async () => {
+    mocks.billing.isReady = false;
+    const view = renderShareButtonView("session-1", true);
+
+    const trigger = screen.getByRole("button", { name: "Share note" });
+    expect((trigger as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(trigger);
+
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText("Loading access…")).not.toBeNull();
+    expect(mocks.loadSessionShareSource).not.toHaveBeenCalled();
+
+    mocks.billing.isReady = true;
+    view.rerender();
+
+    await screen.findByText(
+      "Attachments stay private unless you explicitly include them in this shared note.",
+    );
+    expect(mocks.loadSessionShareSource).toHaveBeenCalledWith(
+      "session-1",
+      USER_ID,
+    );
+    expect(mocks.loadSessionShareSource).toHaveBeenCalledOnce();
   });
 
   it("opens sharing as a popover anchored to the toolbar button", async () => {
@@ -518,12 +560,16 @@ describe("SessionShareButton", () => {
       "[session-sharing] could not prepare note",
       expect.objectContaining({ message: "connection lost" }),
     );
-    expect(screen.queryByTestId("share-popover")).toBeNull();
+    expect(screen.getByTestId("share-popover")).not.toBeNull();
+    expect(
+      await screen.findByText("Access settings could not be loaded."),
+    ).not.toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
-    await screen.findByRole("heading", { name: "Share note" });
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() =>
+      expect(mocks.publishSessionShareSnapshot).toHaveBeenCalledTimes(2),
+    );
 
-    expect(mocks.publishSessionShareSnapshot).toHaveBeenCalledTimes(2);
     expect(mocks.publishSessionShareSnapshot.mock.calls[0]![0].mutationId).toBe(
       mocks.publishSessionShareSnapshot.mock.calls[1]![0].mutationId,
     );
@@ -896,7 +942,7 @@ describe("SessionShareButton", () => {
     expect(mocks.events.slice(0, 3)).toEqual(["load", "publish", "cloud-off"]);
   });
 
-  it("abandons initial share preparation when the active account changes", async () => {
+  it("opens immediately and abandons preparation when the account changes", async () => {
     let resolveSource!: (source: {
       sessionId: string;
       workspaceId: string;
@@ -910,7 +956,14 @@ describe("SessionShareButton", () => {
     );
     const view = renderShareButtonView();
 
-    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
+    const trigger = screen.getByRole("button", { name: "Share note" });
+    fireEvent.click(trigger);
+
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    expect(
+      await screen.findByRole("heading", { name: "Share note" }),
+    ).not.toBeNull();
+    expect(screen.getByText("Loading access…")).not.toBeNull();
     await waitFor(() =>
       expect(mocks.loadSessionShareSource).toHaveBeenCalledOnce(),
     );
@@ -938,6 +991,52 @@ describe("SessionShareButton", () => {
     expect(mocks.createOrReuseSessionShare).not.toHaveBeenCalled();
     expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
     expect(screen.queryByTestId("share-popover")).toBeNull();
+  });
+
+  it("abandons preparation when the active note changes", async () => {
+    let resolveSource!: (source: {
+      sessionId: string;
+      workspaceId: string;
+      title: string;
+      body: { type: "doc"; content: never[] };
+    }) => void;
+    mocks.loadSessionShareSource.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSource = resolve;
+      }),
+    );
+    const view = renderShareButtonView();
+
+    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
+    await waitFor(() =>
+      expect(mocks.loadSessionShareSource).toHaveBeenCalledWith(
+        "session-1",
+        USER_ID,
+      ),
+    );
+
+    view.rerender("session-2");
+    expect(screen.queryByTestId("share-popover")).toBeNull();
+
+    await act(async () => {
+      resolveSource({
+        sessionId: "session-1",
+        workspaceId: WORKSPACE_ID,
+        title: "Planning",
+        body: { type: "doc", content: [] },
+      });
+    });
+
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("button", { name: "Share note" })
+          .querySelector(".animate-spin"),
+      ).toBeNull(),
+    );
+    expect(mocks.createOrReuseSessionShare).not.toHaveBeenCalled();
+    expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
+    expect(mocks.toastError).not.toHaveBeenCalled();
   });
 
   it("publishes before rotating a bearer link and keeps the token out of query keys", async () => {

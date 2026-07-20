@@ -79,13 +79,24 @@ fn request_client_address(request: &Request<Body>) -> Option<String> {
 
 fn build_sync_routes(
     state: hypr_api_sync::AppState,
-    rate_limit_state: rate_limit::RateLimitState,
+    cloudsync_rate_limit_state: rate_limit::RateLimitState,
+    session_share_rate_limit_state: rate_limit::RateLimitState,
     witness_rate_limit_state: rate_limit::RateLimitState,
     auth_state: AuthState,
 ) -> Router {
-    let pro_routes = hypr_api_sync::pro_router(state.clone())
+    let cloudsync_routes = hypr_api_sync::cloudsync_router(state.clone())
         .route_layer(middleware::from_fn_with_state(
-            rate_limit_state.clone(),
+            cloudsync_rate_limit_state,
+            rate_limit::rate_limit,
+        ))
+        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
+        .route_layer(middleware::from_fn_with_state(
+            auth_state.clone().with_required_entitlement("hyprnote_pro"),
+            auth::require_auth,
+        ));
+    let session_share_routes = hypr_api_sync::session_share_router(state.clone())
+        .route_layer(middleware::from_fn_with_state(
+            session_share_rate_limit_state.clone(),
             rate_limit::rate_limit,
         ))
         .route_layer(middleware::from_fn(auth::sentry_and_analytics))
@@ -105,7 +116,7 @@ fn build_sync_routes(
         ));
     let web_edit_routes = hypr_api_sync::web_edit_router(state)
         .route_layer(middleware::from_fn_with_state(
-            rate_limit_state,
+            session_share_rate_limit_state,
             rate_limit::rate_limit,
         ))
         .route_layer(middleware::from_fn(auth::sentry_and_analytics))
@@ -114,7 +125,10 @@ fn build_sync_routes(
             auth::require_auth,
         ));
 
-    pro_routes.merge(witness_routes).merge(web_edit_routes)
+    cloudsync_routes
+        .merge(session_share_routes)
+        .merge(witness_routes)
+        .merge(web_edit_routes)
 }
 
 async fn app() -> Router {
@@ -152,18 +166,19 @@ async fn app() -> Router {
                 .allow_burst(NonZeroU32::new(5).unwrap()),
         )
         .build();
-    let sync_rate_limit = rate_limit::RateLimitState::builder()
-        .pro(
+    let build_sync_rate_limit = || {
+        let quota = || {
             governor::Quota::with_period(Duration::from_secs(30))
                 .unwrap()
-                .allow_burst(NonZeroU32::new(20).unwrap()),
-        )
-        .free(
-            governor::Quota::with_period(Duration::from_secs(30))
-                .unwrap()
-                .allow_burst(NonZeroU32::new(20).unwrap()),
-        )
-        .build();
+                .allow_burst(NonZeroU32::new(20).unwrap())
+        };
+        rate_limit::RateLimitState::builder()
+            .pro(quota())
+            .free(quota())
+            .build()
+    };
+    let cloudsync_rate_limit = build_sync_rate_limit();
+    let session_share_rate_limit = build_sync_rate_limit();
     let e2ee_witness_rate_limit = rate_limit::RateLimitState::builder()
         .pro(
             governor::Quota::with_period(Duration::from_millis(100))
@@ -261,7 +276,8 @@ async fn app() -> Router {
     let sync_routes = match sync_config {
         Some(config) => build_sync_routes(
             hypr_api_sync::AppState::new(config),
-            sync_rate_limit,
+            cloudsync_rate_limit,
+            session_share_rate_limit,
             e2ee_witness_rate_limit,
             auth_state.clone(),
         ),
@@ -758,7 +774,7 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
 950IxEzvw/x5BMEINRMrXLBJhqzO9Bm+d6JbqA21YQmd1Kt4RzLJR1W+\n\
 -----END PRIVATE KEY-----";
 
-    fn non_pro_token() -> String {
+    fn token_with_entitlements(entitlements: &[&str]) -> String {
         let mut header = Header::new(Algorithm::ES256);
         header.kid = Some(TEST_KEY_ID.to_string());
         let expires_at = SystemTime::now()
@@ -773,22 +789,27 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
                 "sub": "editor-user",
                 "aud": "authenticated",
                 "exp": expires_at,
-                "entitlements": []
+                "entitlements": entitlements
             }),
             &EncodingKey::from_ec_pem(TEST_PRIVATE_KEY.as_bytes()).unwrap(),
         )
         .unwrap()
     }
 
-    fn test_sync_rate_limit() -> rate_limit::RateLimitState {
+    fn non_pro_token() -> String {
+        token_with_entitlements(&[])
+    }
+
+    fn test_sync_rate_limit(burst: u32) -> rate_limit::RateLimitState {
         let quota = || {
             governor::Quota::with_period(Duration::from_secs(1))
                 .unwrap()
-                .allow_burst(NonZeroU32::new(10).unwrap())
+                .allow_burst(NonZeroU32::new(burst).unwrap())
         };
         rate_limit::RateLimitState::builder()
             .pro(quota())
             .free(quota())
+            .enforce_in_debug()
             .build()
     }
 
@@ -847,8 +868,9 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
             "/sync",
             build_sync_routes(
                 test_sync_state(&server),
-                test_sync_rate_limit(),
-                test_sync_rate_limit(),
+                test_sync_rate_limit(10),
+                test_sync_rate_limit(10),
+                test_sync_rate_limit(10),
                 AuthState::new(&server.uri()),
             ),
         );
@@ -916,6 +938,97 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
         assert_eq!(
             response_bytes(witness_response).await,
             b"subscription_required"
+        );
+        server.verify().await;
+    }
+
+    #[tokio::test]
+    async fn sync_composition_keeps_sharing_available_when_cloudsync_is_rate_limited() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/auth/v1/.well-known/jwks.json"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "keys": [{
+                    "kty": "EC",
+                    "use": "sig",
+                    "crv": "P-256",
+                    "kid": TEST_KEY_ID,
+                    "x": "w7JAoU_gJbZJvV-zCOvU9yFJq0FNC_edCMRM78P8eQQ",
+                    "y": "wQg1EytcsEmGrM70Gb53oluoDbVhCZ3Uq3hHMslHVb4",
+                    "alg": "ES256"
+                }]
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/publish_session_share_snapshot_cas"))
+            .respond_with(ResponseTemplate::new(403).set_body_json(json!({
+                "code": "42501",
+                "message": "share manager access required"
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let app = Router::new().nest(
+            "/sync",
+            build_sync_routes(
+                test_sync_state(&server),
+                test_sync_rate_limit(1),
+                test_sync_rate_limit(1),
+                test_sync_rate_limit(1),
+                AuthState::new(&server.uri()),
+            ),
+        );
+        let token = token_with_entitlements(&["hyprnote_pro"]);
+        let cloudsync_request = || {
+            Request::post("/sync/token")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap()
+        };
+
+        let first_cloudsync_response = app.clone().oneshot(cloudsync_request()).await.unwrap();
+        assert_eq!(
+            first_cloudsync_response.status(),
+            StatusCode::UPGRADE_REQUIRED
+        );
+        let second_cloudsync_response = app.clone().oneshot(cloudsync_request()).await.unwrap();
+        assert_eq!(
+            second_cloudsync_response.status(),
+            StatusCode::TOO_MANY_REQUESTS
+        );
+
+        let share_response = app
+            .oneshot(
+                Request::put("/sync/shares/11111111-1111-4111-8111-111111111111/snapshot")
+                    .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        json!({
+                            "baseRevision": 0,
+                            "mutationId": "22222222-2222-4222-8222-222222222222",
+                            "title": "Title",
+                            "body": {
+                                "type": "doc",
+                                "content": [{ "type": "paragraph" }]
+                            },
+                            "attachmentIds": []
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(share_response.status(), StatusCode::FORBIDDEN);
+        let share_body: Value =
+            serde_json::from_slice(&response_bytes(share_response).await).unwrap();
+        assert_eq!(
+            share_body["error"]["code"],
+            "shared_note_publication_forbidden"
         );
         server.verify().await;
     }

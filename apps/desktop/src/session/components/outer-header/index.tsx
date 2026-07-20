@@ -91,7 +91,7 @@ export function OuterHeader({
         className="relative z-10 ml-auto flex shrink-0 items-center gap-0 pr-1"
       >
         <HeaderMeetingControl sessionId={sessionId} sessionMode={sessionMode} />
-        <SessionShareButton sessionId={sessionId} />
+        <SessionShareButton key={sessionId} sessionId={sessionId} />
         <OverflowButton
           standaloneWindow={standaloneWindow}
           sessionId={sessionId}

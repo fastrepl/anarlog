@@ -82,6 +82,7 @@ impl IpRateLimitState {
 pub struct RateLimitState {
     limiter_pro: Arc<KeyedLimiter>,
     limiter_free: Arc<KeyedLimiter>,
+    enforce_in_debug: bool,
 }
 
 impl RateLimitState {
@@ -89,6 +90,7 @@ impl RateLimitState {
         RateLimitStateBuilder {
             pro: None,
             free: None,
+            enforce_in_debug: false,
         }
     }
 
@@ -116,6 +118,7 @@ impl RateLimitState {
 pub struct RateLimitStateBuilder {
     pro: Option<Quota>,
     free: Option<Quota>,
+    enforce_in_debug: bool,
 }
 
 impl RateLimitStateBuilder {
@@ -129,12 +132,19 @@ impl RateLimitStateBuilder {
         self
     }
 
+    #[cfg(test)]
+    pub fn enforce_in_debug(mut self) -> Self {
+        self.enforce_in_debug = true;
+        self
+    }
+
     pub fn build(self) -> RateLimitState {
         RateLimitState {
             limiter_pro: Arc::new(RateLimiter::keyed(self.pro.expect("pro quota is required"))),
             limiter_free: Arc::new(RateLimiter::keyed(
                 self.free.expect("free quota is required"),
             )),
+            enforce_in_debug: self.enforce_in_debug,
         }
     }
 }
@@ -144,7 +154,7 @@ pub async fn rate_limit(
     request: Request,
     next: Next,
 ) -> Result<Response, Response> {
-    if cfg!(debug_assertions) {
+    if cfg!(debug_assertions) && !state.enforce_in_debug {
         return Ok(next.run(request).await);
     }
 

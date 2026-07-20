@@ -313,16 +313,21 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     openapi
 }
 
-pub fn pro_router(state: AppState) -> Router {
+pub fn cloudsync_router(state: AppState) -> Router {
     Router::new()
         .route("/token", post(create_credentials))
         .route("/e2ee/identity", put(claim_e2ee_identity))
+        .merge(attachment_backups::router())
+        .with_state(state)
+}
+
+pub fn session_share_router(state: AppState) -> Router {
+    Router::new()
         .route(
             "/shares/{share_id}/snapshot",
             put(publish_session_share_snapshot)
                 .layer(DefaultBodyLimit::max(MAX_SNAPSHOT_REQUEST_BYTES)),
         )
-        .merge(attachment_backups::router())
         .merge(shared_attachments::router())
         .with_state(state)
 }
@@ -1226,7 +1231,8 @@ mod tests {
             supabase_anon_key: "anon-key".to_string(),
             supabase_service_role_key: "service-role-key".to_string(),
         });
-        pro_router(state.clone())
+        cloudsync_router(state.clone())
+            .merge(session_share_router(state.clone()))
             .merge(web_edit_router(state))
             .layer(Extension(AuthContext {
                 token: "supabase-token".to_string(),
