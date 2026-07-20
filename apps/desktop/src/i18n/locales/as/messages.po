@@ -852,12 +852,9 @@ msgstr ""
 msgid "Get Pro"
 msgstr ""
 
+#: src/onboarding/account/before-login.tsx
 #: src/settings/general/account.tsx
 msgid "Get started"
-msgstr ""
-
-#: src/onboarding/account/before-login.tsx
-msgid "Get started for free"
 msgstr ""
 
 #: src/sidebar/timeline/index.tsx
@@ -1039,7 +1036,7 @@ msgid "Loading..."
 msgstr ""
 
 #: src/onboarding/account/before-login.tsx
-msgid "Login with existing account"
+msgid "Login"
 msgstr ""
 
 #: src/settings/ai/shared/index.tsx

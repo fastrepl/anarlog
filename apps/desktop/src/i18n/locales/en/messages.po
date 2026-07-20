@@ -852,13 +852,10 @@ msgstr "Get notified 5 minutes before calendar events start"
 msgid "Get Pro"
 msgstr "Get Pro"
 
+#: src/onboarding/account/before-login.tsx
 #: src/settings/general/account.tsx
 msgid "Get started"
 msgstr "Get started"
-
-#: src/onboarding/account/before-login.tsx
-msgid "Get started for free"
-msgstr "Get started for free"
 
 #: src/sidebar/timeline/index.tsx
 msgid "Go back to now"
@@ -1039,8 +1036,8 @@ msgid "Loading..."
 msgstr "Loading..."
 
 #: src/onboarding/account/before-login.tsx
-msgid "Login with existing account"
-msgstr "Login with existing account"
+msgid "Login"
+msgstr "Login"
 
 #: src/settings/ai/shared/index.tsx
 msgid "macOS cannot access your login Keychain. Repairing briefly locks it and asks for your Mac password before Anarlog retries this API key."

@@ -16,7 +16,7 @@ export function BeforeLogin({ onContinue: _ }: { onContinue: () => void }) {
           }}
           className="px-6 py-2 text-sm"
         >
-          <Trans>Get started for free</Trans>
+          <Trans>Get started</Trans>
         </OnboardingButton>
 
         <button
@@ -26,7 +26,7 @@ export function BeforeLogin({ onContinue: _ }: { onContinue: () => void }) {
           }}
           className="border-border/60 bg-card/55 text-muted-foreground hover:bg-card/75 hover:text-foreground rounded-full border px-6 py-2 text-sm font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] backdrop-blur-sm transition-colors"
         >
-          <Trans>Login with existing account</Trans>
+          <Trans>Login</Trans>
         </button>
       </div>
     </div>
