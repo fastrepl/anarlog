@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangleIcon,
   CheckIcon,
-  ChevronDownIcon,
   CopyIcon,
   ExternalLinkIcon,
   Globe2Icon,
@@ -213,12 +212,17 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
   const queryClient = useQueryClient();
   const [sharePanelIdentity, setSharePanelIdentity] =
     useState<SharePanelIdentity | null>(null);
+  const [upgradePromptOpen, setUpgradePromptOpen] = useState(false);
   const sharePanelPendingRef = useRef(false);
   const accountUserId = auth.session?.user.id ?? null;
   const activeSharePanelIdentity =
     sharePanelIdentity?.ownerUserId === accountUserId
       ? sharePanelIdentity
       : null;
+  const showUpgradePrompt =
+    upgradePromptOpen && billing.isReady && !billing.isPaid;
+  const sharePopoverOpen =
+    showUpgradePrompt || Boolean(activeSharePanelIdentity);
   const durableNoteQuery = useDurableSharedNote(
     accountUserId,
     activeSharePanelIdentity?.shareId ?? "",
@@ -337,14 +341,27 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
       if (latestAuthRef.current.session?.user.id !== variables.ownerUserId) {
         return;
       }
-      if (!billing.isPaid) {
-        billing.upgradeToPro();
-        return;
-      }
       console.error("[session-sharing] could not prepare note", error);
       sonnerToast.error("Could not prepare this note for sharing.");
     },
   });
+  const freeShareMutation = useMutation({
+    mutationFn: (ownerUserId: string) =>
+      loadManagedSharedNoteForSession(ownerUserId, sessionId),
+    onSuccess: (managedShare, ownerUserId) => {
+      if (latestAuthRef.current.session?.user.id !== ownerUserId) return;
+      if (!managedShare) {
+        setUpgradePromptOpen(true);
+        return;
+      }
+      initializeMutation.mutate({ publish: false, ownerUserId });
+    },
+    onError: () => {
+      sonnerToast.error("Could not check this note's sharing status.");
+    },
+  });
+  const shareButtonPending =
+    initializeMutation.isPending || freeShareMutation.isPending;
 
   const queryKey = sessionShareManagementQueryKey(
     activeSharePanelIdentity?.ownerUserId ?? "",
@@ -372,29 +389,37 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
   );
 
   const handleShare = () => {
-    if (activeSharePanelIdentity) {
-      if (!sharePanelPendingRef.current) setSharePanelIdentity(null);
+    if (sharePopoverOpen) {
+      if (!sharePanelPendingRef.current) {
+        setSharePanelIdentity(null);
+        setUpgradePromptOpen(false);
+      }
       return;
     }
-    if (!billing.isReady || initializeMutation.isPending) return;
+    if (!billing.isReady || shareButtonPending) return;
     if (!auth.session || auth.session.user.is_anonymous === true) {
       void auth.signIn().catch(() => {
         sonnerToast.error("Could not start sign-in.");
       });
       return;
     }
+    if (!billing.isPaid) {
+      freeShareMutation.mutate(auth.session.user.id);
+      return;
+    }
     initializeMutation.mutate({
-      publish: billing.isPaid,
+      publish: true,
       ownerUserId: auth.session.user.id,
     });
   };
 
   return (
     <Popover
-      open={Boolean(activeSharePanelIdentity)}
+      open={sharePopoverOpen}
       onOpenChange={(open) => {
         if (!open && !sharePanelPendingRef.current) {
           setSharePanelIdentity(null);
+          setUpgradePromptOpen(false);
         }
       }}
     >
@@ -403,35 +428,28 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           key={accountUserId ?? "signed-out"}
           ref={shareButtonLifecycleRef}
           type="button"
-          size="sm"
+          size="icon"
           variant="ghost"
           data-tauri-drag-region="false"
           aria-label="Share note"
-          aria-expanded={Boolean(activeSharePanelIdentity)}
+          aria-expanded={sharePopoverOpen}
           title="Share note"
-          disabled={!billing.isReady || initializeMutation.isPending}
           onClick={handleShare}
           className={cn([
             "text-muted-foreground hover:text-foreground mr-1 rounded-full",
-            activeSharePanelIdentity && "bg-accent text-foreground",
+            sharePopoverOpen && "bg-accent text-foreground",
           ])}
         >
-          {initializeMutation.isPending ? (
+          {shareButtonPending ? (
             <Loader2Icon className="size-3.5 animate-spin" aria-hidden="true" />
           ) : (
             <Share2Icon className="size-3.5" aria-hidden="true" />
           )}
-          <Trans>Share</Trans>
-          <ChevronDownIcon
-            className={cn([
-              "size-3 transition-transform",
-              activeSharePanelIdentity && "rotate-180",
-            ])}
-            aria-hidden="true"
-          />
         </Button>
       </PopoverTrigger>
-      {activeSharePanelIdentity ? (
+      {showUpgradePrompt ? (
+        <SessionShareUpgradeContent onUpgrade={billing.upgradeToPro} />
+      ) : activeSharePanelIdentity ? (
         <SessionSharePopoverContent
           key={`${activeSharePanelIdentity.ownerUserId}:${activeSharePanelIdentity.shareId}:${sessionId}`}
           sessionId={sessionId}
@@ -461,6 +479,42 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
         />
       ) : null}
     </Popover>
+  );
+}
+
+function SessionShareUpgradeContent({ onUpgrade }: { onUpgrade: () => void }) {
+  return (
+    <PopoverContent
+      variant="app"
+      align="end"
+      sideOffset={8}
+      aria-labelledby="session-share-upgrade-heading"
+      aria-describedby="session-share-upgrade-description"
+      className="w-[320px] overflow-hidden"
+    >
+      <AppFloatingPanel className="flex flex-col items-center px-6 py-7 text-center">
+        <div className="bg-accent flex size-10 items-center justify-center rounded-full">
+          <UsersIcon className="size-4" aria-hidden="true" />
+        </div>
+        <h2
+          id="session-share-upgrade-heading"
+          className="mt-3 text-sm font-semibold"
+        >
+          <Trans>Share notes with others</Trans>
+        </h2>
+        <p
+          id="session-share-upgrade-description"
+          className="text-muted-foreground mt-1 text-xs leading-5"
+        >
+          <Trans>
+            Upgrade to Pro to invite people and share this note with them.
+          </Trans>
+        </p>
+        <Button type="button" size="sm" onClick={onUpgrade} className="mt-4">
+          <Trans>Upgrade to Pro</Trans>
+        </Button>
+      </AppFloatingPanel>
+    </PopoverContent>
   );
 }
 

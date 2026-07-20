@@ -386,26 +386,51 @@ describe("SessionShareButton", () => {
     expect(mocks.loadSessionShareSource).not.toHaveBeenCalled();
   });
 
-  it("opens the Pro upgrade when a free user has no existing share", async () => {
+  it("shows an upgrade state before sharing for a free user", async () => {
     mocks.billing.isPaid = false;
-    mocks.createOrReuseSessionShare.mockRejectedValueOnce(
-      new Error("subscription required"),
-    );
+    mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
     renderShareButton();
 
-    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
+    const trigger = screen.getByRole("button", { name: "Share note" });
+    expect((trigger as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(trigger);
 
-    await waitFor(() =>
-      expect(mocks.billing.upgradeToPro).toHaveBeenCalledOnce(),
-    );
-    expect(mocks.loadSessionShareSource).toHaveBeenCalledOnce();
+    expect(
+      await screen.findByRole("heading", { name: "Share notes with others" }),
+    ).not.toBeNull();
+    expect(
+      screen.getByText(
+        "Upgrade to Pro to invite people and share this note with them.",
+      ),
+    ).not.toBeNull();
+    expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
+    expect(mocks.loadSessionShareSource).not.toHaveBeenCalled();
     expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Upgrade to Pro" }));
+
+    expect(mocks.billing.upgradeToPro).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the share button enabled while billing access loads", () => {
+    mocks.billing.isReady = false;
+    renderShareButton();
+
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Share note",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
   });
 
   it("opens sharing as a popover anchored to the toolbar button", async () => {
     renderShareButton();
 
     const trigger = screen.getByRole("button", { name: "Share note" });
+    expect(trigger.textContent).toBe("");
+    expect(trigger.querySelectorAll("svg")).toHaveLength(1);
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
 
     await openSharePopover();

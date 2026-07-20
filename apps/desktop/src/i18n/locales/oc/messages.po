@@ -1728,11 +1728,11 @@ msgid "Settings"
 msgstr ""
 
 #: src/session-sharing/index.tsx
-msgid "Share"
+msgid "Share note"
 msgstr ""
 
 #: src/session-sharing/index.tsx
-msgid "Share note"
+msgid "Share notes with others"
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
@@ -2124,12 +2124,17 @@ msgid "Upgrade to expand access. You can still restrict or revoke existing acces
 msgstr ""
 
 #: src/calendar/components/sidebar.tsx
+#: src/session-sharing/index.tsx
 msgid "Upgrade to Pro"
 msgstr ""
 
 #. placeholder {0}: provider.displayName
 #: src/calendar/components/sidebar.tsx
 msgid "Upgrade to Pro for {0}"
+msgstr ""
+
+#: src/session-sharing/index.tsx
+msgid "Upgrade to Pro to invite people and share this note with them."
 msgstr ""
 
 #: src/settings/ai/llm/select.tsx
