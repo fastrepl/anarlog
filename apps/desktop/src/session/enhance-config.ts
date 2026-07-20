@@ -14,8 +14,6 @@ export function shouldShowEmptySummaryConfigError(status: LLMConnectionStatus) {
   return (
     status.reason === "unauthenticated" ||
     status.reason === "not_pro" ||
-    status.reason === "missing_config" ||
-    status.reason === "google_calendar_data_check_failed" ||
-    status.reason === "google_calendar_remote_ai_blocked"
+    status.reason === "missing_config"
   );
 }

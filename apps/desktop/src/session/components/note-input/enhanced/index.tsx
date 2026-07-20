@@ -6,7 +6,6 @@ import type { NoteEditorRef } from "@hypr/editor/note";
 import { ConfigError } from "./config-error";
 import { EnhancedEditor } from "./editor";
 import { EnhanceError } from "./enhance-error";
-import { GoogleCalendarAiBoundaryError } from "./google-calendar-ai-boundary-error";
 import { StreamingView } from "./streaming";
 
 import { useAITaskTask } from "~/ai/hooks";
@@ -72,20 +71,6 @@ export const Enhanced = forwardRef<
     const isConfigError = shouldShowEmptySummaryConfigError(llmStatus);
 
     if (status === "idle" && isConfigError && !hasContent) {
-      if (
-        llmStatus.status === "error" &&
-        (llmStatus.reason === "google_calendar_data_check_failed" ||
-          llmStatus.reason === "google_calendar_remote_ai_blocked")
-      ) {
-        return (
-          <GoogleCalendarAiBoundaryError
-            checkFailed={
-              llmStatus.reason === "google_calendar_data_check_failed"
-            }
-          />
-        );
-      }
-
       return <ConfigError />;
     }
 
