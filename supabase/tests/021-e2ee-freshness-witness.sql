@@ -1,5 +1,5 @@
 begin;
-select plan(15);
+select plan(18);
 
 select tests.create_supabase_user('witness_owner', 'witness-owner@example.com');
 select tests.create_supabase_user('witness_other', 'witness-other@example.com');
@@ -39,6 +39,16 @@ select ok(
     and has_function_privilege(
       'service_role',
       'public.read_e2ee_freshness_page(uuid, uuid, bigint, bigint, integer)',
+      'EXECUTE'
+    )
+    and not has_function_privilege(
+      'authenticated',
+      'public.read_e2ee_freshness_page_v2(uuid, uuid, bigint, bigint, integer, integer)',
+      'EXECUTE'
+    )
+    and has_function_privilege(
+      'service_role',
+      'public.read_e2ee_freshness_page_v2(uuid, uuid, bigint, bigint, integer, integer)',
       'EXECUTE'
     ),
   'Only trusted service code can use witness functions'
@@ -156,6 +166,88 @@ select results_eq(
     cross join witness_head as head
   $$,
   'Witness pages return the exact immutable ciphertext event'
+);
+
+create temporary table witness_bulk_event as
+select
+  ordinal,
+  rtrim(
+    translate(
+      encode(extensions.digest('record-' || ordinal::text, 'sha256'), 'base64'),
+      '+/',
+      '-_'
+    ),
+    '='
+  )::text as record_id,
+  payload,
+  rtrim(
+    translate(encode(extensions.digest(payload, 'sha256'), 'base64'), '+/', '-_'),
+    '='
+  )::text as payload_hash
+from (
+  select ordinal, format('{"version":1,"ciphertext":"opaque-%s"}', ordinal)::text as payload
+  from generate_series(1, 64) as series(ordinal)
+) as generated;
+
+select lives_ok(
+  format(
+    $$
+      select *
+      from public.publish_e2ee_freshness_events(
+        %L,
+        %L,
+        false,
+        (
+          select jsonb_agg(
+            jsonb_build_object(
+              'record_id', record_id,
+              'payload_hash', payload_hash,
+              'payload', payload
+            )
+            order by ordinal
+          )
+          from witness_bulk_event
+        )
+      )
+    $$,
+    tests.get_supabase_uid('witness_owner'),
+    tests.get_supabase_uid('witness_owner')
+  ),
+  'The witness accepts the existing maximum publish batch'
+);
+
+select is(
+  (
+    select count(*)
+    from public.read_e2ee_freshness_page_v2(
+      tests.get_supabase_uid('witness_owner'),
+      tests.get_supabase_uid('witness_owner'),
+      0,
+      null,
+      1024,
+      50331648
+    )
+    where event_sequence is not null
+  ),
+  65::bigint,
+  'Backfill pages can return more than the legacy 64-event limit'
+);
+
+select is(
+  (
+    select count(*)
+    from public.read_e2ee_freshness_page_v2(
+      tests.get_supabase_uid('witness_owner'),
+      tests.get_supabase_uid('witness_owner'),
+      0,
+      null,
+      1024,
+      500
+    )
+    where event_sequence is not null
+  ),
+  1::bigint,
+  'Backfill pages stop before exceeding their response byte budget'
 );
 
 select throws_ok(

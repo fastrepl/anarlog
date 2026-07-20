@@ -13,11 +13,13 @@ use uuid::Uuid;
 use crate::error::{Result, SyncError};
 use crate::state::AppState;
 
-const MAX_EVENTS_PER_BATCH: usize = 16;
+const MAX_EVENTS_PER_BATCH: usize = 64;
 const MAX_EVENT_BYTES: usize = 16 * 1024 * 1024;
 const MAX_WITNESS_REQUEST_BYTES: usize = 64 * 1024 * 1024;
 const MAX_WITNESS_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
-const WITNESS_PAGE_SIZE: i32 = 3;
+const MAX_WITNESS_PAGE_BYTES: i32 = 48 * 1024 * 1024;
+const WITNESS_PAGE_SIZE: i32 = 1024;
+const LEGACY_WITNESS_PAGE_SIZE: i32 = 3;
 const WITNESS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
 
 #[derive(Clone, Debug, Deserialize, Serialize, utoipa::ToSchema)]
@@ -87,6 +89,16 @@ struct PublishRpcEvent<'a> {
 
 #[derive(Serialize)]
 struct ReadRpcRequest<'a> {
+    p_actor_user_id: &'a str,
+    p_workspace_id: &'a str,
+    p_after_sequence: i64,
+    p_through_sequence: Option<i64>,
+    p_limit: i32,
+    p_max_bytes: i32,
+}
+
+#[derive(Serialize)]
+struct LegacyReadRpcRequest<'a> {
     p_actor_user_id: &'a str,
     p_workspace_id: &'a str,
     p_after_sequence: i64,
@@ -176,26 +188,14 @@ async fn read_e2ee_witness(
         .map(i64::try_from)
         .transpose()
         .map_err(|_| SyncError::BadRequest("E2EE witness cursor is invalid".to_string()))?;
-    let response = state
-        .client
-        .post(format!(
-            "{}/rest/v1/rpc/read_e2ee_freshness_page",
-            state.config.supabase_url
-        ))
-        .header("apikey", &state.config.supabase_service_role_key)
-        .bearer_auth(&state.config.supabase_service_role_key)
-        .timeout(WITNESS_TIMEOUT)
-        .json(&ReadRpcRequest {
-            p_actor_user_id: &auth.claims.sub,
-            p_workspace_id: &workspace_id,
-            p_after_sequence: after_sequence,
-            p_through_sequence: through_sequence,
-            p_limit: WITNESS_PAGE_SIZE,
-        })
-        .send()
-        .await
-        .map_err(|error| witness_transport_error(error, "read"))?;
-    let (status, bytes) = read_bounded_response(response, "read").await?;
+    let (status, bytes) = read_witness_page(
+        &state,
+        &auth.claims.sub,
+        &workspace_id,
+        after_sequence,
+        through_sequence,
+    )
+    .await?;
     if !status.is_success() {
         return Err(map_postgrest_error(status, &bytes));
     }
@@ -208,6 +208,60 @@ async fn read_e2ee_witness(
         [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
         Json(page),
     ))
+}
+
+async fn read_witness_page(
+    state: &AppState,
+    actor_user_id: &str,
+    workspace_id: &str,
+    after_sequence: i64,
+    through_sequence: Option<i64>,
+) -> Result<(HttpStatusCode, Vec<u8>)> {
+    let response = state
+        .client
+        .post(format!(
+            "{}/rest/v1/rpc/read_e2ee_freshness_page_v2",
+            state.config.supabase_url
+        ))
+        .header("apikey", &state.config.supabase_service_role_key)
+        .bearer_auth(&state.config.supabase_service_role_key)
+        .timeout(WITNESS_TIMEOUT)
+        .json(&ReadRpcRequest {
+            p_actor_user_id: actor_user_id,
+            p_workspace_id: workspace_id,
+            p_after_sequence: after_sequence,
+            p_through_sequence: through_sequence,
+            p_limit: WITNESS_PAGE_SIZE,
+            p_max_bytes: MAX_WITNESS_PAGE_BYTES,
+        })
+        .send()
+        .await
+        .map_err(|error| witness_transport_error(error, "read"))?;
+    let result = read_bounded_response(response, "read").await?;
+    if !is_missing_v2_rpc(result.0, &result.1) {
+        return Ok(result);
+    }
+
+    let response = state
+        .client
+        .post(format!(
+            "{}/rest/v1/rpc/read_e2ee_freshness_page",
+            state.config.supabase_url
+        ))
+        .header("apikey", &state.config.supabase_service_role_key)
+        .bearer_auth(&state.config.supabase_service_role_key)
+        .timeout(WITNESS_TIMEOUT)
+        .json(&LegacyReadRpcRequest {
+            p_actor_user_id: actor_user_id,
+            p_workspace_id: workspace_id,
+            p_after_sequence: after_sequence,
+            p_through_sequence: through_sequence,
+            p_limit: LEGACY_WITNESS_PAGE_SIZE,
+        })
+        .send()
+        .await
+        .map_err(|error| witness_transport_error(error, "read"))?;
+    read_bounded_response(response, "read").await
 }
 
 #[utoipa::path(
@@ -450,6 +504,12 @@ fn map_postgrest_error(status: HttpStatusCode, bytes: &[u8]) -> SyncError {
     }
 }
 
+fn is_missing_v2_rpc(status: HttpStatusCode, bytes: &[u8]) -> bool {
+    status == HttpStatusCode::NOT_FOUND
+        && serde_json::from_slice::<PostgrestError>(bytes)
+            .is_ok_and(|error| error.code == "PGRST202")
+}
+
 fn is_blinded_id(value: &str) -> bool {
     value.len() == 43
         && value
@@ -527,14 +587,15 @@ mod tests {
         let server = MockServer::start().await;
         let payload = "opaque";
         Mock::given(method("POST"))
-            .and(path("/rest/v1/rpc/read_e2ee_freshness_page"))
+            .and(path("/rest/v1/rpc/read_e2ee_freshness_page_v2"))
             .and(request_header("apikey", "service-role-key"))
             .and(request_header("authorization", "Bearer service-role-key"))
             .and(body_partial_json(json!({
                 "p_actor_user_id": OWNER,
                 "p_workspace_id": OWNER,
                 "p_after_sequence": 0,
-                "p_limit": 3
+                "p_limit": 1024,
+                "p_max_bytes": 50331648
             })))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
                 "initialized_at": "2026-07-17T00:00:00Z",
@@ -560,6 +621,53 @@ mod tests {
         let body = response_json(response).await;
         assert_eq!(body["headSequence"], 1);
         assert_eq!(body["events"][0]["recordId"], RECORD_ID);
+    }
+
+    #[tokio::test]
+    async fn falls_back_to_legacy_witness_pages_during_database_rollout() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/read_e2ee_freshness_page_v2"))
+            .respond_with(ResponseTemplate::new(404).set_body_json(json!({
+                "code": "PGRST202",
+                "message": "function is not in the schema cache"
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/read_e2ee_freshness_page"))
+            .and(body_partial_json(json!({
+                "p_actor_user_id": OWNER,
+                "p_workspace_id": OWNER,
+                "p_after_sequence": 0,
+                "p_limit": 3
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "initialized_at": "2026-07-17T00:00:00Z",
+                "head_sequence": 0,
+                "through_sequence": 0,
+                "event_sequence": null,
+                "record_id": null,
+                "payload_hash": null,
+                "payload": null
+            }])))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let response = test_router(&server)
+            .oneshot(request(
+                Method::GET,
+                &format!("/e2ee/witness/{OWNER}?afterSequence=0"),
+                None,
+            ))
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response_json(response).await["events"], json!([]));
+        server.verify().await;
     }
 
     #[tokio::test]
@@ -602,6 +710,29 @@ mod tests {
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(response_json(response).await["headSequence"], 1);
+    }
+
+    #[test]
+    fn accepts_the_database_publish_batch_limit() {
+        let event = E2eeWitnessEvent {
+            record_id: RECORD_ID.to_string(),
+            payload_hash: PAYLOAD_HASH.to_string(),
+            payload: "opaque".to_string(),
+        };
+        assert!(
+            validate_publish_request(&PublishE2eeWitnessRequest {
+                initialize: false,
+                events: vec![event.clone(); 64],
+            })
+            .is_ok()
+        );
+        assert!(
+            validate_publish_request(&PublishE2eeWitnessRequest {
+                initialize: false,
+                events: vec![event; 65],
+            })
+            .is_err()
+        );
     }
 
     #[tokio::test]

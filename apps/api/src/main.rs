@@ -80,12 +80,23 @@ fn request_client_address(request: &Request<Body>) -> Option<String> {
 fn build_sync_routes(
     state: hypr_api_sync::AppState,
     rate_limit_state: rate_limit::RateLimitState,
+    witness_rate_limit_state: rate_limit::RateLimitState,
     auth_state: AuthState,
 ) -> Router {
     let pro_routes = hypr_api_sync::pro_router(state.clone())
         .route_layer(middleware::from_fn_with_state(
             rate_limit_state.clone(),
             rate_limit::rate_limit,
+        ))
+        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
+        .route_layer(middleware::from_fn_with_state(
+            auth_state.clone().with_required_entitlement("hyprnote_pro"),
+            auth::require_auth,
+        ));
+    let witness_routes = hypr_api_sync::e2ee_witness_router(state.clone())
+        .route_layer(middleware::from_fn_with_state(
+            witness_rate_limit_state,
+            rate_limit::wait_for_rate_limit,
         ))
         .route_layer(middleware::from_fn(auth::sentry_and_analytics))
         .route_layer(middleware::from_fn_with_state(
@@ -103,7 +114,7 @@ fn build_sync_routes(
             auth::require_auth,
         ));
 
-    pro_routes.merge(web_edit_routes)
+    pro_routes.merge(witness_routes).merge(web_edit_routes)
 }
 
 async fn app() -> Router {
@@ -149,6 +160,18 @@ async fn app() -> Router {
         )
         .free(
             governor::Quota::with_period(Duration::from_secs(30))
+                .unwrap()
+                .allow_burst(NonZeroU32::new(20).unwrap()),
+        )
+        .build();
+    let e2ee_witness_rate_limit = rate_limit::RateLimitState::builder()
+        .pro(
+            governor::Quota::with_period(Duration::from_millis(100))
+                .unwrap()
+                .allow_burst(NonZeroU32::new(20).unwrap()),
+        )
+        .free(
+            governor::Quota::with_period(Duration::from_millis(100))
                 .unwrap()
                 .allow_burst(NonZeroU32::new(20).unwrap()),
         )
@@ -239,6 +262,7 @@ async fn app() -> Router {
         Some(config) => build_sync_routes(
             hypr_api_sync::AppState::new(config),
             sync_rate_limit,
+            e2ee_witness_rate_limit,
             auth_state.clone(),
         ),
         None => Router::new(),
@@ -824,6 +848,7 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
             build_sync_routes(
                 test_sync_state(&server),
                 test_sync_rate_limit(),
+                test_sync_rate_limit(),
                 AuthState::new(&server.uri()),
             ),
         );
@@ -861,6 +886,7 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
         );
 
         let token_response = app
+            .clone()
             .oneshot(
                 Request::post("/sync/token")
                     .header(header::AUTHORIZATION, format!("Bearer {token}"))
@@ -873,6 +899,22 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
         assert_eq!(token_response.status(), StatusCode::FORBIDDEN);
         assert_eq!(
             response_bytes(token_response).await,
+            b"subscription_required"
+        );
+
+        let witness_response = app
+            .oneshot(
+                Request::get("/sync/e2ee/witness/editor-user")
+                    .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(witness_response.status(), StatusCode::FORBIDDEN);
+        assert_eq!(
+            response_bytes(witness_response).await,
             b"subscription_required"
         );
         server.verify().await;

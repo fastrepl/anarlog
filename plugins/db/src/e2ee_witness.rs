@@ -7,7 +7,10 @@ const MAX_EVENTS_PER_BATCH: usize = 16;
 const MAX_EVENT_BYTES: usize = 16 * 1024 * 1024;
 const MAX_BATCH_BYTES: usize = 48 * 1024 * 1024;
 const MAX_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
-const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(20);
+const MAX_RATE_LIMIT_RETRIES: usize = 3;
+const DEFAULT_RETRY_AFTER: std::time::Duration = std::time::Duration::from_secs(30);
+const MAX_RETRY_AFTER: std::time::Duration = std::time::Duration::from_secs(60);
+const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
 
 #[derive(Clone)]
 pub(crate) struct E2eeWitnessClient {
@@ -160,6 +163,9 @@ impl E2eeWitnessClient {
                 .await
                 .map_err(replica_error)?;
             let after = page.next_after_sequence;
+            hypr_db_app::advance_e2ee_witness_cursor(pool, &self.workspace_id, after)
+                .await
+                .map_err(replica_error)?;
             if after == through {
                 break;
             }
@@ -169,10 +175,7 @@ impl E2eeWitnessClient {
             page = self.read_page(after, Some(through)).await?;
             self.validate_page(&page, after, Some(through))?;
         }
-
-        hypr_db_app::advance_e2ee_witness_cursor(pool, &self.workspace_id, through)
-            .await
-            .map_err(replica_error)
+        Ok(())
     }
 
     async fn publish_pending(
@@ -212,23 +215,23 @@ impl E2eeWitnessClient {
             }
             let batch = &uploads[start..end];
             let response = self
-                .client
-                .post(self.endpoint.clone())
-                .bearer_auth(&self.access_token)
-                .json(&PublishRequest {
-                    initialize: initialize && start == 0,
-                    events: batch
-                        .iter()
-                        .map(|upload| PublishEvent {
-                            record_id: &upload.record_id,
-                            payload_hash: &upload.payload_hash,
-                            payload: &upload.payload,
+                .send_with_rate_limit_retry(|| {
+                    self.client
+                        .post(self.endpoint.clone())
+                        .bearer_auth(&self.access_token)
+                        .json(&PublishRequest {
+                            initialize: initialize && start == 0,
+                            events: batch
+                                .iter()
+                                .map(|upload| PublishEvent {
+                                    record_id: &upload.record_id,
+                                    payload_hash: &upload.payload_hash,
+                                    payload: &upload.payload,
+                                })
+                                .collect(),
                         })
-                        .collect(),
                 })
-                .send()
-                .await
-                .map_err(transport_error)?;
+                .await?;
             let status = response.status();
             let bytes = read_bounded(response).await?;
             if !status.is_success() {
@@ -250,15 +253,19 @@ impl E2eeWitnessClient {
     }
 
     async fn read_page(&self, after: u64, through: Option<u64>) -> io::Result<ReadPage> {
-        let mut request = self
-            .client
-            .get(self.endpoint.clone())
-            .bearer_auth(&self.access_token)
-            .query(&[("afterSequence", after)]);
-        if let Some(through) = through {
-            request = request.query(&[("throughSequence", through)]);
-        }
-        let response = request.send().await.map_err(transport_error)?;
+        let response = self
+            .send_with_rate_limit_retry(|| {
+                let mut request = self
+                    .client
+                    .get(self.endpoint.clone())
+                    .bearer_auth(&self.access_token)
+                    .query(&[("afterSequence", after)]);
+                if let Some(through) = through {
+                    request = request.query(&[("throughSequence", through)]);
+                }
+                request
+            })
+            .await?;
         let status = response.status();
         let bytes = read_bounded(response).await?;
         if !status.is_success() {
@@ -268,6 +275,25 @@ impl E2eeWitnessClient {
         }
         serde_json::from_slice(&bytes)
             .map_err(|_| invalid_data("E2EE witness read response is invalid"))
+    }
+
+    async fn send_with_rate_limit_retry(
+        &self,
+        request: impl Fn() -> reqwest::RequestBuilder,
+    ) -> io::Result<reqwest::Response> {
+        let mut retries = 0;
+        loop {
+            let response = request().send().await.map_err(transport_error)?;
+            if response.status() != reqwest::StatusCode::TOO_MANY_REQUESTS
+                || retries == MAX_RATE_LIMIT_RETRIES
+            {
+                return Ok(response);
+            }
+            let delay = retry_after_delay(response.headers());
+            read_bounded(response).await?;
+            tokio::time::sleep(delay).await;
+            retries += 1;
+        }
     }
 
     fn validate_page(
@@ -345,4 +371,253 @@ fn invalid_data(message: &'static str) -> io::Error {
 
 fn rollback_error() -> io::Error {
     io::Error::other("E2EE freshness witness rollback was detected")
+}
+
+fn retry_after_delay(headers: &reqwest::header::HeaderMap) -> std::time::Duration {
+    let seconds = headers
+        .get(reqwest::header::RETRY_AFTER)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<u64>().ok());
+    match seconds {
+        None => DEFAULT_RETRY_AFTER,
+        Some(0) => std::time::Duration::ZERO,
+        Some(seconds) => std::time::Duration::from_secs(seconds)
+            .saturating_add(std::time::Duration::from_secs(1))
+            .min(MAX_RETRY_AFTER),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::sync::{
+        Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
+    };
+
+    use serde_json::json;
+    use wiremock::{
+        Mock, MockServer, Request, Respond, ResponseTemplate,
+        matchers::{method, path},
+    };
+
+    use super::*;
+
+    #[derive(Clone, Default)]
+    struct RateLimitedOnce {
+        requests: Arc<AtomicUsize>,
+    }
+
+    impl Respond for RateLimitedOnce {
+        fn respond(&self, _request: &Request) -> ResponseTemplate {
+            if self.requests.fetch_add(1, Ordering::Relaxed) == 0 {
+                return ResponseTemplate::new(429).insert_header("retry-after", "0");
+            }
+            ResponseTemplate::new(200).set_body_json(json!({
+                "initialized": true,
+                "initializedAt": "2026-07-17T00:00:00Z",
+                "headSequence": 0,
+                "throughSequence": 0,
+                "nextAfterSequence": 0,
+                "events": [],
+            }))
+        }
+    }
+
+    #[derive(Clone)]
+    struct InterruptedPage {
+        events: Vec<serde_json::Value>,
+        requests: Arc<AtomicUsize>,
+        after_sequences: Arc<Mutex<Vec<u64>>>,
+    }
+
+    impl Respond for InterruptedPage {
+        fn respond(&self, request: &Request) -> ResponseTemplate {
+            let after = request
+                .url
+                .query_pairs()
+                .find_map(|(key, value)| (key == "afterSequence").then(|| value.parse().unwrap()))
+                .unwrap_or(0);
+            self.after_sequences.lock().unwrap().push(after);
+            match self.requests.fetch_add(1, Ordering::Relaxed) {
+                0 => witness_page(&self.events[..3], 4, 4),
+                1 => ResponseTemplate::new(500),
+                _ => witness_page(&self.events[3..], 4, 4),
+            }
+        }
+    }
+
+    fn witness_page(
+        events: &[serde_json::Value],
+        head_sequence: u64,
+        through_sequence: u64,
+    ) -> ResponseTemplate {
+        let next_after_sequence = events
+            .last()
+            .and_then(|event| event["sequence"].as_u64())
+            .unwrap_or(through_sequence);
+        ResponseTemplate::new(200).set_body_json(json!({
+            "initialized": true,
+            "initializedAt": "2026-07-17T00:00:00Z",
+            "headSequence": head_sequence,
+            "throughSequence": through_sequence,
+            "nextAfterSequence": next_after_sequence,
+            "events": events,
+        }))
+    }
+
+    #[tokio::test]
+    async fn retries_a_rate_limited_witness_read() {
+        let server = MockServer::start().await;
+        let responder = RateLimitedOnce::default();
+        Mock::given(method("GET"))
+            .and(path("/sync/e2ee/witness/user-a"))
+            .respond_with(responder.clone())
+            .expect(2)
+            .mount(&server)
+            .await;
+        let client = E2eeWitnessClient::new(
+            crate::CloudsyncE2eeWitness {
+                endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+                access_token: "access-token".to_string(),
+            },
+            "user-a",
+        )
+        .unwrap();
+
+        let page = client.read_page(0, None).await.unwrap();
+
+        assert_eq!(page.head_sequence, 0);
+        assert_eq!(responder.requests.load(Ordering::Relaxed), 2);
+    }
+
+    #[tokio::test]
+    async fn stops_retrying_a_persistently_rate_limited_read() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/sync/e2ee/witness/user-a"))
+            .respond_with(ResponseTemplate::new(429).insert_header("retry-after", "0"))
+            .expect(4)
+            .mount(&server)
+            .await;
+        let client = E2eeWitnessClient::new(
+            crate::CloudsyncE2eeWitness {
+                endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+                access_token: "access-token".to_string(),
+            },
+            "user-a",
+        )
+        .unwrap();
+
+        let error = client
+            .read_page(0, None)
+            .await
+            .err()
+            .expect("persistent throttling should fail");
+
+        assert!(error.to_string().contains("429 Too Many Requests"));
+    }
+
+    #[tokio::test]
+    async fn resumes_refresh_from_the_last_authenticated_page() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = hypr_db_core::Db::open(hypr_db_core::DbOpenOptions {
+            storage: hypr_db_core::DbStorage::Local(&dir.path().join("app.db")),
+            cloudsync_enabled: false,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .await
+        .unwrap();
+        hypr_db_app::prepare_schema(&db).await.unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session', 'user-a', 'user-a', 'Session')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+            "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+        )
+        .unwrap();
+        let key = recovery_key.workspace_key("user-a").unwrap();
+        hypr_db_app::encrypt_e2ee_replica_changes(
+            db.pool(),
+            &HashMap::from([("user-a".to_string(), key.clone())]),
+        )
+        .await
+        .unwrap();
+        let uploads = hypr_db_app::pending_e2ee_witness_uploads(db.pool(), "user-a", &key)
+            .await
+            .unwrap();
+        assert!(uploads.len() >= 4);
+        let events = uploads
+            .iter()
+            .take(4)
+            .enumerate()
+            .map(|(index, upload)| {
+                json!({
+                    "sequence": index + 1,
+                    "recordId": upload.record_id,
+                    "payloadHash": upload.payload_hash,
+                    "payload": upload.payload,
+                })
+            })
+            .collect::<Vec<_>>();
+        let server = MockServer::start().await;
+        let responder = InterruptedPage {
+            events,
+            requests: Arc::new(AtomicUsize::new(0)),
+            after_sequences: Arc::new(Mutex::new(Vec::new())),
+        };
+        Mock::given(method("GET"))
+            .and(path("/sync/e2ee/witness/user-a"))
+            .respond_with(responder.clone())
+            .expect(3)
+            .mount(&server)
+            .await;
+        let client = E2eeWitnessClient::new(
+            crate::CloudsyncE2eeWitness {
+                endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+                access_token: "access-token".to_string(),
+            },
+            "user-a",
+        )
+        .unwrap();
+
+        assert!(client.refresh(db.pool(), &key).await.is_err());
+        assert_eq!(
+            hypr_db_app::e2ee_witness_cursor(db.pool(), "user-a")
+                .await
+                .unwrap(),
+            3
+        );
+
+        client.refresh(db.pool(), &key).await.unwrap();
+
+        assert_eq!(
+            hypr_db_app::e2ee_witness_cursor(db.pool(), "user-a")
+                .await
+                .unwrap(),
+            4
+        );
+        assert_eq!(*responder.after_sequences.lock().unwrap(), vec![0, 3, 3]);
+    }
+
+    #[test]
+    fn retry_after_delays_are_bounded_and_allow_immediate_test_retries() {
+        let mut headers = reqwest::header::HeaderMap::new();
+        assert_eq!(retry_after_delay(&headers), DEFAULT_RETRY_AFTER);
+
+        headers.insert(reqwest::header::RETRY_AFTER, "0".parse().unwrap());
+        assert!(retry_after_delay(&headers).is_zero());
+
+        headers.insert(reqwest::header::RETRY_AFTER, "later".parse().unwrap());
+        assert_eq!(retry_after_delay(&headers), DEFAULT_RETRY_AFTER);
+
+        headers.insert(reqwest::header::RETRY_AFTER, "120".parse().unwrap());
+        assert_eq!(retry_after_delay(&headers), MAX_RETRY_AFTER);
+    }
 }

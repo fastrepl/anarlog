@@ -317,7 +317,6 @@ pub fn pro_router(state: AppState) -> Router {
     Router::new()
         .route("/token", post(create_credentials))
         .route("/e2ee/identity", put(claim_e2ee_identity))
-        .merge(e2ee_witness::router())
         .route(
             "/shares/{share_id}/snapshot",
             put(publish_session_share_snapshot)
@@ -326,6 +325,10 @@ pub fn pro_router(state: AppState) -> Router {
         .merge(attachment_backups::router())
         .merge(shared_attachments::router())
         .with_state(state)
+}
+
+pub fn e2ee_witness_router(state: AppState) -> Router {
+    e2ee_witness::router().with_state(state)
 }
 
 pub fn web_edit_router(state: AppState) -> Router {

@@ -27,6 +27,7 @@ type IpKeyedLimiter = RateLimiter<u16, DefaultKeyedStateStore<u16>, DefaultClock
 const IP_RATE_LIMIT_CLEANUP_EVERY: usize = 1024;
 const IP_RATE_LIMIT_BUCKETS: u64 = 4096;
 const UNKNOWN_CLIENT_IP_BUCKET: u16 = IP_RATE_LIMIT_BUCKETS as u16;
+const MAX_RATE_LIMIT_QUEUE_WAIT: std::time::Duration = std::time::Duration::from_secs(1);
 
 #[derive(Clone)]
 pub struct IpRateLimitState {
@@ -101,6 +102,15 @@ impl RateLimitState {
             .check_key(&auth.claims.sub)
             .map_err(|not_until| not_until.wait_time_from(DefaultClock::default().now()))
     }
+
+    async fn wait(&self, auth: &AuthContext) {
+        let limiter = if auth.claims.is_paid() {
+            &self.limiter_pro
+        } else {
+            &self.limiter_free
+        };
+        limiter.until_key_ready(&auth.claims.sub).await;
+    }
 }
 
 pub struct RateLimitStateBuilder {
@@ -151,6 +161,28 @@ pub async fn rate_limit(
     }
 
     Ok(next.run(request).await)
+}
+
+pub async fn wait_for_rate_limit(
+    axum::extract::State(state): axum::extract::State<RateLimitState>,
+    request: Request,
+    next: Next,
+) -> Response {
+    if !cfg!(debug_assertions)
+        && let Some(auth) = request.extensions().get::<AuthContext>()
+        && tokio::time::timeout(MAX_RATE_LIMIT_QUEUE_WAIT, state.wait(auth))
+            .await
+            .is_err()
+    {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            [("retry-after", "1"), ("cache-control", "no-store")],
+            "rate limit exceeded",
+        )
+            .into_response();
+    }
+
+    next.run(request).await
 }
 
 pub async fn rate_limit_by_ip(
