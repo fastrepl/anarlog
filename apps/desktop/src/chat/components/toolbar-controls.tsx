@@ -54,6 +54,7 @@ export function ChatToolbarControls({
       <div className="flex min-w-0 flex-1 items-center gap-1">
         <ChatGroups
           currentChatGroupId={currentChatGroupId}
+          layout={layout}
           onSelectChat={onSelectChat}
           surface={surface}
         />
@@ -144,10 +145,12 @@ function ChatActionButton({
 
 function ChatGroups({
   currentChatGroupId,
+  layout,
   onSelectChat,
   surface = "light",
 }: {
   currentChatGroupId: string | undefined;
+  layout: "floating" | "right-panel";
   onSelectChat: (chatGroupId: string) => void;
   surface?: "light" | "dark";
 }) {
@@ -189,12 +192,13 @@ function ChatGroups({
       <DropdownMenuContent
         variant="app"
         align="start"
-        side="bottom"
+        side={layout === "floating" ? "right" : "bottom"}
         sideOffset={4}
-        avoidCollisions={false}
-        className="w-72 max-w-[calc(100vw-2rem)]"
+        avoidCollisions
+        collisionPadding={8}
+        className="max-h-[min(20rem,var(--radix-dropdown-menu-content-available-height))] w-72 max-w-[var(--radix-dropdown-menu-content-available-width)] overflow-y-auto"
       >
-        <AppFloatingPanel className="max-h-80 overflow-y-auto p-1.5">
+        <AppFloatingPanel className="p-1.5">
           <div className="px-2 py-1.5">
             <h4 className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
               Recent Chats
