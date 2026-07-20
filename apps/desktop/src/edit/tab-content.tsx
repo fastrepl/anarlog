@@ -68,7 +68,7 @@ export function TabContentEdit({ tab }: { tab: EditTab }) {
                 useTabs.getState().close(tab);
               }}
             >
-              Decline
+              Cancel
             </button>
             <button
               className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-1.5 text-[13px] transition-colors"
@@ -78,7 +78,7 @@ export function TabContentEdit({ tab }: { tab: EditTab }) {
               }}
               autoFocus
             >
-              Approve
+              Apply to summary
             </button>
           </div>
         </div>

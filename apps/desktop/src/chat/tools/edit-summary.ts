@@ -38,7 +38,7 @@ export const buildEditSummaryTool = (
 ) =>
   tool({
     description:
-      "Propose an edit to a session summary. This opens a review tab where the user can approve or decline the changes.",
+      "Propose a complete replacement for an existing session summary and open a diff review where the user can apply or cancel it. Use this for broad rewrites such as refocusing, shortening, or restructuring a summary. The content must be the full replacement markdown, not instructions or a partial patch.",
     inputSchema: z.object({
       sessionId: z
         .string()
@@ -52,7 +52,7 @@ export const buildEditSummaryTool = (
         ),
       content: z
         .string()
-        .describe("The proposed summary content in markdown format"),
+        .describe("The complete replacement summary in markdown format"),
     }),
     execute: async (params: {
       sessionId?: string;
