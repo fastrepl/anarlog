@@ -51,7 +51,9 @@ export async function getProviderConnections(): Promise<
   ProviderConnectionIds[]
 > {
   const result = await calendarCommands.listConnectionIds();
-  if (result.status === "error") return [];
+  if (result.status === "error") {
+    throw new Error(`Failed to discover calendar connections: ${result.error}`);
+  }
   return result.data;
 }
 

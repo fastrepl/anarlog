@@ -1,6 +1,7 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use serde_json::{Map, Value};
+use serde::{Deserialize, Deserializer, de};
+use serde_json::{Map, Number, Value};
 
 #[cfg(feature = "client")]
 use std::collections::HashMap;
@@ -12,7 +13,7 @@ pub struct Session {
     pub refresh_token: Option<String>,
     #[serde(default)]
     pub token_type: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_seconds")]
     pub expires_in: Option<u64>,
     #[serde(default)]
     pub expires_at: Option<u64>,
@@ -20,6 +21,30 @@ pub struct Session {
     pub user: Option<SessionUser>,
     #[serde(flatten)]
     pub extra: Map<String, Value>,
+}
+
+fn deserialize_optional_seconds<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let Some(number) = Option::<Number>::deserialize(deserializer)? else {
+        return Ok(None);
+    };
+
+    if let Some(seconds) = number.as_u64() {
+        return Ok(Some(seconds));
+    }
+
+    let seconds = number
+        .as_f64()
+        .filter(|seconds| seconds.is_finite() && *seconds >= 0.0)
+        .ok_or_else(|| de::Error::custom("expires_in must be a non-negative number"))?;
+
+    if seconds >= u64::MAX as f64 {
+        return Err(de::Error::custom("expires_in is too large"));
+    }
+
+    Ok(Some(seconds.floor() as u64))
 }
 
 impl Session {
@@ -189,6 +214,19 @@ mod tests {
         assert_eq!(session.refresh_token.as_deref(), Some("refresh123"));
         assert_eq!(session.token_type, "bearer");
         assert_eq!(session.expires_at, Some(9999999999));
+    }
+
+    #[test]
+    fn floors_fractional_expires_in() {
+        let session: Session = serde_json::from_str(
+            r#"{
+                "access_token": "tok",
+                "expires_in": 3585.936000108719
+            }"#,
+        )
+        .unwrap();
+
+        assert_eq!(session.expires_in, Some(3585));
     }
 
     #[cfg(feature = "client")]

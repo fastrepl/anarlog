@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const pluginCalendar = vi.hoisted(() => ({
+  listConnectionIds: vi.fn(),
   listCalendars: vi.fn(),
 }));
 
@@ -11,13 +12,14 @@ const storage = vi.hoisted(() => ({
 
 vi.mock("@hypr/plugin-calendar", () => ({
   commands: {
+    listConnectionIds: pluginCalendar.listConnectionIds,
     listCalendars: pluginCalendar.listCalendars,
   },
 }));
 
 vi.mock("./storage", () => storage);
 
-import { createCtx, syncCalendars } from "./ctx";
+import { createCtx, getProviderConnections, syncCalendars } from "./ctx";
 
 describe("calendar sync context", () => {
   beforeEach(() => {
@@ -64,6 +66,17 @@ describe("calendar sync context", () => {
 
     expect(ctx.from).toBe(range.from);
     expect(ctx.to).toBe(range.to);
+  });
+
+  test("surfaces connection discovery errors", async () => {
+    pluginCalendar.listConnectionIds.mockResolvedValue({
+      status: "error",
+      error: "auth session could not be parsed",
+    });
+
+    await expect(getProviderConnections()).rejects.toThrow(
+      "Failed to discover calendar connections: auth session could not be parsed",
+    );
   });
 
   test("keeps overlapping calendar ids isolated by connection", async () => {
