@@ -26,12 +26,6 @@ export const authSecondaryButtonClassName = cn([
 export const authNoticeClassName =
   "rounded-xl border border-[#e5ddcf] bg-[#f7f4ef] p-4 text-center";
 
-const authPromises = [
-  "Bot-free meeting capture",
-  "Fully offline notes",
-  "On-device or bring-your-own-key AI",
-];
-
 export function AuthShell({
   title,
   description,
@@ -55,19 +49,6 @@ export function AuthShell({
                 private meetings.
               </mark>
             </h2>
-            <p className="mt-7 max-w-xl text-lg leading-8 text-[#4f4940]">
-              Jot notes during the call. Anarlog turns them into an editable
-              summary while your work stays in your hands.
-            </p>
-
-            <ul className="mt-9 grid gap-3 text-sm text-[#4f4940]">
-              {authPromises.map((promise) => (
-                <li key={promise} className="flex items-center gap-3">
-                  <span className="size-1.5 rounded-full bg-[#d1a321]" />
-                  {promise}
-                </li>
-              ))}
-            </ul>
           </section>
 
           <section className="mx-auto w-full max-w-[440px] overflow-hidden rounded-[24px] border border-[#e5ddcf] bg-white shadow-[0_24px_80px_rgba(24,22,19,0.10)]">
@@ -86,13 +67,6 @@ export function AuthShell({
             <div className="p-6 sm:p-8">{children}</div>
           </section>
         </div>
-
-        <footer className="flex min-h-16 items-center justify-between gap-4 border-t border-[#ede7dc] py-5 text-xs text-[#8b8174]">
-          <span>Open source. Local-first. Yours.</span>
-          <span className="hidden sm:inline">
-            Your notes should survive us.
-          </span>
-        </footer>
       </div>
     </main>
   );
