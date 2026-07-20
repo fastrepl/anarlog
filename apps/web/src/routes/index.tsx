@@ -478,6 +478,11 @@ function PricingSection() {
           Start with local meeting notes for free. Upgrade when you want hosted
           transcription, AI, sync, and sharing.
         </p>
+        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[#756b5d]">
+          Google Calendar access is read-only. It lets Anarlog show upcoming
+          events and associate them with your personal notes; Anarlog cannot
+          create, edit, or delete calendar events.
+        </p>
       </div>
 
       <div className="relative left-1/2 mt-8 grid w-screen max-w-[760px] -translate-x-1/2 grid-cols-1 gap-4 px-5 text-left md:grid-cols-2 md:px-8">
