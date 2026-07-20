@@ -75,6 +75,7 @@ import { Route as ApiAdminContentDeleteRouteImport } from './routes/api/admin/co
 import { Route as ApiAdminContentCreateRouteImport } from './routes/api/admin/content/create'
 import { Route as ApiAdminContentAuditRouteImport } from './routes/api/admin/content/audit'
 import { Route as ApiAdminBlogUploadImageRouteImport } from './routes/api/admin/blog/upload-image'
+import { Route as ApiOgSharePublicPublicSlugRouteImport } from './routes/api/og/share/public/$publicSlug'
 
 const UpdatePasswordRoute = UpdatePasswordRouteImport.update({
   id: '/update-password',
@@ -412,6 +413,12 @@ const ApiAdminBlogUploadImageRoute = ApiAdminBlogUploadImageRouteImport.update({
   path: '/api/admin/blog/upload-image',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOgSharePublicPublicSlugRoute =
+  ApiOgSharePublicPublicSlugRouteImport.update({
+    id: '/api/og/share/public/$publicSlug',
+    path: '/api/og/share/public/$publicSlug',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -479,6 +486,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/stars/pipeline': typeof ApiAdminStarsPipelineRoute
   '/api/admin/stars/research': typeof ApiAdminStarsResearchRoute
   '/api/og/blog/$slug': typeof ApiOgBlogSlugRoute
+  '/api/og/share/public/$publicSlug': typeof ApiOgSharePublicPublicSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -545,6 +553,7 @@ export interface FileRoutesByTo {
   '/api/admin/stars/pipeline': typeof ApiAdminStarsPipelineRoute
   '/api/admin/stars/research': typeof ApiAdminStarsResearchRoute
   '/api/og/blog/$slug': typeof ApiOgBlogSlugRoute
+  '/api/og/share/public/$publicSlug': typeof ApiOgSharePublicPublicSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -614,6 +623,7 @@ export interface FileRoutesById {
   '/api/admin/stars/pipeline': typeof ApiAdminStarsPipelineRoute
   '/api/admin/stars/research': typeof ApiAdminStarsResearchRoute
   '/api/og/blog/$slug': typeof ApiOgBlogSlugRoute
+  '/api/og/share/public/$publicSlug': typeof ApiOgSharePublicPublicSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -683,6 +693,7 @@ export interface FileRouteTypes {
     | '/api/admin/stars/pipeline'
     | '/api/admin/stars/research'
     | '/api/og/blog/$slug'
+    | '/api/og/share/public/$publicSlug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -749,6 +760,7 @@ export interface FileRouteTypes {
     | '/api/admin/stars/pipeline'
     | '/api/admin/stars/research'
     | '/api/og/blog/$slug'
+    | '/api/og/share/public/$publicSlug'
   id:
     | '__root__'
     | '/'
@@ -817,6 +829,7 @@ export interface FileRouteTypes {
     | '/api/admin/stars/pipeline'
     | '/api/admin/stars/research'
     | '/api/og/blog/$slug'
+    | '/api/og/share/public/$publicSlug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -873,6 +886,7 @@ export interface RootRouteChildren {
   ApiAdminStarsPipelineRoute: typeof ApiAdminStarsPipelineRoute
   ApiAdminStarsResearchRoute: typeof ApiAdminStarsResearchRoute
   ApiOgBlogSlugRoute: typeof ApiOgBlogSlugRoute
+  ApiOgSharePublicPublicSlugRoute: typeof ApiOgSharePublicPublicSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1339,6 +1353,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminBlogUploadImageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/og/share/public/$publicSlug': {
+      id: '/api/og/share/public/$publicSlug'
+      path: '/api/og/share/public/$publicSlug'
+      fullPath: '/api/og/share/public/$publicSlug'
+      preLoaderRoute: typeof ApiOgSharePublicPublicSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1442,6 +1463,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminStarsPipelineRoute: ApiAdminStarsPipelineRoute,
   ApiAdminStarsResearchRoute: ApiAdminStarsResearchRoute,
   ApiOgBlogSlugRoute: ApiOgBlogSlugRoute,
+  ApiOgSharePublicPublicSlugRoute: ApiOgSharePublicPublicSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

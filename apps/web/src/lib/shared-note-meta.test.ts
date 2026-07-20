@@ -60,6 +60,20 @@ test("available public notes receive canonical indexable metadata", () => {
       (meta) => meta.name === "robots" && meta.content === "index, follow",
     ),
   );
+  assert.ok(
+    head.meta.some(
+      (meta) =>
+        meta.property === "og:image" &&
+        meta.content ===
+          "https://anarlog.so/api/og/share/public/s_0123456789abcdef0123456789abcdef",
+    ),
+  );
+  assert.ok(
+    head.meta.some(
+      (meta) =>
+        meta.name === "twitter:card" && meta.content === "summary_large_image",
+    ),
+  );
 });
 
 test("unavailable public routes fail closed to private metadata", () => {

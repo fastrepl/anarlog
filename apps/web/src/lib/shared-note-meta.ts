@@ -1,4 +1,4 @@
-import { ANARLOG_SITE_URL } from "./seo.ts";
+import { ANARLOG_SITE_URL, getPublicSharedNoteOgImageUrl } from "./seo.ts";
 import {
   getSharedNoteDescription,
   type SharedNoteSnapshot,
@@ -42,6 +42,7 @@ export function getPublicShareHead(
     getSharedNoteDescription(snapshot.body) ||
     "A public note shared with Anarlog.";
   const url = `${ANARLOG_SITE_URL}/share/public/${publicSlug}/`;
+  const imageUrl = getPublicSharedNoteOgImageUrl(publicSlug);
 
   return {
     links: [{ rel: "canonical", href: url }],
@@ -55,9 +56,16 @@ export function getPublicShareHead(
       { property: "og:title", content: title },
       { property: "og:description", content: description },
       { property: "og:url", content: url },
-      { name: "twitter:card", content: "summary" },
+      { property: "og:image", content: imageUrl },
+      { property: "og:image:type", content: "image/png" },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { property: "og:image:alt", content: `Preview of ${title}` },
+      { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: title },
       { name: "twitter:description", content: description },
+      { name: "twitter:image", content: imageUrl },
+      { name: "twitter:image:alt", content: `Preview of ${title}` },
     ],
   };
 }

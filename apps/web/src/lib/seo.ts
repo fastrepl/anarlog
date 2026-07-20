@@ -10,6 +10,10 @@ export function getBlogOgImageUrl(slug: string) {
   return `${ANARLOG_SITE_URL}/api/og/blog/${encodeURIComponent(slug)}`;
 }
 
+export function getPublicSharedNoteOgImageUrl(publicSlug: string) {
+  return `${ANARLOG_SITE_URL}/api/og/share/public/${encodeURIComponent(publicSlug)}`;
+}
+
 type StructuredDataNode = Record<string, unknown>;
 
 export function getStructuredDataGraph(nodes: StructuredDataNode[]) {

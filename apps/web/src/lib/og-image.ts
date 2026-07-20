@@ -4,12 +4,19 @@ const OG_WIDTH = 1200;
 const OG_HEIGHT = 630;
 const CACHE_CONTROL =
   "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800";
+const SHARED_NOTE_CACHE_CONTROL = "public, max-age=0, s-maxage=60";
 
 type BlogOgImageInput = {
   title: string;
   description?: string;
   date?: string;
   author?: string;
+};
+
+type SharedNoteOgImageInput = {
+  title: string;
+  description?: string;
+  publishedAt?: string;
 };
 
 function clampText(value: string | undefined, maxLength: number) {
@@ -115,14 +122,83 @@ function createBlogOgSvg(input: BlogOgImageInput) {
 </svg>`;
 }
 
-export async function renderBlogOgImage(input: BlogOgImageInput) {
-  const svg = createBlogOgSvg(input);
+function createSharedNoteOgSvg(input: SharedNoteOgImageInput) {
+  const normalizedTitle = clampText(input.title || "Shared note", 110);
+  const titleFontSize = normalizedTitle.length > 72 ? 62 : 72;
+  const title = wrapText(
+    normalizedTitle,
+    normalizedTitle.length > 72 ? 30 : 27,
+    3,
+  );
+  const description = wrapText(clampText(input.description, 190), 59, 2);
+  const titleStartY = title.length === 1 ? 265 : title.length === 2 ? 226 : 192;
+  const descriptionStartY = titleStartY + title.length * 76 + 22;
+  const date = formatDate(input.publishedAt);
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${OG_WIDTH}" height="${OG_HEIGHT}" viewBox="0 0 ${OG_WIDTH} ${OG_HEIGHT}" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="background" x1="44" y1="26" x2="1150" y2="608" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff7dd"/>
+      <stop offset="0.52" stop-color="#f4efe6"/>
+      <stop offset="1" stop-color="#ece6dc"/>
+    </linearGradient>
+    <filter id="shadow" x="28" y="24" width="1144" height="594" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#4f412d" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+  <rect width="${OG_WIDTH}" height="${OG_HEIGHT}" fill="url(#background)"/>
+  <circle cx="1090" cy="74" r="164" fill="#ffe09d" fill-opacity="0.55"/>
+  <circle cx="72" cy="584" r="154" fill="#ffffff" fill-opacity="0.55"/>
+  <rect x="58" y="46" width="1084" height="538" rx="30" fill="#fffefa" filter="url(#shadow)"/>
+  <rect x="58" y="46" width="12" height="538" rx="6" fill="#e0b83d"/>
+  <path d="M112 142 H1088" stroke="#e8e0d4" stroke-width="2"/>
+  <g>
+    <rect x="108" y="82" width="42" height="42" rx="12" fill="#181613"/>
+    <path d="M119 108 C124 94 135 94 139 108 C135 103 124 103 119 108 Z" fill="#ffe09d"/>
+    <circle cx="129" cy="110" r="3" fill="#ffe09d"/>
+    <text x="166" y="113" fill="#181613" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">Anarlog</text>
+  </g>
+  <g>
+    <rect x="914" y="83" width="174" height="40" rx="20" fill="#f4efe6"/>
+    <circle cx="941" cy="103" r="5" fill="#d1a321"/>
+    <text x="958" y="111" fill="#756b5d" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" letter-spacing="1.2">PUBLIC NOTE</text>
+  </g>
+  ${title
+    .map(
+      (line, index) =>
+        `<text x="110" y="${titleStartY + index * 76}" fill="#181613" font-family="Georgia, 'Times New Roman', serif" font-size="${titleFontSize}" font-weight="700">${escapeXml(line)}</text>`,
+    )
+    .join("")}
+  ${description
+    .map(
+      (line, index) =>
+        `<text x="114" y="${descriptionStartY + index * 39}" fill="#57534e" font-family="Arial, Helvetica, sans-serif" font-size="29" font-weight="500">${escapeXml(line)}</text>`,
+    )
+    .join("")}
+  <path d="M112 501 H1088" stroke="#e8e0d4" stroke-width="2"/>
+  <g fill="#756b5d" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="600">
+    <text x="112" y="548">${escapeXml(date ? `Published ${date}` : "Shared note")}</text>
+    <text x="1088" y="548" text-anchor="end">Read on anarlog.so</text>
+  </g>
+</svg>`;
+}
+
+async function renderOgImage(svg: string, cacheControl: string) {
   const png = await sharp(Buffer.from(svg)).png().toBuffer();
 
   return new Response(new Uint8Array(png), {
     headers: {
-      "Cache-Control": CACHE_CONTROL,
+      "Cache-Control": cacheControl,
       "Content-Type": "image/png",
     },
   });
+}
+
+export async function renderBlogOgImage(input: BlogOgImageInput) {
+  return renderOgImage(createBlogOgSvg(input), CACHE_CONTROL);
+}
+
+export async function renderSharedNoteOgImage(input: SharedNoteOgImageInput) {
+  return renderOgImage(createSharedNoteOgSvg(input), SHARED_NOTE_CACHE_CONTROL);
 }
