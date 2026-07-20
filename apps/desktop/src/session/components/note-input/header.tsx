@@ -117,8 +117,8 @@ function IconHeaderView({
         isActive,
         size,
         cn([
-          "min-w-10 px-2",
-          isActive ? "max-w-40 gap-1.5" : null,
+          "px-2",
+          isActive ? "max-w-40 min-w-10 gap-1.5" : null,
           hoverLabel
             ? "after:hidden after:min-w-0 after:truncate after:text-xs after:font-medium after:content-[attr(data-hover-label)] hover:after:block"
             : null,
@@ -422,7 +422,7 @@ function HeaderViewEnhancedInactive({
       aria-label={viewTitle}
       onClick={onClick}
       title={templateTooltip}
-      className={iconHeaderViewClassName(false, "tray", "min-w-10 px-2")}
+      className={iconHeaderViewClassName(false, "tray", "px-2")}
     >
       {isGenerating ? (
         <Spinner size={16} className="shrink-0" />

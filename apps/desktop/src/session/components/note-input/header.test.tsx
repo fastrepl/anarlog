@@ -385,10 +385,14 @@ describe("Header", () => {
     expect(memoTab.className).toContain("dark:bg-accent");
     expect(memoTab.className).toContain("dark:shadow-none");
     expect(summaryTab.className).toContain("h-[26px]");
+    expect(summaryTab.className).toContain("px-2");
+    expect(summaryTab.className).not.toContain("min-w-10");
     expect(summaryTab.className).toContain("dark:hover:bg-accent/80");
     expect(summaryTab.querySelector("svg")).not.toBeNull();
     expect(summaryTab.querySelectorAll("svg")).toHaveLength(1);
     expect(transcriptTab.querySelector("svg")).not.toBeNull();
+    expect(transcriptTab.className).toContain("px-2");
+    expect(transcriptTab.className).not.toContain("min-w-10");
     expect(summaryTab.textContent).toBe("");
     expect(transcriptTab.textContent).toBe("");
     expect(summaryTab.getAttribute("title")).toBe(
