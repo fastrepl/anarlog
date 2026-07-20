@@ -1,7 +1,7 @@
 import { Trans } from "@lingui/react/macro";
 import { platform } from "@tauri-apps/plugin-os";
 import { motion } from "motion/react";
-import { useCallback, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
 
 import type { ConnectionItem } from "@hypr/api-client";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
@@ -76,7 +76,7 @@ function AppleCalendarList() {
       onRefresh={handleRefresh}
       isLoading={isLoading}
       disableHoverTone
-      className="border-border/45 bg-card/28 rounded-xl border shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_-20px_rgba(87,83,78,0.35)] backdrop-blur-md backdrop-saturate-150"
+      className="border-border/45 bg-card/28 rounded-xl border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_-20px_rgba(87,83,78,0.35)] backdrop-blur-md backdrop-saturate-150"
     />
   );
 }
@@ -86,24 +86,35 @@ function AppleCalendarProvider({
   isPending,
   onRequest,
   onTroubleshoot,
+  onOpen,
 }: {
   isAuthorized: boolean;
   isPending: boolean;
   onRequest: () => void;
   onTroubleshoot: () => void;
+  onOpen: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-3">
-      {isAuthorized ? (
-        <AppleCalendarList />
-      ) : (
+    <>
+      {isAuthorized && (
+        <div className="order-1 w-full basis-full">
+          <AppleCalendarList />
+        </div>
+      )}
+
+      <div className="order-2 flex min-w-56 flex-1">
         <OnboardingButton
           onClick={() => {
+            if (isAuthorized) {
+              onOpen();
+              return;
+            }
+
             onTroubleshoot();
             onRequest();
           }}
           disabled={isPending}
-          className="border-border bg-card text-foreground hover:bg-accent flex h-full w-full items-center justify-center gap-3 border px-12 shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] transition-all duration-150"
+          className="border-border bg-card text-foreground hover:bg-accent flex h-full w-full items-center justify-center gap-3 border px-6 shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] transition-all duration-150"
         >
           <img
             src="/assets/apple-calendar.png"
@@ -111,10 +122,10 @@ function AppleCalendarProvider({
             aria-hidden="true"
             className="size-6 rounded-[4px] object-cover"
           />
-          Apple
+          <Trans>Connect calendar</Trans>
         </OnboardingButton>
-      )}
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -174,23 +185,8 @@ function GoogleCalendarConnectedContent({
         onRefresh={handleRefresh}
         isLoading={isLoading}
         disableHoverTone
-        className="border-border/45 bg-card/28 rounded-xl border shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_-20px_rgba(87,83,78,0.35)] backdrop-blur-md backdrop-saturate-150"
+        className="border-border/45 bg-card/28 rounded-xl border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_-20px_rgba(87,83,78,0.35)] backdrop-blur-md backdrop-saturate-150"
       />
-
-      <OnboardingButton
-        type="button"
-        onClick={() =>
-          void openOnboardingIntegrationUrl(
-            GOOGLE_PROVIDER?.nangoIntegrationId,
-            undefined,
-            "connect",
-          )
-        }
-        className="border-border bg-card text-foreground hover:bg-accent flex items-center gap-3 border shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)]"
-      >
-        {GOOGLE_PROVIDER?.icon}
-        Add another account
-      </OnboardingButton>
     </div>
   );
 }
@@ -299,22 +295,79 @@ function OutlookCalendarConnectedContent({
         onRefresh={handleRefresh}
         isLoading={isLoading}
         disableHoverTone
-        className="border-border/45 bg-card/28 rounded-xl border shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_-20px_rgba(87,83,78,0.35)] backdrop-blur-md backdrop-saturate-150"
+        className="border-border/45 bg-card/28 rounded-xl border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_-20px_rgba(87,83,78,0.35)] backdrop-blur-md backdrop-saturate-150"
       />
+    </div>
+  );
+}
 
+function OAuthCalendarProviderAction({
+  provider,
+  connectLabel,
+  isConnected,
+  isHovered,
+  isPending,
+  isReady,
+  isSignedIn,
+  onConnect,
+  onHoverChange,
+}: {
+  provider: (typeof PROVIDERS)[number];
+  connectLabel: ReactNode;
+  isConnected: boolean;
+  isHovered: boolean;
+  isPending: boolean;
+  isReady: boolean;
+  isSignedIn: boolean;
+  onConnect: () => void;
+  onHoverChange: (hovered: boolean) => void;
+}) {
+  return (
+    <div className="order-2 flex min-w-56 flex-1">
       <OnboardingButton
-        type="button"
-        onClick={() =>
-          void openOnboardingIntegrationUrl(
-            OUTLOOK_PROVIDER?.nangoIntegrationId,
-            undefined,
-            "connect",
-          )
+        onClick={onConnect}
+        onMouseEnter={() => onHoverChange(true)}
+        onMouseLeave={() => onHoverChange(false)}
+        onFocus={() => onHoverChange(true)}
+        onBlur={() => onHoverChange(false)}
+        disabled={isSignedIn && (isPending || !isReady)}
+        className={
+          isSignedIn
+            ? "border-border bg-card text-foreground hover:bg-accent disabled:hover:bg-card flex h-full w-full items-center justify-center gap-3 border shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
+            : "border-border bg-muted text-foreground hover:border-primary hover:bg-primary hover:text-primary-foreground focus-visible:border-primary focus-visible:bg-primary focus-visible:text-primary-foreground h-full w-full border-1 shadow-[0_2px_6px_rgba(87,83,78,0.01),0_10px_18px_-10px_rgba(87,83,78,0.1)] transition-all duration-150"
         }
-        className="border-border bg-card text-foreground hover:bg-accent flex items-center gap-3 border shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)]"
       >
-        {OUTLOOK_PROVIDER?.icon}
-        Add another account
+        {!isSignedIn ? (
+          <span className="grid items-center overflow-hidden">
+            <span className="invisible col-start-1 row-start-1 flex items-center justify-center gap-3">
+              <Trans>Sign in to connect</Trans>
+            </span>
+
+            <motion.span
+              className="col-start-1 row-start-1 flex items-center justify-center gap-3"
+              animate={{ y: isHovered ? "100%" : "0%" }}
+              transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
+            >
+              {provider.icon}
+              <span className="text-md text-foreground font-normal">
+                {provider.displayName}
+              </span>
+            </motion.span>
+
+            <motion.span
+              className="col-start-1 row-start-1 flex items-center justify-center gap-3"
+              animate={{ y: isHovered ? "0%" : "-140%" }}
+              transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
+            >
+              <Trans>Sign in to connect</Trans>
+            </motion.span>
+          </span>
+        ) : (
+          <>
+            {provider.icon}
+            {isConnected ? <Trans>Add another account</Trans> : connectLabel}
+          </>
+        )}
       </OnboardingButton>
     </div>
   );
@@ -358,70 +411,37 @@ function OutlookCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
 
   if (isError) {
     return (
-      <p className="text-sm text-red-600">
+      <p className="order-2 min-w-56 flex-1 text-sm text-red-600">
         <Trans>Failed to load Outlook Calendar</Trans>
       </p>
     );
   }
 
-  if (providerConnections.length > 0) {
-    return (
-      <OutlookCalendarConnectedContent
-        providerConnections={providerConnections}
-      />
-    );
-  }
-
   const isSignedIn = !!auth.session;
+  const isConnected = providerConnections.length > 0;
 
   return (
-    <OnboardingButton
-      onClick={handleConnect}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onFocus={() => setHovered(true)}
-      onBlur={() => setHovered(false)}
-      disabled={
-        isSignedIn && (isPending || (auth.session !== null && !isReady))
-      }
-      className={
-        isSignedIn
-          ? "gho border-border bg-card text-foreground hover:bg-accent disabled:hover:bg-card flex items-center gap-3 border shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
-          : "border-border bg-muted text-foreground hover:border-primary hover:bg-primary hover:text-primary-foreground focus-visible:border-primary focus-visible:bg-primary focus-visible:text-primary-foreground border-1 shadow-[0_2px_6px_rgba(87,83,78,0.01),0_10px_18px_-10px_rgba(87,83,78,0.1)] transition-all duration-150"
-      }
-    >
-      {!isSignedIn ? (
-        <span className="grid items-center overflow-hidden">
-          <span className="invisible col-start-1 row-start-1 flex items-center justify-center gap-3">
-            <Trans>Sign in to connect</Trans>
-          </span>
-
-          <motion.span
-            className="col-start-1 row-start-1 flex items-center justify-center gap-3"
-            animate={{ y: isHovered ? "100%" : "0%" }}
-            transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
-          >
-            {OUTLOOK_PROVIDER.icon}
-            <div className="flex flex-col items-start justify-center">
-              <p className="text-md text-foreground font-normal">Outlook</p>
-            </div>
-          </motion.span>
-
-          <motion.span
-            className="col-start-1 row-start-1 flex items-center justify-center gap-3"
-            animate={{ y: isHovered ? "0%" : "-150%" }}
-            transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
-          >
-            <Trans>Sign in to connect</Trans>
-          </motion.span>
-        </span>
-      ) : (
-        <>
-          {OUTLOOK_PROVIDER.icon}
-          <Trans>Connect Outlook</Trans>
-        </>
+    <>
+      {isConnected && (
+        <div className="order-1 w-full basis-full">
+          <OutlookCalendarConnectedContent
+            providerConnections={providerConnections}
+          />
+        </div>
       )}
-    </OnboardingButton>
+
+      <OAuthCalendarProviderAction
+        provider={OUTLOOK_PROVIDER}
+        connectLabel={<Trans>Connect Outlook</Trans>}
+        isConnected={isConnected}
+        isHovered={isHovered}
+        isPending={isPending}
+        isReady={isReady}
+        isSignedIn={isSignedIn}
+        onConnect={handleConnect}
+        onHoverChange={setHovered}
+      />
+    </>
   );
 }
 
@@ -463,72 +483,37 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
 
   if (isError) {
     return (
-      <p className="text-sm text-red-600">
+      <p className="order-2 min-w-56 flex-1 text-sm text-red-600">
         <Trans>Failed to load Google Calendar</Trans>
       </p>
     );
   }
 
-  if (providerConnections.length > 0) {
-    return (
-      <GoogleCalendarConnectedContent
-        providerConnections={providerConnections}
-      />
-    );
-  }
-
   const isSignedIn = !!auth.session;
+  const isConnected = providerConnections.length > 0;
 
   return (
-    <div className="flex h-full items-center gap-3">
-      <OnboardingButton
-        onClick={handleConnect}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        onFocus={() => setHovered(true)}
-        onBlur={() => setHovered(false)}
-        disabled={
-          isSignedIn && (isPending || (auth.session !== null && !isReady))
-        }
-        className={
-          isSignedIn
-            ? "border-border bg-card text-foreground hover:bg-accent disabled:hover:bg-card flex items-center gap-3 border shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
-            : "border-border bg-muted text-foreground hover:border-primary hover:bg-primary hover:text-primary-foreground focus-visible:border-primary focus-visible:bg-primary focus-visible:text-primary-foreground border-1 shadow-[0_2px_6px_rgba(87,83,78,0.01),0_10px_18px_-10px_rgba(87,83,78,0.1)] transition-all duration-150"
-        }
-      >
-        {!isSignedIn ? (
-          <span className="grid items-center overflow-hidden">
-            <span className="invisible col-start-1 row-start-1 flex items-center justify-center gap-3">
-              <Trans>Sign in to connect</Trans>
-            </span>
+    <>
+      {isConnected && (
+        <div className="order-1 w-full basis-full">
+          <GoogleCalendarConnectedContent
+            providerConnections={providerConnections}
+          />
+        </div>
+      )}
 
-            <motion.span
-              className="col-start-1 row-start-1 flex items-center justify-center gap-3"
-              animate={{ y: isHovered ? "100%" : "0%" }}
-              transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
-            >
-              {GOOGLE_PROVIDER.icon}
-              <div className="flex flex-col items-start justify-center">
-                <p className="text-md text-foreground font-normal">Google</p>
-              </div>
-            </motion.span>
-
-            <motion.span
-              className="col-start-1 row-start-1 flex items-center justify-center gap-3"
-              animate={{ y: isHovered ? "0%" : "-140%" }}
-              transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
-            >
-              <Trans>Sign in to connect</Trans>
-            </motion.span>
-          </span>
-        ) : (
-          <>
-            {GOOGLE_PROVIDER.icon}
-            <Trans>Connect Google Calendar</Trans>
-          </>
-        )}
-      </OnboardingButton>
-    </div>
+      <OAuthCalendarProviderAction
+        provider={GOOGLE_PROVIDER}
+        connectLabel={<Trans>Connect Google Calendar</Trans>}
+        isConnected={isConnected}
+        isHovered={isHovered}
+        isPending={isPending}
+        isReady={isReady}
+        isSignedIn={isSignedIn}
+        onConnect={handleConnect}
+        onHoverChange={setHovered}
+      />
+    </>
   );
 }
 
@@ -546,45 +531,27 @@ function CalendarSectionContent({
   const enabledCalendars = useEnabledCalendars();
   const hasConnectedCalendar = enabledCalendars.length > 0;
 
-  const hasAnyConnected = hasConnectedCalendar || isAuthorized;
-
   return (
     <div className="flex flex-col gap-4">
-      {hasAnyConnected ? (
-        <>
-          {isMacos && (
-            <AppleCalendarProvider
-              isAuthorized={isAuthorized}
-              isPending={calendar.isPending}
-              onRequest={calendar.request}
-              onTroubleshoot={() => setShowTroubleshooting(true)}
-            />
-          )}
-          <div className="flex flex-wrap items-center gap-4">
-            <GoogleCalendarProvider onSignIn={onSignIn} />
-            <OutlookCalendarProvider onSignIn={onSignIn} />
-          </div>
-          {hasConnectedCalendar && (
-            <OnboardingButton onClick={onContinue}>
-              <Trans>Continue</Trans>
-            </OnboardingButton>
-          )}
-        </>
-      ) : (
-        // for the case when the user has no connected calendars yet we show the calendars in a row
-        <div className="flex flex-wrap items-stretch gap-4">
-          {isMacos && (
-            <AppleCalendarProvider
-              isAuthorized={isAuthorized}
-              isPending={calendar.isPending}
-              onRequest={calendar.request}
-              onTroubleshoot={() => setShowTroubleshooting(true)}
-            />
-          )}
+      <div className="flex flex-wrap items-stretch gap-3">
+        {isMacos && (
+          <AppleCalendarProvider
+            isAuthorized={isAuthorized}
+            isPending={calendar.isPending}
+            onRequest={calendar.request}
+            onTroubleshoot={() => setShowTroubleshooting(true)}
+            onOpen={calendar.open}
+          />
+        )}
 
-          <GoogleCalendarProvider onSignIn={onSignIn} />
-          <OutlookCalendarProvider onSignIn={onSignIn} />
-        </div>
+        <GoogleCalendarProvider onSignIn={onSignIn} />
+        <OutlookCalendarProvider onSignIn={onSignIn} />
+      </div>
+
+      {hasConnectedCalendar && (
+        <OnboardingButton onClick={onContinue}>
+          <Trans>Continue</Trans>
+        </OnboardingButton>
       )}
 
       {showTroubleshooting && !isAuthorized && (
