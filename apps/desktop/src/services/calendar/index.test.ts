@@ -21,6 +21,7 @@ const storageMocks = vi.hoisted(() => ({
   applyConnectionSync: vi.fn(),
   loadParticipantSyncSnapshot: vi.fn(),
   loadSessionsForTrackingIds: vi.fn(),
+  tombstoneCalendarConnection: vi.fn(),
 }));
 
 vi.mock("./ctx", () => ctxMocks);
@@ -40,7 +41,10 @@ vi.mock("~/db/write-queue", () => ({
   ): Promise<unknown> => write(),
 }));
 
-import { syncCalendarEventsForRange } from ".";
+import {
+  removeDisconnectedCalendarConnection,
+  syncCalendarEventsForRange,
+} from ".";
 
 const ctx = {
   provider: "google" as const,
@@ -82,6 +86,20 @@ describe("syncCalendarEventsForRange", () => {
       mappings: [],
     });
     storageMocks.applyConnectionSync.mockResolvedValue(undefined);
+    storageMocks.tombstoneCalendarConnection.mockResolvedValue(undefined);
+  });
+
+  test("removes the exact disconnected calendar connection", async () => {
+    await removeDisconnectedCalendarConnection(
+      "google-calendar",
+      "conn-personal",
+    );
+
+    expect(storageMocks.tombstoneCalendarConnection).toHaveBeenCalledWith(
+      "google",
+      "conn-personal",
+    );
+    expect(ctxMocks.getProviderConnections).not.toHaveBeenCalled();
   });
 
   test("does not start a range sync when already aborted", async () => {

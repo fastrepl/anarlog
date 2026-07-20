@@ -20,6 +20,7 @@ import {
   applyConnectionSync,
   loadParticipantSyncSnapshot,
   loadSessionsForTrackingIds,
+  tombstoneCalendarConnection,
 } from "./storage";
 
 import { enqueueDatabaseWrite } from "~/db/write-queue";
@@ -45,6 +46,24 @@ export function syncCalendarEventsForRange(
   options: CalendarSyncOptions = {},
 ): Promise<void> {
   return enqueueDatabaseWrite("calendar-sync", () => run(range, options));
+}
+
+export function removeDisconnectedCalendarConnection(
+  integrationId: string,
+  connectionId: string,
+): Promise<void> {
+  const provider: CalendarProviderType | null =
+    integrationId === "google-calendar"
+      ? "google"
+      : integrationId === "outlook"
+        ? "outlook"
+        : null;
+
+  if (!provider) return Promise.resolve();
+
+  return enqueueDatabaseWrite("calendar-sync", () =>
+    tombstoneCalendarConnection(provider, connectionId),
+  );
 }
 
 async function run(

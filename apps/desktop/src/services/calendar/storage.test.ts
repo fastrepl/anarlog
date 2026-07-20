@@ -21,6 +21,7 @@ import {
   applyCalendarInventory,
   applyConnectionSync,
   loadEventsForSync,
+  tombstoneCalendarConnection,
 } from "./storage";
 
 const calendar = {
@@ -67,6 +68,22 @@ describe("calendar SQLite storage", () => {
     expect(
       statements.every((statement) => !statement.sql.includes("DELETE")),
     ).toBe(true);
+  });
+
+  test("tombstones only the disconnected provider connection", async () => {
+    await tombstoneCalendarConnection("google", "conn-personal");
+
+    expect(mocks.executeTransaction).toHaveBeenCalledTimes(1);
+    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
+      sql: string;
+      params: unknown[];
+    }>;
+    expect(statements).toHaveLength(2);
+    expect(statements[0].sql).toContain("UPDATE events");
+    expect(statements[0].sql).toContain("SELECT id");
+    expect(statements[0].params.slice(2)).toEqual(["google", "conn-personal"]);
+    expect(statements[1].sql).toContain("UPDATE calendars");
+    expect(statements[1].params.slice(2)).toEqual(["google", "conn-personal"]);
   });
 
   test("preserves calendars when a requested connection fails to refresh", async () => {

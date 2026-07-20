@@ -270,6 +270,40 @@ export async function applyCalendarInventory({
   }
 }
 
+export async function tombstoneCalendarConnection(
+  provider: CalendarProviderType,
+  connectionId: string,
+): Promise<void> {
+  const now = new Date().toISOString();
+  await executeTransaction([
+    {
+      sql: `
+        UPDATE events
+        SET deleted_at = ?, updated_at = ?
+        WHERE deleted_at IS NULL
+          AND calendar_id IN (
+            SELECT id
+            FROM calendars
+            WHERE provider = ?
+              AND connection_id = ?
+              AND deleted_at IS NULL
+          )
+      `,
+      params: [now, now, provider, connectionId],
+    },
+    {
+      sql: `
+        UPDATE calendars
+        SET deleted_at = ?, updated_at = ?
+        WHERE provider = ?
+          AND connection_id = ?
+          AND deleted_at IS NULL
+      `,
+      params: [now, now, provider, connectionId],
+    },
+  ]);
+}
+
 export async function loadEventsForSync(
   ctx: Ctx,
   incomingTrackingIds: Iterable<string>,

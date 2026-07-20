@@ -11,6 +11,7 @@ import { flowSearchSchema } from "@/functions/desktop-flow";
 const commonSearch = {
   integration_id: z.string(),
   status: z.string(),
+  disconnected_connection_id: z.string().optional(),
   return_to: z.string().optional(),
 };
 
@@ -21,6 +22,7 @@ const validateSearch = flowSearchSchema(commonSearch, {
 type IntegrationDeeplinkParams = {
   integration_id: string;
   status: string;
+  disconnected_connection_id?: string;
   return_to?: string;
 };
 
@@ -40,6 +42,9 @@ function buildDeeplinkUrl(
     integration_id: search.integration_id,
     status: search.status,
   });
+  if (search.disconnected_connection_id) {
+    params.set("disconnected_connection_id", search.disconnected_connection_id);
+  }
   if (search.return_to) {
     params.set("return_to", search.return_to);
   }
@@ -57,6 +62,7 @@ function Component() {
     return buildDeeplinkUrl(scheme, {
       integration_id: search.integration_id,
       status: search.status,
+      disconnected_connection_id: search.disconnected_connection_id,
       return_to: search.return_to,
     });
   };
@@ -99,6 +105,7 @@ function Component() {
     search.status,
     scheme,
     search.integration_id,
+    search.disconnected_connection_id,
     search.return_to,
   ]);
 

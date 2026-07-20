@@ -57,6 +57,7 @@ export function DisconnectFlow() {
         ? {
             integration_id: search.integration_id,
             status: "success" as const,
+            disconnected_connection_id: search.connection_id,
             flow: "desktop" as const,
             scheme: search.scheme,
             return_to: search.return_to,
@@ -64,6 +65,7 @@ export function DisconnectFlow() {
         : {
             integration_id: search.integration_id,
             status: "success" as const,
+            disconnected_connection_id: search.connection_id,
             flow: "web" as const,
             return_to: search.return_to,
           };

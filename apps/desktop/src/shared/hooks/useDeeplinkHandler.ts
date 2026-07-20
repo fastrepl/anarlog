@@ -10,7 +10,10 @@ import {
 import { dismissInstruction } from "@hypr/plugin-windows";
 
 import { useAuth } from "~/auth";
-import { CALENDAR_SYNC_TASK_ID } from "~/services/calendar";
+import {
+  CALENDAR_SYNC_TASK_ID,
+  removeDisconnectedCalendarConnection,
+} from "~/services/calendar";
 import {
   createShareOpenProcessor,
   subscribeThenDrainShareOpens,
@@ -40,10 +43,13 @@ export function useDeeplinkHandler() {
     }
 
     const timeoutIds = new Set<number>();
-    const refreshIntegrationState = () => {
+    const invalidateIntegrationState = () => {
       void queryClientRef.current.invalidateQueries({
         predicate: (query) => query.queryKey[0] === "integration-status",
       });
+    };
+    const refreshIntegrationState = () => {
+      invalidateIntegrationState();
       scheduleCalendarSyncRef.current();
     };
     const handleDeepLink = (payload: DeepLink) => {
@@ -59,16 +65,34 @@ export function useDeeplinkHandler() {
         void authRef.current.refreshSession();
         void dismissInstruction();
       } else if (payload.to === "/integration/callback") {
-        const { integration_id, status, return_to } = payload.search;
+        const {
+          disconnected_connection_id,
+          integration_id,
+          status,
+          return_to,
+        } = payload.search;
         if (status === "success") {
           console.log(`[deeplink] integration updated: ${integration_id}`);
-          refreshIntegrationState();
-          for (const delay of [1000, 3000]) {
-            const timeoutId = window.setTimeout(() => {
-              timeoutIds.delete(timeoutId);
-              refreshIntegrationState();
-            }, delay);
-            timeoutIds.add(timeoutId);
+          if (disconnected_connection_id) {
+            invalidateIntegrationState();
+            void removeDisconnectedCalendarConnection(
+              integration_id,
+              disconnected_connection_id,
+            ).catch((error) => {
+              console.error(
+                "[calendar] failed to remove disconnected calendar data",
+                error,
+              );
+            });
+          } else {
+            refreshIntegrationState();
+            for (const delay of [1000, 3000]) {
+              const timeoutId = window.setTimeout(() => {
+                timeoutIds.delete(timeoutId);
+                refreshIntegrationState();
+              }, delay);
+              timeoutIds.add(timeoutId);
+            }
           }
 
           void dismissInstruction().then(() => {
