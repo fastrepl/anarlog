@@ -19,6 +19,8 @@ export type DocTextIndex = {
   endPosAt(index: number): number;
   /** ProseMirror position → text offset. */
   indexAt(pos: number): number;
+  /** Whether the character at this text offset is a block separator (as opposed to a real newline inside a code block). */
+  isSeparatorAt(index: number): boolean;
 };
 
 /**
@@ -77,6 +79,17 @@ export function buildDocTextIndex(doc: PMNode): DocTextIndex {
   const contentSegments = segments.filter(
     (segment) => segment.kind !== "separator",
   );
+  const separatorOffsets = new Set<number>();
+  for (const segment of segments) {
+    if (segment.kind !== "separator") continue;
+    for (
+      let offset = segment.textStart;
+      offset < segment.textEnd;
+      offset += 1
+    ) {
+      separatorOffsets.add(offset);
+    }
+  }
 
   const posAt = (index: number): number => {
     for (const segment of contentSegments) {
@@ -117,5 +130,11 @@ export function buildDocTextIndex(doc: PMNode): DocTextIndex {
     return text.length;
   };
 
-  return { text, posAt, endPosAt, indexAt };
+  return {
+    text,
+    posAt,
+    endPosAt,
+    indexAt,
+    isSeparatorAt: (index: number) => separatorOffsets.has(index),
+  };
 }

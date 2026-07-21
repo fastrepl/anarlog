@@ -126,6 +126,28 @@ describe("captureCommentAnchor", () => {
     );
   });
 
+  it("keeps real newlines inside code blocks while trimming separators", () => {
+    const document = doc(
+      paragraph("before"),
+      schema.node("codeBlock", null, [schema.text("line one\nline two")]),
+    );
+    const index = buildDocTextIndex(document);
+    const start = index.text.indexOf("one");
+    // Selection ends on the literal newline inside the code block.
+    const end = index.text.indexOf("\nline two", start) + 1;
+    const anchor = captureCommentAnchor(
+      document,
+      index.posAt(start),
+      index.endPosAt(end),
+      1,
+    )!;
+    expect(anchor.quoteExact).toBe("one\n");
+
+    const resolved = resolveCommentAnchor(document, anchor, 1);
+    expect(resolved).not.toBeNull();
+    expect(document.textBetween(resolved!.from, resolved!.to)).toBe("one\n");
+  });
+
   it("returns null for empty or oversized selections", () => {
     const document = fixture();
     expect(captureCommentAnchor(document, 5, 5, 1)).toBeNull();

@@ -35,16 +35,17 @@ export function captureCommentAnchor(
   const index = buildDocTextIndex(doc);
   let fromIndex = index.indexAt(from);
   let toIndex = index.indexAt(to);
-  // Trim boundary separators: a quote stored with a leading or trailing
-  // block separator would stop matching when the neighboring block changes,
-  // even though every visibly selected character still exists.
-  while (fromIndex < toIndex && index.text[fromIndex] === "\n") fromIndex += 1;
-  while (toIndex > fromIndex && index.text[toIndex - 1] === "\n") toIndex -= 1;
+  // Trim boundary block separators: a quote stored with one would stop
+  // matching when the neighboring block changes, even though every visibly
+  // selected character still exists. Real newlines inside code blocks are
+  // content and must be kept, so this checks positions, not characters.
+  while (fromIndex < toIndex && index.isSeparatorAt(fromIndex)) fromIndex += 1;
+  while (toIndex > fromIndex && index.isSeparatorAt(toIndex - 1)) toIndex -= 1;
   const quoteExact = index.text.slice(fromIndex, toIndex);
   if (
     quoteExact.length === 0 ||
     quoteExact.length > MAX_ANCHOR_QUOTE_LENGTH ||
-    isPlaceholderOnly(quoteExact)
+    !hasAnchorableContent(index, fromIndex, toIndex)
   ) {
     return null;
   }
@@ -180,9 +181,16 @@ function commonSuffixLength(left: string, right: string): number {
   return length;
 }
 
-function isPlaceholderOnly(quote: string): boolean {
-  for (const character of quote) {
-    if (character !== ANCHOR_LEAF_TEXT && character !== "\n") return false;
+function hasAnchorableContent(
+  index: DocTextIndex,
+  fromIndex: number,
+  toIndex: number,
+): boolean {
+  for (let offset = fromIndex; offset < toIndex; offset += 1) {
+    const character = index.text[offset];
+    if (character === ANCHOR_LEAF_TEXT) continue;
+    if (character === "\n" && index.isSeparatorAt(offset)) continue;
+    return true;
   }
-  return true;
+  return false;
 }
