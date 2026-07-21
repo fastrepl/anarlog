@@ -55,13 +55,21 @@ async function revokeManagedShare(sessionId: string) {
   if (!session || session.user.is_anonymous === true) return;
   const context = { session, supabase };
 
-  const managedShare = await loadManagedSharedNoteForSession(
-    session.user.id,
-    sessionId,
-  ).catch((error: unknown) => {
-    console.error("[delete-session] failed to look up managed share", error);
-    return null;
-  });
+  // A failed lookup is not the same as "no share": without a warning a
+  // shared link could stay live after delete with no user signal. Retry
+  // once (the flush can rethrow an unrelated transient write failure),
+  // then surface it.
+  const lookupShare = () =>
+    loadManagedSharedNoteForSession(session.user.id, sessionId);
+  const managedShare = await lookupShare()
+    .catch(lookupShare)
+    .catch((error: unknown) => {
+      console.error("[delete-session] failed to look up managed share", error);
+      sonnerToast.warning(
+        "Note deleted, but its shared link could not be verified as removed.",
+      );
+      return null;
+    });
   if (!managedShare) return;
 
   try {
