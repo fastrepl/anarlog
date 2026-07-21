@@ -159,10 +159,11 @@ export function getCommentAnchorScreenPositions(
 ): Array<CommentAnchorInput & { top: number; bottom: number; left: number }> {
   return getCommentAnchorRanges(view.state).map((anchor) => {
     const start = view.coordsAtPos(anchor.from);
+    const end = view.coordsAtPos(anchor.to);
     return {
       ...anchor,
-      top: start.top,
-      bottom: start.bottom,
+      top: Math.min(start.top, end.top),
+      bottom: Math.max(start.bottom, end.bottom),
       left: start.left,
     };
   });
@@ -210,16 +211,25 @@ function buildDecorations(
 }
 
 function collectAnchorRanges(decorations: DecorationSet): CommentAnchorInput[] {
-  return decorations
-    .find()
-    .filter(
-      (decoration) =>
-        typeof decoration.spec.commentId === "string" &&
-        decoration.from < decoration.to,
-    )
-    .map((decoration) => ({
-      commentId: decoration.spec.commentId as string,
-      from: decoration.from,
-      to: decoration.to,
-    }));
+  // A cross-block anchor may come back from find() as several fragments;
+  // merge per commentId so callers always see one range per comment.
+  const merged = new Map<string, CommentAnchorInput>();
+  for (const decoration of decorations.find()) {
+    const commentId = decoration.spec.commentId;
+    if (typeof commentId !== "string" || decoration.from >= decoration.to) {
+      continue;
+    }
+    const existing = merged.get(commentId);
+    if (existing) {
+      existing.from = Math.min(existing.from, decoration.from);
+      existing.to = Math.max(existing.to, decoration.to);
+    } else {
+      merged.set(commentId, {
+        commentId,
+        from: decoration.from,
+        to: decoration.to,
+      });
+    }
+  }
+  return [...merged.values()];
 }

@@ -85,6 +85,32 @@ describe("commentAnchorsPlugin", () => {
     expect(classes.get("c2")).toBe("comment-anchor comment-anchor-active");
   });
 
+  it("returns one merged range for a cross-block anchor", () => {
+    let state = EditorState.create({
+      schema,
+      doc: schema.node("doc", null, [
+        schema.node("paragraph", null, [schema.text("first block")]),
+        schema.node("paragraph", null, [schema.text("second block")]),
+      ]),
+      plugins: [commentAnchorsPlugin()],
+    });
+    const size = state.doc.content.size;
+    state = setAnchors(state, [{ commentId: "span", from: 3, to: size - 3 }]);
+
+    const ranges = getCommentAnchorRanges(state);
+    expect(ranges).toEqual([{ commentId: "span", from: 3, to: size - 3 }]);
+
+    state = state.apply(state.tr.insertText("x", 1));
+    state = state.apply(
+      state.tr.setMeta(commentAnchorsPluginKey, {
+        type: "active",
+        commentId: "span",
+      }),
+    );
+    const mapped = getCommentAnchorRanges(state);
+    expect(mapped).toEqual([{ commentId: "span", from: 4, to: size - 2 }]);
+  });
+
   it("ignores anchors outside the document", () => {
     let state = createState();
     state = setAnchors(state, [

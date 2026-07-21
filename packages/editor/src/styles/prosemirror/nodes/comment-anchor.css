@@ -16,4 +16,9 @@
     background: rgb(251 191 36 / 0.28);
     border-bottom: none;
   }
+
+  code .comment-anchor-active,
+  pre .comment-anchor-active {
+    background: rgb(251 191 36 / 0.5);
+  }
 }
