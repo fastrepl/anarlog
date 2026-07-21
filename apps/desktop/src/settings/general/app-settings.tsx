@@ -1,6 +1,13 @@
-import { Trans } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { type ReactNode, useId } from "react";
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@hypr/ui/components/ui/select";
 import { Switch } from "@hypr/ui/components/ui/switch";
 
 interface SettingItem {
@@ -25,6 +32,10 @@ interface AppSettingsViewProps {
   cloudSync: CloudSyncSettingItem;
   meetingDisclosureAutoPost: SettingItem;
   captureMeetingChat: SettingItem;
+  audioRetention: {
+    value: string;
+    onChange: (value: string) => void;
+  };
 }
 
 export function AppSettingsView({
@@ -39,6 +50,7 @@ export function AppSettingsView({
   cloudSync,
   meetingDisclosureAutoPost,
   captureMeetingChat,
+  audioRetention,
 }: AppSettingsViewProps) {
   return (
     <div className="flex flex-col gap-8">
@@ -169,8 +181,70 @@ export function AppSettingsView({
             checked={floatingBar.value}
             onChange={floatingBar.onChange}
           />
+          <AudioRetentionRow
+            value={audioRetention.value}
+            onChange={audioRetention.onChange}
+          />
         </div>
       </section>
+    </div>
+  );
+}
+
+const AUDIO_RETENTION_OPTIONS = [
+  "none",
+  "oneDay",
+  "threeDays",
+  "oneWeek",
+  "oneMonth",
+  "forever",
+] as const;
+
+function AudioRetentionRow({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const { t } = useLingui();
+  const titleId = useId();
+  const descriptionId = useId();
+  const copyByValue = {
+    none: t`Don't save`,
+    oneDay: t`1 day`,
+    threeDays: t`3 days`,
+    oneWeek: t`1 week`,
+    oneMonth: t`1 month`,
+    forever: t`Forever`,
+  } as const;
+
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div className="flex-1">
+        <h3 id={titleId} className="mb-1 text-sm font-medium">
+          <Trans>Audio file retention</Trans>
+        </h3>
+        <p id={descriptionId} className="text-muted-foreground text-xs">
+          <Trans>How long recorded meeting audio is kept on this device.</Trans>
+        </p>
+      </div>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger
+          aria-labelledby={titleId}
+          aria-describedby={descriptionId}
+          className="bg-card h-9 w-36 shadow-none focus:ring-0"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {AUDIO_RETENTION_OPTIONS.map((option) => (
+            <SelectItem key={option} value={option}>
+              {copyByValue[option]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

@@ -36,6 +36,7 @@ function renderAppSettings({
         }}
         meetingDisclosureAutoPost={meetingDisclosureAutoPost}
         captureMeetingChat={captureMeetingChat}
+        audioRetention={{ value: "forever", onChange: vi.fn() }}
       />,
     ),
     meetingDisclosureAutoPost,

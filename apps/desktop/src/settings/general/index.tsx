@@ -168,6 +168,9 @@ function SettingsAppContent({
   storedSettings: StoredSettingValues;
 }) {
   const { form } = useSettingsForm(storedSettings);
+  const setSettingValues = useSetSettingValues();
+  const audioRetention =
+    resolveConfigValue("audio_retention", storedSettings) || "forever";
   const auth = useAuth();
   const { isPro } = useBillingAccess();
   const [e2eeSetupOpen, setE2eeSetupOpen] = useState(false);
@@ -347,6 +350,15 @@ function SettingsAppContent({
                                                       captureMeetingChatField.handleChange(
                                                         val,
                                                       ),
+                                                  }}
+                                                  audioRetention={{
+                                                    value: audioRetention,
+                                                    onChange: (val) =>
+                                                      setSettingValues({
+                                                        audio_retention: val,
+                                                        save_recordings:
+                                                          val !== "none",
+                                                      }),
                                                   }}
                                                 />
                                               )}
