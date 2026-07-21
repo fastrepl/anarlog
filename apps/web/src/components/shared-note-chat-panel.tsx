@@ -160,6 +160,7 @@ export function SharedNoteChatPanel({
     return (
       <aside
         aria-label="Ask about this note"
+        data-chat-panel-open=""
         className="surface border-color-subtle fixed inset-y-0 right-0 z-30 flex w-[380px] flex-col border-l"
       >
         <header className="border-color-subtle flex items-center justify-between gap-3 border-b px-5 py-4">

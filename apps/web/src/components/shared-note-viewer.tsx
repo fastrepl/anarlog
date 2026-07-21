@@ -191,7 +191,15 @@ export function SharedNotePrompt({
 
 function SharedNoteShell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="bg-page text-color min-h-screen overflow-x-clip px-4 py-5 sm:px-6 sm:py-8">
+    <main
+      className={cn([
+        "bg-page text-color min-h-screen overflow-x-clip px-4 py-5 sm:px-6 sm:py-8",
+        // The desktop chat panel ([data-chat-panel-open]) is fixed to the
+        // right edge outside this shell; reserving its width here keeps the
+        // note column and the anchored-comment rail clear of it.
+        "lg:[body:has([data-chat-panel-open])_&]:pr-[380px]",
+      ])}
+    >
       <div
         className={cn([
           "mx-auto w-full max-w-[760px]",
