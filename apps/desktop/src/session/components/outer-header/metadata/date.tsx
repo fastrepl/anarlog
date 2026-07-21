@@ -14,11 +14,17 @@ export function DateEditor({ sessionId }: { sessionId: string }) {
   const { t } = useLingui();
   const [isEditing, setIsEditing] = useState(false);
   // Shown between closing the editor and the live query re-emitting, so the
-  // read-only label never flashes the pre-save date.
+  // read-only label never flashes the pre-save date. It masks the live value
+  // until that value catches up (or the write fails), not until the write
+  // resolves — the live query can lag the commit.
   const [pendingCreatedAt, setPendingCreatedAt] = useState<string | null>(null);
   const createdAt = useSession(sessionId)?.created_at;
+  const effectiveCreatedAt =
+    pendingCreatedAt !== null && createdAt !== pendingCreatedAt
+      ? pendingCreatedAt
+      : createdAt;
   const noteDate = safeFormat(
-    pendingCreatedAt ?? createdAt ?? new Date(),
+    effectiveCreatedAt ?? new Date(),
     "MMM d, yyyy h:mm a",
     t`Unknown date`,
   );
@@ -52,12 +58,11 @@ export function DateEditor({ sessionId }: { sessionId: string }) {
       onSaved={(nextCreatedAt, commit) => {
         setIsEditing(false);
         setPendingCreatedAt(nextCreatedAt);
-        void commit
-          .catch((error) => {
-            console.error("[metadata] failed to update session date", error);
-            sonnerToast.error("Could not update the note date.");
-          })
-          .finally(() => setPendingCreatedAt(null));
+        void commit.catch((error) => {
+          console.error("[metadata] failed to update session date", error);
+          sonnerToast.error("Could not update the note date.");
+          setPendingCreatedAt(null);
+        });
       }}
     />
   );

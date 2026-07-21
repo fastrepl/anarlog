@@ -265,6 +265,8 @@ function useDropdownOptions(
   }, [inputValue, candidates]);
 }
 
+const PENDING_ADD_SETTLE_GRACE_MS = 5000;
+
 function useParticipantMutations(
   sessionId: string,
   participants: ReturnType<typeof useSessionParticipants>,
@@ -304,13 +306,20 @@ function useParticipantMutations(
           );
         }
         await addSessionParticipant(sessionId, humanId);
-      })()
-        .catch((error) => {
+      })().then(
+        () => {
+          // The pending chip is already hidden once the live query lists the
+          // human; delay the removal so a slow re-emit cannot leave a gap
+          // between the pending chip and the real one.
+          setTimeout(() => {
+            setPendingAdds((prev) => prev.filter((entry) => entry.key !== key));
+          }, PENDING_ADD_SETTLE_GRACE_MS);
+        },
+        (error: unknown) => {
           console.error("[participants] failed to add participant", error);
-        })
-        .finally(() => {
           setPendingAdds((prev) => prev.filter((entry) => entry.key !== key));
-        });
+        },
+      );
     },
     [session?.user_id, sessionId],
   );

@@ -2,7 +2,7 @@ import { Trans } from "@lingui/react/macro";
 import { platform } from "@tauri-apps/plugin-os";
 import { Loader2Icon } from "lucide-react";
 import { motion } from "motion/react";
-import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 
 import type { ConnectionItem } from "@hypr/api-client";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
@@ -389,6 +389,9 @@ function OutlookCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
   const { data: connections, isPending, isError } = useConnections(isPro);
   const [isHovered, setHovered] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
+  // State alone cannot gate re-entry: a second click can land before the
+  // disabled state commits and open a duplicate connect flow.
+  const openInFlightRef = useRef(false);
   const providerConnections = useMemo(
     () =>
       connections?.filter(
@@ -409,16 +412,20 @@ function OutlookCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
       return;
     }
 
-    if (isOpening) {
+    if (openInFlightRef.current) {
       return;
     }
+    openInFlightRef.current = true;
     setIsOpening(true);
     void openOnboardingIntegrationUrl(
       OUTLOOK_PROVIDER?.nangoIntegrationId,
       undefined,
       "connect",
-    ).finally(() => setIsOpening(false));
-  }, [auth.session, isOpening, isPro, onSignIn, upgradeToPro]);
+    ).finally(() => {
+      openInFlightRef.current = false;
+      setIsOpening(false);
+    });
+  }, [auth.session, isPro, onSignIn, upgradeToPro]);
 
   if (!OUTLOOK_PROVIDER) {
     return null;
@@ -467,6 +474,9 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
   const { data: connections, isPending, isError } = useConnections(isPro);
   const [isHovered, setHovered] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
+  // State alone cannot gate re-entry: a second click can land before the
+  // disabled state commits and open a duplicate connect flow.
+  const openInFlightRef = useRef(false);
   const providerConnections = useMemo(
     () =>
       connections?.filter(
@@ -487,16 +497,20 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
       return;
     }
 
-    if (isOpening) {
+    if (openInFlightRef.current) {
       return;
     }
+    openInFlightRef.current = true;
     setIsOpening(true);
     void openOnboardingIntegrationUrl(
       GOOGLE_PROVIDER?.nangoIntegrationId,
       undefined,
       "connect",
-    ).finally(() => setIsOpening(false));
-  }, [auth.session, isOpening, isPro, onSignIn, upgradeToPro]);
+    ).finally(() => {
+      openInFlightRef.current = false;
+      setIsOpening(false);
+    });
+  }, [auth.session, isPro, onSignIn, upgradeToPro]);
 
   if (!GOOGLE_PROVIDER) {
     return null;
