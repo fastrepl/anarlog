@@ -1,10 +1,12 @@
 import { emitTo, listen } from "@tauri-apps/api/event";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 
 import { useListener } from "./contexts";
 import { useStartListening } from "./useStartListening";
+
+import { listenerStore } from "~/store/zustand/listener/instance";
 
 const LISTENER_CONTROL_EVENT = "hypr:listener-control";
 
@@ -90,23 +92,29 @@ function MainListenerControlRequestRunner({
 }) {
   const startListening = useStartListening(request.sessionId);
   const stop = useListener((state) => state.stop);
-  const activeSessionId = useListener((state) => state.live.sessionId);
-  const isStartingOrActive = useListener(
-    (state) => state.live.loading || state.live.status === "active",
-  );
+  const startListeningRef = useRef(startListening);
+  startListeningRef.current = startListening;
+  const stopRef = useRef(stop);
+  stopRef.current = stop;
 
+  // Keyed on the request only: guard state is read imperatively at arrival
+  // time, so the effect never re-runs (and never advances the queue) while
+  // the requested start is still in flight.
   useEffect(() => {
     let cancelled = false;
 
     const run = async () => {
+      const live = listenerStore.getState().live;
+      const isStartingOrActive = live.loading || live.status === "active";
+
       if (request.action === "start") {
         // Non-main windows cannot see this window's state, so they can send
         // duplicate start requests for a session that is already starting.
-        if (activeSessionId !== request.sessionId || !isStartingOrActive) {
-          await startListening();
+        if (live.sessionId !== request.sessionId || !isStartingOrActive) {
+          await startListeningRef.current();
         }
-      } else if (activeSessionId === request.sessionId) {
-        stop();
+      } else if (live.sessionId === request.sessionId) {
+        stopRef.current();
       }
 
       if (!cancelled) {
@@ -119,16 +127,7 @@ function MainListenerControlRequestRunner({
     return () => {
       cancelled = true;
     };
-  }, [
-    activeSessionId,
-    isStartingOrActive,
-    onHandled,
-    request.action,
-    request.requestId,
-    request.sessionId,
-    startListening,
-    stop,
-  ]);
+  }, [onHandled, request.action, request.requestId, request.sessionId]);
 
   return null;
 }
