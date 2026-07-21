@@ -15,10 +15,18 @@ type AppSettingSqlRow = { id?: string; value_json: string | null };
 const IGNORED_EVENTS_ID = "ignored_events";
 const IGNORED_SERIES_ID = "ignored_recurring_series";
 
-// Optimistic overlay for ignore/unignore: each override wins only while the
-// live query still reports the base state it was created against, so it goes
-// inert on its own once the queued write lands and the base data re-emits.
-type IgnoredOverride = { ignored: boolean; baseIgnored: boolean };
+// Optimistic overlay for ignore/unignore: an override forces its desired
+// state until its own write settles, so rapid toggles keep showing the
+// latest intent even while earlier writes are still landing. Tokens let a
+// newer toggle supersede an older override's cleanup.
+type IgnoredOverride = { ignored: boolean; token: number };
+
+let overrideToken = 0;
+
+// After a write settles, the live query needs a beat to re-emit the new base
+// before the override is dropped — clearing instantly would flash the stale
+// base state.
+const OVERRIDE_SETTLE_GRACE_MS = 1000;
 
 const useIgnoredOverrides = create<{
   events: Record<string, IgnoredOverride>;
@@ -47,7 +55,6 @@ function applyOverrides(
 ): Set<string> {
   let result = baseIds;
   for (const [id, override] of Object.entries(overrides)) {
-    if (baseIds.has(id) !== override.baseIgnored) continue;
     if (baseIds.has(id) === override.ignored) continue;
     if (result === baseIds) result = new Set(baseIds);
     if (override.ignored) {
@@ -57,6 +64,30 @@ function applyOverrides(
     }
   }
   return result;
+}
+
+function runWithIgnoredOverride(
+  kind: "events" | "series",
+  id: string,
+  ignored: boolean,
+  write: () => Promise<void>,
+  errorMessage: string,
+) {
+  const token = ++overrideToken;
+  useIgnoredOverrides.getState().set(kind, id, { ignored, token });
+  const clearIfCurrent = () => {
+    const current = useIgnoredOverrides.getState()[kind][id];
+    if (current?.token === token) {
+      useIgnoredOverrides.getState().clear(kind, id);
+    }
+  };
+  write().then(
+    () => setTimeout(clearIfCurrent, OVERRIDE_SETTLE_GRACE_MS),
+    (error: unknown) => {
+      console.error(errorMessage, error);
+      clearIfCurrent();
+    },
+  );
 }
 
 export function useIgnoredEvents() {
@@ -94,76 +125,59 @@ export function useIgnoredEvents() {
       ),
     [ignoredIds, ignoredSeriesIds],
   );
-  const ignoreEvent = useCallback(
-    (trackingId: string) => {
-      const overrides = useIgnoredOverrides.getState();
-      overrides.set("events", trackingId, {
-        ignored: true,
-        baseIgnored: baseIgnoredIds.has(trackingId),
-      });
-      void mutateSettingList<IgnoredEvent>(IGNORED_EVENTS_ID, (events) => [
-        ...events.filter((event) => event.tracking_id !== trackingId),
-        { tracking_id: trackingId, last_seen: new Date().toISOString() },
-      ]).catch((error) => {
-        console.error("[calendar] failed to ignore event", error);
-        useIgnoredOverrides.getState().clear("events", trackingId);
-      });
-    },
-    [baseIgnoredIds],
-  );
-  const unignoreEvent = useCallback(
-    (trackingId: string) => {
-      const overrides = useIgnoredOverrides.getState();
-      overrides.set("events", trackingId, {
-        ignored: false,
-        baseIgnored: baseIgnoredIds.has(trackingId),
-      });
-      void mutateSettingList<IgnoredEvent>(IGNORED_EVENTS_ID, (events) =>
-        events.filter((event) => event.tracking_id !== trackingId),
-      ).catch((error) => {
-        console.error("[calendar] failed to unignore event", error);
-        useIgnoredOverrides.getState().clear("events", trackingId);
-      });
-    },
-    [baseIgnoredIds],
-  );
-  const ignoreSeries = useCallback(
-    (seriesId: string) => {
-      const overrides = useIgnoredOverrides.getState();
-      overrides.set("series", seriesId, {
-        ignored: true,
-        baseIgnored: baseIgnoredSeriesIds.has(seriesId),
-      });
-      void mutateSettingList<IgnoredRecurringSeries>(
-        IGNORED_SERIES_ID,
-        (series) => [
-          ...series.filter((entry) => entry.id !== seriesId),
-          { id: seriesId, last_seen: new Date().toISOString() },
-        ],
-      ).catch((error) => {
-        console.error("[calendar] failed to ignore series", error);
-        useIgnoredOverrides.getState().clear("series", seriesId);
-      });
-    },
-    [baseIgnoredSeriesIds],
-  );
-  const unignoreSeries = useCallback(
-    (seriesId: string) => {
-      const overrides = useIgnoredOverrides.getState();
-      overrides.set("series", seriesId, {
-        ignored: false,
-        baseIgnored: baseIgnoredSeriesIds.has(seriesId),
-      });
-      void mutateSettingList<IgnoredRecurringSeries>(
-        IGNORED_SERIES_ID,
-        (series) => series.filter((entry) => entry.id !== seriesId),
-      ).catch((error) => {
-        console.error("[calendar] failed to unignore series", error);
-        useIgnoredOverrides.getState().clear("series", seriesId);
-      });
-    },
-    [baseIgnoredSeriesIds],
-  );
+  const ignoreEvent = useCallback((trackingId: string) => {
+    runWithIgnoredOverride(
+      "events",
+      trackingId,
+      true,
+      () =>
+        mutateSettingList<IgnoredEvent>(IGNORED_EVENTS_ID, (events) => [
+          ...events.filter((event) => event.tracking_id !== trackingId),
+          { tracking_id: trackingId, last_seen: new Date().toISOString() },
+        ]),
+      "[calendar] failed to ignore event",
+    );
+  }, []);
+  const unignoreEvent = useCallback((trackingId: string) => {
+    runWithIgnoredOverride(
+      "events",
+      trackingId,
+      false,
+      () =>
+        mutateSettingList<IgnoredEvent>(IGNORED_EVENTS_ID, (events) =>
+          events.filter((event) => event.tracking_id !== trackingId),
+        ),
+      "[calendar] failed to unignore event",
+    );
+  }, []);
+  const ignoreSeries = useCallback((seriesId: string) => {
+    runWithIgnoredOverride(
+      "series",
+      seriesId,
+      true,
+      () =>
+        mutateSettingList<IgnoredRecurringSeries>(
+          IGNORED_SERIES_ID,
+          (series) => [
+            ...series.filter((entry) => entry.id !== seriesId),
+            { id: seriesId, last_seen: new Date().toISOString() },
+          ],
+        ),
+      "[calendar] failed to ignore series",
+    );
+  }, []);
+  const unignoreSeries = useCallback((seriesId: string) => {
+    runWithIgnoredOverride(
+      "series",
+      seriesId,
+      false,
+      () =>
+        mutateSettingList<IgnoredRecurringSeries>(IGNORED_SERIES_ID, (series) =>
+          series.filter((entry) => entry.id !== seriesId),
+        ),
+      "[calendar] failed to unignore series",
+    );
+  }, []);
 
   return {
     isIgnored,

@@ -16,7 +16,7 @@ export const UNDO_TIMEOUT_MS = 5000;
 export type PendingDeletion = {
   data: DeletedSessionData;
   timeoutId: ReturnType<typeof setTimeout> | null;
-  onDeleteConfirm: (() => void) | null;
+  onDeleteConfirm: (() => void | Promise<unknown>) | null;
   addedAt: number;
   batchId: string | null;
 };
@@ -25,11 +25,11 @@ interface UndoDeleteState {
   pendingDeletions: Record<string, PendingDeletion>;
   addDeletion: (
     data: DeletedSessionData,
-    onConfirm?: () => void,
+    onConfirm?: () => void | Promise<unknown>,
     batchId?: string,
   ) => void;
   clearDeletion: (sessionId: string) => void;
-  confirmDeletion: (sessionId: string) => void;
+  confirmDeletion: (sessionId: string) => void | Promise<unknown>;
   clearBatch: (batchId: string) => void;
   confirmBatch: (batchId: string) => void;
 }
@@ -81,10 +81,9 @@ export const useUndoDelete = create<UndoDeleteState>((set, get) => ({
     const pending = get().pendingDeletions[sessionId];
     if (!pending) return;
 
-    if (pending.onDeleteConfirm) {
-      pending.onDeleteConfirm();
-    }
+    const result = pending.onDeleteConfirm?.();
     get().clearDeletion(sessionId);
+    return result;
   },
 
   clearBatch: (batchId) => {
@@ -105,3 +104,14 @@ export const useUndoDelete = create<UndoDeleteState>((set, get) => ({
     }
   },
 }));
+
+// App exit must not strand notes soft-deleted with live shared links: confirm
+// every pending deletion now and let the caller await the finalize work.
+export function confirmAllPendingDeletions(): Promise<void> {
+  const { pendingDeletions, confirmDeletion } = useUndoDelete.getState();
+  return Promise.allSettled(
+    Object.keys(pendingDeletions).map((sessionId) =>
+      confirmDeletion(sessionId),
+    ),
+  ).then(() => undefined);
+}
