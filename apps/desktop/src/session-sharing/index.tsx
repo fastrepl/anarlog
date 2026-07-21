@@ -254,6 +254,17 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     );
   };
   const accountUserId = auth.session?.user.id ?? null;
+  // Drop abandoned preparation state the moment the account or note stops
+  // matching, so returning to the original identity cannot auto-resume a
+  // publish the user never re-requested.
+  if (
+    sharePreparationIdentity &&
+    (sharePreparationIdentity.ownerUserId !== accountUserId ||
+      sharePreparationIdentity.sessionId !== sessionId)
+  ) {
+    setSharePreparationIdentity(null);
+    setWaitingForBilling(false);
+  }
   const activeSharePanelIdentity =
     sharePanelIdentity?.ownerUserId === accountUserId &&
     sharePanelIdentity.sessionId === sessionId

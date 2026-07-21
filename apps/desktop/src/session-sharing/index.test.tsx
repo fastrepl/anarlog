@@ -1131,6 +1131,27 @@ describe("SessionShareButton", () => {
     ).not.toBeNull();
   });
 
+  it("abandons a billing wait when the account changes", async () => {
+    mocks.billing.isReady = false;
+    const view = renderShareButtonView();
+
+    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
+    expect(screen.queryByTestId("share-popover")).not.toBeNull();
+
+    mocks.auth.session = createSession(OTHER_USER_ID);
+    view.rerender();
+    expect(screen.queryByTestId("share-popover")).toBeNull();
+
+    mocks.auth.session = createSession();
+    mocks.billing.isReady = true;
+    view.rerender();
+
+    await act(async () => {});
+    expect(screen.queryByTestId("share-popover")).toBeNull();
+    expect(mocks.loadSessionShareSource).not.toHaveBeenCalled();
+    expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
+  });
+
   it("does not resurface an abandoned preparation when the account returns", async () => {
     let resolveSource!: (source: {
       sessionId: string;
