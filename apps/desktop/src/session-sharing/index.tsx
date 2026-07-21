@@ -171,6 +171,13 @@ const capabilityRanks: Record<SessionAccessCapability, number> = {
   editor: 3,
 };
 
+class SharePreparationAbortedError extends ShareManagementError {
+  constructor() {
+    super();
+    this.name = "SharePreparationAbortedError";
+  }
+}
+
 export function sessionShareManagementQueryKey(
   ownerUserId: string,
   shareId: string,
@@ -202,6 +209,11 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     prepareControllersRef.current.add(controller);
     try {
       return await operation(controller.signal);
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new SharePreparationAbortedError();
+      }
+      throw error;
     } finally {
       prepareControllersRef.current.delete(controller);
     }
@@ -381,6 +393,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     },
     onError: (error, variables) => {
       if (
+        error instanceof SharePreparationAbortedError ||
         latestAuthRef.current.session?.user.id !==
           variables.identity.ownerUserId ||
         latestSessionIdRef.current !== variables.identity.sessionId
@@ -644,7 +657,7 @@ function SessionSharePreparationContent({
         </header>
 
         <div className="flex min-h-52 items-center justify-center px-5 py-4">
-          {error ? (
+          {error && !loading ? (
             <div className="flex flex-col items-center gap-3 text-center">
               <p className="text-muted-foreground text-xs">
                 <Trans>Access settings could not be loaded.</Trans>

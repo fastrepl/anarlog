@@ -1039,6 +1039,98 @@ describe("SessionShareButton", () => {
     expect(mocks.toastError).not.toHaveBeenCalled();
   });
 
+  it("stays silent when a note-switch remount aborts preparation", async () => {
+    let resolveSource!: (source: {
+      sessionId: string;
+      workspaceId: string;
+      title: string;
+      body: { type: "doc"; content: never[] };
+    }) => void;
+    mocks.loadSessionShareSource.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSource = resolve;
+      }),
+    );
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+    const element = (sessionId: string) => (
+      <QueryClientProvider client={queryClient}>
+        <SessionShareButton key={sessionId} sessionId={sessionId} />
+      </QueryClientProvider>
+    );
+    const view = render(element("session-1"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
+    await waitFor(() =>
+      expect(mocks.loadSessionShareSource).toHaveBeenCalledWith(
+        "session-1",
+        USER_ID,
+      ),
+    );
+
+    view.rerender(element("session-2"));
+    await act(async () => {
+      resolveSource({
+        sessionId: "session-1",
+        workspaceId: WORKSPACE_ID,
+        title: "Planning",
+        body: { type: "doc", content: [] },
+      });
+    });
+
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("button", { name: "Share note" })
+          .querySelector(".animate-spin"),
+      ).toBeNull(),
+    );
+    expect(mocks.createOrReuseSessionShare).not.toHaveBeenCalled();
+    expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
+    expect(mocks.toastError).not.toHaveBeenCalled();
+  });
+
+  it("shows the loading state when retrying preparation for a free account", async () => {
+    mocks.billing.isPaid = false;
+    mocks.getSessionShareManagement.mockRejectedValueOnce(
+      new Error("management unavailable"),
+    );
+    renderShareButtonView();
+
+    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
+    expect(
+      await screen.findByText("Access settings could not be loaded."),
+    ).not.toBeNull();
+
+    let resolveManaged!: (value: unknown) => void;
+    mocks.loadManagedSharedNoteForSession.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveManaged = resolve;
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(screen.getByText("Loading access…")).not.toBeNull();
+    expect(
+      screen.queryByText("Access settings could not be loaded."),
+    ).toBeNull();
+
+    await act(async () => {
+      resolveManaged({
+        shareId: SHARE_ID,
+        workspaceId: WORKSPACE_ID,
+        sessionId: "session-1",
+      });
+    });
+    expect(
+      await screen.findByRole("heading", { name: "People with access" }),
+    ).not.toBeNull();
+  });
+
   it("publishes before rotating a bearer link and keeps the token out of query keys", async () => {
     mocks.management = defaultManagement({
       generalScope: "link",
