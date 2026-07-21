@@ -12,6 +12,10 @@ import type { TaskArgsMapTransformed, TaskConfig } from ".";
 import type { EnhanceImageContext } from "./enhance-images";
 import { createEnhanceValidator } from "./enhance-validator";
 
+import {
+  formatSummaryLengthGuidance,
+  getSummaryLengthPolicy,
+} from "~/services/enhancer/summary-length";
 import { normalizeBulletPoints } from "~/store/zustand/ai-task/shared/transform_impl";
 import { withEarlyValidationRetry } from "~/store/zustand/ai-task/shared/validate";
 import { assertCanonicalTemplateSections } from "~/templates/codec";
@@ -41,9 +45,9 @@ async function* executeWorkflow(params: {
   const { model, args, onProgress, signal } = params;
 
   const system = await getSystemPrompt(args);
-  const prompt = withImageContextNote(
-    await getUserPrompt(args),
-    args.imageContext.length,
+  const prompt = withLengthGuidance(
+    withImageContextNote(await getUserPrompt(args), args.imageContext.length),
+    args.transcripts,
   );
 
   yield* generateSummary({
@@ -183,6 +187,22 @@ function withImageContextNote(prompt: string, imageCount: number): string {
   return `${prompt}
 
 ${IMAGE_CONTEXT_NOTE}`;
+}
+
+function withLengthGuidance(
+  prompt: string,
+  transcripts: TaskArgsMapTransformed["enhance"]["transcripts"],
+): string {
+  const guidance = formatSummaryLengthGuidance(
+    getSummaryLengthPolicy(transcripts),
+  );
+  if (!guidance) {
+    return prompt;
+  }
+
+  return `${prompt}
+
+${guidance}`;
 }
 
 function createPromptInput(

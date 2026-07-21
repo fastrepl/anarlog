@@ -6,6 +6,7 @@ import { json2md } from "@hypr/editor/markdown";
 import type { TaskConfig } from ".";
 import { enhanceSuccess } from "./enhance-success";
 
+import { MIN_SUMMARY_CHARACTERS } from "~/services/enhancer/summary-length";
 import { useLiveTitle } from "~/store/zustand/live-title";
 
 const mocks = vi.hoisted(() => ({
@@ -221,7 +222,7 @@ describe("enhanceSuccess.onSuccess", () => {
     expect(markdown).toContain("#launch");
     expect(
       Array.from(markdown.replace(/\s+/gu, " ")).length,
-    ).toBeLessThanOrEqual(160);
+    ).toBeLessThanOrEqual(MIN_SUMMARY_CHARACTERS);
   });
 
   it("does not claim success when the guarded SQLite write fails", async () => {

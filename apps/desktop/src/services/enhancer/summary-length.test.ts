@@ -4,6 +4,7 @@ import {
   constrainSummaryLength,
   countNormalizedCharacters,
   countTranscriptWordCharacters,
+  formatSummaryLengthGuidance,
   getSummaryLengthPolicy,
 } from "./summary-length";
 
@@ -27,9 +28,58 @@ describe("summary length policy", () => {
 
     expect(policy).toEqual({
       transcriptCharacters: 200,
-      maxCharacters: 200,
+      maxCharacters: 320,
+      maxSections: 2,
+      guidance: {
+        maxCharacters: 320,
+        minSections: 1,
+        maxSections: 2,
+      },
+    });
+  });
+
+  it("scales the guided section range with the transcript size", () => {
+    const policyFor = (characters: number) =>
+      getSummaryLengthPolicy([
+        {
+          startedAt: null,
+          endedAt: null,
+          segments: [{ speaker: "John", text: "a".repeat(characters) }],
+        },
+      ])?.guidance;
+
+    expect(policyFor(636)).toEqual({
+      maxCharacters: 636,
+      minSections: 1,
       maxSections: 2,
     });
+    expect(policyFor(6_000)).toEqual({
+      maxCharacters: 6_000,
+      minSections: 2,
+      maxSections: 4,
+    });
+    expect(policyFor(30_000)).toEqual({
+      maxCharacters: 6_000,
+      minSections: 5,
+      maxSections: 8,
+    });
+  });
+
+  it("renders proportional length guidance for the prompt", () => {
+    const policy = getSummaryLengthPolicy([
+      {
+        startedAt: null,
+        endedAt: null,
+        segments: [{ speaker: "John", text: "a".repeat(636) }],
+      },
+    ]);
+
+    const guidance = formatSummaryLengthGuidance(policy);
+
+    expect(guidance).toContain("about 636 characters");
+    expect(guidance).toContain("1 to 2 sections");
+    expect(guidance).toContain("under 636 characters");
+    expect(formatSummaryLengthGuidance(null)).toBeNull();
   });
 
   it("keeps long transcripts on the normal section limit", () => {

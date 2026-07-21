@@ -2,12 +2,25 @@ import type { Transcript } from "@hypr/plugin-template";
 
 export const MIN_TRANSCRIPT_CHARACTERS_FOR_SUMMARY = 160;
 export const SHORT_TRANSCRIPT_CHARACTER_LIMIT = 1_200;
+export const MIN_SUMMARY_CHARACTERS = 320;
+export const MAX_SUMMARY_GUIDANCE_CHARACTERS = 6_000;
+const SECTION_GUIDANCE_CHARACTER_STEP = 2_000;
+const MAX_GUIDANCE_SECTIONS = 8;
 
 export type SummaryLengthPolicy = {
   maxCharacters: number;
   maxSections: number | null;
   transcriptCharacters: number;
+  guidance?: {
+    maxCharacters: number;
+    minSections: number;
+    maxSections: number;
+  };
 };
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
 
 export function countNormalizedCharacters(text: string): number {
   return Array.from(text.replace(/\s+/gu, " ").trim()).length;
@@ -44,10 +57,47 @@ export function getSummaryLengthPolicy(
 
   return {
     transcriptCharacters,
-    maxCharacters: transcriptCharacters,
+    maxCharacters: Math.max(transcriptCharacters, MIN_SUMMARY_CHARACTERS),
     maxSections:
       transcriptCharacters < SHORT_TRANSCRIPT_CHARACTER_LIMIT ? 2 : null,
+    guidance: {
+      maxCharacters: clamp(
+        transcriptCharacters,
+        MIN_SUMMARY_CHARACTERS,
+        MAX_SUMMARY_GUIDANCE_CHARACTERS,
+      ),
+      minSections: clamp(
+        Math.ceil(transcriptCharacters / (SECTION_GUIDANCE_CHARACTER_STEP * 2)),
+        1,
+        5,
+      ),
+      maxSections: clamp(
+        1 + Math.ceil(transcriptCharacters / SECTION_GUIDANCE_CHARACTER_STEP),
+        2,
+        MAX_GUIDANCE_SECTIONS,
+      ),
+    },
   };
+}
+
+export function formatSummaryLengthGuidance(
+  policy: SummaryLengthPolicy | null,
+): string | null {
+  const guidance = policy?.guidance;
+  if (!policy || !guidance) {
+    return null;
+  }
+
+  const sections =
+    guidance.minSections === guidance.maxSections
+      ? `exactly ${guidance.maxSections} section${guidance.maxSections === 1 ? "" : "s"}`
+      : `${guidance.minSections} to ${guidance.maxSections} sections`;
+
+  return [
+    `Summary length: the transcript contains about ${policy.transcriptCharacters} characters.`,
+    `Keep the summary proportional to it: use ${sections} and stay under ${guidance.maxCharacters} characters overall.`,
+    "A short meeting must produce a short summary; never pad with filler.",
+  ].join(" ");
 }
 
 export function constrainSummaryLength(
