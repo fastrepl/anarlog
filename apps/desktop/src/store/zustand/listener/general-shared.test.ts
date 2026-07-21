@@ -4,6 +4,7 @@ import {
   type GeneralState,
   initialGeneralState,
   noteLiveTranscriptActivity,
+  TRANSCRIPTION_FINAL_STALL_AUDIBLE_SECONDS,
   TRANSCRIPTION_STALL_AUDIBLE_SECONDS,
   tickTranscriptionStallWatchdog,
 } from "./general-shared";
@@ -73,11 +74,46 @@ describe("tickTranscriptionStallWatchdog", () => {
       TRANSCRIPTION_STALL_AUDIBLE_SECONDS - 1,
     );
 
-    noteLiveTranscriptActivity(live);
+    noteLiveTranscriptActivity(live, { hasFinalWords: true });
     expect(live.stallAudibleSeconds).toBe(0);
+    expect(live.finalStallAudibleSeconds).toBe(0);
 
     expect(tickTranscriptionStallWatchdog(live)).toBe(false);
     expect(live.transcriptionStalled).toBe(false);
+  });
+
+  it("flags a stall when partials keep flowing but nothing finalizes", () => {
+    const live = createActiveLive();
+
+    let stalledAt: number | null = null;
+    for (
+      let second = 1;
+      second <= TRANSCRIPTION_FINAL_STALL_AUDIBLE_SECONDS + 5;
+      second += 1
+    ) {
+      if (tickTranscriptionStallWatchdog(live)) {
+        stalledAt = second;
+        break;
+      }
+      noteLiveTranscriptActivity(live, { hasFinalWords: false });
+    }
+
+    expect(stalledAt).toBe(TRANSCRIPTION_FINAL_STALL_AUDIBLE_SECONDS);
+    expect(live.transcriptionStalled).toBe(true);
+    expect(live.needsBatchRepair).toBe(true);
+  });
+
+  it("keeps the stalled flag until finalized words arrive", () => {
+    const live = createActiveLive();
+    live.transcriptionStalled = true;
+    live.needsBatchRepair = true;
+
+    noteLiveTranscriptActivity(live, { hasFinalWords: false });
+    expect(live.transcriptionStalled).toBe(true);
+
+    noteLiveTranscriptActivity(live, { hasFinalWords: true });
+    expect(live.transcriptionStalled).toBe(false);
+    expect(live.needsBatchRepair).toBe(true);
   });
 
   it("stays quiet for record-only sessions and repeated stalls", () => {
@@ -113,7 +149,7 @@ describe("tickTranscriptionStallWatchdog", () => {
     }
     expect(live.needsBatchRepair).toBe(true);
 
-    noteLiveTranscriptActivity(live);
+    noteLiveTranscriptActivity(live, { hasFinalWords: true });
     expect(live.transcriptionStalled).toBe(false);
     expect(live.needsBatchRepair).toBe(true);
   });

@@ -255,7 +255,9 @@ const createSessionEventHandlers = <T extends LiveStore>(
         (delta.new_words.length > 0 || delta.partials.length > 0)
       ) {
         setLiveState(set, (live) => {
-          noteLiveTranscriptActivity(live);
+          noteLiveTranscriptActivity(live, {
+            hasFinalWords: delta.new_words.length > 0,
+          });
         });
       }
       get().handleTranscriptDelta(targetSessionId, delta, {
