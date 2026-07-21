@@ -35,6 +35,9 @@ const MAX_SNAPSHOT_REQUEST_BYTES: usize = MAX_SNAPSHOT_BODY_BYTES + 16 * 1024;
 const MAX_SNAPSHOT_RESPONSE_BYTES: usize = MAX_SNAPSHOT_BODY_BYTES + 256 * 1024;
 const CLOUDSYNC_ENCRYPTION_VERSION: u8 = 2;
 const E2EE_KEY_ID_HEADER: &str = "x-anarlog-e2ee-key-id";
+const DEVICE_FINGERPRINT_HEADER: &str = "x-device-fingerprint";
+const DEVICE_NAME_HEADER: &str = "x-anarlog-device-name";
+const MAX_DEVICE_NAME_BYTES: usize = 128;
 
 #[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -87,6 +90,19 @@ struct ClaimE2eeKeyRpcRequest<'a> {
 #[derive(Deserialize)]
 struct E2eeKeyIdRow {
     key_id: String,
+}
+
+#[derive(Serialize)]
+struct ClaimSyncDeviceRpcRequest<'a> {
+    p_actor_user_id: &'a str,
+    p_device_fingerprint: &'a str,
+    p_device_name: Option<&'a str>,
+}
+
+#[derive(Deserialize)]
+struct SyncDeviceClaimRow {
+    allowed: bool,
+    device_count: i64,
 }
 
 #[derive(Serialize, utoipa::ToSchema)]
@@ -842,6 +858,8 @@ async fn create_credentials(
         return Err(SyncError::ProPlanRequired);
     }
 
+    claim_sync_device(&state, &auth.claims.sub, &headers).await?;
+
     let requested_key_id = headers
         .get(E2EE_KEY_ID_HEADER)
         .map(|value| {
@@ -959,6 +977,84 @@ async fn mint_cloudsync_token(state: &AppState, request: &impl Serialize) -> Res
         return Err(SyncError::Upstream);
     }
     Ok(response.data.token)
+}
+
+fn is_valid_device_fingerprint(fingerprint: &str) -> bool {
+    (8..=128).contains(&fingerprint.len())
+        && fingerprint
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+}
+
+async fn claim_sync_device(
+    state: &AppState,
+    account_user_id: &str,
+    headers: &HeaderMap,
+) -> Result<()> {
+    // Older desktop builds do not identify themselves; the limit only
+    // applies once the client sends its fingerprint.
+    let Some(fingerprint) = headers
+        .get(DEVICE_FINGERPRINT_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|fingerprint| !fingerprint.is_empty())
+    else {
+        return Ok(());
+    };
+    if !is_valid_device_fingerprint(fingerprint) {
+        tracing::warn!("sync device fingerprint failed validation; skipping device claim");
+        return Ok(());
+    }
+
+    let device_name = headers
+        .get(DEVICE_NAME_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|name| !name.is_empty() && name.len() <= MAX_DEVICE_NAME_BYTES);
+
+    let response = state
+        .client
+        .post(format!(
+            "{}/rest/v1/rpc/claim_sync_device",
+            state.config.supabase_url
+        ))
+        .header("apikey", &state.config.supabase_service_role_key)
+        .bearer_auth(&state.config.supabase_service_role_key)
+        .timeout(WORKSPACE_PROJECTION_TIMEOUT)
+        .json(&ClaimSyncDeviceRpcRequest {
+            p_actor_user_id: account_user_id,
+            p_device_fingerprint: fingerprint,
+            p_device_name: device_name,
+        })
+        .send()
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "Supabase sync device claim failed");
+            SyncError::Upstream
+        })?;
+    if !response.status().is_success() {
+        tracing::warn!(status = %response.status(), "Supabase sync device claim was rejected");
+        return Err(SyncError::Upstream);
+    }
+    let rows = response
+        .json::<Vec<SyncDeviceClaimRow>>()
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "Supabase sync device claim response was invalid");
+            SyncError::Upstream
+        })?;
+    let Some(row) = rows.first() else {
+        tracing::warn!("Supabase sync device claim returned no rows");
+        return Err(SyncError::Upstream);
+    };
+    if !row.allowed {
+        tracing::info!(
+            device_count = row.device_count,
+            "CloudSync device limit reached"
+        );
+        return Err(SyncError::SyncDeviceLimitReached);
+    }
+    Ok(())
 }
 
 async fn claim_personal_e2ee_key(
@@ -1394,6 +1490,113 @@ mod tests {
         );
         assert!(token_request.get("workspaceId").is_none());
         assert!(token_request.get("workspaceIds").is_none());
+    }
+
+    async fn mock_sync_device_claim(server: &MockServer, allowed: bool, device_count: i64) {
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/claim_sync_device"))
+            .and(header("apikey", "service-role-key"))
+            .and(header("authorization", "Bearer service-role-key"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "allowed": allowed,
+                "device_count": device_count,
+            }])))
+            .mount(server)
+            .await;
+    }
+
+    fn token_request_with_device(fingerprint: &str, name: Option<&str>) -> Request<Body> {
+        let mut builder = Request::post("/token")
+            .header(E2EE_KEY_ID_HEADER, TEST_KEY_ID)
+            .header(DEVICE_FINGERPRINT_HEADER, fingerprint);
+        if let Some(name) = name {
+            builder = builder.header(DEVICE_NAME_HEADER, name);
+        }
+        builder.body(Body::empty()).unwrap()
+    }
+
+    #[tokio::test]
+    async fn registers_the_device_before_minting_a_token() {
+        let server = MockServer::start().await;
+        mock_sync_device_claim(&server, true, 2).await;
+        mock_workspace_projection(&server, json!([personal_workspace("user-123")])).await;
+        mock_e2ee_key_claim(&server, TEST_KEY_ID).await;
+        Mock::given(method("POST"))
+            .and(path("/v2/tokens"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": { "token": "sqlite-token" }
+            })))
+            .mount(&server)
+            .await;
+
+        let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+            .oneshot(token_request_with_device(
+                "fingerprint-1234",
+                Some("Johns-MacBook"),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let requests = server.received_requests().await.unwrap();
+        assert_eq!(requests[0].url.path(), "/rest/v1/rpc/claim_sync_device");
+        let claim_request: Value = serde_json::from_slice(&requests[0].body).unwrap();
+        assert_eq!(
+            claim_request,
+            json!({
+                "p_actor_user_id": "user-123",
+                "p_device_fingerprint": "fingerprint-1234",
+                "p_device_name": "Johns-MacBook",
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn refuses_token_when_device_limit_is_reached() {
+        let server = MockServer::start().await;
+        mock_sync_device_claim(&server, false, 5).await;
+
+        let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+            .oneshot(token_request_with_device("fingerprint-1234", None))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = response_json(response).await;
+        assert_eq!(body["error"]["code"], "sync_device_limit_reached");
+
+        let requests = server.received_requests().await.unwrap();
+        assert!(
+            requests
+                .iter()
+                .all(|request| request.url.path() != "/v2/tokens")
+        );
+    }
+
+    #[tokio::test]
+    async fn skips_device_claim_when_fingerprint_is_invalid() {
+        let server = MockServer::start().await;
+        mock_workspace_projection(&server, json!([personal_workspace("user-123")])).await;
+        mock_e2ee_key_claim(&server, TEST_KEY_ID).await;
+        Mock::given(method("POST"))
+            .and(path("/v2/tokens"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": { "token": "sqlite-token" }
+            })))
+            .mount(&server)
+            .await;
+
+        let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+            .oneshot(token_request_with_device("not a valid fingerprint!", None))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let requests = server.received_requests().await.unwrap();
+        assert!(
+            requests
+                .iter()
+                .all(|request| request.url.path() != "/rest/v1/rpc/claim_sync_device")
+        );
     }
 
     #[tokio::test]

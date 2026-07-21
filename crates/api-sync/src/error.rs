@@ -20,6 +20,9 @@ pub enum SyncError {
     #[error("This account is protected by a different E2EE recovery key")]
     E2eeKeyMismatch,
 
+    #[error("CloudSync device limit reached")]
+    SyncDeviceLimitReached,
+
     #[error("E2EE freshness witness access is not permitted")]
     E2eeWitnessForbidden,
 
@@ -111,6 +114,12 @@ impl IntoResponse for SyncError {
                 StatusCode::CONFLICT,
                 "e2ee_key_mismatch",
                 "This account is protected by a different E2EE recovery key".to_string(),
+            ),
+            Self::SyncDeviceLimitReached => (
+                StatusCode::FORBIDDEN,
+                "sync_device_limit_reached",
+                "Cloud sync is limited to 5 devices per account; remove a device before syncing here"
+                    .to_string(),
             ),
             Self::E2eeWitnessForbidden => (
                 StatusCode::FORBIDDEN,

@@ -433,6 +433,10 @@ msgstr ""
 msgid "Cloud sync"
 msgstr ""
 
+#: src/auth/cloudsync.ts
+msgid "Cloud sync is limited to 5 devices. Remove another device to sync here."
+msgstr ""
+
 #. placeholder {0}: view.label
 #: src/main/sync-status.tsx
 msgid "Cloud sync status: {0}"
@@ -650,6 +654,10 @@ msgstr ""
 
 #: src/sidebar/settings.tsx
 msgid "Developers"
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Device limit reached"
 msgstr ""
 
 #: src/settings/dictionary/index.tsx
@@ -2077,6 +2085,10 @@ msgstr ""
 
 #: src/chat/components/message/loading.tsx
 msgid "Thinking..."
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "This account already syncs on 5 devices. Remove another device to sync here."
 msgstr ""
 
 #: src/session-sharing/index.tsx

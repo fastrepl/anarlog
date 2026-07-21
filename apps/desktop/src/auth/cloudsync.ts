@@ -1,4 +1,6 @@
+import { t } from "@lingui/core/macro";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { hostname } from "@tauri-apps/plugin-os";
 
 import type { CloudsyncWorkspaceProjection } from "@hypr/plugin-db";
 import {
@@ -10,6 +12,8 @@ import {
   suspendCloudsync,
 } from "@hypr/plugin-db";
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
+import { commands as miscCommands } from "@hypr/plugin-misc";
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import {
   startCloudsyncInitialSyncProgress,
@@ -19,6 +23,7 @@ import {
 import { env } from "~/env";
 import { getStoredSettingValues } from "~/settings/queries";
 import { resolveConfigValue } from "~/shared/config";
+import { DEVICE_FINGERPRINT_HEADER } from "~/shared/utils";
 
 const REFRESH_LEAD_MS = 2 * 60 * 1000;
 const RETRY_DELAY_MS = 60 * 1000;
@@ -51,6 +56,92 @@ type ProjectedCloudsyncCredentials = CloudsyncCredentialCore &
 type CloudsyncCredentials =
   | LegacyCloudsyncCredentials
   | ProjectedCloudsyncCredentials;
+
+const DEVICE_NAME_HEADER = "x-anarlog-device-name";
+const DEVICE_LIMIT_ERROR_CODE = "sync_device_limit_reached";
+const DEVICE_LIMIT_TOAST_ID = "cloudsync-device-limit";
+
+type CloudsyncCredentialBlock = "device_limit" | null;
+
+let credentialBlock: CloudsyncCredentialBlock = null;
+const credentialBlockListeners = new Set<() => void>();
+
+function setCredentialBlock(next: CloudsyncCredentialBlock) {
+  if (credentialBlock === next) {
+    return;
+  }
+  credentialBlock = next;
+  credentialBlockListeners.forEach((listener) => listener());
+}
+
+export function getCloudsyncCredentialBlock(): CloudsyncCredentialBlock {
+  return credentialBlock;
+}
+
+export function subscribeCloudsyncCredentialBlock(listener: () => void) {
+  credentialBlockListeners.add(listener);
+  return () => {
+    credentialBlockListeners.delete(listener);
+  };
+}
+
+let cachedDeviceIdentity: {
+  fingerprint: string | null;
+  name: string | null;
+} | null = null;
+
+async function getDeviceIdentity() {
+  if (cachedDeviceIdentity) {
+    return cachedDeviceIdentity;
+  }
+
+  let fingerprint: string | null = null;
+  try {
+    const result = await miscCommands.getFingerprint();
+    if (result.status === "ok") {
+      fingerprint = result.data;
+    }
+  } catch {
+    // Token exchange still works without a device identity.
+  }
+
+  let name: string | null = null;
+  try {
+    name = await hostname();
+  } catch {
+    // Device name is optional.
+  }
+
+  const identity = { fingerprint, name };
+  // Cache only a fully resolved identity so a transiently missing
+  // fingerprint or hostname is retried on the next exchange.
+  if (fingerprint !== null && name !== null) {
+    cachedDeviceIdentity = identity;
+  }
+  return identity;
+}
+
+async function readCredentialErrorCode(
+  response: Response,
+): Promise<string | null> {
+  try {
+    const body: unknown = await response.json();
+    if (
+      typeof body === "object" &&
+      body !== null &&
+      "error" in body &&
+      typeof body.error === "object" &&
+      body.error !== null &&
+      "code" in body.error &&
+      typeof body.error.code === "string"
+    ) {
+      return body.error.code;
+    }
+  } catch {
+    // Rejections without a structured body fall through to generic handling.
+  }
+  return null;
+}
 
 let generation = 0;
 let exchangeController: AbortController | null = null;
@@ -477,12 +568,21 @@ async function activateCloudsync(
   let response: Response | null = null;
   let credentials: unknown;
   try {
+    const device = await getDeviceIdentity();
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${session.access_token}`,
+      "X-Anarlog-E2EE-Key-Id": encryptionKeyId,
+    };
+    if (device.fingerprint) {
+      headers[DEVICE_FINGERPRINT_HEADER] = device.fingerprint;
+    }
+    if (device.name) {
+      headers[DEVICE_NAME_HEADER] = device.name;
+    }
+
     response = await fetch(new URL("/sync/token", env.VITE_API_URL), {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-        "X-Anarlog-E2EE-Key-Id": encryptionKeyId,
-      },
+      headers,
       signal: controller.signal,
     });
 
@@ -532,6 +632,19 @@ async function activateCloudsync(
     if (response.status === 403) {
       if (!suspendBeforeExchange) {
         await suspendCloudsyncAfterCredentialRejection(activeGeneration);
+      }
+      if (
+        (await readCredentialErrorCode(response)) === DEVICE_LIMIT_ERROR_CODE
+      ) {
+        setCredentialBlock("device_limit");
+        sonnerToast.error(
+          t`Cloud sync is limited to 5 devices. Remove another device to sync here.`,
+          { id: DEVICE_LIMIT_TOAST_ID },
+        );
+        console.warn(
+          "[cloudsync] device limit reached; sync remains disabled on this device",
+        );
+        return "ok";
       }
       console.warn(
         "[cloudsync] Anarlog Pro is required; sync remains disabled",
@@ -606,6 +719,8 @@ async function activateCloudsync(
     );
     return "ok";
   }
+
+  setCredentialBlock(null);
 
   try {
     const configured = await enqueuePluginOperation(async () => {
@@ -711,6 +826,7 @@ async function activateCloudsync(
 async function suspendCloudsyncSession(): Promise<void> {
   beginTransition();
   stopCloudsyncInitialSyncProgress();
+  setCredentialBlock(null);
 
   try {
     await enqueuePluginOperation(suspendCloudsync);

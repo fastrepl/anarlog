@@ -1,6 +1,12 @@
+import { i18n } from "@lingui/core";
 import { randomUUID } from "node:crypto";
 import * as React from "react";
 import { vi } from "vitest";
+
+// Compiled @lingui/core/macro calls hit the real global i18n; give it a
+// locale so untranslated messages fall back to their English source.
+i18n.load("en", {});
+i18n.activate("en");
 
 Object.defineProperty(globalThis.crypto, "randomUUID", { value: randomUUID });
 

@@ -433,6 +433,10 @@ msgstr "Closed"
 msgid "Cloud sync"
 msgstr "Cloud sync"
 
+#: src/auth/cloudsync.ts
+msgid "Cloud sync is limited to 5 devices. Remove another device to sync here."
+msgstr "Cloud sync is limited to 5 devices. Remove another device to sync here."
+
 #. placeholder {0}: view.label
 #: src/main/sync-status.tsx
 msgid "Cloud sync status: {0}"
@@ -651,6 +655,10 @@ msgstr "Detection delay"
 #: src/sidebar/settings.tsx
 msgid "Developers"
 msgstr "Developers"
+
+#: src/main/sync-status.tsx
+msgid "Device limit reached"
+msgstr "Device limit reached"
 
 #: src/settings/dictionary/index.tsx
 #: src/sidebar/settings.tsx
@@ -2078,6 +2086,10 @@ msgstr "The note may have been unshared or moved out of a workspace you can acce
 #: src/chat/components/message/loading.tsx
 msgid "Thinking..."
 msgstr "Thinking..."
+
+#: src/main/sync-status.tsx
+msgid "This account already syncs on 5 devices. Remove another device to sync here."
+msgstr "This account already syncs on 5 devices. Remove another device to sync here."
 
 #: src/session-sharing/index.tsx
 msgid "This note changed on both desktop and the web. Open the web copy to review it. To keep that version, close this panel, replace this note with the web content, then switch to another note so Anarlog can reconcile. Otherwise, publish the desktop edits over it."

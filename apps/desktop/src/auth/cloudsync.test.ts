@@ -1,4 +1,5 @@
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { hostname } from "@tauri-apps/plugin-os";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
@@ -10,10 +11,13 @@ import {
   suspendCloudsync,
 } from "@hypr/plugin-db";
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
+import { commands as miscCommands } from "@hypr/plugin-misc";
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import {
   applyCloudsyncPreference,
   bindCloudsyncAccountForAuth,
+  getCloudsyncCredentialBlock,
   handleCloudsyncAuthChange,
   prepareCloudsyncSignOut,
 } from "./cloudsync";
@@ -45,6 +49,22 @@ vi.mock("~/env", () => ({
 
 vi.mock("~/settings/queries", () => ({
   getStoredSettingValues: vi.fn(),
+}));
+
+vi.mock("@hypr/plugin-misc", () => ({
+  commands: {
+    getFingerprint: vi.fn(() =>
+      Promise.resolve({ status: "error", error: "unavailable" }),
+    ),
+  },
+}));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  hostname: vi.fn(() => Promise.resolve(null)),
+}));
+
+vi.mock("@hypr/ui/components/ui/toast", () => ({
+  sonnerToast: { error: vi.fn() },
 }));
 
 const NOW = new Date("2026-07-13T00:00:00Z");
@@ -881,5 +901,63 @@ describe("CloudSync auth lifecycle", () => {
       witness(),
     );
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
+  });
+
+  // Keep this test last: a successful fingerprint lookup is cached at module
+  // level and would add device headers to every later exchange in this file.
+  test("sends the device identity and surfaces the device limit rejection", async () => {
+    vi.mocked(miscCommands.getFingerprint).mockResolvedValue({
+      status: "ok",
+      data: "device-fingerprint-1",
+    });
+    vi.mocked(hostname).mockResolvedValue("Johns-M4-Max");
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "sync_device_limit_reached",
+              message: "Cloud sync is limited to 5 devices per account",
+            },
+          }),
+          { status: 403, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await expect(
+      handleCloudsyncAuthChange("TOKEN_REFRESHED", session()),
+    ).resolves.toBe("ok");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL("https://api.test/sync/token"),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "x-device-fingerprint": "device-fingerprint-1",
+          "x-anarlog-device-name": "Johns-M4-Max",
+        }),
+      }),
+    );
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
+    expect(suspendCloudsync).toHaveBeenCalledTimes(1);
+    expect(sonnerToast.error).toHaveBeenCalledWith(
+      expect.stringContaining("limited to 5 devices"),
+      expect.objectContaining({ id: "cloudsync-device-limit" }),
+    );
+    expect(getCloudsyncCredentialBlock()).toBe("device_limit");
+
+    await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(credentialsResponse())),
+    );
+    await expect(
+      handleCloudsyncAuthChange("TOKEN_REFRESHED", session()),
+    ).resolves.toBe("ok");
+    expect(getCloudsyncCredentialBlock()).toBeNull();
   });
 });

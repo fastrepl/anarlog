@@ -11,6 +11,7 @@ import {
   SettingsIcon,
   SparklesIcon,
 } from "lucide-react";
+import { useSyncExternalStore } from "react";
 
 import {
   getCloudsyncStatus,
@@ -28,7 +29,11 @@ import { cn, formatDistanceToNow } from "@hypr/utils";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
-import { applyCloudsyncPreference } from "~/auth/cloudsync";
+import {
+  applyCloudsyncPreference,
+  getCloudsyncCredentialBlock,
+  subscribeCloudsyncCredentialBlock,
+} from "~/auth/cloudsync";
 import {
   setSettingValue,
   useSettingsReady,
@@ -50,6 +55,11 @@ export function SyncStatusIndicator() {
   const queryClient = useQueryClient();
 
   const session = auth.session;
+  const credentialBlock = useSyncExternalStore(
+    subscribeCloudsyncCredentialBlock,
+    getCloudsyncCredentialBlock,
+    getCloudsyncCredentialBlock,
+  );
   const syncPreferred = resolveConfigValue(
     "cloud_sync_enabled",
     storedSettings,
@@ -115,6 +125,14 @@ export function SyncStatusIndicator() {
         kind: "paused" as const,
         label: t`Sync paused`,
         description: t`Your notes are stored on this device only`,
+      };
+    }
+
+    if (credentialBlock === "device_limit") {
+      return {
+        kind: "error" as const,
+        label: t`Device limit reached`,
+        description: t`This account already syncs on 5 devices. Remove another device to sync here.`,
       };
     }
 

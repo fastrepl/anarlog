@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   billing: { isPro: true, isReady: true },
   settings: { ready: true, cloudSyncEnabled: true },
   session: { user: { id: "user-1" } },
+  credentialBlock: null as string | null,
 }));
 
 vi.mock("@hypr/plugin-db", () => ({
@@ -37,6 +38,8 @@ vi.mock("~/auth/billing-context", () => ({
 
 vi.mock("~/auth/cloudsync", () => ({
   applyCloudsyncPreference: mocks.applyCloudsyncPreference,
+  getCloudsyncCredentialBlock: () => mocks.credentialBlock,
+  subscribeCloudsyncCredentialBlock: () => () => {},
 }));
 
 vi.mock("~/settings/queries", () => ({
@@ -116,6 +119,7 @@ describe("SyncStatusIndicator", () => {
     mocks.billing.isReady = true;
     mocks.settings.ready = true;
     mocks.settings.cloudSyncEnabled = true;
+    mocks.credentialBlock = null;
     mocks.getCloudsyncStatus.mockResolvedValue(syncedStatus());
     mocks.getE2eeIdentityStatus.mockResolvedValue({
       configured: true,
@@ -204,6 +208,24 @@ describe("SyncStatusIndicator", () => {
       });
     });
     expect(mocks.setSettingValue).not.toHaveBeenCalled();
+  });
+
+  it("shows a blocked state when the device limit was hit instead of connecting forever", async () => {
+    mocks.credentialBlock = "device_limit";
+    mocks.getCloudsyncStatus.mockResolvedValue(
+      syncedStatus({ configured: false, running: false }),
+    );
+
+    renderIndicator();
+    await openMenu();
+
+    expect(await screen.findByText("Device limit reached")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "This account already syncs on 5 devices. Remove another device to sync here.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("Connecting...")).toBeNull();
   });
 
   it("shows a sync issue with the last error", async () => {
