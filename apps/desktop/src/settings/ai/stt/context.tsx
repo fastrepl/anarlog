@@ -25,6 +25,8 @@ type SttSettingsContextType = {
 
 const SttSettingsContext = createContext<SttSettingsContextType | null>(null);
 
+const DOWNLOAD_PROGRESS_GRACE_MS = 10_000;
+
 export function SttSettingsProvider({
   children,
 }: {
@@ -50,12 +52,20 @@ export function SttSettingsProvider({
       return;
     }
 
-    queuedDownloadsRef.current.add(model);
-    setQueuedDownloads([...queuedDownloadsRef.current]);
-    void localSttCommands.downloadModel(model).finally(() => {
+    const dequeue = () => {
       queuedDownloadsRef.current.delete(model);
       setQueuedDownloads([...queuedDownloadsRef.current]);
-    });
+    };
+
+    queuedDownloadsRef.current.add(model);
+    setQueuedDownloads([...queuedDownloadsRef.current]);
+    void localSttCommands.downloadModel(model).then(
+      // The command resolves when the download starts, not when it finishes.
+      // Keep the queue entry until progress events take over the row state,
+      // so the gap cannot accept another click.
+      () => setTimeout(dequeue, DOWNLOAD_PROGRESS_GRACE_MS),
+      dequeue,
+    );
   }, []);
 
   const startTrial = useCallback(() => {
