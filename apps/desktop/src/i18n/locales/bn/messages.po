@@ -442,6 +442,10 @@ msgstr ""
 msgid "Cloud sync status: {0}"
 msgstr ""
 
+#: src/shared-notes/index.tsx
+msgid "Collaborator"
+msgstr ""
+
 #: src/task/resource-view.tsx
 msgid "comment"
 msgstr ""
@@ -2276,6 +2280,10 @@ msgstr ""
 
 #: src/task/tab-content.tsx
 msgid "Work on this task"
+msgstr ""
+
+#: src/shared-notes/index.tsx
+msgid "You"
 msgstr ""
 
 #: src/calendar/components/apple/permission.tsx

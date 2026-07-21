@@ -17,6 +17,7 @@ import { useMentionConfig } from "~/editor-bridge/mention-config";
 import { openEditorLink } from "~/editor-bridge/open-editor-link";
 import { sessionMentionDropConfig } from "~/editor-bridge/session-mention-drop";
 import { SessionNodeView } from "~/editor-bridge/session-view";
+import { useSessionCommentAnchors } from "~/session-sharing/comment-anchors";
 import { hasStoredNoteContent } from "~/session/components/shared";
 import { useAttachmentResolver } from "~/session/hooks/useAttachmentResolver";
 import { useUpdateEnhancedNoteContent } from "~/session/queries";
@@ -93,6 +94,7 @@ const EnhancedEditorInner = forwardRef<
     );
 
     const mentionConfig = useMentionConfig();
+    const commentAnchors = useSessionCommentAnchors(sessionId);
 
     return (
       <AudioDropTarget
@@ -119,8 +121,15 @@ const EnhancedEditorInner = forwardRef<
               : undefined
           }
           extraNodeViews={extraNodeViews}
-          onViewReady={onViewReady}
-          onViewDisposed={onViewDisposed}
+          commentAnchorsEnabled
+          onViewReady={(view) => {
+            commentAnchors.onViewReady(view);
+            onViewReady?.(view);
+          }}
+          onViewDisposed={(view) => {
+            commentAnchors.onViewDisposed(view);
+            onViewDisposed?.(view);
+          }}
           syncContentWhenFocused={!persistChanges}
         />
       </AudioDropTarget>

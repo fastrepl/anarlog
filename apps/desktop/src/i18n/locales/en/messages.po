@@ -442,6 +442,10 @@ msgstr "Cloud sync is limited to 5 devices. Remove another device to sync here."
 msgid "Cloud sync status: {0}"
 msgstr "Cloud sync status: {0}"
 
+#: src/shared-notes/index.tsx
+msgid "Collaborator"
+msgstr "Collaborator"
+
 #: src/task/resource-view.tsx
 msgid "comment"
 msgstr "comment"
@@ -2277,6 +2281,10 @@ msgstr "While listening, use Accessibility access to copy visible chat from supp
 #: src/task/tab-content.tsx
 msgid "Work on this task"
 msgstr "Work on this task"
+
+#: src/shared-notes/index.tsx
+msgid "You"
+msgstr "You"
 
 #: src/calendar/components/apple/permission.tsx
 msgid "You can"

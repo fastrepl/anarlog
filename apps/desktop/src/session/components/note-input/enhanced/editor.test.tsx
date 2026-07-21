@@ -84,6 +84,13 @@ vi.mock("~/stt/useUploadFile", () => ({
   useUploadFile: () => ({ processAudioFile: hoisted.processAudioFile }),
 }));
 
+vi.mock("~/session-sharing/comment-anchors", () => ({
+  useSessionCommentAnchors: () => ({
+    onViewReady: vi.fn(),
+    onViewDisposed: vi.fn(),
+  }),
+}));
+
 vi.mock("~/session/queries", () => ({
   useEnhancedNote: () => ({ content: hoisted.content }),
   useUpdateEnhancedNoteContent: () => hoisted.persistContent,

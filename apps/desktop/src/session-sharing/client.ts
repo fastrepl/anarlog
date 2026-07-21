@@ -10,6 +10,12 @@ const PUBLIC_SLUG_PATTERN = /^s_[0-9a-f]{32}$/;
 const CAPABILITY_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const MAX_ACCESS_ROWS = 1_000;
 const MAX_RPC_DATA_BYTES = 1024 * 1024;
+const MAX_COMMENT_BODY_BYTES = 16_384;
+const MAX_COMMENT_ANCHOR_EXACT_BYTES = 4_096;
+const MAX_COMMENT_ANCHOR_CONTEXT_BYTES = 256;
+// callRpc rejects responses over MAX_RPC_DATA_BYTES; a comment row can
+// approach 21 KiB (body + anchor quotes), so pages stay at 30 + 1 lookahead.
+const COMMENT_PAGE_SIZE = 30;
 const MAX_SNAPSHOT_BODY_BYTES = 2 * 1024 * 1024;
 const MAX_SNAPSHOT_RESPONSE_BYTES = MAX_SNAPSHOT_BODY_BYTES + 256 * 1024;
 const MAX_SNAPSHOT_TITLE_BYTES = 4_096;
@@ -116,6 +122,28 @@ export type SessionShareAccessEntry =
       createdAt: string;
       expiresAt: null;
     };
+
+export type SessionShareCommentAnchor = {
+  quoteExact: string;
+  quotePrefix: string;
+  quoteSuffix: string;
+  fromHint: number | null;
+  toHint: number | null;
+};
+
+export type SessionShareComment = {
+  commentId: string;
+  isAuthor: boolean;
+  snapshotContentRevision: number;
+  body: string;
+  anchor: SessionShareCommentAnchor | null;
+  createdAt: string;
+};
+
+export type SessionShareCommentPage = {
+  comments: SessionShareComment[];
+  nextCursor: { beforeCreatedAt: string; beforeCommentId: string } | null;
+};
 
 export type PublishedSessionShareSnapshot = {
   shareId: string;
@@ -330,6 +358,95 @@ export async function listSessionShareAccess(
     throw unavailable();
   }
   return data.map(parseSessionShareAccessEntry);
+}
+
+export async function createSessionShareComment(
+  context: ShareManagementContext,
+  input: {
+    shareId: string;
+    body: string;
+    anchor?: SessionShareCommentAnchor | null;
+  },
+): Promise<SessionShareComment> {
+  assertUuid(input.shareId);
+  const body = normalizeCommentBody(input.body);
+  const anchor = input.anchor ?? null;
+  if (anchor !== null) {
+    assertCommentAnchor(anchor);
+  }
+  const data = await callRpc(context, "create_session_share_comment", {
+    p_share_id: input.shareId,
+    p_body: body,
+    p_anchor_quote_exact: anchor?.quoteExact ?? null,
+    p_anchor_quote_prefix: anchor?.quotePrefix ?? null,
+    p_anchor_quote_suffix: anchor?.quoteSuffix ?? null,
+    p_anchor_from_hint: anchor?.fromHint ?? null,
+    p_anchor_to_hint: anchor?.toHint ?? null,
+  });
+  const comment = parseSessionShareComment(singleRow(data));
+  if (
+    comment.isAuthor !== true ||
+    (comment.anchor === null) !== (anchor === null)
+  ) {
+    throw unavailable();
+  }
+  return comment;
+}
+
+export async function listSessionShareComments(
+  context: ShareManagementContext,
+  input: {
+    shareId: string;
+    before?: { beforeCreatedAt: string; beforeCommentId: string } | null;
+  },
+): Promise<SessionShareCommentPage> {
+  assertUuid(input.shareId);
+  const before = input.before ?? null;
+  if (before !== null) {
+    expectTimestamp(before.beforeCreatedAt);
+    assertUuid(before.beforeCommentId);
+  }
+  const data = await callRpc(context, "list_session_share_comments", {
+    p_share_id: input.shareId,
+    p_before_created_at: before?.beforeCreatedAt ?? null,
+    p_before_comment_id: before?.beforeCommentId ?? null,
+    p_limit: COMMENT_PAGE_SIZE + 1,
+  });
+  if (!Array.isArray(data) || data.length > COMMENT_PAGE_SIZE + 1) {
+    throw unavailable();
+  }
+  const newestFirst = data.map(parseSessionShareComment);
+  const kept = newestFirst.slice(0, COMMENT_PAGE_SIZE);
+  const oldestKept = kept[kept.length - 1];
+  return {
+    comments: [...kept].reverse(),
+    nextCursor:
+      newestFirst.length > kept.length && oldestKept
+        ? {
+            beforeCreatedAt: oldestKept.createdAt,
+            beforeCommentId: oldestKept.commentId,
+          }
+        : null,
+  };
+}
+
+export async function deleteSessionShareComment(
+  context: ShareManagementContext,
+  commentId: string,
+): Promise<{ commentId: string; deletedAt: string }> {
+  assertUuid(commentId);
+  const data = await callRpc(context, "delete_session_share_comment", {
+    p_comment_id: commentId,
+  });
+  const row = expectRecord(singleRow(data), ["comment_id", "deleted_at"]);
+  const result = {
+    commentId: expectUuid(row.comment_id),
+    deletedAt: expectTimestamp(row.deleted_at),
+  };
+  if (result.commentId !== commentId) {
+    throw unavailable();
+  }
+  return result;
 }
 
 export async function updateSessionAccessGrant(
@@ -837,6 +954,120 @@ function parseSessionShareAccessEntry(value: unknown): SessionShareAccessEntry {
     status: "pending",
     expiresAt: null,
   };
+}
+
+export function parseSessionShareComment(value: unknown): SessionShareComment {
+  const row = expectRecord(value, [
+    "comment_id",
+    "is_author",
+    "snapshot_content_revision",
+    "body",
+    "anchor_quote_exact",
+    "anchor_quote_prefix",
+    "anchor_quote_suffix",
+    "anchor_from_hint",
+    "anchor_to_hint",
+    "created_at",
+  ]);
+  return {
+    commentId: expectUuid(row.comment_id),
+    isAuthor: expectBoolean(row.is_author),
+    snapshotContentRevision: expectPositiveInteger(
+      row.snapshot_content_revision,
+    ),
+    body: expectCommentBody(row.body),
+    anchor: parseCommentAnchorColumns(row),
+    createdAt: expectTimestamp(row.created_at),
+  };
+}
+
+function parseCommentAnchorColumns(
+  row: Record<string, unknown>,
+): SessionShareCommentAnchor | null {
+  if (row.anchor_quote_exact === null) {
+    if (
+      row.anchor_quote_prefix !== null ||
+      row.anchor_quote_suffix !== null ||
+      row.anchor_from_hint !== null ||
+      row.anchor_to_hint !== null
+    ) {
+      throw unavailable();
+    }
+    return null;
+  }
+  if (row.anchor_quote_prefix === null || row.anchor_quote_suffix === null) {
+    throw unavailable();
+  }
+  return {
+    quoteExact: expectAnchorQuote(row.anchor_quote_exact),
+    quotePrefix: expectAnchorContext(row.anchor_quote_prefix),
+    quoteSuffix: expectAnchorContext(row.anchor_quote_suffix),
+    ...expectAnchorHints(row.anchor_from_hint, row.anchor_to_hint),
+  };
+}
+
+function assertCommentAnchor(anchor: SessionShareCommentAnchor) {
+  expectAnchorQuote(anchor.quoteExact);
+  expectAnchorContext(anchor.quotePrefix);
+  expectAnchorContext(anchor.quoteSuffix);
+  expectAnchorHints(anchor.fromHint, anchor.toHint);
+}
+
+function expectAnchorQuote(value: unknown) {
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    utf8Length(value) > MAX_COMMENT_ANCHOR_EXACT_BYTES
+  ) {
+    throw unavailable();
+  }
+  return value;
+}
+
+function expectAnchorContext(value: unknown) {
+  if (
+    typeof value !== "string" ||
+    utf8Length(value) > MAX_COMMENT_ANCHOR_CONTEXT_BYTES
+  ) {
+    throw unavailable();
+  }
+  return value;
+}
+
+function expectAnchorHints(
+  fromHint: unknown,
+  toHint: unknown,
+): { fromHint: number | null; toHint: number | null } {
+  if (fromHint === null && toHint === null) {
+    return { fromHint: null, toHint: null };
+  }
+  if (
+    !Number.isSafeInteger(fromHint) ||
+    !Number.isSafeInteger(toHint) ||
+    (fromHint as number) < 1 ||
+    (toHint as number) <= (fromHint as number)
+  ) {
+    throw unavailable();
+  }
+  return { fromHint: fromHint as number, toHint: toHint as number };
+}
+
+function normalizeCommentBody(value: string) {
+  if (typeof value !== "string") {
+    throw unavailable();
+  }
+  return expectCommentBody(value.trim());
+}
+
+function expectCommentBody(value: unknown) {
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    utf8Length(value) > MAX_COMMENT_BODY_BYTES
+  ) {
+    throw unavailable();
+  }
+  return value;
 }
 
 function parsePublishedSessionShareSnapshot(

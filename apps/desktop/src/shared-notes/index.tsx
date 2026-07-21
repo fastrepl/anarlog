@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertCircleIcon,
   LinkIcon,
@@ -7,13 +7,34 @@ import {
   PaperclipIcon,
   UsersRoundIcon,
 } from "lucide-react";
+import type { EditorView } from "prosemirror-view";
+import { useEffect, useRef, useState } from "react";
 
-import { NoteEditor } from "@hypr/editor/note";
+import {
+  type CommentAnchorsEvent,
+  NoteEditor,
+  setActiveCommentAnchor,
+} from "@hypr/editor/note";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { Button } from "@hypr/ui/components/ui/button";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@hypr/ui/components/ui/popover";
+import { formatDistanceToNow } from "@hypr/utils";
 
 import { useAuth } from "~/auth";
 import { openEditorLink } from "~/editor-bridge/open-editor-link";
+import {
+  listSessionShareComments,
+  type SessionShareComment,
+  ShareManagementError,
+} from "~/session-sharing/client";
+import {
+  applySessionShareCommentAnchors,
+  sessionShareCommentsQueryKey,
+} from "~/session-sharing/comment-anchors";
 import { SessionSurface } from "~/session/components/session-surface";
 import { ensureFirstLineTitle } from "~/session/title-content";
 import {
@@ -100,6 +121,8 @@ function SharedNoteSignInAction() {
   );
 }
 
+const noSharedNoteComments: SessionShareComment[] = [];
+
 function AuthenticatedSharedNoteDocument({
   snapshot,
   viewerUserId,
@@ -107,13 +130,36 @@ function AuthenticatedSharedNoteDocument({
   snapshot: SharedNoteSnapshot;
   viewerUserId: string;
 }) {
+  const auth = useAuth();
   const resolveAttachment = useSharedAttachmentResolver(
     viewerUserId,
     snapshot.shareId,
   );
+  const supabase = auth.supabase;
+  const session =
+    auth.session && auth.session.user.is_anonymous !== true
+      ? auth.session
+      : null;
+  // First page only in v1; older comments stay unfetched until pagination UI
+  // exists.
+  const commentsQuery = useQuery({
+    queryKey: sessionShareCommentsQueryKey(snapshot.shareId),
+    queryFn: ({ signal }) => {
+      if (!supabase || !session) {
+        throw new ShareManagementError();
+      }
+      return listSessionShareComments(
+        { supabase, session, signal },
+        { shareId: snapshot.shareId },
+      );
+    },
+    enabled: supabase !== null && session !== null,
+  });
   return (
     <SharedNoteDocument
       body={snapshot.body}
+      comments={commentsQuery.data?.comments ?? noSharedNoteComments}
+      commentsRevision={snapshot.contentRevision}
       contentKey={`${snapshot.shareId}:${snapshot.contentRevision}`}
       icon={UsersRoundIcon}
       attachments={snapshot.attachments}
@@ -187,6 +233,8 @@ function PreviewSharedNoteDocument({
 function SharedNoteDocument({
   attachments = [],
   body,
+  comments,
+  commentsRevision,
   contentKey,
   icon: Icon,
   subtitle,
@@ -195,6 +243,8 @@ function SharedNoteDocument({
 }: {
   attachments?: SharedNoteSnapshot["attachments"];
   body: Parameters<typeof ensureFirstLineTitle>[0];
+  comments?: SessionShareComment[];
+  commentsRevision?: number;
   contentKey: string;
   icon: typeof UsersRoundIcon;
   subtitle: React.ReactNode;
@@ -204,6 +254,47 @@ function SharedNoteDocument({
   >["resolveAttachment"];
 }) {
   const { t } = useLingui();
+  const commentsEnabled = comments !== undefined;
+  const editorContainerRef = useRef<HTMLDivElement | null>(null);
+  const [view, setView] = useState<EditorView | null>(null);
+  const [openAnchor, setOpenAnchor] = useState<{
+    commentIds: string[];
+    left: number;
+    top: number;
+  } | null>(null);
+
+  // External sync: highlights live in the ProseMirror comment-anchors plugin,
+  // so resolved ranges are pushed into the view whenever comments change.
+  useEffect(() => {
+    if (!view || !comments) return;
+    applySessionShareCommentAnchors(view, comments, commentsRevision ?? -1);
+  }, [view, comments, commentsRevision]);
+
+  const openComments = openAnchor
+    ? (comments ?? []).filter((comment) =>
+        openAnchor.commentIds.includes(comment.commentId),
+      )
+    : [];
+
+  const closeCommentPopover = () => {
+    setOpenAnchor(null);
+    if (view) setActiveCommentAnchor(view, null);
+  };
+
+  const handleCommentAnchorsEvent = (event: CommentAnchorsEvent) => {
+    if (event.type !== "anchor-click" || !view) return;
+    const container = editorContainerRef.current;
+    if (!container) return;
+    const coords = view.coordsAtPos(event.pos);
+    const containerRect = container.getBoundingClientRect();
+    setOpenAnchor({
+      commentIds: event.commentIds,
+      left: coords.left - containerRect.left,
+      top: coords.bottom - containerRect.top,
+    });
+    setActiveCommentAnchor(view, event.commentIds[0] ?? null);
+  };
+
   const content = ensureFirstLineTitle(
     hydrateSharedAttachmentAttrs(body, attachments),
     title,
@@ -223,15 +314,58 @@ function SharedNoteDocument({
       }
     >
       <div className="h-full overflow-auto px-3 pt-2 pb-6">
-        <NoteEditor
-          key={contentKey}
-          className="session-note-editor"
-          initialContent={content}
-          onLinkOpen={openEditorLink}
-          readOnly
-          resolveAttachment={resolveAttachment}
-          showFormatToolbar={false}
-        />
+        <div ref={editorContainerRef} className="relative">
+          <NoteEditor
+            key={contentKey}
+            className="session-note-editor"
+            commentAnchorsEnabled={commentsEnabled}
+            initialContent={content}
+            onCommentAnchorsEvent={
+              commentsEnabled ? handleCommentAnchorsEvent : undefined
+            }
+            onLinkOpen={openEditorLink}
+            onViewDisposed={
+              commentsEnabled
+                ? () => {
+                    setView(null);
+                    setOpenAnchor(null);
+                  }
+                : undefined
+            }
+            onViewReady={commentsEnabled ? setView : undefined}
+            readOnly
+            resolveAttachment={resolveAttachment}
+            showFormatToolbar={false}
+          />
+          {openAnchor && openComments.length > 0 && (
+            <Popover
+              open
+              onOpenChange={(open) => {
+                if (!open) closeCommentPopover();
+              }}
+            >
+              <PopoverAnchor asChild>
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute size-0"
+                  style={{ left: openAnchor.left, top: openAnchor.top }}
+                />
+              </PopoverAnchor>
+              <PopoverContent
+                align="start"
+                side="bottom"
+                className="max-h-80 w-80 overflow-y-auto p-0"
+              >
+                {openComments.map((comment) => (
+                  <SharedNoteCommentItem
+                    key={comment.commentId}
+                    comment={comment}
+                  />
+                ))}
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
         <SharedAttachmentList
           attachments={attachments}
           body={body}
@@ -240,6 +374,34 @@ function SharedNoteDocument({
       </div>
     </SessionSurface>
   );
+}
+
+function SharedNoteCommentItem({ comment }: { comment: SessionShareComment }) {
+  return (
+    <div className="border-border/60 border-b px-4 py-3 last:border-b-0">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-sm font-medium">
+          {comment.isAuthor ? <Trans>You</Trans> : <Trans>Collaborator</Trans>}
+        </span>
+        <span className="text-muted-foreground shrink-0 text-xs">
+          {formatDistanceToNow(new Date(comment.createdAt), {
+            addSuffix: true,
+          })}
+        </span>
+      </div>
+      {comment.anchor && (
+        <p className="text-muted-foreground border-border/60 mt-1.5 truncate border-l-2 pl-2 text-xs italic">
+          {truncateCommentQuote(comment.anchor.quoteExact)}
+        </p>
+      )}
+      <p className="mt-1.5 text-sm whitespace-pre-wrap">{comment.body}</p>
+    </div>
+  );
+}
+
+function truncateCommentQuote(quote: string, maxLength = 80) {
+  if (quote.length <= maxLength) return quote;
+  return `${quote.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
 function hydrateSharedAttachmentAttrs(

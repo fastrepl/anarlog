@@ -20,6 +20,7 @@ import { useMentionConfig } from "~/editor-bridge/mention-config";
 import { openEditorLink } from "~/editor-bridge/open-editor-link";
 import { sessionMentionDropConfig } from "~/editor-bridge/session-mention-drop";
 import { SessionNodeView } from "~/editor-bridge/session-view";
+import { useSessionCommentAnchors } from "~/session-sharing/comment-anchors";
 import { hasStoredNoteContent } from "~/session/components/shared";
 import { useAttachmentResolver } from "~/session/hooks/useAttachmentResolver";
 import { useUpdateSession } from "~/session/queries";
@@ -114,6 +115,7 @@ export const RawEditor = forwardRef<
     );
 
     const mentionConfig = useMentionConfig();
+    const commentAnchors = useSessionCommentAnchors(sessionId);
     return (
       <AudioDropTarget
         targetProps={audioDropTargetProps}
@@ -140,8 +142,15 @@ export const RawEditor = forwardRef<
             }
             extraNodeViews={extraNodeViews}
             showFormatToolbar={showFormatToolbar}
-            onViewReady={onViewReady}
-            onViewDisposed={onViewDisposed}
+            commentAnchorsEnabled
+            onViewReady={(view) => {
+              commentAnchors.onViewReady(view);
+              onViewReady?.(view);
+            }}
+            onViewDisposed={(view) => {
+              commentAnchors.onViewDisposed(view);
+              onViewDisposed?.(view);
+            }}
           />
           <MeetingChatHighlights sessionId={sessionId} />
         </>

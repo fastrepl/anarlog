@@ -4,10 +4,13 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createOrReuseSessionShare,
   createSessionAccessInvitation,
+  createSessionShareComment,
   deleteSessionShareBySession,
+  deleteSessionShareComment,
   enableSessionShareLink,
   getSessionShareManagement,
   listSessionShareAccess,
+  listSessionShareComments,
   parseSessionShareDocument,
   publishBeforeAccessMutation,
   publishSessionShareSnapshot,
@@ -374,6 +377,241 @@ describe("session share management client", () => {
         workspaceId,
         sessionId: "local-session-id",
       }),
+    ).rejects.toBeInstanceOf(ShareManagementError);
+  });
+});
+
+const commentId = "99999999-9999-4999-8999-999999999999";
+
+function commentRow(overrides: Record<string, unknown> = {}) {
+  return {
+    comment_id: commentId,
+    is_author: true,
+    snapshot_content_revision: 3,
+    body: "A comment",
+    anchor_quote_exact: null,
+    anchor_quote_prefix: null,
+    anchor_quote_suffix: null,
+    anchor_from_hint: null,
+    anchor_to_hint: null,
+    created_at: timestamp,
+    ...overrides,
+  };
+}
+
+function anchoredCommentRow(overrides: Record<string, unknown> = {}) {
+  return commentRow({
+    anchor_quote_exact: "quoted text",
+    anchor_quote_prefix: "before ",
+    anchor_quote_suffix: " after",
+    anchor_from_hint: 4,
+    anchor_to_hint: 15,
+    ...overrides,
+  });
+}
+
+describe("session share comments", () => {
+  it("creates an anchored comment with all anchor parameters and an auth header", async () => {
+    const harness = rpcHarness([anchoredCommentRow()]);
+
+    await expect(
+      createSessionShareComment(harness.context, {
+        shareId,
+        body: "  A comment  ",
+        anchor: {
+          quoteExact: "quoted text",
+          quotePrefix: "before ",
+          quoteSuffix: " after",
+          fromHint: 4,
+          toHint: 15,
+        },
+      }),
+    ).resolves.toEqual({
+      commentId,
+      isAuthor: true,
+      snapshotContentRevision: 3,
+      body: "A comment",
+      anchor: {
+        quoteExact: "quoted text",
+        quotePrefix: "before ",
+        quoteSuffix: " after",
+        fromHint: 4,
+        toHint: 15,
+      },
+      createdAt: timestamp,
+    });
+    expect(harness.rpc).toHaveBeenCalledWith("create_session_share_comment", {
+      p_share_id: shareId,
+      p_body: "A comment",
+      p_anchor_quote_exact: "quoted text",
+      p_anchor_quote_prefix: "before ",
+      p_anchor_quote_suffix: " after",
+      p_anchor_from_hint: 4,
+      p_anchor_to_hint: 15,
+    });
+    expect(harness.setHeader).toHaveBeenCalledWith(
+      "Authorization",
+      "Bearer authenticated-access-token",
+    );
+  });
+
+  it("creates an unanchored comment with explicit null anchor parameters", async () => {
+    const harness = rpcHarness([commentRow()]);
+
+    await expect(
+      createSessionShareComment(harness.context, {
+        shareId,
+        body: "A comment",
+      }),
+    ).resolves.toMatchObject({ commentId, anchor: null });
+    expect(harness.rpc).toHaveBeenCalledWith("create_session_share_comment", {
+      p_share_id: shareId,
+      p_body: "A comment",
+      p_anchor_quote_exact: null,
+      p_anchor_quote_prefix: null,
+      p_anchor_quote_suffix: null,
+      p_anchor_from_hint: null,
+      p_anchor_to_hint: null,
+    });
+  });
+
+  it("rejects malformed comment rows and echo mismatches", async () => {
+    const partialTrio = rpcHarness([
+      anchoredCommentRow({ anchor_quote_suffix: null }),
+    ]);
+    await expect(
+      createSessionShareComment(partialTrio.context, {
+        shareId,
+        body: "A comment",
+        anchor: {
+          quoteExact: "quoted text",
+          quotePrefix: "before ",
+          quoteSuffix: " after",
+          fromHint: null,
+          toHint: null,
+        },
+      }),
+    ).rejects.toBeInstanceOf(ShareManagementError);
+
+    const hintsWithoutQuotes = rpcHarness([
+      commentRow({ anchor_from_hint: 4, anchor_to_hint: 15 }),
+    ]);
+    await expect(
+      createSessionShareComment(hintsWithoutQuotes.context, {
+        shareId,
+        body: "A comment",
+      }),
+    ).rejects.toBeInstanceOf(ShareManagementError);
+
+    const extraKey = rpcHarness([commentRow({ unexpected: "field" })]);
+    await expect(
+      createSessionShareComment(extraKey.context, {
+        shareId,
+        body: "A comment",
+      }),
+    ).rejects.toBeInstanceOf(ShareManagementError);
+
+    const { created_at: _dropped, ...missingKeyRow } = commentRow();
+    const missingKey = rpcHarness([missingKeyRow]);
+    await expect(
+      createSessionShareComment(missingKey.context, {
+        shareId,
+        body: "A comment",
+      }),
+    ).rejects.toBeInstanceOf(ShareManagementError);
+
+    const notAuthor = rpcHarness([commentRow({ is_author: false })]);
+    await expect(
+      createSessionShareComment(notAuthor.context, {
+        shareId,
+        body: "A comment",
+      }),
+    ).rejects.toBeInstanceOf(ShareManagementError);
+
+    const anchorDropped = rpcHarness([commentRow()]);
+    await expect(
+      createSessionShareComment(anchorDropped.context, {
+        shareId,
+        body: "A comment",
+        anchor: {
+          quoteExact: "quoted text",
+          quotePrefix: "",
+          quoteSuffix: "",
+          fromHint: null,
+          toHint: null,
+        },
+      }),
+    ).rejects.toBeInstanceOf(ShareManagementError);
+  });
+
+  it("lists a page of 30 ascending comments with a lookahead-derived cursor", async () => {
+    const newestFirstRows = Array.from({ length: 31 }, (_, index) =>
+      commentRow({
+        comment_id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+        body: `Comment ${index}`,
+        created_at: new Date(
+          Date.parse(timestamp) - index * 1000,
+        ).toISOString(),
+      }),
+    );
+    const harness = rpcHarness(newestFirstRows);
+
+    const page = await listSessionShareComments(harness.context, { shareId });
+
+    expect(harness.rpc).toHaveBeenCalledWith("list_session_share_comments", {
+      p_share_id: shareId,
+      p_before_created_at: null,
+      p_before_comment_id: null,
+      p_limit: 31,
+    });
+    expect(page.comments).toHaveLength(30);
+    expect(page.comments[0]?.body).toBe("Comment 29");
+    expect(page.comments[29]?.body).toBe("Comment 0");
+    expect(page.nextCursor).toEqual({
+      beforeCreatedAt: new Date(
+        Date.parse(timestamp) - 29 * 1000,
+      ).toISOString(),
+      beforeCommentId: "00000000-0000-4000-8000-000000000029",
+    });
+  });
+
+  it("omits the cursor on a final page and forwards an explicit cursor", async () => {
+    const harness = rpcHarness([anchoredCommentRow(), commentRow()]);
+
+    const page = await listSessionShareComments(harness.context, {
+      shareId,
+      before: { beforeCreatedAt: timestamp, beforeCommentId: commentId },
+    });
+
+    expect(harness.rpc).toHaveBeenCalledWith("list_session_share_comments", {
+      p_share_id: shareId,
+      p_before_created_at: timestamp,
+      p_before_comment_id: commentId,
+      p_limit: 31,
+    });
+    expect(page.nextCursor).toBeNull();
+    expect(page.comments.map((comment) => comment.anchor !== null)).toEqual([
+      false,
+      true,
+    ]);
+  });
+
+  it("deletes a comment and verifies the identifier round-trip", async () => {
+    const harness = rpcHarness([
+      { comment_id: commentId, deleted_at: timestamp },
+    ]);
+    await expect(
+      deleteSessionShareComment(harness.context, commentId),
+    ).resolves.toEqual({ commentId, deletedAt: timestamp });
+    expect(harness.rpc).toHaveBeenCalledWith("delete_session_share_comment", {
+      p_comment_id: commentId,
+    });
+
+    const mismatched = rpcHarness([
+      { comment_id: shareId, deleted_at: timestamp },
+    ]);
+    await expect(
+      deleteSessionShareComment(mismatched.context, commentId),
     ).rejects.toBeInstanceOf(ShareManagementError);
   });
 });

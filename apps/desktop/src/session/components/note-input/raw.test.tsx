@@ -78,6 +78,13 @@ vi.mock("~/editor-bridge/session-view", () => ({
   SessionNodeView: () => null,
 }));
 
+vi.mock("~/session-sharing/comment-anchors", () => ({
+  useSessionCommentAnchors: () => ({
+    onViewReady: vi.fn(),
+    onViewDisposed: vi.fn(),
+  }),
+}));
+
 vi.mock("~/session/components/shared", () => ({
   hasStoredNoteContent: (value: unknown) => Boolean(value),
 }));
