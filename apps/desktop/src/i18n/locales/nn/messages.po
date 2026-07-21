@@ -198,6 +198,10 @@ msgstr ""
 msgid "Anarlog sends these separately, so editing the prompt cannot remove the meeting source material."
 msgstr ""
 
+#: src/main/sync-status.tsx
+msgid "Anarlog will keep retrying"
+msgstr ""
+
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Anarlog will retry automatically. This does not affect your notes."
 msgstr ""
@@ -291,6 +295,10 @@ msgstr "Begynn automatisk å lytte når et hendelsesstøttet notat når sin plan
 #: src/settings/general/app-settings.tsx
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Slutt automatisk å lytte når møteappen slipper mikrofonen."
+
+#: src/main/sync-status.tsx
+msgid "Available with Anarlog Pro"
+msgstr ""
 
 #: src/settings/general/app-settings.tsx
 msgid "Available with Anarlog Pro."
@@ -420,8 +428,14 @@ msgstr ""
 msgid "Closed"
 msgstr ""
 
+#: src/main/sync-status.tsx
 #: src/settings/general/app-settings.tsx
 msgid "Cloud sync"
+msgstr ""
+
+#. placeholder {0}: view.label
+#: src/main/sync-status.tsx
+msgid "Cloud sync status: {0}"
 msgstr ""
 
 #: src/task/resource-view.tsx
@@ -496,6 +510,10 @@ msgstr ""
 
 #: src/instruction/index.tsx
 msgid "Connect your integration"
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Connecting..."
 msgstr ""
 
 #: src/sidebar/contacts.tsx
@@ -994,6 +1012,11 @@ msgstr "Språk for sammendrag, chatter og AI-genererte svar"
 msgid "Language model is needed to make Anarlog summarize and chat about your conversations."
 msgstr ""
 
+#. placeholder {0}: formatDistanceToNow( new Date(status.last_sync_at_ms), { addSuffix: true }, )
+#: src/main/sync-status.tsx
+msgid "Last synced {0}"
+msgstr ""
+
 #: src/chat/components/message/error.tsx
 msgid "Learn how to fix this"
 msgstr ""
@@ -1375,6 +1398,10 @@ msgstr ""
 msgid "Paste the browser URL here if the browser button did not reopen Anarlog."
 msgstr ""
 
+#: src/main/sync-status.tsx
+msgid "Pause sync"
+msgstr ""
+
 #: src/contacts/organization-details.tsx
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "People"
@@ -1568,6 +1595,10 @@ msgstr ""
 msgid "Resume listening"
 msgstr ""
 
+#: src/main/sync-status.tsx
+msgid "Resume sync"
+msgstr ""
+
 #: src/chat/components/message/error.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
@@ -1722,6 +1753,10 @@ msgstr ""
 
 #: src/session/components/note-input/enhanced/config-error.tsx
 msgid "Set up AI summaries"
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Setting up cloud sync"
 msgstr ""
 
 #: src/main/empty.tsx
@@ -1969,8 +2004,32 @@ msgstr ""
 msgid "Symbols"
 msgstr ""
 
+#: src/main/sync-status.tsx
+msgid "Sync issue"
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Sync now"
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Sync paused"
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Sync settings"
+msgstr ""
+
 #: src/settings/general/account.tsx
 msgid "Sync your changes before signing out."
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Synced"
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Syncing..."
 msgstr ""
 
 #: src/settings/general/theme.tsx
@@ -2126,6 +2185,7 @@ msgid "Upgrade to expand access. You can still restrict or revoke existing acces
 msgstr ""
 
 #: src/calendar/components/sidebar.tsx
+#: src/main/sync-status.tsx
 #: src/session-sharing/index.tsx
 msgid "Upgrade to Pro"
 msgstr ""
@@ -2224,6 +2284,10 @@ msgstr ""
 
 #: src/settings/general/account.tsx
 msgid "Your Account"
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Your notes are stored on this device only"
 msgstr ""
 
 #: src/settings/general/e2ee-setup.tsx

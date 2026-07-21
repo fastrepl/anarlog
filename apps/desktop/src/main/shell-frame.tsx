@@ -2,6 +2,7 @@ import { memo } from "react";
 
 import { ClassicMainBody } from "./body";
 import { resolveMainSurfaceChrome } from "./main-surface-chrome";
+import { SyncStatusIndicator } from "./sync-status";
 
 import { useShell } from "~/contexts/shell";
 import { MainShellBodyFrame, MainShellScaffold } from "~/shared/main";
@@ -37,6 +38,7 @@ export function ClassicMainShellFrame() {
       mainSurfaceChrome={isOnboarding ? undefined : mainSurfaceChrome}
     >
       <ClassicMainBodyHost />
+      {!isOnboarding && <SyncStatusIndicator />}
       <ToastNotifications />
     </MainShellScaffold>
   );

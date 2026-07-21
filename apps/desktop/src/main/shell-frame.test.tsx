@@ -45,6 +45,10 @@ vi.mock("~/sidebar/toast", () => ({
   ToastNotifications: () => <div data-testid="toast-notifications" />,
 }));
 
+vi.mock("./sync-status", () => ({
+  SyncStatusIndicator: () => <div data-testid="sync-status-indicator" />,
+}));
+
 vi.mock("~/store/zustand/tabs", () => ({
   useTabs: (
     selector: (state: { currentTab: typeof mocks.currentTab }) => unknown,
