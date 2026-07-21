@@ -90,9 +90,19 @@ export function ChatPanelFrame({
     [setGroupId],
   );
 
+  const handleGroupCreateFailed = useCallback(
+    (failedGroupId: string) => {
+      if (groupId === failedGroupId) {
+        setGroupId(undefined);
+      }
+    },
+    [groupId, setGroupId],
+  );
+
   const { handleSendMessage } = useChatActions({
     groupId,
     onGroupCreated: handleGroupCreated,
+    onGroupCreateFailed: handleGroupCreateFailed,
   });
 
   return (

@@ -14,6 +14,7 @@ import {
   type DisplayEntity,
   useChatContextPipeline,
 } from "~/chat/context/use-chat-context-pipeline";
+import { hasPendingChatPersist } from "~/chat/store/pending-persists";
 import {
   buildPersistedChatMessage,
   getVisibleChatMessages,
@@ -228,6 +229,10 @@ export function ChatSession({
     if (
       status !== "ready" ||
       !chatGroupId ||
+      // An outbound send's write (with retries) may still be in flight; the
+      // persisted set is legitimately behind it and reconciling now would
+      // wipe the turn the user just sent.
+      hasPendingChatPersist(chatGroupId) ||
       areMessagesEqual(messages, persistedVisibleMessages)
     ) {
       return;

@@ -110,8 +110,13 @@ describe("useChatActions", () => {
       .spyOn(console, "error")
       .mockImplementation(() => {});
     const sendMessage = vi.fn();
+    const onGroupCreateFailed = vi.fn();
     const { result } = renderHook(() =>
-      useChatActions({ groupId: undefined, onGroupCreated: vi.fn() }),
+      useChatActions({
+        groupId: undefined,
+        onGroupCreated: vi.fn(),
+        onGroupCreateFailed,
+      }),
     );
 
     act(() => {
@@ -123,15 +128,52 @@ describe("useChatActions", () => {
     });
 
     expect(sendMessage).toHaveBeenCalledOnce();
-    await waitFor(() =>
-      expect(consoleError).toHaveBeenCalledWith(
-        "Failed to persist outgoing chat message",
-        error,
-      ),
+    await waitFor(
+      () =>
+        expect(consoleError).toHaveBeenCalledWith(
+          "Failed to persist outgoing chat message",
+          error,
+        ),
+      { timeout: 3000 },
     );
     expect(mocks.toastError).toHaveBeenCalledWith(
       "Could not save this chat message.",
     );
+    expect(mocks.createChatGroupWithMessage).toHaveBeenCalledTimes(3);
+    expect(onGroupCreateFailed).toHaveBeenCalledWith("group-1");
+    consoleError.mockRestore();
+  });
+
+  it("retries a transient persist failure without failing the group", async () => {
+    mocks.createChatGroupWithMessage
+      .mockRejectedValueOnce(new Error("database is locked"))
+      .mockResolvedValueOnce(undefined);
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const onGroupCreateFailed = vi.fn();
+    const { result } = renderHook(() =>
+      useChatActions({
+        groupId: undefined,
+        onGroupCreated: vi.fn(),
+        onGroupCreateFailed,
+      }),
+    );
+
+    act(() => {
+      result.current.handleSendMessage(
+        "Hello",
+        [{ type: "text", text: "Hello" }],
+        vi.fn(),
+      );
+    });
+
+    await waitFor(
+      () => expect(mocks.createChatGroupWithMessage).toHaveBeenCalledTimes(2),
+      { timeout: 3000 },
+    );
+    expect(mocks.toastError).not.toHaveBeenCalled();
+    expect(onGroupCreateFailed).not.toHaveBeenCalled();
     consoleError.mockRestore();
   });
 });

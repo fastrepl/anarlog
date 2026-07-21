@@ -3,6 +3,10 @@ import { useCallback } from "react";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import { createFallbackChatTitle, generateChatTitle } from "./chat-title";
+import {
+  beginPendingChatPersist,
+  endPendingChatPersist,
+} from "./pending-persists";
 import { buildPersistedChatMessage } from "./persisted-messages";
 import {
   createChatGroupWithMessage,
@@ -16,12 +20,35 @@ import type { HyprUIMessage } from "~/chat/types";
 import { useOwnerUserId } from "~/shared/owner-user";
 import { id } from "~/shared/utils";
 
+// Local writes normally land in milliseconds; retries cover transient
+// "database is locked" contention so a send does not lose its turn to a
+// momentary lock.
+const PERSIST_RETRY_DELAYS_MS = [120, 360];
+
+async function persistWithRetry(run: () => Promise<unknown>) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await run();
+      return;
+    } catch (error) {
+      if (attempt >= PERSIST_RETRY_DELAYS_MS.length) {
+        throw error;
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, PERSIST_RETRY_DELAYS_MS[attempt]),
+      );
+    }
+  }
+}
+
 export function useChatActions({
   groupId,
   onGroupCreated,
+  onGroupCreateFailed,
 }: {
   groupId: string | undefined;
   onGroupCreated: (newGroupId: string) => void;
+  onGroupCreateFailed?: (failedGroupId: string) => void;
 }) {
   const ownerUserId = useOwnerUserId();
   const titleModel = useLanguageModel("title");
@@ -98,22 +125,24 @@ export function useChatActions({
       const fallbackTitle = groupId
         ? undefined
         : createFallbackChatTitle(content);
-      const persist = fallbackTitle
-        ? createChatGroupWithMessage({
-            groupId: currentGroupId,
-            ownerUserId,
-            title: fallbackTitle,
-            createdAt: message.createdAt,
-            message,
-          })
-        : upsertChatMessage(message);
+      const runPersist = fallbackTitle
+        ? () =>
+            createChatGroupWithMessage({
+              groupId: currentGroupId,
+              ownerUserId,
+              title: fallbackTitle,
+              createdAt: message.createdAt,
+              message,
+            })
+        : () => upsertChatMessage(message);
 
       sendMessage(uiMessage, { chatGroupId: currentGroupId });
       if (fallbackTitle) {
         onGroupCreated(currentGroupId);
       }
 
-      void persist
+      beginPendingChatPersist(currentGroupId);
+      void persistWithRetry(runPersist)
         .then(() => {
           if (fallbackTitle) {
             queueChatTitleGeneration({
@@ -126,9 +155,23 @@ export function useChatActions({
         .catch((error) => {
           console.error("Failed to persist outgoing chat message", error);
           sonnerToast.error("Could not save this chat message.");
+          if (fallbackTitle) {
+            // The group row was never created; leaving the shell pointed at
+            // it would orphan every follow-up message.
+            onGroupCreateFailed?.(currentGroupId);
+          }
+        })
+        .finally(() => {
+          endPendingChatPersist(currentGroupId);
         });
     },
-    [groupId, ownerUserId, onGroupCreated, queueChatTitleGeneration],
+    [
+      groupId,
+      ownerUserId,
+      onGroupCreated,
+      onGroupCreateFailed,
+      queueChatTitleGeneration,
+    ],
   );
 
   return { handleSendMessage };
