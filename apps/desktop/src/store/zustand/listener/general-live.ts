@@ -18,6 +18,7 @@ import {
   type LiveTranscriptDelta,
   type LiveTranscriptSegmentDelta,
 } from "@hypr/plugin-transcription";
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import {
   type GeneralState,
@@ -26,7 +27,9 @@ import {
   markLiveFinalizing,
   markLiveInactive,
   markLiveStartFailed,
+  noteLiveTranscriptActivity,
   setLiveState,
+  tickTranscriptionStallWatchdog,
   updateLiveAmplitude,
   updateLiveProgress,
 } from "./general-shared";
@@ -91,6 +94,32 @@ const clearLiveInterval = (intervalId?: LiveIntervalId) => {
   }
 };
 
+const notifyTranscriptionStalled = () => {
+  sonnerToast.warning("Live transcription stalled", {
+    id: "live-transcription-stalled",
+    description:
+      "Anarlog keeps recording. The missing part of the transcript will be rebuilt from the recording when you stop listening.",
+  });
+};
+
+const createLiveSecondsInterval = <T extends GeneralState>(
+  set: StoreApi<T>["setState"],
+  guard?: (live: GeneralState["live"]) => boolean,
+): LiveIntervalId =>
+  setInterval(() => {
+    let stalled = false;
+    setLiveState(set, (live) => {
+      if (guard && !guard(live)) {
+        return;
+      }
+      live.seconds += 1;
+      stalled = tickTranscriptionStallWatchdog(live);
+    });
+    if (stalled) {
+      notifyTranscriptionStalled();
+    }
+  }, 1000);
+
 const clearLiveEventUnlisteners = (unlisteners?: (() => void)[]) => {
   unlisteners?.forEach((fn) => fn());
 };
@@ -123,11 +152,7 @@ const createSessionEventHandlers = <T extends LiveStore>(
 
       clearLiveInterval(currentLive.intervalId);
 
-      const intervalId = setInterval(() => {
-        setLiveState(set, (live) => {
-          live.seconds += 1;
-        });
-      }, 1000);
+      const intervalId = createLiveSecondsInterval(set);
 
       void iconCommands.setRecordingIndicator(true);
 
@@ -224,15 +249,20 @@ const createSessionEventHandlers = <T extends LiveStore>(
     }
 
     if (payload.type === "transcript_delta") {
-      get().handleTranscriptDelta(
-        targetSessionId,
-        payload.delta as unknown as LiveTranscriptDelta,
-        {
-          updateLivePreview:
-            get().live.sessionId === targetSessionId &&
-            get().live.liveTranscriptionActive === true,
-        },
-      );
+      const delta = payload.delta as unknown as LiveTranscriptDelta;
+      if (
+        get().live.sessionId === targetSessionId &&
+        (delta.new_words.length > 0 || delta.partials.length > 0)
+      ) {
+        setLiveState(set, (live) => {
+          noteLiveTranscriptActivity(live);
+        });
+      }
+      get().handleTranscriptDelta(targetSessionId, delta, {
+        updateLivePreview:
+          get().live.sessionId === targetSessionId &&
+          get().live.liveTranscriptionActive === true,
+      });
       return;
     }
 
@@ -439,16 +469,11 @@ function applyCaptureSnapshot<T extends GeneralState>(
     const intervalId =
       currentLive.sessionId === targetSessionId && currentLive.intervalId
         ? currentLive.intervalId
-        : setInterval(() => {
-            setLiveState(set, (live) => {
-              if (
-                live.sessionId === targetSessionId &&
-                live.status === "active"
-              ) {
-                live.seconds += 1;
-              }
-            });
-          }, 1000);
+        : createLiveSecondsInterval(
+            set,
+            (live) =>
+              live.sessionId === targetSessionId && live.status === "active",
+          );
 
     setLiveState(set, (live) => {
       markLiveActive(
@@ -512,16 +537,12 @@ export const stopLiveSession = <T extends GeneralState>(
           if (sessionId && live.sessionId === sessionId) {
             delete live.finalizingBySession[sessionId];
             if (live.status === "finalizing") {
-              const intervalId = setInterval(() => {
-                setLiveState(set, (currentLive) => {
-                  if (
-                    currentLive.sessionId === sessionId &&
-                    currentLive.status === "active"
-                  ) {
-                    currentLive.seconds += 1;
-                  }
-                });
-              }, 1000);
+              const intervalId = createLiveSecondsInterval(
+                set,
+                (currentLive) =>
+                  currentLive.sessionId === sessionId &&
+                  currentLive.status === "active",
+              );
               live.status = "active";
               live.intervalId = intervalId;
             }

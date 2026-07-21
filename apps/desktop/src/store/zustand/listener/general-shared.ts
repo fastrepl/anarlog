@@ -25,6 +25,9 @@ export type LiveStartBlockReason =
 
 export type LiveIntervalId = ReturnType<typeof setInterval>;
 
+export const TRANSCRIPTION_STALL_AMPLITUDE_THRESHOLD = 0.05;
+export const TRANSCRIPTION_STALL_AUDIBLE_SECONDS = 45;
+
 export type GeneralState = {
   live: {
     eventUnlistenersBySession: Record<string, (() => void)[]>;
@@ -42,6 +45,8 @@ export type GeneralState = {
     requestedLiveTranscription: boolean | null;
     liveTranscriptionActive: boolean | null;
     needsBatchRepair: boolean;
+    stallAudibleSeconds: number;
+    transcriptionStalled: boolean;
     finalizingBySession: Record<
       string,
       { startedAtMs: number; seconds: number; needsBatchRepair: boolean }
@@ -67,6 +72,8 @@ const initialLiveState: LiveState = {
   requestedLiveTranscription: null,
   liveTranscriptionActive: null,
   needsBatchRepair: false,
+  stallAudibleSeconds: 0,
+  transcriptionStalled: false,
   finalizingBySession: {},
   triggerAppIds: null,
 };
@@ -128,6 +135,8 @@ export const markLiveStartRequested = (live: LiveState, sessionId: string) => {
   live.requestedLiveTranscription = null;
   live.liveTranscriptionActive = null;
   live.needsBatchRepair = false;
+  live.stallAudibleSeconds = 0;
+  live.transcriptionStalled = false;
 };
 
 export const markLiveActive = (
@@ -150,6 +159,8 @@ export const markLiveActive = (
   live.needsBatchRepair ||=
     requestedLiveTranscription &&
     (!liveTranscriptionActive || degraded !== null);
+  live.stallAudibleSeconds = 0;
+  live.transcriptionStalled = false;
 };
 
 export const markLiveFinalizing = (live: LiveState, sessionId: string) => {
@@ -184,6 +195,8 @@ export const markLiveInactive = (live: LiveState, error: string | null) => {
   live.requestedLiveTranscription = null;
   live.liveTranscriptionActive = null;
   live.needsBatchRepair = false;
+  live.stallAudibleSeconds = 0;
+  live.transcriptionStalled = false;
   live.muted = initialLiveState.muted;
   live.triggerAppIds = null;
 };
@@ -203,7 +216,46 @@ export const markLiveStartFailed = (live: LiveState) => {
   live.requestedLiveTranscription = null;
   live.liveTranscriptionActive = null;
   live.needsBatchRepair = false;
+  live.stallAudibleSeconds = 0;
+  live.transcriptionStalled = false;
   live.triggerAppIds = null;
+};
+
+// Live STT can hang mid-session without any error or degraded event from the
+// capture pipeline (the stream simply stops delivering words while audio keeps
+// flowing). Count audible seconds since the last transcript activity; past the
+// threshold, flag the session so stop() runs a batch repair from the recording.
+export const tickTranscriptionStallWatchdog = (live: LiveState): boolean => {
+  if (
+    live.status !== "active" ||
+    live.requestedLiveTranscription !== true ||
+    live.liveTranscriptionActive !== true ||
+    live.transcriptionStalled ||
+    live.muted
+  ) {
+    return false;
+  }
+
+  const audible =
+    Math.max(live.amplitude.mic, live.amplitude.speaker) >=
+    TRANSCRIPTION_STALL_AMPLITUDE_THRESHOLD;
+  if (!audible) {
+    return false;
+  }
+
+  live.stallAudibleSeconds += 1;
+  if (live.stallAudibleSeconds < TRANSCRIPTION_STALL_AUDIBLE_SECONDS) {
+    return false;
+  }
+
+  live.transcriptionStalled = true;
+  live.needsBatchRepair = true;
+  return true;
+};
+
+export const noteLiveTranscriptActivity = (live: LiveState) => {
+  live.stallAudibleSeconds = 0;
+  live.transcriptionStalled = false;
 };
 
 export const updateLiveProgress = (
