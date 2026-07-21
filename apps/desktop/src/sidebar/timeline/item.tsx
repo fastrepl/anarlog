@@ -8,6 +8,7 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useState,
 } from "react";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
@@ -384,16 +385,21 @@ const EventItem = memo(
       [item.data.started_at, precision, timezone],
     );
 
+    const [isOpening, setIsOpening] = useState(false);
     const openEvent = useCallback(() => {
-      if (!eventId) return;
+      if (!eventId || isOpening) return;
+      setIsOpening(true);
       void getOrCreateSessionForEventId(eventId, title)
         .then((sessionId) => {
           openCurrent({ id: sessionId, type: "sessions" });
         })
         .catch((error) => {
           console.error("[timeline] failed to open event note", error);
+        })
+        .finally(() => {
+          setIsOpening(false);
         });
-    }, [eventId, title, openCurrent]);
+    }, [eventId, title, openCurrent, isOpening]);
 
     const itemKey = `event-${item.id}`;
     const muted = isTimelineItemInFuture(item);
@@ -480,6 +486,7 @@ const EventItem = memo(
       <ItemBase
         title={title}
         displayTime={displayTime}
+        showSpinner={isOpening}
         selected={selected}
         ignored={ignored}
         muted={muted}

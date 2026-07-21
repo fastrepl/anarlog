@@ -6,7 +6,7 @@ import {
   Loader2Icon,
   RefreshCwIcon,
 } from "lucide-react";
-import { type MouseEvent } from "react";
+import { type MouseEvent, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
@@ -185,10 +185,21 @@ function CalendarToggleRow({
 }) {
   const color = calendar.color ?? "#888";
 
+  // Optimistic check state: the write goes through the DB queue and the
+  // enabled prop only flips after the live query re-emits.
+  const [pending, setPending] = useState<boolean | null>(null);
+  if (pending !== null && pending === enabled) {
+    setPending(null);
+  }
+  const shownEnabled = pending ?? enabled;
+
   return (
     <button
       type="button"
-      onClick={() => onToggle(!enabled)}
+      onClick={() => {
+        setPending(!shownEnabled);
+        onToggle(!shownEnabled);
+      }}
       className="flex w-full items-center gap-2 py-1 pr-2 pl-0 text-left"
     >
       <div
@@ -197,12 +208,12 @@ function CalendarToggleRow({
           "transition-colors duration-100",
         ])}
         style={
-          enabled
+          shownEnabled
             ? { backgroundColor: color, borderColor: color }
             : { borderColor: color }
         }
       >
-        {enabled && (
+        {shownEnabled && (
           <CheckIcon
             className="text-primary-foreground size-3"
             strokeWidth={3}

@@ -333,17 +333,17 @@ export class EnhancerService {
     }
 
     const llmConn = getLLMConn();
-    try {
-      await analyticsCommands.event({
+    void analyticsCommands
+      .event({
         event: "note_enhanced",
         is_auto: opts?.isAuto ?? false,
         llm_provider: llmConn?.providerId,
         llm_model: llmConn?.modelId,
         template_id: templateId,
+      })
+      .catch((error: unknown) => {
+        console.error("[enhancer] failed to record analytics", error);
       });
-    } catch (error) {
-      console.error("[enhancer] failed to record analytics", error);
-    }
 
     void aiTaskStore.getState().generate(enhanceTaskId, {
       model,

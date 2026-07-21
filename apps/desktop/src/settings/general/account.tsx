@@ -184,16 +184,20 @@ function PlanBillingSection({
 
   const [actionPending, setActionPending] = useState(false);
 
-  const openBillingUrl = useCallback(async (url: string) => {
-    setActionPending(true);
-    try {
-      await openUrlWithInstruction(url, "billing", (u) =>
-        openerCommands.openUrl(u, null),
-      );
-    } finally {
-      setActionPending(false);
-    }
-  }, []);
+  const openBillingUrl = useCallback(
+    async (buildUrl: () => Promise<string>) => {
+      setActionPending(true);
+      try {
+        const url = await buildUrl();
+        await openUrlWithInstruction(url, "billing", (u) =>
+          openerCommands.openUrl(u, null),
+        );
+      } finally {
+        setActionPending(false);
+      }
+    },
+    [],
+  );
 
   const planLabel = currentTier === "free" ? t`Free` : "Pro";
   const trialDaysText =
@@ -212,9 +216,8 @@ function PlanBillingSection({
       You're on the <span className="font-semibold">{planLabel}</span> plan
     </Trans>
   );
-  const handleOpenBillingPortal = useCallback(async () => {
-    const url = await buildWebAppUrl("/app/portal");
-    void openBillingUrl(url);
+  const handleOpenBillingPortal = useCallback(() => {
+    void openBillingUrl(() => buildWebAppUrl("/app/portal"));
   }, [openBillingUrl]);
 
   const renderAction = (action: TierAction, compact: boolean) => {
@@ -287,29 +290,32 @@ function PlanBillingSection({
           source: "settings",
         });
 
-        const url = await buildWebAppUrl("/app/checkout", {
-          period: "monthly",
-          trial: "true",
-          source: "settings",
-        });
-        await openBillingUrl(url);
+        await openBillingUrl(() =>
+          buildWebAppUrl("/app/checkout", {
+            period: "monthly",
+            trial: "true",
+            source: "settings",
+          }),
+        );
         return;
       }
-      if (!action.targetPlan) return;
+      const targetPlan = action.targetPlan;
+      if (!targetPlan) return;
 
       void analyticsCommands.event({
         event: "upgrade_clicked",
-        plan: action.targetPlan,
+        plan: targetPlan,
         period: "monthly",
         source: "settings",
       });
 
-      const url = await buildWebAppUrl("/app/checkout", {
-        plan: action.targetPlan,
-        period: "monthly",
-        source: "settings",
-      });
-      await openBillingUrl(url);
+      await openBillingUrl(() =>
+        buildWebAppUrl("/app/checkout", {
+          plan: targetPlan,
+          period: "monthly",
+          source: "settings",
+        }),
+      );
     };
 
     const isBusy = actionPending;
@@ -362,7 +368,8 @@ function PlanBillingSection({
           <button
             type="button"
             onClick={handleOpenBillingPortal}
-            className="text-muted-foreground hover:text-muted-foreground text-xs transition-colors"
+            disabled={actionPending}
+            className="text-muted-foreground hover:text-muted-foreground text-xs transition-colors disabled:opacity-50"
           >
             <Trans>Manage billing</Trans>
           </button>
@@ -572,17 +579,20 @@ function RefreshBillingButton() {
   const { t } = useLingui();
   const auth = useAuth();
   const handleClick = useCallback(() => {
-    auth.refreshSession();
+    void auth.refreshSession();
   }, [auth]);
 
   return (
     <button
       type="button"
       onClick={handleClick}
-      className="text-muted-foreground hover:text-muted-foreground transition-colors"
+      disabled={auth.isRefreshingSession}
+      className="text-muted-foreground hover:text-muted-foreground transition-colors disabled:opacity-50"
       aria-label={t`Refresh billing status`}
     >
-      <RefreshCw className="size-3" />
+      <RefreshCw
+        className={cn(["size-3", auth.isRefreshingSession && "animate-spin"])}
+      />
     </button>
   );
 }

@@ -1,4 +1,6 @@
+import { useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { Loader2Icon } from "lucide-react";
 import { useCallback, useMemo } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
@@ -139,15 +141,16 @@ function EventPopoverContent({
 }) {
   const openCurrent = useTabs((state) => state.openCurrent);
 
-  const handleOpen = useCallback(() => {
-    void getOrCreateSessionForEventId(eventId, event.title || "Untitled")
-      .then((sessionId) => {
-        openCurrent({ type: "sessions", id: sessionId });
-      })
-      .catch((error) => {
-        console.error("[calendar] failed to open event note", error);
-      });
-  }, [eventId, event.title, openCurrent]);
+  const openNote = useMutation({
+    mutationFn: () =>
+      getOrCreateSessionForEventId(eventId, event.title || "Untitled"),
+    onSuccess: (sessionId) => {
+      openCurrent({ type: "sessions", id: sessionId });
+    },
+    onError: (error) => {
+      console.error("[calendar] failed to open event note", error);
+    },
+  });
 
   return (
     <div className="flex flex-col gap-3 p-4">
@@ -165,8 +168,12 @@ function EventPopoverContent({
       <Button
         size="sm"
         className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-8 w-full"
-        onClick={handleOpen}
+        disabled={openNote.isPending}
+        onClick={() => openNote.mutate()}
       >
+        {openNote.isPending ? (
+          <Loader2Icon className="size-3.5 animate-spin" aria-hidden="true" />
+        ) : null}
         Open note
       </Button>
     </div>

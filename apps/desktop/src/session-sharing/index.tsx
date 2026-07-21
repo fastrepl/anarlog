@@ -1702,7 +1702,11 @@ function SessionSharePopoverContent({
                   </h3>
                   <div className="mt-3 flex items-center gap-2">
                     <Select
-                      value={generalScopeValue}
+                      value={
+                        scopeMutation.isPending && scopeMutation.variables
+                          ? scopeMutation.variables
+                          : generalScopeValue
+                      }
                       disabled={scopeMutation.isPending}
                       onValueChange={scopeMutation.mutate}
                     >
@@ -1710,6 +1714,12 @@ function SessionSharePopoverContent({
                         aria-label="General access"
                         className="h-8 min-w-0 flex-1 rounded-full text-xs"
                       >
+                        {scopeMutation.isPending ? (
+                          <Loader2Icon
+                            className="size-3.5 shrink-0 animate-spin"
+                            aria-hidden="true"
+                          />
+                        ) : null}
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1740,10 +1750,17 @@ function SessionSharePopoverContent({
                         onClick={() => scopeMutation.mutate("link")}
                         className="shrink-0"
                       >
-                        <RefreshCwIcon
-                          className="size-3.5"
-                          aria-hidden="true"
-                        />
+                        {scopeMutation.isPending ? (
+                          <Loader2Icon
+                            className="size-3.5 animate-spin"
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <RefreshCwIcon
+                            className="size-3.5"
+                            aria-hidden="true"
+                          />
+                        )}
                         <Trans>Replace link & copy</Trans>
                       </Button>
                     ) : management.generalScope === "public" ||
@@ -1756,7 +1773,14 @@ function SessionSharePopoverContent({
                         onClick={() => generalCopyMutation.mutate()}
                         className="shrink-0"
                       >
-                        <CopyIcon className="size-3.5" aria-hidden="true" />
+                        {generalCopyMutation.isPending ? (
+                          <Loader2Icon
+                            className="size-3.5 animate-spin"
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <CopyIcon className="size-3.5" aria-hidden="true" />
+                        )}
                         <Trans>Copy link</Trans>
                       </Button>
                     ) : null}
