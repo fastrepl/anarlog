@@ -104,6 +104,28 @@ describe("captureCommentAnchor", () => {
     expect(anchor?.quoteExact.startsWith("First bullet")).toBe(true);
   });
 
+  it("trims boundary separators so quotes survive neighbor-block changes", () => {
+    const document = doc(paragraph("first block"), paragraph("second block"));
+    const index = buildDocTextIndex(document);
+    const separator = index.text.indexOf(ANCHOR_BLOCK_SEPARATOR);
+    // Selection starts at the end of block one, before the separator.
+    const from = index.endPosAt(separator);
+    const to = index.endPosAt(index.text.indexOf("second") + "second".length);
+
+    const anchor = captureCommentAnchor(document, from, to, 1)!;
+    expect(anchor.quoteExact).toBe("second");
+    expect(anchor.quoteExact.startsWith(ANCHOR_BLOCK_SEPARATOR)).toBe(false);
+
+    expect(resolveCommentAnchor(document, anchor, 1)).not.toBeNull();
+
+    const withoutFirstBlock = doc(paragraph("second block"));
+    const resolved = resolveCommentAnchor(withoutFirstBlock, anchor, 2);
+    expect(resolved).not.toBeNull();
+    expect(withoutFirstBlock.textBetween(resolved!.from, resolved!.to)).toBe(
+      "second",
+    );
+  });
+
   it("returns null for empty or oversized selections", () => {
     const document = fixture();
     expect(captureCommentAnchor(document, 5, 5, 1)).toBeNull();

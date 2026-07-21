@@ -14,6 +14,9 @@ export type CommentAnchorsEvent =
 
 type CommentAnchorsState = {
   decorations: DecorationSet;
+  // Canonical ranges mapped through every transaction; decorations are a
+  // render artifact and may fragment, so ranges are never derived from them.
+  anchors: CommentAnchorInput[];
   activeId: string | null;
 };
 
@@ -39,19 +42,25 @@ export function commentAnchorsPlugin(options?: {
     key: commentAnchorsPluginKey,
     state: {
       init() {
-        return { decorations: DecorationSet.empty, activeId: null };
+        return {
+          decorations: DecorationSet.empty,
+          anchors: [],
+          activeId: null,
+        };
       },
       apply(tr, pluginState) {
         const meta = tr.getMeta(commentAnchorsPluginKey) as
           | CommentAnchorsMeta
           | undefined;
         if (meta?.type === "set") {
+          const anchors = clampAnchors(meta.anchors, tr.doc.content.size);
           return {
             decorations: buildDecorations(
               tr.doc,
-              meta.anchors,
+              anchors,
               pluginState.activeId,
             ),
+            anchors,
             activeId: pluginState.activeId,
           };
         }
@@ -59,14 +68,23 @@ export function commentAnchorsPlugin(options?: {
           return {
             decorations: buildDecorations(
               tr.doc,
-              collectAnchorRanges(pluginState.decorations),
+              pluginState.anchors,
               meta.commentId,
             ),
+            anchors: pluginState.anchors,
             activeId: meta.commentId,
           };
         }
+        if (!tr.docChanged) {
+          return pluginState;
+        }
         return {
           decorations: pluginState.decorations.map(tr.mapping, tr.doc),
+          anchors: pluginState.anchors.flatMap((anchor) => {
+            const from = tr.mapping.map(anchor.from, 1);
+            const to = tr.mapping.map(anchor.to, -1);
+            return from < to ? [{ ...anchor, from, to }] : [];
+          }),
           activeId: pluginState.activeId,
         };
       },
@@ -149,8 +167,7 @@ export function setActiveCommentAnchor(
 export function getCommentAnchorRanges(
   state: EditorState,
 ): CommentAnchorInput[] {
-  const pluginState = commentAnchorsPluginKey.getState(state);
-  return pluginState ? collectAnchorRanges(pluginState.decorations) : [];
+  return commentAnchorsPluginKey.getState(state)?.anchors ?? [];
 }
 
 /** Viewport coordinates for each anchor, for aligning side cards. */
@@ -210,26 +227,12 @@ function buildDecorations(
   return DecorationSet.create(doc, decorations);
 }
 
-function collectAnchorRanges(decorations: DecorationSet): CommentAnchorInput[] {
-  // A cross-block anchor may come back from find() as several fragments;
-  // merge per commentId so callers always see one range per comment.
-  const merged = new Map<string, CommentAnchorInput>();
-  for (const decoration of decorations.find()) {
-    const commentId = decoration.spec.commentId;
-    if (typeof commentId !== "string" || decoration.from >= decoration.to) {
-      continue;
-    }
-    const existing = merged.get(commentId);
-    if (existing) {
-      existing.from = Math.min(existing.from, decoration.from);
-      existing.to = Math.max(existing.to, decoration.to);
-    } else {
-      merged.set(commentId, {
-        commentId,
-        from: decoration.from,
-        to: decoration.to,
-      });
-    }
-  }
-  return [...merged.values()];
+function clampAnchors(
+  anchors: CommentAnchorInput[],
+  size: number,
+): CommentAnchorInput[] {
+  return anchors.filter(
+    (anchor) =>
+      anchor.from < anchor.to && anchor.from >= 0 && anchor.to <= size,
+  );
 }

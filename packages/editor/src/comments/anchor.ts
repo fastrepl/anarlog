@@ -33,8 +33,13 @@ export function captureCommentAnchor(
 ): CommentAnchor | null {
   if (to <= from) return null;
   const index = buildDocTextIndex(doc);
-  const fromIndex = index.indexAt(from);
-  const toIndex = index.indexAt(to);
+  let fromIndex = index.indexAt(from);
+  let toIndex = index.indexAt(to);
+  // Trim boundary separators: a quote stored with a leading or trailing
+  // block separator would stop matching when the neighboring block changes,
+  // even though every visibly selected character still exists.
+  while (fromIndex < toIndex && index.text[fromIndex] === "\n") fromIndex += 1;
+  while (toIndex > fromIndex && index.text[toIndex - 1] === "\n") toIndex -= 1;
   const quoteExact = index.text.slice(fromIndex, toIndex);
   if (
     quoteExact.length === 0 ||
@@ -50,8 +55,8 @@ export function captureCommentAnchor(
       fromIndex,
     ),
     quoteSuffix: index.text.slice(toIndex, toIndex + ANCHOR_CONTEXT_LENGTH),
-    fromHint: from,
-    toHint: to,
+    fromHint: index.posAt(fromIndex),
+    toHint: index.endPosAt(toIndex),
     snapshotRevision,
   };
 }

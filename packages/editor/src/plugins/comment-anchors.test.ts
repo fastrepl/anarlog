@@ -111,6 +111,17 @@ describe("commentAnchorsPlugin", () => {
     expect(mapped).toEqual([{ commentId: "span", from: 4, to: size - 2 }]);
   });
 
+  it("keeps boundary insertions outside the anchored range", () => {
+    let state = createState();
+    state = setAnchors(state, [{ commentId: "c1", from: 7, to: 15 }]);
+    state = state.apply(state.tr.insertText("!!", 15));
+    state = state.apply(state.tr.insertText("--", 7));
+
+    expect(getCommentAnchorRanges(state)).toEqual([
+      { commentId: "c1", from: 9, to: 17 },
+    ]);
+  });
+
   it("ignores anchors outside the document", () => {
     let state = createState();
     state = setAnchors(state, [
