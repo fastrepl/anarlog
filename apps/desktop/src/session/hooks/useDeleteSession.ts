@@ -11,6 +11,7 @@ import {
   deleteSessionShareBySession,
   ShareManagementError,
 } from "~/session-sharing/client";
+import { trackPendingSoftDelete } from "~/session/pending-soft-deletes";
 import { finalizeSessionDeletion, softDeleteSession } from "~/session/queries";
 import {
   loadManagedSharedNoteForSession,
@@ -129,7 +130,7 @@ export function useDeleteSession() {
   const invalidateResource = useTabs((state) => state.invalidateResource);
   const addDeletion = useUndoDelete((state) => state.addDeletion);
   const clearDeletion = useUndoDelete((state) => state.clearDeletion);
-  const { ignoreEvent, unignoreEvent } = useIgnoredEvents();
+  const { ignoreEvent, unignoreEvent, isIgnored } = useIgnoredEvents();
 
   return useCallback(
     (
@@ -156,10 +157,15 @@ export function useDeleteSession() {
       // Optimistic path: hide the row, drop tab history, and show the undo
       // toast before the soft-delete commits; rolled back below on failure.
       const tombstone = new Date().toISOString();
+      const wasIgnored = trackingId ? isIgnored(trackingId, null) : false;
+      const hadOpenTab = useTabs
+        .getState()
+        .tabs.some((tab) => tab.type === "sessions" && tab.id === sessionId);
       if (trackingId) ignoreEvent(trackingId);
       invalidateResource("sessions", sessionId);
 
       const commit = softDeleteSession(sessionId, tombstone);
+      trackPendingSoftDelete(sessionId, commit);
 
       const clearOptimisticDeletion = () => {
         const pending = useUndoDelete.getState().pendingDeletions[sessionId];
@@ -212,7 +218,14 @@ export function useDeleteSession() {
           console.error("[delete-session] failed to finish deletion", error);
           if (!didDelete) {
             if (isMainWindow) clearOptimisticDeletion();
-            if (trackingId) unignoreEvent(trackingId);
+            // Only undo the optimistic ignore; a pre-existing ignore must
+            // survive a failed delete.
+            if (trackingId && !wasIgnored) unignoreEvent(trackingId);
+            if (hadOpenTab) {
+              useTabs
+                .getState()
+                .openCurrent({ type: "sessions", id: sessionId });
+            }
           }
           sonnerToast.error("Could not delete this note. Please try again.");
         } finally {
@@ -225,6 +238,7 @@ export function useDeleteSession() {
     [
       ignoreEvent,
       unignoreEvent,
+      isIgnored,
       invalidateResource,
       addDeletion,
       clearDeletion,

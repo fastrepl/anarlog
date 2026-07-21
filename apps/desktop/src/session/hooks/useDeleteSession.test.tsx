@@ -32,7 +32,10 @@ const mocks = vi.hoisted(() => {
     getCurrentWebviewWindowLabel: vi.fn(() => "main"),
     ignoreEvent: vi.fn(),
     unignoreEvent: vi.fn(),
+    isIgnored: vi.fn(() => false),
     invalidateResource: vi.fn(),
+    openCurrent: vi.fn(),
+    openTabs: [] as Array<{ type: string; id: string }>,
     listenerGetState: vi.fn(),
     listenerStop: vi.fn(),
     listen: vi.fn(),
@@ -72,6 +75,7 @@ vi.mock("~/calendar/ignored-events", () => ({
   useIgnoredEvents: () => ({
     ignoreEvent: mocks.ignoreEvent,
     unignoreEvent: mocks.unignoreEvent,
+    isIgnored: mocks.isIgnored,
   }),
 }));
 
@@ -100,16 +104,17 @@ vi.mock("~/store/zustand/listener/instance", () => ({
   },
 }));
 
-vi.mock("~/store/zustand/tabs", () => ({
-  useTabs: (
-    selector: (state: {
-      invalidateResource: typeof mocks.invalidateResource;
-    }) => unknown,
-  ) =>
-    selector({
-      invalidateResource: mocks.invalidateResource,
-    }),
-}));
+vi.mock("~/store/zustand/tabs", () => {
+  const getState = () => ({
+    tabs: mocks.openTabs,
+    invalidateResource: mocks.invalidateResource,
+    openCurrent: mocks.openCurrent,
+  });
+  const useTabs = (selector: (state: ReturnType<typeof getState>) => unknown) =>
+    selector(getState());
+  useTabs.getState = getState;
+  return { useTabs };
+});
 
 vi.mock("~/store/zustand/undo-delete", () => {
   const getState = () => ({
@@ -142,6 +147,7 @@ describe("useDeleteSession", () => {
     mocks.clearDeletion.mockImplementation((sessionId: string) => {
       delete mocks.pendingDeletions[sessionId];
     });
+    mocks.openTabs.length = 0;
     mocks.getSession.mockResolvedValue({ data: { session: null } });
     mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
     mocks.removeDurableSharedNoteCache.mockResolvedValue(undefined);
