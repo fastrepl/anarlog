@@ -39,19 +39,19 @@ msgstr "{trialDaysRemaining} day left"
 msgid "{trialDaysRemaining} days left"
 msgstr "{trialDaysRemaining} days left"
 
-#: src/settings/general/storage/index.tsx
+#: src/settings/general/app-settings.tsx
 msgid "1 day"
 msgstr "1 day"
 
-#: src/settings/general/storage/index.tsx
+#: src/settings/general/app-settings.tsx
 msgid "1 month"
 msgstr "1 month"
 
-#: src/settings/general/storage/index.tsx
+#: src/settings/general/app-settings.tsx
 msgid "1 week"
 msgstr "1 week"
 
-#: src/settings/general/storage/index.tsx
+#: src/settings/general/app-settings.tsx
 msgid "3 days"
 msgstr "3 days"
 
@@ -260,7 +260,7 @@ msgstr "Attachments stay private unless you explicitly include them in this shar
 msgid "Audio"
 msgstr "Audio"
 
-#: src/settings/general/storage/index.tsx
+#: src/settings/general/app-settings.tsx
 msgid "Audio file retention"
 msgstr "Audio file retention"
 
@@ -565,6 +565,10 @@ msgstr "Copy recovery key"
 msgid "Could not start trial"
 msgstr "Could not start trial"
 
+#: src/session/components/outer-header/metadata/date.tsx
+#~ msgid "Could not update the note date."
+#~ msgstr "Could not update the note date."
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Create a recovery key"
 msgstr "Create a recovery key"
@@ -677,7 +681,7 @@ msgstr "Disconnect"
 msgid "Disconnect private repo access."
 msgstr "Disconnect private repo access."
 
-#: src/settings/general/storage/index.tsx
+#: src/settings/general/app-settings.tsx
 msgid "Don't save"
 msgstr "Don't save"
 
@@ -849,7 +853,7 @@ msgstr "Food & Drink"
 msgid "For enabled notifications"
 msgstr "For enabled notifications"
 
-#: src/settings/general/storage/index.tsx
+#: src/settings/general/app-settings.tsx
 msgid "Forever"
 msgstr "Forever"
 
@@ -930,6 +934,10 @@ msgstr "Help Anarlog read meeting activity"
 #: src/sidebar/timeline/index.tsx
 msgid "Hide Deleted Events"
 msgstr "Hide Deleted Events"
+
+#: src/settings/general/app-settings.tsx
+msgid "How long recorded meeting audio is kept on this device."
+msgstr "How long recorded meeting audio is kept on this device."
 
 #: src/settings/general/notification.tsx
 msgid "How long the mic must be active before triggering"
@@ -1960,6 +1968,10 @@ msgstr "Start when meeting begins"
 #: src/onboarding/index.tsx
 msgid "Start with permissions"
 msgstr "Start with permissions"
+
+#: src/settings/ai/stt/select.tsx
+#~ msgid "Starting"
+#~ msgstr "Starting"
 
 #: src/onboarding/account/after-login.tsx
 msgid "Starting your trial..."
