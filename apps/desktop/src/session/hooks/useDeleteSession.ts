@@ -103,8 +103,8 @@ async function revokeManagedShare(sessionId: string) {
   }
 }
 
-function revokeManagedShareBestEffort(sessionId: string) {
-  void revokeManagedShare(sessionId).catch((error: unknown) => {
+function revokeManagedShareBestEffort(sessionId: string): Promise<void> {
+  return revokeManagedShare(sessionId).catch((error: unknown) => {
     console.error(
       "[delete-session] failed to revoke shared link",
       error instanceof Error ? error.name : typeof error,
@@ -142,6 +142,12 @@ export function useDeleteSession() {
       },
     ) => {
       const { trackingId, batchId, title } = options ?? {};
+      // A repeat delete would replace the pending tombstone and its finalize
+      // callback, then no-op in softDeleteSession and clear the undo toast —
+      // leaving the note soft-deleted with no undo and no share cleanup.
+      if (useUndoDelete.getState().pendingDeletions[sessionId]) {
+        return;
+      }
       const windowLabel = getCurrentWebviewWindowLabel();
       const isMainWindow = windowLabel === "main";
       const listenerState = listenerStore.getState();
@@ -176,16 +182,16 @@ export function useDeleteSession() {
 
       if (isMainWindow) {
         // Finalize gates on the commit so a failed or no-op delete never
-        // removes the session folder or revokes the shared link.
-        const finalize = () => {
-          void commit
-            .then((deletedData) => {
+        // removes the session folder or revokes the shared link. It returns
+        // its promise so app exit can await the share revocation.
+        const finalize = () =>
+          commit
+            .then(async (deletedData) => {
               if (!deletedData) return;
-              void finalizeSessionDeletion(sessionId);
-              revokeManagedShareBestEffort(sessionId);
+              await finalizeSessionDeletion(sessionId);
+              await revokeManagedShareBestEffort(sessionId);
             })
             .catch(() => undefined);
-        };
         addDeletion(
           {
             session: { id: sessionId, title: title ?? "" },
@@ -226,8 +232,14 @@ export function useDeleteSession() {
                 .getState()
                 .openCurrent({ type: "sessions", id: sessionId });
             }
+            sonnerToast.error("Could not delete this note. Please try again.");
+          } else {
+            // The delete committed but main never learned about it, so its
+            // finalize-time cleanup will not run. Finalize here — losing the
+            // undo window beats leaving the shared link live forever.
+            void finalizeSessionDeletion(sessionId);
+            void revokeManagedShareBestEffort(sessionId);
           }
-          sonnerToast.error("Could not delete this note. Please try again.");
         } finally {
           if (didDelete) {
             await closeSessionNoteWindows(sessionId);
@@ -264,9 +276,9 @@ export function useRemoteSessionDeletionUndoListener(active: boolean) {
       }
 
       invalidateResource("sessions", payload.sessionId);
-      addDeletion(payload.data, () => {
-        void finalizeSessionDeletion(payload.sessionId);
-        revokeManagedShareBestEffort(payload.sessionId);
+      addDeletion(payload.data, async () => {
+        await finalizeSessionDeletion(payload.sessionId);
+        await revokeManagedShareBestEffort(payload.sessionId);
       });
       void closeSessionNoteWindows(payload.sessionId);
     }).then((fn) => {
