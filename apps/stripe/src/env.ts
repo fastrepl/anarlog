@@ -13,6 +13,8 @@ export const env = createEnv({
     STRIPE_SECRET_KEY: z.string().min(1),
     STRIPE_WEBHOOK_SECRET: z.string().min(1),
     POSTHOG_API_KEY: z.string().min(1).optional(),
+    LOOPS_API_KEY: z.string().min(1).optional(),
+    LOOPS_TRIAL_ENDING_TRANSACTIONAL_ID: z.string().min(1).optional(),
   },
   runtimeEnv: Bun.env,
   emptyStringAsUndefined: true,

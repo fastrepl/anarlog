@@ -6,6 +6,7 @@ import { syncBillingBridge } from "../billing-bridge";
 import { env } from "../env";
 import type { AppBindings } from "../hono-bindings";
 import { stripeSync } from "../integration/stripe-sync";
+import { sendTrialEndingEmail } from "../trial-emails";
 
 export const webhook = new Hono<AppBindings>();
 
@@ -68,6 +69,18 @@ webhook.post("/stripe", async (c) => {
       tags: {
         webhook: "stripe",
         step: "posthog",
+        event_type: stripeEvent.type,
+      },
+    });
+  }
+
+  try {
+    await sendTrialEndingEmail(stripeEvent);
+  } catch (error) {
+    Sentry.captureException(error, {
+      tags: {
+        webhook: "stripe",
+        step: "loops",
         event_type: stripeEvent.type,
       },
     });
