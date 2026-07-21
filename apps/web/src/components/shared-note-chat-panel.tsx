@@ -94,6 +94,7 @@ export function SharedNoteChatPanel({
       }
     },
     onSettled: (_data, _error, _history, context) => {
+      sendInFlightRef.current = false;
       if (abortRef.current !== context?.controller) return;
       streamingRef.current = "";
       setStreaming(null);
@@ -101,11 +102,16 @@ export function SharedNoteChatPanel({
     },
   });
 
+  // isPending only flips after a re-render, so a double submit in the same
+  // tick could start two requests and build the second history without the
+  // first user turn. The ref blocks re-entry synchronously.
+  const sendInFlightRef = useRef(false);
   const send = () => {
     const content = draft.trim();
-    if (!content || sendMutation.isPending) {
+    if (!content || sendInFlightRef.current) {
       return;
     }
+    sendInFlightRef.current = true;
     const history = [...messages, { role: "user" as const, content }];
     setMessages(history);
     setDraft("");
@@ -245,7 +251,7 @@ function ChatBody({
 }) {
   return (
     <>
-      <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
         {messages.length === 0 && streaming === null && (
           <p className="text-color-muted text-sm leading-6">
             Ask anything about this note — a summary, action items, or details
