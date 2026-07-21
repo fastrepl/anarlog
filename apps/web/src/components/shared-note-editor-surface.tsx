@@ -11,6 +11,7 @@ import {
   createContext,
   forwardRef,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -21,13 +22,19 @@ import {
   type NoteEditorProps,
   type NoteEditorRef,
   schema,
+  setCommentAnchors,
 } from "@hypr/editor/note";
 
+import {
+  collectSharedNoteComments,
+  useSharedNoteComments,
+} from "@/components/shared-note-comments-data";
 import {
   sharedPrimaryButtonClassName,
   sharedSecondaryButtonClassName,
 } from "@/components/shared-note-viewer";
 import { editAuthenticatedSharedNote } from "@/functions/shared-notes";
+import { resolveSharedNoteCommentRanges } from "@/lib/shared-note-comment-anchors";
 import {
   buildSharedNoteWebEditInput,
   canonicalizeSharedNoteWebDraft,
@@ -65,8 +72,43 @@ export function SharedNoteEditorSurface({
   snapshot: SharedNoteSnapshot;
 }) {
   const editorRef = useRef<NoteEditorRef>(null);
+  const [editorView, setEditorView] = useState<NonNullable<
+    NoteEditorRef["view"]
+  > | null>(null);
   const [clientError, setClientError] = useState<string | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const commentsQuery = useSharedNoteComments({
+    shareId: snapshot.shareId,
+    enabled: true,
+  });
+  const comments = useMemo(
+    () => collectSharedNoteComments(commentsQuery.data),
+    [commentsQuery.data],
+  );
+  // External sync: resolved anchor highlights are pushed into the ProseMirror
+  // plugin; decoration mapping then tracks live edits on its own.
+  useEffect(() => {
+    if (!editorView) return;
+    const anchored = resolveSharedNoteCommentRanges(
+      editorView.state.doc,
+      comments,
+      snapshot.contentRevision,
+    );
+    setCommentAnchors(
+      editorView,
+      anchored.flatMap((comment) =>
+        comment.range
+          ? [
+              {
+                commentId: comment.commentId,
+                from: comment.range.from,
+                to: comment.range.to,
+              },
+            ]
+          : [],
+      ),
+    );
+  }, [editorView, comments, snapshot.contentRevision]);
   const attachmentById = useMemo(
     () =>
       new Map(
@@ -231,12 +273,15 @@ export function SharedNoteEditorSurface({
         <NoteEditor
           ref={editorRef}
           className="min-h-80 outline-hidden"
+          commentAnchorsEnabled
           extraNodeViews={lockedAttachmentNodeViews}
           initialContent={initialContent}
           handleChange={() => {
             setClientError(null);
             if (hasServerError && !mutation.isPending) mutation.reset();
           }}
+          onViewReady={setEditorView}
+          onViewDisposed={() => setEditorView(null)}
           readOnly={
             mutation.isPending ||
             conflict !== null ||
