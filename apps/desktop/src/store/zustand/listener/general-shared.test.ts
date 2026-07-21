@@ -80,20 +80,25 @@ describe("tickTranscriptionStallWatchdog", () => {
     expect(live.transcriptionStalled).toBe(false);
   });
 
-  it("stays quiet for record-only sessions, muted capture, and repeated stalls", () => {
+  it("stays quiet for record-only sessions and repeated stalls", () => {
     const recordOnly = createActiveLive();
     recordOnly.requestedLiveTranscription = false;
     recordOnly.liveTranscriptionActive = false;
     expect(tickTranscriptionStallWatchdog(recordOnly)).toBe(false);
 
-    const muted = createActiveLive();
-    muted.muted = true;
-    expect(tickTranscriptionStallWatchdog(muted)).toBe(false);
-
     const stalled = createActiveLive();
     stalled.transcriptionStalled = true;
     stalled.needsBatchRepair = true;
     expect(tickTranscriptionStallWatchdog(stalled)).toBe(false);
+  });
+
+  it("keeps watching audible speaker audio while the mic is muted", () => {
+    const muted = createActiveLive();
+    muted.muted = true;
+    muted.amplitude = { mic: 0, speaker: 1 };
+
+    tickTranscriptionStallWatchdog(muted);
+    expect(muted.stallAudibleSeconds).toBe(1);
   });
 
   it("keeps the batch repair flag after transcript activity resumes", () => {

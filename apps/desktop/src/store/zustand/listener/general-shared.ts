@@ -226,12 +226,13 @@ export const markLiveStartFailed = (live: LiveState) => {
 // flowing). Count audible seconds since the last transcript activity; past the
 // threshold, flag the session so stop() runs a batch repair from the recording.
 export const tickTranscriptionStallWatchdog = (live: LiveState): boolean => {
+  // Mic mute must not disable the watchdog: speaker audio keeps feeding live
+  // STT, and the amplitude gate below already ignores silent stretches.
   if (
     live.status !== "active" ||
     live.requestedLiveTranscription !== true ||
     live.liveTranscriptionActive !== true ||
-    live.transcriptionStalled ||
-    live.muted
+    live.transcriptionStalled
   ) {
     return false;
   }

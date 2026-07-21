@@ -26,7 +26,7 @@ export function ListenActionButton({ sessionId }: { sessionId: string }) {
   );
 
   if (loading) {
-    return <StopListeningButton />;
+    return <StopListeningButton sessionId={sessionId} />;
   }
 
   if (!shouldRender) {
@@ -42,11 +42,22 @@ export function ListenActionButton({ sessionId }: { sessionId: string }) {
   );
 }
 
-function StopListeningButton() {
+function StopListeningButton({ sessionId }: { sessionId: string }) {
   const stop = useListener((state) => state.stop);
 
+  const handleStop = useCallback(() => {
+    // Starts are proxied to the main window, so stops must be too — a local
+    // stop cannot end a session the main window owns.
+    if (!isMainWebviewWindow()) {
+      void requestMainListenerControl("stop", sessionId);
+      return;
+    }
+
+    stop();
+  }, [sessionId, stop]);
+
   return (
-    <FloatingButton onClick={stop}>
+    <FloatingButton onClick={handleStop}>
       <Spinner />
     </FloatingButton>
   );

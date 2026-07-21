@@ -91,13 +91,20 @@ function MainListenerControlRequestRunner({
   const startListening = useStartListening(request.sessionId);
   const stop = useListener((state) => state.stop);
   const activeSessionId = useListener((state) => state.live.sessionId);
+  const isStartingOrActive = useListener(
+    (state) => state.live.loading || state.live.status === "active",
+  );
 
   useEffect(() => {
     let cancelled = false;
 
     const run = async () => {
       if (request.action === "start") {
-        await startListening();
+        // Non-main windows cannot see this window's state, so they can send
+        // duplicate start requests for a session that is already starting.
+        if (activeSessionId !== request.sessionId || !isStartingOrActive) {
+          await startListening();
+        }
       } else if (activeSessionId === request.sessionId) {
         stop();
       }
@@ -114,6 +121,7 @@ function MainListenerControlRequestRunner({
     };
   }, [
     activeSessionId,
+    isStartingOrActive,
     onHandled,
     request.action,
     request.requestId,
