@@ -18,7 +18,10 @@ export function OAuthCalendarSelection({
   isLoading,
 }: {
   groups: CalendarGroup[];
-  onToggle: (calendar: CalendarItem, enabled: boolean) => void;
+  onToggle: (
+    calendar: CalendarItem,
+    enabled: boolean,
+  ) => void | Promise<unknown>;
   onRefresh?: () => void;
   isLoading: boolean;
 }) {
@@ -101,13 +104,13 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
   }, [calendars, config.displayName]);
 
   const handleToggle = useCallback(
-    (calendar: CalendarItem, enabled: boolean) => {
-      void setCalendarEnabled(calendar.id, enabled)
+    (calendar: CalendarItem, enabled: boolean) =>
+      setCalendarEnabled(calendar.id, enabled)
         .then(scheduleDebouncedSync)
-        .catch((error) => {
+        .catch((error: unknown) => {
           console.error("[calendar] failed to update calendar", error);
-        });
-    },
+          throw error;
+        }),
     [scheduleDebouncedSync],
   );
 

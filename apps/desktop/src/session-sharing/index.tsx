@@ -1133,6 +1133,9 @@ function SessionSharePopoverContent({
     },
   });
 
+  // Optimistic General-access value: shown from click until the refreshed
+  // management state confirms it, so the select never flashes the old scope.
+  const [optimisticScope, setOptimisticScope] = useState<string | null>(null);
   const scopeMutation = useMutation({
     mutationFn: (target: string) =>
       runOperation(async (signal) => {
@@ -1209,9 +1212,13 @@ function SessionSharePopoverContent({
       sonnerToast.success(copied ? "Share link copied." : "Access updated.");
     },
     onError: () => {
+      setOptimisticScope(null);
       sonnerToast.error("Could not update general access.");
     },
-    onSettled: onChanged,
+    onSettled: async () => {
+      await onChanged();
+      setOptimisticScope(null);
+    },
   });
 
   const entryMutation = useMutation({
@@ -1702,13 +1709,12 @@ function SessionSharePopoverContent({
                   </h3>
                   <div className="mt-3 flex items-center gap-2">
                     <Select
-                      value={
-                        scopeMutation.isPending && scopeMutation.variables
-                          ? scopeMutation.variables
-                          : generalScopeValue
-                      }
+                      value={optimisticScope ?? generalScopeValue}
                       disabled={scopeMutation.isPending}
-                      onValueChange={scopeMutation.mutate}
+                      onValueChange={(value) => {
+                        setOptimisticScope(value);
+                        scopeMutation.mutate(value);
+                      }}
                     >
                       <SelectTrigger
                         aria-label="General access"

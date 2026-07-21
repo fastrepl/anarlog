@@ -71,13 +71,13 @@ export function useAppleCalendarSelection() {
   }, [calendars]);
 
   const handleToggle = useCallback(
-    (calendar: CalendarItem, enabled: boolean) => {
-      void setCalendarEnabled(calendar.id, enabled)
+    (calendar: CalendarItem, enabled: boolean) =>
+      setCalendarEnabled(calendar.id, enabled)
         .then(scheduleDebouncedSync)
-        .catch((error) => {
+        .catch((error: unknown) => {
           console.error("[calendar] failed to update calendar", error);
-        });
-    },
+          throw error;
+        }),
     [scheduleDebouncedSync],
   );
 

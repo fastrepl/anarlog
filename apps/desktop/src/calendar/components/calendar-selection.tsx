@@ -31,7 +31,10 @@ export interface CalendarGroup {
 
 interface CalendarSelectionProps {
   groups: CalendarGroup[];
-  onToggle: (calendar: CalendarItem, enabled: boolean) => void;
+  onToggle: (
+    calendar: CalendarItem,
+    enabled: boolean,
+  ) => void | Promise<unknown>;
   onRefresh?: () => void;
   className?: string;
   isLoading?: boolean;
@@ -181,7 +184,7 @@ function CalendarToggleRow({
 }: {
   calendar: CalendarItem;
   enabled: boolean;
-  onToggle: (enabled: boolean) => void;
+  onToggle: (enabled: boolean) => void | Promise<unknown>;
 }) {
   const color = calendar.color ?? "#888";
 
@@ -197,8 +200,11 @@ function CalendarToggleRow({
     <button
       type="button"
       onClick={() => {
-        setPending(!shownEnabled);
-        onToggle(!shownEnabled);
+        const next = !shownEnabled;
+        setPending(next);
+        void Promise.resolve(onToggle(next)).catch(() => {
+          setPending(null);
+        });
       }}
       className="flex w-full items-center gap-2 py-1 pr-2 pl-0 text-left"
     >
