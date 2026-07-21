@@ -13,6 +13,10 @@ import {
 import { useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 import { useStartListening } from "~/stt/useStartListening";
+import {
+  isMainWebviewWindow,
+  requestMainListenerControl,
+} from "~/stt/window-control";
 
 export function ListenActionButton({ sessionId }: { sessionId: string }) {
   const { shouldRender, isDisabled, warningMessage } =
@@ -61,10 +65,19 @@ function StartListeningButton({
   const openNew = useTabs((state) => state.openNew);
   const noteHasContent = useCurrentNoteHasContent(sessionId, { type: "raw" });
 
+  const handleStart = useCallback(() => {
+    if (!isMainWebviewWindow()) {
+      void requestMainListenerControl("start", sessionId);
+      return;
+    }
+
+    void startListening();
+  }, [sessionId, startListening]);
+
   const handleConfigure = useCallback(() => {
-    startListening();
+    handleStart();
     openNew({ type: "settings", state: { tab: "transcription" } });
-  }, [startListening, openNew]);
+  }, [handleStart, openNew]);
 
   return (
     <div>
@@ -76,7 +89,7 @@ function StartListeningButton({
         onConfigure={handleConfigure}
       >
         <FloatingButton
-          onClick={startListening}
+          onClick={handleStart}
           disabled={isDisabled}
           className="w-[148px] justify-start gap-2 pr-7 pl-3"
           tooltip={

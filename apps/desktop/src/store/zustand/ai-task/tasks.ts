@@ -116,6 +116,7 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
     if (state) {
       set((currentState) =>
         mutate(currentState, (draft) => {
+          draft.tasks[taskId]?.abortController?.abort();
           draft.tasks[taskId] = {
             taskType: state.taskType,
             status: "idle",
@@ -285,6 +286,12 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
         console.error("Task onComplete callback failed:", error);
       }
     } catch (err) {
+      // A reset/regenerate may already own this task id; a stale run must not
+      // clobber the replacement's state.
+      if (get().tasks[taskId]?.abortController !== abortController) {
+        return;
+      }
+
       if (
         err instanceof Error &&
         (err.name === "AbortError" || err.message === "Aborted")

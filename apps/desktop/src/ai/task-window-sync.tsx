@@ -27,6 +27,7 @@ type TaskCancelPayload = {
 
 type TaskEnhancePayload = {
   sessionId: string;
+  auto?: "regenerate" | "if_empty";
   opts?: {
     isAuto?: boolean;
     templateId?: string | null;
@@ -52,6 +53,16 @@ export async function requestMainEnhance(
   await emitTo("main", TASK_ENHANCE_EVENT, {
     sessionId,
     opts,
+  } satisfies TaskEnhancePayload);
+}
+
+export async function requestMainAutoEnhance(
+  sessionId: string,
+  auto: NonNullable<TaskEnhancePayload["auto"]>,
+) {
+  await emitTo("main", TASK_ENHANCE_EVENT, {
+    sessionId,
+    auto,
   } satisfies TaskEnhancePayload);
 }
 
@@ -119,12 +130,22 @@ function MainAITaskWindowSyncBridge({ store }: { store: AITaskStore }) {
         return;
       }
 
-      void Promise.resolve(
-        getEnhancerService()?.enhance(
-          event.payload.sessionId,
-          event.payload.opts,
-        ),
-      ).catch((error) => {
+      const { sessionId, auto, opts } = event.payload;
+      void (async () => {
+        const service = getEnhancerService();
+        if (!service) {
+          return;
+        }
+
+        if (auto === "regenerate") {
+          await service.resetEnhanceTasks(sessionId);
+          service.queueAutoEnhance(sessionId);
+        } else if (auto === "if_empty") {
+          await service.queueAutoEnhanceIfSummaryEmpty(sessionId);
+        } else {
+          await service.enhance(sessionId, opts);
+        }
+      })().catch((error) => {
         console.error("[enhancer] remote enhancement failed", error);
       });
     }).then((unlisten) => {

@@ -33,9 +33,12 @@ const {
   listMicUsingApplicationsMock,
   sendMeetingChatMessageMock,
   sonnerToastWarningMock,
+  sonnerToastErrorMock,
   startMeetingChatCaptureMock,
   stopMeetingChatCaptureMock,
   catalogLocalSessionAudioMock,
+  getEnhancerServiceMock,
+  requestMainAutoEnhanceMock,
 } = vi.hoisted(() => ({
   queueAutoEnhanceMock: vi.fn(),
   queueAutoEnhanceIfSummaryEmptyMock: vi.fn(),
@@ -59,9 +62,12 @@ const {
   listMicUsingApplicationsMock: vi.fn(),
   sendMeetingChatMessageMock: vi.fn(),
   sonnerToastWarningMock: vi.fn(),
+  sonnerToastErrorMock: vi.fn(),
   startMeetingChatCaptureMock: vi.fn(),
   stopMeetingChatCaptureMock: vi.fn(),
   catalogLocalSessionAudioMock: vi.fn(),
+  getEnhancerServiceMock: vi.fn(),
+  requestMainAutoEnhanceMock: vi.fn(),
 }));
 
 vi.mock("@hypr/plugin-transcription", () => ({
@@ -82,7 +88,14 @@ vi.mock("@hypr/plugin-detect", () => ({
 }));
 
 vi.mock("@hypr/ui/components/ui/toast", () => ({
-  sonnerToast: { warning: sonnerToastWarningMock },
+  sonnerToast: {
+    warning: sonnerToastWarningMock,
+    error: sonnerToastErrorMock,
+  },
+}));
+
+vi.mock("~/ai/task-window-sync", () => ({
+  requestMainAutoEnhance: requestMainAutoEnhanceMock,
 }));
 
 vi.mock("./meeting-chat-capture", () => ({
@@ -110,11 +123,7 @@ vi.mock("./useSTTConnection", () => ({
 }));
 
 vi.mock("~/services/enhancer", () => ({
-  getEnhancerService: vi.fn(() => ({
-    queueAutoEnhance: queueAutoEnhanceMock,
-    queueAutoEnhanceIfSummaryEmpty: queueAutoEnhanceIfSummaryEmptyMock,
-    resetEnhanceTasks: resetEnhanceTasksMock,
-  })),
+  getEnhancerService: getEnhancerServiceMock,
 }));
 
 vi.mock("~/services/audio-retention", () => ({
@@ -238,6 +247,11 @@ describe("useStartListening", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
+    getEnhancerServiceMock.mockImplementation(() => ({
+      queueAutoEnhance: queueAutoEnhanceMock,
+      queueAutoEnhanceIfSummaryEmpty: queueAutoEnhanceIfSummaryEmptyMock,
+      resetEnhanceTasks: resetEnhanceTasksMock,
+    }));
     useListenerMock.mockImplementation((selector) =>
       selector({
         getSessionMode: getSessionModeMock,
@@ -451,7 +465,158 @@ describe("useStartListening", () => {
 
     expect(catalogLocalSessionAudioMock).toHaveBeenCalledWith("session-1");
     expect(runBatchMock).not.toHaveBeenCalled();
+    expect(sonnerToastErrorMock).toHaveBeenCalledWith(
+      "Anarlog could not save part of the live transcript.",
+      { id: "live-transcript-persist-failed" },
+    );
+    expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledWith(
+      "session-1",
+    );
     consoleError.mockRestore();
+  });
+
+  test("still summarizes the live transcript when the batch repair fails", async () => {
+    useSessionHasTranscriptMock.mockReturnValue(true);
+    runBatchMock.mockRejectedValueOnce(new Error("upload failed"));
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
+    await act(async () => {
+      await onStopped?.("session-1", {
+        durationSeconds: 42,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+        needsBatchRepair: true,
+      });
+    });
+
+    expect(sonnerToastErrorMock).toHaveBeenCalledWith(
+      "Post-meeting transcription failed. Summarizing the live transcript instead.",
+      { id: "post-capture-batch-failed" },
+    );
+    expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledWith(
+      "session-1",
+    );
+    expect(queueAutoEnhanceMock).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  test("still tries to summarize the live transcript when the batch repair fails without other transcripts", async () => {
+    runBatchMock.mockRejectedValueOnce(new Error("upload failed"));
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
+    await act(async () => {
+      await onStopped?.("session-1", {
+        durationSeconds: 42,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: false,
+        liveTranscriptionActive: false,
+        needsBatchRepair: false,
+      });
+    });
+
+    expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledWith(
+      "session-1",
+    );
+    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  test("stays quiet when a record-only stop leaves nothing to summarize", async () => {
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
+    await act(async () => {
+      await onStopped?.("session-1", {
+        durationSeconds: 1,
+        audioPath: null,
+        requestedLiveTranscription: false,
+        liveTranscriptionActive: false,
+        needsBatchRepair: false,
+      });
+    });
+
+    expect(runBatchMock).not.toHaveBeenCalled();
+    expect(queueAutoEnhanceMock).not.toHaveBeenCalled();
+    expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
+    expect(requestMainAutoEnhanceMock).not.toHaveBeenCalled();
+  });
+
+  test("does not auto-enhance after the user cancels the batch repair", async () => {
+    useSessionHasTranscriptMock.mockReturnValue(true);
+    runBatchMock.mockRejectedValueOnce(new Error("Transcription stopped."));
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
+    await act(async () => {
+      await onStopped?.("session-1", {
+        durationSeconds: 42,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: false,
+        liveTranscriptionActive: false,
+        needsBatchRepair: false,
+      });
+    });
+
+    expect(queueAutoEnhanceMock).not.toHaveBeenCalled();
+    expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
+    expect(sonnerToastErrorMock).not.toHaveBeenCalled();
+  });
+
+  test("forwards auto-enhance to the main window when no enhancer service exists", async () => {
+    getEnhancerServiceMock.mockReturnValue(null);
+    useSessionHasTranscriptMock.mockReturnValue(true);
+
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
+    await act(async () => {
+      await onStopped?.("session-1", {
+        durationSeconds: 42,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: false,
+        liveTranscriptionActive: false,
+        needsBatchRepair: false,
+      });
+    });
+
+    expect(requestMainAutoEnhanceMock).toHaveBeenCalledWith(
+      "session-1",
+      "regenerate",
+    );
+    expect(queueAutoEnhanceMock).not.toHaveBeenCalled();
+    expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
   });
 
   test("catalogs finalized audio through the session audio queue", async () => {

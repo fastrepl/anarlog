@@ -14,6 +14,7 @@ import {
 } from "./useRunBatch";
 import { useSTTConnection } from "./useSTTConnection";
 
+import { requestMainAutoEnhance } from "~/ai/task-window-sync";
 import { useShell } from "~/contexts/shell";
 import {
   deleteProcessedAudioForRetention,
@@ -315,16 +316,23 @@ export function useStartListening(sessionId: string) {
         }
       }
       await lastTranscriptWrite;
-      if (transcriptWriteError) return;
+      if (transcriptWriteError) {
+        sonnerToast.error(
+          "Anarlog could not save part of the live transcript.",
+          { id: "live-transcript-persist-failed" },
+        );
+      }
 
       const postCaptureAction = getPostCaptureAction(
         details,
         canRunBatchRef.current,
       );
 
+      let batchCompleted = false;
       if (postCaptureAction === "batch_then_enhance") {
         try {
           await runBatchRef.current(details.audioPath!);
+          batchCompleted = true;
         } catch (error) {
           if (isStoppedTranscriptionError(error)) {
             return;
@@ -333,24 +341,37 @@ export function useStartListening(sessionId: string) {
             "[listener] failed to run post-capture transcription",
             error,
           );
-          return;
+          sonnerToast.error(
+            "Post-meeting transcription failed. Summarizing the live transcript instead.",
+            { id: "post-capture-batch-failed" },
+          );
         }
       }
 
-      if (postCaptureAction !== "none") {
-        const service = getEnhancerService();
+      const hasTranscriptEvidence =
+        hadTranscriptBeforeStart || transcriptId !== null || batchCompleted;
+      if (postCaptureAction !== "none" || hasTranscriptEvidence) {
         const shouldRegenerateExistingSummary =
-          hadTranscriptBeforeStart &&
-          (transcriptId !== null || postCaptureAction === "batch_then_enhance");
-        if (shouldRegenerateExistingSummary) {
-          await service?.resetEnhanceTasks(sessionId);
-          service?.queueAutoEnhance(sessionId);
+          hadTranscriptBeforeStart && (transcriptId !== null || batchCompleted);
+        const service = getEnhancerService();
+        if (!service) {
+          await requestMainAutoEnhance(
+            sessionId,
+            shouldRegenerateExistingSummary ? "regenerate" : "if_empty",
+          );
+        } else if (shouldRegenerateExistingSummary) {
+          await service.resetEnhanceTasks(sessionId);
+          service.queueAutoEnhance(sessionId);
         } else {
-          await service?.queueAutoEnhanceIfSummaryEmpty(sessionId);
+          await service.queueAutoEnhanceIfSummaryEmpty(sessionId);
         }
       }
 
-      await deleteProcessedAudioForRetention(audioRetention, sessionId);
+      // A failed batch repair keeps the recording around as the only source
+      // for a later repair, regardless of the retention policy.
+      if (postCaptureAction !== "batch_then_enhance" || batchCompleted) {
+        await deleteProcessedAudioForRetention(audioRetention, sessionId);
+      }
     };
 
     const handlePersist: LiveTranscriptPersistCallback = (delta) => {
