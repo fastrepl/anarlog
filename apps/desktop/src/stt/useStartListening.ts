@@ -337,19 +337,17 @@ export function useStartListening(sessionId: string) {
         }
       }
 
-      if (postCaptureAction === "none") {
-        return;
-      }
-
-      const service = getEnhancerService();
-      const shouldRegenerateExistingSummary =
-        hadTranscriptBeforeStart &&
-        (transcriptId !== null || postCaptureAction === "batch_then_enhance");
-      if (shouldRegenerateExistingSummary) {
-        await service?.resetEnhanceTasks(sessionId);
-        service?.queueAutoEnhance(sessionId);
-      } else {
-        await service?.queueAutoEnhanceIfSummaryEmpty(sessionId);
+      if (postCaptureAction !== "none") {
+        const service = getEnhancerService();
+        const shouldRegenerateExistingSummary =
+          hadTranscriptBeforeStart &&
+          (transcriptId !== null || postCaptureAction === "batch_then_enhance");
+        if (shouldRegenerateExistingSummary) {
+          await service?.resetEnhanceTasks(sessionId);
+          service?.queueAutoEnhance(sessionId);
+        } else {
+          await service?.queueAutoEnhanceIfSummaryEmpty(sessionId);
+        }
       }
 
       await deleteProcessedAudioForRetention(audioRetention, sessionId);

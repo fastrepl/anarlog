@@ -28,6 +28,14 @@ import { useMountEffect } from "~/shared/hooks/useMountEffect";
 const CALENDAR_SYNC_INTERVAL = 60 * 1000; // 60 sec
 const CALENDAR_SYNC_MAX_DURATION = 120 * 1000; // 2 min
 
+// tinytick aborts runs after a default maxDuration of 1s and never re-schedules
+// the repeatDelay of a timed-out run, which permanently kills the repeating
+// task. Long-running tasks must set an explicit maxDuration, and retries keep
+// the repeat loop alive if a run still exceeds it.
+const AUDIO_RETENTION_MAX_DURATION = 10 * 60 * 1000; // 10 min
+const EVENT_NOTIFICATION_MAX_DURATION = 60 * 1000; // 60 sec
+const REPEATING_TASK_MAX_RETRIES = 3;
+
 export function TaskManager() {
   const queryClient = useQueryClient();
   const manager = useManager();
@@ -88,25 +96,48 @@ export function TaskManager() {
     };
   });
 
-  useSetTask(EVENT_NOTIFICATION_TASK_ID, async () => {
-    await checkEventNotifications(notificationEvent, notifiedEventsRef.current);
-  }, [notificationEvent]);
+  useSetTask(
+    EVENT_NOTIFICATION_TASK_ID,
+    async () => {
+      await checkEventNotifications(
+        notificationEvent,
+        notifiedEventsRef.current,
+      );
+    },
+    [notificationEvent],
+    undefined,
+    {
+      maxDuration: EVENT_NOTIFICATION_MAX_DURATION,
+      maxRetries: REPEATING_TASK_MAX_RETRIES,
+      retryDelay: EVENT_NOTIFICATION_INTERVAL,
+    },
+  );
 
   useScheduleTaskRun(EVENT_NOTIFICATION_TASK_ID, undefined, 0, {
     repeatDelay: EVENT_NOTIFICATION_INTERVAL,
   });
 
-  useSetTask(AUDIO_RETENTION_TASK_ID, async () => {
-    const deletedSessionIds = await cleanupExpiredAudio(audioRetention);
-    for (const sessionId of deletedSessionIds) {
-      void queryClient.invalidateQueries({
-        queryKey: ["audio", sessionId, "exist"],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ["audio", sessionId, "url"],
-      });
-    }
-  }, [audioRetention, queryClient]);
+  useSetTask(
+    AUDIO_RETENTION_TASK_ID,
+    async () => {
+      const deletedSessionIds = await cleanupExpiredAudio(audioRetention);
+      for (const sessionId of deletedSessionIds) {
+        void queryClient.invalidateQueries({
+          queryKey: ["audio", sessionId, "exist"],
+        });
+        void queryClient.invalidateQueries({
+          queryKey: ["audio", sessionId, "url"],
+        });
+      }
+    },
+    [audioRetention, queryClient],
+    undefined,
+    {
+      maxDuration: AUDIO_RETENTION_MAX_DURATION,
+      maxRetries: REPEATING_TASK_MAX_RETRIES,
+      retryDelay: AUDIO_RETENTION_INTERVAL,
+    },
+  );
 
   useScheduleTaskRun(AUDIO_RETENTION_TASK_ID, undefined, 0, {
     repeatDelay: AUDIO_RETENTION_INTERVAL,
