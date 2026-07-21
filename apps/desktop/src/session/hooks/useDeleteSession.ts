@@ -1,3 +1,4 @@
+import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { getAllWebviewWindows } from "@tauri-apps/api/webviewWindow";
 import { useCallback, useEffect } from "react";
@@ -44,6 +45,74 @@ async function closeSessionNoteWindows(sessionId: string) {
   }
 }
 
+// Share revocation runs after the local deletion is finalized and must never
+// block or fail it — local deletes have to work offline.
+async function revokeManagedShare(
+  context: { session: Session; supabase: SupabaseClient },
+  sessionId: string,
+) {
+  const managedShare = await loadManagedSharedNoteForSession(
+    context.session.user.id,
+    sessionId,
+  ).catch((error: unknown) => {
+    console.error("[delete-session] failed to look up managed share", error);
+    return null;
+  });
+  if (!managedShare) return;
+
+  try {
+    const deletedShare = await deleteSessionShareBySession(context, {
+      workspaceId: managedShare.workspaceId,
+      sessionId: managedShare.sessionId,
+    });
+    if (
+      deletedShare.shareId !== null &&
+      deletedShare.shareId !== managedShare.shareId
+    ) {
+      throw new ShareManagementError();
+    }
+  } catch (error) {
+    // Share RPC failures can carry tokens in their messages; log the name only.
+    console.error(
+      "[delete-session] failed to revoke shared link",
+      error instanceof Error ? error.name : typeof error,
+    );
+    sonnerToast.warning(
+      "Note deleted, but its shared link could not be removed.",
+    );
+    return;
+  }
+
+  try {
+    await removeDurableSharedNoteCache(
+      context.session.user.id,
+      managedShare.shareId,
+    );
+  } catch {
+    console.error("[delete-session] failed to clear shared-note cache");
+  }
+}
+
+function revokeManagedShareBestEffort(
+  auth: {
+    session: Session | null | undefined;
+    supabase: SupabaseClient | null;
+  } | null,
+  sessionId: string,
+) {
+  if (
+    !auth?.session ||
+    !auth.supabase ||
+    auth.session.user.is_anonymous === true
+  ) {
+    return;
+  }
+  void revokeManagedShare(
+    { session: auth.session, supabase: auth.supabase },
+    sessionId,
+  );
+}
+
 function isSessionDeletedForUndoPayload(
   payload: unknown,
 ): payload is SessionDeletedForUndoPayload {
@@ -80,42 +149,6 @@ export function useDeleteSession() {
       void (async () => {
         let didDelete = false;
         try {
-          if (
-            auth?.session &&
-            auth.supabase &&
-            auth.session.user.is_anonymous !== true
-          ) {
-            const managedShare = await loadManagedSharedNoteForSession(
-              auth.session.user.id,
-              sessionId,
-            );
-            if (managedShare) {
-              const deletedShare = await deleteSessionShareBySession(
-                { session: auth.session, supabase: auth.supabase },
-                {
-                  workspaceId: managedShare.workspaceId,
-                  sessionId: managedShare.sessionId,
-                },
-              );
-              if (
-                deletedShare.shareId !== null &&
-                deletedShare.shareId !== managedShare.shareId
-              ) {
-                throw new ShareManagementError();
-              }
-              try {
-                await removeDurableSharedNoteCache(
-                  auth.session.user.id,
-                  managedShare.shareId,
-                );
-              } catch {
-                console.error(
-                  "[delete-session] failed to clear shared-note cache",
-                );
-              }
-            }
-          }
-
           const deletedData = await softDeleteSession(sessionId);
           if (!deletedData) return;
           didDelete = true;
@@ -125,6 +158,7 @@ export function useDeleteSession() {
           if (windowLabel === "main") {
             const finalize = () => {
               void finalizeSessionDeletion(sessionId);
+              revokeManagedShareBestEffort(auth, sessionId);
             };
             if (batchId) {
               addDeletion(deletedData, finalize, batchId);
@@ -137,8 +171,8 @@ export function useDeleteSession() {
               data: deletedData,
             } satisfies SessionDeletedForUndoPayload);
           }
-        } catch {
-          console.error("[delete-session] failed to finish deletion");
+        } catch (error) {
+          console.error("[delete-session] failed to finish deletion", error);
           sonnerToast.error("Could not delete this note. Please try again.");
         } finally {
           if (didDelete) {
@@ -158,6 +192,7 @@ export function useDeleteSession() {
 }
 
 export function useRemoteSessionDeletionUndoListener(active: boolean) {
+  const auth = useOptionalAuth();
   const invalidateResource = useTabs((state) => state.invalidateResource);
   const addDeletion = useUndoDelete((state) => state.addDeletion);
 
@@ -177,6 +212,7 @@ export function useRemoteSessionDeletionUndoListener(active: boolean) {
       invalidateResource("sessions", payload.sessionId);
       addDeletion(payload.data, () => {
         void finalizeSessionDeletion(payload.sessionId);
+        revokeManagedShareBestEffort(auth, payload.sessionId);
       });
       void closeSessionNoteWindows(payload.sessionId);
     }).then((fn) => {
@@ -186,5 +222,5 @@ export function useRemoteSessionDeletionUndoListener(active: boolean) {
     return () => {
       unlisten?.();
     };
-  }, [active, invalidateResource, addDeletion]);
+  }, [active, auth, invalidateResource, addDeletion]);
 }
