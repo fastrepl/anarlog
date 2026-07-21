@@ -242,6 +242,17 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
   const [upgradePromptIdentity, setUpgradePromptIdentity] =
     useState<SharePreparationIdentity | null>(null);
   const sharePanelPendingRef = useRef(false);
+  const clearAbandonedSharePreparation = (
+    identity: SharePreparationIdentity,
+  ) => {
+    setSharePreparationIdentity((current) =>
+      current &&
+      current.ownerUserId === identity.ownerUserId &&
+      current.sessionId === identity.sessionId
+        ? null
+        : current,
+    );
+  };
   const accountUserId = auth.session?.user.id ?? null;
   const activeSharePanelIdentity =
     sharePanelIdentity?.ownerUserId === accountUserId &&
@@ -379,6 +390,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
         latestAuthRef.current.session?.user.id !== identity.ownerUserId ||
         latestSessionIdRef.current !== identity.sessionId
       ) {
+        clearAbandonedSharePreparation(identity);
         return;
       }
       queryClient.setQueryData(
@@ -398,6 +410,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           variables.identity.ownerUserId ||
         latestSessionIdRef.current !== variables.identity.sessionId
       ) {
+        clearAbandonedSharePreparation(variables.identity);
         return;
       }
       console.error("[session-sharing] could not prepare note", error);
@@ -412,6 +425,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
         latestAuthRef.current.session?.user.id !== identity.ownerUserId ||
         latestSessionIdRef.current !== identity.sessionId
       ) {
+        clearAbandonedSharePreparation(identity);
         return;
       }
       if (!managedShare) {
@@ -426,6 +440,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
         latestAuthRef.current.session?.user.id !== identity.ownerUserId ||
         latestSessionIdRef.current !== identity.sessionId
       ) {
+        clearAbandonedSharePreparation(identity);
         return;
       }
       sonnerToast.error("Could not check this note's sharing status.");
@@ -478,6 +493,8 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
   };
 
   const startSharePreparation = (identity: SharePreparationIdentity) => {
+    initializeMutation.reset();
+    freeShareMutation.reset();
     setSharePreparationIdentity(identity);
     if (!billing.isReady) {
       setWaitingForBilling(true);

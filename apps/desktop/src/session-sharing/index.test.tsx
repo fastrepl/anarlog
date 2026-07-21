@@ -1131,6 +1131,80 @@ describe("SessionShareButton", () => {
     ).not.toBeNull();
   });
 
+  it("does not resurface an abandoned preparation when the account returns", async () => {
+    let resolveSource!: (source: {
+      sessionId: string;
+      workspaceId: string;
+      title: string;
+      body: { type: "doc"; content: never[] };
+    }) => void;
+    mocks.loadSessionShareSource.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSource = resolve;
+      }),
+    );
+    const view = renderShareButtonView();
+
+    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
+    await waitFor(() =>
+      expect(mocks.loadSessionShareSource).toHaveBeenCalledOnce(),
+    );
+
+    mocks.auth.session = createSession(OTHER_USER_ID);
+    view.rerender();
+    await act(async () => {
+      resolveSource({
+        sessionId: "session-1",
+        workspaceId: WORKSPACE_ID,
+        title: "Planning",
+        body: { type: "doc", content: [] },
+      });
+    });
+    expect(screen.queryByTestId("share-popover")).toBeNull();
+
+    mocks.auth.session = createSession();
+    view.rerender();
+
+    expect(screen.queryByTestId("share-popover")).toBeNull();
+    expect(
+      screen.queryByText("Access settings could not be loaded."),
+    ).toBeNull();
+    expect(mocks.toastError).not.toHaveBeenCalled();
+  });
+
+  it("does not resurface an abandoned free-share check when the account returns", async () => {
+    mocks.billing.isPaid = false;
+    let resolveManaged!: (value: unknown) => void;
+    mocks.loadManagedSharedNoteForSession.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveManaged = resolve;
+      }),
+    );
+    const view = renderShareButtonView();
+
+    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
+    await waitFor(() =>
+      expect(mocks.loadManagedSharedNoteForSession).toHaveBeenCalledOnce(),
+    );
+
+    mocks.auth.session = createSession(OTHER_USER_ID);
+    view.rerender();
+    await act(async () => {
+      resolveManaged({
+        shareId: SHARE_ID,
+        workspaceId: WORKSPACE_ID,
+        sessionId: "session-1",
+      });
+    });
+    expect(screen.queryByTestId("share-popover")).toBeNull();
+
+    mocks.auth.session = createSession();
+    view.rerender();
+
+    expect(screen.queryByTestId("share-popover")).toBeNull();
+    expect(screen.queryByText("Loading access…")).toBeNull();
+  });
+
   it("publishes before rotating a bearer link and keeps the token out of query keys", async () => {
     mocks.management = defaultManagement({
       generalScope: "link",
