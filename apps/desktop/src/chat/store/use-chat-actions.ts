@@ -1,5 +1,7 @@
 import { useCallback } from "react";
 
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
+
 import { createFallbackChatTitle, generateChatTitle } from "./chat-title";
 import { buildPersistedChatMessage } from "./persisted-messages";
 import {
@@ -106,21 +108,24 @@ export function useChatActions({
           })
         : upsertChatMessage(message);
 
+      sendMessage(uiMessage, { chatGroupId: currentGroupId });
+      if (fallbackTitle) {
+        onGroupCreated(currentGroupId);
+      }
+
       void persist
         .then(() => {
           if (fallbackTitle) {
-            onGroupCreated(currentGroupId);
             queueChatTitleGeneration({
               groupId: currentGroupId,
               fallbackTitle,
               initialRequest: content,
             });
           }
-
-          sendMessage(uiMessage, { chatGroupId: currentGroupId });
         })
         .catch((error) => {
           console.error("Failed to persist outgoing chat message", error);
+          sonnerToast.error("Could not save this chat message.");
         });
     },
     [groupId, ownerUserId, onGroupCreated, queueChatTitleGeneration],

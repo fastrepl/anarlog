@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   createChatGroupWithMessage: vi.fn(),
   ids: [] as string[],
   setChatGroupTitleIfCurrent: vi.fn(),
+  toastError: vi.fn(),
   upsertChatMessage: vi.fn(),
 }));
 
@@ -16,6 +17,10 @@ vi.mock("~/chat/store/queries", () => ({
   createChatGroupWithMessage: mocks.createChatGroupWithMessage,
   setChatGroupTitleIfCurrent: mocks.setChatGroupTitleIfCurrent,
   upsertChatMessage: mocks.upsertChatMessage,
+}));
+
+vi.mock("@hypr/ui/components/ui/toast", () => ({
+  sonnerToast: { error: mocks.toastError },
 }));
 
 vi.mock("~/shared/utils", () => ({
@@ -37,12 +42,9 @@ describe("useChatActions", () => {
     mocks.upsertChatMessage.mockResolvedValue(undefined);
   });
 
-  it("durably commits the first group and message before sending", async () => {
-    let finishPersistence: (() => void) | undefined;
+  it("sends immediately and persists the first group in the background", () => {
     mocks.createChatGroupWithMessage.mockReturnValue(
-      new Promise<void>((resolve) => {
-        finishPersistence = resolve;
-      }),
+      new Promise<void>(() => {}),
     );
     const onGroupCreated = vi.fn();
     const sendMessage = vi.fn();
@@ -58,6 +60,11 @@ describe("useChatActions", () => {
       );
     });
 
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "message-1", role: "user" }),
+      { chatGroupId: "group-1" },
+    );
+    expect(onGroupCreated).toHaveBeenCalledWith("group-1");
     expect(mocks.createChatGroupWithMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         groupId: "group-1",
@@ -70,19 +77,9 @@ describe("useChatActions", () => {
         }),
       }),
     );
-    expect(onGroupCreated).not.toHaveBeenCalled();
-    expect(sendMessage).not.toHaveBeenCalled();
-
-    await act(async () => finishPersistence?.());
-
-    expect(onGroupCreated).toHaveBeenCalledWith("group-1");
-    expect(sendMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "message-1", role: "user" }),
-      { chatGroupId: "group-1" },
-    );
   });
 
-  it("upserts into an existing group before sending", async () => {
+  it("sends immediately when upserting into an existing group", () => {
     const sendMessage = vi.fn();
     const { result } = renderHook(() =>
       useChatActions({ groupId: "group-existing", onGroupCreated: vi.fn() }),
@@ -96,7 +93,7 @@ describe("useChatActions", () => {
       );
     });
 
-    await waitFor(() => expect(sendMessage).toHaveBeenCalledOnce());
+    expect(sendMessage).toHaveBeenCalledOnce();
     expect(mocks.createChatGroupWithMessage).not.toHaveBeenCalled();
     expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -106,7 +103,7 @@ describe("useChatActions", () => {
     );
   });
 
-  it("does not send a request when durable persistence fails", async () => {
+  it("still sends and surfaces an error toast when persistence fails", async () => {
     const error = new Error("database unavailable");
     mocks.createChatGroupWithMessage.mockRejectedValue(error);
     const consoleError = vi
@@ -125,13 +122,16 @@ describe("useChatActions", () => {
       );
     });
 
+    expect(sendMessage).toHaveBeenCalledOnce();
     await waitFor(() =>
       expect(consoleError).toHaveBeenCalledWith(
         "Failed to persist outgoing chat message",
         error,
       ),
     );
-    expect(sendMessage).not.toHaveBeenCalled();
+    expect(mocks.toastError).toHaveBeenCalledWith(
+      "Could not save this chat message.",
+    );
     consoleError.mockRestore();
   });
 });
