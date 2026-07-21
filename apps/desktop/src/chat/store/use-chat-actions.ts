@@ -4,8 +4,8 @@ import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import { createFallbackChatTitle, generateChatTitle } from "./chat-title";
 import {
-  beginPendingChatPersist,
-  endPendingChatPersist,
+  markFailedChatGroupCreate,
+  trackPendingChatPersist,
 } from "./pending-persists";
 import { buildPersistedChatMessage } from "./persisted-messages";
 import {
@@ -141,8 +141,9 @@ export function useChatActions({
         onGroupCreated(currentGroupId);
       }
 
-      beginPendingChatPersist(currentGroupId);
-      void persistWithRetry(runPersist)
+      const persist = persistWithRetry(runPersist);
+      trackPendingChatPersist(currentGroupId, persist);
+      void persist
         .then(() => {
           if (fallbackTitle) {
             queueChatTitleGeneration({
@@ -157,12 +158,11 @@ export function useChatActions({
           sonnerToast.error("Could not save this chat message.");
           if (fallbackTitle) {
             // The group row was never created; leaving the shell pointed at
-            // it would orphan every follow-up message.
+            // it would orphan every follow-up message, and later persists
+            // into it would create rows that never appear in history.
+            markFailedChatGroupCreate(currentGroupId);
             onGroupCreateFailed?.(currentGroupId);
           }
-        })
-        .finally(() => {
-          endPendingChatPersist(currentGroupId);
         });
     },
     [
