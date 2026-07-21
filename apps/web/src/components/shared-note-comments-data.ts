@@ -129,7 +129,13 @@ export function useDeleteSharedNoteComment({ shareId }: { shareId: string }) {
 }
 
 export function collectSharedNoteComments(
-  data: CommentsData | undefined,
+  data:
+    | InfiniteData<
+        | ({ status: "ready" } & SharedNoteCommentPage)
+        | { status: "unavailable" },
+        unknown
+      >
+    | undefined,
 ): SharedNoteComment[] {
   return (
     data?.pages.flatMap((page) =>

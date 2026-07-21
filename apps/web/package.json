@@ -12,6 +12,7 @@
   "dependencies": {
     "@chenglou/pretext": "^0.0.4",
     "@deepgram/sdk": "^4.11.3",
+    "@floating-ui/dom": "^1.7.6",
     "@honeycombio/opentelemetry-web": "^1.3.0",
     "@hypr/api-client": "workspace:*",
     "@hypr/changelog": "workspace:^",

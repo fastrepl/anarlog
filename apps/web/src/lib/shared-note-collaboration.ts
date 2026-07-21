@@ -42,6 +42,11 @@ export function validateSharedNoteCommentAnchor(
   return { anchor, valid };
 }
 
+export function truncateSharedNoteCommentQuote(quote: string, maxLength = 80) {
+  if (quote.length <= maxLength) return quote;
+  return `${quote.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
 export function formatAuthenticatedSharedNoteAccessLabel({
   capability,
   manageAccess,

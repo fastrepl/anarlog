@@ -99,6 +99,7 @@ function Component() {
       }}
       resolveAttachment={resolveAttachment}
       revokedBehavior="read-only"
+      signedIn={true}
       accessLabel={formatAuthenticatedSharedNoteAccessLabel(note)}
       collaboration={
         <SharedNoteCollaboration
