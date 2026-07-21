@@ -291,6 +291,17 @@ function useParticipantMutations(
             ownerUserId: session.user_id,
             name: option.name,
           });
+          // Backfill the id so the pending chip disappears as soon as the
+          // real participant row shows up, instead of lingering until the
+          // finally below and briefly duplicating the chip.
+          const resolvedHumanId = humanId;
+          setPendingAdds((prev) =>
+            prev.map((entry) =>
+              entry.key === key
+                ? { ...entry, humanId: resolvedHumanId }
+                : entry,
+            ),
+          );
         }
         await addSessionParticipant(sessionId, humanId);
       })()

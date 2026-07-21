@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import { Input } from "@hypr/ui/components/ui/input";
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
 import { format, safeFormat, safeParseDate } from "@hypr/utils";
 
 import { useSession, useUpdateSession } from "~/session/queries";
@@ -12,9 +13,12 @@ import { useSession, useUpdateSession } from "~/session/queries";
 export function DateEditor({ sessionId }: { sessionId: string }) {
   const { t } = useLingui();
   const [isEditing, setIsEditing] = useState(false);
+  // Shown between closing the editor and the live query re-emitting, so the
+  // read-only label never flashes the pre-save date.
+  const [pendingCreatedAt, setPendingCreatedAt] = useState<string | null>(null);
   const createdAt = useSession(sessionId)?.created_at;
   const noteDate = safeFormat(
-    createdAt ?? new Date(),
+    pendingCreatedAt ?? createdAt ?? new Date(),
     "MMM d, yyyy h:mm a",
     t`Unknown date`,
   );
@@ -45,7 +49,16 @@ export function DateEditor({ sessionId }: { sessionId: string }) {
       sessionId={sessionId}
       createdAt={createdAt}
       onCancel={() => setIsEditing(false)}
-      onSaved={() => setIsEditing(false)}
+      onSaved={(nextCreatedAt, commit) => {
+        setIsEditing(false);
+        setPendingCreatedAt(nextCreatedAt);
+        void commit
+          .catch((error) => {
+            console.error("[metadata] failed to update session date", error);
+            sonnerToast.error("Could not update the note date.");
+          })
+          .finally(() => setPendingCreatedAt(null));
+      }}
     />
   );
 }
@@ -59,7 +72,7 @@ function EditableDateForm({
   sessionId: string;
   createdAt: unknown;
   onCancel?: () => void;
-  onSaved?: () => void;
+  onSaved?: (nextCreatedAt: string, commit: Promise<unknown>) => void;
 }) {
   const { t } = useLingui();
   const updateSession = useUpdateSession(sessionId);
@@ -95,11 +108,9 @@ function EditableDateForm({
         return;
       }
 
-      onSaved?.();
-      void Promise.resolve(updateSession({ created_at: nextCreatedAt })).catch(
-        (error) => {
-          console.error("[metadata] failed to update session date", error);
-        },
+      onSaved?.(
+        nextCreatedAt,
+        Promise.resolve(updateSession({ created_at: nextCreatedAt })),
       );
     },
   });
