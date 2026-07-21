@@ -4,6 +4,7 @@ import { useCallback } from "react";
 
 import { useShareRouteContinuation } from "@/components/share-route-continuation";
 import { LinkSharedNoteActions } from "@/components/shared-note-actions";
+import { SharedNoteChatPanel } from "@/components/shared-note-chat-panel";
 import { SharedNoteCollaboration } from "@/components/shared-note-collaboration";
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
 import { SharedNoteEditableViewer } from "@/components/shared-note-editable-viewer";
@@ -177,53 +178,61 @@ function LinkSharedNoteClient({
     authenticatedSnapshot: authenticatedNote?.snapshot ?? null,
     linkSnapshot,
   });
+  const returnPath = buildSharedNoteWebPath(pathname, scheme);
 
   return (
-    <SharedNoteEditableViewer
-      key={snapshot.shareId}
-      snapshot={snapshot}
-      authenticatedNote={authenticatedNote}
-      fallbackAccessLabel={
-        linkSnapshot
-          ? "Anyone with the link · View only"
-          : "Shared note · View only"
-      }
-      fallbackSnapshot={fallbackSnapshot}
-      onAccessChanged={async () => {
-        const [refreshed] = await Promise.all([
-          authenticatedQuery.refetch(),
-          hasToken ? snapshotQuery.refetch() : Promise.resolve(null),
-        ]);
-        return refreshed.status === "success" &&
-          refreshed.data.status === "ready"
-          ? refreshed.data.note
-          : null;
-      }}
-      resolveAttachment={resolveAttachment}
-      revokedBehavior="read-only"
-      signedIn={currentUserId !== null}
-      accessLabel={
-        authenticatedNote &&
-        shouldUseAuthenticatedSharedNoteAccessLabel(authenticatedNote)
-          ? formatAuthenticatedSharedNoteAccessLabel(authenticatedNote)
-          : "Anyone with the link · View only"
-      }
-      collaboration={
-        <SharedNoteCollaboration
-          capability={authenticatedNote?.capability ?? "viewer"}
-          currentUserId={currentUserId}
-          manageAccess={authenticatedNote?.manageAccess ?? false}
-          returnPath={buildSharedNoteWebPath(pathname, scheme)}
-          shareId={validShareId.data}
-        />
-      }
-      actions={
-        <LinkSharedNoteActions
-          pathname={pathname}
-          scheme={scheme}
-          shareId={validShareId.data}
-        />
-      }
-    />
+    <>
+      <SharedNoteEditableViewer
+        key={snapshot.shareId}
+        snapshot={snapshot}
+        authenticatedNote={authenticatedNote}
+        fallbackAccessLabel={
+          linkSnapshot
+            ? "Anyone with the link · View only"
+            : "Shared note · View only"
+        }
+        fallbackSnapshot={fallbackSnapshot}
+        onAccessChanged={async () => {
+          const [refreshed] = await Promise.all([
+            authenticatedQuery.refetch(),
+            hasToken ? snapshotQuery.refetch() : Promise.resolve(null),
+          ]);
+          return refreshed.status === "success" &&
+            refreshed.data.status === "ready"
+            ? refreshed.data.note
+            : null;
+        }}
+        resolveAttachment={resolveAttachment}
+        revokedBehavior="read-only"
+        signedIn={currentUserId !== null}
+        accessLabel={
+          authenticatedNote &&
+          shouldUseAuthenticatedSharedNoteAccessLabel(authenticatedNote)
+            ? formatAuthenticatedSharedNoteAccessLabel(authenticatedNote)
+            : "Anyone with the link · View only"
+        }
+        collaboration={
+          <SharedNoteCollaboration
+            capability={authenticatedNote?.capability ?? "viewer"}
+            currentUserId={currentUserId}
+            manageAccess={authenticatedNote?.manageAccess ?? false}
+            returnPath={returnPath}
+            shareId={validShareId.data}
+          />
+        }
+        actions={
+          <LinkSharedNoteActions
+            pathname={pathname}
+            scheme={scheme}
+            shareId={validShareId.data}
+          />
+        }
+      />
+      <SharedNoteChatPanel
+        returnPath={returnPath}
+        signedIn={currentUserId !== null}
+        snapshot={snapshot}
+      />
+    </>
   );
 }

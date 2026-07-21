@@ -2,6 +2,7 @@ import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { useCallback } from "react";
 
 import { AccountSharedNoteActions } from "@/components/shared-note-actions";
+import { SharedNoteChatPanel } from "@/components/shared-note-chat-panel";
 import { SharedNoteCollaboration } from "@/components/shared-note-collaboration";
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
 import { SharedNoteEditableViewer } from "@/components/shared-note-editable-viewer";
@@ -83,42 +84,51 @@ function Component() {
     return <SharedNoteUnavailable />;
   }
 
+  const returnPath = buildSharedNoteWebPath(
+    `/share/${encodeURIComponent(note.snapshot.shareId)}/`,
+    scheme,
+  );
+
   return (
-    <SharedNoteEditableViewer
-      key={note.snapshot.shareId}
-      snapshot={note.snapshot}
-      authenticatedNote={note}
-      fallbackAccessLabel="Shared note · View only"
-      fallbackSnapshot={note.snapshot}
-      onAccessChanged={async () => {
-        await router.invalidate();
-        const refreshed = await readAuthenticatedSharedNote({
-          data: note.snapshot.shareId,
-        });
-        return refreshed.status === "ready" ? refreshed.note : null;
-      }}
-      resolveAttachment={resolveAttachment}
-      revokedBehavior="read-only"
-      signedIn={true}
-      accessLabel={formatAuthenticatedSharedNoteAccessLabel(note)}
-      collaboration={
-        <SharedNoteCollaboration
-          capability={note.capability}
-          currentUserId={user.id}
-          manageAccess={note.manageAccess}
-          returnPath={buildSharedNoteWebPath(
-            `/share/${encodeURIComponent(note.snapshot.shareId)}/`,
-            scheme,
-          )}
-          shareId={note.snapshot.shareId}
-        />
-      }
-      actions={
-        <AccountSharedNoteActions
-          scheme={scheme}
-          shareId={note.snapshot.shareId}
-        />
-      }
-    />
+    <>
+      <SharedNoteEditableViewer
+        key={note.snapshot.shareId}
+        snapshot={note.snapshot}
+        authenticatedNote={note}
+        fallbackAccessLabel="Shared note · View only"
+        fallbackSnapshot={note.snapshot}
+        onAccessChanged={async () => {
+          await router.invalidate();
+          const refreshed = await readAuthenticatedSharedNote({
+            data: note.snapshot.shareId,
+          });
+          return refreshed.status === "ready" ? refreshed.note : null;
+        }}
+        resolveAttachment={resolveAttachment}
+        revokedBehavior="read-only"
+        signedIn={true}
+        accessLabel={formatAuthenticatedSharedNoteAccessLabel(note)}
+        collaboration={
+          <SharedNoteCollaboration
+            capability={note.capability}
+            currentUserId={user.id}
+            manageAccess={note.manageAccess}
+            returnPath={returnPath}
+            shareId={note.snapshot.shareId}
+          />
+        }
+        actions={
+          <AccountSharedNoteActions
+            scheme={scheme}
+            shareId={note.snapshot.shareId}
+          />
+        }
+      />
+      <SharedNoteChatPanel
+        returnPath={returnPath}
+        signedIn={true}
+        snapshot={note.snapshot}
+      />
+    </>
   );
 }

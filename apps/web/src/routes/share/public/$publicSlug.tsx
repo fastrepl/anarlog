@@ -2,6 +2,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useCallback } from "react";
 
 import { PublicSharedNoteActions } from "@/components/shared-note-actions";
+import { SharedNoteChatPanel } from "@/components/shared-note-chat-panel";
 import { SharedNoteCollaboration } from "@/components/shared-note-collaboration";
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
 import { SharedNoteEditableViewer } from "@/components/shared-note-editable-viewer";
@@ -101,6 +102,10 @@ function Component() {
   }
 
   const snapshot = authenticatedNote?.snapshot ?? result.snapshot;
+  const returnPath = buildSharedNoteWebPath(
+    `/share/public/${encodeURIComponent(publicSlug)}/`,
+    scheme,
+  );
   const accessLabel =
     authenticatedNote &&
     shouldUseAuthenticatedSharedNoteAccessLabel(authenticatedNote)
@@ -108,8 +113,9 @@ function Component() {
       : "Public note · View only";
 
   return (
-    <SharedNoteEditableViewer
-      key={snapshot.shareId}
+    <>
+      <SharedNoteEditableViewer
+        key={snapshot.shareId}
       snapshot={snapshot}
       authenticatedNote={authenticatedNote}
       fallbackAccessLabel="Public note · View only"
@@ -130,16 +136,19 @@ function Component() {
           capability={authenticatedNote?.capability ?? "viewer"}
           currentUserId={user?.id ?? null}
           manageAccess={authenticatedNote?.manageAccess ?? false}
-          returnPath={buildSharedNoteWebPath(
-            `/share/public/${encodeURIComponent(publicSlug)}/`,
-            scheme,
-          )}
+          returnPath={returnPath}
           shareId={snapshot.shareId}
         />
       }
       actions={
         <PublicSharedNoteActions publicSlug={publicSlug} scheme={scheme} />
       }
-    />
+      />
+      <SharedNoteChatPanel
+        returnPath={returnPath}
+        signedIn={user !== null}
+        snapshot={snapshot}
+      />
+    </>
   );
 }
