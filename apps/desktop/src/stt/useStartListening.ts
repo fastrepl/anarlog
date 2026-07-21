@@ -367,9 +367,13 @@ export function useStartListening(sessionId: string) {
         }
       }
 
-      // A failed batch repair keeps the recording around as the only source
-      // for a later repair, regardless of the retention policy.
-      if (postCaptureAction !== "batch_then_enhance" || batchCompleted) {
+      // A failed batch repair — or a live transcript that never fully
+      // persisted — keeps the recording around as the only source for a later
+      // repair, regardless of the retention policy.
+      if (
+        (postCaptureAction !== "batch_then_enhance" || batchCompleted) &&
+        !transcriptWriteError
+      ) {
         await deleteProcessedAudioForRetention(audioRetention, sessionId);
       }
     };

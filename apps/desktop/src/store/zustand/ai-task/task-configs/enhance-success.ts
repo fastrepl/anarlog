@@ -114,6 +114,12 @@ const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = async ({
         }
       : null,
   );
+  // A reset/regenerate aborts this run; a stale run that persisted anyway
+  // would overwrite the replacement's summary with old content.
+  if (signal.aborted) {
+    return;
+  }
+
   const persistableText = appendTagLineToMarkdown(persistableBody, tagNames);
   await persistGeneratedEnhancedNote({
     sessionId: args.sessionId,
@@ -127,7 +133,7 @@ const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = async ({
     tagNames,
   });
 
-  if (shouldPersistGeneratedTitle) {
+  if (shouldPersistGeneratedTitle && !signal.aborted) {
     await persistGeneratedTitle({
       text: generatedTitle,
       args: { sessionId: args.sessionId },
