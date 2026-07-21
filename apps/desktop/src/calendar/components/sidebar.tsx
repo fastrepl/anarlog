@@ -1,6 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
 import { platform } from "@tauri-apps/plugin-os";
-import { ChevronRight, PlusIcon } from "lucide-react";
+import { ChevronRight, Loader2Icon, PlusIcon } from "lucide-react";
 import { useCallback, useMemo, type MouseEvent } from "react";
 
 import type { ConnectionItem } from "@hypr/api-client";
@@ -23,7 +23,10 @@ import { useBillingAccess } from "~/auth/billing-context";
 import { useConnections } from "~/auth/useConnections";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 import { usePermission } from "~/shared/hooks/usePermissions";
-import { openIntegrationUrl } from "~/shared/integration";
+import {
+  openIntegrationUrl,
+  useOpenIntegrationUrl,
+} from "~/shared/integration";
 
 function getProviderBadgeClassName(badge: string) {
   if (badge === "Beta") {
@@ -159,7 +162,8 @@ function ProviderAccordionItem({
 }) {
   const { t } = useLingui();
   const auth = useAuth();
-  const { isPaid, isPro, upgradeToPro } = useBillingAccess();
+  const { isPaid, isPro, upgradeToPro, isUpgradingToPro } = useBillingAccess();
+  const { openIntegration, openingAction } = useOpenIntegrationUrl();
   const { data: connections, isPending, isError } = useConnections(isPaid);
   const providerConnections =
     connections?.filter(
@@ -185,28 +189,32 @@ function ProviderAccordionItem({
       }
       if (!shouldConnectOnClick) return;
       event.preventDefault();
-      void openIntegrationUrl(
-        provider.nangoIntegrationId,
-        undefined,
-        "connect",
+      openIntegration({
+        nangoIntegrationId: provider.nangoIntegrationId,
+        action: "connect",
         returnTo,
-      );
+      });
     },
-    [provider.nangoIntegrationId, requiresPro, returnTo, shouldConnectOnClick],
+    [
+      openIntegration,
+      provider.nangoIntegrationId,
+      requiresPro,
+      returnTo,
+      shouldConnectOnClick,
+    ],
   );
   const handleAddAccount = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
       if (!canAddAccount) return;
       event.preventDefault();
       event.stopPropagation();
-      void openIntegrationUrl(
-        provider.nangoIntegrationId,
-        undefined,
-        "connect",
+      openIntegration({
+        nangoIntegrationId: provider.nangoIntegrationId,
+        action: "connect",
         returnTo,
-      );
+      });
     },
-    [canAddAccount, provider.nangoIntegrationId, returnTo],
+    [canAddAccount, openIntegration, provider.nangoIntegrationId, returnTo],
   );
   const handleUpgradeToPro = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
@@ -291,19 +299,28 @@ function ProviderAccordionItem({
           <button
             type="button"
             onClick={handleUpgradeToPro}
-            className="border-primary bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring pointer-events-none absolute top-1/2 right-1 z-10 shrink-0 translate-x-1 -translate-y-1/2 rounded-full border-2 px-3 py-1 text-xs font-medium opacity-0 shadow-[0_4px_14px_rgba(87,83,78,0.18)] transition-all duration-150 group-focus-within/row:pointer-events-auto group-focus-within/row:translate-x-0 group-focus-within/row:opacity-100 group-hover/row:pointer-events-auto group-hover/row:translate-x-0 group-hover/row:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
+            disabled={isUpgradingToPro}
+            className="border-primary bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring pointer-events-none absolute top-1/2 right-1 z-10 flex shrink-0 translate-x-1 -translate-y-1/2 items-center gap-1 rounded-full border-2 px-3 py-1 text-xs font-medium opacity-0 shadow-[0_4px_14px_rgba(87,83,78,0.18)] transition-all duration-150 group-focus-within/row:pointer-events-auto group-focus-within/row:translate-x-0 group-focus-within/row:opacity-100 group-hover/row:pointer-events-auto group-hover/row:translate-x-0 group-hover/row:opacity-100 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-70"
             aria-label={t`Upgrade to Pro for ${provider.displayName}`}
           >
+            {isUpgradingToPro && (
+              <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+            )}
             {t`Upgrade to Pro`}
           </button>
         ) : hasAddAccountButton ? (
           <button
             type="button"
             onClick={handleAddAccount}
-            className="text-muted-foreground hover:bg-accent hover:text-foreground shrink-0 rounded-full p-1 transition-colors"
+            disabled={openingAction !== null}
+            className="text-muted-foreground hover:bg-accent hover:text-foreground shrink-0 rounded-full p-1 transition-colors disabled:opacity-50"
             aria-label={t`Add ${provider.displayName} account`}
           >
-            <PlusIcon className="size-4" />
+            {openingAction === "connect" ? (
+              <Loader2Icon className="size-4 animate-spin" />
+            ) : (
+              <PlusIcon className="size-4" />
+            )}
           </button>
         ) : null}
 

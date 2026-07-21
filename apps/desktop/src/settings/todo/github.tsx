@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { fetch } from "@tauri-apps/plugin-http";
-import { ExternalLinkIcon, PlusIcon, XIcon } from "lucide-react";
+import { ExternalLinkIcon, Loader2Icon, PlusIcon, XIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { commands as openerCommands } from "@hypr/plugin-opener2";
@@ -20,7 +20,7 @@ import { useBillingAccess } from "~/auth/billing-context";
 import { useConnections } from "~/auth/useConnections";
 import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
-import { openIntegrationUrl } from "~/shared/integration";
+import { useOpenIntegrationUrl } from "~/shared/integration";
 
 async function searchGitHubRepos(query: string): Promise<string[]> {
   const resp = await fetch(
@@ -40,8 +40,9 @@ export function GitHubTodoProviderContent({
 }) {
   const { t } = useLingui();
   const auth = useAuth();
-  const { isPaid, upgradeToPro } = useBillingAccess();
+  const { isPaid, upgradeToPro, isUpgradingToPro } = useBillingAccess();
   const { data: connections } = useConnections(isPaid);
+  const { openIntegration, openingAction } = useOpenIntegrationUrl();
   const [showAddInput, setShowAddInput] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [debouncedInput, setDebouncedInput] = useState("");
@@ -103,38 +104,49 @@ export function GitHubTodoProviderContent({
           <button
             type="button"
             onClick={upgradeToPro}
-            className="hover:text-muted-foreground underline transition-colors"
+            disabled={isUpgradingToPro}
+            className="hover:text-muted-foreground inline-flex items-center gap-1 underline transition-colors disabled:opacity-50"
           >
+            {isUpgradingToPro && (
+              <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+            )}
             <Trans>Upgrade for private repos.</Trans>
           </button>
         ) : providerConnections.length === 0 ? (
           <button
             type="button"
             onClick={() =>
-              openIntegrationUrl(
-                config.nangoIntegrationId,
-                undefined,
-                "connect",
-                "todo",
-              )
+              openIntegration({
+                nangoIntegrationId: config.nangoIntegrationId,
+                action: "connect",
+                returnTo: "todo",
+              })
             }
-            className="hover:text-muted-foreground underline transition-colors"
+            disabled={openingAction !== null}
+            className="hover:text-muted-foreground inline-flex items-center gap-1 underline transition-colors disabled:opacity-50"
           >
+            {openingAction === "connect" && (
+              <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+            )}
             <Trans>Connect GitHub for private repos.</Trans>
           </button>
         ) : (
           <button
             type="button"
             onClick={() =>
-              openIntegrationUrl(
-                config.nangoIntegrationId,
-                providerConnections[0]?.connection_id,
-                "disconnect",
-                "todo",
-              )
+              openIntegration({
+                nangoIntegrationId: config.nangoIntegrationId,
+                connectionId: providerConnections[0]?.connection_id,
+                action: "disconnect",
+                returnTo: "todo",
+              })
             }
-            className="hover:text-muted-foreground underline transition-colors"
+            disabled={openingAction !== null}
+            className="hover:text-muted-foreground inline-flex items-center gap-1 underline transition-colors disabled:opacity-50"
           >
+            {openingAction === "disconnect" && (
+              <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+            )}
             <Trans>Disconnect private repo access.</Trans>
           </button>
         )}

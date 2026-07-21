@@ -6,6 +6,7 @@ export type BillingAccess = BillingInfo & {
   isReady: boolean;
   canStartTrial: { data: boolean; isPending: boolean };
   upgradeToPro: () => void;
+  isUpgradingToPro: boolean;
 };
 
 export const BillingContext = createContext<BillingAccess | null>(null);

@@ -1,5 +1,6 @@
 import { Trans } from "@lingui/react/macro";
 import { platform } from "@tauri-apps/plugin-os";
+import { Loader2Icon } from "lucide-react";
 import { motion } from "motion/react";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 
@@ -306,6 +307,7 @@ function OAuthCalendarProviderAction({
   connectLabel,
   isConnected,
   isHovered,
+  isOpening,
   isPending,
   isReady,
   isSignedIn,
@@ -316,6 +318,7 @@ function OAuthCalendarProviderAction({
   connectLabel: ReactNode;
   isConnected: boolean;
   isHovered: boolean;
+  isOpening: boolean;
   isPending: boolean;
   isReady: boolean;
   isSignedIn: boolean;
@@ -330,7 +333,7 @@ function OAuthCalendarProviderAction({
         onMouseLeave={() => onHoverChange(false)}
         onFocus={() => onHoverChange(true)}
         onBlur={() => onHoverChange(false)}
-        disabled={isSignedIn && (isPending || !isReady)}
+        disabled={isOpening || (isSignedIn && (isPending || !isReady))}
         className={
           isSignedIn
             ? "border-border bg-card text-foreground hover:bg-accent disabled:hover:bg-card flex h-full w-full items-center justify-center gap-3 border shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
@@ -364,7 +367,14 @@ function OAuthCalendarProviderAction({
           </span>
         ) : (
           <>
-            {provider.icon}
+            {isOpening ? (
+              <Loader2Icon
+                className="size-4 shrink-0 animate-spin"
+                aria-hidden="true"
+              />
+            ) : (
+              provider.icon
+            )}
             {isConnected ? <Trans>Add another account</Trans> : connectLabel}
           </>
         )}
@@ -375,9 +385,10 @@ function OAuthCalendarProviderAction({
 
 function OutlookCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
   const auth = useAuth();
-  const { isPro, isReady, upgradeToPro } = useBillingAccess();
+  const { isPro, isReady, upgradeToPro, isUpgradingToPro } = useBillingAccess();
   const { data: connections, isPending, isError } = useConnections(isPro);
   const [isHovered, setHovered] = useState(false);
+  const [isOpening, setIsOpening] = useState(false);
   const providerConnections = useMemo(
     () =>
       connections?.filter(
@@ -398,12 +409,16 @@ function OutlookCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
       return;
     }
 
+    if (isOpening) {
+      return;
+    }
+    setIsOpening(true);
     void openOnboardingIntegrationUrl(
       OUTLOOK_PROVIDER?.nangoIntegrationId,
       undefined,
       "connect",
-    );
-  }, [auth.session, isPro, onSignIn, upgradeToPro]);
+    ).finally(() => setIsOpening(false));
+  }, [auth.session, isOpening, isPro, onSignIn, upgradeToPro]);
 
   if (!OUTLOOK_PROVIDER) {
     return null;
@@ -435,6 +450,7 @@ function OutlookCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
         connectLabel={<Trans>Connect Outlook</Trans>}
         isConnected={isConnected}
         isHovered={isHovered}
+        isOpening={isOpening || isUpgradingToPro}
         isPending={isPending}
         isReady={isReady}
         isSignedIn={isSignedIn}
@@ -447,9 +463,10 @@ function OutlookCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
 
 function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
   const auth = useAuth();
-  const { isPro, isReady, upgradeToPro } = useBillingAccess();
+  const { isPro, isReady, upgradeToPro, isUpgradingToPro } = useBillingAccess();
   const { data: connections, isPending, isError } = useConnections(isPro);
   const [isHovered, setHovered] = useState(false);
+  const [isOpening, setIsOpening] = useState(false);
   const providerConnections = useMemo(
     () =>
       connections?.filter(
@@ -470,12 +487,16 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
       return;
     }
 
+    if (isOpening) {
+      return;
+    }
+    setIsOpening(true);
     void openOnboardingIntegrationUrl(
       GOOGLE_PROVIDER?.nangoIntegrationId,
       undefined,
       "connect",
-    );
-  }, [auth.session, isPro, onSignIn, upgradeToPro]);
+    ).finally(() => setIsOpening(false));
+  }, [auth.session, isOpening, isPro, onSignIn, upgradeToPro]);
 
   if (!GOOGLE_PROVIDER) {
     return null;
@@ -507,6 +528,7 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
         connectLabel={<Trans>Connect Google Calendar</Trans>}
         isConnected={isConnected}
         isHovered={isHovered}
+        isOpening={isOpening || isUpgradingToPro}
         isPending={isPending}
         isReady={isReady}
         isSignedIn={isSignedIn}

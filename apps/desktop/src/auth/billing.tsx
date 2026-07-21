@@ -116,6 +116,8 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     ],
   );
 
+  const [isUpgradingToPro, setIsUpgradingToPro] = useState(false);
+
   const openUpgrade = useCallback(
     async (source: "feature_gate" | "trial_ended") => {
       void analyticsCommands.event({
@@ -125,13 +127,18 @@ export function BillingProvider({ children }: { children: ReactNode }) {
         source,
       });
 
-      const url = await buildWebAppUrl("/app/checkout", {
-        period: "monthly",
-        source,
-      });
-      await openUrlWithInstruction(url, "billing", (u) =>
-        openerCommands.openUrl(u, null),
-      );
+      setIsUpgradingToPro(true);
+      try {
+        const url = await buildWebAppUrl("/app/checkout", {
+          period: "monthly",
+          source,
+        });
+        await openUrlWithInstruction(url, "billing", (u) =>
+          openerCommands.openUrl(u, null),
+        );
+      } finally {
+        setIsUpgradingToPro(false);
+      }
     },
     [],
   );
@@ -274,8 +281,9 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       isReady,
       canStartTrial,
       upgradeToPro,
+      isUpgradingToPro,
     }),
-    [billing, isReady, canStartTrial, upgradeToPro],
+    [billing, isReady, canStartTrial, upgradeToPro, isUpgradingToPro],
   );
 
   return (

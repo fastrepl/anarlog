@@ -1,5 +1,10 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { arch } from "@tauri-apps/plugin-os";
 import {
   AlertTriangle,
@@ -697,8 +702,10 @@ function ModelSelectItem({
 }) {
   const isCloud = model.id === "cloud";
   const { activeDownloads } = useNotifications();
+  const { queuedDownloads } = useSttSettings();
   const downloadInfo = activeDownloads.find((d) => d.model === model.id);
-  const isDownloading = !!downloadInfo;
+  const isDownloading =
+    !!downloadInfo || queuedDownloads.includes(model.id as LocalModel);
 
   const label = displayModelLabel(model.id, model.displayName);
   const title = displayModelTitle(model.id, model.displayName);
@@ -778,7 +785,11 @@ function ModelSelectItem({
           ])}
         >
           <Loader2 className="size-3 animate-spin" />
-          <span>{Math.round(downloadInfo.progress)}%</span>
+          {downloadInfo ? (
+            <span>{Math.round(downloadInfo.progress)}%</span>
+          ) : (
+            <Trans>Starting</Trans>
+          )}
         </span>
       ) : (
         <button
@@ -875,14 +886,22 @@ function LocalModelDropdownActions({ model }: { model: LocalModel }) {
     });
   };
 
-  const handleDelete = () => {
-    void localSttCommands.deleteModel(model).then((result) => {
+  const deleteModel = useMutation({
+    mutationFn: () => localSttCommands.deleteModel(model),
+    onSuccess: (result) => {
       if (result.status === "ok") {
         void queryClient.invalidateQueries({
           queryKey: sttModelQueries.isDownloaded(model).queryKey,
         });
       }
-    });
+    },
+  });
+
+  const handleDelete = () => {
+    if (deleteModel.isPending) {
+      return;
+    }
+    deleteModel.mutate();
   };
 
   return (
@@ -892,6 +911,7 @@ function LocalModelDropdownActions({ model }: { model: LocalModel }) {
         "pointer-events-none opacity-0 transition-opacity duration-150",
         "group-hover/model-row:pointer-events-auto group-hover/model-row:opacity-100",
         "group-focus-within/model-row:pointer-events-auto group-focus-within/model-row:opacity-100",
+        deleteModel.isPending && "pointer-events-auto opacity-100",
       ])}
     >
       <button
@@ -912,9 +932,11 @@ function LocalModelDropdownActions({ model }: { model: LocalModel }) {
       <button
         type="button"
         aria-label={t`Delete model`}
+        disabled={deleteModel.isPending}
         className={cn([
           "flex size-6 items-center justify-center rounded-full",
           "text-red-500 hover:text-red-600",
+          "disabled:opacity-70",
         ])}
         onPointerDown={stopSelect}
         onClick={(event) => {
@@ -922,7 +944,11 @@ function LocalModelDropdownActions({ model }: { model: LocalModel }) {
           handleDelete();
         }}
       >
-        <Trash2 className="size-3.5" />
+        {deleteModel.isPending ? (
+          <Loader2 className="size-3.5 animate-spin" />
+        ) : (
+          <Trash2 className="size-3.5" />
+        )}
       </button>
     </div>
   );

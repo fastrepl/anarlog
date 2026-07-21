@@ -89,14 +89,18 @@ function EditableDateForm({
         return undefined;
       },
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: ({ value }) => {
       const nextCreatedAt = toIsoString(value.createdAt);
       if (!nextCreatedAt) {
         return;
       }
 
-      await updateSession({ created_at: nextCreatedAt });
       onSaved?.();
+      void Promise.resolve(updateSession({ created_at: nextCreatedAt })).catch(
+        (error) => {
+          console.error("[metadata] failed to update session date", error);
+        },
+      );
     },
   });
 

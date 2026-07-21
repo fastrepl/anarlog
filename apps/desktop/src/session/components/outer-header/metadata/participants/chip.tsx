@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Loader2Icon, SparklesIcon, X } from "lucide-react";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 
 import { Badge } from "@hypr/ui/components/ui/badge";
 import { Button } from "@hypr/ui/components/ui/button";
@@ -33,7 +33,7 @@ export function ParticipantChip({
   const sessionId = details?.sessionId;
   const source = details?.source;
 
-  const handleRemove = useRemoveParticipant({
+  const { remove: handleRemove, isRemoving } = useRemoveParticipant({
     mappingId,
     assignedHumanId,
     sessionId,
@@ -48,7 +48,7 @@ export function ParticipantChip({
     }
   }, [assignedHumanId]);
 
-  if (!details || source === "excluded") {
+  if (!details || source === "excluded" || isRemoving) {
     return null;
   }
 
@@ -171,14 +171,20 @@ function useRemoveParticipant({
   assignedHumanId: string | undefined;
   sessionId: string | undefined;
 }) {
-  return useCallback(() => {
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  const remove = useCallback(() => {
+    setIsRemoving(true);
     void (async () => {
       if (assignedHumanId && sessionId) {
         await removeHumanSpeakerAssignments(sessionId, assignedHumanId);
       }
       await removeSessionParticipant(mappingId);
     })().catch((error) => {
+      setIsRemoving(false);
       console.error("[participants] failed to remove participant", error);
     });
   }, [mappingId, assignedHumanId, sessionId]);
+
+  return { remove, isRemoving };
 }

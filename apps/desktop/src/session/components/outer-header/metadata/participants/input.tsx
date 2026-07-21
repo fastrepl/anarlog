@@ -8,8 +8,10 @@ import {
   useFloating,
 } from "@floating-ui/react";
 import { useMutation } from "@tanstack/react-query";
+import { Loader2Icon } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
+import { Badge } from "@hypr/ui/components/ui/badge";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import { ParticipantChip } from "./chip";
@@ -45,6 +47,7 @@ export function ParticipantInput({ sessionId }: { sessionId: string }) {
     selectedIndex,
     setSelectedIndex,
     mappingIds,
+    pendingParticipants,
     dropdownOptions,
     handleAddParticipant,
     handleInputChange,
@@ -128,6 +131,17 @@ export function ParticipantInput({ sessionId }: { sessionId: string }) {
               showEnhancementButtons ? enhanceContact : undefined
             }
           />
+        ))}
+
+        {pendingParticipants.map((pending) => (
+          <Badge
+            key={pending.key}
+            variant="secondary"
+            className="bg-foreground/10 flex items-center gap-1 px-2 py-0.5 text-xs opacity-60"
+          >
+            <span>{pending.name || "Unknown"}</span>
+            <Loader2Icon className="size-2.5 animate-spin" aria-hidden="true" />
+          </Badge>
         ))}
 
         <input
@@ -256,9 +270,19 @@ function useParticipantMutations(
   participants: ReturnType<typeof useSessionParticipants>,
 ) {
   const session = useSession(sessionId);
+  const [pendingAdds, setPendingAdds] = useState<
+    { key: number; humanId: string | null; name: string }[]
+  >([]);
+  const pendingAddKeyRef = useRef(0);
 
   const addParticipant = useCallback(
     (option: Candidate) => {
+      const key = ++pendingAddKeyRef.current;
+      setPendingAdds((prev) => [
+        ...prev,
+        { key, humanId: option.isNew ? null : option.id, name: option.name },
+      ]);
+
       void (async () => {
         let humanId = option.id;
         if (option.isNew) {
@@ -269,9 +293,13 @@ function useParticipantMutations(
           });
         }
         await addSessionParticipant(sessionId, humanId);
-      })().catch((error) => {
-        console.error("[participants] failed to add participant", error);
-      });
+      })()
+        .catch((error) => {
+          console.error("[participants] failed to add participant", error);
+        })
+        .finally(() => {
+          setPendingAdds((prev) => prev.filter((entry) => entry.key !== key));
+        });
     },
     [session?.user_id, sessionId],
   );
@@ -288,7 +316,7 @@ function useParticipantMutations(
     });
   }, [participants, sessionId]);
 
-  return { addParticipant, deleteLastParticipant };
+  return { addParticipant, deleteLastParticipant, pendingAdds };
 }
 
 function useParticipantInput(sessionId: string) {
@@ -300,9 +328,14 @@ function useParticipantInput(sessionId: string) {
     useParticipantMappings(sessionId);
   const candidates = useCandidateSearch(inputValue, existingHumanIds);
   const dropdownOptions = useDropdownOptions(inputValue, candidates);
-  const { addParticipant, deleteLastParticipant } = useParticipantMutations(
-    sessionId,
-    participants,
+  const { addParticipant, deleteLastParticipant, pendingAdds } =
+    useParticipantMutations(sessionId, participants);
+  const pendingParticipants = useMemo(
+    () =>
+      pendingAdds.filter(
+        (entry) => !entry.humanId || !existingHumanIds.has(entry.humanId),
+      ),
+    [existingHumanIds, pendingAdds],
   );
   const activeSelectedIndex =
     dropdownOptions.length > 0
@@ -336,6 +369,7 @@ function useParticipantInput(sessionId: string) {
     selectedIndex: activeSelectedIndex,
     setSelectedIndex,
     mappingIds,
+    pendingParticipants,
     dropdownOptions,
     handleAddParticipant,
     handleInputChange,

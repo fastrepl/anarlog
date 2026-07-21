@@ -1,4 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { Loader2Icon } from "lucide-react";
 import { useCallback, useMemo } from "react";
 
 import {
@@ -19,7 +20,7 @@ import {
   TroubleShootingLink,
 } from "~/calendar/components/apple/permission";
 import { usePermission } from "~/shared/hooks/usePermissions";
-import { openIntegrationUrl } from "~/shared/integration";
+import { useOpenIntegrationUrl } from "~/shared/integration";
 
 export function TodoProviderContent({ config }: { config: TodoProvider }) {
   if (config.permission === "reminders") {
@@ -41,8 +42,9 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
   }
 
   const auth = useAuth();
-  const { isPaid, upgradeToPro } = useBillingAccess();
+  const { isPaid, upgradeToPro, isUpgradingToPro } = useBillingAccess();
   const { data: connections, isError } = useConnections(isPaid);
+  const { openIntegration, openingAction } = useOpenIntegrationUrl();
 
   const providerConnections = useMemo(
     () =>
@@ -54,13 +56,12 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
 
   const handleConnect = useCallback(
     () =>
-      openIntegrationUrl(
-        config.nangoIntegrationId,
-        undefined,
-        "connect",
-        "todo",
-      ),
-    [config.nangoIntegrationId],
+      openIntegration({
+        nangoIntegrationId: config.nangoIntegrationId,
+        action: "connect",
+        returnTo: "todo",
+      }),
+    [config.nangoIntegrationId, openIntegration],
   );
 
   if (!auth.session) {
@@ -89,8 +90,12 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
         <button
           type="button"
           onClick={upgradeToPro}
-          className="text-muted-foreground hover:text-foreground cursor-pointer text-xs underline transition-colors"
+          disabled={isUpgradingToPro}
+          className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors disabled:opacity-50"
         >
+          {isUpgradingToPro && (
+            <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+          )}
           <Trans>Upgrade to connect</Trans>
         </button>
       </div>
@@ -113,8 +118,12 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
         <button
           type="button"
           onClick={handleConnect}
-          className="text-muted-foreground hover:text-foreground cursor-pointer text-xs underline transition-colors"
+          disabled={openingAction !== null}
+          className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors disabled:opacity-50"
         >
+          {openingAction === "connect" && (
+            <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+          )}
           <Trans>Connect {config.displayName}</Trans>
         </button>
       </div>
@@ -151,6 +160,8 @@ function ConnectionActions({
   config: TodoProvider;
   providerConnections: { connection_id: string; status?: string | null }[];
 }) {
+  const { openIntegration, openingAction } = useOpenIntegrationUrl();
+
   if (!config.nangoIntegrationId || providerConnections.length === 0) {
     return null;
   }
@@ -167,15 +178,19 @@ function ConnectionActions({
         <button
           type="button"
           onClick={() =>
-            openIntegrationUrl(
-              config.nangoIntegrationId,
-              activeConnection.connection_id,
-              "reconnect",
-              "todo",
-            )
+            openIntegration({
+              nangoIntegrationId: config.nangoIntegrationId,
+              connectionId: activeConnection.connection_id,
+              action: "reconnect",
+              returnTo: "todo",
+            })
           }
-          className="cursor-pointer text-xs text-amber-700 underline transition-colors hover:text-amber-900"
+          disabled={openingAction !== null}
+          className="inline-flex cursor-pointer items-center gap-1 text-xs text-amber-700 underline transition-colors hover:text-amber-900 disabled:opacity-50"
         >
+          {openingAction === "reconnect" && (
+            <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+          )}
           <Trans>Reconnect required</Trans>
         </button>
         <span className="text-muted-foreground text-xs">
@@ -184,15 +199,19 @@ function ConnectionActions({
         <button
           type="button"
           onClick={() =>
-            openIntegrationUrl(
-              config.nangoIntegrationId,
-              activeConnection.connection_id,
-              "disconnect",
-              "todo",
-            )
+            openIntegration({
+              nangoIntegrationId: config.nangoIntegrationId,
+              connectionId: activeConnection.connection_id,
+              action: "disconnect",
+              returnTo: "todo",
+            })
           }
-          className="cursor-pointer text-xs text-red-500 underline transition-colors hover:text-red-700"
+          disabled={openingAction !== null}
+          className="inline-flex cursor-pointer items-center gap-1 text-xs text-red-500 underline transition-colors hover:text-red-700 disabled:opacity-50"
         >
+          {openingAction === "disconnect" && (
+            <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+          )}
           <Trans>Disconnect</Trans>
         </button>
       </div>
@@ -204,15 +223,19 @@ function ConnectionActions({
       <button
         type="button"
         onClick={() =>
-          openIntegrationUrl(
-            config.nangoIntegrationId,
-            activeConnection.connection_id,
-            "disconnect",
-            "todo",
-          )
+          openIntegration({
+            nangoIntegrationId: config.nangoIntegrationId,
+            connectionId: activeConnection.connection_id,
+            action: "disconnect",
+            returnTo: "todo",
+          })
         }
-        className="text-muted-foreground hover:text-muted-foreground cursor-pointer text-xs underline transition-colors"
+        disabled={openingAction !== null}
+        className="text-muted-foreground hover:text-muted-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors disabled:opacity-50"
       >
+        {openingAction === "disconnect" && (
+          <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+        )}
         <Trans>Disconnect</Trans>
       </button>
     </div>

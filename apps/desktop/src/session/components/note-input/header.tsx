@@ -474,6 +474,8 @@ function HeaderViewEnhancedActive({
         return;
       }
 
+      onSelectNote?.(enhancedNoteId);
+
       void Promise.resolve(
         service.enhance(sessionId, {
           templateId: selection.templateId,
@@ -482,7 +484,10 @@ function HeaderViewEnhancedActive({
         }),
       )
         .then((result) => {
-          if (result.type === "started" || result.type === "already_active") {
+          if (
+            (result.type === "started" || result.type === "already_active") &&
+            result.noteId !== enhancedNoteId
+          ) {
             onSelectNote?.(result.noteId);
           }
         })
@@ -884,49 +889,58 @@ function TemplatePickerPopover({
   }, []);
 
   const handleWebTemplateClick = useCallback(
-    async (template: WebTemplate) => {
-      const templateId = await createTemplate({
-        title: template.title,
-        description: template.description,
-        category: template.category,
-        icon: template.icon,
-        targets: template.targets,
-        sections: template.sections ?? [],
-      });
-      if (!templateId) {
-        return;
-      }
+    (template: WebTemplate) => {
+      setOpen(false);
+      setSearch("");
+      resultRefs.current = [];
 
-      handleUseTemplate({
-        templateId,
-        title: template.title || "Untitled",
-      });
+      void (async () => {
+        const templateId = await createTemplate({
+          title: template.title,
+          description: template.description,
+          category: template.category,
+          icon: template.icon,
+          targets: template.targets,
+          sections: template.sections ?? [],
+        });
+        if (!templateId) {
+          return;
+        }
+
+        onSelectTemplate({
+          templateId,
+          title: template.title || "Untitled",
+        });
+      })();
     },
-    [createTemplate, handleUseTemplate],
+    [createTemplate, onSelectTemplate],
   );
 
   const handleCreateTemplate = useCallback(
-    async (title?: string) => {
+    (title?: string) => {
       const nextTitle = title?.trim() || "New Template";
-
-      const templateId = await createTemplate({
-        title: nextTitle,
-        description: "",
-        sections: [],
-      });
-      if (!templateId) {
-        return;
-      }
 
       setOpen(false);
       setSearch("");
       resultRefs.current = [];
-      openTemplatesTab({
-        selectedMineId: templateId,
-        selectedWebIndex: null,
-        isWebMode: false,
-        showHomepage: false,
-      });
+
+      void (async () => {
+        const templateId = await createTemplate({
+          title: nextTitle,
+          description: "",
+          sections: [],
+        });
+        if (!templateId) {
+          return;
+        }
+
+        openTemplatesTab({
+          selectedMineId: templateId,
+          selectedWebIndex: null,
+          isWebMode: false,
+          showHomepage: false,
+        });
+      })();
     },
     [createTemplate, openTemplatesTab],
   );

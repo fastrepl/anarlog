@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -18,6 +19,7 @@ type SttSettingsContextType = {
   accordionValue: string;
   setAccordionValue: (value: string) => void;
   startDownload: (model: LocalModel) => void;
+  queuedDownloads: LocalModel[];
   startTrial: () => void;
 };
 
@@ -40,8 +42,20 @@ export function SttSettingsProvider({
     }
   }, [toastActionTarget, clearToastActionTarget]);
 
+  const [queuedDownloads, setQueuedDownloads] = useState<LocalModel[]>([]);
+  const queuedDownloadsRef = useRef<Set<LocalModel>>(new Set());
+
   const startDownload = useCallback((model: LocalModel) => {
-    void localSttCommands.downloadModel(model);
+    if (queuedDownloadsRef.current.has(model)) {
+      return;
+    }
+
+    queuedDownloadsRef.current.add(model);
+    setQueuedDownloads([...queuedDownloadsRef.current]);
+    void localSttCommands.downloadModel(model).finally(() => {
+      queuedDownloadsRef.current.delete(model);
+      setQueuedDownloads([...queuedDownloadsRef.current]);
+    });
   }, []);
 
   const startTrial = useCallback(() => {
@@ -54,6 +68,7 @@ export function SttSettingsProvider({
         accordionValue,
         setAccordionValue,
         startDownload,
+        queuedDownloads,
         startTrial,
       }}
     >

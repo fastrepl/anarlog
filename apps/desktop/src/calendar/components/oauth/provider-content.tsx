@@ -1,3 +1,4 @@
+import { Loader2Icon } from "lucide-react";
 import { useCallback, useMemo } from "react";
 
 import type { ConnectionItem } from "@hypr/api-client";
@@ -17,7 +18,10 @@ import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { useConnections } from "~/auth/useConnections";
 import type { CalendarProvider } from "~/calendar/components/shared";
-import { openIntegrationUrl } from "~/shared/integration";
+import {
+  openIntegrationUrl,
+  useOpenIntegrationUrl,
+} from "~/shared/integration";
 
 export function OAuthProviderContent({
   config,
@@ -27,8 +31,9 @@ export function OAuthProviderContent({
   returnTo?: string;
 }) {
   const auth = useAuth();
-  const { isPro, upgradeToPro } = useBillingAccess();
+  const { isPro, upgradeToPro, isUpgradingToPro } = useBillingAccess();
   const { data: connections, isError } = useConnections(isPro);
+  const { openIntegration, openingAction } = useOpenIntegrationUrl();
   const providerConnections = useMemo(
     () =>
       connections?.filter(
@@ -39,13 +44,12 @@ export function OAuthProviderContent({
 
   const handleAddAccount = useCallback(
     () =>
-      openIntegrationUrl(
-        config.nangoIntegrationId,
-        undefined,
-        "connect",
+      openIntegration({
+        nangoIntegrationId: config.nangoIntegrationId,
+        action: "connect",
         returnTo,
-      ),
-    [config.nangoIntegrationId, returnTo],
+      }),
+    [config.nangoIntegrationId, openIntegration, returnTo],
   );
 
   if (!auth.session) {
@@ -73,8 +77,12 @@ export function OAuthProviderContent({
       <div className="pt-1 pb-2">
         <button
           onClick={upgradeToPro}
-          className="text-muted-foreground hover:text-foreground cursor-pointer text-xs underline transition-colors"
+          disabled={isUpgradingToPro}
+          className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors disabled:opacity-50"
         >
+          {isUpgradingToPro && (
+            <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+          )}
           Upgrade to connect
         </button>
       </div>
@@ -93,21 +101,22 @@ export function OAuthProviderContent({
             key={connection.connection_id}
             config={config}
             onReconnect={() =>
-              openIntegrationUrl(
-                config.nangoIntegrationId,
-                connection.connection_id,
-                "reconnect",
+              openIntegration({
+                nangoIntegrationId: config.nangoIntegrationId,
+                connectionId: connection.connection_id,
+                action: "reconnect",
                 returnTo,
-              )
+              })
             }
             onDisconnect={() =>
-              openIntegrationUrl(
-                config.nangoIntegrationId,
-                connection.connection_id,
-                "disconnect",
+              openIntegration({
+                nangoIntegrationId: config.nangoIntegrationId,
+                connectionId: connection.connection_id,
+                action: "disconnect",
                 returnTo,
-              )
+              })
             }
+            openingAction={openingAction}
             errorDescription={connection.last_error_description ?? null}
           />
         ))}
@@ -135,8 +144,12 @@ export function OAuthProviderContent({
     <div className="pt-1 pb-2">
       <button
         onClick={handleAddAccount}
-        className="text-muted-foreground hover:text-foreground cursor-pointer text-xs underline transition-colors"
+        disabled={openingAction !== null}
+        className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors disabled:opacity-50"
       >
+        {openingAction === "connect" && (
+          <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+        )}
         Connect {config.displayName} Calendar
       </button>
     </div>
@@ -147,11 +160,13 @@ function ReconnectRequiredContent({
   config,
   onReconnect,
   onDisconnect,
+  openingAction,
   errorDescription,
 }: {
   config: CalendarProvider;
   onReconnect: () => void;
   onDisconnect: () => void;
+  openingAction: "connect" | "reconnect" | "disconnect" | null;
   errorDescription: string | null;
 }) {
   return (
@@ -168,15 +183,23 @@ function ReconnectRequiredContent({
       <div className="flex items-center gap-2">
         <button
           onClick={onReconnect}
-          className="text-muted-foreground hover:text-foreground cursor-pointer text-xs underline transition-colors"
+          disabled={openingAction !== null}
+          className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors disabled:opacity-50"
         >
+          {openingAction === "reconnect" && (
+            <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+          )}
           Reconnect
         </button>
         <span className="text-muted-foreground text-xs">or</span>
         <button
           onClick={onDisconnect}
-          className="cursor-pointer text-xs text-red-500 underline transition-colors hover:text-red-700"
+          disabled={openingAction !== null}
+          className="inline-flex cursor-pointer items-center gap-1 text-xs text-red-500 underline transition-colors hover:text-red-700 disabled:opacity-50"
         >
+          {openingAction === "disconnect" && (
+            <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+          )}
           Disconnect
         </button>
       </div>
