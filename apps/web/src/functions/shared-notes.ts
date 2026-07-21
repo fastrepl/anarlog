@@ -9,7 +9,10 @@ import {
   type SharedNoteReadResult,
 } from "@/lib/shared-note-api";
 import {
+  MAX_SHARED_NOTE_COMMENT_ANCHOR_CONTEXT_BYTES,
+  MAX_SHARED_NOTE_COMMENT_ANCHOR_EXACT_BYTES,
   MAX_SHARED_NOTE_COMMENT_BYTES,
+  validateSharedNoteCommentAnchor,
   validateSharedNoteCommentBody,
 } from "@/lib/shared-note-collaboration";
 import { deriveSharedNoteEditorTitle } from "@/lib/shared-note-editing";
@@ -72,10 +75,29 @@ const sharedNoteWebEditInputSchema = z
 
 const MAX_WEB_EDIT_RESPONSE_BYTES = 2_250_000;
 
+const sharedNoteCommentAnchorInputSchema = z
+  .object({
+    quoteExact: z
+      .string()
+      .min(1)
+      .max(MAX_SHARED_NOTE_COMMENT_ANCHOR_EXACT_BYTES),
+    quotePrefix: z.string().max(MAX_SHARED_NOTE_COMMENT_ANCHOR_CONTEXT_BYTES),
+    quoteSuffix: z.string().max(MAX_SHARED_NOTE_COMMENT_ANCHOR_CONTEXT_BYTES),
+    fromHint: z.number().int().positive().safe().nullable(),
+    toHint: z.number().int().positive().safe().nullable(),
+  })
+  .strict()
+  .refine(({ fromHint, toHint }) => (fromHint === null) === (toHint === null))
+  .refine(
+    ({ fromHint, toHint }) =>
+      fromHint === null || toHint === null || toHint > fromHint,
+  );
+
 const sharedNoteCommentInputSchema = z
   .object({
     shareId: shareIdSchema,
     body: z.string().max(MAX_SHARED_NOTE_COMMENT_BYTES),
+    anchor: sharedNoteCommentAnchorInputSchema.nullable().optional(),
   })
   .strict();
 
@@ -274,6 +296,10 @@ export const createSharedNoteComment = createServerFn({ method: "POST" })
       if (!comment.valid) {
         return { status: "unavailable" };
       }
+      const anchor = validateSharedNoteCommentAnchor(data.anchor);
+      if (!anchor.valid) {
+        return { status: "unavailable" };
+      }
 
       const supabase = getSupabaseServerClient();
       const { data: commentRows, error } = await supabase.rpc(
@@ -281,6 +307,11 @@ export const createSharedNoteComment = createServerFn({ method: "POST" })
         {
           p_share_id: data.shareId,
           p_body: comment.body,
+          p_anchor_quote_exact: anchor.anchor?.quoteExact ?? null,
+          p_anchor_quote_prefix: anchor.anchor?.quotePrefix ?? null,
+          p_anchor_quote_suffix: anchor.anchor?.quoteSuffix ?? null,
+          p_anchor_from_hint: anchor.anchor?.fromHint ?? null,
+          p_anchor_to_hint: anchor.anchor?.toHint ?? null,
         },
       );
       if (error) return unavailableOrError(error.code);
@@ -290,10 +321,11 @@ export const createSharedNoteComment = createServerFn({ method: "POST" })
       if (commentRows.length !== 1) return { status: "error" };
 
       try {
-        return {
-          status: "ready",
-          comment: parseSharedNoteComment(commentRows[0]),
-        };
+        const created = parseSharedNoteComment(commentRows[0]);
+        if ((created.anchor === null) !== (anchor.anchor === null)) {
+          return { status: "error" };
+        }
+        return { status: "ready", comment: created };
       } catch {
         return { status: "error" };
       }

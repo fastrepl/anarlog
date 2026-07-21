@@ -1,6 +1,11 @@
-import type { SharedNoteCapability } from "@/lib/shared-notes";
+import type {
+  SharedNoteCapability,
+  SharedNoteCommentAnchor,
+} from "@/lib/shared-notes";
 
 export const MAX_SHARED_NOTE_COMMENT_BYTES = 16_384;
+export const MAX_SHARED_NOTE_COMMENT_ANCHOR_EXACT_BYTES = 4_096;
+export const MAX_SHARED_NOTE_COMMENT_ANCHOR_CONTEXT_BYTES = 256;
 
 export function validateSharedNoteCommentBody(value: string) {
   const body = value.trim();
@@ -10,6 +15,31 @@ export function validateSharedNoteCommentBody(value: string) {
     byteLength,
     valid: body.length > 0 && byteLength <= MAX_SHARED_NOTE_COMMENT_BYTES,
   };
+}
+
+export function validateSharedNoteCommentAnchor(
+  anchor: SharedNoteCommentAnchor | null | undefined,
+): { anchor: SharedNoteCommentAnchor | null; valid: boolean } {
+  if (anchor == null) {
+    return { anchor: null, valid: true };
+  }
+  const encoder = new TextEncoder();
+  const hintsPaired = (anchor.fromHint == null) === (anchor.toHint == null);
+  const hintsOrdered =
+    anchor.fromHint == null ||
+    anchor.toHint == null ||
+    (anchor.fromHint >= 1 && anchor.toHint > anchor.fromHint);
+  const valid =
+    anchor.quoteExact.length > 0 &&
+    encoder.encode(anchor.quoteExact).byteLength <=
+      MAX_SHARED_NOTE_COMMENT_ANCHOR_EXACT_BYTES &&
+    encoder.encode(anchor.quotePrefix).byteLength <=
+      MAX_SHARED_NOTE_COMMENT_ANCHOR_CONTEXT_BYTES &&
+    encoder.encode(anchor.quoteSuffix).byteLength <=
+      MAX_SHARED_NOTE_COMMENT_ANCHOR_CONTEXT_BYTES &&
+    hintsPaired &&
+    hintsOrdered;
+  return { anchor, valid };
 }
 
 export function formatAuthenticatedSharedNoteAccessLabel({

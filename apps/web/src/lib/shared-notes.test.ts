@@ -200,6 +200,7 @@ test("parses bounded shared-note comment rows", () => {
       isAuthor: true,
       body: "Looks good to me.",
       snapshotRevision: 4,
+      anchor: null,
       createdAt: "2026-07-17T12:00:00Z",
     },
   );
@@ -220,6 +221,109 @@ test("parses bounded shared-note comment rows", () => {
     parseSharedNoteComment({ ...valid, snapshot_content_revision: 0 }),
   );
   assert.throws(() => parseSharedNoteComment({ ...valid, private_note: true }));
+});
+
+test("parses anchored comment rows across schema generations", () => {
+  const base = {
+    comment_id: "00000000-0000-4000-8000-000000000002",
+    is_author: true,
+    body: "Looks good to me.",
+    snapshot_content_revision: 4,
+    created_at: "2026-07-17T12:00:00Z",
+  };
+
+  assert.deepEqual(
+    parseSharedNoteComment({
+      ...base,
+      anchor_quote_exact: "quoted text",
+      anchor_quote_prefix: "",
+      anchor_quote_suffix: " and after",
+      anchor_from_hint: 2,
+      anchor_to_hint: 13,
+    }).anchor,
+    {
+      quoteExact: "quoted text",
+      quotePrefix: "",
+      quoteSuffix: " and after",
+      fromHint: 2,
+      toHint: 13,
+    },
+  );
+
+  const anchoredWithoutHints = parseSharedNoteComment({
+    ...base,
+    anchor_quote_exact: "quoted text",
+    anchor_quote_prefix: "before ",
+    anchor_quote_suffix: "",
+    anchor_from_hint: null,
+    anchor_to_hint: null,
+  });
+  assert.deepEqual(anchoredWithoutHints.anchor, {
+    quoteExact: "quoted text",
+    quotePrefix: "before ",
+    quoteSuffix: "",
+    fromHint: null,
+    toHint: null,
+  });
+
+  assert.equal(parseSharedNoteComment(base).anchor, null);
+  assert.equal(
+    parseSharedNoteComment({
+      ...base,
+      anchor_quote_exact: null,
+      anchor_quote_prefix: null,
+      anchor_quote_suffix: null,
+      anchor_from_hint: null,
+      anchor_to_hint: null,
+    }).anchor,
+    null,
+  );
+
+  const anchored = {
+    ...base,
+    anchor_quote_exact: "quoted text",
+    anchor_quote_prefix: "",
+    anchor_quote_suffix: "",
+    anchor_from_hint: 2,
+    anchor_to_hint: 13,
+  };
+  assert.throws(() =>
+    parseSharedNoteComment({ ...anchored, anchor_quote_prefix: null }),
+  );
+  assert.throws(() =>
+    parseSharedNoteComment({
+      ...base,
+      anchor_from_hint: 2,
+      anchor_to_hint: 13,
+    }),
+  );
+  assert.throws(() =>
+    parseSharedNoteComment({ ...anchored, anchor_to_hint: 2 }),
+  );
+  assert.throws(() =>
+    parseSharedNoteComment({ ...anchored, anchor_from_hint: 0 }),
+  );
+  assert.throws(() =>
+    parseSharedNoteComment({ ...anchored, anchor_to_hint: null }),
+  );
+  assert.throws(() =>
+    parseSharedNoteComment({
+      ...anchored,
+      anchor_quote_exact: "a".repeat(4097),
+    }),
+  );
+  assert.throws(() =>
+    parseSharedNoteComment({
+      ...anchored,
+      anchor_quote_prefix: "p".repeat(257),
+    }),
+  );
+  assert.throws(() =>
+    parseSharedNoteComment({ ...anchored, anchor_quote_exact: "" }),
+  );
+
+  const page = parseSharedNoteCommentPage([anchored]);
+  assert.equal(page.comments[0]?.anchor?.quoteExact, "quoted text");
 });
 
 test("bounds comment pages and derives an older-history cursor", () => {

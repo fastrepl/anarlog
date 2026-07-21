@@ -6,10 +6,96 @@ import {
   formatAuthenticatedSharedNoteAccessLabel,
   formatSharedNoteAccessRequestDescription,
   hasSharedNoteCollaborationAccess,
+  MAX_SHARED_NOTE_COMMENT_ANCHOR_CONTEXT_BYTES,
+  MAX_SHARED_NOTE_COMMENT_ANCHOR_EXACT_BYTES,
   MAX_SHARED_NOTE_COMMENT_BYTES,
   shouldUseAuthenticatedSharedNoteAccessLabel,
+  validateSharedNoteCommentAnchor,
   validateSharedNoteCommentBody,
 } from "./shared-note-collaboration.ts";
+
+test("comment anchors validate byte caps without trimming", () => {
+  const anchor = {
+    quoteExact: "  quoted text  ",
+    quotePrefix: "before ",
+    quoteSuffix: " after",
+    fromHint: 2,
+    toHint: 17,
+  };
+  const validated = validateSharedNoteCommentAnchor(anchor);
+  assert.equal(validated.valid, true);
+  assert.equal(validated.anchor?.quoteExact, "  quoted text  ");
+
+  assert.equal(validateSharedNoteCommentAnchor(null).valid, true);
+  assert.equal(validateSharedNoteCommentAnchor(null).anchor, null);
+  assert.equal(validateSharedNoteCommentAnchor(undefined).valid, true);
+
+  const cjk = "ㄱ".repeat(
+    Math.floor(MAX_SHARED_NOTE_COMMENT_ANCHOR_EXACT_BYTES / 3),
+  );
+  assert.equal(
+    validateSharedNoteCommentAnchor({ ...anchor, quoteExact: cjk }).valid,
+    true,
+  );
+  assert.equal(
+    validateSharedNoteCommentAnchor({ ...anchor, quoteExact: `${cjk}xx` })
+      .valid,
+    false,
+  );
+
+  assert.equal(
+    validateSharedNoteCommentAnchor({ ...anchor, quoteExact: "" }).valid,
+    false,
+  );
+  assert.equal(
+    validateSharedNoteCommentAnchor({
+      ...anchor,
+      quotePrefix: "p".repeat(MAX_SHARED_NOTE_COMMENT_ANCHOR_CONTEXT_BYTES + 1),
+    }).valid,
+    false,
+  );
+  assert.equal(
+    validateSharedNoteCommentAnchor({
+      ...anchor,
+      quoteSuffix: "s".repeat(MAX_SHARED_NOTE_COMMENT_ANCHOR_CONTEXT_BYTES + 1),
+    }).valid,
+    false,
+  );
+});
+
+test("comment anchor hints must be paired and ordered", () => {
+  const anchor = {
+    quoteExact: "quoted",
+    quotePrefix: "",
+    quoteSuffix: "",
+    fromHint: null,
+    toHint: null,
+  };
+  assert.equal(validateSharedNoteCommentAnchor(anchor).valid, true);
+  assert.equal(
+    validateSharedNoteCommentAnchor({ ...anchor, fromHint: 1, toHint: 5 })
+      .valid,
+    true,
+  );
+  assert.equal(
+    validateSharedNoteCommentAnchor({ ...anchor, fromHint: 1 }).valid,
+    false,
+  );
+  assert.equal(
+    validateSharedNoteCommentAnchor({ ...anchor, toHint: 5 }).valid,
+    false,
+  );
+  assert.equal(
+    validateSharedNoteCommentAnchor({ ...anchor, fromHint: 0, toHint: 5 })
+      .valid,
+    false,
+  );
+  assert.equal(
+    validateSharedNoteCommentAnchor({ ...anchor, fromHint: 5, toHint: 5 })
+      .valid,
+    false,
+  );
+});
 
 test("general viewer access never implies comment access", () => {
   assert.equal(
