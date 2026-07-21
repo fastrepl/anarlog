@@ -1131,6 +1131,29 @@ describe("SessionShareButton", () => {
     ).not.toBeNull();
   });
 
+  it("does not resurface a dismissed upgrade prompt when the account returns", async () => {
+    mocks.billing.isPaid = false;
+    mocks.loadManagedSharedNoteForSession.mockResolvedValueOnce(null);
+    const view = renderShareButtonView();
+
+    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
+    expect(
+      await screen.findByRole("heading", { name: "Share notes with others" }),
+    ).not.toBeNull();
+
+    mocks.auth.session = createSession(OTHER_USER_ID);
+    view.rerender();
+    expect(screen.queryByTestId("share-popover")).toBeNull();
+
+    mocks.auth.session = createSession();
+    view.rerender();
+
+    expect(screen.queryByTestId("share-popover")).toBeNull();
+    expect(
+      screen.queryByRole("heading", { name: "Share notes with others" }),
+    ).toBeNull();
+  });
+
   it("abandons a billing wait when the account changes", async () => {
     mocks.billing.isReady = false;
     const view = renderShareButtonView();

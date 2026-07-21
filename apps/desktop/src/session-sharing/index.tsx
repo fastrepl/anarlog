@@ -265,6 +265,13 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     setSharePreparationIdentity(null);
     setWaitingForBilling(false);
   }
+  if (
+    upgradePromptIdentity &&
+    (upgradePromptIdentity.ownerUserId !== accountUserId ||
+      upgradePromptIdentity.sessionId !== sessionId)
+  ) {
+    setUpgradePromptIdentity(null);
+  }
   const activeSharePanelIdentity =
     sharePanelIdentity?.ownerUserId === accountUserId &&
     sharePanelIdentity.sessionId === sessionId
