@@ -103,11 +103,20 @@ export type AuthenticatedSharedNote = {
   webEditable: boolean;
 };
 
+export type SharedNoteCommentAnchor = {
+  quoteExact: string;
+  quotePrefix: string;
+  quoteSuffix: string;
+  fromHint: number | null;
+  toHint: number | null;
+};
+
 export type SharedNoteComment = {
   commentId: string;
   isAuthor: boolean;
   body: string;
   snapshotRevision: number;
+  anchor: SharedNoteCommentAnchor | null;
   createdAt: string;
 };
 
@@ -264,9 +273,25 @@ const sharedNoteCommentRowSchema = z
     is_author: z.boolean(),
     body: z.string().min(1).max(16384),
     snapshot_content_revision: z.number().int().positive().safe(),
+    anchor_quote_exact: z.string().min(1).max(4096).nullish(),
+    anchor_quote_prefix: z.string().max(256).nullish(),
+    anchor_quote_suffix: z.string().max(256).nullish(),
+    anchor_from_hint: z.number().int().positive().safe().nullish(),
+    anchor_to_hint: z.number().int().positive().safe().nullish(),
     created_at: rpcTimestampSchema,
   })
-  .strict();
+  .strict()
+  .refine(
+    ({ anchor_quote_exact, anchor_quote_prefix, anchor_quote_suffix }) =>
+      (anchor_quote_exact == null) === (anchor_quote_prefix == null) &&
+      (anchor_quote_exact == null) === (anchor_quote_suffix == null),
+  )
+  .refine(
+    ({ anchor_quote_exact, anchor_from_hint, anchor_to_hint }) =>
+      (anchor_from_hint == null) === (anchor_to_hint == null) &&
+      (anchor_from_hint == null ||
+        (anchor_quote_exact != null && anchor_to_hint! > anchor_from_hint)),
+  );
 
 const sessionAccessRequestStateRowSchema = z
   .object({
@@ -416,6 +441,16 @@ export function parseSharedNoteComment(value: unknown): SharedNoteComment {
     isAuthor: parsed.is_author,
     body: parsed.body,
     snapshotRevision: parsed.snapshot_content_revision,
+    anchor:
+      parsed.anchor_quote_exact == null
+        ? null
+        : {
+            quoteExact: parsed.anchor_quote_exact,
+            quotePrefix: parsed.anchor_quote_prefix ?? "",
+            quoteSuffix: parsed.anchor_quote_suffix ?? "",
+            fromHint: parsed.anchor_from_hint ?? null,
+            toHint: parsed.anchor_to_hint ?? null,
+          },
     createdAt: parsed.created_at,
   };
 }
