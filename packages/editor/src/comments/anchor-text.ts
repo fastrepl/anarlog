@@ -86,7 +86,7 @@ export function buildDocTextIndex(doc: PMNode): DocTextIndex {
         ? segment.posStart + (index - segment.textStart)
         : segment.posStart;
     }
-    const last = contentSegments.at(-1);
+    const last = contentSegments[contentSegments.length - 1];
     return last ? last.posEnd : 0;
   };
 
