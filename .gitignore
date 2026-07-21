@@ -30,3 +30,4 @@ internal
 .tmp/
 .codex-security-artifacts-*/
 .codex-security-work-ledger-*.jsonl
+.claude/launch.json
