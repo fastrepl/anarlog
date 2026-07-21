@@ -366,11 +366,14 @@ export const TimelineView = memo(function TimelineView({
     const batchId = sessionIds.length > 1 ? crypto.randomUUID() : undefined;
 
     for (const sessionId of sessionIds) {
-      deleteSession(sessionId, undefined, batchId);
+      deleteSession(sessionId, {
+        batchId,
+        title: timelineSessionsTable?.[sessionId]?.title ?? undefined,
+      });
     }
 
     clearSelection();
-  }, [selectedIds, deleteSession, clearSelection]);
+  }, [selectedIds, deleteSession, clearSelection, timelineSessionsTable]);
 
   const sessionCount = useMemo(
     () => selectedIds.filter((key) => key.startsWith("session-")).length,

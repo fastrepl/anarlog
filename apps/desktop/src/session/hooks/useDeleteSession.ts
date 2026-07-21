@@ -128,11 +128,21 @@ function isSessionDeletedForUndoPayload(
 export function useDeleteSession() {
   const invalidateResource = useTabs((state) => state.invalidateResource);
   const addDeletion = useUndoDelete((state) => state.addDeletion);
-  const { ignoreEvent } = useIgnoredEvents();
+  const clearDeletion = useUndoDelete((state) => state.clearDeletion);
+  const { ignoreEvent, unignoreEvent } = useIgnoredEvents();
 
   return useCallback(
-    (sessionId: string, trackingId?: string | null, batchId?: string) => {
+    (
+      sessionId: string,
+      options?: {
+        trackingId?: string | null;
+        batchId?: string;
+        title?: string;
+      },
+    ) => {
+      const { trackingId, batchId, title } = options ?? {};
       const windowLabel = getCurrentWebviewWindowLabel();
+      const isMainWindow = windowLabel === "main";
       const listenerState = listenerStore.getState();
       const live = listenerState.live;
 
@@ -143,26 +153,56 @@ export function useDeleteSession() {
         listenerState.stop();
       }
 
+      // Optimistic path: hide the row, drop tab history, and show the undo
+      // toast before the soft-delete commits; rolled back below on failure.
+      const tombstone = new Date().toISOString();
+      if (trackingId) ignoreEvent(trackingId);
+      invalidateResource("sessions", sessionId);
+
+      const commit = softDeleteSession(sessionId, tombstone);
+
+      const clearOptimisticDeletion = () => {
+        const pending = useUndoDelete.getState().pendingDeletions[sessionId];
+        if (pending?.data.tombstone === tombstone) {
+          clearDeletion(sessionId);
+        }
+      };
+
+      if (isMainWindow) {
+        // Finalize gates on the commit so a failed or no-op delete never
+        // removes the session folder or revokes the shared link.
+        const finalize = () => {
+          void commit
+            .then((deletedData) => {
+              if (!deletedData) return;
+              void finalizeSessionDeletion(sessionId);
+              revokeManagedShareBestEffort(sessionId);
+            })
+            .catch(() => undefined);
+        };
+        addDeletion(
+          {
+            session: { id: sessionId, title: title ?? "" },
+            tombstone,
+            deletedAt: Date.now(),
+          },
+          finalize,
+          batchId,
+        );
+      }
+
       void (async () => {
         let didDelete = false;
         try {
-          const deletedData = await softDeleteSession(sessionId);
-          if (!deletedData) return;
+          const deletedData = await commit;
+          if (!deletedData) {
+            // The session was already deleted; drop the optimistic toast.
+            if (isMainWindow) clearOptimisticDeletion();
+            return;
+          }
           didDelete = true;
 
-          if (trackingId) ignoreEvent(trackingId);
-          invalidateResource("sessions", sessionId);
-          if (windowLabel === "main") {
-            const finalize = () => {
-              void finalizeSessionDeletion(sessionId);
-              revokeManagedShareBestEffort(sessionId);
-            };
-            if (batchId) {
-              addDeletion(deletedData, finalize, batchId);
-            } else {
-              addDeletion(deletedData, finalize);
-            }
-          } else {
+          if (!isMainWindow) {
             await emitTo("main", SESSION_DELETED_FOR_UNDO_EVENT, {
               sessionId,
               data: deletedData,
@@ -170,6 +210,10 @@ export function useDeleteSession() {
           }
         } catch (error) {
           console.error("[delete-session] failed to finish deletion", error);
+          if (!didDelete) {
+            if (isMainWindow) clearOptimisticDeletion();
+            if (trackingId) unignoreEvent(trackingId);
+          }
           sonnerToast.error("Could not delete this note. Please try again.");
         } finally {
           if (didDelete) {
@@ -178,7 +222,13 @@ export function useDeleteSession() {
         }
       })();
     },
-    [ignoreEvent, invalidateResource, addDeletion],
+    [
+      ignoreEvent,
+      unignoreEvent,
+      invalidateResource,
+      addDeletion,
+      clearDeletion,
+    ],
   );
 }
 

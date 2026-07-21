@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+
 import type { EventParticipant } from "@hypr/store";
 
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
@@ -8,6 +10,7 @@ import type {
   TimelineSessionRow,
   TimelineSessionsTable,
 } from "~/sidebar/timeline/utils";
+import { useUndoDelete } from "~/store/zustand/undo-delete";
 
 type TimelineEventSqlRow = Omit<
   TimelineEventRow,
@@ -148,8 +151,22 @@ export function useTimelineSessionsTable(): TimelineSessionsTable {
     `,
     mapRows: mapTimelineSessionRows,
   });
+  const pendingDeletions = useUndoDelete((state) => state.pendingDeletions);
 
-  return timelineSessionsTable;
+  // Sessions with a pending deletion are hidden optimistically, before the
+  // soft-delete write commits and the live query re-emits.
+  return useMemo(() => {
+    const pendingIds = Object.keys(pendingDeletions).filter(
+      (sessionId) => sessionId in timelineSessionsTable,
+    );
+    if (pendingIds.length === 0) return timelineSessionsTable;
+
+    const filtered = { ...timelineSessionsTable };
+    for (const sessionId of pendingIds) {
+      delete filtered[sessionId];
+    }
+    return filtered;
+  }, [timelineSessionsTable, pendingDeletions]);
 }
 
 export function useCalendarRow(

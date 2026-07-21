@@ -588,8 +588,11 @@ const SessionItem = memo(
     );
 
     const handleDelete = useCallback(() => {
-      deleteSession(sessionId, sessionEvent?.tracking_id);
-    }, [deleteSession, sessionId, sessionEvent?.tracking_id]);
+      deleteSession(sessionId, {
+        trackingId: sessionEvent?.tracking_id,
+        title,
+      });
+    }, [deleteSession, sessionId, sessionEvent?.tracking_id, title]);
 
     const handleShowInFinder = useCallback(async () => {
       const result = await fsSyncCommands.sessionDir(sessionId);
