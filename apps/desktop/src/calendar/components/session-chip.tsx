@@ -46,8 +46,11 @@ export function SessionChip({
 
   const handleDelete = useCallback(() => {
     const sessionEvent = getSessionEvent({ event_json: eventJson });
-    deleteSession(sessionId, sessionEvent?.tracking_id);
-  }, [deleteSession, sessionId, eventJson]);
+    deleteSession(sessionId, {
+      trackingId: sessionEvent?.tracking_id,
+      title,
+    });
+  }, [deleteSession, sessionId, eventJson, title]);
 
   const contextMenu = useMemo<MenuItemDef[]>(
     () => [

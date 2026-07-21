@@ -97,6 +97,41 @@ describe("UndoDeleteToast", () => {
     expect(mocks.dismiss).toHaveBeenCalledWith("undo-delete:session-1");
   });
 
+  it("dismisses the toast and reopens the tab before the restore resolves", () => {
+    // Never resolves: undo feedback must not wait for the restore write.
+    mocks.restoreDeletedSession.mockImplementationOnce(
+      () => new Promise(() => {}),
+    );
+
+    act(() => {
+      useUndoDelete.getState().addDeletion({
+        session: { id: "session-1", title: "Design sync" },
+        tombstone: "tombstone",
+        deletedAt: Date.now(),
+      });
+    });
+
+    const queryClient = new QueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <UndoDeleteToast />
+      </QueryClientProvider>,
+    );
+
+    const options =
+      mocks.message.mock.calls[mocks.message.mock.calls.length - 1][1];
+    act(() => {
+      options.action.onClick();
+    });
+
+    expect(mocks.restoreDeletedSession).toHaveBeenCalledOnce();
+    expect(mocks.openCurrent).toHaveBeenCalledWith({
+      type: "sessions",
+      id: "session-1",
+    });
+    expect(useUndoDelete.getState().pendingDeletions).toEqual({});
+  });
+
   it("updates a batch toast when later deletions join the batch", async () => {
     const queryClient = new QueryClient();
     render(

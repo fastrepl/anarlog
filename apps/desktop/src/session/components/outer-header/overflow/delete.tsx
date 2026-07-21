@@ -8,6 +8,7 @@ import { cn } from "@hypr/utils";
 
 import { useAudioPlayer } from "~/audio-player";
 import { useDeleteSession } from "~/session/hooks/useDeleteSession";
+import { useSessionSummary } from "~/session/queries";
 import { useListener } from "~/stt/contexts";
 
 export function DeleteRecording({ sessionId }: { sessionId: string }) {
@@ -50,15 +51,16 @@ export function DeleteRecording({ sessionId }: { sessionId: string }) {
 
 export function DeleteNote({ sessionId }: { sessionId: string }) {
   const deleteSession = useDeleteSession();
+  const title = useSessionSummary(sessionId)?.title;
 
   const handleDeleteNote = useCallback(() => {
-    deleteSession(sessionId);
+    deleteSession(sessionId, { title });
 
     void analyticsCommands.event({
       event: "session_deleted",
       includes_recording: true,
     });
-  }, [sessionId, deleteSession]);
+  }, [sessionId, deleteSession, title]);
 
   return (
     <DropdownMenuItem

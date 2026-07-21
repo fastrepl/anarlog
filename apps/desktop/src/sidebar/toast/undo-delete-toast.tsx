@@ -57,40 +57,66 @@ function useToastGroups(): ToastGroup[] {
 function useRestoreGroup() {
   const queryClient = useQueryClient();
   const pendingDeletions = useUndoDelete((state) => state.pendingDeletions);
+  const addDeletion = useUndoDelete((state) => state.addDeletion);
   const clearDeletion = useUndoDelete((state) => state.clearDeletion);
   const clearBatch = useUndoDelete((state) => state.clearBatch);
   const openCurrent = useTabs((state) => state.openCurrent);
 
   return useCallback(
     (group: ToastGroup) => {
+      const entries = group.sessionIds
+        .map((sessionId) => pendingDeletions[sessionId])
+        .filter((pending) => pending !== undefined);
+
+      // Optimistic: dismiss the toast (also cancelling the finalize timers)
+      // and reopen the tab before the restore writes commit.
+      if (group.isBatch) {
+        clearBatch(group.key);
+      } else {
+        clearDeletion(group.sessionIds[0]);
+      }
+      if (group.sessionIds.length > 0) {
+        openCurrent({ type: "sessions", id: group.sessionIds[0] });
+      }
+
       void (async () => {
-        for (const sessionId of group.sessionIds) {
-          const pending = pendingDeletions[sessionId];
-          if (!pending) continue;
-          await restoreDeletedSession(pending.data);
-          void queryClient.invalidateQueries({
-            predicate: (query) =>
-              query.queryKey.length >= 2 &&
-              query.queryKey[0] === "audio" &&
-              query.queryKey[1] === sessionId,
-          });
+        const remaining = [...entries];
+        try {
+          while (remaining.length > 0) {
+            const pending = remaining[0];
+            await restoreDeletedSession(pending.data);
+            remaining.shift();
+            const sessionId = pending.data.session.id;
+            void queryClient.invalidateQueries({
+              predicate: (query) =>
+                query.queryKey.length >= 2 &&
+                query.queryKey[0] === "audio" &&
+                query.queryKey[1] === sessionId,
+            });
+          }
+        } catch (error) {
+          console.error("[undo-delete] failed to restore session", error);
+          sonnerToast.error("Could not restore deleted note");
+          // Re-add the unrestored deletions so their undo toast (and the
+          // finalize path) comes back instead of leaving them tombstoned.
+          for (const pending of remaining) {
+            addDeletion(
+              pending.data,
+              pending.onDeleteConfirm ?? undefined,
+              pending.batchId ?? undefined,
+            );
+          }
         }
-
-        if (group.sessionIds.length > 0) {
-          openCurrent({ type: "sessions", id: group.sessionIds[0] });
-        }
-
-        if (group.isBatch) {
-          clearBatch(group.key);
-        } else {
-          clearDeletion(group.sessionIds[0]);
-        }
-      })().catch((error) => {
-        console.error("[undo-delete] failed to restore session", error);
-        sonnerToast.error("Could not restore deleted note");
-      });
+      })();
     },
-    [pendingDeletions, openCurrent, clearDeletion, clearBatch, queryClient],
+    [
+      pendingDeletions,
+      openCurrent,
+      addDeletion,
+      clearDeletion,
+      clearBatch,
+      queryClient,
+    ],
   );
 }
 

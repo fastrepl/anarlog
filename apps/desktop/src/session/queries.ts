@@ -825,6 +825,7 @@ export async function getOrCreateSessionForEventId(
 
 export async function softDeleteSession(
   sessionId: string,
+  tombstone = new Date().toISOString(),
 ): Promise<DeletedSessionData | null> {
   const [session] = await liveQueryClient.execute<SessionDeleteSqlRow>(
     `SELECT id, title FROM sessions WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
@@ -832,7 +833,6 @@ export async function softDeleteSession(
   );
   if (!session) return null;
 
-  const tombstone = new Date().toISOString();
   const rowsAffected = await executeTransaction(
     buildSessionTombstoneStatements(sessionId, tombstone),
   );
@@ -912,9 +912,24 @@ export async function isSessionEmpty(sessionId: string): Promise<boolean> {
 export async function restoreDeletedSession(
   data: DeletedSessionData,
 ): Promise<void> {
-  await executeTransaction(
-    buildSessionTombstoneStatements(data.session.id, data.tombstone, true),
-  );
+  // The undo toast shows before the soft-delete write commits, so an early
+  // undo can race the in-flight delete; retry until its tombstone appears.
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const rowsAffected = await executeTransaction(
+      buildSessionTombstoneStatements(data.session.id, data.tombstone, true),
+    );
+    if (rowsAffected[rowsAffected.length - 1] === 1) return;
+
+    const [alive] = await liveQueryClient.execute<SessionIdentitySqlRow>(
+      `SELECT id FROM sessions WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+      [data.session.id],
+    );
+    if (alive) return;
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  throw new Error(`Session ${data.session.id} was never soft-deleted`);
 }
 
 export async function finalizeSessionDeletion(
