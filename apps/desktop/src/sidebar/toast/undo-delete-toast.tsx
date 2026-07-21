@@ -61,6 +61,7 @@ function useRestoreGroup() {
   const clearDeletion = useUndoDelete((state) => state.clearDeletion);
   const clearBatch = useUndoDelete((state) => state.clearBatch);
   const openCurrent = useTabs((state) => state.openCurrent);
+  const invalidateResource = useTabs((state) => state.invalidateResource);
 
   return useCallback(
     (group: ToastGroup) => {
@@ -98,13 +99,16 @@ function useRestoreGroup() {
           console.error("[undo-delete] failed to restore session", error);
           sonnerToast.error("Could not restore deleted note");
           // Re-add the unrestored deletions so their undo toast (and the
-          // finalize path) comes back instead of leaving them tombstoned.
+          // finalize path) comes back instead of leaving them tombstoned,
+          // and close the optimistically reopened tab — it still points at
+          // a tombstoned note.
           for (const pending of remaining) {
             addDeletion(
               pending.data,
               pending.onDeleteConfirm ?? undefined,
               pending.batchId ?? undefined,
             );
+            invalidateResource("sessions", pending.data.session.id);
           }
         }
       })();
@@ -112,6 +116,7 @@ function useRestoreGroup() {
     [
       pendingDeletions,
       openCurrent,
+      invalidateResource,
       addDeletion,
       clearDeletion,
       clearBatch,

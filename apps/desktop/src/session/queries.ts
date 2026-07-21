@@ -7,6 +7,7 @@ import type { EventParticipant, SessionEvent } from "@hypr/store";
 
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
+import { waitForPendingSoftDelete } from "~/session/pending-soft-deletes";
 import { DEFAULT_USER_ID, id } from "~/shared/utils";
 import type { DeletedSessionData } from "~/store/zustand/undo-delete";
 
@@ -912,8 +913,10 @@ export async function isSessionEmpty(sessionId: string): Promise<boolean> {
 export async function restoreDeletedSession(
   data: DeletedSessionData,
 ): Promise<void> {
-  // The undo toast shows before the soft-delete write commits, so an early
-  // undo can race the in-flight delete; retry until its tombstone appears.
+  // The undo toast shows before the soft-delete write commits. Wait for the
+  // in-flight delete to settle first — an "alive" session during that window
+  // is not restored, it just isn't tombstoned yet.
+  await waitForPendingSoftDelete(data.session.id);
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const rowsAffected = await executeTransaction(
       buildSessionTombstoneStatements(data.session.id, data.tombstone, true),
