@@ -169,7 +169,7 @@ export function ChatSession({
 
           void (async () => {
             let persistedChatGroupId: string | null = null;
-            if (!submittedChatGroupId && submittedUserMessage) {
+            if (submittedUserMessage) {
               try {
                 persistedChatGroupId = await getChatMessageGroupId(
                   submittedUserMessage.id,
@@ -187,6 +187,26 @@ export function ChatSession({
               latestChatGroupIdRef.current;
             if (!targetChatGroupId) {
               return;
+            }
+
+            // If the outbound persist failed, the assistant row would land
+            // with no matching user row and reconciliation would wipe the
+            // turn — repair the user message before persisting the reply.
+            // A still-pending outbound write will land on its own; only a
+            // settled-and-missing row needs the repair.
+            if (
+              submittedUserMessage &&
+              !persistedChatGroupId &&
+              !hasPendingChatPersist(targetChatGroupId)
+            ) {
+              await upsertChatMessage(
+                buildPersistedChatMessage({
+                  message: submittedUserMessage,
+                  chatGroupId: targetChatGroupId,
+                  ownerUserId: currentUserId,
+                  status: "ready",
+                }),
+              );
             }
 
             const sanitizedParts = stripEphemeralToolContext(message.parts);

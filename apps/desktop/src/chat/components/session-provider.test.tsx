@@ -306,7 +306,17 @@ describe("ChatSession", () => {
       messages: [userMessage, assistant],
     });
 
-    await waitFor(() => expect(mocks.upsertChatMessage).toHaveBeenCalledOnce());
+    await waitFor(() =>
+      expect(mocks.upsertChatMessage).toHaveBeenCalledTimes(2),
+    );
+    // The user row was missing at finish time, so the turn is repaired
+    // before the assistant lands in the same group.
+    expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "user-1",
+        chatGroupId: "new-group",
+      }),
+    );
     expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "assistant-1",
@@ -351,9 +361,10 @@ describe("ChatSession", () => {
       messages: [userMessage, assistant],
     });
 
-    await waitFor(() => expect(mocks.upsertChatMessage).toHaveBeenCalledOnce());
-    expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ chatGroupId: "group-1" }),
+    await waitFor(() =>
+      expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "assistant-1", chatGroupId: "group-1" }),
+      ),
     );
     expect(consoleError).toHaveBeenCalledWith(
       "Failed to resolve the persisted chat message group",
@@ -415,13 +426,19 @@ describe("ChatSession", () => {
     });
 
     await waitFor(() =>
-      expect(mocks.upsertChatMessage).toHaveBeenCalledTimes(2),
+      expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "assistant-2", chatGroupId: "group-2" }),
+      ),
     );
     expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
       expect.objectContaining({ id: "assistant-1", chatGroupId: "group-1" }),
     );
+    // Unpersisted user turns are repaired alongside their assistant rows.
     expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "assistant-2", chatGroupId: "group-2" }),
+      expect.objectContaining({ id: "user-1", chatGroupId: "group-1" }),
+    );
+    expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "user-2", chatGroupId: "group-2" }),
     );
   });
 });
