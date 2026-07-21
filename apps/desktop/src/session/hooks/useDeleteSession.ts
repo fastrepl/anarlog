@@ -1,4 +1,3 @@
-import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { getAllWebviewWindows } from "@tauri-apps/api/webviewWindow";
 import { useCallback, useEffect } from "react";
@@ -6,7 +5,7 @@ import { useCallback, useEffect } from "react";
 import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
-import { useOptionalAuth } from "~/auth";
+import { supabase } from "~/auth/client";
 import { useIgnoredEvents } from "~/calendar/ignored-events";
 import {
   deleteSessionShareBySession,
@@ -46,13 +45,18 @@ async function closeSessionNoteWindows(sessionId: string) {
 }
 
 // Share revocation runs after the local deletion is finalized and must never
-// block or fail it — local deletes have to work offline.
-async function revokeManagedShare(
-  context: { session: Session; supabase: SupabaseClient },
-  sessionId: string,
-) {
+// block or fail it — local deletes have to work offline. Auth is read from
+// the module-level client because this can run in windows (or the AppRoot
+// listener) mounted outside AuthProvider.
+async function revokeManagedShare(sessionId: string) {
+  if (!supabase) return;
+  const { data } = await supabase.auth.getSession();
+  const session = data.session;
+  if (!session || session.user.is_anonymous === true) return;
+  const context = { session, supabase };
+
   const managedShare = await loadManagedSharedNoteForSession(
-    context.session.user.id,
+    session.user.id,
     sessionId,
   ).catch((error: unknown) => {
     console.error("[delete-session] failed to look up managed share", error);
@@ -84,33 +88,19 @@ async function revokeManagedShare(
   }
 
   try {
-    await removeDurableSharedNoteCache(
-      context.session.user.id,
-      managedShare.shareId,
-    );
+    await removeDurableSharedNoteCache(session.user.id, managedShare.shareId);
   } catch {
     console.error("[delete-session] failed to clear shared-note cache");
   }
 }
 
-function revokeManagedShareBestEffort(
-  auth: {
-    session: Session | null | undefined;
-    supabase: SupabaseClient | null;
-  } | null,
-  sessionId: string,
-) {
-  if (
-    !auth?.session ||
-    !auth.supabase ||
-    auth.session.user.is_anonymous === true
-  ) {
-    return;
-  }
-  void revokeManagedShare(
-    { session: auth.session, supabase: auth.supabase },
-    sessionId,
-  );
+function revokeManagedShareBestEffort(sessionId: string) {
+  void revokeManagedShare(sessionId).catch((error: unknown) => {
+    console.error(
+      "[delete-session] failed to revoke shared link",
+      error instanceof Error ? error.name : typeof error,
+    );
+  });
 }
 
 function isSessionDeletedForUndoPayload(
@@ -128,7 +118,6 @@ function isSessionDeletedForUndoPayload(
 }
 
 export function useDeleteSession() {
-  const auth = useOptionalAuth();
   const invalidateResource = useTabs((state) => state.invalidateResource);
   const addDeletion = useUndoDelete((state) => state.addDeletion);
   const { ignoreEvent } = useIgnoredEvents();
@@ -158,7 +147,7 @@ export function useDeleteSession() {
           if (windowLabel === "main") {
             const finalize = () => {
               void finalizeSessionDeletion(sessionId);
-              revokeManagedShareBestEffort(auth, sessionId);
+              revokeManagedShareBestEffort(sessionId);
             };
             if (batchId) {
               addDeletion(deletedData, finalize, batchId);
@@ -181,18 +170,11 @@ export function useDeleteSession() {
         }
       })();
     },
-    [
-      auth?.session,
-      auth?.supabase,
-      ignoreEvent,
-      invalidateResource,
-      addDeletion,
-    ],
+    [ignoreEvent, invalidateResource, addDeletion],
   );
 }
 
 export function useRemoteSessionDeletionUndoListener(active: boolean) {
-  const auth = useOptionalAuth();
   const invalidateResource = useTabs((state) => state.invalidateResource);
   const addDeletion = useUndoDelete((state) => state.addDeletion);
 
@@ -212,7 +194,7 @@ export function useRemoteSessionDeletionUndoListener(active: boolean) {
       invalidateResource("sessions", payload.sessionId);
       addDeletion(payload.data, () => {
         void finalizeSessionDeletion(payload.sessionId);
-        revokeManagedShareBestEffort(auth, payload.sessionId);
+        revokeManagedShareBestEffort(payload.sessionId);
       });
       void closeSessionNoteWindows(payload.sessionId);
     }).then((fn) => {
@@ -222,5 +204,5 @@ export function useRemoteSessionDeletionUndoListener(active: boolean) {
     return () => {
       unlisten?.();
     };
-  }, [active, auth, invalidateResource, addDeletion]);
+  }, [active, invalidateResource, addDeletion]);
 }

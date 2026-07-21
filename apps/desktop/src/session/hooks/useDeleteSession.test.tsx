@@ -13,12 +13,14 @@ const mocks = vi.hoisted(() => {
     deletedAt: 1,
   };
 
+  const getSession = vi.fn<() => Promise<{ data: { session: any } }>>(() =>
+    Promise.resolve({ data: { session: null } }),
+  );
+
   return {
     addDeletion: vi.fn(),
-    auth: {
-      session: null as any,
-      supabase: null as any,
-    },
+    getSession,
+    supabaseClient: { auth: { getSession } },
     deleteSessionShareBySession: vi.fn(),
     emitTo: vi.fn(() => Promise.resolve()),
     finalizeSessionDeletion: vi.fn(),
@@ -57,8 +59,8 @@ vi.mock("@hypr/ui/components/ui/toast", () => ({
   sonnerToast: { error: mocks.toastError, warning: mocks.toastWarning },
 }));
 
-vi.mock("~/auth", () => ({
-  useOptionalAuth: () => mocks.auth,
+vi.mock("~/auth/client", () => ({
+  supabase: mocks.supabaseClient,
 }));
 
 vi.mock("~/calendar/ignored-events", () => ({
@@ -121,8 +123,7 @@ describe("useDeleteSession", () => {
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
-    mocks.auth.session = null;
-    mocks.auth.supabase = null;
+    mocks.getSession.mockResolvedValue({ data: { session: null } });
     mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
     mocks.removeDurableSharedNoteCache.mockResolvedValue(undefined);
     mocks.softDeleteSession.mockResolvedValue(mocks.deletedSessionData);
@@ -143,7 +144,7 @@ describe("useDeleteSession", () => {
   it("revokes a known managed share when the local deletion is finalized", async () => {
     const shareId = "33333333-3333-4333-8333-333333333333";
     const workspaceId = "22222222-2222-4222-8222-222222222222";
-    mocks.auth.session = {
+    const session = {
       access_token: "expired-pro-access-token",
       token_type: "bearer",
       user: {
@@ -151,7 +152,7 @@ describe("useDeleteSession", () => {
         is_anonymous: false,
       },
     };
-    mocks.auth.supabase = {};
+    mocks.getSession.mockResolvedValue({ data: { session } });
     mocks.loadManagedSharedNoteForSession.mockResolvedValue({
       shareId,
       workspaceId,
@@ -183,14 +184,14 @@ describe("useDeleteSession", () => {
     await waitFor(() => {
       expect(mocks.deleteSessionShareBySession).toHaveBeenCalledWith(
         {
-          session: mocks.auth.session,
-          supabase: mocks.auth.supabase,
+          session,
+          supabase: mocks.supabaseClient,
         },
         { workspaceId, sessionId: "session-1" },
       );
     });
     expect(mocks.removeDurableSharedNoteCache).toHaveBeenCalledWith(
-      mocks.auth.session.user.id,
+      session.user.id,
       shareId,
     );
     expect(mocks.softDeleteSession.mock.invocationCallOrder[0]!).toBeLessThan(
@@ -203,15 +204,18 @@ describe("useDeleteSession", () => {
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
-    mocks.auth.session = {
-      access_token: "owner-access-token",
-      token_type: "bearer",
-      user: {
-        id: "11111111-1111-4111-8111-111111111111",
-        is_anonymous: false,
+    mocks.getSession.mockResolvedValue({
+      data: {
+        session: {
+          access_token: "owner-access-token",
+          token_type: "bearer",
+          user: {
+            id: "11111111-1111-4111-8111-111111111111",
+            is_anonymous: false,
+          },
+        },
       },
-    };
-    mocks.auth.supabase = {};
+    });
     mocks.loadManagedSharedNoteForSession.mockResolvedValue({
       shareId: "33333333-3333-4333-8333-333333333333",
       workspaceId: "22222222-2222-4222-8222-222222222222",
@@ -242,7 +246,7 @@ describe("useDeleteSession", () => {
   });
 
   it("deletes an unshared signed-in note without a remote mutation", async () => {
-    mocks.auth.session = {
+    const session = {
       access_token: "owner-access-token",
       token_type: "bearer",
       user: {
@@ -250,7 +254,7 @@ describe("useDeleteSession", () => {
         is_anonymous: false,
       },
     };
-    mocks.auth.supabase = {};
+    mocks.getSession.mockResolvedValue({ data: { session } });
     const { result } = renderHook(() => useDeleteSession());
 
     act(() => {
@@ -269,7 +273,7 @@ describe("useDeleteSession", () => {
 
     await waitFor(() => {
       expect(mocks.loadManagedSharedNoteForSession).toHaveBeenCalledWith(
-        mocks.auth.session.user.id,
+        session.user.id,
         "session-1",
       );
     });
