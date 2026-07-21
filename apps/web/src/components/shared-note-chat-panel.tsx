@@ -35,6 +35,9 @@ export function SharedNoteChatPanel({
     defaultValue: false,
     initializeWithValue: false,
   });
+  // Render nothing until the media query resolves after hydration, so wide
+  // viewports never flash the mobile bottom bar before the desktop aside.
+  const [interactive, setInteractive] = useState(false);
   const [desktopOpen, setDesktopOpen] = useState(true);
   const [messages, setMessages] = useState<SharedNoteChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -43,7 +46,10 @@ export function SharedNoteChatPanel({
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  useMountEffect(() => () => abortRef.current?.abort());
+  useMountEffect(() => {
+    setInteractive(true);
+    return () => abortRef.current?.abort();
+  });
 
   const scrollToBottom = () => {
     requestAnimationFrame(() =>
@@ -52,30 +58,45 @@ export function SharedNoteChatPanel({
   };
 
   const sendMutation = useMutation({
-    mutationFn: async (history: SharedNoteChatMessage[]) => {
+    // The controller doubles as the request's identity: every callback of a
+    // superseded request bails out so it can never touch the active stream.
+    onMutate: () => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
       streamingRef.current = "";
       setStreaming("");
+      return { controller };
+    },
+    mutationFn: async (history: SharedNoteChatMessage[]) => {
+      const controller = abortRef.current;
+      if (!controller) return;
       await streamSharedNoteChat({
         messages: history,
         snapshot,
         signal: controller.signal,
         onDelta: (delta) => {
+          if (abortRef.current !== controller) return;
           streamingRef.current += delta;
           setStreaming(streamingRef.current);
           scrollToBottom();
         },
       });
     },
-    onSettled: () => {
+    // A failed or interrupted stream discards its partial reply: keeping it
+    // would show an error beside a half answer and feed the fragment into
+    // the next request's history.
+    onSuccess: (_data, _history, context) => {
+      if (abortRef.current !== context.controller) return;
       const reply = streamingRef.current;
-      streamingRef.current = "";
-      setStreaming(null);
       if (reply) {
         setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
       }
+    },
+    onSettled: (_data, _error, _history, context) => {
+      if (abortRef.current !== context?.controller) return;
+      streamingRef.current = "";
+      setStreaming(null);
       scrollToBottom();
     },
   });
@@ -113,6 +134,10 @@ export function SharedNoteChatPanel({
       onSend={send}
     />
   );
+
+  if (!interactive) {
+    return null;
+  }
 
   if (isDesktop) {
     if (!desktopOpen) {

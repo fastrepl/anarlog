@@ -34,6 +34,7 @@ export function SharedNoteEditableViewer({
   accessLabel,
   actions,
   authenticatedNote,
+  chat,
   collaboration,
   fallbackAccessLabel,
   fallbackSnapshot,
@@ -46,6 +47,10 @@ export function SharedNoteEditableViewer({
   accessLabel: string;
   actions?: React.ReactNode;
   authenticatedNote: AuthenticatedSharedNote | null;
+  // Render slot for the chat panel; receives the live snapshot so the chat
+  // always answers about the content currently on screen, and lives inside
+  // this shareId-keyed subtree so its state resets on navigation.
+  chat?: (snapshot: SharedNoteSnapshot) => React.ReactNode;
   collaboration?: React.ReactNode;
   fallbackAccessLabel?: string;
   fallbackSnapshot?: SharedNoteSnapshot | null;
@@ -145,7 +150,7 @@ export function SharedNoteEditableViewer({
     </SharedNoteEditNotice>
   ) : null;
 
-  return (
+  const viewer = (
     <SharedNoteViewer
       accessLabel={
         accessRevoked
@@ -239,6 +244,13 @@ export function SharedNoteEditableViewer({
       showTitle={!isEditing}
       snapshot={activeSnapshot}
     />
+  );
+
+  return (
+    <>
+      {viewer}
+      {chat?.(activeSnapshot)}
+    </>
   );
 
   function applyEditedSnapshot(edited: SharedNoteWebEditSnapshot) {

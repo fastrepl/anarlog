@@ -143,11 +143,13 @@ function Component() {
       actions={
         <PublicSharedNoteActions publicSlug={publicSlug} scheme={scheme} />
       }
-      />
-      <SharedNoteChatPanel
-        returnPath={returnPath}
-        signedIn={user !== null}
-        snapshot={snapshot}
+      chat={(liveSnapshot) => (
+        <SharedNoteChatPanel
+          returnPath={returnPath}
+          signedIn={user !== null}
+          snapshot={liveSnapshot}
+        />
+      )}
       />
     </>
   );

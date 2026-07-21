@@ -227,11 +227,13 @@ function LinkSharedNoteClient({
             shareId={validShareId.data}
           />
         }
-      />
-      <SharedNoteChatPanel
-        returnPath={returnPath}
-        signedIn={currentUserId !== null}
-        snapshot={snapshot}
+        chat={(liveSnapshot) => (
+          <SharedNoteChatPanel
+            returnPath={returnPath}
+            signedIn={currentUserId !== null}
+            snapshot={liveSnapshot}
+          />
+        )}
       />
     </>
   );

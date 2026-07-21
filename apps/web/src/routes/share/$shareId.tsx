@@ -123,11 +123,13 @@ function Component() {
             shareId={note.snapshot.shareId}
           />
         }
-      />
-      <SharedNoteChatPanel
-        returnPath={returnPath}
-        signedIn={true}
-        snapshot={note.snapshot}
+        chat={(liveSnapshot) => (
+          <SharedNoteChatPanel
+            returnPath={returnPath}
+            signedIn={true}
+            snapshot={liveSnapshot}
+          />
+        )}
       />
     </>
   );
