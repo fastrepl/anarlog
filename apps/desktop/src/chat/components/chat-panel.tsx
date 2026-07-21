@@ -78,7 +78,7 @@ export function ChatPanelFrame({
   sessionProps: ChatSessionRenderProps | null;
 }) {
   const { chat } = useShell();
-  const { groupId, setGroupId } = chat;
+  const { groupId, setGroupId, rollbackFailedGroup } = chat;
   const { panelClassName, toolbarSurface } = useChatAppearance();
   const isFloating = layout === "floating";
   const model = useLanguageModel("chat");
@@ -92,11 +92,9 @@ export function ChatPanelFrame({
 
   const handleGroupCreateFailed = useCallback(
     (failedGroupId: string) => {
-      if (groupId === failedGroupId) {
-        setGroupId(undefined);
-      }
+      rollbackFailedGroup(failedGroupId);
     },
-    [groupId, setGroupId],
+    [rollbackFailedGroup],
   );
 
   const { handleSendMessage } = useChatActions({

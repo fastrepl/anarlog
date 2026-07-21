@@ -13,6 +13,9 @@ export function useChatMode() {
   const groupId = useChatContext((state) => state.groupId);
   const sessionId = useChatContext((state) => state.sessionId);
   const setGroupId = useChatContext((state) => state.setGroupId);
+  const rollbackFailedGroup = useChatContext(
+    (state) => state.rollbackFailedGroup,
+  );
   const startNewChat = useChatContext((state) => state.startNewChat);
   const selectChat = useChatContext((state) => state.selectChat);
 
@@ -35,6 +38,7 @@ export function useChatMode() {
     groupId,
     sessionId,
     setGroupId,
+    rollbackFailedGroup,
     startNewChat,
     selectChat,
   };
