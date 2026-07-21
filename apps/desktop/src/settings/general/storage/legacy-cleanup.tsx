@@ -2,6 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2Icon,
+  InfoIcon,
   Loader2Icon,
   RotateCcwIcon,
   Trash2Icon,
@@ -40,6 +41,11 @@ export function LegacyMigrationCleanupRow() {
       ]);
       return { status, report };
     },
+    // The status commands can fail transiently while the database is busy
+    // (e.g. during CloudSync enablement); keep retrying instead of parking
+    // the row in an error state.
+    refetchInterval: (query) =>
+      query.state.status === "error" ? 15_000 : false,
   });
   const cleanupMutation = useMutation({
     mutationFn: cleanupLegacyFiles,
@@ -77,7 +83,40 @@ export function LegacyMigrationCleanupRow() {
     return status?.blockingReason ?? null;
   })();
   const statusCopy = (() => {
-    if (migrationQuery.isLoading) {
+    if (status) {
+      if (!status.migrationVerified) {
+        return {
+          state: "warning" as const,
+          label: t`Migration needs attention`,
+          description:
+            migrationIssue ?? t`SQLite migration verification is incomplete`,
+        };
+      }
+
+      if (status.alreadyCleaned) {
+        return {
+          state: "success" as const,
+          label: t`Migration complete`,
+          description: t`Legacy JSON and Markdown files were removed`,
+        };
+      }
+
+      if (status.available) {
+        return {
+          state: "success" as const,
+          label: t`Migration complete`,
+          description: null,
+        };
+      }
+
+      return {
+        state: "success" as const,
+        label: t`Migration complete`,
+        description: t`No legacy JSON or Markdown files remain`,
+      };
+    }
+
+    if (migrationQuery.isPending && !migrationQuery.error) {
       return {
         state: "loading" as const,
         label: t`Checking migration...`,
@@ -85,43 +124,10 @@ export function LegacyMigrationCleanupRow() {
       };
     }
 
-    if (migrationQuery.error || !status) {
-      return {
-        state: "warning" as const,
-        label: t`Migration status unavailable`,
-        description: t`Anarlog could not verify the migration status`,
-      };
-    }
-
-    if (!status.migrationVerified) {
-      return {
-        state: "warning" as const,
-        label: t`Migration needs attention`,
-        description:
-          migrationIssue ?? t`SQLite migration verification is incomplete`,
-      };
-    }
-
-    if (status.alreadyCleaned) {
-      return {
-        state: "success" as const,
-        label: t`Migration complete`,
-        description: t`Legacy JSON and Markdown files were removed`,
-      };
-    }
-
-    if (status.available) {
-      return {
-        state: "success" as const,
-        label: t`Migration complete`,
-        description: null,
-      };
-    }
-
     return {
-      state: "success" as const,
-      label: t`Migration complete`,
-      description: t`No legacy JSON or Markdown files remain`,
+      state: "unavailable" as const,
+      label: t`Migration status unavailable`,
+      description: t`Anarlog will retry automatically. This does not affect your notes.`,
     };
   })();
 
@@ -137,6 +143,9 @@ export function LegacyMigrationCleanupRow() {
           )}
           {statusCopy.state === "warning" && (
             <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-yellow-600" />
+          )}
+          {statusCopy.state === "unavailable" && (
+            <InfoIcon className="text-muted-foreground mt-0.5 size-4 shrink-0" />
           )}
           <div className="min-w-0">
             <p className="font-medium">{statusCopy.label}</p>

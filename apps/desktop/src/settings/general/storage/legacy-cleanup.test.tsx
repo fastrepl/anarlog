@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -43,11 +44,14 @@ function renderRow() {
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
 
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <LegacyMigrationCleanupRow />
-    </QueryClientProvider>,
-  );
+  return {
+    queryClient,
+    ...render(
+      <QueryClientProvider client={queryClient}>
+        <LegacyMigrationCleanupRow />
+      </QueryClientProvider>,
+    ),
+  };
 }
 
 describe("LegacyMigrationCleanupRow", () => {
@@ -162,6 +166,58 @@ describe("LegacyMigrationCleanupRow", () => {
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Clean Up" })).toBeNull();
+  });
+
+  it("shows a quiet retrying state instead of a warning when the status cannot be fetched", async () => {
+    mocks.getLegacyCleanupStatus.mockRejectedValue(new Error("database busy"));
+    mocks.getLegacyImportReport.mockRejectedValue(new Error("database busy"));
+
+    renderRow();
+
+    expect(
+      await screen.findByText("Migration status unavailable"),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Anarlog will retry automatically. This does not affect your notes.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("Migration needs attention")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+  });
+
+  it("recovers automatically after a transient status failure", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    mocks.getLegacyCleanupStatus.mockRejectedValueOnce(
+      new Error("database busy"),
+    );
+
+    renderRow();
+
+    expect(
+      await screen.findByText("Migration status unavailable"),
+    ).toBeTruthy();
+
+    await vi.advanceTimersByTimeAsync(15_000);
+    await waitFor(() =>
+      expect(screen.getByText("Migration complete")).toBeTruthy(),
+    );
+    vi.useRealTimers();
+  });
+
+  it("keeps showing the last known status when a background refetch fails", async () => {
+    const { queryClient } = renderRow();
+    await waitFor(() =>
+      expect(screen.getByText("Migration complete")).toBeTruthy(),
+    );
+
+    mocks.getLegacyCleanupStatus.mockRejectedValue(new Error("database busy"));
+    await act(() =>
+      queryClient.invalidateQueries({ queryKey: ["legacy-migration"] }),
+    );
+
+    expect(screen.getByText("Migration complete")).toBeTruthy();
+    expect(screen.queryByText("Migration status unavailable")).toBeNull();
   });
 
   it("retries an incomplete migration and refreshes its status", async () => {

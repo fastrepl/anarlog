@@ -182,10 +182,6 @@ msgstr "Anarlog can read meeting details"
 msgid "Anarlog could not read the local shared-note cache."
 msgstr "Anarlog could not read the local shared-note cache."
 
-#: src/settings/general/storage/legacy-cleanup.tsx
-msgid "Anarlog could not verify the migration status"
-msgstr "Anarlog could not verify the migration status"
-
 #: src/settings/general/account.tsx
 msgid "Anarlog couldn't sign you out. Try again."
 msgstr "Anarlog couldn't sign you out. Try again."
@@ -201,6 +197,10 @@ msgstr "Anarlog needs microphone and system audio to transcribe your meetings, p
 #: src/templates/auto-form.tsx
 msgid "Anarlog sends these separately, so editing the prompt cannot remove the meeting source material."
 msgstr "Anarlog sends these separately, so editing the prompt cannot remove the meeting source material."
+
+#: src/settings/general/storage/legacy-cleanup.tsx
+msgid "Anarlog will retry automatically. This does not affect your notes."
+msgstr "Anarlog will retry automatically. This does not affect your notes."
 
 #: src/onboarding/index.tsx
 msgid "Anarlog will sync your calendar to get meeting reminders"

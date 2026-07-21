@@ -182,10 +182,6 @@ msgstr ""
 msgid "Anarlog could not read the local shared-note cache."
 msgstr ""
 
-#: src/settings/general/storage/legacy-cleanup.tsx
-msgid "Anarlog could not verify the migration status"
-msgstr ""
-
 #: src/settings/general/account.tsx
 msgid "Anarlog couldn't sign you out. Try again."
 msgstr ""
@@ -200,6 +196,10 @@ msgstr ""
 
 #: src/templates/auto-form.tsx
 msgid "Anarlog sends these separately, so editing the prompt cannot remove the meeting source material."
+msgstr ""
+
+#: src/settings/general/storage/legacy-cleanup.tsx
+msgid "Anarlog will retry automatically. This does not affect your notes."
 msgstr ""
 
 #: src/onboarding/index.tsx
