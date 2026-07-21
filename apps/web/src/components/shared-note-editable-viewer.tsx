@@ -1,11 +1,13 @@
 import { lazy, Suspense, useState } from "react";
 
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
+import { SharedNoteReader } from "@/components/shared-note-reader";
 import {
   sharedSecondaryButtonClassName,
   SharedNoteUnavailable,
   SharedNoteViewer,
 } from "@/components/shared-note-viewer";
+import { canComposeSharedNoteComments } from "@/lib/shared-note-collaboration";
 import {
   canEditSharedNoteOnWeb,
   getSharedNoteReadOnlySnapshot,
@@ -38,6 +40,7 @@ export function SharedNoteEditableViewer({
   onAccessChanged,
   resolveAttachment,
   revokedBehavior,
+  signedIn,
   snapshot: initialSnapshot,
 }: {
   accessLabel: string;
@@ -49,6 +52,7 @@ export function SharedNoteEditableViewer({
   onAccessChanged?: () => Promise<AuthenticatedSharedNote | null>;
   resolveAttachment?: SharedAttachmentResolver;
   revokedBehavior: "read-only" | "unavailable";
+  signedIn: boolean;
   snapshot: SharedNoteSnapshot;
 }) {
   const [snapshot, setSnapshot] = useState(initialSnapshot);
@@ -100,6 +104,18 @@ export function SharedNoteEditableViewer({
     authorization.state === "ready" ? authorization.note : null,
     hasUnsupportedContent,
   );
+  const collaborationActive = !accessRevoked && !requiresSignIn;
+  const readyNote = authorization.state === "ready" ? authorization.note : null;
+  // hasCollaborationAccess is true here because the read surface re-checks
+  // actual access from the comments query before enabling composition.
+  const canComposeComments =
+    collaborationActive &&
+    readyNote !== null &&
+    canComposeSharedNoteComments({
+      capability: readyNote.capability,
+      hasCollaborationAccess: true,
+      manageAccess: readyNote.manageAccess,
+    });
 
   if (
     shouldRenderSharedNoteUnavailable({
@@ -196,7 +212,15 @@ export function SharedNoteEditableViewer({
               }}
             />
           </Suspense>
-        ) : undefined
+        ) : (
+          <SharedNoteReader
+            canCompose={canComposeComments}
+            resolveAttachment={resolveAttachment}
+            shareId={activeSnapshot.shareId}
+            signedIn={signedIn && collaborationActive}
+            snapshot={activeSnapshot}
+          />
+        )
       }
       headerActions={
         canEdit && !isEditing ? (

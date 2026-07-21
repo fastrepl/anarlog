@@ -201,6 +201,7 @@ function LinkSharedNoteClient({
       }}
       resolveAttachment={resolveAttachment}
       revokedBehavior="read-only"
+      signedIn={currentUserId !== null}
       accessLabel={
         authenticatedNote &&
         shouldUseAuthenticatedSharedNoteAccessLabel(authenticatedNote)

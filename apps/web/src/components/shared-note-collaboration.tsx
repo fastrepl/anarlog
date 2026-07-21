@@ -1,4 +1,3 @@
-import { useForm } from "@tanstack/react-form";
 import {
   useInfiniteQuery,
   useMutation,
@@ -11,7 +10,6 @@ import {
   LoaderCircleIcon,
   LogInIcon,
   MessageSquareIcon,
-  SendIcon,
   Trash2Icon,
   XIcon,
 } from "lucide-react";
@@ -19,15 +17,16 @@ import {
 import { cn } from "@hypr/utils";
 
 import {
+  useDeleteSharedNoteComment,
+  useSharedNoteComments,
+} from "@/components/shared-note-comments-data";
+import {
   sharedPrimaryButtonClassName,
   sharedSecondaryButtonClassName,
 } from "@/components/shared-note-viewer";
 import {
   cancelMySharedNoteAccessRequest,
-  createSharedNoteComment,
-  deleteSharedNoteComment,
   getMySharedNoteAccessRequest,
-  listSharedNoteComments,
   listSharedNoteManagerAccess,
   requestSharedNoteCommentAccess,
   reviewSharedNoteAccessRequest,
@@ -36,17 +35,15 @@ import {
   canComposeSharedNoteComments,
   formatSharedNoteAccessRequestDescription,
   hasSharedNoteCollaborationAccess,
-  MAX_SHARED_NOTE_COMMENT_BYTES,
-  validateSharedNoteCommentBody,
+  truncateSharedNoteCommentQuote,
 } from "@/lib/shared-note-collaboration";
 import type {
   SessionAccessRequestState,
   SessionShareAccessCursor,
-  SharedNoteCommentCursor,
   SharedNoteCapability,
+  SharedNoteComment,
 } from "@/lib/shared-notes";
 
-const commentsQueryKey = (shareId: string) => ["shared-note-comments", shareId];
 const accessRequestQueryKey = (shareId: string) => [
   "shared-note-access-request",
   shareId,
@@ -71,29 +68,7 @@ export function SharedNoteCollaboration({
 }) {
   const queryClient = useQueryClient();
   const signedIn = currentUserId !== null;
-  const commentsQuery = useInfiniteQuery({
-    queryKey: commentsQueryKey(shareId),
-    queryFn: async ({ pageParam }) => {
-      const result = await listSharedNoteComments({
-        data: {
-          shareId,
-          beforeCreatedAt: pageParam?.beforeCreatedAt ?? null,
-          beforeCommentId: pageParam?.beforeCommentId ?? null,
-        },
-      });
-      if (result.status === "error") {
-        throw new Error("comments unavailable");
-      }
-      return result;
-    },
-    enabled: signedIn,
-    initialPageParam: null as SharedNoteCommentCursor | null,
-    getNextPageParam: (lastPage) =>
-      lastPage.status === "ready"
-        ? (lastPage.nextCursor ?? undefined)
-        : undefined,
-    retry: false,
-  });
+  const commentsQuery = useSharedNoteComments({ enabled: signedIn, shareId });
   const accessRequestQuery = useQuery({
     queryKey: accessRequestQueryKey(shareId),
     queryFn: async () => {
@@ -126,35 +101,7 @@ export function SharedNoteCollaboration({
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     retry: false,
   });
-  const createMutation = useMutation({
-    mutationFn: async (body: string) => {
-      const result = await createSharedNoteComment({
-        data: { shareId, body },
-      });
-      if (result.status !== "ready") {
-        throw new Error("comment unavailable");
-      }
-      return result.comment;
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: commentsQueryKey(shareId),
-      });
-    },
-  });
-  const deleteMutation = useMutation({
-    mutationFn: async (commentId: string) => {
-      const result = await deleteSharedNoteComment({ data: commentId });
-      if (result.status !== "ready") {
-        throw new Error("comment unavailable");
-      }
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: commentsQueryKey(shareId),
-      });
-    },
-  });
+  const deleteMutation = useDeleteSharedNoteComment({ shareId });
   const requestMutation = useMutation({
     mutationFn: async () => {
       const result = await requestSharedNoteCommentAccess({ data: shareId });
@@ -208,16 +155,6 @@ export function SharedNoteCollaboration({
       });
     },
   });
-  const commentForm = useForm({
-    defaultValues: { body: "" },
-    onSubmit: async ({ formApi, value }) => {
-      const comment = validateSharedNoteCommentBody(value.body);
-      if (!comment.valid) return;
-      await createMutation.mutateAsync(comment.body);
-      formApi.reset();
-    },
-  });
-
   const hasCollaborationAccess = hasSharedNoteCollaborationAccess(
     commentsQuery.data?.pages[0],
   );
@@ -296,91 +233,10 @@ export function SharedNoteCollaboration({
           )}
 
           {canCompose && (
-            <form
-              className="border-color-subtle mt-6 border-t pt-5"
-              onSubmit={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                void commentForm.handleSubmit();
-              }}
-            >
-              <commentForm.Field name="body">
-                {(field) => {
-                  const comment = validateSharedNoteCommentBody(
-                    field.state.value,
-                  );
-                  const tooLong =
-                    comment.byteLength > MAX_SHARED_NOTE_COMMENT_BYTES;
-                  const errorId = "shared-note-comment-body-error";
-                  return (
-                    <>
-                      <label
-                        htmlFor="shared-note-comment-body"
-                        className="text-color font-mono text-sm font-medium"
-                      >
-                        Add a comment
-                      </label>
-                      <textarea
-                        id="shared-note-comment-body"
-                        className={cn([
-                          "surface-subtle border-color-subtle text-color mt-2 min-h-24 w-full resize-y rounded-2xl border px-4 py-3",
-                          "placeholder:text-color-muted text-sm leading-6 focus:border-stone-400 focus:ring-2 focus:ring-stone-300 focus:outline-hidden",
-                        ])}
-                        aria-describedby={tooLong ? errorId : undefined}
-                        aria-invalid={tooLong}
-                        placeholder="Share a thought about this note…"
-                        required
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                      />
-                      {tooLong && (
-                        <p
-                          id={errorId}
-                          className="mt-2 text-sm text-red-700"
-                          role="alert"
-                        >
-                          Comment is too long (
-                          {comment.byteLength.toLocaleString()}/
-                          {MAX_SHARED_NOTE_COMMENT_BYTES.toLocaleString()}{" "}
-                          bytes).
-                        </p>
-                      )}
-                      <div className="mt-3 flex items-center justify-between gap-4">
-                        <p className="text-color-muted text-xs">
-                          Visible only to people who can open this note.
-                        </p>
-                        <button
-                          type="submit"
-                          className={sharedPrimaryButtonClassName}
-                          disabled={createMutation.isPending || !comment.valid}
-                        >
-                          {createMutation.isPending ? (
-                            <LoaderCircleIcon
-                              className="mr-2 size-4 animate-spin"
-                              aria-hidden="true"
-                            />
-                          ) : (
-                            <SendIcon
-                              className="mr-2 size-4"
-                              aria-hidden="true"
-                            />
-                          )}
-                          Comment
-                        </button>
-                      </div>
-                    </>
-                  );
-                }}
-              </commentForm.Field>
-              {createMutation.isError && (
-                <p className="mt-3 text-sm text-red-700" role="status">
-                  Your comment couldn’t be added. Try again.
-                </p>
-              )}
-            </form>
+            <p className="border-color-subtle text-color-muted mt-6 border-t pt-5 text-sm leading-6">
+              Select text in the note to comment. Comments are visible only to
+              people who can open this note.
+            </p>
           )}
 
           {!canCompose &&
@@ -446,12 +302,7 @@ function CommentList({
   onDelete,
   onLoadEarlier,
 }: {
-  comments: Array<{
-    body: string;
-    commentId: string;
-    createdAt: string;
-    isAuthor: boolean;
-  }>;
+  comments: SharedNoteComment[];
   deletePending: boolean;
   deletingCommentId: string | null;
   error: boolean;
@@ -515,7 +366,11 @@ function CommentList({
           const deleting =
             deletePending && deletingCommentId === comment.commentId;
           return (
-            <li key={comment.commentId} className="py-5">
+            <li
+              key={comment.commentId}
+              id={`shared-comment-${comment.commentId}`}
+              className="py-5"
+            >
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-color font-mono text-sm font-medium">
@@ -547,6 +402,11 @@ function CommentList({
                   </button>
                 )}
               </div>
+              {comment.anchor && (
+                <p className="border-color-subtle text-color-muted mt-3 truncate border-l-2 pl-3 text-xs leading-5">
+                  {truncateSharedNoteCommentQuote(comment.anchor.quoteExact)}
+                </p>
+              )}
               <p className="text-color mt-3 text-sm leading-6 whitespace-pre-wrap">
                 {comment.body}
               </p>

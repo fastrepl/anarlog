@@ -56,7 +56,7 @@ export function SharedNoteViewer({
 
   return (
     <SharedNoteShell>
-      <article className="surface border-color-subtle overflow-hidden rounded-3xl border shadow-sm">
+      <article className="surface border-color-subtle overflow-hidden rounded-3xl border shadow-sm xl:overflow-visible">
         <header className="border-color-subtle border-b px-6 py-7 sm:px-10 sm:py-10">
           <div className="flex items-start justify-between gap-4">
             <div className="text-color-muted flex min-w-0 flex-wrap items-center gap-2 text-sm">
@@ -191,7 +191,7 @@ export function SharedNotePrompt({
 
 function SharedNoteShell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="bg-page text-color min-h-screen px-4 py-5 sm:px-6 sm:py-8">
+    <main className="bg-page text-color min-h-screen overflow-x-clip px-4 py-5 sm:px-6 sm:py-8">
       <div className="mx-auto w-full max-w-[760px]">
         <header className="mb-8 flex items-center justify-between gap-4 px-1">
           <a href="/" aria-label="Anarlog home">
