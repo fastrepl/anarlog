@@ -85,6 +85,21 @@ describe("commentAnchorsPlugin", () => {
     expect(classes.get("c2")).toBe("comment-anchor comment-anchor-active");
   });
 
+  it("remaps ranges when one transaction edits the doc and sets the active comment", () => {
+    let state = createState();
+    state = setAnchors(state, [{ commentId: "c1", from: 7, to: 15 }]);
+    state = state.apply(
+      state.tr
+        .insertText("XX", 1)
+        .setMeta(commentAnchorsPluginKey, { type: "active", commentId: "c1" }),
+    );
+
+    expect(getCommentAnchorRanges(state)).toEqual([
+      { commentId: "c1", from: 9, to: 17 },
+    ]);
+    expect(commentAnchorsPluginKey.getState(state)!.activeId).toBe("c1");
+  });
+
   it("returns one merged range for a cross-block anchor", () => {
     let state = EditorState.create({
       schema,

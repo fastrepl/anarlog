@@ -65,13 +65,12 @@ export function commentAnchorsPlugin(options?: {
           };
         }
         if (meta?.type === "active") {
+          const anchors = tr.docChanged
+            ? mapAnchorsThrough(tr.mapping, pluginState.anchors)
+            : pluginState.anchors;
           return {
-            decorations: buildDecorations(
-              tr.doc,
-              pluginState.anchors,
-              meta.commentId,
-            ),
-            anchors: pluginState.anchors,
+            decorations: buildDecorations(tr.doc, anchors, meta.commentId),
+            anchors,
             activeId: meta.commentId,
           };
         }
@@ -80,11 +79,7 @@ export function commentAnchorsPlugin(options?: {
         }
         return {
           decorations: pluginState.decorations.map(tr.mapping, tr.doc),
-          anchors: pluginState.anchors.flatMap((anchor) => {
-            const from = tr.mapping.map(anchor.from, 1);
-            const to = tr.mapping.map(anchor.to, -1);
-            return from < to ? [{ ...anchor, from, to }] : [];
-          }),
+          anchors: mapAnchorsThrough(tr.mapping, pluginState.anchors),
           activeId: pluginState.activeId,
         };
       },
@@ -200,6 +195,17 @@ export function getSelectionScreenRect(
     right: Math.max(start.right, end.right),
     bottom: Math.max(start.bottom, end.bottom),
   };
+}
+
+function mapAnchorsThrough(
+  mapping: { map(pos: number, assoc?: number): number },
+  anchors: CommentAnchorInput[],
+): CommentAnchorInput[] {
+  return anchors.flatMap((anchor) => {
+    const from = mapping.map(anchor.from, 1);
+    const to = mapping.map(anchor.to, -1);
+    return from < to ? [{ ...anchor, from, to }] : [];
+  });
 }
 
 function buildDecorations(
