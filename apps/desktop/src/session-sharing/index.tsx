@@ -1422,6 +1422,9 @@ function SessionSharePopoverContent({
       ? `workspace:${management.generalWorkspaceId}`
       : management.generalScope
     : "restricted";
+  // The action buttons must track the same scope the select displays, so an
+  // optimistic scope switches them together instead of leaving a stale button.
+  const shownScopeValue = optimisticScope ?? generalScopeValue;
 
   return (
     <PopoverContent
@@ -1709,7 +1712,7 @@ function SessionSharePopoverContent({
                   </h3>
                   <div className="mt-3 flex items-center gap-2">
                     <Select
-                      value={optimisticScope ?? generalScopeValue}
+                      value={shownScopeValue}
                       disabled={scopeMutation.isPending}
                       onValueChange={(value) => {
                         setOptimisticScope(value);
@@ -1747,7 +1750,7 @@ function SessionSharePopoverContent({
                         </SelectItem>
                       </SelectContent>
                     </Select>
-                    {management.generalScope === "link" ? (
+                    {shownScopeValue === "link" ? (
                       <Button
                         type="button"
                         size="sm"
@@ -1769,8 +1772,8 @@ function SessionSharePopoverContent({
                         )}
                         <Trans>Replace link & copy</Trans>
                       </Button>
-                    ) : management.generalScope === "public" ||
-                      management.generalScope === "workspace" ? (
+                    ) : shownScopeValue === "public" ||
+                      shownScopeValue.startsWith("workspace:") ? (
                       <Button
                         type="button"
                         size="sm"

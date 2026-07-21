@@ -6,7 +6,7 @@ import {
   Loader2Icon,
   RefreshCwIcon,
 } from "lucide-react";
-import { type MouseEvent, useState } from "react";
+import { type MouseEvent, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
@@ -189,8 +189,10 @@ function CalendarToggleRow({
   const color = calendar.color ?? "#888";
 
   // Optimistic check state: the write goes through the DB queue and the
-  // enabled prop only flips after the live query re-emits.
+  // enabled prop only flips after the live query re-emits. The sequence
+  // number keeps a stale rejection from reverting a newer toggle.
   const [pending, setPending] = useState<boolean | null>(null);
+  const toggleSeqRef = useRef(0);
   if (pending !== null && pending === enabled) {
     setPending(null);
   }
@@ -201,9 +203,12 @@ function CalendarToggleRow({
       type="button"
       onClick={() => {
         const next = !shownEnabled;
+        const seq = ++toggleSeqRef.current;
         setPending(next);
         void Promise.resolve(onToggle(next)).catch(() => {
-          setPending(null);
+          if (toggleSeqRef.current === seq) {
+            setPending(null);
+          }
         });
       }}
       className="flex w-full items-center gap-2 py-1 pr-2 pl-0 text-left"
