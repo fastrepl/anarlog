@@ -40,12 +40,14 @@ export async function sendTrialEndingEmail(event: Stripe.Event) {
     headers: {
       Authorization: `Bearer ${env.LOOPS_API_KEY}`,
       "Content-Type": "application/json",
-      "Idempotency-Key": event.id,
     },
     body: JSON.stringify({
       transactionalId: env.LOOPS_TRIAL_ENDING_TRANSACTIONAL_ID,
       email: payload.email,
       dataVariables: payload.dataVariables,
+      // Loops takes idempotency in the body, not an Idempotency-Key header;
+      // this is what dedupes webhook retries into a single email.
+      idempotencyKey: event.id,
     }),
   });
 
