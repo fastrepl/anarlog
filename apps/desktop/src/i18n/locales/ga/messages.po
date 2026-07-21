@@ -1965,6 +1965,10 @@ msgstr "Tosaigh nuair a thosaíonn an cruinniú"
 msgid "Start with permissions"
 msgstr ""
 
+#: src/settings/ai/stt/select.tsx
+msgid "Starting"
+msgstr ""
+
 #: src/onboarding/account/after-login.tsx
 msgid "Starting your trial..."
 msgstr ""

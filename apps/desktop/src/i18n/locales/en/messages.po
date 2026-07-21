@@ -1965,6 +1965,10 @@ msgstr "Start when meeting begins"
 msgid "Start with permissions"
 msgstr "Start with permissions"
 
+#: src/settings/ai/stt/select.tsx
+msgid "Starting"
+msgstr "Starting"
+
 #: src/onboarding/account/after-login.tsx
 msgid "Starting your trial..."
 msgstr "Starting your trial..."

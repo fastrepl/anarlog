@@ -1965,6 +1965,10 @@ msgstr "மீட்டிங் தொடங்கும் போது தொ
 msgid "Start with permissions"
 msgstr ""
 
+#: src/settings/ai/stt/select.tsx
+msgid "Starting"
+msgstr ""
+
 #: src/onboarding/account/after-login.tsx
 msgid "Starting your trial..."
 msgstr ""
