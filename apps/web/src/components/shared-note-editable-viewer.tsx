@@ -215,6 +215,7 @@ export function SharedNoteEditableViewer({
         ) : (
           <SharedNoteReader
             canCompose={canComposeComments}
+            manageAccess={readyNote?.manageAccess ?? false}
             resolveAttachment={resolveAttachment}
             shareId={activeSnapshot.shareId}
             signedIn={signedIn && collaborationActive}

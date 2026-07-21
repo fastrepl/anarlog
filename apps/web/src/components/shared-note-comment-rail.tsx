@@ -1,4 +1,4 @@
-import { Trash2Icon } from "lucide-react";
+import { LoaderCircleIcon, Trash2Icon } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
@@ -16,6 +16,8 @@ export function SharedNoteCommentRail({
   canDelete,
   composer,
   composerNode,
+  deletePending = false,
+  deletingCommentId = null,
   items,
   onActivate,
   onDelete,
@@ -29,6 +31,8 @@ export function SharedNoteCommentRail({
   composerNode?: React.ReactNode;
   onDelete: (commentId: string) => void;
   canDelete: (comment: AnchoredSharedNoteComment) => boolean;
+  deletePending?: boolean;
+  deletingCommentId?: string | null;
 }) {
   const [heights, setHeights] = useState<ReadonlyMap<string, number>>(
     new Map(),
@@ -125,6 +129,8 @@ export function SharedNoteCommentRail({
           <RailCard
             active={item.commentId === activeCommentId}
             comment={item}
+            deleteDisabled={deletePending}
+            deleting={deletePending && item.commentId === deletingCommentId}
             onActivate={() =>
               onActivate(
                 item.commentId === activeCommentId ? null : item.commentId,
@@ -148,6 +154,8 @@ export function SharedNoteCommentRail({
               key={item.commentId}
               active={false}
               comment={item}
+              deleteDisabled={deletePending}
+              deleting={deletePending && item.commentId === deletingCommentId}
               onDelete={() => onDelete(item.commentId)}
               showDelete={canDelete(item)}
             />
@@ -161,12 +169,16 @@ export function SharedNoteCommentRail({
 function RailCard({
   active,
   comment,
+  deleteDisabled = false,
+  deleting = false,
   onActivate,
   onDelete,
   showDelete,
 }: {
   active: boolean;
   comment: AnchoredSharedNoteComment;
+  deleteDisabled?: boolean;
+  deleting?: boolean;
   onActivate?: () => void;
   onDelete: () => void;
   showDelete: boolean;
@@ -208,13 +220,21 @@ function RailCard({
           <button
             type="button"
             aria-label="Delete comment"
-            className="text-color-muted hover:text-color rounded-full p-1.5 transition-colors focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:outline-hidden"
+            className="text-color-muted hover:text-color rounded-full p-1.5 transition-colors focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={deleteDisabled}
             onClick={(event) => {
               event.stopPropagation();
               onDelete();
             }}
           >
-            <Trash2Icon className="size-3.5" aria-hidden="true" />
+            {deleting ? (
+              <LoaderCircleIcon
+                className="size-3.5 animate-spin"
+                aria-hidden="true"
+              />
+            ) : (
+              <Trash2Icon className="size-3.5" aria-hidden="true" />
+            )}
           </button>
         )}
       </div>

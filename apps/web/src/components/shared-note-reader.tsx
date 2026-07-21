@@ -19,12 +19,14 @@ const SharedNoteReadSurface = lazy(() =>
 
 export function SharedNoteReader({
   canCompose,
+  manageAccess,
   resolveAttachment,
   shareId,
   signedIn,
   snapshot,
 }: {
   canCompose: boolean;
+  manageAccess: boolean;
   resolveAttachment?: SharedAttachmentResolver;
   shareId: string;
   signedIn: boolean;
@@ -50,6 +52,7 @@ export function SharedNoteReader({
       <SharedNoteReadSurface
         key={`${snapshot.shareId}:${snapshot.contentRevision}`}
         canCompose={canCompose}
+        manageAccess={manageAccess}
         resolveAttachment={resolveAttachment}
         shareId={shareId}
         signedIn={signedIn}

@@ -11,6 +11,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 
 import {
@@ -80,14 +81,34 @@ const SharedReadAttachmentsContext = createContext<{
   resolve: SharedAttachmentResolver | null;
 }>({ attachments: new Map(), resolve: null });
 
+// Tailwind's xl breakpoint — the width from which the comment rail (and its
+// draft composer) is visible.
+const RAIL_MEDIA_QUERY = "(min-width: 80rem)";
+
+function subscribeRailMedia(onChange: () => void) {
+  const media = window.matchMedia(RAIL_MEDIA_QUERY);
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+
+function useCommentRailVisible() {
+  return useSyncExternalStore(
+    subscribeRailMedia,
+    () => window.matchMedia(RAIL_MEDIA_QUERY).matches,
+    () => false,
+  );
+}
+
 export function SharedNoteReadSurface({
   canCompose,
+  manageAccess,
   resolveAttachment,
   shareId,
   signedIn,
   snapshot,
 }: {
   canCompose: boolean;
+  manageAccess: boolean;
   resolveAttachment?: SharedAttachmentResolver;
   shareId: string;
   signedIn: boolean;
@@ -114,8 +135,18 @@ export function SharedNoteReadSurface({
     AnchoredSharedNoteComment[]
   >([]);
 
+  const railVisible = useCommentRailVisible();
+  // The draft composer lives in the rail; when the viewport shrinks below
+  // the rail's breakpoint an open draft would have no cancel/submit UI.
+  if (!railVisible && draft) {
+    setDraft(null);
+  }
+
   const commentsQuery = useSharedNoteComments({ enabled: signedIn, shareId });
-  const createMutation = useCreateSharedNoteComment({ shareId });
+  const createMutation = useCreateSharedNoteComment({
+    shareId,
+    snapshotRevision: snapshot.contentRevision,
+  });
   const deleteMutation = useDeleteSharedNoteComment({ shareId });
   const comments = useMemo(
     () => collectSharedNoteComments(commentsQuery.data),
@@ -252,9 +283,17 @@ export function SharedNoteReadSurface({
         setSelectionRect(null);
         return;
       }
-      setSelectionRect(
-        event.empty ? null : getSelectionScreenRect(currentView),
-      );
+      // Only offer the pill for selections a draft can actually anchor to;
+      // startDraft silently no-ops when anchor capture fails.
+      const anchorable =
+        !event.empty &&
+        captureCommentAnchor(
+          currentView.state.doc,
+          event.from,
+          event.to,
+          snapshot.contentRevision,
+        ) !== null;
+      setSelectionRect(anchorable ? getSelectionScreenRect(currentView) : null);
       return;
     }
     if (event.type === "anchor-click") {
@@ -282,6 +321,9 @@ export function SharedNoteReadSurface({
     if (!captured) return;
     const top =
       currentView.coordsAtPos(from).top - container.getBoundingClientRect().top;
+    // A previous draft's failed submit must not surface its error in the
+    // composer of this new draft.
+    createMutation.reset();
     setSelectionRect(null);
     setActiveCommentId(null);
     setActiveCommentAnchor(currentView, null);
@@ -290,9 +332,15 @@ export function SharedNoteReadSurface({
 
   const submitDraft = (commentBody: string) => {
     if (!draft) return;
+    const submitted = draft;
     createMutation.mutate(
-      { anchor: fromCaptured(draft.anchor), body: commentBody },
-      { onSuccess: () => setDraft(null) },
+      { anchor: fromCaptured(submitted.anchor), body: commentBody },
+      {
+        // Only clear the draft this submit belongs to; a draft opened after
+        // a resize-triggered cleanup must survive the earlier completion.
+        onSuccess: () =>
+          setDraft((current) => (current === submitted ? null : current)),
+      },
     );
   };
 
@@ -347,10 +395,17 @@ export function SharedNoteReadSurface({
         rect={selectionRect}
         visible={composeEnabled && !draft}
       />
-      <div className="absolute inset-y-0 left-full ml-6 hidden w-80 xl:block">
+      {/* The page shell reserves this width at xl+ via a :has() rule keyed
+          on data-comment-rail, so the rail stays inside its clip bounds.
+          Signed-out readers render no rail marker and keep the centered
+          column. */}
+      <div
+        className="absolute inset-y-0 left-full ml-6 hidden w-80 xl:block"
+        data-comment-rail={signedIn ? "" : undefined}
+      >
         <SharedNoteCommentRail
           activeCommentId={activeCommentId}
-          canDelete={(comment) => comment.isAuthor}
+          canDelete={(comment) => comment.isAuthor || manageAccess}
           composer={
             draft
               ? { top: screenTops.get(DRAFT_COMMENT_ID) ?? draft.top }
@@ -369,6 +424,8 @@ export function SharedNoteReadSurface({
               />
             ) : undefined
           }
+          deletePending={deleteMutation.isPending}
+          deletingCommentId={deleteMutation.variables ?? null}
           items={anchoredComments.filter((comment) => comment.anchor !== null)}
           onActivate={activateComment}
           onDelete={(commentId) => deleteMutation.mutate(commentId)}

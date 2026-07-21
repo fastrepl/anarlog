@@ -57,7 +57,13 @@ export function useSharedNoteComments({
   });
 }
 
-export function useCreateSharedNoteComment({ shareId }: { shareId: string }) {
+export function useCreateSharedNoteComment({
+  shareId,
+  snapshotRevision,
+}: {
+  shareId: string;
+  snapshotRevision: number;
+}) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -87,7 +93,7 @@ export function useCreateSharedNoteComment({ shareId }: { shareId: string }) {
               globalThis.crypto?.randomUUID?.() ?? `optimistic-${Date.now()}`,
             isAuthor: true,
             body,
-            snapshotRevision: 1,
+            snapshotRevision,
             anchor,
             createdAt: new Date().toISOString(),
           }),
