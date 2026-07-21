@@ -565,6 +565,10 @@ msgstr "Copy recovery key"
 msgid "Could not start trial"
 msgstr "Could not start trial"
 
+#: src/session/components/outer-header/metadata/date.tsx
+#~ msgid "Could not update the note date."
+#~ msgstr "Could not update the note date."
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Create a recovery key"
 msgstr "Create a recovery key"
@@ -1964,6 +1968,10 @@ msgstr "Start when meeting begins"
 #: src/onboarding/index.tsx
 msgid "Start with permissions"
 msgstr "Start with permissions"
+
+#: src/settings/ai/stt/select.tsx
+#~ msgid "Starting"
+#~ msgstr "Starting"
 
 #: src/onboarding/account/after-login.tsx
 msgid "Starting your trial..."

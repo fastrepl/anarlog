@@ -565,6 +565,10 @@ msgstr ""
 msgid "Could not start trial"
 msgstr ""
 
+#: src/session/components/outer-header/metadata/date.tsx
+#~ msgid "Could not update the note date."
+#~ msgstr ""
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Create a recovery key"
 msgstr ""
@@ -1964,6 +1968,10 @@ msgstr "Kòmanse lè reyinyon an kòmanse"
 #: src/onboarding/index.tsx
 msgid "Start with permissions"
 msgstr ""
+
+#: src/settings/ai/stt/select.tsx
+#~ msgid "Starting"
+#~ msgstr ""
 
 #: src/onboarding/account/after-login.tsx
 msgid "Starting your trial..."
