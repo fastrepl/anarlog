@@ -1,8 +1,6 @@
 import type { RefObject } from "react";
 import { useCallback } from "react";
 
-import { Spinner } from "@hypr/ui/components/ui/spinner";
-
 import { useRegenerateTranscript } from "./actions";
 import { TranscriptViewer } from "./renderer";
 import { BatchState } from "./screens/batch";
@@ -60,25 +58,13 @@ export function Transcript({
         />
       )}
       {screen.kind === "ready" && (
-        <>
-          {screen.isFinalizing ? <FinalizingTranscriptBanner /> : null}
-          <TranscriptViewer
-            transcriptIds={screen.transcriptIds}
-            liveSegments={screen.liveSegments}
-            currentActive={screen.currentActive}
-            scrollRef={scrollRef}
-          />
-        </>
+        <TranscriptViewer
+          transcriptIds={screen.transcriptIds}
+          liveSegments={screen.liveSegments}
+          currentActive={screen.currentActive}
+          scrollRef={scrollRef}
+        />
       )}
-    </div>
-  );
-}
-
-function FinalizingTranscriptBanner() {
-  return (
-    <div className="bg-background/95 pointer-events-none absolute top-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium shadow-sm">
-      <Spinner size={14} />
-      <span>Finalizing transcript...</span>
     </div>
   );
 }

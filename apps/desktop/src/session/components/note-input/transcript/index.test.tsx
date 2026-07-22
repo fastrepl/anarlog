@@ -122,7 +122,7 @@ describe("Transcript", () => {
     expect(screen.queryByTestId("transcript-viewer")).not.toBeNull();
   });
 
-  it("shows finalizing status over existing transcript content", () => {
+  it("keeps existing transcript content unobstructed while finalizing", () => {
     listenerState = {
       ...listenerState,
       getSessionMode: () => "finalizing",
@@ -133,7 +133,7 @@ describe("Transcript", () => {
 
     render(<Transcript sessionId={sessionId} scrollRef={createRef()} />);
 
-    expect(screen.getByText("Finalizing transcript...")).not.toBeNull();
+    expect(screen.queryByText("Finalizing transcript...")).toBeNull();
     expect(screen.getByTestId("transcript-viewer")).not.toBeNull();
   });
 
