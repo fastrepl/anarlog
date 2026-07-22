@@ -200,12 +200,7 @@ function SharedNoteShell({
   topActions?: React.ReactNode;
 }) {
   return (
-    <main
-      className={cn([
-        "bg-page text-color min-h-screen overflow-x-clip",
-        "lg:[body:has([data-chat-panel-open])_&]:pr-[336px]",
-      ])}
-    >
+    <main className="bg-page text-color min-h-screen overflow-x-clip">
       <header className="bg-page/95 border-color-subtle sticky top-0 z-40 flex h-14 items-center justify-between gap-4 border-b px-4 backdrop-blur-sm sm:px-6">
         <a
           href="/"

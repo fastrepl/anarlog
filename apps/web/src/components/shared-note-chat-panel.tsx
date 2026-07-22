@@ -1,16 +1,19 @@
 import { useMutation } from "@tanstack/react-query";
 import {
   ArrowUpIcon,
-  ChevronRightIcon,
   LoaderCircleIcon,
   LogInIcon,
   SparklesIcon,
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { Streamdown } from "streamdown";
-import { useMediaQuery } from "usehooks-ts";
-import { Drawer } from "vaul";
 
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from "@hypr/ui/components/ui/dialog";
 import { cn } from "@hypr/utils";
 
 import { sharedPrimaryButtonClassName } from "@/components/shared-note-viewer";
@@ -31,14 +34,8 @@ export function SharedNoteChatPanel({
   signedIn: boolean;
   snapshot: SharedNoteSnapshot;
 }) {
-  const isDesktop = useMediaQuery("(min-width: 1024px)", {
-    defaultValue: false,
-    initializeWithValue: false,
-  });
-  // Render nothing until the media query resolves after hydration, so wide
-  // viewports never flash the mobile bottom bar before the desktop aside.
   const [interactive, setInteractive] = useState(false);
-  const [desktopOpen, setDesktopOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<SharedNoteChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [streaming, setStreaming] = useState<string | null>(null);
@@ -145,84 +142,44 @@ export function SharedNoteChatPanel({
     return null;
   }
 
-  if (isDesktop) {
-    if (!desktopOpen) {
-      return (
-        <button
-          type="button"
-          className={cn([
-            "fixed right-4 bottom-4 z-30",
-            "surface border-color-subtle inline-flex min-h-11 items-center gap-2 rounded-full border px-5 shadow-sm",
-            "text-color hover:bg-surface-subtle font-mono text-sm font-medium transition-colors",
-            "focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:outline-hidden",
-          ])}
-          onClick={() => setDesktopOpen(true)}
-        >
-          <SparklesIcon className="size-4" aria-hidden="true" />
-          Ask anything
-        </button>
-      );
-    }
-    return (
-      <aside
-        aria-label="Ask about this note"
-        data-chat-panel-open=""
-        className="surface border-color-subtle fixed top-14 right-0 bottom-0 z-30 flex w-[336px] flex-col border-l"
-      >
-        <header className="border-color-subtle flex items-center justify-between gap-3 border-b px-5 py-4">
-          <div className="text-color flex items-center gap-2">
-            <SparklesIcon className="size-4" aria-hidden="true" />
-            <h2 className="font-mono text-sm font-medium">
-              Ask about this note
-            </h2>
-          </div>
+  return (
+    <>
+      <div
+        aria-hidden="true"
+        className="h-[calc(5rem+env(safe-area-inset-bottom))]"
+      />
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
           <button
             type="button"
-            className="text-color-muted hover:text-color rounded-full p-2 transition-colors focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:outline-hidden"
-            aria-label="Collapse chat panel"
-            onClick={() => setDesktopOpen(false)}
+            className={cn([
+              "surface border-color-subtle fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-30 mx-auto flex min-h-12 w-auto max-w-[420px] items-center gap-2 rounded-full border px-5 shadow-lg",
+              "text-color-muted hover:text-color hover:bg-surface-subtle font-mono text-sm transition-colors",
+              "focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:outline-hidden",
+            ])}
           >
-            <ChevronRightIcon className="size-4" aria-hidden="true" />
+            <SparklesIcon className="size-4" aria-hidden="true" />
+            Ask anything about this note
           </button>
-        </header>
-        {body}
-      </aside>
-    );
-  }
-
-  return (
-    <Drawer.Root>
-      <div aria-hidden="true" className="h-24" />
-      <div className="fixed inset-x-0 bottom-0 z-30 px-4 pb-[max(env(safe-area-inset-bottom),1rem)]">
-        <Drawer.Trigger
+        </DialogTrigger>
+        <DialogContent
           className={cn([
-            "surface border-color-subtle mx-auto flex min-h-12 w-full max-w-[420px] items-center gap-2 rounded-full border px-5 shadow-lg",
-            "text-color-muted font-mono text-sm",
-            "focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:outline-hidden",
+            "surface border-color-subtle !top-auto !right-4 !bottom-[calc(1rem+env(safe-area-inset-bottom))] !left-4 !z-50 !mx-auto !flex !translate-x-0 !translate-y-0 flex-col overflow-hidden border shadow-2xl",
+            "!h-[min(680px,calc(100dvh-5rem-env(safe-area-inset-bottom)))] !w-auto !max-w-[648px] !gap-0 !rounded-[28px] !p-0",
           ])}
         >
-          <SparklesIcon className="size-4" aria-hidden="true" />
-          Ask anything
-        </Drawer.Trigger>
-      </div>
-      <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 z-40 bg-black/40" />
-        <Drawer.Content
-          aria-label="Ask about this note"
-          className="bg-page border-color-subtle fixed inset-x-0 bottom-0 z-50 flex h-[85dvh] flex-col rounded-t-3xl border-t"
-        >
-          <div className="bg-surface-subtle mx-auto mt-3 h-1.5 w-10 shrink-0 rounded-full" />
-          <Drawer.Title className="text-color flex items-center gap-2 px-5 pt-4 pb-2 font-mono text-sm font-medium">
-            <SparklesIcon className="size-4" aria-hidden="true" />
-            Ask about this note
-          </Drawer.Title>
-          <Drawer.Description className="sr-only">
-            Chat with AI about this shared note.
-          </Drawer.Description>
+          <header className="border-color-subtle flex items-center gap-3 border-b px-5 py-4 pr-14">
+            <div className="text-color flex items-center gap-2">
+              <SparklesIcon className="size-4" aria-hidden="true" />
+              <DialogTitle className="font-mono text-sm font-medium">
+                Ask about this note
+              </DialogTitle>
+            </div>
+          </header>
           {body}
-        </Drawer.Content>
-      </Drawer.Portal>
-    </Drawer.Root>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -302,6 +259,7 @@ function ChatBody({
             }}
           >
             <textarea
+              autoFocus
               className="surface-subtle text-color placeholder:text-color-muted min-h-11 flex-1 resize-none rounded-2xl px-4 py-2.5 text-sm leading-6 focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:outline-hidden"
               placeholder="Ask anything"
               rows={Math.min(3, draft.split("\n").length)}
