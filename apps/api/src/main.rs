@@ -242,6 +242,7 @@ async fn app() -> Router {
         &env.supabase.supabase_url,
         &env.supabase.supabase_service_role_key,
     )
+    .and_then(|config| config.with_invitation_email(&env.loops.loops_key))
     .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
 
     use hypr_api_nango::NangoIntegrationId;

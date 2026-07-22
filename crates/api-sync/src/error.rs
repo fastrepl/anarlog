@@ -44,6 +44,9 @@ pub enum SyncError {
     #[error("Shared note is unavailable")]
     SharedNoteNotFound,
 
+    #[error("Shared note invitation email is unavailable")]
+    InvitationEmailUnavailable,
+
     #[error("CloudSync credential service is unavailable")]
     Upstream,
 
@@ -157,6 +160,11 @@ impl IntoResponse for SyncError {
                 StatusCode::NOT_FOUND,
                 "shared_note_not_found",
                 "Shared note is unavailable".to_string(),
+            ),
+            Self::InvitationEmailUnavailable => (
+                StatusCode::BAD_GATEWAY,
+                "shared_note_invitation_email_unavailable",
+                "Shared note invitation email is unavailable".to_string(),
             ),
             Self::Upstream => (
                 StatusCode::BAD_GATEWAY,

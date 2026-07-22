@@ -1044,6 +1044,52 @@
         }
       }
     },
+    "/shared-notes/invitations/{invitation_id}/email": {
+      "post": {
+        "tags": [
+          "shared-notes"
+        ],
+        "operationId": "send_shared_note_invitation_email",
+        "parameters": [
+          {
+            "name": "invitation_id",
+            "in": "path",
+            "description": "Session access invitation ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SharedNoteInvitationEmailRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Invitation email sent"
+          },
+          "400": {
+            "description": "Invalid invitation email request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Invitation unavailable"
+          },
+          "502": {
+            "description": "Invitation email service unavailable"
+          }
+        }
+      }
+    },
     "/shared-notes/link/{share_id}": {
       "post": {
         "tags": [
@@ -8342,6 +8388,26 @@
             "type": "string"
           },
           "requestId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SharedNoteInvitationEmailRequest": {
+        "type": "object",
+        "required": [
+          "shareId",
+          "inviteToken",
+          "noteTitle"
+        ],
+        "properties": {
+          "inviteToken": {
+            "type": "string"
+          },
+          "noteTitle": {
+            "type": "string"
+          },
+          "shareId": {
             "type": "string"
           }
         },

@@ -91,6 +91,17 @@ export type SessionAccessInvitationResult = {
   wasCreated: boolean;
 };
 
+export type SendSessionAccessInvitationEmailInput = {
+  apiBaseUrl: string;
+  session: Session;
+  shareId: string;
+  invitationId: string;
+  inviteToken: string;
+  noteTitle: string;
+  signal?: AbortSignal;
+  fetcher?: typeof fetch;
+};
+
 export type SessionShareAccessEntry =
   | {
       entryType: "grant";
@@ -297,6 +308,50 @@ export async function createSessionAccessInvitation(
     p_capability: input.capability,
   });
   return parseSessionAccessInvitationResult(singleRow(data));
+}
+
+export async function sendSessionAccessInvitationEmail(
+  input: SendSessionAccessInvitationEmailInput,
+): Promise<void> {
+  try {
+    assertAuthenticatedSession(input.session);
+    assertUuid(input.shareId);
+    assertUuid(input.invitationId);
+    const inviteToken = expectCapabilityToken(input.inviteToken);
+    const noteTitle = normalizeTitle(input.noteTitle);
+    const body = JSON.stringify({
+      shareId: input.shareId,
+      inviteToken,
+      noteTitle,
+    });
+    if (utf8Length(body) > 8 * 1024) throw unavailable();
+    const request = createTimedSignal(input.signal);
+    try {
+      const response = await (input.fetcher ?? fetch)(
+        invitationEmailUrl(input.apiBaseUrl, input.invitationId),
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${input.session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body,
+          cache: "no-store",
+          credentials: "omit",
+          redirect: "error",
+          referrerPolicy: "no-referrer",
+          signal: request.signal,
+        },
+      );
+      if (response.status !== 204) throw unavailable();
+    } finally {
+      request.dispose();
+    }
+  } catch (error) {
+    if (error instanceof ShareManagementError) throw error;
+    throw unavailable();
+  }
 }
 
 export async function resendSessionAccessInvitation(
@@ -1165,6 +1220,28 @@ function snapshotUrl(apiBaseUrl: string, shareId: string) {
     if (error instanceof ShareManagementError) {
       throw error;
     }
+    throw unavailable();
+  }
+}
+
+function invitationEmailUrl(apiBaseUrl: string, invitationId: string) {
+  try {
+    const base = new URL(apiBaseUrl);
+    if (
+      !["http:", "https:"].includes(base.protocol) ||
+      base.username !== "" ||
+      base.password !== "" ||
+      base.search !== "" ||
+      base.hash !== ""
+    ) {
+      throw unavailable();
+    }
+    return new URL(
+      `/shared-notes/invitations/${invitationId}/email`,
+      base.origin,
+    );
+  } catch (error) {
+    if (error instanceof ShareManagementError) throw error;
     throw unavailable();
   }
 }

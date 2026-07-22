@@ -13,11 +13,17 @@ pub struct LoopClient {
 #[derive(Default)]
 pub struct LoopClientBuilder {
     api_key: Option<String>,
+    api_base: Option<url::Url>,
 }
 
 impl LoopClientBuilder {
     pub fn api_key(mut self, api_key: impl Into<String>) -> Self {
         self.api_key = Some(api_key.into());
+        self
+    }
+
+    pub fn api_base(mut self, api_base: url::Url) -> Self {
+        self.api_base = Some(api_base);
         self
     }
 
@@ -38,7 +44,9 @@ impl LoopClientBuilder {
 
         LoopClient {
             client,
-            api_base: "https://app.loops.so".parse().unwrap(),
+            api_base: self
+                .api_base
+                .unwrap_or_else(|| "https://app.loops.so".parse().unwrap()),
         }
     }
 }
@@ -87,6 +95,36 @@ impl LoopClient {
             .json()
             .await?;
         Ok(res)
+    }
+
+    pub async fn send_transactional(
+        &self,
+        email: TransactionalEmail,
+        idempotency_key: &str,
+    ) -> Result<TransactionalSendOutcome, Error> {
+        let url = {
+            let mut url = self.api_base.clone();
+            url.set_path("api/v1/transactional");
+            url
+        };
+        let response = self
+            .client
+            .post(url)
+            .header("Idempotency-Key", idempotency_key)
+            .json(&email)
+            .send()
+            .await?;
+        if response.status() == reqwest::StatusCode::CONFLICT {
+            return Ok(TransactionalSendOutcome::AlreadySent);
+        }
+        let response = response.error_for_status()?.json::<Response>().await?;
+        if response.success {
+            Ok(TransactionalSendOutcome::Sent)
+        } else {
+            Err(Error::Api(response.message.unwrap_or_else(|| {
+                "transactional email was rejected".to_string()
+            })))
+        }
     }
 }
 

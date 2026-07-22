@@ -3,7 +3,7 @@ use std::{net::IpAddr, time::Duration};
 use axum::{
     Extension, Json, Router,
     extract::{DefaultBodyLimit, Path, Request, State},
-    http::{HeaderMap, HeaderValue, header},
+    http::{HeaderMap, HeaderValue, StatusCode, header},
     middleware::{self, Next},
     response::Response,
     routing::{get, post},
@@ -11,6 +11,7 @@ use axum::{
 use chrono::{SecondsFormat, TimeDelta, Utc};
 use hmac::{Hmac, KeyInit, Mac};
 use hypr_api_auth::AuthContext;
+use hypr_loops::{LoopClient, TransactionalEmail};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use sha2::Sha256;
@@ -29,16 +30,20 @@ const MAX_LINK_REQUEST_BYTES: usize = 1024;
 const MAX_HANDOFF_CLAIM_REQUEST_BYTES: usize = 256;
 const MAX_SNAPSHOT_RESPONSE_BYTES: usize = MAX_SNAPSHOT_BODY_BYTES + 256 * 1024;
 const MAX_HANDOFF_RESPONSE_BYTES: usize = 16 * 1024;
+const MAX_INVITATION_EMAIL_REQUEST_BYTES: usize = 8 * 1024;
+const MAX_ACCESS_LIST_RESPONSE_BYTES: usize = 1024 * 1024;
 const SHARED_ATTACHMENT_BUCKET: &str = "shared-note-attachments";
 const ATTACHMENT_DOWNLOAD_TTL_SECONDS: i64 = 60;
 const FLY_CLIENT_IP_HEADER: &str = "fly-client-ip";
 const HANDOFF_SOURCE_DOMAIN: &[u8] = b"anarlog:shared-note-handoff-source:v1\0";
+const INVITATION_TRANSACTIONAL_ID: &str = "cmrvkrh3c0k0t0jvh80zpkk93";
 
 #[derive(Clone)]
 pub struct SharedNotesState {
     config: SharedNotesConfig,
     client: reqwest::Client,
     storage: hypr_supabase_storage::SupabaseStorage,
+    invitation_email: Option<LoopClient>,
 }
 
 impl SharedNotesState {
@@ -53,10 +58,18 @@ impl SharedNotesState {
             &config.supabase_url,
             &config.supabase_service_role_key,
         );
+        let invitation_email = config.loops_api_key.as_ref().map(|api_key| {
+            let mut builder = LoopClient::builder().api_key(api_key);
+            if let Some(api_base) = config.loops_api_base.clone() {
+                builder = builder.api_base(api_base);
+            }
+            builder.build()
+        });
         Self {
             config,
             client,
             storage,
+            invitation_email,
         }
     }
 
@@ -99,6 +112,27 @@ pub struct SharedNoteHandoffClaimRequest {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SharedNoteHandoffAttachmentRequest {
     lease_id: String,
+}
+
+#[derive(Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SharedNoteInvitationEmailRequest {
+    share_id: String,
+    invite_token: String,
+    note_title: String,
+}
+
+#[derive(Deserialize)]
+struct SessionShareAccessRow {
+    entry_type: String,
+    entry_id: String,
+    user_email: Option<String>,
+    status: String,
+}
+
+#[derive(Serialize)]
+struct ListSessionShareAccessRequest<'a> {
+    p_share_id: &'a str,
 }
 
 #[derive(Serialize, utoipa::ToSchema)]
@@ -248,12 +282,14 @@ struct GatewayHandoffRow {
         download_handoff_shared_attachment,
         download_public_shared_attachment,
         download_link_shared_attachment,
-        download_access_shared_attachment
+        download_access_shared_attachment,
+        send_shared_note_invitation_email
     ),
     components(schemas(
         SharedNoteLinkRequest,
         SharedNoteHandoffClaimRequest,
         SharedNoteHandoffAttachmentRequest,
+        SharedNoteInvitationEmailRequest,
         SharedNoteSnapshot,
         SharedNoteHandoff,
         SharedAttachmentDownload
@@ -307,11 +343,172 @@ pub fn router(state: SharedNotesState) -> Router {
 pub fn authenticated_router(state: SharedNotesState) -> Router {
     Router::new()
         .route(
+            "/shared-notes/invitations/{invitation_id}/email",
+            post(send_shared_note_invitation_email)
+                .layer(DefaultBodyLimit::max(MAX_INVITATION_EMAIL_REQUEST_BYTES)),
+        )
+        .route(
             "/shared-notes/access/{share_id}/attachments/{attachment_id}/download",
             post(download_access_shared_attachment),
         )
         .layer(middleware::from_fn(add_no_store))
         .with_state(state)
+}
+
+#[utoipa::path(
+    post,
+    path = "/shared-notes/invitations/{invitation_id}/email",
+    tag = "shared-notes",
+    params(("invitation_id" = String, Path, description = "Session access invitation ID")),
+    request_body = SharedNoteInvitationEmailRequest,
+    responses(
+        (status = 204, description = "Invitation email sent"),
+        (status = 400, description = "Invalid invitation email request"),
+        (status = 401, description = "Authentication required"),
+        (status = 404, description = "Invitation unavailable"),
+        (status = 502, description = "Invitation email service unavailable")
+    )
+)]
+async fn send_shared_note_invitation_email(
+    Extension(auth): Extension<AuthContext>,
+    State(state): State<SharedNotesState>,
+    Path(invitation_id): Path<String>,
+    Json(input): Json<SharedNoteInvitationEmailRequest>,
+) -> Result<StatusCode> {
+    let invitation_id = canonical_uuid_v4(&invitation_id)
+        .ok_or_else(|| SyncError::BadRequest("invalid invitation".to_string()))?;
+    let share_id = canonical_uuid_v4(&input.share_id)
+        .ok_or_else(|| SyncError::BadRequest("invalid share".to_string()))?;
+    if input.invite_token.len() != 43
+        || !input
+            .invite_token
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+    {
+        return Err(SyncError::BadRequest(
+            "invalid invitation token".to_string(),
+        ));
+    }
+    let note_title = invitation_note_title(&input.note_title)?;
+    let access = list_session_share_access_as_user(&state, &auth, &share_id).await?;
+    let recipient = access
+        .into_iter()
+        .find(|row| {
+            row.entry_type == "invitation"
+                && row.entry_id == invitation_id
+                && row.status == "pending"
+        })
+        .and_then(|row| row.user_email)
+        .filter(|email| is_valid_invitation_email(email))
+        .ok_or(SyncError::SharedNoteNotFound)?;
+    let sender_name = auth
+        .claims
+        .email
+        .as_deref()
+        .filter(|email| is_valid_invitation_email(email))
+        .unwrap_or("An Anarlog user")
+        .to_string();
+    let invitation_url = format!(
+        "https://anarlog.so/share/invite/{invitation_id}/#token={}",
+        input.invite_token
+    );
+    let invitation_email = state
+        .invitation_email
+        .as_ref()
+        .ok_or(SyncError::InvitationEmailUnavailable)?;
+    invitation_email
+        .send_transactional(
+            TransactionalEmail {
+                email: recipient,
+                transactional_id: INVITATION_TRANSACTIONAL_ID.to_string(),
+                data_variables: [
+                    ("senderName".to_string(), sender_name),
+                    ("noteTitle".to_string(), note_title),
+                    ("inviteUrl".to_string(), invitation_url),
+                ]
+                .into_iter()
+                .collect(),
+            },
+            &invitation_id,
+        )
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, invitation_id, "shared-note invitation email failed");
+            SyncError::InvitationEmailUnavailable
+        })?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+fn invitation_note_title(value: &str) -> Result<String> {
+    if value.chars().any(char::is_control) {
+        return Err(SyncError::BadRequest("invalid note title".to_string()));
+    }
+    let value = value.trim();
+    if value.is_empty() {
+        return Ok("Untitled note".to_string());
+    }
+    let mut title = value.chars().take(160).collect::<String>();
+    if value.chars().count() > 160 {
+        title.push('…');
+    }
+    Ok(title)
+}
+
+fn is_valid_invitation_email(value: &str) -> bool {
+    value.len() <= 320
+        && value.trim() == value
+        && !value.chars().any(char::is_control)
+        && value
+            .split_once('@')
+            .is_some_and(|(local, domain)| !local.is_empty() && domain.contains('.'))
+}
+
+async fn list_session_share_access_as_user(
+    state: &SharedNotesState,
+    auth: &AuthContext,
+    share_id: &str,
+) -> Result<Vec<SessionShareAccessRow>> {
+    let mut response = state
+        .client
+        .post(format!(
+            "{}/rest/v1/rpc/list_session_share_access",
+            state.config.supabase_url
+        ))
+        .header("apikey", &state.config.supabase_service_role_key)
+        .bearer_auth(&auth.token)
+        .json(&ListSessionShareAccessRequest {
+            p_share_id: share_id,
+        })
+        .send()
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "shared-note access verification failed");
+            SyncError::InvitationEmailUnavailable
+        })?;
+    let status = response.status();
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_ACCESS_LIST_RESPONSE_BYTES as u64)
+    {
+        return Err(SyncError::InvitationEmailUnavailable);
+    }
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|error| {
+        tracing::warn!(%error, "shared-note access verification response failed");
+        SyncError::InvitationEmailUnavailable
+    })? {
+        if bytes.len().saturating_add(chunk.len()) > MAX_ACCESS_LIST_RESPONSE_BYTES {
+            return Err(SyncError::InvitationEmailUnavailable);
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    if !status.is_success() {
+        return Err(SyncError::SharedNoteNotFound);
+    }
+    serde_json::from_slice(&bytes).map_err(|error| {
+        tracing::warn!(%error, "shared-note access verification response was invalid");
+        SyncError::InvitationEmailUnavailable
+    })
 }
 
 async fn add_no_store(request: Request, next: Next) -> Response {
@@ -961,6 +1158,7 @@ fn is_valid_public_slug(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use axum::{body::Body, body::to_bytes, http::Request, http::StatusCode};
+    use hypr_api_auth::Claims;
     use serde_json::{Value, json};
     use tower::ServiceExt;
     use wiremock::{
@@ -977,6 +1175,7 @@ mod tests {
     const LEASE_ID: &str = "55555555-5555-4555-8555-555555555555";
     const ATTACHMENT_ID: &str = "33333333-3333-4333-8333-333333333333";
     const OWNER_ID: &str = "44444444-4444-4444-8444-444444444444";
+    const INVITATION_ID: &str = "66666666-6666-4666-8666-666666666666";
 
     fn test_router(server: &MockServer) -> Router {
         router(SharedNotesState::new(
@@ -1025,6 +1224,77 @@ mod tests {
             .expect(1)
             .mount(server)
             .await;
+    }
+
+    #[tokio::test]
+    async fn verifies_and_sends_a_shared_note_invitation_email() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/list_session_share_access"))
+            .and(header("apikey", "service-role-key"))
+            .and(header("authorization", "Bearer user-token"))
+            .and(body_partial_json(json!({ "p_share_id": SHARE_ID })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "entry_type": "invitation",
+                "entry_id": INVITATION_ID,
+                "user_email": "invitee@example.com",
+                "status": "pending"
+            }])))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/transactional"))
+            .and(header("authorization", "Bearer loops-key"))
+            .and(header("idempotency-key", INVITATION_ID))
+            .and(body_partial_json(json!({
+                "email": "invitee@example.com",
+                "transactionalId": INVITATION_TRANSACTIONAL_ID,
+                "dataVariables": {
+                    "senderName": "owner@example.com",
+                    "noteTitle": "Planning"
+                }
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "success": true })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let config = SharedNotesConfig::new(server.uri(), "service-role-key")
+            .unwrap()
+            .with_invitation_email("loops-key")
+            .unwrap()
+            .with_invitation_email_api_base(reqwest::Url::parse(&server.uri()).unwrap());
+        let app =
+            authenticated_router(SharedNotesState::new(config)).layer(Extension(AuthContext {
+                token: "user-token".to_string(),
+                claims: Claims {
+                    sub: OWNER_ID.to_string(),
+                    email: Some("owner@example.com".to_string()),
+                    entitlements: vec![],
+                    subscription_status: None,
+                    trial_end: None,
+                    has_payment_method: None,
+                },
+            }));
+
+        let response = app
+            .oneshot(
+                Request::post(format!("/shared-notes/invitations/{INVITATION_ID}/email"))
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        json!({
+                            "shareId": SHARE_ID,
+                            "inviteToken": LINK_TOKEN,
+                            "noteTitle": "Planning"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::NO_CONTENT);
     }
 
     #[tokio::test]

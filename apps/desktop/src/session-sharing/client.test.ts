@@ -19,6 +19,7 @@ import {
   revokeSessionAccessGrant,
   revokeSessionAccessInvitation,
   rotateSessionShareLink,
+  sendSessionAccessInvitationEmail,
   setSessionShareScope,
   ShareManagementError,
   updateSessionAccessGrant,
@@ -346,6 +347,36 @@ describe("session share management client", () => {
         p_decision: "approved",
         p_capability: "commenter",
       },
+    );
+  });
+
+  it("sends an invitation email through the authenticated API", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 204 }));
+
+    await expect(
+      sendSessionAccessInvitationEmail({
+        apiBaseUrl: "https://api.anarlog.so",
+        session: session(),
+        shareId,
+        invitationId,
+        inviteToken,
+        noteTitle: "Planning",
+        fetcher,
+      }),
+    ).resolves.toBeUndefined();
+
+    const [url, init] = fetcher.mock.calls[0];
+    expect(url.toString()).toBe(
+      `https://api.anarlog.so/shared-notes/invitations/${invitationId}/email`,
+    );
+    expect(init.method).toBe("POST");
+    expect(init.headers.Authorization).toBe(
+      "Bearer authenticated-access-token",
+    );
+    expect(init.body).toBe(
+      JSON.stringify({ shareId, inviteToken, noteTitle: "Planning" }),
     );
   });
 

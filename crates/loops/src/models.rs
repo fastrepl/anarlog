@@ -1,5 +1,19 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransactionalEmail {
+    pub email: String,
+    pub transactional_id: String,
+    pub data_variables: std::collections::HashMap<String, String>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum TransactionalSendOutcome {
+    Sent,
+    AlreadySent,
+}
+
 // https://loops.so/docs/api-reference/send-event#body
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Event {
@@ -10,10 +24,10 @@ pub struct Event {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-#[serde(untagged)]
-pub enum Response {
-    Success { success: bool },
-    Error { success: bool, message: String },
+pub struct Response {
+    pub success: bool,
+    #[serde(default)]
+    pub message: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

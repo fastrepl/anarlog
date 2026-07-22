@@ -252,10 +252,6 @@ msgstr "Ask anything"
 msgid "Assignees:"
 msgstr "Assignees:"
 
-#: src/session-sharing/index.tsx
-msgid "Attachments stay private unless you explicitly include them in this shared note."
-msgstr "Attachments stay private unless you explicitly include them in this shared note."
-
 #: src/settings/general/permissions.tsx
 msgid "Audio"
 msgstr "Audio"
@@ -544,10 +540,6 @@ msgstr "Continue"
 #: src/onboarding/account/after-login.tsx
 msgid "Continuing without trial"
 msgstr "Continuing without trial"
-
-#: src/session-sharing/index.tsx
-msgid "Copy invite"
-msgstr "Copy invite"
 
 #: src/session-sharing/index.tsx
 msgid "Copy link"
@@ -861,6 +853,10 @@ msgstr "Free"
 msgid "Frequently used"
 msgstr "Frequently used"
 
+#: src/session-sharing/index.tsx
+msgid "Full access"
+msgstr "Full access"
+
 #: src/sidebar/settings.tsx
 msgid "General"
 msgstr "General"
@@ -981,12 +977,12 @@ msgid "Intelligence"
 msgstr "Intelligence"
 
 #: src/session-sharing/index.tsx
-msgid "Invite links are copied so you can send them privately."
-msgstr "Invite links are copied so you can send them privately."
+msgid "Invite"
+msgstr "Invite"
 
 #: src/session-sharing/index.tsx
-msgid "Invited editors can edit on the web. If both copies change, sharing pauses until you resolve it."
-msgstr "Invited editors can edit on the web. If both copies change, sharing pauses until you resolve it."
+msgid "Invite people to this note."
+msgstr "Invite people to this note."
 
 #: src/contacts/details.tsx
 msgid "Job Title"
@@ -1270,10 +1266,6 @@ msgstr "No models ready to use."
 msgid "No notes found."
 msgstr "No notes found."
 
-#: src/session-sharing/index.tsx
-msgid "No one has individual access yet."
-msgstr "No one has individual access yet."
-
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "No people"
 msgstr "No people"
@@ -1324,6 +1316,10 @@ msgstr "Objects"
 #: src/contacts/shared.tsx
 msgid "Oldest"
 msgstr "Oldest"
+
+#: src/session-sharing/index.tsx
+msgid "Only people invited"
+msgstr "Only people invited"
 
 #: src/settings/todo/github.tsx
 msgid "Only public repositories are supported."
@@ -1460,6 +1456,10 @@ msgstr "Post recording disclosure in meeting chat"
 msgid "Preparing transcript..."
 msgstr "Preparing transcript..."
 
+#: src/session-sharing/index.tsx
+msgid "Previous broad access is still active"
+msgstr "Previous broad access is still active"
+
 #: src/session/components/note-input/search/bar.tsx
 msgid "Previous match"
 msgstr "Previous match"
@@ -1549,10 +1549,6 @@ msgstr "Replace"
 msgid "Replace all"
 msgstr "Replace all"
 
-#: src/session-sharing/index.tsx
-msgid "Replace link & copy"
-msgstr "Replace link & copy"
-
 #: src/settings/todo/github.tsx
 msgid "Replace repository"
 msgstr "Replace repository"
@@ -1599,9 +1595,17 @@ msgstr "Reset"
 msgid "Reset to Anarlog default"
 msgstr "Reset to Anarlog default"
 
+#: src/session-sharing/index.tsx
+msgid "Resolve the web and desktop edits before inviting anyone."
+msgstr "Resolve the web and desktop edits before inviting anyone."
+
 #: src/settings/general/notification.tsx
 msgid "Respect Do-Not-Disturb mode"
 msgstr "Respect Do-Not-Disturb mode"
+
+#: src/session-sharing/index.tsx
+msgid "Restrict"
+msgstr "Restrict"
 
 #: src/session/components/outer-header/index.tsx
 msgid "Resume"
@@ -1779,6 +1783,10 @@ msgstr "Setting up cloud sync"
 #: src/sidebar/settings.tsx
 msgid "Settings"
 msgstr "Settings"
+
+#: src/session-sharing/index.tsx
+msgid "Share"
+msgstr "Share"
 
 #: src/session-sharing/index.tsx
 msgid "Share note"
@@ -2103,10 +2111,6 @@ msgstr "Thinking..."
 msgid "This account already syncs on 5 devices. Remove another device to sync here."
 msgstr "This account already syncs on 5 devices. Remove another device to sync here."
 
-#: src/session-sharing/index.tsx
-msgid "This note changed on both desktop and the web. Open the web copy to review it. To keep that version, close this panel, replace this note with the web content, then switch to another note so Anarlog can reconcile. Otherwise, publish the desktop edits over it."
-msgstr "This note changed on both desktop and the web. Open the web copy to review it. To keep that version, close this panel, replace this note with the web content, then switch to another note so Anarlog can reconcile. Otherwise, publish the desktop edits over it."
-
 #. placeholder {0}: status.fileCount
 #. placeholder {1}: formatBytes(status.totalBytes)
 #: src/settings/general/storage/legacy-cleanup.tsx
@@ -2192,10 +2196,6 @@ msgstr "Untitled"
 msgid "Untitled Note"
 msgstr "Untitled Note"
 
-#: src/session-sharing/index.tsx
-msgid "Update shared copy"
-msgstr "Update shared copy"
-
 #: src/settings/todo/github.tsx
 msgid "Upgrade for private repos."
 msgstr "Upgrade for private repos."
@@ -2203,10 +2203,6 @@ msgstr "Upgrade for private repos."
 #: src/settings/todo/provider-content.tsx
 msgid "Upgrade to connect"
 msgstr "Upgrade to connect"
-
-#: src/session-sharing/index.tsx
-msgid "Upgrade to expand access. You can still restrict or revoke existing access."
-msgstr "Upgrade to expand access. You can still restrict or revoke existing access."
 
 #: src/calendar/components/sidebar.tsx
 #: src/main/sync-status.tsx

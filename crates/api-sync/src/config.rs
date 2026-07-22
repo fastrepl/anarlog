@@ -68,6 +68,8 @@ pub struct SyncConfig {
 pub struct SharedNotesConfig {
     pub(crate) supabase_url: String,
     pub(crate) supabase_service_role_key: String,
+    pub(crate) loops_api_key: Option<String>,
+    pub(crate) loops_api_base: Option<reqwest::Url>,
 }
 
 impl SharedNotesConfig {
@@ -85,7 +87,27 @@ impl SharedNotesConfig {
         Ok(Self {
             supabase_url: validate_supabase_url(supabase_url.into())?,
             supabase_service_role_key,
+            loops_api_key: None,
+            loops_api_base: None,
         })
+    }
+
+    pub fn with_invitation_email(
+        mut self,
+        loops_api_key: impl Into<String>,
+    ) -> Result<Self, String> {
+        let loops_api_key = loops_api_key.into();
+        if loops_api_key.trim().is_empty() {
+            return Err("LOOPS_KEY is required for shared note invitations".to_string());
+        }
+        self.loops_api_key = Some(loops_api_key);
+        Ok(self)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn with_invitation_email_api_base(mut self, api_base: reqwest::Url) -> Self {
+        self.loops_api_base = Some(api_base);
+        self
     }
 }
 

@@ -252,10 +252,6 @@ msgstr ""
 msgid "Assignees:"
 msgstr ""
 
-#: src/session-sharing/index.tsx
-msgid "Attachments stay private unless you explicitly include them in this shared note."
-msgstr ""
-
 #: src/settings/general/permissions.tsx
 msgid "Audio"
 msgstr ""
@@ -543,10 +539,6 @@ msgstr ""
 
 #: src/onboarding/account/after-login.tsx
 msgid "Continuing without trial"
-msgstr ""
-
-#: src/session-sharing/index.tsx
-msgid "Copy invite"
 msgstr ""
 
 #: src/session-sharing/index.tsx
@@ -861,6 +853,10 @@ msgstr ""
 msgid "Frequently used"
 msgstr ""
 
+#: src/session-sharing/index.tsx
+msgid "Full access"
+msgstr ""
+
 #: src/sidebar/settings.tsx
 msgid "General"
 msgstr ""
@@ -981,11 +977,11 @@ msgid "Intelligence"
 msgstr ""
 
 #: src/session-sharing/index.tsx
-msgid "Invite links are copied so you can send them privately."
+msgid "Invite"
 msgstr ""
 
 #: src/session-sharing/index.tsx
-msgid "Invited editors can edit on the web. If both copies change, sharing pauses until you resolve it."
+msgid "Invite people to this note."
 msgstr ""
 
 #: src/contacts/details.tsx
@@ -1270,10 +1266,6 @@ msgstr ""
 msgid "No notes found."
 msgstr ""
 
-#: src/session-sharing/index.tsx
-msgid "No one has individual access yet."
-msgstr ""
-
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "No people"
 msgstr ""
@@ -1323,6 +1315,10 @@ msgstr ""
 
 #: src/contacts/shared.tsx
 msgid "Oldest"
+msgstr ""
+
+#: src/session-sharing/index.tsx
+msgid "Only people invited"
 msgstr ""
 
 #: src/settings/todo/github.tsx
@@ -1460,6 +1456,10 @@ msgstr ""
 msgid "Preparing transcript..."
 msgstr ""
 
+#: src/session-sharing/index.tsx
+msgid "Previous broad access is still active"
+msgstr ""
+
 #: src/session/components/note-input/search/bar.tsx
 msgid "Previous match"
 msgstr ""
@@ -1549,10 +1549,6 @@ msgstr ""
 msgid "Replace all"
 msgstr ""
 
-#: src/session-sharing/index.tsx
-msgid "Replace link & copy"
-msgstr ""
-
 #: src/settings/todo/github.tsx
 msgid "Replace repository"
 msgstr ""
@@ -1599,8 +1595,16 @@ msgstr ""
 msgid "Reset to Anarlog default"
 msgstr ""
 
+#: src/session-sharing/index.tsx
+msgid "Resolve the web and desktop edits before inviting anyone."
+msgstr ""
+
 #: src/settings/general/notification.tsx
 msgid "Respect Do-Not-Disturb mode"
+msgstr ""
+
+#: src/session-sharing/index.tsx
+msgid "Restrict"
 msgstr ""
 
 #: src/session/components/outer-header/index.tsx
@@ -1778,6 +1782,10 @@ msgstr ""
 #: src/main/empty.tsx
 #: src/sidebar/settings.tsx
 msgid "Settings"
+msgstr ""
+
+#: src/session-sharing/index.tsx
+msgid "Share"
 msgstr ""
 
 #: src/session-sharing/index.tsx
@@ -2103,10 +2111,6 @@ msgstr ""
 msgid "This account already syncs on 5 devices. Remove another device to sync here."
 msgstr ""
 
-#: src/session-sharing/index.tsx
-msgid "This note changed on both desktop and the web. Open the web copy to review it. To keep that version, close this panel, replace this note with the web content, then switch to another note so Anarlog can reconcile. Otherwise, publish the desktop edits over it."
-msgstr ""
-
 #. placeholder {0}: status.fileCount
 #. placeholder {1}: formatBytes(status.totalBytes)
 #: src/settings/general/storage/legacy-cleanup.tsx
@@ -2192,20 +2196,12 @@ msgstr ""
 msgid "Untitled Note"
 msgstr ""
 
-#: src/session-sharing/index.tsx
-msgid "Update shared copy"
-msgstr ""
-
 #: src/settings/todo/github.tsx
 msgid "Upgrade for private repos."
 msgstr ""
 
 #: src/settings/todo/provider-content.tsx
 msgid "Upgrade to connect"
-msgstr ""
-
-#: src/session-sharing/index.tsx
-msgid "Upgrade to expand access. You can still restrict or revoke existing access."
 msgstr ""
 
 #: src/calendar/components/sidebar.tsx
