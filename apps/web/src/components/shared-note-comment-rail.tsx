@@ -1,6 +1,7 @@
-import { LoaderCircleIcon, Trash2Icon, UserRoundIcon } from "lucide-react";
+import { LoaderCircleIcon, Trash2Icon } from "lucide-react";
 import { useRef, useState } from "react";
 
+import { Avatar } from "@hypr/ui/components/avatar";
 import { cn } from "@hypr/utils";
 
 import type { AnchoredSharedNoteComment } from "@/lib/shared-note-comment-anchors";
@@ -178,9 +179,13 @@ export function SharedNoteCommentCard({
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="surface-subtle text-color-muted flex size-6 shrink-0 items-center justify-center rounded-full">
-            <UserRoundIcon className="size-3.5" aria-hidden="true" />
-          </span>
+          <Avatar
+            seed={
+              comment.isAuthor ? "shared-note:you" : "shared-note:collaborator"
+            }
+            label={comment.isAuthor ? "You" : "Collaborator"}
+            size={24}
+          />
           <p className="text-color min-w-0 truncate text-xs font-medium">
             {comment.isAuthor ? "You" : "Collaborator"}{" "}
             <time

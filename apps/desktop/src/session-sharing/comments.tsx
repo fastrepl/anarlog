@@ -1,4 +1,4 @@
-import { Trans } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -18,6 +18,7 @@ import {
   getCommentAnchorRanges,
   setActiveCommentAnchor,
 } from "@hypr/editor/note";
+import { Avatar } from "@hypr/ui/components/avatar";
 import { Button } from "@hypr/ui/components/ui/button";
 import {
   Popover,
@@ -512,29 +513,37 @@ function CommentComposer({
           const comment = validateComment(field.state.value);
           return (
             <>
-              <Textarea
-                autoFocus
-                aria-label="Comment on selected text"
-                aria-invalid={comment.tooLong}
-                className="min-h-20 resize-none"
-                placeholder="Comment on the selected text…"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") {
-                    event.preventDefault();
-                    onCancel();
-                  }
-                  if (
-                    event.key === "Enter" &&
-                    (event.metaKey || event.ctrlKey)
-                  ) {
-                    event.preventDefault();
-                    void form.handleSubmit();
-                  }
-                }}
-              />
+              <div className="flex items-start gap-2">
+                <Avatar
+                  seed="shared-note:you"
+                  label="You"
+                  size={28}
+                  className="mt-1"
+                />
+                <Textarea
+                  autoFocus
+                  aria-label="Comment on selected text"
+                  aria-invalid={comment.tooLong}
+                  className="min-h-20 min-w-0 flex-1 resize-none"
+                  placeholder="Comment on the selected text…"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      onCancel();
+                    }
+                    if (
+                      event.key === "Enter" &&
+                      (event.metaKey || event.ctrlKey)
+                    ) {
+                      event.preventDefault();
+                      void form.handleSubmit();
+                    }
+                  }}
+                />
+              </div>
               {comment.tooLong && (
                 <p className="text-destructive mt-2 text-xs" role="alert">
                   <Trans>Comment is too long.</Trans>
@@ -590,12 +599,27 @@ function SessionCommentItem({
   onDelete: () => void;
   showDelete: boolean;
 }) {
+  const { t } = useLingui();
+
   return (
     <div className="border-border/60 border-b px-4 py-3 last:border-b-0">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium">
-          {comment.isAuthor ? <Trans>You</Trans> : <Trans>Collaborator</Trans>}
-        </span>
+        <div className="flex min-w-0 items-center gap-2">
+          <Avatar
+            seed={
+              comment.isAuthor ? "shared-note:you" : "shared-note:collaborator"
+            }
+            label={comment.isAuthor ? t`You` : t`Collaborator`}
+            size={24}
+          />
+          <span className="truncate text-sm font-medium">
+            {comment.isAuthor ? (
+              <Trans>You</Trans>
+            ) : (
+              <Trans>Collaborator</Trans>
+            )}
+          </span>
+        </div>
         {showDelete && (
           <Button
             type="button"

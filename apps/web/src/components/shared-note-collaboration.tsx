@@ -14,6 +14,7 @@ import {
   XIcon,
 } from "lucide-react";
 
+import { Avatar } from "@hypr/ui/components/avatar";
 import { cn } from "@hypr/utils";
 
 import {
@@ -372,16 +373,27 @@ function CommentList({
               className="py-5"
             >
               <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-color font-mono text-sm font-medium">
-                    {comment.isAuthor ? "You" : "Collaborator"}
-                  </p>
-                  <time
-                    className="text-color-muted mt-0.5 block text-xs"
-                    dateTime={comment.createdAt}
-                  >
-                    {formatCommentDate(comment.createdAt)}
-                  </time>
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <Avatar
+                    seed={
+                      comment.isAuthor
+                        ? "shared-note:you"
+                        : "shared-note:collaborator"
+                    }
+                    label={comment.isAuthor ? "You" : "Collaborator"}
+                    size={28}
+                  />
+                  <div>
+                    <p className="text-color font-mono text-sm font-medium">
+                      {comment.isAuthor ? "You" : "Collaborator"}
+                    </p>
+                    <time
+                      className="text-color-muted mt-0.5 block text-xs"
+                      dateTime={comment.createdAt}
+                    >
+                      {formatCommentDate(comment.createdAt)}
+                    </time>
+                  </div>
                 </div>
                 {canDelete && (
                   <button

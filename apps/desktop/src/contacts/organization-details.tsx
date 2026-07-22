@@ -5,14 +5,13 @@ import { Building2, Mail } from "lucide-react";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { Button } from "@hypr/ui/components/ui/button";
 import { Input } from "@hypr/ui/components/ui/input";
-import { cn } from "@hypr/utils";
 
 import {
   type HumanRecord,
   type OrganizationRecord,
   updateOrganization,
 } from "./queries";
-import { ContactFacehash, getContactBgClass } from "./shared";
+import { ContactFacehash } from "./shared";
 
 export function OrganizationDetailsColumn({
   organization,
@@ -76,30 +75,12 @@ export function OrganizationDetailsColumn({
                           onClick={() => onPersonClick?.(human.id)}
                         >
                           <div className="flex flex-col items-center gap-3 text-center">
-                            <div
-                              className={cn([
-                                "shrink-0 rounded-full",
-                                getContactBgClass(
-                                  String(human.name || human.email || human.id),
-                                ),
-                              ])}
-                            >
-                              <ContactFacehash
-                                name={String(
-                                  human.name || human.email || human.id,
-                                )}
-                                size={48}
-                                interactive={false}
-                                showInitial={false}
-                                colorClasses={[
-                                  getContactBgClass(
-                                    String(
-                                      human.name || human.email || human.id,
-                                    ),
-                                  ),
-                                ]}
-                              />
-                            </div>
+                            <ContactFacehash
+                              name={String(
+                                human.name || human.email || human.id,
+                              )}
+                              size={48}
+                            />
                             <div className="w-full">
                               <div className="truncate text-sm font-semibold">
                                 {human.name || human.email || t`Unnamed`}

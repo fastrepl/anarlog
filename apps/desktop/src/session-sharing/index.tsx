@@ -84,7 +84,7 @@ import {
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { useHumans } from "~/contacts/queries";
-import { ContactFacehash, getContactBgClass } from "~/contacts/shared";
+import { ContactFacehash } from "~/contacts/shared";
 import { env } from "~/env";
 import { setAttachmentCloudSyncEnabled } from "~/session/attachments";
 import {
@@ -1656,9 +1656,6 @@ function SessionSharePopoverContent({
                       return suggestions.length ? (
                         <div className="mt-1 space-y-0.5 rounded-lg border p-1">
                           {suggestions.map((contact) => {
-                            const bgClass = getContactBgClass(
-                              contact.name || contact.email,
-                            );
                             return (
                               <button
                                 key={contact.id}
@@ -1671,19 +1668,10 @@ function SessionSharePopoverContent({
                                   )
                                 }
                               >
-                                <span
-                                  className={cn([
-                                    "shrink-0 rounded-full",
-                                    bgClass,
-                                  ])}
-                                >
-                                  <ContactFacehash
-                                    name={contact.name || contact.email}
-                                    size={22}
-                                    showInitial={true}
-                                    colorClasses={[bgClass]}
-                                  />
-                                </span>
+                                <ContactFacehash
+                                  name={contact.name || contact.email}
+                                  size={22}
+                                />
                                 <span className="min-w-0 flex-1">
                                   <span className="block truncate text-xs font-medium">
                                     {contact.name || contact.email}
@@ -1704,19 +1692,7 @@ function SessionSharePopoverContent({
 
                   <div className="mt-2 space-y-0.5">
                     <div className="flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1">
-                      <span
-                        className={cn([
-                          "shrink-0 rounded-full",
-                          getContactBgClass(ownerName),
-                        ])}
-                      >
-                        <ContactFacehash
-                          name={ownerName}
-                          size={24}
-                          showInitial={true}
-                          colorClasses={[getContactBgClass(ownerName)]}
-                        />
-                      </span>
+                      <ContactFacehash name={ownerName} size={24} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs font-medium">
                           {ownerName}{" "}
@@ -1910,17 +1886,9 @@ function AccessEntryRow({
   onMutate: (mutation: AccessMutation) => void;
 }) {
   const label = contactName || entry.userEmail || "Anarlog user";
-  const bgClass = getContactBgClass(label);
   return (
     <div className="hover:bg-accent/50 flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1">
-      <span className={cn(["shrink-0 rounded-full", bgClass])}>
-        <ContactFacehash
-          name={label}
-          size={24}
-          showInitial={true}
-          colorClasses={[bgClass]}
-        />
-      </span>
+      <ContactFacehash name={label} size={24} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs font-medium">{label}</p>
         <p className="text-muted-foreground truncate text-[10px]">

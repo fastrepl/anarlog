@@ -29,6 +29,7 @@ import {
   setActiveCommentAnchor,
   setCommentAnchors,
 } from "@hypr/editor/note";
+import { Avatar } from "@hypr/ui/components/avatar";
 import { cn } from "@hypr/utils";
 
 import {
@@ -494,19 +495,27 @@ function DraftComposer({
           const tooLong = comment.byteLength > MAX_SHARED_NOTE_COMMENT_BYTES;
           return (
             <>
-              <textarea
-                autoFocus
-                aria-label="Comment on selected text"
-                className={cn([
-                  "surface-subtle border-color-subtle text-color min-h-20 w-full resize-y rounded-xl border px-3 py-2",
-                  "placeholder:text-color-muted text-sm leading-6 focus:border-stone-400 focus:ring-2 focus:ring-stone-300 focus:outline-hidden",
-                ])}
-                aria-invalid={tooLong}
-                placeholder="Comment on the selected text…"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
+              <div className="flex items-start gap-2.5">
+                <Avatar
+                  seed="shared-note:you"
+                  label="You"
+                  size={28}
+                  className="mt-1"
+                />
+                <textarea
+                  autoFocus
+                  aria-label="Comment on selected text"
+                  className={cn([
+                    "surface-subtle border-color-subtle text-color min-h-20 min-w-0 flex-1 resize-y rounded-xl border px-3 py-2",
+                    "placeholder:text-color-muted text-sm leading-6 focus:border-stone-400 focus:ring-2 focus:ring-stone-300 focus:outline-hidden",
+                  ])}
+                  aria-invalid={tooLong}
+                  placeholder="Comment on the selected text…"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                />
+              </div>
               {tooLong && (
                 <p className="mt-2 text-xs text-red-700" role="alert">
                   Comment is too long ({comment.byteLength.toLocaleString()}/

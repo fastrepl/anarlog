@@ -76,7 +76,6 @@ vi.mock("~/contacts/queries", () => ({
 }));
 
 vi.mock("~/contacts/shared", () => ({
-  getContactBgClass: () => "bg-muted",
   ContactFacehash: ({ name }: { name: string }) => <span>{name[0]}</span>,
 }));
 

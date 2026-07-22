@@ -17,7 +17,6 @@ import {
   PopoverTrigger,
 } from "@hypr/ui/components/ui/popover";
 import { Textarea } from "@hypr/ui/components/ui/textarea";
-import { cn } from "@hypr/utils";
 
 import {
   createOrganization,
@@ -27,7 +26,7 @@ import {
   updateHuman,
   useHumanSessions,
 } from "./queries";
-import { ContactFacehash, getContactBgClass } from "./shared";
+import { ContactFacehash } from "./shared";
 
 export function DetailsColumn({
   human,
@@ -64,7 +63,6 @@ export function DetailsColumn({
   );
 
   const facehashName = String(human?.name || human?.email || human?.id || "");
-  const bgClass = getContactBgClass(facehashName);
 
   return (
     <div className="flex h-full flex-1 flex-col">
@@ -74,17 +72,8 @@ export function DetailsColumn({
             data-tauri-drag-region
             className="border-border flex items-center justify-center border-b py-6"
           >
-            <div
-              data-tauri-drag-region="false"
-              className={cn(["rounded-full", bgClass])}
-            >
-              <ContactFacehash
-                name={facehashName}
-                size={64}
-                interactive={true}
-                showInitial={true}
-                colorClasses={[bgClass]}
-              />
+            <div data-tauri-drag-region="false">
+              <ContactFacehash name={facehashName} size={64} />
             </div>
           </div>
 
@@ -110,26 +99,10 @@ export function DetailsColumn({
                       className="border-border bg-muted flex items-center justify-between rounded-md border p-2"
                     >
                       <div className="flex items-center gap-2">
-                        <div
-                          className={cn([
-                            "shrink-0 rounded-full",
-                            getContactBgClass(
-                              String(dup.name || dup.email || dup.id),
-                            ),
-                          ])}
-                        >
-                          <ContactFacehash
-                            name={String(dup.name || dup.email || dup.id)}
-                            size={32}
-                            interactive={false}
-                            showInitial={false}
-                            colorClasses={[
-                              getContactBgClass(
-                                String(dup.name || dup.email || dup.id),
-                              ),
-                            ]}
-                          />
-                        </div>
+                        <ContactFacehash
+                          name={String(dup.name || dup.email || dup.id)}
+                          size={32}
+                        />
                         <div>
                           <div className="text-foreground text-sm font-medium">
                             {dup.name || "Unnamed Contact"}

@@ -1,8 +1,8 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Facehash, stringHash } from "facehash";
 import { ArrowDownUp, Plus, Search, X } from "lucide-react";
-import type { ComponentProps, KeyboardEvent, RefObject } from "react";
+import type { KeyboardEvent, RefObject } from "react";
 
+import { Avatar } from "@hypr/ui/components/avatar";
 import { Button } from "@hypr/ui/components/ui/button";
 import {
   AppFloatingPanel,
@@ -12,46 +12,19 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@hypr/ui/components/ui/dropdown-menu";
-import { cn } from "@hypr/utils";
 
 import { CustomSidebarHeader } from "~/sidebar/custom-sidebar-header";
 
-const COLOR_PALETTES = [
-  "bg-amber-50 dark:bg-amber-950",
-  "bg-rose-50 dark:bg-rose-950",
-  "bg-violet-50 dark:bg-violet-950",
-  "bg-blue-50 dark:bg-blue-950",
-  "bg-teal-50 dark:bg-teal-950",
-  "bg-green-50 dark:bg-green-950",
-  "bg-cyan-50 dark:bg-cyan-950",
-  "bg-fuchsia-50 dark:bg-fuchsia-950",
-  "bg-indigo-50 dark:bg-indigo-950",
-  "bg-yellow-50 dark:bg-yellow-950",
-] as const;
-
-export const CONTACT_FACEHASH_CLASS = "text-foreground";
-
-export function getContactBgClass(name: string) {
-  const hash = stringHash(name);
-  return COLOR_PALETTES[hash % COLOR_PALETTES.length];
-}
-
 export function ContactFacehash({
   name,
+  size = 40,
   className,
-  colorClasses,
-  ...props
-}: ComponentProps<typeof Facehash>) {
-  const bgClass = colorClasses?.[0] ?? getContactBgClass(name);
-
-  return (
-    <Facehash
-      name={name}
-      className={cn([CONTACT_FACEHASH_CLASS, className])}
-      colorClasses={colorClasses ?? [bgClass]}
-      {...props}
-    />
-  );
+}: {
+  name: string;
+  size?: number;
+  className?: string;
+}) {
+  return <Avatar seed={name} label={name} size={size} className={className} />;
 }
 
 export type SortOption =

@@ -4,7 +4,7 @@ import React, { useCallback } from "react";
 import { cn } from "@hypr/utils";
 
 import { type HumanRecord, toggleContactPin } from "~/contacts/queries";
-import { ContactFacehash, getContactBgClass } from "~/contacts/shared";
+import { ContactFacehash } from "~/contacts/shared";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 
 export function PersonItem({
@@ -22,7 +22,6 @@ export function PersonItem({
   const personName = person.name;
   const personEmail = person.email;
   const facehashName = personName || personEmail || person.id;
-  const bgClass = getContactBgClass(facehashName);
 
   const togglePin = useCallback(() => {
     void toggleContactPin("human", person.id).catch((error) => {
@@ -68,15 +67,7 @@ export function PersonItem({
         active ? "bg-accent" : "hover:bg-accent/50",
       ])}
     >
-      <div className={cn(["shrink-0 rounded-full", bgClass])}>
-        <ContactFacehash
-          name={facehashName}
-          size={32}
-          interactive={true}
-          showInitial={true}
-          colorClasses={[bgClass]}
-        />
-      </div>
+      <ContactFacehash name={facehashName} size={32} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1 truncate font-medium">
           {personName || personEmail || "Unnamed"}
