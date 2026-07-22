@@ -17,7 +17,10 @@ import { useMentionConfig } from "~/editor-bridge/mention-config";
 import { openEditorLink } from "~/editor-bridge/open-editor-link";
 import { sessionMentionDropConfig } from "~/editor-bridge/session-mention-drop";
 import { SessionNodeView } from "~/editor-bridge/session-view";
-import { useSessionCommentAnchors } from "~/session-sharing/comment-anchors";
+import {
+  SessionCommentsLayer,
+  useOwnedSessionComments,
+} from "~/session-sharing/comments";
 import { hasStoredNoteContent } from "~/session/components/shared";
 import { useAttachmentResolver } from "~/session/hooks/useAttachmentResolver";
 import { useUpdateEnhancedNoteContent } from "~/session/queries";
@@ -94,7 +97,7 @@ const EnhancedEditorInner = forwardRef<
     );
 
     const mentionConfig = useMentionConfig();
-    const commentAnchors = useSessionCommentAnchors(sessionId);
+    const comments = useOwnedSessionComments(sessionId);
 
     return (
       <AudioDropTarget
@@ -102,36 +105,40 @@ const EnhancedEditorInner = forwardRef<
         targetProps={audioDropTargetProps}
         isActive={isAudioDragActive}
       >
-        <NoteEditor
-          ref={ref}
-          className="session-note-editor enhanced-summary-editor"
-          key={editorKey}
-          initialContent={initialContent}
-          resolveAttachment={resolveAttachment}
-          handleChange={persistChanges ? handleChange : undefined}
-          placeholderComponent={documentTitlePlaceholder}
-          mentionConfig={mentionConfig}
-          sessionMentionDropConfig={sessionMentionDropConfig}
-          onNavigateToTitle={onNavigateToTitle}
-          onLinkOpen={openEditorLink}
-          fileHandlerConfig={fileHandlerConfig}
-          taskSource={
-            persistChanges
-              ? { type: "enhanced_note", id: enhancedNoteId }
-              : undefined
-          }
-          extraNodeViews={extraNodeViews}
-          commentAnchorsEnabled
-          onViewReady={(view) => {
-            commentAnchors.onViewReady(view);
-            onViewReady?.(view);
-          }}
-          onViewDisposed={(view) => {
-            commentAnchors.onViewDisposed(view);
-            onViewDisposed?.(view);
-          }}
-          syncContentWhenFocused={!persistChanges}
-        />
+        <div ref={comments.containerRef} className="relative h-full">
+          <NoteEditor
+            ref={ref}
+            className="session-note-editor enhanced-summary-editor"
+            key={editorKey}
+            initialContent={initialContent}
+            resolveAttachment={resolveAttachment}
+            handleChange={persistChanges ? handleChange : undefined}
+            placeholderComponent={documentTitlePlaceholder}
+            mentionConfig={mentionConfig}
+            sessionMentionDropConfig={sessionMentionDropConfig}
+            onNavigateToTitle={onNavigateToTitle}
+            onLinkOpen={openEditorLink}
+            fileHandlerConfig={fileHandlerConfig}
+            taskSource={
+              persistChanges
+                ? { type: "enhanced_note", id: enhancedNoteId }
+                : undefined
+            }
+            extraNodeViews={extraNodeViews}
+            commentAnchorsEnabled
+            onCommentAnchorsEvent={comments.onCommentAnchorsEvent}
+            onViewReady={(view) => {
+              comments.onViewReady(view);
+              onViewReady?.(view);
+            }}
+            onViewDisposed={(view) => {
+              comments.onViewDisposed(view);
+              onViewDisposed?.(view);
+            }}
+            syncContentWhenFocused={!persistChanges}
+          />
+          <SessionCommentsLayer controller={comments} />
+        </div>
       </AudioDropTarget>
     );
   },

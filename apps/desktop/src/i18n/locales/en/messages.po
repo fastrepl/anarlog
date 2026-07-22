@@ -330,6 +330,7 @@ msgstr "Calendar connected"
 msgid "Can transcribe while the meeting is happening."
 msgstr "Can transcribe while the meeting is happening."
 
+#: src/session-sharing/comments.tsx
 #: src/settings/general/account.tsx
 #: src/settings/general/e2ee-setup.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
@@ -438,13 +439,21 @@ msgstr "Cloud sync is limited to 5 devices. Remove another device to sync here."
 msgid "Cloud sync status: {0}"
 msgstr "Cloud sync status: {0}"
 
-#: src/shared-notes/index.tsx
+#: src/session-sharing/comments.tsx
 msgid "Collaborator"
 msgstr "Collaborator"
 
 #: src/task/resource-view.tsx
 msgid "comment"
 msgstr "comment"
+
+#: src/session-sharing/comments.tsx
+msgid "Comment"
+msgstr "Comment"
+
+#: src/session-sharing/comments.tsx
+msgid "Comment is too long."
+msgstr "Comment is too long."
 
 #: src/task/resource-view.tsx
 msgid "commented on"
@@ -1809,6 +1818,10 @@ msgid "Shared note"
 msgstr "Shared note"
 
 #: src/shared-notes/index.tsx
+msgid "Shared note · Owner"
+msgstr "Shared note · Owner"
+
+#: src/shared-notes/index.tsx
 msgid "Shared note unavailable"
 msgstr "Shared note unavailable"
 
@@ -1819,6 +1832,14 @@ msgstr "Shared notes are tied to the account they were shared with."
 #: src/sidebar/shared-notes.tsx
 msgid "Shared with me"
 msgstr "Shared with me"
+
+#: src/shared-notes/index.tsx
+msgid "Shared with me · Can comment"
+msgstr "Shared with me · Can comment"
+
+#: src/shared-notes/index.tsx
+msgid "Shared with me · Can edit"
+msgstr "Shared with me · Can edit"
 
 #: src/shared-notes/index.tsx
 msgid "Shared with me · View only"
@@ -2286,7 +2307,7 @@ msgstr "While listening, use Accessibility access to copy visible chat from supp
 msgid "Work on this task"
 msgstr "Work on this task"
 
-#: src/shared-notes/index.tsx
+#: src/session-sharing/comments.tsx
 msgid "You"
 msgstr "You"
 
@@ -2309,6 +2330,10 @@ msgstr "You're on the <0>{planLabel}</0> plan"
 #: src/settings/general/account.tsx
 msgid "Your Account"
 msgstr "Your Account"
+
+#: src/session-sharing/comments.tsx
+msgid "Your comment couldn’t be added. Try again."
+msgstr "Your comment couldn’t be added. Try again."
 
 #: src/main/sync-status.tsx
 msgid "Your notes are stored on this device only"

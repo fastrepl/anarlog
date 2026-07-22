@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   },
   preview: { status: "unavailable" } as any,
   signIn: vi.fn(),
+  commentInputs: [] as Array<Record<string, unknown>>,
 }));
 
 vi.mock("~/auth", () => ({
@@ -34,6 +35,19 @@ vi.mock("~/shared-notes/preview", () => ({
 
 vi.mock("~/shared-notes/use-shared-attachment-resolver", () => ({
   useSharedAttachmentResolver: () => () => null,
+}));
+
+vi.mock("~/session-sharing/comments", () => ({
+  SessionCommentsLayer: () => <div data-testid="shared-comments-layer" />,
+  useSharedSessionComments: (input: Record<string, unknown>) => {
+    mocks.commentInputs.push(input);
+    return {
+      containerRef: { current: null },
+      onCommentAnchorsEvent: vi.fn(),
+      onViewDisposed: vi.fn(),
+      onViewReady: vi.fn(),
+    };
+  },
 }));
 
 vi.mock("@hypr/plugin-opener2", () => ({
@@ -106,6 +120,7 @@ describe("TabContentSharedNote", () => {
     mocks.query = { data: null, isLoading: false, error: null };
     mocks.preview = { status: "unavailable" };
     mocks.signIn.mockResolvedValue(undefined);
+    mocks.commentInputs = [];
   });
 
   it("renders a handoff preview without durable identifiers", () => {
@@ -173,6 +188,41 @@ describe("TabContentSharedNote", () => {
     expect(screen.getByTestId("shared-note-editor").dataset.content).toContain(
       "Shared plan",
     );
+    expect(mocks.commentInputs[mocks.commentInputs.length - 1]).toMatchObject({
+      canCompose: false,
+      manageAccess: false,
+      shareId: "share-1",
+    });
+  });
+
+  it("allows commenters to compose without making the shared note editable", () => {
+    mocks.query.data = {
+      shareId: "share-1",
+      workspaceId: "workspace-1",
+      sessionId: "session-1",
+      schemaVersion: 1,
+      contentRevision: 2,
+      title: "Shared plan",
+      body: { type: "doc", content: [{ type: "paragraph" }] },
+      attachments: [],
+      capability: "commenter",
+      manageAccess: false,
+      accessVersion: 3,
+      publishedAt: "2026-07-16T17:30:00.000Z",
+    };
+
+    renderSharedNote();
+
+    expect(screen.getByText("Shared with me · Can comment")).toBeTruthy();
+    expect(
+      screen.getByTestId("shared-note-editor").getAttribute("data-read-only"),
+    ).toBe("true");
+    expect(mocks.commentInputs[mocks.commentInputs.length - 1]).toMatchObject({
+      canCompose: true,
+      currentRevision: 2,
+      manageAccess: false,
+      shareId: "share-1",
+    });
   });
 
   it("removes content when access is no longer cached", () => {

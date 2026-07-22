@@ -75,6 +75,7 @@ type ManagedSharedNoteSqlRow = {
   share_id: string;
   workspace_id: string;
   session_id: string;
+  content_revision: number;
 };
 
 export function parseDurableSharedNoteSnapshots(
@@ -329,13 +330,14 @@ export async function loadManagedSharedNoteForSession(
   shareId: string;
   workspaceId: string;
   sessionId: string;
+  contentRevision: number;
 } | null> {
   const normalizedViewerUserId = requireIdentity(viewerUserId, "viewer user");
   const normalizedSessionId = requireIdentity(sessionId, "session");
   await flushDatabaseWrites([sharedNoteCacheWriteKey(normalizedViewerUserId)]);
   const rows = await liveQueryClient.execute<ManagedSharedNoteSqlRow>(
     `
-      SELECT share_id, workspace_id, session_id
+      SELECT share_id, workspace_id, session_id, content_revision
       FROM shared_session_cache
       WHERE viewer_user_id = ?
         AND session_id = ?
@@ -353,6 +355,10 @@ export async function loadManagedSharedNoteForSession(
     shareId: requireUuid(row.share_id, "share"),
     workspaceId: requireUuid(row.workspace_id, "workspace"),
     sessionId: requireIdentity(row.session_id, "session"),
+    contentRevision: requirePositiveInteger(
+      row.content_revision,
+      "content revision",
+    ),
   };
 }
 

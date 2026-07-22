@@ -22,6 +22,7 @@ export function applySessionShareCommentAnchors(
   view: EditorView,
   comments: readonly SessionShareComment[],
   currentRevision: number,
+  draft?: { from: number; to: number } | null,
 ) {
   const resolved = resolveCommentAnchors(
     view.state.doc,
@@ -36,9 +37,8 @@ export function applySessionShareCommentAnchors(
     })),
     currentRevision,
   );
-  setCommentAnchors(
-    view,
-    resolved.flatMap((entry) =>
+  setCommentAnchors(view, [
+    ...resolved.flatMap((entry) =>
       entry.range
         ? [
             {
@@ -49,7 +49,8 @@ export function applySessionShareCommentAnchors(
           ]
         : [],
     ),
-  );
+    ...(draft ? [{ commentId: "draft", from: draft.from, to: draft.to }] : []),
+  ]);
 }
 
 /**

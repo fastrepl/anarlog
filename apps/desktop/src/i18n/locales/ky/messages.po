@@ -330,6 +330,7 @@ msgstr ""
 msgid "Can transcribe while the meeting is happening."
 msgstr ""
 
+#: src/session-sharing/comments.tsx
 #: src/settings/general/account.tsx
 #: src/settings/general/e2ee-setup.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
@@ -438,12 +439,20 @@ msgstr ""
 msgid "Cloud sync status: {0}"
 msgstr ""
 
-#: src/shared-notes/index.tsx
+#: src/session-sharing/comments.tsx
 msgid "Collaborator"
 msgstr ""
 
 #: src/task/resource-view.tsx
 msgid "comment"
+msgstr ""
+
+#: src/session-sharing/comments.tsx
+msgid "Comment"
+msgstr ""
+
+#: src/session-sharing/comments.tsx
+msgid "Comment is too long."
 msgstr ""
 
 #: src/task/resource-view.tsx
@@ -1809,6 +1818,10 @@ msgid "Shared note"
 msgstr ""
 
 #: src/shared-notes/index.tsx
+msgid "Shared note · Owner"
+msgstr ""
+
+#: src/shared-notes/index.tsx
 msgid "Shared note unavailable"
 msgstr ""
 
@@ -1818,6 +1831,14 @@ msgstr ""
 
 #: src/sidebar/shared-notes.tsx
 msgid "Shared with me"
+msgstr ""
+
+#: src/shared-notes/index.tsx
+msgid "Shared with me · Can comment"
+msgstr ""
+
+#: src/shared-notes/index.tsx
+msgid "Shared with me · Can edit"
 msgstr ""
 
 #: src/shared-notes/index.tsx
@@ -2286,7 +2307,7 @@ msgstr ""
 msgid "Work on this task"
 msgstr ""
 
-#: src/shared-notes/index.tsx
+#: src/session-sharing/comments.tsx
 msgid "You"
 msgstr ""
 
@@ -2308,6 +2329,10 @@ msgstr ""
 
 #: src/settings/general/account.tsx
 msgid "Your Account"
+msgstr ""
+
+#: src/session-sharing/comments.tsx
+msgid "Your comment couldn’t be added. Try again."
 msgstr ""
 
 #: src/main/sync-status.tsx

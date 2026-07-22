@@ -221,6 +221,7 @@ describe("durable shared-note cache", () => {
         share_id: serverRow.share_id,
         workspace_id: serverRow.workspace_id,
         session_id: "session-1",
+        content_revision: 3,
       },
     ]);
 
@@ -230,6 +231,7 @@ describe("durable shared-note cache", () => {
       shareId: serverRow.share_id,
       workspaceId: serverRow.workspace_id,
       sessionId: "session-1",
+      contentRevision: 3,
     });
     expect(mocks.liveQueryExecute).toHaveBeenCalledWith(
       expect.stringContaining("manage_access = 1"),
