@@ -359,11 +359,6 @@ impl PluginDbRuntime {
         workspace_projection: Option<hypr_db_app::CloudsyncWorkspaceProjection>,
         e2ee_witness: crate::CloudsyncE2eeWitness,
     ) -> Result<crate::CloudsyncTokenConfigurationResult> {
-        let _reconciliation_guard = if workspace_projection.is_some() {
-            Some(self.synced_write_barrier.write().await)
-        } else {
-            None
-        };
         if !self.db.cloudsync_enabled() {
             return Err(hypr_db_core::CloudsyncRuntimeError::Unavailable.into());
         }
@@ -401,6 +396,11 @@ impl PluginDbRuntime {
         if workspace_projection.is_some() {
             self.db.cloudsync_suspend().await?;
         }
+        let reconciliation_guard = if workspace_projection.is_some() {
+            Some(self.synced_write_barrier.write().await)
+        } else {
+            None
+        };
         self.prepare_e2ee_cutover().await?;
         let witness =
             crate::e2ee_witness::E2eeWitnessClient::new(e2ee_witness, personal_workspace_id)?;
@@ -523,6 +523,7 @@ impl PluginDbRuntime {
             )
             .await?;
         }
+        drop(reconciliation_guard);
 
         self.apply_cloudsync_config_fail_closed(config).await?;
         if let Some(generation) =
@@ -937,29 +938,59 @@ mod tests {
         let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
         let runtime = std::sync::Arc::new(PluginDbRuntime::new(db));
         let guard = runtime.synced_write_barrier.write().await;
-        let write_runtime = std::sync::Arc::clone(&runtime);
-        let mut write = tokio::spawn(async move {
-            write_runtime
+
+        let execute_runtime = std::sync::Arc::clone(&runtime);
+        let mut execute = tokio::spawn(async move {
+            execute_runtime
                 .execute(
-                    "INSERT INTO sessions (id, title) VALUES ('session', 'Session')".to_string(),
+                    "INSERT INTO sessions (id, title) VALUES ('session-1', 'Session 1')"
+                        .to_string(),
                     vec![],
                 )
                 .await
         });
+        let transaction_runtime = std::sync::Arc::clone(&runtime);
+        let mut transaction = tokio::spawn(async move {
+            transaction_runtime
+                .execute_transaction(vec![TransactionStatement {
+                    sql: "INSERT INTO sessions (id, title) VALUES ('session-2', 'Session 2')"
+                        .to_string(),
+                    params: vec![],
+                    expected_rows_affected: Some(1),
+                }])
+                .await
+        });
+        let proxy_runtime = std::sync::Arc::clone(&runtime);
+        let mut proxy = tokio::spawn(async move {
+            proxy_runtime
+                .execute_proxy(
+                    "INSERT INTO sessions (id, title) VALUES ('session-3', 'Session 3')"
+                        .to_string(),
+                    vec![],
+                    ProxyQueryMethod::Run,
+                )
+                .await
+        });
 
+        let timeout = std::time::Duration::from_millis(25);
+        assert!(tokio::time::timeout(timeout, &mut execute).await.is_err());
         assert!(
-            tokio::time::timeout(std::time::Duration::from_millis(25), &mut write)
+            tokio::time::timeout(timeout, &mut transaction)
                 .await
                 .is_err()
         );
+        assert!(tokio::time::timeout(timeout, &mut proxy).await.is_err());
         drop(guard);
-        write.await.unwrap().unwrap();
+
+        execute.await.unwrap().unwrap();
+        transaction.await.unwrap().unwrap();
+        proxy.await.unwrap().unwrap();
 
         let session_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM sessions")
             .fetch_one(runtime.pool())
             .await
             .unwrap();
-        assert_eq!(session_count, 1);
+        assert_eq!(session_count, 3);
     }
 
     #[tokio::test]
