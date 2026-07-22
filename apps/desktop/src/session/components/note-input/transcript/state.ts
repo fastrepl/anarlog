@@ -35,7 +35,6 @@ export type TranscriptScreen =
       transcriptIds: string[];
       liveSegments: Segment[];
       currentActive: boolean;
-      isFinalizing: boolean;
     };
 
 export function useTranscriptScreen({
@@ -97,7 +96,6 @@ export function useTranscriptScreen({
     transcriptIds,
     liveSegments,
     currentActive,
-    isFinalizing: sessionMode === "finalizing",
   };
 }
 
