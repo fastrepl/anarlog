@@ -1,10 +1,10 @@
 export const ANARLOG_SITE_URL = "https://anarlog.so";
 export const DEFAULT_OG_IMAGE_URL = `${ANARLOG_SITE_URL}/og.jpg`;
-export const ROOT_TITLE = "Anarlog - Meeting Notes You Own";
+export const ROOT_TITLE = "AI notepad for private meetings.";
 export const ROOT_DESCRIPTION =
-  "Private, bot-free meeting notes that stay under your control. Anarlog stores notes as files you own and works fully offline with on-device models or your own keys.";
+  "Anarlog is the open-source, privacy-first, local-first alternative to Granola AI. Take notes during private meetings, turn them into editable summaries, and keep your files and AI stack under your control.";
 export const ROOT_KEYWORDS =
-  "private meeting notes, bot-free AI notes, local transcription, AI meeting notes, AI notetaker, meeting transcription, meeting summaries, BYOK AI, open source note taking, local AI";
+  "private meeting notes, open source meeting notes, local-first AI notepad, Granola AI alternatives, Granola AI alternative, AI meeting notes, local meeting transcription, bot-free AI notes, offline meeting notes, on-device AI, BYOK AI, meeting transcription, meeting summaries, data ownership";
 
 export function getBlogOgImageUrl(slug: string) {
   return `${ANARLOG_SITE_URL}/api/og/blog/${encodeURIComponent(slug)}`;
