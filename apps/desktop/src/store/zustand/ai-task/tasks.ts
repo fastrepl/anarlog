@@ -79,6 +79,27 @@ const initialState: TasksState = {
   tasks: {},
 };
 
+export const TASK_STREAM_IDLE_TIMEOUT_MS = 15_000;
+export const TASK_STREAM_START_TIMEOUT_MS = 60_000;
+
+const STREAM_TIMEOUT = Symbol("stream-timeout");
+
+async function readStreamChunkWithTimeout<T>(
+  iterator: AsyncIterator<T>,
+  timeoutMs: number,
+): Promise<IteratorResult<T> | typeof STREAM_TIMEOUT> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<typeof STREAM_TIMEOUT>((resolve) => {
+    timeoutId = setTimeout(() => resolve(STREAM_TIMEOUT), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([iterator.next(), timeout]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
 export const createTasksSlice = <T extends TasksState & TasksActions>(
   set: StoreApi<T>["setState"],
   get: StoreApi<T>["getState"],
@@ -222,35 +243,71 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
         );
       };
 
-      const workflowStream = taskConfig.executeWorkflow({
-        model: config.model,
-        args: enrichedArgs,
-        onProgress,
-        signal: abortController.signal,
+      const workflowAbortController = new AbortController();
+      const abortWorkflow = () => workflowAbortController.abort();
+      abortController.signal.addEventListener("abort", abortWorkflow, {
+        once: true,
       });
+      let workflowCompleted = false;
 
-      const transforms = taskConfig.transforms ?? [];
-      const transformedStream = applyTransforms(workflowStream, transforms, {
-        stopStream: () => abortController.abort(),
-      });
+      try {
+        const workflowStream = taskConfig.executeWorkflow({
+          model: config.model,
+          args: enrichedArgs,
+          onProgress,
+          signal: workflowAbortController.signal,
+        });
 
-      for await (const chunk of transformedStream) {
-        checkAbort();
+        const transforms = taskConfig.transforms ?? [];
+        const transformedStream = applyTransforms(workflowStream, transforms, {
+          stopStream: abortWorkflow,
+        });
+        const iterator = transformedStream[Symbol.asyncIterator]();
 
-        if (chunk.type === "error") {
-          throw chunk.error;
-        } else if (chunk.type === "text-delta") {
-          fullText += chunk.text;
-
-          set((state) =>
-            mutate(state, (draft) => {
-              const currentState = draft.tasks[taskId];
-              if (currentState) {
-                currentState.streamedText = fullText;
-              }
-            }),
+        while (true) {
+          const result = await readStreamChunkWithTimeout(
+            iterator,
+            fullText.trim()
+              ? TASK_STREAM_IDLE_TIMEOUT_MS
+              : TASK_STREAM_START_TIMEOUT_MS,
           );
+          checkAbort();
+
+          if (result === STREAM_TIMEOUT) {
+            workflowAbortController.abort();
+            if (fullText.trim()) {
+              break;
+            }
+            throw new Error("AI generation did not return any text.");
+          }
+
+          if (result.done) {
+            workflowCompleted = true;
+            break;
+          }
+
+          const chunk = result.value;
+
+          if (chunk.type === "error") {
+            throw chunk.error;
+          } else if (chunk.type === "text-delta") {
+            fullText += chunk.text;
+
+            set((state) =>
+              mutate(state, (draft) => {
+                const currentState = draft.tasks[taskId];
+                if (currentState) {
+                  currentState.streamedText = fullText;
+                }
+              }),
+            );
+          }
         }
+      } finally {
+        if (!workflowCompleted) {
+          workflowAbortController.abort();
+        }
+        abortController.signal.removeEventListener("abort", abortWorkflow);
       }
 
       await taskConfig.onSuccess?.({

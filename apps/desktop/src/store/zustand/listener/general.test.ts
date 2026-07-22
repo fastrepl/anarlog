@@ -798,6 +798,64 @@ describe("General Listener Slice", () => {
       );
     });
 
+    test("repairs a live transcript when stop leaves unfinalized words", async () => {
+      let lifecycleHandler:
+        | ((event: { payload: Record<string, unknown> }) => void)
+        | undefined;
+      const onStopped = vi.fn();
+      listenCaptureLifecycleMock.mockImplementationOnce((handler) => {
+        lifecycleHandler = handler;
+        return Promise.resolve(() => {});
+      });
+      getCaptureSnapshotMock.mockResolvedValueOnce({
+        status: "ok",
+        data: {
+          activeSessionId: "session-a",
+          finalizingSessionIds: [],
+          liveTranscriptionActive: true,
+          requestedLiveTranscription: true,
+          state: "active",
+        },
+      });
+      store.getState().setOnStopped("session-a", onStopped);
+
+      await store.getState().attachLiveSession("session-a");
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          draft.partialWordsByChannel[0] = [
+            {
+              text: " trailing words",
+              start_ms: 1_000,
+              end_ms: 2_000,
+              channel: 0,
+            },
+          ];
+        }),
+      );
+
+      lifecycleHandler?.({
+        payload: {
+          type: "finalizing",
+          session_id: "session-a",
+        },
+      });
+      lifecycleHandler?.({
+        payload: {
+          type: "stopped",
+          session_id: "session-a",
+          audio_path: "/tmp/session.wav",
+          requested_live_transcription: true,
+          live_transcription_active: true,
+          error: null,
+        },
+      });
+
+      expect(onStopped).toHaveBeenCalledWith(
+        "session-a",
+        expect.objectContaining({ needsBatchRepair: true }),
+      );
+    });
+
     test("attachLiveSession ignores overlapping attaches for the same session", async () => {
       await Promise.all([
         store.getState().attachLiveSession("session-a"),

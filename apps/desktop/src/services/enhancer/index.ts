@@ -2,7 +2,7 @@ import type { LanguageModel } from "ai";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 
-import { getEligibility } from "./eligibility";
+import { type EnhanceEligibilitySkipCode, getEligibility } from "./eligibility";
 import {
   type EnhancerNote,
   ensureSummaryDocument,
@@ -36,7 +36,12 @@ type EnhanceOpts = {
 };
 
 type EnhancerEvent =
-  | { type: "auto-enhance-skipped"; sessionId: string; reason: string }
+  | {
+      type: "auto-enhance-skipped";
+      sessionId: string;
+      reason: string;
+      reasonCode: EnhanceEligibilitySkipCode | "error";
+    }
   | { type: "auto-enhance-started"; sessionId: string; noteId: string }
   | { type: "auto-enhance-no-model"; sessionId: string };
 
@@ -236,6 +241,7 @@ export class EnhancerService {
         type: "auto-enhance-skipped",
         sessionId,
         reason: eligibility.reason,
+        reasonCode: eligibility.code,
       });
       return;
     }
@@ -262,7 +268,12 @@ export class EnhancerService {
     this.clearRetry(sessionId);
     const reason = error instanceof Error ? error.message : String(error);
     console.error("[enhancer] auto-enhance failed", error);
-    this.emit({ type: "auto-enhance-skipped", sessionId, reason });
+    this.emit({
+      type: "auto-enhance-skipped",
+      sessionId,
+      reason,
+      reasonCode: "error",
+    });
   }
 
   private clearRetry(sessionId: string) {

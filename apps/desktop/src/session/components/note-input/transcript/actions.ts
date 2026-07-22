@@ -31,6 +31,10 @@ export function useRegenerateTranscript(sessionId: string) {
       }
       const msg = error instanceof Error ? error.message : String(error);
       handleBatchFailed(sessionId, msg);
+      sonnerToast.error("Re-transcription failed", {
+        id: `transcript-regenerate-failed-${sessionId}`,
+        description: msg,
+      });
     }
   }, [handleBatchFailed, runBatch, sessionId]);
 }

@@ -186,9 +186,15 @@ const createSessionEventHandlers = <T extends LiveStore>(
         : (currentLive.finalizingBySession[targetSessionId]?.seconds ?? 0);
     const onStopped = get().takeOnStopped(targetSessionId);
     const unlisteners = currentLive.eventUnlistenersBySession[targetSessionId];
+    const hasUnfinalizedTranscript =
+      currentLive.sessionId === targetSessionId &&
+      Object.values(get().partialWordsByChannel).some(
+        (words) => words.length > 0,
+      );
     const needsBatchRepair =
       currentLive.sessionId === targetSessionId
-        ? currentLive.needsBatchRepair
+        ? currentLive.needsBatchRepair ||
+          (payload.requested_live_transcription && hasUnfinalizedTranscript)
         : (currentLive.finalizingBySession[targetSessionId]?.needsBatchRepair ??
           false);
 

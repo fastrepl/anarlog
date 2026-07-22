@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
+
 import { getEnhancerService } from "~/services/enhancer";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
@@ -14,6 +16,12 @@ export function useAutoEnhance(tab: Extract<Tab, { type: "sessions" }>) {
       if (event.sessionId !== sessionId) return;
       if (event.type === "auto-enhance-skipped") {
         setSkipReason(event.reason);
+        if (event.reasonCode === "transcript_too_short") {
+          sonnerToast.warning("Summary wasn't generated", {
+            id: `auto-summary-too-short-${sessionId}`,
+            description: event.reason,
+          });
+        }
       }
       if (event.type === "auto-enhance-started") {
         const tabsState = useTabs.getState();

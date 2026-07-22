@@ -16,6 +16,7 @@ const {
   useSessionParticipantsMock,
   useSTTConnectionMock,
   useAuthMock,
+  refreshSessionMock,
   useBillingAccessMock,
   useConfigValueMock,
   isSupportedLanguagesBatchMock,
@@ -31,6 +32,7 @@ const {
   useSessionParticipantsMock: vi.fn(),
   useSTTConnectionMock: vi.fn(),
   useAuthMock: vi.fn(),
+  refreshSessionMock: vi.fn(),
   useBillingAccessMock: vi.fn(),
   useConfigValueMock: vi.fn(),
   isSupportedLanguagesBatchMock: vi.fn(),
@@ -236,7 +238,9 @@ describe("useRunBatch", () => {
         access_token: "paid-token",
         user: { id: "user-1" },
       },
+      refreshSession: refreshSessionMock,
     });
+    refreshSessionMock.mockResolvedValue(null);
     useBillingAccessMock.mockReturnValue({
       isPaid: false,
     });
@@ -418,6 +422,46 @@ describe("useRunBatch", () => {
         description:
           "nova-3 is not available for batch transcription. Using Pro cloud transcription instead.",
       }),
+    );
+  });
+
+  test("refreshes an expired cloud token and retries transcription once", async () => {
+    useSTTConnectionMock.mockReturnValue({
+      conn: {
+        provider: "hyprnote",
+        model: "cloud",
+        baseUrl: "https://api.test/stt",
+        apiKey: "stale-token",
+      },
+    });
+    useAuthMock.mockReturnValue({
+      session: {
+        access_token: "stale-token",
+        user: { id: "user-1" },
+      },
+      refreshSession: refreshSessionMock,
+    });
+    refreshSessionMock.mockResolvedValue({ access_token: "fresh-token" });
+    startTranscriptionMock
+      .mockRejectedValueOnce(
+        new Error(
+          "Authentication failed. Please check your API key in settings.",
+        ),
+      )
+      .mockResolvedValueOnce(undefined);
+
+    const { result } = renderHook(() => useRunBatch("session-1"));
+
+    await act(async () => {
+      await result.current("/tmp/session.wav");
+    });
+
+    expect(refreshSessionMock).toHaveBeenCalledTimes(1);
+    expect(startTranscriptionMock).toHaveBeenCalledTimes(2);
+    expect(startTranscriptionMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ api_key: "fresh-token" }),
+      expect.any(Object),
     );
   });
 });

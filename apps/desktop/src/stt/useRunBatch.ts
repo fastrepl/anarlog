@@ -149,6 +149,13 @@ export function isStoppedTranscriptionError(error: unknown) {
   );
 }
 
+export function isTranscriptionAuthenticationError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /authentication failed|invalid_token|unauthorized|\b401\b/i.test(
+    message,
+  );
+}
+
 export function getSessionSpeakerCount(
   participantHumanIds: Iterable<string>,
   selfHumanId?: string | null,
@@ -364,7 +371,27 @@ export const useRunBatch = (sessionId: string) => {
       };
 
       try {
-        await startTranscription(params, { handlePersist: persist });
+        try {
+          await startTranscription(params, { handlePersist: persist });
+        } catch (error) {
+          if (
+            target.provider !== "hyprnote" ||
+            target.model !== "cloud" ||
+            !isTranscriptionAuthenticationError(error)
+          ) {
+            throw error;
+          }
+
+          const refreshedSession = await auth.refreshSession();
+          if (!refreshedSession?.access_token) {
+            throw error;
+          }
+
+          await startTranscription(
+            { ...params, api_key: refreshedSession.access_token },
+            { handlePersist: persist },
+          );
+        }
       } finally {
         await lastTranscriptWrite;
       }
@@ -375,6 +402,7 @@ export const useRunBatch = (sessionId: string) => {
     },
     [
       conn,
+      auth,
       auth?.session?.access_token,
       aiLanguage,
       audioRetention,

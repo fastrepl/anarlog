@@ -2,7 +2,12 @@ import { APICallError } from "ai";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { TASK_CONFIGS } from "./task-configs";
-import { createTasksSlice, extractUnderlyingError } from "./tasks";
+import {
+  createTasksSlice,
+  extractUnderlyingError,
+  TASK_STREAM_IDLE_TIMEOUT_MS,
+  TASK_STREAM_START_TIMEOUT_MS,
+} from "./tasks";
 
 const mocks = vi.hoisted(() => ({
   getStoredSettingValues: vi.fn(async () => ({
@@ -18,6 +23,7 @@ vi.mock("~/settings/queries", () => ({
 const originalEnhanceConfig = { ...TASK_CONFIGS.enhance };
 
 afterEach(() => {
+  vi.useRealTimers();
   Object.assign(TASK_CONFIGS.enhance, originalEnhanceConfig);
 });
 
@@ -181,6 +187,125 @@ describe("createTasksSlice", () => {
       status: "error",
       streamedText: "",
       error: expect.objectContaining({ message: "database write failed" }),
+    });
+  });
+
+  it("persists streamed text when the provider never closes the stream", async () => {
+    vi.useFakeTimers();
+    let state: ReturnType<typeof createTasksSlice>;
+    const set = (updater: any) => {
+      state =
+        typeof updater === "function"
+          ? updater(state)
+          : { ...state, ...updater };
+    };
+    const get = () => state;
+    state = createTasksSlice(set, get);
+
+    TASK_CONFIGS.enhance.transformArgs = vi.fn(async () => ({}) as any);
+    TASK_CONFIGS.enhance.transforms = [];
+    TASK_CONFIGS.enhance.executeWorkflow = vi.fn(async function* () {
+      yield { type: "text-delta", text: "Generated summary" } as any;
+      await new Promise(() => {});
+    });
+    TASK_CONFIGS.enhance.onSuccess = vi.fn(async () => {});
+
+    const taskId = "session-idle-enhance" as const;
+    const promise = state.generate(taskId, {
+      model: {} as any,
+      taskType: "enhance",
+      args: { sessionId: "session-1", enhancedNoteId: "note-1" },
+    });
+
+    await vi.waitFor(() => {
+      expect(state.tasks[taskId]?.streamedText).toBe("Generated summary");
+    });
+    await vi.advanceTimersByTimeAsync(TASK_STREAM_IDLE_TIMEOUT_MS);
+    await promise;
+
+    expect(TASK_CONFIGS.enhance.onSuccess).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "Generated summary" }),
+    );
+    expect(state.tasks[taskId]).toMatchObject({
+      status: "success",
+      streamedText: "Generated summary",
+    });
+  });
+
+  it("does not persist streamed text after cancellation during the idle timeout", async () => {
+    vi.useFakeTimers();
+    let state: ReturnType<typeof createTasksSlice>;
+    const set = (updater: any) => {
+      state =
+        typeof updater === "function"
+          ? updater(state)
+          : { ...state, ...updater };
+    };
+    const get = () => state;
+    state = createTasksSlice(set, get);
+
+    TASK_CONFIGS.enhance.transformArgs = vi.fn(async () => ({}) as any);
+    TASK_CONFIGS.enhance.transforms = [];
+    TASK_CONFIGS.enhance.executeWorkflow = vi.fn(async function* () {
+      yield { type: "text-delta", text: "Generated summary" } as any;
+      await new Promise(() => {});
+    });
+    TASK_CONFIGS.enhance.onSuccess = vi.fn(async () => {});
+
+    const taskId = "session-cancelled-enhance" as const;
+    const promise = state.generate(taskId, {
+      model: {} as any,
+      taskType: "enhance",
+      args: { sessionId: "session-1", enhancedNoteId: "note-1" },
+    });
+
+    await vi.waitFor(() => {
+      expect(state.tasks[taskId]?.streamedText).toBe("Generated summary");
+    });
+    state.cancel(taskId);
+    await vi.advanceTimersByTimeAsync(TASK_STREAM_IDLE_TIMEOUT_MS);
+    await promise;
+
+    expect(TASK_CONFIGS.enhance.onSuccess).not.toHaveBeenCalled();
+    expect(state.tasks[taskId]).toMatchObject({ status: "idle" });
+  });
+
+  it("fails a task when the provider never returns text", async () => {
+    vi.useFakeTimers();
+    let state: ReturnType<typeof createTasksSlice>;
+    const set = (updater: any) => {
+      state =
+        typeof updater === "function"
+          ? updater(state)
+          : { ...state, ...updater };
+    };
+    const get = () => state;
+    state = createTasksSlice(set, get);
+
+    TASK_CONFIGS.enhance.transformArgs = vi.fn(async () => ({}) as any);
+    TASK_CONFIGS.enhance.transforms = [];
+    TASK_CONFIGS.enhance.executeWorkflow = vi.fn(async function* () {
+      await new Promise(() => {});
+    });
+    TASK_CONFIGS.enhance.onSuccess = vi.fn(async () => {});
+
+    const taskId = "session-start-timeout-enhance" as const;
+    const promise = state.generate(taskId, {
+      model: {} as any,
+      taskType: "enhance",
+      args: { sessionId: "session-1", enhancedNoteId: "note-1" },
+    });
+
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(TASK_STREAM_START_TIMEOUT_MS);
+    await promise;
+
+    expect(TASK_CONFIGS.enhance.onSuccess).not.toHaveBeenCalled();
+    expect(state.tasks[taskId]).toMatchObject({
+      status: "error",
+      error: expect.objectContaining({
+        message: "AI generation did not return any text.",
+      }),
     });
   });
 });

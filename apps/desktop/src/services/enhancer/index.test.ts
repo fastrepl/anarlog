@@ -424,6 +424,7 @@ describe("EnhancerService", () => {
       type: "auto-enhance-skipped",
       sessionId: "session-1",
       reason: "Not enough words recorded (1/5 minimum)",
+      reasonCode: "transcript_too_short",
     });
   });
 

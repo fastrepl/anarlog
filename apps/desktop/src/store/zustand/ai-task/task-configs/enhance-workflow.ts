@@ -146,20 +146,18 @@ IMPORTANT: Previous attempt failed. ${previousFeedback}`;
       signal.addEventListener("abort", abortFromOuter);
       retrySignal.addEventListener("abort", abortFromRetry);
 
-      try {
-        const result = streamText({
-          model,
-          system,
-          ...createPromptInput(enhancedPrompt, args.imageContext),
-          abortSignal: combinedController.signal,
-          maxRetries: AI_GENERATION_MAX_RETRIES,
-          maxOutputTokens: SUMMARY_MAX_OUTPUT_TOKENS,
-        });
-        return result.fullStream;
-      } finally {
+      const result = streamText({
+        model,
+        system,
+        ...createPromptInput(enhancedPrompt, args.imageContext),
+        abortSignal: combinedController.signal,
+        maxRetries: AI_GENERATION_MAX_RETRIES,
+        maxOutputTokens: SUMMARY_MAX_OUTPUT_TOKENS,
+      });
+      return withCleanup(result.fullStream, () => {
         signal.removeEventListener("abort", abortFromOuter);
         retrySignal.removeEventListener("abort", abortFromRetry);
-      }
+      });
     },
     validator,
     {
@@ -177,6 +175,17 @@ IMPORTANT: Previous attempt failed. ${previousFeedback}`;
       },
     },
   );
+}
+
+async function* withCleanup<T>(
+  stream: AsyncIterable<T>,
+  cleanup: () => void,
+): AsyncIterable<T> {
+  try {
+    yield* stream;
+  } finally {
+    cleanup();
+  }
 }
 
 function withImageContextNote(prompt: string, imageCount: number): string {
