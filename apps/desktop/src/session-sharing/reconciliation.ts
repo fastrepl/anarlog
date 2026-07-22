@@ -12,6 +12,7 @@ import { executeTransaction, liveQueryClient } from "~/db";
 import { enqueueDatabaseWrite, flushDatabaseWrites } from "~/db/write-queue";
 import {
   enqueueDurableSharedNoteCacheMutation,
+  sharedNoteCacheWriteKey,
   type SharedNoteSnapshot,
 } from "~/shared-notes/cache";
 
@@ -129,8 +130,12 @@ export async function loadManagedShareProjection(
 export async function loadSessionShareSyncState(
   viewerUserId: string,
   shareId: string,
+  sessionId: string,
 ): Promise<SessionShareSyncState | null> {
-  await flushDatabaseWrites();
+  await flushDatabaseWrites([
+    `session:${sessionId}`,
+    sharedNoteCacheWriteKey(viewerUserId),
+  ]);
   const rows = await liveQueryClient.execute<SessionShareSyncStateSqlRow>(
     `
       SELECT
@@ -203,7 +208,11 @@ export async function reconcileManagedSessionShareSnapshot(input: {
 
   const projection = await loadManagedShareProjection(viewerUserId, snapshot);
   input.signal?.throwIfAborted();
-  const state = await loadSessionShareSyncState(viewerUserId, snapshot.shareId);
+  const state = await loadSessionShareSyncState(
+    viewerUserId,
+    snapshot.shareId,
+    snapshot.sessionId,
+  );
   input.signal?.throwIfAborted();
   if (state && state.sessionId !== snapshot.sessionId) {
     throw new Error("Shared note sync state changed sessions");
@@ -380,6 +389,7 @@ async function importSnapshot(input: {
     const existing = await loadSessionShareSyncState(
       viewerUserId,
       snapshot.shareId,
+      snapshot.sessionId,
     );
     input.signal?.throwIfAborted();
     await writeSyncState(
@@ -440,6 +450,7 @@ async function importSnapshot(input: {
     const state = await loadSessionShareSyncState(
       viewerUserId,
       snapshot.shareId,
+      snapshot.sessionId,
     );
     input.signal?.throwIfAborted();
     await writeSyncState(

@@ -10,6 +10,10 @@ const storage = vi.hoisted(() => ({
   loadEnabledCalendars: vi.fn(),
 }));
 
+const writeQueue = vi.hoisted(() => ({
+  enqueueDatabaseWrite: vi.fn(),
+}));
+
 vi.mock("@hypr/plugin-calendar", () => ({
   commands: {
     listConnectionIds: pluginCalendar.listConnectionIds,
@@ -18,12 +22,16 @@ vi.mock("@hypr/plugin-calendar", () => ({
 }));
 
 vi.mock("./storage", () => storage);
+vi.mock("~/db/write-queue", () => writeQueue);
 
 import { createCtx, getProviderConnections, syncCalendars } from "./ctx";
 
 describe("calendar sync context", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    writeQueue.enqueueDatabaseWrite.mockImplementation(
+      (_key: string, write: () => Promise<unknown>) => write(),
+    );
     storage.applyCalendarInventory.mockResolvedValue(undefined);
     storage.loadEnabledCalendars.mockResolvedValue([
       {
@@ -113,6 +121,10 @@ describe("calendar sync context", () => {
         },
       ],
     });
+    expect(writeQueue.enqueueDatabaseWrite).toHaveBeenCalledWith(
+      "calendar-sync",
+      expect.any(Function),
+    );
   });
 
   test("does not treat a failed calendar listing as an empty listing", async () => {

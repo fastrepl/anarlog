@@ -1,8 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
 
+const dbMocks = vi.hoisted(() => ({
+  execute: vi.fn(),
+  flushDatabaseWrites: vi.fn(),
+}));
+
+vi.mock("~/db", () => ({
+  liveQueryClient: { execute: dbMocks.execute },
+  useLiveQuery: vi.fn(),
+}));
+
+vi.mock("~/db/write-queue", () => ({
+  flushDatabaseWrites: dbMocks.flushDatabaseWrites,
+}));
+
 import {
   addSharedAttachmentIds,
   isAttachmentShareable,
+  loadSessionShareAttachments,
   matchSharedAttachmentsToLocal,
   prepareSessionShareAttachment,
   restoreLocalAttachmentIds,
@@ -27,6 +42,18 @@ const attachment: SessionShareAttachment = {
 };
 
 describe("shared attachment selection", () => {
+  it("waits for session and transfer writes before reading attachments", async () => {
+    dbMocks.execute.mockResolvedValueOnce([]);
+    dbMocks.flushDatabaseWrites.mockResolvedValueOnce(undefined);
+
+    await expect(loadSessionShareAttachments("session-1")).resolves.toEqual([]);
+
+    expect(dbMocks.flushDatabaseWrites).toHaveBeenCalledWith([
+      "session:session-1",
+      "attachment-transfers",
+    ]);
+  });
+
   it("requires a completed private backup before sharing", async () => {
     expect(isAttachmentShareable(attachment)).toBe(true);
     expect(

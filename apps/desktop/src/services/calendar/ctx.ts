@@ -7,6 +7,8 @@ import type {
 
 import { applyCalendarInventory, loadEnabledCalendars } from "./storage";
 
+import { enqueueDatabaseWrite } from "~/db/write-queue";
+
 export interface Ctx {
   provider: CalendarProviderType;
   connectionId: string;
@@ -60,9 +62,10 @@ export async function getProviderConnections(): Promise<
 export async function syncCalendars(
   providerConnections: ProviderConnectionIds[],
   signal?: AbortSignal,
+  shouldStop: () => boolean = () => signal?.aborted === true,
 ): Promise<void> {
   for (const { provider, connection_ids } of providerConnections) {
-    if (signal?.aborted) return;
+    if (shouldStop()) return;
 
     const successfulConnections: Array<{
       connectionId: string;
@@ -70,22 +73,25 @@ export async function syncCalendars(
     }> = [];
 
     for (const connectionId of connection_ids) {
-      if (signal?.aborted) return;
+      if (shouldStop()) return;
 
       const result = await calendarCommands.listCalendars(
         provider,
         connectionId,
       );
-      if (signal?.aborted) return;
+      if (shouldStop()) return;
       if (result.status === "error") continue;
       successfulConnections.push({ connectionId, calendars: result.data });
     }
 
-    if (signal?.aborted) return;
-    await applyCalendarInventory({
-      provider,
-      requestedConnectionIds: connection_ids,
-      successfulConnections,
+    if (shouldStop()) return;
+    await enqueueDatabaseWrite("calendar-sync", async () => {
+      if (shouldStop()) return;
+      await applyCalendarInventory({
+        provider,
+        requestedConnectionIds: connection_ids,
+        successfulConnections,
+      });
     });
   }
 }

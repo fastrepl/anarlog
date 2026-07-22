@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
     vi.fn<(sql: string, params?: unknown[]) => Promise<any[]>>(),
   loadAttachments: vi.fn<() => Promise<any[]>>().mockResolvedValue([]),
   loadSource: vi.fn<() => Promise<any>>(),
+  flushDatabaseWrites: vi.fn(async () => {}),
 }));
 
 vi.mock("~/db", () => ({
@@ -21,7 +22,7 @@ vi.mock("~/db", () => ({
 }));
 vi.mock("~/db/write-queue", () => ({
   enqueueDatabaseWrite: mocks.enqueueDatabaseWrite,
-  flushDatabaseWrites: vi.fn(async () => {}),
+  flushDatabaseWrites: mocks.flushDatabaseWrites,
 }));
 vi.mock("./source", () => ({
   loadSessionShareSource: mocks.loadSource,
@@ -36,6 +37,7 @@ import type { SessionShareAttachment } from "./attachments";
 import {
   createSessionShareMutationId,
   hashSessionShareProjection,
+  loadSessionShareSyncState,
   reconcileManagedSessionShareSnapshot,
 } from "./reconciliation";
 
@@ -216,6 +218,17 @@ describe("session share reconciliation", () => {
     );
     expect(nextRevision).not.toBe(first);
     expect(attachmentChange).not.toBe(first);
+  });
+
+  it("loads sync state after only its session and viewer cache are flushed", async () => {
+    await expect(
+      loadSessionShareSyncState(VIEWER_ID, SHARE_ID, SESSION_ID),
+    ).resolves.toBeNull();
+
+    expect(mocks.flushDatabaseWrites).toHaveBeenCalledWith([
+      `session:${SESSION_ID}`,
+      `shared-note-cache:${VIEWER_ID}`,
+    ]);
   });
 
   it("keeps an unchanged acknowledged snapshot idle", async () => {

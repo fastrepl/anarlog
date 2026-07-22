@@ -50,7 +50,6 @@ import {
 import {
   createOrReuseSessionShare,
   createSessionAccessInvitation,
-  enableSessionShareLink,
   getSessionShareManagement,
   listSessionShareAccess,
   publishSessionShareSnapshot,
@@ -58,7 +57,6 @@ import {
   reviewSessionAccessRequest,
   revokeSessionAccessGrant,
   revokeSessionAccessInvitation,
-  rotateSessionShareLink,
   setSessionShareScope,
   sendSessionAccessInvitationEmail,
   type SessionAccessCapability,
@@ -75,12 +73,11 @@ import {
   loadSessionShareSyncState,
   recordPublishedSessionShareState,
 } from "./reconciliation";
-import { loadSessionShareSource, useAvailableShareWorkspaces } from "./source";
+import { loadSessionShareSource } from "./source";
 import { useSessionShareSyncStatus } from "./sync-state";
 import {
   buildAccountSessionShareUrl,
   buildSessionInvitationUrl,
-  buildSessionShareLinkUrl,
   type ShareDesktopScheme,
 } from "./urls";
 
@@ -108,6 +105,7 @@ type SharePanelData = {
 type SharePreparationIdentity = {
   ownerUserId: string;
   sessionId: string;
+  attemptId: number;
 };
 
 type SharePanelIdentity = SharePreparationIdentity & {
@@ -179,10 +177,10 @@ function isInviteEmail(value: string) {
   );
 }
 
-class SharePreparationAbortedError extends ShareManagementError {
+class ShareOperationAbortedError extends ShareManagementError {
   constructor() {
     super();
-    this.name = "SharePreparationAbortedError";
+    this.name = "ShareOperationAbortedError";
   }
 }
 
@@ -200,6 +198,24 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
   const latestSessionIdRef = useRef(sessionId);
   latestSessionIdRef.current = sessionId;
   const prepareControllersRef = useRef(new Set<AbortController>());
+  const sharePreparationIdentityRef = useRef<SharePreparationIdentity | null>(
+    null,
+  );
+  const nextSharePreparationAttemptRef = useRef(0);
+  const cancelSharePreparation = () => {
+    for (const controller of prepareControllersRef.current) {
+      controller.abort();
+    }
+    prepareControllersRef.current.clear();
+  };
+  const isActiveSharePreparation = (identity: SharePreparationIdentity) => {
+    const active = sharePreparationIdentityRef.current;
+    return (
+      active?.ownerUserId === identity.ownerUserId &&
+      active.sessionId === identity.sessionId &&
+      active.attemptId === identity.attemptId
+    );
+  };
   const shareButtonLifecycleRef = useCallback(
     (node: HTMLButtonElement | null) => {
       if (node) return;
@@ -216,10 +232,12 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     const controller = new AbortController();
     prepareControllersRef.current.add(controller);
     try {
-      return await operation(controller.signal);
+      const result = await operation(controller.signal);
+      if (controller.signal.aborted) throw new ShareOperationAbortedError();
+      return result;
     } catch (error) {
       if (controller.signal.aborted) {
-        throw new SharePreparationAbortedError();
+        throw new ShareOperationAbortedError();
       }
       throw error;
     } finally {
@@ -253,10 +271,14 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
   const clearAbandonedSharePreparation = (
     identity: SharePreparationIdentity,
   ) => {
+    if (isActiveSharePreparation(identity)) {
+      sharePreparationIdentityRef.current = null;
+    }
     setSharePreparationIdentity((current) =>
       current &&
       current.ownerUserId === identity.ownerUserId &&
-      current.sessionId === identity.sessionId
+      current.sessionId === identity.sessionId &&
+      current.attemptId === identity.attemptId
         ? null
         : current,
     );
@@ -270,6 +292,8 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     (sharePreparationIdentity.ownerUserId !== accountUserId ||
       sharePreparationIdentity.sessionId !== sessionId)
   ) {
+    sharePreparationIdentityRef.current = null;
+    cancelSharePreparation();
     setSharePreparationIdentity(null);
     setWaitingForBilling(false);
   }
@@ -305,8 +329,6 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     accountUserId,
     activeSharePanelIdentity?.shareId ?? "",
   );
-  const workspaces = useAvailableShareWorkspaces(accountUserId);
-
   const initializeMutation = useMutation({
     mutationFn: ({
       publish,
@@ -413,6 +435,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
       }),
     onSuccess: ({ identity, data }) => {
       if (
+        !isActiveSharePreparation(identity) ||
         latestAuthRef.current.session?.user.id !== identity.ownerUserId ||
         latestSessionIdRef.current !== identity.sessionId
       ) {
@@ -426,12 +449,14 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
       void queryClient.invalidateQueries({
         queryKey: ["durable-shared-note-cache", identity.ownerUserId],
       });
+      sharePreparationIdentityRef.current = null;
       setSharePreparationIdentity(null);
       setSharePanelIdentity(identity);
     },
     onError: (error, variables) => {
       if (
-        error instanceof SharePreparationAbortedError ||
+        error instanceof ShareOperationAbortedError ||
+        !isActiveSharePreparation(variables.identity) ||
         latestAuthRef.current.session?.user.id !==
           variables.identity.ownerUserId ||
         latestSessionIdRef.current !== variables.identity.sessionId
@@ -448,6 +473,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
       loadManagedSharedNoteForSession(identity.ownerUserId, identity.sessionId),
     onSuccess: (managedShare, identity) => {
       if (
+        !isActiveSharePreparation(identity) ||
         latestAuthRef.current.session?.user.id !== identity.ownerUserId ||
         latestSessionIdRef.current !== identity.sessionId
       ) {
@@ -455,6 +481,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
         return;
       }
       if (!managedShare) {
+        sharePreparationIdentityRef.current = null;
         setSharePreparationIdentity(null);
         setUpgradePromptIdentity(identity);
         return;
@@ -463,6 +490,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     },
     onError: (_error, identity) => {
       if (
+        !isActiveSharePreparation(identity) ||
         latestAuthRef.current.session?.user.id !== identity.ownerUserId ||
         latestSessionIdRef.current !== identity.sessionId
       ) {
@@ -501,6 +529,8 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
   );
 
   const closeSharePopover = () => {
+    sharePreparationIdentityRef.current = null;
+    cancelSharePreparation();
     setSharePanelIdentity(null);
     setSharePreparationIdentity(null);
     setWaitingForBilling(false);
@@ -510,6 +540,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
   };
 
   const runSharePreparation = (identity: SharePreparationIdentity) => {
+    if (!isActiveSharePreparation(identity)) return;
     setWaitingForBilling(false);
     if (!billing.isPaid) {
       freeShareMutation.mutate(identity);
@@ -518,22 +549,29 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     initializeMutation.mutate({ publish: true, identity });
   };
 
-  const startSharePreparation = (identity: SharePreparationIdentity) => {
+  const startSharePreparation = (
+    identity: Omit<SharePreparationIdentity, "attemptId">,
+  ) => {
+    cancelSharePreparation();
     initializeMutation.reset();
     freeShareMutation.reset();
-    setSharePreparationIdentity(identity);
+    const preparation = {
+      ...identity,
+      attemptId: nextSharePreparationAttemptRef.current,
+    };
+    nextSharePreparationAttemptRef.current += 1;
+    sharePreparationIdentityRef.current = preparation;
+    setSharePreparationIdentity(preparation);
     if (!billing.isReady) {
       setWaitingForBilling(true);
       return;
     }
-    runSharePreparation(identity);
+    runSharePreparation(preparation);
   };
 
   const handleShare = () => {
     if (sharePopoverOpen) {
-      if (!shareButtonPending && !sharePanelPendingRef.current) {
-        closeSharePopover();
-      }
+      closeSharePopover();
       return;
     }
     if (!auth.session || auth.session.user.is_anonymous === true) {
@@ -553,9 +591,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     <Popover
       open={sharePopoverOpen}
       onOpenChange={(open) => {
-        if (!open && !shareButtonPending && !sharePanelPendingRef.current) {
-          closeSharePopover();
-        }
+        if (!open) closeSharePopover();
       }}
     >
       <PopoverTrigger asChild>
@@ -593,7 +629,6 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           loading={shareQuery.isPending}
           error={shareQuery.isError}
           canExpand={billing.isPaid}
-          workspaces={workspaces}
           sharedAttachments={sharedAttachments}
           sharedSnapshot={durableNoteQuery.data ?? null}
           sharedAttachmentsReady={sharedAttachmentsReady}
@@ -668,12 +703,6 @@ function SessionSharePreparationContent({
       aria-labelledby="session-share-heading"
       aria-describedby="session-share-description"
       className="h-[240px] max-h-[calc(100vh-64px)] w-[320px] max-w-[calc(100vw-16px)] overflow-hidden"
-      onEscapeKeyDown={(event) => {
-        if (loading) event.preventDefault();
-      }}
-      onInteractOutside={(event) => {
-        if (loading) event.preventDefault();
-      }}
     >
       <AppFloatingPanel className="flex h-full flex-col overflow-hidden">
         <header className="border-border/60 border-b px-5 py-4 text-left">
@@ -718,7 +747,7 @@ function SessionSharePreparationContent({
         </div>
 
         <footer className="border-border/60 flex justify-end border-t px-5 py-3">
-          <Button type="button" size="sm" onClick={onClose} disabled={loading}>
+          <Button type="button" size="sm" onClick={onClose}>
             <CheckIcon className="size-3.5" aria-hidden="true" />
             <Trans>Done</Trans>
           </Button>
@@ -771,7 +800,6 @@ function SessionSharePopoverContent({
   loading,
   error,
   canExpand,
-  workspaces,
   sharedAttachments,
   sharedSnapshot,
   sharedAttachmentsReady,
@@ -785,7 +813,6 @@ function SessionSharePopoverContent({
   loading: boolean;
   error: boolean;
   canExpand: boolean;
-  workspaces: Array<{ id: string; name: string }>;
   sharedAttachments: SharedNoteAttachment[];
   sharedSnapshot: SharedNoteSnapshot | null;
   sharedAttachmentsReady: boolean;
@@ -815,7 +842,12 @@ function SessionSharePopoverContent({
     const controller = new AbortController();
     operationControllersRef.current.add(controller);
     try {
-      return await operation(controller.signal);
+      const result = await operation(controller.signal);
+      if (controller.signal.aborted) throw new ShareOperationAbortedError();
+      return result;
+    } catch (error) {
+      if (controller.signal.aborted) throw new ShareOperationAbortedError();
+      throw error;
     } finally {
       operationControllersRef.current.delete(controller);
     }
@@ -870,6 +902,7 @@ function SessionSharePopoverContent({
     const syncState = await loadSessionShareSyncState(
       identity.ownerUserId,
       identity.shareId,
+      sessionId,
     );
     const syncStateIsCurrent =
       syncState?.status === "clean" &&
@@ -1036,7 +1069,8 @@ function SessionSharePopoverContent({
     onSuccess: () => {
       sonnerToast.success("Attachment settings updated.");
     },
-    onError: () => {
+    onError: (error) => {
+      if (error instanceof ShareOperationAbortedError) return;
       sonnerToast.error("Could not update attachment sharing.");
     },
     onSettled: onChanged,
@@ -1084,6 +1118,7 @@ function SessionSharePopoverContent({
               inviteToken: invitation.inviteToken,
             },
             () => requireActiveContext(signal),
+            signal,
           );
           return { deliveredBy: "clipboard" as const };
         }
@@ -1098,7 +1133,8 @@ function SessionSharePopoverContent({
           : "Email unavailable. Invite link copied instead.",
       );
     },
-    onError: () => {
+    onError: (error) => {
+      if (error instanceof ShareOperationAbortedError) return;
       sonnerToast.error("Could not create this invitation.");
     },
     onSettled: onChanged,
@@ -1113,7 +1149,8 @@ function SessionSharePopoverContent({
     onSuccess: () => {
       sonnerToast.success("Shared copy updated.");
     },
-    onError: () => {
+    onError: (error) => {
+      if (error instanceof ShareOperationAbortedError) return;
       sonnerToast.error("Could not update the shared copy.");
     },
     onSettled: onChanged,
@@ -1132,7 +1169,8 @@ function SessionSharePopoverContent({
     onSuccess: () => {
       sonnerToast.success("Desktop edits published. Sharing resumed.");
     },
-    onError: () => {
+    onError: (error) => {
+      if (error instanceof ShareOperationAbortedError) return;
       sonnerToast.error(
         "Could not publish the desktop edits. Check the latest web copy and try again.",
       );
@@ -1153,7 +1191,8 @@ function SessionSharePopoverContent({
         );
         requireActiveContext(signal);
       }),
-    onError: () => {
+    onError: (error) => {
+      if (error instanceof ShareOperationAbortedError) return;
       sonnerToast.error("Could not open the web copy.");
     },
   });
@@ -1162,82 +1201,21 @@ function SessionSharePopoverContent({
   // management state confirms it, so the select never flashes the old scope.
   const [optimisticScope, setOptimisticScope] = useState<string | null>(null);
   const scopeMutation = useMutation({
-    mutationFn: (target: string) =>
+    mutationFn: () =>
       runOperation(async (signal) => {
         if (!management) throw new ShareManagementError();
-        let context = requireActiveContext(signal);
-        if (target === "restricted") {
-          await setSessionShareScope(context, {
-            shareId: identity.shareId,
-            scope: "restricted",
-          });
-          return { copied: false };
-        }
-        if (!canExpand) throw new ShareManagementError();
-        await publishLatest(signal);
-        context = requireActiveContext(signal);
-        if (target === "link") {
-          try {
-            let link = management.hasActiveLink
-              ? await rotateSessionShareLink(context, identity.shareId)
-              : await enableSessionShareLink(context, identity.shareId);
-            if (!link.linkToken) {
-              link = await rotateSessionShareLink(context, identity.shareId);
-            }
-            const linkToken = link.linkToken;
-            if (!linkToken) throw new ShareManagementError();
-            requireActiveContext(signal);
-            await copyText(
-              buildSessionShareLinkUrl({
-                appBaseUrl: env.VITE_APP_URL,
-                shareId: identity.shareId,
-                linkToken,
-                desktopScheme: await getSessionShareDesktopScheme(),
-              }),
-            );
-            requireActiveContext(signal);
-          } catch {
-            await restrictShare(withoutSignal(context), identity.shareId);
-            throw new ShareManagementError();
-          }
-          return { copied: true };
-        }
-
-        const scopeInput =
-          target === "public"
-            ? ({
-                shareId: identity.shareId,
-                scope: "public" as const,
-              } as const)
-            : (() => {
-                const workspaceId = target.startsWith("workspace:")
-                  ? target.slice("workspace:".length)
-                  : "";
-                if (
-                  !workspaces.some((workspace) => workspace.id === workspaceId)
-                ) {
-                  throw new ShareManagementError();
-                }
-                return {
-                  shareId: identity.shareId,
-                  scope: "workspace" as const,
-                  workspaceId,
-                };
-              })();
-        try {
-          await setSessionShareScope(context, scopeInput);
-          requireActiveContext(signal);
-        } catch {
-          await restrictShare(withoutSignal(context), identity.shareId);
-          throw new ShareManagementError();
-        }
-        return { copied: false };
+        const context = requireActiveContext(signal);
+        await setSessionShareScope(context, {
+          shareId: identity.shareId,
+          scope: "restricted",
+        });
       }),
-    onSuccess: ({ copied }) => {
-      sonnerToast.success(copied ? "Share link copied." : "Access updated.");
+    onSuccess: () => {
+      sonnerToast.success("Access updated.");
     },
-    onError: () => {
+    onError: (error) => {
       setOptimisticScope(null);
+      if (error instanceof ShareOperationAbortedError) return;
       sonnerToast.error("Could not update general access.");
     },
     onSettled: async () => {
@@ -1270,6 +1248,7 @@ function SessionSharePopoverContent({
               });
               requireActiveContext(signal);
             } catch {
+              if (signal.aborted) throw new ShareOperationAbortedError();
               await updateSessionAccessGrant(withoutSignal(context), {
                 grantId: input.entry.entryId,
                 capability: input.entry.capability,
@@ -1311,6 +1290,7 @@ function SessionSharePopoverContent({
               withoutSignal(context),
               invitation,
               () => requireActiveContext(signal),
+              signal,
             );
             return { deliveredBy: "clipboard" as const };
           }
@@ -1354,6 +1334,7 @@ function SessionSharePopoverContent({
                 inviteToken: invitation.inviteToken,
               },
               () => requireActiveContext(signal),
+              signal,
             );
             return { deliveredBy: "clipboard" as const };
           }
@@ -1387,6 +1368,7 @@ function SessionSharePopoverContent({
           });
           requireActiveContext(signal);
         } catch {
+          if (signal.aborted) throw new ShareOperationAbortedError();
           const rollbackContext = withoutSignal(context);
           if (previousGrant) {
             await updateSessionAccessGrant(rollbackContext, {
@@ -1423,7 +1405,8 @@ function SessionSharePopoverContent({
             : "Access updated.",
       );
     },
-    onError: () => {
+    onError: (error) => {
+      if (error instanceof ShareOperationAbortedError) return;
       sonnerToast.error("Could not update this person's access.");
     },
     onSettled: onChanged,
@@ -1448,7 +1431,8 @@ function SessionSharePopoverContent({
     onSuccess: () => {
       sonnerToast.success("Share link copied.");
     },
-    onError: () => {
+    onError: (error) => {
+      if (error instanceof ShareOperationAbortedError) return;
       sonnerToast.error("Could not copy the share link.");
     },
   });
@@ -1506,12 +1490,6 @@ function SessionSharePopoverContent({
       aria-labelledby="session-share-heading"
       aria-describedby="session-share-description"
       className="h-[240px] max-h-[calc(100vh-64px)] w-[320px] max-w-[calc(100vw-16px)] overflow-hidden"
-      onEscapeKeyDown={(event) => {
-        if (anyPending) event.preventDefault();
-      }}
-      onInteractOutside={(event) => {
-        if (anyPending) event.preventDefault();
-      }}
     >
       <AppFloatingPanel className="flex h-full flex-col overflow-hidden">
         <div ref={operationLifecycleRef} className="contents">
@@ -1854,7 +1832,7 @@ function SessionSharePopoverContent({
                         disabled={scopeMutation.isPending}
                         onClick={() => {
                           setOptimisticScope("restricted");
-                          scopeMutation.mutate("restricted");
+                          scopeMutation.mutate();
                         }}
                         className="h-7 shrink-0 px-2 text-[11px]"
                       >
@@ -2127,6 +2105,7 @@ async function copyInvitationOrRevoke(
   context: ShareManagementContext,
   invitation: { invitationId: string; inviteToken: string },
   assertActive: () => unknown,
+  signal?: AbortSignal,
 ) {
   try {
     assertActive();
@@ -2140,6 +2119,7 @@ async function copyInvitationOrRevoke(
     );
     assertActive();
   } catch {
+    if (signal?.aborted) throw new ShareOperationAbortedError();
     await revokeSessionAccessInvitation(context, invitation.invitationId).catch(
       () => undefined,
     );
@@ -2151,12 +2131,6 @@ function withoutSignal(
   context: ShareManagementContext,
 ): ShareManagementContext {
   return { supabase: context.supabase, session: context.session };
-}
-
-async function restrictShare(context: ShareManagementContext, shareId: string) {
-  await setSessionShareScope(context, { shareId, scope: "restricted" }).catch(
-    () => undefined,
-  );
 }
 
 async function getSessionShareDesktopScheme(): Promise<ShareDesktopScheme> {

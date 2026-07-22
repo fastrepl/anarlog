@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const saveMock = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
 const relaunchMock = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
-const flushDatabaseWritesMock = vi
+const flushDatabaseWritesWithinMock = vi
   .fn<() => Promise<void>>()
   .mockResolvedValue(undefined);
 const getOnboardingNeededMock = vi
@@ -20,7 +20,7 @@ vi.mock("@tauri-apps/plugin-process", () => ({
 }));
 
 vi.mock("~/db/write-queue", () => ({
-  flushDatabaseWrites: flushDatabaseWritesMock,
+  flushDatabaseWritesWithin: flushDatabaseWritesWithinMock,
 }));
 
 vi.mock("~/types/tauri.gen", () => ({
@@ -34,6 +34,9 @@ describe("automatic relaunch", () => {
     vi.useFakeTimers();
     vi.resetModules();
     vi.clearAllMocks();
+    flushDatabaseWritesWithinMock.mockResolvedValue(undefined);
+    saveMock.mockResolvedValue(undefined);
+    relaunchMock.mockResolvedValue(undefined);
     getOnboardingNeededMock.mockResolvedValue({ status: "ok", data: false });
   });
 
@@ -53,7 +56,7 @@ describe("automatic relaunch", () => {
     await vi.advanceTimersByTimeAsync(2000);
 
     expect(saveMock).toHaveBeenCalledTimes(1);
-    expect(flushDatabaseWritesMock).toHaveBeenCalledTimes(1);
+    expect(flushDatabaseWritesWithinMock).toHaveBeenCalledWith(5000);
     expect(relaunchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -65,6 +68,46 @@ describe("automatic relaunch", () => {
 
     expect(saveMock).not.toHaveBeenCalled();
     expect(relaunchMock).not.toHaveBeenCalled();
+  });
+
+  test("still relaunches when flushing application state fails", async () => {
+    const error = new Error("flush timed out");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    flushDatabaseWritesWithinMock.mockRejectedValue(error);
+    const { scheduleAutomaticRelaunch } = await import("./relaunch");
+
+    await scheduleAutomaticRelaunch();
+    await vi.runAllTimersAsync();
+
+    expect(relaunchMock).toHaveBeenCalledOnce();
+    expect(consoleError).toHaveBeenCalledWith(
+      "Failed to flush application data before relaunch",
+      error,
+    );
+    consoleError.mockRestore();
+  });
+
+  test("waits for settings to save when the database flush fails", async () => {
+    let resolveSave!: () => void;
+    flushDatabaseWritesWithinMock.mockRejectedValue(new Error("timed out"));
+    saveMock.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        resolveSave = resolve;
+      }),
+    );
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { scheduleAutomaticRelaunch } = await import("./relaunch");
+
+    await scheduleAutomaticRelaunch();
+    vi.advanceTimersByTime(0);
+    await vi.waitFor(() => expect(saveMock).toHaveBeenCalledOnce());
+
+    expect(relaunchMock).not.toHaveBeenCalled();
+    resolveSave();
+    await vi.runAllTimersAsync();
+    expect(relaunchMock).toHaveBeenCalledOnce();
   });
 
   test("flushes a deferred relaunch after onboarding completes", async () => {

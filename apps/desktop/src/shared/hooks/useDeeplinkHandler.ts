@@ -11,8 +11,10 @@ import { dismissInstruction } from "@hypr/plugin-windows";
 
 import { useAuth } from "~/auth";
 import {
+  allowReconnectedCalendarConnections,
   CALENDAR_SYNC_TASK_ID,
   removeDisconnectedCalendarConnection,
+  syncCalendarEvents,
 } from "~/services/calendar";
 import {
   createShareOpenProcessor,
@@ -78,13 +80,22 @@ export function useDeeplinkHandler() {
             void removeDisconnectedCalendarConnection(
               integration_id,
               disconnected_connection_id,
-            ).catch((error) => {
-              console.error(
-                "[calendar] failed to remove disconnected calendar data",
-                error,
-              );
-            });
+            )
+              .catch((error) => {
+                console.error(
+                  "[calendar] failed to remove disconnected calendar data",
+                  error,
+                );
+              })
+              .then(() => syncCalendarEvents())
+              .catch((error) => {
+                console.error(
+                  "[calendar] failed to sync after disconnect",
+                  error,
+                );
+              });
           } else {
+            allowReconnectedCalendarConnections(integration_id);
             refreshIntegrationState();
             for (const delay of [1000, 3000]) {
               const timeoutId = window.setTimeout(() => {

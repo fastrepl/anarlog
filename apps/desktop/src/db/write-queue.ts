@@ -22,8 +22,27 @@ export async function flushDatabaseWrites(
   keys?: readonly string[],
 ): Promise<void> {
   if (keys) {
-    await Promise.all([...new Set(keys)].map(flushDatabaseWriteKey));
-    return;
+    const uniqueKeys = [...new Set(keys)];
+    let failed = false;
+    let failure: unknown;
+    while (true) {
+      const activeKeys = uniqueKeys.filter((key) => tails.has(key));
+      if (activeKeys.length === 0) {
+        if (failed) throw failure;
+        return;
+      }
+      const results = await Promise.allSettled(
+        activeKeys.map(flushDatabaseWriteKey),
+      );
+      const rejected = results.find(
+        (result): result is PromiseRejectedResult =>
+          result.status === "rejected",
+      );
+      if (!failed && rejected) {
+        failed = true;
+        failure = rejected.reason;
+      }
+    }
   }
 
   while (pending.size > 0) {
@@ -32,6 +51,53 @@ export async function flushDatabaseWrites(
       (result): result is PromiseRejectedResult => result.status === "rejected",
     );
     if (failure) throw failure.reason;
+  }
+}
+
+export async function flushDatabaseWritesByPrefix(
+  prefixes: readonly string[],
+): Promise<void> {
+  const uniquePrefixes = [...new Set(prefixes)];
+  let failed = false;
+  let failure: unknown;
+  while (true) {
+    const keys = [...tails.keys()].filter((key) =>
+      uniquePrefixes.some((prefix) => key.startsWith(prefix)),
+    );
+    if (keys.length === 0) {
+      if (failed) throw failure;
+      return;
+    }
+    const results = await Promise.allSettled(keys.map(flushDatabaseWriteKey));
+    const rejected = results.find(
+      (result): result is PromiseRejectedResult => result.status === "rejected",
+    );
+    if (!failed && rejected) {
+      failed = true;
+      failure = rejected.reason;
+    }
+  }
+}
+
+export async function flushDatabaseWritesWithin(
+  timeoutMs: number,
+  keys?: readonly string[],
+): Promise<void> {
+  const flush = flushDatabaseWrites(keys);
+  const timeoutError = new Error("Timed out waiting for local database writes");
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      flush,
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(() => reject(timeoutError), timeoutMs);
+      }),
+    ]);
+  } catch (error) {
+    if (error === timeoutError) void flush.catch(() => undefined);
+    throw error;
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
 }
 

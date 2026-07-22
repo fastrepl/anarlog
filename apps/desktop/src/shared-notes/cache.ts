@@ -151,16 +151,19 @@ export async function replaceDurableSharedNoteCache(
     sessionShareSyncStatePruneStatement(viewerUserId, snapshots),
   ];
 
-  return enqueueDatabaseWrite(cacheWriteKey(viewerUserId), async () => {
-    if (
-      expectedMutationVersion !== undefined &&
-      expectedMutationVersion !== currentCacheMutationVersion(viewerUserId)
-    ) {
-      return false;
-    }
-    await executeTransaction(statements);
-    return true;
-  });
+  return enqueueDatabaseWrite(
+    sharedNoteCacheWriteKey(viewerUserId),
+    async () => {
+      if (
+        expectedMutationVersion !== undefined &&
+        expectedMutationVersion !== currentCacheMutationVersion(viewerUserId)
+      ) {
+        return false;
+      }
+      await executeTransaction(statements);
+      return true;
+    },
+  );
 }
 
 export function captureDurableSharedNoteCacheMutationVersion(
@@ -179,7 +182,7 @@ export function enqueueDurableSharedNoteCacheMutation<T>(
     viewerUserId,
     currentCacheMutationVersion(viewerUserId) + 1,
   );
-  return enqueueDatabaseWrite(cacheWriteKey(viewerUserId), write);
+  return enqueueDatabaseWrite(sharedNoteCacheWriteKey(viewerUserId), write);
 }
 
 function sessionShareSyncStatePruneStatement(
@@ -315,7 +318,7 @@ function currentCacheMutationVersion(viewerUserId: string) {
   return cacheMutationVersions.get(viewerUserId) ?? 0;
 }
 
-function cacheWriteKey(viewerUserId: string) {
+export function sharedNoteCacheWriteKey(viewerUserId: string) {
   return `shared-note-cache:${viewerUserId}`;
 }
 
@@ -329,7 +332,7 @@ export async function loadManagedSharedNoteForSession(
 } | null> {
   const normalizedViewerUserId = requireIdentity(viewerUserId, "viewer user");
   const normalizedSessionId = requireIdentity(sessionId, "session");
-  await flushDatabaseWrites([cacheWriteKey(normalizedViewerUserId)]);
+  await flushDatabaseWrites([sharedNoteCacheWriteKey(normalizedViewerUserId)]);
   const rows = await liveQueryClient.execute<ManagedSharedNoteSqlRow>(
     `
       SELECT share_id, workspace_id, session_id

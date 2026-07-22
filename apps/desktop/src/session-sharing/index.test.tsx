@@ -169,7 +169,22 @@ vi.mock("@hypr/ui/components/ui/popover", () => ({
   AppFloatingPanel: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  Popover: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Popover: ({
+    children,
+    onOpenChange,
+  }: {
+    children: React.ReactNode;
+    onOpenChange?: (open: boolean) => void;
+  }) => (
+    <div
+      data-testid="share-popover-root"
+      onKeyDown={(event) => {
+        if (event.key === "Escape") onOpenChange?.(false);
+      }}
+    >
+      {children}
+    </div>
+  ),
   PopoverContent: ({
     children,
     className,
@@ -534,6 +549,85 @@ describe("SessionShareButton", () => {
     expect(mocks.loadSessionShareSource).toHaveBeenCalledOnce();
   });
 
+  it("cancels preparation immediately when the pending popover is dismissed", async () => {
+    let resolveSource: ((value: any) => void) | undefined;
+    mocks.loadSessionShareSource.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSource = resolve;
+      }),
+    );
+    renderShareButton();
+
+    const trigger = screen.getByRole("button", { name: "Share note" });
+    fireEvent.click(trigger);
+    expect(await screen.findByText("Loading access…")).not.toBeNull();
+
+    const done = screen.getByRole("button", { name: "Done" });
+    expect((done as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.keyDown(screen.getByTestId("share-popover-root"), {
+      key: "Escape",
+    });
+
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByTestId("share-popover")).toBeNull();
+
+    await act(async () => {
+      resolveSource?.({
+        sessionId: "session-1",
+        workspaceId: WORKSPACE_ID,
+        title: "Planning",
+        body: { type: "doc", content: [] },
+      });
+      await Promise.resolve();
+    });
+
+    expect(mocks.createOrReuseSessionShare).not.toHaveBeenCalled();
+    expect(mocks.toastError).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("share-popover")).toBeNull();
+  });
+
+  it("does not let a dismissed free-share check clear a restarted preparation", async () => {
+    mocks.billing.isPaid = false;
+    let resolveFirstCheck!: (value: unknown) => void;
+    mocks.loadManagedSharedNoteForSession
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveFirstCheck = resolve;
+        }),
+      )
+      .mockResolvedValueOnce({
+        shareId: SHARE_ID,
+        workspaceId: WORKSPACE_ID,
+        sessionId: "session-1",
+      });
+    renderShareButton();
+
+    const trigger = screen.getByRole("button", { name: "Share note" });
+    fireEvent.click(trigger);
+    await waitFor(() =>
+      expect(mocks.loadManagedSharedNoteForSession).toHaveBeenCalledOnce(),
+    );
+
+    fireEvent.keyDown(screen.getByTestId("share-popover-root"), {
+      key: "Escape",
+    });
+    fireEvent.click(trigger);
+    expect(
+      await screen.findByRole("heading", { name: "People with access" }),
+    ).not.toBeNull();
+
+    await act(async () => {
+      resolveFirstCheck(null);
+    });
+
+    expect(
+      screen.getByRole("heading", { name: "People with access" }),
+    ).not.toBeNull();
+    expect(
+      screen.queryByRole("heading", { name: "Share notes with others" }),
+    ).toBeNull();
+  });
+
   it("validates the remote identity before publishing and then loads access", async () => {
     renderShareButton();
 
@@ -761,6 +855,7 @@ describe("SessionShareButton", () => {
       expect(mocks.loadSessionShareSyncState).toHaveBeenCalledWith(
         USER_ID,
         SHARE_ID,
+        "session-1",
       ),
     );
     expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
@@ -789,6 +884,7 @@ describe("SessionShareButton", () => {
       expect(mocks.loadSessionShareSyncState).toHaveBeenCalledWith(
         USER_ID,
         SHARE_ID,
+        "session-1",
       ),
     );
     expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
@@ -1365,6 +1461,34 @@ describe("SessionShareButton", () => {
     fireEvent.click(screen.getByRole("button", { name: "Share note" }));
     await act(async () => {
       resolveEmail?.();
+      await Promise.resolve();
+    });
+
+    expect(mocks.revokeSessionAccessInvitation).not.toHaveBeenCalled();
+    expect(mocks.clipboardWriteText).not.toHaveBeenCalled();
+  });
+
+  it("does not revoke an invitation when dismissed email delivery fails", async () => {
+    let rejectEmail!: (reason?: unknown) => void;
+    mocks.sendSessionAccessInvitationEmail.mockReturnValueOnce(
+      new Promise<void>((_resolve, reject) => {
+        rejectEmail = reject;
+      }),
+    );
+    renderShareButton();
+    await openSharePopover();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Invitee email" }), {
+      target: { value: "person@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Invite" }));
+    await waitFor(() =>
+      expect(mocks.sendSessionAccessInvitationEmail).toHaveBeenCalledOnce(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
+    await act(async () => {
+      rejectEmail(new Error("mail unavailable"));
       await Promise.resolve();
     });
 

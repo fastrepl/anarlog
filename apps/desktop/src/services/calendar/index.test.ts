@@ -25,6 +25,10 @@ const storageMocks = vi.hoisted(() => ({
   tombstoneCalendarConnection: vi.fn(),
 }));
 
+const writeQueueMocks = vi.hoisted(() => ({
+  enqueueDatabaseWrite: vi.fn(),
+}));
+
 vi.mock("./ctx", () => ctxMocks);
 
 vi.mock("./fetch", () => ({
@@ -35,14 +39,10 @@ vi.mock("./fetch", () => ({
 
 vi.mock("./process", () => processMocks);
 vi.mock("./storage", () => storageMocks);
-vi.mock("~/db/write-queue", () => ({
-  enqueueDatabaseWrite: (
-    _key: string,
-    write: () => Promise<unknown>,
-  ): Promise<unknown> => write(),
-}));
+vi.mock("~/db/write-queue", () => writeQueueMocks);
 
 import {
+  allowReconnectedCalendarConnections,
   CALENDAR_SYNC_TASK_ID,
   removeDisconnectedCalendarConnection,
   scheduleCalendarSync,
@@ -64,6 +64,9 @@ const managers: ReturnType<typeof createManager>[] = [];
 describe("syncCalendarEventsForRange", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    writeQueueMocks.enqueueDatabaseWrite.mockImplementation(
+      (_key: string, write: () => Promise<unknown>) => write(),
+    );
     ctxMocks.getProviderConnections.mockResolvedValue([
       { provider: "google", connection_ids: ["conn-1"] },
     ]);
@@ -116,6 +119,23 @@ describe("syncCalendarEventsForRange", () => {
     expect(ctxMocks.getProviderConnections).not.toHaveBeenCalled();
   });
 
+  test("allows recovery sync when disconnect persistence fails", async () => {
+    storageMocks.tombstoneCalendarConnection.mockRejectedValueOnce(
+      new Error("write failed"),
+    );
+
+    await expect(
+      removeDisconnectedCalendarConnection("google-calendar", "conn-1"),
+    ).rejects.toThrow("write failed");
+    await syncCalendarEventsForRange({ from: ctx.from, to: ctx.to });
+
+    expect(ctxMocks.syncCalendars).toHaveBeenCalledWith(
+      [{ provider: "google", connection_ids: ["conn-1"] }],
+      undefined,
+      expect.any(Function),
+    );
+  });
+
   test("does not start a range sync when already aborted", async () => {
     const abortController = new AbortController();
     abortController.abort();
@@ -139,6 +159,187 @@ describe("syncCalendarEventsForRange", () => {
     await syncCalendarEvents({ signal: abortController.signal });
 
     expect(ctxMocks.getProviderConnections).not.toHaveBeenCalled();
+  });
+
+  test("does not hold the database write queue while remote discovery is pending", async () => {
+    let resolveConnections:
+      | ((
+          connections: Array<{ provider: string; connection_ids: string[] }>,
+        ) => void)
+      | undefined;
+    ctxMocks.getProviderConnections.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveConnections = resolve;
+      }),
+    );
+
+    const sync = syncCalendarEventsForRange({ from: ctx.from, to: ctx.to });
+    await vi.waitFor(() => {
+      expect(ctxMocks.getProviderConnections).toHaveBeenCalledOnce();
+    });
+
+    expect(writeQueueMocks.enqueueDatabaseWrite).not.toHaveBeenCalled();
+
+    resolveConnections?.([]);
+    await sync;
+  });
+
+  test("serializes remote calendar syncs outside the database write queue", async () => {
+    let resolveFirst:
+      | ((
+          connections: Array<{ provider: string; connection_ids: string[] }>,
+        ) => void)
+      | undefined;
+    ctxMocks.getProviderConnections
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        }),
+      )
+      .mockResolvedValueOnce([]);
+
+    const first = syncCalendarEventsForRange({ from: ctx.from, to: ctx.to });
+    const second = syncCalendarEventsForRange({ from: ctx.from, to: ctx.to });
+    await vi.waitFor(() => {
+      expect(ctxMocks.getProviderConnections).toHaveBeenCalledOnce();
+    });
+
+    resolveFirst?.([]);
+    await first;
+    await second;
+
+    expect(ctxMocks.getProviderConnections).toHaveBeenCalledTimes(2);
+    expect(writeQueueMocks.enqueueDatabaseWrite).not.toHaveBeenCalled();
+  });
+
+  test("starts a queued sync with the latest connection generation", async () => {
+    let resolveFirst:
+      | ((
+          connections: Array<{ provider: string; connection_ids: string[] }>,
+        ) => void)
+      | undefined;
+    ctxMocks.getProviderConnections.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveFirst = resolve;
+      }),
+    );
+
+    const first = syncCalendarEventsForRange({ from: ctx.from, to: ctx.to });
+    const second = syncCalendarEventsForRange({ from: ctx.from, to: ctx.to });
+    await vi.waitFor(() => {
+      expect(ctxMocks.getProviderConnections).toHaveBeenCalledOnce();
+    });
+
+    await removeDisconnectedCalendarConnection(
+      "google-calendar",
+      "conn-removed",
+    );
+    resolveFirst?.([{ provider: "google", connection_ids: ["conn-1"] }]);
+    await Promise.all([first, second]);
+
+    expect(ctxMocks.getProviderConnections).toHaveBeenCalledTimes(2);
+    expect(ctxMocks.syncCalendars).toHaveBeenCalledWith(
+      [{ provider: "google", connection_ids: ["conn-1"] }],
+      undefined,
+      expect.any(Function),
+    );
+  });
+
+  test("disconnect invalidates remote work before it can restore stale data", async () => {
+    let resolveConnections:
+      | ((
+          connections: Array<{ provider: string; connection_ids: string[] }>,
+        ) => void)
+      | undefined;
+    ctxMocks.getProviderConnections.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveConnections = resolve;
+      }),
+    );
+
+    const sync = syncCalendarEventsForRange({ from: ctx.from, to: ctx.to });
+    await vi.waitFor(() => {
+      expect(ctxMocks.getProviderConnections).toHaveBeenCalledOnce();
+    });
+
+    await removeDisconnectedCalendarConnection("google-calendar", "conn-1");
+    resolveConnections?.([{ provider: "google", connection_ids: ["conn-1"] }]);
+    await sync;
+
+    expect(storageMocks.tombstoneCalendarConnection).toHaveBeenCalledWith(
+      "google",
+      "conn-1",
+    );
+    expect(ctxMocks.syncCalendars).not.toHaveBeenCalled();
+    expect(fetchMocks.fetchIncomingEvents).not.toHaveBeenCalled();
+
+    ctxMocks.getProviderConnections.mockResolvedValueOnce([]);
+    await syncCalendarEventsForRange({ from: ctx.from, to: ctx.to });
+
+    ctxMocks.syncCalendars.mockClear();
+    await syncCalendarEventsForRange({ from: ctx.from, to: ctx.to });
+    expect(ctxMocks.syncCalendars).toHaveBeenCalledWith(
+      [],
+      undefined,
+      expect.any(Function),
+    );
+    expect(ctxMocks.createCtx).not.toHaveBeenCalled();
+  });
+
+  test("ignores a stale connection without syncing provider inventory", async () => {
+    await removeDisconnectedCalendarConnection("google-calendar", "conn-1");
+    ctxMocks.syncCalendars.mockClear();
+
+    await syncCalendarEventsForRange({ from: ctx.from, to: ctx.to });
+
+    expect(ctxMocks.syncCalendars).toHaveBeenCalledWith(
+      [],
+      undefined,
+      expect.any(Function),
+    );
+    expect(ctxMocks.createCtx).not.toHaveBeenCalled();
+    expect(fetchMocks.fetchIncomingEvents).not.toHaveBeenCalled();
+
+    ctxMocks.getProviderConnections.mockResolvedValueOnce([]);
+    await syncCalendarEventsForRange({ from: ctx.from, to: ctx.to });
+  });
+
+  test("allows a calendar connection after the provider reconnects", async () => {
+    await removeDisconnectedCalendarConnection("google-calendar", "conn-1");
+    allowReconnectedCalendarConnections("google-calendar");
+    ctxMocks.syncCalendars.mockClear();
+
+    await syncCalendarEventsForRange({ from: ctx.from, to: ctx.to });
+
+    expect(ctxMocks.syncCalendars).toHaveBeenCalledWith(
+      [{ provider: "google", connection_ids: ["conn-1"] }],
+      undefined,
+      expect.any(Function),
+    );
+    expect(ctxMocks.createCtx).toHaveBeenCalledWith(
+      "google",
+      "conn-1",
+      expect.anything(),
+    );
+  });
+
+  test("reconnect invalidates a sync that filtered the disconnected connection", async () => {
+    await removeDisconnectedCalendarConnection("google-calendar", "conn-1");
+    ctxMocks.syncCalendars.mockImplementationOnce(
+      async (_connections, _signal, shouldStop) => {
+        allowReconnectedCalendarConnections("google-calendar");
+        expect(shouldStop()).toBe(true);
+      },
+    );
+
+    await syncCalendarEventsForRange({ from: ctx.from, to: ctx.to });
+
+    expect(ctxMocks.syncCalendars).toHaveBeenCalledWith(
+      [],
+      undefined,
+      expect.any(Function),
+    );
+    expect(ctxMocks.createCtx).not.toHaveBeenCalled();
   });
 
   test("reuses an active scheduled calendar sync", () => {
@@ -251,5 +452,9 @@ describe("syncCalendarEventsForRange", () => {
       sessionUpdates,
       participants,
     });
+    expect(writeQueueMocks.enqueueDatabaseWrite).toHaveBeenCalledWith(
+      "calendar-sync",
+      expect.any(Function),
+    );
   });
 });

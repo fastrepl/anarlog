@@ -34,13 +34,24 @@ type CalendarSyncOptions = {
   signal?: AbortSignal;
 };
 
+let calendarSyncTail: Promise<void> = Promise.resolve();
+let calendarSyncGeneration = 0;
+const disconnectedCalendarConnections = new Set<string>();
+
+function enqueueCalendarSync(sync: () => Promise<void>): Promise<void> {
+  const result = calendarSyncTail.catch(() => undefined).then(sync);
+  calendarSyncTail = result.catch(() => undefined);
+  return result;
+}
+
 export function syncCalendarEvents(
   options: CalendarSyncOptions = {},
 ): Promise<void> {
-  return enqueueDatabaseWrite("calendar-sync", async () => {
+  return enqueueCalendarSync(async () => {
+    const generation = calendarSyncGeneration;
     await Promise.all([
       new Promise((resolve) => setTimeout(resolve, 250)),
-      run(undefined, options),
+      run(undefined, options, generation),
     ]);
   });
 }
@@ -61,45 +72,70 @@ export function syncCalendarEventsForRange(
   range: CalendarSyncRange,
   options: CalendarSyncOptions = {},
 ): Promise<void> {
-  return enqueueDatabaseWrite("calendar-sync", () => run(range, options));
+  return enqueueCalendarSync(() => run(range, options, calendarSyncGeneration));
 }
 
 export function removeDisconnectedCalendarConnection(
   integrationId: string,
   connectionId: string,
 ): Promise<void> {
-  const provider: CalendarProviderType | null =
-    integrationId === "google-calendar"
-      ? "google"
-      : integrationId === "outlook"
-        ? "outlook"
-        : null;
+  const provider = calendarProviderForIntegration(integrationId);
 
   if (!provider) return Promise.resolve();
 
+  const key = connectionKey(provider, connectionId);
+  calendarSyncGeneration += 1;
+  disconnectedCalendarConnections.add(key);
   return enqueueDatabaseWrite("calendar-sync", () =>
     tombstoneCalendarConnection(provider, connectionId),
-  );
+  ).catch((error) => {
+    disconnectedCalendarConnections.delete(key);
+    throw error;
+  });
+}
+
+export function allowReconnectedCalendarConnections(
+  integrationId: string,
+): void {
+  const provider = calendarProviderForIntegration(integrationId);
+  if (!provider) return;
+
+  calendarSyncGeneration += 1;
+  const prefix = `${provider}:`;
+  for (const key of disconnectedCalendarConnections) {
+    if (key.startsWith(prefix)) disconnectedCalendarConnections.delete(key);
+  }
 }
 
 async function run(
   range?: CalendarSyncRange,
   options: CalendarSyncOptions = {},
+  generation = calendarSyncGeneration,
 ) {
-  if (isAborted(options.signal)) return;
+  const shouldStop = () => isStopped(options.signal, generation);
+  if (shouldStop()) return;
 
-  const providerConnections = await getProviderConnections();
-  if (isAborted(options.signal)) return;
+  const discoveredConnections = await getProviderConnections();
+  if (shouldStop()) return;
+  const providerConnections = excludeDisconnectedConnections(
+    discoveredConnections,
+  );
 
-  await syncCalendars(providerConnections, options.signal);
-  if (isAborted(options.signal)) return;
+  await syncCalendars(providerConnections, options.signal, shouldStop);
+  if (shouldStop()) return;
 
   for (const { provider, connection_ids } of providerConnections) {
     for (const connectionId of connection_ids) {
-      if (isAborted(options.signal)) return;
+      if (shouldStop()) return;
 
       try {
-        await runForConnection(provider, connectionId, range, options);
+        await runForConnection(
+          provider,
+          connectionId,
+          range,
+          options,
+          generation,
+        );
       } catch (error) {
         console.error(
           `[calendar-sync] Error syncing ${provider} (${connectionId}): ${error}`,
@@ -114,9 +150,11 @@ async function runForConnection(
   connectionId: string,
   range?: CalendarSyncRange,
   options: CalendarSyncOptions = {},
+  generation = calendarSyncGeneration,
 ) {
+  const shouldStop = () => isStopped(options.signal, generation);
   const ctx = await createCtx(provider, connectionId, range);
-  if (isAborted(options.signal)) return;
+  if (shouldStop()) return;
 
   let incoming;
   let incomingParticipants;
@@ -135,10 +173,10 @@ async function runForConnection(
     throw error;
   }
 
-  if (isAborted(options.signal)) return;
+  if (shouldStop()) return;
 
   const existing = await fetchExistingEvents(ctx, incoming);
-  if (isAborted(options.signal)) return;
+  if (shouldStop()) return;
 
   const events = syncEvents(ctx, {
     incoming,
@@ -148,27 +186,63 @@ async function runForConnection(
   const sessions = await loadSessionsForTrackingIds(
     incoming.map((event) => event.tracking_id_event),
   );
-  if (isAborted(options.signal)) return;
+  if (shouldStop()) return;
 
   const sessionUpdates = syncSessionEmbeddedEvents(ctx, incoming, sessions);
   const participantSnapshot = await loadParticipantSyncSnapshot(
     sessions,
     incomingParticipants,
   );
-  if (isAborted(options.signal)) return;
+  if (shouldStop()) return;
 
   const participants = syncSessionParticipants({
     incomingParticipants,
     snapshot: participantSnapshot,
   });
-  await applyConnectionSync({
-    ctx,
-    events,
-    sessionUpdates,
-    participants,
+  await enqueueDatabaseWrite("calendar-sync", async () => {
+    if (shouldStop()) return;
+    await applyConnectionSync({
+      ctx,
+      events,
+      sessionUpdates,
+      participants,
+    });
   });
 }
 
-function isAborted(signal: AbortSignal | undefined) {
-  return signal?.aborted === true;
+function isStopped(signal: AbortSignal | undefined, generation: number) {
+  return signal?.aborted === true || generation !== calendarSyncGeneration;
+}
+
+function excludeDisconnectedConnections(
+  providerConnections: Awaited<ReturnType<typeof getProviderConnections>>,
+) {
+  return providerConnections.flatMap(({ provider, connection_ids }) => {
+    const activeConnectionIds = connection_ids.filter(
+      (connectionId) =>
+        !disconnectedCalendarConnections.has(
+          connectionKey(provider, connectionId),
+        ),
+    );
+    return activeConnectionIds.length > 0
+      ? [{ provider, connection_ids: activeConnectionIds }]
+      : [];
+  });
+}
+
+function connectionKey(
+  provider: CalendarProviderType,
+  connectionId: string,
+): string {
+  return `${provider}:${connectionId}`;
+}
+
+function calendarProviderForIntegration(
+  integrationId: string,
+): CalendarProviderType | null {
+  return integrationId === "google-calendar"
+    ? "google"
+    : integrationId === "outlook"
+      ? "outlook"
+      : null;
 }
