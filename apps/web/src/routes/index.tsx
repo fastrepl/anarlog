@@ -287,9 +287,10 @@ const authCallbackSearchSchema = z.object({
     ])
     .optional()
     .catch(undefined),
-  flow: z.enum(["desktop", "web"]).optional().catch("desktop"),
+  flow: z.enum(["desktop", "web"]).optional().catch(undefined),
   scheme: desktopSchemeSchema.optional().catch("hyprnote"),
   redirect: z.string().optional(),
+  redirect_to: z.string().max(2048).optional(),
   error: z.string().optional(),
   error_description: z.string().optional(),
 });
@@ -297,24 +298,35 @@ const authCallbackSearchSchema = z.object({
 export const Route = createFileRoute("/")({
   validateSearch: authCallbackSearchSchema,
   beforeLoad: ({ search }) => {
-    const hasAuthCallback =
-      !!search.code || !!search.error || (!!search.token_hash && !!search.type);
+    if (search.token_hash && search.type) {
+      throw redirect({
+        to: "/confirm-auth/",
+        search: {
+          token_hash: search.token_hash,
+          type: search.type,
+          flow: search.flow,
+          scheme: search.scheme,
+          redirect: search.redirect,
+          redirect_to: search.redirect_to,
+        },
+      });
+    }
+
+    const hasAuthCallback = !!search.code || !!search.error;
 
     if (!hasAuthCallback) {
       return;
     }
 
-    const flow = search.flow ?? "desktop";
+    const flow = search.flow ?? "web";
     const scheme = search.scheme ?? "hyprnote";
 
     throw redirect({
-      to: "/auth/",
+      to: "/callback/auth/",
       search: {
         flow,
         scheme,
         code: search.code,
-        token_hash: search.token_hash,
-        type: search.type,
         redirect: search.redirect,
         error: search.error,
         error_description: search.error_description,

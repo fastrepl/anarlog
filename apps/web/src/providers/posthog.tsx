@@ -3,7 +3,7 @@ import posthog from "posthog-js";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 
 import { env } from "../env";
-import { isShareRoutePathname } from "../lib/share-route-privacy";
+import { isTelemetryPrivateLocation } from "../lib/auth-route-privacy";
 
 const isDev = import.meta.env.DEV;
 
@@ -30,7 +30,13 @@ export function PostHogProvider({
       return;
     }
 
-    if (!enabled || isShareRoutePathname(window.location.pathname)) {
+    if (
+      !enabled ||
+      isTelemetryPrivateLocation(
+        window.location.pathname,
+        window.location.search,
+      )
+    ) {
       if (didInitRef.current) {
         posthog.set_config({
           autocapture: false,
@@ -50,7 +56,12 @@ export function PostHogProvider({
         autocapture: true,
         capture_pageview: true,
         before_send: (event) =>
-          isShareRoutePathname(window.location.pathname) ? null : event,
+          isTelemetryPrivateLocation(
+            window.location.pathname,
+            window.location.search,
+          )
+            ? null
+            : event,
       });
       didInitRef.current = true;
     } else if (routeDisabledRef.current) {

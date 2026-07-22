@@ -1,10 +1,7 @@
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { jwtDecode } from "jwt-decode";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { CheckIcon, CopyIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { z } from "zod";
-
-import { deriveBillingInfo, type SupabaseJwtPayload } from "@hypr/supabase";
 
 import {
   AuthShell,
@@ -12,13 +9,21 @@ import {
   authPrimaryButtonClassName,
   authSecondaryButtonClassName,
 } from "@/components/auth-shell";
-import { exchangeOAuthCode, exchangeOtpToken } from "@/functions/auth";
+import { exchangeOAuthCode } from "@/functions/auth";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
-import { useAnalytics } from "@/hooks/use-posthog";
+import { useMountEffect } from "@/hooks/useMountEffect";
+import {
+  resolveAuthFlowContext,
+  toAuthFlowSearch,
+} from "@/lib/auth-flow-context";
 import {
   buildPostAuthDestination,
   sanitizeInternalReturnPath,
 } from "@/lib/auth-redirect";
+import {
+  prepareAuthRoutePrivacy,
+  readDesktopAuthHandoff,
+} from "@/lib/auth-route-privacy";
 
 const validateSearch = z.object({
   code: z.string().optional(),
@@ -33,11 +38,12 @@ const validateSearch = z.object({
       "email_change",
     ])
     .optional(),
-  flow: z.enum(["desktop", "web"]).default("desktop"),
+  flow: z.enum(["desktop", "web"]).default("web"),
   scheme: desktopSchemeSchema.catch("hyprnote"),
   redirect: z.string().optional(),
   access_token: z.string().optional(),
   refresh_token: z.string().optional(),
+  handoff: z.literal("stored").optional(),
   error: z.string().optional(),
   error_code: z.string().optional(),
   error_description: z.string().optional(),
@@ -50,131 +56,89 @@ export const Route = createFileRoute("/_view/callback/auth")({
     meta: [{ name: "robots", content: "noindex, nofollow" }],
   }),
   beforeLoad: async ({ search }) => {
-    if (search.flow === "web" && search.code) {
+    const context = resolveAuthFlowContext(search);
+
+    if (search.code) {
       const result = await exchangeOAuthCode({
-        data: { code: search.code, flow: "web" },
+        data: { code: search.code, flow: search.flow },
       });
 
-      if (result.success) {
-        if (search.type === "recovery") {
-          throw redirect({ to: "/update-password/", search: {} });
-        }
+      if (!result.success) {
+        throw redirectToExchangeError(search, result.error);
+      }
+
+      if (search.type === "recovery") {
+        throw redirect({
+          to: "/update-password/",
+          search: toAuthFlowSearch(context),
+        });
+      }
+
+      if (search.flow === "web") {
         throw redirect({
           href: buildPostAuthDestination({
             newAccount: result.newAccount,
             returnTo: search.redirect,
           }),
         } as any);
-      } else {
-        console.error(result.error);
       }
-    }
 
-    if (search.flow === "desktop" && search.code) {
-      const result = await exchangeOAuthCode({
-        data: { code: search.code, flow: "desktop" },
+      throw redirect({
+        to: "/callback/auth/",
+        search: {
+          flow: "desktop",
+          scheme: search.scheme,
+          access_token: result.access_token,
+          refresh_token: result.refresh_token,
+        },
       });
-
-      if (result.success) {
-        throw redirect({
-          to: "/callback/auth/",
-          search: {
-            flow: "desktop",
-            scheme: search.scheme,
-            access_token: result.access_token,
-            refresh_token: result.refresh_token,
-          },
-        });
-      } else {
-        console.error(result.error);
-      }
     }
 
     if (search.token_hash && search.type) {
-      if (search.type === "recovery") {
-        const result = await exchangeOtpToken({
-          data: {
-            token_hash: search.token_hash,
-            type: search.type,
-            flow: search.flow,
-          },
-        });
+      throw redirect({
+        to: "/confirm-auth/",
+        search: {
+          token_hash: search.token_hash,
+          type: search.type,
+          flow: search.flow,
+          scheme: search.scheme,
+          redirect: search.redirect,
+        },
+      });
+    }
 
-        if (result.success) {
-          throw redirect({ to: "/update-password/", search: {} });
-        } else {
-          console.error(result.error);
-        }
-      } else {
-        const result = await exchangeOtpToken({
-          data: {
-            token_hash: search.token_hash,
-            type: search.type,
-            flow: search.flow,
-          },
-        });
-
-        if (result.success) {
-          if (search.flow === "web") {
-            throw redirect({
-              href: buildPostAuthDestination({
-                newAccount: result.newAccount,
-                returnTo: search.redirect,
-              }),
-            } as any);
-          }
-
-          if (search.flow === "desktop") {
-            throw redirect({
-              to: "/callback/auth/",
-              search: {
-                flow: "desktop",
-                scheme: search.scheme,
-                access_token: result.access_token,
-                refresh_token: result.refresh_token,
-              },
-            });
-          }
-        } else {
-          console.error(result.error);
-        }
-      }
+    if (search.flow === "web" && !search.error) {
+      throw redirect({
+        href: sanitizeInternalReturnPath(search.redirect),
+      } as any);
     }
   },
 });
 
 function Component() {
   const search = Route.useSearch();
-  const navigate = useNavigate();
-  const { identify: identifyPosthog } = useAnalytics();
   const [copied, setCopied] = useState(false);
+  const [storedHandoff, setStoredHandoff] =
+    useState<ReturnType<typeof readDesktopAuthHandoff>>(null);
 
-  useEffect(() => {
-    if (!search.access_token) return;
-
-    try {
-      const payload = jwtDecode<SupabaseJwtPayload>(search.access_token);
-      const email = payload.email;
-      const userId = payload.sub;
-
-      if (userId) {
-        const billing = deriveBillingInfo(payload);
-        identifyPosthog(userId, {
-          ...(email ? { email } : {}),
-          plan: billing.plan,
-          trial_end_date: billing.trialEnd?.toISOString() ?? null,
-        });
-      }
-    } catch (e) {
-      console.error("Failed to decode JWT for identify:", e);
+  useMountEffect(() => {
+    prepareAuthRoutePrivacy();
+    if (
+      search.handoff === "stored" ||
+      (search.access_token && search.refresh_token)
+    ) {
+      setStoredHandoff(readDesktopAuthHandoff());
     }
-  }, [search.access_token, identifyPosthog]);
+  });
+
+  const accessToken = search.access_token ?? storedHandoff?.accessToken;
+  const refreshToken = search.refresh_token ?? storedHandoff?.refreshToken;
 
   const getDeeplink = () => {
-    if (search.access_token && search.refresh_token) {
+    if (accessToken && refreshToken) {
       const params = new URLSearchParams();
-      params.set("access_token", search.access_token);
-      params.set("refresh_token", search.refresh_token);
+      params.set("access_token", accessToken);
+      params.set("refresh_token", refreshToken);
       return `${search.scheme}://auth/callback?${params.toString()}`;
     }
     return null;
@@ -201,17 +165,12 @@ function Component() {
     }
   };
 
-  useEffect(() => {
-    if (search.flow === "web" && !search.error) {
-      navigate({
-        to: sanitizeInternalReturnPath(search.redirect),
-        search: {},
-        replace: true,
-      });
-    }
-  }, [search, navigate]);
-
   if (search.error) {
+    const retrySearch = toAuthFlowSearch(resolveAuthFlowContext(search));
+    const retryParams = new URLSearchParams({ flow: retrySearch.flow });
+    if (retrySearch.scheme) retryParams.set("scheme", retrySearch.scheme);
+    if (retrySearch.redirect) retryParams.set("redirect", retrySearch.redirect);
+
     return (
       <AuthShell
         title="Sign-in didn’t work"
@@ -225,7 +184,7 @@ function Component() {
           </p>
 
           <a
-            href={`/auth?flow=${search.flow}&scheme=${search.scheme}`}
+            href={`/auth?${retryParams.toString()}`}
             className={authPrimaryButtonClassName}
           >
             Try again
@@ -236,7 +195,7 @@ function Component() {
   }
 
   if (search.flow === "desktop") {
-    const hasTokens = search.access_token && search.refresh_token;
+    const hasTokens = accessToken && refreshToken;
 
     return (
       <AuthShell
@@ -307,4 +266,24 @@ function Component() {
       </AuthShell>
     );
   }
+}
+
+function redirectToExchangeError(
+  search: {
+    flow: "desktop" | "web";
+    scheme: z.infer<typeof desktopSchemeSchema>;
+    redirect?: string;
+  },
+  error: string,
+) {
+  return redirect({
+    to: "/callback/auth/",
+    search: {
+      flow: search.flow,
+      scheme: search.scheme,
+      redirect: search.redirect,
+      error: "exchange_failed",
+      error_description: error,
+    },
+  });
 }

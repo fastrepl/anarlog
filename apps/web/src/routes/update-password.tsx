@@ -6,6 +6,7 @@ import {
   useNavigate,
 } from "@tanstack/react-router";
 import { useState } from "react";
+import { z } from "zod";
 
 import {
   AuthShell,
@@ -13,28 +14,40 @@ import {
   authPrimaryButtonClassName,
 } from "@/components/auth-shell";
 import { doUpdatePassword, fetchUser } from "@/functions/auth";
+import { flowSearchSchema } from "@/functions/desktop-flow";
+import { toAuthFlowSearch } from "@/lib/auth-flow-context";
+
+const validateSearch = flowSearchSchema({
+  redirect: z.string().optional(),
+});
 
 export const Route = createFileRoute("/update-password")({
+  validateSearch,
   component: Component,
   head: () => ({
     meta: [{ name: "robots", content: "noindex, nofollow" }],
   }),
-  beforeLoad: async () => {
+  beforeLoad: async ({ search }) => {
     const user = await fetchUser();
     if (!user) {
-      throw redirect({ to: "/auth/", search: { flow: "web" } });
+      throw redirect({
+        to: "/auth/",
+        search: toAuthFlowSearch(search),
+      });
     }
   },
 });
 
 function Component() {
+  const context = Route.useSearch();
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
   const updateMutation = useMutation({
-    mutationFn: () => doUpdatePassword({ data: { password } }),
+    mutationFn: () =>
+      doUpdatePassword({ data: { password, flow: context.flow } }),
     onSuccess: (result) => {
       if (result && "error" in result && result.error) {
         setErrorMessage(
@@ -43,7 +56,27 @@ function Component() {
         return;
       }
       if (result && "success" in result && result.success) {
-        navigate({ to: "/auth/", search: { flow: "web" } });
+        if (
+          context.flow === "desktop" &&
+          "access_token" in result &&
+          "refresh_token" in result
+        ) {
+          navigate({
+            to: "/callback/auth/",
+            search: {
+              flow: "desktop",
+              scheme: context.scheme,
+              access_token: result.access_token,
+              refresh_token: result.refresh_token,
+            },
+          });
+          return;
+        }
+
+        navigate({
+          to: "/auth/",
+          search: toAuthFlowSearch(context),
+        });
       }
     },
   });
@@ -100,7 +133,7 @@ function Component() {
 
       <Link
         to="/auth/"
-        search={{ flow: "web" }}
+        search={toAuthFlowSearch(context)}
         className="mt-5 flex items-center justify-center gap-1 text-sm text-[#756b5d] transition-colors hover:text-[#181613]"
       >
         Back to sign in

@@ -2,7 +2,7 @@ import { HoneycombWebSDK } from "@honeycombio/opentelemetry-web";
 import { getWebAutoInstrumentations } from "@opentelemetry/auto-instrumentations-web";
 
 import { env } from "./env";
-import { isShareRoutePathname } from "./lib/share-route-privacy";
+import { isTelemetryPrivateLocation } from "./lib/auth-route-privacy";
 
 declare global {
   interface Window {
@@ -79,7 +79,7 @@ function getPropagationTargets(): string[] {
 export function bootstrapBrowserTelemetry() {
   if (
     typeof window === "undefined" ||
-    isShareRoutePathname(window.location.pathname)
+    isTelemetryPrivateLocation(window.location.pathname, window.location.search)
   ) {
     return;
   }

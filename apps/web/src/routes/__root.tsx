@@ -11,6 +11,7 @@ import {
 import { Toaster } from "@hypr/ui/components/ui/toast";
 
 import { WebProviders } from "@/components/web-providers";
+import { isTelemetryPrivateLocation } from "@/lib/auth-route-privacy";
 import {
   ANARLOG_SITE_URL,
   DEFAULT_OG_IMAGE_URL,
@@ -18,7 +19,6 @@ import {
   ROOT_KEYWORDS,
   ROOT_TITLE,
 } from "@/lib/seo";
-import { isShareRoutePathname } from "@/lib/share-route-privacy";
 import appCss from "@/styles.css?url";
 
 interface RouterContext {
@@ -99,7 +99,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 function RootApp() {
   const { queryClient } = Route.useRouteContext();
   const telemetryEnabled = useRouterState({
-    select: (state) => !isShareRoutePathname(state.location.pathname),
+    select: (state) =>
+      !isTelemetryPrivateLocation(
+        state.location.pathname,
+        state.location.search,
+      ),
   });
 
   return (

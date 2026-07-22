@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { useMountEffect } from "@/hooks/useMountEffect";
-import { isShareRoutePathname } from "@/lib/share-route-privacy";
+import { isTelemetryPrivateLocation } from "@/lib/auth-route-privacy";
 import { PostHogProvider } from "@/providers/posthog";
 import { bootstrapBrowserTelemetry, stopBrowserTelemetry } from "@/telemetry";
 
@@ -30,7 +30,10 @@ function GoogleAnalyticsScript() {
       typeof document === "undefined" ||
       import.meta.env.DEV ||
       window.location.pathname.startsWith("/admin") ||
-      isShareRoutePathname(window.location.pathname)
+      isTelemetryPrivateLocation(
+        window.location.pathname,
+        window.location.search,
+      )
     ) {
       return;
     }
@@ -69,7 +72,10 @@ function MicrosoftClarityScript() {
       typeof document === "undefined" ||
       import.meta.env.DEV ||
       window.location.pathname.startsWith("/admin") ||
-      isShareRoutePathname(window.location.pathname)
+      isTelemetryPrivateLocation(
+        window.location.pathname,
+        window.location.search,
+      )
     ) {
       return;
     }

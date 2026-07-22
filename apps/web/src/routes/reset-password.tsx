@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeftIcon } from "lucide-react";
 import { useState } from "react";
+import { z } from "zod";
 
 import {
   AuthShell,
@@ -10,8 +11,15 @@ import {
   authPrimaryButtonClassName,
 } from "@/components/auth-shell";
 import { doPasswordResetRequest } from "@/functions/auth";
+import { flowSearchSchema } from "@/functions/desktop-flow";
+import { toAuthFlowSearch } from "@/lib/auth-flow-context";
+
+const validateSearch = flowSearchSchema({
+  redirect: z.string().optional(),
+});
 
 export const Route = createFileRoute("/reset-password")({
+  validateSearch,
   component: Component,
   head: () => ({
     meta: [{ name: "robots", content: "noindex, nofollow" }],
@@ -19,12 +27,13 @@ export const Route = createFileRoute("/reset-password")({
 });
 
 function Component() {
+  const context = Route.useSearch();
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   const resetMutation = useMutation({
-    mutationFn: () => doPasswordResetRequest({ data: { email } }),
+    mutationFn: () => doPasswordResetRequest({ data: { email, ...context } }),
     onSuccess: (result) => {
       if (result && "error" in result && result.error) {
         setErrorMessage(
@@ -79,7 +88,7 @@ function Component() {
 
       <Link
         to="/auth/"
-        search={{ flow: "web" }}
+        search={toAuthFlowSearch(context)}
         className="mt-5 flex items-center justify-center gap-1 text-sm text-[#756b5d] transition-colors hover:text-[#181613]"
       >
         <ArrowLeftIcon className="size-3.5" />

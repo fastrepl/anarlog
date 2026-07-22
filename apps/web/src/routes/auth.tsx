@@ -23,6 +23,7 @@ import {
   fetchUser,
 } from "@/functions/auth";
 import { type DesktopScheme, flowSearchSchema } from "@/functions/desktop-flow";
+import { toAuthFlowSearch } from "@/lib/auth-flow-context";
 import {
   buildPostAuthDestination,
   sanitizeInternalReturnPath,
@@ -478,6 +479,7 @@ function PasswordForm({
         {!isSignUp && (
           <Link
             to="/reset-password/"
+            search={toAuthFlowSearch({ flow, scheme, redirect })}
             className="text-sm text-[#756b5d] transition-colors hover:text-[#181613] hover:underline"
           >
             Forgot password?

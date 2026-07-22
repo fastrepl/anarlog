@@ -414,13 +414,18 @@ export const doPasswordResetRequest = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       email: z.string().email(),
+      flow: z.enum(["desktop", "web"]).default("web"),
+      scheme: desktopSchemeSchema.optional(),
+      redirect: z.string().optional(),
     }),
   )
   .handler(async ({ data }) => {
     const supabase = getSupabaseServerClient();
+    const params = buildAuthCallbackParams(data);
+    params.set("type", "recovery");
 
     const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-      redirectTo: `${getRequestAppOrigin()}/callback/auth?flow=web&type=recovery`,
+      redirectTo: buildAuthCallbackUrl(params),
     });
 
     if (error) {
@@ -434,17 +439,29 @@ export const doUpdatePassword = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       password: z.string().min(6),
+      flow: z.enum(["desktop", "web"]).default("web"),
     }),
   )
   .handler(async ({ data }) => {
     const supabase = getSupabaseServerClient();
 
-    const { error } = await supabase.auth.updateUser({
+    const { data: authData, error } = await supabase.auth.updateUser({
       password: data.password,
     });
 
     if (error) {
       return { error: true, message: error.message };
+    }
+
+    if (data.flow === "desktop" && authData.user.email) {
+      const session = await mintDesktopSessionFromEmail(authData.user.email);
+      if (session) {
+        return {
+          success: true,
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        };
+      }
     }
 
     return { success: true };

@@ -14,6 +14,7 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as DiscordRouteImport } from './routes/discord'
+import { Route as ConfirmAuthRouteImport } from './routes/confirm-auth'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ViewRouteRouteImport } from './routes/_view/route'
 import { Route as IndexRouteImport } from './routes/index'
@@ -100,6 +101,11 @@ const PrivacyRoute = PrivacyRouteImport.update({
 const DiscordRoute = DiscordRouteImport.update({
   id: '/discord',
   path: '/discord',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfirmAuthRoute = ConfirmAuthRouteImport.update({
+  id: '/confirm-auth',
+  path: '/confirm-auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -423,6 +429,7 @@ const ApiOgSharePublicPublicSlugRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/confirm-auth': typeof ConfirmAuthRoute
   '/discord': typeof DiscordRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -491,6 +498,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/confirm-auth': typeof ConfirmAuthRoute
   '/discord': typeof DiscordRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -560,6 +568,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_view': typeof ViewRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/confirm-auth': typeof ConfirmAuthRoute
   '/discord': typeof DiscordRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -630,6 +639,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/confirm-auth'
     | '/discord'
     | '/privacy'
     | '/reset-password'
@@ -698,6 +708,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/confirm-auth'
     | '/discord'
     | '/privacy'
     | '/reset-password'
@@ -766,6 +777,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_view'
     | '/auth'
+    | '/confirm-auth'
     | '/discord'
     | '/privacy'
     | '/reset-password'
@@ -836,6 +848,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ViewRouteRoute: typeof ViewRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ConfirmAuthRoute: typeof ConfirmAuthRoute
   DiscordRoute: typeof DiscordRoute
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -924,6 +937,13 @@ declare module '@tanstack/react-router' {
       path: '/discord'
       fullPath: '/discord'
       preLoaderRoute: typeof DiscordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/confirm-auth': {
+      id: '/confirm-auth'
+      path: '/confirm-auth'
+      fullPath: '/confirm-auth'
+      preLoaderRoute: typeof ConfirmAuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -1413,6 +1433,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ViewRouteRoute: ViewRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ConfirmAuthRoute: ConfirmAuthRoute,
   DiscordRoute: DiscordRoute,
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,

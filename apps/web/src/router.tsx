@@ -4,10 +4,8 @@ import { createRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 
 import { env } from "./env";
-import {
-  isShareRoutePathname,
-  prepareShareRoutePrivacy,
-} from "./lib/share-route-privacy";
+import { isTelemetryPrivateLocation } from "./lib/auth-route-privacy";
+import { prepareShareRoutePrivacy } from "./lib/share-route-privacy";
 import { routeTree } from "./routeTree.gen";
 
 export function getRouter() {
@@ -23,11 +21,7 @@ export function getRouter() {
 
   prepareShareRoutePrivacy();
 
-  if (
-    !router.isServer &&
-    env.VITE_SENTRY_DSN &&
-    !isShareRoutePathname(window.location.pathname)
-  ) {
+  if (!router.isServer && env.VITE_SENTRY_DSN) {
     Sentry.init({
       dsn: env.VITE_SENTRY_DSN,
       release: env.VITE_APP_VERSION
@@ -36,9 +30,19 @@ export function getRouter() {
       sendDefaultPii: true,
       tracePropagationTargets: [],
       beforeSend: (event) =>
-        isShareRoutePathname(window.location.pathname) ? null : event,
+        isTelemetryPrivateLocation(
+          window.location.pathname,
+          window.location.search,
+        )
+          ? null
+          : event,
       beforeSendTransaction: (event) =>
-        isShareRoutePathname(window.location.pathname) ? null : event,
+        isTelemetryPrivateLocation(
+          window.location.pathname,
+          window.location.search,
+        )
+          ? null
+          : event,
     });
   }
 
