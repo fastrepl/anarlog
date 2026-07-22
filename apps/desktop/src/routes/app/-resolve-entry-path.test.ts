@@ -12,6 +12,7 @@ import {
   normalizeAppPath,
   resolveAppEntryPath,
   resolveShellEntryPath,
+  shouldCheckOnboarding,
 } from "./-resolve-entry-path";
 
 import { commands } from "~/types/tauri.gen";
@@ -48,5 +49,14 @@ describe("app entry path resolution", () => {
     expect(isShellEntryPath("/app/main/")).toBe(true);
     expect(isShellEntryPath("/app/unknown")).toBe(false);
     expect(isShellEntryPath("/app/onboarding")).toBe(false);
+  });
+
+  it("keeps standalone routes out of onboarding resolution", () => {
+    expect(shouldCheckOnboarding("/app")).toBe(true);
+    expect(shouldCheckOnboarding("/app/main/")).toBe(true);
+    expect(shouldCheckOnboarding("/app/onboarding")).toBe(true);
+    expect(shouldCheckOnboarding("/app/note/session-1")).toBe(false);
+    expect(shouldCheckOnboarding("/app/composer")).toBe(false);
+    expect(shouldCheckOnboarding("/app/instruction")).toBe(false);
   });
 });

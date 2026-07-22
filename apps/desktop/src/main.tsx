@@ -95,7 +95,6 @@ function AppRoot() {
   const manager = useCreateManager(() => {
     return createManager().start();
   });
-  const isMainWindow = getCurrentWebviewWindowLabel() === "main";
   const theme = useConfigValue("theme") as ThemePreference;
   useRemoteSessionDeletionUndoListener(isMainWindow);
 
@@ -115,7 +114,9 @@ function AppRoot() {
 
 initWindowsPlugin();
 
-if (getCurrentWebviewWindowLabel() === "main") {
+const isMainWindow = getCurrentWebviewWindowLabel() === "main";
+
+if (isMainWindow) {
   void initializeAppExitFlush().catch((error) => {
     console.error("Failed to initialize the exit flush listener", error);
   });
@@ -137,15 +138,17 @@ async function enableReactScanInDev() {
 }
 
 async function renderApp() {
-  await refreshLegacySettingsSnapshots().catch((error) => {
-    console.error("Failed to refresh legacy settings snapshots", error);
-  });
-  await initializeApplicationSettings().catch((error) => {
-    console.error("Failed to initialize application settings", error);
-  });
-  await migratePlaintextAiProviderApiKeys().catch((error) => {
-    console.error("Failed to migrate AI provider credentials", error);
-  });
+  if (isMainWindow) {
+    await refreshLegacySettingsSnapshots().catch((error) => {
+      console.error("Failed to refresh legacy settings snapshots", error);
+    });
+    await initializeApplicationSettings().catch((error) => {
+      console.error("Failed to initialize application settings", error);
+    });
+    await migratePlaintextAiProviderApiKeys().catch((error) => {
+      console.error("Failed to migrate AI provider credentials", error);
+    });
+  }
   await Promise.all([bootstrapThemeFromSettings(), enableReactScanInDev()]);
   const root = ReactDOM.createRoot(rootElement);
   root.render(

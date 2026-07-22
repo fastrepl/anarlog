@@ -37,3 +37,10 @@ export function isShellEntryPath(pathname: string): boolean {
   const normalizedPath = normalizeAppPath(pathname);
   return normalizedPath === "/app" || normalizedPath === "/app/main";
 }
+
+export function shouldCheckOnboarding(pathname: string): boolean {
+  const normalizedPath = normalizeAppPath(pathname);
+  return (
+    normalizedPath === "/app/onboarding" || isShellEntryPath(normalizedPath)
+  );
+}
