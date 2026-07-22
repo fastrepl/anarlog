@@ -105,17 +105,25 @@ export const createNavigationSlice = <T extends NavigationState & BasicState>(
       const slotHistory = nextHistory.get(currentTab.slotId);
       const historyFallback = slotHistory?.stack[slotHistory.currentIndex];
       const otherFallback = nextTabs.find((tab) => tab.active) ?? nextTabs[0];
-      const fallback = historyFallback ?? otherFallback;
+      const fallback: Tab | undefined =
+        type === "sessions"
+          ? {
+              type: "empty",
+              active: true,
+              slotId: currentTab.slotId,
+              pinned: false,
+            }
+          : (historyFallback ?? otherFallback);
 
       nextTabs = nextTabs.map((tab) => ({ ...tab, active: false }));
-      if (historyFallback) {
+      if (fallback && (type === "sessions" || historyFallback)) {
         const removedIndex = tabs.findIndex((tab) =>
           isResourceMatch(tab, type, id),
         );
         nextTabs.splice(
           Math.max(0, Math.min(removedIndex, nextTabs.length)),
           0,
-          { ...historyFallback, active: true },
+          { ...fallback, active: true },
         );
       } else if (fallback) {
         const fallbackIndex = nextTabs.findIndex(

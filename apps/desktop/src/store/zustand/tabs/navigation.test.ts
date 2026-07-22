@@ -183,7 +183,7 @@ describe("navigation", () => {
       expect(history.currentIndex).toBe(1);
     });
 
-    test("removes current active tab when invalidated", () => {
+    test("replaces the invalidated active session with the empty view", () => {
       const tab1 = createSessionTab();
       const tab2 = createSessionTab();
 
@@ -196,11 +196,28 @@ describe("navigation", () => {
       useTabs.getState().invalidateResource("sessions", tab2.id);
 
       const state = useTabs.getState();
-      expect(state.tabs).toHaveLength(1);
-      expect(state).toHaveCurrentTab({ id: tab1.id });
+      expect(state.tabs).toHaveLength(2);
+      expect(state).toHaveCurrentTab({ type: "empty" });
+      expect(state.tabs[0]).toMatchObject({ id: tab1.id, active: false });
     });
 
-    test("removes slot when all tabs in slot are invalidated", () => {
+    test("shows the empty view instead of restoring prior slot history", () => {
+      const tab = createSessionTab();
+
+      useTabs.getState().openNew({ type: "settings" });
+      useTabs.getState().openCurrent(tab);
+
+      useTabs.getState().invalidateResource("sessions", tab.id);
+
+      const state = useTabs.getState();
+      expect(state.tabs).toHaveLength(1);
+      expect(state).toHaveCurrentTab({ type: "empty" });
+      expect(
+        Array.from(state.history.values()).flatMap((entry) => entry.stack),
+      ).not.toContainEqual(expect.objectContaining({ id: tab.id }));
+    });
+
+    test("keeps the empty view after all sessions in a slot are invalidated", () => {
       const tab1 = createSessionTab();
       const tab2 = createSessionTab();
 
@@ -214,8 +231,8 @@ describe("navigation", () => {
       useTabs.getState().invalidateResource("sessions", tab2.id);
 
       const state = useTabs.getState();
-      expect(state.tabs).toHaveLength(0);
-      expect(state.currentTab).toBeNull();
+      expect(state.tabs).toHaveLength(1);
+      expect(state).toHaveCurrentTab({ type: "empty" });
       expect(state.history.size).toBe(0);
     });
 
