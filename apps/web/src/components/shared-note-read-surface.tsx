@@ -33,6 +33,7 @@ import { cn } from "@hypr/utils";
 
 import {
   DRAFT_COMMENT_ID,
+  SharedNoteCommentCard,
   SharedNoteCommentRail,
 } from "@/components/shared-note-comment-rail";
 import {
@@ -136,12 +137,6 @@ export function SharedNoteReadSurface({
   >([]);
 
   const railVisible = useCommentRailVisible();
-  // The draft composer lives in the rail; when the viewport shrinks below
-  // the rail's breakpoint an open draft would have no cancel/submit UI.
-  if (!railVisible && draft) {
-    setDraft(null);
-  }
-
   const commentsQuery = useSharedNoteComments({ enabled: signedIn, shareId });
   const createMutation = useCreateSharedNoteComment({
     shareId,
@@ -155,6 +150,14 @@ export function SharedNoteReadSurface({
   const composeEnabled =
     canCompose &&
     hasSharedNoteCollaborationAccess(commentsQuery.data?.pages[0]);
+  const railItems = anchoredComments.filter(
+    (comment) => comment.anchor !== null && comment.range !== null,
+  );
+  const activeComment = activeCommentId
+    ? (railItems.find((comment) => comment.commentId === activeCommentId) ??
+      null)
+    : null;
+  const railHasContent = signedIn && (draft !== null || railItems.length > 0);
 
   const body = useMemo(
     () => withoutDuplicateLeadingTitle(snapshot.body, snapshot.title),
@@ -268,11 +271,6 @@ export function SharedNoteReadSurface({
     setActiveCommentId(commentId);
     const currentView = viewRef.current;
     if (currentView) setActiveCommentAnchor(currentView, commentId);
-    if (commentId && !window.matchMedia("(min-width: 80rem)").matches) {
-      document
-        .getElementById(`shared-comment-${commentId}`)
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
   };
 
   const handleAnchorsEvent = (event: CommentAnchorsEvent) => {
@@ -355,10 +353,14 @@ export function SharedNoteReadSurface({
   }
 
   return (
-    <div ref={attachContainer} className="relative">
+    <div
+      ref={attachContainer}
+      className="relative"
+      data-comment-rail={railHasContent ? "" : undefined}
+    >
       <SharedReadAttachmentsContext.Provider value={attachmentContext}>
         <NoteEditor
-          className="outline-hidden"
+          className="session-note-editor outline-hidden"
           commentAnchorsEnabled
           enforceTitleHeading={false}
           extraNodeViews={readAttachmentNodeViews}
@@ -395,24 +397,17 @@ export function SharedNoteReadSurface({
         rect={selectionRect}
         visible={composeEnabled && !draft}
       />
-      {/* The page shell reserves this width at xl+ via a :has() rule keyed
-          on data-comment-rail, so the rail stays inside its clip bounds.
-          Signed-out readers render no rail marker and keep the centered
-          column. */}
-      <div
-        className="absolute inset-y-0 left-full ml-6 hidden w-80 xl:block"
-        data-comment-rail={signedIn ? "" : undefined}
-      >
+      <div className="absolute inset-y-0 left-full ml-6 hidden w-[284px] xl:block">
         <SharedNoteCommentRail
           activeCommentId={activeCommentId}
           canDelete={(comment) => comment.isAuthor || manageAccess}
           composer={
-            draft
+            railVisible && draft
               ? { top: screenTops.get(DRAFT_COMMENT_ID) ?? draft.top }
               : null
           }
           composerNode={
-            draft ? (
+            railVisible && draft ? (
               <DraftComposer
                 error={createMutation.isError}
                 onCancel={() => {
@@ -426,12 +421,40 @@ export function SharedNoteReadSurface({
           }
           deletePending={deleteMutation.isPending}
           deletingCommentId={deleteMutation.variables ?? null}
-          items={anchoredComments.filter((comment) => comment.anchor !== null)}
+          items={railItems}
           onActivate={activateComment}
           onDelete={(commentId) => deleteMutation.mutate(commentId)}
           screenTops={screenTops}
         />
       </div>
+      {!railVisible && (draft || activeComment) && (
+        <div className="fixed inset-x-4 bottom-24 z-40 mx-auto w-auto max-w-sm xl:hidden">
+          {draft ? (
+            <DraftComposer
+              error={createMutation.isError}
+              onCancel={() => {
+                createMutation.reset();
+                setDraft(null);
+              }}
+              onSubmit={submitDraft}
+              pending={createMutation.isPending}
+            />
+          ) : activeComment ? (
+            <SharedNoteCommentCard
+              active
+              comment={activeComment}
+              deleteDisabled={deleteMutation.isPending}
+              deleting={
+                deleteMutation.isPending &&
+                deleteMutation.variables === activeComment.commentId
+              }
+              onActivate={() => activateComment(null)}
+              onDelete={() => deleteMutation.mutate(activeComment.commentId)}
+              showDelete={activeComment.isAuthor || manageAccess}
+            />
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

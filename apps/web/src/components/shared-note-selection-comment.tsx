@@ -76,9 +76,7 @@ export function SharedNoteSelectionComment({
       type="button"
       style={{ left: 0, position: "fixed", top: 0, visibility: "hidden" }}
       className={cn([
-        // Matches the comment rail's breakpoint: drafts compose inside the
-        // rail, so the pill only shows where the rail is visible.
-        "z-50 hidden items-center gap-1.5 xl:inline-flex",
+        "z-50 inline-flex items-center gap-1.5",
         "surface border-color-subtle rounded-full border px-3 py-1.5 shadow-md",
         "text-color font-mono text-xs font-medium",
         "hover:bg-surface-subtle transition-colors",

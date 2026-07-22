@@ -1,9 +1,8 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useCallback } from "react";
 
 import { PublicSharedNoteActions } from "@/components/shared-note-actions";
 import { SharedNoteChatPanel } from "@/components/shared-note-chat-panel";
-import { SharedNoteCollaboration } from "@/components/shared-note-collaboration";
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
 import { SharedNoteEditableViewer } from "@/components/shared-note-editable-viewer";
 import {
@@ -69,7 +68,6 @@ export const Route = createFileRoute("/share/public/$publicSlug")({
 });
 
 function Component() {
-  const router = useRouter();
   const { authenticatedResult, result, user } = Route.useLoaderData();
   const { publicSlug } = Route.useParams();
   const { scheme } = Route.useSearch();
@@ -120,28 +118,16 @@ function Component() {
       authenticatedNote={authenticatedNote}
       fallbackAccessLabel="Public note · View only"
       fallbackSnapshot={result.snapshot}
-      onAccessChanged={async () => {
-        await router.invalidate();
-        const refreshed = await readAuthenticatedSharedNote({
-          data: snapshot.shareId,
-        });
-        return refreshed.status === "ready" ? refreshed.note : null;
-      }}
       resolveAttachment={resolveAttachment}
       revokedBehavior="read-only"
       signedIn={user !== null}
       accessLabel={accessLabel}
-      collaboration={
-        <SharedNoteCollaboration
-          capability={authenticatedNote?.capability ?? "viewer"}
-          currentUserId={user?.id ?? null}
-          manageAccess={authenticatedNote?.manageAccess ?? false}
-          returnPath={returnPath}
-          shareId={snapshot.shareId}
-        />
-      }
       actions={
-        <PublicSharedNoteActions publicSlug={publicSlug} scheme={scheme} />
+        <PublicSharedNoteActions
+          canEdit={authenticatedNote?.capability === "editor"}
+          publicSlug={publicSlug}
+          scheme={scheme}
+        />
       }
       chat={(liveSnapshot) => (
         <SharedNoteChatPanel

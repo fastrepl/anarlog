@@ -5,7 +5,6 @@ import { useCallback } from "react";
 import { useShareRouteContinuation } from "@/components/share-route-continuation";
 import { LinkSharedNoteActions } from "@/components/shared-note-actions";
 import { SharedNoteChatPanel } from "@/components/shared-note-chat-panel";
-import { SharedNoteCollaboration } from "@/components/shared-note-collaboration";
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
 import { SharedNoteEditableViewer } from "@/components/shared-note-editable-viewer";
 import {
@@ -192,16 +191,6 @@ function LinkSharedNoteClient({
             : "Shared note · View only"
         }
         fallbackSnapshot={fallbackSnapshot}
-        onAccessChanged={async () => {
-          const [refreshed] = await Promise.all([
-            authenticatedQuery.refetch(),
-            hasToken ? snapshotQuery.refetch() : Promise.resolve(null),
-          ]);
-          return refreshed.status === "success" &&
-            refreshed.data.status === "ready"
-            ? refreshed.data.note
-            : null;
-        }}
         resolveAttachment={resolveAttachment}
         revokedBehavior="read-only"
         signedIn={currentUserId !== null}
@@ -211,17 +200,9 @@ function LinkSharedNoteClient({
             ? formatAuthenticatedSharedNoteAccessLabel(authenticatedNote)
             : "Anyone with the link · View only"
         }
-        collaboration={
-          <SharedNoteCollaboration
-            capability={authenticatedNote?.capability ?? "viewer"}
-            currentUserId={currentUserId}
-            manageAccess={authenticatedNote?.manageAccess ?? false}
-            returnPath={returnPath}
-            shareId={validShareId.data}
-          />
-        }
         actions={
           <LinkSharedNoteActions
+            canEdit={authenticatedNote?.capability === "editor"}
             pathname={pathname}
             scheme={scheme}
             shareId={validShareId.data}

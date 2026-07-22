@@ -272,7 +272,7 @@ export function SharedNoteEditorSurface({
       <SharedEditorAttachmentsContext.Provider value={attachmentById}>
         <NoteEditor
           ref={editorRef}
-          className="min-h-80 outline-hidden"
+          className="session-note-editor min-h-80 outline-hidden"
           commentAnchorsEnabled
           extraNodeViews={lockedAttachmentNodeViews}
           initialContent={initialContent}

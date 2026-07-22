@@ -1,9 +1,8 @@
-import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useCallback } from "react";
 
 import { AccountSharedNoteActions } from "@/components/shared-note-actions";
 import { SharedNoteChatPanel } from "@/components/shared-note-chat-panel";
-import { SharedNoteCollaboration } from "@/components/shared-note-collaboration";
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
 import { SharedNoteEditableViewer } from "@/components/shared-note-editable-viewer";
 import {
@@ -62,9 +61,7 @@ export const Route = createFileRoute("/share/$shareId")({
 });
 
 function Component() {
-  const router = useRouter();
   const { result } = Route.useLoaderData();
-  const { user } = Route.useRouteContext();
   const { scheme } = Route.useSearch();
   const note = result.status === "ready" ? result.note : null;
   const resolveAttachment = useCallback<SharedAttachmentResolver>(
@@ -97,28 +94,13 @@ function Component() {
         authenticatedNote={note}
         fallbackAccessLabel="Shared note · View only"
         fallbackSnapshot={note.snapshot}
-        onAccessChanged={async () => {
-          await router.invalidate();
-          const refreshed = await readAuthenticatedSharedNote({
-            data: note.snapshot.shareId,
-          });
-          return refreshed.status === "ready" ? refreshed.note : null;
-        }}
         resolveAttachment={resolveAttachment}
         revokedBehavior="read-only"
         signedIn={true}
         accessLabel={formatAuthenticatedSharedNoteAccessLabel(note)}
-        collaboration={
-          <SharedNoteCollaboration
-            capability={note.capability}
-            currentUserId={user.id}
-            manageAccess={note.manageAccess}
-            returnPath={returnPath}
-            shareId={note.snapshot.shareId}
-          />
-        }
         actions={
           <AccountSharedNoteActions
+            canEdit={note.capability === "editor"}
             scheme={scheme}
             shareId={note.snapshot.shareId}
           />

@@ -51,11 +51,11 @@ export function SharedNoteDocument({
   }, [attachments, document]);
   return (
     <AttachmentContext.Provider value={context}>
-      <div className="shared-note-document text-color text-base leading-7">
+      <div className="ProseMirror prosemirror-editor session-note-editor shared-note-document text-color">
         {renderChildren(document.content, "document")}
         {unreferencedAttachments.length > 0 ? (
           <section className="border-color-subtle mt-10 border-t pt-6">
-            <h2 className="mb-3 font-mono text-sm font-medium">Attachments</h2>
+            <h2>Attachments</h2>
             {unreferencedAttachments.map((attachment) => (
               <SharedAttachmentNode
                 key={attachment.id}
@@ -98,37 +98,16 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
     case "hardBreak":
       return <br key={key} />;
     case "paragraph":
-      return (
-        <p key={key} className="my-4 text-base leading-7">
-          {children}
-        </p>
-      );
+      return <p key={key}>{children}</p>;
     case "heading": {
       const level = getIntegerAttr(node, "level", 1, 6, 2);
-      return createElement(
-        `h${level}`,
-        {
-          key,
-          className: "font-mono mt-10 mb-4 text-xl font-medium first:mt-0",
-        },
-        children,
-      );
+      return createElement(`h${level}`, { key }, children);
     }
     case "blockquote":
-      return (
-        <blockquote
-          key={key}
-          className="border-color-brand text-color-muted my-6 border-l-2 pl-5"
-        >
-          {children}
-        </blockquote>
-      );
+      return <blockquote key={key}>{children}</blockquote>;
     case "codeBlock":
       return (
-        <pre
-          key={key}
-          className="surface-subtle my-6 overflow-x-auto rounded-xl p-4 font-mono text-sm leading-6"
-        >
+        <pre key={key}>
           <code>{children}</code>
         </pre>
       );
@@ -139,30 +118,18 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
     case "clip":
       return <SharedAttachmentNode key={key} node={node} />;
     case "bulletList":
-      return (
-        <ul key={key} className="my-4 list-disc space-y-1 pl-6">
-          {children}
-        </ul>
-      );
+      return <ul key={key}>{children}</ul>;
     case "orderedList":
       return (
-        <ol
-          key={key}
-          start={getIntegerAttr(node, "start", 1, 1_000_000, 1)}
-          className="my-4 list-decimal space-y-1 pl-6"
-        >
+        <ol key={key} start={getIntegerAttr(node, "start", 1, 1_000_000, 1)}>
           {children}
         </ol>
       );
     case "listItem":
-      return (
-        <li key={key} className="pl-1 text-base leading-7">
-          {children}
-        </li>
-      );
+      return <li key={key}>{children}</li>;
     case "taskList":
       return (
-        <ul key={key} className="my-4 list-none space-y-2 pl-0">
+        <ul key={key} data-type="taskList">
           {children}
         </ul>
       );
@@ -170,14 +137,16 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
       const checked =
         node.attrs?.checked === true || node.attrs?.status === "done";
       return (
-        <li key={key} className="flex items-start gap-3 text-base leading-7">
-          <input
-            type="checkbox"
-            checked={checked}
-            disabled
-            aria-label={checked ? "Completed task" : "Open task"}
-            className="border-color-brand mt-1.5 size-4 shrink-0 rounded"
-          />
+        <li key={key}>
+          <label className="task-checkbox-label">
+            <input
+              type="checkbox"
+              checked={checked}
+              disabled
+              aria-label={checked ? "Completed task" : "Open task"}
+              className="task-checkbox"
+            />
+          </label>
           <div className="min-w-0 flex-1">{children}</div>
         </li>
       );
@@ -405,24 +374,10 @@ function renderMarkedText(node: SharedNoteNode, key: string) {
         content = <s key={markKey}>{content}</s>;
         break;
       case "highlight":
-        content = (
-          <mark
-            key={markKey}
-            className="brand-yellow text-color rounded px-0.5"
-          >
-            {content}
-          </mark>
-        );
+        content = <mark key={markKey}>{content}</mark>;
         break;
       case "code":
-        content = (
-          <code
-            key={markKey}
-            className="surface-subtle rounded px-1.5 py-0.5 font-mono text-sm"
-          >
-            {content}
-          </code>
-        );
+        content = <code key={markKey}>{content}</code>;
         break;
       case "link": {
         const href = getSafeSharedNoteHref(mark.attrs?.href);
@@ -434,7 +389,6 @@ function renderMarkedText(node: SharedNoteNode, key: string) {
               target="_blank"
               rel="ugc noopener noreferrer"
               referrerPolicy="no-referrer"
-              className="text-color underline decoration-current underline-offset-2"
             >
               {content}
             </a>

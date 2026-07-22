@@ -1,5 +1,6 @@
 import {
   AlertCircleIcon,
+  CalendarDaysIcon,
   LoaderCircleIcon,
   RefreshCwIcon,
   UsersRoundIcon,
@@ -7,7 +8,6 @@ import {
 
 import { cn } from "@hypr/utils";
 
-import { AnarlogLogo } from "@/components/anarlog-logo";
 import {
   type SharedAttachmentResolver,
   SharedNoteDocument,
@@ -34,7 +34,6 @@ export const sharedSecondaryButtonClassName = cn([
 export function SharedNoteViewer({
   accessLabel,
   actions,
-  collaboration,
   documentContent,
   headerActions,
   notice,
@@ -44,7 +43,6 @@ export function SharedNoteViewer({
 }: {
   accessLabel: string;
   actions?: React.ReactNode;
-  collaboration?: React.ReactNode;
   documentContent?: React.ReactNode;
   headerActions?: React.ReactNode;
   notice?: React.ReactNode;
@@ -55,28 +53,49 @@ export function SharedNoteViewer({
   const body = withoutDuplicateLeadingTitle(snapshot.body, snapshot.title);
 
   return (
-    <SharedNoteShell>
-      <article className="surface border-color-subtle overflow-hidden rounded-3xl border shadow-sm xl:overflow-visible">
-        <header className="border-color-subtle border-b px-6 py-7 sm:px-10 sm:py-10">
-          <div className="flex items-start justify-between gap-4">
-            <div className="text-color-muted flex min-w-0 flex-wrap items-center gap-2 text-sm">
-              <UsersRoundIcon className="size-4" aria-hidden="true" />
-              <span>{accessLabel}</span>
-              <span aria-hidden="true">·</span>
-              <time dateTime={snapshot.publishedAt}>
-                {formatPublishedAt(snapshot.publishedAt)}
-              </time>
-            </div>
+    <SharedNoteShell
+      topActions={
+        headerActions || actions ? (
+          <div
+            className={cn([
+              "flex items-center gap-2",
+              "[&>a]:min-h-9 [&>a]:px-4 [&>button]:min-h-9 [&>button]:px-4",
+            ])}
+          >
             {headerActions}
+            {actions}
           </div>
+        ) : undefined
+      }
+    >
+      <article className="xl:overflow-visible">
+        <header className="mb-6">
           {showTitle && (
-            <h1 className="text-color mt-5 font-mono text-3xl font-medium text-balance sm:text-4xl">
+            <h1 className="text-color text-2xl leading-[1.875rem] font-semibold text-balance">
               {snapshot.title || "Untitled note"}
             </h1>
           )}
+          <div
+            className={cn([
+              "text-color-muted flex min-w-0 flex-wrap items-center gap-2 text-xs",
+              showTitle ? "mt-3" : "mb-6",
+            ])}
+          >
+            <span className="surface border-color-subtle inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3">
+              <UsersRoundIcon className="size-3.5" aria-hidden="true" />
+              {accessLabel}
+            </span>
+            <time
+              className="surface border-color-subtle inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3"
+              dateTime={snapshot.publishedAt}
+            >
+              <CalendarDaysIcon className="size-3.5" aria-hidden="true" />
+              {formatPublishedAt(snapshot.publishedAt)}
+            </time>
+          </div>
         </header>
 
-        <div className="px-6 py-7 sm:px-10 sm:py-10">
+        <div>
           {notice}
           {documentContent ?? (
             <SharedNoteDocument
@@ -87,22 +106,6 @@ export function SharedNoteViewer({
           )}
         </div>
       </article>
-
-      {collaboration}
-
-      {actions && (
-        <aside className="surface-subtle border-color-subtle mt-6 rounded-2xl border p-5 sm:flex sm:items-center sm:justify-between sm:gap-6">
-          <div>
-            <h2 className="text-color font-mono text-base font-medium">
-              Keep this note close
-            </h2>
-            <p className="text-color-muted mt-1 text-sm leading-6">
-              Open it in Anarlog, or try the local-first desktop app.
-            </p>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-3 sm:mt-0">{actions}</div>
-        </aside>
-      )}
     </SharedNoteShell>
   );
 }
@@ -189,36 +192,40 @@ export function SharedNotePrompt({
   );
 }
 
-function SharedNoteShell({ children }: { children: React.ReactNode }) {
+function SharedNoteShell({
+  children,
+  topActions,
+}: {
+  children: React.ReactNode;
+  topActions?: React.ReactNode;
+}) {
   return (
     <main
       className={cn([
-        "bg-page text-color min-h-screen overflow-x-clip px-4 py-5 sm:px-6 sm:py-8",
-        // The desktop chat panel ([data-chat-panel-open]) is fixed to the
-        // right edge outside this shell; reserving its width here keeps the
-        // note column and the anchored-comment rail clear of it.
-        "lg:[body:has([data-chat-panel-open])_&]:pr-[380px]",
+        "bg-page text-color min-h-screen overflow-x-clip",
+        "lg:[body:has([data-chat-panel-open])_&]:pr-[336px]",
       ])}
     >
-      <div
-        className={cn([
-          "mx-auto w-full max-w-[760px]",
-          // When an anchored comment rail is mounted ([data-comment-rail]),
-          // right padding reserves its width while keeping a 760px content
-          // box, so the rail renders inside the shell instead of being
-          // clipped by overflow-x-clip. Static fallbacks render no rail and
-          // keep the centered column.
-          "xl:has-[[data-comment-rail]]:max-w-[1104px] xl:has-[[data-comment-rail]]:pr-[344px]",
-        ])}
-      >
-        <header className="mb-8 flex items-center justify-between gap-4 px-1">
-          <a href="/" aria-label="Anarlog home">
-            <AnarlogLogo className="h-8 w-auto" />
-          </a>
+      <header className="bg-page/95 border-color-subtle sticky top-0 z-40 flex h-14 items-center justify-between gap-4 border-b px-4 backdrop-blur-sm sm:px-6">
+        <a
+          href="/"
+          aria-label="Anarlog home"
+          className="font-hand text-color text-2xl leading-none font-semibold"
+        >
+          anarlog
+        </a>
+        {topActions ?? (
           <span className="text-color-muted font-mono text-xs">
             Shared with Anarlog
           </span>
-        </header>
+        )}
+      </header>
+      <div
+        className={cn([
+          "mx-auto w-full max-w-[720px] px-5 py-8 sm:px-8 sm:py-10",
+          "xl:has-[[data-comment-rail]]:max-w-[1028px] xl:has-[[data-comment-rail]]:pr-[308px]",
+        ])}
+      >
         {children}
       </div>
     </main>

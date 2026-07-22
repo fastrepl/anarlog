@@ -1,15 +1,14 @@
-import { LoaderCircleIcon, Trash2Icon } from "lucide-react";
+import { LoaderCircleIcon, Trash2Icon, UserRoundIcon } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
-import { truncateSharedNoteCommentQuote } from "@/lib/shared-note-collaboration";
 import type { AnchoredSharedNoteComment } from "@/lib/shared-note-comment-anchors";
 import { layoutRailCards } from "@/lib/shared-note-comment-rail-layout";
 
 export const DRAFT_COMMENT_ID = "draft";
 
-const RAIL_CARD_GAP = 12;
+const RAIL_CARD_GAP = 10;
 
 export function SharedNoteCommentRail({
   activeCommentId,
@@ -72,7 +71,6 @@ export function SharedNoteCommentRail({
   };
 
   const anchoredItems = items.filter((item) => item.range !== null);
-  const unanchoredItems = items.filter((item) => item.range === null);
   const placements = layoutRailCards(
     [
       ...(composer
@@ -98,13 +96,8 @@ export function SharedNoteCommentRail({
   const topById = new Map(
     placements.map((placement) => [placement.id, placement.top]),
   );
-  const stackBottom = placements.reduce(
-    (bottom, placement) =>
-      Math.max(bottom, placement.top + (heights.get(placement.id) ?? 0)),
-    0,
-  );
 
-  if (!composer && anchoredItems.length === 0 && unanchoredItems.length === 0) {
+  if (!composer && anchoredItems.length === 0) {
     return null;
   }
 
@@ -126,7 +119,7 @@ export function SharedNoteCommentRail({
           className="absolute inset-x-0 transition-[top] duration-200"
           style={{ top: topById.get(item.commentId) ?? 0 }}
         >
-          <RailCard
+          <SharedNoteCommentCard
             active={item.commentId === activeCommentId}
             comment={item}
             deleteDisabled={deletePending}
@@ -141,32 +134,11 @@ export function SharedNoteCommentRail({
           />
         </div>
       ))}
-      {unanchoredItems.length > 0 && (
-        <div
-          className="absolute inset-x-0 space-y-3"
-          style={{ top: stackBottom + RAIL_CARD_GAP * 2 }}
-        >
-          <p className="border-color-subtle text-color-muted border-t pt-3 font-mono text-xs">
-            No longer anchored
-          </p>
-          {unanchoredItems.map((item) => (
-            <RailCard
-              key={item.commentId}
-              active={false}
-              comment={item}
-              deleteDisabled={deletePending}
-              deleting={deletePending && item.commentId === deletingCommentId}
-              onDelete={() => onDelete(item.commentId)}
-              showDelete={canDelete(item)}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 }
 
-function RailCard({
+export function SharedNoteCommentCard({
   active,
   comment,
   deleteDisabled = false,
@@ -199,22 +171,25 @@ function RailCard({
           : undefined
       }
       className={cn([
-        "surface rounded-2xl border p-4 text-left shadow-sm transition-shadow",
+        "surface rounded-xl border p-3.5 text-left shadow-sm transition-[border-color,box-shadow]",
         active ? "border-stone-400 shadow-md" : "border-color-subtle",
         onActivate && "cursor-pointer",
       ])}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-color font-mono text-xs font-medium">
-            {comment.isAuthor ? "You" : "Collaborator"}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="surface-subtle text-color-muted flex size-6 shrink-0 items-center justify-center rounded-full">
+            <UserRoundIcon className="size-3.5" aria-hidden="true" />
+          </span>
+          <p className="text-color min-w-0 truncate text-xs font-medium">
+            {comment.isAuthor ? "You" : "Collaborator"}{" "}
+            <time
+              className="text-color-muted font-normal"
+              dateTime={comment.createdAt}
+            >
+              {formatRelativeTime(comment.createdAt)}
+            </time>
           </p>
-          <time
-            className="text-color-muted mt-0.5 block text-[11px]"
-            dateTime={comment.createdAt}
-          >
-            {formatRelativeTime(comment.createdAt)}
-          </time>
         </div>
         {showDelete && (
           <button
@@ -238,12 +213,7 @@ function RailCard({
           </button>
         )}
       </div>
-      {comment.anchor && (
-        <p className="border-color-subtle text-color-muted mt-2 truncate border-l-2 pl-2 text-xs leading-5">
-          {truncateSharedNoteCommentQuote(comment.anchor.quoteExact)}
-        </p>
-      )}
-      <p className="text-color mt-2 text-sm leading-6 whitespace-pre-wrap">
+      <p className="text-color mt-3 text-sm leading-5 whitespace-pre-wrap">
         {comment.body}
       </p>
     </div>
