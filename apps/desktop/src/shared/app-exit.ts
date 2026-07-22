@@ -2,7 +2,7 @@ import { listen } from "@tauri-apps/api/event";
 
 import { commands as store2Commands } from "@hypr/plugin-store2";
 
-import { flushDatabaseWrites } from "~/db/write-queue";
+import { flushDatabaseWritesWithin } from "~/db/write-queue";
 import { confirmAllPendingDeletions } from "~/store/zustand/undo-delete";
 import { commands } from "~/types/tauri.gen";
 
@@ -22,6 +22,7 @@ export async function initializeAppExitFlush(): Promise<void> {
 }
 
 const PENDING_DELETION_EXIT_TIMEOUT_MS = 3000;
+const APPLICATION_STATE_FLUSH_TIMEOUT_MS = 5000;
 
 async function flushAndExit(): Promise<void> {
   try {
@@ -34,7 +35,10 @@ async function flushAndExit(): Promise<void> {
         setTimeout(resolve, PENDING_DELETION_EXIT_TIMEOUT_MS),
       ),
     ]);
-    await Promise.all([flushDatabaseWrites(), store2Commands.save()]);
+    await Promise.all([
+      flushDatabaseWritesWithin(APPLICATION_STATE_FLUSH_TIMEOUT_MS),
+      store2Commands.save(),
+    ]);
   } catch (error) {
     console.error("Failed to flush application data before exit", error);
   } finally {

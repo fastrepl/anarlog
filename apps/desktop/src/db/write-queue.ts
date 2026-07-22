@@ -35,6 +35,40 @@ export async function flushDatabaseWrites(
   }
 }
 
+export async function flushDatabaseWritesByPrefix(
+  prefixes: readonly string[],
+): Promise<void> {
+  const uniquePrefixes = [...new Set(prefixes)];
+  while (true) {
+    const keys = [...tails.keys()].filter((key) =>
+      uniquePrefixes.some((prefix) => key.startsWith(prefix)),
+    );
+    if (keys.length === 0) return;
+    await Promise.all(keys.map(flushDatabaseWriteKey));
+  }
+}
+
+export async function flushDatabaseWritesWithin(
+  timeoutMs: number,
+  keys?: readonly string[],
+): Promise<void> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      flushDatabaseWrites(keys),
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(
+          () =>
+            reject(new Error("Timed out waiting for local database writes")),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
 async function flushDatabaseWriteKey(key: string): Promise<void> {
   let failed = false;
   let failure: unknown;

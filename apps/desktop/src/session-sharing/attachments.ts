@@ -109,7 +109,7 @@ export function useSessionShareAttachments(sessionId: string) {
 }
 
 export async function loadSessionShareAttachments(sessionId: string) {
-  await flushDatabaseWrites();
+  await flushDatabaseWrites([`session:${sessionId}`, "attachment-transfers"]);
   return mapAttachmentRows(
     await liveQueryClient.execute<AttachmentRow>(SESSION_ATTACHMENTS_SQL, [
       sessionId,

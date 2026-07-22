@@ -2,22 +2,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   executeTransaction: vi.fn(),
+  liveQueryExecute: vi.fn(),
   enqueueDatabaseWrite: vi.fn(
     async (_key: string, write: () => Promise<unknown>) => write(),
   ),
+  flushDatabaseWrites: vi.fn(),
+  flushDatabaseWritesByPrefix: vi.fn(),
 }));
 
 vi.mock("~/db", () => ({
   executeTransaction: mocks.executeTransaction,
-  liveQueryClient: { execute: vi.fn() },
+  liveQueryClient: { execute: mocks.liveQueryExecute },
 }));
 
 vi.mock("~/db/write-queue", () => ({
   enqueueDatabaseWrite: mocks.enqueueDatabaseWrite,
-  flushDatabaseWrites: vi.fn(),
+  flushDatabaseWrites: mocks.flushDatabaseWrites,
+  flushDatabaseWritesByPrefix: mocks.flushDatabaseWritesByPrefix,
 }));
 
 import {
+  purgeForeignViewerSharedNoteCaches,
   purgeViewerSharedNoteCache,
   type SharedAttachmentCacheJob,
   sharedAttachmentCacheStore,
@@ -41,6 +46,35 @@ const job: SharedAttachmentCacheJob = {
 describe("shared attachment cache store", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.liveQueryExecute.mockResolvedValue([]);
+    mocks.flushDatabaseWrites.mockResolvedValue(undefined);
+    mocks.flushDatabaseWritesByPrefix.mockResolvedValue(undefined);
+  });
+
+  it("waits only for the active viewer cache before claiming work", async () => {
+    await expect(
+      sharedAttachmentCacheStore.claimNext("viewer-1"),
+    ).resolves.toBe(null);
+
+    expect(mocks.flushDatabaseWrites).toHaveBeenCalledWith([
+      "shared-attachment-cache-runner",
+      "shared-note-cache:viewer-1",
+    ]);
+  });
+
+  it("flushes only shared-cache domains before purging foreign viewers", async () => {
+    await purgeForeignViewerSharedNoteCaches(
+      "viewer-1",
+      vi.fn(async () => {}),
+      new AbortController().signal,
+    );
+
+    expect(mocks.flushDatabaseWrites).toHaveBeenCalledWith([
+      "shared-attachment-cache-runner",
+    ]);
+    expect(mocks.flushDatabaseWritesByPrefix).toHaveBeenCalledWith([
+      "shared-note-cache:",
+    ]);
   });
 
   it("invalidates a same-generation row resurrected while its bytes were deleted", async () => {

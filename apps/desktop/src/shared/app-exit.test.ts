@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   completeAppExit: vi.fn().mockResolvedValue(undefined),
-  flushDatabaseWrites: vi.fn().mockResolvedValue(undefined),
+  flushDatabaseWritesWithin: vi.fn().mockResolvedValue(undefined),
   listener: null as (() => void) | null,
   save: vi.fn().mockResolvedValue(undefined),
 }));
@@ -19,7 +19,7 @@ vi.mock("@hypr/plugin-store2", () => ({
 }));
 
 vi.mock("~/db/write-queue", () => ({
-  flushDatabaseWrites: mocks.flushDatabaseWrites,
+  flushDatabaseWritesWithin: mocks.flushDatabaseWritesWithin,
 }));
 
 vi.mock("~/types/tauri.gen", () => ({
@@ -32,7 +32,7 @@ describe("initializeAppExitFlush", () => {
     vi.clearAllMocks();
     mocks.listener = null;
     mocks.completeAppExit.mockResolvedValue(undefined);
-    mocks.flushDatabaseWrites.mockResolvedValue(undefined);
+    mocks.flushDatabaseWritesWithin.mockResolvedValue(undefined);
     mocks.save.mockResolvedValue(undefined);
   });
 
@@ -45,11 +45,11 @@ describe("initializeAppExitFlush", () => {
     await vi.waitFor(() =>
       expect(mocks.completeAppExit).toHaveBeenCalledOnce(),
     );
-    expect(mocks.flushDatabaseWrites).toHaveBeenCalledOnce();
+    expect(mocks.flushDatabaseWritesWithin).toHaveBeenCalledWith(5000);
     expect(mocks.save).toHaveBeenCalledOnce();
-    expect(mocks.flushDatabaseWrites.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.completeAppExit.mock.invocationCallOrder[0],
-    );
+    expect(
+      mocks.flushDatabaseWritesWithin.mock.invocationCallOrder[0],
+    ).toBeLessThan(mocks.completeAppExit.mock.invocationCallOrder[0]);
   });
 
   it("still exits when flushing fails", async () => {
@@ -57,7 +57,7 @@ describe("initializeAppExitFlush", () => {
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
-    mocks.flushDatabaseWrites.mockRejectedValue(error);
+    mocks.flushDatabaseWritesWithin.mockRejectedValue(error);
     const { initializeAppExitFlush } = await import("./app-exit");
     await initializeAppExitFlush();
 

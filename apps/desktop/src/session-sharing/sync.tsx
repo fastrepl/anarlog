@@ -140,6 +140,7 @@ export function OwnedSharedNotePublisher() {
             const currentState = await loadSessionShareSyncState(
               ownerUserId,
               revision.shareId,
+              durable.sessionId,
             );
             signal.throwIfAborted();
             if (durable.webEditBase || currentState?.status === "conflict") {

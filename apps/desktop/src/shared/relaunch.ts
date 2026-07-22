@@ -2,14 +2,18 @@ import { relaunch as tauriRelaunch } from "@tauri-apps/plugin-process";
 
 import { commands as store2Commands } from "@hypr/plugin-store2";
 
-import { flushDatabaseWrites } from "~/db/write-queue";
+import { flushDatabaseWritesWithin } from "~/db/write-queue";
 import { commands } from "~/types/tauri.gen";
 
 let pendingAutomaticRelaunch = false;
 let automaticRelaunchTimeout: ReturnType<typeof setTimeout> | null = null;
+const APPLICATION_STATE_FLUSH_TIMEOUT_MS = 5000;
 
 async function saveApplicationState(): Promise<void> {
-  await Promise.all([flushDatabaseWrites(), store2Commands.save()]);
+  await Promise.all([
+    flushDatabaseWritesWithin(APPLICATION_STATE_FLUSH_TIMEOUT_MS),
+    store2Commands.save(),
+  ]);
 }
 
 async function relaunch(): Promise<void> {

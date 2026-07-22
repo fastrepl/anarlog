@@ -1,7 +1,14 @@
-import { enqueueDurableSharedNoteCacheMutation } from "./cache";
+import {
+  enqueueDurableSharedNoteCacheMutation,
+  sharedNoteCacheWriteKey,
+} from "./cache";
 
 import { executeTransaction, liveQueryClient } from "~/db";
-import { enqueueDatabaseWrite, flushDatabaseWrites } from "~/db/write-queue";
+import {
+  enqueueDatabaseWrite,
+  flushDatabaseWrites,
+  flushDatabaseWritesByPrefix,
+} from "~/db/write-queue";
 
 export type SharedAttachmentCacheJob = {
   viewerUserId: string;
@@ -60,7 +67,10 @@ export const sharedAttachmentCacheStore = {
   async claimNext(
     viewerUserId: string,
   ): Promise<SharedAttachmentCacheJob | null> {
-    await flushDatabaseWrites();
+    await flushDatabaseWrites([
+      WRITE_KEY,
+      sharedNoteCacheWriteKey(viewerUserId),
+    ]);
     const rows = await liveQueryClient.execute<CacheSqlRow>(
       `
         SELECT
@@ -286,7 +296,10 @@ export const sharedAttachmentCacheStore = {
   },
 
   async listPresent(viewerUserId: string) {
-    await flushDatabaseWrites();
+    await flushDatabaseWrites([
+      WRITE_KEY,
+      sharedNoteCacheWriteKey(viewerUserId),
+    ]);
     return liveQueryClient.execute<
       Pick<CacheSqlRow, "share_id" | "attachment_id">
     >(
@@ -364,7 +377,10 @@ export async function purgeForeignViewerSharedNoteCaches(
   signal: AbortSignal,
 ) {
   signal.throwIfAborted();
-  await flushDatabaseWrites();
+  await Promise.all([
+    flushDatabaseWrites([WRITE_KEY]),
+    flushDatabaseWritesByPrefix(["shared-note-cache:"]),
+  ]);
   signal.throwIfAborted();
   const viewers = await liveQueryClient.execute<{ viewer_user_id: string }>(
     `

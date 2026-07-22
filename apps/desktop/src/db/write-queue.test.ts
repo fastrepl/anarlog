@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { enqueueDatabaseWrite, flushDatabaseWrites } from "./write-queue";
+import {
+  enqueueDatabaseWrite,
+  flushDatabaseWrites,
+  flushDatabaseWritesByPrefix,
+  flushDatabaseWritesWithin,
+} from "./write-queue";
 
 describe("database write queue", () => {
   it("serializes writes for the same record", async () => {
@@ -126,5 +131,64 @@ describe("database write queue", () => {
     await expect(
       enqueueDatabaseWrite("human:1", async () => "human-1"),
     ).resolves.toBe("human-1");
+  });
+
+  it("flushes a write domain without waiting for unrelated keys", async () => {
+    let releaseCache: (() => void) | undefined;
+    let releaseBackground: (() => void) | undefined;
+    const cacheWrite = enqueueDatabaseWrite(
+      "shared-note-cache:viewer-1",
+      () =>
+        new Promise<void>((resolve) => {
+          releaseCache = resolve;
+        }),
+    );
+    const backgroundWrite = enqueueDatabaseWrite(
+      "background-sync",
+      () =>
+        new Promise<void>((resolve) => {
+          releaseBackground = resolve;
+        }),
+    );
+
+    const flushed = vi.fn();
+    const flush = flushDatabaseWritesByPrefix(["shared-note-cache:"]).then(
+      flushed,
+    );
+    await vi.waitFor(() => {
+      expect(releaseCache).toBeTypeOf("function");
+      expect(releaseBackground).toBeTypeOf("function");
+    });
+
+    releaseCache?.();
+    await Promise.all([cacheWrite, flush]);
+    expect(flushed).toHaveBeenCalledOnce();
+
+    releaseBackground?.();
+    await backgroundWrite;
+  });
+
+  it("bounds lifecycle flushes without discarding the pending write", async () => {
+    let release: (() => void) | undefined;
+    const write = enqueueDatabaseWrite(
+      "session:slow",
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    await vi.waitFor(() => expect(release).toBeTypeOf("function"));
+    vi.useFakeTimers();
+
+    const flush = flushDatabaseWritesWithin(5000);
+    const rejection = expect(flush).rejects.toThrow(
+      "Timed out waiting for local database writes",
+    );
+    await vi.advanceTimersByTimeAsync(5000);
+    await rejection;
+
+    vi.useRealTimers();
+    release?.();
+    await write;
   });
 });

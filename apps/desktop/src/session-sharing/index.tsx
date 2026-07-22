@@ -179,10 +179,10 @@ function isInviteEmail(value: string) {
   );
 }
 
-class SharePreparationAbortedError extends ShareManagementError {
+class ShareOperationAbortedError extends ShareManagementError {
   constructor() {
     super();
-    this.name = "SharePreparationAbortedError";
+    this.name = "ShareOperationAbortedError";
   }
 }
 
@@ -200,6 +200,22 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
   const latestSessionIdRef = useRef(sessionId);
   latestSessionIdRef.current = sessionId;
   const prepareControllersRef = useRef(new Set<AbortController>());
+  const sharePreparationIdentityRef = useRef<SharePreparationIdentity | null>(
+    null,
+  );
+  const cancelSharePreparation = () => {
+    for (const controller of prepareControllersRef.current) {
+      controller.abort();
+    }
+    prepareControllersRef.current.clear();
+  };
+  const isActiveSharePreparation = (identity: SharePreparationIdentity) => {
+    const active = sharePreparationIdentityRef.current;
+    return (
+      active?.ownerUserId === identity.ownerUserId &&
+      active.sessionId === identity.sessionId
+    );
+  };
   const shareButtonLifecycleRef = useCallback(
     (node: HTMLButtonElement | null) => {
       if (node) return;
@@ -216,10 +232,12 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     const controller = new AbortController();
     prepareControllersRef.current.add(controller);
     try {
-      return await operation(controller.signal);
+      const result = await operation(controller.signal);
+      if (controller.signal.aborted) throw new ShareOperationAbortedError();
+      return result;
     } catch (error) {
       if (controller.signal.aborted) {
-        throw new SharePreparationAbortedError();
+        throw new ShareOperationAbortedError();
       }
       throw error;
     } finally {
@@ -253,6 +271,9 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
   const clearAbandonedSharePreparation = (
     identity: SharePreparationIdentity,
   ) => {
+    if (isActiveSharePreparation(identity)) {
+      sharePreparationIdentityRef.current = null;
+    }
     setSharePreparationIdentity((current) =>
       current &&
       current.ownerUserId === identity.ownerUserId &&
@@ -270,6 +291,8 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     (sharePreparationIdentity.ownerUserId !== accountUserId ||
       sharePreparationIdentity.sessionId !== sessionId)
   ) {
+    sharePreparationIdentityRef.current = null;
+    cancelSharePreparation();
     setSharePreparationIdentity(null);
     setWaitingForBilling(false);
   }
@@ -413,6 +436,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
       }),
     onSuccess: ({ identity, data }) => {
       if (
+        !isActiveSharePreparation(identity) ||
         latestAuthRef.current.session?.user.id !== identity.ownerUserId ||
         latestSessionIdRef.current !== identity.sessionId
       ) {
@@ -426,12 +450,14 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
       void queryClient.invalidateQueries({
         queryKey: ["durable-shared-note-cache", identity.ownerUserId],
       });
+      sharePreparationIdentityRef.current = null;
       setSharePreparationIdentity(null);
       setSharePanelIdentity(identity);
     },
     onError: (error, variables) => {
       if (
-        error instanceof SharePreparationAbortedError ||
+        error instanceof ShareOperationAbortedError ||
+        !isActiveSharePreparation(variables.identity) ||
         latestAuthRef.current.session?.user.id !==
           variables.identity.ownerUserId ||
         latestSessionIdRef.current !== variables.identity.sessionId
@@ -448,6 +474,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
       loadManagedSharedNoteForSession(identity.ownerUserId, identity.sessionId),
     onSuccess: (managedShare, identity) => {
       if (
+        !isActiveSharePreparation(identity) ||
         latestAuthRef.current.session?.user.id !== identity.ownerUserId ||
         latestSessionIdRef.current !== identity.sessionId
       ) {
@@ -455,6 +482,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
         return;
       }
       if (!managedShare) {
+        sharePreparationIdentityRef.current = null;
         setSharePreparationIdentity(null);
         setUpgradePromptIdentity(identity);
         return;
@@ -463,6 +491,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     },
     onError: (_error, identity) => {
       if (
+        !isActiveSharePreparation(identity) ||
         latestAuthRef.current.session?.user.id !== identity.ownerUserId ||
         latestSessionIdRef.current !== identity.sessionId
       ) {
@@ -501,6 +530,8 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
   );
 
   const closeSharePopover = () => {
+    sharePreparationIdentityRef.current = null;
+    cancelSharePreparation();
     setSharePanelIdentity(null);
     setSharePreparationIdentity(null);
     setWaitingForBilling(false);
@@ -510,6 +541,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
   };
 
   const runSharePreparation = (identity: SharePreparationIdentity) => {
+    if (!isActiveSharePreparation(identity)) return;
     setWaitingForBilling(false);
     if (!billing.isPaid) {
       freeShareMutation.mutate(identity);
@@ -519,8 +551,10 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
   };
 
   const startSharePreparation = (identity: SharePreparationIdentity) => {
+    cancelSharePreparation();
     initializeMutation.reset();
     freeShareMutation.reset();
+    sharePreparationIdentityRef.current = identity;
     setSharePreparationIdentity(identity);
     if (!billing.isReady) {
       setWaitingForBilling(true);
@@ -531,9 +565,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
 
   const handleShare = () => {
     if (sharePopoverOpen) {
-      if (!shareButtonPending && !sharePanelPendingRef.current) {
-        closeSharePopover();
-      }
+      closeSharePopover();
       return;
     }
     if (!auth.session || auth.session.user.is_anonymous === true) {
@@ -553,9 +585,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     <Popover
       open={sharePopoverOpen}
       onOpenChange={(open) => {
-        if (!open && !shareButtonPending && !sharePanelPendingRef.current) {
-          closeSharePopover();
-        }
+        if (!open) closeSharePopover();
       }}
     >
       <PopoverTrigger asChild>
@@ -668,12 +698,6 @@ function SessionSharePreparationContent({
       aria-labelledby="session-share-heading"
       aria-describedby="session-share-description"
       className="h-[240px] max-h-[calc(100vh-64px)] w-[320px] max-w-[calc(100vw-16px)] overflow-hidden"
-      onEscapeKeyDown={(event) => {
-        if (loading) event.preventDefault();
-      }}
-      onInteractOutside={(event) => {
-        if (loading) event.preventDefault();
-      }}
     >
       <AppFloatingPanel className="flex h-full flex-col overflow-hidden">
         <header className="border-border/60 border-b px-5 py-4 text-left">
@@ -718,7 +742,7 @@ function SessionSharePreparationContent({
         </div>
 
         <footer className="border-border/60 flex justify-end border-t px-5 py-3">
-          <Button type="button" size="sm" onClick={onClose} disabled={loading}>
+          <Button type="button" size="sm" onClick={onClose}>
             <CheckIcon className="size-3.5" aria-hidden="true" />
             <Trans>Done</Trans>
           </Button>
@@ -815,7 +839,12 @@ function SessionSharePopoverContent({
     const controller = new AbortController();
     operationControllersRef.current.add(controller);
     try {
-      return await operation(controller.signal);
+      const result = await operation(controller.signal);
+      if (controller.signal.aborted) throw new ShareOperationAbortedError();
+      return result;
+    } catch (error) {
+      if (controller.signal.aborted) throw new ShareOperationAbortedError();
+      throw error;
     } finally {
       operationControllersRef.current.delete(controller);
     }
@@ -870,6 +899,7 @@ function SessionSharePopoverContent({
     const syncState = await loadSessionShareSyncState(
       identity.ownerUserId,
       identity.shareId,
+      sessionId,
     );
     const syncStateIsCurrent =
       syncState?.status === "clean" &&
@@ -1036,7 +1066,8 @@ function SessionSharePopoverContent({
     onSuccess: () => {
       sonnerToast.success("Attachment settings updated.");
     },
-    onError: () => {
+    onError: (error) => {
+      if (error instanceof ShareOperationAbortedError) return;
       sonnerToast.error("Could not update attachment sharing.");
     },
     onSettled: onChanged,
@@ -1098,7 +1129,8 @@ function SessionSharePopoverContent({
           : "Email unavailable. Invite link copied instead.",
       );
     },
-    onError: () => {
+    onError: (error) => {
+      if (error instanceof ShareOperationAbortedError) return;
       sonnerToast.error("Could not create this invitation.");
     },
     onSettled: onChanged,
@@ -1113,7 +1145,8 @@ function SessionSharePopoverContent({
     onSuccess: () => {
       sonnerToast.success("Shared copy updated.");
     },
-    onError: () => {
+    onError: (error) => {
+      if (error instanceof ShareOperationAbortedError) return;
       sonnerToast.error("Could not update the shared copy.");
     },
     onSettled: onChanged,
@@ -1132,7 +1165,8 @@ function SessionSharePopoverContent({
     onSuccess: () => {
       sonnerToast.success("Desktop edits published. Sharing resumed.");
     },
-    onError: () => {
+    onError: (error) => {
+      if (error instanceof ShareOperationAbortedError) return;
       sonnerToast.error(
         "Could not publish the desktop edits. Check the latest web copy and try again.",
       );
@@ -1153,7 +1187,8 @@ function SessionSharePopoverContent({
         );
         requireActiveContext(signal);
       }),
-    onError: () => {
+    onError: (error) => {
+      if (error instanceof ShareOperationAbortedError) return;
       sonnerToast.error("Could not open the web copy.");
     },
   });
@@ -1177,16 +1212,22 @@ function SessionSharePopoverContent({
         await publishLatest(signal);
         context = requireActiveContext(signal);
         if (target === "link") {
+          let link;
           try {
-            let link = management.hasActiveLink
+            link = management.hasActiveLink
               ? await rotateSessionShareLink(context, identity.shareId)
               : await enableSessionShareLink(context, identity.shareId);
             if (!link.linkToken) {
               link = await rotateSessionShareLink(context, identity.shareId);
             }
-            const linkToken = link.linkToken;
-            if (!linkToken) throw new ShareManagementError();
-            requireActiveContext(signal);
+          } catch {
+            await restrictShare(withoutSignal(context), identity.shareId);
+            throw new ShareManagementError();
+          }
+          const linkToken = link.linkToken;
+          if (!linkToken) throw new ShareManagementError();
+          requireActiveContext(signal);
+          try {
             await copyText(
               buildSessionShareLinkUrl({
                 appBaseUrl: env.VITE_APP_URL,
@@ -1195,11 +1236,11 @@ function SessionSharePopoverContent({
                 desktopScheme: await getSessionShareDesktopScheme(),
               }),
             );
-            requireActiveContext(signal);
           } catch {
             await restrictShare(withoutSignal(context), identity.shareId);
             throw new ShareManagementError();
           }
+          requireActiveContext(signal);
           return { copied: true };
         }
 
@@ -1226,18 +1267,19 @@ function SessionSharePopoverContent({
               })();
         try {
           await setSessionShareScope(context, scopeInput);
-          requireActiveContext(signal);
         } catch {
           await restrictShare(withoutSignal(context), identity.shareId);
           throw new ShareManagementError();
         }
+        requireActiveContext(signal);
         return { copied: false };
       }),
     onSuccess: ({ copied }) => {
       sonnerToast.success(copied ? "Share link copied." : "Access updated.");
     },
-    onError: () => {
+    onError: (error) => {
       setOptimisticScope(null);
+      if (error instanceof ShareOperationAbortedError) return;
       sonnerToast.error("Could not update general access.");
     },
     onSettled: async () => {
@@ -1423,7 +1465,8 @@ function SessionSharePopoverContent({
             : "Access updated.",
       );
     },
-    onError: () => {
+    onError: (error) => {
+      if (error instanceof ShareOperationAbortedError) return;
       sonnerToast.error("Could not update this person's access.");
     },
     onSettled: onChanged,
@@ -1448,7 +1491,8 @@ function SessionSharePopoverContent({
     onSuccess: () => {
       sonnerToast.success("Share link copied.");
     },
-    onError: () => {
+    onError: (error) => {
+      if (error instanceof ShareOperationAbortedError) return;
       sonnerToast.error("Could not copy the share link.");
     },
   });
@@ -1506,12 +1550,6 @@ function SessionSharePopoverContent({
       aria-labelledby="session-share-heading"
       aria-describedby="session-share-description"
       className="h-[240px] max-h-[calc(100vh-64px)] w-[320px] max-w-[calc(100vw-16px)] overflow-hidden"
-      onEscapeKeyDown={(event) => {
-        if (anyPending) event.preventDefault();
-      }}
-      onInteractOutside={(event) => {
-        if (anyPending) event.preventDefault();
-      }}
     >
       <AppFloatingPanel className="flex h-full flex-col overflow-hidden">
         <div ref={operationLifecycleRef} className="contents">
