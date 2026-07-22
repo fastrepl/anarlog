@@ -660,7 +660,7 @@ function SessionSharePreparationContent({
       sideOffset={8}
       aria-labelledby="session-share-heading"
       aria-describedby="session-share-description"
-      className="w-[min(500px,calc(100vw-16px))] overflow-hidden"
+      className="h-[240px] max-h-[calc(100vh-64px)] w-[320px] max-w-[calc(100vw-16px)] overflow-hidden"
       onEscapeKeyDown={(event) => {
         if (loading) event.preventDefault();
       }}
@@ -668,7 +668,7 @@ function SessionSharePreparationContent({
         if (loading) event.preventDefault();
       }}
     >
-      <AppFloatingPanel className="flex max-h-[calc(100vh-64px)] flex-col overflow-hidden">
+      <AppFloatingPanel className="flex h-full flex-col overflow-hidden">
         <header className="border-border/60 border-b px-5 py-4 text-left">
           <div className="flex items-center gap-3">
             <div className="bg-accent flex size-9 items-center justify-center rounded-full">
@@ -691,7 +691,7 @@ function SessionSharePreparationContent({
           </div>
         </header>
 
-        <div className="flex min-h-52 items-center justify-center px-5 py-4">
+        <div className="flex min-h-0 flex-1 items-center justify-center px-5 py-4">
           {error && !loading ? (
             <div className="flex flex-col items-center gap-3 text-center">
               <p className="text-muted-foreground text-xs">
@@ -729,9 +729,9 @@ function SessionShareUpgradeContent({ onUpgrade }: { onUpgrade: () => void }) {
       sideOffset={8}
       aria-labelledby="session-share-upgrade-heading"
       aria-describedby="session-share-upgrade-description"
-      className="w-[320px] overflow-hidden"
+      className="h-[240px] max-h-[calc(100vh-64px)] w-[320px] max-w-[calc(100vw-16px)] overflow-hidden"
     >
-      <AppFloatingPanel className="flex flex-col items-center px-6 py-7 text-center">
+      <AppFloatingPanel className="flex h-full flex-col items-center overflow-y-auto px-6 py-7 text-center">
         <div className="bg-accent flex size-10 items-center justify-center rounded-full">
           <UsersIcon className="size-4" aria-hidden="true" />
         </div>
@@ -1433,7 +1433,7 @@ function SessionSharePopoverContent({
       sideOffset={8}
       aria-labelledby="session-share-heading"
       aria-describedby="session-share-description"
-      className="w-[min(500px,calc(100vw-16px))] overflow-hidden"
+      className="h-[240px] max-h-[calc(100vh-64px)] w-[320px] max-w-[calc(100vw-16px)] overflow-hidden"
       onEscapeKeyDown={(event) => {
         if (anyPending) event.preventDefault();
       }}
@@ -1441,7 +1441,7 @@ function SessionSharePopoverContent({
         if (anyPending) event.preventDefault();
       }}
     >
-      <AppFloatingPanel className="flex max-h-[calc(100vh-64px)] flex-col overflow-hidden">
+      <AppFloatingPanel className="flex h-full flex-col overflow-hidden">
         <div ref={operationLifecycleRef} className="contents">
           <header className="border-border/60 border-b px-5 py-4 text-left">
             <div className="flex items-center gap-3">
@@ -1467,7 +1467,7 @@ function SessionSharePopoverContent({
 
           <div className="scrollbar-soft min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
             {loading && !data ? (
-              <div className="text-muted-foreground flex min-h-52 items-center justify-center gap-2 text-xs">
+              <div className="text-muted-foreground flex min-h-full items-center justify-center gap-2 text-xs">
                 <Loader2Icon
                   className="size-4 animate-spin"
                   aria-hidden="true"
@@ -1475,7 +1475,7 @@ function SessionSharePopoverContent({
                 <Trans>Loading access…</Trans>
               </div>
             ) : error || !data || !management ? (
-              <div className="flex min-h-52 flex-col items-center justify-center gap-3 text-center">
+              <div className="flex min-h-full flex-col items-center justify-center gap-3 text-center">
                 <p className="text-muted-foreground text-xs">
                   <Trans>Access settings could not be loaded.</Trans>
                 </p>

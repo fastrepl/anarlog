@@ -143,7 +143,7 @@ export async function loadSessionShareSource(
     throw new Error("A signed-in account is required to share a note");
   }
 
-  await flushDatabaseWrites();
+  await flushDatabaseWrites([`session:${normalizedSessionId}`]);
   const [row] = await liveQueryClient.execute<SessionShareSourceSqlRow>(
     SESSION_SHARE_SOURCE_SQL,
     [

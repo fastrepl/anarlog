@@ -108,7 +108,9 @@ describe("loadSessionShareSource", () => {
       ACCOUNT_ID,
       "session-1",
     ]);
-    expect(mocks.flushDatabaseWrites).toHaveBeenCalledOnce();
+    expect(mocks.flushDatabaseWrites).toHaveBeenCalledWith([
+      "session:session-1",
+    ]);
     expect(mocks.flushDatabaseWrites.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.execute.mock.invocationCallOrder[0]!,
     );

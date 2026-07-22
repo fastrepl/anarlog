@@ -38,7 +38,7 @@ export async function flushCanonicalSessionEditorChanges(
       flushPendingChanges();
     }
   }
-  await flushDatabaseWrites();
+  await flushDatabaseWrites([`session:${sessionId}`]);
 }
 
 export async function isCanonicalSessionEditorActive(

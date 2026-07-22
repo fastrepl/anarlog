@@ -158,8 +158,16 @@ vi.mock("@hypr/ui/components/ui/popover", () => ({
     <div>{children}</div>
   ),
   Popover: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  PopoverContent: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="share-popover">{children}</div>
+  PopoverContent: ({
+    children,
+    className,
+  }: {
+    children: React.ReactNode;
+    className?: string;
+  }) => (
+    <div data-testid="share-popover" className={className}>
+      {children}
+    </div>
   ),
   PopoverTrigger: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
@@ -482,7 +490,12 @@ describe("SessionShareButton", () => {
     await openSharePopover();
 
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByTestId("share-popover")).not.toBeNull();
+    expect(screen.getByTestId("share-popover").className).toContain(
+      "h-[240px]",
+    );
+    expect(screen.getByTestId("share-popover").className).toContain(
+      "w-[320px]",
+    );
 
     fireEvent.click(trigger);
 

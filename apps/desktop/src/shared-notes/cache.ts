@@ -329,7 +329,7 @@ export async function loadManagedSharedNoteForSession(
 } | null> {
   const normalizedViewerUserId = requireIdentity(viewerUserId, "viewer user");
   const normalizedSessionId = requireIdentity(sessionId, "session");
-  await flushDatabaseWrites();
+  await flushDatabaseWrites([cacheWriteKey(normalizedViewerUserId)]);
   const rows = await liveQueryClient.execute<ManagedSharedNoteSqlRow>(
     `
       SELECT share_id, workspace_id, session_id

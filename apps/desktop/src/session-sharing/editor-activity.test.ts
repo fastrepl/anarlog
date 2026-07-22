@@ -95,7 +95,9 @@ describe("canonical session editor activity", () => {
 
     await flushCanonicalSessionEditorChanges("session-1");
 
-    expect(mocks.flushDatabaseWrites).toHaveBeenCalledOnce();
+    expect(mocks.flushDatabaseWrites).toHaveBeenCalledWith([
+      "session:session-1",
+    ]);
     unregisterCanonicalSessionEditor("session-1", firstView);
     unregisterCanonicalSessionEditor("session-1", secondView);
   });

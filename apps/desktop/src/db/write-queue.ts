@@ -18,13 +18,38 @@ export function enqueueDatabaseWrite<T>(
   return next;
 }
 
-export async function flushDatabaseWrites(): Promise<void> {
+export async function flushDatabaseWrites(
+  keys?: readonly string[],
+): Promise<void> {
+  if (keys) {
+    await Promise.all([...new Set(keys)].map(flushDatabaseWriteKey));
+    return;
+  }
+
   while (pending.size > 0) {
     const results = await Promise.allSettled(Array.from(pending));
     const failure = results.find(
       (result): result is PromiseRejectedResult => result.status === "rejected",
     );
     if (failure) throw failure.reason;
+  }
+}
+
+async function flushDatabaseWriteKey(key: string): Promise<void> {
+  let failed = false;
+  let failure: unknown;
+  while (true) {
+    const write = tails.get(key);
+    if (!write) {
+      if (failed) throw failure;
+      return;
+    }
+    try {
+      await write;
+    } catch (error) {
+      if (!failed) failure = error;
+      failed = true;
+    }
   }
 }
 
