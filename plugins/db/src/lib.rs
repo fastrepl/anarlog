@@ -313,6 +313,20 @@ mod test {
         assert!(!permissions.contains("allow-sync-cloudsync-now"));
     }
 
+    #[test]
+    fn default_permissions_include_legacy_migration_workflow() {
+        let permissions = include_str!("../permissions/default.toml");
+
+        for permission in [
+            "allow-get-legacy-cleanup-status",
+            "allow-get-legacy-import-report",
+            "allow-cleanup-legacy-files",
+            "allow-run-legacy-import",
+        ] {
+            assert!(permissions.contains(permission), "missing {permission}");
+        }
+    }
+
     fn capture_channel() -> (Channel<QueryEvent>, Arc<Mutex<Vec<QueryEvent>>>) {
         let events = Arc::new(Mutex::new(Vec::new()));
         let captured = Arc::clone(&events);

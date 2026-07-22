@@ -12,7 +12,9 @@ Default permissions for the plugin
 - `allow-get-meeting-transcript`
 - `allow-get-recurring-meeting-history`
 - `allow-get-legacy-cleanup-status`
+- `allow-get-legacy-import-report`
 - `allow-cleanup-legacy-files`
+- `allow-run-legacy-import`
 - `allow-get-e2ee-identity-status`
 - `allow-inspect-e2ee-recovery-key`
 - `allow-create-e2ee-identity`
