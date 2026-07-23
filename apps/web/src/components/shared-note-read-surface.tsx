@@ -66,7 +66,10 @@ import {
   resolveSharedNoteCommentRanges,
 } from "@/lib/shared-note-comment-anchors";
 import { pickActiveCommentId } from "@/lib/shared-note-comment-rail-layout";
-import { groupSharedNoteCommentThreads } from "@/lib/shared-note-comment-threads";
+import {
+  getSharedNoteCommentThreadAnchors,
+  groupSharedNoteCommentThreads,
+} from "@/lib/shared-note-comment-threads";
 import {
   type SharedNoteAttachment,
   type SharedNoteAttachmentDownload,
@@ -262,17 +265,7 @@ export function SharedNoteReadSurface({
     );
     setAnchoredComments(anchored);
     setCommentAnchors(view, [
-      ...anchored.flatMap((comment) =>
-        comment.range
-          ? [
-              {
-                commentId: comment.commentId,
-                from: comment.range.from,
-                to: comment.range.to,
-              },
-            ]
-          : [],
-      ),
+      ...getSharedNoteCommentThreadAnchors(anchored),
       ...(draft
         ? [{ commentId: DRAFT_COMMENT_ID, from: draft.from, to: draft.to }]
         : []),

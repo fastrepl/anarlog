@@ -193,6 +193,7 @@ export function SharedNoteCommentCard({
       onKeyDown={
         onActivate
           ? (event) => {
+              if (event.target !== event.currentTarget) return;
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
                 onActivate();
@@ -220,7 +221,10 @@ export function SharedNoteCommentCard({
         </p>
       </div>
       {replies.length ? (
-        <div className="border-t border-stone-200">
+        <div
+          className="border-t border-stone-200"
+          onClick={(event) => event.stopPropagation()}
+        >
           {replies.map((reply) => (
             <div
               key={reply.commentId}

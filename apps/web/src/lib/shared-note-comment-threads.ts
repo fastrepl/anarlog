@@ -11,7 +11,11 @@ export function groupSharedNoteCommentThreads(
   const threads: SharedNoteCommentThread[] = [];
   const byAnchor = new Map<string, SharedNoteCommentThread>();
 
-  for (const comment of comments) {
+  const chronologicalComments = [...comments].sort(
+    (left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt),
+  );
+
+  for (const comment of chronologicalComments) {
     const key = anchorKey(comment);
     const existing = byAnchor.get(key);
     if (existing) {
@@ -24,6 +28,15 @@ export function groupSharedNoteCommentThreads(
   }
 
   return threads;
+}
+
+export function getSharedNoteCommentThreadAnchors(
+  comments: readonly AnchoredSharedNoteComment[],
+) {
+  return groupSharedNoteCommentThreads(comments).flatMap((thread) => {
+    const range = thread.comments[0]?.range;
+    return range ? [{ commentId: thread.id, ...range }] : [];
+  });
 }
 
 function anchorKey(comment: AnchoredSharedNoteComment) {
