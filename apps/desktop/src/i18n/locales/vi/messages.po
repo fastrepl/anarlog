@@ -178,6 +178,10 @@ msgstr ""
 msgid "Anarlog can read meeting details"
 msgstr ""
 
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Anarlog could not generate this summary because you were not signed in. Sign in, then try again."
+msgstr ""
+
 #: src/shared-notes/index.tsx
 msgid "Anarlog could not read the local shared-note cache."
 msgstr ""
@@ -1384,6 +1388,7 @@ msgstr ""
 msgid "Open web copy"
 msgstr ""
 
+#: src/session/components/note-input/enhanced/enhance-error.tsx
 #: src/shared-notes/index.tsx
 msgid "Opening…"
 msgstr ""
@@ -1890,6 +1895,7 @@ msgstr ""
 msgid "Show tray icon"
 msgstr ""
 
+#: src/session/components/note-input/enhanced/enhance-error.tsx
 #: src/settings/general/account.tsx
 #: src/shared-notes/index.tsx
 msgid "Sign in"
@@ -1914,6 +1920,10 @@ msgstr ""
 #. placeholder {0}: config.displayName
 #: src/settings/todo/provider-content.tsx
 msgid "Sign in to connect {0}"
+msgstr ""
+
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Sign in to generate this summary"
 msgstr ""
 
 #: src/settings/general/account.tsx
@@ -2043,6 +2053,10 @@ msgstr ""
 #: src/contacts/details.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Summary"
+msgstr ""
+
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Summary generation failed"
 msgstr ""
 
 #: src/settings/general/week-start.tsx

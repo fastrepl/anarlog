@@ -178,6 +178,10 @@ msgstr "Anarlog can hear your voice"
 msgid "Anarlog can read meeting details"
 msgstr "Anarlog can read meeting details"
 
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Anarlog could not generate this summary because you were not signed in. Sign in, then try again."
+msgstr "Anarlog could not generate this summary because you were not signed in. Sign in, then try again."
+
 #: src/shared-notes/index.tsx
 msgid "Anarlog could not read the local shared-note cache."
 msgstr "Anarlog could not read the local shared-note cache."
@@ -1384,6 +1388,7 @@ msgstr "Open repository on GitHub"
 msgid "Open web copy"
 msgstr "Open web copy"
 
+#: src/session/components/note-input/enhanced/enhance-error.tsx
 #: src/shared-notes/index.tsx
 msgid "Opening…"
 msgstr "Opening…"
@@ -1890,6 +1895,7 @@ msgstr "Show This Event"
 msgid "Show tray icon"
 msgstr "Show tray icon"
 
+#: src/session/components/note-input/enhanced/enhance-error.tsx
 #: src/settings/general/account.tsx
 #: src/shared-notes/index.tsx
 msgid "Sign in"
@@ -1915,6 +1921,10 @@ msgstr "Sign in to connect"
 #: src/settings/todo/provider-content.tsx
 msgid "Sign in to connect {0}"
 msgstr "Sign in to connect {0}"
+
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Sign in to generate this summary"
+msgstr "Sign in to generate this summary"
 
 #: src/settings/general/account.tsx
 msgid "Sign in to unlock cloud transcription and AI models, plus Pro features like sharing."
@@ -2044,6 +2054,10 @@ msgstr "Submit callback URL"
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Summary"
 msgstr "Summary"
+
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Summary generation failed"
+msgstr "Summary generation failed"
 
 #: src/settings/general/week-start.tsx
 msgid "Sunday"
