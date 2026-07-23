@@ -49,7 +49,7 @@ Continue reading for detailed reviews of each of these tools.
 
 ### 1. Anarlog
 
-[Anarlog](/) is an open-source AI notepad for meetings that gives you complete control over your data, AI stack, and workflow. Everything is stored as plain Markdown files on your device and not in proprietary databases or cloud servers.
+[Anarlog](/) is an open-source AI notepad for meetings that gives you complete control over your data, AI stack, and workflow. Meeting data is stored locally in SQLite on your device. Optional sync, sharing, and hosted AI use explicit data paths.
 
 You can inspect the code, customize functionality, and choose which AI processes your data. Zero lock-in, zero compromises.
 
@@ -63,14 +63,14 @@ When the meeting ends, it combines your notes with the transcript and uses AI to
 
 You choose which AI processes that data — our managed service, your own API keys (OpenAI, Anthropic, etc.), or a fully local model running on your machine via Ollama or LM Studio.
 
-Everything gets saved as plain markdown files on your device. Nothing goes to Anarlog's servers. You can open those files in Obsidian, VS Code, Notion, or any text editor; they're just files you own.
+Meeting data is stored locally in SQLite. You can export Markdown when you need a portable copy. If you enable cloud AI, CloudSync, or sharing, evaluate those services separately for the meeting's data-handling requirements.
 
 #### Key features
 
 - **Live note-taking:** Take your own notes alongside the transcript as the meeting happens
 - **AI-powered summaries:** Combines your notes + transcript into structured, actionable output
 - **Your choice of AI stack:** Managed cloud service, bring your own API keys (OpenAI, Anthropic, Deepgram), or run fully local models via Ollama or LM Studio
-- **Plain markdown files:** Stored locally on your device, works with any tool (Obsidian, Notion, VS Code)
+- **Local SQLite storage:** Canonical meeting data stays on your device; export Markdown when it fits your workflow
 - **AI chat:** Query your transcripts conversationally after the meeting
 - **Search across all meetings:** Find anything across your entire meeting history
 - **Custom templates:** Set up different note structures for different meeting types
@@ -80,7 +80,7 @@ Everything gets saved as plain markdown files on your device. Nothing goes to An
 #### Pros vs Plaud
 
 - No subscription required for core features (vs Plaud's $99-239/year after free minutes run out)
-- Zero lock-in—plain markdown files, open source, switch AI providers anytime (vs Plaud's closed system)
+- Open-source code, local-first storage, Markdown export, and AI-provider choice
 - No hardware to carry, charge, or remember
 - Your choice of AI stack (vs Plaud requiring their cloud)
 - True file ownership (vs Plaud's proprietary app)
@@ -98,7 +98,7 @@ Anarlog is free forever for local transcription, BYOK, and all core features. No
 
 The managed cloud service is $25/month for those who want the easiest setup without managing API keys. Most people never need to pay—the free plan handles meeting notes completely.
 
-Enterprise pricing applies when you need on-prem deployment, SSO, consent management, or admin controls for compliance-sensitive environments. [Contact sales](mailto:founders@char.com) for custom quotes.
+For teams with procurement requirements, evaluate the exact desktop configuration and any enabled AI, CloudSync, or sharing services before adoption.
 
 ### 2. iFLYTEK Smart Recorder Pro
 
@@ -369,7 +369,7 @@ For teams that actually need the full revenue intelligence stack, Avoma delivers
 
 The right tool depends on what matters most to you:
 
-**Choose Anarlog** if you're on a Mac and privacy is non-negotiable. It's the only option here that keeps everything local—no cloud, no subscriptions, no data leaving your device. This works for healthcare professionals, lawyers, consultants, or anyone in compliance-sensitive roles who needs unlimited meeting notes without worrying about data storage.
+**Choose Anarlog** if you're on a Mac and want a local-first, bot-free meeting workflow with AI-provider choice. For sensitive work, configure local processing where appropriate and complete your own security and compliance review before adopting any tool.
 
 **Choose iFLYTEK Smart Recorder Pro** if you need professional-grade field recording with a standalone device. The built-in touchscreen and 15-meter microphone range make it ideal for journalists, researchers, or anyone recording lectures and conferences where you can't rely on your phone or laptop.
 

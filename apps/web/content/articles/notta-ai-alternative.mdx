@@ -13,15 +13,15 @@ Notta is a broad meeting transcription platform. Its standard workflow spans web
 
 But that is not the only way to build meeting notes.
 
-If your real requirement is open-source code, plain markdown as the canonical note, and control over which AI stack touches your meetings, [Anarlog](/) is the Notta alternative worth evaluating. It is not a drop-in clone of Notta. It is a different model: capture meetings from your machine, save notes as portable files, and keep the workflow close to your own tools.
+If your real requirement is open-source code, a local-first meeting record, and control over which AI stack touches your meetings, [Anarlog](/) is the Notta alternative worth evaluating. It is not a drop-in clone of Notta. It is a different model: capture meetings from your machine, keep the record in local SQLite, and export Markdown when you need a portable copy.
 
 ## Quick comparison
 
 | Question | Notta | Anarlog |
 | --- | --- | --- |
-| Best fit | Hosted team workflows with translation and integrations, plus an optional local Privacy Mode | Local-first AI meeting notes, markdown files, open source, BYOK/local AI |
+| Best fit | Hosted team workflows with translation and integrations, plus an optional local Privacy Mode | Local-first AI meeting notes, open source, BYOK/local AI |
 | Capture model | Meeting bot, web and mobile recording, Chrome extension, and bot-free Notta Desktop beta | Desktop system-audio capture with no meeting bot |
-| Storage model | Hosted workspace by default; local folder in Desktop Privacy Mode | Plain markdown files on your device |
+| Storage model | Hosted workspace by default; local folder in Desktop Privacy Mode | Local SQLite on your device, with Markdown export |
 | AI-provider control | Notta-managed cloud or local transcription modes | Managed service, bring your own keys, or local models |
 | Open source | No | Yes, MIT-licensed |
 | Pricing model | Free, Pro, Business, and Enterprise tiers; Desktop is available to all users, and Notta documents unlimited Privacy Mode transcription on Pro | Free with BYOK/local AI; paid managed service when you want Anarlog to run the stack |
@@ -35,7 +35,7 @@ That breadth is useful. It can also be too much if you only want one durable thi
 
 The search for a Notta alternative usually comes from one of five constraints.
 
-1. You want plain markdown to be the canonical note, not only a file managed by a proprietary app.
+1. You want a local-first meeting record and portable exports, not only a file managed by a proprietary app.
 2. You want open-source code your team can inspect and fork.
 3. You want to choose the speech-to-text and LLM provider yourself.
 4. You want a free local or BYOK path without making a vendor subscription part of the transcription workflow.
@@ -61,7 +61,7 @@ Notta's standard hosted model becomes a tradeoff when ownership matters more tha
 
 For standard cloud workflows, Notta's [security page](https://www.notta.ai/en/security) says its software is hosted on AWS and user data is regularly backed up. Privacy Mode changes the path for selected desktop meetings: transcription runs locally, the files stay in a local folder, and the mode can work offline after setup.
 
-The remaining distinction is architectural. Privacy Mode is a proprietary mode inside a larger Notta account and workspace. Anarlog is an MIT-licensed application whose default note format is plain markdown and whose AI stack can be managed, BYOK, or local.
+The remaining distinction is architectural. Privacy Mode is a proprietary mode inside a larger Notta account and workspace. Anarlog is an MIT-licensed application whose meeting data is local SQLite by default and whose AI stack can be managed, BYOK, or local.
 
 There is also a workflow question. Notta is designed as a workspace. Meetings become searchable objects inside Notta, with product features layered around them. That is a good pattern when Notta is the team's meeting system of record.
 
@@ -80,7 +80,7 @@ In those workflows, export is not enough. You want the note to start as somethin
 
 Anarlog starts from a narrower assumption: your meeting notes should be portable files first.
 
-Anarlog captures microphone and system audio from your desktop, transcribes meetings in real time, and saves notes as plain markdown files on your device. There is no meeting bot joining the call, no proprietary note database as the canonical record, and no requirement to build your workflow around a vendor workspace.
+Anarlog captures microphone and system audio from your desktop, transcribes meetings in real time, and stores meeting data in local SQLite on your device. There is no meeting bot joining the call, and you can export Markdown when you need a portable record.
 
 The practical difference is simple. With Anarlog, the meeting note starts as markdown you can open in another editor, move into Obsidian, search from the terminal, sync however you already sync files, or keep in a folder that survives a subscription change. The [local AI meeting notes guide](/blog/local-ai-meeting-notes/) explains how this file-first model differs from simply adding a local transcription mode to a larger cloud product.
 
@@ -94,7 +94,7 @@ Ask where the canonical note lives.
 
 If it lives in a vendor workspace and you can export it later, you have portability. If it starts as a markdown file on your machine, you have ownership at the format level.
 
-Notta Privacy Mode does keep recordings and transcripts in a local folder. Its public page does not promise plain markdown as the canonical format, so confirm the file and export formats before designing a workflow around it. Anarlog is built around markdown by default.
+Notta Privacy Mode does keep recordings and transcripts in a local folder. Its public page does not promise a portable Markdown export as the default format, so confirm the file and export formats before designing a workflow around it. Anarlog keeps the canonical meeting record in local SQLite and supports Markdown export.
 
 ### 2. AI-provider control
 
@@ -144,7 +144,7 @@ That is a reasonable choice. Not every team wants to manage files, providers, or
 
 Choose Anarlog if you want:
 
-- meeting notes as markdown files on disk;
+- a local meeting record with Markdown export;
 - an open-source, MIT-licensed meeting notetaker;
 - system-audio capture without inviting a bot;
 - local-first storage instead of a proprietary meeting database;
@@ -160,6 +160,6 @@ Notta is no longer only a cloud transcription workspace. Its Desktop app offers 
 
 If you need team collaboration, translations, web/mobile coverage, and the ability to switch selected meetings into a proprietary local mode, start with Notta.
 
-If you want an open-source Notta alternative built around plain markdown, bot-free capture, local workflows, and AI-provider control, start with Anarlog.
+If you want an open-source Notta alternative built around bot-free capture, local-first workflows, and AI-provider control, start with Anarlog.
 
 [Download Anarlog](https://anarlog.so/download/apple-silicon) and compare both tools on one real meeting. The useful question is not which product says "local." It is which ownership model still works when you change providers, editors, or vendors.

@@ -38,8 +38,8 @@ import { MANIFESTO_SIGNERS } from "@/lib/team";
 const manifestoLetter = [
   "To the people who still take notes,",
   "Notetaking matters more than note-takers. A note-taker is passive. A notepad is something you use. You stay present and in control while the room is still alive.",
-  "Most AI tools ask you to move your memory into their ecosystem and rules. Meeting notes should move the other way: back to files on your disk and software you can run offline.",
-  "Files endure. Interfaces change. Your notes should survive us. Use on-device models or your own keys, not a service you cannot inspect.",
+  "Most AI tools ask you to move your memory into their ecosystem and rules. Meeting notes should stay in software you control, with a local record that can work offline.",
+  "Interfaces change. Your meeting record should remain yours. Use on-device models or your own keys, not a service you cannot inspect.",
   "Anarlog is our attempt to build that meeting notepad.",
 ];
 
@@ -49,13 +49,14 @@ const featureList = [
   "Bot-free meeting capture",
   "Fully offline notes",
   "On-device or bring-your-own-key AI",
-  "File-based storage",
+  "Local-first storage",
   "Open source foundations",
 ];
 
 const privacyCommitments = [
   {
-    description: "Audio, transcripts, and notes stay as files on your device.",
+    description:
+      "Your meeting data stays local by default; attachments and recordings remain on your device.",
     visual: "files",
   },
   {

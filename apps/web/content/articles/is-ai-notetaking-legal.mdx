@@ -139,7 +139,7 @@ Your choice of AI note-taking tool largely determines whether compliance is a co
 
 With most tools, you don't get a say in how your data is handled. Your audio goes to their servers, gets processed by their AI, and lives in their database. Every regulation you need to comply with becomes your vendor's problem to solve and yours to verify.
 
-Anarlog works differently. You decide how your data is processed — [local models on your device](/blog/local-ai-meeting-notes/), your own cloud API keys, or Anarlog's managed service. Everything saves as plain markdown files on your device, and IT teams can audit the open-source code. When you control the stack, you control the compliance surface.
+Anarlog works differently. You decide how your data is processed — [local models on your device](/blog/local-ai-meeting-notes/), your own cloud API keys, or Anarlog's managed service. Meeting data stays in local SQLite by default, and IT teams can audit the open-source code. That gives you more control over the compliance questions you still need to assess.
 
 For organizations serious about both productivity and legal protection, that level of control makes both feasible.
 
@@ -157,9 +157,9 @@ The AI works hands-off if you want it to. You can also jot down key points yours
 
 - Your choice of AI stack: managed cloud, bring your own API keys, or run local models
 - Works with any meeting platform without bots or integrations
-- Plain markdown files stored on your device — no proprietary databases
+- Local SQLite storage on your device, with Markdown export when needed
 - Reduces compliance surface area by keeping data handling under your control
-- Enterprise features including on-premises deployment and SSO integration
+- Open-source code and local-first storage, which can support a more thorough technical review
 - Open-source code your IT and security teams can audit
 
 [Download Anarlog for MacOS](/download) to take control of your meeting data.

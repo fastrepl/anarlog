@@ -51,7 +51,7 @@ If the main issue is visible bots, read [AI Meeting Notes Without a Bot](/blog/a
 
 [Anarlog](https://anarlog.so/) is the MeetGeek alternative for people who want AI meeting notes without moving every conversation into a cloud meeting platform.
 
-It captures system audio from your desktop, transcribes meetings in real time, and saves notes as plain markdown files on your device. The core product is open source, so a technical buyer can inspect how meeting memory is handled instead of taking the vendor's word for it.
+It captures system audio from your desktop, transcribes meetings in real time, and stores meeting data in local SQLite on your device. The core product is open source, so a technical buyer can inspect how meeting memory is handled instead of taking the vendor's word for it.
 
 The important difference is architectural. MeetGeek is designed around a shared cloud workspace. Anarlog is designed around ownership: your files, your AI provider, your workflow.
 
@@ -90,7 +90,7 @@ Use Tactiq when:
 - the team wants quick transcription and summaries;
 - budget is a primary constraint.
 
-Use Anarlog when the meeting notes should become durable local files and the browser is not the only place conversations happen.
+Use Anarlog when meeting notes should become durable local data and the browser is not the only place conversations happen.
 
 ## 4. Fathom: best for sales follow-up
 
@@ -116,7 +116,7 @@ If you are evaluating Fireflies because MeetGeek feels too heavy, also read the 
 
 [Meetily](https://meetily.ai/) is another open-source path. Its site describes the Community Edition as free and open source, with Pro at $10/user/month billed annually and custom Enterprise pricing for self-hosted deployment, admin dashboards, dedicated support, and compliance frameworks.
 
-Meetily is worth evaluating if the buyer wants a local or self-hosted meeting assistant and is comfortable with a more technical deployment path. It competes more directly with Anarlog than with Fireflies or Fathom: the question is whether you want a local-first meeting notetaker that stores notes as plain markdown files on your machine, or a self-hostable assistant whose operational model fits your team better.
+Meetily is worth evaluating if the buyer wants a local or self-hosted meeting assistant and is comfortable with a more technical deployment path. It competes more directly with Anarlog than with Fireflies or Fathom: the question is whether you want a local-first meeting notetaker that stores notes in local SQLite on your machine, or a self-hostable assistant whose operational model fits your team better.
 
 For technical teams, the useful comparison is not "which one has more AI features." It is:
 
@@ -132,7 +132,7 @@ Those questions expose lock-in faster than a feature checklist.
 
 Use MeetGeek when you want a polished meeting-intelligence platform with summaries, workflows, analytics, search, and team adoption in one place.
 
-Use Anarlog when you want meeting notes you own. That means no meeting bot by default, plain markdown files, open-source code, and control over the AI provider.
+Use Anarlog when you want meeting notes you own. That means no meeting bot by default, local-first storage, open-source code, and control over the AI provider.
 
 Use Jamie when you want a polished commercial bot-free app and do not need the local-file/open-source model.
 
@@ -148,6 +148,6 @@ Use Meetily when self-hosting or open-source local transcription is the primary 
 
 MeetGeek is not the wrong choice. It is just a specific choice: meeting intelligence as a cloud workspace.
 
-If that is what your team needs, keep it on the shortlist. If the actual requirement is private meeting memory, markdown files, no bot in the room, and control over which AI stack processes your conversations, start with Anarlog.
+If that is what your team needs, keep it on the shortlist. If the actual requirement is private meeting memory, local-first storage, no bot in the room, and control over which AI stack processes your conversations, start with Anarlog.
 
 [Download Anarlog](https://anarlog.so/download/apple-silicon) and try it on one real meeting before committing your meeting history to another platform.

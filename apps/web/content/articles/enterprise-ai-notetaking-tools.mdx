@@ -13,11 +13,11 @@ If you're evaluating AI notetaking tools for your organization, you're probably 
 
 Most AI notetaking tools weren't built for enterprises. They were built for individuals, then scaled up with "enterprise features" bolted on later. This creates predictable friction during procurement: the tool technically works, but it violates data policies, lacks the right deployment options, or creates compliance headaches nobody anticipated.
 
-This guide cuts through the marketing noise and covers five notetaking solutions that work for enterprises.
+This guide compares five notetaking approaches. Verify every vendor's current controls, contracts, and platform support with the vendor before procurement.
 
 ## AI Notetakers For Enterprises: At a Glance
 
-1. **Anarlog**: Open-source, zero lock-in AI notepad with complete control over data and AI stack
+1. **Anarlog**: Open-source, local-first AI notepad with configurable AI processing
 2. **Read AI**: Cloud platform with unified search across meetings, emails, and messages
 3. **MeetGeek**: Conversation intelligence with team-level analytics and performance tracking
 4. **Fellow**: Internal meeting focus with granular privacy controls for manager workflows
@@ -40,45 +40,37 @@ The five tools we're covering represent fundamentally different architectural ap
 
 ![Best ai note taker for enteprises](/api/assets/blog/enterprise-ai-notetaking-tools/enterprise-1.webp)
 
-[Anarlog](/) is an open-source AI notepad for meetings built for high-agency organizations that demand complete control over their data, AI stack, and workflow. Everything is stored as plain markdown files—not in proprietary databases. You choose your AI: managed cloud, bring your own keys, or run local models. Zero lock-in fundamentally changes what's possible from both a compliance and ownership perspective.
+[Anarlog](/) is an open-source AI notepad for meetings built for teams that want a local-first workflow and configurable AI processing. Meeting data is stored locally in SQLite instead of a vendor-hosted workspace, with Markdown export when a portable copy is useful. You can use managed cloud AI, bring your own keys, or use local models. That design can make technical review clearer, but it does not replace a vendor, security, or compliance assessment.
 
-#### Deployment Options
+#### Configuration model
 
-- **Edge-only**: All processing happens locally with zero external connections—maximum creative IP protection
-- **All-prem**: Complete organizational control with all components running on your infrastructure
-- **Prem-hybrid**: STT and database on-premises while LLM workloads run in controlled environments—balances compliance with powerful AI capabilities
+- **Local-first data**: The canonical meeting record is local SQLite on the device.
+- **Configurable AI**: Use on-device transcription and local models, your own provider keys, or managed AI depending on the workflow.
+- **Optional cloud features**: CloudSync and sharing are optional; evaluate their use separately from the local desktop workflow.
 
 #### Pricing
 
-Anarlog is free forever for local transcription, BYOK, and all core features. Managed cloud service is $25/month for the easiest setup.
+The Free plan supports on-device transcription and your own API keys. Pro is $15/month or $150/year and adds hosted transcription, cloud AI, encrypted CloudSync, and calendar integrations. Check the current pricing page before purchasing.
 
-Enterprise pricing applies when your organization needs an on-premises deployment, SSO integration, consent management, multi-factor authentication, an agentic workflow builder, 24/7 priority support, or custom branding. [Contact sales for a quote](mailto:founders@char.com).
+#### What enterprise evaluators should validate
 
-#### Enterprise Features
-
-- **End-to-end encryption**: Zero-trust architecture with hardware security module support protects data at every stage—from capture to storage to processing.
-- **Multi-framework compliance**: Built-in support for HIPAA, SOC 2, ISO 27001, GDPR, and CCPA without requiring new certifications or security reviews. Works with existing compliance frameworks.
-- **Smart consent management**: Built-in recording consent collection with audit logs for all acknowledgments, ensuring compliance with one-party, two-party, or all-party consent laws.
-- **Enterprise authentication**: SSO (SAML 2.0/OIDC) and Multi-Factor Authentication (MFA) with seamless integration into your existing identity provider.
-- **Access management**: Advanced role-based permissions and granular controls for managing who can record, access, and share meeting data across the organization.
-- **Audit and monitoring**: Comprehensive audit trails and real-time monitoring track all access and usage, with a custom admin dashboard builder for visibility.
-- **Team collaboration**: Securely share notes with team-level controls, ensuring information flows to the right people while maintaining governance.
-- **Universal meeting compatibility**: Works with all platforms (Zoom, Teams, Meet, etc.) without requiring bots—captures both microphone and system audio directly.
-- **Vendor-agnostic AI**: Connect to OpenAI, Mistral, Ollama (via LM Studio), or any custom endpoint—no vendor lock-in for LLM processing.
-- **Workflow integrations**: Current integrations with Obsidian and Attio, with enterprise customers driving additional integration priorities based on their tech stack.
-- **Custom model support**: Bring your own speech-to-text and language models, plus calendar integration for automatic meeting detection.
+- **Local data path**: Confirm how the device, backups, and access controls are managed in your environment.
+- **AI providers**: Verify retention, training, contractual, and regional terms for each provider you enable.
+- **CloudSync and sharing**: Review these optional services, including their access and retention behavior, before enabling them.
+- **Consent and policy**: Establish the recording-consent process required by your organization and jurisdiction.
+- **Platform fit**: Confirm current desktop support and integration requirements in a pilot.
 
 #### How it works
 
 Anarlog uses two types of models: speech-to-text (STT) and large language models (LLMs).
 
-For transcription, Anarlog uses the Whisper series from Hugging Face, which ranges from the lightweight Tiny and Base models to the V3 Large Turbo. Users choose based on their accuracy vs. speed requirements.
+For transcription, the product supports on-device transcription as well as hosted options. The available model and provider choices can change, so validate the current app and documentation for a production decision.
 
-For summarization and intelligence, Anarlog developed HyperLLM-V1, a custom model based on Qwen 1.7B architecture. At just 1.1GB (compared to LLaMA's 2.0GB), it delivers high-quality summaries optimized for English while being extremely fast.
+For summaries and other AI features, you can choose a local model, your own provider key, or a managed service. The data path depends on that choice.
 
-All of this happens locally. Anarlog captures both microphone input and system audio output, allowing it to work universally across various meeting platforms without requiring bots. No internet required for core functionality.
+Anarlog captures microphone input and system audio output on the desktop without adding a meeting bot. It can work alongside major meeting platforms, subject to the platform, device, and configuration in use.
 
-Your transcription and note data never touch external servers unless you explicitly choose to connect an LLM provider for additional features. Speaker identification works automatically for one-on-one calls by distinguishing between the microphone and system audio.
+The local meeting record remains on the device by default. Cloud AI, CloudSync, and sharing each introduce their own service path and should be reviewed before a sensitive deployment.
 
 For group meetings, users manually tag speakers using the transcript editor. Real-time transcription is supported with latency varying based on model size and hardware capabilities. Export options include Markdown, PDF, and Rich Text.
 

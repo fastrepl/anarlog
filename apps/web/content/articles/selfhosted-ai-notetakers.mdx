@@ -32,7 +32,7 @@ If you don't want your meeting audio on someone else's servers, these are your o
 
 [Anarlog](https://anarlog.so/) is the only tool on this list that handles the full meeting workflow in one app — capture, transcription, note-taking, summarization, and structured export. 
 
-It ships with a built-in notepad where you write during the meeting, and the AI merges your manual notes with the transcript into structured output using your template. Notes are plain Markdown files on disk. Open them in Obsidian, VS Code, whatever.
+It ships with a built-in notepad where you write during the meeting, and the AI merges your manual notes with the transcript into structured output using your template. The canonical meeting record is local SQLite, with Markdown export when you need a portable copy.
 
 #### Setup
 
@@ -42,7 +42,7 @@ It ships with a built-in notepad where you write during the meeting, and the AI 
 
 **Summarization:** Configured separately. Point it at Ollama or LM Studio for offline, or add a key for OpenAI, Anthropic, or Gemini.
 
-**Storage:** Local filesystem
+**Storage:** Local SQLite, with attachments and recordings kept as local files
 
 #### What else
 
@@ -111,7 +111,7 @@ Useful when you want one shared interface and don't need anything installed on i
 
 #### Pricing
 
-Free and open-source (MIT). Self-host only.
+Free and open-source (MIT). The desktop application is local-first; do not treat it as a supported self-hosted server product.
 
 ### 4. Vibe
 

@@ -16,17 +16,17 @@ Download the latest release for your platform:
 
 → [github.com/fastrepl/anarlog/releases/latest](https://github.com/fastrepl/anarlog/releases/latest)
 
-Open it and join a meeting. anarlog records, transcribes locally, and saves your notes as markdown on disk. Bring your own LLM: OpenAI, Anthropic, Gemini, OpenRouter, Ollama, LM Studio, or anything OpenAI-compatible.
+Open it and join a meeting. anarlog records, transcribes locally, and stores its canonical meeting data in a local SQLite database. Export Markdown when it fits your workflow. Bring your own LLM: OpenAI, Anthropic, Gemini, OpenRouter, Ollama, LM Studio, or anything OpenAI-compatible.
 
 To self-host, clone the repo, build it, and run it.
 
 ## Why use it
 
-- **Your data, your disk.** Every meeting is a `.md` file you can inspect, search, and sync through Dropbox, iCloud, Syncthing, or git. No cloud backend means no cloud lock-in.
+- **Your data, your device.** Sessions, notes, and transcripts are stored locally in SQLite. Attachments and recordings remain local files, and you can export Markdown when you need it.
 - **Local transcription.** Transcription runs on-device, so audio never leaves your machine.
 - **Bring your own AI.** Use any LLM provider, including OpenAI-compatible services and local models.
 - **Open source, MIT.** Fork it, sell it, or self-host it.
-- **No accounts or tracking.** There is no hosted account model.
+- **Optional cloud features.** You can use local or bring-your-own-key workflows, or opt into hosted AI, encrypted CloudSync, and sharing when those fit your workflow.
 
 ## Name history
 

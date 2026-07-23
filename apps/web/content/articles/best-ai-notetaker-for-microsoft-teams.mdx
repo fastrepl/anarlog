@@ -20,7 +20,7 @@ The right choice depends on four practical questions:
 For most people, the decision looks like this:
 
 - **Choose Microsoft Intelligent Recap or Copilot** when your organization already works inside Microsoft 365 and wants native administration.
-- **Choose Anarlog** when you want bot-free capture, local transcription, and Markdown files on your own computer.
+- **Choose Anarlog** when you want bot-free capture, local transcription, and a local-first meeting record on your own computer.
 - **Choose Tactiq** when you attend Teams meetings through a browser and want live transcription from an extension.
 - **Choose Otter** when you want an automated participant that can attend meetings and prepare notes even when you are absent.
 - **Choose Fireflies** when downstream integrations and automated routing are more important than avoiding a meeting bot.
@@ -30,7 +30,7 @@ For most people, the decision looks like this:
 | Workflow | Capture method | Visible meeting bot? | Where notes live | Best for |
 | --- | --- | --- | --- | --- |
 | Microsoft Intelligent Recap and Copilot | Native Teams recording, transcription, and meeting audio | No external bot | Microsoft 365 | Organizations already standardized on Microsoft |
-| Anarlog | Desktop audio capture and local transcription | No | Markdown files on your computer | Local-first, bot-free meeting notes |
+| Anarlog | Desktop audio capture and local transcription | No | Local SQLite with Markdown export | Local-first, bot-free meeting notes |
 | Tactiq | Browser extension using Teams web | No guest participant | Tactiq dashboard | Live transcription in the Teams web app |
 | Otter | Automated guest participant | Yes | Otter workspace | Auto-join, catch-up, and meeting automation |
 | Fireflies | Meeting participant or desktop system-audio capture | Optional | Fireflies and connected tools | Integration-heavy team workflows |
@@ -118,7 +118,7 @@ If the underlying workflow matters more than a feature checklist, see how [bot-f
 
 - No meeting bot
 - Local transcription
-- Notes stored as ordinary Markdown files
+- Local SQLite meeting record with Markdown export
 - Bring-your-own-key and local-model options
 - Open-source and inspectable
 - Works outside Teams as well as inside it
@@ -237,7 +237,7 @@ Use Intelligent Recap or Copilot if your company already governs meetings throug
 
 ### Choose Anarlog when ownership comes first
 
-Use Anarlog if you want bot-free capture, local transcription, Markdown files, and control over the AI model used for summaries.
+Use Anarlog if you want bot-free capture, local transcription, a local meeting record, and control over the AI model used for summaries.
 
 ### Choose Tactiq when you work in Teams on the web
 
@@ -295,4 +295,4 @@ Use Microsoft's native recap when Teams is already your organization's system of
 
 Use a local-first tool when you want the meeting record to remain yours.
 
-[Download Anarlog for macOS](/download) if you want Microsoft Teams notes without a meeting bot, with local transcription and Markdown files stored on your computer.
+[Download Anarlog for macOS](/download) if you want Microsoft Teams notes without a meeting bot, with local transcription and meeting data stored on your computer.

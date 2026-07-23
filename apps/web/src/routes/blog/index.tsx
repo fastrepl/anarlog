@@ -40,8 +40,8 @@ function Component() {
             Blog
           </h1>
           <p className="mt-6 max-w-2xl text-xl leading-9 text-[#363029]">
-            Notes on private meetings, local files, open source, and AI you can
-            run on your own terms.
+            Notes on private meetings, local-first workflows, open source, and
+            AI you can run on your own terms.
           </p>
         </section>
 

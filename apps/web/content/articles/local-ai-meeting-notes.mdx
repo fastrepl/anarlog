@@ -20,7 +20,7 @@ I tested five tools that take different positions on this spectrum. For each one
 |                |                                                                    |                                |
 | -------------- | ------------------------------------------------------------------ | ------------------------------ |
 | **Tool**       | **Best For**                                                       | **Pricing**                    |
-| **Anarlog**       | Users who want complete control over data and AI stack             | Free (local/BYOK), Pro $25/mo  |
+| **Anarlog**       | Users who want a local-first meeting workflow and AI-provider choice | Free (BYOK), Pro $15/mo or $150/year |
 | **Meetily**    | Teams on Windows or Mac who want a polished open-source option     | Community free, Pro $10/mo     |
 | **Shadow**     | Client-facing roles who need screen capture alongside audio        | Free transcription, Plus $8/mo |
 | **Talat**      | People who want Granola's UX without the cloud, for a one-time fee | $49 pre-release, $99 at 1.0    |
@@ -38,27 +38,27 @@ I tested five tools that take different positions on this spectrum. For each one
 
 You can take notes during the meeting in Anarlog's built-in editor while it transcribes in the background, and the AI combines both into a structured summary after the call. 
 
-The AI stack is yours to choose: Anarlog's managed cloud service, your own API keys from OpenAI, Anthropic, or Deepgram, or fully local models through Ollama or LM Studio for offline operation. Every audio file, transcript, and note lives on your computer. You decide if data ever leaves your device.
+The AI stack is yours to choose: Anarlog's managed cloud service, your own API keys, or fully local models through Ollama or LM Studio for offline operation. The canonical meeting record stays in local SQLite; attachments and recordings remain local files, and you decide whether to enable cloud services.
 
 #### How local is it actually
 
 - Transcription: local or BYOK. Supports Ollama and LM Studio for fully on-device processing.
 - Summarization: your choice. Managed cloud, BYOK API keys, or local models. You control the boundary.
-- Storage: all data stored locally on your device. Your files, your folder structure, zero lock-in.
+- Storage: the canonical meeting record is local SQLite on your device, with portable exports when you need them.
 - Open-source codebase. Your security team can audit exactly how data is handled.
 
-If you run Anarlog with local models, nothing leaves your machine. If you plug in an API key, only the transcript goes to that provider for summarization. For companies that have banned cloud-based meeting tools, Anarlog is one of the few options where "local-first" means exactly what it says.
+If you use on-device transcription and local models without enabling CloudSync or sharing, meeting content does not need to be sent to an AI provider. If you use an API key or managed AI, review what that provider receives. For organizations restricting cloud meeting tools, validate the exact configuration with security and legal teams.
 
 #### Where it falls short
 
-- macOS and Linux only. No Windows client yet.
+- Currently available for macOS; check the download page for the latest platform availability.
 - No mobile app, no video recording.
 - No built-in CRM integrations. If you need notes pushed into Salesforce, you will need to build that yourself.
-- No team dashboard or cross-meeting cloud search. Your notes live in your file system.
+- CloudSync and sharing are optional features; the canonical meeting record remains local by default.
 
 #### Pricing
 
-Free for unlimited loacl transcription and AI. A lite plan at $8/month with Anarlog cloud and pro at $25/month for integrations, advanced templates, and more.
+The Free plan supports on-device transcription and your own API keys. Pro is $15/month or $150/year and adds hosted transcription, cloud AI, encrypted CloudSync, and calendar integrations.
 
 ### 2. Meetily
 

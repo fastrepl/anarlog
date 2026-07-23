@@ -61,7 +61,7 @@ I'm Anarlog's founder. I'm putting my tool first, though I'll explain why rather
 
 Every AI note-taking tool I tested before building [Anarlog](https://anarlog.so/) forced the same choice: use their cloud, their models, their rules. My data went where they decided, stored how they decided. No way to switch, no way out.
 
-Anarlog exists because of that. It's an open-source AI notepad for meetings that stores everything as plain markdown files on your device. Zero lock-in. You choose your AI stack: managed cloud, bring your own API keys, or run local models. No bots. No vendor dependency.
+Anarlog exists because of that. It's an open-source AI notepad for meetings that stores meeting data locally in SQLite. You choose your AI stack: managed cloud, bring your own API keys, or local models. No bots. Markdown export is available when you want a portable copy.
 
 Want better AI? Plug in your own OpenAI, Mistral, or any endpoint you prefer. Your files, your AI, your workflow.
 
@@ -69,12 +69,12 @@ This works best for engineers and developers who want files over apps, companies
 
 #### Key Features:
 
-- Plain markdown files: Stored locally, works with any tool (Obsidian, Notion, VS Code)—zero lock-in
+- Local SQLite: Meeting data stays on your device, with Markdown export when a portable copy fits the workflow
 - Your choice of AI stack: Managed cloud, bring your own API keys, or run local models via Ollama
 - Universal meeting compatibility: Works with Zoom, Teams, Meet, and every other platform without bots—system audio capture, no calendar permissions
 - Works offline: Take notes, record, and transcribe without internet connectivity
 - Open-source: Inspect the code, contribute, or customize. Zero vendor lock-in
-- Enterprise deployment: On-prem, VPC, or hybrid options with SSO, consent management, and admin controls
+- Open-source code: Inspect the implementation and evaluate the configured workflow against your organization’s requirements
 - Custom templates: Tailored formats for therapy sessions, legal meetings, job interviews, or casual coffee chats
 - Search your meeting history: Ask "What did Sarah say about the budget?" instead of scrolling through months of notes
 - AI chat: Get immediate answers about action items, deadlines, or who said what during meetings
@@ -90,7 +90,7 @@ This works best for engineers and developers who want files over apps, companies
 
 #### Cons:
 
-- macOS only currently (Windows and Linux coming in Q2 2026)
+- Currently available for macOS; check the download page for the latest platform availability
 - Manual speaker tagging required (Speaker identification coming soon)
 - No video recording
 
@@ -388,7 +388,7 @@ For work meetings, check your company's policy. For healthcare, legal, or financ
 
 ### 4. Which AI note-taking app doesn't join video calls?
 
-Anarlog records your microphone and system audio directly on your Mac. No bot, no cloud dependency, everything stored as plain markdown files you own.
+Anarlog records your microphone and system audio directly on your Mac. It is bot-free and stores meeting data locally in SQLite by default, with optional cloud features when you choose to enable them.
 
 Bot-based tools like Otter, Fireflies, and most meeting-focused AI note-takers join as visible participants. If you want invisible recording, use Anarlog—just make sure you tell people you're recording.
 
@@ -400,6 +400,6 @@ That said, AI transcription accuracy is generally 85-95% with good audio quality
 
 ### 6. Which AI note taker is secure?
 
-Anarlog gives you complete control because everything is stored as plain markdown files on your device. You choose which AI processes your data—or keep it fully local. IT teams can audit the open-source code, and you can use the AI provider your security team approves.
+Anarlog keeps meeting data locally in SQLite by default. You choose which AI processes your data—or keep processing local—and IT teams can audit the open-source code. Your organization still needs to evaluate the configured provider and workflow.
 
 Avoid tools with known security issues. Otter has a federal lawsuit about unauthorized recording. Fireflies has reports of bots joining meetings after account deletion. If control matters, use an open-source tool with zero lock-in.

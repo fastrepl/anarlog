@@ -4,15 +4,15 @@ All content created under this directory must follow the positioning below.
 
 ## What Anarlog Is
 
-Anarlog is the open-source AI meeting notetaker. Free forever, MIT-licensed, runs on your machine. The app you've been using as "Char" — same product, same files, renamed and relicensed.
+Anarlog is the open-source AI meeting notetaker. It runs on your machine, keeps its canonical meeting data in local SQLite, and is MIT-licensed. The app you previously knew as "Char" is now Anarlog.
 
 > Note: This blog lives at anarlog.so. The brand "Char" still exists, but it's a different product now (an agentic todo notepad — see char.com). All content under this directory is for **Anarlog**, the meeting notetaker.
 
 ## Core Philosophy
 
-**Zero lock-in.** Anarlog gives users ownership at the foundational level — your files, your AI, your workflow. No lock-in. No compromises.
+**Zero lock-in.** Anarlog gives users control over their local meeting data, AI stack, and workflow. Markdown is an export format, not the canonical storage model.
 
-**Files over apps.** Everything is stored as plain markdown files on the user's device, not in proprietary databases or cloud servers.
+**Local-first, not file-based.** Sessions, notes, transcripts, and meeting metadata are stored locally in SQLite. Attachments remain separate local files. Users can export Markdown or other formats when they need them.
 
 **Secure by design.** IT teams can audit the code, and you can use the AI provider your security team approves.
 
@@ -45,12 +45,12 @@ Anarlog is the open-source AI meeting notetaker. Free forever, MIT-licensed, run
 - Bring your own API keys (OpenAI, Deepgram, Anthropic, others)
 - Run local models (via Ollama or LM Studio)
 
-**Plain markdown files**
+**Local data with portable exports**
 
-- Stored locally on user's device
-- Works with any tool (Obsidian, Notion, VS Code, etc.)
-- Future-proof format
-- Zero lock-in
+- Canonical sessions, notes, and transcripts are stored locally in SQLite
+- Markdown is available as an export format; do not present it as the default or canonical note format
+- Attachments and recordings are managed as separate local files
+- Users can choose an export or integration workflow without depending on a vendor-hosted workspace
 
 **Additional capabilities**
 
@@ -61,23 +61,24 @@ Anarlog is the open-source AI meeting notetaker. Free forever, MIT-licensed, run
 - Search across all meetings
 - Import existing recordings/transcripts
 - 45+ language support
+- Optional end-to-end encrypted CloudSync and note sharing for Pro users
 
 ## What Makes Anarlog Different
 
 **vs. Other AI notetakers (Granola, Otter, Fireflies, Fathom, tldv):**
 
-- Plain markdown files instead of proprietary databases
+- Local SQLite storage instead of a vendor-hosted meeting workspace
 - System audio capture instead of meeting bots
 - User's choice of AI provider instead of vendor lock-in
 - Open source — audit, fork, run forever
-- Complete file ownership instead of platform dependency
+- Local ownership and portable exports instead of platform dependency
 
 **Privacy approach:**
 
-- Anarlog doesn't store conversations
-- Every audio file, transcript, and note lives on the user's computer
-- User decides if data ever leaves their device
-- Option to deploy fully local
+- Canonical meeting data lives locally by default
+- Users choose on-device, bring-your-own-key, or hosted AI
+- CloudSync encrypts data before it leaves a device; sharing and hosted features have their own explicit data paths
+- Do not claim that data never leaves a device unless the configuration is explicitly local-only
 - No data used for AI training
 
 **Works With**
@@ -103,8 +104,8 @@ All meeting types: Zoom, Teams, Google Meet, phone calls, in-person conversation
 ## Key Messaging Themes
 
 1. **Complete control** — over AI stack, data, and workflow
-2. **True ownership** — files on your device, not someone's database
-3. **No lock-in** — portable format, works with any tool
+2. **True ownership** — local SQLite data and local attachments, not a vendor-hosted meeting workspace
+3. **No lock-in** — portable exports and an open-source codebase
 4. **Open source** — audit it, fork it, trust it
 5. **Simple + powerful** — control without complexity
 6. **For high-agency people** — built for those who refuse to compromise
