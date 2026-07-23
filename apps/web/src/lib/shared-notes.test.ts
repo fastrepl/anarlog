@@ -43,30 +43,38 @@ test("builds shared-note desktop links with only the supported schemes", () => {
 
   assert.equal(
     buildAccountShareDeepLink(shareId),
-    `hyprnote://share/open?mode=account&share_id=${shareId}`,
+    `anarlog://share/open?mode=account&share_id=${shareId}`,
   );
   assert.equal(
-    buildAccountShareDeepLink(shareId, "hyprnote-staging"),
-    `hyprnote-staging://share/open?mode=account&share_id=${shareId}`,
+    buildAccountShareDeepLink(shareId, "anarlog-staging"),
+    `anarlog-staging://share/open?mode=account&share_id=${shareId}`,
   );
   assert.equal(
-    buildShareHandoffDeepLink(requestId, "hyprnote-staging"),
-    `hyprnote-staging://share/open?mode=handoff&request_id=${requestId}`,
+    buildShareHandoffDeepLink(requestId, "anarlog-dev"),
+    `anarlog-dev://share/open?mode=handoff&request_id=${requestId}`,
   );
   assert.equal(
-    buildShareHandoffDeepLink(requestId, "char" as "hyprnote"),
+    buildShareHandoffDeepLink(requestId, "hyprnote"),
     `hyprnote://share/open?mode=handoff&request_id=${requestId}`,
+  );
+  assert.equal(
+    buildShareHandoffDeepLink(requestId, "char" as "anarlog"),
+    `anarlog://share/open?mode=handoff&request_id=${requestId}`,
   );
 });
 
-test("preserves only the staging scheme in shared-note web paths", () => {
+test("omits only the canonical stable scheme from shared-note web paths", () => {
   assert.equal(buildSharedNoteWebPath("/share/example/"), "/share/example/");
   assert.equal(
-    buildSharedNoteWebPath("/share/example/", "hyprnote-staging"),
-    "/share/example/?scheme=hyprnote-staging",
+    buildSharedNoteWebPath("/share/example/", "anarlog-staging"),
+    "/share/example/?scheme=anarlog-staging",
   );
   assert.equal(
-    buildSharedNoteWebPath("/share/example/", "char" as "hyprnote"),
+    buildSharedNoteWebPath("/share/example/", "hyprnote"),
+    "/share/example/?scheme=hyprnote",
+  );
+  assert.equal(
+    buildSharedNoteWebPath("/share/example/", "char" as "anarlog"),
     "/share/example/",
   );
 });

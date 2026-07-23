@@ -10,7 +10,10 @@ import {
   authSecondaryButtonClassName,
 } from "@/components/auth-shell";
 import { exchangeOAuthCode } from "@/functions/auth";
-import { desktopSchemeSchema } from "@/functions/desktop-flow";
+import {
+  DEFAULT_DESKTOP_SCHEME,
+  desktopSchemeSchema,
+} from "@/functions/desktop-flow";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import {
   resolveAuthFlowContext,
@@ -39,11 +42,12 @@ const validateSearch = z.object({
     ])
     .optional(),
   flow: z.enum(["desktop", "web"]).default("web"),
-  scheme: desktopSchemeSchema.catch("hyprnote"),
+  scheme: desktopSchemeSchema.catch(DEFAULT_DESKTOP_SCHEME),
   redirect: z.string().optional(),
   access_token: z.string().optional(),
   refresh_token: z.string().optional(),
   handoff: z.literal("stored").optional(),
+  auto_open: z.literal("oauth").optional(),
   error: z.string().optional(),
   error_code: z.string().optional(),
   error_description: z.string().optional(),
@@ -90,6 +94,7 @@ export const Route = createFileRoute("/_view/callback/auth")({
           scheme: search.scheme,
           access_token: result.access_token,
           refresh_token: result.refresh_token,
+          auto_open: "oauth",
         },
       });
     }
@@ -121,27 +126,11 @@ function Component() {
   const [storedHandoff, setStoredHandoff] =
     useState<ReturnType<typeof readDesktopAuthHandoff>>(null);
 
-  useMountEffect(() => {
-    prepareAuthRoutePrivacy();
-    if (
-      search.handoff === "stored" ||
-      (search.access_token && search.refresh_token)
-    ) {
-      setStoredHandoff(readDesktopAuthHandoff());
-    }
-  });
-
   const accessToken = search.access_token ?? storedHandoff?.accessToken;
   const refreshToken = search.refresh_token ?? storedHandoff?.refreshToken;
 
   const getDeeplink = () => {
-    if (accessToken && refreshToken) {
-      const params = new URLSearchParams();
-      params.set("access_token", accessToken);
-      params.set("refresh_token", refreshToken);
-      return `${search.scheme}://auth/callback?${params.toString()}`;
-    }
-    return null;
+    return buildAuthDeeplink(search.scheme, accessToken, refreshToken);
   };
 
   // Browsers require a user gesture (click) to open custom URL schemes.
@@ -155,6 +144,28 @@ function Component() {
       window.location.href = deeplink;
     }
   };
+
+  useMountEffect(() => {
+    prepareAuthRoutePrivacy();
+    const handoff = readDesktopAuthHandoff();
+    if (
+      search.handoff === "stored" ||
+      (search.access_token && search.refresh_token)
+    ) {
+      setStoredHandoff(handoff);
+    }
+
+    if (search.auto_open === "oauth") {
+      const deeplink = buildAuthDeeplink(
+        search.scheme,
+        search.access_token ?? handoff?.accessToken,
+        search.refresh_token ?? handoff?.refreshToken,
+      );
+      if (deeplink) {
+        window.location.href = deeplink;
+      }
+    }
+  });
 
   const handleCopy = async () => {
     const deeplink = getDeeplink();
@@ -266,6 +277,22 @@ function Component() {
       </AuthShell>
     );
   }
+}
+
+function buildAuthDeeplink(
+  scheme: z.infer<typeof desktopSchemeSchema>,
+  accessToken: string | undefined,
+  refreshToken: string | undefined,
+) {
+  if (!accessToken || !refreshToken) {
+    return null;
+  }
+
+  const params = new URLSearchParams({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+  return `${scheme}://auth/callback?${params.toString()}`;
 }
 
 function redirectToExchangeError(

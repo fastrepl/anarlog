@@ -22,7 +22,10 @@ import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { cn } from "@hypr/utils";
 
 import { SiteFooter } from "@/components/site-footer";
-import { desktopSchemeSchema } from "@/functions/desktop-flow";
+import {
+  DEFAULT_DESKTOP_SCHEME,
+  desktopSchemeSchema,
+} from "@/functions/desktop-flow";
 import { getGitHubStats, getStargazers } from "@/functions/github";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { appleIntelDownloadUrl, appleSiliconDownloadUrl } from "@/lib/download";
@@ -288,7 +291,7 @@ const authCallbackSearchSchema = z.object({
     .optional()
     .catch(undefined),
   flow: z.enum(["desktop", "web"]).optional().catch(undefined),
-  scheme: desktopSchemeSchema.optional().catch("hyprnote"),
+  scheme: desktopSchemeSchema.optional().catch(DEFAULT_DESKTOP_SCHEME),
   redirect: z.string().optional(),
   redirect_to: z.string().max(2048).optional(),
   error: z.string().optional(),
@@ -319,7 +322,7 @@ export const Route = createFileRoute("/")({
     }
 
     const flow = search.flow ?? "web";
-    const scheme = search.scheme ?? "hyprnote";
+    const scheme = search.scheme ?? DEFAULT_DESKTOP_SCHEME;
 
     throw redirect({
       to: "/callback/auth/",

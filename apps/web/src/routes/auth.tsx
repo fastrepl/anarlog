@@ -22,7 +22,11 @@ import {
   doPasswordSignUp,
   fetchUser,
 } from "@/functions/auth";
-import { type DesktopScheme, flowSearchSchema } from "@/functions/desktop-flow";
+import {
+  DEFAULT_DESKTOP_SCHEME,
+  type DesktopScheme,
+  flowSearchSchema,
+} from "@/functions/desktop-flow";
 import { toAuthFlowSearch } from "@/lib/auth-flow-context";
 import {
   buildPostAuthDestination,
@@ -64,7 +68,7 @@ export const Route = createFileRoute("/auth")({
             to: "/callback/auth/",
             search: {
               flow: "desktop",
-              scheme: search.scheme ?? "hyprnote",
+              scheme: search.scheme ?? DEFAULT_DESKTOP_SCHEME,
               access_token: result.access_token,
               refresh_token: result.refresh_token,
             },
@@ -92,7 +96,7 @@ function Component() {
       >
         <DesktopReauthView
           email={existingUser.email}
-          scheme={scheme ?? "hyprnote"}
+          scheme={scheme ?? DEFAULT_DESKTOP_SCHEME}
         />
       </AuthShell>
     );

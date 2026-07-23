@@ -10,7 +10,10 @@ import {
   authPrimaryButtonClassName,
   authSecondaryButtonClassName,
 } from "@/components/auth-shell";
-import { flowSearchSchema } from "@/functions/desktop-flow";
+import {
+  DEFAULT_DESKTOP_SCHEME,
+  flowSearchSchema,
+} from "@/functions/desktop-flow";
 
 const commonSearch = {
   integration_id: z.string(),
@@ -57,7 +60,7 @@ function buildDeeplinkUrl(
 
 function Component() {
   const search = Route.useSearch();
-  const scheme = search.scheme ?? "hyprnote";
+  const scheme = search.scheme ?? DEFAULT_DESKTOP_SCHEME;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);

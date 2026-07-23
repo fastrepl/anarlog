@@ -14,26 +14,33 @@ export const handoffRequestIdSchema = z
     /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
   );
 export const sharedNoteDesktopSchemeSchema = z
-  .enum(["hyprnote", "hyprnote-staging"])
-  .catch("hyprnote")
-  .default("hyprnote");
+  .enum([
+    "anarlog",
+    "anarlog-staging",
+    "anarlog-dev",
+    "hyprnote",
+    "hyprnote-staging",
+    "hypr",
+  ])
+  .catch("anarlog")
+  .default("anarlog");
 export type SharedNoteDesktopScheme = z.infer<
   typeof sharedNoteDesktopSchemeSchema
 >;
 
 export function buildSharedNoteWebPath(
   pathname: string,
-  scheme: SharedNoteDesktopScheme = "hyprnote",
+  scheme: SharedNoteDesktopScheme = "anarlog",
 ) {
   const parsedScheme = sharedNoteDesktopSchemeSchema.parse(scheme);
-  return parsedScheme === "hyprnote-staging"
-    ? `${pathname}?scheme=hyprnote-staging`
-    : pathname;
+  return parsedScheme === "anarlog"
+    ? pathname
+    : `${pathname}?scheme=${parsedScheme}`;
 }
 
 export function buildAccountShareDeepLink(
   shareId: string,
-  scheme: SharedNoteDesktopScheme = "hyprnote",
+  scheme: SharedNoteDesktopScheme = "anarlog",
 ) {
   const parsedShareId = shareIdSchema.parse(shareId);
   const parsedScheme = sharedNoteDesktopSchemeSchema.parse(scheme);
@@ -42,7 +49,7 @@ export function buildAccountShareDeepLink(
 
 export function buildShareHandoffDeepLink(
   requestId: string,
-  scheme: SharedNoteDesktopScheme = "hyprnote",
+  scheme: SharedNoteDesktopScheme = "anarlog",
 ) {
   const parsedRequestId = handoffRequestIdSchema.parse(requestId);
   const parsedScheme = sharedNoteDesktopSchemeSchema.parse(scheme);

@@ -9,15 +9,32 @@ import {
 test("restores desktop recovery context from the encoded Supabase redirect", () => {
   const context = resolveAuthFlowContext({
     redirectTo:
-      "https://anarlog.so/callback/auth?flow=desktop&scheme=hyprnote-staging&redirect=%2Fshare%2Finvite%2Fabc%2F",
+      "https://anarlog.so/callback/auth?flow=desktop&scheme=anarlog-staging&redirect=%2Fshare%2Finvite%2Fabc%2F",
   });
 
   assert.deepEqual(context, {
     flow: "desktop",
-    scheme: "hyprnote-staging",
+    scheme: "anarlog-staging",
     redirect: "/share/invite/abc/",
   });
   assert.deepEqual(toAuthFlowSearch(context), context);
+});
+
+test("keeps legacy desktop schemes valid during migration", () => {
+  assert.deepEqual(
+    resolveAuthFlowContext({
+      redirectTo:
+        "https://anarlog.so/callback/auth?flow=desktop&scheme=hyprnote",
+    }),
+    { flow: "desktop", scheme: "hyprnote" },
+  );
+});
+
+test("defaults new desktop flows to the canonical Anarlog scheme", () => {
+  assert.deepEqual(resolveAuthFlowContext({ flow: "desktop" }), {
+    flow: "desktop",
+    scheme: "anarlog",
+  });
 });
 
 test("ignores unrelated redirect URLs and unsafe return paths", () => {

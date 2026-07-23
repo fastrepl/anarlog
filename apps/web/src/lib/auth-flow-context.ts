@@ -1,4 +1,5 @@
 import {
+  DEFAULT_DESKTOP_SCHEME,
   desktopSchemeSchema,
   type DesktopScheme,
 } from "../functions/desktop-flow.ts";
@@ -26,7 +27,7 @@ export function resolveAuthFlowContext({
   const resolvedScheme =
     scheme ??
     redirectContext?.scheme ??
-    (resolvedFlow === "desktop" ? "hyprnote" : undefined);
+    (resolvedFlow === "desktop" ? DEFAULT_DESKTOP_SCHEME : undefined);
   const resolvedRedirect = redirect ?? redirectContext?.redirect;
 
   return {
@@ -42,7 +43,7 @@ export function toAuthFlowSearch(context: AuthFlowContext) {
   if (context.flow === "desktop") {
     return {
       flow: "desktop" as const,
-      scheme: context.scheme ?? "hyprnote",
+      scheme: context.scheme ?? DEFAULT_DESKTOP_SCHEME,
       redirect: context.redirect,
     };
   }

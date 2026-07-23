@@ -75,7 +75,8 @@
     "deep-link": {
       "desktop": {
         "schemes": [
-          "hyprnote",
+          "anarlog-dev",
+          "hypr",
           "char"
         ]
       }

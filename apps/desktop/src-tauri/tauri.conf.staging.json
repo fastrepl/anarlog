@@ -5,7 +5,9 @@
   "identifier": "com.hyprnote.staging",
   "plugins": {
     "deep-link": {
-      "desktop": { "schemes": ["hyprnote-staging"] }
+      "desktop": {
+        "schemes": ["anarlog-staging", "hyprnote-staging"]
+      }
     },
     "updater": {
       "active": false

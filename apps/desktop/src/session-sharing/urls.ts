@@ -1,9 +1,11 @@
+import type { DesktopScheme } from "~/shared/utils";
+
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const PUBLIC_SLUG_PATTERN = /^s_[0-9a-f]{32}$/;
 const CAPABILITY_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
-export type ShareDesktopScheme = "hyprnote" | "hyprnote-staging";
+export type ShareDesktopScheme = DesktopScheme;
 
 export function buildSessionShareLinkUrl({
   appBaseUrl,
@@ -92,10 +94,10 @@ function withDesktopScheme(
   url: URL,
   desktopScheme: ShareDesktopScheme | undefined,
 ) {
-  if (!desktopScheme || desktopScheme === "hyprnote") {
+  if (!desktopScheme || desktopScheme === "anarlog") {
     return url;
   }
-  if (desktopScheme !== "hyprnote-staging") {
+  if (desktopScheme !== "anarlog-staging" && desktopScheme !== "anarlog-dev") {
     throw invalidUrl();
   }
   url.searchParams.set("scheme", desktopScheme);

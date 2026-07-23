@@ -13,8 +13,15 @@ pub enum ShareOpenRequest {
 
 impl ShareOpenRequest {
     pub(crate) fn parse(parsed: &url::Url) -> Result<Self, crate::Error> {
-        if !matches!(parsed.scheme(), "hyprnote" | "hyprnote-staging")
-            || parsed.host_str() != Some("share")
+        if !matches!(
+            parsed.scheme(),
+            "anarlog"
+                | "anarlog-staging"
+                | "anarlog-dev"
+                | "hyprnote"
+                | "hyprnote-staging"
+                | "hypr"
+        ) || parsed.host_str() != Some("share")
             || parsed.path() != "/open"
             || !parsed.username().is_empty()
             || parsed.password().is_some()
@@ -105,7 +112,14 @@ mod tests {
 
     #[test]
     fn parses_only_account_and_handoff_routes() {
-        for scheme in ["hyprnote", "hyprnote-staging"] {
+        for scheme in [
+            "anarlog",
+            "anarlog-staging",
+            "anarlog-dev",
+            "hyprnote",
+            "hyprnote-staging",
+            "hypr",
+        ] {
             assert!(matches!(
                 parse(&format!(
                     "{scheme}://share/open?mode=account&share_id={SHARE_ID}"
@@ -124,7 +138,6 @@ mod tests {
     #[test]
     fn rejects_noncanonical_or_ambiguous_routes() {
         let invalid = [
-            format!("hypr://share/open?mode=account&share_id={SHARE_ID}"),
             format!("char://share/open?mode=account&share_id={SHARE_ID}"),
             format!("hyprnote://share/open/?mode=account&share_id={SHARE_ID}"),
             format!("hyprnote://share/open?mode=account&share_id={SHARE_ID}#fragment"),
@@ -152,11 +165,11 @@ mod tests {
     #[test]
     fn debug_output_redacts_external_identifiers() {
         let account = parse(&format!(
-            "hyprnote://share/open?mode=account&share_id={SHARE_ID}"
+            "anarlog://share/open?mode=account&share_id={SHARE_ID}"
         ))
         .unwrap();
         let handoff = parse(&format!(
-            "hyprnote://share/open?mode=handoff&request_id={REQUEST_ID}"
+            "anarlog://share/open?mode=handoff&request_id={REQUEST_ID}"
         ))
         .unwrap();
 

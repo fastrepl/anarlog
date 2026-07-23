@@ -2102,7 +2102,5 @@ function withoutSignal(
 }
 
 async function getSessionShareDesktopScheme(): Promise<ShareDesktopScheme> {
-  return (await getScheme()) === "hyprnote-staging"
-    ? "hyprnote-staging"
-    : "hyprnote";
+  return getScheme();
 }

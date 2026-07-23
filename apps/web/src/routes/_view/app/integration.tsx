@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
-import { flowSearchSchema } from "@/functions/desktop-flow";
+import {
+  DEFAULT_DESKTOP_SCHEME,
+  flowSearchSchema,
+} from "@/functions/desktop-flow";
 import { useBilling } from "@/hooks/use-billing";
 
 import { IntegrationPageLayout } from "./-integration-ui";
@@ -86,7 +89,7 @@ function Component() {
       <UpgradePrompt
         integrationId={search.integration_id}
         flow={search.flow}
-        scheme={search.scheme ?? "hyprnote"}
+        scheme={search.scheme ?? DEFAULT_DESKTOP_SCHEME}
       />
     );
   }

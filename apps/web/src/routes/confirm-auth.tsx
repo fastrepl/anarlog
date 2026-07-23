@@ -10,7 +10,10 @@ import {
   authPrimaryButtonClassName,
 } from "@/components/auth-shell";
 import { exchangeOtpToken } from "@/functions/auth";
-import { desktopSchemeSchema } from "@/functions/desktop-flow";
+import {
+  DEFAULT_DESKTOP_SCHEME,
+  desktopSchemeSchema,
+} from "@/functions/desktop-flow";
 import {
   resolveAuthFlowContext,
   toAuthFlowSearch,
@@ -85,7 +88,7 @@ function Component() {
 
       const params = new URLSearchParams({
         flow: "desktop",
-        scheme: context.scheme ?? "hyprnote",
+        scheme: context.scheme ?? DEFAULT_DESKTOP_SCHEME,
         access_token: result.access_token,
         refresh_token: result.refresh_token,
       });

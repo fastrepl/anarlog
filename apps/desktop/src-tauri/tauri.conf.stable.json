@@ -5,7 +5,7 @@
   "identifier": "com.hyprnote.stable",
   "plugins": {
     "deep-link": {
-      "desktop": { "schemes": ["hyprnote"] }
+      "desktop": { "schemes": ["anarlog", "hyprnote"] }
     },
     "updater": {
       "active": true,

@@ -5,7 +5,10 @@ import { z } from "zod";
 
 import { cn } from "@hypr/utils";
 
-import { desktopSchemeSchema } from "@/functions/desktop-flow";
+import {
+  DEFAULT_DESKTOP_SCHEME,
+  desktopSchemeSchema,
+} from "@/functions/desktop-flow";
 import { useAnalytics } from "@/hooks/use-posthog";
 
 const validateSearch = z.object({
@@ -32,7 +35,7 @@ export const Route = createFileRoute("/_view/callback/billing")({
 
 function Component() {
   const {
-    scheme = "hyprnote",
+    scheme = DEFAULT_DESKTOP_SCHEME,
     checkout,
     checkout_type: checkoutType,
     source,

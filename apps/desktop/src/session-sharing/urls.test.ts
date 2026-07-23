@@ -56,32 +56,32 @@ describe("session share URLs", () => {
     ).toBe(`https://anarlog.so/share/public/${publicSlug}/`);
   });
 
-  it("targets staging without changing stable canonical URLs", () => {
+  it("targets non-stable builds without changing stable canonical URLs", () => {
     const linkUrl = new URL(
       buildSessionShareLinkUrl({
         appBaseUrl: "https://anarlog.so",
         shareId,
         linkToken: token,
-        desktopScheme: "hyprnote-staging",
+        desktopScheme: "anarlog-staging",
       }),
     );
-    expect(linkUrl.searchParams.get("scheme")).toBe("hyprnote-staging");
+    expect(linkUrl.searchParams.get("scheme")).toBe("anarlog-staging");
     expect(linkUrl.hash).toBe(`#token=${token}`);
 
     const publicUrl = new URL(
       buildPublicSessionShareUrl({
         appBaseUrl: "https://anarlog.so",
         publicSlug,
-        desktopScheme: "hyprnote-staging",
+        desktopScheme: "anarlog-dev",
       }),
     );
-    expect(publicUrl.searchParams.get("scheme")).toBe("hyprnote-staging");
+    expect(publicUrl.searchParams.get("scheme")).toBe("anarlog-dev");
 
     const stableUrl = new URL(
       buildAccountSessionShareUrl({
         appBaseUrl: "https://anarlog.so",
         shareId,
-        desktopScheme: "hyprnote",
+        desktopScheme: "anarlog",
       }),
     );
     expect(stableUrl.search).toBe("");
