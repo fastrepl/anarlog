@@ -297,10 +297,6 @@ msgstr "Automatically start listening when an event-backed note reaches its sche
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Automatically stop listening when the meeting app releases the microphone."
 
-#: src/main/sync-status.tsx
-msgid "Available with Anarlog Pro"
-msgstr "Available with Anarlog Pro"
-
 #: src/settings/general/app-settings.tsx
 msgid "Available with Anarlog Pro."
 msgstr "Available with Anarlog Pro."
@@ -430,7 +426,6 @@ msgstr "Close chat"
 msgid "Closed"
 msgstr "Closed"
 
-#: src/main/sync-status.tsx
 #: src/settings/general/app-settings.tsx
 msgid "Cloud sync"
 msgstr "Cloud sync"
@@ -1630,10 +1625,6 @@ msgstr "Resume"
 msgid "Resume listening"
 msgstr "Resume listening"
 
-#: src/main/sync-status.tsx
-msgid "Resume sync"
-msgstr "Resume sync"
-
 #: src/chat/components/message/error.tsx
 #: src/main/sync-status.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
@@ -2078,10 +2069,6 @@ msgid "Sync now"
 msgstr "Sync now"
 
 #: src/main/sync-status.tsx
-msgid "Sync paused"
-msgstr "Sync paused"
-
-#: src/main/sync-status.tsx
 msgid "Sync settings"
 msgstr "Sync settings"
 
@@ -2242,7 +2229,6 @@ msgid "Upgrade to connect"
 msgstr "Upgrade to connect"
 
 #: src/calendar/components/sidebar.tsx
-#: src/main/sync-status.tsx
 #: src/session-sharing/index.tsx
 msgid "Upgrade to Pro"
 msgstr "Upgrade to Pro"
@@ -2350,10 +2336,6 @@ msgstr "Your Account"
 #: src/session-sharing/comments.tsx
 msgid "Your comment couldn’t be added. Try again."
 msgstr "Your comment couldn’t be added. Try again."
-
-#: src/main/sync-status.tsx
-msgid "Your notes are stored on this device only"
-msgstr "Your notes are stored on this device only"
 
 #: src/settings/general/e2ee-setup.tsx
 msgid "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."

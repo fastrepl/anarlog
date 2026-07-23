@@ -297,10 +297,6 @@ msgstr "Aviar l'escota automaticament quand una nòta sostenguda per un evenimen
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Arrèsta automaticament l'escota quand l'aplicacion de reünion libera lo micrò."
 
-#: src/main/sync-status.tsx
-msgid "Available with Anarlog Pro"
-msgstr ""
-
 #: src/settings/general/app-settings.tsx
 msgid "Available with Anarlog Pro."
 msgstr ""
@@ -430,7 +426,6 @@ msgstr ""
 msgid "Closed"
 msgstr ""
 
-#: src/main/sync-status.tsx
 #: src/settings/general/app-settings.tsx
 msgid "Cloud sync"
 msgstr ""
@@ -1630,10 +1625,6 @@ msgstr ""
 msgid "Resume listening"
 msgstr ""
 
-#: src/main/sync-status.tsx
-msgid "Resume sync"
-msgstr ""
-
 #: src/chat/components/message/error.tsx
 #: src/main/sync-status.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
@@ -2078,10 +2069,6 @@ msgid "Sync now"
 msgstr ""
 
 #: src/main/sync-status.tsx
-msgid "Sync paused"
-msgstr ""
-
-#: src/main/sync-status.tsx
 msgid "Sync settings"
 msgstr ""
 
@@ -2242,7 +2229,6 @@ msgid "Upgrade to connect"
 msgstr ""
 
 #: src/calendar/components/sidebar.tsx
-#: src/main/sync-status.tsx
 #: src/session-sharing/index.tsx
 msgid "Upgrade to Pro"
 msgstr ""
@@ -2349,10 +2335,6 @@ msgstr ""
 
 #: src/session-sharing/comments.tsx
 msgid "Your comment couldn’t be added. Try again."
-msgstr ""
-
-#: src/main/sync-status.tsx
-msgid "Your notes are stored on this device only"
 msgstr ""
 
 #: src/settings/general/e2ee-setup.tsx
