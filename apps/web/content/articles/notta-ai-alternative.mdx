@@ -74,15 +74,15 @@ It is less ideal when your real system of record is:
 - a filesystem-backed personal knowledge base;
 - or a security-approved AI stack your organization already controls.
 
-In those workflows, export is not enough. You want the note to start as something you own.
+In those workflows, look for a local canonical record and an export path you can audit.
 
 ## Where Anarlog is different
 
-Anarlog starts from a narrower assumption: your meeting notes should be portable files first.
+Anarlog starts from a narrower assumption: your meeting record should remain local by default and be portable when you choose to export it.
 
 Anarlog captures microphone and system audio from your desktop, transcribes meetings in real time, and stores meeting data in local SQLite on your device. There is no meeting bot joining the call, and you can export Markdown when you need a portable record.
 
-The practical difference is simple. With Anarlog, the meeting note starts as markdown you can open in another editor, move into Obsidian, search from the terminal, sync however you already sync files, or keep in a folder that survives a subscription change. The [local AI meeting notes guide](/blog/local-ai-meeting-notes/) explains how this file-first model differs from simply adding a local transcription mode to a larger cloud product.
+The practical difference is simple. With Anarlog, the canonical record stays in local SQLite. Export Markdown when you want to open a selected note in another editor, move it into Obsidian, or archive it alongside another workflow. The [local AI meeting notes guide](/blog/local-ai-meeting-notes/) explains how this local-first model differs from simply adding a local transcription mode to a larger cloud product.
 
 That matters for engineers, technical founders, consultants, lawyers, operators, and privacy-conscious teams who want meeting memory without turning every conversation into another SaaS object.
 
@@ -92,7 +92,7 @@ That matters for engineers, technical founders, consultants, lawyers, operators,
 
 Ask where the canonical note lives.
 
-If it lives in a vendor workspace and you can export it later, you have portability. If it starts as a markdown file on your machine, you have ownership at the format level.
+If it lives in a vendor workspace and you can export it later, you have portability. If the canonical record stays on your device and you control its export path, you have a more local-first model.
 
 Notta Privacy Mode does keep recordings and transcripts in a local folder. Its public page does not promise a portable Markdown export as the default format, so confirm the file and export formats before designing a workflow around it. Anarlog keeps the canonical meeting record in local SQLite and supports Markdown export.
 
