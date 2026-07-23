@@ -274,7 +274,7 @@ function HeaderMeetingActionPill({
           disabled={disabled}
           onClick={action.onClick}
           className={cn([
-            "flex h-full min-w-0 items-center gap-1.5 py-0 pr-1.5 pl-2.5",
+            "flex h-full min-w-0 items-center gap-1.5 py-0 pr-1.5 pl-1.5",
             "text-sm font-medium",
             "hover:bg-accent transition-colors",
             disabled && "cursor-default opacity-60 hover:bg-transparent",
