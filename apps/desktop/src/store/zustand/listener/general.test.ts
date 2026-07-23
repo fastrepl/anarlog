@@ -126,6 +126,7 @@ describe("General Listener Slice", () => {
       expect(state.live.eventUnlistenersBySession).toEqual({});
       expect(state.live.intervalId).toBeUndefined();
       expect(state.live.needsBatchRepair).toBe(false);
+      expect(state.live.postStopProcessingBySession).toEqual({});
       expect(state.batch).toEqual({});
     });
   });
@@ -854,6 +855,144 @@ describe("General Listener Slice", () => {
         "session-a",
         expect.objectContaining({ needsBatchRepair: true }),
       );
+    });
+
+    test("observes asynchronous post-stop failures", async () => {
+      let lifecycleHandler:
+        | ((event: { payload: Record<string, unknown> }) => void)
+        | undefined;
+      const error = new Error("summary scheduling failed");
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      listenCaptureLifecycleMock.mockImplementationOnce((handler) => {
+        lifecycleHandler = handler;
+        return Promise.resolve(() => {});
+      });
+      getCaptureSnapshotMock.mockResolvedValueOnce({
+        status: "ok",
+        data: {
+          activeSessionId: "session-a",
+          finalizingSessionIds: [],
+          liveTranscriptionActive: true,
+          requestedLiveTranscription: true,
+          state: "active",
+        },
+      });
+      store
+        .getState()
+        .setOnStopped("session-a", vi.fn().mockRejectedValue(error));
+
+      await store.getState().attachLiveSession("session-a");
+      lifecycleHandler?.({
+        payload: {
+          type: "stopped",
+          session_id: "session-a",
+          audio_path: "/tmp/session.wav",
+          requested_live_transcription: true,
+          live_transcription_active: true,
+          error: null,
+        },
+      });
+      await Promise.resolve();
+
+      expect(consoleError).toHaveBeenCalledWith(
+        "[listener] post-stop processing failed",
+        error,
+      );
+      await vi.waitFor(() =>
+        expect(store.getState().canStartLiveSession("session-a")).toBe(true),
+      );
+      consoleError.mockRestore();
+    });
+
+    test("blocks an immediate same-session restart until post-stop repair settles", async () => {
+      let lifecycleHandler:
+        | ((event: { payload: Record<string, unknown> }) => void)
+        | undefined;
+      let finishRepair: (() => void) | undefined;
+      const repairCompleted = vi.fn();
+      const onStopped = vi.fn(
+        (
+          _sessionId: string,
+          details: { needsBatchRepair: boolean },
+        ): Promise<void> => {
+          expect(details.needsBatchRepair).toBe(true);
+          return new Promise<void>((resolve) => {
+            finishRepair = () => {
+              repairCompleted();
+              resolve();
+            };
+          });
+        },
+      );
+      listenCaptureLifecycleMock.mockImplementationOnce((handler) => {
+        lifecycleHandler = handler;
+        return Promise.resolve(() => {});
+      });
+      getCaptureSnapshotMock.mockResolvedValueOnce({
+        status: "ok",
+        data: {
+          activeSessionId: "session-a",
+          finalizingSessionIds: [],
+          liveTranscriptionActive: true,
+          requestedLiveTranscription: true,
+          state: "active",
+        },
+      });
+      store.getState().setOnStopped("session-a", onStopped);
+
+      await store.getState().attachLiveSession("session-a");
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          draft.live.needsBatchRepair = true;
+        }),
+      );
+      lifecycleHandler?.({
+        payload: {
+          type: "stopped",
+          session_id: "session-a",
+          audio_path: "/tmp/session.wav",
+          requested_live_transcription: true,
+          live_transcription_active: true,
+          error: null,
+        },
+      });
+
+      expect(onStopped).toHaveBeenCalledOnce();
+      expect(store.getState().canStartLiveSession("session-a")).toBe(false);
+      expect(store.getState().canStartLiveSession("session-b")).toBe(true);
+      await expect(
+        store.getState().start({
+          session_id: "session-a",
+          languages: [],
+          onboarding: false,
+          model: "test-model",
+          base_url: "http://localhost",
+          api_key: "test-key",
+          keywords: [],
+        }),
+      ).resolves.toBe(false);
+      expect(startCaptureMock).not.toHaveBeenCalled();
+      expect(repairCompleted).not.toHaveBeenCalled();
+
+      finishRepair?.();
+      await vi.waitFor(() =>
+        expect(store.getState().canStartLiveSession("session-a")).toBe(true),
+      );
+      expect(repairCompleted).toHaveBeenCalledOnce();
+      await expect(
+        store.getState().start({
+          session_id: "session-a",
+          languages: [],
+          onboarding: false,
+          model: "test-model",
+          base_url: "http://localhost",
+          api_key: "test-key",
+          keywords: [],
+        }),
+      ).resolves.toBe(true);
+      expect(startCaptureMock).toHaveBeenCalledOnce();
     });
 
     test("attachLiveSession ignores overlapping attaches for the same session", async () => {

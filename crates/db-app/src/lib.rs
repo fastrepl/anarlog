@@ -180,6 +180,76 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         scope: hypr_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260717191000_session_share_sync_state.sql"),
     },
+    hypr_db_migrate::MigrationStep {
+        id: "20260723120000_e2ee_dirty_rows",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260723120000_e2ee_dirty_rows.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260723120100_e2ee_dirty_action_items_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "action_items",
+        },
+        sql: include_str!("../migrations/20260723120100_e2ee_dirty_action_items_triggers.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260723120200_e2ee_dirty_humans_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "humans",
+        },
+        sql: include_str!("../migrations/20260723120200_e2ee_dirty_humans_triggers.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260723120300_e2ee_dirty_organizations_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "organizations",
+        },
+        sql: include_str!("../migrations/20260723120300_e2ee_dirty_organizations_triggers.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260723120400_e2ee_dirty_session_attachments_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "session_attachments",
+        },
+        sql: include_str!(
+            "../migrations/20260723120400_e2ee_dirty_session_attachments_triggers.sql"
+        ),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260723120500_e2ee_dirty_session_documents_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "session_documents",
+        },
+        sql: include_str!("../migrations/20260723120500_e2ee_dirty_session_documents_triggers.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260723120600_e2ee_dirty_session_participants_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "session_participants",
+        },
+        sql: include_str!(
+            "../migrations/20260723120600_e2ee_dirty_session_participants_triggers.sql"
+        ),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260723120700_e2ee_dirty_sessions_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "sessions",
+        },
+        sql: include_str!("../migrations/20260723120700_e2ee_dirty_sessions_triggers.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260723120800_e2ee_dirty_transcripts_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "transcripts",
+        },
+        sql: include_str!("../migrations/20260723120800_e2ee_dirty_transcripts_triggers.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260723120900_e2ee_witness_upload_index",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260723120900_e2ee_witness_upload_index.sql"),
+    },
 ];
 
 pub fn schema() -> hypr_db_migrate::DbSchema {
@@ -902,6 +972,8 @@ ON shared_session_cache(workspace_id);
                 "cloudsync_session_evictions",
                 "cloudsync_writable_workspaces",
                 "daily_notes",
+                "e2ee_apply_guard",
+                "e2ee_dirty_rows",
                 "e2ee_local_device",
                 "e2ee_local_state",
                 "e2ee_records",
@@ -1384,6 +1456,355 @@ ON shared_session_cache(workspace_id);
             );
             assert!(!cloudsync_alter_guard_required(table_name));
         }
+    }
+
+    #[test]
+    fn e2ee_dirty_rows_is_local_only_with_scoped_domain_triggers() {
+        let table_migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260723120000_e2ee_dirty_rows")
+            .unwrap();
+        assert_eq!(
+            table_migration.scope,
+            hypr_db_migrate::MigrationScope::Plain
+        );
+        for local_table in ["e2ee_apply_guard", "e2ee_dirty_rows"] {
+            assert!(
+                !cloudsync_table_registry()
+                    .iter()
+                    .any(|table| table.table_name == local_table)
+            );
+            assert!(!cloudsync_alter_guard_required(local_table));
+        }
+
+        let trigger_migrations: Vec<_> = APP_MIGRATION_STEPS
+            .iter()
+            .filter(|step| step.id.starts_with("2026072312") && step.id.ends_with("_triggers"))
+            .collect();
+        assert_eq!(trigger_migrations.len(), E2EE_DOMAIN_TABLES.len());
+        for table_name in E2EE_DOMAIN_TABLES {
+            assert!(trigger_migrations.iter().any(|step| matches!(
+                step.scope,
+                hypr_db_migrate::MigrationScope::CloudsyncAlter {
+                    table_name: scoped_table
+                } if scoped_table == *table_name
+            )));
+        }
+    }
+
+    #[tokio::test]
+    async fn e2ee_dirty_rows_migration_seeds_existing_domain_rows_and_tombstones() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(
+            &db,
+            hypr_db_migrate::DbSchema {
+                steps: migration_steps_before("20260723120000_e2ee_dirty_rows"),
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
+
+        for table_name in E2EE_DOMAIN_TABLES {
+            let insert_sql = format!(
+                "INSERT INTO {table_name} (id, workspace_id, deleted_at)
+                 VALUES (?, 'workspace-a', NULL), (?, 'workspace-a', '2026-07-23T00:00:00Z')"
+            );
+            sqlx::query(sqlx::AssertSqlSafe(insert_sql.as_str()))
+                .bind(format!("live-{table_name}"))
+                .bind(format!("deleted-{table_name}"))
+                .execute(db.pool())
+                .await
+                .unwrap();
+            sqlx::query(
+                "INSERT INTO e2ee_local_state (
+                   record_id, workspace_id, table_name, row_id, field_name
+                 ) VALUES (?, 'workspace-a', ?, ?, '$row')",
+            )
+            .bind(format!("manifest-{table_name}"))
+            .bind(table_name)
+            .bind(format!("absent-{table_name}"))
+            .execute(db.pool())
+            .await
+            .unwrap();
+        }
+
+        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+
+        let dirty_rows: Vec<(String, String, String, i64)> = sqlx::query_as(
+            "SELECT workspace_id, table_name, row_id, generation
+             FROM e2ee_dirty_rows
+             ORDER BY table_name, row_id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(dirty_rows.len(), E2EE_DOMAIN_TABLES.len() * 3);
+        for table_name in E2EE_DOMAIN_TABLES {
+            assert!(dirty_rows.contains(&(
+                "workspace-a".to_string(),
+                table_name.to_string(),
+                format!("live-{table_name}"),
+                1,
+            )));
+            assert!(dirty_rows.contains(&(
+                "workspace-a".to_string(),
+                table_name.to_string(),
+                format!("deleted-{table_name}"),
+                1,
+            )));
+            assert!(dirty_rows.contains(&(
+                "workspace-a".to_string(),
+                table_name.to_string(),
+                format!("absent-{table_name}"),
+                1,
+            )));
+        }
+    }
+
+    #[tokio::test]
+    async fn e2ee_dirty_triggers_track_domain_inserts_updates_and_deletes() {
+        let db = test_db().await;
+
+        let trigger_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*)
+             FROM sqlite_master
+             WHERE type = 'trigger' AND name LIKE 'e2ee_dirty_%'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(trigger_count, (E2EE_DOMAIN_TABLES.len() * 3) as i64);
+
+        for table_name in E2EE_DOMAIN_TABLES {
+            let row_id = format!("row-{table_name}");
+            let insert_sql =
+                format!("INSERT INTO {table_name} (id, workspace_id) VALUES (?, 'workspace-a')");
+            sqlx::query(sqlx::AssertSqlSafe(insert_sql.as_str()))
+                .bind(&row_id)
+                .execute(db.pool())
+                .await
+                .unwrap();
+
+            let update_sql = format!(
+                "UPDATE {table_name}
+                 SET updated_at = '2026-07-23T01:00:00Z'
+                 WHERE id = ?"
+            );
+            sqlx::query(sqlx::AssertSqlSafe(update_sql.as_str()))
+                .bind(&row_id)
+                .execute(db.pool())
+                .await
+                .unwrap();
+
+            let delete_sql = format!("DELETE FROM {table_name} WHERE id = ?");
+            sqlx::query(sqlx::AssertSqlSafe(delete_sql.as_str()))
+                .bind(&row_id)
+                .execute(db.pool())
+                .await
+                .unwrap();
+
+            let generation: i64 = sqlx::query_scalar(
+                "SELECT generation
+                 FROM e2ee_dirty_rows
+                 WHERE workspace_id = 'workspace-a'
+                   AND table_name = ?
+                   AND row_id = ?",
+            )
+            .bind(table_name)
+            .bind(&row_id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+            assert_eq!(generation, 3, "{table_name}");
+        }
+    }
+
+    #[tokio::test]
+    async fn e2ee_dirty_update_tracks_both_sides_of_an_identity_move() {
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id)
+             VALUES ('session-a', 'workspace-a')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "UPDATE sessions
+             SET workspace_id = 'workspace-b'
+             WHERE id = 'session-a'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let generations: Vec<(String, i64)> = sqlx::query_as(
+            "SELECT workspace_id, generation
+             FROM e2ee_dirty_rows
+             WHERE table_name = 'sessions' AND row_id = 'session-a'
+             ORDER BY workspace_id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(
+            generations,
+            vec![
+                ("workspace-a".to_string(), 2),
+                ("workspace-b".to_string(), 1)
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn e2ee_apply_guard_suppresses_only_the_guarded_write() {
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id)
+             VALUES ('local-session', 'workspace-a')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO e2ee_apply_guard (workspace_id, table_name, row_id)
+             VALUES ('workspace-a', 'sessions', 'local-session')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "UPDATE sessions
+             SET title = 'remote title'
+             WHERE id = 'local-session'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let generation: i64 = sqlx::query_scalar(
+            "SELECT generation
+             FROM e2ee_dirty_rows
+             WHERE workspace_id = 'workspace-a'
+               AND table_name = 'sessions'
+               AND row_id = 'local-session'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(generation, 1);
+        sqlx::query("DELETE FROM sessions WHERE id = 'local-session'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let generation_after_delete: i64 = sqlx::query_scalar(
+            "SELECT generation
+             FROM e2ee_dirty_rows
+             WHERE workspace_id = 'workspace-a'
+               AND table_name = 'sessions'
+               AND row_id = 'local-session'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(generation_after_delete, 1);
+
+        sqlx::query(
+            "INSERT INTO e2ee_apply_guard (workspace_id, table_name, row_id)
+             VALUES
+               ('workspace-a', 'sessions', 'remote-session'),
+               ('workspace-b', 'sessions', 'remote-session')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id)
+             VALUES ('remote-session', 'workspace-a')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "UPDATE sessions
+             SET workspace_id = 'workspace-b'
+             WHERE id = 'remote-session'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query("DELETE FROM sessions WHERE id = 'remote-session'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        let remote_dirty_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*)
+             FROM e2ee_dirty_rows
+             WHERE table_name = 'sessions' AND row_id = 'remote-session'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(remote_dirty_count, 0);
+    }
+
+    #[cfg(any(
+        all(target_os = "macos", target_arch = "aarch64"),
+        all(target_os = "macos", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "x86_64"),
+        all(target_os = "windows", target_arch = "x86_64"),
+    ))]
+    #[tokio::test]
+    async fn e2ee_dirty_triggers_apply_to_initialized_cloudsync_tables() {
+        let db = Db::connect_memory().await.unwrap();
+        hypr_db_migrate::migrate(
+            &db,
+            hypr_db_migrate::DbSchema {
+                steps: migration_steps_before("20260723120000_e2ee_dirty_rows"),
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
+        for table_name in E2EE_DOMAIN_TABLES {
+            db.cloudsync_init(table_name, None, None).await.unwrap();
+        }
+
+        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+
+        let trigger_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*)
+             FROM sqlite_master
+             WHERE type = 'trigger' AND name LIKE 'e2ee_dirty_%'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(trigger_count, (E2EE_DOMAIN_TABLES.len() * 3) as i64);
+
+        sqlx::query(
+            "INSERT INTO transcripts (id, workspace_id)
+             VALUES ('transcript-a', 'workspace-a')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let generation: i64 = sqlx::query_scalar(
+            "SELECT generation
+             FROM e2ee_dirty_rows
+             WHERE workspace_id = 'workspace-a'
+               AND table_name = 'transcripts'
+               AND row_id = 'transcript-a'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(generation, 1);
     }
 
     #[test]

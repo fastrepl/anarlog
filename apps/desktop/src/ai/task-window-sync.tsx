@@ -3,7 +3,7 @@ import { useEffect } from "react";
 
 import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 
-import { getEnhancerService } from "~/services/enhancer";
+import { type EnhancerService, getEnhancerService } from "~/services/enhancer";
 import type { AITaskStore } from "~/store/zustand/ai-task";
 import type { RemoteTaskState, TaskState } from "~/store/zustand/ai-task/tasks";
 
@@ -35,6 +35,18 @@ type TaskEnhancePayload = {
     templateTitle?: string;
   };
 };
+
+export async function handleMainEnhanceRequest(
+  service: Pick<EnhancerService, "enhance" | "requestAutoEnhance">,
+  { sessionId, auto, opts }: TaskEnhancePayload,
+) {
+  if (auto) {
+    await service.requestAutoEnhance(sessionId, auto);
+    return;
+  }
+
+  await service.enhance(sessionId, opts);
+}
 
 export function isMainAITaskHostWindow() {
   return getCurrentWebviewWindowLabel() === "main";
@@ -130,21 +142,13 @@ function MainAITaskWindowSyncBridge({ store }: { store: AITaskStore }) {
         return;
       }
 
-      const { sessionId, auto, opts } = event.payload;
       void (async () => {
         const service = getEnhancerService();
         if (!service) {
           return;
         }
 
-        if (auto === "regenerate") {
-          await service.resetEnhanceTasks(sessionId);
-          service.queueAutoEnhance(sessionId);
-        } else if (auto === "if_empty") {
-          await service.queueAutoEnhanceIfSummaryEmpty(sessionId);
-        } else {
-          await service.enhance(sessionId, opts);
-        }
+        await handleMainEnhanceRequest(service, event.payload);
       })().catch((error) => {
         console.error("[enhancer] remote enhancement failed", error);
       });

@@ -1,0 +1,119 @@
+diff --git a/Makefile b/Makefile
+index 9f8384e..efcb2b2 100644
+--- a/Makefile
++++ b/Makefile
+@@ -392,10 +392,9 @@ endif
+ 	--disable-netrc \
+ 	--disable-ntlm \
+ 	--disable-ntlm-wb \
+ 	--disable-progress-meter \
+ 	--disable-proxy \
+-	--disable-pthreads \
+ 	--disable-socketpair \
+-	--disable-threaded-resolver \
++	--enable-threaded-resolver \
+ 	--disable-tls-srp \
+ 	--disable-verbose \
+diff --git a/src/network/network.c b/src/network/network.c
+index 9c52cb0..6633c4b 100644
+--- a/src/network/network.c
++++ b/src/network/network.c
+@@ -49,6 +49,13 @@ static size_t cacert_len = sizeof(cacert_pem) - 1;
+ #define CLOUDSYNC_NETWORK_FAST_LANE_MAX_BLOB_SIZE (128 * 1024)
+ #endif
+ 
++#ifndef CLOUDSYNC_CURL_CONNECT_TIMEOUT_MS
++#define CLOUDSYNC_CURL_CONNECT_TIMEOUT_MS        5000L
++#endif
++#ifndef CLOUDSYNC_CURL_TIMEOUT_MS
++#define CLOUDSYNC_CURL_TIMEOUT_MS                30000L
++#endif
++
+ #define DEFAULT_SYNC_WAIT_MS                    100
+ #define DEFAULT_SYNC_MAX_RETRIES                1
+ 
+@@ -362,34 +369,70 @@ void network_data_update_ticket (network_data *data, const char *ticket, const char *expires_at) {
+ }
+ 
+ #ifndef CLOUDSYNC_OMIT_CURL
++static long network_curl_timeout_from_env(const char *name, long fallback) {
++    const char *value = getenv(name);
++    if (!value || !value[0]) return fallback;
++
++    char *end = NULL;
++    long timeout = strtol(value, &end, 10);
++    if (!end || *end != '\0' || timeout <= 0 || timeout > fallback) return fallback;
++    return timeout;
++}
++
++static bool network_curl_apply_timeouts(CURL *curl) {
++    long request_timeout = network_curl_timeout_from_env(
++        "CLOUDSYNC_CURL_TIMEOUT_MS",
++        CLOUDSYNC_CURL_TIMEOUT_MS);
++    long connect_timeout = network_curl_timeout_from_env(
++        "CLOUDSYNC_CURL_CONNECT_TIMEOUT_MS",
++        CLOUDSYNC_CURL_CONNECT_TIMEOUT_MS);
++    if (connect_timeout > request_timeout) connect_timeout = request_timeout;
++
++    return curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L) == CURLE_OK &&
++           curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, connect_timeout) == CURLE_OK &&
++           curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, request_timeout) == CURLE_OK;
++}
++
+ static bool network_curl_pool_enabled(network_data *data) {
+     if (!data) return false;
+     if (data->curl_pool_enabled == 0) {
+         const char *value = getenv("CLOUDSYNC_CURL_POOL");
+         data->curl_pool_enabled = network_env_disabled(value) ? -1 : 1;
+     }
+     return data->curl_pool_enabled > 0;
+ }
+ 
+ static CURL *network_curl_for_endpoint(network_data *data, const char *endpoint, bool *pooled) {
+     if (pooled) *pooled = false;
+-    if (!network_curl_pool_enabled(data)) {
+-        return curl_easy_init();
+-    }
++    bool use_pool = network_curl_pool_enabled(data);
++    CURL *curl = NULL;
+ 
+-    CURL **slot = network_endpoint_is_api(data, endpoint) ? &data->api_curl : &data->artifact_curl;
+-    if (!*slot) {
+-        *slot = curl_easy_init();
++    if (!use_pool) {
++        curl = curl_easy_init();
+     } else {
+-        curl_easy_reset(*slot);
++        CURL **slot = network_endpoint_is_api(data, endpoint) ? &data->api_curl : &data->artifact_curl;
++        if (!*slot) {
++            *slot = curl_easy_init();
++        } else {
++            curl_easy_reset(*slot);
++        }
++        curl = *slot;
+     }
+-    if (!*slot) return NULL;
+-
+-    curl_easy_setopt(*slot, CURLOPT_MAXCONNECTS, CLOUDSYNC_CURL_MAXCONNECTS);
+-    curl_easy_setopt(*slot, CURLOPT_MAXAGE_CONN, CLOUDSYNC_CURL_MAXAGE_CONN_SECONDS);
+-    curl_easy_setopt(*slot, CURLOPT_MAXLIFETIME_CONN, CLOUDSYNC_CURL_MAXLIFETIME_CONN_SECONDS);
+-    if (pooled) *pooled = true;
+-    return *slot;
++    if (!curl) return NULL;
++
++    bool configured =
++        (!use_pool ||
++         (curl_easy_setopt(curl, CURLOPT_MAXCONNECTS, CLOUDSYNC_CURL_MAXCONNECTS) == CURLE_OK &&
++          curl_easy_setopt(curl, CURLOPT_MAXAGE_CONN, CLOUDSYNC_CURL_MAXAGE_CONN_SECONDS) == CURLE_OK &&
++          curl_easy_setopt(curl, CURLOPT_MAXLIFETIME_CONN, CLOUDSYNC_CURL_MAXLIFETIME_CONN_SECONDS) == CURLE_OK)) &&
++        network_curl_apply_timeouts(curl);
++    if (!configured) {
++        if (!use_pool) curl_easy_cleanup(curl);
++        return NULL;
++    }
++
++    if (pooled) *pooled = use_pool;
++    return curl;
+ }
+ 
+ static bool network_buffer_check (network_buffer *data, size_t needed) {

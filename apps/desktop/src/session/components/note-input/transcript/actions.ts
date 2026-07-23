@@ -23,7 +23,9 @@ export function useRegenerateTranscript(sessionId: string) {
     const audioPath = result.data;
 
     try {
-      await runBatch(audioPath);
+      await runBatch(audioPath, {
+        promotion: { scope: "whole_session" },
+      });
       await getEnhancerService()?.queueAutoEnhanceIfSummaryEmpty(sessionId);
     } catch (error) {
       if (isStoppedTranscriptionError(error)) {

@@ -3519,6 +3519,7 @@ name = "cloudsync"
 version = "0.1.0"
 dependencies = [
  "dirs 6.0.0",
+ "futures-util",
  "libsqlite3-sys",
  "serde",
  "serde_json",
@@ -10716,6 +10717,7 @@ dependencies = [
  "aspasia",
  "audio-chunking",
  "audio-utils",
+ "axum 0.8.9",
  "bytes",
  "denoise",
  "futures-util",
@@ -10725,6 +10727,7 @@ dependencies = [
  "owhisper-client",
  "owhisper-interface",
  "ractor",
+ "reqwest-middleware",
  "serde",
  "serde_json",
  "specta",

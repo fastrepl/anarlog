@@ -11,9 +11,11 @@ use sqlx::{Sqlite, SqlitePool};
 
 use crate::cloudsync::CloudsyncRuntimeState;
 pub use crate::cloudsync::{
-    CloudsyncAuth, CloudsyncHookFuture, CloudsyncNetworkResult, CloudsyncRuntimeConfig,
-    CloudsyncRuntimeError, CloudsyncStatus, CloudsyncSyncHook, CloudsyncTableSpec,
-    cloudsync_begin_alter_on, cloudsync_commit_alter_on, cloudsync_is_enabled_on,
+    CLOUDSYNC_MAX_OUTBOUND_BYTES, CLOUDSYNC_MAX_OUTBOUND_CHUNKS, CLOUDSYNC_MAX_OUTBOUND_ROWS,
+    CloudsyncAuth, CloudsyncBeforeHookFuture, CloudsyncHookFuture, CloudsyncHookOutcome,
+    CloudsyncNetworkResult, CloudsyncRuntimeConfig, CloudsyncRuntimeError, CloudsyncStatus,
+    CloudsyncSyncDirective, CloudsyncSyncHook, CloudsyncTableSpec, cloudsync_begin_alter_on,
+    cloudsync_commit_alter_on, cloudsync_is_enabled_on,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -125,8 +127,9 @@ impl Db {
             .filename(path)
             .create_if_missing(true)
             .pragma("journal_mode", "WAL");
-        let (options, cloudsync_path) = hypr_cloudsync::apply(options)?;
         let cloudsync_initializer = hypr_cloudsync::CloudsyncConnectionInitializer::default();
+        let (options, cloudsync_path) =
+            hypr_cloudsync::apply_with_initializer(options, &cloudsync_initializer)?;
         let (change_notifier, pool_options) =
             hypr_db_change::ChangeNotifier::new_with_cloudsync(cloudsync_initializer.clone());
         let pool = pool_options
@@ -282,11 +285,17 @@ async fn connect_with_options(
         connect_options = connect_options.pragma("foreign_keys", "ON");
     }
 
-    let (connect_options, cloudsync_path) = if options.cloudsync_enabled {
-        let (connect_options, cloudsync_path) = hypr_cloudsync::apply(connect_options)?;
-        (connect_options, Some(cloudsync_path))
-    } else {
-        (connect_options, None)
+    let (connect_options, cloudsync_path) = match (options.cloudsync_enabled, options.storage) {
+        (true, DbStorage::Local(_)) => {
+            let (connect_options, cloudsync_path) =
+                hypr_cloudsync::apply_with_initializer(connect_options, &cloudsync_initializer)?;
+            (connect_options, Some(cloudsync_path))
+        }
+        (true, DbStorage::Memory) => {
+            let (connect_options, cloudsync_path) = hypr_cloudsync::apply(connect_options)?;
+            (connect_options, Some(cloudsync_path))
+        }
+        (false, _) => (connect_options, None),
     };
 
     let mut pool_options = pool_options;
@@ -356,6 +365,87 @@ mod tests {
             wait_ms: Some(500),
             max_retries: Some(1),
         }
+    }
+
+    async fn assert_cloudsync_connection_ready(
+        connection: &mut PoolConnection<Sqlite>,
+        expected_site_id: &[u8],
+        probe_id: &str,
+    ) {
+        let version: String = sqlx::query_scalar("SELECT cloudsync_version()")
+            .fetch_one(&mut **connection)
+            .await
+            .unwrap();
+        let stored_version: String = sqlx::query_scalar(
+            "SELECT value FROM cloudsync_settings WHERE key = 'version' COLLATE NOCASE",
+        )
+        .fetch_one(&mut **connection)
+        .await
+        .unwrap();
+        let stored_site_id: Vec<u8> =
+            sqlx::query_scalar("SELECT site_id FROM cloudsync_site_id WHERE rowid = 0")
+                .fetch_one(&mut **connection)
+                .await
+                .unwrap();
+        let context_site_id: Vec<u8> = sqlx::query_scalar("SELECT cloudsync_siteid()")
+            .fetch_one(&mut **connection)
+            .await
+            .unwrap();
+        let sync_enabled: bool = sqlx::query_scalar("SELECT cloudsync_is_enabled('sync_items')")
+            .fetch_one(&mut **connection)
+            .await
+            .unwrap();
+        sqlx::query("BEGIN")
+            .execute(&mut **connection)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO sync_items (id, value) VALUES (?, 'probe-insert')")
+            .bind(probe_id)
+            .execute(&mut **connection)
+            .await
+            .unwrap_or_else(|error| panic!("{probe_id} insert failed: {error}"));
+        sqlx::query("UPDATE sync_items SET value = 'probe-update' WHERE id = ?")
+            .bind(probe_id)
+            .execute(&mut **connection)
+            .await
+            .unwrap();
+        let metadata_rows: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*)
+             FROM sync_items_cloudsync
+             WHERE pk = cloudsync_pk_encode(?)",
+        )
+        .bind(probe_id)
+        .fetch_one(&mut **connection)
+        .await
+        .unwrap();
+        let change_rows: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*)
+             FROM cloudsync_changes
+             WHERE tbl = 'sync_items' AND pk = cloudsync_pk_encode(?)",
+        )
+        .bind(probe_id)
+        .fetch_one(&mut **connection)
+        .await
+        .unwrap();
+        sqlx::query("ROLLBACK")
+            .execute(&mut **connection)
+            .await
+            .unwrap();
+        let persisted_rows: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM sync_items WHERE id = ?")
+                .bind(probe_id)
+                .fetch_one(&mut **connection)
+                .await
+                .unwrap();
+
+        assert_eq!(version, hypr_cloudsync::CLOUDSYNC_VERSION);
+        assert_eq!(stored_version, hypr_cloudsync::CLOUDSYNC_VERSION);
+        assert_eq!(stored_site_id, expected_site_id);
+        assert_eq!(context_site_id, expected_site_id);
+        assert!(sync_enabled);
+        assert!(metadata_rows > 0);
+        assert!(change_rows > 0);
+        assert_eq!(persisted_rows, 0);
     }
 
     #[tokio::test]
@@ -442,6 +532,112 @@ mod tests {
         assert_eq!(foreign_keys, 1);
         assert_eq!(journal_mode.to_lowercase(), "wal");
         assert_eq!(busy_timeout, SQLITE_BUSY_TIMEOUT.as_millis() as i64);
+    }
+
+    #[tokio::test]
+    async fn cloudsync_pool_serializes_and_validates_every_extension_load() {
+        let directory = tempfile::tempdir().unwrap();
+        let database_path = directory.path().join("cloudsync.db");
+        let table = CloudsyncTableSpec {
+            table_name: "sync_items".to_string(),
+            crdt_algo: None,
+            init_flags: None,
+            enabled: true,
+        };
+
+        for open_index in 0..4 {
+            let db = Db::open(DbOpenOptions {
+                storage: DbStorage::Local(&database_path),
+                cloudsync_enabled: true,
+                journal_mode_wal: true,
+                foreign_keys: true,
+                max_connections: Some(4),
+            })
+            .await
+            .unwrap();
+
+            if open_index == 0 {
+                sqlx::query("CREATE TABLE sync_items (id TEXT PRIMARY KEY NOT NULL, value TEXT)")
+                    .execute(db.pool())
+                    .await
+                    .unwrap();
+            }
+            db.cloudsync_init_enabled_tables(std::slice::from_ref(&table))
+                .await
+                .unwrap();
+
+            let expected_site_id: Vec<u8> =
+                sqlx::query_scalar("SELECT site_id FROM cloudsync_site_id WHERE rowid = 0")
+                    .fetch_one(db.pool())
+                    .await
+                    .unwrap();
+            let mut writer = db.pool().acquire().await.unwrap();
+            let discarded_first = db.pool().acquire().await.unwrap();
+            let discarded_second = db.pool().acquire().await.unwrap();
+            discarded_first.close().await.unwrap();
+            discarded_second.close().await.unwrap();
+            sqlx::query("BEGIN IMMEDIATE")
+                .execute(&mut *writer)
+                .await
+                .unwrap();
+            sqlx::query(
+                "INSERT INTO sync_items (id, value) VALUES (?, ?)
+                 ON CONFLICT(id) DO UPDATE SET value = excluded.value",
+            )
+            .bind(format!("item-{open_index}"))
+            .bind(format!("value-{open_index}"))
+            .execute(&mut *writer)
+            .await
+            .unwrap();
+
+            let started_at = std::time::Instant::now();
+            let first_pool = db.pool().clone();
+            let second_pool = db.pool().clone();
+            let first = tokio::spawn(async move { first_pool.acquire().await });
+            let second = tokio::spawn(async move { second_pool.acquire().await });
+            tokio::time::sleep(Duration::from_millis(90)).await;
+            sqlx::query("COMMIT").execute(&mut *writer).await.unwrap();
+
+            let mut first = first.await.unwrap().unwrap();
+            let mut second = second.await.unwrap().unwrap();
+            assert!(started_at.elapsed() >= Duration::from_millis(90));
+
+            assert_cloudsync_connection_ready(
+                &mut writer,
+                &expected_site_id,
+                &format!("writer-probe-{open_index}"),
+            )
+            .await;
+            assert_cloudsync_connection_ready(
+                &mut first,
+                &expected_site_id,
+                &format!("first-probe-{open_index}"),
+            )
+            .await;
+            assert_cloudsync_connection_ready(
+                &mut second,
+                &expected_site_id,
+                &format!("second-probe-{open_index}"),
+            )
+            .await;
+            {
+                let mut pinned = db.cloudsync_connection.lock().await;
+                assert_cloudsync_connection_ready(
+                    pinned
+                        .as_mut()
+                        .expect("CloudSync connection must be pinned"),
+                    &expected_site_id,
+                    &format!("pinned-probe-{open_index}"),
+                )
+                .await;
+            }
+
+            drop(writer);
+            drop(first);
+            drop(second);
+            db.cloudsync_close_connection().await.unwrap();
+            db.pool().close().await;
+        }
     }
 
     #[tokio::test]

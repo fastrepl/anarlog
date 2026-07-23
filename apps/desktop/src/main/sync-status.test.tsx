@@ -95,11 +95,12 @@ function renderIndicator() {
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
 
-  return render(
+  const result = render(
     <QueryClientProvider client={queryClient}>
       <SyncStatusIndicator />
     </QueryClientProvider>,
   );
+  return { ...result, queryClient };
 }
 
 async function openMenu() {
@@ -115,6 +116,7 @@ describe("SyncStatusIndicator", () => {
     mocks.billing.isReady = true;
     mocks.settings.ready = true;
     mocks.settings.cloudSyncEnabled = true;
+    mocks.session.user.id = "user-1";
     mocks.credentialBlock = null;
     mocks.getCloudsyncStatus.mockResolvedValue(syncedStatus());
     mocks.applyCloudsyncPreference.mockResolvedValue("ok");
@@ -188,6 +190,97 @@ describe("SyncStatusIndicator", () => {
     expect(screen.queryByText("Connecting...")).toBeNull();
   });
 
+  it.each([
+    [
+      "setup_required",
+      "Cloud sync setup required",
+      "Create or enter your recovery key in Sync settings to start syncing.",
+    ],
+    [
+      "unavailable",
+      "Cloud sync unavailable",
+      "Cloud sync could not start on this device. Open Sync settings to try again.",
+    ],
+    [
+      "reauth_required",
+      "Sign in again",
+      "Sign out and sign in again to resume cloud sync.",
+    ],
+    [
+      "not_entitled",
+      "Anarlog Pro required",
+      "Anarlog Pro is required to use cloud sync.",
+    ],
+    [
+      "identity_mismatch",
+      "Cloud sync identity mismatch",
+      "This device's sync identity does not match your account. Sign in again or check Sync settings.",
+    ],
+  ])(
+    "shows %s as an actionable error instead of a connecting spinner",
+    async (block, label, description) => {
+      mocks.credentialBlock = block;
+      mocks.getCloudsyncStatus.mockResolvedValue(
+        syncedStatus({ configured: false, running: false }),
+      );
+
+      renderIndicator();
+      await openMenu();
+
+      expect(await screen.findByText(label)).toBeTruthy();
+      expect(screen.getByText(description)).toBeTruthy();
+      expect(screen.queryByText("Connecting...")).toBeNull();
+      expect(screen.getByText("Sync settings")).toBeTruthy();
+    },
+  );
+
+  it("shows a retryable error when local sync status cannot be read", async () => {
+    mocks.getCloudsyncStatus
+      .mockRejectedValueOnce(new Error("status unavailable"))
+      .mockResolvedValue(syncedStatus());
+
+    renderIndicator();
+    await openMenu();
+
+    expect(await screen.findByText("Sync status unavailable")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Anarlog couldn't read cloud sync status. Your notes are still available locally.",
+      ),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByText("Retry"));
+
+    await vi.waitFor(() => {
+      expect(mocks.getCloudsyncStatus).toHaveBeenCalledTimes(2);
+    });
+    expect(mocks.syncCloudsyncNow).not.toHaveBeenCalled();
+  });
+
+  it("keeps cached sync status scoped to the signed-in account", async () => {
+    const { queryClient, rerender } = renderIndicator();
+    await screen.findByLabelText("Cloud sync status: Synced");
+
+    mocks.session.user.id = "user-2";
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <SyncStatusIndicator />
+      </QueryClientProvider>,
+    );
+
+    await vi.waitFor(() => {
+      expect(mocks.getCloudsyncStatus).toHaveBeenCalledTimes(2);
+    });
+    expect(
+      queryClient
+        .getQueryCache()
+        .findAll({ queryKey: ["cloudsync-status-indicator"] })
+        .map((query) => query.queryKey),
+    ).toEqual([
+      ["cloudsync-status-indicator", "user-1"],
+      ["cloudsync-status-indicator", "user-2"],
+    ]);
+  });
+
   it("shows a sync issue with the last error", async () => {
     mocks.getCloudsyncStatus.mockResolvedValue(
       syncedStatus({
@@ -202,6 +295,68 @@ describe("SyncStatusIndicator", () => {
 
     expect(await screen.findByText("Sync issue")).toBeTruthy();
     expect(screen.getByText("token rejected")).toBeTruthy();
+  });
+
+  it("does not report synced while the native sync status is busy", async () => {
+    mocks.getCloudsyncStatus.mockResolvedValue(
+      syncedStatus({ has_unsent_changes: null }),
+    );
+
+    renderIndicator();
+    await openMenu();
+
+    expect(await screen.findByText("Syncing...")).toBeTruthy();
+    expect(screen.queryByText("Synced")).toBeNull();
+  });
+
+  it("explains background recovery without implying local notes are blocked", async () => {
+    mocks.getCloudsyncStatus.mockResolvedValue(
+      syncedStatus({
+        running: false,
+        last_sync_at_ms: null,
+        recovery_pending: true,
+        recovery_phase: "need_clean_receive",
+      }),
+    );
+
+    renderIndicator();
+    await openMenu();
+
+    expect(await screen.findByText("Restoring cloud sync...")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Anarlog is repairing cloud sync in the background. Your notes remain available locally.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("Connecting...")).toBeNull();
+    expect(screen.getByText("Sync settings")).toBeTruthy();
+  });
+
+  it("shows a non-spinning delayed state after a recovery failure", async () => {
+    mocks.getCloudsyncStatus.mockResolvedValue(
+      syncedStatus({
+        running: false,
+        last_sync_at_ms: null,
+        recovery_pending: true,
+        recovery_delayed: true,
+        recovery_phase: "need_clean_receive",
+      }),
+    );
+
+    renderIndicator();
+    await openMenu();
+
+    expect(await screen.findByText("Cloud sync delayed")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Anarlog will keep retrying in the background. Your notes remain available locally.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByLabelText("Cloud sync status: Cloud sync delayed")
+        .querySelector(".animate-spin"),
+    ).toBeNull();
   });
 
   it("makes a transient sync issue retryable without exposing the server error", async () => {

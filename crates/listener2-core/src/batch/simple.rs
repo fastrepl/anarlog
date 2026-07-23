@@ -1,6 +1,6 @@
 use std::path::Path;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use owhisper_client::{
     AdapterKind, AquaVoiceAdapter, ArgmaxAdapter, AssemblyAIAdapter, BatchSttAdapter,
@@ -23,6 +23,10 @@ const SONIQO_PARAKEET_MAX_CHUNK_SAMPLES: usize = TARGET_SAMPLE_RATE as usize * 5
 const SONIQO_PROGRESS_PLANNED: f64 = 0.05;
 const SONIQO_PROGRESS_RANGE: f64 = 0.90;
 const SONIQO_PROGRESS_MAX: f64 = 0.95;
+const DIRECT_BATCH_TIMEOUT_FLOOR: Duration = Duration::from_secs(15 * 60);
+const DIRECT_BATCH_TIMEOUT_CEILING: Duration = Duration::from_secs(6 * 60 * 60);
+const DIRECT_BATCH_TIMEOUT_BUFFER: Duration = Duration::from_secs(5 * 60);
+const DIRECT_BATCH_AUDIO_DURATION_MULTIPLIER: u32 = 2;
 
 macro_rules! dispatch_batch {
     ($ak:expr, $params:expr, $lp:expr,
@@ -69,6 +73,16 @@ async fn run_direct_batch<A: BatchSttAdapter>(
     params: BatchParams,
     listen_params: owhisper_interface::ListenParams,
 ) -> crate::Result<BatchRunOutput> {
+    let timeout = direct_batch_timeout(&params.file_path);
+    run_direct_batch_with_timeout::<A>(provider, params, listen_params, timeout).await
+}
+
+async fn run_direct_batch_with_timeout<A: BatchSttAdapter>(
+    provider: &str,
+    params: BatchParams,
+    listen_params: owhisper_interface::ListenParams,
+    timeout: Duration,
+) -> crate::Result<BatchRunOutput> {
     let span = session_span(&params.session_id);
 
     async {
@@ -79,23 +93,35 @@ async fn run_direct_batch<A: BatchSttAdapter>(
             .build();
 
         tracing::debug!("transcribing file: {}", params.file_path);
-        let response = match client.transcribe_file(&params.file_path).await {
-            Ok(response) => response,
-            Err(err) => {
-                let raw_error = format!("{err:?}");
-                let message = format_user_friendly_error(&raw_error);
-                tracing::error!(
-                    error = %raw_error,
-                    hyprnote.error.user_message = %message,
-                    "batch transcription failed"
-                );
-                return Err(crate::BatchFailure::DirectRequestFailed {
-                    provider: provider.to_string(),
-                    message,
+        let response =
+            match tokio::time::timeout(timeout, client.transcribe_file(&params.file_path)).await {
+                Ok(Ok(response)) => response,
+                Ok(Err(err)) => {
+                    let raw_error = format!("{err:?}");
+                    let message = format_user_friendly_error(&raw_error);
+                    tracing::error!(
+                        error = %raw_error,
+                        hyprnote.error.user_message = %message,
+                        "batch transcription failed"
+                    );
+                    return Err(crate::BatchFailure::DirectRequestFailed {
+                        provider: provider.to_string(),
+                        message,
+                    }
+                    .into());
                 }
-                .into());
-            }
-        };
+                Err(_) => {
+                    tracing::error!(
+                        timeout_seconds = timeout.as_secs(),
+                        "batch transcription timed out"
+                    );
+                    return Err(crate::BatchFailure::DirectRequestTimedOut {
+                        provider: provider.to_string(),
+                        timeout_seconds: timeout.as_secs(),
+                    }
+                    .into());
+                }
+            };
         tracing::info!("batch transcription completed");
 
         Ok(BatchRunOutput {
@@ -106,6 +132,27 @@ async fn run_direct_batch<A: BatchSttAdapter>(
     }
     .instrument(span)
     .await
+}
+
+fn direct_batch_timeout(file_path: &str) -> Duration {
+    let audio_duration = hypr_audio_utils::source_from_path(file_path)
+        .ok()
+        .and_then(|source| source.total_duration());
+    direct_batch_timeout_for_audio(audio_duration)
+}
+
+fn direct_batch_timeout_for_audio(audio_duration: Option<Duration>) -> Duration {
+    let timeout = audio_duration
+        .map(|duration| {
+            duration
+                .saturating_mul(DIRECT_BATCH_AUDIO_DURATION_MULTIPLIER)
+                .saturating_add(DIRECT_BATCH_TIMEOUT_BUFFER)
+        })
+        .unwrap_or(DIRECT_BATCH_TIMEOUT_FLOOR);
+
+    timeout
+        .max(DIRECT_BATCH_TIMEOUT_FLOOR)
+        .min(DIRECT_BATCH_TIMEOUT_CEILING)
 }
 
 pub(super) async fn run_soniqo_batch(
@@ -601,7 +648,169 @@ fn channels_are_effectively_identical(left: &[f32], right: &[f32]) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::future::{Future, pending};
+    use std::pin::Pin;
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    use axum::{Router, extract::State, http::StatusCode};
+    use owhisper_interface::batch::Response;
+    use tokio::sync::Notify;
+
     use super::*;
+
+    #[derive(Clone, Default)]
+    struct HangingHttpAdapter;
+
+    impl BatchSttAdapter for HangingHttpAdapter {
+        fn provider_name(&self) -> &'static str {
+            "hanging-http"
+        }
+
+        fn is_supported_languages(
+            &self,
+            _languages: &[hypr_language::Language],
+            _model: Option<&str>,
+        ) -> bool {
+            true
+        }
+
+        fn transcribe_file<'a, P: AsRef<Path> + Send + 'a>(
+            &'a self,
+            client: &'a reqwest_middleware::ClientWithMiddleware,
+            api_base: &'a str,
+            _api_key: &'a str,
+            _params: &'a owhisper_interface::ListenParams,
+            _file_path: P,
+        ) -> Pin<
+            Box<
+                dyn Future<Output = std::result::Result<Response, owhisper_client::Error>>
+                    + Send
+                    + 'a,
+            >,
+        > {
+            Box::pin(async move {
+                client.post(api_base).body("audio").send().await?;
+                panic!("hanging provider unexpectedly responded");
+            })
+        }
+    }
+
+    #[derive(Clone)]
+    struct HangingProviderState {
+        request_started: Arc<Notify>,
+        request_cancelled: Arc<Notify>,
+    }
+
+    struct NotifyOnDrop(Arc<Notify>);
+
+    impl Drop for NotifyOnDrop {
+        fn drop(&mut self) {
+            self.0.notify_one();
+        }
+    }
+
+    async fn hanging_provider(State(state): State<HangingProviderState>) -> StatusCode {
+        let _cancelled = NotifyOnDrop(state.request_cancelled.clone());
+        state.request_started.notify_one();
+        pending::<()>().await;
+        StatusCode::OK
+    }
+
+    fn write_test_wav(path: &Path) {
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: TARGET_SAMPLE_RATE,
+            bits_per_sample: 32,
+            sample_format: hound::SampleFormat::Float,
+        };
+        let mut writer = hound::WavWriter::create(path, spec).unwrap();
+        writer.write_sample(0.0f32).unwrap();
+        writer.finalize().unwrap();
+    }
+
+    #[test]
+    fn direct_timeout_scales_with_audio_duration_and_is_bounded() {
+        assert_eq!(
+            direct_batch_timeout_for_audio(None),
+            DIRECT_BATCH_TIMEOUT_FLOOR
+        );
+        assert_eq!(
+            direct_batch_timeout_for_audio(Some(Duration::from_secs(60 * 60))),
+            Duration::from_secs(2 * 60 * 60 + 5 * 60)
+        );
+        assert_eq!(
+            direct_batch_timeout_for_audio(Some(Duration::from_secs(24 * 60 * 60))),
+            DIRECT_BATCH_TIMEOUT_CEILING
+        );
+    }
+
+    #[tokio::test]
+    async fn direct_provider_timeout_cancels_non_responding_request() {
+        let request_started = Arc::new(Notify::new());
+        let request_cancelled = Arc::new(Notify::new());
+        let state = HangingProviderState {
+            request_started: request_started.clone(),
+            request_cancelled: request_cancelled.clone(),
+        };
+        let app = Router::new().fallback(hanging_provider).with_state(state);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+        let audio = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
+        write_test_wav(audio.path());
+        let params = BatchParams {
+            session_id: "timeout-test".to_string(),
+            provider: super::super::BatchProvider::OpenAI,
+            file_path: audio.path().to_string_lossy().into_owned(),
+            model: Some("whisper-1".to_string()),
+            base_url: format!("http://{address}/v1"),
+            api_key: "test".to_string(),
+            languages: vec![hypr_language::ISO639::En.into()],
+            keywords: vec![],
+            num_speakers: None,
+            min_speakers: None,
+            max_speakers: None,
+        };
+        let request = tokio::spawn(run_direct_batch_with_timeout::<HangingHttpAdapter>(
+            "hanging-http",
+            params,
+            owhisper_interface::ListenParams {
+                model: Some("whisper-1".to_string()),
+                channels: 1,
+                sample_rate: TARGET_SAMPLE_RATE,
+                languages: vec![hypr_language::ISO639::En.into()],
+                ..Default::default()
+            },
+            Duration::from_secs(5),
+        ));
+
+        tokio::time::timeout(Duration::from_secs(6), request_started.notified())
+            .await
+            .expect("provider did not receive the request");
+        let error = request
+            .await
+            .expect("batch task panicked")
+            .expect_err("non-responding provider should time out");
+
+        match error {
+            crate::Error::BatchFailed(failure) => {
+                assert_eq!(failure.code(), crate::BatchErrorCode::TimedOut);
+                assert!(matches!(
+                    failure,
+                    crate::BatchFailure::DirectRequestTimedOut { .. }
+                ));
+            }
+            other => panic!("unexpected timeout error: {other:?}"),
+        }
+        tokio::time::timeout(Duration::from_secs(2), request_cancelled.notified())
+            .await
+            .expect("provider request was not cancelled");
+
+        server.abort();
+    }
 
     #[test]
     fn collapses_effectively_identical_stereo_channels() {

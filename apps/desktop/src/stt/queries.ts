@@ -53,6 +53,7 @@ type TranscriptInsert = {
   words?: WordWithId[];
   speakerHints?: SpeakerHintWithId[];
   replaceSession?: boolean;
+  replaceTranscriptId?: string;
 };
 
 export type TranscriptRecord = {
@@ -210,6 +211,15 @@ export function createTranscript(input: TranscriptInsert): Promise<void> {
           WHERE session_id = ? AND deleted_at IS NULL
         `,
         params: [now, now, input.sessionId],
+      });
+    } else if (input.replaceTranscriptId) {
+      statements.push({
+        sql: `
+          UPDATE transcripts
+          SET deleted_at = ?, updated_at = ?
+          WHERE id = ? AND session_id = ? AND deleted_at IS NULL
+        `,
+        params: [now, now, input.replaceTranscriptId, input.sessionId],
       });
     }
 

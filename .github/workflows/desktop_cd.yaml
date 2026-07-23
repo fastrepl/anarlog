@@ -117,6 +117,11 @@ jobs:
           apple-certificate-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
       - run: |
+          CLOUDSYNC_DYLIB="../../crates/cloudsync/vendor/cloudsync/macos/${{ matrix.arch }}/cloudsync.dylib"
+          codesign --force --sign "${{ steps.apple-cert.outputs.cert-id }}" --timestamp --options runtime "$CLOUDSYNC_DYLIB"
+          codesign --verify --strict --verbose=2 "$CLOUDSYNC_DYLIB"
+        working-directory: ./apps/desktop
+      - run: |
           BUILD_ARGS=(--target "${{ matrix.target }}" --config "${{ env.TAURI_CONF_PATH }}" --verbose)
           if [[ "${{ matrix.target }}" == "x86_64-apple-darwin" ]]; then
             BUILD_ARGS+=(--config ./src-tauri/tauri.conf.macos-intel.json)

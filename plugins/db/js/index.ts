@@ -100,6 +100,16 @@ export type CloudsyncStatus = {
   last_error: string | null;
   last_error_kind: "transient" | "auth" | "fatal" | null;
   consecutive_failures: number;
+  recovery_pending?: boolean;
+  recovery_delayed?: boolean;
+  recovery_phase?:
+    | "need_first_logout"
+    | "need_barrier_insert"
+    | "need_barrier_confirm"
+    | "need_clean_receive"
+    | "need_witness_repair"
+    | "need_barrier_cleanup"
+    | null;
 };
 
 export type QueryEvent<T = Record<string, unknown>> =

@@ -88,6 +88,63 @@ impl Db {
                 .ok_or(CloudsyncRuntimeError::NotConfigured)?
         };
 
+        self.initialize_cloudsync_transport(&config).await?;
+        self.start_cloudsync_background_task(&config);
+        let mut runtime = self.cloudsync_runtime.lock().unwrap();
+        runtime.last_error = None;
+        runtime.last_error_kind = None;
+        runtime.consecutive_failures = 0;
+
+        Ok(())
+    }
+
+    pub async fn cloudsync_prepare_manual_transport(
+        &self,
+        config: CloudsyncRuntimeConfig,
+    ) -> Result<(), CloudsyncRuntimeError> {
+        let _lifecycle = self.cloudsync_lifecycle.lock().await;
+        if !self.cloudsync_enabled {
+            return Err(CloudsyncRuntimeError::Unavailable);
+        }
+
+        {
+            let runtime = self.cloudsync_runtime.lock().unwrap();
+            if runtime.running {
+                return Err(CloudsyncRuntimeError::RestartRequired);
+            }
+        }
+
+        let needs_cleanup = {
+            let runtime = self.cloudsync_runtime.lock().unwrap();
+            runtime.network_initialized || runtime.task.is_some()
+        };
+        if needs_cleanup {
+            self.cloudsync_stop_locked().await?;
+        }
+
+        let config = config.normalized()?;
+        {
+            let mut runtime = self.cloudsync_runtime.lock().unwrap();
+            runtime.config = Some(config.clone());
+            runtime.last_error = None;
+            runtime.last_error_kind = None;
+            runtime.consecutive_failures = 0;
+        }
+
+        self.initialize_cloudsync_transport(&config).await?;
+        let mut runtime = self.cloudsync_runtime.lock().unwrap();
+        runtime.running = false;
+        runtime.network_initialized = true;
+        runtime.last_error = None;
+        runtime.last_error_kind = None;
+        runtime.consecutive_failures = 0;
+        Ok(())
+    }
+
+    async fn initialize_cloudsync_transport(
+        &self,
+        config: &CloudsyncRuntimeConfig,
+    ) -> Result<(), CloudsyncRuntimeError> {
         if let Err(error) = self.cloudsync_init_enabled_tables(&config.tables).await {
             self.cleanup_failed_cloudsync_start(false).await;
             return Err(error.into());
@@ -106,6 +163,11 @@ impl Db {
             self.cleanup_failed_cloudsync_start(true).await;
             return Err(error.into());
         }
+
+        Ok(())
+    }
+
+    fn start_cloudsync_background_task(&self, config: &CloudsyncRuntimeConfig) {
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let pool = self.pool.clone();
         let connection = Arc::clone(&self.cloudsync_connection);
@@ -114,8 +176,6 @@ impl Db {
         let sync_hook = Arc::clone(&self.cloudsync_sync_hook);
         let sync_config = CloudsyncLoopConfig {
             interval: Duration::from_millis(config.sync_interval_ms),
-            wait_ms: config.wait_ms,
-            max_retries: config.max_retries,
         };
         let join_handle = tokio::spawn(async move {
             cloudsync_background_loop(
@@ -133,15 +193,10 @@ impl Db {
         let mut runtime = self.cloudsync_runtime.lock().unwrap();
         runtime.running = true;
         runtime.network_initialized = true;
-        runtime.last_error = None;
-        runtime.last_error_kind = None;
-        runtime.consecutive_failures = 0;
         runtime.task = Some(CloudsyncBackgroundTask {
             shutdown_tx: Some(shutdown_tx),
             join_handle,
         });
-
-        Ok(())
     }
 
     pub async fn cloudsync_stop(&self) -> Result<(), CloudsyncRuntimeError> {
@@ -199,20 +254,56 @@ impl Db {
         discard_unsent_changes: bool,
     ) -> Result<(), CloudsyncRuntimeError> {
         let _lifecycle = self.cloudsync_lifecycle.lock().await;
-        let network_initialized = self.cloudsync_runtime.lock().unwrap().network_initialized;
 
         if !self.cloudsync_enabled {
             self.cloudsync_runtime.lock().unwrap().config = None;
             return Ok(());
         }
 
-        let has_unsent_changes =
-            network_initialized && self.cloudsync_network_has_unsent_changes().await?;
+        let resume_config = {
+            let runtime = self.cloudsync_runtime.lock().unwrap();
+            if runtime.running {
+                Some(
+                    runtime
+                        .config
+                        .clone()
+                        .ok_or(CloudsyncRuntimeError::NotConfigured)?,
+                )
+            } else {
+                None
+            }
+        };
+        let network_initialized = self.stop_cloudsync_task().await;
+        let sync_operation = self.cloudsync_sync_operation.lock().await;
+        let has_unsent_changes = if network_initialized && !discard_unsent_changes {
+            match self.try_cloudsync_has_local_unsent_changes().await {
+                Ok(Some(has_unsent_changes)) => has_unsent_changes,
+                Ok(None) => {
+                    drop(sync_operation);
+                    if let Some(config) = resume_config.as_ref() {
+                        self.start_cloudsync_background_task(config);
+                    }
+                    return Err(CloudsyncRuntimeError::LocalStatusBusy);
+                }
+                Err(error) => {
+                    drop(sync_operation);
+                    if let Some(config) = resume_config.as_ref() {
+                        self.start_cloudsync_background_task(config);
+                    }
+                    return Err(error.into());
+                }
+            }
+        } else {
+            false
+        };
         if has_unsent_changes && !discard_unsent_changes {
+            drop(sync_operation);
+            if let Some(config) = resume_config.as_ref() {
+                self.start_cloudsync_background_task(config);
+            }
             return Err(CloudsyncRuntimeError::UnsentChanges);
         }
 
-        self.stop_cloudsync_task().await;
         let logout_result = if network_initialized {
             self.cloudsync_network_logout().await
         } else {
@@ -258,7 +349,8 @@ impl Db {
     }
 
     pub async fn cloudsync_status(&self) -> Result<CloudsyncStatus, CloudsyncRuntimeError> {
-        let _lifecycle = self.cloudsync_lifecycle.lock().await;
+        let lifecycle = self.cloudsync_lifecycle.try_lock().ok();
+        let sync_operation = self.cloudsync_sync_operation.try_lock().ok();
         let (
             config,
             running,
@@ -282,8 +374,13 @@ impl Db {
             )
         };
 
-        let has_unsent_changes = if self.cloudsync_enabled && network_initialized {
-            Some(self.cloudsync_network_has_unsent_changes().await?)
+        let has_unsent_changes = if self.cloudsync_enabled
+            && network_initialized
+            && running
+            && lifecycle.is_some()
+            && sync_operation.is_some()
+        {
+            self.try_cloudsync_has_local_unsent_changes().await?
         } else {
             None
         };
@@ -313,32 +410,34 @@ impl Db {
             return Ok(CloudsyncNetworkResult::default());
         }
 
-        let (wait_ms, max_retries) = {
+        {
             let runtime = self.cloudsync_runtime.lock().unwrap();
-            let config = runtime
+            runtime
                 .config
                 .as_ref()
                 .ok_or(CloudsyncRuntimeError::NotConfigured)?;
-            (config.wait_ms, config.max_retries)
-        };
+        }
 
         if !self.cloudsync_runtime.lock().unwrap().network_initialized {
             return Err(CloudsyncRuntimeError::NotStarted);
         }
 
-        let _sync_operation = self.cloudsync_sync_operation.lock().await;
-        let result = async {
-            run_before_sync_hook(&self.cloudsync_sync_hook, &self.pool).await?;
-            let result = self.cloudsync_network_sync(wait_ms, max_retries).await?;
-            run_after_sync_hook(&self.cloudsync_sync_hook, &self.pool).await?;
-            Ok::<_, hypr_cloudsync::Error>(result)
-        }
+        let result = sync_cloudsync_connection(
+            &self.pool,
+            &self.cloudsync_connection,
+            &self.cloudsync_sync_operation,
+            &self.cloudsync_sync_hook,
+        )
         .await;
 
         match result {
-            Ok(result) => {
-                record_sync_result(&self.cloudsync_runtime, result.clone());
-                Ok(result)
+            Ok(step) => {
+                record_sync_result(
+                    &self.cloudsync_runtime,
+                    step.network.clone(),
+                    step.local_work_remaining,
+                );
+                Ok(step.network)
             }
             Err(error) => {
                 record_sync_error(&self.cloudsync_runtime, &error);
@@ -387,6 +486,23 @@ impl Db {
         runtime.network_initialized = false;
         runtime.task = None;
     }
+
+    async fn try_cloudsync_has_local_unsent_changes(
+        &self,
+    ) -> Result<Option<bool>, hypr_cloudsync::Error> {
+        let Some(mut connection) = self.pool.try_acquire() else {
+            return Ok(None);
+        };
+        match tokio::time::timeout(
+            CLOUDSYNC_LOCAL_STATUS_TIMEOUT,
+            super::ops::cloudsync_has_local_unsent_changes_on(&mut *connection),
+        )
+        .await
+        {
+            Ok(result) => result.map(Some),
+            Err(_) => Ok(None),
+        }
+    }
 }
 
 async fn authenticate_cloudsync_network<A, AF, C, CF>(
@@ -412,21 +528,59 @@ where
     Ok(())
 }
 
-fn record_sync_result(runtime: &Mutex<CloudsyncRuntimeState>, result: CloudsyncNetworkResult) {
+fn record_sync_result(
+    runtime: &Mutex<CloudsyncRuntimeState>,
+    result: CloudsyncNetworkResult,
+    local_work_remaining: bool,
+) {
     let mut runtime = runtime.lock().unwrap();
     runtime.last_sync = Some(result);
 
     if let Some(error) = runtime.last_sync.as_ref().and_then(embedded_sync_error) {
         runtime.consecutive_failures = runtime.consecutive_failures.saturating_add(1);
+        runtime.last_sync_at_ms = None;
         runtime.last_error = Some(error);
         runtime.last_error_kind = Some(hypr_cloudsync::ErrorKind::Fatal);
         return;
     }
 
-    runtime.last_sync_at_ms = Some(now_ms());
+    runtime.last_sync_at_ms = runtime
+        .last_sync
+        .as_ref()
+        .is_some_and(|result| sync_result_settled(result) && !local_work_remaining)
+        .then(now_ms);
     runtime.last_error = None;
     runtime.last_error_kind = None;
     runtime.consecutive_failures = 0;
+}
+
+fn sync_result_settled(result: &CloudsyncNetworkResult) -> bool {
+    let send_settled = result.send.as_ref().is_none_or(|send| {
+        send.status.eq_ignore_ascii_case("synced") && send.last_failure.is_none()
+    });
+    let receive_settled = result.receive.as_ref().is_some_and(|receive| {
+        receive.complete && receive.error.is_none() && receive.last_failure.is_none()
+    });
+    send_settled && receive_settled
+}
+
+fn sync_result_needs_receive_progress(result: &CloudsyncNetworkResult) -> bool {
+    embedded_sync_error(result).is_none()
+        && result.receive.is_some()
+        && !sync_result_settled(result)
+}
+
+fn cloudsync_next_delay(
+    result: Option<&CloudsyncNetworkResult>,
+    local_work_remaining: bool,
+    interval: Duration,
+) -> Duration {
+    match result {
+        None => Duration::ZERO,
+        Some(_) if local_work_remaining => CLOUDSYNC_PROGRESS_INTERVAL,
+        Some(result) if sync_result_needs_receive_progress(result) => CLOUDSYNC_PROGRESS_INTERVAL,
+        Some(_) => interval,
+    }
 }
 
 fn embedded_sync_error(result: &CloudsyncNetworkResult) -> Option<String> {
@@ -471,13 +625,58 @@ mod tests {
         }
     }
 
+    async fn db_with_local_unsent_changes() -> (tempfile::TempDir, Db) {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("app.db");
+        let db = Db::open(DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_enabled: true,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(2),
+        })
+        .await
+        .unwrap();
+        sqlx::query(
+            "CREATE TABLE items (
+                id TEXT PRIMARY KEY NOT NULL,
+                value TEXT NOT NULL DEFAULT ''
+            )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        db.cloudsync_init_enabled_tables(&[CloudsyncTableSpec {
+            table_name: "items".to_string(),
+            crdt_algo: None,
+            init_flags: None,
+            enabled: true,
+        }])
+        .await
+        .unwrap();
+        let mut connection = db.pool().acquire().await.unwrap();
+        sqlx::query("INSERT INTO items (id, value) VALUES ('item', 'pending')")
+            .execute(&mut *connection)
+            .await
+            .unwrap();
+        connection.return_to_pool().await;
+        assert!(
+            db.pool().num_idle() > 0,
+            "cloudsync test pool has no idle connections (size={}, max={})",
+            db.pool().size(),
+            db.pool().options().get_max_connections(),
+        );
+        (dir, db)
+    }
+
     use std::future::pending;
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
     use crate::{CloudsyncAuth, CloudsyncTableSpec, DbOpenOptions, DbStorage};
     #[test]
     fn embedded_sync_failures_update_runtime_error_state() {
         let runtime = Mutex::new(CloudsyncRuntimeState::default());
+        runtime.lock().unwrap().last_sync_at_ms = Some(42);
         let result = CloudsyncNetworkResult {
             send: Some(hypr_cloudsync::NetworkSendResult {
                 status: "failed".to_string(),
@@ -498,7 +697,7 @@ mod tests {
             }),
         };
 
-        record_sync_result(&runtime, result);
+        record_sync_result(&runtime, result, false);
 
         let runtime = runtime.lock().unwrap();
         assert!(runtime.last_sync.is_some());
@@ -518,8 +717,9 @@ mod tests {
     }
 
     #[test]
-    fn embedded_sync_in_progress_does_not_update_runtime_error_state() {
+    fn embedded_sync_in_progress_does_not_mark_sync_complete() {
         let runtime = Mutex::new(CloudsyncRuntimeState::default());
+        runtime.lock().unwrap().last_sync_at_ms = Some(42);
         let result = CloudsyncNetworkResult {
             send: Some(hypr_cloudsync::NetworkSendResult {
                 status: "syncing".to_string(),
@@ -529,15 +729,304 @@ mod tests {
                 bytes: 1024,
                 last_failure: None,
             }),
-            receive: None,
+            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+                rows: 3,
+                tables: vec!["sessions".to_string()],
+                chunks: 1,
+                bytes: 2048,
+                complete: false,
+                error: None,
+                last_failure: None,
+            }),
         };
 
-        record_sync_result(&runtime, result);
+        record_sync_result(&runtime, result, false);
 
         let runtime = runtime.lock().unwrap();
-        assert!(runtime.last_sync_at_ms.is_some());
+        assert!(runtime.last_sync_at_ms.is_none());
         assert!(runtime.last_error.is_none());
         assert_eq!(runtime.consecutive_failures, 0);
+    }
+
+    #[test]
+    fn completed_receive_marks_sync_complete_without_a_send_result() {
+        let runtime = Mutex::new(CloudsyncRuntimeState::default());
+        let result = CloudsyncNetworkResult {
+            send: None,
+            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+                rows: 0,
+                tables: Vec::new(),
+                chunks: 0,
+                bytes: 0,
+                complete: true,
+                error: None,
+                last_failure: None,
+            }),
+        };
+
+        record_sync_result(&runtime, result, false);
+
+        assert!(runtime.lock().unwrap().last_sync_at_ms.is_some());
+    }
+
+    #[test]
+    fn settled_network_does_not_mark_sync_complete_while_local_work_remains() {
+        let runtime = Mutex::new(CloudsyncRuntimeState {
+            last_sync_at_ms: Some(42),
+            ..Default::default()
+        });
+        let result = CloudsyncNetworkResult {
+            send: Some(hypr_cloudsync::NetworkSendResult {
+                status: "synced".to_string(),
+                local_version: 2,
+                server_version: 2,
+                chunks: 1,
+                bytes: 1024,
+                last_failure: None,
+            }),
+            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+                rows: 0,
+                tables: Vec::new(),
+                chunks: 0,
+                bytes: 0,
+                complete: true,
+                error: None,
+                last_failure: None,
+            }),
+        };
+
+        record_sync_result(&runtime, result, true);
+
+        assert!(runtime.lock().unwrap().last_sync_at_ms.is_none());
+    }
+
+    #[test]
+    fn bounded_sync_combines_send_and_receive_results() {
+        let send = CloudsyncNetworkResult {
+            send: Some(hypr_cloudsync::NetworkSendResult {
+                status: "synced".to_string(),
+                local_version: 4,
+                server_version: 4,
+                chunks: 1,
+                bytes: 1024,
+                last_failure: None,
+            }),
+            receive: None,
+        };
+        let receive = CloudsyncNetworkResult {
+            send: None,
+            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+                rows: 3,
+                tables: vec!["sessions".to_string()],
+                chunks: 1,
+                bytes: 2048,
+                complete: false,
+                error: None,
+                last_failure: None,
+            }),
+        };
+
+        let result = merge_bounded_sync_results(send.clone(), receive.clone());
+
+        assert_eq!(result.send, send.send);
+        assert_eq!(result.receive, receive.receive);
+        assert!(sync_result_needs_receive_progress(&result));
+    }
+
+    #[test]
+    fn background_sync_starts_immediately_and_continues_incomplete_receive_promptly() {
+        let interval = Duration::from_secs(30);
+        let incomplete = CloudsyncNetworkResult {
+            send: None,
+            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+                rows: 1,
+                tables: vec!["e2ee_records".to_string()],
+                chunks: 1,
+                bytes: 1024,
+                complete: false,
+                error: None,
+                last_failure: None,
+            }),
+        };
+
+        assert_eq!(cloudsync_next_delay(None, false, interval), Duration::ZERO);
+        assert_eq!(
+            cloudsync_next_delay(Some(&incomplete), false, interval),
+            CLOUDSYNC_PROGRESS_INTERVAL
+        );
+
+        let send_in_progress = CloudsyncNetworkResult {
+            send: Some(hypr_cloudsync::NetworkSendResult {
+                status: "syncing".to_string(),
+                local_version: 3,
+                server_version: 2,
+                chunks: 1,
+                bytes: 1024,
+                last_failure: None,
+            }),
+            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+                rows: 0,
+                tables: Vec::new(),
+                chunks: 0,
+                bytes: 0,
+                complete: true,
+                error: None,
+                last_failure: None,
+            }),
+        };
+        assert_eq!(
+            cloudsync_next_delay(Some(&send_in_progress), false, interval),
+            CLOUDSYNC_PROGRESS_INTERVAL
+        );
+
+        let settled = CloudsyncNetworkResult {
+            send: Some(hypr_cloudsync::NetworkSendResult {
+                status: "synced".to_string(),
+                local_version: 3,
+                server_version: 3,
+                chunks: 0,
+                bytes: 0,
+                last_failure: None,
+            }),
+            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+                rows: 0,
+                tables: Vec::new(),
+                chunks: 0,
+                bytes: 0,
+                complete: true,
+                error: None,
+                last_failure: None,
+            }),
+        };
+        assert_eq!(
+            cloudsync_next_delay(Some(&settled), true, interval),
+            CLOUDSYNC_PROGRESS_INTERVAL
+        );
+    }
+
+    #[derive(Default)]
+    struct RecordingSyncHook {
+        directive: crate::CloudsyncSyncDirective,
+        local_work_remaining: bool,
+        before_calls: AtomicUsize,
+        after_result: Mutex<Option<CloudsyncNetworkResult>>,
+    }
+
+    impl crate::CloudsyncSyncHook for RecordingSyncHook {
+        fn before_sync<'a>(
+            &'a self,
+            _pool: &'a SqlitePool,
+        ) -> crate::CloudsyncBeforeHookFuture<'a> {
+            Box::pin(async move {
+                self.before_calls.fetch_add(1, Ordering::SeqCst);
+                Ok(self.directive)
+            })
+        }
+
+        fn after_sync<'a>(
+            &'a self,
+            _pool: &'a SqlitePool,
+            result: &'a CloudsyncNetworkResult,
+        ) -> crate::CloudsyncHookFuture<'a> {
+            Box::pin(async move {
+                *self.after_result.lock().unwrap() = Some(result.clone());
+                Ok(crate::CloudsyncHookOutcome {
+                    local_work_remaining: self.local_work_remaining,
+                })
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn before_sync_hook_can_select_receive_only_transport() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        let recording_hook = Arc::new(RecordingSyncHook {
+            directive: crate::CloudsyncSyncDirective::ReceiveOnly,
+            ..Default::default()
+        });
+        let hook: Arc<dyn crate::CloudsyncSyncHook> = recording_hook;
+        let hook = Mutex::new(Some(hook));
+
+        assert_eq!(
+            run_before_sync_hook(&hook, db.pool()).await.unwrap(),
+            crate::CloudsyncSyncDirective::ReceiveOnly
+        );
+    }
+
+    #[tokio::test]
+    async fn existing_native_pending_batch_skips_before_sync_hook() {
+        let db = Db::connect_memory().await.unwrap();
+        sqlx::query(
+            "CREATE TABLE items (
+                id TEXT PRIMARY KEY NOT NULL,
+                value TEXT NOT NULL DEFAULT ''
+            )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        db.cloudsync_init("items", None, None).await.unwrap();
+        sqlx::query("INSERT INTO items (id, value) VALUES ('item', 'pending')")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let recording_hook = Arc::new(RecordingSyncHook::default());
+        let hook: Arc<dyn crate::CloudsyncSyncHook> = recording_hook.clone();
+        let hook = Mutex::new(Some(hook));
+
+        let result = sync_cloudsync_connection(
+            db.pool(),
+            &db.cloudsync_connection,
+            &db.cloudsync_sync_operation,
+            &hook,
+        )
+        .await;
+        let Err(error) = result else {
+            panic!("sync unexpectedly succeeded");
+        };
+
+        assert_eq!(recording_hook.before_calls.load(Ordering::SeqCst), 0);
+        assert!(
+            error
+                .to_string()
+                .contains("Unable to retrieve CloudSync network context")
+        );
+    }
+
+    #[tokio::test]
+    async fn after_sync_hook_receives_the_bounded_network_result() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        let expected = CloudsyncNetworkResult {
+            send: Some(hypr_cloudsync::NetworkSendResult {
+                status: "synced".to_string(),
+                local_version: 4,
+                server_version: 4,
+                chunks: 1,
+                bytes: 1024,
+                last_failure: None,
+            }),
+            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+                rows: 3,
+                tables: vec!["sessions".to_string()],
+                chunks: 1,
+                bytes: 2048,
+                complete: false,
+                error: None,
+                last_failure: None,
+            }),
+        };
+        let recording_hook = Arc::new(RecordingSyncHook::default());
+        let hook: Arc<dyn crate::CloudsyncSyncHook> = recording_hook.clone();
+        let hook = Mutex::new(Some(hook));
+
+        run_after_sync_hook(&hook, db.pool(), &expected)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            recording_hook.after_result.lock().unwrap().as_ref(),
+            Some(&expected)
+        );
     }
 
     #[tokio::test]
@@ -553,6 +1042,70 @@ mod tests {
 
         assert!(db.cloudsync_connection.lock().await.is_none());
         assert!(db.cloudsync_runtime.lock().unwrap().config.is_none());
+    }
+
+    #[tokio::test]
+    async fn logout_signals_shutdown_before_waiting_for_an_active_sync_operation() {
+        let mut db = Db::connect_memory_plain().await.unwrap();
+        db.cloudsync_enabled = true;
+        db.cloudsync_configure(test_cloudsync_config())
+            .await
+            .unwrap();
+        let db = Arc::new(db);
+        let (shutdown_tx, shutdown_rx) = oneshot::channel();
+        let (shutdown_observed_tx, shutdown_observed_rx) = oneshot::channel();
+        let join_handle = tokio::spawn(async move {
+            shutdown_rx.await.unwrap();
+            let _ = shutdown_observed_tx.send(());
+        });
+        {
+            let mut runtime = db.cloudsync_runtime.lock().unwrap();
+            runtime.running = true;
+            runtime.task = Some(CloudsyncBackgroundTask {
+                shutdown_tx: Some(shutdown_tx),
+                join_handle,
+            });
+        }
+        let sync_operation = db.cloudsync_sync_operation.lock().await;
+        let logout_db = Arc::clone(&db);
+        let logout = tokio::spawn(async move { logout_db.cloudsync_logout(false).await });
+
+        tokio::time::timeout(Duration::from_secs(1), shutdown_observed_rx)
+            .await
+            .expect("logout waited for the sync operation before signaling shutdown")
+            .unwrap();
+        assert!(!logout.is_finished());
+
+        drop(sync_operation);
+        logout.await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    async fn task_only_resume_reuses_initialized_transport_and_preserves_error_state() {
+        let mut db = Db::connect_memory_plain().await.unwrap();
+        db.cloudsync_enabled = true;
+        let config = test_cloudsync_config();
+        db.cloudsync_configure(config.clone()).await.unwrap();
+        {
+            let mut runtime = db.cloudsync_runtime.lock().unwrap();
+            runtime.network_initialized = true;
+            runtime.last_error = Some("existing sync failure".to_string());
+            runtime.consecutive_failures = 2;
+        }
+        let sync_operation = db.cloudsync_sync_operation.lock().await;
+
+        db.start_cloudsync_background_task(&config);
+
+        {
+            let runtime = db.cloudsync_runtime.lock().unwrap();
+            assert!(runtime.running);
+            assert!(runtime.network_initialized);
+            assert!(runtime.task.is_some());
+            assert_eq!(runtime.last_error.as_deref(), Some("existing sync failure"));
+            assert_eq!(runtime.consecutive_failures, 2);
+        }
+        db.stop_cloudsync_task().await;
+        drop(sync_operation);
     }
 
     #[tokio::test]
@@ -575,6 +1128,49 @@ mod tests {
 
         assert!(cleanup_called.load(Ordering::SeqCst));
         assert!(error.to_string().contains("authentication rejected"));
+    }
+
+    #[tokio::test]
+    async fn manual_transport_initializes_without_starting_background_sync() {
+        let db = Db::connect_memory().await.unwrap();
+        sqlx::query("CREATE TABLE items (id TEXT PRIMARY KEY NOT NULL)")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let mut config = test_cloudsync_config();
+        config.tables = vec![CloudsyncTableSpec {
+            table_name: "items".to_string(),
+            crdt_algo: None,
+            init_flags: None,
+            enabled: true,
+        }];
+
+        db.cloudsync_prepare_manual_transport(config).await.unwrap();
+
+        let status = db.cloudsync_status().await.unwrap();
+        assert!(status.configured);
+        assert!(!status.running);
+        assert!(status.network_initialized);
+        assert!(db.cloudsync_runtime.lock().unwrap().task.is_none());
+        let pending = db.cloudsync_manual_pending_payload_batch().await.unwrap();
+        assert_eq!(pending.chunks, 0);
+        assert!(pending.complete);
+        assert!(pending.fits);
+        db.cloudsync_suspend().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn manual_transport_refuses_to_take_over_a_running_runtime() {
+        let db = Db::connect_memory().await.unwrap();
+        db.cloudsync_runtime.lock().unwrap().running = true;
+
+        let error = db
+            .cloudsync_prepare_manual_transport(test_cloudsync_config())
+            .await
+            .unwrap_err();
+
+        assert!(matches!(error, CloudsyncRuntimeError::RestartRequired));
+        db.cloudsync_runtime.lock().unwrap().running = false;
     }
 
     #[tokio::test]
@@ -640,7 +1236,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn status_and_manual_sync_wait_for_suspend_teardown() {
+    async fn status_stays_observable_while_mutations_wait_for_lifecycle() {
         let db = Db::open(DbOpenOptions {
             storage: DbStorage::Memory,
             cloudsync_enabled: false,
@@ -669,12 +1265,13 @@ mod tests {
             _ = tokio::task::yield_now() => {}
         }
 
-        let mut status = Box::pin(db.cloudsync_status());
-        tokio::select! {
-            biased;
-            result = &mut status => panic!("status bypassed lifecycle lock: {result:?}"),
-            _ = tokio::task::yield_now() => {}
-        }
+        let status = tokio::time::timeout(Duration::from_millis(100), db.cloudsync_status())
+            .await
+            .expect("status blocked on the lifecycle lock")
+            .unwrap();
+        assert!(status.configured);
+        assert!(!status.running);
+        assert_eq!(status.has_unsent_changes, None);
 
         let mut trigger = Box::pin(db.cloudsync_trigger_sync());
         tokio::select! {
@@ -685,8 +1282,65 @@ mod tests {
 
         drop(lifecycle);
         suspend.await.unwrap();
-        assert!(!status.await.unwrap().configured);
         assert_eq!(trigger.await.unwrap(), CloudsyncNetworkResult::default());
+        assert!(!db.cloudsync_status().await.unwrap().configured);
+    }
+
+    #[tokio::test]
+    async fn status_stays_observable_while_a_sync_operation_is_running() {
+        let db = Db::connect_memory().await.unwrap();
+        {
+            let mut runtime = db.cloudsync_runtime.lock().unwrap();
+            runtime.config = Some(test_cloudsync_config());
+            runtime.running = true;
+            runtime.network_initialized = true;
+        }
+        let _sync_operation = db.cloudsync_sync_operation.lock().await;
+
+        let status = tokio::time::timeout(Duration::from_millis(100), db.cloudsync_status())
+            .await
+            .expect("status blocked on the active sync operation")
+            .unwrap();
+
+        assert!(status.configured);
+        assert!(status.running);
+        assert!(status.network_initialized);
+        assert_eq!(status.has_unsent_changes, None);
+    }
+
+    #[tokio::test]
+    async fn status_reads_unsent_changes_without_network_io() {
+        let (_dir, db) = db_with_local_unsent_changes().await;
+        {
+            let mut runtime = db.cloudsync_runtime.lock().unwrap();
+            runtime.config = Some(test_cloudsync_config());
+            runtime.running = true;
+            runtime.network_initialized = true;
+        }
+
+        let status = tokio::time::timeout(Duration::from_millis(100), db.cloudsync_status())
+            .await
+            .expect("local cloudsync status blocked")
+            .unwrap();
+
+        assert_eq!(status.has_unsent_changes, Some(true));
+    }
+
+    #[tokio::test]
+    async fn logout_checks_unsent_changes_without_network_io() {
+        let (_dir, db) = db_with_local_unsent_changes().await;
+        {
+            let mut runtime = db.cloudsync_runtime.lock().unwrap();
+            runtime.config = Some(test_cloudsync_config());
+            runtime.network_initialized = true;
+        }
+
+        let error = db.cloudsync_logout(false).await.unwrap_err();
+
+        assert!(
+            matches!(error, CloudsyncRuntimeError::UnsentChanges),
+            "{error:?}"
+        );
     }
 
     #[tokio::test]
@@ -884,12 +1538,17 @@ fn record_sync_error(runtime: &Mutex<CloudsyncRuntimeState>, error: &hypr_clouds
     runtime.last_error_kind = Some(error.kind());
 }
 const MAX_BACKOFF_SECS: u64 = 300;
+const CLOUDSYNC_PROGRESS_INTERVAL: Duration = Duration::from_millis(200);
+const CLOUDSYNC_LOCAL_STATUS_TIMEOUT: Duration = Duration::from_millis(50);
+
+struct CloudsyncStepResult {
+    network: CloudsyncNetworkResult,
+    local_work_remaining: bool,
+}
 
 #[derive(Clone, Copy)]
 struct CloudsyncLoopConfig {
     interval: Duration,
-    wait_ms: Option<i64>,
-    max_retries: Option<i64>,
 }
 
 async fn cloudsync_background_loop(
@@ -901,12 +1560,14 @@ async fn cloudsync_background_loop(
     config: CloudsyncLoopConfig,
     mut shutdown_rx: oneshot::Receiver<()>,
 ) {
+    let mut next_sync_delay = cloudsync_next_delay(None, false, config.interval);
     loop {
         tokio::select! {
             _ = &mut shutdown_rx => break,
-            _ = tokio::time::sleep(config.interval) => {
+            _ = tokio::time::sleep(next_sync_delay) => {
                 let Ok(sync_available) = sync_operation.try_lock() else {
                     tracing::debug!("cloudsync interval skipped because another sync is active");
+                    next_sync_delay = config.interval;
                     continue;
                 };
                 drop(sync_available);
@@ -924,8 +1585,17 @@ async fn cloudsync_background_loop(
                 };
 
                 match result {
-                    Ok(result) => {
-                        record_sync_result(&runtime_state, result);
+                    Ok(step) => {
+                        next_sync_delay = cloudsync_next_delay(
+                            Some(&step.network),
+                            step.local_work_remaining,
+                            config.interval,
+                        );
+                        record_sync_result(
+                            &runtime_state,
+                            step.network,
+                            step.local_work_remaining,
+                        );
                     }
                     Err(error) => {
                         let kind = error.kind();
@@ -950,7 +1620,7 @@ async fn sync_cloudsync_with_retry(
     sync_hook: &Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>,
     config: CloudsyncLoopConfig,
     shutdown_rx: &mut oneshot::Receiver<()>,
-) -> Option<Result<CloudsyncNetworkResult, hypr_cloudsync::Error>> {
+) -> Option<Result<CloudsyncStepResult, hypr_cloudsync::Error>> {
     let mut backoff = ExponentialBuilder::default()
         .with_min_delay(config.interval)
         .with_max_delay(Duration::from_secs(MAX_BACKOFF_SECS))
@@ -959,14 +1629,7 @@ async fn sync_cloudsync_with_retry(
 
     loop {
         let result = run_or_shutdown(
-            sync_cloudsync_connection(
-                pool,
-                connection,
-                sync_operation,
-                sync_hook,
-                config.wait_ms,
-                config.max_retries,
-            ),
+            sync_cloudsync_connection(pool, connection, sync_operation, sync_hook),
             shutdown_rx,
         )
         .await?;
@@ -1026,45 +1689,84 @@ async fn sync_cloudsync_connection(
     connection: &tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>,
     sync_operation: &tokio::sync::Mutex<()>,
     sync_hook: &Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>,
-    wait_ms: Option<i64>,
-    max_retries: Option<i64>,
-) -> Result<CloudsyncNetworkResult, hypr_cloudsync::Error> {
+) -> Result<CloudsyncStepResult, hypr_cloudsync::Error> {
     let _sync_operation = sync_operation.lock().await;
-    run_before_sync_hook(sync_hook, pool).await?;
+    let pending_batch = {
+        let mut connection = connection.lock().await;
+        if connection.is_none() {
+            *connection = Some(pool.acquire().await?);
+        }
+        let batch =
+            super::ops::ensure_pending_payload_fits(&mut **connection.as_mut().unwrap()).await;
+        if pool.options().get_max_connections() == 1 {
+            connection.take();
+        }
+        batch?
+    };
+    let directive = if pending_batch.chunks > 0 {
+        super::CloudsyncSyncDirective::SendAndReceive
+    } else {
+        run_before_sync_hook(sync_hook, pool).await?
+    };
     let mut connection = connection.lock().await;
     if connection.is_none() {
         *connection = Some(pool.acquire().await?);
     }
-    let result =
-        hypr_cloudsync::network_sync(&mut **connection.as_mut().unwrap(), wait_ms, max_retries)
-            .await;
+    let result: Result<CloudsyncNetworkResult, hypr_cloudsync::Error> = async {
+        let send = match directive {
+            super::CloudsyncSyncDirective::SendAndReceive => {
+                super::ops::guarded_network_send_changes(&mut **connection.as_mut().unwrap())
+                    .await?
+            }
+            super::CloudsyncSyncDirective::ReceiveOnly => CloudsyncNetworkResult::default(),
+        };
+        let receive =
+            hypr_cloudsync::network_receive_changes(&mut **connection.as_mut().unwrap(), Some(1))
+                .await?;
+        Ok(merge_bounded_sync_results(send, receive))
+    }
+    .await;
     if pool.options().get_max_connections() == 1 {
         connection.take();
     }
     let result = result?;
-    run_after_sync_hook(sync_hook, pool).await?;
-    Ok(result)
+    let outcome = run_after_sync_hook(sync_hook, pool, &result).await?;
+    Ok(CloudsyncStepResult {
+        network: result,
+        local_work_remaining: outcome.local_work_remaining,
+    })
+}
+
+fn merge_bounded_sync_results(
+    send: CloudsyncNetworkResult,
+    receive: CloudsyncNetworkResult,
+) -> CloudsyncNetworkResult {
+    CloudsyncNetworkResult {
+        send: send.send.or(receive.send),
+        receive: receive.receive.or(send.receive),
+    }
 }
 
 async fn run_before_sync_hook(
     hook: &Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>,
     pool: &SqlitePool,
-) -> Result<(), hypr_cloudsync::Error> {
+) -> Result<super::CloudsyncSyncDirective, hypr_cloudsync::Error> {
     let hook = hook.lock().unwrap().clone();
     match hook {
         Some(hook) => hook.before_sync(pool).await,
-        None => Ok(()),
+        None => Ok(super::CloudsyncSyncDirective::default()),
     }
 }
 
 async fn run_after_sync_hook(
     hook: &Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>,
     pool: &SqlitePool,
-) -> Result<(), hypr_cloudsync::Error> {
+    result: &CloudsyncNetworkResult,
+) -> Result<super::CloudsyncHookOutcome, hypr_cloudsync::Error> {
     let hook = hook.lock().unwrap().clone();
     match hook {
-        Some(hook) => hook.after_sync(pool).await,
-        None => Ok(()),
+        Some(hook) => hook.after_sync(pool, result).await,
+        None => Ok(super::CloudsyncHookOutcome::default()),
     }
 }
 

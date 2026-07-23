@@ -8,6 +8,7 @@ use crate::CLOUDSYNC_VERSION;
 use crate::error::Error;
 
 static TEMP_FILE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+const CLOUDSYNC_BUNDLE_REVISION: &str = "anarlog-request-deadlines-1";
 
 macro_rules! configure_cloudsync_target {
     ($target:literal, $file_name:literal, $path:literal) => {
@@ -137,6 +138,7 @@ pub fn bundled_extension_path() -> Result<PathBuf, Error> {
             .join("char")
             .join("cloudsync")
             .join(CLOUDSYNC_VERSION)
+            .join(CLOUDSYNC_BUNDLE_REVISION)
             .join(CLOUDSYNC_TARGET);
 
         fs::create_dir_all(&base_dir)?;

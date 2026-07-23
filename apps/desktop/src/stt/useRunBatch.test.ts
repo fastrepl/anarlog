@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
   canRunBatchTranscription,
+  EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE,
   getBatchFallbackTarget,
   getBatchProvider,
   getSessionSpeakerCount,
@@ -24,7 +25,6 @@ const {
   deleteProcessedAudioForRetentionMock,
   markSessionAudioTranscriptionCompleteMock,
   createTranscriptMock,
-  appendTranscriptWordsAndHintsMock,
   idMock,
 } = vi.hoisted(() => ({
   startTranscriptionMock: vi.fn(),
@@ -41,7 +41,6 @@ const {
   deleteProcessedAudioForRetentionMock: vi.fn(),
   markSessionAudioTranscriptionCompleteMock: vi.fn(),
   createTranscriptMock: vi.fn(),
-  appendTranscriptWordsAndHintsMock: vi.fn(),
   idMock: vi.fn(),
 }));
 
@@ -135,7 +134,6 @@ vi.mock("~/stt/capabilities", () => {
 });
 
 vi.mock("~/stt/queries", () => ({
-  appendTranscriptWordsAndHints: appendTranscriptWordsAndHintsMock,
   createTranscript: createTranscriptMock,
 }));
 
@@ -220,7 +218,6 @@ describe("useRunBatch", () => {
     let nextId = 0;
     idMock.mockImplementation(() => `generated-${++nextId}`);
     createTranscriptMock.mockResolvedValue(undefined);
-    appendTranscriptWordsAndHintsMock.mockResolvedValue(undefined);
     deleteProcessedAudioForRetentionMock.mockResolvedValue(undefined);
     markSessionAudioTranscriptionCompleteMock.mockResolvedValue(undefined);
     isSupportedLanguagesBatchMock.mockResolvedValue(true);
@@ -257,37 +254,43 @@ describe("useRunBatch", () => {
     );
   });
 
-  test("waits for streamed SQLite persists before retention", async () => {
-    let resolveAppend: (() => void) | undefined;
-    appendTranscriptWordsAndHintsMock.mockImplementationOnce(
+  test("promotes the complete streamed transcript before retention", async () => {
+    let finishTranscription: (() => void) | undefined;
+    startTranscriptionMock.mockImplementation(
       () =>
         new Promise<void>((resolve) => {
-          resolveAppend = resolve;
+          finishTranscription = resolve;
         }),
     );
-    startTranscriptionMock.mockImplementation(async (_params, options) => {
-      options.handlePersist(
-        [{ text: "hello", start_ms: 0, end_ms: 100, channel: 0 }],
-        [],
-      );
-      options.handlePersist(
-        [{ text: "world", start_ms: 100, end_ms: 200, channel: 0 }],
-        [],
-      );
-    });
 
     const { result } = renderHook(() => useRunBatch("session-1"));
-    const run = result.current("/tmp/session.wav");
+    const run = result.current("/tmp/session.wav", {
+      promotion: { scope: "whole_session" },
+    });
 
     await waitFor(() => {
-      expect(appendTranscriptWordsAndHintsMock).toHaveBeenCalledTimes(1);
+      expect(startTranscriptionMock).toHaveBeenCalledTimes(1);
     });
+    const persist = startTranscriptionMock.mock.calls[0]?.[1]?.handlePersist;
+    persist?.([{ text: "hello", start_ms: 0, end_ms: 100, channel: 0 }], []);
+    persist?.([{ text: "world", start_ms: 100, end_ms: 200, channel: 0 }], []);
+
+    expect(createTranscriptMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
 
-    resolveAppend?.();
+    finishTranscription?.();
     await act(async () => await run);
 
     expect(createTranscriptMock).toHaveBeenCalledTimes(1);
+    expect(createTranscriptMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replaceSession: true,
+        words: [
+          expect.objectContaining({ text: "hello" }),
+          expect.objectContaining({ text: "world" }),
+        ],
+      }),
+    );
     expect(markSessionAudioTranscriptionCompleteMock).toHaveBeenCalledWith(
       "session-1",
     );
@@ -316,10 +319,122 @@ describe("useRunBatch", () => {
 
     expect(handlePersist).toHaveBeenCalledTimes(1);
     expect(createTranscriptMock).not.toHaveBeenCalled();
-    expect(appendTranscriptWordsAndHintsMock).not.toHaveBeenCalled();
   });
 
-  test("flushes default batch persists before rethrowing transcription errors", async () => {
+  test("appends only the current capture when prior transcript audio is partial", async () => {
+    startTranscriptionMock.mockImplementation(async (_params, options) => {
+      options.handlePersist(
+        [
+          { text: "old", start_ms: 10_000, end_ms: 10_500, channel: 0 },
+          { text: "new", start_ms: 60_100, end_ms: 60_500, channel: 0 },
+        ],
+        [
+          {
+            wordIndex: 0,
+            data: {
+              type: "provider_speaker_index",
+              speaker_index: 0,
+            },
+          },
+          {
+            wordIndex: 1,
+            data: {
+              type: "provider_speaker_index",
+              speaker_index: 1,
+            },
+          },
+        ],
+        { mode: "replace" },
+      );
+    });
+
+    const { result } = renderHook(() => useRunBatch("session-1"));
+
+    await act(async () => {
+      await result.current("/tmp/session.wav", {
+        promotion: {
+          scope: "current_capture",
+          audioOffsetMs: 60_000,
+          replaceTranscriptId: "transcript-current-live",
+          startedAt: 123_000,
+        },
+      });
+    });
+
+    expect(createTranscriptMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replaceSession: false,
+        replaceTranscriptId: "transcript-current-live",
+        startedAt: 123_000,
+        words: [
+          expect.objectContaining({
+            text: "new",
+            start_ms: 100,
+            end_ms: 500,
+          }),
+        ],
+        speakerHints: [
+          expect.objectContaining({
+            value: expect.stringContaining('"speaker_index":1'),
+          }),
+        ],
+      }),
+    );
+  });
+
+  test("retains recovery audio when the batch has no current-capture words", async () => {
+    startTranscriptionMock.mockImplementation(async (_params, options) => {
+      options.handlePersist(
+        [{ text: "old", start_ms: 10_000, end_ms: 10_500, channel: 0 }],
+        [],
+        { mode: "replace" },
+      );
+    });
+
+    const { result } = renderHook(() => useRunBatch("session-1"));
+
+    await expect(
+      act(async () => {
+        await result.current("/tmp/session.wav", {
+          promotion: {
+            scope: "current_capture",
+            audioOffsetMs: 60_000,
+            replaceTranscriptId: "transcript-current-live",
+            startedAt: 123_000,
+          },
+        });
+      }),
+    ).rejects.toThrow(EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE);
+
+    expect(createTranscriptMock).not.toHaveBeenCalled();
+    expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
+    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
+  });
+
+  test("retains recovery audio when the batch emits no words", async () => {
+    startTranscriptionMock.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useRunBatch("session-1"));
+
+    await expect(
+      act(async () => {
+        await result.current("/tmp/session.wav", {
+          promotion: {
+            scope: "current_capture",
+            audioOffsetMs: 60_000,
+            replaceTranscriptId: "transcript-current-live",
+            startedAt: 123_000,
+          },
+        });
+      }),
+    ).rejects.toThrow(EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE);
+
+    expect(createTranscriptMock).not.toHaveBeenCalled();
+    expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
+    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
+  });
+
+  test("does not replace the live transcript when batch transcription fails", async () => {
     startTranscriptionMock.mockImplementation(async (_params, options) => {
       options.handlePersist(
         [{ text: "partial", start_ms: 0, end_ms: 100, channel: 0 }],
@@ -336,7 +451,7 @@ describe("useRunBatch", () => {
       }),
     ).rejects.toThrow("provider failed");
 
-    expect(createTranscriptMock).toHaveBeenCalledTimes(1);
+    expect(createTranscriptMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
   });
 
@@ -454,12 +569,21 @@ describe("useRunBatch", () => {
     });
     refreshSessionMock.mockResolvedValue({ access_token: "fresh-token" });
     startTranscriptionMock
-      .mockRejectedValueOnce(
-        new Error(
+      .mockImplementationOnce(async (_params, options) => {
+        options.handlePersist(
+          [{ text: "stale", start_ms: 0, end_ms: 100, channel: 0 }],
+          [],
+        );
+        throw new Error(
           "Authentication failed. Please check your API key in settings.",
-        ),
-      )
-      .mockResolvedValueOnce(undefined);
+        );
+      })
+      .mockImplementationOnce(async (_params, options) => {
+        options.handlePersist(
+          [{ text: "fresh", start_ms: 0, end_ms: 100, channel: 0 }],
+          [],
+        );
+      });
 
     const { result } = renderHook(() => useRunBatch("session-1"));
 
@@ -473,6 +597,11 @@ describe("useRunBatch", () => {
       2,
       expect.objectContaining({ api_key: "fresh-token" }),
       expect.any(Object),
+    );
+    expect(createTranscriptMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        words: [expect.objectContaining({ text: "fresh" })],
+      }),
     );
   });
 });

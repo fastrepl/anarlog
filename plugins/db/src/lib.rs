@@ -997,6 +997,7 @@ mod test {
                 .unwrap(),
             CloudsyncTokenConfigurationResult::Configured
         );
+        runtime.suspend_cloudsync().await.unwrap();
 
         let session: (String, String) =
             sqlx::query_as("SELECT workspace_id, owner_user_id FROM sessions WHERE id = 'session'")
@@ -1014,6 +1015,91 @@ mod test {
 
         assert_eq!(session, ("user-a".to_string(), "user-a".to_string()));
         assert_eq!(binding, ("user-a".to_string(), "user-a".to_string()));
+    }
+
+    #[tokio::test]
+    async fn token_refresh_restarts_pending_full_resync_with_new_credentials() {
+        let (_dir, runtime) = setup_enabled_cloudsync_runtime().await;
+        let (_witness_server, witness) = setup_witness("user-a").await;
+        let local_workspace = hypr_db_app::ensure_cloudsync_workspace_binding(runtime.pool())
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session', ?, ?, 'Session')",
+        )
+        .bind(&local_workspace)
+        .bind(&local_workspace)
+        .execute(runtime.pool())
+        .await
+        .unwrap();
+        assert!(
+            runtime
+                .bind_cloudsync_account("user-a".to_string())
+                .await
+                .unwrap()
+        );
+        let projection = hypr_db_app::CloudsyncWorkspaceProjection {
+            account_user_id: "user-a".to_string(),
+            personal_workspace_id: "user-a".to_string(),
+            workspaces: vec![hypr_db_app::CloudsyncWorkspaceProjectionEntry {
+                id: "user-a".to_string(),
+                owner_user_id: "user-a".to_string(),
+                kind: "personal".to_string(),
+                name: "Personal".to_string(),
+                membership_id: "membership-personal".to_string(),
+                role: "owner".to_string(),
+                membership_created_at: "2026-07-01T01:00:00Z".to_string(),
+                membership_updated_at: "2026-07-16T01:00:00Z".to_string(),
+                created_at: "2026-07-01T00:00:00Z".to_string(),
+                updated_at: "2026-07-16T00:00:00Z".to_string(),
+            }],
+        };
+
+        assert_eq!(
+            runtime
+                .configure_cloudsync_token_with_projection(
+                    "managed-database-id".to_string(),
+                    "initial-token".to_string(),
+                    "user-a".to_string(),
+                    Some(projection.clone()),
+                    witness.clone(),
+                )
+                .await
+                .unwrap(),
+            CloudsyncTokenConfigurationResult::Configured
+        );
+        let (generation, auth) = runtime.cloudsync_full_resync_task_snapshot().await.unwrap();
+        assert_eq!(
+            auth,
+            hypr_db_core::CloudsyncAuth::Token {
+                token: "initial-token".to_string(),
+            }
+        );
+
+        assert_eq!(
+            runtime
+                .configure_cloudsync_token_with_projection(
+                    "managed-database-id".to_string(),
+                    "refreshed-token".to_string(),
+                    "user-a".to_string(),
+                    Some(projection),
+                    witness,
+                )
+                .await
+                .unwrap(),
+            CloudsyncTokenConfigurationResult::Configured
+        );
+        let (refreshed_generation, refreshed_auth) =
+            runtime.cloudsync_full_resync_task_snapshot().await.unwrap();
+        assert_eq!(refreshed_generation, generation);
+        assert_eq!(
+            refreshed_auth,
+            hypr_db_core::CloudsyncAuth::Token {
+                token: "refreshed-token".to_string(),
+            }
+        );
+
         runtime.suspend_cloudsync().await.unwrap();
     }
 
@@ -1072,6 +1158,7 @@ mod test {
                 .unwrap(),
             CloudsyncTokenConfigurationResult::Configured
         );
+        runtime.suspend_cloudsync().await.unwrap();
 
         let workspaces: Vec<(String, String)> =
             sqlx::query_as("SELECT id, name FROM workspaces ORDER BY id")

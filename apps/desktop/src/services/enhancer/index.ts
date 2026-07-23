@@ -10,6 +10,7 @@ import {
   updateSummaryDocumentTitleIfCurrent,
 } from "./storage";
 
+import { retryDatabaseLock } from "~/db/retry";
 import {
   loadSessionContentSnapshot,
   type SessionContentSnapshot,
@@ -27,6 +28,8 @@ type EnhanceResult =
 type QueueEmptySummaryResult =
   | { type: "queued" }
   | { type: "summary_exists"; noteId: string };
+
+export type AutoEnhanceMode = "regenerate" | "if_empty";
 
 type EnhanceOpts = {
   isAuto?: boolean;
@@ -191,31 +194,49 @@ export class EnhancerService {
   queueAutoEnhance(sessionId: string) {
     if (this.activeAutoEnhance.has(sessionId)) return;
     this.activeAutoEnhance.add(sessionId);
-    void this.tryAutoEnhance(sessionId, 0).catch((error) => {
-      this.handleAutoEnhanceError(sessionId, error);
-    });
+    this.runAutoEnhance(sessionId, 0);
   }
 
   async queueAutoEnhanceIfSummaryEmpty(
     sessionId: string,
   ): Promise<QueueEmptySummaryResult> {
-    const snapshot = await this.loadSession(sessionId);
-    const templateId = this.deps.getSelectedTemplateId();
-    const existingNote = getAutoEnhancedNote(snapshot, templateId);
+    return retryDatabaseLock(async () => {
+      const snapshot = await this.loadSession(sessionId);
+      const templateId = this.deps.getSelectedTemplateId();
+      const existingNote = getAutoEnhancedNote(snapshot, templateId);
 
-    if (existingNote && hasSummaryContent(existingNote.content)) {
-      return { type: "summary_exists", noteId: existingNote.id };
-    }
-
-    if (!existingNote) {
-      const eligibility = getEligibility(snapshot.transcripts);
-      if (!eligibility.eligible && eligibility.wordCount > 0) {
-        await this.ensureNote(sessionId, templateId);
+      if (existingNote && hasSummaryContent(existingNote.content)) {
+        return { type: "summary_exists", noteId: existingNote.id };
       }
+
+      if (!existingNote) {
+        const eligibility = getEligibility(snapshot.transcripts);
+        if (!eligibility.eligible && eligibility.wordCount > 0) {
+          await this.ensureNote(sessionId, templateId);
+        }
+      }
+
+      this.queueAutoEnhance(sessionId);
+      return { type: "queued" };
+    });
+  }
+
+  async requestAutoEnhance(sessionId: string, mode: AutoEnhanceMode) {
+    if (mode === "regenerate") {
+      await this.resetEnhanceTasks(sessionId);
+      this.queueAutoEnhance(sessionId);
+      return;
     }
 
-    this.queueAutoEnhance(sessionId);
-    return { type: "queued" };
+    await this.queueAutoEnhanceIfSummaryEmpty(sessionId);
+  }
+
+  private runAutoEnhance(sessionId: string, attempt: number) {
+    void retryDatabaseLock(() => this.tryAutoEnhance(sessionId, attempt)).catch(
+      (error) => {
+        this.handleAutoEnhanceError(sessionId, error);
+      },
+    );
   }
 
   private async tryAutoEnhance(sessionId: string, attempt: number) {
@@ -228,9 +249,7 @@ export class EnhancerService {
       if (attempt < 20) {
         const timer = setTimeout(() => {
           this.pendingRetries.delete(sessionId);
-          void this.tryAutoEnhance(sessionId, attempt + 1).catch((error) => {
-            this.handleAutoEnhanceError(sessionId, error);
-          });
+          this.runAutoEnhance(sessionId, attempt + 1);
         }, 500);
         this.pendingRetries.set(sessionId, timer);
         return;
@@ -285,11 +304,13 @@ export class EnhancerService {
   }
 
   async resetEnhanceTasks(sessionId: string): Promise<void> {
-    const snapshot = await this.loadSession(sessionId);
-    const { aiTaskStore } = this.deps;
-    for (const note of snapshot.enhancedNotes) {
-      aiTaskStore.getState().reset(createTaskId(note.id, "enhance"));
-    }
+    await retryDatabaseLock(async () => {
+      const snapshot = await this.loadSession(sessionId);
+      const { aiTaskStore } = this.deps;
+      for (const note of snapshot.enhancedNotes) {
+        aiTaskStore.getState().reset(createTaskId(note.id, "enhance"));
+      }
+    });
   }
 
   async enhance(sessionId: string, opts?: EnhanceOpts): Promise<EnhanceResult> {

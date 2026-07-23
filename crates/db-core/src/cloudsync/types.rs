@@ -87,6 +87,8 @@ pub enum CloudsyncRuntimeError {
     InvalidSyncInterval,
     #[error("cloudsync has unsent local changes; sync first or explicitly discard them")]
     UnsentChanges,
+    #[error("cloudsync local status is busy; try again")]
+    LocalStatusBusy,
     #[error(transparent)]
     Cloudsync(#[from] hypr_cloudsync::Error),
 }

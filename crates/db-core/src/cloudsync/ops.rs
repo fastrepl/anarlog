@@ -2,8 +2,12 @@ use sqlx::pool::PoolConnection;
 use sqlx::{Executor, Sqlite, SqliteConnection};
 use tokio::sync::MutexGuard;
 
-use super::{CloudsyncAuth, CloudsyncTableSpec};
+use super::{CloudsyncAuth, CloudsyncRuntimeError, CloudsyncTableSpec};
 use crate::Db;
+
+pub const CLOUDSYNC_MAX_OUTBOUND_CHUNKS: u32 = 8;
+pub const CLOUDSYNC_MAX_OUTBOUND_ROWS: u64 = 4_096;
+pub const CLOUDSYNC_MAX_OUTBOUND_BYTES: u64 = 32 * 1024 * 1024;
 
 impl Db {
     async fn lock_cloudsync_connection(
@@ -268,12 +272,49 @@ impl Db {
         result
     }
 
+    pub async fn cloudsync_pending_payload_batch(
+        &self,
+    ) -> Result<hypr_cloudsync::PendingPayloadBatch, hypr_cloudsync::Error> {
+        let _sync_operation = self.cloudsync_sync_operation.lock().await;
+        let mut connection = self.lock_cloudsync_connection().await?;
+        let result = pending_payload_batch_on(&mut **connection.as_mut().unwrap()).await;
+        self.release_single_pool_connection(&mut connection);
+        result
+    }
+
+    pub async fn cloudsync_network_status(
+        &self,
+    ) -> Result<hypr_cloudsync::NetworkStatus, hypr_cloudsync::Error> {
+        let _sync_operation = self.cloudsync_sync_operation.lock().await;
+        let mut connection = self.lock_cloudsync_connection().await?;
+        let result = hypr_cloudsync::network_status(&mut **connection.as_mut().unwrap()).await;
+        self.release_single_pool_connection(&mut connection);
+        result
+    }
+
+    pub async fn cloudsync_reconcile_confirmed_pending_payload(
+        &self,
+        batch: hypr_cloudsync::PendingPayloadBatch,
+        status: &hypr_cloudsync::NetworkStatus,
+    ) -> Result<bool, hypr_cloudsync::Error> {
+        let _sync_operation = self.cloudsync_sync_operation.lock().await;
+        let mut connection = self.lock_cloudsync_connection().await?;
+        let result = hypr_cloudsync::reconcile_confirmed_pending_payload(
+            &mut **connection.as_mut().unwrap(),
+            batch,
+            status,
+        )
+        .await;
+        self.release_single_pool_connection(&mut connection);
+        result
+    }
+
     pub async fn cloudsync_network_send_changes(
         &self,
     ) -> Result<hypr_cloudsync::NetworkResult, hypr_cloudsync::Error> {
+        let _sync_operation = self.cloudsync_sync_operation.lock().await;
         let mut connection = self.lock_cloudsync_connection().await?;
-        let result =
-            hypr_cloudsync::network_send_changes(&mut **connection.as_mut().unwrap()).await;
+        let result = guarded_network_send_changes(&mut **connection.as_mut().unwrap()).await;
         self.release_single_pool_connection(&mut connection);
         result
     }
@@ -282,12 +323,14 @@ impl Db {
         &self,
         max_chunks: Option<i64>,
     ) -> Result<hypr_cloudsync::NetworkResult, hypr_cloudsync::Error> {
+        // Keep the argument for mobile ABI compatibility while preventing callers
+        // from bypassing the one-chunk production receive bound.
+        let _ = max_chunks;
+        let _sync_operation = self.cloudsync_sync_operation.lock().await;
         let mut connection = self.lock_cloudsync_connection().await?;
-        let result = hypr_cloudsync::network_receive_changes(
-            &mut **connection.as_mut().unwrap(),
-            max_chunks,
-        )
-        .await;
+        let result =
+            hypr_cloudsync::network_receive_changes(&mut **connection.as_mut().unwrap(), Some(1))
+                .await;
         self.release_single_pool_connection(&mut connection);
         result
     }
@@ -313,6 +356,23 @@ impl Db {
         result
     }
 
+    pub async fn cloudsync_network_reset_receive_version(
+        &self,
+    ) -> Result<(), hypr_cloudsync::Error> {
+        let _sync_operation = self.cloudsync_sync_operation.lock().await;
+        let mut connection = self.lock_cloudsync_connection().await?;
+        let result =
+            hypr_cloudsync::network_reset_receive_version(&mut **connection.as_mut().unwrap())
+                .await;
+        self.release_single_pool_connection(&mut connection);
+        if result.is_ok() {
+            let mut runtime = self.cloudsync_runtime.lock().unwrap();
+            runtime.last_sync = None;
+            runtime.last_sync_at_ms = None;
+        }
+        result
+    }
+
     pub async fn cloudsync_network_logout(&self) -> Result<(), hypr_cloudsync::Error> {
         let mut connection = self.lock_cloudsync_connection().await?;
         let result = hypr_cloudsync::network_logout(&mut **connection.as_mut().unwrap()).await;
@@ -325,12 +385,90 @@ impl Db {
         wait_ms: Option<i64>,
         max_retries: Option<i64>,
     ) -> Result<hypr_cloudsync::NetworkResult, hypr_cloudsync::Error> {
+        // These legacy arguments remain in the mobile ABI; retries now belong to
+        // the runtime so every call performs exactly one bounded transport step.
+        let _ = (wait_ms, max_retries);
+        let _sync_operation = self.cloudsync_sync_operation.lock().await;
         let mut connection = self.lock_cloudsync_connection().await?;
-        let result =
-            hypr_cloudsync::network_sync(&mut **connection.as_mut().unwrap(), wait_ms, max_retries)
-                .await;
+        let result = async {
+            let connection = &mut **connection.as_mut().unwrap();
+            let send = guarded_network_send_changes(&mut *connection).await?;
+            let receive =
+                hypr_cloudsync::network_receive_changes(&mut *connection, Some(1)).await?;
+            Ok(merge_bounded_sync_results(send, receive))
+        }
+        .await;
         self.release_single_pool_connection(&mut connection);
         result
+    }
+
+    pub async fn cloudsync_manual_send_only(
+        &self,
+    ) -> Result<hypr_cloudsync::NetworkResult, CloudsyncRuntimeError> {
+        let _lifecycle = self.cloudsync_lifecycle.lock().await;
+        self.ensure_manual_transport_ready()?;
+        let _sync_operation = self.cloudsync_sync_operation.lock().await;
+        let mut connection = self.lock_cloudsync_connection().await?;
+        let result = guarded_network_send_changes(&mut **connection.as_mut().unwrap()).await;
+        self.release_single_pool_connection(&mut connection);
+        Ok(result?)
+    }
+
+    pub async fn cloudsync_manual_pending_payload_batch(
+        &self,
+    ) -> Result<hypr_cloudsync::PendingPayloadBatch, CloudsyncRuntimeError> {
+        let _lifecycle = self.cloudsync_lifecycle.lock().await;
+        self.ensure_manual_transport_ready()?;
+        let _sync_operation = self.cloudsync_sync_operation.lock().await;
+        let mut connection = self.lock_cloudsync_connection().await?;
+        let result = pending_payload_batch_on(&mut **connection.as_mut().unwrap()).await;
+        self.release_single_pool_connection(&mut connection);
+        Ok(result?)
+    }
+
+    pub async fn cloudsync_manual_network_status(
+        &self,
+    ) -> Result<hypr_cloudsync::NetworkStatus, CloudsyncRuntimeError> {
+        let _lifecycle = self.cloudsync_lifecycle.lock().await;
+        self.ensure_manual_transport_ready()?;
+        let _sync_operation = self.cloudsync_sync_operation.lock().await;
+        let mut connection = self.lock_cloudsync_connection().await?;
+        let result = hypr_cloudsync::network_status(&mut **connection.as_mut().unwrap()).await;
+        self.release_single_pool_connection(&mut connection);
+        Ok(result?)
+    }
+
+    pub async fn cloudsync_manual_reconcile_confirmed_pending_payload(
+        &self,
+        batch: hypr_cloudsync::PendingPayloadBatch,
+        status: &hypr_cloudsync::NetworkStatus,
+    ) -> Result<bool, CloudsyncRuntimeError> {
+        let _lifecycle = self.cloudsync_lifecycle.lock().await;
+        self.ensure_manual_transport_ready()?;
+        let _sync_operation = self.cloudsync_sync_operation.lock().await;
+        let mut connection = self.lock_cloudsync_connection().await?;
+        let result = hypr_cloudsync::reconcile_confirmed_pending_payload(
+            &mut **connection.as_mut().unwrap(),
+            batch,
+            status,
+        )
+        .await;
+        self.release_single_pool_connection(&mut connection);
+        Ok(result?)
+    }
+
+    pub async fn cloudsync_manual_receive_one(
+        &self,
+    ) -> Result<hypr_cloudsync::NetworkResult, CloudsyncRuntimeError> {
+        let _lifecycle = self.cloudsync_lifecycle.lock().await;
+        self.ensure_manual_transport_ready()?;
+        let _sync_operation = self.cloudsync_sync_operation.lock().await;
+        let mut connection = self.lock_cloudsync_connection().await?;
+        let result =
+            hypr_cloudsync::network_receive_changes(&mut **connection.as_mut().unwrap(), Some(1))
+                .await;
+        self.release_single_pool_connection(&mut connection);
+        Ok(result?)
     }
 
     pub(crate) async fn apply_cloudsync_auth(
@@ -343,6 +481,98 @@ impl Db {
             CloudsyncAuth::Token { token } => self.cloudsync_network_set_token(token).await,
         }
     }
+
+    fn ensure_manual_transport_ready(&self) -> Result<(), CloudsyncRuntimeError> {
+        let runtime = self.cloudsync_runtime.lock().unwrap();
+        if runtime.running {
+            return Err(CloudsyncRuntimeError::RestartRequired);
+        }
+        if !runtime.network_initialized {
+            return Err(CloudsyncRuntimeError::NotStarted);
+        }
+        Ok(())
+    }
+}
+
+pub(crate) async fn guarded_network_send_changes(
+    connection: &mut SqliteConnection,
+) -> Result<hypr_cloudsync::NetworkResult, hypr_cloudsync::Error> {
+    let batch = ensure_pending_payload_fits(connection).await?;
+    match hypr_cloudsync::network_send_changes(&mut *connection).await {
+        Ok(result) => Ok(result),
+        Err(send_error)
+            if batch.chunks > 0 && send_error.kind() == hypr_cloudsync::ErrorKind::Transient =>
+        {
+            let status = match hypr_cloudsync::network_status(&mut *connection).await {
+                Ok(status) => status,
+                Err(_) => return Err(send_error),
+            };
+            match hypr_cloudsync::reconcile_confirmed_pending_payload(connection, batch, &status)
+                .await
+            {
+                Ok(true) => Ok(reconciled_send_result(batch, &status)),
+                Ok(false) => Err(send_error),
+                Err(reconcile_error) => Err(reconcile_error),
+            }
+        }
+        Err(error) => Err(error),
+    }
+}
+
+fn reconciled_send_result(
+    batch: hypr_cloudsync::PendingPayloadBatch,
+    status: &hypr_cloudsync::NetworkStatus,
+) -> hypr_cloudsync::NetworkResult {
+    hypr_cloudsync::NetworkResult {
+        send: Some(hypr_cloudsync::NetworkSendResult {
+            status: "synced".to_string(),
+            local_version: batch.watermark_db_version.unwrap_or(batch.start_db_version),
+            server_version: status.last_confirmed_version,
+            chunks: i64::from(batch.chunks),
+            bytes: i64::try_from(batch.bytes).unwrap_or(i64::MAX),
+            last_failure: None,
+        }),
+        receive: None,
+    }
+}
+
+fn merge_bounded_sync_results(
+    send: hypr_cloudsync::NetworkResult,
+    receive: hypr_cloudsync::NetworkResult,
+) -> hypr_cloudsync::NetworkResult {
+    hypr_cloudsync::NetworkResult {
+        send: send.send.or(receive.send),
+        receive: receive.receive.or(send.receive),
+    }
+}
+
+pub(crate) async fn ensure_pending_payload_fits(
+    connection: &mut SqliteConnection,
+) -> Result<hypr_cloudsync::PendingPayloadBatch, hypr_cloudsync::Error> {
+    let batch = pending_payload_batch_on(connection).await?;
+    if !batch.fits {
+        return Err(hypr_cloudsync::Error::OutboundPayloadTooLarge {
+            chunks: batch.chunks,
+            rows: batch.rows,
+            bytes: batch.bytes,
+            max_chunks: CLOUDSYNC_MAX_OUTBOUND_CHUNKS,
+            max_rows: CLOUDSYNC_MAX_OUTBOUND_ROWS,
+            max_bytes: CLOUDSYNC_MAX_OUTBOUND_BYTES,
+        });
+    }
+    Ok(batch)
+}
+
+async fn pending_payload_batch_on(
+    connection: &mut SqliteConnection,
+) -> Result<hypr_cloudsync::PendingPayloadBatch, hypr_cloudsync::Error> {
+    hypr_cloudsync::pending_payload_batch(
+        connection,
+        CLOUDSYNC_MAX_OUTBOUND_CHUNKS,
+        CLOUDSYNC_MAX_OUTBOUND_ROWS,
+        CLOUDSYNC_MAX_OUTBOUND_BYTES,
+    )
+    .await
 }
 
 async fn init_enabled_tables(
@@ -382,6 +612,36 @@ where
     hypr_cloudsync::is_enabled(executor, table_name).await
 }
 
+pub(crate) async fn cloudsync_has_local_unsent_changes_on<'e, E>(
+    executor: E,
+) -> Result<bool, hypr_cloudsync::Error>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
+    Ok(sqlx::query_scalar(
+        "SELECT EXISTS (
+            SELECT 1
+            FROM cloudsync_changes
+            WHERE site_id = (
+                SELECT site_id
+                FROM cloudsync_site_id
+                WHERE rowid = 0
+            )
+              AND db_version > COALESCE(
+                (
+                    SELECT CAST(value AS INTEGER)
+                    FROM cloudsync_settings
+                    WHERE key = 'send_dbversion'
+                ),
+                0
+              )
+            LIMIT 1
+        )",
+    )
+    .fetch_one(executor)
+    .await?)
+}
+
 pub async fn cloudsync_commit_alter_on<'e, E>(
     executor: E,
     table_name: &str,
@@ -413,6 +673,122 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
+
+    async fn db_with_oversized_pending_payload() -> Db {
+        let db = Db::connect_memory().await.unwrap();
+        sqlx::query(
+            "CREATE TABLE items (
+                id TEXT PRIMARY KEY NOT NULL,
+                value TEXT NOT NULL DEFAULT ''
+            )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        db.cloudsync_init("items", None, None).await.unwrap();
+        sqlx::query("SELECT cloudsync_set('payload_max_chunk_size', '262144')")
+            .fetch_optional(db.pool())
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO items (id, value) VALUES (?, ?)")
+            .bind("large-value")
+            .bind("x".repeat(3 * 1024 * 1024))
+            .execute(db.pool())
+            .await
+            .unwrap();
+        db
+    }
+
+    fn assert_outbound_payload_too_large(error: hypr_cloudsync::Error) {
+        assert!(matches!(
+            error,
+            hypr_cloudsync::Error::OutboundPayloadTooLarge {
+                chunks,
+                max_chunks: CLOUDSYNC_MAX_OUTBOUND_CHUNKS,
+                ..
+            } if chunks == CLOUDSYNC_MAX_OUTBOUND_CHUNKS + 1
+        ));
+    }
+
+    #[test]
+    fn reconciled_send_reports_the_exact_preflighted_batch() {
+        let batch = hypr_cloudsync::PendingPayloadBatch {
+            start_db_version: 4,
+            watermark_db_version: Some(9),
+            chunks: 2,
+            rows: 8,
+            bytes: 4096,
+            complete: true,
+            fits: true,
+        };
+        let status = hypr_cloudsync::NetworkStatus {
+            last_optimistic_version: 12,
+            last_confirmed_version: 12,
+            gaps: Vec::new(),
+            failures: hypr_cloudsync::NetworkStatusFailures::default(),
+        };
+
+        let result = reconciled_send_result(batch, &status);
+        let send = result.send.unwrap();
+
+        assert_eq!(send.status, "synced");
+        assert_eq!(send.local_version, 9);
+        assert_eq!(send.server_version, 12);
+        assert_eq!(send.chunks, 2);
+        assert_eq!(send.bytes, 4096);
+    }
+
+    #[test]
+    fn bounded_sync_preserves_the_send_and_single_receive_results() {
+        let send = hypr_cloudsync::NetworkResult {
+            send: Some(hypr_cloudsync::NetworkSendResult {
+                status: "synced".to_string(),
+                local_version: 9,
+                server_version: 9,
+                chunks: 2,
+                bytes: 4096,
+                last_failure: None,
+            }),
+            receive: None,
+        };
+        let receive = hypr_cloudsync::NetworkResult {
+            send: None,
+            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+                rows: 3,
+                tables: vec!["items".to_string()],
+                chunks: 1,
+                bytes: 2048,
+                complete: false,
+                error: None,
+                last_failure: None,
+            }),
+        };
+
+        let result = merge_bounded_sync_results(send, receive);
+
+        assert_eq!(result.send.unwrap().chunks, 2);
+        let receive = result.receive.unwrap();
+        assert_eq!(receive.chunks, 1);
+        assert!(!receive.complete);
+    }
+
+    #[tokio::test]
+    async fn oversized_payload_never_reaches_send_transport() {
+        let db = db_with_oversized_pending_payload().await;
+
+        let error = db.cloudsync_network_send_changes().await.unwrap_err();
+
+        assert_outbound_payload_too_large(error);
+    }
+
+    #[tokio::test]
+    async fn public_network_sync_cannot_bypass_the_send_guard() {
+        let db = db_with_oversized_pending_payload().await;
+
+        let error = db.cloudsync_network_sync(None, None).await.unwrap_err();
+
+        assert_outbound_payload_too_large(error);
+    }
 
     #[tokio::test]
     async fn network_calls_reuse_one_checked_out_connection() {
@@ -518,6 +894,74 @@ mod tests {
                 .await
                 .unwrap();
         }
+    }
+
+    #[cfg(any(
+        all(target_os = "macos", target_arch = "aarch64"),
+        all(target_os = "macos", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "x86_64"),
+        all(target_os = "windows", target_arch = "x86_64"),
+    ))]
+    #[tokio::test]
+    async fn receive_version_reset_preserves_send_cursor_on_pinned_connection() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("cloudsync.db");
+        let db = Db::open(crate::DbOpenOptions {
+            storage: crate::DbStorage::Local(&db_path),
+            cloudsync_enabled: true,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(2),
+        })
+        .await
+        .unwrap();
+        sqlx::query(
+            "CREATE TABLE sessions (
+                id TEXT PRIMARY KEY NOT NULL,
+                title TEXT NOT NULL DEFAULT ''
+            )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        db.cloudsync_init("sessions", None, None).await.unwrap();
+
+        {
+            let mut connection = db.lock_cloudsync_connection().await.unwrap();
+            sqlx::query("INSERT INTO sessions (id, title) VALUES ('local', 'Pending')")
+                .execute(&mut **connection.as_mut().unwrap())
+                .await
+                .unwrap();
+            sqlx::query(
+                "SELECT
+                    cloudsync_set('check_dbversion', '31'),
+                    cloudsync_set('check_seq', '7'),
+                    cloudsync_set('send_dbversion', '19'),
+                    cloudsync_set('send_seq', '4')",
+            )
+            .fetch_optional(&mut **connection.as_mut().unwrap())
+            .await
+            .unwrap();
+        }
+
+        db.cloudsync_network_reset_receive_version().await.unwrap();
+
+        let mut connection = db.lock_cloudsync_connection().await.unwrap();
+        let cursors: (String, String, String, String) = sqlx::query_as(
+            "SELECT
+                MAX(CASE WHEN key = 'check_dbversion' THEN value END),
+                MAX(CASE WHEN key = 'check_seq' THEN value END),
+                MAX(CASE WHEN key = 'send_dbversion' THEN value END),
+                MAX(CASE WHEN key = 'send_seq' THEN value END)
+             FROM cloudsync_settings",
+        )
+        .fetch_one(&mut **connection.as_mut().unwrap())
+        .await
+        .unwrap();
+        assert_eq!(cursors, ("0".into(), "0".into(), "19".into(), "4".into()));
     }
 
     #[cfg(any(

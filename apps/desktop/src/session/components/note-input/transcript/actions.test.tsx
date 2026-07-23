@@ -53,6 +53,9 @@ describe("useRegenerateTranscript", () => {
       await result.current();
     });
 
+    expect(mocks.runBatch).toHaveBeenCalledWith("/tmp/session.wav", {
+      promotion: { scope: "whole_session" },
+    });
     expect(mocks.handleBatchFailed).toHaveBeenCalledWith(
       "session-1",
       "Authentication failed",

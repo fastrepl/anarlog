@@ -62,7 +62,14 @@ const DEVICE_NAME_HEADER = "x-anarlog-device-name";
 const DEVICE_LIMIT_ERROR_CODE = "sync_device_limit_reached";
 const DEVICE_LIMIT_TOAST_ID = "cloudsync-device-limit";
 
-type CloudsyncCredentialBlock = "device_limit" | null;
+export type CloudsyncCredentialBlock =
+  | "device_limit"
+  | "identity_mismatch"
+  | "not_entitled"
+  | "reauth_required"
+  | "setup_required"
+  | "unavailable"
+  | null;
 
 let credentialBlock: CloudsyncCredentialBlock = null;
 const credentialBlockListeners = new Set<() => void>();
@@ -477,11 +484,19 @@ async function activateCloudsync(
     console.warn(
       "[cloudsync] sync preference is unavailable; sync remains disabled",
     );
+    if (activeGeneration === generation) {
+      setCredentialBlock("unavailable");
+    }
     await suspendCloudsyncAfterCredentialRejection(activeGeneration);
     return "ok";
   }
 
+  if (activeGeneration !== generation) {
+    return "ok";
+  }
+
   if (!enabled) {
+    setCredentialBlock(null);
     await suspendCloudsyncAfterCredentialRejection(activeGeneration);
     return "ok";
   }
@@ -491,11 +506,15 @@ async function activateCloudsync(
     const identity = await enqueuePluginOperation(() =>
       getE2eeIdentityStatus(session.user.id),
     );
+    if (activeGeneration !== generation) {
+      return "ok";
+    }
     if (
       !identity.configured ||
       !identity.keyId ||
       !/^[A-Za-z0-9_-]{22}$/.test(identity.keyId)
     ) {
+      setCredentialBlock("setup_required");
       await suspendCloudsyncAfterCredentialRejection(activeGeneration);
       console.warn(
         "[cloudsync] E2EE recovery key setup is required; sync remains disabled",
@@ -504,6 +523,9 @@ async function activateCloudsync(
     }
     encryptionKeyId = identity.keyId;
   } catch {
+    if (activeGeneration === generation) {
+      setCredentialBlock("unavailable");
+    }
     await suspendCloudsyncAfterCredentialRejection(activeGeneration);
     console.warn(
       "[cloudsync] E2EE recovery key is unavailable; sync remains disabled",
@@ -552,6 +574,7 @@ async function activateCloudsync(
   }
 
   if (!status.cloudsync_enabled) {
+    setCredentialBlock("unavailable");
     console.warn(
       "[cloudsync] native sync is unavailable; sync remains disabled",
     );
@@ -623,6 +646,7 @@ async function activateCloudsync(
 
   if (!response.ok) {
     if (response.status === 404 || response.status === 501) {
+      setCredentialBlock("unavailable");
       if (!suspendBeforeExchange) {
         await suspendCloudsyncAfterCredentialRejection(activeGeneration);
       }
@@ -631,13 +655,17 @@ async function activateCloudsync(
     }
 
     if (response.status === 403) {
+      const errorCode = await readCredentialErrorCode(response);
+      if (activeGeneration !== generation) {
+        return "ok";
+      }
+      setCredentialBlock(
+        errorCode === DEVICE_LIMIT_ERROR_CODE ? "device_limit" : "not_entitled",
+      );
       if (!suspendBeforeExchange) {
         await suspendCloudsyncAfterCredentialRejection(activeGeneration);
       }
-      if (
-        (await readCredentialErrorCode(response)) === DEVICE_LIMIT_ERROR_CODE
-      ) {
-        setCredentialBlock("device_limit");
+      if (errorCode === DEVICE_LIMIT_ERROR_CODE) {
         sonnerToast.error(
           t`Cloud sync is limited to 5 devices. Remove another device to sync here.`,
           { id: DEVICE_LIMIT_TOAST_ID },
@@ -654,6 +682,7 @@ async function activateCloudsync(
     }
 
     if (response.status === 401) {
+      setCredentialBlock("reauth_required");
       if (!suspendBeforeExchange) {
         await suspendCloudsyncAfterCredentialRejection(activeGeneration);
       }
@@ -689,6 +718,7 @@ async function activateCloudsync(
   }
 
   if (credentials.encryptionKeyId !== encryptionKeyId) {
+    setCredentialBlock("identity_mismatch");
     await suspendCloudsyncAfterCredentialRejection(activeGeneration);
     console.warn(
       "[cloudsync] credential exchange returned a different E2EE key identity",
@@ -700,6 +730,7 @@ async function activateCloudsync(
     ? credentials.accountUserId
     : credentials.workspaceId;
   if (accountUserId !== session.user.id) {
+    setCredentialBlock("identity_mismatch");
     if (!suspendBeforeExchange) {
       await suspendCloudsyncAfterCredentialRejection(activeGeneration);
     }

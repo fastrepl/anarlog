@@ -268,6 +268,51 @@ describe("transcript SQLite queries", () => {
     expect(statements[1]?.sql).toContain("INSERT INTO transcripts");
   });
 
+  it("appends a partial capture without tombstoning earlier transcripts", async () => {
+    await createTranscript({
+      id: "transcript-new",
+      sessionId: "session-1",
+      ownerUserId: "user-1",
+      createdAt: "2026-07-10T12:00:00.000Z",
+      startedAt: 1000,
+      replaceSession: false,
+    });
+
+    const statements = mocks.executeTransaction.mock.calls[0]?.[0] as Array<{
+      sql: string;
+      params: unknown[];
+    }>;
+    expect(statements).toHaveLength(1);
+    expect(statements[0]?.sql).toContain("INSERT INTO transcripts");
+    expect(statements[0]?.sql).not.toContain("UPDATE transcripts");
+  });
+
+  it("replaces only the current partial capture in the insert transaction", async () => {
+    await createTranscript({
+      id: "transcript-new",
+      sessionId: "session-1",
+      ownerUserId: "user-1",
+      createdAt: "2026-07-10T12:00:00.000Z",
+      startedAt: 1000,
+      replaceTranscriptId: "transcript-current-live",
+    });
+
+    const statements = mocks.executeTransaction.mock.calls[0]?.[0] as Array<{
+      sql: string;
+      params: unknown[];
+    }>;
+    expect(statements).toHaveLength(2);
+    expect(statements[0]?.sql).toContain("UPDATE transcripts");
+    expect(statements[0]?.sql).toContain(
+      "WHERE id = ? AND session_id = ? AND deleted_at IS NULL",
+    );
+    expect(statements[0]?.params.slice(-2)).toEqual([
+      "transcript-current-live",
+      "session-1",
+    ]);
+    expect(statements[1]?.sql).toContain("INSERT INTO transcripts");
+  });
+
   it("retries a live delta against the latest row after a concurrent write", async () => {
     mocks.execute
       .mockResolvedValueOnce([{ words_json: "[]", speaker_hints_json: "[]" }])

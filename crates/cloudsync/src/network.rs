@@ -1,7 +1,38 @@
+use futures_util::TryStreamExt;
 use serde::{Deserialize, Serialize};
-use sqlx::{Executor, Sqlite};
+use sqlx::{Connection, Executor, Sqlite, SqliteConnection};
 
 use crate::error::Error;
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingPayloadBatch {
+    pub start_db_version: i64,
+    pub watermark_db_version: Option<i64>,
+    pub chunks: u32,
+    pub rows: u64,
+    pub bytes: u64,
+    pub complete: bool,
+    pub fits: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkStatus {
+    pub last_optimistic_version: i64,
+    pub last_confirmed_version: i64,
+    pub gaps: Vec<serde_json::Value>,
+    #[serde(default)]
+    pub failures: NetworkStatusFailures,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+pub struct NetworkStatusFailures {
+    #[serde(default)]
+    pub apply: Option<serde_json::Value>,
+    #[serde(default)]
+    pub check: Option<serde_json::Value>,
+}
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct NetworkResult {
@@ -144,6 +175,156 @@ where
     )
 }
 
+pub async fn pending_payload_batch(
+    connection: &mut SqliteConnection,
+    max_chunks: u32,
+    max_rows: u64,
+    max_bytes: u64,
+) -> Result<PendingPayloadBatch, Error> {
+    if max_chunks == 0 || max_rows == 0 || max_bytes == 0 {
+        return Err(Error::InvalidPendingPayloadLimits);
+    }
+
+    let start_db_version: i64 = sqlx::query_scalar(
+        "SELECT COALESCE(
+            (
+                SELECT CAST(value AS INTEGER)
+                FROM cloudsync_settings
+                WHERE key = 'send_dbversion'
+            ),
+            0
+        )",
+    )
+    .fetch_one(&mut *connection)
+    .await?;
+    let row_limit = i64::from(max_chunks) + 1;
+    let mut chunks = sqlx::query_as::<_, (i64, i64, i64, bool)>(
+        "SELECT payload_size, rows, watermark_db_version, is_final
+         FROM cloudsync_payload_chunks
+         LIMIT ?",
+    )
+    .bind(row_limit)
+    .fetch(&mut *connection);
+    let mut batch = PendingPayloadBatch {
+        start_db_version,
+        complete: true,
+        fits: true,
+        ..Default::default()
+    };
+    let mut saw_chunk = false;
+
+    while let Some((payload_size, rows, watermark_db_version, is_final)) = chunks.try_next().await?
+    {
+        saw_chunk = true;
+        let payload_size = u64::try_from(payload_size).map_err(|_| {
+            std::io::Error::other("cloudsync pending payload scan returned a negative payload size")
+        })?;
+        let rows = u64::try_from(rows).map_err(|_| {
+            std::io::Error::other("cloudsync pending payload scan returned a negative row count")
+        })?;
+        batch.chunks = batch.chunks.saturating_add(1);
+        batch.rows = batch.rows.saturating_add(rows);
+        batch.bytes = batch.bytes.saturating_add(payload_size);
+        batch.complete = is_final;
+        match batch.watermark_db_version {
+            Some(watermark) if watermark != watermark_db_version => {
+                return Err(std::io::Error::other(
+                    "cloudsync pending payload scan returned inconsistent watermarks",
+                )
+                .into());
+            }
+            None => batch.watermark_db_version = Some(watermark_db_version),
+            _ => {}
+        }
+
+        if batch.chunks > max_chunks || batch.rows > max_rows || batch.bytes > max_bytes {
+            batch.fits = false;
+            return Ok(batch);
+        }
+
+        if is_final {
+            return Ok(batch);
+        }
+    }
+
+    if saw_chunk {
+        batch.complete = false;
+        batch.fits = false;
+    }
+    Ok(batch)
+}
+
+pub async fn network_status<'e, E>(executor: E) -> Result<NetworkStatus, Error>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
+    let response: String = sqlx::query_scalar("SELECT cloudsync_network_status()")
+        .fetch_one(executor)
+        .await?;
+
+    Ok(serde_json::from_str(&response)?)
+}
+
+pub async fn reconcile_confirmed_pending_payload(
+    connection: &mut SqliteConnection,
+    batch: PendingPayloadBatch,
+    status: &NetworkStatus,
+) -> Result<bool, Error> {
+    let Some(watermark_db_version) = batch.watermark_db_version else {
+        return Ok(false);
+    };
+    if batch.chunks == 0
+        || watermark_db_version <= batch.start_db_version
+        || !batch.complete
+        || !batch.fits
+        || !status.gaps.is_empty()
+        || status.failures.apply.is_some()
+        || status.last_optimistic_version < watermark_db_version
+        || status.last_confirmed_version < watermark_db_version
+    {
+        return Ok(false);
+    }
+
+    let mut transaction = connection.begin().await?;
+    let current_db_version: i64 = sqlx::query_scalar(
+        "SELECT COALESCE(
+            (
+                SELECT CAST(value AS INTEGER)
+                FROM cloudsync_settings
+                WHERE key = 'send_dbversion'
+            ),
+            0
+        )",
+    )
+    .fetch_one(&mut *transaction)
+    .await?;
+    if current_db_version != batch.start_db_version {
+        transaction.rollback().await?;
+        return Ok(false);
+    }
+
+    sqlx::query("SELECT cloudsync_set('send_dbversion', CAST(? AS TEXT))")
+        .bind(watermark_db_version)
+        .fetch_optional(&mut *transaction)
+        .await?;
+    let updated_db_version: i64 = sqlx::query_scalar(
+        "SELECT CAST(value AS INTEGER)
+         FROM cloudsync_settings
+         WHERE key = 'send_dbversion'",
+    )
+    .fetch_one(&mut *transaction)
+    .await?;
+    if updated_db_version != watermark_db_version {
+        transaction.rollback().await?;
+        return Err(
+            std::io::Error::other("cloudsync send cursor reconciliation did not persist").into(),
+        );
+    }
+
+    transaction.commit().await?;
+    Ok(true)
+}
+
 /// https://docs.sqlitecloud.io/docs/sqlite-sync-api-cloudsync-network-send-changes
 pub async fn network_send_changes<'e, E>(executor: E) -> Result<NetworkResult, Error>
 where
@@ -201,6 +382,64 @@ where
         .await?;
 
     Ok(())
+}
+
+pub async fn network_reset_receive_version(connection: &mut SqliteConnection) -> Result<(), Error> {
+    let mut transaction = connection.begin().await?;
+    let before = read_network_cursors(&mut transaction).await?;
+
+    // sqlite-sync 1.1.2's public reset zeros all four cursors, so a receive-only
+    // full resync must set the two durable check cursors directly.
+    sqlx::query(
+        "SELECT
+            cloudsync_set('check_dbversion', '0'),
+            cloudsync_set('check_seq', '0')",
+    )
+    .fetch_optional(&mut *transaction)
+    .await?;
+
+    let after = read_network_cursors(&mut transaction).await?;
+    let verification_error = if after.0.as_deref() != Some("0") || after.1.as_deref() != Some("0") {
+        Some("receive cursor write did not persist")
+    } else if after.2 != before.2 || after.3 != before.3 {
+        Some("outbound send cursor changed")
+    } else {
+        None
+    };
+
+    if let Some(message) = verification_error {
+        transaction.rollback().await?;
+        return Err(std::io::Error::other(format!(
+            "cloudsync receive cursor reset verification failed: {message}"
+        ))
+        .into());
+    }
+
+    transaction.commit().await?;
+    Ok(())
+}
+
+async fn read_network_cursors(
+    connection: &mut SqliteConnection,
+) -> Result<
+    (
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    ),
+    Error,
+> {
+    Ok(sqlx::query_as(
+        "SELECT
+            MAX(CASE WHEN key = 'check_dbversion' THEN value END),
+            MAX(CASE WHEN key = 'check_seq' THEN value END),
+            MAX(CASE WHEN key = 'send_dbversion' THEN value END),
+            MAX(CASE WHEN key = 'send_seq' THEN value END)
+         FROM cloudsync_settings",
+    )
+    .fetch_one(connection)
+    .await?)
 }
 
 /// https://docs.sqlitecloud.io/docs/sqlite-sync-api-cloudsync-network-logout

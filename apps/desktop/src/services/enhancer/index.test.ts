@@ -381,6 +381,61 @@ describe("EnhancerService", () => {
     await vi.waitFor(() => expect(ai.generate).toHaveBeenCalledOnce());
   });
 
+  it("retries a lock during actual auto-enhance execution without duplicating generation", async () => {
+    vi.useFakeTimers();
+    snapshot = createSnapshot({ wordCount: 40 });
+    let loadCount = 0;
+    mocks.loadSessionContentSnapshot.mockImplementation(async () => {
+      loadCount += 1;
+      if (loadCount === 2) {
+        throw new Error("database is locked");
+      }
+      return snapshot;
+    });
+    const ai = createMockAITaskStore();
+    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
+    const event = vi.fn();
+    service.on(event);
+
+    service.queueAutoEnhance("session-1");
+    service.queueAutoEnhance("session-1");
+    await vi.advanceTimersByTimeAsync(100);
+
+    expect(mocks.loadSessionContentSnapshot).toHaveBeenCalledTimes(4);
+    expect(mocks.ensureSummaryDocument).toHaveBeenCalledOnce();
+    expect(ai.generate).toHaveBeenCalledOnce();
+    expect(event).toHaveBeenCalledTimes(1);
+    expect(event).toHaveBeenCalledWith({
+      type: "auto-enhance-started",
+      sessionId: "session-1",
+      noteId: "note-1",
+    });
+  });
+
+  it("retries a lock through the shared main-window regenerate request", async () => {
+    vi.useFakeTimers();
+    snapshot = createSnapshot({
+      notes: [createNote({ id: "one" }), createNote({ id: "two" })],
+      wordCount: 40,
+    });
+    mocks.loadSessionContentSnapshot
+      .mockRejectedValueOnce(new Error("database table is locked"))
+      .mockResolvedValue(snapshot);
+    const ai = createMockAITaskStore();
+    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
+
+    const request = service.requestAutoEnhance("session-1", "regenerate");
+    await vi.advanceTimersByTimeAsync(100);
+    await request;
+    await vi.waitFor(() => expect(ai.generate).toHaveBeenCalledOnce());
+
+    expect(mocks.loadSessionContentSnapshot).toHaveBeenCalledTimes(4);
+    expect(ai.reset).toHaveBeenCalledTimes(2);
+    expect(ai.reset).toHaveBeenCalledWith("one-enhance");
+    expect(ai.reset).toHaveBeenCalledWith("two-enhance");
+    expect(ai.generate).toHaveBeenCalledOnce();
+  });
+
   it("emits no-model and started auto-enhance outcomes", async () => {
     snapshot = createSnapshot({ wordCount: 40 });
     const noModelService = new EnhancerService(

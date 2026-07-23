@@ -31,7 +31,7 @@ export type OnStoppedCallback = (
     liveTranscriptionActive: boolean;
     needsBatchRepair: boolean;
   },
-) => void;
+) => void | Promise<void>;
 
 export type TranscriptState = {
   liveSegments: LiveTranscriptSegment[];

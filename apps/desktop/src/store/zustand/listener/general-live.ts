@@ -203,6 +203,9 @@ const createSessionEventHandlers = <T extends LiveStore>(
     setLiveState(set, (live) => {
       delete live.eventUnlistenersBySession[targetSessionId];
       delete live.finalizingBySession[targetSessionId];
+      if (onStopped) {
+        live.postStopProcessingBySession[targetSessionId] = true;
+      }
 
       if (live.sessionId === targetSessionId) {
         clearLiveInterval(live.intervalId);
@@ -216,13 +219,30 @@ const createSessionEventHandlers = <T extends LiveStore>(
     }
 
     if (onStopped) {
-      onStopped(targetSessionId, {
-        durationSeconds: stoppedSeconds,
-        audioPath: payload.audio_path ?? null,
-        requestedLiveTranscription: payload.requested_live_transcription,
-        liveTranscriptionActive: payload.live_transcription_active,
-        needsBatchRepair,
-      });
+      const finishPostStopProcessing = () => {
+        setLiveState(set, (live) => {
+          delete live.postStopProcessingBySession[targetSessionId];
+        });
+      };
+      try {
+        const stopped = onStopped(targetSessionId, {
+          durationSeconds: stoppedSeconds,
+          audioPath: payload.audio_path ?? null,
+          requestedLiveTranscription: payload.requested_live_transcription,
+          liveTranscriptionActive: payload.live_transcription_active,
+          needsBatchRepair,
+        });
+        void Promise.resolve(stopped).then(
+          finishPostStopProcessing,
+          (error) => {
+            finishPostStopProcessing();
+            console.error("[listener] post-stop processing failed", error);
+          },
+        );
+      } catch (error) {
+        finishPostStopProcessing();
+        console.error("[listener] post-stop processing failed", error);
+      }
     }
   },
   progress: (payload) => {

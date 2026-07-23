@@ -30,8 +30,23 @@ pub enum Error {
     CloseHookRegistration(i32),
     #[error("failed to register the cloudsync transaction observer: sqlite error {0}")]
     TransactionObserverRegistration(i32),
+    #[error("failed to initialize the cloudsync extension: {0}")]
+    ExtensionInitialization(String),
     #[error("CloudSync requires WAL journal mode for commit-safe change notifications")]
     WalRequired,
+    #[error("cloudsync pending payload limits must be greater than zero")]
+    InvalidPendingPayloadLimits,
+    #[error(
+        "cloudsync outbound payload exceeds the safe send limit: observed {chunks} chunks, {rows} rows, and {bytes} bytes (limits: {max_chunks} chunks, {max_rows} rows, and {max_bytes} bytes)"
+    )]
+    OutboundPayloadTooLarge {
+        chunks: u32,
+        rows: u64,
+        bytes: u64,
+        max_chunks: u32,
+        max_rows: u64,
+        max_bytes: u64,
+    },
     #[error(
         "the bundled cloudsync extension is not available for this target; supported targets: {SUPPORTED_CLOUDSYNC_TARGETS}"
     )]
@@ -87,6 +102,9 @@ fn classify_error_message(message: &str) -> Option<ErrorKind> {
         "database is locked",
         "database table is locked",
         "error sending request for url",
+        "timed out",
+        "timeout was reached",
+        "unable to upload payload chunk",
         "status 429 too many requests",
     ]
     .iter()
@@ -148,6 +166,24 @@ mod tests {
         assert_eq!(classify_error_code(5), ErrorKind::Transient);
         assert_eq!(
             classify_database_error(Some("1"), "Recv failure: Connection reset by peer"),
+            ErrorKind::Transient
+        );
+        assert_eq!(
+            classify_database_error(
+                Some("1"),
+                "Operation timed out after 250 milliseconds with 0 bytes received"
+            ),
+            ErrorKind::Transient
+        );
+        assert_eq!(
+            classify_database_error(Some("1"), "Timeout was reached"),
+            ErrorKind::Transient
+        );
+        assert_eq!(
+            classify_database_error(
+                Some("1"),
+                "cloudsync_network_send_changes unable to upload payload chunk to remote host"
+            ),
             ErrorKind::Transient
         );
         assert_eq!(

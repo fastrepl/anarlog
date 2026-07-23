@@ -2,14 +2,21 @@ use std::sync::LazyLock;
 
 use hypr_db_core::CloudsyncTableSpec;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use sqlx::{Sqlite, SqlitePool, Transaction};
 
 pub const CLOUDSYNC_WORKSPACE_BINDING_ID: &str = "cloudsync_workspace_binding";
 const CLOUDSYNC_FULL_RESYNC_PENDING_ID: &str = "cloudsync_full_resync_pending";
+const CLOUDSYNC_FULL_RESYNC_RECOVERY_ID: &str = "cloudsync_full_resync_recovery_v1";
 const CLOUDSYNC_FULL_RESYNC_RESET_APPLIED_ID: &str = "cloudsync_full_resync_reset_applied";
+const CLOUDSYNC_FULL_RESYNC_RECEIVE_ONLY_RESET_APPLIED_ID: &str =
+    "cloudsync_full_resync_receive_only_reset_applied";
 const CLOUDSYNC_WRITE_FILTER_VERSION_ID: &str = "cloudsync_write_filter_version";
 const CLOUDSYNC_WRITE_FILTER_VERSION: &str = "writable-workspaces-v1";
 const LEGACY_DEFAULT_USER_ID: &str = "00000000-0000-0000-0000-000000000000";
+const CLOUDSYNC_RECOVERY_PROTOCOL_VERSION: u32 = 1;
+const CLOUDSYNC_RECOVERY_BARRIER_TABLE: &str = "__anarlog_cloudsync_control";
+const CLOUDSYNC_RECOVERY_BARRIER_FIELD: &str = "$snapshot_barrier";
 
 const USER_ID_REFERENCES: &[(&str, &str)] = &[
     ("organizations", "owner_user_id"),
@@ -37,6 +44,8 @@ pub enum CloudsyncWorkspaceError {
     InvalidWorkspaceId,
     InvalidBinding,
     InvalidWorkspaceProjection,
+    InvalidRecoveryState,
+    RecoveryConflict,
     AccountMismatch,
     ForeignWorkspace { table: String },
 }
@@ -50,6 +59,8 @@ impl std::fmt::Display for CloudsyncWorkspaceError {
             Self::InvalidWorkspaceProjection => {
                 write!(f, "CloudSync workspace projection is invalid")
             }
+            Self::InvalidRecoveryState => write!(f, "CloudSync recovery state is invalid"),
+            Self::RecoveryConflict => write!(f, "CloudSync recovery state changed unexpectedly"),
             Self::AccountMismatch => write!(
                 f,
                 "this local database is already bound to a different account"
@@ -101,6 +112,37 @@ pub struct CloudsyncWorkspaceProjectionEntry {
 pub struct CloudsyncWorkspaceReconciliationPlan {
     pub granted_workspace_ids: Vec<String>,
     pub revoked_workspace_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CloudsyncFullResyncResetState {
+    ResetRequired,
+    PoisonRecoveryRequired,
+    ReceiveOnlyResetApplied,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CloudsyncRecoveryPhase {
+    NeedFirstLogout,
+    NeedBarrierInsert,
+    NeedBarrierConfirm,
+    NeedCleanReceive,
+    NeedWitnessRepair,
+    NeedBarrierCleanup,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+pub struct CloudsyncRecoveryState {
+    pub protocol_version: u32,
+    pub generation: String,
+    pub account_user_id: String,
+    pub workspace_id: String,
+    pub key_id: String,
+    pub phase: CloudsyncRecoveryPhase,
+    pub barrier_id: String,
+    pub barrier_payload: String,
+    pub barrier_payload_hash: String,
 }
 
 impl CloudsyncWorkspaceReconciliationPlan {
@@ -390,6 +432,300 @@ pub async fn cloudsync_full_resync_generation(
         .transpose()
 }
 
+pub async fn ensure_cloudsync_recovery_state(
+    pool: &SqlitePool,
+    generation: &str,
+    account_user_id: &str,
+    workspace_id: &str,
+    key: &hypr_e2ee::WorkspaceKey,
+) -> Result<CloudsyncRecoveryState, CloudsyncWorkspaceError> {
+    let account_user_id = validated_account_user_id(account_user_id)?;
+    if generation.trim().is_empty() || workspace_id.trim().is_empty() {
+        return Err(CloudsyncWorkspaceError::InvalidRecoveryState);
+    }
+
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let pending_value = serde_json::to_string(generation)
+        .map_err(|_| CloudsyncWorkspaceError::InvalidRecoveryState)?;
+    let pending_matches: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+           SELECT 1 FROM app_settings WHERE id = ? AND value_json = ?
+         )",
+    )
+    .bind(CLOUDSYNC_FULL_RESYNC_PENDING_ID)
+    .bind(&pending_value)
+    .fetch_one(&mut *transaction)
+    .await?;
+    if !pending_matches {
+        return Err(CloudsyncWorkspaceError::RecoveryConflict);
+    }
+
+    if let Some(value_json) =
+        sqlx::query_scalar::<_, String>("SELECT value_json FROM app_settings WHERE id = ?")
+            .bind(CLOUDSYNC_FULL_RESYNC_RECOVERY_ID)
+            .fetch_optional(&mut *transaction)
+            .await?
+    {
+        let state = parse_cloudsync_recovery_state(&value_json)?;
+        if state.generation != generation
+            || state.account_user_id != account_user_id
+            || state.workspace_id != workspace_id
+            || state.key_id != key.key_id()
+        {
+            return Err(CloudsyncWorkspaceError::RecoveryConflict);
+        }
+        transaction.commit().await?;
+        return Ok(state);
+    }
+
+    let writer_id = uuid::Uuid::new_v4().simple().to_string();
+    let barrier = key
+        .seal_field(
+            workspace_id,
+            CLOUDSYNC_RECOVERY_BARRIER_TABLE,
+            generation,
+            CLOUDSYNC_RECOVERY_BARRIER_FIELD,
+            &writer_id,
+            1,
+            false,
+            json!({
+                "protocol_version": CLOUDSYNC_RECOVERY_PROTOCOL_VERSION,
+                "generation": generation,
+                "nonce": uuid::Uuid::new_v4().to_string(),
+            }),
+        )
+        .map_err(|_| CloudsyncWorkspaceError::InvalidRecoveryState)?;
+    let state = CloudsyncRecoveryState {
+        protocol_version: CLOUDSYNC_RECOVERY_PROTOCOL_VERSION,
+        generation: generation.to_string(),
+        account_user_id: account_user_id.to_string(),
+        workspace_id: workspace_id.to_string(),
+        key_id: key.key_id().to_string(),
+        phase: CloudsyncRecoveryPhase::NeedFirstLogout,
+        barrier_id: barrier.record_id,
+        barrier_payload_hash: hypr_e2ee::payload_hash(&barrier.payload),
+        barrier_payload: barrier.payload,
+    };
+    let value_json =
+        serde_json::to_string(&state).map_err(|_| CloudsyncWorkspaceError::InvalidRecoveryState)?;
+    sqlx::query("INSERT INTO app_settings (id, value_json) VALUES (?, ?)")
+        .bind(CLOUDSYNC_FULL_RESYNC_RECOVERY_ID)
+        .bind(value_json)
+        .execute(&mut *transaction)
+        .await?;
+    transaction.commit().await?;
+    Ok(state)
+}
+
+pub async fn cloudsync_recovery_state(
+    pool: &SqlitePool,
+) -> Result<Option<CloudsyncRecoveryState>, CloudsyncWorkspaceError> {
+    let value_json: Option<String> =
+        sqlx::query_scalar("SELECT value_json FROM app_settings WHERE id = ?")
+            .bind(CLOUDSYNC_FULL_RESYNC_RECOVERY_ID)
+            .fetch_optional(pool)
+            .await?;
+    value_json
+        .map(|value_json| parse_cloudsync_recovery_state(&value_json))
+        .transpose()
+}
+
+pub async fn advance_cloudsync_recovery_phase(
+    pool: &SqlitePool,
+    generation: &str,
+    expected: CloudsyncRecoveryPhase,
+    next: CloudsyncRecoveryPhase,
+) -> Result<bool, CloudsyncWorkspaceError> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let Some(value_json) =
+        sqlx::query_scalar::<_, String>("SELECT value_json FROM app_settings WHERE id = ?")
+            .bind(CLOUDSYNC_FULL_RESYNC_RECOVERY_ID)
+            .fetch_optional(&mut *transaction)
+            .await?
+    else {
+        transaction.commit().await?;
+        return Ok(false);
+    };
+    let mut state = parse_cloudsync_recovery_state(&value_json)?;
+    if state.generation != generation || state.phase != expected {
+        transaction.commit().await?;
+        return Ok(false);
+    }
+    let generation_json = serde_json::to_string(generation)
+        .map_err(|_| CloudsyncWorkspaceError::InvalidRecoveryState)?;
+    let pending_matches: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+           SELECT 1 FROM app_settings WHERE id = ? AND value_json = ?
+         )",
+    )
+    .bind(CLOUDSYNC_FULL_RESYNC_PENDING_ID)
+    .bind(generation_json)
+    .fetch_one(&mut *transaction)
+    .await?;
+    if !pending_matches {
+        transaction.commit().await?;
+        return Ok(false);
+    }
+    state.phase = next;
+    let next_value_json =
+        serde_json::to_string(&state).map_err(|_| CloudsyncWorkspaceError::InvalidRecoveryState)?;
+    let updated = sqlx::query(
+        "UPDATE app_settings
+         SET value_json = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE id = ? AND value_json = ?",
+    )
+    .bind(next_value_json)
+    .bind(CLOUDSYNC_FULL_RESYNC_RECOVERY_ID)
+    .bind(value_json)
+    .execute(&mut *transaction)
+    .await?
+    .rows_affected()
+        == 1;
+    transaction.commit().await?;
+    Ok(updated)
+}
+
+pub async fn insert_cloudsync_recovery_barrier(
+    pool: &SqlitePool,
+    state: &CloudsyncRecoveryState,
+    key: &hypr_e2ee::WorkspaceKey,
+) -> Result<bool, CloudsyncWorkspaceError> {
+    validate_cloudsync_recovery_barrier(state, key)?;
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let existing: Option<(String, String)> = sqlx::query_as(
+        "SELECT workspace_id, payload
+         FROM e2ee_records
+         WHERE id = ?",
+    )
+    .bind(&state.barrier_id)
+    .fetch_optional(&mut *transaction)
+    .await?;
+    if let Some((workspace_id, payload)) = existing {
+        if workspace_id != state.workspace_id || payload != state.barrier_payload {
+            return Err(CloudsyncWorkspaceError::RecoveryConflict);
+        }
+        transaction.commit().await?;
+        return Ok(false);
+    }
+
+    sqlx::query(
+        "INSERT INTO e2ee_records (id, workspace_id, payload)
+         VALUES (?, ?, ?)",
+    )
+    .bind(&state.barrier_id)
+    .bind(&state.workspace_id)
+    .bind(&state.barrier_payload)
+    .execute(&mut *transaction)
+    .await?;
+    transaction.commit().await?;
+    Ok(true)
+}
+
+pub async fn cloudsync_recovery_barrier_is_exact(
+    pool: &SqlitePool,
+    state: &CloudsyncRecoveryState,
+    key: &hypr_e2ee::WorkspaceKey,
+) -> Result<bool, CloudsyncWorkspaceError> {
+    validate_cloudsync_recovery_barrier(state, key)?;
+    let record: Option<(String, String)> = sqlx::query_as(
+        "SELECT workspace_id, payload
+         FROM e2ee_records
+         WHERE id = ?",
+    )
+    .bind(&state.barrier_id)
+    .fetch_optional(pool)
+    .await?;
+    Ok(record.is_some_and(|(workspace_id, payload)| {
+        workspace_id == state.workspace_id && payload == state.barrier_payload
+    }))
+}
+
+pub async fn delete_cloudsync_recovery_barrier(
+    pool: &SqlitePool,
+    state: &CloudsyncRecoveryState,
+    key: &hypr_e2ee::WorkspaceKey,
+) -> Result<bool, CloudsyncWorkspaceError> {
+    validate_cloudsync_recovery_barrier(state, key)?;
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let record: Option<(String, String)> = sqlx::query_as(
+        "SELECT workspace_id, payload
+         FROM e2ee_records
+         WHERE id = ?",
+    )
+    .bind(&state.barrier_id)
+    .fetch_optional(&mut *transaction)
+    .await?;
+    let Some((workspace_id, payload)) = record else {
+        transaction.commit().await?;
+        return Ok(false);
+    };
+    if workspace_id != state.workspace_id || payload != state.barrier_payload {
+        return Err(CloudsyncWorkspaceError::RecoveryConflict);
+    }
+    sqlx::query("DELETE FROM e2ee_records WHERE id = ?")
+        .bind(&state.barrier_id)
+        .execute(&mut *transaction)
+        .await?;
+    transaction.commit().await?;
+    Ok(true)
+}
+
+pub async fn complete_cloudsync_recovery(
+    pool: &SqlitePool,
+    generation: &str,
+) -> Result<bool, CloudsyncWorkspaceError> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let Some(value_json) =
+        sqlx::query_scalar::<_, String>("SELECT value_json FROM app_settings WHERE id = ?")
+            .bind(CLOUDSYNC_FULL_RESYNC_RECOVERY_ID)
+            .fetch_optional(&mut *transaction)
+            .await?
+    else {
+        transaction.commit().await?;
+        return Ok(false);
+    };
+    let state = parse_cloudsync_recovery_state(&value_json)?;
+    if state.generation != generation || state.phase != CloudsyncRecoveryPhase::NeedBarrierCleanup {
+        transaction.commit().await?;
+        return Ok(false);
+    }
+    let generation_json = serde_json::to_string(generation)
+        .map_err(|_| CloudsyncWorkspaceError::InvalidRecoveryState)?;
+    let pending_matches: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+           SELECT 1 FROM app_settings WHERE id = ? AND value_json = ?
+         )",
+    )
+    .bind(CLOUDSYNC_FULL_RESYNC_PENDING_ID)
+    .bind(&generation_json)
+    .fetch_one(&mut *transaction)
+    .await?;
+    if !pending_matches {
+        transaction.commit().await?;
+        return Ok(false);
+    }
+    for id in [
+        CLOUDSYNC_FULL_RESYNC_PENDING_ID,
+        CLOUDSYNC_FULL_RESYNC_RESET_APPLIED_ID,
+        CLOUDSYNC_FULL_RESYNC_RECEIVE_ONLY_RESET_APPLIED_ID,
+    ] {
+        sqlx::query("DELETE FROM app_settings WHERE id = ? AND value_json = ?")
+            .bind(id)
+            .bind(&generation_json)
+            .execute(&mut *transaction)
+            .await?;
+    }
+    let deleted = sqlx::query("DELETE FROM app_settings WHERE id = ? AND value_json = ?")
+        .bind(CLOUDSYNC_FULL_RESYNC_RECOVERY_ID)
+        .bind(value_json)
+        .execute(&mut *transaction)
+        .await?
+        .rows_affected()
+        == 1;
+    transaction.commit().await?;
+    Ok(deleted)
+}
+
 pub async fn clear_cloudsync_full_resync_pending(
     pool: &SqlitePool,
     generation: &str,
@@ -404,11 +740,43 @@ pub async fn clear_cloudsync_full_resync_pending(
         .await?;
     sqlx::query("DELETE FROM app_settings WHERE id = ? AND value_json = ?")
         .bind(CLOUDSYNC_FULL_RESYNC_RESET_APPLIED_ID)
+        .bind(&value_json)
+        .execute(&mut *transaction)
+        .await?;
+    sqlx::query("DELETE FROM app_settings WHERE id = ? AND value_json = ?")
+        .bind(CLOUDSYNC_FULL_RESYNC_RECEIVE_ONLY_RESET_APPLIED_ID)
         .bind(value_json)
         .execute(&mut *transaction)
         .await?;
     transaction.commit().await?;
     Ok(())
+}
+
+pub async fn cloudsync_full_resync_reset_state(
+    pool: &SqlitePool,
+    generation: &str,
+) -> Result<CloudsyncFullResyncResetState, CloudsyncWorkspaceError> {
+    let value_json = serde_json::to_string(generation)
+        .map_err(|_| CloudsyncWorkspaceError::InvalidWorkspaceProjection)?;
+    let (legacy_marker, receive_only_marker): (Option<String>, Option<String>) = sqlx::query_as(
+        "SELECT
+           (SELECT value_json FROM app_settings WHERE id = ?),
+           (SELECT value_json FROM app_settings WHERE id = ?)",
+    )
+    .bind(CLOUDSYNC_FULL_RESYNC_RESET_APPLIED_ID)
+    .bind(CLOUDSYNC_FULL_RESYNC_RECEIVE_ONLY_RESET_APPLIED_ID)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(
+        if receive_only_marker.as_deref() == Some(value_json.as_str()) {
+            CloudsyncFullResyncResetState::ReceiveOnlyResetApplied
+        } else if legacy_marker.is_some() && legacy_marker != receive_only_marker {
+            CloudsyncFullResyncResetState::PoisonRecoveryRequired
+        } else {
+            CloudsyncFullResyncResetState::ResetRequired
+        },
+    )
 }
 
 pub async fn cloudsync_full_resync_requires_reset(
@@ -429,6 +797,15 @@ pub async fn cloudsync_full_resync_requires_reset(
     Ok(applied_generation.as_deref() != Some(generation))
 }
 
+pub async fn cloudsync_encrypted_replica_is_empty(
+    pool: &SqlitePool,
+) -> Result<bool, CloudsyncWorkspaceError> {
+    let has_records: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM e2ee_records LIMIT 1)")
+        .fetch_one(pool)
+        .await?;
+    Ok(!has_records)
+}
+
 pub async fn mark_cloudsync_full_resync_reset_applied(
     pool: &SqlitePool,
     generation: &str,
@@ -447,6 +824,48 @@ pub async fn mark_cloudsync_full_resync_reset_applied(
     .execute(pool)
     .await?;
     Ok(())
+}
+
+pub async fn mark_cloudsync_full_resync_receive_only_reset_applied(
+    pool: &SqlitePool,
+    generation: &str,
+) -> Result<bool, CloudsyncWorkspaceError> {
+    let value_json = serde_json::to_string(generation)
+        .map_err(|_| CloudsyncWorkspaceError::InvalidWorkspaceProjection)?;
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let pending_matches: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+           SELECT 1 FROM app_settings WHERE id = ? AND value_json = ?
+         )",
+    )
+    .bind(CLOUDSYNC_FULL_RESYNC_PENDING_ID)
+    .bind(&value_json)
+    .fetch_one(&mut *transaction)
+    .await?;
+    if !pending_matches {
+        transaction.commit().await?;
+        return Ok(false);
+    }
+
+    for id in [
+        CLOUDSYNC_FULL_RESYNC_RESET_APPLIED_ID,
+        CLOUDSYNC_FULL_RESYNC_RECEIVE_ONLY_RESET_APPLIED_ID,
+    ] {
+        sqlx::query(
+            "INSERT INTO app_settings (id, value_json)
+             VALUES (?, ?)
+             ON CONFLICT(id) DO UPDATE SET
+               value_json = excluded.value_json,
+               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
+        )
+        .bind(id)
+        .bind(&value_json)
+        .execute(&mut *transaction)
+        .await?;
+    }
+
+    transaction.commit().await?;
+    Ok(true)
 }
 
 pub async fn cloudsync_write_filter_installed(
@@ -525,11 +944,28 @@ async fn write_cloudsync_workspace_projection(
 ) -> Result<Option<String>, CloudsyncWorkspaceError> {
     validate_cloudsync_workspace_projection(projection)?;
 
-    let full_resync_generation = require_full_resync.then(|| uuid::Uuid::new_v4().to_string());
     let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     if require_claimed_account {
         require_claimed_binding(&mut transaction, &projection.account_user_id).await?;
     }
+    let recovery_state: Option<String> =
+        sqlx::query_scalar("SELECT value_json FROM app_settings WHERE id = ?")
+            .bind(CLOUDSYNC_FULL_RESYNC_RECOVERY_ID)
+            .fetch_optional(&mut *transaction)
+            .await?;
+    let full_resync_generation = if let Some(value_json) = recovery_state {
+        let state = parse_cloudsync_recovery_state(&value_json)?;
+        if state.account_user_id != projection.account_user_id
+            || state.workspace_id != projection.personal_workspace_id
+        {
+            return Err(CloudsyncWorkspaceError::RecoveryConflict);
+        }
+        Some(state.generation)
+    } else if require_full_resync {
+        Some(uuid::Uuid::new_v4().to_string())
+    } else {
+        None
+    };
     sqlx::query("DELETE FROM workspace_memberships")
         .execute(&mut *transaction)
         .await?;
@@ -790,6 +1226,68 @@ fn parse_binding(value_json: &str) -> Result<CloudsyncWorkspaceBinding, Cloudsyn
     Ok(binding)
 }
 
+fn parse_cloudsync_recovery_state(
+    value_json: &str,
+) -> Result<CloudsyncRecoveryState, CloudsyncWorkspaceError> {
+    let state: CloudsyncRecoveryState = serde_json::from_str(value_json)
+        .map_err(|_| CloudsyncWorkspaceError::InvalidRecoveryState)?;
+    if state.protocol_version != CLOUDSYNC_RECOVERY_PROTOCOL_VERSION
+        || state.generation.trim().is_empty()
+        || state.account_user_id.trim().is_empty()
+        || state.workspace_id.trim().is_empty()
+        || state.key_id.trim().is_empty()
+        || state.barrier_id.trim().is_empty()
+        || state.barrier_payload.trim().is_empty()
+        || hypr_e2ee::payload_hash(&state.barrier_payload) != state.barrier_payload_hash
+    {
+        return Err(CloudsyncWorkspaceError::InvalidRecoveryState);
+    }
+    Ok(state)
+}
+
+fn validate_cloudsync_recovery_barrier(
+    state: &CloudsyncRecoveryState,
+    key: &hypr_e2ee::WorkspaceKey,
+) -> Result<(), CloudsyncWorkspaceError> {
+    if state.protocol_version != CLOUDSYNC_RECOVERY_PROTOCOL_VERSION
+        || state.key_id != key.key_id()
+        || hypr_e2ee::payload_hash(&state.barrier_payload) != state.barrier_payload_hash
+    {
+        return Err(CloudsyncWorkspaceError::InvalidRecoveryState);
+    }
+    let field = key
+        .open_field(
+            &state.workspace_id,
+            &state.barrier_id,
+            &state.barrier_payload,
+        )
+        .map_err(|_| CloudsyncWorkspaceError::InvalidRecoveryState)?;
+    if field.table != CLOUDSYNC_RECOVERY_BARRIER_TABLE
+        || field.row_id != state.generation
+        || field.field != CLOUDSYNC_RECOVERY_BARRIER_FIELD
+        || field.revision != 1
+        || field.deleted
+        || field
+            .value
+            .get("protocol_version")
+            .and_then(|value| value.as_u64())
+            != Some(u64::from(CLOUDSYNC_RECOVERY_PROTOCOL_VERSION))
+        || field
+            .value
+            .get("generation")
+            .and_then(|value| value.as_str())
+            != Some(state.generation.as_str())
+        || field
+            .value
+            .get("nonce")
+            .and_then(|value| value.as_str())
+            .is_none()
+    {
+        return Err(CloudsyncWorkspaceError::InvalidRecoveryState);
+    }
+    Ok(())
+}
+
 async fn save_binding(
     transaction: &mut Transaction<'_, Sqlite>,
     binding: &CloudsyncWorkspaceBinding,
@@ -814,6 +1312,22 @@ mod tests {
         let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
         crate::prepare_schema(&db).await.unwrap();
         db
+    }
+
+    fn recovery_key(workspace_id: &str) -> hypr_e2ee::WorkspaceKey {
+        hypr_e2ee::RecoveryKey::parse("anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc")
+            .unwrap()
+            .workspace_key(workspace_id)
+            .unwrap()
+    }
+
+    async fn mark_full_resync_pending(pool: &SqlitePool, generation: &str) {
+        sqlx::query("INSERT INTO app_settings (id, value_json) VALUES (?, ?)")
+            .bind(CLOUDSYNC_FULL_RESYNC_PENDING_ID)
+            .bind(serde_json::to_string(generation).unwrap())
+            .execute(pool)
+            .await
+            .unwrap();
     }
 
     fn projection(
@@ -847,6 +1361,288 @@ mod tests {
             created_at: "2026-07-16T00:00:00Z".to_string(),
             updated_at: "2026-07-16T00:00:00Z".to_string(),
         }
+    }
+
+    #[tokio::test]
+    async fn recovery_state_and_phase_transitions_are_crash_safe() {
+        let db = test_db().await;
+        let generation = "generation-1";
+        let key = recovery_key("user-a");
+        mark_full_resync_pending(db.pool(), generation).await;
+
+        let state =
+            ensure_cloudsync_recovery_state(db.pool(), generation, "user-a", "user-a", &key)
+                .await
+                .unwrap();
+        assert_eq!(state.phase, CloudsyncRecoveryPhase::NeedFirstLogout);
+        assert_eq!(
+            ensure_cloudsync_recovery_state(db.pool(), generation, "user-a", "user-a", &key)
+                .await
+                .unwrap(),
+            state
+        );
+        assert!(
+            !advance_cloudsync_recovery_phase(
+                db.pool(),
+                "other-generation",
+                CloudsyncRecoveryPhase::NeedFirstLogout,
+                CloudsyncRecoveryPhase::NeedBarrierInsert,
+            )
+            .await
+            .unwrap()
+        );
+        assert!(
+            advance_cloudsync_recovery_phase(
+                db.pool(),
+                generation,
+                CloudsyncRecoveryPhase::NeedFirstLogout,
+                CloudsyncRecoveryPhase::NeedBarrierInsert,
+            )
+            .await
+            .unwrap()
+        );
+        assert!(
+            !advance_cloudsync_recovery_phase(
+                db.pool(),
+                generation,
+                CloudsyncRecoveryPhase::NeedFirstLogout,
+                CloudsyncRecoveryPhase::NeedBarrierInsert,
+            )
+            .await
+            .unwrap()
+        );
+        assert_eq!(
+            cloudsync_recovery_state(db.pool())
+                .await
+                .unwrap()
+                .unwrap()
+                .phase,
+            CloudsyncRecoveryPhase::NeedBarrierInsert
+        );
+    }
+
+    #[tokio::test]
+    async fn active_recovery_generation_survives_restart_during_logout_windows() {
+        for phase in [
+            CloudsyncRecoveryPhase::NeedFirstLogout,
+            CloudsyncRecoveryPhase::NeedCleanReceive,
+        ] {
+            let db = test_db().await;
+            claim_cloudsync_workspace(db.pool(), "user-a")
+                .await
+                .unwrap();
+            let projection = projection(
+                "user-a",
+                vec![projected_workspace(
+                    "user-a",
+                    "user-a",
+                    "personal",
+                    "membership-personal",
+                    "owner",
+                    "Personal",
+                )],
+            );
+            let generation = commit_cloudsync_workspace_projection(db.pool(), &projection, true)
+                .await
+                .unwrap()
+                .unwrap();
+            let key = recovery_key("user-a");
+            ensure_cloudsync_recovery_state(db.pool(), &generation, "user-a", "user-a", &key)
+                .await
+                .unwrap();
+
+            if phase == CloudsyncRecoveryPhase::NeedCleanReceive {
+                for (expected, next) in [
+                    (
+                        CloudsyncRecoveryPhase::NeedFirstLogout,
+                        CloudsyncRecoveryPhase::NeedBarrierInsert,
+                    ),
+                    (
+                        CloudsyncRecoveryPhase::NeedBarrierInsert,
+                        CloudsyncRecoveryPhase::NeedBarrierConfirm,
+                    ),
+                    (
+                        CloudsyncRecoveryPhase::NeedBarrierConfirm,
+                        CloudsyncRecoveryPhase::NeedCleanReceive,
+                    ),
+                ] {
+                    assert!(
+                        advance_cloudsync_recovery_phase(db.pool(), &generation, expected, next,)
+                            .await
+                            .unwrap()
+                    );
+                }
+            }
+
+            sqlx::query("UPDATE app_settings SET value_json = ? WHERE id = ?")
+                .bind(serde_json::to_string("superseding-generation").unwrap())
+                .bind(CLOUDSYNC_FULL_RESYNC_PENDING_ID)
+                .execute(db.pool())
+                .await
+                .unwrap();
+
+            let resumed = commit_cloudsync_workspace_projection(db.pool(), &projection, true)
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(resumed, generation);
+            assert_eq!(
+                cloudsync_full_resync_generation(db.pool()).await.unwrap(),
+                Some(generation.clone())
+            );
+            let state = cloudsync_recovery_state(db.pool()).await.unwrap().unwrap();
+            assert_eq!(state.generation, generation);
+            assert_eq!(state.phase, phase);
+        }
+    }
+
+    #[tokio::test]
+    async fn superseded_recovery_cannot_advance_or_clear_the_new_generation() {
+        let db = test_db().await;
+        let generation = "generation-1";
+        let replacement = "generation-2";
+        let key = recovery_key("user-a");
+        mark_full_resync_pending(db.pool(), generation).await;
+        ensure_cloudsync_recovery_state(db.pool(), generation, "user-a", "user-a", &key)
+            .await
+            .unwrap();
+
+        sqlx::query("UPDATE app_settings SET value_json = ? WHERE id = ?")
+            .bind(serde_json::to_string(replacement).unwrap())
+            .bind(CLOUDSYNC_FULL_RESYNC_PENDING_ID)
+            .execute(db.pool())
+            .await
+            .unwrap();
+        assert!(
+            !advance_cloudsync_recovery_phase(
+                db.pool(),
+                generation,
+                CloudsyncRecoveryPhase::NeedFirstLogout,
+                CloudsyncRecoveryPhase::NeedBarrierInsert,
+            )
+            .await
+            .unwrap()
+        );
+
+        sqlx::query("UPDATE app_settings SET value_json = ? WHERE id = ?")
+            .bind(serde_json::to_string(generation).unwrap())
+            .bind(CLOUDSYNC_FULL_RESYNC_PENDING_ID)
+            .execute(db.pool())
+            .await
+            .unwrap();
+        for (expected, next) in [
+            (
+                CloudsyncRecoveryPhase::NeedFirstLogout,
+                CloudsyncRecoveryPhase::NeedBarrierInsert,
+            ),
+            (
+                CloudsyncRecoveryPhase::NeedBarrierInsert,
+                CloudsyncRecoveryPhase::NeedBarrierConfirm,
+            ),
+            (
+                CloudsyncRecoveryPhase::NeedBarrierConfirm,
+                CloudsyncRecoveryPhase::NeedCleanReceive,
+            ),
+            (
+                CloudsyncRecoveryPhase::NeedCleanReceive,
+                CloudsyncRecoveryPhase::NeedWitnessRepair,
+            ),
+            (
+                CloudsyncRecoveryPhase::NeedWitnessRepair,
+                CloudsyncRecoveryPhase::NeedBarrierCleanup,
+            ),
+        ] {
+            assert!(
+                advance_cloudsync_recovery_phase(db.pool(), generation, expected, next)
+                    .await
+                    .unwrap()
+            );
+        }
+        sqlx::query("UPDATE app_settings SET value_json = ? WHERE id = ?")
+            .bind(serde_json::to_string(replacement).unwrap())
+            .bind(CLOUDSYNC_FULL_RESYNC_PENDING_ID)
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        assert!(
+            !complete_cloudsync_recovery(db.pool(), generation)
+                .await
+                .unwrap()
+        );
+        assert_eq!(
+            cloudsync_full_resync_generation(db.pool())
+                .await
+                .unwrap()
+                .as_deref(),
+            Some(replacement)
+        );
+        assert!(cloudsync_recovery_state(db.pool()).await.unwrap().is_some());
+    }
+
+    #[tokio::test]
+    async fn recovery_barrier_requires_exact_authenticated_content() {
+        let db = test_db().await;
+        let generation = "generation-1";
+        let key = recovery_key("user-a");
+        mark_full_resync_pending(db.pool(), generation).await;
+        let state =
+            ensure_cloudsync_recovery_state(db.pool(), generation, "user-a", "user-a", &key)
+                .await
+                .unwrap();
+
+        assert!(
+            insert_cloudsync_recovery_barrier(db.pool(), &state, &key)
+                .await
+                .unwrap()
+        );
+        assert!(
+            cloudsync_recovery_barrier_is_exact(db.pool(), &state, &key)
+                .await
+                .unwrap()
+        );
+        assert!(
+            !insert_cloudsync_recovery_barrier(db.pool(), &state, &key)
+                .await
+                .unwrap()
+        );
+
+        sqlx::query("UPDATE e2ee_records SET payload = 'wrong' WHERE id = ?")
+            .bind(&state.barrier_id)
+            .execute(db.pool())
+            .await
+            .unwrap();
+        assert!(
+            !cloudsync_recovery_barrier_is_exact(db.pool(), &state, &key)
+                .await
+                .unwrap()
+        );
+        assert!(matches!(
+            insert_cloudsync_recovery_barrier(db.pool(), &state, &key).await,
+            Err(CloudsyncWorkspaceError::RecoveryConflict)
+        ));
+        assert!(matches!(
+            delete_cloudsync_recovery_barrier(db.pool(), &state, &key).await,
+            Err(CloudsyncWorkspaceError::RecoveryConflict)
+        ));
+
+        sqlx::query("UPDATE e2ee_records SET workspace_id = ?, payload = ? WHERE id = ?")
+            .bind(&state.workspace_id)
+            .bind(&state.barrier_payload)
+            .bind(&state.barrier_id)
+            .execute(db.pool())
+            .await
+            .unwrap();
+        assert!(
+            delete_cloudsync_recovery_barrier(db.pool(), &state, &key)
+                .await
+                .unwrap()
+        );
+        assert!(
+            !delete_cloudsync_recovery_barrier(db.pool(), &state, &key)
+                .await
+                .unwrap()
+        );
     }
 
     #[tokio::test]
@@ -1080,6 +1876,220 @@ mod tests {
             cloudsync_full_resync_requires_reset(db.pool(), &newer_generation)
                 .await
                 .unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn detects_whether_the_encrypted_replica_has_local_records() {
+        let db = test_db().await;
+
+        assert!(
+            cloudsync_encrypted_replica_is_empty(db.pool())
+                .await
+                .unwrap()
+        );
+
+        sqlx::query(
+            "INSERT INTO e2ee_records (id, workspace_id, payload)
+             VALUES ('record-a', 'workspace-a', 'payload-a')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        assert!(
+            !cloudsync_encrypted_replica_is_empty(db.pool())
+                .await
+                .unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn full_resync_reset_markers_classify_legacy_poison_and_checked_resets() {
+        let db = test_db().await;
+        let generation = "generation-a";
+        let value_json = serde_json::to_string(generation).unwrap();
+        sqlx::query("INSERT INTO app_settings (id, value_json) VALUES (?, ?)")
+            .bind(CLOUDSYNC_FULL_RESYNC_PENDING_ID)
+            .bind(&value_json)
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        assert_eq!(
+            cloudsync_full_resync_reset_state(db.pool(), generation)
+                .await
+                .unwrap(),
+            CloudsyncFullResyncResetState::ResetRequired
+        );
+        assert!(
+            !mark_cloudsync_full_resync_receive_only_reset_applied(db.pool(), "stale-generation")
+                .await
+                .unwrap()
+        );
+
+        mark_cloudsync_full_resync_reset_applied(db.pool(), generation)
+            .await
+            .unwrap();
+        assert_eq!(
+            cloudsync_full_resync_reset_state(db.pool(), generation)
+                .await
+                .unwrap(),
+            CloudsyncFullResyncResetState::PoisonRecoveryRequired
+        );
+
+        assert!(
+            mark_cloudsync_full_resync_receive_only_reset_applied(db.pool(), generation)
+                .await
+                .unwrap()
+        );
+        assert!(
+            mark_cloudsync_full_resync_receive_only_reset_applied(db.pool(), generation)
+                .await
+                .unwrap()
+        );
+        assert_eq!(
+            cloudsync_full_resync_reset_state(db.pool(), generation)
+                .await
+                .unwrap(),
+            CloudsyncFullResyncResetState::ReceiveOnlyResetApplied
+        );
+
+        clear_cloudsync_full_resync_pending(db.pool(), "stale-generation")
+            .await
+            .unwrap();
+        assert_eq!(
+            cloudsync_full_resync_reset_state(db.pool(), generation)
+                .await
+                .unwrap(),
+            CloudsyncFullResyncResetState::ReceiveOnlyResetApplied
+        );
+
+        clear_cloudsync_full_resync_pending(db.pool(), generation)
+            .await
+            .unwrap();
+        assert_eq!(
+            cloudsync_full_resync_generation(db.pool()).await.unwrap(),
+            None
+        );
+        assert_eq!(
+            cloudsync_full_resync_reset_state(db.pool(), generation)
+                .await
+                .unwrap(),
+            CloudsyncFullResyncResetState::ResetRequired
+        );
+        let remaining_markers: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM app_settings
+             WHERE id IN (?, ?, ?)",
+        )
+        .bind(CLOUDSYNC_FULL_RESYNC_PENDING_ID)
+        .bind(CLOUDSYNC_FULL_RESYNC_RESET_APPLIED_ID)
+        .bind(CLOUDSYNC_FULL_RESYNC_RECEIVE_ONLY_RESET_APPLIED_ID)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(remaining_markers, 0);
+    }
+
+    #[tokio::test]
+    async fn checked_reset_marker_is_atomic_idempotent_and_generation_scoped() {
+        let db = test_db().await;
+        let generation = "generation-a";
+        let value_json = serde_json::to_string(generation).unwrap();
+        sqlx::query("INSERT INTO app_settings (id, value_json) VALUES (?, ?)")
+            .bind(CLOUDSYNC_FULL_RESYNC_PENDING_ID)
+            .bind(&value_json)
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        assert!(
+            mark_cloudsync_full_resync_receive_only_reset_applied(db.pool(), generation)
+                .await
+                .unwrap()
+        );
+        assert!(
+            mark_cloudsync_full_resync_receive_only_reset_applied(db.pool(), generation)
+                .await
+                .unwrap()
+        );
+        let applied_markers: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM app_settings
+             WHERE id IN (?, ?) AND value_json = ?",
+        )
+        .bind(CLOUDSYNC_FULL_RESYNC_RESET_APPLIED_ID)
+        .bind(CLOUDSYNC_FULL_RESYNC_RECEIVE_ONLY_RESET_APPLIED_ID)
+        .bind(&value_json)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(applied_markers, 2);
+
+        let newer_generation = "generation-b";
+        let newer_value_json = serde_json::to_string(newer_generation).unwrap();
+        sqlx::query(
+            "UPDATE app_settings
+             SET value_json = ?
+             WHERE id = ?",
+        )
+        .bind(&newer_value_json)
+        .bind(CLOUDSYNC_FULL_RESYNC_PENDING_ID)
+        .execute(db.pool())
+        .await
+        .unwrap();
+        assert!(
+            !mark_cloudsync_full_resync_receive_only_reset_applied(db.pool(), generation)
+                .await
+                .unwrap()
+        );
+        assert_eq!(
+            cloudsync_full_resync_reset_state(db.pool(), newer_generation)
+                .await
+                .unwrap(),
+            CloudsyncFullResyncResetState::ResetRequired
+        );
+
+        assert!(
+            mark_cloudsync_full_resync_receive_only_reset_applied(db.pool(), newer_generation)
+                .await
+                .unwrap()
+        );
+        clear_cloudsync_full_resync_pending(db.pool(), generation)
+            .await
+            .unwrap();
+        assert_eq!(
+            cloudsync_full_resync_generation(db.pool()).await.unwrap(),
+            Some(newer_generation.to_string())
+        );
+        assert_eq!(
+            cloudsync_full_resync_reset_state(db.pool(), newer_generation)
+                .await
+                .unwrap(),
+            CloudsyncFullResyncResetState::ReceiveOnlyResetApplied
+        );
+    }
+
+    #[tokio::test]
+    async fn stale_legacy_only_reset_marker_requires_poison_recovery() {
+        let db = test_db().await;
+        let generation = "generation-a";
+        let newer_generation = "generation-b";
+        let newer_value_json = serde_json::to_string(newer_generation).unwrap();
+        sqlx::query("INSERT INTO app_settings (id, value_json) VALUES (?, ?)")
+            .bind(CLOUDSYNC_FULL_RESYNC_PENDING_ID)
+            .bind(newer_value_json)
+            .execute(db.pool())
+            .await
+            .unwrap();
+        mark_cloudsync_full_resync_reset_applied(db.pool(), generation)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            cloudsync_full_resync_reset_state(db.pool(), newer_generation)
+                .await
+                .unwrap(),
+            CloudsyncFullResyncResetState::PoisonRecoveryRequired
         );
     }
 

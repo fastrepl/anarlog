@@ -186,8 +186,16 @@ msgstr ""
 msgid "Anarlog could not read the local shared-note cache."
 msgstr ""
 
+#: src/main/sync-status.tsx
+msgid "Anarlog couldn't read cloud sync status. Your notes are still available locally."
+msgstr ""
+
 #: src/settings/general/account.tsx
 msgid "Anarlog couldn't sign you out. Try again."
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Anarlog is repairing cloud sync in the background. Your notes remain available locally."
 msgstr ""
 
 #: src/onboarding/index.tsx
@@ -198,12 +206,24 @@ msgstr ""
 msgid "Anarlog needs microphone and system audio to transcribe your meetings, plus Accessibility to read meeting controls, visible chat, and participant status."
 msgstr ""
 
+#: src/main/sync-status.tsx
+msgid "Anarlog Pro is required to use cloud sync."
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Anarlog Pro required"
+msgstr ""
+
 #: src/templates/auto-form.tsx
 msgid "Anarlog sends these separately, so editing the prompt cannot remove the meeting source material."
 msgstr ""
 
 #: src/main/sync-status.tsx
 msgid "Anarlog will keep retrying"
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Anarlog will keep retrying in the background. Your notes remain available locally."
 msgstr ""
 
 #: src/main/sync-status.tsx
@@ -430,13 +450,33 @@ msgstr ""
 msgid "Cloud sync"
 msgstr ""
 
+#: src/main/sync-status.tsx
+msgid "Cloud sync could not start on this device. Open Sync settings to try again."
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Cloud sync delayed"
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Cloud sync identity mismatch"
+msgstr ""
+
 #: src/auth/cloudsync.ts
 msgid "Cloud sync is limited to 5 devices. Remove another device to sync here."
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Cloud sync setup required"
 msgstr ""
 
 #. placeholder {0}: view.label
 #: src/main/sync-status.tsx
 msgid "Cloud sync status: {0}"
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Cloud sync unavailable"
 msgstr ""
 
 #: src/session-sharing/comments.tsx
@@ -572,6 +612,10 @@ msgstr ""
 
 #: src/onboarding/index.tsx
 msgid "Create account"
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Create or enter your recovery key in Sync settings to start syncing."
 msgstr ""
 
 #: src/templates/details.tsx
@@ -1613,6 +1657,10 @@ msgstr ""
 msgid "Respect Do-Not-Disturb mode"
 msgstr ""
 
+#: src/main/sync-status.tsx
+msgid "Restoring cloud sync..."
+msgstr ""
+
 #: src/session-sharing/index.tsx
 msgid "Restrict"
 msgstr ""
@@ -1894,6 +1942,10 @@ msgstr ""
 msgid "Sign in"
 msgstr ""
 
+#: src/main/sync-status.tsx
+msgid "Sign in again"
+msgstr ""
+
 #: src/settings/todo/github.tsx
 msgid "Sign in for private repo access."
 msgstr ""
@@ -1937,6 +1989,10 @@ msgstr ""
 
 #: src/settings/general/account.tsx
 msgid "Sign out"
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Sign out and sign in again to resume cloud sync."
 msgstr ""
 
 #: src/onboarding/account/after-login.tsx
@@ -2072,6 +2128,10 @@ msgstr ""
 msgid "Sync settings"
 msgstr ""
 
+#: src/main/sync-status.tsx
+msgid "Sync status unavailable"
+msgstr ""
+
 #: src/settings/general/account.tsx
 msgid "Sync your changes before signing out."
 msgstr ""
@@ -2133,6 +2193,10 @@ msgstr ""
 
 #: src/main/sync-status.tsx
 msgid "This account already syncs on 5 devices. Remove another device to sync here."
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "This device's sync identity does not match your account. Sign in again or check Sync settings."
 msgstr ""
 
 #. placeholder {0}: status.fileCount

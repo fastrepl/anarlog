@@ -20,6 +20,7 @@ export type LoadingPhase =
 export type LiveStartBlockReason =
   | "session_active"
   | "session_finalizing"
+  | "post_stop_processing"
   | "another_session_active"
   | "start_in_progress";
 
@@ -53,6 +54,7 @@ export type GeneralState = {
       string,
       { startedAtMs: number; seconds: number; needsBatchRepair: boolean }
     >;
+    postStopProcessingBySession: Record<string, boolean>;
     triggerAppIds: string[] | null;
   };
 };
@@ -78,6 +80,7 @@ const initialLiveState: LiveState = {
   finalStallAudibleSeconds: 0,
   transcriptionStalled: false,
   finalizingBySession: {},
+  postStopProcessingBySession: {},
   triggerAppIds: null,
 };
 
@@ -88,10 +91,18 @@ export const initialGeneralState: GeneralState = {
 export const getLiveStartBlockReason = (
   live: Pick<
     LiveState,
-    "status" | "loading" | "sessionId" | "finalizingBySession"
+    | "status"
+    | "loading"
+    | "sessionId"
+    | "finalizingBySession"
+    | "postStopProcessingBySession"
   >,
   targetSessionId: string,
 ): LiveStartBlockReason | null => {
+  if (live.postStopProcessingBySession[targetSessionId]) {
+    return "post_stop_processing";
+  }
+
   if (live.sessionId === targetSessionId) {
     if (live.status === "active") {
       return "session_active";

@@ -9,7 +9,15 @@ use tauri::ipc::Channel;
 use crate::{QueryEvent, Result, TransactionStatement};
 
 const DEFAULT_CLOUDSYNC_INTERVAL_MS: u64 = 30_000;
-const CLOUDSYNC_FULL_RESYNC_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
+const CLOUDSYNC_FULL_RESYNC_PROGRESS_INTERVAL: std::time::Duration =
+    std::time::Duration::from_millis(200);
+const CLOUDSYNC_FULL_RESYNC_RETRY_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
+const CLOUDSYNC_RECOVERY_DELAYED_AFTER: std::time::Duration = std::time::Duration::from_secs(60);
+const CLOUDSYNC_STATUS_ENRICHMENT_TIMEOUT: std::time::Duration =
+    std::time::Duration::from_millis(250);
+const CLOUDSYNC_REPLICA_TABLE: &str = "e2ee_records";
+const E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT: i64 = 64;
+const E2EE_CLOUDSYNC_WITNESS_REPAIR_BYTE_LIMIT: usize = 16 * 1024 * 1024;
 const CLOUDSYNC_WRITE_FILTER: &str =
     "workspace_id IN (SELECT allowed_workspace_id FROM cloudsync_writable_workspaces)";
 
@@ -69,7 +77,7 @@ impl hypr_db_core::CloudsyncSyncHook for E2eeSyncHook {
     fn before_sync<'a>(
         &'a self,
         pool: &'a sqlx::SqlitePool,
-    ) -> hypr_db_core::CloudsyncHookFuture<'a> {
+    ) -> hypr_db_core::CloudsyncBeforeHookFuture<'a> {
         let keys = self.snapshot();
         let witness = self.witness();
         Box::pin(async move {
@@ -78,33 +86,43 @@ impl hypr_db_core::CloudsyncSyncHook for E2eeSyncHook {
             let key = keys.get(witness.workspace_id()).ok_or_else(|| {
                 std::io::Error::other("E2EE freshness witness identity is not configured")
             })?;
-            let stats = hypr_db_app::encrypt_e2ee_replica_changes(pool, &keys)
+            let full_resync_pending = hypr_db_app::cloudsync_full_resync_generation(pool)
                 .await
                 .map_err(|error| {
-                    std::io::Error::other(format!("E2EE pre-sync encryption failed: {error}"))
-                })?;
+                    std::io::Error::other(format!(
+                        "failed to inspect CloudSync full resync state: {error}"
+                    ))
+                })?
+                .is_some();
+            if full_resync_pending {
+                tracing::debug!(
+                    "skipping outbound E2EE publication while CloudSync hydrates a clean snapshot"
+                );
+                return Ok(hypr_db_core::CloudsyncSyncDirective::ReceiveOnly);
+            }
+            witness.refresh(pool, key).await?;
+            let stats = hypr_db_app::encrypt_e2ee_replica_changes_bounded(
+                pool,
+                &keys,
+                E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT,
+            )
+            .await
+            .map_err(|error| {
+                std::io::Error::other(format!("E2EE pre-sync encryption failed: {error}"))
+            })?;
             tracing::debug!(
                 encrypted_fields = stats.encrypted_fields,
                 "prepared encrypted CloudSync replica"
             );
             witness.publish_and_refresh(pool, key).await?;
-            let stats = hypr_db_app::apply_e2ee_replica_changes_with_witness(pool, &keys)
-                .await
-                .map_err(|error| {
-                    std::io::Error::other(format!("E2EE pre-sync witness apply failed: {error}"))
-                })?;
-            tracing::debug!(
-                applied_fields = stats.applied_fields,
-                rejected_unwitnessed = stats.rejected_unwitnessed,
-                "applied trusted E2EE witness before CloudSync"
-            );
-            Ok(())
+            Ok(hypr_db_core::CloudsyncSyncDirective::SendAndReceive)
         })
     }
 
     fn after_sync<'a>(
         &'a self,
         pool: &'a sqlx::SqlitePool,
+        result: &'a hypr_db_core::CloudsyncNetworkResult,
     ) -> hypr_db_core::CloudsyncHookFuture<'a> {
         let keys = self.snapshot();
         let witness = self.witness();
@@ -115,19 +133,43 @@ impl hypr_db_core::CloudsyncSyncHook for E2eeSyncHook {
                 std::io::Error::other("E2EE freshness witness identity is not configured")
             })?;
             witness.refresh(pool, key).await?;
-            let stats = hypr_db_app::apply_e2ee_replica_changes_with_witness(pool, &keys)
+            let recovery_pending = hypr_db_app::cloudsync_full_resync_generation(pool)
                 .await
                 .map_err(|error| {
-                    std::io::Error::other(format!("E2EE post-sync decryption failed: {error}"))
-                })?;
+                    std::io::Error::other(format!(
+                        "failed to inspect CloudSync full resync state: {error}"
+                    ))
+                })?
+                .is_some();
+            let snapshot_complete = !recovery_pending && cloudsync_receive_completed(result);
+            let stats = hypr_db_app::apply_received_e2ee_replica_changes_with_witness(
+                pool,
+                &keys,
+                snapshot_complete,
+            )
+            .await
+            .map_err(|error| {
+                std::io::Error::other(format!("E2EE post-sync decryption failed: {error}"))
+            })?;
             tracing::debug!(
                 applied_fields = stats.applied_fields,
                 skipped_local_changes = stats.skipped_local_changes,
                 rejected_rollbacks = stats.rejected_rollbacks,
                 rejected_unwitnessed = stats.rejected_unwitnessed,
+                snapshot_complete,
                 "applied encrypted CloudSync replica"
             );
-            Ok(())
+            let local_work_remaining = stats.remaining_replica_changes
+                || hypr_db_app::has_pending_e2ee_replica_changes(pool, &keys)
+                    .await
+                    .map_err(|error| {
+                        std::io::Error::other(format!(
+                            "failed to inspect pending E2EE replica changes: {error}"
+                        ))
+                    })?;
+            Ok(hypr_db_core::CloudsyncHookOutcome {
+                local_work_remaining,
+            })
         })
     }
 }
@@ -163,47 +205,81 @@ pub struct PluginDbRuntime {
     live_query_runtime: LiveQueryRuntime<QueryEventChannel>,
     e2ee_sync_hook: std::sync::Arc<E2eeSyncHook>,
     scheduled_cloudsync_full_resync: std::sync::Arc<std::sync::Mutex<CloudsyncFullResyncSchedule>>,
+    cloudsync_full_resync_task: tokio::sync::Mutex<Option<CloudsyncFullResyncTask>>,
+}
+
+struct CloudsyncFullResyncTask {
+    #[cfg(test)]
+    config: hypr_db_core::CloudsyncRuntimeConfig,
+    #[cfg(test)]
+    generation: String,
+    shutdown_tx: Option<tokio::sync::oneshot::Sender<()>>,
+    join_handle: tokio::task::JoinHandle<()>,
 }
 
 #[derive(Default)]
 struct CloudsyncFullResyncSchedule {
     generation: Option<String>,
-    restart_requested: bool,
+    recovery_delayed: bool,
+    last_progress_at: Option<std::time::Instant>,
+}
+
+#[derive(Clone, Copy)]
+enum CloudsyncRecoveryStep {
+    Progressed,
+    Waiting,
+    Complete,
+}
+
+#[derive(Clone, Copy)]
+enum CloudsyncPendingFlush {
+    Empty,
+    Progressed,
+    Waiting,
 }
 
 impl CloudsyncFullResyncSchedule {
-    fn claim(&mut self, generation: &str) -> bool {
-        if self.generation.as_deref() == Some(generation) {
-            self.restart_requested = true;
-            return false;
-        }
-
+    fn claim(&mut self, generation: &str) {
         self.generation = Some(generation.to_string());
-        self.restart_requested = false;
-        true
+        self.recovery_delayed = false;
+        self.last_progress_at = Some(std::time::Instant::now());
     }
 
     fn is_active(&self, generation: &str) -> bool {
         self.generation.as_deref() == Some(generation)
     }
 
-    fn handle_non_transient_error(&mut self, generation: &str) -> bool {
-        if !self.is_active(generation) {
-            return false;
-        }
-        if std::mem::take(&mut self.restart_requested) {
-            return true;
-        }
-
+    fn cancel(&mut self) {
         self.generation = None;
-        false
+        self.recovery_delayed = false;
+        self.last_progress_at = None;
     }
 
     fn complete(&mut self, generation: &str) {
         if self.is_active(generation) {
-            self.generation = None;
-            self.restart_requested = false;
+            self.cancel();
         }
+    }
+
+    fn mark_progress(&mut self, generation: &str) {
+        if self.is_active(generation) {
+            self.recovery_delayed = false;
+            self.last_progress_at = Some(std::time::Instant::now());
+        }
+    }
+
+    fn mark_failure(&mut self, generation: &str) {
+        if self.is_active(generation) {
+            self.recovery_delayed = true;
+        }
+    }
+
+    fn is_delayed(&self, generation: &str) -> bool {
+        self.is_active(generation)
+            && (self.recovery_delayed
+                || self.last_progress_at.is_some_and(|last_progress_at| {
+                    last_progress_at.elapsed() >= CLOUDSYNC_RECOVERY_DELAYED_AFTER
+                }))
     }
 }
 
@@ -219,6 +295,7 @@ impl PluginDbRuntime {
             live_query_runtime: LiveQueryRuntime::new(db),
             e2ee_sync_hook,
             scheduled_cloudsync_full_resync: Default::default(),
+            cloudsync_full_resync_task: Default::default(),
         }
     }
 
@@ -375,6 +452,7 @@ impl PluginDbRuntime {
         workspace_projection: Option<hypr_db_app::CloudsyncWorkspaceProjection>,
         e2ee_witness: crate::CloudsyncE2eeWitness,
     ) -> Result<crate::CloudsyncTokenConfigurationResult> {
+        self.cancel_cloudsync_full_resync().await;
         let result = self
             .configure_cloudsync_token_with_projection_inner(
                 database_id,
@@ -390,6 +468,7 @@ impl PluginDbRuntime {
                 Ok(crate::CloudsyncTokenConfigurationResult::AccountMismatch)
             )
         {
+            self.cancel_cloudsync_full_resync().await;
             let _ = self.db.cloudsync_suspend().await;
             self.e2ee_sync_hook.clear();
         }
@@ -441,24 +520,22 @@ impl PluginDbRuntime {
         if workspace_projection.is_some() {
             self.db.cloudsync_suspend().await?;
         }
-        let reconciliation_guard = if workspace_projection.is_some() {
-            Some(self.synced_write_barrier.write().await)
-        } else {
-            None
-        };
-        self.prepare_e2ee_cutover().await?;
         let witness =
             crate::e2ee_witness::E2eeWitnessClient::new(e2ee_witness, personal_workspace_id)?;
         let key = self
             .e2ee_sync_hook
             .workspace_key(personal_workspace_id)
             .ok_or(crate::Error::E2eeIdentityRequired)?;
-        witness.initialize(self.db.pool(), &key).await?;
+        self.prepare_e2ee_cutover_and_initialize_witness(&witness, &key)
+            .await?;
         self.e2ee_sync_hook.set_witness(witness);
-
-        let write_filter_version_current = match workspace_projection.as_ref() {
-            Some(_) => hypr_db_app::cloudsync_write_filter_version_current(self.db.pool()).await?,
-            None => true,
+        let config = hypr_db_core::CloudsyncRuntimeConfig {
+            connection_string: database_id,
+            auth: hypr_db_core::CloudsyncAuth::Token { token },
+            tables: hypr_db_app::cloudsync_table_registry().to_vec(),
+            sync_interval_ms: DEFAULT_CLOUDSYNC_INTERVAL_MS,
+            wait_ms: Some(5_000),
+            max_retries: Some(3),
         };
         let write_filter_installed = match workspace_projection.as_ref() {
             Some(projection) => {
@@ -471,127 +548,66 @@ impl PluginDbRuntime {
             }
             None => true,
         };
-        let write_filter_requires_reset = if write_filter_installed {
-            false
-        } else {
-            write_filter_version_current || self.cloudsync_has_initialized_tables().await?
-        };
-        let mut install_write_filter = !write_filter_installed;
 
         let reconciliation = match workspace_projection.as_ref() {
-            Some(projection) => Some(
-                hypr_db_app::stage_cloudsync_workspace_reconciliation(self.db.pool(), projection)
+            Some(projection) => {
+                let _write_guard = self.synced_write_barrier.write().await;
+                Some(
+                    hypr_db_app::stage_cloudsync_workspace_reconciliation(
+                        self.db.pool(),
+                        projection,
+                    )
                     .await?,
-            ),
+                )
+            }
             None => None,
         };
-        let config = hypr_db_core::CloudsyncRuntimeConfig {
-            connection_string: database_id,
-            auth: hypr_db_core::CloudsyncAuth::Token { token },
-            tables: hypr_db_app::cloudsync_table_registry().to_vec(),
-            sync_interval_ms: DEFAULT_CLOUDSYNC_INTERVAL_MS,
-            wait_ms: Some(5_000),
-            max_retries: Some(3),
-        };
-
-        if reconciliation
-            .as_ref()
-            .is_some_and(|plan| plan.requires_replica_reset())
-            || write_filter_requires_reset
-        {
-            self.apply_cloudsync_config_fail_closed(config.clone())
-                .await?;
-            match self.db.cloudsync_trigger_sync().await {
-                Ok(result) if cloudsync_send_completed(&result) => {}
-                Ok(_) => {
-                    let _ = self.db.cloudsync_suspend().await;
-                    return Err(hypr_db_core::CloudsyncRuntimeError::UnsentChanges.into());
-                }
-                Err(error) => {
-                    let _ = self.db.cloudsync_suspend().await;
-                    return Err(error.into());
-                }
-            }
-            let status = match self.db.cloudsync_status().await {
-                Ok(status) => status,
-                Err(error) => {
-                    let _ = self.db.cloudsync_suspend().await;
-                    return Err(error.into());
-                }
-            };
-            if status.has_unsent_changes != Some(false) {
-                let _ = self.db.cloudsync_suspend().await;
-                return Err(hypr_db_core::CloudsyncRuntimeError::UnsentChanges.into());
-            }
-            if let Err(error) = self.db.cloudsync_logout(false).await {
-                let _ = self.db.cloudsync_suspend().await;
-                return Err(error.into());
-            }
-            install_write_filter = true;
-        }
-
-        if let Some(projection) = workspace_projection.as_ref()
-            && install_write_filter
-        {
+        if let Some(projection) = workspace_projection.as_ref() {
             hypr_db_app::set_cloudsync_personal_write_scope(
                 self.db.pool(),
                 &projection.personal_workspace_id,
             )
             .await?;
-            for table in hypr_db_app::cloudsync_table_registry()
-                .iter()
-                .filter(|table| table.enabled)
-            {
-                self.db
-                    .cloudsync_init(
-                        &table.table_name,
-                        table.crdt_algo.as_deref(),
-                        table.init_flags,
-                    )
-                    .await
-                    .map_err(hypr_db_core::CloudsyncRuntimeError::from)?;
-                self.db
-                    .cloudsync_set_filter(&table.table_name, CLOUDSYNC_WRITE_FILTER)
-                    .await
-                    .map_err(hypr_db_core::CloudsyncRuntimeError::from)?;
-            }
-            hypr_db_app::mark_cloudsync_write_filter_installed(self.db.pool()).await?;
-        }
-
-        if let (Some(projection), Some(reconciliation)) =
-            (workspace_projection.as_ref(), reconciliation.as_ref())
-        {
+            let _write_guard = self.synced_write_barrier.write().await;
             let _ = hypr_db_app::commit_cloudsync_workspace_projection(
                 self.db.pool(),
                 projection,
-                reconciliation.requires_full_resync() || install_write_filter,
+                reconciliation
+                    .as_ref()
+                    .is_some_and(|plan| plan.requires_full_resync())
+                    || !write_filter_installed,
             )
             .await?;
         }
-        drop(reconciliation_guard);
 
-        self.apply_cloudsync_config_fail_closed(config).await?;
         if let Some(generation) =
             hypr_db_app::cloudsync_full_resync_generation(self.db.pool()).await?
         {
-            if hypr_db_app::cloudsync_full_resync_requires_reset(self.db.pool(), &generation)
+            hypr_db_app::ensure_cloudsync_recovery_state(
+                self.db.pool(),
+                &generation,
+                &account_user_id,
+                personal_workspace_id,
+                &key,
+            )
+            .await?;
+            self.db.cloudsync_suspend().await?;
+            self.db
+                .cloudsync_prepare_manual_transport(config.clone())
+                .await?;
+            if hypr_db_app::cloudsync_recovery_state(self.db.pool())
                 .await?
+                .is_some_and(|state| {
+                    state.generation == generation
+                        && state.phase == hypr_db_app::CloudsyncRecoveryPhase::NeedFirstLogout
+                })
             {
-                if let Err(error) = self.db.cloudsync_network_reset_sync_version().await {
-                    let _ = self.db.cloudsync_suspend().await;
-                    return Err(hypr_db_core::CloudsyncRuntimeError::from(error).into());
-                }
-                if let Err(error) = hypr_db_app::mark_cloudsync_full_resync_reset_applied(
-                    self.db.pool(),
-                    &generation,
-                )
-                .await
-                {
-                    let _ = self.db.cloudsync_suspend().await;
-                    return Err(error.into());
-                }
+                discard_cloudsync_recovery_replica(self.db.as_ref(), &config, &generation).await?;
             }
-            self.schedule_cloudsync_full_resync(generation);
+            self.schedule_cloudsync_full_resync(generation, config)
+                .await;
+        } else {
+            self.apply_cloudsync_config_fail_closed(config).await?;
         }
         Ok(crate::CloudsyncTokenConfigurationResult::Configured)
     }
@@ -654,11 +670,16 @@ impl PluginDbRuntime {
     }
 
     async fn prepare_e2ee_cutover(&self) -> Result<()> {
+        if !self.legacy_e2ee_cutover_required().await? {
+            return Ok(());
+        }
+
         self.e2ee_sync_hook
             .prepare_local_snapshot(self.db.pool())
             .await
             .map_err(|error| std::io::Error::other(error.to_string()))?;
 
+        let _write_guard = self.synced_write_barrier.write().await;
         for table_name in hypr_db_app::E2EE_DOMAIN_TABLES {
             if hypr_db_core::cloudsync_is_enabled_on(self.db.pool(), table_name)
                 .await
@@ -673,94 +694,19 @@ impl PluginDbRuntime {
         Ok(())
     }
 
-    fn schedule_cloudsync_full_resync(&self, generation: String) {
-        {
-            let mut scheduled = self.scheduled_cloudsync_full_resync.lock().unwrap();
-            if !scheduled.claim(&generation) {
-                return;
-            }
-        }
-
-        let db = std::sync::Arc::clone(&self.db);
-        let scheduled = std::sync::Arc::clone(&self.scheduled_cloudsync_full_resync);
-        tokio::spawn(async move {
-            match db.cloudsync_trigger_sync().await {
-                Ok(result) if cloudsync_snapshot_completed(&result) => {
-                    match hypr_db_app::clear_cloudsync_full_resync_pending(db.pool(), &generation)
-                        .await
-                    {
-                        Ok(()) => {
-                            scheduled.lock().unwrap().complete(&generation);
-                            return;
-                        }
-                        Err(error) => {
-                            tracing::warn!(
-                                %error,
-                                "failed to clear CloudSync full resync marker"
-                            );
-                        }
-                    }
-                }
-                Ok(_) => {
-                    tracing::warn!(
-                        "CloudSync full resync remains incomplete; background sync will continue"
-                    );
-                }
-                Err(error) if error.is_transient() => {
-                    tracing::warn!(
-                        %error,
-                        "CloudSync full resync handed off to background retry"
-                    );
-                }
-                Err(error) => {
-                    tracing::warn!(%error, "CloudSync full resync remains pending");
-                }
-            }
-
-            loop {
-                if !scheduled.lock().unwrap().is_active(&generation) {
-                    return;
-                }
-
-                let (running, last_sync) = db.cloudsync_runtime_observation();
-                if last_sync.as_ref().is_some_and(cloudsync_snapshot_completed) {
-                    match hypr_db_app::clear_cloudsync_full_resync_pending(db.pool(), &generation)
-                        .await
-                    {
-                        Ok(()) => {
-                            scheduled.lock().unwrap().complete(&generation);
-                            return;
-                        }
-                        Err(error) => {
-                            tracing::warn!(
-                                %error,
-                                "failed to clear CloudSync full resync marker"
-                            );
-                        }
-                    }
-                } else if !running {
-                    let wait_for_restart = scheduled
-                        .lock()
-                        .unwrap()
-                        .handle_non_transient_error(&generation);
-                    if !wait_for_restart {
-                        tracing::warn!("CloudSync full resync remains pending");
-                        return;
-                    }
-                    tracing::warn!("CloudSync full resync waiting for reconfigure");
-                }
-
-                tokio::time::sleep(CLOUDSYNC_FULL_RESYNC_POLL_INTERVAL).await;
-            }
-        });
+    async fn prepare_e2ee_cutover_and_initialize_witness(
+        &self,
+        witness: &crate::e2ee_witness::E2eeWitnessClient,
+        key: &hypr_e2ee::WorkspaceKey,
+    ) -> Result<()> {
+        self.prepare_e2ee_cutover().await?;
+        witness.initialize(self.db.pool(), key).await?;
+        Ok(())
     }
 
-    async fn cloudsync_has_initialized_tables(&self) -> Result<bool> {
-        for table in hypr_db_app::cloudsync_table_registry()
-            .iter()
-            .filter(|table| table.enabled)
-        {
-            if hypr_db_core::cloudsync_is_enabled_on(self.db.pool(), &table.table_name)
+    async fn legacy_e2ee_cutover_required(&self) -> Result<bool> {
+        for table_name in hypr_db_app::E2EE_DOMAIN_TABLES {
+            if hypr_db_core::cloudsync_is_enabled_on(self.db.pool(), table_name)
                 .await
                 .map_err(hypr_db_core::CloudsyncRuntimeError::from)?
             {
@@ -768,6 +714,373 @@ impl PluginDbRuntime {
             }
         }
         Ok(false)
+    }
+
+    async fn schedule_cloudsync_full_resync(
+        &self,
+        generation: String,
+        config: hypr_db_core::CloudsyncRuntimeConfig,
+    ) {
+        let mut task_slot = self.cloudsync_full_resync_task.lock().await;
+        self.scheduled_cloudsync_full_resync
+            .lock()
+            .unwrap()
+            .cancel();
+        if let Some(task) = task_slot.take() {
+            join_cloudsync_full_resync_task(task).await;
+        }
+        self.scheduled_cloudsync_full_resync
+            .lock()
+            .unwrap()
+            .claim(&generation);
+
+        #[cfg(test)]
+        let task_config = config.clone();
+        #[cfg(test)]
+        let task_generation = generation.clone();
+        let db = std::sync::Arc::clone(&self.db);
+        let scheduled = std::sync::Arc::clone(&self.scheduled_cloudsync_full_resync);
+        let e2ee_sync_hook = std::sync::Arc::clone(&self.e2ee_sync_hook);
+        let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel();
+        let join_handle = tokio::spawn(async move {
+            let mut clean_receive_attempt_started = false;
+            loop {
+                if !scheduled.lock().unwrap().is_active(&generation) {
+                    return;
+                }
+
+                let step: Result<CloudsyncRecoveryStep> = tokio::select! {
+                    biased;
+                    _ = &mut shutdown_rx => return,
+                    step = async {
+                        let state = hypr_db_app::cloudsync_recovery_state(db.pool())
+                            .await?
+                            .ok_or_else(|| {
+                                std::io::Error::other(
+                                    "CloudSync recovery state disappeared while resync is pending",
+                                )
+                            })?;
+                    if state.generation != generation {
+                        return Err(std::io::Error::other(
+                            "CloudSync recovery generation changed while running",
+                        )
+                        .into());
+                    }
+                    let key = e2ee_sync_hook
+                        .workspace_key(&state.workspace_id)
+                        .ok_or(crate::Error::E2eeIdentityRequired)?;
+                    let witness = e2ee_sync_hook.witness().ok_or_else(|| {
+                        std::io::Error::other("E2EE freshness witness is not configured")
+                    })?;
+                    if witness.workspace_id() != state.workspace_id {
+                        return Err(std::io::Error::other(
+                            "E2EE freshness witness workspace changed during recovery",
+                        )
+                        .into());
+                    }
+
+                    match state.phase {
+                        hypr_db_app::CloudsyncRecoveryPhase::NeedFirstLogout => {
+                            discard_cloudsync_recovery_replica(
+                                db.as_ref(),
+                                &config,
+                                &generation,
+                            )
+                            .await?;
+                            Ok(CloudsyncRecoveryStep::Progressed)
+                        }
+                        hypr_db_app::CloudsyncRecoveryPhase::NeedBarrierInsert => {
+                            hypr_db_app::insert_cloudsync_recovery_barrier(
+                                db.pool(),
+                                &state,
+                                &key,
+                            )
+                            .await?;
+                            if !hypr_db_app::advance_cloudsync_recovery_phase(
+                                db.pool(),
+                                &generation,
+                                hypr_db_app::CloudsyncRecoveryPhase::NeedBarrierInsert,
+                                hypr_db_app::CloudsyncRecoveryPhase::NeedBarrierConfirm,
+                            )
+                            .await?
+                            {
+                                return Err(hypr_db_app::CloudsyncWorkspaceError::RecoveryConflict
+                                    .into());
+                            }
+                            Ok(CloudsyncRecoveryStep::Progressed)
+                        }
+                        hypr_db_app::CloudsyncRecoveryPhase::NeedBarrierConfirm => {
+                            match flush_manual_cloudsync_pending(db.as_ref()).await? {
+                                CloudsyncPendingFlush::Progressed => {
+                                    return Ok(CloudsyncRecoveryStep::Progressed);
+                                }
+                                CloudsyncPendingFlush::Waiting => {
+                                    return Ok(CloudsyncRecoveryStep::Waiting);
+                                }
+                                CloudsyncPendingFlush::Empty => {}
+                            }
+                            if !hypr_db_app::cloudsync_recovery_barrier_is_exact(
+                                db.pool(),
+                                &state,
+                                &key,
+                            )
+                            .await?
+                            {
+                                return Err(std::io::Error::other(
+                                    "CloudSync recovery barrier disappeared before send confirmation",
+                                )
+                                .into());
+                            }
+                            if !hypr_db_app::advance_cloudsync_recovery_phase(
+                                db.pool(),
+                                &generation,
+                                hypr_db_app::CloudsyncRecoveryPhase::NeedBarrierConfirm,
+                                hypr_db_app::CloudsyncRecoveryPhase::NeedCleanReceive,
+                            )
+                            .await?
+                            {
+                                return Err(hypr_db_app::CloudsyncWorkspaceError::RecoveryConflict
+                                    .into());
+                            }
+                            clean_receive_attempt_started = false;
+                            Ok(CloudsyncRecoveryStep::Progressed)
+                        }
+                        hypr_db_app::CloudsyncRecoveryPhase::NeedCleanReceive => {
+                            if !clean_receive_attempt_started {
+                                require_disposable_cloudsync_replica(db.as_ref()).await?;
+                                db.cloudsync_logout(true).await?;
+                                prepare_manual_cloudsync_recovery_transport(
+                                    db.as_ref(),
+                                    &config,
+                                )
+                                .await?;
+                                db.cloudsync_network_reset_receive_version()
+                                    .await
+                                    .map_err(hypr_db_core::CloudsyncRuntimeError::from)?;
+                                if !hypr_db_app::cloudsync_encrypted_replica_is_empty(db.pool())
+                                    .await?
+                                {
+                                    return Err(std::io::Error::other(
+                                        "CloudSync replica was not empty before clean recovery receive",
+                                    )
+                                    .into());
+                                }
+                                clean_receive_attempt_started = true;
+                            }
+
+                            let result = db.cloudsync_manual_receive_one().await?;
+                            witness.refresh(db.pool(), &key).await?;
+                            let apply =
+                                hypr_db_app::apply_received_e2ee_replica_changes_with_witness(
+                                db.pool(),
+                                &e2ee_sync_hook.snapshot(),
+                                false,
+                            )
+                            .await
+                            .map_err(|error| std::io::Error::other(error.to_string()))?;
+                            let barrier_is_exact =
+                                hypr_db_app::cloudsync_recovery_barrier_is_exact(
+                                    db.pool(),
+                                    &state,
+                                    &key,
+                                )
+                                .await?;
+                            if cloudsync_recovery_snapshot_ready(barrier_is_exact, &result) {
+                                if !hypr_db_app::advance_cloudsync_recovery_phase(
+                                    db.pool(),
+                                    &generation,
+                                    hypr_db_app::CloudsyncRecoveryPhase::NeedCleanReceive,
+                                    hypr_db_app::CloudsyncRecoveryPhase::NeedWitnessRepair,
+                                )
+                                .await?
+                                {
+                                    return Err(
+                                        hypr_db_app::CloudsyncWorkspaceError::RecoveryConflict
+                                            .into(),
+                                    );
+                                }
+                                clean_receive_attempt_started = false;
+                                return Ok(CloudsyncRecoveryStep::Progressed);
+                            }
+                            if cloudsync_receive_delivered(&result) {
+                                return Ok(CloudsyncRecoveryStep::Progressed);
+                            }
+                            if apply.remaining_replica_changes {
+                                return Ok(CloudsyncRecoveryStep::Progressed);
+                            }
+                            Ok(CloudsyncRecoveryStep::Waiting)
+                        }
+                        hypr_db_app::CloudsyncRecoveryPhase::NeedWitnessRepair => {
+                            match flush_manual_cloudsync_pending(db.as_ref()).await? {
+                                CloudsyncPendingFlush::Progressed => {
+                                    return Ok(CloudsyncRecoveryStep::Progressed);
+                                }
+                                CloudsyncPendingFlush::Waiting => {
+                                    return Ok(CloudsyncRecoveryStep::Waiting);
+                                }
+                                CloudsyncPendingFlush::Empty => {}
+                            }
+
+                            witness.refresh(db.pool(), &key).await?;
+                            witness.publish_and_refresh(db.pool(), &key).await?;
+                            let keys = e2ee_sync_hook.snapshot();
+                            let repair =
+                                hypr_db_app::repair_e2ee_replica_from_witness_bounded(
+                                    db.pool(),
+                                    &keys,
+                                    true,
+                                    E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT,
+                                    E2EE_CLOUDSYNC_WITNESS_REPAIR_BYTE_LIMIT,
+                                )
+                                .await
+                                .map_err(|error| std::io::Error::other(error.to_string()))?;
+                            let apply =
+                                hypr_db_app::apply_received_e2ee_replica_changes_with_witness(
+                                db.pool(),
+                                &keys,
+                                false,
+                            )
+                            .await
+                            .map_err(|error| std::io::Error::other(error.to_string()))?;
+                            if repair.repaired_records > 0
+                                || repair.remaining
+                                || apply.remaining_replica_changes
+                            {
+                                return Ok(CloudsyncRecoveryStep::Progressed);
+                            }
+
+                            witness.refresh(db.pool(), &key).await?;
+                            if hypr_db_app::has_pending_e2ee_witness_repairs(
+                                db.pool(),
+                                &keys,
+                                true,
+                            )
+                            .await
+                            .map_err(|error| std::io::Error::other(error.to_string()))?
+                            {
+                                return Ok(CloudsyncRecoveryStep::Progressed);
+                            }
+
+                            let local = hypr_db_app::encrypt_e2ee_replica_changes_bounded(
+                                db.pool(),
+                                &keys,
+                                E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT,
+                            )
+                            .await
+                            .map_err(|error| std::io::Error::other(error.to_string()))?;
+                            if local.encrypted_fields > 0 {
+                                witness.publish_and_refresh(db.pool(), &key).await?;
+                                return Ok(CloudsyncRecoveryStep::Progressed);
+                            }
+                            if hypr_db_app::has_pending_e2ee_replica_changes(db.pool(), &keys)
+                                .await
+                                .map_err(|error| std::io::Error::other(error.to_string()))?
+                            {
+                                return Ok(CloudsyncRecoveryStep::Progressed);
+                            }
+
+                            witness.refresh(db.pool(), &key).await?;
+                            if hypr_db_app::has_pending_e2ee_witness_repairs(
+                                db.pool(),
+                                &keys,
+                                true,
+                            )
+                            .await
+                            .map_err(|error| std::io::Error::other(error.to_string()))?
+                            {
+                                return Ok(CloudsyncRecoveryStep::Progressed);
+                            }
+                            if !matches!(
+                                flush_manual_cloudsync_pending(db.as_ref()).await?,
+                                CloudsyncPendingFlush::Empty
+                            ) {
+                                return Ok(CloudsyncRecoveryStep::Waiting);
+                            }
+                            if !hypr_db_app::advance_cloudsync_recovery_phase(
+                                db.pool(),
+                                &generation,
+                                hypr_db_app::CloudsyncRecoveryPhase::NeedWitnessRepair,
+                                hypr_db_app::CloudsyncRecoveryPhase::NeedBarrierCleanup,
+                            )
+                            .await?
+                            {
+                                return Err(hypr_db_app::CloudsyncWorkspaceError::RecoveryConflict
+                                    .into());
+                            }
+                            Ok(CloudsyncRecoveryStep::Progressed)
+                        }
+                        hypr_db_app::CloudsyncRecoveryPhase::NeedBarrierCleanup => {
+                            match flush_manual_cloudsync_pending(db.as_ref()).await? {
+                                CloudsyncPendingFlush::Progressed => {
+                                    return Ok(CloudsyncRecoveryStep::Progressed);
+                                }
+                                CloudsyncPendingFlush::Waiting => {
+                                    return Ok(CloudsyncRecoveryStep::Waiting);
+                                }
+                                CloudsyncPendingFlush::Empty => {}
+                            }
+                            if hypr_db_app::cloudsync_recovery_barrier_is_exact(
+                                db.pool(),
+                                &state,
+                                &key,
+                            )
+                            .await?
+                            {
+                                hypr_db_app::delete_cloudsync_recovery_barrier(
+                                    db.pool(),
+                                    &state,
+                                    &key,
+                                )
+                                .await?;
+                                return Ok(CloudsyncRecoveryStep::Progressed);
+                            }
+                            if !hypr_db_app::complete_cloudsync_recovery(
+                                db.pool(),
+                                &generation,
+                            )
+                            .await?
+                            {
+                                return Err(hypr_db_app::CloudsyncWorkspaceError::RecoveryConflict
+                                    .into());
+                            }
+                            db.cloudsync_start().await?;
+                            Ok(CloudsyncRecoveryStep::Complete)
+                        }
+                    }
+                    } => step,
+                };
+
+                let retry_delay = match step {
+                    Ok(CloudsyncRecoveryStep::Complete) => {
+                        scheduled.lock().unwrap().complete(&generation);
+                        return;
+                    }
+                    Ok(CloudsyncRecoveryStep::Progressed) => {
+                        scheduled.lock().unwrap().mark_progress(&generation);
+                        CLOUDSYNC_FULL_RESYNC_PROGRESS_INTERVAL
+                    }
+                    Ok(CloudsyncRecoveryStep::Waiting) => CLOUDSYNC_FULL_RESYNC_PROGRESS_INTERVAL,
+                    Err(error) => {
+                        scheduled.lock().unwrap().mark_failure(&generation);
+                        tracing::warn!(%error, "CloudSync recovery remains pending");
+                        CLOUDSYNC_FULL_RESYNC_RETRY_INTERVAL
+                    }
+                };
+                tokio::select! {
+                    biased;
+                    _ = &mut shutdown_rx => return,
+                    _ = tokio::time::sleep(retry_delay) => {}
+                }
+            }
+        });
+        *task_slot = Some(CloudsyncFullResyncTask {
+            #[cfg(test)]
+            config: task_config,
+            #[cfg(test)]
+            generation: task_generation,
+            shutdown_tx: Some(shutdown_tx),
+            join_handle,
+        });
     }
 
     pub(crate) async fn cloudsync_write_filters_match(&self) -> Result<bool> {
@@ -808,6 +1121,28 @@ impl PluginDbRuntime {
         Ok(true)
     }
 
+    async fn cancel_cloudsync_full_resync(&self) {
+        let mut task_slot = self.cloudsync_full_resync_task.lock().await;
+        self.scheduled_cloudsync_full_resync
+            .lock()
+            .unwrap()
+            .cancel();
+        if let Some(task) = task_slot.take() {
+            join_cloudsync_full_resync_task(task).await;
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn cloudsync_full_resync_task_snapshot(
+        &self,
+    ) -> Option<(String, hypr_db_core::CloudsyncAuth)> {
+        self.cloudsync_full_resync_task
+            .lock()
+            .await
+            .as_ref()
+            .map(|task| (task.generation.clone(), task.config.auth.clone()))
+    }
+
     pub async fn start_cloudsync(&self) -> Result<()> {
         self.ensure_legacy_migration_verified().await?;
         self.db.cloudsync_start().await?;
@@ -815,18 +1150,69 @@ impl PluginDbRuntime {
     }
 
     pub async fn stop_cloudsync(&self) -> Result<()> {
+        self.cancel_cloudsync_full_resync().await;
         self.db.cloudsync_stop().await?;
         Ok(())
     }
 
     pub async fn suspend_cloudsync(&self) -> Result<()> {
+        self.cancel_cloudsync_full_resync().await;
         self.db.cloudsync_suspend().await?;
         self.e2ee_sync_hook.clear();
         Ok(())
     }
 
     pub async fn cloudsync_status(&self) -> Result<serde_json::Value> {
-        Ok(serde_json::to_value(self.db.cloudsync_status().await?)?)
+        // Read the canonical dirty queue before the native outbox so a concurrent
+        // promotion is visible in at least one status snapshot.
+        let keys = self.e2ee_sync_hook.snapshot();
+        let (local_e2ee_work_pending, recovery) =
+            tokio::time::timeout(CLOUDSYNC_STATUS_ENRICHMENT_TIMEOUT, async {
+                let local_e2ee_work_pending =
+                    hypr_db_app::has_pending_e2ee_replica_changes(self.db.pool(), &keys)
+                        .await
+                        .map_err(|error| {
+                            std::io::Error::other(format!(
+                                "failed to inspect pending E2EE replica changes: {error}"
+                            ))
+                        })?;
+                let recovery = hypr_db_app::cloudsync_recovery_state(self.db.pool()).await?;
+                Ok::<_, crate::Error>((local_e2ee_work_pending, recovery))
+            })
+            .await
+            .map_err(|_| hypr_db_core::CloudsyncRuntimeError::LocalStatusBusy)??;
+        let mut status = serde_json::to_value(self.db.cloudsync_status().await?)?;
+        let recovery_delayed = recovery.as_ref().is_some_and(|state| {
+            self.scheduled_cloudsync_full_resync
+                .lock()
+                .unwrap()
+                .is_delayed(&state.generation)
+        });
+        let status_object = status.as_object_mut().ok_or_else(|| {
+            std::io::Error::other("CloudSync status did not serialize to an object")
+        })?;
+        if local_e2ee_work_pending {
+            status_object.insert(
+                "has_unsent_changes".to_string(),
+                serde_json::Value::Bool(true),
+            );
+        }
+        status_object.insert(
+            "recovery_pending".to_string(),
+            serde_json::Value::Bool(recovery.is_some()),
+        );
+        status_object.insert(
+            "recovery_delayed".to_string(),
+            serde_json::Value::Bool(recovery_delayed),
+        );
+        status_object.insert(
+            "recovery_phase".to_string(),
+            recovery
+                .map(|state| serde_json::to_value(state.phase))
+                .transpose()?
+                .unwrap_or(serde_json::Value::Null),
+        );
+        Ok(status)
     }
 
     pub async fn sync_cloudsync_now(&self) -> Result<serde_json::Value> {
@@ -837,6 +1223,7 @@ impl PluginDbRuntime {
     }
 
     pub async fn logout_cloudsync(&self, discard_unsent_changes: bool) -> Result<()> {
+        self.cancel_cloudsync_full_resync().await;
         let _write_guard = self.synced_write_barrier.write().await;
         self.db.cloudsync_logout(discard_unsent_changes).await?;
         self.e2ee_sync_hook.clear();
@@ -844,24 +1231,203 @@ impl PluginDbRuntime {
     }
 }
 
+impl Drop for PluginDbRuntime {
+    fn drop(&mut self) {
+        self.scheduled_cloudsync_full_resync
+            .lock()
+            .unwrap()
+            .cancel();
+        if let Some(mut task) = self.cloudsync_full_resync_task.get_mut().take() {
+            if let Some(shutdown_tx) = task.shutdown_tx.take() {
+                let _ = shutdown_tx.send(());
+            }
+            task.join_handle.abort();
+        }
+    }
+}
+
+async fn join_cloudsync_full_resync_task(mut task: CloudsyncFullResyncTask) {
+    if let Some(shutdown_tx) = task.shutdown_tx.take() {
+        let _ = shutdown_tx.send(());
+    }
+    if let Err(error) = task.join_handle.await
+        && !error.is_cancelled()
+    {
+        tracing::warn!(%error, "CloudSync recovery task failed while stopping");
+    }
+}
+
+async fn require_disposable_cloudsync_replica(db: &Db) -> Result<()> {
+    let settings_exist: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+           SELECT 1
+           FROM sqlite_master
+           WHERE type = 'table' AND name = 'cloudsync_table_settings'
+         )",
+    )
+    .fetch_one(db.pool())
+    .await?;
+    if !settings_exist {
+        return Err(std::io::Error::other(
+            "CloudSync recovery requires an initialized encrypted replica",
+        )
+        .into());
+    }
+
+    let tracked_tables: Vec<String> = sqlx::query_scalar(
+        "SELECT DISTINCT tbl_name
+         FROM cloudsync_table_settings
+         ORDER BY tbl_name",
+    )
+    .fetch_all(db.pool())
+    .await?;
+    if tracked_tables.as_slice() != [CLOUDSYNC_REPLICA_TABLE] {
+        return Err(std::io::Error::other(format!(
+            "CloudSync recovery can only discard {CLOUDSYNC_REPLICA_TABLE}; tracked tables: {}",
+            tracked_tables.join(", ")
+        ))
+        .into());
+    }
+    Ok(())
+}
+
+async fn prepare_manual_cloudsync_recovery_transport(
+    db: &Db,
+    config: &hypr_db_core::CloudsyncRuntimeConfig,
+) -> Result<()> {
+    db.cloudsync_prepare_manual_transport(config.clone())
+        .await?;
+    if !hypr_db_app::cloudsync_encrypted_replica_is_empty(db.pool()).await? {
+        return Err(std::io::Error::other(
+            "CloudSync recovery refused to reinstall a filter on a populated replica",
+        )
+        .into());
+    }
+    db.cloudsync_set_filter(CLOUDSYNC_REPLICA_TABLE, CLOUDSYNC_WRITE_FILTER)
+        .await
+        .map_err(hypr_db_core::CloudsyncRuntimeError::from)?;
+    hypr_db_app::mark_cloudsync_write_filter_installed(db.pool()).await?;
+    require_disposable_cloudsync_replica(db).await
+}
+
+async fn discard_cloudsync_recovery_replica(
+    db: &Db,
+    config: &hypr_db_core::CloudsyncRuntimeConfig,
+    generation: &str,
+) -> Result<()> {
+    require_disposable_cloudsync_replica(db).await?;
+    db.cloudsync_logout(true).await?;
+    prepare_manual_cloudsync_recovery_transport(db, config).await?;
+    if !hypr_db_app::cloudsync_encrypted_replica_is_empty(db.pool()).await? {
+        return Err(std::io::Error::other(
+            "CloudSync replica was not empty after the first recovery logout",
+        )
+        .into());
+    }
+    if !hypr_db_app::advance_cloudsync_recovery_phase(
+        db.pool(),
+        generation,
+        hypr_db_app::CloudsyncRecoveryPhase::NeedFirstLogout,
+        hypr_db_app::CloudsyncRecoveryPhase::NeedBarrierInsert,
+    )
+    .await?
+    {
+        return Err(hypr_db_app::CloudsyncWorkspaceError::RecoveryConflict.into());
+    }
+    Ok(())
+}
+
+async fn flush_manual_cloudsync_pending(db: &Db) -> Result<CloudsyncPendingFlush> {
+    let batch = db.cloudsync_manual_pending_payload_batch().await?;
+    if !batch.complete || !batch.fits {
+        return Err(std::io::Error::other(format!(
+            "CloudSync pending payload is not safely bounded ({} chunks, {} bytes)",
+            batch.chunks, batch.bytes
+        ))
+        .into());
+    }
+    if batch.chunks == 0 {
+        let status = db.cloudsync_manual_network_status().await?;
+        return Ok(
+            if status.gaps.is_empty()
+                && status.failures.apply.is_none()
+                && status.last_optimistic_version >= batch.start_db_version
+                && status.last_confirmed_version >= batch.start_db_version
+            {
+                CloudsyncPendingFlush::Empty
+            } else {
+                CloudsyncPendingFlush::Waiting
+            },
+        );
+    }
+
+    if let Ok(status) = db.cloudsync_manual_network_status().await
+        && db
+            .cloudsync_manual_reconcile_confirmed_pending_payload(batch, &status)
+            .await?
+    {
+        return Ok(CloudsyncPendingFlush::Progressed);
+    }
+
+    match db.cloudsync_manual_send_only().await {
+        Ok(result) if cloudsync_send_completed(&result) => Ok(CloudsyncPendingFlush::Progressed),
+        Ok(result) if cloudsync_send_made_progress(&result) => {
+            Ok(CloudsyncPendingFlush::Progressed)
+        }
+        Ok(_) => Ok(CloudsyncPendingFlush::Waiting),
+        Err(send_error) => {
+            let status = db.cloudsync_manual_network_status().await?;
+            if db
+                .cloudsync_manual_reconcile_confirmed_pending_payload(batch, &status)
+                .await?
+            {
+                Ok(CloudsyncPendingFlush::Progressed)
+            } else {
+                Err(send_error.into())
+            }
+        }
+    }
+}
+
 fn cloudsync_send_completed(result: &hypr_db_core::CloudsyncNetworkResult) -> bool {
     let Some(send) = result.send.as_ref() else {
         return false;
     };
-    let receive_completed = result.receive.as_ref().is_none_or(|receive| {
-        receive.complete && receive.error.is_none() && receive.last_failure.is_none()
-    });
-    send.status == "synced" && send.last_failure.is_none() && receive_completed
+    send.status.eq_ignore_ascii_case("synced") && send.last_failure.is_none()
 }
 
-fn cloudsync_snapshot_completed(result: &hypr_db_core::CloudsyncNetworkResult) -> bool {
-    let Some(receive) = result.receive.as_ref() else {
-        return false;
-    };
-    cloudsync_send_completed(result)
-        && receive.complete
-        && receive.error.is_none()
-        && receive.last_failure.is_none()
+fn cloudsync_send_made_progress(result: &hypr_db_core::CloudsyncNetworkResult) -> bool {
+    result
+        .send
+        .as_ref()
+        .is_some_and(|send| send.chunks > 0 && send.last_failure.is_none())
+}
+
+fn cloudsync_receive_completed(result: &hypr_db_core::CloudsyncNetworkResult) -> bool {
+    result.receive.as_ref().is_some_and(|receive| {
+        receive.complete && receive.error.is_none() && receive.last_failure.is_none()
+    })
+}
+
+fn cloudsync_receive_delivered(result: &hypr_db_core::CloudsyncNetworkResult) -> bool {
+    result.receive.as_ref().is_some_and(|receive| {
+        receive.chunks > 0 && receive.error.is_none() && receive.last_failure.is_none()
+    })
+}
+
+fn cloudsync_receive_delivered_final(result: &hypr_db_core::CloudsyncNetworkResult) -> bool {
+    cloudsync_receive_delivered(result)
+        && result
+            .receive
+            .as_ref()
+            .is_some_and(|receive| receive.complete)
+}
+
+fn cloudsync_recovery_snapshot_ready(
+    barrier_is_exact: bool,
+    result: &hypr_db_core::CloudsyncNetworkResult,
+) -> bool {
+    barrier_is_exact && cloudsync_receive_delivered_final(result)
 }
 
 fn is_permanent_cloudsync_workspace_rejection(
@@ -980,7 +1546,46 @@ async fn database_uses_cloudsync_schema(db: &Db) -> std::result::Result<bool, sq
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
     use super::*;
+    use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate, matchers::path};
+
+    #[derive(Clone, Default)]
+    struct InitiallyUninitializedWitness {
+        initialized: std::sync::Arc<AtomicBool>,
+    }
+
+    impl Respond for InitiallyUninitializedWitness {
+        fn respond(&self, request: &Request) -> ResponseTemplate {
+            if request.method == wiremock::http::Method::POST {
+                let body: serde_json::Value = request.body_json().unwrap();
+                if !self.initialized.load(Ordering::SeqCst)
+                    && body["initialize"].as_bool() != Some(true)
+                {
+                    return ResponseTemplate::new(409);
+                }
+                if body["events"].as_array().is_none_or(Vec::is_empty) {
+                    return ResponseTemplate::new(400);
+                }
+                self.initialized.store(true, Ordering::SeqCst);
+                return ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                    "initializedAt": "2026-07-23T00:00:00Z",
+                    "headSequence": 0,
+                }));
+            }
+
+            let initialized = self.initialized.load(Ordering::SeqCst);
+            ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "initialized": initialized,
+                "initializedAt": initialized.then_some("2026-07-23T00:00:00Z"),
+                "headSequence": 0,
+                "throughSequence": 0,
+                "nextAfterSequence": 0,
+                "events": [],
+            }))
+        }
+    }
 
     #[test]
     fn cloudsync_completion_requires_confirmed_send_and_receive() {
@@ -1030,31 +1635,399 @@ mod tests {
                 }
             }))
             .unwrap();
+        let receive_only: hypr_db_core::CloudsyncNetworkResult =
+            serde_json::from_value(serde_json::json!({
+                "receive": {
+                    "rows": 0,
+                    "tables": [],
+                    "complete": true
+                }
+            }))
+            .unwrap();
+        let delivered_final: hypr_db_core::CloudsyncNetworkResult =
+            serde_json::from_value(serde_json::json!({
+                "receive": {
+                    "rows": 1,
+                    "tables": ["e2ee_records"],
+                    "chunks": 1,
+                    "complete": true
+                }
+            }))
+            .unwrap();
+        let delivered_non_final: hypr_db_core::CloudsyncNetworkResult =
+            serde_json::from_value(serde_json::json!({
+                "receive": {
+                    "rows": 1,
+                    "tables": ["e2ee_records"],
+                    "chunks": 1,
+                    "complete": false
+                }
+            }))
+            .unwrap();
+        let failed_receive: hypr_db_core::CloudsyncNetworkResult =
+            serde_json::from_value(serde_json::json!({
+                "send": {
+                    "status": "synced",
+                    "localVersion": 2,
+                    "serverVersion": 2
+                },
+                "receive": {
+                    "rows": 0,
+                    "tables": [],
+                    "complete": true,
+                    "error": "database is locked"
+                }
+            }))
+            .unwrap();
 
         assert!(cloudsync_send_completed(&completed));
-        assert!(cloudsync_snapshot_completed(&completed));
+        assert!(cloudsync_receive_completed(&completed));
         assert!(!cloudsync_send_completed(&unconfirmed_send));
-        assert!(!cloudsync_snapshot_completed(&unconfirmed_send));
-        assert!(!cloudsync_send_completed(&incomplete_receive));
-        assert!(!cloudsync_snapshot_completed(&incomplete_receive));
+        assert!(!cloudsync_receive_completed(&incomplete_receive));
+        assert!(cloudsync_send_completed(&incomplete_receive));
         assert!(cloudsync_send_completed(&send_only));
-        assert!(!cloudsync_snapshot_completed(&send_only));
+        assert!(!cloudsync_receive_completed(&send_only));
+        assert!(!cloudsync_send_completed(&receive_only));
+        assert!(cloudsync_receive_completed(&receive_only));
+        assert!(!cloudsync_receive_delivered_final(&receive_only));
+        assert!(cloudsync_receive_delivered_final(&delivered_final));
+        assert!(cloudsync_receive_delivered(&delivered_non_final));
+        assert!(!cloudsync_recovery_snapshot_ready(
+            true,
+            &delivered_non_final
+        ));
+        assert!(cloudsync_recovery_snapshot_ready(true, &delivered_final));
+        assert!(!cloudsync_recovery_snapshot_ready(true, &receive_only));
+        assert!(!cloudsync_recovery_snapshot_ready(false, &delivered_final));
+        assert!(cloudsync_send_completed(&failed_receive));
+        assert!(!cloudsync_receive_completed(&failed_receive));
         assert!(!cloudsync_send_completed(
             &hypr_db_core::CloudsyncNetworkResult::default()
         ));
     }
 
+    fn test_full_resync_config(token: &str) -> hypr_db_core::CloudsyncRuntimeConfig {
+        hypr_db_core::CloudsyncRuntimeConfig {
+            connection_string: "test-database".to_string(),
+            auth: hypr_db_core::CloudsyncAuth::Token {
+                token: token.to_string(),
+            },
+            tables: vec![],
+            sync_interval_ms: DEFAULT_CLOUDSYNC_INTERVAL_MS,
+            wait_ms: Some(5_000),
+            max_retries: Some(3),
+        }
+    }
+
     #[test]
-    fn full_resync_hands_off_reconfigure_without_retrying_after_suspend() {
+    fn full_resync_schedule_tracks_generation_until_cancelled() {
         let mut schedule = CloudsyncFullResyncSchedule::default();
 
-        assert!(schedule.claim("generation-1"));
-        assert!(!schedule.claim("generation-1"));
-        assert!(schedule.handle_non_transient_error("generation-1"));
+        schedule.claim("generation-1");
+        assert!(!schedule.is_delayed("generation-1"));
+        schedule.last_progress_at =
+            Some(std::time::Instant::now() - CLOUDSYNC_RECOVERY_DELAYED_AFTER);
+        assert!(schedule.is_delayed("generation-1"));
+        schedule.mark_progress("generation-1");
+        assert!(!schedule.is_delayed("generation-1"));
+        schedule.mark_failure("generation-1");
+        assert!(schedule.is_delayed("generation-1"));
+        schedule.mark_progress("generation-1");
+        assert!(!schedule.is_delayed("generation-1"));
+        schedule.claim("generation-1");
         assert!(schedule.is_active("generation-1"));
 
-        assert!(!schedule.handle_non_transient_error("generation-1"));
+        schedule.cancel();
         assert!(!schedule.is_active("generation-1"));
+    }
+
+    async fn install_waiting_full_resync_task(
+        runtime: &PluginDbRuntime,
+    ) -> tokio::sync::oneshot::Receiver<()> {
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+        let (finished_tx, finished_rx) = tokio::sync::oneshot::channel();
+        let join_handle = tokio::spawn(async move {
+            let _ = shutdown_rx.await;
+            let _ = finished_tx.send(());
+        });
+        runtime
+            .scheduled_cloudsync_full_resync
+            .lock()
+            .unwrap()
+            .claim("test-generation");
+        *runtime.cloudsync_full_resync_task.lock().await = Some(CloudsyncFullResyncTask {
+            config: test_full_resync_config("test-token"),
+            generation: "test-generation".to_string(),
+            shutdown_tx: Some(shutdown_tx),
+            join_handle,
+        });
+        finished_rx
+    }
+
+    #[tokio::test]
+    async fn suspend_joins_full_resync_before_returning() {
+        let runtime = PluginDbRuntime::new(std::sync::Arc::new(
+            Db::connect_memory_plain().await.unwrap(),
+        ));
+        let finished = install_waiting_full_resync_task(&runtime).await;
+
+        runtime.suspend_cloudsync().await.unwrap();
+
+        tokio::time::timeout(std::time::Duration::from_secs(1), finished)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(runtime.cloudsync_full_resync_task.lock().await.is_none());
+        assert!(
+            !runtime
+                .scheduled_cloudsync_full_resync
+                .lock()
+                .unwrap()
+                .is_active("test-generation")
+        );
+    }
+
+    #[tokio::test]
+    async fn logout_joins_full_resync_before_returning() {
+        let runtime = PluginDbRuntime::new(std::sync::Arc::new(
+            Db::connect_memory_plain().await.unwrap(),
+        ));
+        let finished = install_waiting_full_resync_task(&runtime).await;
+
+        runtime.logout_cloudsync(false).await.unwrap();
+
+        tokio::time::timeout(std::time::Duration::from_secs(1), finished)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(runtime.cloudsync_full_resync_task.lock().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn dropping_runtime_aborts_full_resync_task() {
+        struct DropSignal(Option<tokio::sync::oneshot::Sender<()>>);
+
+        impl Drop for DropSignal {
+            fn drop(&mut self) {
+                if let Some(signal) = self.0.take() {
+                    let _ = signal.send(());
+                }
+            }
+        }
+
+        let runtime = PluginDbRuntime::new(std::sync::Arc::new(
+            Db::connect_memory_plain().await.unwrap(),
+        ));
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (dropped_tx, dropped_rx) = tokio::sync::oneshot::channel();
+        let join_handle = tokio::spawn(async move {
+            let _shutdown_rx = shutdown_rx;
+            let _drop_signal = DropSignal(Some(dropped_tx));
+            let _ = started_tx.send(());
+            std::future::pending::<()>().await;
+        });
+        *runtime.cloudsync_full_resync_task.lock().await = Some(CloudsyncFullResyncTask {
+            config: test_full_resync_config("test-token"),
+            generation: "test-generation".to_string(),
+            shutdown_tx: Some(shutdown_tx),
+            join_handle,
+        });
+        started_rx.await.unwrap();
+
+        drop(runtime);
+
+        tokio::time::timeout(std::time::Duration::from_secs(1), dropped_rx)
+            .await
+            .unwrap()
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn poisoned_replica_recovery_requires_the_disposable_e2ee_table_only() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        sqlx::query(
+            "CREATE TABLE cloudsync_table_settings (
+               tbl_name TEXT NOT NULL,
+               col_name TEXT NOT NULL,
+               key TEXT NOT NULL,
+               value TEXT,
+               PRIMARY KEY (tbl_name, col_name, key)
+             )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO cloudsync_table_settings (tbl_name, col_name, key, value)
+             VALUES ('e2ee_records', '*', 'filter', 'workspace_id')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+
+        require_disposable_cloudsync_replica(runtime.db.as_ref())
+            .await
+            .unwrap();
+
+        sqlx::query(
+            "INSERT INTO cloudsync_table_settings (tbl_name, col_name, key, value)
+             VALUES ('sessions', '*', 'filter', 'workspace_id')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        assert!(
+            require_disposable_cloudsync_replica(runtime.db.as_ref())
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("sessions")
+        );
+    }
+
+    #[tokio::test]
+    async fn native_replica_logout_preserves_domain_rows_and_reinstalls_an_empty_filter() {
+        let db = Db::connect_memory().await.unwrap();
+        hypr_db_app::prepare_schema(&db).await.unwrap();
+        hypr_db_app::set_cloudsync_personal_write_scope(db.pool(), "workspace-1")
+            .await
+            .unwrap();
+        db.cloudsync_init(CLOUDSYNC_REPLICA_TABLE, None, None)
+            .await
+            .unwrap();
+        db.cloudsync_set_filter(CLOUDSYNC_REPLICA_TABLE, CLOUDSYNC_WRITE_FILTER)
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, title)
+             VALUES ('session-1', 'workspace-1', 'Preserved')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO e2ee_records (id, workspace_id, payload)
+             VALUES ('record-1', 'workspace-1', 'ciphertext')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let local_changes_before: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_records_cloudsync")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert!(local_changes_before > 0);
+
+        db.cloudsync_network_logout().await.unwrap();
+
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM sessions")
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            1
+        );
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_records")
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            0
+        );
+        db.cloudsync_init(CLOUDSYNC_REPLICA_TABLE, None, None)
+            .await
+            .unwrap();
+        db.cloudsync_set_filter(CLOUDSYNC_REPLICA_TABLE, CLOUDSYNC_WRITE_FILTER)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_records_cloudsync")
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>(
+                "SELECT COUNT(*)
+                 FROM cloudsync_table_settings
+                 WHERE tbl_name = 'e2ee_records'
+                   AND col_name = '*'
+                   AND key = 'filter'
+                   AND value = ?",
+            )
+            .bind(CLOUDSYNC_WRITE_FILTER)
+            .fetch_one(db.pool())
+            .await
+            .unwrap(),
+            1
+        );
+    }
+
+    #[tokio::test]
+    async fn legacy_cutover_snapshots_local_state_before_initializing_the_witness() {
+        let db = std::sync::Arc::new(Db::connect_memory().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        db.cloudsync_init("sessions", None, None).await.unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session-1', 'workspace-1', 'workspace-1', 'Legacy session')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_local_state")
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            0
+        );
+
+        let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+            "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+        )
+        .unwrap();
+        runtime
+            .set_e2ee_recovery_key("workspace-1", &recovery_key)
+            .unwrap();
+        let workspace_key = runtime.workspace_key("workspace-1").unwrap();
+        let witness_state = InitiallyUninitializedWitness::default();
+        let witness_server = MockServer::start().await;
+        Mock::given(path("/sync/e2ee/witness/workspace-1"))
+            .respond_with(witness_state.clone())
+            .mount(&witness_server)
+            .await;
+        let witness = crate::e2ee_witness::E2eeWitnessClient::new(
+            crate::CloudsyncE2eeWitness {
+                endpoint: format!("{}/sync/e2ee/witness/workspace-1", witness_server.uri()),
+                access_token: "access-token".to_string(),
+            },
+            "workspace-1",
+        )
+        .unwrap();
+
+        runtime
+            .prepare_e2ee_cutover_and_initialize_witness(&witness, &workspace_key)
+            .await
+            .unwrap();
+
+        assert!(witness_state.initialized.load(Ordering::SeqCst));
+        assert!(
+            hypr_db_app::has_e2ee_local_state(db.pool(), "workspace-1")
+                .await
+                .unwrap()
+        );
+        assert!(
+            !hypr_db_core::cloudsync_is_enabled_on(db.pool(), "sessions")
+                .await
+                .unwrap()
+        );
     }
 
     #[tokio::test]
@@ -1336,5 +2309,47 @@ mod tests {
         assert_eq!(status["configured"], false);
         assert_eq!(status["running"], false);
         assert_eq!(status["network_initialized"], false);
+    }
+
+    #[tokio::test]
+    async fn cloudsync_status_reports_pending_e2ee_dirty_rows() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+            "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+        )
+        .unwrap();
+        runtime
+            .set_e2ee_recovery_key("workspace-1", &recovery_key)
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, title)
+             VALUES ('session-1', 'workspace-1', 'Local edit')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let status = runtime.cloudsync_status().await.unwrap();
+
+        assert_eq!(status["has_unsent_changes"], true);
+    }
+
+    #[tokio::test]
+    async fn cloudsync_status_fails_fast_when_local_status_queries_are_busy() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+        let _held_connection = db.pool().acquire().await.unwrap();
+        let started = std::time::Instant::now();
+
+        let error = runtime.cloudsync_status().await.unwrap_err();
+
+        assert!(matches!(
+            error,
+            crate::Error::Cloudsync(hypr_db_core::CloudsyncRuntimeError::LocalStatusBusy)
+        ));
+        assert!(started.elapsed() < std::time::Duration::from_secs(1));
     }
 }

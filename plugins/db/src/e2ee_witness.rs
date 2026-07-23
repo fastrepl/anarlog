@@ -104,6 +104,7 @@ impl E2eeWitnessClient {
         }
 
         if status.initialized {
+            self.refresh(pool, key).await?;
             self.publish_pending(pool, key, false).await?;
         } else {
             if !hypr_db_app::has_e2ee_local_state(pool, &self.workspace_id)
@@ -184,44 +185,51 @@ impl E2eeWitnessClient {
         key: &hypr_e2ee::WorkspaceKey,
         initialize: bool,
     ) -> io::Result<()> {
-        let uploads = hypr_db_app::pending_e2ee_witness_uploads(pool, &self.workspace_id, key)
+        let cursor = witness_cursor(pool, &self.workspace_id).await?;
+        let mut first_batch = true;
+        loop {
+            let uploads = hypr_db_app::pending_e2ee_witness_uploads(
+                pool,
+                &self.workspace_id,
+                key,
+                MAX_EVENTS_PER_BATCH,
+                MAX_BATCH_BYTES,
+            )
             .await
             .map_err(replica_error)?;
-        if initialize && uploads.is_empty() {
-            return Err(io::Error::other(
-                "E2EE freshness initialization requires established encrypted state",
-            ));
-        }
-        let cursor = witness_cursor(pool, &self.workspace_id).await?;
-        let mut start = 0;
-        while start < uploads.len() {
-            let mut end = start;
+            if uploads.is_empty() {
+                if initialize && first_batch {
+                    return Err(io::Error::other(
+                        "E2EE freshness initialization requires established encrypted state",
+                    ));
+                }
+                return Ok(());
+            }
+
             let mut batch_bytes = 0usize;
-            while end < uploads.len() && end - start < MAX_EVENTS_PER_BATCH {
-                let event_bytes = uploads[end]
+            for upload in &uploads {
+                let event_bytes = upload
                     .payload
                     .len()
-                    .saturating_add(uploads[end].record_id.len())
-                    .saturating_add(uploads[end].payload_hash.len())
+                    .saturating_add(upload.record_id.len())
+                    .saturating_add(upload.payload_hash.len())
                     .saturating_add(256);
-                if uploads[end].payload.len() > MAX_EVENT_BYTES {
+                if upload.payload.len() > MAX_EVENT_BYTES {
                     return Err(invalid_data("E2EE witness event is too large"));
                 }
-                if end > start && batch_bytes.saturating_add(event_bytes) > MAX_BATCH_BYTES {
-                    break;
+                if batch_bytes.saturating_add(event_bytes) > MAX_BATCH_BYTES {
+                    return Err(invalid_data("E2EE witness batch is too large"));
                 }
                 batch_bytes = batch_bytes.saturating_add(event_bytes);
-                end += 1;
             }
-            let batch = &uploads[start..end];
             let response = self
                 .send_with_rate_limit_retry(|| {
                     self.client
                         .post(self.endpoint.clone())
                         .bearer_auth(&self.access_token)
                         .json(&PublishRequest {
-                            initialize: initialize && start == 0,
-                            events: batch
+                            initialize: initialize && first_batch,
+                            events: uploads
                                 .iter()
                                 .map(|upload| PublishEvent {
                                     record_id: &upload.record_id,
@@ -244,12 +252,11 @@ impl E2eeWitnessClient {
             if response.initialized_at.is_empty() || response.head_sequence < cursor {
                 return Err(rollback_error());
             }
-            hypr_db_app::acknowledge_e2ee_witness_uploads(pool, key, batch)
+            hypr_db_app::acknowledge_e2ee_witness_uploads(pool, key, &uploads)
                 .await
                 .map_err(replica_error)?;
-            start = end;
+            first_batch = false;
         }
-        Ok(())
     }
 
     async fn read_page(&self, after: u64, through: Option<u64>) -> io::Result<ReadPage> {
@@ -424,6 +431,47 @@ mod tests {
         }
     }
 
+    #[derive(Clone, Default)]
+    struct RequestOrder {
+        methods: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl Respond for RequestOrder {
+        fn respond(&self, request: &Request) -> ResponseTemplate {
+            self.methods
+                .lock()
+                .unwrap()
+                .push(request.method.as_str().to_string());
+            if request.method.as_str() == "GET" {
+                return witness_page(&[], 0, 0);
+            }
+            ResponseTemplate::new(200).set_body_json(json!({
+                "initializedAt": "2026-07-17T00:00:00Z",
+                "headSequence": 0,
+            }))
+        }
+    }
+
+    #[derive(Clone, Default)]
+    struct FailFirstPublish {
+        publishes: Arc<AtomicUsize>,
+    }
+
+    impl Respond for FailFirstPublish {
+        fn respond(&self, request: &Request) -> ResponseTemplate {
+            if request.method.as_str() == "GET" {
+                return witness_page(&[], 0, 0);
+            }
+            if self.publishes.fetch_add(1, Ordering::Relaxed) == 0 {
+                return ResponseTemplate::new(500);
+            }
+            ResponseTemplate::new(200).set_body_json(json!({
+                "initializedAt": "2026-07-17T00:00:00Z",
+                "headSequence": 0,
+            }))
+        }
+    }
+
     #[derive(Clone)]
     struct InterruptedPage {
         events: Vec<serde_json::Value>,
@@ -492,6 +540,148 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn initialized_witness_refreshes_before_publishing_pending_state() {
+        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
+        hypr_db_app::prepare_schema(&db).await.unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session', 'user-a', 'user-a', 'Session')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+            "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+        )
+        .unwrap();
+        let key = recovery_key.workspace_key("user-a").unwrap();
+        hypr_db_app::encrypt_e2ee_replica_changes(
+            db.pool(),
+            &HashMap::from([("user-a".to_string(), key.clone())]),
+        )
+        .await
+        .unwrap();
+
+        let server = MockServer::start().await;
+        let responder = RequestOrder::default();
+        Mock::given(path("/sync/e2ee/witness/user-a"))
+            .respond_with(responder.clone())
+            .mount(&server)
+            .await;
+        let client = E2eeWitnessClient::new(
+            crate::CloudsyncE2eeWitness {
+                endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+                access_token: "access-token".to_string(),
+            },
+            "user-a",
+        )
+        .unwrap();
+
+        client.initialize(db.pool(), &key).await.unwrap();
+
+        let methods = responder.methods.lock().unwrap().clone();
+        assert_eq!(&methods[..2], ["GET", "GET"]);
+        assert_eq!(methods.last().map(String::as_str), Some("GET"));
+        assert!(
+            methods[2..methods.len() - 1]
+                .iter()
+                .all(|method| method == "POST")
+        );
+    }
+
+    #[tokio::test]
+    async fn pending_local_state_is_retryable_after_a_failed_publish() {
+        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
+        hypr_db_app::prepare_schema(&db).await.unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session', 'user-a', 'user-a', 'Before')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+            "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+        )
+        .unwrap();
+        let key = recovery_key.workspace_key("user-a").unwrap();
+        let keys = HashMap::from([("user-a".to_string(), key.clone())]);
+        hypr_db_app::encrypt_e2ee_replica_changes(db.pool(), &keys)
+            .await
+            .unwrap();
+        loop {
+            let uploads = hypr_db_app::pending_e2ee_witness_uploads(
+                db.pool(),
+                "user-a",
+                &key,
+                MAX_EVENTS_PER_BATCH,
+                MAX_BATCH_BYTES,
+            )
+            .await
+            .unwrap();
+            if uploads.is_empty() {
+                break;
+            }
+            hypr_db_app::acknowledge_e2ee_witness_uploads(db.pool(), &key, &uploads)
+                .await
+                .unwrap();
+        }
+
+        sqlx::query("UPDATE sessions SET title = 'After' WHERE id = 'session'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        hypr_db_app::encrypt_e2ee_replica_changes(db.pool(), &keys)
+            .await
+            .unwrap();
+
+        let server = MockServer::start().await;
+        let responder = FailFirstPublish::default();
+        Mock::given(path("/sync/e2ee/witness/user-a"))
+            .respond_with(responder.clone())
+            .mount(&server)
+            .await;
+        let client = E2eeWitnessClient::new(
+            crate::CloudsyncE2eeWitness {
+                endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+                access_token: "access-token".to_string(),
+            },
+            "user-a",
+        )
+        .unwrap();
+
+        assert!(client.publish_and_refresh(db.pool(), &key).await.is_err());
+        assert!(
+            !hypr_db_app::pending_e2ee_witness_uploads(
+                db.pool(),
+                "user-a",
+                &key,
+                MAX_EVENTS_PER_BATCH,
+                MAX_BATCH_BYTES,
+            )
+            .await
+            .unwrap()
+            .is_empty()
+        );
+
+        client.publish_and_refresh(db.pool(), &key).await.unwrap();
+
+        assert_eq!(responder.publishes.load(Ordering::Relaxed), 2);
+        assert!(
+            hypr_db_app::pending_e2ee_witness_uploads(
+                db.pool(),
+                "user-a",
+                &key,
+                MAX_EVENTS_PER_BATCH,
+                MAX_BATCH_BYTES,
+            )
+            .await
+            .unwrap()
+            .is_empty()
+        );
+    }
+
+    #[tokio::test]
     async fn stops_retrying_a_persistently_rate_limited_read() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
@@ -549,9 +739,15 @@ mod tests {
         )
         .await
         .unwrap();
-        let uploads = hypr_db_app::pending_e2ee_witness_uploads(db.pool(), "user-a", &key)
-            .await
-            .unwrap();
+        let uploads = hypr_db_app::pending_e2ee_witness_uploads(
+            db.pool(),
+            "user-a",
+            &key,
+            MAX_EVENTS_PER_BATCH,
+            MAX_BATCH_BYTES,
+        )
+        .await
+        .unwrap();
         assert!(uploads.len() >= 4);
         let events = uploads
             .iter()

@@ -84,11 +84,15 @@ function witness(accessToken = "supabase-token", workspaceId = "user-id") {
   };
 }
 
-function credentialsResponse(workspaceId = "user-id", encryptionVersion = 2) {
+function credentialsResponse(
+  workspaceId = "user-id",
+  encryptionVersion = 2,
+  encryptionKeyId = E2EE_KEY_ID,
+) {
   return new Response(
     JSON.stringify({
       encryptionVersion,
-      encryptionKeyId: E2EE_KEY_ID,
+      encryptionKeyId,
       databaseId: "database-id",
       token: "sqlite-token",
       expiresAt: new Date(NOW.getTime() + 15 * 60 * 1000).toISOString(),
@@ -220,6 +224,7 @@ describe("CloudSync auth lifecycle", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
+    expect(getCloudsyncCredentialBlock()).toBeNull();
   });
 
   test("does not request cloud credentials before E2EE recovery setup", async () => {
@@ -237,6 +242,7 @@ describe("CloudSync auth lifecycle", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
+    expect(getCloudsyncCredentialBlock()).toBe("setup_required");
   });
 
   test("exchanges the Supabase token and refreshes before expiry", async () => {
@@ -518,6 +524,7 @@ describe("CloudSync auth lifecycle", () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(configureCloudsyncToken).toHaveBeenCalledTimes(1);
       expect(suspendCloudsync).toHaveBeenCalledTimes(2);
+      expect(getCloudsyncCredentialBlock()).toBe("unavailable");
     },
   );
 
@@ -547,6 +554,7 @@ describe("CloudSync auth lifecycle", () => {
     expect(warn).toHaveBeenCalledWith(
       "[cloudsync] Anarlog Pro is required; sync remains disabled",
     );
+    expect(getCloudsyncCredentialBlock()).toBe("not_entitled");
   });
 
   test("does not retry credential exchange in local-only mode", async () => {
@@ -573,6 +581,7 @@ describe("CloudSync auth lifecycle", () => {
     expect(getCloudsyncStatus).toHaveBeenCalledTimes(1);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
+    expect(getCloudsyncCredentialBlock()).toBe("unavailable");
   });
 
   test("does not configure local sync when the session is rejected", async () => {
@@ -586,6 +595,7 @@ describe("CloudSync auth lifecycle", () => {
 
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
+    expect(getCloudsyncCredentialBlock()).toBe("reauth_required");
   });
 
   test("suspends active sync when the account loses Pro", async () => {
@@ -670,6 +680,25 @@ describe("CloudSync auth lifecycle", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
+    expect(getCloudsyncCredentialBlock()).toBeNull();
+  });
+
+  test("surfaces a recovery identity mismatch without configuring sync", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          credentialsResponse("user-id", 2, "zyxwvutsrqponmlkjihgfe"),
+        ),
+      ),
+    );
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await handleCloudsyncAuthChange("SIGNED_IN", session());
+
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
+    expect(suspendCloudsync).toHaveBeenCalledTimes(2);
+    expect(getCloudsyncCredentialBlock()).toBe("identity_mismatch");
   });
 
   test("rejects credentials for a different Supabase user", async () => {
@@ -683,6 +712,7 @@ describe("CloudSync auth lifecycle", () => {
 
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
+    expect(getCloudsyncCredentialBlock()).toBe("identity_mismatch");
   });
 
   test("suspends and retries a transient configuration failure", async () => {

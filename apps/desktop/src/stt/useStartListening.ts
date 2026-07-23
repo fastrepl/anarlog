@@ -2,6 +2,7 @@ import { useCallback, useRef } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as detectCommands } from "@hypr/plugin-detect";
+import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import { useListener } from "./contexts";
@@ -236,6 +237,35 @@ function cancelMeetingRecordingDisclosure(sessionId: string) {
   task.cancelled = true;
 }
 
+async function getAudioDurationMs(audioPath: string) {
+  try {
+    const metadataResult = await fsSyncCommands.audioSourceMetadata(audioPath);
+    if (metadataResult.status === "error") {
+      return null;
+    }
+
+    const durationMs = metadataResult.data.durationMs;
+    return typeof durationMs === "number" && Number.isFinite(durationMs)
+      ? Math.max(0, durationMs)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getExistingAudioDurationMs(sessionId: string) {
+  try {
+    const pathResult = await fsSyncCommands.audioPath(sessionId);
+    if (pathResult.status === "error") {
+      return 0;
+    }
+
+    return (await getAudioDurationMs(pathResult.data)) ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 export function getPostCaptureAction(
   details: {
     audioPath: string | null;
@@ -299,6 +329,9 @@ export function useStartListening(sessionId: string) {
     const startedAt = Date.now();
     const memoMd = session?.raw_md ?? "";
     const createdAt = new Date().toISOString();
+    const existingAudioDurationMs = hadTranscriptBeforeStart
+      ? await getExistingAudioDurationMs(sessionId)
+      : 0;
     let lastTranscriptWrite = Promise.resolve();
     let transcriptWriteError: unknown;
     const trackTranscriptWrite = (write: () => Promise<void>) => {
@@ -339,7 +372,27 @@ export function useStartListening(sessionId: string) {
       let batchCompleted = false;
       if (postCaptureAction === "batch_then_enhance") {
         try {
-          await runBatchRef.current(details.audioPath!);
+          const finalAudioDurationMs = hadTranscriptBeforeStart
+            ? await getAudioDurationMs(details.audioPath!)
+            : null;
+          const audioOffsetMs =
+            existingAudioDurationMs > 0 &&
+            finalAudioDurationMs !== null &&
+            finalAudioDurationMs + 1_000 >= existingAudioDurationMs
+              ? Math.min(existingAudioDurationMs, finalAudioDurationMs)
+              : 0;
+          await runBatchRef.current(details.audioPath!, {
+            promotion: hadTranscriptBeforeStart
+              ? {
+                  scope: "current_capture",
+                  audioOffsetMs,
+                  ...(transcriptId
+                    ? { replaceTranscriptId: transcriptId }
+                    : {}),
+                  startedAt,
+                }
+              : { scope: "whole_session" },
+          });
           batchCompleted = true;
         } catch (error) {
           if (isStoppedTranscriptionError(error)) {
@@ -356,7 +409,7 @@ export function useStartListening(sessionId: string) {
             );
           } else {
             sonnerToast.error(
-              "Post-meeting transcription failed. Summarizing the live transcript instead.",
+              "Post-meeting transcription failed. The recording was kept so you can try again.",
               { id: "post-capture-batch-failed" },
             );
           }
@@ -380,7 +433,9 @@ export function useStartListening(sessionId: string) {
         hadTranscriptBeforeStart || transcriptId !== null || batchCompleted;
       const transcriptIsComplete =
         batchCompleted ||
-        (details.liveTranscriptionActive && !transcriptWriteError);
+        (postCaptureAction !== "batch_then_enhance" &&
+          details.liveTranscriptionActive &&
+          !transcriptWriteError);
       const shouldEnhance =
         hasTranscriptEvidence &&
         (transcriptIsComplete ||
@@ -404,17 +459,25 @@ export function useStartListening(sessionId: string) {
       if (shouldEnhance) {
         const shouldRegenerateExistingSummary =
           hadTranscriptBeforeStart && (transcriptId !== null || batchCompleted);
-        const service = getEnhancerService();
-        if (!service) {
-          await requestMainAutoEnhance(
-            sessionId,
-            shouldRegenerateExistingSummary ? "regenerate" : "if_empty",
+        try {
+          const service = getEnhancerService();
+          if (!service) {
+            await requestMainAutoEnhance(
+              sessionId,
+              shouldRegenerateExistingSummary ? "regenerate" : "if_empty",
+            );
+          } else {
+            await service.requestAutoEnhance(
+              sessionId,
+              shouldRegenerateExistingSummary ? "regenerate" : "if_empty",
+            );
+          }
+        } catch (error) {
+          console.error("[listener] failed to schedule summary", error);
+          sonnerToast.error(
+            "The transcript was saved, but Anarlog could not start the summary. Try generating it again.",
+            { id: "post-capture-summary-failed" },
           );
-        } else if (shouldRegenerateExistingSummary) {
-          await service.resetEnhanceTasks(sessionId);
-          service.queueAutoEnhance(sessionId);
-        } else {
-          await service.queueAutoEnhanceIfSummaryEmpty(sessionId);
         }
       }
 

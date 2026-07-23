@@ -18,6 +18,11 @@ pub enum BatchFailure {
     ProgressiveBatchUnsupported { provider: String },
     #[error("{message}")]
     DirectRequestFailed { provider: String, message: String },
+    #[error("{provider} transcription timed out after {timeout_seconds} seconds.")]
+    DirectRequestTimedOut {
+        provider: String,
+        timeout_seconds: u64,
+    },
     #[error("{message}")]
     ProgressiveActorSpawnFailed { provider: String, message: String },
     #[error("Progressive batch stream start cancelled unexpectedly.")]
@@ -43,6 +48,7 @@ impl BatchFailure {
             Self::DirectBatchUnsupported { .. } => BatchErrorCode::DirectBatchUnsupported,
             Self::ProgressiveBatchUnsupported { .. } => BatchErrorCode::ProgressiveBatchUnsupported,
             Self::DirectRequestFailed { .. } => BatchErrorCode::DirectRequestFailed,
+            Self::DirectRequestTimedOut { .. } => BatchErrorCode::TimedOut,
             Self::ProgressiveActorSpawnFailed { .. } => BatchErrorCode::ProgressiveActorSpawnFailed,
             Self::ProgressiveStartCancelled => BatchErrorCode::ProgressiveStartCancelled,
             Self::ProgressiveStoppedWithoutCompletionSignal => {

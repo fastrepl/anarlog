@@ -223,7 +223,10 @@ export function useUploadFile(sessionId: string) {
         Effect.tap(() => Effect.sync(() => clearBatchSession(sessionId))),
         Effect.flatMap((importedPath) =>
           Effect.tryPromise({
-            try: () => runBatch(importedPath),
+            try: () =>
+              runBatch(importedPath, {
+                promotion: { scope: "whole_session" },
+              }),
             catch: (error) => error,
           }),
         ),
