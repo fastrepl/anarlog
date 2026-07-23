@@ -29,10 +29,12 @@ export const authNoticeClassName =
 export function AuthShell({
   title,
   description,
+  showEyebrow = true,
   children,
 }: {
   title: string;
-  description: string;
+  description?: string;
+  showEyebrow?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -53,15 +55,24 @@ export function AuthShell({
 
           <section className="mx-auto w-full max-w-[440px] overflow-hidden rounded-[24px] border border-[#e5ddcf] bg-white shadow-[0_24px_80px_rgba(24,22,19,0.10)]">
             <header className="border-b border-[#ede7dc] px-6 py-7 sm:px-8 sm:py-8">
-              <p className="font-hand text-xl leading-none font-semibold text-[#756b5d]">
-                Private by default
-              </p>
-              <h1 className="font-hand mt-3 text-4xl leading-none font-semibold text-[#181613]">
+              {showEyebrow && (
+                <p className="font-hand text-xl leading-none font-semibold text-[#756b5d]">
+                  Private by default
+                </p>
+              )}
+              <h1
+                className={cn([
+                  "font-hand text-4xl leading-none font-semibold text-[#181613]",
+                  showEyebrow && "mt-3",
+                ])}
+              >
                 {title}
               </h1>
-              <p className="mt-3 text-sm leading-6 text-[#756b5d]">
-                {description}
-              </p>
+              {description && (
+                <p className="mt-3 text-sm leading-6 text-[#756b5d]">
+                  {description}
+                </p>
+              )}
             </header>
 
             <div className="p-6 sm:p-8">{children}</div>

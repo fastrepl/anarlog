@@ -127,10 +127,7 @@ function Component() {
   const showEmail = !provider;
 
   return (
-    <AuthShell
-      title="Welcome to Anarlog"
-      description="Choose how you’d like to continue."
-    >
+    <AuthShell title="Welcome to Anarlog" showEyebrow={false}>
       {view === "main" && (
         <>
           <div className="flex flex-col gap-3">
