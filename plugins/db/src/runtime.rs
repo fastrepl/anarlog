@@ -165,7 +165,49 @@ pub struct PluginDbRuntime {
     executor: DbExecutor,
     live_query_runtime: LiveQueryRuntime<QueryEventChannel>,
     e2ee_sync_hook: std::sync::Arc<E2eeSyncHook>,
-    scheduled_cloudsync_full_resync: std::sync::Arc<std::sync::Mutex<Option<String>>>,
+    scheduled_cloudsync_full_resync: std::sync::Arc<std::sync::Mutex<CloudsyncFullResyncSchedule>>,
+}
+
+#[derive(Default)]
+struct CloudsyncFullResyncSchedule {
+    generation: Option<String>,
+    restart_requested: bool,
+}
+
+impl CloudsyncFullResyncSchedule {
+    fn claim(&mut self, generation: &str) -> bool {
+        if self.generation.as_deref() == Some(generation) {
+            self.restart_requested = true;
+            return false;
+        }
+
+        self.generation = Some(generation.to_string());
+        self.restart_requested = false;
+        true
+    }
+
+    fn is_active(&self, generation: &str) -> bool {
+        self.generation.as_deref() == Some(generation)
+    }
+
+    fn handle_non_transient_error(&mut self, generation: &str) -> bool {
+        if !self.is_active(generation) {
+            return false;
+        }
+        if std::mem::take(&mut self.restart_requested) {
+            return true;
+        }
+
+        self.generation = None;
+        false
+    }
+
+    fn complete(&mut self, generation: &str) {
+        if self.is_active(generation) {
+            self.generation = None;
+            self.restart_requested = false;
+        }
+    }
 }
 
 impl PluginDbRuntime {
@@ -624,10 +666,9 @@ impl PluginDbRuntime {
     fn schedule_cloudsync_full_resync(&self, generation: String) {
         {
             let mut scheduled = self.scheduled_cloudsync_full_resync.lock().unwrap();
-            if scheduled.as_deref() == Some(&generation) {
+            if !scheduled.claim(&generation) {
                 return;
             }
-            *scheduled = Some(generation.clone());
         }
 
         let db = std::sync::Arc::clone(&self.db);
@@ -635,7 +676,7 @@ impl PluginDbRuntime {
         tokio::spawn(async move {
             let mut retry_delay = CLOUDSYNC_FULL_RESYNC_MIN_RETRY_DELAY;
             loop {
-                if scheduled.lock().unwrap().as_deref() != Some(&generation) {
+                if !scheduled.lock().unwrap().is_active(&generation) {
                     return;
                 }
 
@@ -647,7 +688,10 @@ impl PluginDbRuntime {
                         )
                         .await
                         {
-                            Ok(()) => break,
+                            Ok(()) => {
+                                scheduled.lock().unwrap().complete(&generation);
+                                return;
+                            }
                             Err(error) => {
                                 tracing::warn!(%error, "failed to clear CloudSync full resync marker");
                             }
@@ -656,12 +700,19 @@ impl PluginDbRuntime {
                     Ok(_) => {
                         tracing::warn!(?retry_delay, "CloudSync full resync remains incomplete");
                     }
-                    Err(error) if should_retry_cloudsync_full_resync(&error) => {
+                    Err(error) if error.is_transient() => {
                         tracing::warn!(%error, ?retry_delay, "CloudSync full resync will retry");
                     }
                     Err(error) => {
-                        tracing::warn!(%error, "CloudSync full resync remains pending");
-                        break;
+                        let retry_after_restart = scheduled
+                            .lock()
+                            .unwrap()
+                            .handle_non_transient_error(&generation);
+                        if !retry_after_restart {
+                            tracing::warn!(%error, "CloudSync full resync remains pending");
+                            return;
+                        }
+                        tracing::warn!(%error, "CloudSync full resync will retry after reconfigure");
                     }
                 }
 
@@ -669,11 +720,6 @@ impl PluginDbRuntime {
                 retry_delay = retry_delay
                     .saturating_mul(2)
                     .min(CLOUDSYNC_FULL_RESYNC_MAX_RETRY_DELAY);
-            }
-
-            let mut active = scheduled.lock().unwrap();
-            if active.as_deref() == Some(&generation) {
-                *active = None;
             }
         });
     }
@@ -785,15 +831,6 @@ fn cloudsync_snapshot_completed(result: &hypr_db_core::CloudsyncNetworkResult) -
         && receive.complete
         && receive.error.is_none()
         && receive.last_failure.is_none()
-}
-
-fn should_retry_cloudsync_full_resync(error: &hypr_db_core::CloudsyncRuntimeError) -> bool {
-    error.is_transient()
-        || matches!(
-            error,
-            hypr_db_core::CloudsyncRuntimeError::NotConfigured
-                | hypr_db_core::CloudsyncRuntimeError::NotStarted
-        )
 }
 
 fn is_permanent_cloudsync_workspace_rejection(
@@ -977,16 +1014,16 @@ mod tests {
     }
 
     #[test]
-    fn full_resync_waits_for_cloudsync_to_restart() {
-        assert!(should_retry_cloudsync_full_resync(
-            &hypr_db_core::CloudsyncRuntimeError::NotConfigured
-        ));
-        assert!(should_retry_cloudsync_full_resync(
-            &hypr_db_core::CloudsyncRuntimeError::NotStarted
-        ));
-        assert!(!should_retry_cloudsync_full_resync(
-            &hypr_db_core::CloudsyncRuntimeError::Unavailable
-        ));
+    fn full_resync_hands_off_reconfigure_without_retrying_after_suspend() {
+        let mut schedule = CloudsyncFullResyncSchedule::default();
+
+        assert!(schedule.claim("generation-1"));
+        assert!(!schedule.claim("generation-1"));
+        assert!(schedule.handle_non_transient_error("generation-1"));
+        assert!(schedule.is_active("generation-1"));
+
+        assert!(!schedule.handle_non_transient_error("generation-1"));
+        assert!(!schedule.is_active("generation-1"));
     }
 
     #[tokio::test]
