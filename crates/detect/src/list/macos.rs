@@ -3,9 +3,17 @@ use std::path::{Path, PathBuf};
 use cidre::core_audio as ca;
 use hypr_bundle::{is_app_bundle, read_bundle_info};
 use objc2_app_kit::NSRunningApplication;
+use objc2_foundation::NSString;
 use sysinfo::{Pid, System};
 
 use super::InstalledApp;
+
+const APPLE_CALL_DAEMON_IDS: &[&str] = &[
+    "/usr/libexec/avconferenced",
+    "com.apple.avconferenced",
+    "com.apple.TelephonyUtilities",
+    "com.apple.TelephonyUtilities.callservicesd",
+];
 
 #[cfg(target_os = "macos")]
 struct MicProcessSnapshot {
@@ -92,7 +100,36 @@ pub fn list_mic_using_apps() -> Result<Vec<InstalledApp>, crate::Error> {
         }
     });
 
-    build_mic_using_apps(snapshots, resolve_to_app, fallback_app_for_pid)
+    let mut apps = build_mic_using_apps(snapshots, resolve_to_app, fallback_app_for_pid)?;
+    label_apple_call_daemon(&mut apps, active_apple_call_app_name());
+    Ok(apps)
+}
+
+fn active_apple_call_app_name() -> Option<&'static str> {
+    [
+        ("com.apple.FaceTime", "FaceTime"),
+        ("com.apple.mobilephone", "iPhone Call"),
+    ]
+    .into_iter()
+    .find_map(|(bundle_id, name)| {
+        let bundle_id = NSString::from_str(bundle_id);
+        NSRunningApplication::runningApplicationsWithBundleIdentifier(&bundle_id)
+            .iter()
+            .any(|app| app.isActive())
+            .then_some(name)
+    })
+}
+
+fn label_apple_call_daemon(apps: &mut [InstalledApp], active_app_name: Option<&str>) {
+    let Some(active_app_name) = active_app_name else {
+        return;
+    };
+
+    for app in apps {
+        if APPLE_CALL_DAEMON_IDS.contains(&app.id.as_str()) {
+            app.name = active_app_name.to_string();
+        }
+    }
 }
 
 fn resolve_to_app(pid: i32) -> Option<InstalledApp> {
@@ -277,6 +314,31 @@ mod tests {
         assert_eq!(apps.len(), 1);
         assert_eq!(apps[0].id, "pid:7");
         assert_eq!(apps[0].name, "Fallback");
+    }
+
+    #[test]
+    fn test_label_apple_call_daemon_uses_active_call_app_name() {
+        let mut apps = vec![InstalledApp {
+            id: "com.apple.avconferenced".to_string(),
+            name: "avconferenced".to_string(),
+        }];
+
+        label_apple_call_daemon(&mut apps, Some("FaceTime"));
+
+        assert_eq!(apps[0].id, "com.apple.avconferenced");
+        assert_eq!(apps[0].name, "FaceTime");
+    }
+
+    #[test]
+    fn test_label_apple_call_daemon_leaves_other_apps_unchanged() {
+        let mut apps = vec![InstalledApp {
+            id: "us.zoom.xos".to_string(),
+            name: "zoom.us".to_string(),
+        }];
+
+        label_apple_call_daemon(&mut apps, Some("FaceTime"));
+
+        assert_eq!(apps[0].name, "zoom.us");
     }
 
     #[test]

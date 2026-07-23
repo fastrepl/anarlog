@@ -316,9 +316,11 @@ const MIC_APP_NOTIFICATION_OVERRIDES = [
 
 function getMicAppNotificationOverride(app: MicApp) {
   const normalizedName = app.name.trim().toLowerCase();
-  return MIC_APP_NOTIFICATION_OVERRIDES.find(
-    (override) =>
-      override.ids.has(app.id) || override.names.has(normalizedName),
+  return (
+    MIC_APP_NOTIFICATION_OVERRIDES.find((override) =>
+      override.names.has(normalizedName),
+    ) ??
+    MIC_APP_NOTIFICATION_OVERRIDES.find((override) => override.ids.has(app.id))
   );
 }
 

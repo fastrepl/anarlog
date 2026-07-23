@@ -1794,6 +1794,10 @@ describe("ListenerProvider detect events", () => {
       icon: { type: "bundle_id", bundle_id: "com.apple.FaceTime" },
     },
     {
+      app: { id: "com.apple.avconferenced", name: "FaceTime" },
+      icon: { type: "bundle_id", bundle_id: "com.apple.FaceTime" },
+    },
+    {
       app: { id: "net.whatsapp.WhatsApp", name: "WhatsApp" },
       icon: {
         type: "path",
