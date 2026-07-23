@@ -3,21 +3,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CloudAlertIcon,
   CloudCheckIcon,
-  CloudOffIcon,
   Loader2Icon,
   PauseIcon,
-  PlayIcon,
   RefreshCwIcon,
   SettingsIcon,
-  SparklesIcon,
 } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
-import {
-  getCloudsyncStatus,
-  getE2eeIdentityStatus,
-  syncCloudsyncNow,
-} from "@hypr/plugin-db";
+import { getCloudsyncStatus, syncCloudsyncNow } from "@hypr/plugin-db";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,7 +41,7 @@ const STATUS_POLL_INTERVAL_MS = 10_000;
 export function SyncStatusIndicator() {
   const { t } = useLingui();
   const auth = useAuth();
-  const { isPro, isReady, upgradeToPro } = useBillingAccess();
+  const { isPro, isReady } = useBillingAccess();
   const settingsReady = useSettingsReady();
   const storedSettings = useStoredSettingValues();
   const openNewTab = useTabs((state) => state.openNew);
@@ -75,20 +68,13 @@ export function SyncStatusIndicator() {
     openNewTab({ type: "settings", state: { tab: "app" } });
   };
 
-  const preferenceMutation = useMutation({
+  const pauseSyncMutation = useMutation({
     mutationKey: ["cloudsync-preference"],
-    mutationFn: async (enabled: boolean) => {
+    mutationFn: async () => {
       if (!session) {
         return;
       }
-      if (enabled) {
-        const identity = await getE2eeIdentityStatus(session.user.id);
-        if (!identity.configured) {
-          openSyncSettings();
-          return;
-        }
-      }
-      await setSettingValue("cloud_sync_enabled", enabled);
+      await setSettingValue("cloud_sync_enabled", false);
       const result = await applyCloudsyncPreference(session);
       if (result === "account_mismatch") {
         await auth.signOut();
@@ -106,28 +92,12 @@ export function SyncStatusIndicator() {
     },
   });
 
-  if (!session || !isReady || !settingsReady) {
+  if (!session || !isReady || !settingsReady || !isPro || !syncPreferred) {
     return null;
   }
 
   const status = statusQuery.data;
   const view = (() => {
-    if (!isPro) {
-      return {
-        kind: "unavailable" as const,
-        label: t`Cloud sync`,
-        description: t`Available with Anarlog Pro`,
-      };
-    }
-
-    if (!syncPreferred) {
-      return {
-        kind: "paused" as const,
-        label: t`Sync paused`,
-        description: t`Your notes are stored on this device only`,
-      };
-    }
-
     if (credentialBlock === "device_limit") {
       return {
         kind: "error" as const,
@@ -193,8 +163,6 @@ export function SyncStatusIndicator() {
             "text-muted-foreground hover:text-foreground transition-colors",
           ])}
         >
-          {view.kind === "unavailable" && <CloudOffIcon className="size-4" />}
-          {view.kind === "paused" && <CloudOffIcon className="size-4" />}
           {view.kind === "error" && (
             <CloudAlertIcon className="size-4 text-yellow-600" />
           )}
@@ -217,40 +185,22 @@ export function SyncStatusIndicator() {
           )}
         </div>
         <DropdownMenuSeparator />
-        {!isPro ? (
-          <DropdownMenuItem onSelect={() => upgradeToPro()}>
-            <SparklesIcon className="size-4" />
-            <Trans>Upgrade to Pro</Trans>
-          </DropdownMenuItem>
-        ) : view.kind === "paused" ? (
-          <DropdownMenuItem
-            disabled={preferenceMutation.isPending}
-            onSelect={() => preferenceMutation.mutate(true)}
-          >
-            <PlayIcon className="size-4" />
-            <Trans>Resume sync</Trans>
-          </DropdownMenuItem>
-        ) : (
-          <>
-            <DropdownMenuItem
-              disabled={
-                syncNowMutation.isPending ||
-                (view.kind !== "synced" && !canRetry)
-              }
-              onSelect={() => syncNowMutation.mutate()}
-            >
-              <RefreshCwIcon className="size-4" />
-              {canRetry ? <Trans>Retry</Trans> : <Trans>Sync now</Trans>}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={preferenceMutation.isPending}
-              onSelect={() => preferenceMutation.mutate(false)}
-            >
-              <PauseIcon className="size-4" />
-              <Trans>Pause sync</Trans>
-            </DropdownMenuItem>
-          </>
-        )}
+        <DropdownMenuItem
+          disabled={
+            syncNowMutation.isPending || (view.kind !== "synced" && !canRetry)
+          }
+          onSelect={() => syncNowMutation.mutate()}
+        >
+          <RefreshCwIcon className="size-4" />
+          {canRetry ? <Trans>Retry</Trans> : <Trans>Sync now</Trans>}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={pauseSyncMutation.isPending}
+          onSelect={() => pauseSyncMutation.mutate()}
+        >
+          <PauseIcon className="size-4" />
+          <Trans>Pause sync</Trans>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={openSyncSettings}>
           <SettingsIcon className="size-4" />

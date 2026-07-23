@@ -5,11 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getCloudsyncStatus: vi.fn(),
-  getE2eeIdentityStatus: vi.fn(),
   syncCloudsyncNow: vi.fn(),
   applyCloudsyncPreference: vi.fn(),
   setSettingValue: vi.fn(),
-  upgradeToPro: vi.fn(),
   openNew: vi.fn(),
   signOut: vi.fn(),
   billing: { isPro: true, isReady: true },
@@ -20,7 +18,6 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@hypr/plugin-db", () => ({
   getCloudsyncStatus: mocks.getCloudsyncStatus,
-  getE2eeIdentityStatus: mocks.getE2eeIdentityStatus,
   syncCloudsyncNow: mocks.syncCloudsyncNow,
 }));
 
@@ -32,7 +29,6 @@ vi.mock("~/auth/billing-context", () => ({
   useBillingAccess: () => ({
     isPro: mocks.billing.isPro,
     isReady: mocks.billing.isReady,
-    upgradeToPro: mocks.upgradeToPro,
   }),
 }));
 
@@ -121,10 +117,6 @@ describe("SyncStatusIndicator", () => {
     mocks.settings.cloudSyncEnabled = true;
     mocks.credentialBlock = null;
     mocks.getCloudsyncStatus.mockResolvedValue(syncedStatus());
-    mocks.getE2eeIdentityStatus.mockResolvedValue({
-      configured: true,
-      keyId: "key",
-    });
     mocks.applyCloudsyncPreference.mockResolvedValue("ok");
     mocks.setSettingValue.mockResolvedValue(undefined);
     mocks.syncCloudsyncNow.mockResolvedValue({});
@@ -145,16 +137,12 @@ describe("SyncStatusIndicator", () => {
     expect(screen.queryByText("Upgrade to Pro")).toBeNull();
   });
 
-  it("shows an upsell instead of sync controls for free users", async () => {
+  it("does not render for free users", () => {
     mocks.billing.isPro = false;
 
     renderIndicator();
-    await openMenu();
 
-    expect(await screen.findByText("Available with Anarlog Pro")).toBeTruthy();
-    expect(screen.getByText("Upgrade to Pro")).toBeTruthy();
-    expect(screen.queryByText("Sync now")).toBeNull();
-    expect(screen.queryByText("Pause sync")).toBeNull();
+    expect(screen.queryByTestId("sync-status-indicator")).toBeNull();
     expect(mocks.getCloudsyncStatus).not.toHaveBeenCalled();
   });
 
@@ -173,41 +161,13 @@ describe("SyncStatusIndicator", () => {
     expect(mocks.applyCloudsyncPreference).toHaveBeenCalledWith(mocks.session);
   });
 
-  it("offers resume when sync is paused", async () => {
+  it("does not render when sync is paused", () => {
     mocks.settings.cloudSyncEnabled = false;
 
     renderIndicator();
-    await openMenu();
 
-    expect(await screen.findByText("Sync paused")).toBeTruthy();
-    fireEvent.click(screen.getByText("Resume sync"));
-
-    await vi.waitFor(() => {
-      expect(mocks.setSettingValue).toHaveBeenCalledWith(
-        "cloud_sync_enabled",
-        true,
-      );
-    });
-  });
-
-  it("routes resume to sync settings when E2EE is not set up", async () => {
-    mocks.settings.cloudSyncEnabled = false;
-    mocks.getE2eeIdentityStatus.mockResolvedValue({
-      configured: false,
-      keyId: null,
-    });
-
-    renderIndicator();
-    await openMenu();
-    fireEvent.click(await screen.findByText("Resume sync"));
-
-    await vi.waitFor(() => {
-      expect(mocks.openNew).toHaveBeenCalledWith({
-        type: "settings",
-        state: { tab: "app" },
-      });
-    });
-    expect(mocks.setSettingValue).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("sync-status-indicator")).toBeNull();
+    expect(mocks.getCloudsyncStatus).not.toHaveBeenCalled();
   });
 
   it("shows a blocked state when the device limit was hit instead of connecting forever", async () => {
