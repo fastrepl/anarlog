@@ -656,7 +656,7 @@ impl PluginDbRuntime {
                     Ok(_) => {
                         tracing::warn!(?retry_delay, "CloudSync full resync remains incomplete");
                     }
-                    Err(error) if error.is_transient() => {
+                    Err(error) if should_retry_cloudsync_full_resync(&error) => {
                         tracing::warn!(%error, ?retry_delay, "CloudSync full resync will retry");
                     }
                     Err(error) => {
@@ -785,6 +785,15 @@ fn cloudsync_snapshot_completed(result: &hypr_db_core::CloudsyncNetworkResult) -
         && receive.complete
         && receive.error.is_none()
         && receive.last_failure.is_none()
+}
+
+fn should_retry_cloudsync_full_resync(error: &hypr_db_core::CloudsyncRuntimeError) -> bool {
+    error.is_transient()
+        || matches!(
+            error,
+            hypr_db_core::CloudsyncRuntimeError::NotConfigured
+                | hypr_db_core::CloudsyncRuntimeError::NotStarted
+        )
 }
 
 fn is_permanent_cloudsync_workspace_rejection(
@@ -964,6 +973,19 @@ mod tests {
         assert!(!cloudsync_snapshot_completed(&send_only));
         assert!(!cloudsync_send_completed(
             &hypr_db_core::CloudsyncNetworkResult::default()
+        ));
+    }
+
+    #[test]
+    fn full_resync_waits_for_cloudsync_to_restart() {
+        assert!(should_retry_cloudsync_full_resync(
+            &hypr_db_core::CloudsyncRuntimeError::NotConfigured
+        ));
+        assert!(should_retry_cloudsync_full_resync(
+            &hypr_db_core::CloudsyncRuntimeError::NotStarted
+        ));
+        assert!(!should_retry_cloudsync_full_resync(
+            &hypr_db_core::CloudsyncRuntimeError::Unavailable
         ));
     }
 

@@ -114,15 +114,28 @@ async function waitForDatabaseRetry(delayMs: number, signal: AbortSignal) {
   throwIfAborted(signal);
 
   await new Promise<void>((resolve, reject) => {
+    let settled = false;
     const handleAbort = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
       clearTimeout(timeout);
+      signal.removeEventListener("abort", handleAbort);
       reject(createAbortError());
     };
     const timeout = setTimeout(() => {
+      if (settled) {
+        return;
+      }
+      settled = true;
       signal.removeEventListener("abort", handleAbort);
       resolve();
     }, delayMs);
     signal.addEventListener("abort", handleAbort, { once: true });
+    if (signal.aborted) {
+      handleAbort();
+    }
   });
 }
 

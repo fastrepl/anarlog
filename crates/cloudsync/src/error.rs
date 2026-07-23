@@ -45,6 +45,7 @@ impl Error {
                 if let Some(db_err) = sqlx_err.as_database_error() {
                     return classify_database_error(db_err.code().as_deref(), db_err.message());
                 }
+                return classify_error_message(&sqlx_err.to_string()).unwrap_or(ErrorKind::Fatal);
             }
             Self::Io(error) => return classify_io_error(error),
             _ => {}
@@ -153,6 +154,14 @@ mod tests {
             classify_io_error(&std::io::Error::other(
                 "E2EE pre-sync witness apply failed: database is locked"
             )),
+            ErrorKind::Transient
+        );
+        assert_eq!(
+            Error::Sqlx(sqlx::Error::Io(std::io::Error::new(
+                std::io::ErrorKind::ConnectionReset,
+                "connection reset by peer",
+            )))
+            .kind(),
             ErrorKind::Transient
         );
     }
