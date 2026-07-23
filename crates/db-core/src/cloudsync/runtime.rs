@@ -109,6 +109,7 @@ impl Db {
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let pool = self.pool.clone();
         let connection = Arc::clone(&self.cloudsync_connection);
+        let sync_operation = Arc::clone(&self.cloudsync_sync_operation);
         let runtime_state = Arc::clone(&self.cloudsync_runtime);
         let sync_hook = Arc::clone(&self.cloudsync_sync_hook);
         let sync_config = CloudsyncLoopConfig {
@@ -120,6 +121,7 @@ impl Db {
             cloudsync_background_loop(
                 pool,
                 connection,
+                sync_operation,
                 runtime_state,
                 sync_hook,
                 sync_config,
@@ -324,6 +326,7 @@ impl Db {
             return Err(CloudsyncRuntimeError::NotStarted);
         }
 
+        let _sync_operation = self.cloudsync_sync_operation.lock().await;
         let result = async {
             run_before_sync_hook(&self.cloudsync_sync_hook, &self.pool).await?;
             let result = self.cloudsync_network_sync(wait_ms, max_retries).await?;
@@ -342,6 +345,11 @@ impl Db {
                 Err(error.into())
             }
         }
+    }
+
+    pub fn cloudsync_runtime_observation(&self) -> (bool, Option<CloudsyncNetworkResult>) {
+        let runtime = self.cloudsync_runtime.lock().unwrap();
+        (runtime.running, runtime.last_sync.clone())
     }
 
     async fn stop_cloudsync_task(&self) -> bool {
@@ -887,6 +895,7 @@ struct CloudsyncLoopConfig {
 async fn cloudsync_background_loop(
     pool: SqlitePool,
     connection: Arc<tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>>,
+    sync_operation: Arc<tokio::sync::Mutex<()>>,
     runtime_state: Arc<Mutex<CloudsyncRuntimeState>>,
     sync_hook: Arc<Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>>,
     config: CloudsyncLoopConfig,
@@ -896,9 +905,15 @@ async fn cloudsync_background_loop(
         tokio::select! {
             _ = &mut shutdown_rx => break,
             _ = tokio::time::sleep(config.interval) => {
+                let Ok(sync_available) = sync_operation.try_lock() else {
+                    tracing::debug!("cloudsync interval skipped because another sync is active");
+                    continue;
+                };
+                drop(sync_available);
                 let Some(result) = sync_cloudsync_with_retry(
                     &pool,
                     &connection,
+                    &sync_operation,
                     &runtime_state,
                     &sync_hook,
                     config,
@@ -930,6 +945,7 @@ async fn cloudsync_background_loop(
 async fn sync_cloudsync_with_retry(
     pool: &SqlitePool,
     connection: &tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>,
+    sync_operation: &tokio::sync::Mutex<()>,
     runtime_state: &Mutex<CloudsyncRuntimeState>,
     sync_hook: &Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>,
     config: CloudsyncLoopConfig,
@@ -946,6 +962,7 @@ async fn sync_cloudsync_with_retry(
             sync_cloudsync_connection(
                 pool,
                 connection,
+                sync_operation,
                 sync_hook,
                 config.wait_ms,
                 config.max_retries,
@@ -1007,10 +1024,12 @@ async fn wait_for_retry_or_shutdown(
 async fn sync_cloudsync_connection(
     pool: &SqlitePool,
     connection: &tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>,
+    sync_operation: &tokio::sync::Mutex<()>,
     sync_hook: &Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>,
     wait_ms: Option<i64>,
     max_retries: Option<i64>,
 ) -> Result<CloudsyncNetworkResult, hypr_cloudsync::Error> {
+    let _sync_operation = sync_operation.lock().await;
     run_before_sync_hook(sync_hook, pool).await?;
     let mut connection = connection.lock().await;
     if connection.is_none() {

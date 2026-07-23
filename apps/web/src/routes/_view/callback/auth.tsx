@@ -133,11 +133,6 @@ function Component() {
     return buildAuthDeeplink(search.scheme, accessToken, refreshToken);
   };
 
-  // Browsers require a user gesture (click) to open custom URL schemes.
-  // Auto-triggering via setTimeout fails for email magic links because
-  // the page is opened from an external context (email client) without
-  // "transient user activation". OAuth redirects work because they maintain
-  // activation through the redirect chain.
   const handleDeeplink = () => {
     const deeplink = getDeeplink();
     if (search.flow === "desktop" && deeplink) {
@@ -155,15 +150,13 @@ function Component() {
       setStoredHandoff(handoff);
     }
 
-    if (search.auto_open === "oauth") {
-      const deeplink = buildAuthDeeplink(
-        search.scheme,
-        search.access_token ?? handoff?.accessToken,
-        search.refresh_token ?? handoff?.refreshToken,
-      );
-      if (deeplink) {
-        window.location.href = deeplink;
-      }
+    const deeplink = buildAuthDeeplink(
+      search.scheme,
+      search.access_token ?? handoff?.accessToken,
+      search.refresh_token ?? handoff?.refreshToken,
+    );
+    if (search.flow === "desktop" && deeplink) {
+      window.location.href = deeplink;
     }
   });
 

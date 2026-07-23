@@ -6,6 +6,7 @@ use sqlx::{Sqlite, SqlitePool, Transaction};
 
 pub const CLOUDSYNC_WORKSPACE_BINDING_ID: &str = "cloudsync_workspace_binding";
 const CLOUDSYNC_FULL_RESYNC_PENDING_ID: &str = "cloudsync_full_resync_pending";
+const CLOUDSYNC_FULL_RESYNC_RESET_APPLIED_ID: &str = "cloudsync_full_resync_reset_applied";
 const CLOUDSYNC_WRITE_FILTER_VERSION_ID: &str = "cloudsync_write_filter_version";
 const CLOUDSYNC_WRITE_FILTER_VERSION: &str = "writable-workspaces-v1";
 const LEGACY_DEFAULT_USER_ID: &str = "00000000-0000-0000-0000-000000000000";
@@ -395,11 +396,56 @@ pub async fn clear_cloudsync_full_resync_pending(
 ) -> Result<(), CloudsyncWorkspaceError> {
     let value_json = serde_json::to_string(generation)
         .map_err(|_| CloudsyncWorkspaceError::InvalidWorkspaceProjection)?;
+    let mut transaction = pool.begin().await?;
     sqlx::query("DELETE FROM app_settings WHERE id = ? AND value_json = ?")
         .bind(CLOUDSYNC_FULL_RESYNC_PENDING_ID)
-        .bind(value_json)
-        .execute(pool)
+        .bind(&value_json)
+        .execute(&mut *transaction)
         .await?;
+    sqlx::query("DELETE FROM app_settings WHERE id = ? AND value_json = ?")
+        .bind(CLOUDSYNC_FULL_RESYNC_RESET_APPLIED_ID)
+        .bind(value_json)
+        .execute(&mut *transaction)
+        .await?;
+    transaction.commit().await?;
+    Ok(())
+}
+
+pub async fn cloudsync_full_resync_requires_reset(
+    pool: &SqlitePool,
+    generation: &str,
+) -> Result<bool, CloudsyncWorkspaceError> {
+    let value_json: Option<String> =
+        sqlx::query_scalar("SELECT value_json FROM app_settings WHERE id = ?")
+            .bind(CLOUDSYNC_FULL_RESYNC_RESET_APPLIED_ID)
+            .fetch_optional(pool)
+            .await?;
+    let applied_generation = value_json
+        .map(|value_json| {
+            serde_json::from_str::<String>(&value_json)
+                .map_err(|_| CloudsyncWorkspaceError::InvalidWorkspaceProjection)
+        })
+        .transpose()?;
+    Ok(applied_generation.as_deref() != Some(generation))
+}
+
+pub async fn mark_cloudsync_full_resync_reset_applied(
+    pool: &SqlitePool,
+    generation: &str,
+) -> Result<(), CloudsyncWorkspaceError> {
+    let value_json = serde_json::to_string(generation)
+        .map_err(|_| CloudsyncWorkspaceError::InvalidWorkspaceProjection)?;
+    sqlx::query(
+        "INSERT INTO app_settings (id, value_json)
+         VALUES (?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           value_json = excluded.value_json,
+           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
+    )
+    .bind(CLOUDSYNC_FULL_RESYNC_RESET_APPLIED_ID)
+    .bind(value_json)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
@@ -990,11 +1036,29 @@ mod tests {
             cloudsync_full_resync_generation(db.pool()).await.unwrap(),
             Some(generation.clone())
         );
+        assert!(
+            cloudsync_full_resync_requires_reset(db.pool(), &generation)
+                .await
+                .unwrap()
+        );
+        mark_cloudsync_full_resync_reset_applied(db.pool(), &generation)
+            .await
+            .unwrap();
+        assert!(
+            !cloudsync_full_resync_requires_reset(db.pool(), &generation)
+                .await
+                .unwrap()
+        );
         let newer_generation =
             commit_cloudsync_workspace_projection(db.pool(), &personal_only, true)
                 .await
                 .unwrap()
                 .unwrap();
+        assert!(
+            cloudsync_full_resync_requires_reset(db.pool(), &newer_generation)
+                .await
+                .unwrap()
+        );
         clear_cloudsync_full_resync_pending(db.pool(), &generation)
             .await
             .unwrap();
@@ -1002,12 +1066,20 @@ mod tests {
             cloudsync_full_resync_generation(db.pool()).await.unwrap(),
             Some(newer_generation.clone())
         );
+        mark_cloudsync_full_resync_reset_applied(db.pool(), &newer_generation)
+            .await
+            .unwrap();
         clear_cloudsync_full_resync_pending(db.pool(), &newer_generation)
             .await
             .unwrap();
         assert_eq!(
             cloudsync_full_resync_generation(db.pool()).await.unwrap(),
             None
+        );
+        assert!(
+            cloudsync_full_resync_requires_reset(db.pool(), &newer_generation)
+                .await
+                .unwrap()
         );
     }
 

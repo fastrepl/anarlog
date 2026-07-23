@@ -37,6 +37,7 @@ const {
   startMeetingChatCaptureMock,
   stopMeetingChatCaptureMock,
   catalogLocalSessionAudioMock,
+  markSessionAudioTranscriptionCompleteMock,
   getEnhancerServiceMock,
   requestMainAutoEnhanceMock,
 } = vi.hoisted(() => ({
@@ -66,6 +67,7 @@ const {
   startMeetingChatCaptureMock: vi.fn(),
   stopMeetingChatCaptureMock: vi.fn(),
   catalogLocalSessionAudioMock: vi.fn(),
+  markSessionAudioTranscriptionCompleteMock: vi.fn(),
   getEnhancerServiceMock: vi.fn(),
   requestMainAutoEnhanceMock: vi.fn(),
 }));
@@ -134,6 +136,8 @@ vi.mock("~/services/audio-retention", () => ({
 
 vi.mock("~/session/attachments", () => ({
   catalogLocalSessionAudio: catalogLocalSessionAudioMock,
+  markSessionAudioTranscriptionComplete:
+    markSessionAudioTranscriptionCompleteMock,
 }));
 
 vi.mock("~/contexts/shell", () => ({
@@ -216,6 +220,20 @@ describe("getPostCaptureAction", () => {
     ).toBe("batch_then_enhance");
   });
 
+  test("repairs the full transcript after a live database write fails", () => {
+    expect(
+      getPostCaptureAction(
+        {
+          audioPath: "/tmp/session.wav",
+          liveTranscriptionActive: true,
+          needsBatchRepair: false,
+          transcriptWriteFailed: true,
+        },
+        true,
+      ),
+    ).toBe("batch_then_enhance");
+  });
+
   test("does nothing when batch fallback is needed but no transcription connection is available", () => {
     expect(
       getPostCaptureAction(
@@ -270,6 +288,7 @@ describe("useStartListening", () => {
     applyLiveTranscriptDeltaToDatabaseMock.mockResolvedValue(undefined);
     softDeleteTranscriptMock.mockResolvedValue(undefined);
     catalogLocalSessionAudioMock.mockResolvedValue(undefined);
+    markSessionAudioTranscriptionCompleteMock.mockResolvedValue(undefined);
     useConfigValueMock.mockImplementation((key) =>
       key === "ai_language"
         ? "en"
@@ -427,7 +446,7 @@ describe("useStartListening", () => {
     expect(catalogLocalSessionAudioMock).not.toHaveBeenCalled();
   });
 
-  test("catalogs finalized audio even when transcript persistence fails", async () => {
+  test("repairs from finalized audio when live transcript persistence fails", async () => {
     createLiveTranscriptMock.mockRejectedValueOnce(new Error("write failed"));
     const consoleError = vi
       .spyOn(console, "error")
@@ -464,14 +483,164 @@ describe("useStartListening", () => {
     });
 
     expect(catalogLocalSessionAudioMock).toHaveBeenCalledWith("session-1");
-    expect(runBatchMock).not.toHaveBeenCalled();
+    expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav");
+    expect(sonnerToastErrorMock).not.toHaveBeenCalled();
+    expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledWith(
+      "session-1",
+    );
+    consoleError.mockRestore();
+  });
+
+  test("persists live transcript deltas in arrival order", async () => {
+    let resolveCreate: (() => void) | undefined;
+    createLiveTranscriptMock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveCreate = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const callbacks = startMock.mock.calls[0]?.[1];
+    callbacks?.handlePersist?.({
+      new_words: [
+        {
+          id: "word-1",
+          text: "first",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 0,
+        },
+      ],
+      replaced_ids: [],
+      partials: [],
+    });
+    callbacks?.handlePersist?.({
+      new_words: [
+        {
+          id: "word-2",
+          text: "second",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 0,
+        },
+      ],
+      replaced_ids: [],
+      partials: [],
+    });
+
+    await waitFor(() => {
+      expect(createLiveTranscriptMock).toHaveBeenCalledTimes(1);
+    });
+    expect(applyLiveTranscriptDeltaToDatabaseMock).not.toHaveBeenCalled();
+
+    resolveCreate?.();
+    await waitFor(() => {
+      expect(applyLiveTranscriptDeltaToDatabaseMock).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      await callbacks?.onStopped?.("session-1", {
+        durationSeconds: 1,
+        audioPath: null,
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+      });
+    });
+  });
+
+  test("does not summarize an incomplete live transcript without repair audio", async () => {
+    createLiveTranscriptMock.mockRejectedValueOnce(new Error("write failed"));
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const callbacks = startMock.mock.calls[0]?.[1];
+    callbacks?.handlePersist?.({
+      new_words: [
+        {
+          id: "word-1",
+          text: "partial",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 0,
+        },
+      ],
+      replaced_ids: [],
+      partials: [],
+    });
+    await act(async () => {
+      await callbacks?.onStopped?.("session-1", {
+        durationSeconds: 1,
+        audioPath: null,
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+      });
+    });
+
     expect(sonnerToastErrorMock).toHaveBeenCalledWith(
       "Anarlog could not save part of the live transcript.",
       { id: "live-transcript-persist-failed" },
     );
-    expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledWith(
-      "session-1",
+    expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
+    expect(queueAutoEnhanceMock).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  test("keeps repair audio when both live persistence and batch repair fail", async () => {
+    createLiveTranscriptMock.mockRejectedValueOnce(new Error("write failed"));
+    runBatchMock.mockRejectedValueOnce(new Error("batch failed"));
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const callbacks = startMock.mock.calls[0]?.[1];
+    callbacks?.handlePersist?.({
+      new_words: [
+        {
+          id: "word-1",
+          text: "partial",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 0,
+        },
+      ],
+      replaced_ids: [],
+      partials: [],
+    });
+    await act(async () => {
+      await callbacks?.onStopped?.("session-1", {
+        durationSeconds: 1,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+      });
+    });
+
+    expect(sonnerToastErrorMock).toHaveBeenCalledWith(
+      "Anarlog could not finish saving the transcript. The recording was kept so you can try again.",
+      { id: "post-capture-transcript-incomplete" },
     );
+    expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
+    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
+    expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
     consoleError.mockRestore();
   });
 
@@ -510,7 +679,7 @@ describe("useStartListening", () => {
     consoleError.mockRestore();
   });
 
-  test("still tries to summarize the live transcript when the batch repair fails without other transcripts", async () => {
+  test("keeps audio and skips summary when record-only transcription fails", async () => {
     runBatchMock.mockRejectedValueOnce(new Error("upload failed"));
     const consoleError = vi
       .spyOn(console, "error")
@@ -533,9 +702,11 @@ describe("useStartListening", () => {
       });
     });
 
-    expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledWith(
-      "session-1",
+    expect(sonnerToastErrorMock).toHaveBeenCalledWith(
+      "Anarlog could not finish saving the transcript. The recording was kept so you can try again.",
+      { id: "post-capture-transcript-incomplete" },
     );
+    expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
     consoleError.mockRestore();
   });
@@ -671,7 +842,8 @@ describe("useStartListening", () => {
     });
 
     expect(runBatchMock).not.toHaveBeenCalled();
-    expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledWith(
+    expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
+    expect(markSessionAudioTranscriptionCompleteMock).toHaveBeenCalledWith(
       "session-1",
     );
     expect(deleteProcessedAudioForRetentionMock).toHaveBeenCalledWith(
@@ -725,6 +897,9 @@ describe("useStartListening", () => {
     });
 
     expect(resetEnhanceTasksMock).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(createLiveTranscriptMock).toHaveBeenCalledTimes(1);
+    });
     resolveTranscriptWrite?.();
     await act(async () => await stopped);
 

@@ -4,6 +4,7 @@ import type { TranscriptionParams } from "@hypr/plugin-transcription";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import { useListener } from "./contexts";
+import { persistTranscriptWrite } from "./persist-retry";
 import { getSessionKeywords } from "./useKeywords";
 import { useSTTConnection } from "./useSTTConnection";
 
@@ -14,6 +15,7 @@ import {
   deleteProcessedAudioForRetention,
   normalizeAudioRetention,
 } from "~/services/audio-retention";
+import { markSessionAudioTranscriptionComplete } from "~/session/attachments";
 import { useSession, useSessionParticipants } from "~/session/queries";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
@@ -266,11 +268,13 @@ export const useRunBatch = (sessionId: string) => {
         options?.handlePersist;
       let lastTranscriptWrite = Promise.resolve();
       let transcriptWriteError: unknown;
-      const trackTranscriptWrite = (write: Promise<void>) => {
-        lastTranscriptWrite = write.catch((error) => {
-          transcriptWriteError = error;
-          console.error("[runBatch] failed to persist transcript", error);
-        });
+      const trackTranscriptWrite = (write: () => Promise<void>) => {
+        lastTranscriptWrite = lastTranscriptWrite
+          .then(() => persistTranscriptWrite(write))
+          .catch((error) => {
+            transcriptWriteError = error;
+            console.error("[runBatch] failed to persist transcript", error);
+          });
       };
 
       const persist =
@@ -327,10 +331,11 @@ export const useRunBatch = (sessionId: string) => {
           });
 
           if (!transcriptId) {
-            transcriptId = id();
-            trackTranscriptWrite(
+            const createdTranscriptId = id();
+            transcriptId = createdTranscriptId;
+            trackTranscriptWrite(() =>
               createTranscript({
-                id: transcriptId,
+                id: createdTranscriptId,
                 sessionId,
                 ownerUserId: session?.user_id ?? "",
                 createdAt,
@@ -345,9 +350,10 @@ export const useRunBatch = (sessionId: string) => {
               }),
             );
           } else {
-            trackTranscriptWrite(
+            const activeTranscriptId = transcriptId;
+            trackTranscriptWrite(() =>
               appendTranscriptWordsAndHints(
-                transcriptId,
+                activeTranscriptId,
                 newWords,
                 newHints,
                 persistOptions,
@@ -398,6 +404,18 @@ export const useRunBatch = (sessionId: string) => {
 
       if (transcriptWriteError) throw transcriptWriteError;
 
+      if (!handlePersist) {
+        try {
+          await persistTranscriptWrite(() =>
+            markSessionAudioTranscriptionComplete(sessionId),
+          );
+        } catch (error) {
+          console.error(
+            "[runBatch] failed to mark session audio as processed",
+            error,
+          );
+        }
+      }
       await deleteProcessedAudioForRetention(audioRetention, sessionId);
     },
     [

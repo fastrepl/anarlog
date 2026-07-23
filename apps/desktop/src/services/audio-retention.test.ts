@@ -34,12 +34,19 @@ import {
 } from "./audio-retention";
 
 function mockCleanupRows(
-  sessions: Array<{ id: string; created_at: string; has_words: number }>,
+  sessions: Array<{
+    id: string;
+    created_at: string;
+    has_words: number;
+    transcript_processing?: number;
+  }>,
   logicallyDeleted: Array<{ session_id: string }> = [],
 ) {
   mocks.execute.mockImplementation((sql: string) =>
     Promise.resolve(
-      sql.includes("FROM session_attachments") ? logicallyDeleted : sessions,
+      sql.includes("SELECT DISTINCT attachment.session_id")
+        ? logicallyDeleted
+        : sessions,
     ),
   );
 }
@@ -139,6 +146,22 @@ describe("audio retention", () => {
     );
   });
 
+  test("keeps source audio while transcription is still processing", async () => {
+    mockCleanupRows([
+      {
+        id: "partial",
+        created_at: "2026-05-01T00:00:00.000Z",
+        has_words: 1,
+        transcript_processing: 1,
+      },
+    ]);
+
+    await expect(
+      cleanupExpiredAudio("none", Date.parse("2026-05-13T00:00:00.000Z")),
+    ).resolves.toEqual([]);
+    expect(mocks.deleteLocalSessionAudio).not.toHaveBeenCalled();
+  });
+
   test("deletes processed audio immediately when retention is none", async () => {
     mocks.execute.mockResolvedValueOnce([{ has_words: 1 }]);
 
@@ -156,6 +179,17 @@ describe("audio retention", () => {
 
     await expect(
       deleteProcessedAudioForRetention("none", "unprocessed"),
+    ).resolves.toBe(false);
+    expect(mocks.deleteLocalSessionAudio).not.toHaveBeenCalled();
+  });
+
+  test("keeps partially persisted audio when retention is none", async () => {
+    mocks.execute.mockResolvedValueOnce([
+      { has_words: 1, transcript_processing: 1 },
+    ]);
+
+    await expect(
+      deleteProcessedAudioForRetention("none", "partial"),
     ).resolves.toBe(false);
     expect(mocks.deleteLocalSessionAudio).not.toHaveBeenCalled();
   });

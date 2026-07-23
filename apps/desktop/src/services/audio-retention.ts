@@ -51,21 +51,35 @@ export function isSessionAudioIdle(sessionId: string) {
   );
 }
 
-async function sessionHasTranscriptWords(sessionId: string): Promise<boolean> {
-  const rows = await liveQueryClient.execute<{ has_words: number }>(
+async function sessionAudioIsProcessed(sessionId: string): Promise<boolean> {
+  const rows = await liveQueryClient.execute<{
+    has_words: number;
+    transcript_processing: number;
+  }>(
     `
-      SELECT EXISTS(
-        SELECT 1
-        FROM transcripts
-        WHERE session_id = ?
-          AND deleted_at IS NULL
-          AND json_valid(words_json)
-          AND json_array_length(words_json) > 0
-      ) AS has_words
+      SELECT
+        EXISTS(
+          SELECT 1
+          FROM transcripts
+          WHERE session_id = ?
+            AND deleted_at IS NULL
+            AND json_valid(words_json)
+            AND json_array_length(words_json) > 0
+        ) AS has_words,
+        EXISTS(
+          SELECT 1
+          FROM session_attachments
+          WHERE session_id = ?
+            AND source_type = 'session_audio'
+            AND source_id = 'primary'
+            AND deleted_at IS NULL
+            AND json_valid(metadata_json)
+            AND json_extract(metadata_json, '$.transcript_status') = 'processing'
+        ) AS transcript_processing
     `,
-    [sessionId],
+    [sessionId, sessionId],
   );
-  return rows[0]?.has_words === 1;
+  return rows[0]?.has_words === 1 && rows[0]?.transcript_processing !== 1;
 }
 
 export async function deleteProcessedAudioForRetention(
@@ -80,7 +94,7 @@ export async function deleteProcessedAudioForRetention(
     return false;
   }
 
-  if (!(await sessionHasTranscriptWords(sessionId))) {
+  if (!(await sessionAudioIsProcessed(sessionId))) {
     return false;
   }
 
@@ -111,6 +125,7 @@ export async function cleanupExpiredAudio(
     id: string;
     created_at: string;
     has_words: number;
+    transcript_processing: number;
   }>(`
     SELECT
       session.id,
@@ -122,7 +137,17 @@ export async function cleanupExpiredAudio(
           AND transcript.deleted_at IS NULL
           AND json_valid(transcript.words_json)
           AND json_array_length(transcript.words_json) > 0
-      ) AS has_words
+      ) AS has_words,
+      EXISTS(
+        SELECT 1
+        FROM session_attachments AS audio
+        WHERE audio.session_id = session.id
+          AND audio.source_type = 'session_audio'
+          AND audio.source_id = 'primary'
+          AND audio.deleted_at IS NULL
+          AND json_valid(audio.metadata_json)
+          AND json_extract(audio.metadata_json, '$.transcript_status') = 'processing'
+      ) AS transcript_processing
     FROM sessions AS session
     WHERE session.deleted_at IS NULL
     ORDER BY session.created_at, session.id
@@ -130,6 +155,10 @@ export async function cleanupExpiredAudio(
 
   for (const session of sessions) {
     if (!isSessionAudioIdle(session.id)) {
+      continue;
+    }
+
+    if (session.transcript_processing === 1) {
       continue;
     }
 

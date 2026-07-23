@@ -300,10 +300,16 @@ impl Db {
     }
 
     pub async fn cloudsync_network_reset_sync_version(&self) -> Result<(), hypr_cloudsync::Error> {
+        let _sync_operation = self.cloudsync_sync_operation.lock().await;
         let mut connection = self.lock_cloudsync_connection().await?;
         let result =
             hypr_cloudsync::network_reset_sync_version(&mut **connection.as_mut().unwrap()).await;
         self.release_single_pool_connection(&mut connection);
+        if result.is_ok() {
+            let mut runtime = self.cloudsync_runtime.lock().unwrap();
+            runtime.last_sync = None;
+            runtime.last_sync_at_ms = None;
+        }
         result
     }
 

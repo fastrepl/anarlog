@@ -32,6 +32,7 @@ import {
   cleanupDeletedSessionAudio,
   deleteLocalSessionAudio,
   deleteSessionAudio,
+  markSessionAudioTranscriptionComplete,
   setAttachmentCloudSyncEnabled,
   sha256Hex,
 } from "./attachments";
@@ -228,6 +229,10 @@ describe("attachment catalog", () => {
       /WHEN session_attachments\.sha256 = \?\s+AND session_attachments\.size_bytes = \?/,
     );
     expect(statements[1].sql).toContain("source_type = 'session_audio'");
+    expect(statements[1].sql).toContain("'$.transcript_status'");
+    expect(statements[2].sql).toContain(
+      "json_object('transcript_status', 'processing')",
+    );
     expect(statements[2].sql).toContain("session.workspace_id");
     expect(statements[2].params).toEqual([
       "session-audio:session-1",
@@ -273,6 +278,20 @@ describe("attachment catalog", () => {
       "session-1",
       "session-1",
     ]);
+  });
+
+  it("marks session audio complete only after transcription finishes", async () => {
+    await markSessionAudioTranscriptionComplete("session-1");
+
+    expect(mocks.enqueueDatabaseWrite).toHaveBeenCalledWith(
+      "session:session-1",
+      expect.any(Function),
+    );
+    expect(mocks.execute).toHaveBeenCalledWith(
+      expect.stringContaining("'$.transcript_status'"),
+      ["session-audio:session-1", "session-1"],
+    );
+    expect(mocks.execute.mock.calls[0]![0]).toContain("'complete'");
   });
 
   it("keeps canonical metadata when retention deletes only local audio bytes", async () => {

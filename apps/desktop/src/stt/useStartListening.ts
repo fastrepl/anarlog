@@ -6,6 +6,7 @@ import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import { useListener } from "./contexts";
 import { startMeetingChatCapture } from "./meeting-chat-capture";
+import { persistTranscriptWrite } from "./persist-retry";
 import { getSessionKeywords } from "./useKeywords";
 import {
   canRunBatchTranscription,
@@ -21,7 +22,10 @@ import {
   normalizeAudioRetention,
 } from "~/services/audio-retention";
 import { getEnhancerService } from "~/services/enhancer";
-import { catalogLocalSessionAudio } from "~/session/attachments";
+import {
+  catalogLocalSessionAudio,
+  markSessionAudioTranscriptionComplete,
+} from "~/session/attachments";
 import { enqueueSessionAudioOperation } from "~/session/audio-operations";
 import { useSession, useSessionHasTranscript } from "~/session/queries";
 import { getSessionEvent } from "~/session/utils";
@@ -237,10 +241,15 @@ export function getPostCaptureAction(
     audioPath: string | null;
     liveTranscriptionActive: boolean;
     needsBatchRepair: boolean;
+    transcriptWriteFailed?: boolean;
   },
   canRunBatch: boolean,
 ) {
-  if (details.liveTranscriptionActive && !details.needsBatchRepair) {
+  if (
+    details.liveTranscriptionActive &&
+    !details.needsBatchRepair &&
+    !details.transcriptWriteFailed
+  ) {
     return "enhance_only" as const;
   }
 
@@ -292,11 +301,13 @@ export function useStartListening(sessionId: string) {
     const createdAt = new Date().toISOString();
     let lastTranscriptWrite = Promise.resolve();
     let transcriptWriteError: unknown;
-    const trackTranscriptWrite = (write: Promise<void>) => {
-      lastTranscriptWrite = write.catch((error) => {
-        transcriptWriteError = error;
-        console.error("[listener] failed to persist transcript", error);
-      });
+    const trackTranscriptWrite = (write: () => Promise<void>) => {
+      lastTranscriptWrite = lastTranscriptWrite
+        .then(() => persistTranscriptWrite(write))
+        .catch((error) => {
+          transcriptWriteError = error;
+          console.error("[listener] failed to persist transcript", error);
+        });
     };
     const keywords = await getSessionKeywords({
       sessionId,
@@ -316,15 +327,12 @@ export function useStartListening(sessionId: string) {
         }
       }
       await lastTranscriptWrite;
-      if (transcriptWriteError) {
-        sonnerToast.error(
-          "Anarlog could not save part of the live transcript.",
-          { id: "live-transcript-persist-failed" },
-        );
-      }
 
       const postCaptureAction = getPostCaptureAction(
-        details,
+        {
+          ...details,
+          transcriptWriteFailed: Boolean(transcriptWriteError),
+        },
         canRunBatchRef.current,
       );
 
@@ -341,16 +349,59 @@ export function useStartListening(sessionId: string) {
             "[listener] failed to run post-capture transcription",
             error,
           );
-          sonnerToast.error(
-            "Post-meeting transcription failed. Summarizing the live transcript instead.",
-            { id: "post-capture-batch-failed" },
-          );
+          if (transcriptWriteError || !details.liveTranscriptionActive) {
+            sonnerToast.error(
+              "Anarlog could not finish saving the transcript. The recording was kept so you can try again.",
+              { id: "post-capture-transcript-incomplete" },
+            );
+          } else {
+            sonnerToast.error(
+              "Post-meeting transcription failed. Summarizing the live transcript instead.",
+              { id: "post-capture-batch-failed" },
+            );
+          }
         }
+      }
+
+      if (transcriptWriteError && postCaptureAction !== "batch_then_enhance") {
+        sonnerToast.error(
+          details.audioPath
+            ? "Anarlog could not finish saving the transcript. The recording was kept so you can try again."
+            : "Anarlog could not save part of the live transcript.",
+          {
+            id: details.audioPath
+              ? "post-capture-transcript-incomplete"
+              : "live-transcript-persist-failed",
+          },
+        );
       }
 
       const hasTranscriptEvidence =
         hadTranscriptBeforeStart || transcriptId !== null || batchCompleted;
-      if (postCaptureAction !== "none" || hasTranscriptEvidence) {
+      const transcriptIsComplete =
+        batchCompleted ||
+        (details.liveTranscriptionActive && !transcriptWriteError);
+      const shouldEnhance =
+        hasTranscriptEvidence &&
+        (transcriptIsComplete ||
+          (postCaptureAction === "none" &&
+            hadTranscriptBeforeStart &&
+            !transcriptWriteError));
+
+      if (details.audioPath && transcriptIsComplete) {
+        try {
+          await persistTranscriptWrite(() =>
+            markSessionAudioTranscriptionComplete(sessionId),
+          );
+        } catch (error) {
+          console.error(
+            "[listener] failed to mark session audio as processed",
+            error,
+          );
+        }
+      }
+
+      if (shouldEnhance) {
         const shouldRegenerateExistingSummary =
           hadTranscriptBeforeStart && (transcriptId !== null || batchCompleted);
         const service = getEnhancerService();
@@ -384,11 +435,12 @@ export function useStartListening(sessionId: string) {
       }
 
       if (!transcriptId) {
-        transcriptId = id();
-        trackTranscriptWrite(
+        const createdTranscriptId = id();
+        transcriptId = createdTranscriptId;
+        trackTranscriptWrite(() =>
           createLiveTranscript(
             {
-              id: transcriptId,
+              id: createdTranscriptId,
               sessionId,
               ownerUserId: session?.user_id ?? "",
               createdAt,
@@ -404,8 +456,9 @@ export function useStartListening(sessionId: string) {
         return;
       }
 
-      trackTranscriptWrite(
-        applyLiveTranscriptDeltaToDatabase(transcriptId, delta),
+      const activeTranscriptId = transcriptId;
+      trackTranscriptWrite(() =>
+        applyLiveTranscriptDeltaToDatabase(activeTranscriptId, delta),
       );
     };
 

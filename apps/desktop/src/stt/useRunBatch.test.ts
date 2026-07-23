@@ -22,6 +22,7 @@ const {
   isSupportedLanguagesBatchMock,
   sonnerToastWarningMock,
   deleteProcessedAudioForRetentionMock,
+  markSessionAudioTranscriptionCompleteMock,
   createTranscriptMock,
   appendTranscriptWordsAndHintsMock,
   idMock,
@@ -38,6 +39,7 @@ const {
   isSupportedLanguagesBatchMock: vi.fn(),
   sonnerToastWarningMock: vi.fn(),
   deleteProcessedAudioForRetentionMock: vi.fn(),
+  markSessionAudioTranscriptionCompleteMock: vi.fn(),
   createTranscriptMock: vi.fn(),
   appendTranscriptWordsAndHintsMock: vi.fn(),
   idMock: vi.fn(),
@@ -80,6 +82,11 @@ vi.mock("~/services/audio-retention", () => ({
   deleteProcessedAudioForRetention: deleteProcessedAudioForRetentionMock,
   normalizeAudioRetention: (value: unknown) =>
     typeof value === "string" ? value : "forever",
+}));
+
+vi.mock("~/session/attachments", () => ({
+  markSessionAudioTranscriptionComplete:
+    markSessionAudioTranscriptionCompleteMock,
 }));
 
 vi.mock("~/session/queries", () => ({
@@ -215,6 +222,7 @@ describe("useRunBatch", () => {
     createTranscriptMock.mockResolvedValue(undefined);
     appendTranscriptWordsAndHintsMock.mockResolvedValue(undefined);
     deleteProcessedAudioForRetentionMock.mockResolvedValue(undefined);
+    markSessionAudioTranscriptionCompleteMock.mockResolvedValue(undefined);
     isSupportedLanguagesBatchMock.mockResolvedValue(true);
     useListenerMock.mockImplementation((selector) =>
       selector({ startTranscription: startTranscriptionMock }),
@@ -280,9 +288,12 @@ describe("useRunBatch", () => {
     await act(async () => await run);
 
     expect(createTranscriptMock).toHaveBeenCalledTimes(1);
+    expect(markSessionAudioTranscriptionCompleteMock).toHaveBeenCalledWith(
+      "session-1",
+    );
     expect(deleteProcessedAudioForRetentionMock).toHaveBeenCalledTimes(1);
     expect(
-      appendTranscriptWordsAndHintsMock.mock.invocationCallOrder[0],
+      markSessionAudioTranscriptionCompleteMock.mock.invocationCallOrder[0],
     ).toBeLessThan(
       deleteProcessedAudioForRetentionMock.mock.invocationCallOrder[0],
     );

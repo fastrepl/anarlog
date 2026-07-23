@@ -9,10 +9,7 @@ use tauri::ipc::Channel;
 use crate::{QueryEvent, Result, TransactionStatement};
 
 const DEFAULT_CLOUDSYNC_INTERVAL_MS: u64 = 30_000;
-const CLOUDSYNC_FULL_RESYNC_MAX_RETRY_DELAY: std::time::Duration =
-    std::time::Duration::from_secs(5 * 60);
-const CLOUDSYNC_FULL_RESYNC_MIN_RETRY_DELAY: std::time::Duration =
-    std::time::Duration::from_secs(5);
+const CLOUDSYNC_FULL_RESYNC_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
 const CLOUDSYNC_WRITE_FILTER: &str =
     "workspace_id IN (SELECT allowed_workspace_id FROM cloudsync_writable_workspaces)";
 
@@ -577,9 +574,22 @@ impl PluginDbRuntime {
         if let Some(generation) =
             hypr_db_app::cloudsync_full_resync_generation(self.db.pool()).await?
         {
-            if let Err(error) = self.db.cloudsync_network_reset_sync_version().await {
-                let _ = self.db.cloudsync_suspend().await;
-                return Err(hypr_db_core::CloudsyncRuntimeError::from(error).into());
+            if hypr_db_app::cloudsync_full_resync_requires_reset(self.db.pool(), &generation)
+                .await?
+            {
+                if let Err(error) = self.db.cloudsync_network_reset_sync_version().await {
+                    let _ = self.db.cloudsync_suspend().await;
+                    return Err(hypr_db_core::CloudsyncRuntimeError::from(error).into());
+                }
+                if let Err(error) = hypr_db_app::mark_cloudsync_full_resync_reset_applied(
+                    self.db.pool(),
+                    &generation,
+                )
+                .await
+                {
+                    let _ = self.db.cloudsync_suspend().await;
+                    return Err(error.into());
+                }
             }
             self.schedule_cloudsync_full_resync(generation);
         }
@@ -674,53 +684,73 @@ impl PluginDbRuntime {
         let db = std::sync::Arc::clone(&self.db);
         let scheduled = std::sync::Arc::clone(&self.scheduled_cloudsync_full_resync);
         tokio::spawn(async move {
-            let mut retry_delay = CLOUDSYNC_FULL_RESYNC_MIN_RETRY_DELAY;
+            match db.cloudsync_trigger_sync().await {
+                Ok(result) if cloudsync_snapshot_completed(&result) => {
+                    match hypr_db_app::clear_cloudsync_full_resync_pending(db.pool(), &generation)
+                        .await
+                    {
+                        Ok(()) => {
+                            scheduled.lock().unwrap().complete(&generation);
+                            return;
+                        }
+                        Err(error) => {
+                            tracing::warn!(
+                                %error,
+                                "failed to clear CloudSync full resync marker"
+                            );
+                        }
+                    }
+                }
+                Ok(_) => {
+                    tracing::warn!(
+                        "CloudSync full resync remains incomplete; background sync will continue"
+                    );
+                }
+                Err(error) if error.is_transient() => {
+                    tracing::warn!(
+                        %error,
+                        "CloudSync full resync handed off to background retry"
+                    );
+                }
+                Err(error) => {
+                    tracing::warn!(%error, "CloudSync full resync remains pending");
+                }
+            }
+
             loop {
                 if !scheduled.lock().unwrap().is_active(&generation) {
                     return;
                 }
 
-                match db.cloudsync_trigger_sync().await {
-                    Ok(result) if cloudsync_snapshot_completed(&result) => {
-                        match hypr_db_app::clear_cloudsync_full_resync_pending(
-                            db.pool(),
-                            &generation,
-                        )
+                let (running, last_sync) = db.cloudsync_runtime_observation();
+                if last_sync.as_ref().is_some_and(cloudsync_snapshot_completed) {
+                    match hypr_db_app::clear_cloudsync_full_resync_pending(db.pool(), &generation)
                         .await
-                        {
-                            Ok(()) => {
-                                scheduled.lock().unwrap().complete(&generation);
-                                return;
-                            }
-                            Err(error) => {
-                                tracing::warn!(%error, "failed to clear CloudSync full resync marker");
-                            }
-                        }
-                    }
-                    Ok(_) => {
-                        tracing::warn!(?retry_delay, "CloudSync full resync remains incomplete");
-                    }
-                    Err(error) if error.is_transient() => {
-                        tracing::warn!(%error, ?retry_delay, "CloudSync full resync will retry");
-                    }
-                    Err(error) => {
-                        let retry_after_restart = scheduled
-                            .lock()
-                            .unwrap()
-                            .handle_non_transient_error(&generation);
-                        if !retry_after_restart {
-                            tracing::warn!(%error, "CloudSync full resync remains pending");
+                    {
+                        Ok(()) => {
+                            scheduled.lock().unwrap().complete(&generation);
                             return;
                         }
-                        retry_delay = CLOUDSYNC_FULL_RESYNC_MIN_RETRY_DELAY;
-                        tracing::warn!(%error, "CloudSync full resync will retry after reconfigure");
+                        Err(error) => {
+                            tracing::warn!(
+                                %error,
+                                "failed to clear CloudSync full resync marker"
+                            );
+                        }
                     }
+                } else if !running {
+                    let wait_for_restart = scheduled
+                        .lock()
+                        .unwrap()
+                        .handle_non_transient_error(&generation);
+                    if !wait_for_restart {
+                        tracing::warn!("CloudSync full resync remains pending");
+                        return;
+                    }
+                    tracing::warn!("CloudSync full resync waiting for reconfigure");
                 }
 
-                tokio::time::sleep(retry_delay).await;
-                retry_delay = retry_delay
-                    .saturating_mul(2)
-                    .min(CLOUDSYNC_FULL_RESYNC_MAX_RETRY_DELAY);
+                tokio::time::sleep(CLOUDSYNC_FULL_RESYNC_POLL_INTERVAL).await;
             }
         });
     }

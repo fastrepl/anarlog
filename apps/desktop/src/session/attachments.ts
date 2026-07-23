@@ -256,6 +256,14 @@ export async function catalogLocalSessionAudio(
             sha256 = ?,
             source_type = 'session_audio',
             source_id = 'primary',
+            metadata_json = json_set(
+              CASE
+                WHEN json_valid(metadata_json) THEN metadata_json
+                ELSE '{}'
+              END,
+              '$.transcript_status',
+              'processing'
+            ),
             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
             deleted_at = NULL
           WHERE id = ?
@@ -312,7 +320,7 @@ export async function catalogLocalSessionAudio(
             '',
             'session_audio',
             'primary',
-            '{}'
+            json_object('transcript_status', 'processing')
           FROM sessions AS session
           WHERE session.id = ?
             AND session.deleted_at IS NULL
@@ -376,6 +384,35 @@ export async function catalogLocalSessionAudio(
       throw new Error("audio session is unavailable");
     }
   });
+}
+
+export async function markSessionAudioTranscriptionComplete(
+  inputSessionId: string,
+): Promise<void> {
+  const sessionId = requireText(inputSessionId, "session ID", 512);
+  await enqueueDatabaseWrite(`session:${sessionId}`, () =>
+    liveQueryClient.execute(
+      `
+        UPDATE session_attachments
+        SET
+          metadata_json = json_set(
+            CASE
+              WHEN json_valid(metadata_json) THEN metadata_json
+              ELSE '{}'
+            END,
+            '$.transcript_status',
+            'complete'
+          ),
+          updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        WHERE id = ?
+          AND session_id = ?
+          AND source_type = 'session_audio'
+          AND source_id = 'primary'
+          AND deleted_at IS NULL
+      `,
+      [`session-audio:${sessionId}`, sessionId],
+    ),
+  );
 }
 
 export async function setAttachmentCloudSyncEnabled(
