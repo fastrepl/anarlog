@@ -14,6 +14,7 @@ final class FloatingPanelPositionController: NSObject, NSWindowDelegate {
     force: Bool = false,
     size: NSSize? = nil,
     anchorOffset: NSPoint? = nil,
+    followsPointer: Bool = true,
     defaultOrigin: (NSScreen, NSSize) -> NSPoint
   ) {
     let panelSize = size ?? panel.frame.size
@@ -35,7 +36,7 @@ final class FloatingPanelPositionController: NSObject, NSWindowDelegate {
       return
     }
 
-    let screen = activeScreen()
+    let screen = activeScreen(followsPointer: followsPointer)
     let screenId = displayId(for: screen)
     if !force, screenId == activeScreenId {
       return
@@ -164,9 +165,17 @@ final class FloatingPanelPositionController: NSObject, NSWindowDelegate {
     }
   }
 
-  private func activeScreen() -> NSScreen {
-    let mouse = NSEvent.mouseLocation
+  private func activeScreen(followsPointer: Bool) -> NSScreen {
     let screens = NSScreen.screens
+
+    if !followsPointer,
+      let activeScreenId,
+      let currentScreen = screens.first(where: { displayId(for: $0) == activeScreenId })
+    {
+      return currentScreen
+    }
+
+    let mouse = NSEvent.mouseLocation
 
     if let exactScreen = screens.first(where: { $0.frame.contains(mouse) }) {
       return exactScreen

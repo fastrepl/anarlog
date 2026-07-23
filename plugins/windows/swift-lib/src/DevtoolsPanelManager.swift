@@ -7,7 +7,6 @@ final class DevtoolsPanelManager {
   private var panel: NSPanel?
   private let placement = FloatingPanelPositionController()
   private var displayChangeObserver: Any?
-  private var followActiveScreenTimer: Timer?
   private var targetPanelSize = NSSize(
     width: DevtoolsPanelLayout.containerWidth,
     height: DevtoolsPanelLayout.containerHeight)
@@ -20,7 +19,7 @@ final class DevtoolsPanelManager {
 
       if let panel = self.panel {
         self.position(panel, force: true)
-        self.startFollowingActiveScreen()
+        self.startObservingDisplayChanges()
         panel.orderFrontRegardless()
         RustBridge.devtoolsPanelAction("panel:opened")
         return
@@ -45,7 +44,7 @@ final class DevtoolsPanelManager {
       self.position(panel, force: true)
       panel.orderFrontRegardless()
       self.panel = panel
-      self.startFollowingActiveScreen()
+      self.startObservingDisplayChanges()
       RustBridge.devtoolsPanelAction("panel:opened")
     }
   }
@@ -53,7 +52,7 @@ final class DevtoolsPanelManager {
   func hide() {
     DispatchQueue.main.async { [weak self] in
       guard let self, let panel = self.panel else { return }
-      self.stopFollowingActiveScreen()
+      self.stopObservingDisplayChanges()
       self.placement.preparePinnedFrameForReplacement(
         panel,
         size: NSSize(
@@ -94,7 +93,12 @@ final class DevtoolsPanelManager {
   }
 
   private func position(_ panel: NSPanel, force: Bool = false) {
-    placement.position(panel, force: force, size: targetPanelSize) { screen, size in
+    placement.position(
+      panel,
+      force: force,
+      size: targetPanelSize,
+      followsPointer: false
+    ) { screen, size in
       let frame = screen.visibleFrame
       let x = frame.maxX - size.width - DevtoolsPanelLayout.screenMargin
       let y = frame.maxY - size.height - DevtoolsPanelLayout.screenMargin
@@ -102,15 +106,8 @@ final class DevtoolsPanelManager {
     }
   }
 
-  private func startFollowingActiveScreen() {
-    guard followActiveScreenTimer == nil else { return }
-
-    let timer = Timer(timeInterval: 0.35, repeats: true) { [weak self] _ in
-      guard let self, let panel = self.panel else { return }
-      self.position(panel)
-    }
-    RunLoop.main.add(timer, forMode: .common)
-    followActiveScreenTimer = timer
+  private func startObservingDisplayChanges() {
+    guard displayChangeObserver == nil else { return }
 
     displayChangeObserver = NotificationCenter.default.addObserver(
       forName: NSApplication.didChangeScreenParametersNotification,
@@ -122,10 +119,7 @@ final class DevtoolsPanelManager {
     }
   }
 
-  private func stopFollowingActiveScreen() {
-    followActiveScreenTimer?.invalidate()
-    followActiveScreenTimer = nil
-
+  private func stopObservingDisplayChanges() {
     if let displayChangeObserver {
       NotificationCenter.default.removeObserver(displayChangeObserver)
       self.displayChangeObserver = nil
