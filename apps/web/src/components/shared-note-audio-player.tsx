@@ -13,6 +13,7 @@ import type { SharedAttachmentResolver } from "@/components/shared-note-document
 import {
   createSharedNoteWaveform,
   formatSharedNotePlaybackTime,
+  isSharedNoteAudioGrantExpiring,
 } from "@/lib/shared-note-presentation";
 import type {
   SharedNoteAttachment,
@@ -27,9 +28,15 @@ export function SharedNoteAudioPlayer({
   resolve?: SharedAttachmentResolver;
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const pendingPlaybackRef = useRef<{
+    currentTime: number;
+    resume: boolean;
+  } | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [pinnedDownload, setPinnedDownload] =
+    useState<SharedNoteAttachmentDownload | null>(null);
   const waveform = useMemo(
     () => createSharedNoteWaveform(attachment.sha256),
     [attachment.sha256],
@@ -46,11 +53,44 @@ export function SharedNoteAudioPlayer({
   const download = isMatchingDownload(attachment, downloadQuery.data)
     ? downloadQuery.data
     : null;
+  const pinnedAudioDownload = isMatchingDownload(attachment, pinnedDownload)
+    ? pinnedDownload
+    : null;
+  const activeDownload = pinnedAudioDownload ?? download;
   const progress = duration > 0 ? currentTime / duration : 0;
+
+  const refreshAudioGrant = async (
+    audio: HTMLAudioElement,
+    resume: boolean,
+  ) => {
+    const pendingPlayback = pendingPlaybackRef.current;
+    const playbackTime = pendingPlayback?.currentTime ?? audio.currentTime;
+    const shouldResume = pendingPlayback?.resume ?? resume;
+    pendingPlaybackRef.current = null;
+    audio.pause();
+    const refreshed = await downloadQuery.refetch();
+    if (refreshed.isError || !isMatchingDownload(attachment, refreshed.data)) {
+      setPlaying(false);
+      return;
+    }
+    if (activeDownload?.signedUrl === refreshed.data.signedUrl) {
+      audio.currentTime = playbackTime;
+      setCurrentTime(playbackTime);
+      if (shouldResume) {
+        void audio.play().catch(() => setPlaying(false));
+      }
+      return;
+    }
+    pendingPlaybackRef.current = {
+      currentTime: playbackTime,
+      resume: shouldResume,
+    };
+    setPinnedDownload(refreshed.data);
+  };
 
   const togglePlayback = async () => {
     const audio = audioRef.current;
-    if (!audio || !download) return;
+    if (!audio || !activeDownload) return;
     if (audio.paused) {
       await audio.play().catch(() => setPlaying(false));
       return;
@@ -66,13 +106,24 @@ export function SharedNoteAudioPlayer({
         "text-stone-600",
       ])}
     >
-      {download ? (
+      {activeDownload ? (
         <audio
+          key={activeDownload.signedUrl}
           ref={audioRef}
           className="hidden"
           aria-hidden="true"
-          src={download.signedUrl}
+          src={activeDownload.signedUrl}
           preload="metadata"
+          onLoadedMetadata={(event) => {
+            const pendingPlayback = pendingPlaybackRef.current;
+            if (!pendingPlayback) return;
+            pendingPlaybackRef.current = null;
+            event.currentTarget.currentTime = pendingPlayback.currentTime;
+            setCurrentTime(pendingPlayback.currentTime);
+            if (pendingPlayback.resume) {
+              void event.currentTarget.play().catch(() => setPlaying(false));
+            }
+          }}
           onDurationChange={(event) =>
             setDuration(
               Number.isFinite(event.currentTarget.duration)
@@ -83,9 +134,28 @@ export function SharedNoteAudioPlayer({
           onTimeUpdate={(event) =>
             setCurrentTime(event.currentTarget.currentTime)
           }
-          onPlay={() => setPlaying(true)}
+          onPlay={(event) => {
+            const current = pinnedAudioDownload ?? download;
+            if (!current) {
+              event.currentTarget.pause();
+              return;
+            }
+            if (isSharedNoteAudioGrantExpiring(current.expiresAt)) {
+              void refreshAudioGrant(event.currentTarget, true);
+              return;
+            }
+            setPinnedDownload(current);
+            setPlaying(true);
+          }}
           onPause={() => setPlaying(false)}
-          onEnded={() => setPlaying(false)}
+          onEnded={() => {
+            setPlaying(false);
+            setPinnedDownload(null);
+          }}
+          onError={(event) => {
+            if (downloadQuery.isFetching) return;
+            void refreshAudioGrant(event.currentTarget, playing);
+          }}
         />
       ) : null}
       <button
@@ -97,7 +167,7 @@ export function SharedNoteAudioPlayer({
           "focus-visible:ring-2 focus-visible:ring-stone-900 focus-visible:ring-offset-2 focus-visible:outline-hidden",
           "disabled:cursor-default disabled:opacity-50",
         ])}
-        disabled={!download}
+        disabled={!activeDownload}
         onClick={() => void togglePlayback()}
       >
         {downloadQuery.isPending && resolve ? (
@@ -141,7 +211,7 @@ export function SharedNoteAudioPlayer({
           max={duration || 0}
           step={0.1}
           value={Math.min(currentTime, duration || 0)}
-          disabled={!download || duration === 0}
+          disabled={!activeDownload || duration === 0}
           onChange={(event) => {
             const next = Number(event.target.value);
             if (!audioRef.current || !Number.isFinite(next)) return;

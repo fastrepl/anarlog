@@ -66,6 +66,7 @@ import {
   resolveSharedNoteCommentRanges,
 } from "@/lib/shared-note-comment-anchors";
 import { pickActiveCommentId } from "@/lib/shared-note-comment-rail-layout";
+import { groupSharedNoteCommentThreads } from "@/lib/shared-note-comment-threads";
 import {
   type SharedNoteAttachment,
   type SharedNoteAttachmentDownload,
@@ -157,10 +158,15 @@ export function SharedNoteReadSurface({
   const railItems = anchoredComments.filter(
     (comment) => comment.anchor !== null && comment.range !== null,
   );
-  const activeComment = activeCommentId
-    ? (railItems.find((comment) => comment.commentId === activeCommentId) ??
-      null)
+  const commentThreads = groupSharedNoteCommentThreads(railItems);
+  const activeThread = activeCommentId
+    ? (commentThreads.find((thread) =>
+        thread.comments.some(
+          (comment) => comment.commentId === activeCommentId,
+        ),
+      ) ?? null)
     : null;
+  const activeComment = activeThread?.comments[0] ?? null;
   const railHasContent = signedIn && (draft !== null || railItems.length > 0);
 
   const body = useMemo(
@@ -474,6 +480,7 @@ export function SharedNoteReadSurface({
                       })
                   : undefined
               }
+              replies={activeThread?.comments.slice(1)}
             />
           ) : null}
         </div>

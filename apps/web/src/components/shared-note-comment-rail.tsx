@@ -15,6 +15,7 @@ import {
 import type { AnchoredSharedNoteComment } from "@/lib/shared-note-comment-anchors";
 import { layoutRailCards } from "@/lib/shared-note-comment-rail-layout";
 import { groupSharedNoteCommentThreads } from "@/lib/shared-note-comment-threads";
+import { formatSharedNoteRelativeTime } from "@/lib/shared-note-presentation";
 
 export const DRAFT_COMMENT_ID = "draft";
 
@@ -242,7 +243,7 @@ export function SharedNoteCommentCard({
                       className="font-normal text-stone-500"
                       dateTime={reply.createdAt}
                     >
-                      {formatRelativeTime(reply.createdAt)}
+                      {formatSharedNoteRelativeTime(reply.createdAt)}
                     </time>
                   </p>
                   <CommentActions
@@ -297,7 +298,7 @@ function CommentHeader({
             className="font-normal text-stone-500"
             dateTime={comment.createdAt}
           >
-            {formatRelativeTime(comment.createdAt)}
+            {formatSharedNoteRelativeTime(comment.createdAt)}
           </time>
         </p>
       </div>
@@ -450,28 +451,4 @@ function ReplyComposer({
       ) : null}
     </form>
   );
-}
-
-const RELATIVE_TIME_DIVISIONS: Array<
-  [amount: number, unit: Intl.RelativeTimeFormatUnit]
-> = [
-  [60, "second"],
-  [60, "minute"],
-  [24, "hour"],
-  [7, "day"],
-  [4.34524, "week"],
-  [12, "month"],
-  [Number.POSITIVE_INFINITY, "year"],
-];
-
-function formatRelativeTime(value: string) {
-  const formatter = new Intl.RelativeTimeFormat("en-US", { numeric: "auto" });
-  let duration = (Date.parse(value) - Date.now()) / 1000;
-  for (const [amount, unit] of RELATIVE_TIME_DIVISIONS) {
-    if (Math.abs(duration) < amount) {
-      return formatter.format(Math.round(duration), unit);
-    }
-    duration /= amount;
-  }
-  return "";
 }

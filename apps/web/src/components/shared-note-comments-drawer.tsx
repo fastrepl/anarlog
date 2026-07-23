@@ -11,6 +11,7 @@ import {
 import { cn } from "@hypr/utils";
 
 import { truncateSharedNoteCommentQuote } from "@/lib/shared-note-collaboration";
+import { formatSharedNoteRelativeTime } from "@/lib/shared-note-presentation";
 import type { SharedNoteComment } from "@/lib/shared-notes";
 
 export function SharedNoteCommentsDrawer({
@@ -79,7 +80,7 @@ export function SharedNoteCommentsDrawer({
                       className="font-normal text-stone-500"
                       dateTime={comment.createdAt}
                     >
-                      {formatRelativeTime(comment.createdAt)}
+                      {formatSharedNoteRelativeTime(comment.createdAt)}
                     </time>
                   </p>
                 </div>
@@ -102,28 +103,4 @@ export function SharedNoteCommentsDrawer({
       </DialogContent>
     </Dialog>
   );
-}
-
-const RELATIVE_TIME_DIVISIONS: Array<
-  [amount: number, unit: Intl.RelativeTimeFormatUnit]
-> = [
-  [60, "second"],
-  [60, "minute"],
-  [24, "hour"],
-  [7, "day"],
-  [4.34524, "week"],
-  [12, "month"],
-  [Number.POSITIVE_INFINITY, "year"],
-];
-
-function formatRelativeTime(value: string) {
-  const formatter = new Intl.RelativeTimeFormat("en-US", { numeric: "auto" });
-  let duration = (Date.parse(value) - Date.now()) / 1000;
-  for (const [amount, unit] of RELATIVE_TIME_DIVISIONS) {
-    if (Math.abs(duration) < amount) {
-      return formatter.format(Math.round(duration), unit);
-    }
-    duration /= amount;
-  }
-  return "";
 }

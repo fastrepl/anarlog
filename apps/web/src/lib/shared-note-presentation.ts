@@ -1,5 +1,17 @@
 import type { SharedNoteAttachment } from "@/lib/shared-notes";
 
+const RELATIVE_TIME_DIVISIONS: Array<
+  [amount: number, unit: Intl.RelativeTimeFormatUnit]
+> = [
+  [60, "second"],
+  [60, "minute"],
+  [24, "hour"],
+  [7, "day"],
+  [4.34524, "week"],
+  [12, "month"],
+  [Number.POSITIVE_INFINITY, "year"],
+];
+
 export function findFeaturedSharedNoteAudio(
   attachments: readonly SharedNoteAttachment[],
 ) {
@@ -28,6 +40,25 @@ export function formatSharedNotePlaybackTime(value: number) {
   const seconds = Math.floor(value);
   const minutes = Math.floor(seconds / 60);
   return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+export function formatSharedNoteRelativeTime(value: string, now = Date.now()) {
+  const formatter = new Intl.RelativeTimeFormat("en-US", { numeric: "auto" });
+  let duration = (Date.parse(value) - now) / 1000;
+  for (const [amount, unit] of RELATIVE_TIME_DIVISIONS) {
+    if (Math.abs(duration) < amount) {
+      return formatter.format(Math.round(duration), unit);
+    }
+    duration /= amount;
+  }
+  return "";
+}
+
+export function isSharedNoteAudioGrantExpiring(
+  expiresAt: string,
+  now = Date.now(),
+) {
+  return Date.parse(expiresAt) - now <= 10_000;
 }
 
 export function formatSharedNotePublishedAt(value: string) {
