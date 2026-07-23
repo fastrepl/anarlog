@@ -463,6 +463,7 @@ mod tests {
         }
     }
 
+    use std::future::pending;
     use std::sync::atomic::{AtomicBool, Ordering};
 
     use crate::{CloudsyncAuth, CloudsyncTableSpec, DbOpenOptions, DbStorage};
@@ -784,6 +785,21 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn shutdown_interrupts_an_active_sync_future() {
+        let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
+        shutdown_tx.send(()).unwrap();
+
+        let result = tokio::time::timeout(
+            Duration::from_secs(1),
+            run_or_shutdown(pending::<()>(), &mut shutdown_rx),
+        )
+        .await
+        .expect("active sync ignored shutdown");
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
     async fn suspend_stops_runtime_and_clears_in_memory_credentials() {
         let db = Db::open(DbOpenOptions {
             storage: DbStorage::Memory,
@@ -926,15 +942,19 @@ async fn sync_cloudsync_with_retry(
         .build();
 
     loop {
-        match sync_cloudsync_connection(
-            pool,
-            connection,
-            sync_hook,
-            config.wait_ms,
-            config.max_retries,
+        let result = run_or_shutdown(
+            sync_cloudsync_connection(
+                pool,
+                connection,
+                sync_hook,
+                config.wait_ms,
+                config.max_retries,
+            ),
+            shutdown_rx,
         )
-        .await
-        {
+        .await?;
+
+        match result {
             Err(error) if error.kind() == hypr_cloudsync::ErrorKind::Transient => {
                 let Some(retry_after) = backoff.next() else {
                     return Some(Err(error));
@@ -960,6 +980,17 @@ async fn sync_cloudsync_with_retry(
             }
             result => return Some(result),
         }
+    }
+}
+
+async fn run_or_shutdown<T>(
+    future: impl Future<Output = T>,
+    shutdown_rx: &mut oneshot::Receiver<()>,
+) -> Option<T> {
+    tokio::select! {
+        biased;
+        _ = &mut *shutdown_rx => None,
+        result = future => Some(result),
     }
 }
 

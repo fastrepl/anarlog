@@ -30,6 +30,7 @@ const RETRY_DELAY_MS = 60 * 1000;
 const MIN_REFRESH_DELAY_MS = 1000;
 const EXCHANGE_TIMEOUT_MS = 25 * 1000;
 const EVICTION_RETRY_DELAY_MS = 30 * 1000;
+const SIGN_OUT_SUSPEND_TIMEOUT_MS = 2 * 1000;
 
 export type CloudsyncAuthChangeResult = "ok" | "account_mismatch";
 
@@ -841,9 +842,39 @@ export async function prepareCloudsyncSignOut(
 ): Promise<void> {
   const activeGeneration = beginTransition();
   stopCloudsyncInitialSyncProgress();
+  const suspension = enqueuePluginOperation(suspendCloudsync);
+  let timeout: ReturnType<typeof setTimeout> | null = null;
 
   try {
-    await enqueuePluginOperation(suspendCloudsync);
+    const result = await Promise.race([
+      suspension.then(() => "suspended" as const),
+      new Promise<"timed_out">((resolve) => {
+        timeout = setTimeout(
+          () => resolve("timed_out"),
+          SIGN_OUT_SUSPEND_TIMEOUT_MS,
+        );
+      }),
+    ]);
+
+    if (result === "timed_out") {
+      console.warn(
+        "[cloudsync] sign-out suspension is finishing in background",
+      );
+      void suspension.catch((error) => {
+        console.warn(
+          "[cloudsync] background sign-out suspension failed",
+          error,
+        );
+        if (session && activeGeneration === generation) {
+          scheduleExchange(
+            session,
+            activeGeneration,
+            MIN_REFRESH_DELAY_MS,
+            onAccountMismatch,
+          );
+        }
+      });
+    }
   } catch (error) {
     if (session) {
       scheduleExchange(
@@ -854,6 +885,10 @@ export async function prepareCloudsyncSignOut(
       );
     }
     throw error;
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
   }
 }
 

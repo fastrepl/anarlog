@@ -795,6 +795,33 @@ describe("CloudSync auth lifecycle", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  test("does not block sign-out on a stalled cloudsync suspension", async () => {
+    let finishSuspension!: () => void;
+    const suspension = new Promise<void>((resolve) => {
+      finishSuspension = resolve;
+    });
+    vi.mocked(suspendCloudsync).mockReturnValueOnce(suspension);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const preparation = prepareCloudsyncSignOut(session());
+    await vi.advanceTimersByTimeAsync(1999);
+
+    let completed = false;
+    void preparation.then(() => {
+      completed = true;
+    });
+    expect(completed).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await preparation;
+    expect(console.warn).toHaveBeenCalledWith(
+      "[cloudsync] sign-out suspension is finishing in background",
+    );
+
+    finishSuspension();
+    await suspension;
+  });
+
   test("resumes token refresh when sign-out suspension fails", async () => {
     const fetchMock = vi.fn(() => Promise.resolve(credentialsResponse()));
     vi.stubGlobal("fetch", fetchMock);

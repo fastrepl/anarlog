@@ -379,11 +379,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       trackedIdentifySignature = null;
       trackedSignedInUserId = null;
+      setSession(null);
       if (managesCloudsync) {
         await handleCloudsyncAuthChange("SIGNED_OUT", null);
-      }
-      if (transition === authTransitionRef.current) {
-        setSession(null);
       }
     },
     [coordinateMainSignOut, managesCloudsync],
