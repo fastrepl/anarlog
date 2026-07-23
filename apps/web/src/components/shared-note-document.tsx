@@ -12,6 +12,7 @@ import {
 
 import {
   getSafeSharedNoteHref,
+  isMatchingSharedNoteAttachmentDownload,
   type SharedNoteAttachment,
   type SharedNoteAttachmentDownload,
   type SharedNoteNode,
@@ -232,7 +233,7 @@ function SharedAttachmentNode({ node }: { node: SharedNoteNode }) {
   const download =
     !downloadQuery.error &&
     attachment &&
-    isMatchingDownload(attachment, downloadQuery.data)
+    isMatchingSharedNoteAttachmentDownload(attachment, downloadQuery.data)
       ? downloadQuery.data
       : null;
   const activeDownload = isAudio ? (pinnedAudioDownload ?? download) : download;
@@ -275,7 +276,7 @@ function SharedAttachmentNode({ node }: { node: SharedNoteNode }) {
       const refreshed = await downloadQuery.refetch();
       if (
         refreshed.isError ||
-        !isMatchingDownload(attachment, refreshed.data)
+        !isMatchingSharedNoteAttachmentDownload(attachment, refreshed.data)
       ) {
         return;
       }
@@ -340,20 +341,6 @@ function SharedAttachmentNode({ node }: { node: SharedNoteNode }) {
         {formatFileSize(attachment.sizeBytes)}
       </span>
     </a>
-  );
-}
-
-function isMatchingDownload(
-  attachment: SharedNoteAttachment,
-  download: SharedNoteAttachmentDownload | null | undefined,
-): download is SharedNoteAttachmentDownload {
-  return Boolean(
-    download &&
-    download.id === attachment.id &&
-    download.filename === attachment.filename &&
-    download.contentType === attachment.contentType &&
-    download.sizeBytes === attachment.sizeBytes &&
-    download.sha256 === attachment.sha256,
   );
 }
 

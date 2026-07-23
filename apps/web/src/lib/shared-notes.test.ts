@@ -7,6 +7,7 @@ import {
   buildSharedNoteWebPath,
   getSafeSharedNoteHref,
   getSharedNoteDescription,
+  isMatchingSharedNoteAttachmentDownload,
   parseAuthenticatedSharedNote,
   parseGatewaySharedNote,
   parseSessionAccessRequestState,
@@ -594,6 +595,31 @@ test("validates short-lived attachment downloads", () => {
       signedUrl: "http://project.supabase.co/file?token=secret",
     }),
   );
+});
+
+test("matches attachment downloads to their source attachment", () => {
+  const download = {
+    id: "00000000-0000-4000-8000-000000000002",
+    filename: "diagram.png",
+    contentType: "image/png",
+    sizeBytes: 4,
+    sha256: "a".repeat(64),
+    signedUrl: "https://example.com/diagram.png",
+    expiresAt: "2026-07-17T12:01:00Z",
+  };
+
+  assert.equal(
+    isMatchingSharedNoteAttachmentDownload(download, download),
+    true,
+  );
+  assert.equal(
+    isMatchingSharedNoteAttachmentDownload(
+      { ...download, sha256: "b".repeat(64) },
+      download,
+    ),
+    false,
+  );
+  assert.equal(isMatchingSharedNoteAttachmentDownload(download, null), false);
 });
 
 test("rejects unsafe links and accepts sanitized external links", () => {

@@ -15,9 +15,10 @@ import {
   formatSharedNotePlaybackTime,
   isSharedNoteAudioGrantExpiring,
 } from "@/lib/shared-note-presentation";
-import type {
-  SharedNoteAttachment,
-  SharedNoteAttachmentDownload,
+import {
+  isMatchingSharedNoteAttachmentDownload,
+  type SharedNoteAttachment,
+  type SharedNoteAttachmentDownload,
 } from "@/lib/shared-notes";
 
 export function SharedNoteAudioPlayer({
@@ -50,10 +51,16 @@ export function SharedNoteAudioPlayer({
     refetchInterval: playing ? false : 45_000,
     gcTime: 0,
   });
-  const download = isMatchingDownload(attachment, downloadQuery.data)
+  const download = isMatchingSharedNoteAttachmentDownload(
+    attachment,
+    downloadQuery.data,
+  )
     ? downloadQuery.data
     : null;
-  const pinnedAudioDownload = isMatchingDownload(attachment, pinnedDownload)
+  const pinnedAudioDownload = isMatchingSharedNoteAttachmentDownload(
+    attachment,
+    pinnedDownload,
+  )
     ? pinnedDownload
     : null;
   const activeDownload = pinnedAudioDownload ?? download;
@@ -69,23 +76,30 @@ export function SharedNoteAudioPlayer({
     pendingPlaybackRef.current = null;
     audio.pause();
     const refreshed = await downloadQuery.refetch();
-    if (refreshed.isError || !isMatchingDownload(attachment, refreshed.data)) {
+    if (
+      refreshed.isError ||
+      !isMatchingSharedNoteAttachmentDownload(attachment, refreshed.data)
+    ) {
       setPlaying(false);
       return;
     }
+    setPinnedDownload(refreshed.data);
     if (activeDownload?.signedUrl === refreshed.data.signedUrl) {
-      audio.currentTime = playbackTime;
-      setCurrentTime(playbackTime);
-      if (shouldResume) {
-        void audio.play().catch(() => setPlaying(false));
-      }
+      requestAnimationFrame(() => {
+        const current = audioRef.current;
+        if (!current) return;
+        current.currentTime = playbackTime;
+        setCurrentTime(playbackTime);
+        if (shouldResume) {
+          void current.play().catch(() => setPlaying(false));
+        }
+      });
       return;
     }
     pendingPlaybackRef.current = {
       currentTime: playbackTime,
       resume: shouldResume,
     };
-    setPinnedDownload(refreshed.data);
   };
 
   const togglePlayback = async () => {
@@ -227,19 +241,5 @@ export function SharedNoteAudioPlayer({
         />
       ) : null}
     </section>
-  );
-}
-
-function isMatchingDownload(
-  attachment: SharedNoteAttachment,
-  download: SharedNoteAttachmentDownload | null | undefined,
-): download is SharedNoteAttachmentDownload {
-  return Boolean(
-    download &&
-    download.id === attachment.id &&
-    download.filename === attachment.filename &&
-    download.contentType === attachment.contentType &&
-    download.sizeBytes === attachment.sizeBytes &&
-    download.sha256 === attachment.sha256,
   );
 }

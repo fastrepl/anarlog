@@ -71,8 +71,8 @@ import {
   groupSharedNoteCommentThreads,
 } from "@/lib/shared-note-comment-threads";
 import {
+  isMatchingSharedNoteAttachmentDownload,
   type SharedNoteAttachment,
-  type SharedNoteAttachmentDownload,
   type SharedNoteNode,
   type SharedNoteSnapshot,
   withoutDuplicateLeadingTitle,
@@ -644,7 +644,7 @@ function SharedReadAttachment({
   const download =
     !downloadQuery.error &&
     attachment &&
-    isMatchingDownload(attachment, downloadQuery.data)
+    isMatchingSharedNoteAttachmentDownload(attachment, downloadQuery.data)
       ? downloadQuery.data
       : null;
 
@@ -704,20 +704,6 @@ function SharedReadAttachment({
         </p>
       </div>
     </div>
-  );
-}
-
-function isMatchingDownload(
-  attachment: SharedNoteAttachment,
-  download: SharedNoteAttachmentDownload | null | undefined,
-): download is SharedNoteAttachmentDownload {
-  return Boolean(
-    download &&
-    download.id === attachment.id &&
-    download.filename === attachment.filename &&
-    download.contentType === attachment.contentType &&
-    download.sizeBytes === attachment.sizeBytes &&
-    download.sha256 === attachment.sha256,
   );
 }
 

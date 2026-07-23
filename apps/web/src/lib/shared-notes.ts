@@ -102,6 +102,20 @@ export type SharedNoteAttachmentDownload = SharedNoteAttachment & {
   expiresAt: string;
 };
 
+export function isMatchingSharedNoteAttachmentDownload(
+  attachment: SharedNoteAttachment,
+  download: SharedNoteAttachmentDownload | null | undefined,
+): download is SharedNoteAttachmentDownload {
+  return Boolean(
+    download &&
+    download.id === attachment.id &&
+    download.filename === attachment.filename &&
+    download.contentType === attachment.contentType &&
+    download.sizeBytes === attachment.sizeBytes &&
+    download.sha256 === attachment.sha256,
+  );
+}
+
 export type AuthenticatedSharedNote = {
   snapshot: SharedNoteSnapshot;
   capability: SharedNoteCapability;
