@@ -865,14 +865,6 @@ export async function prepareCloudsyncSignOut(
           "[cloudsync] background sign-out suspension failed",
           error,
         );
-        if (session && activeGeneration === generation) {
-          scheduleExchange(
-            session,
-            activeGeneration,
-            MIN_REFRESH_DELAY_MS,
-            onAccountMismatch,
-          );
-        }
       });
     }
   } catch (error) {

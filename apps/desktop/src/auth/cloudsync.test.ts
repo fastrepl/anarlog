@@ -822,6 +822,27 @@ describe("CloudSync auth lifecycle", () => {
     await suspension;
   });
 
+  test("does not resume token refresh when a timed-out suspension later fails", async () => {
+    let failSuspension!: (error: Error) => void;
+    const suspension = new Promise<void>((_resolve, reject) => {
+      failSuspension = reject;
+    });
+    const fetchMock = vi.fn(() => Promise.resolve(credentialsResponse()));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.mocked(suspendCloudsync).mockReturnValueOnce(suspension);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const preparation = prepareCloudsyncSignOut(session());
+    await vi.advanceTimersByTimeAsync(2000);
+    await preparation;
+
+    failSuspension(new Error("cloudsync suspension failed"));
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
+  });
+
   test("resumes token refresh when sign-out suspension fails", async () => {
     const fetchMock = vi.fn(() => Promise.resolve(credentialsResponse()));
     vi.stubGlobal("fetch", fetchMock);
