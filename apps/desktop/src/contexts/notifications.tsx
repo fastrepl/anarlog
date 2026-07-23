@@ -14,6 +14,7 @@ import {
   type ServerStatus,
   type LocalModel,
 } from "@hypr/plugin-local-stt";
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import { useConfigValues } from "~/shared/config";
 import type { DownloadProgress } from "~/sidebar/toast/types";
@@ -38,6 +39,8 @@ interface NotificationState {
 const NotificationContext = createContext<NotificationState | null>(null);
 
 const MODEL_DISPLAY_NAMES: Partial<Record<LocalModel, string>> = {
+  "soniqo-parakeet-streaming": "Soniqo Parakeet Streaming",
+  "soniqo-parakeet-batch": "Soniqo Parakeet Batch",
   "am-parakeet-v2": "Parakeet v2",
   "am-parakeet-v3": "Parakeet v3",
   "am-whisper-large-v3": "Whisper Large v3",
@@ -94,10 +97,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unlisten = localSttEvents.downloadProgressPayload.listen((event) => {
       const { model: eventModel, status } = event.payload;
+      const isFailed = typeof status === "object" && "failed" in status;
+
+      if (isFailed) {
+        const modelName = MODEL_DISPLAY_NAMES[eventModel] ?? eventModel;
+        sonnerToast.error(`Couldn’t download ${modelName}`, {
+          description: status.failed,
+        });
+      }
 
       setActiveDownloads((prev) => {
         const next = new Map(prev);
-        const isFailed = typeof status === "object" && "failed" in status;
         if (isFailed || status === "completed") {
           next.delete(eventModel);
         } else if (typeof status === "object" && "downloading" in status) {

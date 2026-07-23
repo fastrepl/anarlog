@@ -8,7 +8,7 @@ use std::{
 };
 
 #[cfg(target_os = "macos")]
-const SONIQO_SWIFT_MACOS_DEPLOYMENT_TARGET: &str = "14.0";
+const SONIQO_SWIFT_MACOS_DEPLOYMENT_TARGET: &str = "14.2";
 #[cfg(target_os = "macos")]
 const SONIQO_METALLIB_MACOS_DEPLOYMENT_TARGET: &str = "15.0";
 

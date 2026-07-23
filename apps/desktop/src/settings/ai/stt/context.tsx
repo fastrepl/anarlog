@@ -11,6 +11,7 @@ import {
   commands as localSttCommands,
   type LocalModel,
 } from "@hypr/plugin-local-stt";
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import { useBillingAccess } from "~/auth/billing-context";
 import { useToastAction } from "~/store/zustand/toast-action";
@@ -60,11 +61,26 @@ export function SttSettingsProvider({
     queuedDownloadsRef.current.add(model);
     setQueuedDownloads([...queuedDownloadsRef.current]);
     void localSttCommands.downloadModel(model).then(
-      // The command resolves when the download starts, not when it finishes.
-      // Keep the queue entry until progress events take over the row state,
-      // so the gap cannot accept another click.
-      () => setTimeout(dequeue, DOWNLOAD_PROGRESS_GRACE_MS),
-      dequeue,
+      (result) => {
+        if (result.status === "error") {
+          sonnerToast.error("Model download couldn’t start", {
+            description: result.error,
+          });
+          dequeue();
+          return;
+        }
+
+        // The command resolves when the download starts, not when it finishes.
+        // Keep the queue entry until progress events take over the row state,
+        // so the gap cannot accept another click.
+        setTimeout(dequeue, DOWNLOAD_PROGRESS_GRACE_MS);
+      },
+      (error) => {
+        sonnerToast.error("Model download couldn’t start", {
+          description: error instanceof Error ? error.message : String(error),
+        });
+        dequeue();
+      },
     );
   }, []);
 

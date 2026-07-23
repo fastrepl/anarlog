@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
   name: "soniqo-swift",
-  platforms: [.macOS("14.0")],
+  platforms: [.macOS("14.2")],
   products: [
     .library(
       name: "soniqo-swift",
@@ -15,7 +15,7 @@ let package = Package(
     .package(
       url: "https://github.com/Brendonovich/swift-rs",
       revision: "01980f981bc642a6da382cc0788f18fdd4cde6df"),
-    .package(url: "https://github.com/soniqo/speech-swift", exact: "0.0.9"),
+    .package(url: "https://github.com/soniqo/speech-swift", exact: "0.0.22"),
   ],
   targets: [
     .target(

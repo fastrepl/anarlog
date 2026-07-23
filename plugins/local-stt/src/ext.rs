@@ -426,6 +426,13 @@ fn spawn_soniqo_progress_poller<R: Runtime>(
                 download_status,
                 DownloadStatus::Completed | DownloadStatus::Failed(_)
             );
+            if let DownloadStatus::Failed(error) = &download_status {
+                tracing::error!(
+                    model = soniqo_model.as_str(),
+                    error,
+                    "soniqo_model_download_failed"
+                );
+            }
             let _ = DownloadProgressPayload {
                 model: model.clone(),
                 status: download_status,
@@ -439,6 +446,10 @@ fn spawn_soniqo_progress_poller<R: Runtime>(
             tokio::time::sleep(std::time::Duration::from_millis(250)).await;
         }
 
+        tracing::error!(
+            model = soniqo_model.as_str(),
+            "soniqo_model_download_timed_out"
+        );
         let _ = DownloadProgressPayload {
             model,
             status: DownloadStatus::Failed("Soniqo model download timed out".to_string()),
