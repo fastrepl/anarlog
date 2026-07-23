@@ -57,8 +57,12 @@ export function SyncStatusIndicator() {
     "cloud_sync_enabled",
     storedSettings,
   );
+  const statusQueryKey = [
+    ...STATUS_QUERY_KEY,
+    session?.user.id ?? null,
+  ] as const;
   const statusQuery = useQuery({
-    queryKey: STATUS_QUERY_KEY,
+    queryKey: statusQueryKey,
     queryFn: getCloudsyncStatus,
     refetchInterval: STATUS_POLL_INTERVAL_MS,
     enabled: Boolean(session) && isPro && syncPreferred,
@@ -81,14 +85,14 @@ export function SyncStatusIndicator() {
       }
     },
     onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: STATUS_QUERY_KEY });
+      await queryClient.invalidateQueries({ queryKey: statusQueryKey });
     },
   });
 
   const syncNowMutation = useMutation({
     mutationFn: syncCloudsyncNow,
     onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: STATUS_QUERY_KEY });
+      await queryClient.invalidateQueries({ queryKey: statusQueryKey });
     },
   });
 
@@ -97,12 +101,54 @@ export function SyncStatusIndicator() {
   }
 
   const status = statusQuery.data;
+  const statusUnavailable = credentialBlock === null && statusQuery.isError;
   const view = (() => {
-    if (credentialBlock === "device_limit") {
+    switch (credentialBlock) {
+      case "device_limit":
+        return {
+          kind: "error" as const,
+          label: t`Device limit reached`,
+          description: t`This account already syncs on 5 devices. Remove another device to sync here.`,
+        };
+      case "identity_mismatch":
+        return {
+          kind: "error" as const,
+          label: t`Cloud sync identity mismatch`,
+          description: t`This device's sync identity does not match your account. Sign in again or check Sync settings.`,
+        };
+      case "not_entitled":
+        return {
+          kind: "error" as const,
+          label: t`Anarlog Pro required`,
+          description: t`Anarlog Pro is required to use cloud sync.`,
+        };
+      case "reauth_required":
+        return {
+          kind: "error" as const,
+          label: t`Sign in again`,
+          description: t`Sign out and sign in again to resume cloud sync.`,
+        };
+      case "setup_required":
+        return {
+          kind: "error" as const,
+          label: t`Cloud sync setup required`,
+          description: t`Create or enter your recovery key in Sync settings to start syncing.`,
+        };
+      case "unavailable":
+        return {
+          kind: "error" as const,
+          label: t`Cloud sync unavailable`,
+          description: t`Cloud sync could not start on this device. Open Sync settings to try again.`,
+        };
+      case null:
+        break;
+    }
+
+    if (statusUnavailable) {
       return {
         kind: "error" as const,
-        label: t`Device limit reached`,
-        description: t`This account already syncs on 5 devices. Remove another device to sync here.`,
+        label: t`Sync status unavailable`,
+        description: t`Anarlog couldn't read cloud sync status. Your notes are still available locally.`,
       };
     }
 
@@ -122,6 +168,22 @@ export function SyncStatusIndicator() {
       };
     }
 
+    if (status?.recovery_pending && status.recovery_delayed) {
+      return {
+        kind: "error" as const,
+        label: t`Cloud sync delayed`,
+        description: t`Anarlog will keep retrying in the background. Your notes remain available locally.`,
+      };
+    }
+
+    if (status?.recovery_pending) {
+      return {
+        kind: "syncing" as const,
+        label: t`Restoring cloud sync...`,
+        description: t`Anarlog is repairing cloud sync in the background. Your notes remain available locally.`,
+      };
+    }
+
     if (!status || !status.configured || !status.running) {
       return {
         kind: "connecting" as const,
@@ -130,7 +192,10 @@ export function SyncStatusIndicator() {
       };
     }
 
-    if (status.has_unsent_changes || status.last_sync_at_ms === null) {
+    if (
+      status.has_unsent_changes !== false ||
+      status.last_sync_at_ms === null
+    ) {
       return {
         kind: "syncing" as const,
         label: t`Syncing...`,
@@ -147,8 +212,10 @@ export function SyncStatusIndicator() {
       )}`,
     };
   })();
-  const canRetry =
+  const canRetrySync =
     view.kind === "error" && status?.last_error_kind === "transient";
+  const canRetryStatus = statusUnavailable;
+  const canRetry = canRetrySync || canRetryStatus;
 
   return (
     <DropdownMenu>
@@ -187,9 +254,17 @@ export function SyncStatusIndicator() {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           disabled={
-            syncNowMutation.isPending || (view.kind !== "synced" && !canRetry)
+            syncNowMutation.isPending ||
+            statusQuery.isFetching ||
+            (view.kind !== "synced" && !canRetry)
           }
-          onSelect={() => syncNowMutation.mutate()}
+          onSelect={() => {
+            if (canRetryStatus) {
+              void statusQuery.refetch();
+              return;
+            }
+            syncNowMutation.mutate();
+          }}
         >
           <RefreshCwIcon className="size-4" />
           {canRetry ? <Trans>Retry</Trans> : <Trans>Sync now</Trans>}
