@@ -206,6 +206,7 @@ msgstr ""
 msgid "Anarlog will keep retrying"
 msgstr ""
 
+#: src/main/sync-status.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Anarlog will retry automatically. This does not affect your notes."
 msgstr ""
@@ -1634,6 +1635,7 @@ msgid "Resume sync"
 msgstr ""
 
 #: src/chat/components/message/error.tsx
+#: src/main/sync-status.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Retry"

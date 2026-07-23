@@ -244,6 +244,34 @@ describe("SyncStatusIndicator", () => {
     expect(screen.getByText("token rejected")).toBeTruthy();
   });
 
+  it("makes a transient sync issue retryable without exposing the server error", async () => {
+    mocks.getCloudsyncStatus.mockResolvedValue(
+      syncedStatus({
+        last_error:
+          'sqlx error: {"errors":[{"status":"409","code":"already_exists"}]}',
+        last_error_kind: "transient",
+        consecutive_failures: 1,
+      }),
+    );
+
+    renderIndicator();
+    await openMenu();
+
+    expect(await screen.findByText("Sync issue")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Anarlog will retry automatically. This does not affect your notes.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/already_exists/)).toBeNull();
+
+    fireEvent.click(screen.getByText("Retry"));
+
+    await vi.waitFor(() => {
+      expect(mocks.syncCloudsyncNow).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("triggers a manual sync", async () => {
     renderIndicator();
     await openMenu();

@@ -91,6 +91,15 @@ pub enum CloudsyncRuntimeError {
     Cloudsync(#[from] hypr_cloudsync::Error),
 }
 
+impl CloudsyncRuntimeError {
+    pub fn is_transient(&self) -> bool {
+        matches!(
+            self,
+            Self::Cloudsync(error) if error.kind() == hypr_cloudsync::ErrorKind::Transient
+        )
+    }
+}
+
 impl From<hypr_cloudsync::ErrorKind> for CloudsyncErrorKind {
     fn from(kind: hypr_cloudsync::ErrorKind) -> Self {
         match kind {
@@ -142,5 +151,16 @@ mod tests {
         );
         assert!(!api_key.contains("api-key-secret"));
         assert!(api_key.contains("[REDACTED]"));
+    }
+
+    #[test]
+    fn runtime_exposes_transient_cloudsync_errors() {
+        let error = CloudsyncRuntimeError::from(hypr_cloudsync::Error::from(std::io::Error::new(
+            std::io::ErrorKind::ConnectionReset,
+            "connection reset",
+        )));
+
+        assert!(error.is_transient());
+        assert!(!CloudsyncRuntimeError::NotStarted.is_transient());
     }
 }

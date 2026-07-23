@@ -9,6 +9,10 @@ use tauri::ipc::Channel;
 use crate::{QueryEvent, Result, TransactionStatement};
 
 const DEFAULT_CLOUDSYNC_INTERVAL_MS: u64 = 30_000;
+const CLOUDSYNC_FULL_RESYNC_MAX_RETRY_DELAY: std::time::Duration =
+    std::time::Duration::from_secs(5 * 60);
+const CLOUDSYNC_FULL_RESYNC_MIN_RETRY_DELAY: std::time::Duration =
+    std::time::Duration::from_secs(5);
 const CLOUDSYNC_WRITE_FILTER: &str =
     "workspace_id IN (SELECT allowed_workspace_id FROM cloudsync_writable_workspaces)";
 
@@ -161,6 +165,7 @@ pub struct PluginDbRuntime {
     executor: DbExecutor,
     live_query_runtime: LiveQueryRuntime<QueryEventChannel>,
     e2ee_sync_hook: std::sync::Arc<E2eeSyncHook>,
+    scheduled_cloudsync_full_resync: std::sync::Arc<std::sync::Mutex<Option<String>>>,
 }
 
 impl PluginDbRuntime {
@@ -174,6 +179,7 @@ impl PluginDbRuntime {
             executor: DbExecutor::new(std::sync::Arc::clone(&db)),
             live_query_runtime: LiveQueryRuntime::new(db),
             e2ee_sync_hook,
+            scheduled_cloudsync_full_resync: Default::default(),
         }
     }
 
@@ -616,30 +622,58 @@ impl PluginDbRuntime {
     }
 
     fn schedule_cloudsync_full_resync(&self, generation: String) {
+        {
+            let mut scheduled = self.scheduled_cloudsync_full_resync.lock().unwrap();
+            if scheduled.as_deref() == Some(&generation) {
+                return;
+            }
+            *scheduled = Some(generation.clone());
+        }
+
         let db = std::sync::Arc::clone(&self.db);
+        let scheduled = std::sync::Arc::clone(&self.scheduled_cloudsync_full_resync);
         tokio::spawn(async move {
-            for attempt in 0..3 {
+            let mut retry_delay = CLOUDSYNC_FULL_RESYNC_MIN_RETRY_DELAY;
+            loop {
+                if scheduled.lock().unwrap().as_deref() != Some(&generation) {
+                    return;
+                }
+
                 match db.cloudsync_trigger_sync().await {
                     Ok(result) if cloudsync_snapshot_completed(&result) => {
-                        if let Err(error) =
-                            hypr_db_app::clear_cloudsync_full_resync_pending(db.pool(), &generation)
-                                .await
+                        match hypr_db_app::clear_cloudsync_full_resync_pending(
+                            db.pool(),
+                            &generation,
+                        )
+                        .await
                         {
-                            tracing::warn!(%error, "failed to clear CloudSync full resync marker");
+                            Ok(()) => break,
+                            Err(error) => {
+                                tracing::warn!(%error, "failed to clear CloudSync full resync marker");
+                            }
                         }
-                        return;
-                    }
-                    Ok(_) if attempt < 2 => {
-                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                     }
                     Ok(_) => {
-                        tracing::warn!("CloudSync full resync remains incomplete");
+                        tracing::warn!(?retry_delay, "CloudSync full resync remains incomplete");
+                    }
+                    Err(error) if error.is_transient() => {
+                        tracing::warn!(%error, ?retry_delay, "CloudSync full resync will retry");
                     }
                     Err(error) => {
                         tracing::warn!(%error, "CloudSync full resync remains pending");
-                        return;
+                        break;
                     }
                 }
+
+                tokio::time::sleep(retry_delay).await;
+                retry_delay = retry_delay
+                    .saturating_mul(2)
+                    .min(CLOUDSYNC_FULL_RESYNC_MAX_RETRY_DELAY);
+            }
+
+            let mut active = scheduled.lock().unwrap();
+            if active.as_deref() == Some(&generation) {
+                *active = None;
             }
         });
     }

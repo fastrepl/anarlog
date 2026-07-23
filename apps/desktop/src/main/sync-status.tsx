@@ -145,7 +145,10 @@ export function SyncStatusIndicator() {
       return {
         kind: "error" as const,
         label: t`Sync issue`,
-        description: status.last_error ?? t`Anarlog will keep retrying`,
+        description:
+          status.last_error_kind === "transient"
+            ? t`Anarlog will retry automatically. This does not affect your notes.`
+            : (status.last_error ?? t`Anarlog will keep retrying`),
       };
     }
 
@@ -174,6 +177,8 @@ export function SyncStatusIndicator() {
       )}`,
     };
   })();
+  const canRetry =
+    view.kind === "error" && status?.last_error_kind === "transient";
 
   return (
     <DropdownMenu>
@@ -228,11 +233,14 @@ export function SyncStatusIndicator() {
         ) : (
           <>
             <DropdownMenuItem
-              disabled={syncNowMutation.isPending || view.kind !== "synced"}
+              disabled={
+                syncNowMutation.isPending ||
+                (view.kind !== "synced" && !canRetry)
+              }
               onSelect={() => syncNowMutation.mutate()}
             >
               <RefreshCwIcon className="size-4" />
-              <Trans>Sync now</Trans>
+              {canRetry ? <Trans>Retry</Trans> : <Trans>Sync now</Trans>}
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={preferenceMutation.isPending}
