@@ -171,7 +171,7 @@ function UndoDeleteSonnerToast({ group }: { group: ToastGroup }) {
         />
       ),
       descriptionClassName:
-        "bg-muted absolute inset-x-0 bottom-0 h-1 overflow-hidden",
+        "bg-muted absolute inset-x-0 bottom-0 h-1 overflow-hidden rounded-b-xl",
       action: {
         label: "Undo",
         onClick: () => restoreGroup(group),

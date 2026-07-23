@@ -92,6 +92,9 @@ describe("UndoDeleteToast", () => {
         descriptionClassName: expect.stringContaining("bottom-0"),
       }),
     );
+    expect(mocks.message.mock.calls[0][1].descriptionClassName).toContain(
+      "rounded-b-xl",
+    );
 
     view.unmount();
     expect(mocks.dismiss).toHaveBeenCalledWith("undo-delete:session-1");
