@@ -33,7 +33,12 @@ import {
   updateLiveAmplitude,
   updateLiveProgress,
 } from "./general-shared";
-import type { TranscriptActions, TranscriptState } from "./transcript";
+import type {
+  LiveTranscriptPersistCallback,
+  OnStoppedCallback,
+  TranscriptActions,
+  TranscriptState,
+} from "./transcript";
 
 import { getSessionResourcePath } from "~/session/resource-path";
 import { fromResult } from "~/stt/fromResult";
@@ -418,10 +423,88 @@ export const attachLiveSession = <T extends LiveStore>(
   set: StoreApi<T>["setState"],
   get: StoreApi<T>["getState"],
   targetSessionId: string,
-): Promise<void> => {
+  options?: {
+    handlePersist?: LiveTranscriptPersistCallback;
+    onStopped?: OnStoppedCallback;
+  },
+): Promise<"attached" | "inactive" | "error"> => {
+  if (options?.onStopped) {
+    setLiveState(set, (live) => {
+      if (
+        live.status === "inactive" &&
+        (!live.sessionId || live.sessionId === targetSessionId)
+      ) {
+        live.loading = true;
+        live.sessionId = targetSessionId;
+      }
+    });
+  }
+
+  const existingHandlePersist = get().handlePersistBySession[targetSessionId];
+  const existingOnStopped = get().onStoppedBySession[targetSessionId];
+  const registeredHandlePersist =
+    options?.handlePersist && !existingHandlePersist
+      ? options.handlePersist
+      : undefined;
+  const registeredOnStopped =
+    options?.onStopped && !existingOnStopped ? options.onStopped : undefined;
+  const attachedHandlePersist =
+    registeredHandlePersist ??
+    (options?.handlePersist ? existingHandlePersist : undefined);
+  const attachedOnStopped =
+    registeredOnStopped ?? (options?.onStopped ? existingOnStopped : undefined);
+
+  if (registeredHandlePersist) {
+    get().setTranscriptPersist(targetSessionId, registeredHandlePersist);
+  }
+  if (registeredOnStopped) {
+    get().setOnStopped(targetSessionId, registeredOnStopped);
+  }
+
+  const clearAttachedCallbacks = () => {
+    if (
+      attachedHandlePersist &&
+      get().handlePersistBySession[targetSessionId] === attachedHandlePersist
+    ) {
+      get().setTranscriptPersist(targetSessionId, undefined);
+    }
+    if (
+      attachedOnStopped &&
+      get().onStoppedBySession[targetSessionId] === attachedOnStopped
+    ) {
+      get().setOnStopped(targetSessionId, undefined);
+    }
+  };
+
   const currentLive = get().live;
   if (currentLive.eventUnlistenersBySession[targetSessionId]) {
-    return Promise.resolve();
+    if (!options?.handlePersist && !options?.onStopped) {
+      return Promise.resolve("attached");
+    }
+
+    return listenerCommands
+      .getCaptureSnapshot()
+      .then((result) => {
+        if (result.status === "error") {
+          return "error";
+        }
+
+        const snapshot = result.data;
+        applyCaptureSnapshot(set, get, targetSessionId, snapshot);
+        const isAttached =
+          (snapshot.state === "active" &&
+            snapshot.activeSessionId === targetSessionId) ||
+          (snapshot.state === "finalizing" &&
+            snapshot.finalizingSessionIds.includes(targetSessionId));
+        if (!isAttached) {
+          clearAttachedCallbacks();
+        }
+        return isAttached ? "attached" : "inactive";
+      })
+      .catch((error) => {
+        console.error("[listener] capture snapshot unavailable:", error);
+        return "error";
+      });
   }
 
   const pendingUnlisteners: (() => void)[] = [];
@@ -442,7 +525,8 @@ export const attachLiveSession = <T extends LiveStore>(
       pendingUnlisteners
     ) {
       clearLiveEventUnlisteners(unlisteners);
-      return;
+      clearAttachedCallbacks();
+      return "error" as const;
     }
 
     registeredUnlisteners = unlisteners;
@@ -450,14 +534,42 @@ export const attachLiveSession = <T extends LiveStore>(
       live.eventUnlistenersBySession[targetSessionId] = unlisteners;
     });
 
-    const snapshot = yield* fromResult(listenerCommands.getCaptureSnapshot());
+    const snapshotResult = yield* Effect.promise(async () => {
+      try {
+        return await listenerCommands.getCaptureSnapshot();
+      } catch (error) {
+        return {
+          status: "error" as const,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+    if (snapshotResult.status === "error") {
+      console.error(
+        "[listener] capture snapshot unavailable:",
+        snapshotResult.error,
+      );
+      return "error" as const;
+    }
+
+    const snapshot = snapshotResult.data;
     applyCaptureSnapshot(set, get, targetSessionId, snapshot);
+    const isAttached =
+      (snapshot.state === "active" &&
+        snapshot.activeSessionId === targetSessionId) ||
+      (snapshot.state === "finalizing" &&
+        snapshot.finalizingSessionIds.includes(targetSessionId));
+    if (!isAttached) {
+      clearAttachedCallbacks();
+    }
+    return isAttached ? ("attached" as const) : ("inactive" as const);
   });
 
   return Effect.runPromiseExit(program).then((exit) =>
     Exit.match(exit, {
       onFailure: (cause) => {
         console.error("[listener] failed to attach live session:", cause);
+        clearAttachedCallbacks();
         clearLiveEventUnlisteners(registeredUnlisteners);
         setLiveState(set, (live) => {
           if (
@@ -473,8 +585,9 @@ export const attachLiveSession = <T extends LiveStore>(
             live.sessionId = null;
           }
         });
+        return "error" as const;
       },
-      onSuccess: () => undefined,
+      onSuccess: (result) => result,
     }),
   );
 };
@@ -531,6 +644,7 @@ function applyCaptureSnapshot<T extends GeneralState>(
 
   setLiveState(set, (live) => {
     if (live.sessionId === targetSessionId && live.status === "inactive") {
+      live.loading = false;
       live.sessionId = null;
     }
   });

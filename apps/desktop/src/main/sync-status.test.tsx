@@ -287,6 +287,7 @@ describe("SyncStatusIndicator", () => {
         last_error: "token rejected",
         last_error_kind: "auth",
         consecutive_failures: 2,
+        has_unsent_changes: null,
       }),
     );
 
@@ -297,9 +298,36 @@ describe("SyncStatusIndicator", () => {
     expect(screen.getByText("token rejected")).toBeTruthy();
   });
 
-  it("does not report synced while the native sync status is busy", async () => {
+  it("uses the last successful sync while native local status is busy", async () => {
     mocks.getCloudsyncStatus.mockResolvedValue(
       syncedStatus({ has_unsent_changes: null }),
+    );
+
+    renderIndicator();
+    await openMenu();
+
+    expect(await screen.findByText("Synced")).toBeTruthy();
+    expect(screen.queryByText("Syncing...")).toBeNull();
+  });
+
+  it("does not report synced before the initial sync completes", async () => {
+    mocks.getCloudsyncStatus.mockResolvedValue(
+      syncedStatus({
+        has_unsent_changes: null,
+        last_sync_at_ms: null,
+      }),
+    );
+
+    renderIndicator();
+    await openMenu();
+
+    expect(await screen.findByText("Syncing...")).toBeTruthy();
+    expect(screen.queryByText("Synced")).toBeNull();
+  });
+
+  it("reports known outbound work after a prior successful sync", async () => {
+    mocks.getCloudsyncStatus.mockResolvedValue(
+      syncedStatus({ has_unsent_changes: true }),
     );
 
     renderIndicator();
@@ -314,6 +342,7 @@ describe("SyncStatusIndicator", () => {
       syncedStatus({
         running: false,
         last_sync_at_ms: null,
+        has_unsent_changes: null,
         recovery_pending: true,
         recovery_phase: "need_clean_receive",
       }),

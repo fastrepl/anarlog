@@ -192,10 +192,7 @@ export function SyncStatusIndicator() {
       };
     }
 
-    if (
-      status.has_unsent_changes !== false ||
-      status.last_sync_at_ms === null
-    ) {
+    if (status.has_unsent_changes === true || status.last_sync_at_ms === null) {
       return {
         kind: "syncing" as const,
         label: t`Syncing...`,

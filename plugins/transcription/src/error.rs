@@ -16,6 +16,8 @@ pub enum Error {
     SessionAlreadyRunning,
     #[error("start session failed")]
     StartSessionFailed,
+    #[error("capture snapshot unavailable")]
+    CaptureSnapshotUnavailable,
     #[error("stop session failed")]
     StopSessionFailed,
     #[error("actor not found {0}")]

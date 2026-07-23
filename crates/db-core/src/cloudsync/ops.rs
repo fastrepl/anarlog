@@ -277,7 +277,7 @@ impl Db {
     ) -> Result<hypr_cloudsync::PendingPayloadBatch, hypr_cloudsync::Error> {
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
         let mut connection = self.lock_cloudsync_connection().await?;
-        let result = pending_payload_batch_on(&mut **connection.as_mut().unwrap()).await;
+        let result = pending_payload_batch_on(connection.as_mut().unwrap()).await;
         self.release_single_pool_connection(&mut connection);
         result
     }
@@ -300,7 +300,7 @@ impl Db {
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
         let mut connection = self.lock_cloudsync_connection().await?;
         let result = hypr_cloudsync::reconcile_confirmed_pending_payload(
-            &mut **connection.as_mut().unwrap(),
+            connection.as_mut().unwrap(),
             batch,
             status,
         )
@@ -314,7 +314,7 @@ impl Db {
     ) -> Result<hypr_cloudsync::NetworkResult, hypr_cloudsync::Error> {
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
         let mut connection = self.lock_cloudsync_connection().await?;
-        let result = guarded_network_send_changes(&mut **connection.as_mut().unwrap()).await;
+        let result = guarded_network_send_changes(connection.as_mut().unwrap()).await;
         self.release_single_pool_connection(&mut connection);
         result
     }
@@ -362,8 +362,7 @@ impl Db {
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
         let mut connection = self.lock_cloudsync_connection().await?;
         let result =
-            hypr_cloudsync::network_reset_receive_version(&mut **connection.as_mut().unwrap())
-                .await;
+            hypr_cloudsync::network_reset_receive_version(connection.as_mut().unwrap()).await;
         self.release_single_pool_connection(&mut connection);
         if result.is_ok() {
             let mut runtime = self.cloudsync_runtime.lock().unwrap();
@@ -409,7 +408,7 @@ impl Db {
         self.ensure_manual_transport_ready()?;
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
         let mut connection = self.lock_cloudsync_connection().await?;
-        let result = guarded_network_send_changes(&mut **connection.as_mut().unwrap()).await;
+        let result = guarded_network_send_changes(connection.as_mut().unwrap()).await;
         self.release_single_pool_connection(&mut connection);
         Ok(result?)
     }
@@ -421,7 +420,7 @@ impl Db {
         self.ensure_manual_transport_ready()?;
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
         let mut connection = self.lock_cloudsync_connection().await?;
-        let result = pending_payload_batch_on(&mut **connection.as_mut().unwrap()).await;
+        let result = pending_payload_batch_on(connection.as_mut().unwrap()).await;
         self.release_single_pool_connection(&mut connection);
         Ok(result?)
     }
@@ -448,7 +447,7 @@ impl Db {
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
         let mut connection = self.lock_cloudsync_connection().await?;
         let result = hypr_cloudsync::reconcile_confirmed_pending_payload(
-            &mut **connection.as_mut().unwrap(),
+            connection.as_mut().unwrap(),
             batch,
             status,
         )

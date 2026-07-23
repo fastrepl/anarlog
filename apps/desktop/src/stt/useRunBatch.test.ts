@@ -302,6 +302,28 @@ describe("useRunBatch", () => {
     );
   });
 
+  test("defers audio finalization for capture recovery", async () => {
+    startTranscriptionMock.mockImplementation(async (_params, options) => {
+      options.handlePersist(
+        [{ text: "recovered", start_ms: 0, end_ms: 100, channel: 0 }],
+        [],
+      );
+    });
+
+    const { result } = renderHook(() => useRunBatch("session-1"));
+
+    await act(async () => {
+      await result.current("/tmp/session.wav", {
+        deferAudioFinalization: true,
+        promotion: { scope: "whole_session" },
+      });
+    });
+
+    expect(createTranscriptMock).toHaveBeenCalledOnce();
+    expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
+    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
+  });
+
   test("does not save for custom batch persist handlers", async () => {
     const handlePersist = vi.fn();
     startTranscriptionMock.mockImplementation(async (_params, options) => {

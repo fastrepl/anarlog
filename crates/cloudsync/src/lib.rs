@@ -363,12 +363,12 @@ mod tests {
             .await
             .unwrap();
         let watermark = batch.watermark_db_version.unwrap();
-        let status = NetworkStatus {
-            last_optimistic_version: watermark + 100,
-            last_confirmed_version: watermark + 100,
-            gaps: Vec::new(),
-            failures: NetworkStatusFailures::default(),
-        };
+        let status: NetworkStatus = serde_json::from_value(serde_json::json!({
+            "lastConfirmedVersion": watermark + 100,
+            "gaps": [],
+            "failures": {"apply": null}
+        }))
+        .unwrap();
 
         assert!(
             reconcile_confirmed_pending_payload(&mut connection, batch, &status)
@@ -448,7 +448,7 @@ mod tests {
     }
 
     #[test]
-    fn network_status_requires_version_and_gap_fields() {
+    fn network_status_accepts_confirmed_version_without_optimistic_version() {
         let status: NetworkStatus = serde_json::from_str(
             r#"{
                 "lastOptimisticVersion": 8,
@@ -464,12 +464,68 @@ mod tests {
         assert!(status.gaps.is_empty());
         assert!(status.failures.apply.is_none());
         assert!(status.failures.check.is_some());
+
+        let confirmed: NetworkStatus =
+            serde_json::from_str(r#"{"lastConfirmedVersion":7,"gaps":[]}"#).unwrap();
+        assert_eq!(confirmed.last_optimistic_version, 7);
+        assert_eq!(confirmed.last_confirmed_version, 7);
+
+        let enveloped: NetworkStatus = serde_json::from_str(
+            r#"{
+                "data": {
+                    "lastOptimisticVersion": 9,
+                    "lastConfirmedVersion": 9,
+                    "gaps": null,
+                    "failures": {"apply": null, "check": null}
+                }
+            }"#,
+        )
+        .unwrap();
+        assert_eq!(enveloped.last_optimistic_version, 9);
+        assert_eq!(enveloped.last_confirmed_version, 9);
+        assert!(enveloped.gaps.is_empty());
+
         assert!(
             serde_json::from_str::<NetworkStatus>(
                 r#"{"lastOptimisticVersion":8,"lastConfirmedVersion":7}"#
             )
             .is_err()
         );
+        assert!(
+            serde_json::from_str::<NetworkStatus>(r#"{"lastOptimisticVersion":8,"gaps":[]}"#)
+                .is_err()
+        );
+        assert!(
+            serde_json::from_str::<NetworkStatus>(
+                r#"{"data":{"lastConfirmedVersion":7,"gaps":{}}}"#
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn network_status_accepts_null_failures_for_direct_and_enveloped_responses() {
+        for input in [
+            r#"{"lastConfirmedVersion":9,"gaps":null,"failures":null}"#,
+            r#"{"data":{"lastConfirmedVersion":9,"gaps":null,"failures":null}}"#,
+        ] {
+            let status: NetworkStatus = serde_json::from_str(input).unwrap();
+            assert_eq!(status.last_optimistic_version, 9);
+            assert_eq!(status.last_confirmed_version, 9);
+            assert!(status.gaps.is_empty());
+            assert_eq!(status.failures, NetworkStatusFailures::default());
+        }
+    }
+
+    #[test]
+    fn network_status_rejects_negative_direct_and_enveloped_versions() {
+        for input in [
+            r#"{"lastOptimisticVersion":-1,"lastConfirmedVersion":0,"gaps":[]}"#,
+            r#"{"lastOptimisticVersion":0,"lastConfirmedVersion":-1,"gaps":[]}"#,
+            r#"{"data":{"lastConfirmedVersion":-1,"gaps":null}}"#,
+        ] {
+            assert!(serde_json::from_str::<NetworkStatus>(input).is_err());
+        }
     }
 
     #[tokio::test]

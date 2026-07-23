@@ -797,21 +797,21 @@ mod tests {
         )
         .await;
 
-        let events = runtime.lifecycle_events.lock().unwrap();
-        let Some(crate::SessionLifecycleEvent::Active {
-            requested_transcription_mode,
-            current_transcription_mode,
-            error: Some(DegradedError::StreamError { message }),
-            ..
-        }) = events.first()
-        else {
-            panic!("expected degraded active event");
-        };
-        assert_eq!(*requested_transcription_mode, TranscriptionMode::Live);
-        assert_eq!(*current_transcription_mode, TranscriptionMode::Live);
-        assert_eq!(message, "listener failed");
-
-        drop(events);
+        {
+            let events = runtime.lifecycle_events.lock().unwrap();
+            let Some(crate::SessionLifecycleEvent::Active {
+                requested_transcription_mode,
+                current_transcription_mode,
+                error: Some(DegradedError::StreamError { message }),
+                ..
+            }) = events.first()
+            else {
+                panic!("expected degraded active event");
+            };
+            assert_eq!(*requested_transcription_mode, TranscriptionMode::Live);
+            assert_eq!(*current_transcription_mode, TranscriptionMode::Live);
+            assert_eq!(message, "listener failed");
+        }
         let _ = handle.await;
     }
 

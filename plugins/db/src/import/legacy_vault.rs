@@ -308,12 +308,10 @@ fn summary_pair(vault_base: &Path, path: &Path, relative_path: &str) -> Option<S
     let canonical_empty = legacy_document_body_is_empty(&canonical_document.body);
     let hidden_title_empty = hidden_document.title.trim().is_empty();
     let canonical_title_empty = canonical_document.title.trim().is_empty();
-    let hide_hidden_source = !((!hidden_empty && canonical_empty)
-        || (!hidden_empty && !canonical_empty && hidden_document.body != canonical_document.body)
-        || (!hidden_title_empty && canonical_title_empty)
-        || (!hidden_title_empty
-            && !canonical_title_empty
-            && hidden_document.title != canonical_document.title));
+    let hide_hidden_source = (hidden_empty
+        || (!canonical_empty && hidden_document.body == canonical_document.body))
+        && (hidden_title_empty
+            || (!canonical_title_empty && hidden_document.title == canonical_document.title));
 
     Some(SummaryPair {
         hidden_relative_path: relative_path.to_string(),

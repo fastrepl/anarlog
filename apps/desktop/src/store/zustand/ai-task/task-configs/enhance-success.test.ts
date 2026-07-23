@@ -1,5 +1,5 @@
 import type { LanguageModel } from "ai";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { json2md } from "@hypr/editor/markdown";
 
@@ -108,6 +108,10 @@ describe("enhanceSuccess.onSuccess", () => {
     mocks.persistGeneratedTitle.mockResolvedValue(true);
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("persists generated content and tags through one guarded SQLite write", async () => {
     const params = createParams({
       text: "# Summary\n\nDiscussed #Launch.",
@@ -134,6 +138,42 @@ describe("enhanceSuccess.onSuccess", () => {
       mocks.persistGeneratedEnhancedNote.mock.calls[0][0].note.nextContent;
     expect(json2md(JSON.parse(content)).trim()).toBe(
       "# Summary\n\nDiscussed #Launch.\n\n#launch #prep",
+    );
+  });
+
+  it("uses the durable auto-enhance baseline instead of a later user edit", async () => {
+    const snapshot = createSnapshot("Meeting title");
+    snapshot.enhancedNotes[0].content = "user edit";
+    snapshot.enhancedNotes[0].contentFormat = "prosemirror_json";
+    mocks.loadSessionContentSnapshot.mockResolvedValue(snapshot);
+
+    await enhanceSuccess.onSuccess?.(
+      createParams({
+        args: {
+          sessionId: "session-1",
+          enhancedNoteId: "note-1",
+          templateId: undefined,
+          pendingAutoEnhance: {
+            generation: "generation-1",
+            expectedBody: "old content",
+            expectedContentFormat: "markdown",
+          },
+        },
+      }),
+    );
+
+    expect(mocks.persistGeneratedEnhancedNote).toHaveBeenCalledWith(
+      expect.objectContaining({
+        note: expect.objectContaining({
+          currentContent: "old content",
+          currentContentFormat: "markdown",
+        }),
+        pendingAutoEnhance: {
+          generation: "generation-1",
+          expectedBody: "old content",
+          expectedContentFormat: "markdown",
+        },
+      }),
     );
   });
 
@@ -243,6 +283,36 @@ describe("enhanceSuccess.onSuccess", () => {
       ),
     ).rejects.toThrow("stale summary");
     expect(mocks.persistGeneratedTitle).not.toHaveBeenCalled();
+  });
+
+  it("retries a transient database lock while saving generated content", async () => {
+    vi.useFakeTimers();
+    mocks.persistGeneratedEnhancedNote
+      .mockRejectedValueOnce(new Error("database is locked"))
+      .mockResolvedValueOnce(undefined);
+
+    const persist = enhanceSuccess.onSuccess?.(createParams());
+    await vi.advanceTimersByTimeAsync(100);
+    await persist;
+
+    expect(mocks.persistGeneratedEnhancedNote).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry persistence after cancellation during a database lock", async () => {
+    vi.useFakeTimers();
+    const abortController = new AbortController();
+    mocks.persistGeneratedEnhancedNote.mockImplementationOnce(async () => {
+      abortController.abort();
+      throw new Error("database is locked");
+    });
+
+    const persist = enhanceSuccess.onSuccess?.(
+      createParams({ signal: abortController.signal }),
+    );
+    await vi.advanceTimersByTimeAsync(100);
+    await persist;
+
+    expect(mocks.persistGeneratedEnhancedNote).toHaveBeenCalledOnce();
   });
 
   it("does not save after cancellation during title generation", async () => {

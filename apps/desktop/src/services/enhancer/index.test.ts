@@ -6,11 +6,14 @@ import { EnhancerService } from ".";
 const mocks = vi.hoisted(() => ({
   analyticsEvent: vi.fn().mockResolvedValue(undefined),
   loadSessionContentSnapshot: vi.fn(),
+  loadPendingAutoEnhanceJobs: vi.fn(),
+  ensurePendingAutoEnhanceDocument: vi.fn(),
   ensureSummaryDocument: vi.fn(),
   replaceSummaryDocumentTemplate: vi.fn().mockResolvedValue(undefined),
   updateSummaryDocumentTitleIfCurrent: vi.fn().mockResolvedValue(undefined),
   getTemplateById: vi.fn().mockResolvedValue(null),
   listenerSubscribe: vi.fn(),
+  listenerGetState: vi.fn(),
 }));
 
 vi.mock("@hypr/plugin-analytics", () => ({
@@ -22,7 +25,9 @@ vi.mock("~/session/content-queries", () => ({
 }));
 
 vi.mock("./storage", () => ({
+  ensurePendingAutoEnhanceDocument: mocks.ensurePendingAutoEnhanceDocument,
   ensureSummaryDocument: mocks.ensureSummaryDocument,
+  loadPendingAutoEnhanceJobs: mocks.loadPendingAutoEnhanceJobs,
   replaceSummaryDocumentTemplate: mocks.replaceSummaryDocumentTemplate,
   updateSummaryDocumentTitleIfCurrent:
     mocks.updateSummaryDocumentTitleIfCurrent,
@@ -35,6 +40,7 @@ vi.mock("~/templates/queries", () => ({
 vi.mock("~/store/zustand/listener/instance", () => ({
   listenerStore: {
     subscribe: mocks.listenerSubscribe,
+    getState: mocks.listenerGetState,
   },
 }));
 
@@ -90,6 +96,18 @@ function createSnapshot({
           ]
         : [],
     participants: [],
+  };
+}
+
+function createPendingJob(overrides: Record<string, any> = {}): any {
+  return {
+    sessionId: "session-1",
+    noteId: "note-1",
+    templateId: "",
+    expectedBody: "",
+    expectedContentFormat: "prosemirror_json",
+    generation: "generation-1",
+    ...overrides,
   };
 }
 
@@ -158,6 +176,22 @@ describe("EnhancerService", () => {
         return note;
       },
     );
+    mocks.ensurePendingAutoEnhanceDocument.mockImplementation(
+      async (sessionId: string, templateId?: string) => {
+        const note = await mocks.ensureSummaryDocument(sessionId, templateId);
+        return createPendingJob({
+          sessionId,
+          noteId: note.id,
+          templateId: note.templateId,
+          expectedBody: note.content,
+          expectedContentFormat: note.contentFormat,
+        });
+      },
+    );
+    mocks.loadPendingAutoEnhanceJobs.mockResolvedValue([]);
+    mocks.listenerGetState.mockReturnValue({
+      live: { status: "inactive", sessionId: null },
+    });
     mocks.replaceSummaryDocumentTemplate.mockResolvedValue(undefined);
     mocks.updateSummaryDocumentTitleIfCurrent.mockResolvedValue(undefined);
     mocks.getTemplateById.mockResolvedValue(null);
@@ -326,7 +360,33 @@ describe("EnhancerService", () => {
       "session-1",
       undefined,
     );
+    expect(mocks.ensurePendingAutoEnhanceDocument).not.toHaveBeenCalled();
     expect(queueSpy).toHaveBeenCalledWith("session-1");
+  });
+
+  it("persists the restart marker before queuing an eligible summary", async () => {
+    snapshot = createSnapshot({ wordCount: 40 });
+    const service = new EnhancerService(createDeps());
+    const queueSpy = vi
+      .spyOn(service, "queueAutoEnhance")
+      .mockImplementation(() => {});
+
+    await service.queueAutoEnhanceIfSummaryEmpty("session-1");
+
+    expect(mocks.ensurePendingAutoEnhanceDocument).toHaveBeenCalledWith(
+      "session-1",
+      undefined,
+    );
+    expect(mocks.ensurePendingAutoEnhanceDocument).toHaveBeenCalledBefore(
+      queueSpy,
+    );
+    expect(queueSpy).toHaveBeenCalledWith(
+      "session-1",
+      expect.objectContaining({
+        noteId: "note-1",
+        generation: "generation-1",
+      }),
+    );
   });
 
   it("computes eligibility from canonical transcript words", async () => {
@@ -381,6 +441,36 @@ describe("EnhancerService", () => {
     await vi.waitFor(() => expect(ai.generate).toHaveBeenCalledOnce());
   });
 
+  it("resumes a durable regeneration job after restart", async () => {
+    snapshot = createSnapshot({
+      notes: [createNote({ content: "Previous summary" })],
+      wordCount: 40,
+    });
+    mocks.loadPendingAutoEnhanceJobs.mockResolvedValue([
+      createPendingJob({ expectedBody: "Previous summary" }),
+    ]);
+    const ai = createMockAITaskStore();
+    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
+
+    service.start();
+    service.start();
+
+    await vi.waitFor(() => expect(ai.generate).toHaveBeenCalledOnce());
+    expect(mocks.loadPendingAutoEnhanceJobs).toHaveBeenCalledOnce();
+    expect(ai.generate).toHaveBeenCalledWith(
+      "note-1-enhance",
+      expect.objectContaining({
+        args: expect.objectContaining({
+          pendingAutoEnhance: expect.objectContaining({
+            expectedBody: "Previous summary",
+          }),
+        }),
+      }),
+    );
+    expect(mocks.listenerSubscribe).toHaveBeenCalledOnce();
+    service.dispose();
+  });
+
   it("retries a lock during actual auto-enhance execution without duplicating generation", async () => {
     vi.useFakeTimers();
     snapshot = createSnapshot({ wordCount: 40 });
@@ -429,11 +519,109 @@ describe("EnhancerService", () => {
     await request;
     await vi.waitFor(() => expect(ai.generate).toHaveBeenCalledOnce());
 
-    expect(mocks.loadSessionContentSnapshot).toHaveBeenCalledTimes(4);
+    expect(mocks.loadSessionContentSnapshot).toHaveBeenCalledTimes(5);
     expect(ai.reset).toHaveBeenCalledTimes(2);
     expect(ai.reset).toHaveBeenCalledWith("one-enhance");
     expect(ai.reset).toHaveBeenCalledWith("two-enhance");
+    expect(mocks.ensurePendingAutoEnhanceDocument).toHaveBeenCalledWith(
+      "session-1",
+      undefined,
+    );
+    expect(mocks.ensurePendingAutoEnhanceDocument).toHaveBeenCalledBefore(
+      ai.reset,
+    );
+    expect(mocks.ensurePendingAutoEnhanceDocument).toHaveBeenCalledBefore(
+      ai.generate,
+    );
+    expect(ai.generate).toHaveBeenCalledWith(
+      "one-enhance",
+      expect.objectContaining({
+        args: expect.objectContaining({
+          pendingAutoEnhance: {
+            generation: "generation-1",
+            expectedBody: "",
+            expectedContentFormat: "prosemirror_json",
+          },
+        }),
+      }),
+    );
     expect(ai.generate).toHaveBeenCalledOnce();
+  });
+
+  it("retries a startup recovery scan after database contention", async () => {
+    vi.useFakeTimers();
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    snapshot = createSnapshot({ notes: [createNote()], wordCount: 40 });
+    mocks.loadPendingAutoEnhanceJobs
+      .mockRejectedValueOnce(new Error("database is locked"))
+      .mockRejectedValueOnce(new Error("database is locked"))
+      .mockRejectedValueOnce(new Error("database is locked"))
+      .mockRejectedValueOnce(new Error("database is locked"))
+      .mockRejectedValueOnce(new Error("database is locked"))
+      .mockResolvedValue([createPendingJob()]);
+    const ai = createMockAITaskStore();
+    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
+
+    service.start();
+    await vi.advanceTimersByTimeAsync(11_100);
+
+    expect(mocks.loadPendingAutoEnhanceJobs).toHaveBeenCalledTimes(6);
+    expect(ai.generate).toHaveBeenCalledOnce();
+    expect(consoleError).toHaveBeenCalledWith(
+      "[enhancer] failed to resume pending auto-enhance",
+      expect.objectContaining({ message: "database is locked" }),
+    );
+    service.dispose();
+    consoleError.mockRestore();
+  });
+
+  it("retries a durable job when the model becomes ready", async () => {
+    vi.useFakeTimers();
+    snapshot = createSnapshot({ notes: [createNote()], wordCount: 40 });
+    mocks.loadPendingAutoEnhanceJobs.mockResolvedValue([createPendingJob()]);
+    let model: LanguageModel | null = null;
+    const ai = createMockAITaskStore();
+    const service = new EnhancerService(
+      createDeps({
+        aiTaskStore: ai.store,
+        getModel: () => model,
+      }),
+    );
+
+    service.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(ai.generate).not.toHaveBeenCalled();
+
+    model = {} as LanguageModel;
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(ai.generate).toHaveBeenCalledOnce();
+    service.dispose();
+  });
+
+  it("defers durable recovery while the session is recording", async () => {
+    vi.useFakeTimers();
+    snapshot = createSnapshot({ notes: [createNote()], wordCount: 40 });
+    mocks.loadPendingAutoEnhanceJobs.mockResolvedValue([createPendingJob()]);
+    mocks.listenerGetState.mockReturnValue({
+      live: { status: "active", sessionId: "session-1" },
+    });
+    const ai = createMockAITaskStore();
+    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
+
+    service.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(ai.generate).not.toHaveBeenCalled();
+
+    mocks.listenerGetState.mockReturnValue({
+      live: { status: "inactive", sessionId: null },
+    });
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(ai.generate).toHaveBeenCalledOnce();
+    service.dispose();
   });
 
   it("emits no-model and started auto-enhance outcomes", async () => {

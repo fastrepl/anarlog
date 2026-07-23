@@ -704,6 +704,149 @@ describe("General Listener Slice", () => {
       expect(listenCaptureDataMock).toHaveBeenCalledTimes(1);
     });
 
+    test("attachLiveSession restores transcript and stop callbacks for an active native capture", async () => {
+      let dataHandler:
+        | ((event: { payload: Record<string, unknown> }) => void)
+        | undefined;
+      let lifecycleHandler:
+        | ((event: { payload: Record<string, unknown> }) => void)
+        | undefined;
+      const handlePersist = vi.fn();
+      const onStopped = vi.fn();
+      listenCaptureDataMock.mockImplementationOnce((handler) => {
+        dataHandler = handler;
+        return Promise.resolve(() => {});
+      });
+      listenCaptureLifecycleMock.mockImplementationOnce((handler) => {
+        lifecycleHandler = handler;
+        return Promise.resolve(() => {});
+      });
+      getCaptureSnapshotMock.mockResolvedValueOnce({
+        status: "ok",
+        data: {
+          activeSessionId: "session-a",
+          finalizingSessionIds: [],
+          liveTranscriptionActive: true,
+          requestedLiveTranscription: true,
+          state: "active",
+        },
+      });
+
+      await store.getState().attachLiveSession("session-a", {
+        handlePersist,
+        onStopped,
+      });
+      dataHandler?.({
+        payload: {
+          session_id: "session-a",
+          type: "transcript_delta",
+          delta: {
+            new_words: [
+              {
+                id: "word-after-reload",
+                text: " preserved",
+                start_ms: 1_000,
+                end_ms: 1_500,
+                channel: 0,
+              },
+            ],
+            replaced_ids: [],
+            partials: [],
+          },
+        },
+      });
+      lifecycleHandler?.({
+        payload: {
+          type: "stopped",
+          session_id: "session-a",
+          audio_path: "/tmp/session.wav",
+          requested_live_transcription: true,
+          live_transcription_active: true,
+          error: null,
+        },
+      });
+
+      expect(handlePersist).toHaveBeenCalledWith(
+        expect.objectContaining({
+          new_words: [expect.objectContaining({ id: "word-after-reload" })],
+        }),
+      );
+      expect(onStopped).toHaveBeenCalledWith(
+        "session-a",
+        expect.objectContaining({
+          audioPath: "/tmp/session.wav",
+          liveTranscriptionActive: true,
+        }),
+      );
+    });
+
+    test("keeps recovery callbacks installed when the native snapshot is unavailable", async () => {
+      const handlePersist = vi.fn();
+      const onStopped = vi.fn();
+      getCaptureSnapshotMock.mockResolvedValueOnce({
+        status: "error",
+        error: "capture snapshot unavailable",
+      });
+
+      await expect(
+        store.getState().attachLiveSession("session-a", {
+          handlePersist,
+          onStopped,
+        }),
+      ).resolves.toBe("error");
+
+      expect(store.getState().handlePersistBySession["session-a"]).toBe(
+        handlePersist,
+      );
+      expect(store.getState().onStoppedBySession["session-a"]).toBe(onStopped);
+      expect(
+        store.getState().live.eventUnlistenersBySession["session-a"],
+      ).toHaveLength(3);
+      expect(store.getState().canStartLiveSession("session-a")).toBe(false);
+      expect(store.getState().canStartLiveSession("session-b")).toBe(false);
+      await expect(
+        store.getState().start({
+          session_id: "session-b",
+          languages: [],
+          onboarding: false,
+          model: "test-model",
+          base_url: "http://localhost",
+          api_key: "test-key",
+          keywords: [],
+        }),
+      ).resolves.toBe(false);
+      expect(startCaptureMock).not.toHaveBeenCalled();
+
+      getCaptureSnapshotMock.mockResolvedValueOnce({
+        status: "ok",
+        data: {
+          activeSessionId: null,
+          finalizingSessionIds: [],
+          liveTranscriptionActive: null,
+          requestedLiveTranscription: null,
+          state: "inactive",
+        },
+      });
+
+      await expect(
+        store.getState().attachLiveSession("session-a", {
+          handlePersist: vi.fn(),
+          onStopped: vi.fn(),
+        }),
+      ).resolves.toBe("inactive");
+      expect(
+        store.getState().handlePersistBySession["session-a"],
+      ).toBeUndefined();
+      expect(store.getState().onStoppedBySession["session-a"]).toBeUndefined();
+      expect(
+        store.getState().beginCaptureRecoveryFinalization("session-a"),
+      ).toBe(true);
+      expect(store.getState().canStartLiveSession("session-a")).toBe(false);
+      expect(store.getState().canStartLiveSession("session-b")).toBe(true);
+      store.getState().finishCaptureRecoveryFinalization("session-a");
+      expect(store.getState().canStartLiveSession("session-a")).toBe(true);
+    });
+
     test("finalizing sessions keep the batch repair flag when another session starts", async () => {
       let lifecycleHandler:
         | ((event: {

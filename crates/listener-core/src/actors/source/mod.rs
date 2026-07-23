@@ -140,9 +140,7 @@ impl Actor for SourceActor {
             let device_watcher = DeviceChangeWatcher::spawn(myself.clone());
 
             let silence_stream_tx = Some(args.audio.play_silence());
-            let mic_device = args
-                .mic_device
-                .or_else(|| Some(args.audio.default_device_name()));
+            let mic_device = args.mic_device;
             tracing::info!(mic_device = ?mic_device);
 
             let pipeline = Pipeline::new(args.runtime.clone(), args.session_id.clone());
@@ -245,5 +243,166 @@ impl Actor for SourceActor {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        path::PathBuf,
+        sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        },
+    };
+
+    use futures_util::stream;
+    use ractor::Actor;
+    use tokio::sync::mpsc;
+
+    use super::*;
+    use crate::{
+        SessionDataEvent, SessionLifecycleEvent, SessionProgressEvent,
+        actors::source::ListenerRouting,
+    };
+    use hypr_audio::{CaptureConfig, CaptureStream, Error};
+
+    struct TestRuntime {
+        progress_tx: mpsc::UnboundedSender<SessionProgressEvent>,
+    }
+
+    impl hypr_storage::StorageRuntime for TestRuntime {
+        fn global_base(&self) -> Result<PathBuf, hypr_storage::Error> {
+            Ok(std::env::temp_dir())
+        }
+
+        fn vault_base(&self) -> Result<PathBuf, hypr_storage::Error> {
+            Ok(std::env::temp_dir())
+        }
+    }
+
+    impl ListenerRuntime for TestRuntime {
+        fn emit_lifecycle(&self, _event: SessionLifecycleEvent) {}
+
+        fn emit_progress(&self, event: SessionProgressEvent) {
+            let _ = self.progress_tx.send(event);
+        }
+
+        fn emit_error(&self, _event: SessionErrorEvent) {}
+
+        fn emit_data(&self, _event: SessionDataEvent) {}
+    }
+
+    struct TestAudio {
+        capture_tx: mpsc::UnboundedSender<Option<String>>,
+        default_device_name_calls: AtomicUsize,
+    }
+
+    impl AudioProvider for TestAudio {
+        fn open_capture(&self, config: CaptureConfig) -> Result<CaptureStream, Error> {
+            let _ = self.capture_tx.send(config.mic_device);
+            Ok(CaptureStream::new(stream::pending()))
+        }
+
+        fn open_speaker_capture(
+            &self,
+            _sample_rate: u32,
+            _chunk_size: usize,
+        ) -> Result<CaptureStream, Error> {
+            unreachable!()
+        }
+
+        fn open_mic_capture(
+            &self,
+            _device: Option<String>,
+            _sample_rate: u32,
+            _chunk_size: usize,
+        ) -> Result<CaptureStream, Error> {
+            unreachable!()
+        }
+
+        fn default_device_name(&self) -> String {
+            self.default_device_name_calls
+                .fetch_add(1, Ordering::Relaxed);
+            "system-default".to_string()
+        }
+
+        fn list_mic_devices(&self) -> Vec<String> {
+            vec![]
+        }
+
+        fn play_silence(&self) -> std::sync::mpsc::Sender<()> {
+            let (tx, _rx) = std::sync::mpsc::channel();
+            tx
+        }
+
+        fn play_bytes(&self, _bytes: &'static [u8]) -> std::sync::mpsc::Sender<()> {
+            let (tx, _rx) = std::sync::mpsc::channel();
+            tx
+        }
+
+        fn probe_mic(&self, _device: Option<String>) -> Result<(), Error> {
+            Ok(())
+        }
+
+        fn probe_speaker(&self) -> Result<(), Error> {
+            Ok(())
+        }
+    }
+
+    async fn assert_source_uses_mic_device(mic_device: Option<&str>) {
+        let (progress_tx, mut progress_rx) = mpsc::unbounded_channel();
+        let (capture_tx, mut capture_rx) = mpsc::unbounded_channel();
+        let audio = Arc::new(TestAudio {
+            capture_tx,
+            default_device_name_calls: AtomicUsize::new(0),
+        });
+        let expected = mic_device.map(str::to_string);
+        let (actor, handle) = Actor::spawn(
+            None,
+            SourceActor,
+            SourceArgs {
+                mic_device: expected.clone(),
+                onboarding: false,
+                runtime: Arc::new(TestRuntime { progress_tx }),
+                audio: audio.clone(),
+                session_id: "test-session".to_string(),
+                listener_routing: ListenerRouting::Dropped,
+                recorder: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let captured = tokio::time::timeout(std::time::Duration::from_secs(1), capture_rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(captured, expected);
+
+        let ready_device = loop {
+            let event = tokio::time::timeout(std::time::Duration::from_secs(1), progress_rx.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            if let SessionProgressEvent::AudioReady { device, .. } = event {
+                break device;
+            }
+        };
+        assert_eq!(ready_device, expected);
+        assert_eq!(audio.default_device_name_calls.load(Ordering::Relaxed), 0);
+
+        actor.stop(None);
+        let _ = handle.await;
+    }
+
+    #[tokio::test]
+    async fn unspecified_mic_uses_capture_provider_default() {
+        assert_source_uses_mic_device(None).await;
+    }
+
+    #[tokio::test]
+    async fn explicit_mic_selection_is_preserved() {
+        assert_source_uses_mic_device(Some("external-mic")).await;
     }
 }

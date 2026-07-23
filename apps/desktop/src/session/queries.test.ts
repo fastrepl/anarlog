@@ -192,13 +192,21 @@ describe("session SQLite operations", () => {
       sql: string;
       params: unknown[];
     }>;
-    expect(statements).toHaveLength(2);
+    expect(statements).toHaveLength(3);
     expect(statements[0].sql).toContain("UPDATE session_documents");
     expect(statements[0].params).toContain("enhanced-note-1");
     expect(statements[0].params).toContain('{"type":"doc"}');
-    expect(statements[1].sql).toContain("UPDATE sessions");
-    expect(statements[1].params).toContain("session-1");
-    expect(statements[1].params).toContain("Edited title");
+    expect(statements[1].sql).toContain("DELETE FROM app_settings");
+    expect(statements[1].sql).toContain("$.noteId");
+    expect(statements[1].sql).toContain("$.body");
+    expect(statements[1].params).toEqual([
+      "auto_enhance_pending:session-1",
+      "enhanced-note-1",
+      '{"type":"doc"}',
+    ]);
+    expect(statements[2].sql).toContain("UPDATE sessions");
+    expect(statements[2].params).toContain("session-1");
+    expect(statements[2].params).toContain("Edited title");
   });
 
   it("soft-deletes an enhanced note instead of removing its data", async () => {

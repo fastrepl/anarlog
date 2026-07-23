@@ -6,6 +6,15 @@ use hypr_transcription_core::listener::{
     actors::{RootActor, RootMsg, SessionParams, SourceActor, SourceMsg},
 };
 
+fn capture_snapshot_from_result<E: std::fmt::Debug>(
+    result: Result<hypr_transcription_core::listener::Snapshot, E>,
+) -> crate::Result<CaptureSnapshot> {
+    result.map(CaptureSnapshot::from).map_err(|error| {
+        tracing::warn!(?error, "capture_snapshot_unavailable");
+        crate::Error::CaptureSnapshotUnavailable
+    })
+}
+
 pub struct Listener<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
     #[allow(unused)]
     manager: &'a M,
@@ -48,28 +57,11 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
     }
 
     #[tracing::instrument(skip_all)]
-    pub async fn get_capture_snapshot(&self) -> CaptureSnapshot {
-        let mut snapshot = if let Some(cell) = registry::where_is(RootActor::name()) {
-            let actor: ActorRef<RootMsg> = cell.into();
-            match call_t!(actor, RootMsg::GetSnapshot, 100) {
-                Ok(snapshot) => CaptureSnapshot::from(snapshot),
-                Err(_) => CaptureSnapshot {
-                    state: CaptureState::Inactive,
-                    active_session_id: None,
-                    finalizing_session_ids: vec![],
-                    requested_live_transcription: None,
-                    live_transcription_active: None,
-                },
-            }
-        } else {
-            CaptureSnapshot {
-                state: CaptureState::Inactive,
-                active_session_id: None,
-                finalizing_session_ids: vec![],
-                requested_live_transcription: None,
-                live_transcription_active: None,
-            }
-        };
+    pub async fn get_capture_snapshot(&self) -> Result<CaptureSnapshot, crate::Error> {
+        let cell = registry::where_is(RootActor::name())
+            .ok_or_else(|| crate::Error::ActorNotFound(RootActor::name().to_string()))?;
+        let actor: ActorRef<RootMsg> = cell.into();
+        let mut snapshot = capture_snapshot_from_result(call_t!(actor, RootMsg::GetSnapshot, 100))?;
 
         let session_id = snapshot
             .active_session_id
@@ -85,7 +77,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
             snapshot.live_transcription_active = Some(active);
         }
 
-        snapshot
+        Ok(snapshot)
     }
 
     #[tracing::instrument(skip_all)]
@@ -139,6 +131,19 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
             let update = update.into();
             let _ = ractor::call!(actor, RootMsg::UpdateSessionConfig, update);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn capture_snapshot_failure_is_not_reported_as_inactive() {
+        let error = capture_snapshot_from_result::<&str>(Err("timed out"))
+            .expect_err("snapshot failure must remain retryable");
+
+        assert!(matches!(error, crate::Error::CaptureSnapshotUnavailable));
     }
 }
 

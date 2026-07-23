@@ -44,7 +44,15 @@ export type GeneralActions = {
     },
   ) => Promise<boolean>;
   stop: () => void;
-  attachLiveSession: (sessionId: string) => Promise<void>;
+  attachLiveSession: (
+    sessionId: string,
+    options?: {
+      handlePersist?: LiveTranscriptPersistCallback;
+      onStopped?: OnStoppedCallback;
+    },
+  ) => Promise<"attached" | "inactive" | "error">;
+  beginCaptureRecoveryFinalization: (sessionId: string) => boolean;
+  finishCaptureRecoveryFinalization: (sessionId: string) => void;
   setMuted: (value: boolean) => void;
   setTriggerAppIds: (appIds: string[] | null) => void;
   updateCaptureConfig: (
@@ -124,12 +132,32 @@ export const createGeneralSlice = <
   stop: () => {
     stopLiveSession(set, get);
   },
-  attachLiveSession: async (sessionId) => {
+  attachLiveSession: async (sessionId, options) => {
     if (!sessionId) {
-      return;
+      return "inactive";
     }
 
-    await attachLiveSession(set, get, sessionId);
+    return attachLiveSession(set, get, sessionId, options);
+  },
+  beginCaptureRecoveryFinalization: (sessionId) => {
+    let started = false;
+    setLiveState(set, (live) => {
+      if (live.postStopProcessingBySession[sessionId]) {
+        return;
+      }
+      live.postStopProcessingBySession[sessionId] = true;
+      started = true;
+    });
+    return started;
+  },
+  finishCaptureRecoveryFinalization: (sessionId) => {
+    setLiveState(set, (live) => {
+      delete live.postStopProcessingBySession[sessionId];
+      if (live.sessionId === sessionId && live.status === "inactive") {
+        live.loading = false;
+        live.sessionId = null;
+      }
+    });
   },
   setMuted: (value) => {
     set((state) =>

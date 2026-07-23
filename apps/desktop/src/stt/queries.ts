@@ -231,7 +231,9 @@ export function createTranscript(input: TranscriptInsert): Promise<void> {
           memo, words_json, speaker_hints_json, metadata_json, created_at,
           updated_at, deleted_at
         )
-        SELECT ?, session.workspace_id, ?, session.id, ?, ?, ?, ?, ?, ?, '',
+        SELECT ?, session.workspace_id,
+          COALESCE(NULLIF(?, ''), session.owner_user_id),
+          session.id, ?, ?, ?, ?, ?, ?, '',
           ?, ?, ?, '{}', ?, ?, NULL
         FROM sessions AS session
         WHERE session.id = ? AND session.deleted_at IS NULL
@@ -271,6 +273,19 @@ export function createLiveTranscript(
     words: JSON.parse(snapshot.wordsJson) as WordWithId[],
     speakerHints: JSON.parse(snapshot.hintsJson) as SpeakerHintWithId[],
   });
+}
+
+export async function transcriptExists(transcriptId: string): Promise<boolean> {
+  const rows = await liveQueryClient.execute<{ id: string }>(
+    `
+      SELECT id
+      FROM transcripts
+      WHERE id = ? AND deleted_at IS NULL
+      LIMIT 1
+    `,
+    [transcriptId],
+  );
+  return Boolean(rows[0]);
 }
 
 export function applyLiveTranscriptDeltaToDatabase(

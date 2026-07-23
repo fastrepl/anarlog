@@ -28,6 +28,7 @@ import { createTranscript } from "~/stt/queries";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 
 type RunOptions = {
+  deferAudioFinalization?: boolean;
   handlePersist?: BatchPersistCallback;
   model?: string;
   baseUrl?: string;
@@ -467,18 +468,22 @@ export const useRunBatch = (sessionId: string) => {
             );
           }
         }
-        try {
-          await persistTranscriptWrite(() =>
-            markSessionAudioTranscriptionComplete(sessionId),
-          );
-        } catch (error) {
-          console.error(
-            "[runBatch] failed to mark session audio as processed",
-            error,
-          );
+        if (!options?.deferAudioFinalization) {
+          try {
+            await persistTranscriptWrite(() =>
+              markSessionAudioTranscriptionComplete(sessionId),
+            );
+          } catch (error) {
+            console.error(
+              "[runBatch] failed to mark session audio as processed",
+              error,
+            );
+          }
         }
       }
-      await deleteProcessedAudioForRetention(audioRetention, sessionId);
+      if (!options?.deferAudioFinalization) {
+        await deleteProcessedAudioForRetention(audioRetention, sessionId);
+      }
     },
     [
       conn,

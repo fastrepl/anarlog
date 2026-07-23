@@ -11,6 +11,7 @@ pub(crate) struct CloudsyncRuntimeState {
     pub(crate) task: Option<CloudsyncBackgroundTask>,
     pub(crate) last_sync: Option<CloudsyncNetworkResult>,
     pub(crate) last_sync_at_ms: Option<u64>,
+    pub(crate) outbound_work_state: Option<bool>,
     pub(crate) last_error: Option<String>,
     pub(crate) last_error_kind: Option<hypr_cloudsync::ErrorKind>,
     pub(crate) consecutive_failures: u32,

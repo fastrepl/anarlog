@@ -182,7 +182,7 @@ unsafe extern "C" fn observe_wal_commit(
 }
 
 fn invoke_observer(callback: &mut (dyn FnMut() + Send)) {
-    let _ = catch_unwind(AssertUnwindSafe(|| callback()));
+    let _ = catch_unwind(AssertUnwindSafe(callback));
 }
 
 #[allow(unsafe_code)]

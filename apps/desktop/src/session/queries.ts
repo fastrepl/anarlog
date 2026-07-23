@@ -88,6 +88,8 @@ type EnhancedNoteSqlRow = {
   sort_order: number;
 };
 
+const PENDING_AUTO_ENHANCE_SETTING_PREFIX = "auto_enhance_pending:";
+
 export type SessionRecord = {
   id: string;
   user_id: string;
@@ -233,8 +235,13 @@ export function useUpdateSession(sessionId: string) {
   );
 }
 
-export function useSessionHasTranscript(sessionId: string): boolean {
-  const { data = false } = useLiveQuery<SessionTranscriptStateSqlRow, boolean>({
+export function useSessionTranscriptExistence(
+  sessionId: string,
+): boolean | null {
+  const { data = null } = useLiveQuery<
+    SessionTranscriptStateSqlRow,
+    boolean | null
+  >({
     sql: `
       SELECT EXISTS (
         SELECT 1
@@ -252,6 +259,10 @@ export function useSessionHasTranscript(sessionId: string): boolean {
     mapRows: (rows) => Boolean(rows[0]?.has_transcript),
   });
   return sessionId ? data : false;
+}
+
+export function useSessionHasTranscript(sessionId: string): boolean {
+  return useSessionTranscriptExistence(sessionId) === true;
 }
 
 export function useSessionParticipants(
@@ -493,6 +504,26 @@ export function updateEnhancedNoteContent(
             AND deleted_at IS NULL
         `,
         params: [content, now, enhancedNoteId],
+      },
+      {
+        sql: `
+          DELETE FROM app_settings
+          WHERE id = ?
+            AND json_valid(value_json)
+            AND json_extract(
+              CASE WHEN json_valid(value_json) THEN value_json ELSE '{}' END,
+              '$.noteId'
+            ) = ?
+            AND json_extract(
+              CASE WHEN json_valid(value_json) THEN value_json ELSE '{}' END,
+              '$.body'
+            ) <> ?
+        `,
+        params: [
+          `${PENDING_AUTO_ENHANCE_SETTING_PREFIX}${sessionId}`,
+          enhancedNoteId,
+          content,
+        ],
       },
     ];
 

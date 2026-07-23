@@ -10,6 +10,7 @@ import {
   persistGeneratedTitle,
 } from "./title-success";
 
+import { retryDatabaseLock } from "~/db/retry";
 import {
   constrainSummaryLength,
   countNormalizedCharacters,
@@ -121,16 +122,26 @@ const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = async ({
   }
 
   const persistableText = appendTagLineToMarkdown(persistableBody, tagNames);
-  await persistGeneratedEnhancedNote({
-    sessionId: args.sessionId,
-    ownerUserId: snapshot.ownerUserId,
-    note: {
-      id: note.id,
-      currentContent: note.content,
-      currentContentFormat: note.contentFormat,
-      nextContent: JSON.stringify(md2json(persistableText)),
-    },
-    tagNames,
+  await retryDatabaseLock(() => {
+    if (signal.aborted) {
+      return Promise.resolve();
+    }
+
+    return persistGeneratedEnhancedNote({
+      sessionId: args.sessionId,
+      ownerUserId: snapshot.ownerUserId,
+      note: {
+        id: note.id,
+        currentContent: args.pendingAutoEnhance?.expectedBody ?? note.content,
+        currentContentFormat:
+          args.pendingAutoEnhance?.expectedContentFormat ?? note.contentFormat,
+        nextContent: JSON.stringify(md2json(persistableText)),
+      },
+      tagNames,
+      ...(args.pendingAutoEnhance
+        ? { pendingAutoEnhance: args.pendingAutoEnhance }
+        : {}),
+    });
   });
 
   if (shouldPersistGeneratedTitle && !signal.aborted) {

@@ -5,7 +5,10 @@ import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { type EnhanceEligibilitySkipCode, getEligibility } from "./eligibility";
 import {
   type EnhancerNote,
+  type PendingAutoEnhanceJob,
+  ensurePendingAutoEnhanceDocument,
   ensureSummaryDocument,
+  loadPendingAutoEnhanceJobs,
   replaceSummaryDocumentTemplate,
   updateSummaryDocumentTitleIfCurrent,
 } from "./storage";
@@ -33,6 +36,7 @@ export type AutoEnhanceMode = "regenerate" | "if_empty";
 
 type EnhanceOpts = {
   isAuto?: boolean;
+  pendingAutoEnhance?: PendingAutoEnhanceJob;
   templateId?: string | null;
   targetNoteId?: string;
   templateTitle?: string;
@@ -60,6 +64,7 @@ type EnhancerDeps = {
 const UUID_TITLE_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ISO_TITLE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+const PENDING_AUTO_ENHANCE_RECOVERY_INTERVAL_MS = 5_000;
 
 type TiptapNode = {
   content?: TiptapNode[];
@@ -149,14 +154,21 @@ export function initEnhancerService(deps: EnhancerDeps): EnhancerService {
 }
 
 export class EnhancerService {
-  private activeAutoEnhance = new Set<string>();
+  private activeAutoEnhance = new Map<
+    string,
+    PendingAutoEnhanceJob | undefined
+  >();
   private pendingRetries = new Map<string, ReturnType<typeof setTimeout>>();
+  private pendingResumeTimer: ReturnType<typeof setTimeout> | null = null;
   private unsubscribe: (() => void) | null = null;
   private eventListeners = new Set<(event: EnhancerEvent) => void>();
+  private started = false;
 
   constructor(private deps: EnhancerDeps) {}
 
   start() {
+    if (this.started) return;
+    this.started = true;
     this.unsubscribe = listenerStore.subscribe((state) => {
       const { status, sessionId } = state.live;
 
@@ -165,13 +177,17 @@ export class EnhancerService {
         this.clearRetry(sessionId);
       }
     });
+    this.schedulePendingAutoEnhanceResume(0);
   }
 
   dispose() {
+    this.started = false;
     this.unsubscribe?.();
     this.unsubscribe = null;
     for (const timer of this.pendingRetries.values()) clearTimeout(timer);
     this.pendingRetries.clear();
+    if (this.pendingResumeTimer) clearTimeout(this.pendingResumeTimer);
+    this.pendingResumeTimer = null;
     this.activeAutoEnhance.clear();
     this.eventListeners.clear();
     if (instance === this) instance = null;
@@ -191,9 +207,12 @@ export class EnhancerService {
     return getEligibility(snapshot.transcripts);
   }
 
-  queueAutoEnhance(sessionId: string) {
+  queueAutoEnhance(
+    sessionId: string,
+    pendingAutoEnhance?: PendingAutoEnhanceJob,
+  ) {
     if (this.activeAutoEnhance.has(sessionId)) return;
-    this.activeAutoEnhance.add(sessionId);
+    this.activeAutoEnhance.set(sessionId, pendingAutoEnhance);
     this.runAutoEnhance(sessionId, 0);
   }
 
@@ -209,22 +228,43 @@ export class EnhancerService {
         return { type: "summary_exists", noteId: existingNote.id };
       }
 
-      if (!existingNote) {
-        const eligibility = getEligibility(snapshot.transcripts);
-        if (!eligibility.eligible && eligibility.wordCount > 0) {
-          await this.ensureNote(sessionId, templateId);
-        }
+      const eligibility = getEligibility(snapshot.transcripts);
+      if (eligibility.eligible) {
+        const pendingAutoEnhance = await ensurePendingAutoEnhanceDocument(
+          sessionId,
+          existingNote ? existingNote.templateId || undefined : templateId,
+        );
+        this.schedulePendingAutoEnhanceResume();
+        this.queueAutoEnhance(sessionId, pendingAutoEnhance);
+      } else if (!existingNote && eligibility.wordCount > 0) {
+        await this.ensureNote(sessionId, templateId);
+        this.queueAutoEnhance(sessionId);
+      } else {
+        this.queueAutoEnhance(sessionId);
       }
 
-      this.queueAutoEnhance(sessionId);
       return { type: "queued" };
     });
   }
 
   async requestAutoEnhance(sessionId: string, mode: AutoEnhanceMode) {
     if (mode === "regenerate") {
+      const pendingAutoEnhance = await retryDatabaseLock(async () => {
+        const snapshot = await this.loadSession(sessionId);
+        const selectedTemplateId = this.deps.getSelectedTemplateId();
+        const existingNote = getAutoEnhancedNote(snapshot, selectedTemplateId);
+        return ensurePendingAutoEnhanceDocument(
+          sessionId,
+          existingNote
+            ? existingNote.templateId || undefined
+            : selectedTemplateId,
+        );
+      });
       await this.resetEnhanceTasks(sessionId);
-      this.queueAutoEnhance(sessionId);
+      this.activeAutoEnhance.delete(sessionId);
+      this.clearRetry(sessionId);
+      this.schedulePendingAutoEnhanceResume();
+      this.queueAutoEnhance(sessionId, pendingAutoEnhance);
       return;
     }
 
@@ -237,6 +277,42 @@ export class EnhancerService {
         this.handleAutoEnhanceError(sessionId, error);
       },
     );
+  }
+
+  private schedulePendingAutoEnhanceResume(
+    delayMs = PENDING_AUTO_ENHANCE_RECOVERY_INTERVAL_MS,
+  ) {
+    if (!this.started || this.pendingResumeTimer) return;
+
+    this.pendingResumeTimer = setTimeout(() => {
+      this.pendingResumeTimer = null;
+      void this.resumePendingAutoEnhance();
+    }, delayMs);
+  }
+
+  private async resumePendingAutoEnhance() {
+    try {
+      const jobs = await retryDatabaseLock(loadPendingAutoEnhanceJobs);
+      if (!this.started) return;
+
+      for (const job of jobs) {
+        const live = listenerStore.getState().live;
+        if (live.status === "active" && live.sessionId === job.sessionId) {
+          continue;
+        }
+        console.info("[enhancer] resuming pending auto-enhance", {
+          sessionId: job.sessionId,
+        });
+        this.queueAutoEnhance(job.sessionId, job);
+      }
+
+      if (jobs.length > 0) {
+        this.schedulePendingAutoEnhanceResume();
+      }
+    } catch (error) {
+      console.error("[enhancer] failed to resume pending auto-enhance", error);
+      this.schedulePendingAutoEnhanceResume();
+    }
   }
 
   private async tryAutoEnhance(sessionId: string, attempt: number) {
@@ -265,11 +341,18 @@ export class EnhancerService {
       return;
     }
 
-    const result = await this.enhance(sessionId, { isAuto: true });
+    const pendingAutoEnhance = this.activeAutoEnhance.get(sessionId);
+    const result = await this.enhance(sessionId, {
+      isAuto: true,
+      pendingAutoEnhance,
+    });
     if (!this.activeAutoEnhance.has(sessionId)) return;
 
     if (result.type === "no_model") {
       this.activeAutoEnhance.delete(sessionId);
+      if (pendingAutoEnhance) {
+        this.schedulePendingAutoEnhanceResume();
+      }
       this.emit({ type: "auto-enhance-no-model", sessionId });
       return;
     }
@@ -287,6 +370,7 @@ export class EnhancerService {
     this.clearRetry(sessionId);
     const reason = error instanceof Error ? error.message : String(error);
     console.error("[enhancer] auto-enhance failed", error);
+    this.schedulePendingAutoEnhanceResume();
     this.emit({
       type: "auto-enhance-skipped",
       sessionId,
@@ -322,19 +406,24 @@ export class EnhancerService {
 
     const snapshot = await this.loadSession(sessionId);
     let templateId = resolveTemplateId(opts, getSelectedTemplateId);
+    const pendingAutoEnhanceNote = opts?.pendingAutoEnhance
+      ? getSessionEnhancedNote(snapshot, opts.pendingAutoEnhance.noteId)
+      : undefined;
     const targetNote = opts?.targetNoteId
       ? getSessionEnhancedNote(snapshot, opts.targetNoteId)
       : undefined;
     const autoNote =
-      !targetNote && opts?.isAuto
+      !targetNote && !pendingAutoEnhanceNote && opts?.isAuto
         ? getAutoEnhancedNote(snapshot, templateId)
         : undefined;
-    if (autoNote) {
-      templateId = autoNote.templateId || undefined;
+    if (pendingAutoEnhanceNote || autoNote) {
+      templateId =
+        (pendingAutoEnhanceNote ?? autoNote)?.templateId || undefined;
     }
 
     let note =
       targetNote ??
+      pendingAutoEnhanceNote ??
       autoNote ??
       (await this.ensureNoteRecord(sessionId, templateId));
     const enhanceTaskId = createTaskId(note.id, "enhance");
@@ -380,7 +469,21 @@ export class EnhancerService {
     void aiTaskStore.getState().generate(enhanceTaskId, {
       model,
       taskType: "enhance",
-      args: { sessionId, enhancedNoteId: note.id, templateId },
+      args: {
+        sessionId,
+        enhancedNoteId: note.id,
+        templateId,
+        ...(opts?.pendingAutoEnhance
+          ? {
+              pendingAutoEnhance: {
+                generation: opts.pendingAutoEnhance.generation,
+                expectedBody: opts.pendingAutoEnhance.expectedBody,
+                expectedContentFormat:
+                  opts.pendingAutoEnhance.expectedContentFormat,
+              },
+            }
+          : {}),
+      },
     });
 
     return { type: "started", noteId: note.id };

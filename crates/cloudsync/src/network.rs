@@ -16,7 +16,7 @@ pub struct PendingPayloadBatch {
     pub fits: bool,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NetworkStatus {
     pub last_optimistic_version: i64,
@@ -24,6 +24,63 @@ pub struct NetworkStatus {
     pub gaps: Vec<serde_json::Value>,
     #[serde(default)]
     pub failures: NetworkStatusFailures,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NetworkStatusFields {
+    #[serde(default)]
+    last_optimistic_version: Option<i64>,
+    last_confirmed_version: i64,
+    gaps: serde_json::Value,
+    #[serde(default)]
+    failures: Option<NetworkStatusFailures>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum NetworkStatusResponse {
+    Envelope { data: NetworkStatusFields },
+    Direct(NetworkStatusFields),
+}
+
+impl<'de> Deserialize<'de> for NetworkStatus {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let response = NetworkStatusResponse::deserialize(deserializer)?;
+        let response = match response {
+            NetworkStatusResponse::Envelope { data } => data,
+            NetworkStatusResponse::Direct(response) => response,
+        };
+        let last_confirmed_version = response.last_confirmed_version;
+        let last_optimistic_version = response
+            .last_optimistic_version
+            .unwrap_or(last_confirmed_version);
+        if last_optimistic_version < 0 || last_confirmed_version < 0 {
+            return Err(serde::de::Error::custom(
+                "cloudsync network versions must be non-negative",
+            ));
+        }
+        let gaps = match response.gaps {
+            serde_json::Value::Null => Vec::new(),
+            serde_json::Value::Array(gaps) => gaps,
+            _ => {
+                return Err(serde::de::Error::custom(
+                    "cloudsync network gaps must be an array or null",
+                ));
+            }
+        };
+        Ok(Self {
+            // Confirmed progress is a conservative lower bound for optimistic
+            // progress; some status responses omit the optimistic checkpoint.
+            last_optimistic_version,
+            last_confirmed_version,
+            gaps,
+            failures: response.failures.unwrap_or_default(),
+        })
+    }
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]

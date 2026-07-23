@@ -4,7 +4,9 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { getSessionKeywords } from "./useKeywords";
 import {
   getPostCaptureAction,
+  getPostCaptureRepairReasons,
   sendMeetingRecordingDisclosure,
+  useResumeListeningLifecycle,
   useStartListening,
 } from "./useStartListening";
 
@@ -15,6 +17,10 @@ const {
   queueAutoEnhanceIfSummaryEmptyMock,
   resetEnhanceTasksMock,
   requestAutoEnhanceMock,
+  attachLiveSessionMock,
+  beginCaptureRecoveryFinalizationMock,
+  finishCaptureRecoveryFinalizationMock,
+  canStartLiveSessionMock,
   startMock,
   getSessionModeMock,
   runBatchMock,
@@ -24,7 +30,12 @@ const {
   useSessionParticipantHumanIdsMock,
   createLiveTranscriptMock,
   applyLiveTranscriptDeltaToDatabaseMock,
+  transcriptExistsMock,
   softDeleteTranscriptMock,
+  saveCaptureLifecycleMarkerMock,
+  loadCaptureLifecycleMarkerMock,
+  clearCaptureLifecycleMarkerMock,
+  requestCaptureRecoveryMock,
   useConfigValueMock,
   useSTTConnectionMock,
   isSupportedLanguagesLiveMock,
@@ -48,6 +59,10 @@ const {
   queueAutoEnhanceIfSummaryEmptyMock: vi.fn(),
   resetEnhanceTasksMock: vi.fn(),
   requestAutoEnhanceMock: vi.fn(),
+  attachLiveSessionMock: vi.fn(),
+  beginCaptureRecoveryFinalizationMock: vi.fn(),
+  finishCaptureRecoveryFinalizationMock: vi.fn(),
+  canStartLiveSessionMock: vi.fn(),
   startMock: vi.fn(),
   getSessionModeMock: vi.fn(),
   runBatchMock: vi.fn(),
@@ -57,7 +72,12 @@ const {
   useSessionParticipantHumanIdsMock: vi.fn(),
   createLiveTranscriptMock: vi.fn(),
   applyLiveTranscriptDeltaToDatabaseMock: vi.fn(),
+  transcriptExistsMock: vi.fn(),
   softDeleteTranscriptMock: vi.fn(),
+  saveCaptureLifecycleMarkerMock: vi.fn(),
+  loadCaptureLifecycleMarkerMock: vi.fn(),
+  clearCaptureLifecycleMarkerMock: vi.fn(),
+  requestCaptureRecoveryMock: vi.fn(),
   useConfigValueMock: vi.fn(),
   useSTTConnectionMock: vi.fn(),
   isSupportedLanguagesLiveMock: vi.fn(),
@@ -168,7 +188,7 @@ vi.mock("~/session/utils", () => ({
 
 vi.mock("~/session/queries", () => ({
   useSession: useSessionMock,
-  useSessionHasTranscript: useSessionHasTranscriptMock,
+  useSessionTranscriptExistence: useSessionHasTranscriptMock,
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -179,10 +199,21 @@ vi.mock("~/shared/utils", () => ({
   id: vi.fn(() => "generated-id"),
 }));
 
+vi.mock("~/stt/capture-lifecycle-storage", () => ({
+  clearCaptureLifecycleMarker: clearCaptureLifecycleMarkerMock,
+  loadCaptureLifecycleMarker: loadCaptureLifecycleMarkerMock,
+  saveCaptureLifecycleMarker: saveCaptureLifecycleMarkerMock,
+}));
+
+vi.mock("~/stt/capture-recovery-requests", () => ({
+  requestCaptureRecovery: requestCaptureRecoveryMock,
+}));
+
 vi.mock("~/stt/queries", () => ({
   applyLiveTranscriptDeltaToDatabase: applyLiveTranscriptDeltaToDatabaseMock,
   createLiveTranscript: createLiveTranscriptMock,
   softDeleteTranscript: softDeleteTranscriptMock,
+  transcriptExists: transcriptExistsMock,
   useSessionParticipantHumanIds: useSessionParticipantHumanIdsMock,
 }));
 
@@ -194,6 +225,31 @@ function nextDisclosureSessionId() {
 }
 
 describe("getPostCaptureAction", () => {
+  test("reports every reason that requires post-stop transcript repair", () => {
+    expect(
+      getPostCaptureRepairReasons({
+        audioPath: "/tmp/session.wav",
+        liveTranscriptionActive: false,
+        needsBatchRepair: true,
+        transcriptWriteFailed: true,
+      }),
+    ).toEqual([
+      "live_transcription_unavailable",
+      "live_stream_incomplete",
+      "transcript_persistence_failed",
+    ]);
+  });
+
+  test("reports no repair reason for a complete persisted live transcript", () => {
+    expect(
+      getPostCaptureRepairReasons({
+        audioPath: "/tmp/session.wav",
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+      }),
+    ).toEqual([]);
+  });
+
   test("runs batch then enhance after record-only capture finishes when audio is available", () => {
     expect(
       getPostCaptureAction(
@@ -296,10 +352,17 @@ describe("useStartListening", () => {
     );
     useListenerMock.mockImplementation((selector) =>
       selector({
+        attachLiveSession: attachLiveSessionMock,
+        beginCaptureRecoveryFinalization: beginCaptureRecoveryFinalizationMock,
+        finishCaptureRecoveryFinalization:
+          finishCaptureRecoveryFinalizationMock,
+        canStartLiveSession: canStartLiveSessionMock,
         getSessionMode: getSessionModeMock,
         start: startMock,
       }),
     );
+    beginCaptureRecoveryFinalizationMock.mockReturnValue(true);
+    canStartLiveSessionMock.mockReturnValue(true);
     getSessionModeMock.mockReturnValue("active");
     useSessionMock.mockReturnValue({
       id: "session-1",
@@ -310,7 +373,12 @@ describe("useStartListening", () => {
     useSessionParticipantHumanIdsMock.mockReturnValue([]);
     createLiveTranscriptMock.mockResolvedValue(undefined);
     applyLiveTranscriptDeltaToDatabaseMock.mockResolvedValue(undefined);
+    transcriptExistsMock.mockResolvedValue(false);
     softDeleteTranscriptMock.mockResolvedValue(undefined);
+    saveCaptureLifecycleMarkerMock.mockResolvedValue(undefined);
+    loadCaptureLifecycleMarkerMock.mockResolvedValue(null);
+    clearCaptureLifecycleMarkerMock.mockResolvedValue(undefined);
+    requestCaptureRecoveryMock.mockResolvedValue(undefined);
     catalogLocalSessionAudioMock.mockResolvedValue(undefined);
     markSessionAudioTranscriptionCompleteMock.mockResolvedValue(undefined);
     useConfigValueMock.mockImplementation((key) =>
@@ -330,6 +398,7 @@ describe("useStartListening", () => {
       },
     });
     startMock.mockResolvedValue(true);
+    attachLiveSessionMock.mockResolvedValue("attached");
     runBatchMock.mockResolvedValue(undefined);
     isSupportedLanguagesLiveMock.mockResolvedValue({
       status: "ok",
@@ -404,6 +473,38 @@ describe("useStartListening", () => {
     expect(listMicUsingApplicationsMock).not.toHaveBeenCalled();
   });
 
+  test("does not replace a capture marker while recovery blocks starting", async () => {
+    canStartLiveSessionMock.mockReturnValue(false);
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(saveCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
+    expect(startMock).not.toHaveBeenCalled();
+    expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
+  });
+
+  test("does not clear another capture generation when marker persistence fails", async () => {
+    saveCaptureLifecycleMarkerMock.mockRejectedValueOnce(
+      new Error("expected 1 affected row, got 0"),
+    );
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(startMock).not.toHaveBeenCalled();
+    expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
+    expect(softDeleteTranscriptMock).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
   test("reads keywords from the same pre-start snapshot as the transcript memo", async () => {
     const calls: string[] = [];
     vi.mocked(getSessionKeywords).mockImplementation(async () => {
@@ -425,6 +526,7 @@ describe("useStartListening", () => {
     expect(startMock.mock.calls[0]?.[0]).toMatchObject({
       keywords: ["launch"],
     });
+    expect(saveCaptureLifecycleMarkerMock).toHaveBeenCalledBefore(startMock);
   });
 
   test("runs batch transcription after record-only capture stops", async () => {
@@ -448,6 +550,7 @@ describe("useStartListening", () => {
     });
 
     expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav", {
+      deferAudioFinalization: true,
       promotion: { scope: "whole_session" },
     });
     expect(catalogLocalSessionAudioMock).toHaveBeenCalledWith("session-1");
@@ -461,6 +564,581 @@ describe("useStartListening", () => {
       "forever",
       "session-1",
     );
+    expect(
+      clearCaptureLifecycleMarkerMock.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      deleteProcessedAudioForRetentionMock.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  test("preserves audio when durable capture cleanup cannot commit", async () => {
+    clearCaptureLifecycleMarkerMock.mockRejectedValueOnce(
+      new Error("database is locked"),
+    );
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
+    await expect(
+      onStopped?.("session-1", {
+        durationSeconds: 42,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: false,
+        liveTranscriptionActive: false,
+        needsBatchRepair: false,
+      }),
+    ).rejects.toThrow("database is locked");
+    expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
+    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
+  });
+
+  test("finalizes repair audio only after the durable summary acknowledgement", async () => {
+    let acknowledgeSummary: (() => void) | undefined;
+    queueAutoEnhanceIfSummaryEmptyMock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          acknowledgeSummary = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
+    const stopped = onStopped?.("session-1", {
+      durationSeconds: 42,
+      audioPath: "/tmp/session.wav",
+      requestedLiveTranscription: false,
+      liveTranscriptionActive: false,
+      needsBatchRepair: false,
+    });
+
+    await waitFor(() => {
+      expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledOnce();
+    });
+    expect(saveCaptureLifecycleMarkerMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ summaryMode: "if_empty" }),
+    );
+    const summaryMarkerCallOrder =
+      saveCaptureLifecycleMarkerMock.mock.invocationCallOrder;
+    expect(
+      summaryMarkerCallOrder[summaryMarkerCallOrder.length - 1]!,
+    ).toBeLessThan(
+      queueAutoEnhanceIfSummaryEmptyMock.mock.invocationCallOrder[0]!,
+    );
+    expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
+    expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
+    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
+
+    acknowledgeSummary?.();
+    await act(async () => await stopped);
+
+    expect(
+      queueAutoEnhanceIfSummaryEmptyMock.mock.invocationCallOrder[0]!,
+    ).toBeLessThan(
+      clearCaptureLifecycleMarkerMock.mock.invocationCallOrder[0]!,
+    );
+    expect(
+      clearCaptureLifecycleMarkerMock.mock.invocationCallOrder[0]!,
+    ).toBeLessThan(
+      markSessionAudioTranscriptionCompleteMock.mock.invocationCallOrder[0]!,
+    );
+    expect(
+      markSessionAudioTranscriptionCompleteMock.mock.invocationCallOrder[0]!,
+    ).toBeLessThan(
+      deleteProcessedAudioForRetentionMock.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  test("preserves existing transcripts when transcript state is still loading", async () => {
+    useSessionHasTranscriptMock.mockReturnValue(null);
+    audioSourceMetadataMock
+      .mockResolvedValueOnce({
+        status: "ok",
+        data: {
+          createdAt: null,
+          modifiedAt: null,
+          durationMs: 10_000,
+        },
+      })
+      .mockResolvedValueOnce({
+        status: "ok",
+        data: {
+          createdAt: null,
+          modifiedAt: null,
+          durationMs: 60_000,
+        },
+      });
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
+    await act(async () => {
+      await onStopped?.("session-1", {
+        durationSeconds: 42,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: false,
+        liveTranscriptionActive: false,
+        needsBatchRepair: false,
+      });
+    });
+
+    expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav", {
+      deferAudioFinalization: true,
+      promotion: {
+        scope: "current_capture",
+        audioOffsetMs: 10_000,
+        startedAt: expect.any(Number),
+      },
+    });
+  });
+
+  test("reattaches persistence and post-stop processing after a renderer reload", async () => {
+    useSessionHasTranscriptMock.mockReturnValue(true);
+    transcriptExistsMock.mockResolvedValue(true);
+    loadCaptureLifecycleMarkerMock.mockResolvedValue({
+      version: 1,
+      sessionId: "session-1",
+      transcriptId: "transcript-before-reload",
+      startedAt: 1_000,
+      createdAt: "2026-07-24T00:00:00.000Z",
+      audioOffsetMs: 10_000,
+      preserveExistingTranscript: true,
+      ownerUserId: "user-1",
+      memo: "Existing memo",
+      provider: "hyprnote",
+      model: "am-test",
+    });
+    const { result } = renderHook(() =>
+      useResumeListeningLifecycle("session-1"),
+    );
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const callbacks = attachLiveSessionMock.mock.calls[0]?.[1];
+    expect(callbacks?.handlePersist).toBeTypeOf("function");
+    expect(callbacks?.onStopped).toBeTypeOf("function");
+
+    callbacks?.handlePersist?.({
+      new_words: [
+        {
+          id: "word-after-reload",
+          text: "preserved",
+          start_ms: 60_000,
+          end_ms: 60_500,
+          channel: 0,
+        },
+      ],
+      replaced_ids: [],
+      partials: [],
+    });
+    await act(async () => {
+      await callbacks?.onStopped?.("session-1", {
+        durationSeconds: 61,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+      });
+    });
+
+    expect(applyLiveTranscriptDeltaToDatabaseMock).toHaveBeenCalledWith(
+      "transcript-before-reload",
+      expect.objectContaining({
+        new_words: [expect.objectContaining({ id: "word-after-reload" })],
+      }),
+    );
+    expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav", {
+      deferAudioFinalization: true,
+      promotion: {
+        scope: "current_capture",
+        audioOffsetMs: 10_000,
+        replaceTranscriptId: "transcript-before-reload",
+        startedAt: 1_000,
+      },
+    });
+    expect(queueAutoEnhanceMock).toHaveBeenCalledWith("session-1");
+  });
+
+  test("reattached stop still schedules a summary while transcript state loads", async () => {
+    useSessionHasTranscriptMock.mockReturnValue(null);
+    const { result } = renderHook(() =>
+      useResumeListeningLifecycle("session-1"),
+    );
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const onStopped = attachLiveSessionMock.mock.calls[0]?.[1]?.onStopped;
+    await act(async () => {
+      await onStopped?.("session-1", {
+        durationSeconds: 61,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+      });
+    });
+
+    expect(queueAutoEnhanceMock).toHaveBeenCalledWith("session-1");
+  });
+
+  test("finalizes a durable capture when stop happens before listeners reattach", async () => {
+    attachLiveSessionMock.mockResolvedValue("inactive");
+    loadCaptureLifecycleMarkerMock
+      .mockResolvedValueOnce({
+        version: 1,
+        sessionId: "session-1",
+        transcriptId: "transcript-before-reload",
+        startedAt: 1_000,
+        createdAt: "2026-07-24T00:00:00.000Z",
+        audioOffsetMs: 10_000,
+        preserveExistingTranscript: true,
+        ownerUserId: "user-1",
+        memo: "Existing memo",
+      })
+      .mockResolvedValueOnce({
+        version: 1,
+        sessionId: "session-1",
+        transcriptId: "transcript-before-reload",
+        startedAt: 1_000,
+        createdAt: "2026-07-24T00:00:00.000Z",
+        audioOffsetMs: 10_000,
+        preserveExistingTranscript: true,
+        ownerUserId: "user-1",
+        memo: "Existing memo",
+      })
+      .mockResolvedValueOnce(null);
+    const { result } = renderHook(() =>
+      useResumeListeningLifecycle("session-1"),
+    );
+
+    await act(async () => {
+      await expect(result.current()).resolves.toBe("inactive");
+    });
+
+    expect(runBatchMock).toHaveBeenCalledWith("/tmp/existing-session.mp3", {
+      deferAudioFinalization: true,
+      promotion: {
+        scope: "current_capture",
+        audioOffsetMs: 10_000,
+        startedAt: 1_000,
+      },
+    });
+    expect(queueAutoEnhanceMock).toHaveBeenCalledWith("session-1");
+    expect(beginCaptureRecoveryFinalizationMock).toHaveBeenCalledWith(
+      "session-1",
+    );
+    expect(finishCaptureRecoveryFinalizationMock).toHaveBeenCalledWith(
+      "session-1",
+    );
+  });
+
+  test("retries a durable summary without re-transcribing completed live text", async () => {
+    attachLiveSessionMock.mockResolvedValue("inactive");
+    const marker = {
+      version: 1 as const,
+      sessionId: "session-1",
+      transcriptId: "transcript-before-reload",
+      startedAt: 1_000,
+      createdAt: "2026-07-24T00:00:00.000Z",
+      audioOffsetMs: 10_000,
+      preserveExistingTranscript: true,
+      ownerUserId: "user-1",
+      memo: "Existing memo",
+      summaryMode: "regenerate" as const,
+    };
+    loadCaptureLifecycleMarkerMock
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(null);
+    const { result } = renderHook(() =>
+      useResumeListeningLifecycle("session-1"),
+    );
+
+    await act(async () => {
+      await expect(result.current()).resolves.toBe("inactive");
+    });
+
+    expect(runBatchMock).not.toHaveBeenCalled();
+    expect(resetEnhanceTasksMock).toHaveBeenCalledWith("session-1");
+    expect(queueAutoEnhanceMock).toHaveBeenCalledWith("session-1");
+    expect(saveCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
+    expect(clearCaptureLifecycleMarkerMock).toHaveBeenCalledWith(
+      "session-1",
+      "transcript-before-reload",
+    );
+  });
+
+  test("keeps synthetic recovery ownership across a failed retry", async () => {
+    attachLiveSessionMock.mockResolvedValue("inactive");
+    runBatchMock
+      .mockRejectedValueOnce(new Error("temporary repair failure"))
+      .mockResolvedValueOnce(undefined);
+    const marker = {
+      version: 1 as const,
+      sessionId: "session-1",
+      transcriptId: "transcript-before-reload",
+      startedAt: 1_000,
+      createdAt: "2026-07-24T00:00:00.000Z",
+      audioOffsetMs: 10_000,
+      preserveExistingTranscript: true,
+      ownerUserId: "user-1",
+      memo: "Existing memo",
+    };
+    loadCaptureLifecycleMarkerMock
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(null);
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const { result } = renderHook(() =>
+      useResumeListeningLifecycle("session-1"),
+    );
+
+    await act(async () => {
+      await expect(result.current()).resolves.toBe("error");
+    });
+    await act(async () => {
+      await expect(result.current()).resolves.toBe("inactive");
+    });
+
+    expect(runBatchMock).toHaveBeenCalledTimes(2);
+    expect(beginCaptureRecoveryFinalizationMock).toHaveBeenCalledOnce();
+    expect(finishCaptureRecoveryFinalizationMock).toHaveBeenCalledOnce();
+    consoleError.mockRestore();
+  });
+
+  test("keeps recovery ownership when the completion marker read fails", async () => {
+    attachLiveSessionMock.mockResolvedValue("inactive");
+    const marker = {
+      version: 1 as const,
+      sessionId: "session-1",
+      transcriptId: "transcript-before-reload",
+      startedAt: 1_000,
+      createdAt: "2026-07-24T00:00:00.000Z",
+      audioOffsetMs: 10_000,
+      preserveExistingTranscript: true,
+      ownerUserId: "user-1",
+      memo: "Existing memo",
+    };
+    loadCaptureLifecycleMarkerMock
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(marker)
+      .mockRejectedValueOnce(new Error("database is locked"))
+      .mockResolvedValueOnce(null);
+    const { result } = renderHook(() =>
+      useResumeListeningLifecycle("session-1"),
+    );
+
+    await act(async () => {
+      await expect(result.current()).rejects.toThrow("database is locked");
+    });
+    await act(async () => {
+      await expect(result.current()).resolves.toBe("inactive");
+    });
+
+    expect(runBatchMock).toHaveBeenCalledOnce();
+    expect(beginCaptureRecoveryFinalizationMock).toHaveBeenCalledOnce();
+    expect(finishCaptureRecoveryFinalizationMock).toHaveBeenCalledOnce();
+  });
+
+  test("retries a transient recovery audio path failure without clearing state", async () => {
+    attachLiveSessionMock.mockResolvedValue("inactive");
+    audioPathMock
+      .mockResolvedValueOnce({
+        status: "error",
+        error: "database is locked",
+      })
+      .mockResolvedValueOnce({
+        status: "ok",
+        data: "/tmp/existing-session.mp3",
+      });
+    const marker = {
+      version: 1 as const,
+      sessionId: "session-1",
+      transcriptId: "transcript-before-reload",
+      startedAt: 1_000,
+      createdAt: "2026-07-24T00:00:00.000Z",
+      audioOffsetMs: 10_000,
+      preserveExistingTranscript: true,
+      ownerUserId: "user-1",
+      memo: "Existing memo",
+    };
+    loadCaptureLifecycleMarkerMock
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(null);
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const { result } = renderHook(() =>
+      useResumeListeningLifecycle("session-1"),
+    );
+
+    await act(async () => {
+      await expect(result.current()).resolves.toBe("error");
+    });
+    expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
+    expect(runBatchMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await expect(result.current()).resolves.toBe("inactive");
+    });
+
+    expect(runBatchMock).toHaveBeenCalledOnce();
+    expect(beginCaptureRecoveryFinalizationMock).toHaveBeenCalledOnce();
+    expect(finishCaptureRecoveryFinalizationMock).toHaveBeenCalledOnce();
+    consoleError.mockRestore();
+  });
+
+  test("does not synthesize a stop when the native snapshot is unavailable", async () => {
+    attachLiveSessionMock.mockResolvedValue("error");
+    loadCaptureLifecycleMarkerMock.mockResolvedValue({
+      version: 1,
+      sessionId: "session-1",
+      transcriptId: "transcript-before-reload",
+      startedAt: 1_000,
+      createdAt: "2026-07-24T00:00:00.000Z",
+      audioOffsetMs: 10_000,
+      preserveExistingTranscript: true,
+      ownerUserId: "user-1",
+      memo: "Existing memo",
+    });
+    const { result } = renderHook(() =>
+      useResumeListeningLifecycle("session-1"),
+    );
+
+    await act(async () => {
+      await expect(result.current()).resolves.toBe("error");
+    });
+
+    expect(runBatchMock).not.toHaveBeenCalled();
+    expect(beginCaptureRecoveryFinalizationMock).not.toHaveBeenCalled();
+    expect(finishCaptureRecoveryFinalizationMock).not.toHaveBeenCalled();
+    expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
+    expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
+    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
+  });
+
+  test("waits for native stop ownership before retrying recovery", async () => {
+    attachLiveSessionMock.mockResolvedValue("inactive");
+    beginCaptureRecoveryFinalizationMock
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true);
+    const marker = {
+      version: 1,
+      sessionId: "session-1",
+      transcriptId: "transcript-before-reload",
+      startedAt: 1_000,
+      createdAt: "2026-07-24T00:00:00.000Z",
+      audioOffsetMs: 10_000,
+      preserveExistingTranscript: true,
+      ownerUserId: "user-1",
+      memo: "Existing memo",
+    };
+    loadCaptureLifecycleMarkerMock
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(null);
+    const { result } = renderHook(() =>
+      useResumeListeningLifecycle("session-1"),
+    );
+
+    await act(async () => {
+      await expect(result.current()).resolves.toBe("error");
+    });
+
+    expect(runBatchMock).not.toHaveBeenCalled();
+    expect(finishCaptureRecoveryFinalizationMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await expect(result.current()).resolves.toBe("inactive");
+    });
+
+    expect(beginCaptureRecoveryFinalizationMock).toHaveBeenCalledTimes(2);
+    expect(runBatchMock).toHaveBeenCalledOnce();
+    expect(finishCaptureRecoveryFinalizationMock).toHaveBeenCalledOnce();
+  });
+
+  test("reuses the same recovery attempt when stop arrives after a snapshot error", async () => {
+    let callbacks:
+      | {
+          onStopped?: (
+            sessionId: string,
+            details: {
+              durationSeconds: number;
+              audioPath: string | null;
+              requestedLiveTranscription: boolean;
+              liveTranscriptionActive: boolean;
+              needsBatchRepair: boolean;
+            },
+          ) => Promise<void> | void;
+        }
+      | undefined;
+    attachLiveSessionMock
+      .mockImplementationOnce(async (_sessionId, options) => {
+        callbacks = options;
+        return "error";
+      })
+      .mockResolvedValueOnce("inactive");
+    loadCaptureLifecycleMarkerMock
+      .mockResolvedValueOnce({
+        version: 1,
+        sessionId: "session-1",
+        transcriptId: "transcript-before-reload",
+        startedAt: 1_000,
+        createdAt: "2026-07-24T00:00:00.000Z",
+        audioOffsetMs: 10_000,
+        preserveExistingTranscript: true,
+        ownerUserId: "user-1",
+        memo: "Existing memo",
+      })
+      .mockResolvedValue(null);
+    const { result } = renderHook(() =>
+      useResumeListeningLifecycle("session-1"),
+    );
+
+    await act(async () => {
+      await expect(result.current()).resolves.toBe("error");
+    });
+    await act(async () => {
+      await callbacks?.onStopped?.("session-1", {
+        durationSeconds: 42,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+      });
+    });
+    await act(async () => {
+      await expect(result.current()).resolves.toBe("inactive");
+    });
+
+    expect(saveCaptureLifecycleMarkerMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transcriptId: "transcript-before-reload",
+        summaryMode: "regenerate",
+      }),
+    );
+    expect(runBatchMock).toHaveBeenCalledTimes(1);
+    expect(finishCaptureRecoveryFinalizationMock).not.toHaveBeenCalled();
   });
 
   test("skips audio cataloging when capture produces no final file", async () => {
@@ -522,6 +1200,7 @@ describe("useStartListening", () => {
 
     expect(catalogLocalSessionAudioMock).toHaveBeenCalledWith("session-1");
     expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav", {
+      deferAudioFinalization: true,
       promotion: { scope: "whole_session" },
     });
     expect(sonnerToastErrorMock).not.toHaveBeenCalled();
@@ -968,7 +1647,7 @@ describe("useStartListening", () => {
     await act(async () => {
       await onStopped?.("session-1", {
         durationSeconds: 42,
-        audioPath: null,
+        audioPath: "/tmp/session.wav",
         requestedLiveTranscription: true,
         liveTranscriptionActive: true,
         needsBatchRepair: false,
@@ -980,6 +1659,10 @@ describe("useStartListening", () => {
       "The transcript was saved, but Anarlog could not start the summary. Try generating it again.",
       { id: "post-capture-summary-failed" },
     );
+    expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
+    expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
+    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
+    expect(requestCaptureRecoveryMock).toHaveBeenCalledWith("session-1");
     consoleError.mockRestore();
   });
 
@@ -1005,6 +1688,7 @@ describe("useStartListening", () => {
     });
 
     expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav", {
+      deferAudioFinalization: true,
       promotion: {
         scope: "current_capture",
         audioOffsetMs: 60_000,
@@ -1055,6 +1739,7 @@ describe("useStartListening", () => {
     });
 
     expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav", {
+      deferAudioFinalization: true,
       promotion: {
         scope: "current_capture",
         audioOffsetMs: 60_000,

@@ -81,7 +81,7 @@ pub enum CloudsyncRuntimeError {
     NotConfigured,
     #[error("cloudsync runtime is not started")]
     NotStarted,
-    #[error("cloudsync runtime is running; stop it first or use cloudsync_reconfigure")]
+    #[error("cloudsync runtime is active; stop it first or use cloudsync_reconfigure")]
     RestartRequired,
     #[error("cloudsync sync interval must be greater than 0")]
     InvalidSyncInterval,

@@ -86,7 +86,10 @@ pub async fn get_capture_state<R: tauri::Runtime>(
 pub async fn get_capture_snapshot<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<CaptureSnapshot, String> {
-    Ok(app.listener().get_capture_snapshot().await)
+    app.listener()
+        .get_capture_snapshot()
+        .await
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]

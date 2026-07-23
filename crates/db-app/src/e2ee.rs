@@ -339,9 +339,10 @@ async fn apply_e2ee_replica_changes_inner(
     }
 
     let mut column_cache = HashMap::<String, HashSet<String>>::new();
-    let mut attempted_rows = 0_usize;
     let mut attempted_bytes = 0_usize;
-    for ((workspace_id, table, row_id), changed_fields) in groups {
+    for (attempted_rows, ((workspace_id, table, row_id), changed_fields)) in
+        groups.into_iter().enumerate()
+    {
         if attempted_rows >= max_rows {
             stats.remaining_replica_changes = true;
             break;
@@ -384,7 +385,6 @@ async fn apply_e2ee_replica_changes_inner(
             stats.remaining_replica_changes = true;
             break;
         }
-        attempted_rows += 1;
         attempted_bytes = attempted_bytes.saturating_add(row_bytes);
         let mut records = Vec::with_capacity(encrypted_records.len());
         for record in encrypted_records {
@@ -506,6 +506,20 @@ async fn apply_e2ee_replica_changes_inner(
                     transaction.commit().await?;
                     continue;
                 }
+                sqlx::query(
+                    "DELETE FROM e2ee_local_state
+                     WHERE workspace_id = ?
+                       AND table_name = ?
+                       AND row_id = ?
+                       AND field_name != ?",
+                )
+                .bind(&workspace_id)
+                .bind(&table)
+                .bind(&row_id)
+                .bind(ROW_MANIFEST_FIELD)
+                .execute(&mut *transaction)
+                .await?;
+                states.retain(|_, state| state.field_name == ROW_MANIFEST_FIELD);
                 row_materialized = true;
             }
             let value_tag = key.value_tag(&table, &row_id, ROW_MANIFEST_FIELD, false, &json!(true));
@@ -1346,8 +1360,8 @@ async fn prepare_dirty_row(
         )? {
             fields.insert(0, field);
         }
-    } else if states.contains_key(&manifest_id) {
-        if let Some(field) = prepare_encrypted_field(
+    } else if states.contains_key(&manifest_id)
+        && let Some(field) = prepare_encrypted_field(
             key,
             &states,
             &dirty.workspace_id,
@@ -1359,9 +1373,9 @@ async fn prepare_dirty_row(
             false,
             true,
             Value::Null,
-        )? {
-            fields.push(field);
-        }
+        )?
+    {
+        fields.push(field);
     }
 
     Ok(PreparedDirtyRow { dirty, fields })
@@ -2453,6 +2467,138 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn local_transcript_edit_rebases_above_witnessed_field_and_tombstone() {
+        let db = test_db().await;
+        let workspace_keys = keys("workspace-a");
+        let key = &workspace_keys["workspace-a"];
+        let local_words = r#"[{"text":"preserve this local tail"}]"#;
+        sqlx::query(
+            "INSERT INTO transcripts (id, workspace_id, words_json)
+             VALUES ('transcript-1', 'workspace-a', '[{\"text\":\"base\"}]')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        encrypt_e2ee_replica_changes(db.pool(), &workspace_keys)
+            .await
+            .unwrap();
+
+        let words_id = key.blind_field_id("transcripts", "transcript-1", "words_json");
+        let manifest_id = key.blind_field_id("transcripts", "transcript-1", ROW_MANIFEST_FIELD);
+        let remote_words = key
+            .seal_field(
+                "workspace-a",
+                "transcripts",
+                "transcript-1",
+                "words_json",
+                "ffffffffffffffffffffffffffffffff",
+                7,
+                false,
+                json!(r#"[{"text":"remote"}]"#),
+            )
+            .unwrap();
+        let remote_tombstone = key
+            .seal_field(
+                "workspace-a",
+                "transcripts",
+                "transcript-1",
+                ROW_MANIFEST_FIELD,
+                "ffffffffffffffffffffffffffffffff",
+                8,
+                true,
+                Value::Null,
+            )
+            .unwrap();
+        merge_e2ee_witness_events(
+            db.pool(),
+            key,
+            "workspace-a",
+            &[
+                E2eeWitnessEvent {
+                    sequence: 1,
+                    record_id: words_id.clone(),
+                    workspace_id: "workspace-a".to_string(),
+                    payload_hash: hypr_e2ee::payload_hash(&remote_words.payload),
+                    payload: remote_words.payload.clone(),
+                },
+                E2eeWitnessEvent {
+                    sequence: 2,
+                    record_id: manifest_id.clone(),
+                    workspace_id: "workspace-a".to_string(),
+                    payload_hash: hypr_e2ee::payload_hash(&remote_tombstone.payload),
+                    payload: remote_tombstone.payload.clone(),
+                },
+            ],
+        )
+        .await
+        .unwrap();
+        sqlx::query("UPDATE e2ee_records SET payload = ? WHERE id = ?")
+            .bind(&remote_words.payload)
+            .bind(&words_id)
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query("UPDATE e2ee_records SET payload = ? WHERE id = ?")
+            .bind(&remote_tombstone.payload)
+            .bind(&manifest_id)
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query("UPDATE transcripts SET words_json = ? WHERE id = 'transcript-1'")
+            .bind(local_words)
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        let skipped = apply_e2ee_replica_changes_with_witness(db.pool(), &workspace_keys)
+            .await
+            .unwrap();
+        assert!(skipped.skipped_local_changes > 0);
+        encrypt_e2ee_replica_changes(db.pool(), &workspace_keys)
+            .await
+            .unwrap();
+
+        let local_words_payload: String =
+            sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+                .bind(&words_id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        let local_manifest_payload: String =
+            sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+                .bind(&manifest_id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        let rebased_words = key
+            .open_field("workspace-a", &words_id, &local_words_payload)
+            .unwrap();
+        let rebased_manifest = key
+            .open_field("workspace-a", &manifest_id, &local_manifest_payload)
+            .unwrap();
+        assert_eq!(rebased_words.value, json!(local_words));
+        assert!(rebased_words.revision > 7);
+        assert!(!rebased_manifest.deleted);
+        assert!(rebased_manifest.revision > 8);
+
+        sqlx::query("UPDATE e2ee_records SET payload = ? WHERE id = ?")
+            .bind(remote_tombstone.payload)
+            .bind(&manifest_id)
+            .execute(db.pool())
+            .await
+            .unwrap();
+        apply_e2ee_replica_changes(db.pool(), &workspace_keys)
+            .await
+            .unwrap();
+        let preserved: String =
+            sqlx::query_scalar("SELECT words_json FROM transcripts WHERE id = 'transcript-1'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(preserved, local_words);
+    }
+
+    #[tokio::test]
     async fn tombstoned_rows_can_be_recreated_with_retained_or_changed_fields() {
         let workspace_keys = keys("workspace-a");
         let source = test_db().await;
@@ -2513,6 +2659,186 @@ mod tests {
                     .unwrap();
             assert_eq!(materialized, title);
         }
+    }
+
+    #[tokio::test]
+    async fn chunked_recreation_materializes_late_transcript_and_summary_fields() {
+        let workspace_keys = keys("workspace-a");
+        let key = &workspace_keys["workspace-a"];
+        let source = test_db().await;
+        let target = test_db().await;
+        let words = r#"[{"text":"the complete transcript"}]"#;
+        let summary = r#"{"type":"doc","content":[{"type":"paragraph","text":"Full summary"}]}"#;
+        sqlx::query(
+            "INSERT INTO transcripts (id, workspace_id, words_json)
+             VALUES ('transcript-1', 'workspace-a', ?)",
+        )
+        .bind(words)
+        .execute(source.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO session_documents (id, workspace_id, kind, body)
+             VALUES ('summary-1', 'workspace-a', 'summary', ?)",
+        )
+        .bind(summary)
+        .execute(source.pool())
+        .await
+        .unwrap();
+        encrypt_e2ee_replica_changes(source.pool(), &workspace_keys)
+            .await
+            .unwrap();
+        copy_replica(source.pool(), target.pool()).await;
+        apply_e2ee_replica_changes(target.pool(), &workspace_keys)
+            .await
+            .unwrap();
+
+        let words_id = key.blind_field_id("transcripts", "transcript-1", "words_json");
+        let body_id = key.blind_field_id("session_documents", "summary-1", "body");
+        let transcript_manifest_id =
+            key.blind_field_id("transcripts", "transcript-1", ROW_MANIFEST_FIELD);
+        let summary_manifest_id =
+            key.blind_field_id("session_documents", "summary-1", ROW_MANIFEST_FIELD);
+        let words_payload: String =
+            sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+                .bind(&words_id)
+                .fetch_one(source.pool())
+                .await
+                .unwrap();
+        let body_payload: String =
+            sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+                .bind(&body_id)
+                .fetch_one(source.pool())
+                .await
+                .unwrap();
+
+        sqlx::query("DELETE FROM transcripts WHERE id = 'transcript-1'")
+            .execute(source.pool())
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM session_documents WHERE id = 'summary-1'")
+            .execute(source.pool())
+            .await
+            .unwrap();
+        encrypt_e2ee_replica_changes(source.pool(), &workspace_keys)
+            .await
+            .unwrap();
+        copy_replica(source.pool(), target.pool()).await;
+        apply_e2ee_replica_changes(target.pool(), &workspace_keys)
+            .await
+            .unwrap();
+
+        let transcript_tombstone_payload: String =
+            sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+                .bind(&transcript_manifest_id)
+                .fetch_one(source.pool())
+                .await
+                .unwrap();
+        let summary_tombstone_payload: String =
+            sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+                .bind(&summary_manifest_id)
+                .fetch_one(source.pool())
+                .await
+                .unwrap();
+        let transcript_tombstone = key
+            .open_field(
+                "workspace-a",
+                &transcript_manifest_id,
+                &transcript_tombstone_payload,
+            )
+            .unwrap();
+        let summary_tombstone = key
+            .open_field(
+                "workspace-a",
+                &summary_manifest_id,
+                &summary_tombstone_payload,
+            )
+            .unwrap();
+        let live_transcript = key
+            .seal_field(
+                "workspace-a",
+                "transcripts",
+                "transcript-1",
+                ROW_MANIFEST_FIELD,
+                "ffffffffffffffffffffffffffffffff",
+                transcript_tombstone.revision + 1,
+                false,
+                json!(true),
+            )
+            .unwrap();
+        let live_summary = key
+            .seal_field(
+                "workspace-a",
+                "session_documents",
+                "summary-1",
+                ROW_MANIFEST_FIELD,
+                "ffffffffffffffffffffffffffffffff",
+                summary_tombstone.revision + 1,
+                false,
+                json!(true),
+            )
+            .unwrap();
+
+        sqlx::query("DELETE FROM e2ee_records")
+            .execute(target.pool())
+            .await
+            .unwrap();
+        for (id, payload) in [
+            (&transcript_manifest_id, &live_transcript.payload),
+            (&summary_manifest_id, &live_summary.payload),
+        ] {
+            sqlx::query(
+                "INSERT INTO e2ee_records (id, workspace_id, payload)
+                 VALUES (?, 'workspace-a', ?)",
+            )
+            .bind(id)
+            .bind(payload)
+            .execute(target.pool())
+            .await
+            .unwrap();
+        }
+        apply_e2ee_replica_changes(target.pool(), &workspace_keys)
+            .await
+            .unwrap();
+
+        let defaults: (String, String) = (
+            sqlx::query_scalar("SELECT words_json FROM transcripts WHERE id = 'transcript-1'")
+                .fetch_one(target.pool())
+                .await
+                .unwrap(),
+            sqlx::query_scalar("SELECT body FROM session_documents WHERE id = 'summary-1'")
+                .fetch_one(target.pool())
+                .await
+                .unwrap(),
+        );
+        assert_eq!(defaults, ("[]".to_string(), String::new()));
+
+        for (id, payload) in [(&words_id, &words_payload), (&body_id, &body_payload)] {
+            sqlx::query(
+                "INSERT INTO e2ee_records (id, workspace_id, payload)
+                 VALUES (?, 'workspace-a', ?)",
+            )
+            .bind(id)
+            .bind(payload)
+            .execute(target.pool())
+            .await
+            .unwrap();
+        }
+        apply_e2ee_replica_changes(target.pool(), &workspace_keys)
+            .await
+            .unwrap();
+
+        let materialized: (String, String) = (
+            sqlx::query_scalar("SELECT words_json FROM transcripts WHERE id = 'transcript-1'")
+                .fetch_one(target.pool())
+                .await
+                .unwrap(),
+            sqlx::query_scalar("SELECT body FROM session_documents WHERE id = 'summary-1'")
+                .fetch_one(target.pool())
+                .await
+                .unwrap(),
+        );
+        assert_eq!(materialized, (words.to_string(), summary.to_string()));
     }
 
     #[tokio::test]

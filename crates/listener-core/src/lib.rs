@@ -25,18 +25,13 @@ pub struct Snapshot {
     pub finalizing_session_ids: Vec<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum TranscriptionMode {
+    #[default]
     Live,
     Batch,
-}
-
-impl Default for TranscriptionMode {
-    fn default() -> Self {
-        Self::Live
-    }
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
