@@ -19,6 +19,8 @@ export function ClassicMainShellFrame() {
 
   const isOnboarding = currentTab?.type === "onboarding";
   const isChangelog = currentTab?.type === "changelog";
+  const showSyncStatus =
+    currentTab?.type === "empty" || currentTab?.type === "sessions";
   const hasCustomSidebar = hasCustomSidebarTab(currentTab);
   const hasLeftSurfaceCustomSidebar =
     hasLeftSurfaceCustomSidebarTab(currentTab);
@@ -38,7 +40,7 @@ export function ClassicMainShellFrame() {
       mainSurfaceChrome={isOnboarding ? undefined : mainSurfaceChrome}
     >
       <ClassicMainBodyHost />
-      {!isOnboarding && <SyncStatusIndicator />}
+      {showSyncStatus && <SyncStatusIndicator />}
       <ToastNotifications />
     </MainShellScaffold>
   );
