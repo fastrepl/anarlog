@@ -1,12 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
-import { ExternalLinkIcon } from "lucide-react";
 
 import { cn } from "@hypr/utils";
 
-import {
-  sharedPrimaryButtonClassName,
-  sharedSecondaryButtonClassName,
-} from "@/components/shared-note-viewer";
+import { sharedPrimaryButtonClassName } from "@/components/shared-note-viewer";
 import { getShareRouteToken } from "@/lib/share-route-privacy";
 import {
   createLinkShareHandoff,
@@ -30,7 +26,6 @@ export function AccountSharedNoteActions({
   return (
     <SharedNoteActionButtons
       canEdit={canEdit}
-      showAccountCreation={false}
       onOpen={() => {
         window.location.href = buildAccountShareDeepLink(shareId, scheme);
       }}
@@ -119,17 +114,15 @@ function SharedNoteActionButtons({
   error = false,
   isPending = false,
   onOpen,
-  showAccountCreation = true,
 }: {
   canEdit: boolean;
   error?: boolean;
   isPending?: boolean;
   onOpen: () => void;
-  showAccountCreation?: boolean;
 }) {
   return (
     <>
-      <div className="group relative hidden sm:block">
+      <div className="group relative">
         <button
           type="button"
           className={sharedPrimaryButtonClassName}
@@ -137,8 +130,10 @@ function SharedNoteActionButtons({
           aria-describedby={canEdit ? "open-in-anarlog-tooltip" : undefined}
           onClick={onOpen}
         >
-          <ExternalLinkIcon className="mr-2 size-4" aria-hidden="true" />
-          {isPending ? "Opening…" : "Open in Anarlog"}
+          <span className="hidden sm:inline">
+            {isPending ? "Opening…" : "Open in Anarlog"}
+          </span>
+          <span className="sm:hidden">{isPending ? "Opening…" : "Open"}</span>
         </button>
         {canEdit && (
           <span
@@ -153,23 +148,6 @@ function SharedNoteActionButtons({
           </span>
         )}
       </div>
-      {showAccountCreation && (
-        <a
-          href="/auth/?flow=web"
-          className={cn([
-            sharedSecondaryButtonClassName,
-            "hidden sm:inline-flex",
-          ])}
-        >
-          Create an account
-        </a>
-      )}
-      <a
-        href="/download/apple-silicon/"
-        className={cn([sharedPrimaryButtonClassName, "sm:hidden"])}
-      >
-        Download
-      </a>
       {error && (
         <p
           className="text-color-muted basis-full text-right text-xs"

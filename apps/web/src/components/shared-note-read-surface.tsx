@@ -80,8 +80,9 @@ type EditorNodeViewProps = ComponentProps<EditorNodeView>;
 
 const SharedReadAttachmentsContext = createContext<{
   attachments: ReadonlyMap<string, SharedNoteAttachment>;
+  excluded: ReadonlySet<string>;
   resolve: SharedAttachmentResolver | null;
-}>({ attachments: new Map(), resolve: null });
+}>({ attachments: new Map(), excluded: new Set(), resolve: null });
 
 // Tailwind's xl breakpoint — the width from which the comment rail (and its
 // draft composer) is visible.
@@ -103,6 +104,7 @@ function useCommentRailVisible() {
 
 export function SharedNoteReadSurface({
   canCompose,
+  excludedAttachmentIds = [],
   manageAccess,
   resolveAttachment,
   shareId,
@@ -110,6 +112,7 @@ export function SharedNoteReadSurface({
   snapshot,
 }: {
   canCompose: boolean;
+  excludedAttachmentIds?: readonly string[];
   manageAccess: boolean;
   resolveAttachment?: SharedAttachmentResolver;
   shareId: string;
@@ -179,9 +182,10 @@ export function SharedNoteReadSurface({
       attachments: new Map(
         snapshot.attachments.map((attachment) => [attachment.id, attachment]),
       ),
+      excluded: new Set(excludedAttachmentIds),
       resolve: resolveAttachment ?? null,
     }),
-    [snapshot.attachments, resolveAttachment],
+    [snapshot.attachments, excludedAttachmentIds, resolveAttachment],
   );
   const unreferencedAttachments = useMemo(() => {
     const referenced = new Set<string>();
@@ -193,9 +197,11 @@ export function SharedNoteReadSurface({
     };
     visit(body);
     return snapshot.attachments.filter(
-      (attachment) => !referenced.has(attachment.id),
+      (attachment) =>
+        !referenced.has(attachment.id) &&
+        !excludedAttachmentIds.includes(attachment.id),
     );
-  }, [body, snapshot.attachments]);
+  }, [body, excludedAttachmentIds, snapshot.attachments]);
 
   const scheduleLayoutMeasure = useCallback(() => {
     if (frameRef.current !== null) return;
@@ -348,6 +354,7 @@ export function SharedNoteReadSurface({
       <SharedNoteDocument
         attachments={snapshot.attachments}
         document={body}
+        excludedAttachmentIds={excludedAttachmentIds}
         resolveAttachment={resolveAttachment}
       />
     );
@@ -361,7 +368,7 @@ export function SharedNoteReadSurface({
     >
       <SharedReadAttachmentsContext.Provider value={attachmentContext}>
         <NoteEditor
-          className="session-note-editor outline-hidden"
+          className="session-note-editor outline-hidden [&_li]:!text-base [&_li]:!leading-5 [&_p]:!text-base [&_p]:!leading-5"
           commentAnchorsEnabled
           enforceTitleHeading={false}
           extraNodeViews={readAttachmentNodeViews}
@@ -425,6 +432,15 @@ export function SharedNoteReadSurface({
           items={railItems}
           onActivate={activateComment}
           onDelete={(commentId) => deleteMutation.mutate(commentId)}
+          onReply={
+            composeEnabled
+              ? (comment, commentBody) =>
+                  createMutation.mutateAsync({
+                    anchor: comment.anchor,
+                    body: commentBody,
+                  })
+              : undefined
+          }
           screenTops={screenTops}
         />
       </div>
@@ -443,15 +459,21 @@ export function SharedNoteReadSurface({
           ) : activeComment ? (
             <SharedNoteCommentCard
               active
+              canDelete={(comment) => comment.isAuthor || manageAccess}
               comment={activeComment}
               deleteDisabled={deleteMutation.isPending}
-              deleting={
-                deleteMutation.isPending &&
-                deleteMutation.variables === activeComment.commentId
-              }
+              deletingCommentId={deleteMutation.variables ?? null}
               onActivate={() => activateComment(null)}
-              onDelete={() => deleteMutation.mutate(activeComment.commentId)}
-              showDelete={activeComment.isAuthor || manageAccess}
+              onDelete={(commentId) => deleteMutation.mutate(commentId)}
+              onReply={
+                composeEnabled
+                  ? (comment, commentBody) =>
+                      createMutation.mutateAsync({
+                        anchor: comment.anchor,
+                        body: commentBody,
+                      })
+                  : undefined
+              }
             />
           ) : null}
         </div>
@@ -568,7 +590,9 @@ const SharedReadAttachmentView = forwardRef<
   HTMLDivElement,
   EditorNodeViewProps
 >(function SharedReadAttachmentView({ nodeProps, ...htmlAttrs }, ref) {
-  const { attachments, resolve } = useContext(SharedReadAttachmentsContext);
+  const { attachments, excluded, resolve } = useContext(
+    SharedReadAttachmentsContext,
+  );
   const sharedAttachmentId = nodeProps.node.attrs.sharedAttachmentId;
   const attachment =
     typeof sharedAttachmentId === "string"
@@ -582,16 +606,19 @@ const SharedReadAttachmentView = forwardRef<
       contentEditable={false}
       suppressContentEditableWarning
     >
-      <SharedReadAttachment
-        attachment={attachment}
-        isImage={nodeProps.node.type.name === "image"}
-        resolve={resolve}
-      />
+      {attachment && excluded.has(attachment.id) ? null : (
+        <SharedReadAttachment
+          attachment={attachment}
+          isImage={nodeProps.node.type.name === "image"}
+          resolve={resolve}
+        />
+      )}
     </div>
   );
 });
 
 const readAttachmentNodeViews = {
+  clip: SharedReadAttachmentView,
   fileAttachment: SharedReadAttachmentView,
   image: SharedReadAttachmentView,
 };

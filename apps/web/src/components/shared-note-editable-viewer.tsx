@@ -1,18 +1,27 @@
 import { useState } from "react";
 
+import {
+  collectSharedNoteComments,
+  useSharedNoteComments,
+} from "@/components/shared-note-comments-data";
+import { SharedNoteCommentsDrawer } from "@/components/shared-note-comments-drawer";
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
 import { SharedNoteReader } from "@/components/shared-note-reader";
 import {
   SharedNoteUnavailable,
   SharedNoteViewer,
 } from "@/components/shared-note-viewer";
-import { canComposeSharedNoteComments } from "@/lib/shared-note-collaboration";
+import {
+  canComposeSharedNoteComments,
+  hasSharedNoteCollaborationAccess,
+} from "@/lib/shared-note-collaboration";
 import {
   getSharedNoteReadOnlySnapshot,
   shouldRenderSharedNoteUnavailable,
   syncSharedNoteViewerAuthorization,
   type SharedNoteViewerAuthorization,
 } from "@/lib/shared-note-editing";
+import { findFeaturedSharedNoteAudio } from "@/lib/shared-note-presentation";
 import type {
   AuthenticatedSharedNote,
   SharedNoteSnapshot,
@@ -81,6 +90,15 @@ export function SharedNoteEditableViewer({
     accessRevoked && readOnlySnapshot ? readOnlySnapshot : snapshot;
   const collaborationActive = !accessRevoked && !requiresSignIn;
   const readyNote = authorization.state === "ready" ? authorization.note : null;
+  const commentsQuery = useSharedNoteComments({
+    enabled: signedIn && collaborationActive,
+    shareId: activeSnapshot.shareId,
+  });
+  const comments = collectSharedNoteComments(commentsQuery.data);
+  const commentsAvailable = hasSharedNoteCollaborationAccess(
+    commentsQuery.data?.pages[0],
+  );
+  const featuredAudio = findFeaturedSharedNoteAudio(activeSnapshot.attachments);
   // hasCollaborationAccess is true here because the read surface re-checks
   // actual access from the comments query before enabling composition.
   const canComposeComments =
@@ -130,12 +148,18 @@ export function SharedNoteEditableViewer({
       documentContent={
         <SharedNoteReader
           canCompose={canComposeComments}
+          excludedAttachmentIds={featuredAudio ? [featuredAudio.id] : undefined}
           manageAccess={readyNote?.manageAccess ?? false}
           resolveAttachment={resolveAttachment}
           shareId={activeSnapshot.shareId}
           signedIn={signedIn && collaborationActive}
           snapshot={activeSnapshot}
         />
+      }
+      headerActions={
+        commentsAvailable ? (
+          <SharedNoteCommentsDrawer comments={comments} />
+        ) : undefined
       }
       notice={accessNotice ?? signInNotice}
       resolveAttachment={resolveAttachment}

@@ -19,6 +19,7 @@ const SharedNoteReadSurface = lazy(() =>
 
 export function SharedNoteReader({
   canCompose,
+  excludedAttachmentIds,
   manageAccess,
   resolveAttachment,
   shareId,
@@ -26,6 +27,7 @@ export function SharedNoteReader({
   snapshot,
 }: {
   canCompose: boolean;
+  excludedAttachmentIds?: readonly string[];
   manageAccess: boolean;
   resolveAttachment?: SharedAttachmentResolver;
   shareId: string;
@@ -39,6 +41,7 @@ export function SharedNoteReader({
     <SharedNoteDocument
       attachments={snapshot.attachments}
       document={withoutDuplicateLeadingTitle(snapshot.body, snapshot.title)}
+      excludedAttachmentIds={excludedAttachmentIds}
       resolveAttachment={resolveAttachment}
     />
   );
@@ -52,6 +55,7 @@ export function SharedNoteReader({
       <SharedNoteReadSurface
         key={`${snapshot.shareId}:${snapshot.contentRevision}`}
         canCompose={canCompose}
+        excludedAttachmentIds={excludedAttachmentIds}
         manageAccess={manageAccess}
         resolveAttachment={resolveAttachment}
         shareId={shareId}

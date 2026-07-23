@@ -5,29 +5,34 @@ import {
   RefreshCwIcon,
   UsersRoundIcon,
 } from "lucide-react";
+import { useSyncExternalStore } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { SharedNoteAudioPlayer } from "@/components/shared-note-audio-player";
 import {
   type SharedAttachmentResolver,
   SharedNoteDocument,
 } from "@/components/shared-note-document";
+import {
+  findFeaturedSharedNoteAudio,
+  formatSharedNotePublishedAt,
+} from "@/lib/shared-note-presentation";
 import {
   type SharedNoteSnapshot,
   withoutDuplicateLeadingTitle,
 } from "@/lib/shared-notes";
 
 export const sharedPrimaryButtonClassName = cn([
-  "inline-flex min-h-11 items-center justify-center rounded-full px-5",
-  "bg-linear-to-t from-stone-600 to-stone-500 text-white",
-  "font-mono text-sm font-medium transition-opacity hover:opacity-90",
-  "focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:ring-offset-2 focus-visible:outline-hidden",
+  "inline-flex min-h-9 items-center justify-center rounded-full bg-stone-900 px-4 text-white",
+  "text-sm font-semibold transition-colors hover:bg-stone-800",
+  "focus-visible:ring-2 focus-visible:ring-stone-900 focus-visible:ring-offset-2 focus-visible:outline-hidden",
   "disabled:cursor-not-allowed disabled:opacity-50",
 ]);
 
 export const sharedSecondaryButtonClassName = cn([
-  "surface border-color-subtle inline-flex min-h-11 items-center justify-center rounded-full border px-5",
-  "text-color hover:bg-surface-subtle font-mono text-sm font-medium transition-colors",
+  "surface border-color-subtle inline-flex min-h-9 items-center justify-center rounded-full border px-4",
+  "text-color hover:bg-surface-subtle text-sm font-medium transition-colors",
   "focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:ring-offset-2 focus-visible:outline-hidden",
 ]);
 
@@ -51,17 +56,13 @@ export function SharedNoteViewer({
   snapshot: SharedNoteSnapshot;
 }) {
   const body = withoutDuplicateLeadingTitle(snapshot.body, snapshot.title);
+  const featuredAudio = findFeaturedSharedNoteAudio(snapshot.attachments);
 
   return (
     <SharedNoteShell
       topActions={
         headerActions || actions ? (
-          <div
-            className={cn([
-              "flex items-center gap-2",
-              "[&>a]:min-h-9 [&>a]:px-4 [&>button]:min-h-9 [&>button]:px-4",
-            ])}
-          >
+          <div className="flex items-center gap-2">
             {headerActions}
             {actions}
           </div>
@@ -77,30 +78,40 @@ export function SharedNoteViewer({
           )}
           <div
             className={cn([
-              "text-color-muted flex min-w-0 flex-wrap items-center gap-2 text-xs",
+              "flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-500",
               showTitle ? "mt-3" : "mb-6",
             ])}
           >
-            <span className="surface border-color-subtle inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3">
+            <span className="inline-flex min-h-7 items-center gap-1.5">
               <UsersRoundIcon className="size-3.5" aria-hidden="true" />
               {accessLabel}
             </span>
             <time
-              className="surface border-color-subtle inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3"
+              className="inline-flex min-h-7 items-center gap-1.5"
               dateTime={snapshot.publishedAt}
+              title={`Published ${formatSharedNotePublishedAt(snapshot.publishedAt)}`}
             >
               <CalendarDaysIcon className="size-3.5" aria-hidden="true" />
-              {formatPublishedAt(snapshot.publishedAt)}
+              {formatSharedNotePublishedAt(snapshot.publishedAt)}
             </time>
           </div>
         </header>
 
         <div>
           {notice}
+          {featuredAudio ? (
+            <SharedNoteAudioPlayer
+              attachment={featuredAudio}
+              resolve={resolveAttachment}
+            />
+          ) : null}
           {documentContent ?? (
             <SharedNoteDocument
               attachments={snapshot.attachments}
               document={body}
+              excludedAttachmentIds={
+                featuredAudio ? [featuredAudio.id] : undefined
+              }
               resolveAttachment={resolveAttachment}
             />
           )}
@@ -199,26 +210,36 @@ function SharedNoteShell({
   children: React.ReactNode;
   topActions?: React.ReactNode;
 }) {
+  const headerHidden = useSyncExternalStore(
+    subscribeHeaderVisibility,
+    getHeaderHidden,
+    () => false,
+  );
+
   return (
-    <main className="bg-page text-color min-h-screen overflow-x-clip">
-      <header className="bg-page/95 border-color-subtle sticky top-0 z-40 flex h-14 items-center justify-between gap-4 border-b px-4 backdrop-blur-sm sm:px-6">
+    <main className="min-h-screen overflow-x-clip bg-white text-stone-900">
+      <header
+        className={cn([
+          "sticky top-0 z-40 flex h-14 items-center justify-between gap-4 border-b border-stone-200 bg-white/95 px-4 backdrop-blur-sm sm:px-6",
+          "transition-transform duration-200 will-change-transform motion-reduce:transition-none",
+          headerHidden && "-translate-y-full",
+        ])}
+      >
         <a
           href="/"
           aria-label="Anarlog home"
-          className="font-hand text-color text-2xl leading-none font-semibold"
+          className="font-hand text-[27px] leading-none font-semibold text-stone-900"
         >
           anarlog
         </a>
         {topActions ?? (
-          <span className="text-color-muted font-mono text-xs">
-            Shared with Anarlog
-          </span>
+          <span className="text-xs text-stone-500">Shared with Anarlog</span>
         )}
       </header>
       <div
         className={cn([
           "mx-auto w-full max-w-[720px] px-5 py-8 sm:px-8 sm:py-10",
-          "xl:has-[[data-comment-rail]]:max-w-[1028px] xl:has-[[data-comment-rail]]:pr-[308px]",
+          "xl:has-[[data-comment-rail]]:max-w-[1028px] xl:has-[[data-comment-rail]]:pr-[372px] xl:has-[[data-comment-rail]]:pl-0",
         ])}
       >
         {children}
@@ -227,11 +248,31 @@ function SharedNoteShell({
   );
 }
 
-function formatPublishedAt(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-    year: "numeric",
-  }).format(new Date(value));
+let headerHidden = false;
+
+function subscribeHeaderVisibility(onChange: () => void) {
+  let lastScrollY = window.scrollY;
+  const handleScroll = () => {
+    const nextScrollY = window.scrollY;
+    const nextHidden =
+      nextScrollY > 80 &&
+      (nextScrollY > lastScrollY + 8
+        ? true
+        : nextScrollY < lastScrollY - 8
+          ? false
+          : headerHidden);
+    lastScrollY = nextScrollY;
+    if (nextHidden === headerHidden) return;
+    headerHidden = nextHidden;
+    onChange();
+  };
+  window.addEventListener("scroll", handleScroll, { passive: true });
+  return () => {
+    window.removeEventListener("scroll", handleScroll);
+    headerHidden = false;
+  };
+}
+
+function getHeaderHidden() {
+  return headerHidden;
 }
