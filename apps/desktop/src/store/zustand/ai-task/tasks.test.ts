@@ -1,5 +1,5 @@
 import { APICallError } from "ai";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TASK_CONFIGS } from "./task-configs";
 import {
@@ -21,6 +21,14 @@ vi.mock("~/settings/queries", () => ({
 }));
 
 const originalEnhanceConfig = { ...TASK_CONFIGS.enhance };
+
+beforeEach(() => {
+  mocks.getStoredSettingValues.mockReset();
+  mocks.getStoredSettingValues.mockResolvedValue({
+    values: {},
+    hasValues: new Set(),
+  });
+});
 
 afterEach(() => {
   vi.useRealTimers();
@@ -187,6 +195,88 @@ describe("createTasksSlice", () => {
       status: "error",
       streamedText: "",
       error: expect.objectContaining({ message: "database write failed" }),
+    });
+  });
+
+  it("retries database contention before starting generation", async () => {
+    vi.useFakeTimers();
+    let state: ReturnType<typeof createTasksSlice>;
+    const set = (updater: any) => {
+      state =
+        typeof updater === "function"
+          ? updater(state)
+          : { ...state, ...updater };
+    };
+    const get = () => state;
+    state = createTasksSlice(set, get);
+
+    TASK_CONFIGS.enhance.transformArgs = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new Error("error returned from database: (code: 5) database is locked"),
+      )
+      .mockResolvedValue({} as any);
+    TASK_CONFIGS.enhance.transforms = [];
+    TASK_CONFIGS.enhance.executeWorkflow = vi.fn(async function* () {
+      yield { type: "text-delta", text: "Generated summary" } as any;
+    });
+    TASK_CONFIGS.enhance.onSuccess = vi.fn(async () => {});
+
+    const taskId = "session-locked-read-enhance" as const;
+    const promise = state.generate(taskId, {
+      model: {} as any,
+      taskType: "enhance",
+      args: { sessionId: "session-1", enhancedNoteId: "note-1" },
+    });
+
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(TASK_CONFIGS.enhance.transformArgs).toHaveBeenCalledTimes(2);
+    expect(TASK_CONFIGS.enhance.executeWorkflow).toHaveBeenCalledOnce();
+    expect(state.tasks[taskId]).toMatchObject({
+      status: "success",
+      streamedText: "Generated summary",
+    });
+  });
+
+  it("retries summary persistence without generating it twice", async () => {
+    vi.useFakeTimers();
+    let state: ReturnType<typeof createTasksSlice>;
+    const set = (updater: any) => {
+      state =
+        typeof updater === "function"
+          ? updater(state)
+          : { ...state, ...updater };
+    };
+    const get = () => state;
+    state = createTasksSlice(set, get);
+
+    TASK_CONFIGS.enhance.transformArgs = vi.fn(async () => ({}) as any);
+    TASK_CONFIGS.enhance.transforms = [];
+    TASK_CONFIGS.enhance.executeWorkflow = vi.fn(async function* () {
+      yield { type: "text-delta", text: "Generated summary" } as any;
+    });
+    TASK_CONFIGS.enhance.onSuccess = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("database table is locked"))
+      .mockResolvedValue(undefined);
+
+    const taskId = "session-locked-write-enhance" as const;
+    const promise = state.generate(taskId, {
+      model: {} as any,
+      taskType: "enhance",
+      args: { sessionId: "session-1", enhancedNoteId: "note-1" },
+    });
+
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(TASK_CONFIGS.enhance.executeWorkflow).toHaveBeenCalledOnce();
+    expect(TASK_CONFIGS.enhance.onSuccess).toHaveBeenCalledTimes(2);
+    expect(state.tasks[taskId]).toMatchObject({
+      status: "success",
+      streamedText: "Generated summary",
     });
   });
 

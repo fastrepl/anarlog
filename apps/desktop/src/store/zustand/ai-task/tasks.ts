@@ -82,7 +82,72 @@ const initialState: TasksState = {
 export const TASK_STREAM_IDLE_TIMEOUT_MS = 15_000;
 export const TASK_STREAM_START_TIMEOUT_MS = 60_000;
 
+const DATABASE_LOCK_RETRY_DELAYS_MS = [
+  250, 500, 1_000, 2_000, 4_000, 8_000, 16_000, 30_000,
+];
 const STREAM_TIMEOUT = Symbol("stream-timeout");
+
+function createAbortError() {
+  const error = new Error("Aborted");
+  error.name = "AbortError";
+  return error;
+}
+
+function throwIfAborted(signal: AbortSignal) {
+  if (signal.aborted) {
+    throw createAbortError();
+  }
+}
+
+function isDatabaseLockError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("database is locked") ||
+    normalized.includes("database table is locked") ||
+    normalized.includes("(code: 5)") ||
+    normalized.includes("(code: 6)")
+  );
+}
+
+async function waitForDatabaseRetry(delayMs: number, signal: AbortSignal) {
+  throwIfAborted(signal);
+
+  await new Promise<void>((resolve, reject) => {
+    const handleAbort = () => {
+      clearTimeout(timeout);
+      reject(createAbortError());
+    };
+    const timeout = setTimeout(() => {
+      signal.removeEventListener("abort", handleAbort);
+      resolve();
+    }, delayMs);
+    signal.addEventListener("abort", handleAbort, { once: true });
+  });
+}
+
+async function withDatabaseLockRetry<T>(
+  run: () => Promise<T>,
+  signal: AbortSignal,
+): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    throwIfAborted(signal);
+    try {
+      return await run();
+    } catch (error) {
+      if (
+        !isDatabaseLockError(error) ||
+        attempt >= DATABASE_LOCK_RETRY_DELAYS_MS.length
+      ) {
+        throw error;
+      }
+      await waitForDatabaseRetry(
+        DATABASE_LOCK_RETRY_DELAYS_MS[attempt],
+        signal,
+      );
+    }
+  }
+}
 
 async function readStreamChunkWithTimeout<T>(
   iterator: AsyncIterator<T>,
@@ -217,19 +282,18 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
         }),
       );
 
-      const { values: settingsValues } = await getStoredSettingValues();
-      const enrichedArgs = await taskConfig.transformArgs(
-        config.args,
-        settingsValues,
+      const { values: settingsValues } = await withDatabaseLockRetry(
+        getStoredSettingValues,
+        abortController.signal,
+      );
+      const enrichedArgs = await withDatabaseLockRetry(
+        () => taskConfig.transformArgs(config.args, settingsValues),
+        abortController.signal,
       );
       let fullText = "";
 
       const checkAbort = () => {
-        if (abortController.signal.aborted) {
-          const error = new Error("Aborted");
-          error.name = "AbortError";
-          throw error;
-        }
+        throwIfAborted(abortController.signal);
       };
 
       const onProgress = (step: TaskStepInfo<Task>) => {
@@ -310,17 +374,27 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
         abortController.signal.removeEventListener("abort", abortWorkflow);
       }
 
-      await taskConfig.onSuccess?.({
-        taskId,
-        text: fullText,
-        model: config.model,
-        args: config.args,
-        transformedArgs: enrichedArgs,
-        signal: abortController.signal,
-        startTask: (nextTaskId, nextConfig) =>
-          get().generate(nextTaskId, nextConfig),
-        getTaskState: (nextTaskId) => getTaskState(get().tasks, nextTaskId),
-      });
+      const onSuccess = taskConfig.onSuccess;
+      if (onSuccess) {
+        await withDatabaseLockRetry(
+          () =>
+            Promise.resolve(
+              onSuccess({
+                taskId,
+                text: fullText,
+                model: config.model,
+                args: config.args,
+                transformedArgs: enrichedArgs,
+                signal: abortController.signal,
+                startTask: (nextTaskId, nextConfig) =>
+                  get().generate(nextTaskId, nextConfig),
+                getTaskState: (nextTaskId) =>
+                  getTaskState(get().tasks, nextTaskId),
+              }),
+            ),
+          abortController.signal,
+        );
+      }
 
       checkAbort();
 
