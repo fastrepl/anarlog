@@ -712,6 +712,7 @@ impl PluginDbRuntime {
                             tracing::warn!(%error, "CloudSync full resync remains pending");
                             return;
                         }
+                        retry_delay = CLOUDSYNC_FULL_RESYNC_MIN_RETRY_DELAY;
                         tracing::warn!(%error, "CloudSync full resync will retry after reconfigure");
                     }
                 }
