@@ -718,6 +718,12 @@ mod tests {
         .unwrap();
 
         assert!(client.publish_and_refresh(db.pool(), &key).await.is_err());
+        let queued_after_failure: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_witness_pending")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert!(queued_after_failure > 0);
         assert!(
             !hypr_db_app::pending_e2ee_witness_uploads(
                 db.pool(),
@@ -734,6 +740,12 @@ mod tests {
         client.publish_and_refresh(db.pool(), &key).await.unwrap();
 
         assert_eq!(responder.publishes.load(Ordering::Relaxed), 2);
+        let queued_after_retry: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_witness_pending")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(queued_after_retry, 0);
         assert!(
             hypr_db_app::pending_e2ee_witness_uploads(
                 db.pool(),
