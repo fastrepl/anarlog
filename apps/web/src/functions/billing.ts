@@ -383,7 +383,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       const stripeCustomerId = await getStripeCustomerIdForUser(
         supabase,
         stripe,
-        { id: user.id, email: user.email },
+        user,
       );
 
       if (stripeCustomerId) {
@@ -408,10 +408,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
       return await createCheckoutUrl({
         supabase,
-        user: {
-          id: user.id,
-          email: user.email,
-        },
+        user,
         period: data.period,
         scheme: data.scheme,
         trial: data.trial,
@@ -473,16 +470,13 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
     const stripeCustomerId = await getStripeCustomerIdForUser(
       supabase,
       stripe,
-      { id: user.id, email: user.email },
+      user,
     );
 
     if (!stripeCustomerId) {
       return createCheckoutUrl({
         supabase,
-        user: {
-          id: user.id,
-          email: user.email,
-        },
+        user,
         period: data.targetPeriod,
         scheme: data.scheme,
       });
@@ -496,10 +490,7 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
     if (!activeSubscription) {
       return createCheckoutUrl({
         supabase,
-        user: {
-          id: user.id,
-          email: user.email,
-        },
+        user,
         period: data.targetPeriod,
         scheme: data.scheme,
       });
@@ -508,10 +499,7 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
     if (!activeSubscription.items.data[0]) {
       return createCheckoutUrl({
         supabase,
-        user: {
-          id: user.id,
-          email: user.email,
-        },
+        user,
         period: data.targetPeriod,
         scheme: data.scheme,
       });
@@ -564,7 +552,7 @@ export const createPortalSession = createServerFn({ method: "POST" })
     const stripeCustomerId = await getStripeCustomerIdForUser(
       supabase,
       stripe,
-      { id: user.id, email: user.email },
+      user,
     );
 
     if (!stripeCustomerId) {
@@ -594,7 +582,7 @@ export const syncAfterSuccess = createServerFn({ method: "POST" }).handler(
     const stripeCustomerId = await getStripeCustomerIdForUser(
       supabase,
       stripe,
-      { id: user.id, email: user.email },
+      user,
     );
 
     if (!stripeCustomerId) {
