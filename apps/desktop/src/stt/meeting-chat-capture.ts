@@ -21,7 +21,7 @@ export function startMeetingChatCapture({
   const seenSignatures = new Set<string>();
   let baselineContext: { bundleId: string; contextId: string } | null = null;
   let stopped = false;
-  let inFlight = false;
+  let inFlight: Promise<void> | null = null;
   let lastWarning = "";
   const captureIsEnabled =
     isEnabled ??
@@ -31,11 +31,7 @@ export function startMeetingChatCapture({
         await getStoredSettingValues(),
       ));
 
-  const capture = async () => {
-    if (stopped || inFlight) {
-      return;
-    }
-    inFlight = true;
+  const captureOnce = async () => {
     try {
       if (!(await captureIsEnabled())) {
         baselineContext = null;
@@ -140,9 +136,21 @@ export function startMeetingChatCapture({
       }
     } catch (error) {
       console.warn("[listener] failed to capture meeting chat", error);
-    } finally {
-      inFlight = false;
     }
+  };
+
+  const capture = () => {
+    if (stopped || inFlight) {
+      return inFlight ?? Promise.resolve();
+    }
+
+    const pendingCapture = captureOnce().finally(() => {
+      if (inFlight === pendingCapture) {
+        inFlight = null;
+      }
+    });
+    inFlight = pendingCapture;
+    return pendingCapture;
   };
 
   void capture();
@@ -150,9 +158,10 @@ export function startMeetingChatCapture({
     void capture();
   }, MEETING_CHAT_CAPTURE_INTERVAL_MS);
 
-  return () => {
+  return async () => {
     stopped = true;
     clearInterval(interval);
+    await inFlight;
   };
 }
 

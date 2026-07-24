@@ -342,17 +342,26 @@ function useCaptureLifecycle(sessionId: string) {
 
   const runBatchRef = useRef(runBatch);
   const canRunBatchRef = useRef(canRunBatchTranscription(conn));
-  const stopMeetingChatCaptureRef = useRef<(() => void) | null>(null);
+  const stopMeetingChatCaptureRef = useRef<(() => Promise<void>) | null>(null);
   runBatchRef.current = runBatch;
   canRunBatchRef.current = canRunBatchTranscription(conn);
 
-  const stopMeetingChatTasks = useCallback(() => {
-    stopMeetingChatCaptureRef.current?.();
-    stopMeetingChatCaptureRef.current = null;
+  const stopMeetingChatTasks = useCallback(async () => {
+    const stop = stopMeetingChatCaptureRef.current;
+    if (!stop) {
+      return;
+    }
+    await stop();
+    if (stopMeetingChatCaptureRef.current === stop) {
+      stopMeetingChatCaptureRef.current = null;
+    }
   }, []);
-  const setStopMeetingChatCapture = useCallback((stop: (() => void) | null) => {
-    stopMeetingChatCaptureRef.current = stop;
-  }, []);
+  const setStopMeetingChatCapture = useCallback(
+    (stop: (() => Promise<void>) | null) => {
+      stopMeetingChatCaptureRef.current = stop;
+    },
+    [],
+  );
 
   const createCaptureLifecycle = useCallback(
     (recoveredMarker?: CaptureLifecycleMarker) => {
@@ -482,7 +491,7 @@ function useCaptureLifecycle(sessionId: string) {
           return true;
         };
         cancelMeetingRecordingDisclosure(sessionId);
-        stopMeetingChatTasks();
+        await stopMeetingChatTasks();
         if (details.audioPath) {
           try {
             await enqueueSessionAudioOperation(sessionId, () =>
@@ -1003,7 +1012,7 @@ export function useStartListening(sessionId: string) {
     if (!canStartLiveSession(sessionId)) {
       return;
     }
-    stopMeetingChatTasks();
+    await stopMeetingChatTasks();
     const lifecycle = createCaptureLifecycle();
     await lifecycle.ready;
     const keywords = await getSessionKeywords({
@@ -1093,7 +1102,7 @@ export function useStartListening(sessionId: string) {
     }
 
     if (!started) {
-      stopMeetingChatTasks();
+      await stopMeetingChatTasks();
       try {
         await lifecycle.releaseCloudsyncLease();
         await lifecycle.cleanupFailedStart();

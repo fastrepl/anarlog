@@ -475,6 +475,10 @@ msgid "Cloud sync resumes after this meeting finishes processing"
 msgstr ""
 
 #: src/main/sync-status.tsx
+msgid "Cloud sync resumes when the current activity finishes"
+msgstr ""
+
+#: src/main/sync-status.tsx
 msgid "Cloud sync setup required"
 msgstr ""
 

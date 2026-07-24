@@ -354,6 +354,43 @@ describe("startMeetingChatCapture", () => {
     expect(persistMeetingChatRecordsMock).toHaveBeenCalledTimes(2);
   });
 
+  test("waits for an in-flight persistence write when capture stops", async () => {
+    captureMeetingChatMessagesMock.mockResolvedValue(captureResult([]));
+    const stop = startMeetingChatCapture({
+      sessionId: "session-1",
+      isEnabled: () => true,
+    });
+    await vi.advanceTimersByTimeAsync(0);
+
+    let resolvePersistence:
+      | ((persistedSignatures: string[]) => void)
+      | undefined;
+    persistMeetingChatRecordsMock.mockReturnValueOnce(
+      new Promise<string[]>((resolve) => {
+        resolvePersistence = resolve;
+      }),
+    );
+    captureMeetingChatMessagesMock.mockResolvedValue(
+      captureResult([capturedMessage]),
+    );
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    const stopped = stop();
+    let settled = false;
+    void stopped.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+
+    expect(persistMeetingChatRecordsMock).toHaveBeenCalledOnce();
+    expect(settled).toBe(false);
+
+    resolvePersistence?.(["zoom:meeting-1\nzoom\nnative\nmsg-1"]);
+    await stopped;
+
+    expect(settled).toBe(true);
+  });
+
   test("does not persist a poll that resolves after capture stops", async () => {
     let resolveCapture: ((value: unknown) => void) | undefined;
     captureMeetingChatMessagesMock.mockReturnValue(
