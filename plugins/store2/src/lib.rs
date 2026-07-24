@@ -35,6 +35,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new(PLUGIN_NAME)
         .invoke_handler(specta_builder.invoke_handler())
         .setup(|app, _| {
+            assert!(app.manage(ext::Store2State::<R>::default()));
             migrate(app).ok();
             Ok(())
         })
@@ -58,7 +59,82 @@ fn migrate<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<(), Error> {
 
 #[cfg(test)]
 mod test {
+    use std::ffi::OsString;
+    use std::path::{Path, PathBuf};
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
     use super::*;
+
+    static TEST_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    static TEST_PATH_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    struct TestVault {
+        identifier: String,
+        previous_vault_base: Option<OsString>,
+        primary: PathBuf,
+        paths: Vec<PathBuf>,
+    }
+
+    impl TestVault {
+        fn new(label: &str) -> Self {
+            let counter = TEST_PATH_COUNTER.fetch_add(1, Ordering::Relaxed);
+            let identifier = format!("com.hyprnote.store2test{}{}", std::process::id(), counter);
+            let primary = std::env::temp_dir().join(format!(
+                "anarlog-store2-{label}-{}-{counter}",
+                std::process::id()
+            ));
+            std::fs::create_dir_all(&primary).unwrap();
+            let previous_vault_base = std::env::var_os("CHAR_VAULT_BASE");
+            unsafe {
+                std::env::set_var("CHAR_VAULT_BASE", &primary);
+            }
+
+            let mut paths = vec![primary.clone()];
+            if let Some(default_base) = hypr_storage::global::compute_default_base(&identifier) {
+                paths.push(default_base);
+            }
+
+            Self {
+                identifier,
+                previous_vault_base,
+                primary,
+                paths,
+            }
+        }
+
+        fn add_path(&mut self, label: &str) -> PathBuf {
+            let path = self.primary.with_file_name(format!(
+                "anarlog-store2-{label}-{}-{}",
+                std::process::id(),
+                TEST_PATH_COUNTER.fetch_add(1, Ordering::Relaxed)
+            ));
+            std::fs::create_dir_all(&path).unwrap();
+            self.paths.push(path.clone());
+            path
+        }
+
+        fn select(&self, path: &Path) {
+            unsafe {
+                std::env::set_var("CHAR_VAULT_BASE", path);
+            }
+        }
+    }
+
+    impl Drop for TestVault {
+        fn drop(&mut self) {
+            unsafe {
+                match self.previous_vault_base.as_ref() {
+                    Some(value) => std::env::set_var("CHAR_VAULT_BASE", value),
+                    None => std::env::remove_var("CHAR_VAULT_BASE"),
+                }
+            }
+
+            for path in &self.paths {
+                let _ = std::fs::remove_dir_all(path);
+            }
+        }
+    }
 
     #[test]
     fn export_types() {
@@ -77,18 +153,32 @@ mod test {
         std::fs::write(OUTPUT_FILE, format!("// @ts-nocheck\n{content}")).unwrap();
     }
 
-    fn create_app<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::App<R> {
+    fn create_app<R: tauri::Runtime>(
+        builder: tauri::Builder<R>,
+        identifier: &str,
+    ) -> tauri::App<R> {
+        let mut context = tauri::test::mock_context(tauri::test::noop_assets());
+        context.config_mut().identifier = identifier.to_string();
         builder
             .plugin(tauri_plugin_store::Builder::new().build())
             .plugin(init())
-            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .build(context)
             .unwrap()
     }
 
-    #[tokio::test]
-    async fn test_store() -> anyhow::Result<()> {
-        let app = create_app(tauri::test::mock_builder());
-        assert!(app.store2().store().is_ok());
+    #[test]
+    fn test_store() -> anyhow::Result<()> {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        let vault = TestVault::new("store");
+        let app = create_app(tauri::test::mock_builder(), &vault.identifier);
+        let path = app.store2().path()?;
+        let store = app.store2().store()?;
+        let same_store = app.store2().store()?;
+        assert!(Arc::ptr_eq(&store, &same_store));
+        {
+            use tauri_plugin_store::StoreExt;
+            assert!(app.get_store(&path).is_none());
+        }
 
         #[derive(PartialEq, Eq, Hash, strum::Display)]
         enum TestKey {
@@ -120,13 +210,28 @@ mod test {
         assert_eq!(scoped_store.get::<u8>(TestKey::KeyA)?, Some(1));
 
         assert!(scoped_store.get::<String>(TestKey::KeyB)?.is_none());
+        let persisted: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path)?)?;
+        let persisted_scope: serde_json::Value =
+            serde_json::from_str(persisted["test"].as_str().unwrap())?;
+        assert_eq!(persisted_scope["key-a"], 1);
 
+        drop(scoped_store);
+        drop(same_store);
+        drop(store);
+        drop(app);
+
+        let restarted = create_app(tauri::test::mock_builder(), &vault.identifier);
+        let reloaded = restarted.store2().scoped_store::<TestKey>("test")?;
+        assert_eq!(reloaded.get::<u8>(TestKey::KeyA)?, Some(1));
         Ok(())
     }
 
-    #[tokio::test]
-    async fn test_concurrent_set() -> anyhow::Result<()> {
-        let app = create_app(tauri::test::mock_builder());
+    #[test]
+    fn test_concurrent_set() -> anyhow::Result<()> {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        let vault = TestVault::new("concurrent");
+        let app = create_app(tauri::test::mock_builder(), &vault.identifier);
+        let path = app.store2().path()?;
         let app_handle = app.handle().clone();
 
         let num_threads = 10;
@@ -164,7 +269,73 @@ mod test {
             "Expected all {} keys to be present, but only found {}",
             num_threads, found
         );
+        let persisted: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path)?)?;
+        let persisted_scope: serde_json::Value =
+            serde_json::from_str(persisted["concurrent_test"].as_str().unwrap())?;
+        assert_eq!(persisted_scope.as_object().unwrap().len(), num_threads);
 
+        drop(app);
+        Ok(())
+    }
+
+    #[test]
+    fn switches_store_cache_with_vault_path() -> anyhow::Result<()> {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        let mut vault = TestVault::new("vault-switch");
+        let app = create_app(tauri::test::mock_builder(), &vault.identifier);
+
+        let first_path = app.store2().path()?;
+        let first_store = app.store2().store()?;
+        let first_scope = app.store2().scoped_store::<String>("test")?;
+        first_scope.set("key".to_string(), "from-first")?;
+
+        let second_vault = vault.add_path("vault-switch-second");
+        let second_path = second_vault.join(FILENAME);
+        let second_scope_json = serde_json::to_string(&serde_json::json!({
+            "key": "from-second"
+        }))?;
+        std::fs::write(
+            &second_path,
+            serde_json::to_string_pretty(&serde_json::json!({
+                "test": second_scope_json
+            }))?,
+        )?;
+
+        vault.select(&second_vault);
+        let second_store = app.store2().store()?;
+        assert!(!Arc::ptr_eq(&first_store, &second_store));
+        {
+            use tauri_plugin_store::StoreExt;
+            assert!(app.get_store(&second_path).is_none());
+        }
+
+        let second_scope = app.store2().scoped_store::<String>("test")?;
+        assert_eq!(
+            second_scope.get::<String>("key".to_string())?,
+            Some("from-second".to_string())
+        );
+        second_scope.set("key".to_string(), "updated-second")?;
+
+        vault.select(&vault.primary);
+        let first_store_again = app.store2().store()?;
+        assert!(Arc::ptr_eq(&first_store, &first_store_again));
+        let first_scope_again = app.store2().scoped_store::<String>("test")?;
+        assert_eq!(
+            first_scope_again.get::<String>("key".to_string())?,
+            Some("from-first".to_string())
+        );
+
+        let first_persisted: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(first_path)?)?;
+        let first_persisted_scope: serde_json::Value =
+            serde_json::from_str(first_persisted["test"].as_str().unwrap())?;
+        assert_eq!(first_persisted_scope["key"], "from-first");
+
+        let second_persisted: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(second_path)?)?;
+        let second_persisted_scope: serde_json::Value =
+            serde_json::from_str(second_persisted["test"].as_str().unwrap())?;
+        assert_eq!(second_persisted_scope["key"], "updated-second");
         Ok(())
     }
 }

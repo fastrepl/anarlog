@@ -234,10 +234,7 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         let result = app
             .store2()
             .scoped_store::<String>(crate::PLUGIN_NAME)
-            .and_then(|store| {
-                store.set("show_events_in_menu_bar".to_string(), show)?;
-                store.save()
-            });
+            .and_then(|store| store.set("show_events_in_menu_bar".to_string(), show));
 
         if let Err(error) = result {
             tracing::warn!(%error, "failed to persist tray event visibility");

@@ -151,11 +151,7 @@ fn secret_entry<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn save<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
-    app.store2()
-        .store()
-        .map_err(|e| e.to_string())?
-        .save()
-        .map_err(|e| e.to_string())
+    app.store2().save().map_err(|e| e.to_string())
 }
 
 #[tauri::command]

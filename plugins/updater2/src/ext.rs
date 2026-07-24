@@ -209,9 +209,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
             });
         }
 
-        if let Ok(store) = self.manager.store2().store() {
-            let _ = store.save();
-        }
+        let _ = self.manager.store2().save();
 
         update.install(&bytes)?;
         Ok(InstallResult::RelaunchCurrent)
