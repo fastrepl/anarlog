@@ -587,6 +587,62 @@ describe("ChatSession", () => {
     expect(mocks.chatInits).toHaveLength(1);
   });
 
+  it("stops and drains the active lease when switching chat sessions", async () => {
+    connectChatSendToTransport();
+    const captured: { send?: ChatSessionRenderProps["sendMessage"] } = {};
+    const userMessage: HyprUIMessage = {
+      id: "user-1",
+      role: "user",
+      parts: [{ type: "text", text: "Question" }],
+    };
+    const view = render(
+      <ChatSession chatGroupId="group-1" sessionId="session-1">
+        {(props) => {
+          captured.send = props.sendMessage;
+          return null;
+        }}
+      </ChatSession>,
+    );
+
+    captured.send!(userMessage);
+    await waitFor(() =>
+      expect(mocks.beginCloudsyncActivity).toHaveBeenCalledOnce(),
+    );
+    const nativeKey = startedNativeKey();
+    const oldChat = mocks.chatInits[0] as {
+      onFinish: (params: {
+        message: HyprUIMessage;
+        messages: HyprUIMessage[];
+        isAbort: boolean;
+      }) => void;
+    };
+    mocks.chatStop.mockImplementationOnce(() => {
+      oldChat.onFinish({
+        isAbort: true,
+        message: { id: "assistant-1", role: "assistant", parts: [] },
+        messages: [userMessage],
+      });
+    });
+
+    view.rerender(
+      <ChatSession chatGroupId="group-2" sessionId="session-2">
+        {(props) => {
+          captured.send = props.sendMessage;
+          return null;
+        }}
+      </ChatSession>,
+    );
+
+    expect(mocks.chatStop).toHaveBeenCalledOnce();
+    await waitFor(() =>
+      expect(mocks.endCloudsyncActivity).toHaveBeenCalledWith(
+        "chat",
+        nativeKey,
+      ),
+    );
+    expect(mocks.chatInits).toHaveLength(2);
+  });
+
   it("does not replace streaming SDK messages with stale SQLite rows", () => {
     const userMessage: HyprUIMessage = {
       id: "user-1",

@@ -91,7 +91,11 @@ function areMessagesEqual(a: HyprUIMessage[], b: HyprUIMessage[]) {
   });
 }
 
-export function ChatSession({
+export function ChatSession(props: ChatSessionProps) {
+  return <ChatSessionLifecycle key={props.sessionId} {...props} />;
+}
+
+function ChatSessionLifecycle({
   sessionId,
   chatGroupId,
   currentSessionId,
