@@ -473,9 +473,7 @@ export function createChatCloudsyncActivityController({
   };
 
   const finish = (logicalKey: string) => {
-    const lease =
-      claimActiveFinishLease(logicalKey) ??
-      claimConsumedFinishLease(logicalKey);
+    const lease = claimActiveFinishLease(logicalKey);
     if (!lease) {
       return;
     }
