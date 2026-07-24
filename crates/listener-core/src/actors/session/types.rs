@@ -25,6 +25,8 @@ pub struct SessionParams {
     pub api_key: String,
     pub keywords: Vec<String>,
     #[serde(default)]
+    pub mic_device: Option<String>,
+    #[serde(default)]
     pub participant_human_ids: Vec<String>,
     #[serde(default)]
     pub self_human_id: Option<String>,
@@ -101,6 +103,7 @@ mod tests {
             base_url: base_url.to_string(),
             api_key: String::new(),
             keywords: vec![],
+            mic_device: None,
             participant_human_ids: vec![],
             self_human_id: None,
         }

@@ -641,6 +641,7 @@ mod tests {
                 base_url: "http://localhost:1234".to_string(),
                 api_key: "test-key".to_string(),
                 keywords: vec![],
+                mic_device: None,
                 participant_human_ids: vec![],
                 self_human_id: None,
             },

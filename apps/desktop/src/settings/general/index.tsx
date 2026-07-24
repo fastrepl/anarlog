@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { getE2eeIdentityStatus } from "@hypr/plugin-db";
+import { commands as listenerCommands } from "@hypr/plugin-transcription";
 
 export { SettingsAccount } from "./account";
 import { AppSettingsView } from "./app-settings";
@@ -171,6 +172,10 @@ function SettingsAppContent({
   const setSettingValues = useSetSettingValues();
   const audioRetention =
     resolveConfigValue("audio_retention", storedSettings) || "forever";
+  const microphoneDevice = resolveConfigValue(
+    "microphone_device",
+    storedSettings,
+  );
   const auth = useAuth();
   const { isPro } = useBillingAccess();
   const [e2eeSetupOpen, setE2eeSetupOpen] = useState(false);
@@ -182,6 +187,17 @@ function SettingsAppContent({
     queryKey: ["e2ee-identity", auth.session?.user.id],
     queryFn: () => getE2eeIdentityStatus(auth.session!.user.id),
     enabled: Boolean(auth.session?.user.id),
+  });
+  const microphoneDevicesQuery = useQuery({
+    queryKey: ["microphone-devices"],
+    queryFn: async () => {
+      const result = await listenerCommands.listMicrophoneDevices();
+      if (result.status === "error") {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
+    refetchInterval: 3_000,
   });
   const cloudSyncMutation = useMutation({
     mutationKey: ["cloudsync-preference"],
@@ -358,6 +374,16 @@ function SettingsAppContent({
                                                         audio_retention: val,
                                                         save_recordings:
                                                           val !== "none",
+                                                      }),
+                                                  }}
+                                                  microphoneDevice={{
+                                                    value: microphoneDevice,
+                                                    devices:
+                                                      microphoneDevicesQuery.data ??
+                                                      [],
+                                                    onChange: (val) =>
+                                                      setSettingValues({
+                                                        microphone_device: val,
                                                       }),
                                                   }}
                                                 />

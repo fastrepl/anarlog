@@ -169,6 +169,16 @@ describe("SQLite settings", () => {
     ]);
   });
 
+  it("persists the selected microphone in SQLite settings", async () => {
+    await setSettingValues({ microphone_device: "External Microphone" });
+
+    const statement = mocks.executeTransaction.mock.calls[0][0][0];
+    expect(statement.params.slice(0, 2)).toEqual([
+      "microphone_device",
+      JSON.stringify("External Microphone"),
+    ]);
+  });
+
   it("persists OS language defaults only when no stored values exist", async () => {
     let rows: Array<{ id: string; value_json: string }> = [];
     mocks.execute.mockImplementation(async () => rows);

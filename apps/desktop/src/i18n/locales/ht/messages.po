@@ -626,6 +626,7 @@ msgstr ""
 msgid "Created"
 msgstr ""
 
+#: src/settings/general/app-settings.tsx
 #: src/templates/auto-form.tsx
 msgid "Current default"
 msgstr ""
@@ -1188,6 +1189,7 @@ msgid "Metadata"
 msgstr ""
 
 #: src/onboarding/permissions.tsx
+#: src/settings/general/app-settings.tsx
 #: src/settings/general/permissions.tsx
 msgid "Microphone"
 msgstr ""
@@ -2334,6 +2336,7 @@ msgid "Use system audio to capture other speakers"
 msgstr ""
 
 #: src/onboarding/permissions.tsx
+#: src/settings/general/app-settings.tsx
 msgid "Use your microphone to capture your voice"
 msgstr ""
 

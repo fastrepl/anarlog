@@ -918,6 +918,7 @@ export function useStartListening(sessionId: string) {
   const aiLanguage = useConfigValue("ai_language");
   const spokenLanguages = useConfigValue("spoken_languages");
   const dictionaryTerms = useConfigValue("personalization_dictionary_terms");
+  const microphoneDevice = useConfigValue("microphone_device");
   const meetingDisclosureAutoSendChat = useConfigValue(
     "consent_auto_send_chat",
   );
@@ -969,6 +970,7 @@ export function useStartListening(sessionId: string) {
         base_url: conn?.baseUrl ?? "",
         api_key: conn?.apiKey ?? "",
         keywords,
+        mic_device: microphoneDevice || null,
         transcription_mode: liveTranscriptionConfig.transcriptionMode,
         participant_human_ids: participantHumanIds,
         self_human_id: session?.user_id || null,
@@ -1020,6 +1022,7 @@ export function useStartListening(sessionId: string) {
     createCaptureLifecycle,
     dictionaryTerms,
     getSessionMode,
+    microphoneDevice,
     participantHumanIds,
     session,
     sessionId,
