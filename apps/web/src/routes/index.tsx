@@ -378,9 +378,13 @@ function Component() {
         <div className="min-w-0 text-center">
           <section className="pt-10 pb-2 md:pt-12 md:pb-4">
             <h1 className="font-hand mx-auto max-w-3xl text-5xl leading-[0.98] font-semibold tracking-normal text-balance md:text-7xl lg:relative lg:left-1/2 lg:w-max lg:max-w-none lg:-translate-x-1/2 lg:whitespace-nowrap">
-              <span className="block lg:inline">Anarlog is</span>{" "}
-              <span className="block lg:inline">the AI notepad for</span>{" "}
-              <span className="block lg:inline">private meetings.</span>
+              <span className="font-hand block lg:inline">Anarlog is</span>{" "}
+              <span className="font-hand block lg:inline">
+                the AI notepad for
+              </span>{" "}
+              <span className="font-hand block lg:inline">
+                private meetings.
+              </span>
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
               Jot notes during the call with a bot-free, open-source AI notepad
