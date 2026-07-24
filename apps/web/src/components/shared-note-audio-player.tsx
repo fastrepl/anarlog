@@ -51,12 +51,11 @@ export function SharedNoteAudioPlayer({
     refetchInterval: playing ? false : 45_000,
     gcTime: 0,
   });
-  const download = isMatchingSharedNoteAttachmentDownload(
-    attachment,
-    downloadQuery.data,
-  )
-    ? downloadQuery.data
-    : null;
+  const download =
+    !downloadQuery.error &&
+    isMatchingSharedNoteAttachmentDownload(attachment, downloadQuery.data)
+      ? downloadQuery.data
+      : null;
   const pinnedAudioDownload = isMatchingSharedNoteAttachmentDownload(
     attachment,
     pinnedDownload,
@@ -80,12 +79,21 @@ export function SharedNoteAudioPlayer({
       refreshed.isError ||
       !isMatchingSharedNoteAttachmentDownload(attachment, refreshed.data)
     ) {
+      setPinnedDownload(null);
       setPlaying(false);
       return;
     }
     setPinnedDownload(refreshed.data);
     if (activeDownload?.signedUrl === refreshed.data.signedUrl) {
-      setPlaying(false);
+      requestAnimationFrame(() => {
+        const current = audioRef.current;
+        if (!current) return;
+        current.currentTime = playbackTime;
+        setCurrentTime(playbackTime);
+        if (shouldResume) {
+          void current.play().catch(() => setPlaying(false));
+        }
+      });
       return;
     }
     pendingPlaybackRef.current = {
@@ -103,6 +111,38 @@ export function SharedNoteAudioPlayer({
     }
     audio.pause();
   };
+
+  if (downloadQuery.error && !activeDownload) {
+    return (
+      <section
+        aria-label={`Audio recording: ${attachment.filename}`}
+        className={cn([
+          "mb-6 flex min-w-0 items-center gap-3 rounded-[22px] border border-stone-200 bg-white/80 px-3 py-2",
+          "text-stone-600",
+        ])}
+      >
+        <Volume2Icon
+          className="size-3.5 shrink-0 text-stone-400"
+          aria-hidden="true"
+        />
+        <span className="min-w-0 flex-1 truncate text-sm">
+          Attachment unavailable
+        </span>
+        <button
+          type="button"
+          className={cn([
+            "shrink-0 rounded-full border border-stone-300 bg-white px-3 py-1 text-xs font-medium text-stone-700 shadow-xs",
+            "hover:bg-stone-50",
+            "focus-visible:ring-2 focus-visible:ring-stone-900 focus-visible:ring-offset-2 focus-visible:outline-hidden",
+          ])}
+          disabled={downloadQuery.isFetching}
+          onClick={() => void downloadQuery.refetch()}
+        >
+          {downloadQuery.isFetching ? "Retrying…" : "Retry"}
+        </button>
+      </section>
+    );
+  }
 
   return (
     <section
