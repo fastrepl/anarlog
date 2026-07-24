@@ -17,6 +17,10 @@ msgstr ""
 msgid "(default)"
 msgstr "(default)"
 
+#: src/settings/general/app-settings.tsx
+msgid "(Unavailable — using current default)"
+msgstr "(Unavailable — using current default)"
+
 #. placeholder {0}: issue.user?.login
 #: src/task/resource-view.tsx
 msgid "{0} opened on"

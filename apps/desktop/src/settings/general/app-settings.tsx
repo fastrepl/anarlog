@@ -218,7 +218,9 @@ function MicrophoneRow({
   const availableDevices = [...new Set(devices)].sort((a, b) =>
     a.localeCompare(b),
   );
-  if (value && !availableDevices.includes(value)) {
+  const selectedDeviceUnavailable =
+    Boolean(value) && !availableDevices.includes(value);
+  if (selectedDeviceUnavailable) {
     availableDevices.unshift(value);
   }
 
@@ -252,6 +254,12 @@ function MicrophoneRow({
           {availableDevices.map((device) => (
             <SelectItem key={device} value={device}>
               {device}
+              {selectedDeviceUnavailable && device === value ? (
+                <>
+                  {" "}
+                  <Trans>(Unavailable — using current default)</Trans>
+                </>
+              ) : null}
             </SelectItem>
           ))}
         </SelectContent>
