@@ -73,25 +73,18 @@ describe("initializeAppExitFlush", () => {
     consoleError.mockRestore();
   });
 
-  it("waits for settings to save when the database flush fails", async () => {
-    let resolveSave!: () => void;
-    mocks.flushDatabaseWritesWithin.mockRejectedValue(new Error("timed out"));
-    mocks.save.mockReturnValueOnce(
-      new Promise<void>((resolve) => {
-        resolveSave = resolve;
-      }),
-    );
+  it("still exits when settings never finish saving", async () => {
+    vi.useFakeTimers();
+    mocks.save.mockReturnValueOnce(new Promise<void>(() => {}));
     vi.spyOn(console, "error").mockImplementation(() => {});
     const { initializeAppExitFlush } = await import("./app-exit");
     await initializeAppExitFlush();
 
     mocks.listener?.();
-    await vi.waitFor(() => expect(mocks.save).toHaveBeenCalledOnce());
-
+    await vi.advanceTimersByTimeAsync(4999);
     expect(mocks.completeAppExit).not.toHaveBeenCalled();
-    resolveSave();
-    await vi.waitFor(() =>
-      expect(mocks.completeAppExit).toHaveBeenCalledOnce(),
-    );
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mocks.completeAppExit).toHaveBeenCalledOnce();
+    vi.useRealTimers();
   });
 });
