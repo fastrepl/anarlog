@@ -13,6 +13,32 @@ Use this for stable desktop releases. A stable release must come from `main`, af
 
 Do not trigger a stable release from an unmerged branch. First make the changelog up to date, merge that changelog change to `main`, then run the stable release from `main`.
 
+## QA Gate
+
+After the changelog is merged to `main`, read and run
+`../qa-critical-ux/SKILL.md` against that final commit. Require a recorded PASS
+for both:
+
+- native Dev QA pinned with `ANARLOG_QA_GIT_SHA` and a helper manifest with
+  `git_dirty=false`
+- the run-scoped staging artifact whose Actions head SHA exactly matches the
+  Dev manifest's `git_head_sha`
+
+The manifest's `git_head_sha` is the exact final `main` commit, including the
+changelog, not a synthetic GitButler workspace HEAD. The report must include
+that Dev SHA, staging run URL and head SHA, staging artifact SHA-256, and the
+critical checklist results. Any failure, missing evidence, SHA mismatch,
+rebuild, or later source change blocks stable unless the user explicitly
+waives that specific gate.
+
+This release path currently approves macOS only. The patched CloudSync vendor
+bundle was rebuilt and cancellation-tested for Apple Silicon and Intel, but
+not for Windows, Linux, or mobile. Before opening any of those release lanes,
+rebuild the bundled native library for every target architecture and pass the
+QA skill's equivalent stalled-network, logout, configuration cleanup/init,
+worker-drain, and immediate-local-write cancellation gates. Do not treat the
+macOS artifacts or Rust-only tests as cross-platform approval.
+
 ## Preflight
 
 1. Inspect the workflow before assuming release behavior:
@@ -76,6 +102,8 @@ Only after the changelog is accurate and validation passes:
 3. Wait for CI and required review state to be clear.
 4. Merge the changelog PR to `main`.
 5. Verify `main` contains `packages/changelog/content/<version>.md`.
+6. Record the resulting `main` SHA and complete the QA Gate against that exact
+   commit before triggering stable.
 
 If using GitButler, prefer:
 
@@ -91,7 +119,8 @@ Use actual IDs from `but diff` / `but status -fv`; do not invent IDs.
 
 ## Trigger Stable Release
 
-After the changelog merge lands on `main`, trigger the stable desktop workflow from `main`:
+After the changelog merge and QA Gate pass on the same `main` SHA, verify
+`main` has not moved, then trigger the stable desktop workflow from `main`:
 
 ```bash
 gh workflow run desktop_cd.yaml \
@@ -105,8 +134,12 @@ Then watch the run:
 
 ```bash
 gh run list --workflow desktop_cd.yaml --branch main --limit 5
+gh run view <run-id> --json headSha,url
 gh run watch <run-id>
 ```
+
+The run's `headSha` must equal the Dev/staging candidate SHA. A mismatch blocks
+acceptance even if the workflow succeeds.
 
 The stable workflow should:
 
@@ -122,10 +155,13 @@ Before reporting success, capture:
 
 - computed stable version
 - workflow run URL
+- workflow head SHA
 - `desktop_v<version>` tag
 - GitHub release URL
 - whether CrabNebula publish completed
 - changelog URL
+- stable DMG SHA-256
+- installed stable critical-QA PASS
 
 If the workflow fails, inspect the failed job logs with:
 
@@ -133,4 +169,7 @@ If the workflow fails, inspect the failed job logs with:
 gh run view <run-id> --log-failed
 ```
 
-Do not declare the release complete until the stable workflow succeeds.
+After the workflow succeeds, follow the QA skill's post-publish stable gate:
+download the matching DMG from the GitHub release, install it, and use Computer
+Use to repeat the core checks. Do not declare the release complete until both
+the stable workflow and installed stable QA succeed.

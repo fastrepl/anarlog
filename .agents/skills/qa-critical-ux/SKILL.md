@@ -1,6 +1,6 @@
 ---
 name: qa-critical-ux
-description: QA-test the critical desktop user experience before a release — calendar connect + notifications, note creation, recording, and automated summaries across on-device, API-key, and Pro providers. Use before cutting a stable release, after changes to STT/enhance/calendar/billing flows, or when asked to "QA the app".
+description: QA-test the critical desktop user experience before a release — auth, CloudSync, calendar connect + notifications, note creation, recording, chat, and automated summaries across on-device, API-key, and Pro providers. Use before cutting a stable release, after changes to auth/CloudSync/STT/enhance/calendar/billing flows, or when asked to "QA the app".
 ---
 
 # QA: Critical User Experience
@@ -26,6 +26,11 @@ waived by the user) before running the release-new-version skill.
    channel configuration. Local environment files are also excluded from the
    provenance fingerprint.
 
+   Native Dev release evidence is invalid unless `VITE_APP_URL`,
+   `VITE_API_URL`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY` all match
+   the currently deployed production public values. Local development URLs or
+   a different Supabase project require a rebuild and cannot pass this gate.
+
    The helper owns a clean, persistent Cargo cache under
    `~/Library/Caches/anarlog`; never point it at the repository's `target`
    directory or clone that directory into the QA cache. The repository cache
@@ -47,6 +52,20 @@ waived by the user) before running the release-new-version skill.
    .agents/skills/qa-critical-ux/scripts/run-native-dev-qa.sh --launch-only
    ```
 
+   Pin release-gate builds to the intended 40-character candidate commit:
+
+   ```bash
+   ANARLOG_QA_GIT_SHA=<candidate-commit-sha> \
+     .agents/skills/qa-critical-ux/scripts/run-native-dev-qa.sh
+   ```
+
+   In a GitButler workspace, copy the selected branch tip's full `commitId`
+   from `but status --format json`; `git rev-parse HEAD` is a synthetic
+   workspace commit and is not release provenance. Without the variable, the
+   helper auto-derives only when exactly one GitButler stack is applied, using
+   that stack's top branch tip. Multiple applied stacks or a stack without a
+   committed tip fail closed. Use the same variable with `--launch-only`.
+
    The first run uses a cold native cache and can take longer. Later source
    builds reuse only that helper-owned cache; launch-only performs validation
    without rebuilding.
@@ -60,9 +79,9 @@ waived by the user) before running the release-new-version skill.
    The helper connects the Dev app identity and its existing local database to
    production services. Use the intended QA account/workspace, and never commit
    channel credentials.
-2. For a non-production channel, supply that target's public
-   `VITE_APP_URL`, `VITE_API_URL`, `VITE_SUPABASE_URL`, and
-   `VITE_SUPABASE_ANON_KEY` when building instead of using the Dev helper.
+2. Do not repurpose this helper as a staging build. Staging release evidence
+   must come from the signed, notarized artifact produced by
+   `desktop_cd.yaml`; use the exact-run handoff below.
 3. Sign in with a test account that has calendar access. For provider
    matrix runs you need: a Pro (or trialing) account, an API key for at
    least one cloud provider (e.g. OpenAI), and a downloaded local STT +
@@ -70,20 +89,86 @@ waived by the user) before running the release-new-version skill.
 4. Note the app version and the provider config under test in the report.
 5. For macOS audio regression runs, leave the MacBook open and use its
    built-in speakers and microphone with no external audio device attached.
+   The Dev helper fails before launch unless both macOS default devices use
+   the built-in transport; do not bypass that preflight.
 6. Play the 15-minute Lex Fridman fixture from a long-lived terminal
    command after recording starts:
 
    ```bash
-   /usr/bin/afplay -v 0.7 -t 900 \
+   /usr/bin/afplay -v 0.7 \
      "$PWD/crates/data/src/english_10/audio.mp3"
    ```
 
    Let it finish naturally, or stop it with Ctrl-C. Do not use QuickTime or
    Computer Use just to control fixture playback.
 
+## Release-candidate order
+
+1. Run the complete Dev checklist from a clean checkout of the exact committed
+   SHA. Do not clean, discard, or include unrelated GitButler workspace changes
+   to produce release evidence; use a separate clean clone instead. Exploratory
+   Dev runs may use modified build inputs, but a release-gate run requires
+   `git_dirty=false` in the helper manifest. This means the fingerprinted build
+   inputs match the candidate commit. Record
+   `git_head_sha`, which is the candidate commit rather than GitButler's
+   synthetic workspace HEAD. The manifest is
+   `${ANARLOG_QA_TARGET_DIR:-$HOME/Library/Caches/anarlog/native-dev-qa-target}/.anarlog-native-dev-qa-manifest`.
+2. Require every Dev gate to pass, then trigger `desktop_cd.yaml` with
+   `channel=staging` from a branch or ref whose tip is that exact SHA. Verify
+   the Actions run's head SHA matches the manifest before testing it.
+3. Download the artifact from that specific run:
+
+   ```bash
+   gh run download <run-id> --name hyprnote-staging-macos-silicon
+   ```
+
+   Do not use a “latest staging” download for release evidence. Record the
+   DMG SHA-256, install it, and repeat the core gates: sign-in, note creation,
+   full-fixture recording/AEC, transcript preservation, automated summary,
+   and recording/chat CloudSync deferral.
+4. Stable is allowed only when Dev and that exact staging artifact pass for
+   the final `main` SHA, including its changelog. Verify `main` still points to
+   that SHA before triggering stable. Any rebuild or source change invalidates
+   the prior evidence.
+5. After stable publishes, download the matching architecture DMG from the
+   `desktop_v<version>` GitHub release, record its SHA-256, install it, and
+   verify the app reports that version. Use Computer Use to repeat the core
+   sign-in, note, full-fixture recording/AEC, transcript, summary, chat, and
+   CloudSync gates against the installed stable app. Keep fixture playback in
+   the terminal. Do not mark the release complete until this stable pass
+   succeeds.
+
+## CloudSync platform scope
+
+The patched native CloudSync vendor bundle and its request-cancellation tests
+currently cover only macOS Apple Silicon and Intel. This evidence must not be
+used to approve Windows, Linux, or mobile.
+
+Before enabling or releasing any of those lanes, rebuild every target
+architecture's bundled CloudSync native library from the patched source and
+run the equivalent cancellation/drain suite against that exact bundle. At
+minimum, prove stalled send/receive and manual/legacy network calls, logout,
+configuration cleanup/init, worker-idle fencing, and an immediate local write
+after cancellation. Rust-level fail-closed behavior or passing macOS bundle
+tests alone is not cross-platform evidence.
+
 ## Checklist
 
-### 1. Calendar connect, events, notifications
+### 1. Sign in, callback handoff, and sign out
+
+- Start signed out and initiate sign-in from the desktop app.
+- PASS when: reaching the browser's signed-in callback page automatically
+  opens the native-protocol prompt without a click; accepting it signs the
+  desktop app in.
+- Sign out, repeat the flow, dismiss the automatic prompt, then click the
+  page's **Open Anarlog** button. PASS when the button opens the same native
+  prompt and completes desktop sign-in without a duplicate or expired-link
+  error.
+- Sign out once more with CloudSync enabled. The app must return promptly to
+  its signed-out state without a stuck spinner, SQLite lock, or orphaned sync
+  request.
+
+### 2. Calendar connect, events, notifications
 
 - Settings → Calendar (or onboarding): connect Apple Calendar and/or
   Google/Outlook via the integration flow.
@@ -94,14 +179,14 @@ waived by the user) before running the release-new-version skill.
 - Also verify: toggling a calendar off hides its events; ignore/unignore
   on a timeline event sticks (no snap-back after rapid toggling).
 
-### 2. Create a new note
+### 3. Create a new note
 
 - Create a note from the sidebar/new-note affordance.
 - PASS when: the editor opens immediately (no blocking wait), typed
   content persists after switching notes and after app restart, and the
   note appears in the timeline.
 
-### 3. Start a recording
+### 4. Start a recording
 
 - In the note, start listening/recording, then play the repo audio fixture
   from the terminal so the system-audio path receives the source directly
@@ -151,15 +236,40 @@ waived by the user) before running the release-new-version skill.
   before Stop, after Stop settles, and after app restart. Counts must never
   shrink; the settled post-stop hash must survive restart unchanged.
 
-### 4. Automated summary after recording
+### 5. Chat and overlapping activity sync deferral
+
+- With CloudSync enabled and no recording active, send a chat request that
+  runs long enough to inspect status. Once its native lease is acknowledged,
+  require `activity_paused: true`, `deferred_for_capture: false`, and a static
+  **Saved locally** status. Streaming and SQLite persistence must remain
+  immediate.
+- No CloudSync send, receive, or E2EE witness request may start while the chat
+  lease is held. Apply the same pre-existing-operation drain exception as the
+  recording gate, then compare `last_sync_at_ms` and the SQLite Cloud request
+  log until the assistant response and its SQLite writes settle.
+- After the final chat persist plus the 750 ms trailing delay, require
+  `activity_paused: false` and exactly one coalesced trailing sync cycle.
+  Abort/error and regeneration paths must also release their leases.
+- Run one overlap: start recording, then start chat, and stagger their
+  completion. Ending the first activity must not resume sync; status remains
+  **Saved locally** and network sync stays at zero. Only the final lease may
+  resume CloudSync, with exactly one trailing sync cycle afterward.
+
+### 6. Automated summary after recording
 
 - Stop the recording.
 - PASS when: an enhanced note/summary is generated automatically without
   manual triggering, the summary reflects the spoken content, and a title
   is generated for untitled notes. A transcript must be attached to the
   session.
+- With CloudSync enabled, verify the final summary-and-title persistence
+  acquires an `enhance` activity lease before its final database read. No
+  CloudSync request may overlap those writes; release must eventually
+  succeed after transient bridge failures, followed by one trailing sync.
+- Capture the summary body hash after generation and again after app restart.
+  The generated title and settled summary hash must remain unchanged.
 
-### 5. Provider matrix — repeat steps 2–4 under each config
+### 7. Provider matrix — repeat steps 3–6 under each config
 
 | Config | How to set |
 | --- | --- |
@@ -167,8 +277,8 @@ waived by the user) before running the release-new-version skill.
 | API keys | Settings → AI: configure a custom provider with an API key for both STT (if supported) and LLM |
 | Pro plan | Settings → AI: select Anarlog cloud (`hyprnote` provider) with a Pro/trialing account |
 
-- PASS when: steps 2–4 behave identically in outcome under each config
-  (transcript + automated summary), with provider-appropriate quality.
+- PASS when: steps 3–6 behave identically in outcome under each config
+  (transcript + chat + automated summary), with provider-appropriate quality.
 - Watch for: feature-gate prompts appearing for entitled users, silent
   summary failures (check the AI task state), and stalled live
   transcription (watchdog should batch-repair from the recording after
@@ -191,4 +301,7 @@ waived by the user) before running the release-new-version skill.
 ## Reporting
 
 Produce a table: checklist item × provider config → PASS/FAIL with a
-one-line note. Any FAIL blocks release; file or fix before cutting.
+one-line note. Include the Dev manifest's Git SHA/dirty state, staging run
+URL and head SHA, staging artifact SHA-256, stable release URL and artifact
+SHA-256, app version, and any explicit waiver. Any FAIL or SHA mismatch blocks
+release; file or fix before cutting.
