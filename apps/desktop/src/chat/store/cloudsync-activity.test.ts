@@ -755,6 +755,36 @@ describe("chat CloudSync activity", () => {
     expect(end).toHaveBeenCalledWith("chat", "turn-1:attempt-3");
   });
 
+  it("keeps a retained preflight after an early finish without an active request", async () => {
+    const beginError = new Error("activity drain timed out");
+    const begin = vi
+      .fn()
+      .mockRejectedValueOnce(beginError)
+      .mockResolvedValue(undefined);
+    const end = vi.fn().mockResolvedValue(undefined);
+    const activity = createChatCloudsyncActivityController({
+      begin,
+      end,
+      createAttemptKey: sequentialAttemptKeys(),
+    });
+    const preflight = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      activity.start("turn-1", {
+        preflight: { run: preflight, persistOnCancel: true },
+      }),
+    ).rejects.toBe(beginError);
+
+    activity.finish("turn-1");
+    const persistFinished = vi.fn().mockResolvedValue(undefined);
+    await activity.runWithLease("turn-1", persistFinished);
+    await vi.advanceTimersByTimeAsync(CHAT_CLOUDSYNC_RELEASE_DELAY_MS);
+
+    expect(preflight).toHaveBeenCalledOnce();
+    expect(persistFinished).toHaveBeenCalledOnce();
+    expect(end).toHaveBeenCalledWith("chat", "turn-1:attempt-2");
+  });
+
   it("does not let a consumed same-key lease own a newer callback", async () => {
     const begin = vi.fn().mockResolvedValue(undefined);
     const end = vi.fn().mockResolvedValue(undefined);
