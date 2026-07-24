@@ -11,6 +11,7 @@ import {
   getE2eeIdentityStatus,
   isCloudsyncActivityDeferredError,
   suspendCloudsync,
+  suspendCloudsyncForSignOut,
 } from "@hypr/plugin-db";
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { commands as miscCommands } from "@hypr/plugin-misc";
@@ -952,7 +953,7 @@ async function suspendCloudsyncSession(): Promise<void> {
   setCredentialBlock(null);
 
   try {
-    await suspendCloudsync();
+    await suspendCloudsyncForSignOut();
   } catch {
     console.warn("[cloudsync] local sync suspension failed");
   }
@@ -964,7 +965,7 @@ export async function prepareCloudsyncSignOut(
 ): Promise<void> {
   const activeGeneration = beginTransition();
   stopCloudsyncInitialSyncProgress();
-  const suspension = suspendCloudsync();
+  const suspension = suspendCloudsyncForSignOut();
   let timeout: ReturnType<typeof setTimeout> | null = null;
 
   try {
