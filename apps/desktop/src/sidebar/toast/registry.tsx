@@ -63,6 +63,10 @@ export function createToastRegistry({
     activeDownloads.length === 1 && downloadingModel
       ? `Downloading ${downloadingModel}`
       : `Downloading ${activeDownloads.length} models`;
+  const hasUsableSttConfigured =
+    hasSttConfigured && (isAuthenticated || !hasProSttConfigured);
+  const hasUsableLlmConfigured =
+    hasLLMConfigured && (isAuthenticated || !hasProLlmConfigured);
 
   // order matters
   return [
@@ -116,15 +120,34 @@ export function createToastRegistry({
     },
     {
       toast: {
+        id: "sign-in-benefits",
+        icon: (
+          <img
+            src={ANARLOG_ICON_SRC}
+            alt="Anarlog"
+            className="size-5 object-contain object-center"
+          />
+        ),
+        description: "Sign in to get the most out of Anarlog",
+        primaryAction: {
+          label: "Sign in",
+          onClick: onSignIn,
+        },
+        dismissible: true,
+      },
+      condition: () => !isAuthLoading && !isAuthenticated,
+    },
+    {
+      toast: {
         id: "missing-stt",
-        description: "Transcription model needed",
+        description: "Transcription provider needed",
         primaryAction: {
           label: "Add",
           onClick: onOpenSTTSettings,
         },
         dismissible: false,
       },
-      condition: () => !hasSttConfigured && !isAiTranscriptionTabActive,
+      condition: () => !hasUsableSttConfigured && !isAiTranscriptionTabActive,
     },
     {
       toast: {
@@ -137,30 +160,9 @@ export function createToastRegistry({
         dismissible: true,
       },
       condition: () =>
-        hasSttConfigured && !hasLLMConfigured && !isAiIntelligenceTabActive,
-    },
-    {
-      toast: {
-        id: "pro-requires-login",
-        icon: (
-          <img
-            src={ANARLOG_ICON_SRC}
-            alt="Anarlog Pro"
-            className="size-5 object-contain object-center"
-          />
-        ),
-        description: "Sign in required",
-        primaryAction: {
-          label: "Sign in",
-          onClick: onSignIn,
-        },
-        dismissible: true,
-      },
-      // suppress until auth resolves to avoid flash on startup
-      condition: () =>
-        !isAuthLoading &&
-        !isAuthenticated &&
-        (hasProSttConfigured || hasProLlmConfigured),
+        hasUsableSttConfigured &&
+        !hasUsableLlmConfigured &&
+        !isAiIntelligenceTabActive,
     },
     {
       toast: {
@@ -216,7 +218,7 @@ export function createDevtoolsToastPreview({
     case "transcription-model":
       return {
         id: "devtools-missing-stt",
-        description: "Transcription model needed",
+        description: "Transcription provider needed",
         primaryAction: {
           label: "Add",
           onClick: onOpenSTTSettings,

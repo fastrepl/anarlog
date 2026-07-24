@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   warning: vi.fn(),
   loading: vi.fn(),
   dismiss: vi.fn(),
+  dismissedToastIds: new Set<string>(),
   sessionMode: "inactive",
   currentTab: {
     type: "empty",
@@ -111,7 +112,7 @@ vi.mock("~/stt/contexts", () => ({
 vi.mock("./useDismissedToasts", () => ({
   useDismissedToasts: () => ({
     dismissToast: mocks.dismissToast,
-    isDismissed: () => false,
+    isDismissed: (id: string) => mocks.dismissedToastIds.has(id),
   }),
 }));
 
@@ -127,6 +128,7 @@ describe("ToastNotifications", () => {
     mocks.warning.mockClear();
     mocks.loading.mockClear();
     mocks.dismiss.mockClear();
+    mocks.dismissedToastIds.clear();
     mocks.openNew.mockClear();
     mocks.updateSettingsTabState.mockClear();
     mocks.currentTab = { type: "empty" };
@@ -146,18 +148,18 @@ describe("ToastNotifications", () => {
     vi.useRealTimers();
   });
 
-  it("routes registry notifications through Sonner", () => {
+  it("routes the sign-in suggestion through Sonner", () => {
     render(<ToastNotifications />);
 
     act(() => vi.advanceTimersByTime(500));
 
     expect(mocks.message).toHaveBeenCalledWith(
-      "Pro features available",
+      "Sign in to get the most out of Anarlog",
       expect.objectContaining({
-        id: "upgrade-to-pro",
+        id: "sign-in-benefits",
         duration: Infinity,
         closeButton: true,
-        action: expect.objectContaining({ label: "Upgrade" }),
+        action: expect.objectContaining({ label: "Sign in" }),
       }),
     );
 
@@ -176,7 +178,7 @@ describe("ToastNotifications", () => {
 
     const options = mocks.message.mock.calls[0][1];
     options.onDismiss();
-    expect(mocks.dismissToast).toHaveBeenCalledWith("upgrade-to-pro");
+    expect(mocks.dismissToast).toHaveBeenCalledWith("sign-in-benefits");
   });
 
   it("uses a Sonner loading toast for model downloads", () => {
@@ -201,6 +203,7 @@ describe("ToastNotifications", () => {
   });
 
   it("uses the latest registry action while a toast remains visible", () => {
+    mocks.dismissedToastIds.add("sign-in-benefits");
     mocks.config.current_llm_provider = null;
     mocks.config.current_llm_model = null;
 
