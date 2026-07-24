@@ -25,6 +25,32 @@ const E2EE_APPLY_ROW_LIMIT: usize = 16;
 const E2EE_APPLY_BYTE_LIMIT: usize = 16 * 1024 * 1024;
 const E2EE_WITNESS_REPAIR_RECORD_LIMIT: i64 = 64;
 const E2EE_WITNESS_REPAIR_BYTE_LIMIT: usize = 16 * 1024 * 1024;
+const ACTIVE_CAPTURE_MARKER_PREDICATE: &str = "
+  length(capture.id) > length('capture_lifecycle_pending:')
+  AND json_type(capture.marker_json, '$.version') IN ('integer', 'real')
+  AND json_extract(capture.marker_json, '$.version') = 1
+  AND CASE json_extract(capture.marker_json, '$.phase')
+    WHEN 'capturing' THEN 1
+    WHEN 'finalizing' THEN 0
+    ELSE CASE
+      WHEN json_extract(capture.marker_json, '$.summaryMode') IN ('regenerate', 'if_empty')
+        THEN 0
+      ELSE 1
+    END
+  END = 1
+  AND json_type(capture.marker_json, '$.sessionId') = 'text'
+  AND json_extract(capture.marker_json, '$.sessionId')
+    = substr(capture.id, length('capture_lifecycle_pending:') + 1)
+  AND json_type(capture.marker_json, '$.transcriptId') = 'text'
+  AND json_extract(capture.marker_json, '$.transcriptId') != ''
+  AND json_type(capture.marker_json, '$.startedAt') IN ('integer', 'real')
+  AND abs(json_extract(capture.marker_json, '$.startedAt')) <= 1.7976931348623157e308
+  AND json_type(capture.marker_json, '$.createdAt') = 'text'
+  AND json_type(capture.marker_json, '$.audioOffsetMs') IN ('integer', 'real')
+  AND abs(json_extract(capture.marker_json, '$.audioOffsetMs')) <= 1.7976931348623157e308
+  AND json_type(capture.marker_json, '$.preserveExistingTranscript') IN ('true', 'false')
+  AND json_type(capture.marker_json, '$.ownerUserId') = 'text'
+  AND json_type(capture.marker_json, '$.memo') = 'text'";
 
 #[derive(Debug, thiserror::Error)]
 pub enum E2eeReplicaError {
@@ -156,17 +182,37 @@ pub async fn encrypt_e2ee_replica_changes(
     pool: &SqlitePool,
     keys: &HashMap<String, WorkspaceKey>,
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
+    encrypt_e2ee_replica_changes_inner(pool, keys, false).await
+}
+
+pub async fn encrypt_e2ee_replica_changes_deferring_active_captures(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKey>,
+) -> E2eeReplicaResult<E2eeReplicaStats> {
+    encrypt_e2ee_replica_changes_inner(pool, keys, true).await
+}
+
+async fn encrypt_e2ee_replica_changes_inner(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKey>,
+    defer_active_captures: bool,
+) -> E2eeReplicaResult<E2eeReplicaStats> {
     if keys.is_empty() {
         return Ok(E2eeReplicaStats::default());
     }
 
     let mut stats = E2eeReplicaStats::default();
-    let mut remaining = count_dirty_rows(pool, keys).await?;
+    let mut remaining = count_dirty_rows(pool, keys, defer_active_captures).await?;
     while remaining > 0 {
-        let batch =
-            encrypt_e2ee_replica_changes_bounded(pool, keys, E2EE_ENCRYPT_ROW_LIMIT).await?;
+        let batch = encrypt_e2ee_replica_changes_bounded_inner(
+            pool,
+            keys,
+            E2EE_ENCRYPT_ROW_LIMIT,
+            defer_active_captures,
+        )
+        .await?;
         stats.encrypted_fields += batch.encrypted_fields;
-        let next_remaining = count_dirty_rows(pool, keys).await?;
+        let next_remaining = count_dirty_rows(pool, keys, defer_active_captures).await?;
         if next_remaining == 0 {
             break;
         }
@@ -184,11 +230,34 @@ pub async fn encrypt_e2ee_replica_changes_bounded(
     keys: &HashMap<String, WorkspaceKey>,
     max_rows: i64,
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
+    encrypt_e2ee_replica_changes_bounded_inner(pool, keys, max_rows, false).await
+}
+
+pub async fn encrypt_e2ee_replica_changes_bounded_deferring_active_captures(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKey>,
+    max_rows: i64,
+) -> E2eeReplicaResult<E2eeReplicaStats> {
+    encrypt_e2ee_replica_changes_bounded_inner(pool, keys, max_rows, true).await
+}
+
+async fn encrypt_e2ee_replica_changes_bounded_inner(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKey>,
+    max_rows: i64,
+    defer_active_captures: bool,
+) -> E2eeReplicaResult<E2eeReplicaStats> {
     if keys.is_empty() || max_rows <= 0 {
         return Ok(E2eeReplicaStats::default());
     }
 
-    let dirty_rows = load_dirty_rows(pool, keys, max_rows.min(E2EE_ENCRYPT_ROW_LIMIT)).await?;
+    let dirty_rows = load_dirty_rows_inner(
+        pool,
+        keys,
+        max_rows.min(E2EE_ENCRYPT_ROW_LIMIT),
+        defer_active_captures,
+    )
+    .await?;
     if dirty_rows.is_empty() {
         return Ok(E2eeReplicaStats::default());
     }
@@ -202,7 +271,8 @@ pub async fn encrypt_e2ee_replica_changes_bounded(
     for dirty in dirty_rows {
         let key = &keys[&dirty.workspace_id];
         let prepared = prepare_dirty_row(pool, key, &writer_id, dirty).await?;
-        stats.encrypted_fields += persist_prepared_dirty_row(pool, prepared).await?;
+        stats.encrypted_fields +=
+            persist_prepared_dirty_row_inner(pool, prepared, defer_active_captures).await?;
     }
     Ok(stats)
 }
@@ -211,10 +281,28 @@ pub async fn has_pending_e2ee_replica_changes(
     pool: &SqlitePool,
     keys: &HashMap<String, WorkspaceKey>,
 ) -> E2eeReplicaResult<bool> {
+    has_pending_e2ee_replica_changes_inner(pool, keys, false).await
+}
+
+pub async fn has_pending_e2ee_replica_changes_deferring_active_captures(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKey>,
+) -> E2eeReplicaResult<bool> {
+    has_pending_e2ee_replica_changes_inner(pool, keys, true).await
+}
+
+async fn has_pending_e2ee_replica_changes_inner(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKey>,
+    defer_active_captures: bool,
+) -> E2eeReplicaResult<bool> {
     if keys.is_empty() {
         return Ok(false);
     }
-    if !load_dirty_rows(pool, keys, 1).await?.is_empty() {
+    if !load_dirty_rows_inner(pool, keys, 1, defer_active_captures)
+        .await?
+        .is_empty()
+    {
         return Ok(true);
     }
     has_pending_e2ee_witness_repairs(pool, keys, true).await
@@ -1216,25 +1304,38 @@ fn validate_opened_witness_field(
     Ok(())
 }
 
+#[cfg(test)]
 async fn load_dirty_rows(
     pool: &SqlitePool,
     keys: &HashMap<String, WorkspaceKey>,
     max_rows: i64,
 ) -> E2eeReplicaResult<Vec<DirtyRow>> {
+    load_dirty_rows_inner(pool, keys, max_rows, false).await
+}
+
+async fn load_dirty_rows_inner(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKey>,
+    max_rows: i64,
+    defer_active_captures: bool,
+) -> E2eeReplicaResult<Vec<DirtyRow>> {
     let mut workspace_ids = keys.keys().collect::<Vec<_>>();
     workspace_ids.sort_unstable();
     let mut query = QueryBuilder::<Sqlite>::new(
-        "SELECT workspace_id, table_name, row_id, generation
-         FROM e2ee_dirty_rows
-         WHERE workspace_id IN (",
+        "SELECT dirty.workspace_id, dirty.table_name, dirty.row_id, dirty.generation
+         FROM e2ee_dirty_rows AS dirty
+         WHERE dirty.workspace_id IN (",
     );
     let mut separated = query.separated(", ");
     for workspace_id in workspace_ids {
         separated.push_bind(workspace_id);
     }
     separated.push_unseparated(")");
+    if defer_active_captures {
+        push_active_capture_exclusion(&mut query);
+    }
     query
-        .push(" ORDER BY workspace_id, table_name, row_id LIMIT ")
+        .push(" ORDER BY dirty.workspace_id, dirty.table_name, dirty.row_id LIMIT ")
         .push_bind(max_rows);
     Ok(query.build_query_as().fetch_all(pool).await?)
 }
@@ -1242,17 +1343,72 @@ async fn load_dirty_rows(
 async fn count_dirty_rows(
     pool: &SqlitePool,
     keys: &HashMap<String, WorkspaceKey>,
+    defer_active_captures: bool,
 ) -> E2eeReplicaResult<i64> {
     let mut workspace_ids = keys.keys().collect::<Vec<_>>();
     workspace_ids.sort_unstable();
-    let mut query =
-        QueryBuilder::<Sqlite>::new("SELECT COUNT(*) FROM e2ee_dirty_rows WHERE workspace_id IN (");
+    let mut query = QueryBuilder::<Sqlite>::new(
+        "SELECT COUNT(*) FROM e2ee_dirty_rows AS dirty WHERE dirty.workspace_id IN (",
+    );
     let mut separated = query.separated(", ");
     for workspace_id in workspace_ids {
         separated.push_bind(workspace_id);
     }
     separated.push_unseparated(")");
+    if defer_active_captures {
+        push_active_capture_exclusion(&mut query);
+    }
     Ok(query.build_query_scalar().fetch_one(pool).await?)
+}
+
+fn push_active_capture_exclusion(query: &mut QueryBuilder<Sqlite>) {
+    query.push(
+        " AND NOT (
+           dirty.table_name = 'transcripts'
+           AND EXISTS (
+             SELECT 1
+             FROM (
+               SELECT
+                 id,
+                 CASE WHEN json_valid(value_json) THEN value_json ELSE '{}' END AS marker_json
+               FROM app_settings
+               WHERE id GLOB 'capture_lifecycle_pending:*'
+             ) AS capture
+             WHERE ",
+    );
+    query.push(ACTIVE_CAPTURE_MARKER_PREDICATE);
+    query.push(
+        "
+               AND json_extract(capture.marker_json, '$.transcriptId') = dirty.row_id
+           )
+         )",
+    );
+}
+
+async fn active_capture_marker_exists(
+    transaction: &mut Transaction<'_, Sqlite>,
+    transcript_id: &str,
+) -> E2eeReplicaResult<bool> {
+    let mut query = QueryBuilder::<Sqlite>::new(
+        "SELECT EXISTS (
+           SELECT 1
+           FROM (
+             SELECT
+               id,
+               CASE WHEN json_valid(value_json) THEN value_json ELSE '{}' END AS marker_json
+             FROM app_settings
+             WHERE id GLOB 'capture_lifecycle_pending:*'
+           ) AS capture
+           WHERE ",
+    );
+    query.push(ACTIVE_CAPTURE_MARKER_PREDICATE);
+    query.push(" AND json_extract(capture.marker_json, '$.transcriptId') = ");
+    query.push_bind(transcript_id);
+    query.push(")");
+    Ok(query
+        .build_query_scalar()
+        .fetch_one(&mut **transaction)
+        .await?)
 }
 
 async fn yield_once() {
@@ -1472,9 +1628,18 @@ fn prepare_encrypted_field(
     }))
 }
 
+#[cfg(test)]
 async fn persist_prepared_dirty_row(
     pool: &SqlitePool,
     prepared: PreparedDirtyRow,
+) -> E2eeReplicaResult<u64> {
+    persist_prepared_dirty_row_inner(pool, prepared, false).await
+}
+
+async fn persist_prepared_dirty_row_inner(
+    pool: &SqlitePool,
+    prepared: PreparedDirtyRow,
+    defer_active_captures: bool,
 ) -> E2eeReplicaResult<u64> {
     let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     let generation: Option<i64> = sqlx::query_scalar(
@@ -1488,6 +1653,13 @@ async fn persist_prepared_dirty_row(
     .fetch_optional(&mut *transaction)
     .await?;
     if generation != Some(prepared.dirty.generation) {
+        transaction.commit().await?;
+        return Ok(0);
+    }
+    if defer_active_captures
+        && prepared.dirty.table_name == "transcripts"
+        && active_capture_marker_exists(&mut transaction, &prepared.dirty.row_id).await?
+    {
         transaction.commit().await?;
         return Ok(0);
     }
@@ -3548,6 +3720,101 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn capture_marker_inserted_after_prepare_prevents_transcript_persist() {
+        let db = test_db().await;
+        let workspace_keys = keys("workspace-a");
+        sqlx::query(
+            "INSERT INTO transcripts (id, workspace_id, session_id, words_json)
+             VALUES (
+               'transcript-1',
+               'workspace-a',
+               'session-1',
+               '[{\"text\":\"partial\"}]'
+             )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let writer_id = {
+            let mut transaction = db.pool().begin_with("BEGIN IMMEDIATE").await.unwrap();
+            let writer_id = load_or_create_writer_id(&mut transaction).await.unwrap();
+            transaction.commit().await.unwrap();
+            writer_id
+        };
+        let dirty = load_dirty_rows(db.pool(), &workspace_keys, 1)
+            .await
+            .unwrap()
+            .pop()
+            .unwrap();
+        let prepared =
+            prepare_dirty_row(db.pool(), &workspace_keys["workspace-a"], &writer_id, dirty)
+                .await
+                .unwrap();
+
+        sqlx::query(
+            "INSERT INTO app_settings (id, value_json)
+             VALUES ('capture_lifecycle_pending:session-1', ?)",
+        )
+        .bind(
+            json!({
+                "version": 1,
+                "phase": "capturing",
+                "sessionId": "session-1",
+                "transcriptId": "transcript-1",
+                "startedAt": 1_000,
+                "createdAt": "2026-07-24T00:00:00.000Z",
+                "audioOffsetMs": 0,
+                "preserveExistingTranscript": false,
+                "ownerUserId": "workspace-a",
+                "memo": ""
+            })
+            .to_string(),
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let persisted = persist_prepared_dirty_row_inner(db.pool(), prepared, true)
+            .await
+            .unwrap();
+        let dirty_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM e2ee_dirty_rows
+             WHERE table_name = 'transcripts' AND row_id = 'transcript-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        let local_state_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM e2ee_local_state
+             WHERE table_name = 'transcripts' AND row_id = 'transcript-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(persisted, 0);
+        assert_eq!(dirty_count, 1);
+        assert_eq!(local_state_count, 0);
+
+        sqlx::query(
+            "UPDATE app_settings
+             SET value_json = json_set(value_json, '$.phase', 'finalizing')
+             WHERE id = 'capture_lifecycle_pending:session-1'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        encrypt_e2ee_replica_changes_deferring_active_captures(db.pool(), &workspace_keys)
+            .await
+            .unwrap();
+        let remaining: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_dirty_rows")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(remaining, 0);
+    }
+
+    #[tokio::test]
     async fn witness_change_preserves_a_prepared_dirty_row() {
         let db = test_db().await;
         let workspace_keys = keys("workspace-a");
@@ -3677,6 +3944,106 @@ mod tests {
                 .await
                 .unwrap()
         );
+    }
+
+    #[tokio::test]
+    async fn active_capture_transcripts_do_not_starve_unrelated_rows() {
+        let db = test_db().await;
+        let workspace_keys = keys("workspace-a");
+        for index in 0..65 {
+            let transcript_id = format!("protected-{index:03}");
+            let session_id = format!("session-{index:03}");
+            sqlx::query(
+                "INSERT INTO transcripts (id, workspace_id, words_json)
+                 VALUES (?, 'workspace-a', '[{\"text\":\"partial\"}]')",
+            )
+            .bind(&transcript_id)
+            .execute(db.pool())
+            .await
+            .unwrap();
+            sqlx::query("INSERT INTO app_settings (id, value_json) VALUES (?, ?)")
+                .bind(format!("capture_lifecycle_pending:{session_id}"))
+                .bind(
+                    json!({
+                        "version": 1,
+                        "phase": "capturing",
+                        "sessionId": session_id,
+                        "transcriptId": transcript_id,
+                        "startedAt": 1_000,
+                        "createdAt": "2026-07-24T00:00:00.000Z",
+                        "audioOffsetMs": 0,
+                        "preserveExistingTranscript": false,
+                        "ownerUserId": "workspace-a",
+                        "memo": ""
+                    })
+                    .to_string(),
+                )
+                .execute(db.pool())
+                .await
+                .unwrap();
+        }
+        sqlx::query(
+            "INSERT INTO transcripts (id, workspace_id, words_json)
+             VALUES ('unrelated', 'workspace-a', '[{\"text\":\"complete\"}]')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        encrypt_e2ee_replica_changes_bounded_deferring_active_captures(
+            db.pool(),
+            &workspace_keys,
+            64,
+        )
+        .await
+        .unwrap();
+
+        let remaining_protected: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM e2ee_dirty_rows
+             WHERE table_name = 'transcripts' AND row_id GLOB 'protected-*'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        let unrelated_dirty: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM e2ee_dirty_rows
+             WHERE table_name = 'transcripts' AND row_id = 'unrelated'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        let unrelated_records: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM e2ee_local_state
+             WHERE table_name = 'transcripts' AND row_id = 'unrelated'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(remaining_protected, 65);
+        assert_eq!(unrelated_dirty, 0);
+        assert!(unrelated_records > 0);
+        assert!(
+            !has_pending_e2ee_replica_changes_deferring_active_captures(
+                db.pool(),
+                &workspace_keys,
+            )
+            .await
+            .unwrap()
+        );
+        assert!(
+            has_pending_e2ee_replica_changes(db.pool(), &workspace_keys)
+                .await
+                .unwrap()
+        );
+
+        encrypt_e2ee_replica_changes(db.pool(), &workspace_keys)
+            .await
+            .unwrap();
+        let remaining: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_dirty_rows")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(remaining, 0);
     }
 
     #[tokio::test]

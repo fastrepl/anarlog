@@ -25,6 +25,7 @@ import {
 
 const marker: CaptureLifecycleMarker = {
   version: 1,
+  phase: "capturing",
   sessionId: "session-1",
   transcriptId: "transcript-1",
   startedAt: 1_000,
@@ -72,7 +73,11 @@ test("loads a valid capture marker", async () => {
 });
 
 test("loads the exact durable summary recovery mode", async () => {
-  const summaryMarker = { ...marker, summaryMode: "regenerate" as const };
+  const summaryMarker = {
+    ...marker,
+    phase: "finalizing" as const,
+    summaryMode: "regenerate" as const,
+  };
   mocks.execute.mockResolvedValue([
     { value_json: JSON.stringify(summaryMarker) },
   ]);
@@ -95,6 +100,10 @@ test("ignores malformed or mismatched capture markers", async () => {
   ]);
 
   await expect(loadCaptureLifecycleMarkers()).resolves.toEqual([]);
+  expect(mocks.execute).toHaveBeenCalledWith(
+    expect.stringContaining("WHERE id GLOB ?"),
+    ["capture_lifecycle_pending:*"],
+  );
 });
 
 test("clears only the matching capture generation", async () => {

@@ -1,6 +1,7 @@
 import { useCallback, useRef } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
+import { syncCloudsyncNow } from "@hypr/plugin-db";
 import { commands as detectCommands } from "@hypr/plugin-detect";
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
@@ -368,6 +369,9 @@ function useCaptureLifecycle(sessionId: string) {
       const provider = recoveredMarker?.provider ?? conn?.provider;
       const model = recoveredMarker?.model ?? conn?.model;
       let pendingSummaryMode = recoveredMarker?.summaryMode;
+      let capturePhase =
+        recoveredMarker?.phase ??
+        (recoveredMarker?.summaryMode ? "finalizing" : "capturing");
       const existingAudioDurationPromise = recoveredMarker
         ? Promise.resolve(recoveredMarker.audioOffsetMs)
         : preserveExistingTranscript
@@ -385,6 +389,7 @@ function useCaptureLifecycle(sessionId: string) {
       };
       const marker = async (): Promise<CaptureLifecycleMarker> => ({
         version: 1,
+        phase: capturePhase,
         sessionId,
         transcriptId,
         startedAt,
@@ -405,6 +410,30 @@ function useCaptureLifecycle(sessionId: string) {
           if (requestRecoveryOnFailure) {
             await requestCaptureRecoverySafely(sessionId);
           }
+        };
+        const finishCaptureSyncDeferral = async (): Promise<boolean> => {
+          if (capturePhase !== "finalizing") {
+            capturePhase = "finalizing";
+            try {
+              await persistTranscriptWrite(async () => {
+                await saveCaptureLifecycleMarker(await marker());
+              });
+            } catch (error) {
+              console.error(
+                "[listener] failed to finalize capture recovery state",
+                error,
+              );
+              await requestRecovery();
+              return false;
+            }
+          }
+          void syncCloudsyncNow().catch((error) => {
+            console.warn(
+              "[listener] failed to trigger post-capture CloudSync",
+              error,
+            );
+          });
+          return true;
         };
         cancelMeetingRecordingDisclosure(sessionId);
         stopMeetingChatTasks();
@@ -492,6 +521,8 @@ function useCaptureLifecycle(sessionId: string) {
                 { id: "post-capture-batch-failed" },
               );
             }
+            await requestRecovery();
+            return;
           }
         }
 
@@ -511,17 +542,29 @@ function useCaptureLifecycle(sessionId: string) {
           );
         }
 
+        const emptyFreshCapture =
+          !recoveredMarker &&
+          !details.audioPath &&
+          !transcriptTouched &&
+          !transcriptWriteError;
+        const transcriptIsComplete =
+          Boolean(pendingSummaryMode) ||
+          batchCompleted ||
+          postCaptureAction === "enhance_only" ||
+          emptyFreshCapture;
+        if (!transcriptIsComplete) {
+          await requestRecovery();
+          return;
+        }
+        if (!(await finishCaptureSyncDeferral())) {
+          return;
+        }
+
         const hasTranscriptEvidence =
           Boolean(pendingSummaryMode) ||
           preserveExistingTranscript ||
           transcriptTouched ||
           batchCompleted;
-        const transcriptIsComplete =
-          Boolean(pendingSummaryMode) ||
-          batchCompleted ||
-          (postCaptureAction !== "batch_then_enhance" &&
-            details.liveTranscriptionActive &&
-            !transcriptWriteError);
         const shouldEnhance =
           hasTranscriptEvidence &&
           (transcriptIsComplete ||

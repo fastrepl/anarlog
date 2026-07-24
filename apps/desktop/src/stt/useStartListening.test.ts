@@ -54,6 +54,7 @@ const {
   markSessionAudioTranscriptionCompleteMock,
   getEnhancerServiceMock,
   requestMainAutoEnhanceMock,
+  syncCloudsyncNowMock,
 } = vi.hoisted(() => ({
   queueAutoEnhanceMock: vi.fn(),
   queueAutoEnhanceIfSummaryEmptyMock: vi.fn(),
@@ -96,6 +97,11 @@ const {
   markSessionAudioTranscriptionCompleteMock: vi.fn(),
   getEnhancerServiceMock: vi.fn(),
   requestMainAutoEnhanceMock: vi.fn(),
+  syncCloudsyncNowMock: vi.fn(),
+}));
+
+vi.mock("@hypr/plugin-db", () => ({
+  syncCloudsyncNow: syncCloudsyncNowMock,
 }));
 
 vi.mock("@hypr/plugin-transcription", () => ({
@@ -379,6 +385,7 @@ describe("useStartListening", () => {
     loadCaptureLifecycleMarkerMock.mockResolvedValue(null);
     clearCaptureLifecycleMarkerMock.mockResolvedValue(undefined);
     requestCaptureRecoveryMock.mockResolvedValue(undefined);
+    syncCloudsyncNowMock.mockResolvedValue({});
     catalogLocalSessionAudioMock.mockResolvedValue(undefined);
     markSessionAudioTranscriptionCompleteMock.mockResolvedValue(undefined);
     useConfigValueMock.mockImplementation((key) =>
@@ -553,6 +560,9 @@ describe("useStartListening", () => {
       deferAudioFinalization: true,
       promotion: { scope: "whole_session" },
     });
+    expect(runBatchMock.mock.invocationCallOrder[0]!).toBeLessThan(
+      syncCloudsyncNowMock.mock.invocationCallOrder[0]!,
+    );
     expect(catalogLocalSessionAudioMock).toHaveBeenCalledWith("session-1");
     expect(
       catalogLocalSessionAudioMock.mock.invocationCallOrder[0],
@@ -632,6 +642,10 @@ describe("useStartListening", () => {
       queueAutoEnhanceIfSummaryEmptyMock.mock.invocationCallOrder[0]!,
     );
     expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
+    expect(saveCaptureLifecycleMarkerMock).toHaveBeenCalledWith(
+      expect.objectContaining({ phase: "finalizing" }),
+    );
+    expect(syncCloudsyncNowMock).toHaveBeenCalledOnce();
     expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
 
@@ -1314,6 +1328,11 @@ describe("useStartListening", () => {
     );
     expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
     expect(queueAutoEnhanceMock).not.toHaveBeenCalled();
+    expect(saveCaptureLifecycleMarkerMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ phase: "finalizing" }),
+    );
+    expect(syncCloudsyncNowMock).not.toHaveBeenCalled();
+    expect(requestCaptureRecoveryMock).toHaveBeenCalledWith("session-1");
     consoleError.mockRestore();
   });
 
@@ -1360,6 +1379,11 @@ describe("useStartListening", () => {
     expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
     expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
+    expect(saveCaptureLifecycleMarkerMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ phase: "finalizing" }),
+    );
+    expect(syncCloudsyncNowMock).not.toHaveBeenCalled();
+    expect(requestCaptureRecoveryMock).toHaveBeenCalledWith("session-1");
     consoleError.mockRestore();
   });
 
@@ -1395,6 +1419,11 @@ describe("useStartListening", () => {
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
     expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
     expect(queueAutoEnhanceMock).not.toHaveBeenCalled();
+    expect(saveCaptureLifecycleMarkerMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ phase: "finalizing" }),
+    );
+    expect(syncCloudsyncNowMock).not.toHaveBeenCalled();
+    expect(requestCaptureRecoveryMock).toHaveBeenCalledWith("session-1");
     consoleError.mockRestore();
   });
 
@@ -1427,6 +1456,11 @@ describe("useStartListening", () => {
     );
     expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
+    expect(saveCaptureLifecycleMarkerMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ phase: "finalizing" }),
+    );
+    expect(syncCloudsyncNowMock).not.toHaveBeenCalled();
+    expect(requestCaptureRecoveryMock).toHaveBeenCalledWith("session-1");
     consoleError.mockRestore();
   });
 
@@ -1478,6 +1512,11 @@ describe("useStartListening", () => {
     expect(queueAutoEnhanceMock).not.toHaveBeenCalled();
     expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
     expect(sonnerToastErrorMock).not.toHaveBeenCalled();
+    expect(saveCaptureLifecycleMarkerMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ phase: "finalizing" }),
+    );
+    expect(syncCloudsyncNowMock).not.toHaveBeenCalled();
+    expect(requestCaptureRecoveryMock).toHaveBeenCalledWith("session-1");
   });
 
   test("forwards auto-enhance to the main window when no enhancer service exists", async () => {
@@ -1660,6 +1699,10 @@ describe("useStartListening", () => {
       { id: "post-capture-summary-failed" },
     );
     expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
+    expect(saveCaptureLifecycleMarkerMock).toHaveBeenCalledWith(
+      expect.objectContaining({ phase: "finalizing" }),
+    );
+    expect(syncCloudsyncNowMock).toHaveBeenCalledOnce();
     expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
     expect(requestCaptureRecoveryMock).toHaveBeenCalledWith("session-1");

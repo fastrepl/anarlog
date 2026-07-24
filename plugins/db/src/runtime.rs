@@ -21,20 +21,6 @@ const E2EE_CLOUDSYNC_WITNESS_REPAIR_BYTE_LIMIT: usize = 16 * 1024 * 1024;
 const CLOUDSYNC_WRITE_FILTER: &str =
     "workspace_id IN (SELECT allowed_workspace_id FROM cloudsync_writable_workspaces)";
 
-async fn capture_lifecycle_pending(
-    pool: &sqlx::SqlitePool,
-) -> std::result::Result<bool, sqlx::Error> {
-    sqlx::query_scalar(
-        "SELECT EXISTS(
-            SELECT 1
-            FROM app_settings
-            WHERE id LIKE 'capture_lifecycle_pending:%'
-        )",
-    )
-    .fetch_one(pool)
-    .await
-}
-
 #[derive(Default)]
 struct E2eeSyncHook {
     keys: std::sync::RwLock<HashMap<String, hypr_e2ee::WorkspaceKey>>,
@@ -81,7 +67,7 @@ impl E2eeSyncHook {
         &self,
         pool: &sqlx::SqlitePool,
     ) -> std::result::Result<(), hypr_db_app::E2eeReplicaError> {
-        hypr_db_app::encrypt_e2ee_replica_changes(pool, &self.snapshot())
+        hypr_db_app::encrypt_e2ee_replica_changes_deferring_active_captures(pool, &self.snapshot())
             .await
             .map(|_| ())
     }
@@ -114,26 +100,17 @@ impl hypr_db_core::CloudsyncSyncHook for E2eeSyncHook {
                 );
                 return Ok(hypr_db_core::CloudsyncSyncDirective::ReceiveOnly);
             }
-            if capture_lifecycle_pending(pool).await.map_err(|error| {
-                std::io::Error::other(format!(
-                    "failed to inspect active capture state before CloudSync: {error}"
-                ))
-            })? {
-                tracing::debug!(
-                    "deferring outbound E2EE publication until the active capture is finalized"
-                );
-                return Ok(hypr_db_core::CloudsyncSyncDirective::ReceiveOnly);
-            }
             witness.refresh(pool, key).await?;
-            let stats = hypr_db_app::encrypt_e2ee_replica_changes_bounded(
-                pool,
-                &keys,
-                E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT,
-            )
-            .await
-            .map_err(|error| {
-                std::io::Error::other(format!("E2EE pre-sync encryption failed: {error}"))
-            })?;
+            let stats =
+                hypr_db_app::encrypt_e2ee_replica_changes_bounded_deferring_active_captures(
+                    pool,
+                    &keys,
+                    E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT,
+                )
+                .await
+                .map_err(|error| {
+                    std::io::Error::other(format!("E2EE pre-sync encryption failed: {error}"))
+                })?;
             tracing::debug!(
                 encrypted_fields = stats.encrypted_fields,
                 "prepared encrypted CloudSync replica"
@@ -183,20 +160,16 @@ impl hypr_db_core::CloudsyncSyncHook for E2eeSyncHook {
                 snapshot_complete,
                 "applied encrypted CloudSync replica"
             );
-            let capture_pending = capture_lifecycle_pending(pool).await.map_err(|error| {
-                std::io::Error::other(format!(
-                    "failed to inspect active capture state after CloudSync: {error}"
-                ))
-            })?;
             let local_work_remaining = stats.remaining_replica_changes
-                || (!capture_pending
-                    && hypr_db_app::has_pending_e2ee_replica_changes(pool, &keys)
-                        .await
-                        .map_err(|error| {
-                            std::io::Error::other(format!(
-                                "failed to inspect pending E2EE replica changes: {error}"
-                            ))
-                        })?);
+                || hypr_db_app::has_pending_e2ee_replica_changes_deferring_active_captures(
+                    pool, &keys,
+                )
+                .await
+                .map_err(|error| {
+                    std::io::Error::other(format!(
+                        "failed to inspect pending E2EE replica changes: {error}"
+                    ))
+                })?;
             Ok(hypr_db_core::CloudsyncHookOutcome {
                 local_work_remaining,
             })
@@ -1024,20 +997,22 @@ impl PluginDbRuntime {
                                 return Ok(CloudsyncRecoveryStep::Waiting);
                             }
 
-                            let local = hypr_db_app::encrypt_e2ee_replica_changes_bounded(
-                                db.pool(),
-                                &keys,
-                                E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT,
-                            )
-                            .await
-                            .map_err(|error| std::io::Error::other(error.to_string()))?;
+                            let local = hypr_db_app::encrypt_e2ee_replica_changes_bounded_deferring_active_captures(
+                                    db.pool(),
+                                    &keys,
+                                    E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT,
+                                )
+                                .await
+                                .map_err(|error| std::io::Error::other(error.to_string()))?;
                             if local.encrypted_fields > 0 {
                                 witness.publish_and_refresh(db.pool(), &key).await?;
                                 return Ok(CloudsyncRecoveryStep::Progressed);
                             }
-                            if hypr_db_app::has_pending_e2ee_replica_changes(db.pool(), &keys)
-                                .await
-                                .map_err(|error| std::io::Error::other(error.to_string()))?
+                            if hypr_db_app::has_pending_e2ee_replica_changes_deferring_active_captures(
+                                db.pool(), &keys,
+                            )
+                            .await
+                            .map_err(|error| std::io::Error::other(error.to_string()))?
                             {
                                 return Ok(CloudsyncRecoveryStep::Waiting);
                             }
@@ -1251,13 +1226,16 @@ impl PluginDbRuntime {
         let (local_e2ee_work_pending, recovery) =
             tokio::time::timeout(CLOUDSYNC_STATUS_ENRICHMENT_TIMEOUT, async {
                 let local_e2ee_work_pending =
-                    hypr_db_app::has_pending_e2ee_replica_changes(self.db.pool(), &keys)
-                        .await
-                        .map_err(|error| {
-                            std::io::Error::other(format!(
-                                "failed to inspect pending E2EE replica changes: {error}"
-                            ))
-                        })?;
+                    hypr_db_app::has_pending_e2ee_replica_changes_deferring_active_captures(
+                        self.db.pool(),
+                        &keys,
+                    )
+                    .await
+                    .map_err(|error| {
+                        std::io::Error::other(format!(
+                            "failed to inspect pending E2EE replica changes: {error}"
+                        ))
+                    })?;
                 let recovery = hypr_db_app::cloudsync_recovery_state(self.db.pool()).await?;
                 Ok::<_, crate::Error>((local_e2ee_work_pending, recovery))
             })
@@ -1691,7 +1669,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn capture_lifecycle_marker_defers_outbound_cloudsync() {
+    async fn capture_lifecycle_marker_defers_only_its_transcript() {
         let db = Db::connect_memory_plain().await.unwrap();
         hypr_db_app::prepare_schema(&db).await.unwrap();
         let hook = E2eeSyncHook::default();
@@ -1721,14 +1699,40 @@ mod tests {
 
         sqlx::query(
             "INSERT INTO app_settings (id, value_json)
-             VALUES ('capture_lifecycle_pending:session-1', '{}')",
+             VALUES ('capture_lifecycle_pending:session-1', ?)",
+        )
+        .bind(
+            serde_json::json!({
+                "version": 1,
+                "phase": "capturing",
+                "sessionId": "session-1",
+                "transcriptId": "transcript-1",
+                "startedAt": 1_000,
+                "createdAt": "2026-07-24T00:00:00.000Z",
+                "audioOffsetMs": 0,
+                "preserveExistingTranscript": false,
+                "ownerUserId": "workspace-1",
+                "memo": ""
+            })
+            .to_string(),
         )
         .execute(db.pool())
         .await
         .unwrap();
         sqlx::query(
             "INSERT INTO sessions (id, workspace_id, title)
-             VALUES ('session-1', 'workspace-1', 'Active capture')",
+             VALUES
+               ('session-1', 'workspace-1', 'Active capture'),
+               ('session-2', 'workspace-1', 'Unrelated edit')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO transcripts (id, workspace_id, session_id, words_json)
+             VALUES
+               ('transcript-1', 'workspace-1', 'session-1', '[{\"text\":\"partial\"}]'),
+               ('transcript-2', 'workspace-1', 'session-2', '[{\"text\":\"complete\"}]')",
         )
         .execute(db.pool())
         .await
@@ -1738,9 +1742,39 @@ mod tests {
             hypr_db_core::CloudsyncSyncHook::before_sync(&hook, db.pool())
                 .await
                 .unwrap(),
-            hypr_db_core::CloudsyncSyncDirective::ReceiveOnly
+            hypr_db_core::CloudsyncSyncDirective::SendAndReceive
         );
-        assert!(witness_server.received_requests().await.unwrap().is_empty());
+        assert!(!witness_server.received_requests().await.unwrap().is_empty());
+        let remaining_dirty: Vec<(String, String)> = sqlx::query_as(
+            "SELECT table_name, row_id
+             FROM e2ee_dirty_rows
+             ORDER BY table_name, row_id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(
+            remaining_dirty,
+            vec![("transcripts".to_string(), "transcript-1".to_string())]
+        );
+        let protected_records: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*)
+             FROM e2ee_local_state
+             WHERE table_name = 'transcripts' AND row_id = 'transcript-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(protected_records, 0);
+        let unrelated_records: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*)
+             FROM e2ee_local_state
+             WHERE table_name = 'transcripts' AND row_id = 'transcript-2'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert!(unrelated_records > 0);
 
         let result: hypr_db_core::CloudsyncNetworkResult =
             serde_json::from_value(serde_json::json!({
@@ -1757,16 +1791,172 @@ mod tests {
             .await
             .unwrap();
         assert!(!outcome.local_work_remaining);
+        let keys = hook.snapshot();
 
-        sqlx::query("DELETE FROM app_settings WHERE id = 'capture_lifecycle_pending:session-1'")
-            .execute(db.pool())
+        sqlx::query(
+            "UPDATE app_settings
+             SET value_json = json_set(value_json, '$.phase', 'finalizing')
+             WHERE id = 'capture_lifecycle_pending:session-1'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        assert!(
+            hypr_db_app::has_pending_e2ee_replica_changes_deferring_active_captures(
+                db.pool(),
+                &keys,
+            )
             .await
-            .unwrap();
+            .unwrap()
+        );
+
+        sqlx::query(
+            "INSERT INTO app_settings (id, value_json)
+             VALUES
+               ('capture_lifecycle_pending:malformed', '{}'),
+               ('capture_lifecycle_pending:invalid-json', '{')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        assert!(
+            hypr_db_app::has_pending_e2ee_replica_changes_deferring_active_captures(
+                db.pool(),
+                &keys,
+            )
+            .await
+            .unwrap()
+        );
+
+        sqlx::query(
+            "UPDATE app_settings
+             SET value_json = json_remove(value_json, '$.phase')
+             WHERE id = 'capture_lifecycle_pending:session-1'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        assert!(
+            !hypr_db_app::has_pending_e2ee_replica_changes_deferring_active_captures(
+                db.pool(),
+                &keys,
+            )
+            .await
+            .unwrap()
+        );
+
+        sqlx::query(
+            "UPDATE app_settings
+             SET value_json = json_set(value_json, '$.phase', 'unknown')
+             WHERE id = 'capture_lifecycle_pending:session-1'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        assert!(
+            !hypr_db_app::has_pending_e2ee_replica_changes_deferring_active_captures(
+                db.pool(),
+                &keys,
+            )
+            .await
+            .unwrap()
+        );
+
+        sqlx::query(
+            "UPDATE app_settings
+             SET value_json = json_set(value_json, '$.summaryMode', 'if_empty')
+             WHERE id = 'capture_lifecycle_pending:session-1'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        assert!(
+            hypr_db_app::has_pending_e2ee_replica_changes_deferring_active_captures(
+                db.pool(),
+                &keys,
+            )
+            .await
+            .unwrap()
+        );
+
+        sqlx::query(
+            "UPDATE app_settings
+             SET value_json = json_remove(
+               json_set(value_json, '$.version', json('true')),
+               '$.summaryMode'
+             )
+             WHERE id = 'capture_lifecycle_pending:session-1'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        assert!(
+            hypr_db_app::has_pending_e2ee_replica_changes_deferring_active_captures(
+                db.pool(),
+                &keys,
+            )
+            .await
+            .unwrap()
+        );
+
+        sqlx::query(
+            "UPDATE app_settings
+             SET value_json = json_set(
+               value_json,
+               '$.version',
+               1,
+               '$.startedAt',
+               1e999
+             )
+             WHERE id = 'capture_lifecycle_pending:session-1'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        assert!(
+            hypr_db_app::has_pending_e2ee_replica_changes_deferring_active_captures(
+                db.pool(),
+                &keys,
+            )
+            .await
+            .unwrap()
+        );
+
+        sqlx::query(
+            "UPDATE app_settings
+             SET value_json = json_set(
+               value_json,
+               '$.startedAt',
+               1000,
+               '$.summaryMode',
+               'if_empty'
+             )
+             WHERE id = 'capture_lifecycle_pending:session-1'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
 
         let outcome = hypr_db_core::CloudsyncSyncHook::after_sync(&hook, db.pool(), &result)
             .await
             .unwrap();
         assert!(outcome.local_work_remaining);
+
+        assert_eq!(
+            hypr_db_core::CloudsyncSyncHook::before_sync(&hook, db.pool())
+                .await
+                .unwrap(),
+            hypr_db_core::CloudsyncSyncDirective::SendAndReceive
+        );
+        let protected_dirty: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*)
+             FROM e2ee_dirty_rows
+             WHERE table_name = 'transcripts' AND row_id = 'transcript-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(protected_dirty, 0);
     }
 
     #[test]
@@ -2608,6 +2798,63 @@ mod tests {
 
         let status = runtime.cloudsync_status().await.unwrap();
 
+        assert_eq!(status["has_unsent_changes"], true);
+    }
+
+    #[tokio::test]
+    async fn cloudsync_status_ignores_only_the_active_transcript() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+            "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+        )
+        .unwrap();
+        runtime
+            .set_e2ee_recovery_key("workspace-1", &recovery_key)
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO transcripts (id, workspace_id, session_id, words_json)
+             VALUES ('transcript-1', 'workspace-1', 'session-1', '[{\"text\":\"partial\"}]')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO app_settings (id, value_json)
+             VALUES ('capture_lifecycle_pending:session-1', ?)",
+        )
+        .bind(
+            serde_json::json!({
+                "version": 1,
+                "phase": "capturing",
+                "sessionId": "session-1",
+                "transcriptId": "transcript-1",
+                "startedAt": 1_000,
+                "createdAt": "2026-07-24T00:00:00.000Z",
+                "audioOffsetMs": 0,
+                "preserveExistingTranscript": false,
+                "ownerUserId": "workspace-1",
+                "memo": ""
+            })
+            .to_string(),
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let status = runtime.cloudsync_status().await.unwrap();
+        assert_ne!(status["has_unsent_changes"], true);
+
+        sqlx::query(
+            "UPDATE app_settings
+             SET value_json = json_set(value_json, '$.phase', 'finalizing')
+             WHERE id = 'capture_lifecycle_pending:session-1'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let status = runtime.cloudsync_status().await.unwrap();
         assert_eq!(status["has_unsent_changes"], true);
     }
 

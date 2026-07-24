@@ -5,6 +5,7 @@ const CAPTURE_LIFECYCLE_SETTING_PREFIX = "capture_lifecycle_pending:";
 
 export type CaptureLifecycleMarker = {
   version: 1;
+  phase?: "capturing" | "finalizing";
   sessionId: string;
   transcriptId: string;
   startedAt: number;
@@ -105,10 +106,10 @@ export async function loadCaptureLifecycleMarkers(): Promise<
     `
       SELECT id, value_json
       FROM app_settings
-      WHERE id LIKE ?
+      WHERE id GLOB ?
       ORDER BY updated_at, id
     `,
-    [`${CAPTURE_LIFECYCLE_SETTING_PREFIX}%`],
+    [`${CAPTURE_LIFECYCLE_SETTING_PREFIX}*`],
   );
   return rows.flatMap((row) => {
     const sessionId = row.id.slice(CAPTURE_LIFECYCLE_SETTING_PREFIX.length);
@@ -154,6 +155,9 @@ function parseCaptureLifecycleMarker(
       preserveExistingTranscript: parsed.preserveExistingTranscript,
       ownerUserId: parsed.ownerUserId,
       memo: parsed.memo,
+      ...(parsed.phase === "capturing" || parsed.phase === "finalizing"
+        ? { phase: parsed.phase }
+        : {}),
       ...(typeof parsed.provider === "string"
         ? { provider: parsed.provider }
         : {}),
