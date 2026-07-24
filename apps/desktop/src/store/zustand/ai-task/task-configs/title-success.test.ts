@@ -203,6 +203,18 @@ describe("getPersistableGeneratedTitle", () => {
     }
   });
 
+  it("preserves unmatched and inline title markers", () => {
+    const titles = [
+      "__init__ design review",
+      'Review "quoted" results',
+      "Discuss **urgent** follow-up",
+    ];
+
+    for (const title of titles) {
+      expect(getPersistableGeneratedTitle(`Final title: ${title}`)).toBe(title);
+    }
+  });
+
   it("rejects placeholders and oversized output", () => {
     expect(getPersistableGeneratedTitle('"<EMPTY>"')).toBe("");
     expect(getPersistableGeneratedTitle("x".repeat(161))).toBe("");
