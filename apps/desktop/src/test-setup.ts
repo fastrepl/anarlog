@@ -58,6 +58,8 @@ vi.mock("@tauri-apps/api/path", () => ({
 
 vi.mock("@hypr/plugin-db", () => ({
   CLOUDSYNC_ACTIVITY_DEFERRED_ERROR: "cloudsync_activity_deferred",
+  beginCloudsyncActivity: vi.fn().mockResolvedValue(undefined),
+  endCloudsyncActivity: vi.fn().mockResolvedValue(undefined),
   isCloudsyncActivityDeferredError: (error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
     return message === "cloudsync_activity_deferred";

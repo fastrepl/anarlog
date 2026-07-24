@@ -636,9 +636,7 @@ describe("useStartListening", () => {
     expect(runBatchMock.mock.invocationCallOrder[0]!).toBeLessThan(
       endCloudsyncActivityMock.mock.invocationCallOrder[0]!,
     );
-    expect(
-      endCloudsyncActivityMock.mock.invocationCallOrder[0]!,
-    ).toBeLessThan(
+    expect(endCloudsyncActivityMock.mock.invocationCallOrder[0]!).toBeLessThan(
       clearCaptureLifecycleMarkerMock.mock.invocationCallOrder[0]!,
     );
     expect(catalogLocalSessionAudioMock).toHaveBeenCalledWith("session-1");
@@ -654,9 +652,7 @@ describe("useStartListening", () => {
     );
     expect(
       markSessionAudioTranscriptionCompleteMock.mock.invocationCallOrder[0]!,
-    ).toBeLessThan(
-      endCloudsyncActivityMock.mock.invocationCallOrder[0]!,
-    );
+    ).toBeLessThan(endCloudsyncActivityMock.mock.invocationCallOrder[0]!);
     expect(
       clearCaptureLifecycleMarkerMock.mock.invocationCallOrder[0]!,
     ).toBeLessThan(
@@ -701,6 +697,45 @@ describe("useStartListening", () => {
       await stopped;
     });
     expect(settled).toBe(true);
+  });
+
+  test("drains meeting chat persistence before releasing the capture sync lease", async () => {
+    let finishMeetingChatPersistence: (() => void) | undefined;
+    stopMeetingChatCaptureMock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishMeetingChatPersistence = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
+    const stopped = onStopped?.("session-1", {
+      durationSeconds: 42,
+      audioPath: null,
+      requestedLiveTranscription: false,
+      liveTranscriptionActive: false,
+      needsBatchRepair: false,
+    });
+
+    await waitFor(() => {
+      expect(stopMeetingChatCaptureMock).toHaveBeenCalledOnce();
+    });
+    expect(endCloudsyncActivityMock).not.toHaveBeenCalled();
+
+    finishMeetingChatPersistence?.();
+    await act(async () => {
+      await stopped;
+    });
+
+    expect(endCloudsyncActivityMock).toHaveBeenCalledWith(
+      "capture",
+      "session-1:generated-id",
+    );
   });
 
   test("keeps durable recovery state when the native lease cannot release", async () => {
@@ -810,12 +845,8 @@ describe("useStartListening", () => {
     );
     expect(
       markSessionAudioTranscriptionCompleteMock.mock.invocationCallOrder[0]!,
-    ).toBeLessThan(
-      endCloudsyncActivityMock.mock.invocationCallOrder[0]!,
-    );
-    expect(
-      endCloudsyncActivityMock.mock.invocationCallOrder[0]!,
-    ).toBeLessThan(
+    ).toBeLessThan(endCloudsyncActivityMock.mock.invocationCallOrder[0]!);
+    expect(endCloudsyncActivityMock.mock.invocationCallOrder[0]!).toBeLessThan(
       clearCaptureLifecycleMarkerMock.mock.invocationCallOrder[0]!,
     );
     expect(

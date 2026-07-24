@@ -102,6 +102,7 @@ export function SyncStatusIndicator() {
   }
 
   const status = statusQuery.data;
+  const activityPaused = status?.activity_paused === true;
   const deferredForCapture = status?.deferred_for_capture === true;
   const statusUnavailable = credentialBlock === null && statusQuery.isError;
   const view = (() => {
@@ -175,6 +176,14 @@ export function SyncStatusIndicator() {
         kind: "deferred" as const,
         label: t`Saved locally`,
         description: t`Cloud sync resumes after this meeting finishes processing`,
+      };
+    }
+
+    if (activityPaused) {
+      return {
+        kind: "deferred" as const,
+        label: t`Saved locally`,
+        description: t`Cloud sync resumes when the current activity finishes`,
       };
     }
 
@@ -264,7 +273,7 @@ export function SyncStatusIndicator() {
           disabled={
             syncNowMutation.isPending ||
             statusQuery.isFetching ||
-            deferredForCapture ||
+            activityPaused ||
             (view.kind !== "synced" && !canRetry)
           }
           onSelect={() => {

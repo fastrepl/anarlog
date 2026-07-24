@@ -343,6 +343,7 @@ describe("SyncStatusIndicator", () => {
   it("shows capture-deferred work as saved locally without offering a manual sync", async () => {
     mocks.getCloudsyncStatus.mockResolvedValue(
       syncedStatus({
+        activity_paused: true,
         deferred_for_capture: true,
         has_unsent_changes: true,
       }),
@@ -369,6 +370,38 @@ describe("SyncStatusIndicator", () => {
     expect(mocks.syncCloudsyncNow).not.toHaveBeenCalled();
   });
 
+  it("shows other paused activity as saved locally without capture-specific copy", async () => {
+    mocks.getCloudsyncStatus.mockResolvedValue(
+      syncedStatus({
+        activity_paused: true,
+        has_unsent_changes: true,
+      }),
+    );
+
+    renderIndicator();
+    await openMenu();
+
+    expect(await screen.findByText("Saved locally")).toBeTruthy();
+    expect(
+      screen.getByText("Cloud sync resumes when the current activity finishes"),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(
+        "Cloud sync resumes after this meeting finishes processing",
+      ),
+    ).toBeNull();
+    expect(
+      screen
+        .getByLabelText("Cloud sync status: Saved locally")
+        .querySelector(".animate-spin"),
+    ).toBeNull();
+
+    const syncNowItem = screen.getByRole("menuitem", { name: "Sync now" });
+    expect(syncNowItem.getAttribute("data-disabled")).not.toBeNull();
+    fireEvent.click(syncNowItem);
+    expect(mocks.syncCloudsyncNow).not.toHaveBeenCalled();
+  });
+
   it("shows capture deferral while recovery is paused during recording", async () => {
     mocks.getCloudsyncStatus.mockResolvedValue(
       syncedStatus({
@@ -378,6 +411,7 @@ describe("SyncStatusIndicator", () => {
         recovery_pending: true,
         recovery_delayed: true,
         recovery_phase: "need_clean_receive",
+        activity_paused: true,
         deferred_for_capture: true,
       }),
     );
