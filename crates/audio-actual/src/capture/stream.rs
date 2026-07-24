@@ -23,7 +23,8 @@ pub(crate) type ChunkStream =
     Pin<Box<dyn Stream<Item = Result<Vec<f32>, hypr_resampler::Error>> + Send>>;
 
 const AUDIO_SYNC_PROBE_ENV: &str = "AUDIO_SYNC_PROBE";
-const AEC_MAX_REFERENCE_LAG_MS: u32 = 100;
+const AEC_MAX_REFERENCE_LAG_MS: u32 = 600;
+const AEC_MIN_REFERENCE_OVERLAP_MS: u32 = 400;
 const AEC_MIN_REFERENCE_RMS: f32 = 1e-4;
 const AEC_MIN_MIC_RMS: f32 = 1e-4;
 const AEC_MIN_REFERENCE_CORRELATION: f32 = 0.12;
@@ -257,12 +258,18 @@ impl AecAlignment {
 impl AecReferenceAligner {
     fn new(sample_rate: u32) -> Self {
         let max_lag_samples = ((sample_rate as usize) * (AEC_MAX_REFERENCE_LAG_MS as usize)) / 1000;
+        let min_overlap_samples =
+            ((sample_rate as usize) * (AEC_MIN_REFERENCE_OVERLAP_MS as usize)) / 1000;
         let mut config = SyncProbeConfig::new(sample_rate);
+        config.window_samples = config
+            .window_samples
+            .max((max_lag_samples + min_overlap_samples).next_power_of_two());
         config.max_lag_samples = max_lag_samples.max(config.max_lag_samples);
-        let max_delay_samples = config.max_lag_samples;
+        let probe = SyncProbe::new(config);
+        let max_delay_samples = probe.config().max_lag_samples;
 
         Self {
-            probe: SyncProbe::new(config),
+            probe,
             mic_delay_line: SampleDelayLine::new(max_delay_samples),
             speaker_delay_line: SampleDelayLine::new(max_delay_samples),
             last_alignment: AecAlignment::None,
@@ -720,5 +727,81 @@ mod tests {
         assert_eq!(alignment, AecAlignment::DelayMic(320));
         assert_eq!(alignment.mic_delay_samples(), 320);
         assert_eq!(alignment.speaker_delay_samples(), 0);
+    }
+
+    fn test_signal(len: usize) -> Vec<f32> {
+        let mut state = 0x1234_5678u32;
+        (0..len)
+            .map(|idx| {
+                state ^= state << 13;
+                state ^= state >> 17;
+                state ^= state << 5;
+                let noise = (state as f32 / u32::MAX as f32) * 2.0 - 1.0;
+                let pulse = if idx % 257 == 0 { 0.75 } else { 0.0 };
+                0.6 * noise + pulse
+            })
+            .collect()
+    }
+
+    fn delayed(input: &[f32], delay_samples: usize) -> Vec<f32> {
+        let mut output = vec![0.0; input.len()];
+        output[delay_samples..].copy_from_slice(&input[..input.len() - delay_samples]);
+        output
+    }
+
+    fn detected_alignment(speaker: &[f32], mic: &[f32]) -> (AecAlignment, SyncProbeConfig) {
+        let mut aligner = AecReferenceAligner::new(16_000);
+        for (speaker, mic) in speaker.chunks(1_600).zip(mic.chunks(1_600)) {
+            aligner.align(speaker, mic);
+        }
+        (aligner.last_alignment, aligner.probe.config())
+    }
+
+    #[test]
+    fn aec_reference_aligner_locks_positive_macbook_scale_lag() {
+        let speaker = test_signal(16_000 * 5);
+        let mic = delayed(&speaker, 7_200);
+
+        let (alignment, config) = detected_alignment(&speaker, &mic);
+
+        assert_eq!(config.window_samples, 16_384);
+        assert_eq!(config.max_lag_samples, 9_600);
+        assert_eq!(alignment, AecAlignment::DelaySpeaker(7_200));
+    }
+
+    #[test]
+    fn aec_reference_aligner_locks_negative_macbook_scale_lag() {
+        let mic = test_signal(16_000 * 5);
+        let speaker = delayed(&mic, 7_200);
+
+        let (alignment, _) = detected_alignment(&speaker, &mic);
+
+        assert_eq!(alignment, AecAlignment::DelayMic(7_200));
+    }
+
+    #[test]
+    fn aec_reference_aligner_locks_at_supported_lag_boundary() {
+        let speaker = test_signal(16_000 * 5);
+        let mic = delayed(&speaker, 9_600);
+
+        let (alignment, _) = detected_alignment(&speaker, &mic);
+
+        assert_eq!(alignment, AecAlignment::DelaySpeaker(9_600));
+    }
+
+    #[test]
+    fn aec_reference_aligner_emits_detected_speaker_delay() {
+        let speaker = test_signal(16_000 * 5);
+        let mic = delayed(&speaker, 7_200);
+        let mut aligner = AecReferenceAligner::new(16_000);
+        let mut aligned = None;
+
+        for (speaker, mic) in speaker.chunks(1_600).zip(mic.chunks(1_600)) {
+            aligned = Some(aligner.align(speaker, mic));
+        }
+
+        let aligned = aligned.unwrap();
+        assert_eq!(aligner.last_alignment, AecAlignment::DelaySpeaker(7_200));
+        assert_eq!(&*aligned.speaker, &speaker[71_200..72_800]);
     }
 }
