@@ -387,8 +387,8 @@ function Component() {
               </span>
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
-              Jot notes during the call with a bot-free, open-source AI notepad
-              that keeps sensitive meeting data secure and under your control.
+              Take bot-free, open-source meeting notes while keeping sensitive
+              conversations secure and under your control.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-3 text-sm">
               <DownloadButton />
