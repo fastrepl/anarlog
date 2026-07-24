@@ -1414,11 +1414,12 @@ mod tests {
 
         db.cloudsync_resume_prepared_transport().await.unwrap();
 
-        let runtime = db.cloudsync_runtime.lock().unwrap();
-        assert!(runtime.running);
-        assert!(runtime.network_initialized);
-        assert!(runtime.task.is_some());
-        drop(runtime);
+        {
+            let runtime = db.cloudsync_runtime.lock().unwrap();
+            assert!(runtime.running);
+            assert!(runtime.network_initialized);
+            assert!(runtime.task.is_some());
+        }
 
         db.stop_cloudsync_task().await;
         drop(sync_operation);
