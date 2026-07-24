@@ -110,13 +110,21 @@ export function getPersistableGeneratedTitle(text: string): string {
     .map((line) => line.trim())
     .filter(Boolean);
   const lastLine = lines[lines.length - 1] ?? "";
-  const title = lastLine
-    .replace(/^(?:(?:final\s+)?title|final answer)\s*:\s*/i, "")
-    .replace(/^(?:\d+[.)]|[-*]|#+)\s+/, "")
-    .replace(/^(?:\*\*|__)+|(?:\*\*|__)+$/g, "")
-    .replace(/^["'`]+|["'`]+$/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  let title = lastLine.replace(/\s+/g, " ").trim();
+
+  while (title) {
+    const unwrapped = title
+      .replace(/^(?:(?:final\s+)?title|final answer)\s*:\s*/i, "")
+      .replace(/^(?:\d+[.)]|[-*]|#+)\s+/, "")
+      .replace(/^(?:\*\*|__)+|(?:\*\*|__)+$/g, "")
+      .replace(/^["'`]+|["'`]+$/g, "")
+      .trim();
+
+    if (unwrapped === title) {
+      break;
+    }
+    title = unwrapped;
+  }
 
   if (
     !title ||

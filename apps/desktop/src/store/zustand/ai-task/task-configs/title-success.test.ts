@@ -188,11 +188,19 @@ describe("titleSuccess.onSuccess", () => {
 
 describe("getPersistableGeneratedTitle", () => {
   it("normalizes common model response wrappers", () => {
-    expect(
-      getPersistableGeneratedTitle(
-        'Reasoning about the response\nFinal title: **"Weekly Design Review"**',
-      ),
-    ).toBe("Weekly Design Review");
+    const wrappedTitles = [
+      'Final title: **"Weekly Design Review"**',
+      '"**Weekly Design Review**"',
+      '"Final title: Weekly Design Review"',
+    ];
+
+    for (const wrappedTitle of wrappedTitles) {
+      expect(
+        getPersistableGeneratedTitle(
+          `Reasoning about the response\n${wrappedTitle}`,
+        ),
+      ).toBe("Weekly Design Review");
+    }
   });
 
   it("rejects placeholders and oversized output", () => {
