@@ -86,6 +86,30 @@ describe("sidebar toast registry", () => {
     expect(toast?.description).toBe("Transcription provider needed");
   });
 
+  it("keeps Pro providers usable while authentication is loading", () => {
+    const proSttToast = getToastToShow(
+      createToastRegistry({
+        ...baseParams,
+        isAuthenticated: false,
+        isAuthLoading: true,
+        hasProSttConfigured: true,
+      }),
+      () => false,
+    );
+    const proLlmToast = getToastToShow(
+      createToastRegistry({
+        ...baseParams,
+        isAuthenticated: false,
+        isAuthLoading: true,
+        hasProLlmConfigured: true,
+      }),
+      () => false,
+    );
+
+    expect(proSttToast).toBeNull();
+    expect(proLlmToast).toBeNull();
+  });
+
   it("hides local STT loading while the active transcript tab shows batch progress", () => {
     const toast = getToastToShow(
       createToastRegistry({

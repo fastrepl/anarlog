@@ -64,9 +64,11 @@ export function createToastRegistry({
       ? `Downloading ${downloadingModel}`
       : `Downloading ${activeDownloads.length} models`;
   const hasUsableSttConfigured =
-    hasSttConfigured && (isAuthenticated || !hasProSttConfigured);
+    hasSttConfigured &&
+    (isAuthLoading || isAuthenticated || !hasProSttConfigured);
   const hasUsableLlmConfigured =
-    hasLLMConfigured && (isAuthenticated || !hasProLlmConfigured);
+    hasLLMConfigured &&
+    (isAuthLoading || isAuthenticated || !hasProLlmConfigured);
 
   // order matters
   return [
