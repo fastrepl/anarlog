@@ -10,21 +10,67 @@ waived by the user) before running the release-new-version skill.
 
 ## Setup
 
-1. Launch the app with AEC diagnostics enabled (first build takes minutes;
-   reuse a running instance when possible):
+1. Build and launch an authenticated native Dev bundle with AEC diagnostics:
 
    ```bash
-   env -u NO_AEC AUDIO_SYNC_PROBE=1 LISTENER_DEBUG=1 \
-     pnpm -F @hypr/desktop tauri:dev
+   .agents/skills/qa-critical-ux/scripts/run-native-dev-qa.sh
    ```
-2. Sign in with a test account that has calendar access. For provider
+
+   The script reads the currently deployed public Supabase configuration,
+   derives the production app/API endpoints from `desktop_cd.yaml`, builds the
+   native app identity needed for Computer Use, and launches with
+   `AUDIO_SYNC_PROBE=1` and `LISTENER_DEBUG=1`. The build runs with an
+   allowlisted environment containing only the public frontend configuration
+   and minimal process/toolchain values. It does not load `.env.supabase`,
+   desktop `.env` files through `dotenvx`, server credentials, or unrelated
+   channel configuration. Local environment files are also excluded from the
+   provenance fingerprint.
+
+   The helper owns a clean, persistent Cargo cache under
+   `~/Library/Caches/anarlog`; never point it at the repository's `target`
+   directory or clone that directory into the QA cache. The repository cache
+   can contain enough old, provenance-tracked proc-macro dylibs for macOS
+   assessment to stall `rustc` for minutes. Native builds use the full Xcode
+   toolchain explicitly so Swift/MLX can invoke the Metal compiler instead of
+   inheriting Command Line Tools.
+
+   A successful-build manifest fingerprints the complete app bundle, all
+   desktop build inputs (including legacy crates), and the deployed public
+   auth key. Before the manifest is written, the helper inspects the generated
+   frontend `runtimeEnv`, rejects any non-allowlisted public variables, and
+   binds that validated configuration fingerprint to the app bundle hash. This
+   prevents `--launch-only` from running a stale bundle, a locally configured
+   bundle, or a bundle whose production auth config rotated. Reuse an
+   already-current bundle with:
+
+   ```bash
+   .agents/skills/qa-critical-ux/scripts/run-native-dev-qa.sh --launch-only
+   ```
+
+   The first run uses a cold native cache and can take longer. Later source
+   builds reuse only that helper-owned cache; launch-only performs validation
+   without rebuilding.
+
+   A newly rebuilt ad-hoc Dev bundle can prompt for access to the E2EE recovery
+   key because its code-signing hash changed. Approve **Always Allow** once;
+   `--launch-only` keeps the same binary and avoids another prompt. Staging and
+   stable use a persistent Developer ID identity and do not have this Dev-only
+   behavior.
+
+   The helper connects the Dev app identity and its existing local database to
+   production services. Use the intended QA account/workspace, and never commit
+   channel credentials.
+2. For a non-production channel, supply that target's public
+   `VITE_APP_URL`, `VITE_API_URL`, `VITE_SUPABASE_URL`, and
+   `VITE_SUPABASE_ANON_KEY` when building instead of using the Dev helper.
+3. Sign in with a test account that has calendar access. For provider
    matrix runs you need: a Pro (or trialing) account, an API key for at
    least one cloud provider (e.g. OpenAI), and a downloaded local STT +
    LLM model pair.
-3. Note the app version and the provider config under test in the report.
-4. For macOS audio regression runs, leave the MacBook open and use its
+4. Note the app version and the provider config under test in the report.
+5. For macOS audio regression runs, leave the MacBook open and use its
    built-in speakers and microphone with no external audio device attached.
-5. Play the 15-minute Lex Fridman fixture from a long-lived terminal
+6. Play the 15-minute Lex Fridman fixture from a long-lived terminal
    command after recording starts:
 
    ```bash
@@ -88,6 +134,18 @@ waived by the user) before running the release-new-version skill.
 - With `AUDIO_SYNC_PROBE=1`, require an `audio_sync_probe` event and no
   `aec_init_failed`, `aec_failed`, `audio_sync_probe_panicked`, dropped
   samples, or mic/speaker queue-overflow events in the app log.
+- With CloudSync enabled, require `deferred_for_capture: true` for the whole
+  active recording. The status control must show a static **Saved locally**
+  state, while transcript rows continue growing in the local database.
+  No CloudSync request may start after capture deferral is acknowledged. If
+  the log contains a capture-drain timeout, allow the single operation that
+  started before deferral to settle, record the baseline afterward, then
+  compare `last_sync_at_ms` and the SQLite Cloud request log across at least
+  two 30-second intervals. No later send, receive, or E2EE witness work may
+  run during capture.
+- After Stop settles, require `deferred_for_capture: false`, one prompt
+  trailing sync, and no SQLite lock/error cluster. A staged native outbox
+  batch must remain unsent during capture and flush only after Stop.
 - For transcript-integrity regressions, let the full 15:02 fixture play.
   Capture transcript word count, text length, and content hash immediately
   before Stop, after Stop settles, and after app restart. Counts must never
@@ -122,10 +180,10 @@ waived by the user) before running the release-new-version skill.
   in the session; the Tauri webview is not reachable by the in-app
   Browser pane, so use screenshots/accessibility tooling or ask the user
   to perform mic-dependent steps.
-- Audio input and calendar OAuth are the two steps that usually need a
-  human: ask the user to speak during the recording step and to complete
-  OAuth consent screens, then verify the results programmatically
-  (transcript rows, summary documents, calendar events in the DB).
+- Fixture playback and stop timing must run from the terminal. A human is
+  only needed for the optional double-talk phrase and OAuth consent screens;
+  verify the results programmatically (transcript rows, summary documents,
+  calendar events, and audio diagnostics).
 - Useful signals: `sessions`, `transcripts`, and `session_documents`
   (kind = summary) tables via the app DB; console/log output from the
   dev server for stall-watchdog and enhance-task errors.
