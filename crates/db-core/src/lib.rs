@@ -9,7 +9,6 @@ use sqlx::pool::PoolConnection;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::{Sqlite, SqlitePool};
 
-use crate::cloudsync::CloudsyncRuntimeState;
 pub use crate::cloudsync::{
     CLOUDSYNC_MAX_OUTBOUND_BYTES, CLOUDSYNC_MAX_OUTBOUND_CHUNKS, CLOUDSYNC_MAX_OUTBOUND_ROWS,
     CloudsyncAuth, CloudsyncBeforeHookFuture, CloudsyncHookFuture, CloudsyncHookOutcome,
@@ -17,6 +16,7 @@ pub use crate::cloudsync::{
     CloudsyncSyncDirective, CloudsyncSyncHook, CloudsyncTableSpec, cloudsync_begin_alter_on,
     cloudsync_commit_alter_on, cloudsync_is_enabled_on,
 };
+use crate::cloudsync::{CloudsyncInterruptHandle, CloudsyncRuntimeState};
 
 #[derive(Clone, Copy, Debug)]
 pub enum DbStorage<'a> {
@@ -52,6 +52,7 @@ pub struct Db {
     pub(crate) cloudsync_path: Option<PathBuf>,
     pub(crate) cloudsync_initializer: hypr_cloudsync::CloudsyncConnectionInitializer,
     pub(crate) cloudsync_connection: Arc<tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>>,
+    pub(crate) cloudsync_interrupt: Arc<CloudsyncInterruptHandle>,
     pub(crate) cloudsync_lifecycle: Arc<tokio::sync::Mutex<()>>,
     pub(crate) cloudsync_sync_operation: Arc<tokio::sync::Mutex<()>>,
     pub(crate) cloudsync_sync_requested: Arc<tokio::sync::Notify>,
@@ -144,6 +145,7 @@ impl Db {
             cloudsync_path: Some(cloudsync_path),
             cloudsync_initializer,
             cloudsync_connection: Arc::new(tokio::sync::Mutex::new(None)),
+            cloudsync_interrupt: Arc::new(CloudsyncInterruptHandle::default()),
             cloudsync_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
             cloudsync_sync_operation: Arc::new(tokio::sync::Mutex::new(())),
             cloudsync_sync_requested: Arc::new(tokio::sync::Notify::new()),
@@ -170,6 +172,7 @@ impl Db {
             cloudsync_path: Some(cloudsync_path),
             cloudsync_initializer: hypr_cloudsync::CloudsyncConnectionInitializer::default(),
             cloudsync_connection: Arc::new(tokio::sync::Mutex::new(None)),
+            cloudsync_interrupt: Arc::new(CloudsyncInterruptHandle::default()),
             cloudsync_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
             cloudsync_sync_operation: Arc::new(tokio::sync::Mutex::new(())),
             cloudsync_sync_requested: Arc::new(tokio::sync::Notify::new()),
@@ -196,6 +199,7 @@ impl Db {
             cloudsync_path: None,
             cloudsync_initializer: hypr_cloudsync::CloudsyncConnectionInitializer::default(),
             cloudsync_connection: Arc::new(tokio::sync::Mutex::new(None)),
+            cloudsync_interrupt: Arc::new(CloudsyncInterruptHandle::default()),
             cloudsync_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
             cloudsync_sync_operation: Arc::new(tokio::sync::Mutex::new(())),
             cloudsync_sync_requested: Arc::new(tokio::sync::Notify::new()),
@@ -220,6 +224,7 @@ impl Db {
             cloudsync_path: None,
             cloudsync_initializer: hypr_cloudsync::CloudsyncConnectionInitializer::default(),
             cloudsync_connection: Arc::new(tokio::sync::Mutex::new(None)),
+            cloudsync_interrupt: Arc::new(CloudsyncInterruptHandle::default()),
             cloudsync_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
             cloudsync_sync_operation: Arc::new(tokio::sync::Mutex::new(())),
             cloudsync_sync_requested: Arc::new(tokio::sync::Notify::new()),
@@ -245,6 +250,7 @@ impl Db {
             cloudsync_path: None,
             cloudsync_initializer: hypr_cloudsync::CloudsyncConnectionInitializer::default(),
             cloudsync_connection: Arc::new(tokio::sync::Mutex::new(None)),
+            cloudsync_interrupt: Arc::new(CloudsyncInterruptHandle::default()),
             cloudsync_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
             cloudsync_sync_operation: Arc::new(tokio::sync::Mutex::new(())),
             cloudsync_sync_requested: Arc::new(tokio::sync::Notify::new()),
@@ -325,6 +331,7 @@ async fn connect_with_options(
         cloudsync_path,
         cloudsync_initializer,
         cloudsync_connection: Arc::new(tokio::sync::Mutex::new(None)),
+        cloudsync_interrupt: Arc::new(CloudsyncInterruptHandle::default()),
         cloudsync_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
         cloudsync_sync_operation: Arc::new(tokio::sync::Mutex::new(())),
         cloudsync_sync_requested: Arc::new(tokio::sync::Notify::new()),

@@ -16,7 +16,7 @@ import {
 
 import { useLanguageModel } from "~/ai/hooks";
 import type { ContextRef } from "~/chat/context/entities";
-import type { HyprUIMessage } from "~/chat/types";
+import type { ChatMessageSender, HyprUIMessage } from "~/chat/types";
 import { useOwnerUserId } from "~/shared/owner-user";
 import { id } from "~/shared/utils";
 
@@ -62,10 +62,10 @@ export function useChatActions({
       const { groupId, fallbackTitle, initialRequest } = params;
 
       if (!titleModel || !initialRequest.trim()) {
-        return;
+        return null;
       }
 
-      void generateChatTitle({
+      return generateChatTitle({
         model: titleModel,
         initialRequest,
       })
@@ -91,10 +91,7 @@ export function useChatActions({
     (
       content: string,
       parts: HyprUIMessage["parts"],
-      sendMessage: (
-        message: HyprUIMessage,
-        options?: { chatGroupId?: string },
-      ) => void,
+      sendMessage: ChatMessageSender,
       contextRefs?: ContextRef[],
     ) => {
       if (!ownerUserId) {
@@ -136,34 +133,35 @@ export function useChatActions({
             })
         : () => upsertChatMessage(message);
 
-      sendMessage(uiMessage, { chatGroupId: currentGroupId });
-      if (fallbackTitle) {
-        onGroupCreated(currentGroupId);
-      }
-
-      const persist = persistWithRetry(runPersist);
-      trackPendingChatPersist(currentGroupId, persist);
-      void persist
-        .then(() => {
-          if (fallbackTitle) {
-            queueChatTitleGeneration({
-              groupId: currentGroupId,
-              fallbackTitle,
-              initialRequest: content,
-            });
+      sendMessage(uiMessage, {
+        chatGroupId: currentGroupId,
+        beforeSend: async (trackCompletion) => {
+          const persist = persistWithRetry(runPersist);
+          trackPendingChatPersist(currentGroupId, persist);
+          try {
+            await persist;
+            if (fallbackTitle) {
+              onGroupCreated(currentGroupId);
+              const titleCompletion = queueChatTitleGeneration({
+                groupId: currentGroupId,
+                fallbackTitle,
+                initialRequest: content,
+              });
+              if (titleCompletion) {
+                trackCompletion(titleCompletion);
+              }
+            }
+          } catch (error) {
+            console.error("Failed to persist outgoing chat message", error);
+            sonnerToast.error("Could not save this chat message.");
+            if (fallbackTitle) {
+              markFailedChatGroupCreate(currentGroupId);
+              onGroupCreateFailed?.(currentGroupId);
+            }
+            throw error;
           }
-        })
-        .catch((error) => {
-          console.error("Failed to persist outgoing chat message", error);
-          sonnerToast.error("Could not save this chat message.");
-          if (fallbackTitle) {
-            // The group row was never created; leaving the shell pointed at
-            // it would orphan every follow-up message, and later persists
-            // into it would create rows that never appear in history.
-            markFailedChatGroupCreate(currentGroupId);
-            onGroupCreateFailed?.(currentGroupId);
-          }
-        });
+        },
+      });
     },
     [
       groupId,

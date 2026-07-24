@@ -257,6 +257,14 @@ export async function suspendCloudsync(): Promise<void> {
   return invoke("plugin:db|suspend_cloudsync");
 }
 
+export async function suspendCloudsyncForSignOut(): Promise<void> {
+  return invoke("plugin:db|suspend_cloudsync_for_sign_out");
+}
+
+export async function suspendCloudsyncAfterAuthLoss(): Promise<void> {
+  return invoke("plugin:db|suspend_cloudsync_after_auth_loss");
+}
+
 export async function getCloudsyncStatus(): Promise<CloudsyncStatus> {
   return invoke("plugin:db|get_cloudsync_status");
 }

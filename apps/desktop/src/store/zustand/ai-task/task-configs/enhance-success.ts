@@ -1,4 +1,5 @@
 import { md2json } from "@hypr/editor/markdown";
+import { beginCloudsyncActivity } from "@hypr/plugin-db";
 
 import { createTaskId, type TaskConfig } from ".";
 import {
@@ -10,6 +11,7 @@ import {
   persistGeneratedTitle,
 } from "./title-success";
 
+import { releaseCloudsyncActivityEventually } from "~/db/cloudsync-activity";
 import { retryDatabaseLock } from "~/db/retry";
 import {
   constrainSummaryLength,
@@ -19,10 +21,12 @@ import {
 import { persistGeneratedEnhancedNote } from "~/session/content-mutations";
 import { loadSessionContentSnapshot } from "~/session/content-queries";
 import { ensureMarkdownFirstLineTitle } from "~/session/title-content";
+import { id } from "~/shared/utils";
 import { hasLiveSessionTitleDraft } from "~/store/zustand/live-title";
 
 const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = async ({
   text,
+  taskId,
   args,
   transformedArgs,
   model,
@@ -36,6 +40,7 @@ const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = async ({
     return;
   }
 
+  const cloudsyncLeaseKey = `${taskId}:${id()}`;
   const tagNames = extractEnhanceTagNames(constrainedText, transformedArgs);
   const textWithTags = appendTagLineToMarkdown(constrainedText, tagNames);
   const initialSnapshot = await loadSessionContentSnapshot(args.sessionId);
@@ -73,82 +78,88 @@ const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = async ({
     }
   }
 
-  const snapshot = await loadSessionContentSnapshot(args.sessionId);
-  if (!snapshot) {
-    throw new Error(`Session ${args.sessionId} no longer exists`);
-  }
-  const note = snapshot.enhancedNotes.find(
-    (candidate) => candidate.id === args.enhancedNoteId,
-  );
-  if (!note) {
-    throw new Error(`Summary ${args.enhancedNoteId} no longer exists`);
-  }
-
-  trimmedTitle = snapshot.title.trim();
-  if (
-    !trimmedTitle &&
-    !hasLiveSessionTitleDraft(args.sessionId) &&
-    generatedTitle
-  ) {
-    trimmedTitle = generatedTitle;
-    shouldPersistGeneratedTitle = true;
-  }
-
-  const titledText = ensureMarkdownFirstLineTitle(
-    constrainedText,
-    trimmedTitle,
-  );
-  const tagLine = appendTagLineToMarkdown("", tagNames);
-  const reservedTagCharacters = tagLine
-    ? countNormalizedCharacters(tagLine) + 1
-    : 0;
-  const persistableBody = constrainSummaryLength(
-    titledText,
-    lengthPolicy
-      ? {
-          ...lengthPolicy,
-          maxCharacters: Math.max(
-            0,
-            lengthPolicy.maxCharacters - reservedTagCharacters,
-          ),
-          maxSections: null,
-        }
-      : null,
-  );
-  // A reset/regenerate aborts this run; a stale run that persisted anyway
-  // would overwrite the replacement's summary with old content.
-  if (signal.aborted) {
-    return;
-  }
-
-  const persistableText = appendTagLineToMarkdown(persistableBody, tagNames);
-  await retryDatabaseLock(() => {
-    if (signal.aborted) {
-      return Promise.resolve();
+  await beginCloudsyncActivity("enhance", cloudsyncLeaseKey);
+  try {
+    const snapshot = await loadSessionContentSnapshot(args.sessionId);
+    if (!snapshot) {
+      throw new Error(`Session ${args.sessionId} no longer exists`);
+    }
+    const note = snapshot.enhancedNotes.find(
+      (candidate) => candidate.id === args.enhancedNoteId,
+    );
+    if (!note) {
+      throw new Error(`Summary ${args.enhancedNoteId} no longer exists`);
     }
 
-    return persistGeneratedEnhancedNote({
-      sessionId: args.sessionId,
-      ownerUserId: snapshot.ownerUserId,
-      note: {
-        id: note.id,
-        currentContent: args.pendingAutoEnhance?.expectedBody ?? note.content,
-        currentContentFormat:
-          args.pendingAutoEnhance?.expectedContentFormat ?? note.contentFormat,
-        nextContent: JSON.stringify(md2json(persistableText)),
-      },
-      tagNames,
-      ...(args.pendingAutoEnhance
-        ? { pendingAutoEnhance: args.pendingAutoEnhance }
-        : {}),
-    });
-  });
+    trimmedTitle = snapshot.title.trim();
+    if (
+      !trimmedTitle &&
+      !hasLiveSessionTitleDraft(args.sessionId) &&
+      generatedTitle
+    ) {
+      trimmedTitle = generatedTitle;
+      shouldPersistGeneratedTitle = true;
+    }
 
-  if (shouldPersistGeneratedTitle && !signal.aborted) {
-    await persistGeneratedTitle({
-      text: generatedTitle,
-      args: { sessionId: args.sessionId },
+    const titledText = ensureMarkdownFirstLineTitle(
+      constrainedText,
+      trimmedTitle,
+    );
+    const tagLine = appendTagLineToMarkdown("", tagNames);
+    const reservedTagCharacters = tagLine
+      ? countNormalizedCharacters(tagLine) + 1
+      : 0;
+    const persistableBody = constrainSummaryLength(
+      titledText,
+      lengthPolicy
+        ? {
+            ...lengthPolicy,
+            maxCharacters: Math.max(
+              0,
+              lengthPolicy.maxCharacters - reservedTagCharacters,
+            ),
+            maxSections: null,
+          }
+        : null,
+    );
+    // A reset/regenerate aborts this run; a stale run that persisted anyway
+    // would overwrite the replacement's summary with old content.
+    if (signal.aborted) {
+      return;
+    }
+
+    const persistableText = appendTagLineToMarkdown(persistableBody, tagNames);
+    await retryDatabaseLock(() => {
+      if (signal.aborted) {
+        return Promise.resolve();
+      }
+
+      return persistGeneratedEnhancedNote({
+        sessionId: args.sessionId,
+        ownerUserId: snapshot.ownerUserId,
+        note: {
+          id: note.id,
+          currentContent: args.pendingAutoEnhance?.expectedBody ?? note.content,
+          currentContentFormat:
+            args.pendingAutoEnhance?.expectedContentFormat ??
+            note.contentFormat,
+          nextContent: JSON.stringify(md2json(persistableText)),
+        },
+        tagNames,
+        ...(args.pendingAutoEnhance
+          ? { pendingAutoEnhance: args.pendingAutoEnhance }
+          : {}),
+      });
     });
+
+    if (shouldPersistGeneratedTitle && !signal.aborted) {
+      await persistGeneratedTitle({
+        text: generatedTitle,
+        args: { sessionId: args.sessionId },
+      });
+    }
+  } finally {
+    await releaseCloudsyncActivityEventually("enhance", cloudsyncLeaseKey);
   }
 };
 

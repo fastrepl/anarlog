@@ -1,10 +1,8 @@
 diff --git a/Makefile b/Makefile
-index 9f8384e..efcb2b2 100644
+index f9d1acf..15cf420 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -392,10 +392,9 @@ endif
- 	--disable-netrc \
- 	--disable-ntlm \
+@@ -394,9 +394,8 @@ endif
  	--disable-ntlm-wb \
  	--disable-progress-meter \
  	--disable-proxy \
@@ -14,11 +12,12 @@ index 9f8384e..efcb2b2 100644
 +	--enable-threaded-resolver \
  	--disable-tls-srp \
  	--disable-verbose \
+ 	--disable-versioned-symbols \
 diff --git a/src/network/network.c b/src/network/network.c
-index 9c52cb0..6633c4b 100644
+index 038adff..25c0c67 100644
 --- a/src/network/network.c
 +++ b/src/network/network.c
-@@ -49,6 +49,13 @@ static size_t cacert_len = sizeof(cacert_pem) - 1;
+@@ -61,6 +61,13 @@ static size_t cacert_len = sizeof(cacert_pem) - 1;
  #define CLOUDSYNC_NETWORK_FAST_LANE_MAX_BLOB_SIZE (128 * 1024)
  #endif
  
@@ -32,10 +31,33 @@ index 9c52cb0..6633c4b 100644
  #define DEFAULT_SYNC_WAIT_MS                    100
  #define DEFAULT_SYNC_MAX_RETRIES                1
  
-@@ -362,34 +369,70 @@ void network_data_update_ticket (network_data *data, const char *ticket, const char *expires_at) {
+@@ -80,6 +87,7 @@ SQLITE_EXTENSION_INIT3
+ // MARK: -
+ 
+ struct network_data {
++    sqlite3     *db;
+     char        site_id[UUID_STR_MAXLEN];
+     char        *authentication; // apikey or token
+     char        *org_id;         // organization ID for X-CloudSync-Org header
+@@ -362,6 +370,48 @@ void network_data_update_ticket (network_data *data, const char *ticket, const c
  }
  
  #ifndef CLOUDSYNC_OMIT_CURL
++static int network_curl_progress_callback(
++    void *clientp,
++    curl_off_t dltotal,
++    curl_off_t dlnow,
++    curl_off_t ultotal,
++    curl_off_t ulnow
++) {
++    (void)dltotal;
++    (void)dlnow;
++    (void)ultotal;
++    (void)ulnow;
++    network_data *data = (network_data *)clientp;
++    return data && data->db && sqlite3_is_interrupted(data->db);
++}
++
 +static long network_curl_timeout_from_env(const char *name, long fallback) {
 +    const char *value = getenv(name);
 +    if (!value || !value[0]) return fallback;
@@ -46,7 +68,7 @@ index 9c52cb0..6633c4b 100644
 +    return timeout;
 +}
 +
-+static bool network_curl_apply_timeouts(CURL *curl) {
++static bool network_curl_apply_options(CURL *curl, network_data *data) {
 +    long request_timeout = network_curl_timeout_from_env(
 +        "CLOUDSYNC_CURL_TIMEOUT_MS",
 +        CLOUDSYNC_CURL_TIMEOUT_MS);
@@ -57,17 +79,16 @@ index 9c52cb0..6633c4b 100644
 +
 +    return curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L) == CURLE_OK &&
 +           curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, connect_timeout) == CURLE_OK &&
-+           curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, request_timeout) == CURLE_OK;
++           curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, request_timeout) == CURLE_OK &&
++           curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L) == CURLE_OK &&
++           curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, network_curl_progress_callback) == CURLE_OK &&
++           curl_easy_setopt(curl, CURLOPT_XFERINFODATA, data) == CURLE_OK;
 +}
 +
  static bool network_curl_pool_enabled(network_data *data) {
      if (!data) return false;
      if (data->curl_pool_enabled == 0) {
-         const char *value = getenv("CLOUDSYNC_CURL_POOL");
-         data->curl_pool_enabled = network_env_disabled(value) ? -1 : 1;
-     }
-     return data->curl_pool_enabled > 0;
- }
+@@ -373,23 +423,35 @@ static bool network_curl_pool_enabled(network_data *data) {
  
  static CURL *network_curl_for_endpoint(network_data *data, const char *endpoint, bool *pooled) {
      if (pooled) *pooled = false;
@@ -91,14 +112,7 @@ index 9c52cb0..6633c4b 100644
 +            curl_easy_reset(*slot);
 +        }
 +        curl = *slot;
-     }
--    if (!*slot) return NULL;
--
--    curl_easy_setopt(*slot, CURLOPT_MAXCONNECTS, CLOUDSYNC_CURL_MAXCONNECTS);
--    curl_easy_setopt(*slot, CURLOPT_MAXAGE_CONN, CLOUDSYNC_CURL_MAXAGE_CONN_SECONDS);
--    curl_easy_setopt(*slot, CURLOPT_MAXLIFETIME_CONN, CLOUDSYNC_CURL_MAXLIFETIME_CONN_SECONDS);
--    if (pooled) *pooled = true;
--    return *slot;
++    }
 +    if (!curl) return NULL;
 +
 +    bool configured =
@@ -106,14 +120,76 @@ index 9c52cb0..6633c4b 100644
 +         (curl_easy_setopt(curl, CURLOPT_MAXCONNECTS, CLOUDSYNC_CURL_MAXCONNECTS) == CURLE_OK &&
 +          curl_easy_setopt(curl, CURLOPT_MAXAGE_CONN, CLOUDSYNC_CURL_MAXAGE_CONN_SECONDS) == CURLE_OK &&
 +          curl_easy_setopt(curl, CURLOPT_MAXLIFETIME_CONN, CLOUDSYNC_CURL_MAXLIFETIME_CONN_SECONDS) == CURLE_OK)) &&
-+        network_curl_apply_timeouts(curl);
++        network_curl_apply_options(curl, data);
 +    if (!configured) {
 +        if (!use_pool) curl_easy_cleanup(curl);
 +        return NULL;
-+    }
-+
+     }
+-    if (!*slot) return NULL;
+ 
+-    curl_easy_setopt(*slot, CURLOPT_MAXCONNECTS, CLOUDSYNC_CURL_MAXCONNECTS);
+-    curl_easy_setopt(*slot, CURLOPT_MAXAGE_CONN, CLOUDSYNC_CURL_MAXAGE_CONN_SECONDS);
+-    curl_easy_setopt(*slot, CURLOPT_MAXLIFETIME_CONN, CLOUDSYNC_CURL_MAXLIFETIME_CONN_SECONDS);
+-    if (pooled) *pooled = true;
+-    return *slot;
 +    if (pooled) *pooled = use_pool;
 +    return curl;
  }
  
  static bool network_buffer_check (network_buffer *data, size_t needed) {
+@@ -1153,10 +1215,16 @@ void network_result_to_sqlite_error (sqlite3_context *context, NETWORK_RESULT re
+ network_data *cloudsync_network_data (sqlite3_context *context) {
+     cloudsync_context *data = (cloudsync_context *)sqlite3_user_data(context);
+     network_data *netdata = (network_data *)cloudsync_auxdata(data);
+-    if (netdata) return netdata;
++    if (netdata) {
++        netdata->db = sqlite3_context_db_handle(context);
++        return netdata;
++    }
+     
+     netdata = (network_data *)cloudsync_memory_zeroalloc(sizeof(network_data));
+-    if (netdata) cloudsync_set_auxdata(data, netdata);
++    if (netdata) {
++        netdata->db = sqlite3_context_db_handle(context);
++        cloudsync_set_auxdata(data, netdata);
++    }
+     return netdata;
+ }
+ 
+@@ -2456,7 +2524,9 @@ finalize:
+         // then RELEASE to remove the SAVEPOINT from the transaction stack
+         if (savepoint_created) database_rollback_savepoint(data, "cloudsync_logout_savepoint");
+         sqlite3_result_error(context, errmsg, -1);
+-        sqlite3_result_error_code(context, rc);
++        sqlite3_result_error_code(
++            context,
++            sqlite3_is_interrupted(db) ? SQLITE_INTERRUPT : rc);
+     }
+     sqlite3_free_table(result);
+     cloudsync_memory_free(errmsg);
+diff --git a/src/sqlite/cloudsync_sqlite.c b/src/sqlite/cloudsync_sqlite.c
+index b2dd138..8b63676 100644
+--- a/src/sqlite/cloudsync_sqlite.c
++++ b/src/sqlite/cloudsync_sqlite.c
+@@ -861,7 +861,9 @@ void dbsync_cleanup (sqlite3_context *context, int argc, sqlite3_value **argv) {
+     int rc = cloudsync_cleanup(data, table);
+     if (rc != DBRES_OK) {
+         sqlite3_result_error(context, cloudsync_errmsg(data), -1);
+-        sqlite3_result_error_code(context, rc);
++        sqlite3_result_error_code(
++            context,
++            sqlite3_is_interrupted(sqlite3_context_db_handle(context)) ? SQLITE_INTERRUPT : rc);
+     }
+ }
+ 
+@@ -930,7 +930,9 @@ void dbsync_init (sqlite3_context *context, const char *table, const char *algo,
+     } else {
+         // in case of error, rollback transaction
+         sqlite3_result_error(context, cloudsync_errmsg(data), -1);
+-        sqlite3_result_error_code(context, rc);
++        sqlite3_result_error_code(
++            context,
++            sqlite3_is_interrupted(sqlite3_context_db_handle(context)) ? SQLITE_INTERRUPT : rc);
+         database_rollback_savepoint(data, "cloudsync_init");
+         return;
+     }

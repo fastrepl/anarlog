@@ -22,6 +22,7 @@ export function startMeetingChatCapture({
   let baselineContext: { bundleId: string; contextId: string } | null = null;
   let stopped = false;
   let inFlight: Promise<void> | null = null;
+  let pendingPersistence: Promise<void> | null = null;
   let lastWarning = "";
   const captureIsEnabled =
     isEnabled ??
@@ -114,15 +115,29 @@ export function startMeetingChatCapture({
         return;
       }
 
+      if (stopped) {
+        return;
+      }
+
       let persistedSignatures: string[];
+      const persistence = persistMeetingChatRecords({
+        sessionId,
+        entries,
+      });
+      const settledPersistence = persistence.then(
+        () => undefined,
+        () => undefined,
+      );
+      pendingPersistence = settledPersistence;
       try {
-        persistedSignatures = await persistMeetingChatRecords({
-          sessionId,
-          entries,
-        });
+        persistedSignatures = await persistence;
       } catch (error) {
         console.warn("[listener] failed to persist meeting chat", error);
         return;
+      } finally {
+        if (pendingPersistence === settledPersistence) {
+          pendingPersistence = null;
+        }
       }
       if (stopped) {
         return;
@@ -161,7 +176,7 @@ export function startMeetingChatCapture({
   return async () => {
     stopped = true;
     clearInterval(interval);
-    await inFlight;
+    await pendingPersistence;
   };
 }
 

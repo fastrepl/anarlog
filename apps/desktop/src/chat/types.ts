@@ -36,3 +36,15 @@ type MessageMetadata = z.infer<typeof messageMetadataSchema>;
 export type HyprUIMessage = UIMessage<
   MessageMetadata & { contextRefs?: ContextRef[] }
 >;
+
+export type ChatSendOptions = {
+  chatGroupId?: string;
+  beforeSend?: (
+    trackCompletion: (completion: Promise<unknown>) => void,
+  ) => void | Promise<void>;
+};
+
+export type ChatMessageSender = (
+  message: HyprUIMessage,
+  options?: ChatSendOptions,
+) => void;

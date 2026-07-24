@@ -30,6 +30,8 @@ pub enum Error {
     CloudsyncActivityDeferred,
     #[error("cloudsync_configuration_cancelled")]
     CloudsyncConfigurationCancelled,
+    #[error("cloudsync_activity_drain_timeout")]
+    CloudsyncActivityDrainTimeout,
     #[error("transaction statement {statement_index} affected {actual} rows; expected {expected}")]
     UnexpectedRowsAffected {
         statement_index: usize,

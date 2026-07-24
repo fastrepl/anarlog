@@ -1,6 +1,8 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import { beginCloudsyncActivity, endCloudsyncActivity } from "@hypr/plugin-db";
+
 import {
   canRunBatchTranscription,
   EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE,
@@ -281,6 +283,10 @@ describe("useRunBatch", () => {
     finishTranscription?.();
     await act(async () => await run);
 
+    expect(beginCloudsyncActivity).toHaveBeenCalledWith(
+      "transcription",
+      "session-1:generated-1",
+    );
     expect(createTranscriptMock).toHaveBeenCalledTimes(1);
     expect(createTranscriptMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -299,6 +305,11 @@ describe("useRunBatch", () => {
       markSessionAudioTranscriptionCompleteMock.mock.invocationCallOrder[0],
     ).toBeLessThan(
       deleteProcessedAudioForRetentionMock.mock.invocationCallOrder[0],
+    );
+    expect(
+      deleteProcessedAudioForRetentionMock.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      vi.mocked(endCloudsyncActivity).mock.invocationCallOrder[0]!,
     );
   });
 

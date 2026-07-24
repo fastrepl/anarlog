@@ -11,6 +11,7 @@ type Lease = {
   logicalKey: string;
   nativeKey: string;
   acquisition: Promise<void>;
+  completions: Set<Promise<unknown>>;
   finished: boolean;
   callbackConsumed: boolean;
   release?: Promise<void>;
@@ -18,9 +19,18 @@ type Lease = {
   releaseFailureReported: boolean;
 };
 
+type Disposal = {
+  leases: Lease[];
+  promise: Promise<void>;
+  resolve: () => void;
+  timer?: ReturnType<typeof setTimeout>;
+  releaseStarted: boolean;
+};
+
 export type ChatCloudsyncActivityAttempt = {
   key: string;
   finish: () => void;
+  trackCompletion: (completion: Promise<unknown>) => void;
 };
 
 export function createChatCloudsyncActivityController({
@@ -48,11 +58,8 @@ export function createChatCloudsyncActivityController({
   const leases = new Map<string, Lease>();
   const logicalQueues = new Map<string, Lease[]>();
   let releaseTimer: ReturnType<typeof setTimeout> | null = null;
-  let disposeTimer: ReturnType<typeof setTimeout> | null = null;
-  let disposePromise: Promise<void> | null = null;
-  let resolveDispose: (() => void) | null = null;
-  let disposeReleaseStarted = false;
-  let lifecycleGeneration = 0;
+  const pendingDisposals = new Set<Disposal>();
+  let activeDisposal: Disposal | null = null;
   let disposed = false;
 
   const wait = (delayMs: number) =>
@@ -64,14 +71,6 @@ export function createChatCloudsyncActivityController({
     }
     clearTimeout(releaseTimer);
     releaseTimer = null;
-  };
-
-  const clearDisposeTimer = () => {
-    if (disposeTimer === null) {
-      return;
-    }
-    clearTimeout(disposeTimer);
-    disposeTimer = null;
   };
 
   const removeFromLogicalQueue = (lease: Lease) => {
@@ -158,31 +157,38 @@ export function createChatCloudsyncActivityController({
   const allLeasesFinished = () =>
     [...leases.values()].every((lease) => lease.finished);
 
-  const finishDisposedController = (force: boolean) => {
+  const resolveDisposal = (disposal: Disposal) => {
+    if (disposal.timer) {
+      clearTimeout(disposal.timer);
+      disposal.timer = undefined;
+    }
+    disposal.resolve();
+  };
+
+  const finishDisposal = (disposal: Disposal) => {
     if (
-      !disposed ||
-      disposeReleaseStarted ||
-      (!force && !allLeasesFinished())
+      disposal.releaseStarted ||
+      !disposal.leases.every((lease) => lease.finished)
     ) {
       return;
     }
 
-    const generation = lifecycleGeneration;
-    disposeReleaseStarted = true;
-    clearDisposeTimer();
-    void releaseAll().finally(() => {
-      if (generation !== lifecycleGeneration) {
-        return;
-      }
-      logicalQueues.clear();
-      resolveDispose?.();
-      resolveDispose = null;
+    disposal.releaseStarted = true;
+    void Promise.allSettled(disposal.leases.map(releaseLease)).then(() => {
+      pendingDisposals.delete(disposal);
+      resolveDisposal(disposal);
     });
   };
 
+  const finishPendingDisposals = () => {
+    for (const disposal of pendingDisposals) {
+      finishDisposal(disposal);
+    }
+  };
+
   const scheduleReleaseIfIdle = () => {
+    finishPendingDisposals();
     if (disposed) {
-      finishDisposedController(false);
       return;
     }
     if (leases.size === 0 || !allLeasesFinished()) {
@@ -204,6 +210,37 @@ export function createChatCloudsyncActivityController({
     scheduleReleaseIfIdle();
   };
 
+  const finishLeaseIfSettled = (lease: Lease) => {
+    if (!lease.callbackConsumed || lease.completions.size > 0) {
+      return;
+    }
+    finishLease(lease);
+  };
+
+  const trackCompletion = (lease: Lease, completion: Promise<unknown>) => {
+    if (!leases.has(lease.nativeKey) || lease.release) {
+      return;
+    }
+    lease.finished = false;
+    clearScheduledRelease();
+    const tracked = Promise.resolve(completion)
+      .catch(() => undefined)
+      .finally(() => {
+        lease.completions.delete(tracked);
+        finishLeaseIfSettled(lease);
+      });
+    lease.completions.add(tracked);
+  };
+
+  const consumeCallback = (lease: Lease) => {
+    if (lease.callbackConsumed) {
+      return;
+    }
+    lease.callbackConsumed = true;
+    finishLeaseIfSettled(lease);
+    removeFromLogicalQueue(lease);
+  };
+
   const start = async (
     logicalKey: string,
   ): Promise<ChatCloudsyncActivityAttempt | null> => {
@@ -217,6 +254,7 @@ export function createChatCloudsyncActivityController({
       logicalKey,
       nativeKey,
       acquisition: begin("chat", nativeKey),
+      completions: new Set(),
       finished: false,
       callbackConsumed: false,
       releaseFailureReported: false,
@@ -229,7 +267,7 @@ export function createChatCloudsyncActivityController({
     try {
       await lease.acquisition;
     } catch (error) {
-      finishLease(lease);
+      consumeCallback(lease);
       await releaseLease(lease).catch(() => undefined);
       throw error;
     }
@@ -242,16 +280,8 @@ export function createChatCloudsyncActivityController({
     return {
       key: nativeKey,
       finish: () => consumeCallback(lease),
+      trackCompletion: (completion) => trackCompletion(lease, completion),
     };
-  };
-
-  const consumeCallback = (lease: Lease) => {
-    if (lease.callbackConsumed) {
-      return;
-    }
-    lease.callbackConsumed = true;
-    finishLease(lease);
-    removeFromLogicalQueue(lease);
   };
 
   const finish = (logicalKey: string) => {
@@ -266,29 +296,41 @@ export function createChatCloudsyncActivityController({
 
   const finishAll = () => {
     for (const lease of leases.values()) {
-      lease.finished = true;
+      consumeCallback(lease);
     }
-    scheduleReleaseIfIdle();
   };
 
-  const dispose = () => {
-    if (disposePromise) {
-      return disposePromise;
+  const dispose = (completion?: Promise<unknown>) => {
+    if (disposed && activeDisposal) {
+      return activeDisposal.promise;
     }
 
     disposed = true;
     clearScheduledRelease();
-    const generation = ++lifecycleGeneration;
-    disposePromise = new Promise<void>((resolve) => {
-      resolveDispose = resolve;
+    let resolveDisposal = () => {};
+    const promise = new Promise<void>((resolve) => {
+      resolveDisposal = resolve;
     });
-    disposeTimer = setTimeout(() => {
-      if (generation === lifecycleGeneration) {
-        finishDisposedController(true);
+    const disposal: Disposal = {
+      leases: [...leases.values()],
+      promise,
+      resolve: resolveDisposal,
+      releaseStarted: false,
+    };
+    activeDisposal = disposal;
+    pendingDisposals.add(disposal);
+    if (completion) {
+      for (const lease of disposal.leases) {
+        trackCompletion(lease, completion);
+        consumeCallback(lease);
       }
+    }
+    disposal.timer = setTimeout(() => {
+      disposal.timer = undefined;
+      disposal.resolve();
     }, disposeDrainTimeoutMs);
-    finishDisposedController(false);
-    return disposePromise;
+    finishDisposal(disposal);
+    return promise;
   };
 
   const resume = () => {
@@ -296,13 +338,8 @@ export function createChatCloudsyncActivityController({
       return;
     }
 
-    lifecycleGeneration += 1;
-    clearDisposeTimer();
     disposed = false;
-    disposeReleaseStarted = false;
-    resolveDispose?.();
-    resolveDispose = null;
-    disposePromise = null;
+    activeDisposal = null;
   };
 
   return { start, finish, finishAll, dispose, resume };
@@ -320,7 +357,11 @@ export function guardChatTransport<UI_MESSAGE extends UIMessage>(
   }: {
     beforeSend?: (
       logicalKey: string,
-    ) => (() => void | Promise<void>) | undefined;
+    ) =>
+      | ((
+          trackCompletion: (completion: Promise<unknown>) => void,
+        ) => void | Promise<void>)
+      | undefined;
   } = {},
 ): ChatTransport<UI_MESSAGE> {
   return {
@@ -339,19 +380,30 @@ export function guardChatTransport<UI_MESSAGE extends UIMessage>(
       const key = userMessage.id;
       const attempt = await activity.start(key);
 
-      if (!attempt || options.abortSignal?.aborted) {
+      if (!attempt) {
         const error = new Error("Chat request aborted");
         error.name = "AbortError";
         throw error;
       }
 
-      await beforeSend?.(key)?.();
-      if (options.abortSignal?.aborted) {
-        const error = new Error("Chat request aborted");
-        error.name = "AbortError";
+      try {
+        if (options.abortSignal?.aborted) {
+          const error = new Error("Chat request aborted");
+          error.name = "AbortError";
+          throw error;
+        }
+
+        await beforeSend?.(key)?.(attempt.trackCompletion);
+        if (options.abortSignal?.aborted) {
+          const error = new Error("Chat request aborted");
+          error.name = "AbortError";
+          throw error;
+        }
+        return await transport.sendMessages(options);
+      } catch (error) {
+        attempt.finish();
         throw error;
       }
-      return transport.sendMessages(options);
     },
     reconnectToStream: (options) => transport.reconnectToStream(options),
   };

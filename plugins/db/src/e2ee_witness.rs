@@ -1,4 +1,7 @@
+use std::future::Future;
 use std::io;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -11,6 +14,59 @@ const MAX_RATE_LIMIT_RETRIES: usize = 3;
 const DEFAULT_RETRY_AFTER: std::time::Duration = std::time::Duration::from_secs(30);
 const MAX_RETRY_AFTER: std::time::Duration = std::time::Duration::from_secs(60);
 const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
+
+#[derive(Clone, Default)]
+pub(crate) struct E2eeWitnessCancellation {
+    state: Arc<E2eeWitnessCancellationState>,
+}
+
+#[derive(Default)]
+struct E2eeWitnessCancellationState {
+    cancelled: AtomicBool,
+    changed: tokio::sync::Notify,
+}
+
+impl E2eeWitnessCancellation {
+    pub(crate) fn cancel(&self) {
+        if !self.state.cancelled.swap(true, Ordering::AcqRel) {
+            self.state.changed.notify_waiters();
+        }
+    }
+
+    pub(crate) fn is_cancelled(&self) -> bool {
+        self.state.cancelled.load(Ordering::Acquire)
+    }
+
+    pub(crate) fn check(&self) -> io::Result<()> {
+        if self.is_cancelled() {
+            Err(cancelled_error())
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn cancelled(&self) {
+        loop {
+            let changed = self.state.changed.notified();
+            tokio::pin!(changed);
+            changed.as_mut().enable();
+            if self.is_cancelled() {
+                return;
+            }
+            changed.await;
+        }
+    }
+
+    async fn run_network<T>(&self, future: impl Future<Output = T>) -> io::Result<T> {
+        self.check()?;
+        tokio::pin!(future);
+        tokio::select! {
+            biased;
+            _ = self.cancelled() => Err(cancelled_error()),
+            result = &mut future => Ok(result),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub(crate) struct E2eeWitnessClient {
@@ -91,46 +147,110 @@ impl E2eeWitnessClient {
         &self.workspace_id
     }
 
+    #[cfg(test)]
     pub(crate) async fn initialize(
         &self,
         pool: &sqlx::SqlitePool,
         key: &hypr_e2ee::WorkspaceKey,
     ) -> io::Result<()> {
-        let cursor = witness_cursor(pool, &self.workspace_id).await?;
-        let status = self.read_page(cursor, None).await?;
+        self.initialize_cancellable(pool, key, &E2eeWitnessCancellation::default())
+            .await
+    }
+
+    pub(crate) async fn initialize_cancellable(
+        &self,
+        pool: &sqlx::SqlitePool,
+        key: &hypr_e2ee::WorkspaceKey,
+        cancellation: &E2eeWitnessCancellation,
+    ) -> io::Result<()> {
+        let cursor = witness_cursor_cancellable(pool, &self.workspace_id, cancellation).await?;
+        let status = self
+            .read_page_cancellable(cursor, None, cancellation)
+            .await?;
         self.validate_page(&status, cursor, None)?;
         if status.head_sequence < cursor {
             return Err(rollback_error());
         }
 
         if status.initialized {
-            self.refresh(pool, key).await?;
-            self.publish_pending(pool, key, false).await?;
+            self.refresh_cancellable(pool, key, cancellation).await?;
+            self.publish_pending(pool, key, false, cancellation).await?;
         } else {
-            if !hypr_db_app::has_e2ee_local_state(pool, &self.workspace_id)
+            cancellation.check()?;
+            let has_local_state = hypr_db_app::has_e2ee_local_state(pool, &self.workspace_id)
                 .await
-                .map_err(replica_error)?
-            {
+                .map_err(replica_error)?;
+            cancellation.check()?;
+            if !has_local_state {
                 return Err(io::Error::other(
                     "E2EE freshness witness must be initialized from an existing trusted device",
                 ));
             }
-            self.publish_pending(pool, key, true).await?;
+            self.publish_pending(pool, key, true, cancellation).await?;
         }
 
-        self.refresh(pool, key).await.map(|_| ())
+        self.refresh_cancellable(pool, key, cancellation)
+            .await
+            .map(|_| ())
     }
 
+    #[cfg(test)]
     pub(crate) async fn publish_and_refresh(
         &self,
         pool: &sqlx::SqlitePool,
         key: &hypr_e2ee::WorkspaceKey,
     ) -> io::Result<usize> {
-        self.publish_pending(pool, key, false).await?;
-        self.refresh(pool, key).await
+        self.publish_and_refresh_cancellable(pool, key, &E2eeWitnessCancellation::default())
+            .await
     }
 
-    pub(crate) async fn publish_and_refresh_notifying<F>(
+    pub(crate) async fn publish_and_refresh_cancellable(
+        &self,
+        pool: &sqlx::SqlitePool,
+        key: &hypr_e2ee::WorkspaceKey,
+        cancellation: &E2eeWitnessCancellation,
+    ) -> io::Result<usize> {
+        self.publish_pending(pool, key, false, cancellation).await?;
+        self.refresh_cancellable(pool, key, cancellation).await
+    }
+
+    pub(crate) async fn publish_and_refresh_notifying_cancellable<F>(
+        &self,
+        pool: &sqlx::SqlitePool,
+        key: &hypr_e2ee::WorkspaceKey,
+        on_events: F,
+        cancellation: &E2eeWitnessCancellation,
+    ) -> io::Result<usize>
+    where
+        F: FnMut(),
+    {
+        self.publish_pending(pool, key, false, cancellation).await?;
+        self.refresh_notifying_cancellable(pool, key, on_events, cancellation)
+            .await
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn refresh(
+        &self,
+        pool: &sqlx::SqlitePool,
+        key: &hypr_e2ee::WorkspaceKey,
+    ) -> io::Result<usize> {
+        self.refresh_cancellable(pool, key, &E2eeWitnessCancellation::default())
+            .await
+    }
+
+    pub(crate) async fn refresh_cancellable(
+        &self,
+        pool: &sqlx::SqlitePool,
+        key: &hypr_e2ee::WorkspaceKey,
+        cancellation: &E2eeWitnessCancellation,
+    ) -> io::Result<usize> {
+        self.refresh_notifying_cancellable(pool, key, || {}, cancellation)
+            .await
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn refresh_notifying<F>(
         &self,
         pool: &sqlx::SqlitePool,
         key: &hypr_e2ee::WorkspaceKey,
@@ -139,29 +259,29 @@ impl E2eeWitnessClient {
     where
         F: FnMut(),
     {
-        self.publish_pending(pool, key, false).await?;
-        self.refresh_notifying(pool, key, on_events).await
+        self.refresh_notifying_cancellable(
+            pool,
+            key,
+            on_events,
+            &E2eeWitnessCancellation::default(),
+        )
+        .await
     }
 
-    pub(crate) async fn refresh(
-        &self,
-        pool: &sqlx::SqlitePool,
-        key: &hypr_e2ee::WorkspaceKey,
-    ) -> io::Result<usize> {
-        self.refresh_notifying(pool, key, || {}).await
-    }
-
-    pub(crate) async fn refresh_notifying<F>(
+    pub(crate) async fn refresh_notifying_cancellable<F>(
         &self,
         pool: &sqlx::SqlitePool,
         key: &hypr_e2ee::WorkspaceKey,
         mut on_events: F,
+        cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<usize>
     where
         F: FnMut(),
     {
-        let mut cursor = witness_cursor(pool, &self.workspace_id).await?;
-        let mut page = self.read_page(cursor, None).await?;
+        let mut cursor = witness_cursor_cancellable(pool, &self.workspace_id, cancellation).await?;
+        let mut page = self
+            .read_page_cancellable(cursor, None, cancellation)
+            .await?;
         self.validate_page(&page, cursor, None)?;
         if !page.initialized {
             return Err(io::Error::other(
@@ -190,14 +310,24 @@ impl E2eeWitnessClient {
                     payload: event.payload,
                 })
                 .collect::<Vec<_>>();
-            hypr_db_app::merge_e2ee_witness_events(pool, key, &self.workspace_id, &events)
-                .await
-                .map_err(replica_error)?;
+            cancellation.check()?;
+            hypr_db_app::merge_e2ee_witness_events_cancellable(
+                pool,
+                key,
+                &self.workspace_id,
+                &events,
+                || cancellation.is_cancelled(),
+            )
+            .await
+            .map_err(replica_error)?;
+            cancellation.check()?;
             let after = page.next_after_sequence;
             if after != cursor {
+                cancellation.check()?;
                 hypr_db_app::advance_e2ee_witness_cursor(pool, &self.workspace_id, after)
                     .await
                     .map_err(replica_error)?;
+                cancellation.check()?;
                 cursor = after;
             }
             if after == through {
@@ -206,7 +336,9 @@ impl E2eeWitnessClient {
             if after >= through {
                 return Err(invalid_data("E2EE witness page cursor is invalid"));
             }
-            page = self.read_page(after, Some(through)).await?;
+            page = self
+                .read_page_cancellable(after, Some(through), cancellation)
+                .await?;
             self.validate_page(&page, after, Some(through))?;
         }
         Ok(received_events)
@@ -217,19 +349,23 @@ impl E2eeWitnessClient {
         pool: &sqlx::SqlitePool,
         key: &hypr_e2ee::WorkspaceKey,
         initialize: bool,
+        cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<()> {
-        let cursor = witness_cursor(pool, &self.workspace_id).await?;
+        let cursor = witness_cursor_cancellable(pool, &self.workspace_id, cancellation).await?;
         let mut first_batch = true;
         loop {
-            let uploads = hypr_db_app::pending_e2ee_witness_uploads(
+            cancellation.check()?;
+            let uploads = hypr_db_app::pending_e2ee_witness_uploads_cancellable(
                 pool,
                 &self.workspace_id,
                 key,
                 MAX_EVENTS_PER_BATCH,
                 MAX_BATCH_BYTES,
+                || cancellation.is_cancelled(),
             )
             .await
             .map_err(replica_error)?;
+            cancellation.check()?;
             if uploads.is_empty() {
                 if initialize && first_batch {
                     return Err(io::Error::other(
@@ -241,6 +377,7 @@ impl E2eeWitnessClient {
 
             let mut batch_bytes = 0usize;
             for upload in &uploads {
+                cancellation.check()?;
                 let event_bytes = upload
                     .payload
                     .len()
@@ -256,25 +393,28 @@ impl E2eeWitnessClient {
                 batch_bytes = batch_bytes.saturating_add(event_bytes);
             }
             let response = self
-                .send_with_rate_limit_retry(|| {
-                    self.client
-                        .post(self.endpoint.clone())
-                        .bearer_auth(&self.access_token)
-                        .json(&PublishRequest {
-                            initialize: initialize && first_batch,
-                            events: uploads
-                                .iter()
-                                .map(|upload| PublishEvent {
-                                    record_id: &upload.record_id,
-                                    payload_hash: &upload.payload_hash,
-                                    payload: &upload.payload,
-                                })
-                                .collect(),
-                        })
-                })
+                .send_with_rate_limit_retry(
+                    || {
+                        self.client
+                            .post(self.endpoint.clone())
+                            .bearer_auth(&self.access_token)
+                            .json(&PublishRequest {
+                                initialize: initialize && first_batch,
+                                events: uploads
+                                    .iter()
+                                    .map(|upload| PublishEvent {
+                                        record_id: &upload.record_id,
+                                        payload_hash: &upload.payload_hash,
+                                        payload: &upload.payload,
+                                    })
+                                    .collect(),
+                            })
+                    },
+                    cancellation,
+                )
                 .await?;
             let status = response.status();
-            let bytes = read_bounded(response).await?;
+            let bytes = cancellation.run_network(read_bounded(response)).await??;
             if !status.is_success() {
                 return Err(io::Error::other(format!(
                     "E2EE witness publication was rejected with status {status}"
@@ -285,29 +425,47 @@ impl E2eeWitnessClient {
             if response.initialized_at.is_empty() || response.head_sequence < cursor {
                 return Err(rollback_error());
             }
-            hypr_db_app::acknowledge_e2ee_witness_uploads(pool, key, &uploads)
-                .await
-                .map_err(replica_error)?;
+            cancellation.check()?;
+            hypr_db_app::acknowledge_e2ee_witness_uploads_cancellable(pool, key, &uploads, || {
+                cancellation.is_cancelled()
+            })
+            .await
+            .map_err(replica_error)?;
+            cancellation.check()?;
             first_batch = false;
         }
     }
 
+    #[cfg(test)]
     async fn read_page(&self, after: u64, through: Option<u64>) -> io::Result<ReadPage> {
+        self.read_page_cancellable(after, through, &E2eeWitnessCancellation::default())
+            .await
+    }
+
+    async fn read_page_cancellable(
+        &self,
+        after: u64,
+        through: Option<u64>,
+        cancellation: &E2eeWitnessCancellation,
+    ) -> io::Result<ReadPage> {
         let response = self
-            .send_with_rate_limit_retry(|| {
-                let mut request = self
-                    .client
-                    .get(self.endpoint.clone())
-                    .bearer_auth(&self.access_token)
-                    .query(&[("afterSequence", after)]);
-                if let Some(through) = through {
-                    request = request.query(&[("throughSequence", through)]);
-                }
-                request
-            })
+            .send_with_rate_limit_retry(
+                || {
+                    let mut request = self
+                        .client
+                        .get(self.endpoint.clone())
+                        .bearer_auth(&self.access_token)
+                        .query(&[("afterSequence", after)]);
+                    if let Some(through) = through {
+                        request = request.query(&[("throughSequence", through)]);
+                    }
+                    request
+                },
+                cancellation,
+            )
             .await?;
         let status = response.status();
-        let bytes = read_bounded(response).await?;
+        let bytes = cancellation.run_network(read_bounded(response)).await??;
         if !status.is_success() {
             return Err(io::Error::other(format!(
                 "E2EE witness read was rejected with status {status}"
@@ -320,18 +478,22 @@ impl E2eeWitnessClient {
     async fn send_with_rate_limit_retry(
         &self,
         request: impl Fn() -> reqwest::RequestBuilder,
+        cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<reqwest::Response> {
         let mut retries = 0;
         loop {
-            let response = request().send().await.map_err(transport_error)?;
+            let response = cancellation
+                .run_network(request().send())
+                .await?
+                .map_err(transport_error)?;
             if response.status() != reqwest::StatusCode::TOO_MANY_REQUESTS
                 || retries == MAX_RATE_LIMIT_RETRIES
             {
                 return Ok(response);
             }
             let delay = retry_after_delay(response.headers());
-            read_bounded(response).await?;
-            tokio::time::sleep(delay).await;
+            cancellation.run_network(read_bounded(response)).await??;
+            cancellation.run_network(tokio::time::sleep(delay)).await?;
             retries += 1;
         }
     }
@@ -378,6 +540,17 @@ async fn witness_cursor(pool: &sqlx::SqlitePool, workspace_id: &str) -> io::Resu
         .map_err(replica_error)
 }
 
+async fn witness_cursor_cancellable(
+    pool: &sqlx::SqlitePool,
+    workspace_id: &str,
+    cancellation: &E2eeWitnessCancellation,
+) -> io::Result<u64> {
+    cancellation.check()?;
+    let cursor = witness_cursor(pool, workspace_id).await?;
+    cancellation.check()?;
+    Ok(cursor)
+}
+
 async fn read_bounded(response: reqwest::Response) -> io::Result<Vec<u8>> {
     if response
         .content_length()
@@ -398,7 +571,11 @@ async fn read_bounded(response: reqwest::Response) -> io::Result<Vec<u8>> {
 }
 
 fn replica_error(error: hypr_db_app::E2eeReplicaError) -> io::Error {
-    io::Error::other(format!("E2EE witness state failed: {error}"))
+    if matches!(&error, hypr_db_app::E2eeReplicaError::Cancelled) {
+        cancelled_error()
+    } else {
+        io::Error::other(format!("E2EE witness state failed: {error}"))
+    }
 }
 
 fn transport_error(error: reqwest::Error) -> io::Error {
@@ -411,6 +588,10 @@ fn invalid_data(message: &'static str) -> io::Error {
 
 fn rollback_error() -> io::Error {
     io::Error::other("E2EE freshness witness rollback was detected")
+}
+
+fn cancelled_error() -> io::Error {
+    io::Error::new(io::ErrorKind::Interrupted, "E2EE witness request cancelled")
 }
 
 fn retry_after_delay(headers: &reqwest::header::HeaderMap) -> std::time::Duration {
@@ -547,6 +728,14 @@ mod tests {
         }))
     }
 
+    #[test]
+    fn cancelled_replica_work_is_reported_as_an_interrupted_witness_operation() {
+        assert_eq!(
+            replica_error(hypr_db_app::E2eeReplicaError::Cancelled).kind(),
+            io::ErrorKind::Interrupted
+        );
+    }
+
     #[tokio::test]
     async fn retries_a_rate_limited_witness_read() {
         let server = MockServer::start().await;
@@ -570,6 +759,173 @@ mod tests {
 
         assert_eq!(page.head_sequence, 0);
         assert_eq!(responder.requests.load(Ordering::Relaxed), 2);
+    }
+
+    #[tokio::test]
+    async fn cancellation_stops_a_stalled_witness_request_promptly() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/sync/e2ee/witness/user-a"))
+            .respond_with(witness_page(&[], 0, 0).set_delay(std::time::Duration::from_secs(120)))
+            .mount(&server)
+            .await;
+        let client = E2eeWitnessClient::new(
+            crate::CloudsyncE2eeWitness {
+                endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+                access_token: "access-token".to_string(),
+            },
+            "user-a",
+        )
+        .unwrap();
+        let cancellation = E2eeWitnessCancellation::default();
+        let request_client = client.clone();
+        let request_cancellation = cancellation.clone();
+        let request = tokio::spawn(async move {
+            request_client
+                .read_page_cancellable(0, None, &request_cancellation)
+                .await
+        });
+
+        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            loop {
+                if !server.received_requests().await.unwrap().is_empty() {
+                    return;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("witness request did not reach the stalled endpoint");
+
+        cancellation.cancel();
+        let result = tokio::time::timeout(std::time::Duration::from_millis(500), request)
+            .await
+            .expect("witness cancellation waited for the HTTP timeout")
+            .unwrap();
+        let Err(error) = result else {
+            panic!("cancelled witness request unexpectedly succeeded");
+        };
+
+        assert_eq!(error.kind(), io::ErrorKind::Interrupted);
+    }
+
+    #[tokio::test]
+    async fn cancelled_witness_merge_does_not_advance_the_authenticated_cursor() {
+        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
+        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+            "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+        )
+        .unwrap();
+        let key = recovery_key.workspace_key("user-a").unwrap();
+        let sealed = key
+            .seal_field(
+                "user-a",
+                "sessions",
+                "session-1",
+                "title",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                1,
+                false,
+                json!("Remote"),
+            )
+            .unwrap();
+        let event = json!({
+            "sequence": 1,
+            "recordId": sealed.record_id,
+            "payloadHash": hypr_e2ee::payload_hash(&sealed.payload),
+            "payload": sealed.payload,
+        });
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/sync/e2ee/witness/user-a"))
+            .respond_with(witness_page(&[event], 1, 1))
+            .mount(&server)
+            .await;
+        let client = E2eeWitnessClient::new(
+            crate::CloudsyncE2eeWitness {
+                endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+                access_token: "access-token".to_string(),
+            },
+            "user-a",
+        )
+        .unwrap();
+        let cancellation = E2eeWitnessCancellation::default();
+        let cancel_on_events = cancellation.clone();
+
+        let error = client
+            .refresh_notifying_cancellable(
+                db.pool(),
+                &key,
+                move || cancel_on_events.cancel(),
+                &cancellation,
+            )
+            .await
+            .unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::Interrupted);
+        assert_eq!(
+            hypr_db_app::e2ee_witness_cursor(db.pool(), "user-a")
+                .await
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_witness_records")
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            0
+        );
+    }
+
+    #[tokio::test]
+    async fn cancellation_stops_a_rate_limit_retry_sleep() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/sync/e2ee/witness/user-a"))
+            .respond_with(ResponseTemplate::new(429).insert_header("retry-after", "60"))
+            .mount(&server)
+            .await;
+        let client = E2eeWitnessClient::new(
+            crate::CloudsyncE2eeWitness {
+                endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+                access_token: "access-token".to_string(),
+            },
+            "user-a",
+        )
+        .unwrap();
+        let cancellation = E2eeWitnessCancellation::default();
+        let request_client = client.clone();
+        let request_cancellation = cancellation.clone();
+        let request = tokio::spawn(async move {
+            request_client
+                .read_page_cancellable(0, None, &request_cancellation)
+                .await
+        });
+
+        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            loop {
+                if server.received_requests().await.unwrap().len() == 1 {
+                    return;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("witness request did not enter rate-limit backoff");
+
+        cancellation.cancel();
+        let result = tokio::time::timeout(std::time::Duration::from_millis(500), request)
+            .await
+            .expect("witness cancellation waited for retry-after")
+            .unwrap();
+        let Err(error) = result else {
+            panic!("cancelled witness retry unexpectedly succeeded");
+        };
+
+        assert_eq!(error.kind(), io::ErrorKind::Interrupted);
+        assert_eq!(server.received_requests().await.unwrap().len(), 1);
     }
 
     #[tokio::test]

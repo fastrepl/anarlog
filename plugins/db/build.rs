@@ -22,6 +22,8 @@ const COMMANDS: &[&str] = &[
     "start_cloudsync",
     "stop_cloudsync",
     "suspend_cloudsync",
+    "suspend_cloudsync_for_sign_out",
+    "suspend_cloudsync_after_auth_loss",
     "get_cloudsync_status",
     "sync_cloudsync_now",
     "begin_cloudsync_activity",

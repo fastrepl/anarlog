@@ -190,6 +190,22 @@ async suspendCloudsync() : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async suspendCloudsyncForSignOut() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|suspend_cloudsync_for_sign_out") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async suspendCloudsyncAfterAuthLoss() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|suspend_cloudsync_after_auth_loss") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getCloudsyncStatus() : Promise<Result<JsonValue, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:db|get_cloudsync_status") };

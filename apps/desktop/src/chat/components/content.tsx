@@ -13,7 +13,7 @@ import {
   readSessionContextDragData,
 } from "~/chat/context/session-drag";
 import type { DisplayEntity } from "~/chat/context/use-chat-context-pipeline";
-import type { HyprUIMessage } from "~/chat/types";
+import type { ChatMessageSender, HyprUIMessage } from "~/chat/types";
 import { id } from "~/shared/utils";
 
 type QueuedChatMessage = {
@@ -48,10 +48,7 @@ export function ChatContent({
   layout?: "floating" | "right-panel";
   sessionId: string;
   messages: HyprUIMessage[];
-  sendMessage: (
-    message: HyprUIMessage,
-    options?: { chatGroupId?: string },
-  ) => void;
+  sendMessage: ChatMessageSender;
   regenerate: () => void;
   stop: () => void;
   status: ChatStatus;
@@ -60,10 +57,7 @@ export function ChatContent({
   handleSendMessage: (
     content: string,
     parts: HyprUIMessage["parts"],
-    sendMessage: (
-      message: HyprUIMessage,
-      options?: { chatGroupId?: string },
-    ) => void,
+    sendMessage: ChatMessageSender,
     contextRefs?: ContextRef[],
   ) => void;
   contextEntities: DisplayEntity[];

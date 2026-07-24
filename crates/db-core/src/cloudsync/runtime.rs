@@ -19,7 +19,7 @@ impl Db {
         &self,
         config: CloudsyncRuntimeConfig,
     ) -> Result<(), CloudsyncRuntimeError> {
-        let _lifecycle = self.cloudsync_lifecycle.lock().await;
+        let _lifecycle = self.lock_cloudsync_lifecycle_cancelling_active_sync().await;
         self.cloudsync_configure_locked(config)
     }
 
@@ -40,7 +40,7 @@ impl Db {
         &self,
         config: CloudsyncRuntimeConfig,
     ) -> Result<(), CloudsyncRuntimeError> {
-        let _lifecycle = self.cloudsync_lifecycle.lock().await;
+        let _lifecycle = self.lock_cloudsync_lifecycle_cancelling_active_sync().await;
         let (was_running, had_transport) = {
             let runtime = self.cloudsync_runtime.lock().unwrap();
             (
@@ -63,7 +63,7 @@ impl Db {
     }
 
     pub async fn cloudsync_start(&self) -> Result<(), CloudsyncRuntimeError> {
-        let _lifecycle = self.cloudsync_lifecycle.lock().await;
+        let _lifecycle = self.lock_cloudsync_lifecycle_cancelling_active_sync().await;
         self.cloudsync_start_locked().await
     }
 
@@ -112,7 +112,7 @@ impl Db {
         &self,
         config: CloudsyncRuntimeConfig,
     ) -> Result<(), CloudsyncRuntimeError> {
-        let _lifecycle = self.cloudsync_lifecycle.lock().await;
+        let _lifecycle = self.lock_cloudsync_lifecycle_cancelling_active_sync().await;
         if !self.cloudsync_enabled {
             return Err(CloudsyncRuntimeError::Unavailable);
         }
@@ -154,7 +154,7 @@ impl Db {
     }
 
     pub async fn cloudsync_resume_prepared_transport(&self) -> Result<(), CloudsyncRuntimeError> {
-        let _lifecycle = self.cloudsync_lifecycle.lock().await;
+        let _lifecycle = self.lock_cloudsync_lifecycle_cancelling_active_sync().await;
         if !self.cloudsync_enabled {
             return Err(CloudsyncRuntimeError::Unavailable);
         }
@@ -201,7 +201,7 @@ impl Db {
     ) -> Result<(), CloudsyncRuntimeError> {
         if let Err(error) = self.cloudsync_init_enabled_tables(&config.tables).await {
             self.cleanup_failed_cloudsync_start(false).await;
-            return Err(error.into());
+            return Err(error);
         }
 
         if let Err(error) = self.cloudsync_network_init(&config.connection_string).await {
@@ -225,6 +225,7 @@ impl Db {
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let pool = self.pool.clone();
         let connection = Arc::clone(&self.cloudsync_connection);
+        let interrupt = Arc::clone(&self.cloudsync_interrupt);
         let sync_operation = Arc::clone(&self.cloudsync_sync_operation);
         let sync_requested = Arc::clone(&self.cloudsync_sync_requested);
         let runtime_state = Arc::clone(&self.cloudsync_runtime);
@@ -232,6 +233,7 @@ impl Db {
         let context = CloudsyncLoopContext {
             pool,
             connection,
+            interrupt,
             sync_operation,
             sync_requested,
             runtime_state,
@@ -253,8 +255,26 @@ impl Db {
         });
     }
 
+    async fn lock_cloudsync_lifecycle_cancelling_active_sync(
+        &self,
+    ) -> tokio::sync::MutexGuard<'_, ()> {
+        let lifecycle = self.cloudsync_lifecycle.lock();
+        tokio::pin!(lifecycle);
+        let mut cancellation_interval = tokio::time::interval(Duration::from_millis(25));
+        loop {
+            tokio::select! {
+                biased;
+                guard = &mut lifecycle => return guard,
+                _ = cancellation_interval.tick() => {
+                    cancel_active_sync_hook(&self.cloudsync_sync_hook);
+                    self.cloudsync_interrupt_sync();
+                }
+            }
+        }
+    }
+
     pub async fn cloudsync_stop(&self) -> Result<(), CloudsyncRuntimeError> {
-        let _lifecycle = self.cloudsync_lifecycle.lock().await;
+        let _lifecycle = self.lock_cloudsync_lifecycle_cancelling_active_sync().await;
         self.cloudsync_stop_locked().await
     }
 
@@ -274,7 +294,7 @@ impl Db {
             && let Err(error) = self.cloudsync_terminate_and_close().await
             && first_error.is_none()
         {
-            first_error = Some(CloudsyncRuntimeError::from(error));
+            first_error = Some(error);
         }
 
         if let Err(error) = self.cloudsync_close_connection().await
@@ -291,7 +311,7 @@ impl Db {
     }
 
     pub async fn cloudsync_suspend(&self) -> Result<(), CloudsyncRuntimeError> {
-        let _lifecycle = self.cloudsync_lifecycle.lock().await;
+        let _lifecycle = self.lock_cloudsync_lifecycle_cancelling_active_sync().await;
         let stop_result = self.cloudsync_stop_locked().await;
 
         let mut runtime = self.cloudsync_runtime.lock().unwrap();
@@ -309,7 +329,7 @@ impl Db {
         &self,
         discard_unsent_changes: bool,
     ) -> Result<(), CloudsyncRuntimeError> {
-        let _lifecycle = self.cloudsync_lifecycle.lock().await;
+        let _lifecycle = self.lock_cloudsync_lifecycle_cancelling_active_sync().await;
 
         if !self.cloudsync_enabled {
             let mut runtime = self.cloudsync_runtime.lock().unwrap();
@@ -497,6 +517,7 @@ impl Db {
         let result = sync_cloudsync_connection(
             &self.pool,
             &self.cloudsync_connection,
+            &self.cloudsync_interrupt,
             &self.cloudsync_sync_operation,
             &self.cloudsync_runtime,
             &self.cloudsync_sync_hook,
@@ -521,7 +542,26 @@ impl Db {
     }
 
     pub async fn cloudsync_wait_for_sync_idle(&self) {
-        drop(self.cloudsync_sync_operation.lock().await);
+        let _sync_operation = self.cloudsync_sync_operation.lock().await;
+        let mut connection = self.cloudsync_connection.lock().await;
+        let Some(connection) = connection.as_mut() else {
+            return;
+        };
+        match connection.lock_handle().await {
+            Ok(worker_idle) => drop(worker_idle),
+            Err(error) => {
+                tracing::warn!(%error, "failed to fence the CloudSync SQLite worker");
+            }
+        }
+    }
+
+    pub fn cloudsync_interrupt_sync(&self) -> bool {
+        self.cloudsync_interrupt.interrupt()
+    }
+
+    #[cfg(any(test, feature = "test-utils"))]
+    pub fn cloudsync_interrupt_registered(&self) -> bool {
+        self.cloudsync_interrupt.is_registered()
     }
 
     pub fn cloudsync_request_sync(&self) {
@@ -578,15 +618,11 @@ impl Db {
         let Some(mut connection) = self.pool.try_acquire() else {
             return Ok(None);
         };
-        match tokio::time::timeout(
-            CLOUDSYNC_LOCAL_STATUS_TIMEOUT,
-            super::ops::cloudsync_has_local_unsent_changes_on(&mut *connection),
-        )
-        .await
-        {
-            Ok(result) => result.map(Some),
-            Err(_) => Ok(None),
-        }
+        let result = super::ops::cloudsync_has_local_unsent_changes_on(&mut *connection)
+            .await
+            .map(Some);
+        connection.return_to_pool().await;
+        result
     }
 }
 
@@ -713,6 +749,102 @@ fn embedded_sync_error(result: &CloudsyncNetworkResult) -> Option<String> {
 #[allow(clippy::items_after_test_module)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "macos")]
+    async fn assert_interrupts_stalled_native_request_once() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let endpoint = format!("http://{}", listener.local_addr().unwrap());
+        let (accepted_tx, accepted_rx) = std::sync::mpsc::sync_channel(1);
+        let (release_tx, release_rx) = std::sync::mpsc::sync_channel(1);
+        let server = std::thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            accepted_tx.send(()).unwrap();
+            let _stream = stream;
+            let _ = release_rx.recv_timeout(Duration::from_secs(5));
+        });
+
+        let db = Arc::new(Db::connect_memory().await.unwrap());
+        sqlx::query(
+            "CREATE TABLE items (
+                id TEXT PRIMARY KEY NOT NULL,
+                value TEXT NOT NULL DEFAULT ''
+            )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        db.cloudsync_init("items", None, None).await.unwrap();
+        {
+            let mut connection = db.cloudsync_connection.lock().await;
+            *connection = Some(db.pool.acquire().await.unwrap());
+            sqlx::query("SELECT cloudsync_network_init_custom(?, ?)")
+                .bind(endpoint)
+                .bind("interrupt-test")
+                .fetch_optional(&mut **connection.as_mut().unwrap())
+                .await
+                .unwrap();
+        }
+
+        let request_db = Arc::clone(&db);
+        let request = tokio::spawn(async move {
+            let _sync_operation = request_db.cloudsync_sync_operation.lock().await;
+            let mut connection = request_db.cloudsync_connection.lock().await;
+            super::super::ops::interruptible_network_receive_changes(
+                connection.as_mut().unwrap(),
+                &request_db.cloudsync_interrupt,
+            )
+            .await
+        });
+        tokio::task::spawn_blocking(move || {
+            accepted_rx
+                .recv_timeout(Duration::from_secs(5))
+                .expect("native CloudSync request did not reach the blackhole server");
+        })
+        .await
+        .unwrap();
+
+        let interrupted_at = std::time::Instant::now();
+        while !request.is_finished() {
+            db.cloudsync_interrupt_sync();
+            assert!(
+                interrupted_at.elapsed() < Duration::from_secs(2),
+                "native CloudSync request did not honor sqlite3_interrupt"
+            );
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+        let result = request.await.unwrap();
+        assert!(result.is_err(), "interrupted native request succeeded");
+        assert!(interrupted_at.elapsed() < Duration::from_secs(2));
+        tokio::time::timeout(
+            Duration::from_millis(100),
+            db.cloudsync_wait_for_sync_idle(),
+        )
+        .await
+        .expect("sync operation released before its SQLite worker became idle");
+
+        {
+            let mut connection = db.cloudsync_connection.lock().await;
+            let value: i64 = sqlx::query_scalar("SELECT 1")
+                .fetch_one(&mut **connection.as_mut().unwrap())
+                .await
+                .unwrap();
+            assert_eq!(value, 1);
+            let worker_idle = connection.as_mut().unwrap().lock_handle().await.unwrap();
+            drop(worker_idle);
+        }
+
+        let _ = release_tx.send(());
+        server.join().unwrap();
+        db.cloudsync_close_connection().await.unwrap();
+    }
+
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    async fn native_cloudsync_interrupt_drains_blackhole_http_and_reuses_connection() {
+        for _ in 0..3 {
+            assert_interrupts_stalled_native_request_once().await;
+        }
+    }
 
     fn test_cloudsync_config() -> CloudsyncRuntimeConfig {
         CloudsyncRuntimeConfig {
@@ -1102,6 +1234,7 @@ mod tests {
                 *self.after_result.lock().unwrap() = Some(result.clone());
                 Ok(crate::CloudsyncHookOutcome {
                     local_work_remaining: self.local_work_remaining,
+                    deferred: false,
                 })
             })
         }
@@ -1121,6 +1254,37 @@ mod tests {
             run_before_sync_hook(&hook, db.pool()).await.unwrap(),
             crate::CloudsyncSyncDirective::ReceiveOnly
         );
+    }
+
+    #[tokio::test]
+    async fn deferred_before_sync_hook_never_starts_native_transport() {
+        let db = Db::connect_memory().await.unwrap();
+        sqlx::query("CREATE TABLE items (id TEXT PRIMARY KEY NOT NULL)")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        db.cloudsync_init("items", None, None).await.unwrap();
+        let recording_hook = Arc::new(RecordingSyncHook {
+            directive: crate::CloudsyncSyncDirective::Deferred,
+            ..Default::default()
+        });
+        let hook: Arc<dyn crate::CloudsyncSyncHook> = recording_hook.clone();
+        let hook = Mutex::new(Some(hook));
+
+        let result = sync_cloudsync_connection(
+            db.pool(),
+            &db.cloudsync_connection,
+            &db.cloudsync_interrupt,
+            &db.cloudsync_sync_operation,
+            &db.cloudsync_runtime,
+            &hook,
+        )
+        .await
+        .unwrap();
+
+        assert!(matches!(result, CloudsyncStepOutcome::Deferred));
+        assert_eq!(recording_hook.before_calls.load(Ordering::SeqCst), 1);
+        assert!(recording_hook.after_result.lock().unwrap().is_none());
     }
 
     #[tokio::test]
@@ -1147,6 +1311,7 @@ mod tests {
         let result = sync_cloudsync_connection(
             db.pool(),
             &db.cloudsync_connection,
+            &db.cloudsync_interrupt,
             &db.cloudsync_sync_operation,
             &db.cloudsync_runtime,
             &hook,
@@ -1183,9 +1348,12 @@ mod tests {
             .unwrap();
         let pending_before = {
             let mut connection = db.pool().acquire().await.unwrap();
-            crate::cloudsync::ops::ensure_pending_payload_fits(&mut connection)
-                .await
-                .unwrap()
+            crate::cloudsync::ops::ensure_pending_payload_fits(
+                &mut connection,
+                &db.cloudsync_interrupt,
+            )
+            .await
+            .unwrap()
         };
         assert!(pending_before.chunks > 0);
 
@@ -1216,6 +1384,7 @@ mod tests {
         let result = sync_cloudsync_connection(
             db.pool(),
             &db.cloudsync_connection,
+            &db.cloudsync_interrupt,
             &db.cloudsync_sync_operation,
             &db.cloudsync_runtime,
             &hook,
@@ -1227,15 +1396,107 @@ mod tests {
         assert!(recording_hook.after_result.lock().unwrap().is_none());
         let pending_after = {
             let mut connection = db.pool().acquire().await.unwrap();
-            crate::cloudsync::ops::ensure_pending_payload_fits(&mut connection)
-                .await
-                .unwrap()
+            crate::cloudsync::ops::ensure_pending_payload_fits(
+                &mut connection,
+                &db.cloudsync_interrupt,
+            )
+            .await
+            .unwrap()
         };
         assert_eq!(pending_after, pending_before);
         let runtime = db.cloudsync_runtime.lock().unwrap();
         assert_eq!(runtime.last_sync.as_ref(), Some(&last_sync));
         assert_eq!(runtime.last_sync_at_ms, Some(42));
         assert_eq!(runtime.last_error.as_deref(), Some("previous error"));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    async fn activity_pause_during_pending_preflight_defers_and_drains_before_local_write() {
+        let db = Arc::new(Db::connect_memory().await.unwrap());
+        sqlx::query(
+            "CREATE TABLE items (
+                id TEXT PRIMARY KEY NOT NULL,
+                value TEXT NOT NULL DEFAULT ''
+            )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        db.cloudsync_init("items", None, None).await.unwrap();
+        sqlx::query("SELECT cloudsync_set('payload_max_chunk_size', '33554432')")
+            .fetch_optional(db.pool())
+            .await
+            .unwrap();
+        sqlx::query(
+            "WITH RECURSIVE rows(id) AS (
+                SELECT 1
+                UNION ALL
+                SELECT id + 1 FROM rows WHERE id < 100000
+            )
+            INSERT INTO items (id, value)
+            SELECT printf('item-%d', id), printf('value-%d', id) FROM rows",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let recording_hook = Arc::new(RecordingSyncHook::default());
+        db.set_cloudsync_sync_hook(recording_hook.clone());
+        {
+            let mut runtime = db.cloudsync_runtime.lock().unwrap();
+            runtime.config = Some(test_cloudsync_config());
+            runtime.running = true;
+            runtime.network_initialized = true;
+        }
+
+        let request_db = Arc::clone(&db);
+        let request = tokio::spawn(async move { request_db.cloudsync_trigger_sync().await });
+        let started_at = std::time::Instant::now();
+        while !db.cloudsync_interrupt_registered() {
+            assert!(
+                !request.is_finished(),
+                "pending payload generation completed before interrupt registration was observable"
+            );
+            assert!(
+                started_at.elapsed() < Duration::from_secs(2),
+                "pending payload generation never registered for interruption"
+            );
+            tokio::task::yield_now().await;
+        }
+
+        recording_hook.activity_paused.store(true, Ordering::SeqCst);
+        while !request.is_finished() {
+            db.cloudsync_interrupt_sync();
+            assert!(
+                started_at.elapsed() < Duration::from_secs(2),
+                "pending payload generation did not honor sqlite3_interrupt"
+            );
+            tokio::task::yield_now().await;
+        }
+
+        assert_eq!(
+            request.await.unwrap().unwrap(),
+            CloudsyncNetworkResult::default()
+        );
+        assert!(db.cloudsync_runtime.lock().unwrap().last_error.is_none());
+        assert_eq!(recording_hook.before_calls.load(Ordering::SeqCst), 0);
+        assert!(recording_hook.after_result.lock().unwrap().is_none());
+        assert!(!db.cloudsync_interrupt_registered());
+        tokio::time::timeout(
+            Duration::from_millis(250),
+            db.cloudsync_wait_for_sync_idle(),
+        )
+        .await
+        .expect("pending payload worker did not become idle after activity pause");
+        tokio::time::timeout(
+            Duration::from_millis(250),
+            sqlx::query("INSERT INTO items (id, value) VALUES ('after', 'local')")
+                .execute(db.pool()),
+        )
+        .await
+        .expect("immediate local write remained blocked after activity pause")
+        .unwrap();
     }
 
     #[tokio::test]
@@ -1902,6 +2163,40 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn repeated_status_polling_does_not_queue_work_on_a_busy_pool() {
+        let (_dir, db) = db_with_local_unsent_changes().await;
+        {
+            let mut runtime = db.cloudsync_runtime.lock().unwrap();
+            runtime.config = Some(test_cloudsync_config());
+            runtime.running = true;
+            runtime.network_initialized = true;
+        }
+        let mut first_connection = db.pool().acquire().await.unwrap();
+
+        for _ in 0..32 {
+            let status = tokio::time::timeout(Duration::from_millis(50), db.cloudsync_status())
+                .await
+                .expect("CloudSync status waited for a busy pool")
+                .unwrap();
+            assert_eq!(status.has_unsent_changes, None);
+        }
+
+        first_connection.return_to_pool().await;
+        for _ in 0..32 {
+            let status = tokio::time::timeout(Duration::from_millis(100), db.cloudsync_status())
+                .await
+                .expect("CloudSync status left SQLite work in flight")
+                .unwrap();
+            assert_eq!(status.has_unsent_changes, Some(true));
+        }
+        assert!(db.pool().num_idle() > 0);
+        tokio::time::timeout(Duration::from_millis(100), db.pool().acquire())
+            .await
+            .expect("repeated CloudSync status polling exhausted the pool")
+            .unwrap();
+    }
+
+    #[tokio::test]
     async fn logout_checks_unsent_changes_without_network_io() {
         let (_dir, db) = db_with_local_unsent_changes().await;
         {
@@ -2130,7 +2425,6 @@ fn record_sync_error(runtime: &Mutex<CloudsyncRuntimeState>, error: &hypr_clouds
 }
 const MAX_BACKOFF_SECS: u64 = 300;
 const CLOUDSYNC_PROGRESS_INTERVAL: Duration = Duration::from_millis(200);
-const CLOUDSYNC_LOCAL_STATUS_TIMEOUT: Duration = Duration::from_millis(50);
 
 struct CloudsyncStepResult {
     network: CloudsyncNetworkResult,
@@ -2150,6 +2444,7 @@ struct CloudsyncLoopConfig {
 struct CloudsyncLoopContext {
     pool: SqlitePool,
     connection: Arc<tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>>,
+    interrupt: Arc<super::CloudsyncInterruptHandle>,
     sync_operation: Arc<tokio::sync::Mutex<()>>,
     sync_requested: Arc<tokio::sync::Notify>,
     runtime_state: Arc<Mutex<CloudsyncRuntimeState>>,
@@ -2240,17 +2535,7 @@ async fn sync_cloudsync_with_retry(
         .build();
 
     loop {
-        let result = run_or_shutdown(
-            sync_cloudsync_connection(
-                &context.pool,
-                &context.connection,
-                &context.sync_operation,
-                &context.runtime_state,
-                &context.sync_hook,
-            ),
-            shutdown_rx,
-        )
-        .await?;
+        let result = run_sync_or_shutdown(context, shutdown_rx).await?;
 
         match result {
             Err(error) if error.kind() == hypr_cloudsync::ErrorKind::Transient => {
@@ -2287,6 +2572,41 @@ async fn sync_cloudsync_with_retry(
     }
 }
 
+async fn run_sync_or_shutdown(
+    context: &CloudsyncLoopContext,
+    shutdown_rx: &mut oneshot::Receiver<()>,
+) -> Option<Result<CloudsyncStepOutcome, hypr_cloudsync::Error>> {
+    let sync = sync_cloudsync_connection(
+        &context.pool,
+        &context.connection,
+        &context.interrupt,
+        &context.sync_operation,
+        &context.runtime_state,
+        &context.sync_hook,
+    );
+    tokio::pin!(sync);
+
+    tokio::select! {
+        biased;
+        _ = &mut *shutdown_rx => {
+            cancel_active_sync_hook(&context.sync_hook);
+            let mut interrupt_interval = tokio::time::interval(Duration::from_millis(25));
+            loop {
+                tokio::select! {
+                    biased;
+                    _ = &mut sync => return None,
+                    _ = interrupt_interval.tick() => {
+                        cancel_active_sync_hook(&context.sync_hook);
+                        context.interrupt.interrupt();
+                    }
+                }
+            }
+        }
+        result = &mut sync => Some(result),
+    }
+}
+
+#[cfg(test)]
 async fn run_or_shutdown<T>(
     future: impl Future<Output = T>,
     shutdown_rx: &mut oneshot::Receiver<()>,
@@ -2314,6 +2634,7 @@ async fn wait_for_retry_request_or_shutdown(
 async fn sync_cloudsync_connection(
     pool: &SqlitePool,
     connection: &tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>,
+    interrupt: &super::CloudsyncInterruptHandle,
     sync_operation: &tokio::sync::Mutex<()>,
     runtime_state: &Mutex<CloudsyncRuntimeState>,
     sync_hook: &Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>,
@@ -2328,54 +2649,111 @@ async fn sync_cloudsync_connection(
         if connection.is_none() {
             *connection = Some(pool.acquire().await?);
         }
-        let batch = super::ops::ensure_pending_payload_fits(connection.as_mut().unwrap()).await;
+        let result =
+            super::ops::ensure_pending_payload_fits(connection.as_mut().unwrap(), interrupt).await;
         if pool.options().get_max_connections() == 1 {
             connection.take();
         }
-        batch?
+        result
+    };
+    let pending_batch = match pending_batch {
+        Err(_) if cloudsync_activity_paused(sync_hook) => {
+            return Ok(CloudsyncStepOutcome::Deferred);
+        }
+        result => result?,
     };
     let directive = if pending_batch.chunks > 0 {
         super::CloudsyncSyncDirective::SendAndReceive
     } else {
         run_before_sync_hook(sync_hook, pool).await?
     };
+    if directive == super::CloudsyncSyncDirective::Deferred {
+        return Ok(CloudsyncStepOutcome::Deferred);
+    }
+    if cloudsync_activity_paused(sync_hook) {
+        return Ok(CloudsyncStepOutcome::Deferred);
+    }
     let mut connection = connection.lock().await;
     if connection.is_none() {
         *connection = Some(pool.acquire().await?);
     }
     let has_outbound_work = match directive {
         super::CloudsyncSyncDirective::SendAndReceive if pending_batch.chunks == 0 => {
-            super::ops::ensure_pending_payload_fits(connection.as_mut().unwrap())
-                .await?
-                .chunks
-                > 0
+            let result =
+                super::ops::ensure_pending_payload_fits(connection.as_mut().unwrap(), interrupt)
+                    .await;
+            match result {
+                Err(_) if cloudsync_activity_paused(sync_hook) => {
+                    if pool.options().get_max_connections() == 1 {
+                        connection.take();
+                    }
+                    return Ok(CloudsyncStepOutcome::Deferred);
+                }
+                result => result?.chunks > 0,
+            }
         }
         super::CloudsyncSyncDirective::SendAndReceive => true,
         super::CloudsyncSyncDirective::ReceiveOnly => false,
+        super::CloudsyncSyncDirective::Deferred => unreachable!("deferred before native sync"),
     };
     runtime_state.lock().unwrap().outbound_work_state = Some(has_outbound_work);
-    let result: Result<CloudsyncNetworkResult, hypr_cloudsync::Error> = async {
-        let send = match directive {
-            super::CloudsyncSyncDirective::SendAndReceive => {
-                super::ops::guarded_network_send_changes(connection.as_mut().unwrap()).await?
-            }
-            super::CloudsyncSyncDirective::ReceiveOnly => CloudsyncNetworkResult::default(),
-        };
-        if sync_send_settled(&send) {
-            runtime_state.lock().unwrap().outbound_work_state = Some(false);
+    if cloudsync_activity_paused(sync_hook) {
+        if pool.options().get_max_connections() == 1 {
+            connection.take();
         }
-        let receive =
-            hypr_cloudsync::network_receive_changes(&mut **connection.as_mut().unwrap(), Some(1))
-                .await?;
-        Ok(merge_bounded_sync_results(send, receive))
+        return Ok(CloudsyncStepOutcome::Deferred);
     }
-    .await;
+    let send = match directive {
+        super::CloudsyncSyncDirective::SendAndReceive => {
+            super::ops::guarded_interruptible_network_send_changes(
+                connection.as_mut().unwrap(),
+                interrupt,
+                || cloudsync_activity_paused(sync_hook),
+            )
+            .await
+        }
+        super::CloudsyncSyncDirective::ReceiveOnly => Ok(CloudsyncNetworkResult::default()),
+        super::CloudsyncSyncDirective::Deferred => unreachable!("deferred before native sync"),
+    };
+    let send = match send {
+        Err(_) if cloudsync_activity_paused(sync_hook) => {
+            if pool.options().get_max_connections() == 1 {
+                connection.take();
+            }
+            return Ok(CloudsyncStepOutcome::Deferred);
+        }
+        result => result?,
+    };
+    if sync_send_settled(&send) {
+        runtime_state.lock().unwrap().outbound_work_state = Some(false);
+    }
+    if cloudsync_activity_paused(sync_hook) {
+        if pool.options().get_max_connections() == 1 {
+            connection.take();
+        }
+        return Ok(CloudsyncStepOutcome::Deferred);
+    }
+    let receive =
+        super::ops::interruptible_network_receive_changes(connection.as_mut().unwrap(), interrupt)
+            .await;
+    let receive = match receive {
+        Err(_) if cloudsync_activity_paused(sync_hook) => {
+            if pool.options().get_max_connections() == 1 {
+                connection.take();
+            }
+            return Ok(CloudsyncStepOutcome::Deferred);
+        }
+        result => result?,
+    };
+    let result = merge_bounded_sync_results(send, receive);
     if pool.options().get_max_connections() == 1 {
         connection.take();
     }
     drop(connection);
-    let result = result?;
     let outcome = run_after_sync_hook(sync_hook, pool, &result).await?;
+    if outcome.deferred || cloudsync_activity_paused(sync_hook) {
+        return Ok(CloudsyncStepOutcome::Deferred);
+    }
     runtime_state.lock().unwrap().outbound_work_state = Some(outcome.local_work_remaining);
     Ok(CloudsyncStepOutcome::Completed(Box::new(
         CloudsyncStepResult {
@@ -2385,11 +2763,19 @@ async fn sync_cloudsync_connection(
     )))
 }
 
-fn cloudsync_activity_paused(hook: &Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>) -> bool {
+pub(super) fn cloudsync_activity_paused(
+    hook: &Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>,
+) -> bool {
     hook.lock()
         .unwrap()
         .as_ref()
         .is_some_and(|hook| hook.activity_paused())
+}
+
+fn cancel_active_sync_hook(hook: &Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>) {
+    if let Some(hook) = hook.lock().unwrap().clone() {
+        hook.cancel_active_sync();
+    }
 }
 
 fn merge_bounded_sync_results(
