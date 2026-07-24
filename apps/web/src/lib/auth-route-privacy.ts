@@ -1,6 +1,7 @@
 import { isShareRoutePathname } from "./share-route-privacy.ts";
 
 const AUTH_HANDOFF_STORAGE_KEY = "anarlog.desktop-auth-handoff";
+const AUTH_HANDOFF_MAX_AGE_MS = 5 * 60 * 1000;
 const AUTH_CALLBACK_SEARCH_KEYS = [
   "access_token",
   "refresh_token",
@@ -41,7 +42,7 @@ export function isTelemetryPrivateLocation(
   );
 }
 
-export function prepareAuthRoutePrivacy() {
+export function prepareAuthRoutePrivacy(now = Date.now()) {
   if (typeof window === "undefined") {
     return;
   }
@@ -65,7 +66,7 @@ export function prepareAuthRoutePrivacy() {
   try {
     window.sessionStorage.setItem(
       AUTH_HANDOFF_STORAGE_KEY,
-      JSON.stringify({ accessToken, refreshToken }),
+      JSON.stringify({ accessToken, refreshToken, storedAt: now }),
     );
   } catch {
     return;
@@ -84,23 +85,34 @@ export function prepareAuthRoutePrivacy() {
   );
 }
 
-export function readDesktopAuthHandoff() {
+export function consumeDesktopAuthHandoff(now = Date.now()) {
   if (typeof window === "undefined") {
     return null;
   }
 
   try {
-    const parsed = JSON.parse(
-      window.sessionStorage.getItem(AUTH_HANDOFF_STORAGE_KEY) ?? "null",
-    ) as unknown;
+    const stored = window.sessionStorage.getItem(AUTH_HANDOFF_STORAGE_KEY);
+    if (!stored) {
+      return null;
+    }
+
+    window.sessionStorage.removeItem(AUTH_HANDOFF_STORAGE_KEY);
+    const parsed = JSON.parse(stored) as unknown;
     if (
       typeof parsed === "object" &&
       parsed !== null &&
       "accessToken" in parsed &&
       "refreshToken" in parsed &&
+      "storedAt" in parsed &&
       typeof parsed.accessToken === "string" &&
-      typeof parsed.refreshToken === "string"
+      typeof parsed.refreshToken === "string" &&
+      typeof parsed.storedAt === "number"
     ) {
+      const age = now - parsed.storedAt;
+      if (age < 0 || age > AUTH_HANDOFF_MAX_AGE_MS) {
+        return null;
+      }
+
       return {
         accessToken: parsed.accessToken,
         refreshToken: parsed.refreshToken,

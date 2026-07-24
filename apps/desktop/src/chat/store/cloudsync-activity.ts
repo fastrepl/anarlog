@@ -11,10 +11,16 @@ type Lease = {
   logicalKey: string;
   nativeKey: string;
   acquisition: Promise<void>;
+  acquired: boolean;
   completions: Set<Promise<unknown>>;
+  preflight?: GuardedChatPreflight;
   preflightPending: boolean;
   finished: boolean;
+  callbackReady: boolean;
   callbackConsumed: boolean;
+  finishClaimed: boolean;
+  releaseOnFinish: boolean;
+  surviveDisposal: boolean;
   release?: Promise<void>;
   retryTimer?: ReturnType<typeof setTimeout>;
   releaseFailureReported: boolean;
@@ -82,7 +88,11 @@ export function createChatCloudsyncActivityController({
   };
 
   const removeFromLogicalQueue = (lease: Lease) => {
-    if (!lease.callbackConsumed || leases.has(lease.nativeKey)) {
+    if (
+      !lease.callbackConsumed ||
+      leases.has(lease.nativeKey) ||
+      (lease.preflight && !lease.finishClaimed)
+    ) {
       return;
     }
     const queue = logicalQueues.get(lease.logicalKey);
@@ -121,6 +131,9 @@ export function createChatCloudsyncActivityController({
             lease.retryTimer = undefined;
           }
           removeFromLogicalQueue(lease);
+          if (lease.releaseOnFinish) {
+            scheduleReleaseIfIdle();
+          }
           return;
         } catch (error) {
           lastError = error;
@@ -194,7 +207,7 @@ export function createChatCloudsyncActivityController({
     }
   };
 
-  const scheduleReleaseIfIdle = () => {
+  function scheduleReleaseIfIdle() {
     finishPendingDisposals();
     if (disposed) {
       return;
@@ -208,13 +221,20 @@ export function createChatCloudsyncActivityController({
       releaseTimer = null;
       void releaseAll();
     }, releaseDelayMs);
-  };
+  }
 
   const finishLease = (lease: Lease) => {
     if (lease.finished) {
       return;
     }
     lease.finished = true;
+    if (lease.releaseOnFinish) {
+      finishPendingDisposals();
+      if (!lease.release) {
+        void releaseLease(lease).catch(() => undefined);
+      }
+      return;
+    }
     scheduleReleaseIfIdle();
   };
 
@@ -253,17 +273,131 @@ export function createChatCloudsyncActivityController({
     removeFromLogicalQueue(lease);
   };
 
+  const claimLease = (lease: Lease | undefined) => {
+    if (lease) {
+      lease.finishClaimed = true;
+      removeFromLogicalQueue(lease);
+    }
+    return lease;
+  };
+
+  const claimActiveFinishLease = (logicalKey: string) => {
+    const queue = logicalQueues.get(logicalKey);
+    return claimLease(
+      queue?.find(
+        (candidate) =>
+          !candidate.finishClaimed &&
+          candidate.callbackReady &&
+          !candidate.callbackConsumed &&
+          leases.get(candidate.nativeKey) === candidate &&
+          !candidate.release &&
+          !candidate.retryTimer,
+      ),
+    );
+  };
+
+  const claimReusableFinishLease = (logicalKey: string) => {
+    const queue = logicalQueues.get(logicalKey);
+    return claimLease(
+      queue?.find(
+        (candidate) =>
+          !candidate.finishClaimed &&
+          candidate.acquired &&
+          candidate.callbackConsumed &&
+          !candidate.preflightPending &&
+          leases.get(candidate.nativeKey) === candidate &&
+          !candidate.release &&
+          !candidate.retryTimer,
+      ),
+    );
+  };
+
+  const claimRetainedPreflightLease = (
+    logicalKey: string,
+    excluded?: Lease,
+  ) => {
+    const queue = logicalQueues.get(logicalKey);
+    return claimLease(
+      queue?.find(
+        (candidate) =>
+          candidate !== excluded &&
+          !candidate.finishClaimed &&
+          candidate.callbackConsumed &&
+          !candidate.preflightPending &&
+          Boolean(candidate.preflight),
+      ),
+    );
+  };
+
+  const claimConsumedFinishLease = (logicalKey: string) => {
+    const queue = logicalQueues.get(logicalKey);
+    return claimLease(
+      queue?.find(
+        (candidate) =>
+          !candidate.finishClaimed &&
+          candidate.callbackConsumed &&
+          !candidate.preflightPending,
+      ),
+    );
+  };
+
+  const restoreFinishLease = (lease: Lease) => {
+    if (!lease.preflight) {
+      return;
+    }
+    lease.finishClaimed = false;
+    const queue = logicalQueues.get(lease.logicalKey) ?? [];
+    if (!queue.includes(lease)) {
+      queue.unshift(lease);
+      logicalQueues.set(lease.logicalKey, queue);
+    }
+  };
+
+  const discardSupersededPreflights = (successfulLease: Lease) => {
+    const queue = logicalQueues.get(successfulLease.logicalKey);
+    if (!queue) {
+      return;
+    }
+    for (const lease of [...queue]) {
+      if (
+        lease === successfulLease ||
+        lease.finishClaimed ||
+        !lease.preflight ||
+        (leases.get(lease.nativeKey) === lease &&
+          (!lease.callbackConsumed || lease.preflightPending))
+      ) {
+        continue;
+      }
+      lease.preflight = undefined;
+      removeFromLogicalQueue(lease);
+    }
+  };
+
+  const runPreflight = async (sourceLease: Lease, activeLease: Lease) => {
+    const preflight = sourceLease.preflight;
+    if (!preflight) {
+      return;
+    }
+
+    await preflight.run((completion) =>
+      trackCompletion(activeLease, completion),
+    );
+    sourceLease.preflight = undefined;
+  };
+
   const start = async (
     logicalKey: string,
     {
       preflight,
       isCancelled = () => false,
+      surviveDisposal = false,
     }: {
       preflight?: GuardedChatPreflight;
       isCancelled?: () => boolean;
+      surviveDisposal?: boolean;
     } = {},
   ): Promise<ChatCloudsyncActivityAttempt | null> => {
-    if (disposed) {
+    if (disposed && !surviveDisposal) {
       return null;
     }
 
@@ -273,10 +407,16 @@ export function createChatCloudsyncActivityController({
       logicalKey,
       nativeKey,
       acquisition: begin("chat", nativeKey),
+      acquired: false,
       completions: new Set(),
+      preflight,
       preflightPending: Boolean(preflight),
       finished: false,
+      callbackReady: false,
       callbackConsumed: false,
+      finishClaimed: false,
+      releaseOnFinish: disposed && surviveDisposal,
+      surviveDisposal,
       releaseFailureReported: false,
     };
     leases.set(nativeKey, lease);
@@ -286,6 +426,7 @@ export function createChatCloudsyncActivityController({
 
     try {
       await lease.acquisition;
+      lease.acquired = true;
     } catch (error) {
       lease.preflightPending = false;
       consumeCallback(lease);
@@ -297,10 +438,13 @@ export function createChatCloudsyncActivityController({
     let preflightError: unknown;
     try {
       if (
-        preflight &&
-        (preflight.persistOnCancel || (!disposed && !isCancelled()))
+        lease.preflight &&
+        (lease.preflight.persistOnCancel || (!disposed && !isCancelled()))
       ) {
-        await preflight.run((completion) => trackCompletion(lease, completion));
+        await runPreflight(lease, lease);
+        discardSupersededPreflights(lease);
+      } else {
+        lease.preflight = undefined;
       }
     } catch (error) {
       preflightFailed = true;
@@ -315,11 +459,12 @@ export function createChatCloudsyncActivityController({
       throw preflightError;
     }
 
-    if (disposed || leases.get(nativeKey) !== lease) {
+    if ((!surviveDisposal && disposed) || leases.get(nativeKey) !== lease) {
       consumeCallback(lease);
       return null;
     }
 
+    lease.callbackReady = true;
     return {
       key: nativeKey,
       finish: () => consumeCallback(lease),
@@ -328,13 +473,96 @@ export function createChatCloudsyncActivityController({
   };
 
   const finish = (logicalKey: string) => {
-    const queue = logicalQueues.get(logicalKey);
-    const lease = queue?.find((candidate) => !candidate.callbackConsumed);
+    const lease =
+      claimActiveFinishLease(logicalKey) ??
+      claimConsumedFinishLease(logicalKey);
     if (!lease) {
       return;
     }
 
     consumeCallback(lease);
+  };
+
+  const runWithLease = <T>(
+    logicalKey: string,
+    run: () => T | Promise<T>,
+  ): Promise<T> => {
+    const activeLease =
+      claimActiveFinishLease(logicalKey) ??
+      claimReusableFinishLease(logicalKey);
+    if (activeLease) {
+      const preflightLease = claimRetainedPreflightLease(
+        logicalKey,
+        activeLease,
+      );
+      const completion = Promise.resolve().then(async () => {
+        try {
+          if (preflightLease) {
+            await runPreflight(preflightLease, activeLease);
+          }
+          await runPreflight(activeLease, activeLease);
+          return await run();
+        } catch (error) {
+          if (preflightLease) {
+            restoreFinishLease(preflightLease);
+          }
+          restoreFinishLease(activeLease);
+          throw error;
+        }
+      });
+      trackCompletion(activeLease, completion);
+      consumeCallback(activeLease);
+      return completion;
+    }
+
+    const lease =
+      claimRetainedPreflightLease(logicalKey) ??
+      claimConsumedFinishLease(logicalKey);
+    return (async () => {
+      let attempt: ChatCloudsyncActivityAttempt | null;
+      try {
+        attempt = await start(logicalKey, { surviveDisposal: true });
+      } catch (error) {
+        if (lease) {
+          restoreFinishLease(lease);
+        }
+        throw error;
+      }
+      if (!attempt) {
+        if (lease) {
+          restoreFinishLease(lease);
+        }
+        const error = new Error("Chat activity unavailable");
+        error.name = "AbortError";
+        throw error;
+      }
+
+      const freshLease = leases.get(attempt.key);
+      if (!freshLease) {
+        attempt.finish();
+        if (lease) {
+          restoreFinishLease(lease);
+        }
+        throw new Error("Chat activity lease unavailable");
+      }
+      freshLease.finishClaimed = true;
+      const completion = Promise.resolve().then(async () => {
+        try {
+          if (lease) {
+            await runPreflight(lease, freshLease);
+          }
+          return await run();
+        } catch (error) {
+          if (lease) {
+            restoreFinishLease(lease);
+          }
+          throw error;
+        }
+      });
+      attempt.trackCompletion(completion);
+      attempt.finish();
+      return completion;
+    })();
   };
 
   const finishAll = () => {
@@ -362,8 +590,12 @@ export function createChatCloudsyncActivityController({
     };
     activeDisposal = disposal;
     pendingDisposals.add(disposal);
-    if (completion) {
-      for (const lease of disposal.leases) {
+    for (const lease of disposal.leases) {
+      if (lease.surviveDisposal) {
+        lease.releaseOnFinish = true;
+        continue;
+      }
+      if (completion) {
         trackCompletion(lease, completion);
         consumeCallback(lease);
       }
@@ -385,7 +617,7 @@ export function createChatCloudsyncActivityController({
     activeDisposal = null;
   };
 
-  return { start, finish, finishAll, dispose, resume };
+  return { start, finish, finishAll, runWithLease, dispose, resume };
 }
 
 export type ChatCloudsyncActivityController = ReturnType<
@@ -415,10 +647,21 @@ export function guardChatTransport<UI_MESSAGE extends UIMessage>(
       }
 
       const key = userMessage.id;
-      const attempt = await activity.start(key, {
-        preflight: beforeSend?.(key),
-        isCancelled: () => Boolean(options.abortSignal?.aborted),
-      });
+      const preflight = beforeSend?.(key);
+      let attempt: ChatCloudsyncActivityAttempt | null;
+      try {
+        attempt = await activity.start(key, {
+          preflight,
+          isCancelled: () => Boolean(options.abortSignal?.aborted),
+        });
+      } catch (error) {
+        if (preflight?.persistOnCancel) {
+          await activity
+            .runWithLease(key, () => undefined)
+            .catch(() => undefined);
+        }
+        throw error;
+      }
 
       if (!attempt) {
         const error = new Error("Chat request aborted");

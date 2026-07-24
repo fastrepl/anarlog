@@ -24,8 +24,8 @@ import {
   sanitizeInternalReturnPath,
 } from "@/lib/auth-redirect";
 import {
+  consumeDesktopAuthHandoff,
   prepareAuthRoutePrivacy,
-  readDesktopAuthHandoff,
 } from "@/lib/auth-route-privacy";
 import {
   buildDesktopAuthDeeplink,
@@ -128,7 +128,7 @@ export const Route = createFileRoute("/_view/callback/auth")({
 function Component() {
   const search = Route.useSearch();
   const [storedHandoff, setStoredHandoff] =
-    useState<ReturnType<typeof readDesktopAuthHandoff>>(null);
+    useState<ReturnType<typeof consumeDesktopAuthHandoff>>(null);
 
   const accessToken = search.access_token ?? storedHandoff?.accessToken;
   const refreshToken = search.refresh_token ?? storedHandoff?.refreshToken;
@@ -140,12 +140,14 @@ function Component() {
 
   useMountEffect(() => {
     prepareAuthRoutePrivacy();
-    const handoff = readDesktopAuthHandoff();
     if (
       search.handoff === "stored" ||
       (search.access_token && search.refresh_token)
     ) {
-      setStoredHandoff(handoff);
+      const handoff = consumeDesktopAuthHandoff();
+      if (handoff) {
+        setStoredHandoff(handoff);
+      }
     }
   });
 

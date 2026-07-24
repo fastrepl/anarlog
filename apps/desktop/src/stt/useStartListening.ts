@@ -748,8 +748,10 @@ function useCaptureLifecycle(sessionId: string) {
           }
         }
       };
-      const onStopped: OnStoppedCallback = (_sessionId, details) =>
-        finalizeStopped(details, true);
+      const onStopped: OnStoppedCallback = (_sessionId, details) => {
+        recoveryPending = false;
+        return finalizeStopped(details, true);
+      };
       const recoverStopped: OnStoppedCallback = (_sessionId, details) =>
         finalizeStopped(details, false);
 

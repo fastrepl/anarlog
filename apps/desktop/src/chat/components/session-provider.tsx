@@ -260,98 +260,100 @@ function ChatSessionLifecycle({
           const retainPriorRegeneration =
             regenerationTarget &&
             (isError || !shouldPersistFinishedMessage(sanitizedMessage));
+          const persistAssistant =
+            !isAbort &&
+            acceptFinishedChatPersistenceRef.current &&
+            !retainPriorRegeneration;
 
-          if (
-            isAbort ||
-            !currentUserId ||
-            !acceptFinishedChatPersistenceRef.current ||
-            retainPriorRegeneration
-          ) {
+          if (!currentUserId || (!submittedUserMessage && !persistAssistant)) {
             if (submittedUserMessage) {
               chatCloudsyncActivity.finish(submittedUserMessage.id);
             }
             return;
           }
 
-          const finishedPersist = (async () => {
-            // Outbound user writes may still be retrying; settle them first
-            // so the lookup below reflects the final truth and a failed
-            // persist can be repaired instead of orphaning the reply.
-            const awaitedChatGroupId =
-              submittedChatGroupId ?? latestChatGroupIdRef.current;
-            if (awaitedChatGroupId) {
-              await waitForPendingChatPersists(awaitedChatGroupId);
-            }
+          const finishedPersist = chatCloudsyncActivity.runWithLease(
+            submittedUserMessage?.id ?? sanitizedMessage.id,
+            async () => {
+              // Outbound user writes may still be retrying; settle them first
+              // so the lookup below reflects the final truth and a failed
+              // persist can be repaired instead of orphaning the reply.
+              const awaitedChatGroupId =
+                submittedChatGroupId ?? latestChatGroupIdRef.current;
+              if (awaitedChatGroupId) {
+                await waitForPendingChatPersists(awaitedChatGroupId);
+              }
 
-            let persistedChatGroupId: string | null = null;
-            if (submittedUserMessage) {
-              try {
-                persistedChatGroupId = await getChatMessageGroupId(
-                  submittedUserMessage.id,
-                );
-              } catch (error) {
-                console.error(
-                  "Failed to resolve the persisted chat message group",
-                  error,
+              let persistedChatGroupId: string | null = null;
+              if (submittedUserMessage) {
+                try {
+                  persistedChatGroupId = await getChatMessageGroupId(
+                    submittedUserMessage.id,
+                  );
+                } catch (error) {
+                  console.error(
+                    "Failed to resolve the persisted chat message group",
+                    error,
+                  );
+                }
+              }
+              const targetChatGroupId =
+                submittedChatGroupId ??
+                persistedChatGroupId ??
+                latestChatGroupIdRef.current;
+              if (!targetChatGroupId) {
+                return;
+              }
+
+              // The group row was never created; persisting into it would
+              // produce orphaned rows that never appear in history.
+              if (isFailedChatGroupCreate(targetChatGroupId)) {
+                return;
+              }
+
+              // If the outbound persist failed, the assistant row would land
+              // with no matching user row and reconciliation would wipe the
+              // turn — repair the user message before persisting the reply.
+              if (submittedUserMessage && !persistedChatGroupId) {
+                await upsertChatMessage(
+                  buildPersistedChatMessage({
+                    message: submittedUserMessage,
+                    chatGroupId: targetChatGroupId,
+                    ownerUserId: currentUserId,
+                    status: "ready",
+                  }),
                 );
               }
-            }
-            const targetChatGroupId =
-              submittedChatGroupId ??
-              persistedChatGroupId ??
-              latestChatGroupIdRef.current;
-            if (!targetChatGroupId) {
-              return;
-            }
 
-            // The group row was never created; persisting into it would
-            // produce orphaned rows that never appear in history.
-            if (isFailedChatGroupCreate(targetChatGroupId)) {
-              return;
-            }
-
-            // If the outbound persist failed, the assistant row would land
-            // with no matching user row and reconciliation would wipe the
-            // turn — repair the user message before persisting the reply.
-            if (submittedUserMessage && !persistedChatGroupId) {
-              await upsertChatMessage(
-                buildPersistedChatMessage({
-                  message: submittedUserMessage,
-                  chatGroupId: targetChatGroupId,
-                  ownerUserId: currentUserId,
-                  status: "ready",
-                }),
-              );
-            }
-
-            if (!shouldPersistFinishedMessage(sanitizedMessage)) {
-              await deleteChatMessage(targetChatGroupId, sanitizedMessage.id);
-              return;
-            }
-
-            const persistedMessage = buildPersistedChatMessage({
-              message: sanitizedMessage,
-              chatGroupId: targetChatGroupId,
-              ownerUserId: currentUserId,
-              status: "ready",
-            });
-            if (regenerationTarget) {
-              if (regenerationTarget.chatGroupId !== targetChatGroupId) {
-                throw new Error("Regenerated chat message group changed");
+              if (!persistAssistant) {
+                return;
               }
-              await replaceChatMessage({
-                message: persistedMessage,
-                previousMessageId: regenerationTarget.assistantMessageId,
+
+              if (!shouldPersistFinishedMessage(sanitizedMessage)) {
+                await deleteChatMessage(targetChatGroupId, sanitizedMessage.id);
+                return;
+              }
+
+              const persistedMessage = buildPersistedChatMessage({
+                message: sanitizedMessage,
+                chatGroupId: targetChatGroupId,
+                ownerUserId: currentUserId,
+                status: "ready",
               });
-              advanceRegenerationTarget(sanitizedMessage.id);
-              return;
-            }
-            await upsertChatMessage(persistedMessage);
-          })().finally(() => {
-            if (submittedUserMessage) {
-              chatCloudsyncActivity.finish(submittedUserMessage.id);
-            }
-          });
+              if (regenerationTarget) {
+                if (regenerationTarget.chatGroupId !== targetChatGroupId) {
+                  throw new Error("Regenerated chat message group changed");
+                }
+                await replaceChatMessage({
+                  message: persistedMessage,
+                  previousMessageId: regenerationTarget.assistantMessageId,
+                });
+                advanceRegenerationTarget(sanitizedMessage.id);
+                return;
+              }
+              await upsertChatMessage(persistedMessage);
+            },
+          );
           void finishedPersist.catch((error) => {
             console.error("Failed to persist finished chat message", error);
           });

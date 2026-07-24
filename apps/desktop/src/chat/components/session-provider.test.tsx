@@ -1769,7 +1769,7 @@ describe("ChatSession", () => {
     view.unmount();
   });
 
-  it("drops an unconsumed preflight after acquisition failure so the same message can retry", async () => {
+  it("repairs a failed preflight before the same message can retry", async () => {
     const acquisitionError = new Error("cloudsync busy");
     mocks.beginCloudsyncActivity
       .mockRejectedValueOnce(acquisitionError)
@@ -1803,7 +1803,7 @@ describe("ChatSession", () => {
       ),
     );
 
-    expect(failedPreflight).not.toHaveBeenCalled();
+    expect(failedPreflight).toHaveBeenCalledOnce();
     expect(sendTransport).not.toHaveBeenCalled();
     expect(mocks.endCloudsyncActivity).toHaveBeenCalledWith(
       "chat",
@@ -1812,7 +1812,7 @@ describe("ChatSession", () => {
 
     captured.send!(userMessage, { beforeSend: retryPreflight });
     await waitFor(() => expect(retryPreflight).toHaveBeenCalledOnce());
-    expect(failedPreflight).not.toHaveBeenCalled();
+    expect(failedPreflight).toHaveBeenCalledOnce();
     expect(sendTransport).toHaveBeenCalledOnce();
 
     const assistant: HyprUIMessage = {
@@ -1836,7 +1836,7 @@ describe("ChatSession", () => {
       () =>
         expect(mocks.endCloudsyncActivity).toHaveBeenCalledWith(
           "chat",
-          startedNativeKey(1),
+          startedNativeKey(2),
         ),
       { timeout: 1_500 },
     );
