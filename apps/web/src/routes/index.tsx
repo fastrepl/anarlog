@@ -1343,16 +1343,17 @@ function HeroWorkflowDemo() {
 function AnnouncementBanner() {
   return (
     <div className="flex justify-center px-5 pt-10 md:pt-12">
-      <div className="flex items-center gap-1.5 text-3xl leading-none text-[#181613] opacity-75">
-        <span className="font-hand font-semibold">anarlog</span>
-        <span className="text-sm">by</span>
-        <span className="flex items-center gap-0.5">
+      <div className="flex flex-col items-center gap-1.5 text-[#181613] opacity-75">
+        <span className="flex items-center gap-1 text-xs leading-none">
           <img
             src="/icons/fastrepl.svg"
             alt="Fastrepl"
-            className="h-[1em] w-auto"
+            className="h-3.5 w-auto"
           />
-          <span>.</span>
+          <span>presents</span>
+        </span>
+        <span className="font-hand text-3xl leading-none font-semibold">
+          Anarlog
         </span>
       </div>
     </div>
