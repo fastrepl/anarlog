@@ -1343,64 +1343,21 @@ function HeroWorkflowDemo() {
 function AnnouncementBanner() {
   return (
     <div className="flex justify-center px-5 pt-10 md:pt-12">
-      <a
-        href="https://char.com"
-        className="char-announcement group relative inline-flex h-8 w-[15.25rem] max-w-full items-center justify-center text-center text-sm font-medium text-[#181613] opacity-75 transition-opacity hover:opacity-100"
-        aria-label="Join the waitlist for Char"
-      >
-        <span className="char-announcement-text char-announcement-text-primary absolute inset-y-0 flex min-w-0 items-center justify-center px-8 whitespace-nowrap">
-          Join the waitlist for Char
+      <div className="flex items-center gap-1.5 text-[#181613] opacity-75">
+        <span className="font-hand text-xl leading-none font-semibold">
+          anarlog
         </span>
-        <span className="char-announcement-text char-announcement-text-secondary absolute inset-y-0 flex min-w-0 items-center justify-center px-8 whitespace-nowrap">
-          We're innovating the todo list
-        </span>
-        <span
-          className="pointer-events-none absolute inset-0"
-          aria-hidden="true"
-        >
-          <CharBracket
-            side="left"
-            className="char-announcement-bracket char-announcement-bracket-left absolute top-1/2 left-1/2 h-5 text-[#181613]"
+        <span className="text-sm">by</span>
+        <span className="flex items-center gap-0.5">
+          <img
+            src="/icons/fastrepl.svg"
+            alt="Fastrepl"
+            className="h-3.5 w-auto"
           />
-          <CharBracket
-            side="right"
-            className="char-announcement-bracket char-announcement-bracket-right absolute top-1/2 left-1/2 h-5 text-[#181613]"
-          />
+          <span className="text-sm">.</span>
         </span>
-      </a>
+      </div>
     </div>
-  );
-}
-
-function CharBracket({
-  side,
-  className,
-}: {
-  side: "left" | "right";
-  className?: string;
-}) {
-  return (
-    <svg
-      width="8"
-      height="30"
-      viewBox="0 0 8 30"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      aria-hidden="true"
-    >
-      {side === "left" ? (
-        <path
-          d="M7.871 4.147C7.871 5.658 7.082 7.039 6.099 8.214C4.65 9.946 3.77 12.161 3.77 14.575C3.77 16.99 4.65 19.205 6.099 20.937C7.082 22.112 7.871 23.493 7.871 25.004V29.151H2.965V24.319C2.965 22.735 2.165 21.249 0.822 20.34L0 19.783V9.235L0.822 8.678C2.165 7.769 2.965 6.284 2.965 4.699V0L7.871 0V4.147Z"
-          fill="currentColor"
-        />
-      ) : (
-        <path
-          d="M0 4.147C0 5.658 0.789 7.039 1.773 8.214C3.221 9.946 4.101 12.161 4.101 14.575C4.101 16.99 3.221 19.205 1.773 20.937C0.789 22.112 0 23.493 0 25.004V29.151H4.907V24.319C4.907 22.735 5.706 21.249 7.049 20.34L7.871 19.783V9.235L7.049 8.678C5.706 7.769 4.907 6.284 4.907 4.699V0L0 0V4.147Z"
-          fill="currentColor"
-        />
-      )}
-    </svg>
   );
 }
 
