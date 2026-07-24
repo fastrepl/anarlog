@@ -10,13 +10,30 @@ waived by the user) before running the release-new-version skill.
 
 ## Setup
 
-1. Launch the app: `pnpm -F @hypr/desktop tauri:dev` (first build takes
-   minutes; reuse a running instance when possible).
+1. Launch the app with AEC diagnostics enabled (first build takes minutes;
+   reuse a running instance when possible):
+
+   ```bash
+   env -u NO_AEC AUDIO_SYNC_PROBE=1 LISTENER_DEBUG=1 \
+     pnpm -F @hypr/desktop tauri:dev
+   ```
 2. Sign in with a test account that has calendar access. For provider
    matrix runs you need: a Pro (or trialing) account, an API key for at
    least one cloud provider (e.g. OpenAI), and a downloaded local STT +
    LLM model pair.
 3. Note the app version and the provider config under test in the report.
+4. For macOS audio regression runs, leave the MacBook open and use its
+   built-in speakers and microphone with no external audio device attached.
+5. Play the 15-minute Lex Fridman fixture from a long-lived terminal
+   command after recording starts:
+
+   ```bash
+   /usr/bin/afplay -v 0.7 -t 900 \
+     "$PWD/crates/data/src/english_10/audio.mp3"
+   ```
+
+   Let it finish naturally, or stop it with Ctrl-C. Do not use QuickTime or
+   Computer Use just to control fixture playback.
 
 ## Checklist
 
@@ -40,11 +57,41 @@ waived by the user) before running the release-new-version skill.
 
 ### 3. Start a recording
 
-- In the note, start listening/recording. Speak a few sentences (or play
-  audio so both mic and speaker paths carry signal).
+- In the note, start listening/recording, then play the repo audio fixture
+  from the terminal so the system-audio path receives the source directly
+  while the built-in microphone also hears it through the MacBook speakers.
 - PASS when: the recording starts without error, live transcript words
   appear (when live transcription is enabled for the provider), and the
   recording indicator/timer runs. Mute/unmute must not wedge the session.
+- Also verify both microphone and system-audio inputs carry nonzero signal,
+  AEC initializes without an error or fallback, and the transcript follows
+  the podcast once rather than duplicating phrases from speaker leakage.
+- `audio_mic.wav` is the post-AEC, post-VAD microphone track, not the raw
+  microphone. For a playback-only run, require all of:
+  - `audio_mic.wav` and `audio_spk.wav` are readable mono 16 kHz WAVs whose
+    durations differ by less than 0.1 seconds.
+  - RemoteParty has at least 500 transcript words.
+  - DirectMic words are at most 10% of RemoteParty words.
+  - At most 5% of DirectMic bigrams also appear on RemoteParty within one
+    second.
+  - Residual mic/speaker absolute correlation is at most 0.10 in every
+    active 30-second sample, with median attenuation of at least 20 dB.
+- Any duplicated-bigram failure blocks release even when the processed
+  microphone is quieter than the system-audio track. If the result is
+  ambiguous, repeat a 90-second baseline with `NO_AEC=1`; enabling AEC must
+  reduce duplicate bigrams by at least 80% and processed-mic RMS by at least
+  10 dB.
+- When a person is available, speak a unique phrase once over the podcast.
+  PASS when it appears on DirectMic and the surrounding podcast remains only
+  on RemoteParty. This protects real double-talk instead of solving echo by
+  suppressing all microphone speech.
+- With `AUDIO_SYNC_PROBE=1`, require an `audio_sync_probe` event and no
+  `aec_init_failed`, `aec_failed`, `audio_sync_probe_panicked`, dropped
+  samples, or mic/speaker queue-overflow events in the app log.
+- For transcript-integrity regressions, let the full 15:02 fixture play.
+  Capture transcript word count, text length, and content hash immediately
+  before Stop, after Stop settles, and after app restart. Counts must never
+  shrink; the settled post-stop hash must survive restart unchanged.
 
 ### 4. Automated summary after recording
 
