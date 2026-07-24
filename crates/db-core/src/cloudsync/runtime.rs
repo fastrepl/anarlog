@@ -229,21 +229,19 @@ impl Db {
         let sync_requested = Arc::clone(&self.cloudsync_sync_requested);
         let runtime_state = Arc::clone(&self.cloudsync_runtime);
         let sync_hook = Arc::clone(&self.cloudsync_sync_hook);
-        let sync_config = CloudsyncLoopConfig {
-            interval: Duration::from_millis(config.sync_interval_ms),
+        let context = CloudsyncLoopContext {
+            pool,
+            connection,
+            sync_operation,
+            sync_requested,
+            runtime_state,
+            sync_hook,
+            config: CloudsyncLoopConfig {
+                interval: Duration::from_millis(config.sync_interval_ms),
+            },
         };
         let join_handle = tokio::spawn(async move {
-            cloudsync_background_loop(
-                pool,
-                connection,
-                sync_operation,
-                sync_requested,
-                runtime_state,
-                sync_hook,
-                sync_config,
-                shutdown_rx,
-            )
-            .await;
+            cloudsync_background_loop(context, shutdown_rx).await;
         });
 
         let mut runtime = self.cloudsync_runtime.lock().unwrap();
@@ -2140,13 +2138,23 @@ struct CloudsyncStepResult {
 }
 
 enum CloudsyncStepOutcome {
-    Completed(CloudsyncStepResult),
+    Completed(Box<CloudsyncStepResult>),
     Deferred,
 }
 
 #[derive(Clone, Copy)]
 struct CloudsyncLoopConfig {
     interval: Duration,
+}
+
+struct CloudsyncLoopContext {
+    pool: SqlitePool,
+    connection: Arc<tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>>,
+    sync_operation: Arc<tokio::sync::Mutex<()>>,
+    sync_requested: Arc<tokio::sync::Notify>,
+    runtime_state: Arc<Mutex<CloudsyncRuntimeState>>,
+    sync_hook: Arc<Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>>,
+    config: CloudsyncLoopConfig,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -2168,44 +2176,27 @@ fn cloudsync_busy_delay(request_pending: bool, interval: Duration) -> Duration {
 }
 
 async fn cloudsync_background_loop(
-    pool: SqlitePool,
-    connection: Arc<tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>>,
-    sync_operation: Arc<tokio::sync::Mutex<()>>,
-    sync_requested: Arc<tokio::sync::Notify>,
-    runtime_state: Arc<Mutex<CloudsyncRuntimeState>>,
-    sync_hook: Arc<Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>>,
-    config: CloudsyncLoopConfig,
+    context: CloudsyncLoopContext,
     mut shutdown_rx: oneshot::Receiver<()>,
 ) {
-    let mut next_sync_delay = cloudsync_next_delay(None, false, config.interval);
+    let mut next_sync_delay = cloudsync_next_delay(None, false, context.config.interval);
     let mut request_pending = false;
     loop {
         let wake = tokio::select! {
             biased;
             _ = &mut shutdown_rx => break,
-            _ = sync_requested.notified() => CloudsyncWake::Requested,
+            _ = context.sync_requested.notified() => CloudsyncWake::Requested,
             _ = tokio::time::sleep(next_sync_delay) => CloudsyncWake::Interval,
         };
         request_pending = cloudsync_request_pending(request_pending, wake);
-        let Ok(sync_available) = sync_operation.try_lock() else {
+        let Ok(sync_available) = context.sync_operation.try_lock() else {
             tracing::debug!("cloudsync interval skipped because another sync is active");
-            next_sync_delay = cloudsync_busy_delay(request_pending, config.interval);
+            next_sync_delay = cloudsync_busy_delay(request_pending, context.config.interval);
             continue;
         };
         drop(sync_available);
         request_pending = false;
-        let Some(result) = sync_cloudsync_with_retry(
-            &pool,
-            &connection,
-            &sync_operation,
-            &sync_requested,
-            &runtime_state,
-            &sync_hook,
-            config,
-            &mut shutdown_rx,
-        )
-        .await
-        else {
+        let Some(result) = sync_cloudsync_with_retry(&context, &mut shutdown_rx).await else {
             break;
         };
 
@@ -2214,16 +2205,20 @@ async fn cloudsync_background_loop(
                 next_sync_delay = cloudsync_next_delay(
                     Some(&step.network),
                     step.local_work_remaining,
-                    config.interval,
+                    context.config.interval,
                 );
-                record_sync_result(&runtime_state, step.network, step.local_work_remaining);
+                record_sync_result(
+                    &context.runtime_state,
+                    step.network,
+                    step.local_work_remaining,
+                );
             }
             Ok(CloudsyncStepOutcome::Deferred) => {
-                next_sync_delay = config.interval;
+                next_sync_delay = context.config.interval;
             }
             Err(error) => {
                 let kind = error.kind();
-                let mut runtime = runtime_state.lock().unwrap();
+                let mut runtime = context.runtime_state.lock().unwrap();
                 runtime.consecutive_failures = runtime.consecutive_failures.saturating_add(1);
                 runtime.last_error = Some(error.to_string());
                 runtime.last_error_kind = Some(kind);
@@ -2235,24 +2230,24 @@ async fn cloudsync_background_loop(
 }
 
 async fn sync_cloudsync_with_retry(
-    pool: &SqlitePool,
-    connection: &tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>,
-    sync_operation: &tokio::sync::Mutex<()>,
-    sync_requested: &tokio::sync::Notify,
-    runtime_state: &Mutex<CloudsyncRuntimeState>,
-    sync_hook: &Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>,
-    config: CloudsyncLoopConfig,
+    context: &CloudsyncLoopContext,
     shutdown_rx: &mut oneshot::Receiver<()>,
 ) -> Option<Result<CloudsyncStepOutcome, hypr_cloudsync::Error>> {
     let mut backoff = ExponentialBuilder::default()
-        .with_min_delay(config.interval)
+        .with_min_delay(context.config.interval)
         .with_max_delay(Duration::from_secs(MAX_BACKOFF_SECS))
         .with_jitter()
         .build();
 
     loop {
         let result = run_or_shutdown(
-            sync_cloudsync_connection(pool, connection, sync_operation, runtime_state, sync_hook),
+            sync_cloudsync_connection(
+                &context.pool,
+                &context.connection,
+                &context.sync_operation,
+                &context.runtime_state,
+                &context.sync_hook,
+            ),
             shutdown_rx,
         )
         .await?;
@@ -2264,7 +2259,7 @@ async fn sync_cloudsync_with_retry(
                 };
 
                 let failures = {
-                    let mut runtime = runtime_state.lock().unwrap();
+                    let mut runtime = context.runtime_state.lock().unwrap();
                     runtime.consecutive_failures = runtime.consecutive_failures.saturating_add(1);
                     runtime.last_error = Some(error.to_string());
                     runtime.last_error_kind = Some(error.kind());
@@ -2277,8 +2272,12 @@ async fn sync_cloudsync_with_retry(
                     "cloudsync transient error, retrying",
                 );
 
-                if !wait_for_retry_request_or_shutdown(retry_after, sync_requested, shutdown_rx)
-                    .await
+                if !wait_for_retry_request_or_shutdown(
+                    retry_after,
+                    &context.sync_requested,
+                    shutdown_rx,
+                )
+                .await
                 {
                     return None;
                 }
@@ -2378,10 +2377,12 @@ async fn sync_cloudsync_connection(
     let result = result?;
     let outcome = run_after_sync_hook(sync_hook, pool, &result).await?;
     runtime_state.lock().unwrap().outbound_work_state = Some(outcome.local_work_remaining);
-    Ok(CloudsyncStepOutcome::Completed(CloudsyncStepResult {
-        network: result,
-        local_work_remaining: outcome.local_work_remaining,
-    }))
+    Ok(CloudsyncStepOutcome::Completed(Box::new(
+        CloudsyncStepResult {
+            network: result,
+            local_work_remaining: outcome.local_work_remaining,
+        },
+    )))
 }
 
 fn cloudsync_activity_paused(hook: &Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>) -> bool {
