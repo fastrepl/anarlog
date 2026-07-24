@@ -35,6 +35,7 @@ import { listCloudflareWorkersAIModels } from "~/settings/ai/shared/list-cloudfl
 import {
   type InputModality,
   type ListModelsResult,
+  removeNonStreamingModels,
 } from "~/settings/ai/shared/list-common";
 import { listGoogleModels } from "~/settings/ai/shared/list-google";
 import { listLMStudioModels } from "~/settings/ai/shared/list-lmstudio";
@@ -509,7 +510,10 @@ export function getLlmProviderStatus({
       listModelsFunc = () => listGenericModels(baseUrl, apiKey);
   }
 
-  return { configured: true, listModels: listModelsFunc };
+  return {
+    configured: true,
+    listModels: async () => removeNonStreamingModels(await listModelsFunc()),
+  };
 }
 
 function useConfiguredMapping(): {

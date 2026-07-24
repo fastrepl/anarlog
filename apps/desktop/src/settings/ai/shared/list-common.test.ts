@@ -1,6 +1,46 @@
 import { describe, expect, test } from "vitest";
 
-import { isOldModel, sortModelsByRecency } from "./list-common";
+import {
+  isNonStreamingModel,
+  isOldModel,
+  removeNonStreamingModels,
+  sortModelsByRecency,
+} from "./list-common";
+
+describe("isNonStreamingModel", () => {
+  test("filters GPT Pro models without hiding streaming-capable models", () => {
+    expect(isNonStreamingModel("gpt-5.4-pro")).toBe(true);
+    expect(isNonStreamingModel("openai/gpt-5.5-pro")).toBe(true);
+    expect(isNonStreamingModel("gpt-5.5-pro-2026-04-23")).toBe(true);
+
+    expect(isNonStreamingModel("gpt-5.5")).toBe(false);
+    expect(isNonStreamingModel("gemini-3.1-pro-preview")).toBe(false);
+  });
+});
+
+describe("removeNonStreamingModels", () => {
+  test("removes non-streaming models from provider API results", () => {
+    expect(
+      removeNonStreamingModels({
+        models: ["openai/gpt-5.5-pro", "openai/gpt-5.5"],
+        ignored: [
+          { id: "gpt-5.4-pro", reasons: ["date_snapshot"] },
+          { id: "gpt-5.4-mini", reasons: ["date_snapshot"] },
+        ],
+        metadata: {
+          "openai/gpt-5.5-pro": { input_modalities: ["text", "image"] },
+          "openai/gpt-5.5": { input_modalities: ["text", "image"] },
+        },
+      }),
+    ).toEqual({
+      models: ["openai/gpt-5.5"],
+      ignored: [{ id: "gpt-5.4-mini", reasons: ["date_snapshot"] }],
+      metadata: {
+        "openai/gpt-5.5": { input_modalities: ["text", "image"] },
+      },
+    });
+  });
+});
 
 describe("isOldModel", () => {
   test("filters older OpenAI chat families while keeping current models", () => {

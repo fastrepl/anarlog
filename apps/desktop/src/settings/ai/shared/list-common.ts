@@ -51,11 +51,9 @@ const commonIgnoreKeywords = [
 ] as const;
 
 const modelPriorityPatterns = [
-  /(?:^|\/)gpt-5\.5-pro$/,
   /(?:^|\/)gpt-5\.5$/,
   /(?:^|\/)(?:chat-latest|gpt-chat-latest)$/,
   /(?:^|\/)claude-sonnet-(?:5|latest)$/,
-  /(?:^|\/)gpt-5\.4-pro$/,
   /(?:^|\/)gpt-5\.4$/,
   /(?:^|\/)gpt-5\.4-mini$/,
   /(?:^|\/)gpt-5\.4-nano$/,
@@ -112,6 +110,25 @@ export const isNonChatModel = (id: string): boolean => {
   if (/^nano-banana/.test(name)) return true;
 
   return false;
+};
+
+export const isNonStreamingModel = (id: string): boolean => {
+  const name = id.toLowerCase().split("/").pop()!;
+  return /^gpt-\d+(?:\.\d+)*-pro(?:$|-)/.test(name);
+};
+
+export const removeNonStreamingModels = (
+  result: ListModelsResult,
+): ListModelsResult => {
+  return {
+    models: result.models.filter((id) => !isNonStreamingModel(id)),
+    ignored: result.ignored.filter(({ id }) => !isNonStreamingModel(id)),
+    metadata: Object.fromEntries(
+      Object.entries(result.metadata).filter(
+        ([id]) => !isNonStreamingModel(id),
+      ),
+    ),
+  };
 };
 
 export const isOldModel = (id: string): boolean => {
