@@ -353,6 +353,9 @@ function ChatSessionLifecycle({
       // persisted set is legitimately behind it and reconciling now would
       // wipe the turn the user just sent.
       hasPendingChatPersist(chatGroupId) ||
+      // The SDK becomes ready before onFinish's assistant write settles.
+      // Keep the completed in-memory response visible until SQLite catches up.
+      pendingFinishedChatPersistsRef.current.size > 0 ||
       areMessagesEqual(messages, persistedVisibleMessages)
     ) {
       return;
