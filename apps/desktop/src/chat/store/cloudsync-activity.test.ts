@@ -336,6 +336,34 @@ describe("chat CloudSync activity", () => {
     });
   });
 
+  it("can resume while a previous mount's lease is still draining", async () => {
+    const begin = vi.fn().mockResolvedValue(undefined);
+    const end = vi.fn().mockResolvedValue(undefined);
+    const controller = createChatCloudsyncActivityController({
+      begin,
+      end,
+      createAttemptKey: sequentialAttemptKeys(),
+    });
+
+    await controller.start("turn-1");
+    const disposed = controller.dispose();
+    controller.resume();
+
+    await expect(controller.start("turn-2")).resolves.toMatchObject({
+      key: "turn-2:attempt-2",
+    });
+    await expect(disposed).resolves.toBeUndefined();
+
+    controller.finish("turn-1");
+    controller.finish("turn-2");
+    await vi.advanceTimersByTimeAsync(CHAT_CLOUDSYNC_RELEASE_DELAY_MS);
+
+    expect(end.mock.calls).toEqual([
+      ["chat", "turn-1:attempt-1"],
+      ["chat", "turn-2:attempt-2"],
+    ]);
+  });
+
   it("keeps dispose idempotent after cleanup has settled", async () => {
     const controller = createChatCloudsyncActivityController({
       begin: vi.fn().mockResolvedValue(undefined),

@@ -352,6 +352,27 @@ describe("CloudSync auth lifecycle", () => {
     expect(startCloudsyncInitialSyncProgress).toHaveBeenCalledTimes(1);
   });
 
+  test("preserves sign-in suspension across native activity deferral", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(credentialsResponse())),
+    );
+    vi.mocked(getCloudsyncStatus).mockResolvedValue(cloudsyncStatus());
+    vi.mocked(configureCloudsyncToken)
+      .mockRejectedValueOnce("cloudsync_activity_deferred")
+      .mockResolvedValueOnce("configured");
+
+    await handleCloudsyncAuthChange("SIGNED_IN", session());
+
+    expect(suspendCloudsync).toHaveBeenCalledTimes(1);
+    expect(configureCloudsyncToken).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(5 * 1000);
+
+    expect(suspendCloudsync).toHaveBeenCalledTimes(2);
+    expect(configureCloudsyncToken).toHaveBeenCalledTimes(2);
+  });
+
   test("exchanges the Supabase token and refreshes before expiry", async () => {
     const fetchMock = vi.fn(() => Promise.resolve(credentialsResponse()));
     vi.stubGlobal("fetch", fetchMock);
