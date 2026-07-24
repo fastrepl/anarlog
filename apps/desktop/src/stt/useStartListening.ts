@@ -1,7 +1,7 @@
 import { useCallback, useRef } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { beginCloudsyncActivity, endCloudsyncActivity } from "@hypr/plugin-db";
+import { beginCloudsyncActivity } from "@hypr/plugin-db";
 import { commands as detectCommands } from "@hypr/plugin-detect";
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
@@ -19,11 +19,13 @@ import { useSTTConnection } from "./useSTTConnection";
 
 import { requestMainAutoEnhance } from "~/ai/task-window-sync";
 import { useShell } from "~/contexts/shell";
+import { releaseCloudsyncActivityEventually } from "~/db/cloudsync-activity";
 import {
   deleteProcessedAudioForRetention,
   normalizeAudioRetention,
 } from "~/services/audio-retention";
 import { getEnhancerService } from "~/services/enhancer";
+import { flushCanonicalSessionEditorChanges } from "~/session-sharing/editor-activity";
 import {
   catalogLocalSessionAudio,
   markSessionAudioTranscriptionComplete,
@@ -393,6 +395,13 @@ function useCaptureLifecycle(sessionId: string) {
       let cloudsyncLeaseActive = false;
       let cloudsyncLeaseAcquire: Promise<void> | null = null;
       let cloudsyncLeaseRelease: Promise<void> | null = null;
+      let recoveryPending = Boolean(recoveredMarker);
+      let recoveryStateCleared = false;
+      const handoffCloudsyncLease = () => {
+        cloudsyncLeaseActive = false;
+        cloudsyncLeaseAcquire = null;
+        cloudsyncLeaseRelease = null;
+      };
       const releaseCloudsyncLease = () => {
         if (cloudsyncLeaseRelease) {
           return cloudsyncLeaseRelease;
@@ -400,7 +409,7 @@ function useCaptureLifecycle(sessionId: string) {
         if (!cloudsyncLeaseActive) {
           return Promise.resolve();
         }
-        cloudsyncLeaseRelease = endCloudsyncActivity(
+        cloudsyncLeaseRelease = releaseCloudsyncActivityEventually(
           CLOUDSYNC_CAPTURE_ACTIVITY,
           cloudsyncLeaseKey,
         ).then(
@@ -468,6 +477,7 @@ function useCaptureLifecycle(sessionId: string) {
         requestRecoveryOnFailure: boolean,
       ) => {
         const requestRecovery = async () => {
+          recoveryPending = true;
           if (requestRecoveryOnFailure) {
             await requestCaptureRecoverySafely(sessionId);
           }
@@ -680,13 +690,25 @@ function useCaptureLifecycle(sessionId: string) {
         }
 
         try {
+          await flushCanonicalSessionEditorChanges(sessionId);
+        } catch (error) {
+          console.error(
+            "[listener] failed to flush session notes before completing capture",
+            error,
+          );
+          await requestRecovery();
+          return;
+        }
+
+        try {
           if (details.audioPath && transcriptIsComplete) {
             await persistTranscriptWrite(() =>
               markSessionAudioTranscriptionComplete(sessionId),
             );
           }
-          await releaseCloudsyncLease();
           await clearCaptureLifecycleMarker(sessionId, transcriptId);
+          recoveryPending = false;
+          recoveryStateCleared = true;
         } catch (error) {
           await requestRecovery();
           throw error;
@@ -708,8 +730,22 @@ function useCaptureLifecycle(sessionId: string) {
       ) => {
         try {
           await finalizeStoppedInner(details, requestRecoveryOnFailure);
+        } catch (error) {
+          if (!recoveryStateCleared && !recoveryPending) {
+            recoveryPending = true;
+            if (requestRecoveryOnFailure) {
+              await requestCaptureRecoverySafely(sessionId);
+            }
+          }
+          throw error;
         } finally {
-          await releaseCloudsyncLease();
+          if (recoveryPending) {
+            if (requestRecoveryOnFailure) {
+              handoffCloudsyncLease();
+            }
+          } else {
+            await releaseCloudsyncLease();
+          }
         }
       };
       const onStopped: OnStoppedCallback = (_sessionId, details) =>
@@ -857,31 +893,10 @@ export function useResumeListeningLifecycle(sessionId: string) {
     }
 
     const { lifecycleState, stoppedProcessingRef } = attempt;
-    const result = await attachLiveSession(sessionId, {
-      handlePersist: (delta) => {
-        void lifecycleState
-          .then(({ lifecycle }) => lifecycle.handlePersist(delta))
-          .catch((error) => {
-            console.error(
-              "[listener] failed to recover transcript persistence",
-              error,
-            );
-          });
-      },
-      onStopped: (stoppedSessionId, details) => {
-        const processing = lifecycleState.then(({ lifecycle }) =>
-          lifecycle.onStopped(stoppedSessionId, {
-            ...details,
-            needsBatchRepair: true,
-          }),
-        );
-        stoppedProcessingRef.current = processing;
-        return processing;
-      },
-    });
     let state: Awaited<typeof lifecycleState>;
     try {
       state = await lifecycleState;
+      await state.lifecycle.acquireCloudsyncLease();
     } catch (error) {
       console.error(
         "[listener] failed to prepare capture recovery state",
@@ -890,19 +905,39 @@ export function useResumeListeningLifecycle(sessionId: string) {
       return "error" as const;
     }
 
-    if (result !== "inactive") {
+    let result: Awaited<ReturnType<typeof attachLiveSession>>;
+    try {
+      result = await attachLiveSession(sessionId, {
+        handlePersist: (delta) => {
+          void state.lifecycle
+            .acquireCloudsyncLease()
+            .then(() => state.lifecycle.handlePersist(delta))
+            .catch((error) => {
+              console.error(
+                "[listener] failed to recover transcript persistence",
+                error,
+              );
+            });
+        },
+        onStopped: (stoppedSessionId, details) => {
+          const processing = state.lifecycle.acquireCloudsyncLease().then(() =>
+            state.lifecycle.onStopped(stoppedSessionId, {
+              ...details,
+              needsBatchRepair: true,
+            }),
+          );
+          stoppedProcessingRef.current = processing;
+          return processing;
+        },
+      });
+    } catch (error) {
+      console.error("[listener] failed to attach capture recovery", error);
+      return "error" as const;
+    }
+
+    if (result === "attached") {
       try {
         await state.ensureMarker();
-        if (result === "attached") {
-          await state.lifecycle.acquireCloudsyncLease();
-          const stoppedProcessing = stoppedProcessingRef.current;
-          if (stoppedProcessing) {
-            void stoppedProcessing.then(
-              () => void state.lifecycle.releaseCloudsyncLease(),
-              () => void state.lifecycle.releaseCloudsyncLease(),
-            );
-          }
-        }
       } catch (error) {
         console.error(
           "[listener] failed to prepare capture recovery state",
@@ -912,21 +947,42 @@ export function useResumeListeningLifecycle(sessionId: string) {
       }
       return result;
     }
+    if (result === "error") {
+      const stoppedProcessing = stoppedProcessingRef.current;
+      if (stoppedProcessing) {
+        try {
+          await stoppedProcessing;
+        } catch (error) {
+          console.error("[listener] failed to recover stopped capture", error);
+          if (stoppedProcessingRef.current === stoppedProcessing) {
+            stoppedProcessingRef.current = null;
+          }
+        }
+      }
+      return "error" as const;
+    }
     if (stoppedProcessingRef.current) {
+      const stoppedProcessing = stoppedProcessingRef.current;
       try {
-        await stoppedProcessingRef.current;
+        await stoppedProcessing;
       } catch (error) {
         console.error("[listener] failed to recover stopped capture", error);
+        if (stoppedProcessingRef.current === stoppedProcessing) {
+          stoppedProcessingRef.current = null;
+        }
         return "error" as const;
       }
       if (await loadCaptureLifecycleMarker(sessionId)) {
-        return "error" as const;
+        if (stoppedProcessingRef.current === stoppedProcessing) {
+          stoppedProcessingRef.current = null;
+        }
+      } else {
+        if (ownsRecoveryFinalizationRef.current) {
+          finishCaptureRecoveryFinalization(sessionId);
+          ownsRecoveryFinalizationRef.current = false;
+        }
+        return "inactive" as const;
       }
-      if (ownsRecoveryFinalizationRef.current) {
-        finishCaptureRecoveryFinalization(sessionId);
-        ownsRecoveryFinalizationRef.current = false;
-      }
-      return "inactive" as const;
     }
 
     if (!state.hasMarker() || !(await loadCaptureLifecycleMarker(sessionId))) {
@@ -934,6 +990,7 @@ export function useResumeListeningLifecycle(sessionId: string) {
         finishCaptureRecoveryFinalization(sessionId);
         ownsRecoveryFinalizationRef.current = false;
       }
+      await state.lifecycle.releaseCloudsyncLease();
       return "inactive" as const;
     }
 
@@ -947,7 +1004,6 @@ export function useResumeListeningLifecycle(sessionId: string) {
     let audioPath: string | null = null;
     let durationSeconds = 0;
     try {
-      await state.lifecycle.acquireCloudsyncLease();
       const pathResult = await fsSyncCommands.audioPath(sessionId);
       if (pathResult.status === "ok") {
         audioPath = pathResult.data;
@@ -966,8 +1022,6 @@ export function useResumeListeningLifecycle(sessionId: string) {
     } catch (error) {
       console.error("[listener] failed to recover stopped capture", error);
       return "error" as const;
-    } finally {
-      await state.lifecycle.releaseCloudsyncLease();
     }
 
     if (await loadCaptureLifecycleMarker(sessionId)) {
@@ -1029,12 +1083,17 @@ export function useStartListening(sessionId: string) {
       return;
     }
     try {
-      await lifecycle.persistMarker();
+      await lifecycle.acquireCloudsyncLease();
     } catch (error) {
-      console.error(
-        "[listener] failed to prepare durable capture state",
-        error,
-      );
+      console.error("[listener] failed to defer CloudSync for capture", error);
+      try {
+        await lifecycle.releaseCloudsyncLease();
+      } catch (cleanupError) {
+        console.error(
+          "[listener] failed to release capture CloudSync deferral",
+          cleanupError,
+        );
+      }
       sonnerToast.error(
         "Anarlog could not safely start recording. Please try again.",
         { id: "capture-state-persist-failed" },
@@ -1043,16 +1102,26 @@ export function useStartListening(sessionId: string) {
     }
 
     try {
-      await lifecycle.acquireCloudsyncLease();
+      await lifecycle.persistMarker();
     } catch (error) {
-      console.error("[listener] failed to defer CloudSync for capture", error);
+      console.error(
+        "[listener] failed to prepare durable capture state",
+        error,
+      );
       try {
-        await lifecycle.releaseCloudsyncLease();
         await lifecycle.cleanupFailedStart();
       } catch (cleanupError) {
         console.error(
           "[listener] failed to clean up capture state",
           cleanupError,
+        );
+      }
+      try {
+        await lifecycle.releaseCloudsyncLease();
+      } catch (releaseError) {
+        console.error(
+          "[listener] failed to release capture CloudSync deferral",
+          releaseError,
         );
       }
       sonnerToast.error(
@@ -1086,13 +1155,14 @@ export function useStartListening(sessionId: string) {
     } catch (error) {
       console.error("[listener] failed to start recording", error);
       try {
-        await lifecycle.releaseCloudsyncLease();
         await lifecycle.cleanupFailedStart();
       } catch (cleanupError) {
         console.error(
           "[listener] failed to clean up capture state",
           cleanupError,
         );
+      } finally {
+        await lifecycle.releaseCloudsyncLease();
       }
       sonnerToast.error(
         "Anarlog could not safely start recording. Please try again.",
@@ -1104,7 +1174,6 @@ export function useStartListening(sessionId: string) {
     if (!started) {
       await stopMeetingChatTasks();
       try {
-        await lifecycle.releaseCloudsyncLease();
         await lifecycle.cleanupFailedStart();
       } catch (error) {
         console.error("[listener] failed to clean up capture state", error);
@@ -1112,6 +1181,8 @@ export function useStartListening(sessionId: string) {
           "Anarlog could not safely start recording. Please try again.",
           { id: "capture-state-persist-failed" },
         );
+      } finally {
+        await lifecycle.releaseCloudsyncLease();
       }
       return;
     }

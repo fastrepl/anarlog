@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   deleteChatMessage: vi.fn().mockResolvedValue(undefined),
   deleteChatMessagesExcept: vi.fn().mockResolvedValue(undefined),
   endCloudsyncActivity: vi.fn().mockResolvedValue(undefined),
+  flushDatabaseWritesByPrefix: vi.fn().mockResolvedValue(undefined),
   getChatMessageGroupId: vi.fn().mockResolvedValue(null),
   messages: [] as unknown[],
   persistedMessages: [] as PersistedChatMessage[],
@@ -32,6 +33,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@hypr/plugin-db", () => ({
   beginCloudsyncActivity: mocks.beginCloudsyncActivity,
   endCloudsyncActivity: mocks.endCloudsyncActivity,
+}));
+
+vi.mock("~/db/write-queue", () => ({
+  flushDatabaseWritesByPrefix: mocks.flushDatabaseWritesByPrefix,
 }));
 
 vi.mock("@ai-sdk/react", () => ({
@@ -202,6 +207,7 @@ describe("ChatSession", () => {
     mocks.deleteChatMessage.mockReset().mockResolvedValue(undefined);
     mocks.deleteChatMessagesExcept.mockReset().mockResolvedValue(undefined);
     mocks.endCloudsyncActivity.mockReset().mockResolvedValue(undefined);
+    mocks.flushDatabaseWritesByPrefix.mockReset().mockResolvedValue(undefined);
     mocks.getChatMessageGroupId.mockReset().mockResolvedValue(null);
     mocks.upsertChatMessage.mockReset().mockResolvedValue(undefined);
   });
@@ -1016,7 +1022,14 @@ describe("ChatSession", () => {
     );
   });
 
-  it("keeps an unmounted chat paused until SDK cleanup finishes", async () => {
+  it("releases after durable writes flush even when SDK stop never settles", async () => {
+    let finishWriteFlush: (() => void) | undefined;
+    mocks.chatStop.mockReturnValueOnce(new Promise<void>(() => {}));
+    mocks.flushDatabaseWritesByPrefix.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishWriteFlush = resolve;
+      }),
+    );
     connectChatSendToTransport();
     const captured: { send?: ChatSessionRenderProps["sendMessage"] } = {};
     const view = render(
@@ -1038,19 +1051,6 @@ describe("ChatSession", () => {
       expect(mocks.beginCloudsyncActivity).toHaveBeenCalledOnce(),
     );
     const nativeKey = startedNativeKey();
-    mocks.endCloudsyncActivity.mockClear();
-
-    view.unmount();
-    await Promise.resolve();
-
-    expect(mocks.endCloudsyncActivity).not.toHaveBeenCalled();
-    expect(mocks.chatStop).toHaveBeenCalledOnce();
-
-    const assistant: HyprUIMessage = {
-      id: "assistant-1",
-      role: "assistant",
-      parts: [],
-    };
     const onFinish = mocks.chatInits[0] as {
       onFinish: (params: {
         message: HyprUIMessage;
@@ -1058,17 +1058,46 @@ describe("ChatSession", () => {
         isAbort: boolean;
       }) => void;
     };
-    onFinish.onFinish({
-      isAbort: true,
-      message: assistant,
-      messages: [userMessage, assistant],
-    });
+    mocks.endCloudsyncActivity.mockClear();
+
+    view.unmount();
+    await waitFor(() =>
+      expect(mocks.flushDatabaseWritesByPrefix).toHaveBeenCalledWith(["chat:"]),
+    );
+
+    expect(mocks.endCloudsyncActivity).not.toHaveBeenCalled();
+    expect(mocks.chatStop).toHaveBeenCalledOnce();
+
+    finishWriteFlush?.();
     await waitFor(() =>
       expect(mocks.endCloudsyncActivity).toHaveBeenCalledWith(
         "chat",
         nativeKey,
       ),
     );
+    expect(mocks.endCloudsyncActivity).toHaveBeenCalledTimes(1);
+
+    mocks.upsertChatMessage.mockClear();
+    onFinish.onFinish({
+      isAbort: false,
+      message: {
+        id: "assistant-late",
+        role: "assistant",
+        parts: [{ type: "text", text: "Late answer" }],
+      },
+      messages: [
+        userMessage,
+        {
+          id: "assistant-late",
+          role: "assistant",
+          parts: [{ type: "text", text: "Late answer" }],
+        },
+      ],
+    });
+    await Promise.resolve();
+
+    expect(mocks.upsertChatMessage).not.toHaveBeenCalled();
+    expect(mocks.endCloudsyncActivity).toHaveBeenCalledTimes(1);
   });
 
   it("can start chat after StrictMode replays mount cleanup", async () => {
@@ -1117,12 +1146,19 @@ describe("ChatSession", () => {
     );
   });
 
-  it("updates SDK state immediately while transport waits for the chat lease", async () => {
+  it("waits for the chat lease and durable preflight before transport", async () => {
     let acquireLease: (() => void) | undefined;
+    let finishPreflight: (() => void) | undefined;
     mocks.beginCloudsyncActivity.mockReturnValueOnce(
       new Promise<void>((resolve) => {
         acquireLease = resolve;
       }),
+    );
+    const beforeSend = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishPreflight = resolve;
+        }),
     );
     const sendTransport = connectChatSendToTransport();
     const captured: { send?: ChatSessionRenderProps["sendMessage"] } = {};
@@ -1140,7 +1176,7 @@ describe("ChatSession", () => {
       parts: [{ type: "text", text: "Question" }],
     };
 
-    captured.send!(userMessage);
+    captured.send!(userMessage, { beforeSend });
 
     expect(mocks.chatSendMessage).toHaveBeenCalledWith(userMessage);
     const nativeKey = startedNativeKey();
@@ -1149,9 +1185,14 @@ describe("ChatSession", () => {
       "chat",
       nativeKey,
     );
+    expect(beforeSend).not.toHaveBeenCalled();
     expect(sendTransport).not.toHaveBeenCalled();
 
     acquireLease?.();
+    await waitFor(() => expect(beforeSend).toHaveBeenCalledOnce());
+    expect(sendTransport).not.toHaveBeenCalled();
+
+    finishPreflight?.();
     await waitFor(() => expect(sendTransport).toHaveBeenCalledOnce());
 
     const assistant: HyprUIMessage = {
@@ -1178,5 +1219,79 @@ describe("ChatSession", () => {
       ),
     );
     view.unmount();
+  });
+
+  it("drops an unconsumed preflight after acquisition failure so the same message can retry", async () => {
+    const acquisitionError = new Error("cloudsync busy");
+    mocks.beginCloudsyncActivity
+      .mockRejectedValueOnce(acquisitionError)
+      .mockResolvedValueOnce(undefined);
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const sendTransport = connectChatSendToTransport();
+    const captured: { send?: ChatSessionRenderProps["sendMessage"] } = {};
+    render(
+      <ChatSession chatGroupId="group-1" sessionId="session-1">
+        {(props) => {
+          captured.send = props.sendMessage;
+          return null;
+        }}
+      </ChatSession>,
+    );
+    const userMessage: HyprUIMessage = {
+      id: "user-1",
+      role: "user",
+      parts: [{ type: "text", text: "Question" }],
+    };
+    const failedPreflight = vi.fn().mockResolvedValue(undefined);
+    const retryPreflight = vi.fn().mockResolvedValue(undefined);
+
+    captured.send!(userMessage, { beforeSend: failedPreflight });
+    await waitFor(() =>
+      expect(consoleError).toHaveBeenCalledWith(
+        "Failed to send chat message",
+        acquisitionError,
+      ),
+    );
+
+    expect(failedPreflight).not.toHaveBeenCalled();
+    expect(sendTransport).not.toHaveBeenCalled();
+    expect(mocks.endCloudsyncActivity).toHaveBeenCalledWith(
+      "chat",
+      startedNativeKey(0),
+    );
+
+    captured.send!(userMessage, { beforeSend: retryPreflight });
+    await waitFor(() => expect(retryPreflight).toHaveBeenCalledOnce());
+    expect(failedPreflight).not.toHaveBeenCalled();
+    expect(sendTransport).toHaveBeenCalledOnce();
+
+    const assistant: HyprUIMessage = {
+      id: "assistant-1",
+      role: "assistant",
+      parts: [],
+    };
+    const onFinish = mocks.chatInits[0] as {
+      onFinish: (params: {
+        message: HyprUIMessage;
+        messages: HyprUIMessage[];
+        isAbort: boolean;
+      }) => void;
+    };
+    onFinish.onFinish({
+      isAbort: true,
+      message: assistant,
+      messages: [userMessage, assistant],
+    });
+    await waitFor(
+      () =>
+        expect(mocks.endCloudsyncActivity).toHaveBeenCalledWith(
+          "chat",
+          startedNativeKey(1),
+        ),
+      { timeout: 1_500 },
+    );
+    consoleError.mockRestore();
   });
 });

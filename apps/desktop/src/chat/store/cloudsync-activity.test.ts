@@ -75,6 +75,34 @@ describe("chat CloudSync activity", () => {
     ]);
   });
 
+  it("keeps the lease until tracked side writes and the trailing delay settle", async () => {
+    let finishSideWrite: (() => void) | undefined;
+    const begin = vi.fn().mockResolvedValue(undefined);
+    const end = vi.fn().mockResolvedValue(undefined);
+    const controller = createChatCloudsyncActivityController({
+      begin,
+      end,
+      createAttemptKey: sequentialAttemptKeys(),
+    });
+    const attempt = await controller.start("turn-1");
+    attempt?.trackCompletion(
+      new Promise<void>((resolve) => {
+        finishSideWrite = resolve;
+      }),
+    );
+
+    attempt?.finish();
+    await vi.advanceTimersByTimeAsync(CHAT_CLOUDSYNC_RELEASE_DELAY_MS * 2);
+    expect(end).not.toHaveBeenCalled();
+
+    finishSideWrite?.();
+    await vi.advanceTimersByTimeAsync(CHAT_CLOUDSYNC_RELEASE_DELAY_MS - 1);
+    expect(end).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(end).toHaveBeenCalledWith("chat", "turn-1:attempt-1");
+  });
+
   it("keeps overlapping attempts for the same user turn independent", async () => {
     const begin = vi.fn().mockResolvedValue(undefined);
     const end = vi.fn().mockResolvedValue(undefined);
@@ -147,12 +175,12 @@ describe("chat CloudSync activity", () => {
     await expect(controller.start("failed-turn")).rejects.toBe(beginError);
     expect(end).toHaveBeenCalledWith("chat", "failed-turn:attempt-1");
 
-    await expect(controller.start("next-turn")).resolves.toMatchObject({
-      key: "next-turn:attempt-2",
+    await expect(controller.start("failed-turn")).resolves.toMatchObject({
+      key: "failed-turn:attempt-2",
     });
-    controller.finish("next-turn");
+    controller.finish("failed-turn");
     await vi.advanceTimersByTimeAsync(CHAT_CLOUDSYNC_RELEASE_DELAY_MS);
-    expect(end).toHaveBeenCalledWith("chat", "next-turn:attempt-2");
+    expect(end).toHaveBeenCalledWith("chat", "failed-turn:attempt-2");
   });
 
   it("does not start transport when lease acquisition fails", async () => {
@@ -182,6 +210,69 @@ describe("chat CloudSync activity", () => {
         abortSignal: new AbortController().signal,
       }),
     ).rejects.toBe(beginError);
+
+    expect(sendMessages).not.toHaveBeenCalled();
+    expect(end).toHaveBeenCalledWith("chat", "turn-1:attempt-1");
+  });
+
+  it("releases the exact attempt when transport rejects before streaming", async () => {
+    const transportError = new Error("transport unavailable");
+    const end = vi.fn().mockResolvedValue(undefined);
+    const activity = createChatCloudsyncActivityController({
+      begin: vi.fn().mockResolvedValue(undefined),
+      end,
+      createAttemptKey: sequentialAttemptKeys(),
+    });
+    const transport = guardChatTransport(
+      {
+        sendMessages: vi.fn().mockRejectedValue(transportError),
+        reconnectToStream: vi.fn().mockResolvedValue(null),
+      },
+      activity,
+    );
+
+    await expect(
+      transport.sendMessages({
+        trigger: "submit-message",
+        chatId: "chat-1",
+        messageId: undefined,
+        messages: [{ id: "turn-1", role: "user", parts: [] }],
+        abortSignal: new AbortController().signal,
+      }),
+    ).rejects.toBe(transportError);
+    await vi.advanceTimersByTimeAsync(CHAT_CLOUDSYNC_RELEASE_DELAY_MS);
+
+    expect(end).toHaveBeenCalledWith("chat", "turn-1:attempt-1");
+  });
+
+  it("releases the exact attempt when aborted after acquisition", async () => {
+    const end = vi.fn().mockResolvedValue(undefined);
+    const activity = createChatCloudsyncActivityController({
+      begin: vi.fn().mockResolvedValue(undefined),
+      end,
+      createAttemptKey: sequentialAttemptKeys(),
+    });
+    const sendMessages = vi.fn();
+    const transport = guardChatTransport(
+      {
+        sendMessages,
+        reconnectToStream: vi.fn().mockResolvedValue(null),
+      },
+      activity,
+    );
+    const abortController = new AbortController();
+    abortController.abort();
+
+    await expect(
+      transport.sendMessages({
+        trigger: "submit-message",
+        chatId: "chat-1",
+        messageId: undefined,
+        messages: [{ id: "turn-1", role: "user", parts: [] }],
+        abortSignal: abortController.signal,
+      }),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    await vi.advanceTimersByTimeAsync(CHAT_CLOUDSYNC_RELEASE_DELAY_MS);
 
     expect(sendMessages).not.toHaveBeenCalled();
     expect(end).toHaveBeenCalledWith("chat", "turn-1:attempt-1");
@@ -271,10 +362,6 @@ describe("chat CloudSync activity", () => {
 
     activity.finish("turn-1");
     await vi.advanceTimersByTimeAsync(CHAT_CLOUDSYNC_RELEASE_DELAY_MS);
-    expect(end).not.toHaveBeenCalled();
-
-    activity.finish("turn-1");
-    await vi.advanceTimersByTimeAsync(CHAT_CLOUDSYNC_RELEASE_DELAY_MS);
     expect(end.mock.calls).toEqual([
       ["chat", "turn-1:attempt-1"],
       ["chat", "turn-1:attempt-2"],
@@ -302,7 +389,7 @@ describe("chat CloudSync activity", () => {
     expect(end).toHaveBeenCalledWith("chat", "turn-1:attempt-1");
   });
 
-  it("bounds disposal when completion callbacks never arrive", async () => {
+  it("bounds UI disposal without ending an unfinished native lease", async () => {
     const begin = vi.fn().mockResolvedValue(undefined);
     const end = vi.fn().mockResolvedValue(undefined);
     const controller = createChatCloudsyncActivityController({
@@ -316,7 +403,61 @@ describe("chat CloudSync activity", () => {
     await vi.advanceTimersByTimeAsync(CHAT_CLOUDSYNC_DISPOSE_DRAIN_TIMEOUT_MS);
     await disposed;
 
+    expect(end).not.toHaveBeenCalled();
+
+    controller.finish("turn-1");
+    await vi.advanceTimersByTimeAsync(0);
     expect(end).toHaveBeenCalledWith("chat", "turn-1:attempt-1");
+  });
+
+  it("does not release on dispose while a finished response still has a pending write", async () => {
+    let finishPersist: (() => void) | undefined;
+    const end = vi.fn().mockResolvedValue(undefined);
+    const controller = createChatCloudsyncActivityController({
+      begin: vi.fn().mockResolvedValue(undefined),
+      end,
+      createAttemptKey: sequentialAttemptKeys(),
+    });
+    const attempt = await controller.start("turn-1");
+    attempt?.trackCompletion(
+      new Promise<void>((resolve) => {
+        finishPersist = resolve;
+      }),
+    );
+    attempt?.finish();
+
+    const disposed = controller.dispose();
+    await vi.advanceTimersByTimeAsync(CHAT_CLOUDSYNC_DISPOSE_DRAIN_TIMEOUT_MS);
+    await disposed;
+    expect(end).not.toHaveBeenCalled();
+
+    finishPersist?.();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(end).toHaveBeenCalledWith("chat", "turn-1:attempt-1");
+  });
+
+  it("bounds UI disposal but keeps the native lease until cleanup writes settle", async () => {
+    let finishCleanup: (() => void) | undefined;
+    const end = vi.fn().mockResolvedValue(undefined);
+    const controller = createChatCloudsyncActivityController({
+      begin: vi.fn().mockResolvedValue(undefined),
+      end,
+      createAttemptKey: sequentialAttemptKeys(),
+    });
+    await controller.start("turn-1");
+    const cleanup = new Promise<void>((resolve) => {
+      finishCleanup = resolve;
+    });
+
+    const disposed = controller.dispose(cleanup);
+    await vi.advanceTimersByTimeAsync(CHAT_CLOUDSYNC_DISPOSE_DRAIN_TIMEOUT_MS);
+    await disposed;
+    expect(end).not.toHaveBeenCalled();
+
+    finishCleanup?.();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(end).toHaveBeenCalledWith("chat", "turn-1:attempt-1");
+    expect(end).toHaveBeenCalledTimes(1);
   });
 
   it("can resume after a StrictMode-style empty cleanup", async () => {
@@ -352,9 +493,9 @@ describe("chat CloudSync activity", () => {
     await expect(controller.start("turn-2")).resolves.toMatchObject({
       key: "turn-2:attempt-2",
     });
-    await expect(disposed).resolves.toBeUndefined();
 
     controller.finish("turn-1");
+    await expect(disposed).resolves.toBeUndefined();
     controller.finish("turn-2");
     await vi.advanceTimersByTimeAsync(CHAT_CLOUDSYNC_RELEASE_DELAY_MS);
 

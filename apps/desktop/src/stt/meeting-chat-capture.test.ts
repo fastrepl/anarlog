@@ -40,13 +40,6 @@ vi.mock("~/settings/queries", () => ({
   })),
 }));
 
-vi.mock("~/settings/queries", () => ({
-  getStoredSettingValues: vi.fn(async () => ({
-    values: { capture_meeting_chat: captureSettingState.value },
-    hasValues: new Set(["capture_meeting_chat"]),
-  })),
-}));
-
 const capturedMessage = {
   id: "msg-1",
   platform: "zoom" as const,
@@ -391,7 +384,7 @@ describe("startMeetingChatCapture", () => {
     expect(settled).toBe(true);
   });
 
-  test("does not persist a poll that resolves after capture stops", async () => {
+  test("stops without waiting for a stalled poll and fences its late result", async () => {
     let resolveCapture: ((value: unknown) => void) | undefined;
     captureMeetingChatMessagesMock.mockReturnValue(
       new Promise((resolve) => {
@@ -404,7 +397,9 @@ describe("startMeetingChatCapture", () => {
     });
     await vi.advanceTimersByTimeAsync(0);
 
-    stop();
+    await expect(stop()).resolves.toBeUndefined();
+    expect(persistMeetingChatRecordsMock).not.toHaveBeenCalled();
+
     resolveCapture?.(captureResult([capturedMessage]));
     await Promise.resolve();
     await Promise.resolve();

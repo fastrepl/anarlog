@@ -28,8 +28,9 @@ import {
   readDesktopAuthHandoff,
 } from "@/lib/auth-route-privacy";
 import {
-  attemptDesktopAppOpen,
   buildDesktopAuthDeeplink,
+  getDesktopAppOpenLinkProps,
+  useDesktopAppAutoOpen,
 } from "@/lib/desktop-auth-handoff";
 
 const validateSearch = z.object({
@@ -126,7 +127,6 @@ export const Route = createFileRoute("/_view/callback/auth")({
 
 function Component() {
   const search = Route.useSearch();
-  const [copied, setCopied] = useState(false);
   const [storedHandoff, setStoredHandoff] =
     useState<ReturnType<typeof readDesktopAuthHandoff>>(null);
 
@@ -147,24 +147,7 @@ function Component() {
     ) {
       setStoredHandoff(handoff);
     }
-
-    const initialDeeplink = buildDesktopAuthDeeplink(
-      search.scheme,
-      search.access_token ?? handoff?.accessToken,
-      search.refresh_token ?? handoff?.refreshToken,
-    );
-    if (search.flow === "desktop" && initialDeeplink) {
-      attemptDesktopAppOpen(initialDeeplink);
-    }
   });
-
-  const handleCopy = async () => {
-    if (deeplink) {
-      await navigator.clipboard.writeText(deeplink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
 
   if (search.error) {
     const retrySearch = toAuthFlowSearch(resolveAuthFlowContext(search));
@@ -208,39 +191,7 @@ function Component() {
         }
       >
         <div className="flex flex-col gap-4">
-          {deeplink && (
-            <div className="flex flex-col gap-3">
-              <a
-                href={deeplink}
-                rel="noreferrer"
-                className={authPrimaryButtonClassName}
-              >
-                Open Anarlog
-              </a>
-
-              <div className="rounded-xl border border-[#e5ddcf] bg-[#fbfaf7] p-4 text-center">
-                <p className="mb-3 text-sm leading-6 text-[#756b5d]">
-                  Button not working? Copy the link instead
-                </p>
-                <button
-                  onClick={handleCopy}
-                  className={authSecondaryButtonClassName}
-                >
-                  {copied ? (
-                    <>
-                      <CheckIcon className="size-4" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <CopyIcon className="size-4" />
-                      Copy URL
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
+          {deeplink && <DesktopAuthHandoffActions deeplink={deeplink} />}
 
           {!hasTokens && (
             <div className={authNoticeClassName}>
@@ -268,6 +219,48 @@ function Component() {
       </AuthShell>
     );
   }
+}
+
+function DesktopAuthHandoffActions({ deeplink }: { deeplink: string }) {
+  const [copied, setCopied] = useState(false);
+
+  useDesktopAppAutoOpen(deeplink);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(deeplink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <a
+        {...getDesktopAppOpenLinkProps(deeplink)}
+        className={authPrimaryButtonClassName}
+      >
+        Open Anarlog
+      </a>
+
+      <div className="rounded-xl border border-[#e5ddcf] bg-[#fbfaf7] p-4 text-center">
+        <p className="mb-3 text-sm leading-6 text-[#756b5d]">
+          Button not working? Copy the link instead
+        </p>
+        <button onClick={handleCopy} className={authSecondaryButtonClassName}>
+          {copied ? (
+            <>
+              <CheckIcon className="size-4" />
+              Copied!
+            </>
+          ) : (
+            <>
+              <CopyIcon className="size-4" />
+              Copy URL
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function redirectToExchangeError(

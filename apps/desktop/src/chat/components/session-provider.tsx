@@ -37,7 +37,12 @@ import {
 } from "~/chat/store/queries";
 import { stripEphemeralToolContext } from "~/chat/tools/strip-ephemeral-tool-context";
 import { useTransport } from "~/chat/transport/use-transport";
-import type { HyprUIMessage } from "~/chat/types";
+import type {
+  ChatMessageSender,
+  ChatSendOptions,
+  HyprUIMessage,
+} from "~/chat/types";
+import { flushDatabaseWritesByPrefix } from "~/db/write-queue";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useOwnerUserId } from "~/shared/owner-user";
 
@@ -47,10 +52,7 @@ export type ChatSessionRenderProps = {
   setMessages: (
     msgs: HyprUIMessage[] | ((prev: HyprUIMessage[]) => HyprUIMessage[]),
   ) => void;
-  sendMessage: (
-    message: HyprUIMessage,
-    options?: { chatGroupId?: string },
-  ) => void;
+  sendMessage: ChatMessageSender;
   regenerate: () => void;
   stop: () => void;
   status: ChatStatus;
@@ -62,6 +64,8 @@ export type ChatSessionRenderProps = {
   onDraftContextRefsChange: (refs: ContextRef[]) => void;
   isSystemPromptReady: boolean;
 };
+
+type ChatTransportPreflight = NonNullable<ChatSendOptions["beforeSend"]>;
 
 interface ChatSessionProps {
   sessionId: string;
@@ -115,7 +119,7 @@ function ChatSessionLifecycle({
   const initialMessagesRef = useRef<HyprUIMessage[]>([]);
   const submittedChatGroupIdsRef = useRef(new Map<string, string>());
   const pendingTransportPreflightsRef = useRef(
-    new Map<string, (() => Promise<void>)[]>(),
+    new Map<string, ChatTransportPreflight[]>(),
   );
   const pendingRegenerationTombstonesRef = useRef(
     new Map<
@@ -130,6 +134,7 @@ function ChatSessionLifecycle({
   const pendingFinishedChatPersistsRef = useRef(
     new Map<string, Promise<void>>(),
   );
+  const acceptFinishedChatPersistenceRef = useRef(true);
   const regenerateRequestInFlightRef = useRef(false);
   const chatCloudsyncActivityRef = useRef<ReturnType<
     typeof createChatCloudsyncActivityController
@@ -144,6 +149,19 @@ function ChatSessionLifecycle({
     }
     return preflight;
   }, []);
+  const removeTransportPreflight = useCallback(
+    (logicalKey: string, preflight: ChatTransportPreflight) => {
+      const queue = pendingTransportPreflightsRef.current.get(logicalKey);
+      const index = queue?.indexOf(preflight) ?? -1;
+      if (queue && index !== -1) {
+        queue.splice(index, 1);
+      }
+      if (queue?.length === 0) {
+        pendingTransportPreflightsRef.current.delete(logicalKey);
+      }
+    },
+    [],
+  );
 
   latestChatGroupIdRef.current = chatGroupId;
   latestUserIdRef.current = ownerUserId;
@@ -211,7 +229,11 @@ function ChatSessionLifecycle({
             submittedChatGroupIdsRef.current.delete(submittedUserMessage.id);
           }
 
-          if (isAbort || !currentUserId) {
+          if (
+            isAbort ||
+            !currentUserId ||
+            !acceptFinishedChatPersistenceRef.current
+          ) {
             if (submittedUserMessage) {
               chatCloudsyncActivity.finish(submittedUserMessage.id);
             }
@@ -329,19 +351,39 @@ function ChatSessionLifecycle({
   latestChatStopRef.current = chatStop;
 
   useMountEffect(() => {
+    acceptFinishedChatPersistenceRef.current = true;
     chatCloudsyncActivity.resume();
     return () => {
+      acceptFinishedChatPersistenceRef.current = false;
+      const pendingChatGroupIds = new Set([
+        ...submittedChatGroupIdsRef.current.values(),
+        ...[...pendingRegenerationTombstonesRef.current.values()].map(
+          ({ chatGroupId }) => chatGroupId,
+        ),
+        ...(latestChatGroupIdRef.current ? [latestChatGroupIdRef.current] : []),
+      ]);
       try {
         void Promise.resolve(latestChatStopRef.current()).catch((error) => {
           console.error("Failed to stop chat response during cleanup", error);
         });
       } catch (error) {
         console.error("Failed to stop chat response during cleanup", error);
-      } finally {
-        void chatCloudsyncActivity.dispose();
-        pendingTransportPreflightsRef.current.clear();
-        pendingRegenerationTombstonesRef.current.clear();
       }
+      const cleanup = Promise.resolve().then(async () => {
+        await Promise.resolve();
+        await Promise.allSettled([
+          ...pendingFinishedChatPersistsRef.current.values(),
+          ...[...pendingChatGroupIds].map(waitForPendingChatPersists),
+        ]);
+        try {
+          await flushDatabaseWritesByPrefix(["chat:"]);
+        } catch (error) {
+          console.error("Failed to flush chat writes during cleanup", error);
+        }
+      });
+      void chatCloudsyncActivity.dispose(cleanup);
+      pendingTransportPreflightsRef.current.clear();
+      pendingRegenerationTombstonesRef.current.clear();
     };
   });
 
@@ -371,21 +413,43 @@ function ChatSessionLifecycle({
   ]);
 
   const sendMessage = useCallback(
-    (message: HyprUIMessage, options?: { chatGroupId?: string }) => {
+    (message: HyprUIMessage, options?: ChatSendOptions) => {
       const targetChatGroupId =
         options?.chatGroupId ?? latestChatGroupIdRef.current;
       if (targetChatGroupId) {
         submittedChatGroupIdsRef.current.set(message.id, targetChatGroupId);
       }
+      const preflight = options?.beforeSend;
+      if (preflight) {
+        const queue =
+          pendingTransportPreflightsRef.current.get(message.id) ?? [];
+        queue.push(preflight);
+        pendingTransportPreflightsRef.current.set(message.id, queue);
+      }
       // HyprUIMessage is structurally compatible with CreateUIMessage<HyprUIMessage>:
       // no `text`/`files` so the SDK takes the `else` branch and uses message.id as the message id.
-      void chatSendMessage(
-        message as Parameters<typeof chatSendMessage>[0],
-      ).catch((error) => {
+      let sending: Promise<void>;
+      try {
+        sending = Promise.resolve(
+          chatSendMessage(message as Parameters<typeof chatSendMessage>[0]),
+        );
+      } catch (error) {
+        if (preflight) {
+          removeTransportPreflight(message.id, preflight);
+        }
+        submittedChatGroupIdsRef.current.delete(message.id);
+        console.error("Failed to send chat message", error);
+        return;
+      }
+      void sending.catch((error) => {
+        if (preflight) {
+          removeTransportPreflight(message.id, preflight);
+        }
+        submittedChatGroupIdsRef.current.delete(message.id);
         console.error("Failed to send chat message", error);
       });
     },
-    [chatSendMessage],
+    [chatSendMessage, removeTransportPreflight],
   );
 
   const regenerate = useCallback(() => {

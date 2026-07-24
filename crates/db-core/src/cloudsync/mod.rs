@@ -1,4 +1,5 @@
 mod hook;
+mod interrupt;
 mod ops;
 mod runtime;
 mod state;
@@ -8,6 +9,7 @@ pub use hook::{
     CloudsyncBeforeHookFuture, CloudsyncHookFuture, CloudsyncHookOutcome, CloudsyncSyncDirective,
     CloudsyncSyncHook,
 };
+pub(crate) use interrupt::CloudsyncInterruptHandle;
 pub use ops::{
     CLOUDSYNC_MAX_OUTBOUND_BYTES, CLOUDSYNC_MAX_OUTBOUND_CHUNKS, CLOUDSYNC_MAX_OUTBOUND_ROWS,
     cloudsync_begin_alter_on, cloudsync_commit_alter_on, cloudsync_is_enabled_on,

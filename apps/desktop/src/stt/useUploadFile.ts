@@ -17,6 +17,7 @@ import { fromResult } from "./fromResult";
 import { ChannelProfile } from "./segment";
 import { isStoppedTranscriptionError, useRunBatch } from "./useRunBatch";
 
+import { withCloudsyncActivity } from "~/db/cloudsync-activity";
 import { getEnhancerService } from "~/services/enhancer";
 import { catalogLocalSessionAudio } from "~/session/attachments";
 import { enqueueSessionAudioOperation } from "~/session/audio-operations";
@@ -72,33 +73,32 @@ export function useUploadFile(sessionId: string) {
     return found ?? null;
   });
 
-  const triggerEnhance = useCallback(() => {
+  const triggerEnhance = useCallback(async () => {
     const service = getEnhancerService();
     if (!service) return;
 
-    void Promise.resolve(service.enhance(sessionId))
-      .then((result) => {
-        if (
-          (result.type === "started" || result.type === "already_active") &&
-          sessionTab
-        ) {
-          updateSessionTabState(sessionTab, {
-            ...sessionTab.state,
-            view: { type: "enhanced", id: result.noteId },
-          });
-        }
-      })
-      .catch((error) => {
-        console.error("[enhancer] failed to enhance uploaded file", error);
-      });
+    try {
+      const result = await service.enhance(sessionId);
+      if (
+        (result.type === "started" || result.type === "already_active") &&
+        sessionTab
+      ) {
+        updateSessionTabState(sessionTab, {
+          ...sessionTab.state,
+          view: { type: "enhanced", id: result.noteId },
+        });
+      }
+    } catch (error) {
+      console.error("[enhancer] failed to enhance uploaded file", error);
+    }
   }, [sessionId, sessionTab, updateSessionTabState]);
 
-  const triggerEnhanceIfSummaryEmpty = useCallback(() => {
-    void Promise.resolve(
-      getEnhancerService()?.queueAutoEnhanceIfSummaryEmpty(sessionId),
-    ).catch((error) => {
+  const triggerEnhanceIfSummaryEmpty = useCallback(async () => {
+    try {
+      await getEnhancerService()?.queueAutoEnhanceIfSummaryEmpty(sessionId);
+    } catch (error) {
       console.error("[enhancer] failed to queue uploaded file", error);
-    });
+    }
   }, [sessionId]);
 
   const applyEstimatedAudioNoteDate = useCallback(
@@ -230,7 +230,7 @@ export function useUploadFile(sessionId: string) {
             catch: (error) => error,
           }),
         ),
-        Effect.tap(() => Effect.sync(() => triggerEnhanceIfSummaryEmpty())),
+        Effect.tap(() => Effect.promise(triggerEnhanceIfSummaryEmpty)),
         Effect.catchAll((error: unknown) =>
           Effect.sync(() => {
             if (isStoppedTranscriptionError(error)) {
@@ -243,7 +243,10 @@ export function useUploadFile(sessionId: string) {
         ),
       );
 
-      Effect.runPromise(program).catch((error) => {
+      const cloudsyncLeaseKey = `${sessionId}:audio-import:${crypto.randomUUID()}`;
+      void withCloudsyncActivity("transcription", cloudsyncLeaseKey, () =>
+        Effect.runPromise(program),
+      ).catch((error) => {
         console.error("[upload] audio failed:", error);
       });
     },
@@ -313,15 +316,17 @@ export function useUploadFile(sessionId: string) {
                     file_type: "transcript",
                     token_count: subtitle.tokens.length,
                   });
-
-                  triggerEnhance();
                 }),
               ),
+              Effect.tap(() => Effect.promise(triggerEnhance)),
             );
           }),
         );
 
-        Effect.runPromise(program).catch((error) => {
+        const cloudsyncLeaseKey = `${sessionId}:subtitle-import:${crypto.randomUUID()}`;
+        void withCloudsyncActivity("transcription", cloudsyncLeaseKey, () =>
+          Effect.runPromise(program),
+        ).catch((error) => {
           console.error("[upload] transcript failed:", error);
         });
         return;

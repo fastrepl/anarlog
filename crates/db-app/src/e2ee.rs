@@ -23,8 +23,11 @@ const ROW_MANIFEST_FIELD: &str = "$row";
 const E2EE_ENCRYPT_ROW_LIMIT: i64 = 64;
 const E2EE_APPLY_ROW_LIMIT: usize = 16;
 const E2EE_APPLY_BYTE_LIMIT: usize = 16 * 1024 * 1024;
+const E2EE_APPLY_PREFLIGHT_RECORD_LIMIT: i64 = 64;
 const E2EE_WITNESS_REPAIR_RECORD_LIMIT: i64 = 64;
 const E2EE_WITNESS_REPAIR_BYTE_LIMIT: usize = 16 * 1024 * 1024;
+const E2EE_WITNESS_REPAIR_SCAN_PAGE_LIMIT: i64 = 128;
+const E2EE_WITNESS_REPAIR_SCAN_BYTE_LIMIT: usize = 16 * 1024 * 1024;
 const PENDING_E2EE_WITNESS_UPLOADS_SQL: &str = "
   SELECT
     pending.record_id,
@@ -85,8 +88,404 @@ pub enum E2eeReplicaError {
     WitnessRepairTooLarge,
     #[error("encrypted witness upload exceeds the batch byte limit")]
     WitnessUploadTooLarge,
+    #[error("encrypted replica operation was cancelled")]
+    Cancelled,
     #[error("encrypted replica rollback was detected")]
     RollbackDetected,
+}
+
+#[cfg(test)]
+mod witness_cancellation_tests {
+    use super::*;
+    use hypr_e2ee::RecoveryKey;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    async fn test_db() -> hypr_db_core::Db {
+        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
+        crate::prepare_schema(&db).await.unwrap();
+        db
+    }
+
+    fn workspace_key() -> WorkspaceKey {
+        RecoveryKey::parse("anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc")
+            .unwrap()
+            .workspace_key("workspace-a")
+            .unwrap()
+    }
+
+    fn witness_events(key: &WorkspaceKey, count: usize) -> Vec<E2eeWitnessEvent> {
+        (0..count)
+            .map(|index| {
+                let row_id = format!("session-{index:03}");
+                let sealed = key
+                    .seal_field(
+                        "workspace-a",
+                        "sessions",
+                        &row_id,
+                        "title",
+                        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        1,
+                        false,
+                        json!(format!("Witness {index}")),
+                    )
+                    .unwrap();
+                E2eeWitnessEvent {
+                    sequence: u64::try_from(index + 1).unwrap(),
+                    record_id: sealed.record_id,
+                    workspace_id: "workspace-a".to_string(),
+                    payload_hash: hypr_e2ee::payload_hash(&sealed.payload),
+                    payload: sealed.payload,
+                }
+            })
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn cancelled_witness_merge_releases_local_writes_without_advancing_the_cursor() {
+        let db = test_db().await;
+        let key = workspace_key();
+        let events = witness_events(&key, 4);
+        let checks = AtomicUsize::new(0);
+        let cancel_after_first_commit = events.len() * 2 + 3;
+
+        let error = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            merge_e2ee_witness_events_cancellable(db.pool(), &key, "workspace-a", &events, || {
+                checks.fetch_add(1, Ordering::SeqCst) >= cancel_after_first_commit
+            }),
+        )
+        .await
+        .expect("witness merge cancellation exceeded the activity deadline")
+        .unwrap_err();
+
+        assert!(matches!(error, E2eeReplicaError::Cancelled));
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_witness_records")
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            1
+        );
+        assert_eq!(
+            e2ee_witness_cursor(db.pool(), "workspace-a").await.unwrap(),
+            0
+        );
+        tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            sqlx::query(
+                "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+                 VALUES ('after-merge-cancel', 'workspace-a', 'user-a', 'Local write')",
+            )
+            .execute(db.pool()),
+        )
+        .await
+        .expect("cancelled witness merge kept the database busy")
+        .unwrap();
+
+        merge_e2ee_witness_events(db.pool(), &key, "workspace-a", &events)
+            .await
+            .unwrap();
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_witness_records")
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            i64::try_from(events.len()).unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn cancelled_witness_repair_finishes_one_record_and_releases_local_writes() {
+        let db = test_db().await;
+        let key = workspace_key();
+        let workspace_keys = HashMap::from([("workspace-a".to_string(), key.clone())]);
+        let events = witness_events(&key, 4);
+        merge_e2ee_witness_events(db.pool(), &key, "workspace-a", &events)
+            .await
+            .unwrap();
+        let records: Vec<WitnessRecord> = sqlx::query_as(
+            "SELECT workspace_id, record_id, revision, writer_id, payload_hash, payload, sequence
+             FROM e2ee_witness_records
+             ORDER BY workspace_id, record_id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        let checks = AtomicUsize::new(0);
+
+        let error = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            persist_e2ee_witness_repairs(db.pool(), &workspace_keys, &records, &|| {
+                checks.fetch_add(1, Ordering::SeqCst) >= 5
+            }),
+        )
+        .await
+        .expect("witness repair cancellation exceeded the activity deadline")
+        .unwrap_err();
+
+        assert!(matches!(error, E2eeReplicaError::Cancelled));
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_records")
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            1
+        );
+        tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            sqlx::query(
+                "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+                 VALUES ('after-repair-cancel', 'workspace-a', 'user-a', 'Local write')",
+            )
+            .execute(db.pool()),
+        )
+        .await
+        .expect("cancelled witness repair kept the database busy")
+        .unwrap();
+
+        repair_e2ee_replica_from_witness_bounded(db.pool(), &workspace_keys, true, 4, usize::MAX)
+            .await
+            .unwrap();
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_records")
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            i64::try_from(events.len()).unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn cancelled_encryption_rolls_back_the_current_row_and_releases_local_writes() {
+        let db = test_db().await;
+        let key = workspace_key();
+        let workspace_keys = HashMap::from([("workspace-a".to_string(), key.clone())]);
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session-1', 'workspace-a', 'user-a', 'Encrypt me')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let writer_id = {
+            let mut transaction = db.pool().begin_with("BEGIN IMMEDIATE").await.unwrap();
+            let writer_id = load_or_create_writer_id(&mut transaction).await.unwrap();
+            transaction.commit().await.unwrap();
+            writer_id
+        };
+        let dirty = load_dirty_rows(db.pool(), &workspace_keys, 1)
+            .await
+            .unwrap()
+            .pop()
+            .unwrap();
+        let prepared = prepare_dirty_row(db.pool(), &key, &writer_id, dirty)
+            .await
+            .unwrap();
+        let checks = AtomicUsize::new(0);
+        let cancel_after_first_replica_write = 5 + prepared.fields.len() * 3;
+
+        let error = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            persist_prepared_dirty_row_cancellable(db.pool(), prepared, false, &|| {
+                checks.fetch_add(1, Ordering::SeqCst) >= cancel_after_first_replica_write
+            }),
+        )
+        .await
+        .expect("encryption cancellation exceeded the activity deadline")
+        .unwrap_err();
+
+        assert!(matches!(error, E2eeReplicaError::Cancelled));
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_records")
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_local_state")
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>(
+                "SELECT COUNT(*) FROM e2ee_dirty_rows WHERE row_id = 'session-1'",
+            )
+            .fetch_one(db.pool())
+            .await
+            .unwrap(),
+            1
+        );
+        tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            sqlx::query(
+                "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+                 VALUES ('after-encrypt-cancel', 'workspace-a', 'user-a', 'Local write')",
+            )
+            .execute(db.pool()),
+        )
+        .await
+        .expect("cancelled encryption kept the database busy")
+        .unwrap();
+
+        encrypt_e2ee_replica_changes_bounded(db.pool(), &workspace_keys, 1)
+            .await
+            .unwrap();
+        assert!(
+            sqlx::query_scalar::<_, i64>(
+                "SELECT COUNT(*) FROM e2ee_records WHERE workspace_id = 'workspace-a'",
+            )
+            .fetch_one(db.pool())
+            .await
+            .unwrap()
+                > 0
+        );
+    }
+
+    #[tokio::test]
+    async fn cancelled_all_match_witness_scan_stays_bounded_and_releases_local_writes() {
+        let db = test_db().await;
+        let key = workspace_key();
+        let workspace_keys = HashMap::from([("workspace-a".to_string(), key)]);
+        let mut transaction = db.pool().begin_with("BEGIN IMMEDIATE").await.unwrap();
+        sqlx::query(
+            "WITH digits(value) AS (
+               VALUES (0), (1), (2), (3), (4), (5), (6), (7), (8), (9)
+             ),
+             rows(value) AS (
+               SELECT a.value * 1000 + b.value * 100 + c.value * 10 + d.value
+               FROM digits AS a
+               CROSS JOIN digits AS b
+               CROSS JOIN digits AS c
+               CROSS JOIN digits AS d
+             )
+             INSERT INTO e2ee_witness_records (
+               workspace_id, record_id, revision, writer_id, payload_hash, payload, sequence
+             )
+             SELECT
+               'workspace-a',
+               printf('record-%06d', value),
+               1,
+               'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+               'matching-hash',
+               'matching-payload',
+               value + 1
+             FROM rows",
+        )
+        .execute(&mut *transaction)
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO e2ee_records (id, workspace_id, payload)
+             SELECT record_id, workspace_id, payload
+             FROM e2ee_witness_records",
+        )
+        .execute(&mut *transaction)
+        .await
+        .unwrap();
+        transaction.commit().await.unwrap();
+        let checks = AtomicUsize::new(0);
+
+        let error = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            has_pending_e2ee_witness_repairs_cancellable(db.pool(), &workspace_keys, true, || {
+                checks.fetch_add(1, Ordering::SeqCst) >= 5
+            }),
+        )
+        .await
+        .expect("all-match witness cancellation exceeded the activity deadline")
+        .unwrap_err();
+
+        assert!(matches!(error, E2eeReplicaError::Cancelled));
+        assert!(checks.load(Ordering::SeqCst) <= 7);
+        tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            sqlx::query(
+                "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+                 VALUES ('after-witness-scan-cancel', 'workspace-a', 'user-a', 'Local write')",
+            )
+            .execute(db.pool()),
+        )
+        .await
+        .expect("cancelled witness scan kept the database busy")
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn cancelled_witness_upload_processing_releases_local_writes() {
+        let db = test_db().await;
+        let key = workspace_key();
+        let workspace_keys = HashMap::from([("workspace-a".to_string(), key.clone())]);
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session-1', 'workspace-a', 'user-a', 'Publish me')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        encrypt_e2ee_replica_changes(db.pool(), &workspace_keys)
+            .await
+            .unwrap();
+        let uploads = pending_e2ee_witness_uploads(db.pool(), "workspace-a", &key, 16, usize::MAX)
+            .await
+            .unwrap();
+        assert!(!uploads.is_empty());
+
+        let pending_checks = AtomicUsize::new(0);
+        let pending_cancel_after_first_decrypt = uploads.len() + 7;
+        let error = pending_e2ee_witness_uploads_cancellable(
+            db.pool(),
+            "workspace-a",
+            &key,
+            16,
+            usize::MAX,
+            || pending_checks.fetch_add(1, Ordering::SeqCst) >= pending_cancel_after_first_decrypt,
+        )
+        .await
+        .unwrap_err();
+        assert!(matches!(error, E2eeReplicaError::Cancelled));
+        tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            sqlx::query(
+                "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+                 VALUES ('after-upload-cancel', 'workspace-a', 'user-a', 'Local write')",
+            )
+            .execute(db.pool()),
+        )
+        .await
+        .expect("cancelled witness upload loading kept the database busy")
+        .unwrap();
+
+        let acknowledge_checks = AtomicUsize::new(0);
+        let acknowledge_cancel_after_first_commit = uploads.len() * 2 + 3;
+        let error = acknowledge_e2ee_witness_uploads_cancellable(db.pool(), &key, &uploads, || {
+            acknowledge_checks.fetch_add(1, Ordering::SeqCst)
+                >= acknowledge_cancel_after_first_commit
+        })
+        .await
+        .unwrap_err();
+        assert!(matches!(error, E2eeReplicaError::Cancelled));
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_witness_records")
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            1
+        );
+        tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            sqlx::query(
+                "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+                 VALUES ('after-ack-cancel', 'workspace-a', 'user-a', 'Local write')",
+            )
+            .execute(db.pool()),
+        )
+        .await
+        .expect("cancelled witness acknowledgement kept the database busy")
+        .unwrap();
+    }
 }
 
 pub type E2eeReplicaResult<T> = std::result::Result<T, E2eeReplicaError>;
@@ -148,6 +547,15 @@ struct EncryptedRecord {
     witnessed: bool,
 }
 
+#[derive(sqlx::FromRow)]
+struct EncryptedRecordMetadata {
+    id: String,
+    workspace_id: String,
+    record_bytes: i64,
+    witnessed: bool,
+    changed: bool,
+}
+
 struct DecryptedRecord {
     record_id: String,
     workspace_id: String,
@@ -197,44 +605,57 @@ pub async fn encrypt_e2ee_replica_changes(
     pool: &SqlitePool,
     keys: &HashMap<String, WorkspaceKey>,
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
-    encrypt_e2ee_replica_changes_inner(pool, keys, false).await
+    encrypt_e2ee_replica_changes_inner(pool, keys, false, &|| false).await
 }
 
 pub async fn encrypt_e2ee_replica_changes_deferring_active_captures(
     pool: &SqlitePool,
     keys: &HashMap<String, WorkspaceKey>,
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
-    encrypt_e2ee_replica_changes_inner(pool, keys, true).await
+    encrypt_e2ee_replica_changes_inner(pool, keys, true, &|| false).await
+}
+
+pub async fn encrypt_e2ee_replica_changes_deferring_active_captures_cancellable(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKey>,
+    is_cancelled: impl Fn() -> bool + Sync,
+) -> E2eeReplicaResult<E2eeReplicaStats> {
+    encrypt_e2ee_replica_changes_inner(pool, keys, true, &is_cancelled).await
 }
 
 async fn encrypt_e2ee_replica_changes_inner(
     pool: &SqlitePool,
     keys: &HashMap<String, WorkspaceKey>,
     defer_active_captures: bool,
+    is_cancelled: &(impl Fn() -> bool + Sync),
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
     if keys.is_empty() {
         return Ok(E2eeReplicaStats::default());
     }
 
     let mut stats = E2eeReplicaStats::default();
-    let mut remaining = count_dirty_rows(pool, keys, defer_active_captures).await?;
-    while remaining > 0 {
+    if is_cancelled() {
+        stats.remaining_replica_changes = true;
+        return Ok(stats);
+    }
+    loop {
         let batch = encrypt_e2ee_replica_changes_bounded_inner(
             pool,
             keys,
             E2EE_ENCRYPT_ROW_LIMIT,
             defer_active_captures,
+            is_cancelled,
         )
         .await?;
         stats.encrypted_fields += batch.encrypted_fields;
-        let next_remaining = count_dirty_rows(pool, keys, defer_active_captures).await?;
-        if next_remaining == 0 {
+        stats.remaining_replica_changes = batch.remaining_replica_changes;
+        if is_cancelled() {
+            stats.remaining_replica_changes = true;
             break;
         }
-        if next_remaining >= remaining {
+        if !stats.remaining_replica_changes {
             break;
         }
-        remaining = next_remaining;
         yield_once().await;
     }
     Ok(stats)
@@ -245,7 +666,7 @@ pub async fn encrypt_e2ee_replica_changes_bounded(
     keys: &HashMap<String, WorkspaceKey>,
     max_rows: i64,
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
-    encrypt_e2ee_replica_changes_bounded_inner(pool, keys, max_rows, false).await
+    encrypt_e2ee_replica_changes_bounded_inner(pool, keys, max_rows, false, &|| false).await
 }
 
 pub async fn encrypt_e2ee_replica_changes_bounded_deferring_active_captures(
@@ -253,7 +674,16 @@ pub async fn encrypt_e2ee_replica_changes_bounded_deferring_active_captures(
     keys: &HashMap<String, WorkspaceKey>,
     max_rows: i64,
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
-    encrypt_e2ee_replica_changes_bounded_inner(pool, keys, max_rows, true).await
+    encrypt_e2ee_replica_changes_bounded_inner(pool, keys, max_rows, true, &|| false).await
+}
+
+pub async fn encrypt_e2ee_replica_changes_bounded_deferring_active_captures_cancellable(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKey>,
+    max_rows: i64,
+    is_cancelled: impl Fn() -> bool + Sync,
+) -> E2eeReplicaResult<E2eeReplicaStats> {
+    encrypt_e2ee_replica_changes_bounded_inner(pool, keys, max_rows, true, &is_cancelled).await
 }
 
 async fn encrypt_e2ee_replica_changes_bounded_inner(
@@ -261,12 +691,13 @@ async fn encrypt_e2ee_replica_changes_bounded_inner(
     keys: &HashMap<String, WorkspaceKey>,
     max_rows: i64,
     defer_active_captures: bool,
+    is_cancelled: &(impl Fn() -> bool + Sync),
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
     if keys.is_empty() || max_rows <= 0 {
         return Ok(E2eeReplicaStats::default());
     }
 
-    let dirty_rows = load_dirty_rows_inner(
+    let (dirty_rows, queued_remaining) = load_dirty_rows_page(
         pool,
         keys,
         max_rows.min(E2EE_ENCRYPT_ROW_LIMIT),
@@ -276,18 +707,62 @@ async fn encrypt_e2ee_replica_changes_bounded_inner(
     if dirty_rows.is_empty() {
         return Ok(E2eeReplicaStats::default());
     }
+    let mut stats = E2eeReplicaStats {
+        remaining_replica_changes: queued_remaining,
+        ..Default::default()
+    };
+    if is_cancelled() {
+        stats.remaining_replica_changes = true;
+        return Ok(stats);
+    }
     let writer_id = {
+        check_e2ee_cancellation(is_cancelled)?;
         let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+        if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+            transaction.rollback().await?;
+            return Err(error);
+        }
         let writer_id = load_or_create_writer_id(&mut transaction).await?;
+        if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+            transaction.rollback().await?;
+            return Err(error);
+        }
         transaction.commit().await?;
+        check_e2ee_cancellation(is_cancelled)?;
         writer_id
     };
-    let mut stats = E2eeReplicaStats::default();
+    if is_cancelled() {
+        stats.remaining_replica_changes = true;
+        return Ok(stats);
+    }
     for dirty in dirty_rows {
         let key = &keys[&dirty.workspace_id];
-        let prepared = prepare_dirty_row(pool, key, &writer_id, dirty).await?;
-        stats.encrypted_fields +=
-            persist_prepared_dirty_row_inner(pool, prepared, defer_active_captures).await?;
+        let prepared =
+            prepare_dirty_row_cancellable(pool, key, &writer_id, dirty, is_cancelled).await?;
+        if is_cancelled() {
+            stats.remaining_replica_changes = true;
+            break;
+        }
+        stats.encrypted_fields += persist_prepared_dirty_row_cancellable(
+            pool,
+            prepared,
+            defer_active_captures,
+            is_cancelled,
+        )
+        .await?;
+        if is_cancelled() {
+            stats.remaining_replica_changes = true;
+            break;
+        }
+    }
+    if !stats.remaining_replica_changes && !is_cancelled() {
+        stats.remaining_replica_changes =
+            !load_dirty_rows_inner(pool, keys, 1, defer_active_captures)
+                .await?
+                .is_empty();
+    }
+    if is_cancelled() {
+        stats.remaining_replica_changes = true;
     }
     Ok(stats)
 }
@@ -343,6 +818,7 @@ pub async fn apply_e2ee_replica_changes(
         false,
         E2EE_APPLY_ROW_LIMIT,
         E2EE_APPLY_BYTE_LIMIT,
+        &|| false,
     )
     .await
 }
@@ -359,12 +835,28 @@ pub async fn apply_received_e2ee_replica_changes_with_witness(
     keys: &HashMap<String, WorkspaceKey>,
     snapshot_complete: bool,
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
+    apply_received_e2ee_replica_changes_with_witness_cancellable(
+        pool,
+        keys,
+        snapshot_complete,
+        || false,
+    )
+    .await
+}
+
+pub async fn apply_received_e2ee_replica_changes_with_witness_cancellable(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKey>,
+    snapshot_complete: bool,
+    is_cancelled: impl Fn() -> bool + Sync,
+) -> E2eeReplicaResult<E2eeReplicaStats> {
     apply_received_e2ee_replica_changes_with_witness_bounded(
         pool,
         keys,
         snapshot_complete,
         E2EE_WITNESS_REPAIR_RECORD_LIMIT,
         E2EE_WITNESS_REPAIR_BYTE_LIMIT,
+        &is_cancelled,
     )
     .await
 }
@@ -375,45 +867,157 @@ async fn apply_received_e2ee_replica_changes_with_witness_bounded(
     snapshot_complete: bool,
     max_repair_records: i64,
     max_repair_bytes: usize,
+    is_cancelled: &(impl Fn() -> bool + Sync),
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
+    check_e2ee_apply_cancellation(is_cancelled)?;
     let repair_remaining = if snapshot_complete {
-        repair_e2ee_replica_from_witness_bounded(
+        repair_e2ee_replica_from_witness_bounded_cancellable(
             pool,
             keys,
             true,
             max_repair_records,
             max_repair_bytes,
+            is_cancelled,
         )
         .await?
         .remaining
     } else {
         false
     };
+    check_e2ee_apply_cancellation(is_cancelled)?;
     let mut stats = apply_e2ee_replica_changes_inner(
         pool,
         keys,
         true,
         E2EE_APPLY_ROW_LIMIT,
         E2EE_APPLY_BYTE_LIMIT,
+        is_cancelled,
     )
     .await?;
+    check_e2ee_apply_cancellation(is_cancelled)?;
     stats.remaining_replica_changes |= repair_remaining;
     Ok(stats)
 }
 
-async fn apply_e2ee_replica_changes_inner(
+fn check_e2ee_apply_cancellation(
+    is_cancelled: &(impl Fn() -> bool + Sync),
+) -> E2eeReplicaResult<()> {
+    if is_cancelled() {
+        Err(E2eeReplicaError::Cancelled)
+    } else {
+        Ok(())
+    }
+}
+
+async fn rollback_cancelled_e2ee_apply<T>(
+    transaction: Transaction<'_, Sqlite>,
+) -> E2eeReplicaResult<T> {
+    transaction.rollback().await?;
+    Err(E2eeReplicaError::Cancelled)
+}
+
+async fn commit_e2ee_apply_transaction(
+    transaction: Transaction<'_, Sqlite>,
+    is_cancelled: &(impl Fn() -> bool + Sync),
+) -> E2eeReplicaResult<()> {
+    if is_cancelled() {
+        return rollback_cancelled_e2ee_apply(transaction).await;
+    }
+    transaction.commit().await?;
+    check_e2ee_apply_cancellation(is_cancelled)
+}
+
+async fn load_changed_e2ee_record_metadata(
     pool: &SqlitePool,
     keys: &HashMap<String, WorkspaceKey>,
-    require_witness: bool,
-    max_rows: usize,
-    max_bytes: usize,
-) -> E2eeReplicaResult<E2eeReplicaStats> {
-    if keys.is_empty() || max_rows == 0 || max_bytes == 0 {
-        return Ok(E2eeReplicaStats::default());
+    cursor: Option<&(String, String)>,
+) -> E2eeReplicaResult<Vec<EncryptedRecordMetadata>> {
+    let mut workspace_ids = keys.keys().collect::<Vec<_>>();
+    workspace_ids.sort_unstable();
+    let mut query = QueryBuilder::<Sqlite>::new(
+        "WITH page AS MATERIALIZED (
+           SELECT input.id, input.workspace_id
+           FROM e2ee_records AS input
+           INDEXED BY idx_e2ee_records_workspace
+           WHERE input.workspace_id IN (",
+    );
+    {
+        let mut separated = query.separated(", ");
+        for workspace_id in workspace_ids {
+            separated.push_bind(workspace_id);
+        }
     }
+    query.push(")");
+    if let Some((workspace_id, record_id)) = cursor {
+        query
+            .push(
+                "
+           AND (
+             input.workspace_id > ",
+            )
+            .push_bind(workspace_id)
+            .push(
+                "
+             OR (
+               input.workspace_id = ",
+            )
+            .push_bind(workspace_id)
+            .push(
+                "
+               AND input.id > ",
+            )
+            .push_bind(record_id)
+            .push(
+                "
+             )
+           )",
+            );
+    }
+    query
+        .push(
+            "
+           ORDER BY input.workspace_id, input.id
+           LIMIT ",
+        )
+        .push_bind(E2EE_APPLY_PREFLIGHT_RECORD_LIMIT)
+        .push(
+            "
+         )
+         SELECT
+           replica.id,
+           replica.workspace_id,
+           LENGTH(CAST(replica.id AS BLOB))
+             + LENGTH(CAST(replica.workspace_id AS BLOB))
+             + LENGTH(CAST(replica.payload AS BLOB))
+             + 256 AS record_bytes,
+           EXISTS(
+             SELECT 1
+             FROM e2ee_witness_records AS witness
+             WHERE witness.workspace_id = replica.workspace_id
+               AND witness.record_id = replica.id
+               AND witness.payload = replica.payload
+           ) AS witnessed,
+           (
+             local.record_id IS NULL
+             OR local.workspace_id != replica.workspace_id
+             OR local.payload != replica.payload
+           ) AS changed
+         FROM page
+         INNER JOIN e2ee_records AS replica
+           ON replica.id = page.id
+          AND replica.workspace_id = page.workspace_id
+         LEFT JOIN e2ee_local_state AS local
+           ON local.record_id = replica.id
+         ORDER BY replica.workspace_id, replica.id",
+        );
+    Ok(query.build_query_as().fetch_all(pool).await?)
+}
 
-    clear_stale_apply_guards(pool).await?;
-    let records: Vec<EncryptedRecord> = sqlx::query_as(
+async fn load_encrypted_records_by_id(
+    pool: &SqlitePool,
+    record_ids: &[String],
+) -> E2eeReplicaResult<Vec<EncryptedRecord>> {
+    let mut query = QueryBuilder::<Sqlite>::new(
         "SELECT
            replica.id,
            replica.workspace_id,
@@ -426,38 +1030,119 @@ async fn apply_e2ee_replica_changes_inner(
                AND witness.payload = replica.payload
            ) AS witnessed
          FROM e2ee_records AS replica
-         LEFT JOIN e2ee_local_state AS local
-           ON local.record_id = replica.id
-         WHERE local.record_id IS NULL
-            OR local.workspace_id != replica.workspace_id
-            OR local.payload != replica.payload
-         ORDER BY replica.workspace_id, replica.id",
-    )
-    .fetch_all(pool)
-    .await?;
+         WHERE replica.id IN (",
+    );
+    {
+        let mut separated = query.separated(", ");
+        for record_id in record_ids {
+            separated.push_bind(record_id);
+        }
+    }
+    query.push(") ORDER BY replica.workspace_id, replica.id");
+    Ok(query.build_query_as().fetch_all(pool).await?)
+}
+
+async fn apply_e2ee_replica_changes_inner(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKey>,
+    require_witness: bool,
+    max_rows: usize,
+    max_bytes: usize,
+    is_cancelled: &(impl Fn() -> bool + Sync),
+) -> E2eeReplicaResult<E2eeReplicaStats> {
+    if keys.is_empty() || max_rows == 0 || max_bytes == 0 {
+        return Ok(E2eeReplicaStats::default());
+    }
+
+    check_e2ee_apply_cancellation(is_cancelled)?;
+    clear_stale_apply_guards(pool).await?;
+    check_e2ee_apply_cancellation(is_cancelled)?;
     let mut groups = BTreeMap::<(String, String, String), BTreeSet<String>>::new();
     let mut stats = E2eeReplicaStats::default();
+    let mut cursor = None::<(String, String)>;
 
-    for record in records {
-        let Some(key) = keys.get(&record.workspace_id) else {
-            continue;
-        };
-        if require_witness && !record.witnessed {
-            stats.rejected_unwitnessed += 1;
-            continue;
+    'preflight: loop {
+        check_e2ee_apply_cancellation(is_cancelled)?;
+        let metadata = load_changed_e2ee_record_metadata(pool, keys, cursor.as_ref()).await?;
+        check_e2ee_apply_cancellation(is_cancelled)?;
+        if metadata.is_empty() {
+            break;
         }
-        let field = key.open_field(&record.workspace_id, &record.id, &record.payload)?;
-        if !E2EE_DOMAIN_TABLES.contains(&field.table.as_str()) {
-            return Err(E2eeReplicaError::InvalidField);
+
+        let metadata_complete =
+            metadata.len() < usize::try_from(E2EE_APPLY_PREFLIGHT_RECORD_LIMIT).unwrap();
+        let mut selected_ids = Vec::new();
+        let mut selected_bytes = 0_usize;
+        let mut processed_metadata = 0_usize;
+        for record in &metadata {
+            check_e2ee_apply_cancellation(is_cancelled)?;
+            if record.changed {
+                if require_witness && !record.witnessed {
+                    stats.rejected_unwitnessed += 1;
+                } else {
+                    let record_bytes = usize::try_from(record.record_bytes)
+                        .map_err(|_| E2eeReplicaError::InvalidRow)?;
+                    if record_bytes > max_bytes {
+                        return Err(E2eeReplicaError::ReplicaApplyTooLarge);
+                    }
+                    if !selected_ids.is_empty()
+                        && selected_bytes.saturating_add(record_bytes) > max_bytes
+                    {
+                        break;
+                    }
+                    selected_bytes = selected_bytes.saturating_add(record_bytes);
+                    selected_ids.push(record.id.clone());
+                }
+            }
+            cursor = Some((record.workspace_id.clone(), record.id.clone()));
+            processed_metadata += 1;
         }
-        groups
-            .entry((record.workspace_id, field.table, field.row_id))
-            .or_default()
-            .insert(field.field);
+
+        if !selected_ids.is_empty() {
+            check_e2ee_apply_cancellation(is_cancelled)?;
+            let records = load_encrypted_records_by_id(pool, &selected_ids).await?;
+            check_e2ee_apply_cancellation(is_cancelled)?;
+            for record in records {
+                check_e2ee_apply_cancellation(is_cancelled)?;
+                let Some(key) = keys.get(&record.workspace_id) else {
+                    continue;
+                };
+                if require_witness && !record.witnessed {
+                    stats.rejected_unwitnessed += 1;
+                    continue;
+                }
+                let field = key.open_field(&record.workspace_id, &record.id, &record.payload)?;
+                check_e2ee_apply_cancellation(is_cancelled)?;
+                if !E2EE_DOMAIN_TABLES.contains(&field.table.as_str()) {
+                    return Err(E2eeReplicaError::InvalidField);
+                }
+                groups
+                    .entry((record.workspace_id, field.table, field.row_id))
+                    .or_default()
+                    .insert(field.field);
+                if groups.len() > max_rows {
+                    stats.remaining_replica_changes = true;
+                    break 'preflight;
+                }
+            }
+        }
+
+        if processed_metadata == metadata.len() && metadata_complete {
+            break;
+        }
+        yield_once().await;
+        check_e2ee_apply_cancellation(is_cancelled)?;
     }
 
     let mut column_cache = HashMap::<String, HashSet<String>>::new();
     let mut attempted_bytes = 0_usize;
+    macro_rules! rollback_if_cancelled {
+        ($transaction:ident, $is_cancelled:expr) => {
+            if ($is_cancelled)() {
+                return rollback_cancelled_e2ee_apply($transaction).await;
+            }
+        };
+    }
     for (attempted_rows, ((workspace_id, table, row_id), changed_fields)) in
         groups.into_iter().enumerate()
     {
@@ -465,14 +1150,18 @@ async fn apply_e2ee_replica_changes_inner(
             stats.remaining_replica_changes = true;
             break;
         }
+        check_e2ee_apply_cancellation(is_cancelled)?;
         if attempted_rows > 0 {
             yield_once().await;
+            check_e2ee_apply_cancellation(is_cancelled)?;
         }
         let key = &keys[&workspace_id];
         let columns = match column_cache.get(&table) {
             Some(columns) => columns.clone(),
             None => {
+                check_e2ee_apply_cancellation(is_cancelled)?;
                 let columns = table_columns(pool, &table).await?;
+                check_e2ee_apply_cancellation(is_cancelled)?;
                 column_cache.insert(table.clone(), columns.clone());
                 columns
             }
@@ -484,8 +1173,17 @@ async fn apply_e2ee_replica_changes_inner(
             return Err(E2eeReplicaError::InvalidField);
         }
 
-        let encrypted_records =
-            load_encrypted_row_group(pool, key, &workspace_id, &table, &row_id, &columns).await?;
+        check_e2ee_apply_cancellation(is_cancelled)?;
+        let encrypted_records = load_encrypted_row_group(
+            pool,
+            key,
+            (&workspace_id, &table, &row_id),
+            &columns,
+            max_bytes,
+            is_cancelled,
+        )
+        .await?;
+        check_e2ee_apply_cancellation(is_cancelled)?;
         let row_bytes = encrypted_records
             .iter()
             .try_fold(0_usize, |total, record| {
@@ -506,10 +1204,12 @@ async fn apply_e2ee_replica_changes_inner(
         attempted_bytes = attempted_bytes.saturating_add(row_bytes);
         let mut records = Vec::with_capacity(encrypted_records.len());
         for record in encrypted_records {
+            check_e2ee_apply_cancellation(is_cancelled)?;
             if require_witness && !record.witnessed {
                 continue;
             }
             let field = key.open_field(&record.workspace_id, &record.id, &record.payload)?;
+            check_e2ee_apply_cancellation(is_cancelled)?;
             if field.table != table || field.row_id != row_id {
                 return Err(E2eeReplicaError::InvalidField);
             }
@@ -521,32 +1221,42 @@ async fn apply_e2ee_replica_changes_inner(
             {
                 return Err(E2eeReplicaError::InvalidField);
             }
+            let payload_hash = hypr_e2ee::payload_hash(&record.payload);
+            check_e2ee_apply_cancellation(is_cancelled)?;
             records.push(DecryptedRecord {
                 record_id: record.id,
                 workspace_id: record.workspace_id,
-                payload_hash: hypr_e2ee::payload_hash(&record.payload),
+                payload_hash,
                 payload: record.payload,
                 field,
             });
         }
 
+        check_e2ee_apply_cancellation(is_cancelled)?;
         let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+        rollback_if_cancelled!(transaction, is_cancelled);
         if !replica_records_still_current(&mut transaction, &records).await? {
-            transaction.commit().await?;
+            rollback_if_cancelled!(transaction, is_cancelled);
+            commit_e2ee_apply_transaction(transaction, is_cancelled).await?;
             continue;
         }
+        rollback_if_cancelled!(transaction, is_cancelled);
         insert_apply_guard(&mut transaction, &workspace_id, &table, &row_id).await?;
+        rollback_if_cancelled!(transaction, is_cancelled);
         let mut states =
             load_row_local_states(&mut transaction, &workspace_id, &table, &row_id).await?;
+        rollback_if_cancelled!(transaction, is_cancelled);
         let mut stale_manifest = false;
         let mut accepted_records = Vec::with_capacity(records.len());
         for record in records {
+            rollback_if_cancelled!(transaction, is_cancelled);
             let is_stale = match states.get(&record.record_id) {
                 Some(state) => record_version_order(state, &record)? == Ordering::Less,
                 None => false,
             };
             if is_stale {
                 restore_local_payload(&mut transaction, &states[&record.record_id]).await?;
+                rollback_if_cancelled!(transaction, is_cancelled);
                 stale_manifest |= record.field.field == ROW_MANIFEST_FIELD;
                 stats.rejected_rollbacks += 1;
                 continue;
@@ -556,7 +1266,8 @@ async fn apply_e2ee_replica_changes_inner(
         records = accepted_records;
         if stale_manifest {
             remove_apply_guard(&mut transaction, &workspace_id, &table, &row_id).await?;
-            transaction.commit().await?;
+            rollback_if_cancelled!(transaction, is_cancelled);
+            commit_e2ee_apply_transaction(transaction, is_cancelled).await?;
             continue;
         }
         let Some(manifest_index) = records
@@ -564,7 +1275,8 @@ async fn apply_e2ee_replica_changes_inner(
             .position(|record| record.field.field == ROW_MANIFEST_FIELD)
         else {
             remove_apply_guard(&mut transaction, &workspace_id, &table, &row_id).await?;
-            transaction.commit().await?;
+            rollback_if_cancelled!(transaction, is_cancelled);
+            commit_e2ee_apply_transaction(transaction, is_cancelled).await?;
             continue;
         };
         let manifest = records.swap_remove(manifest_index);
@@ -573,6 +1285,7 @@ async fn apply_e2ee_replica_changes_inner(
             .as_ref()
             .is_some_and(|state| state.payload_hash == manifest.payload_hash);
         let row_was_present = row_exists(&mut transaction, &table, &workspace_id, &row_id).await?;
+        rollback_if_cancelled!(transaction, is_cancelled);
         let mut row_materialized = false;
 
         if !manifest_unchanged {
@@ -586,15 +1299,18 @@ async fn apply_e2ee_replica_changes_inner(
                 &states,
             )
             .await?;
+            rollback_if_cancelled!(transaction, is_cancelled);
             if locally_changed {
                 stats.skipped_local_changes += records.len() as u64 + 1;
                 remove_apply_guard(&mut transaction, &workspace_id, &table, &row_id).await?;
-                transaction.commit().await?;
+                rollback_if_cancelled!(transaction, is_cancelled);
+                commit_e2ee_apply_transaction(transaction, is_cancelled).await?;
                 continue;
             }
 
             if manifest.field.deleted {
                 delete_row(&mut transaction, &table, &workspace_id, &row_id).await?;
+                rollback_if_cancelled!(transaction, is_cancelled);
                 let value_tag =
                     key.value_tag(&table, &row_id, ROW_MANIFEST_FIELD, true, &Value::Null);
                 let state = LocalState {
@@ -611,19 +1327,25 @@ async fn apply_e2ee_replica_changes_inner(
                     payload: manifest.payload,
                 };
                 upsert_local_state(&mut transaction, &state).await?;
+                rollback_if_cancelled!(transaction, is_cancelled);
                 stats.applied_fields += 1;
                 remove_apply_guard(&mut transaction, &workspace_id, &table, &row_id).await?;
-                transaction.commit().await?;
+                rollback_if_cancelled!(transaction, is_cancelled);
+                commit_e2ee_apply_transaction(transaction, is_cancelled).await?;
                 continue;
             }
 
             if !row_was_present {
                 insert_row(&mut transaction, &table, &workspace_id, &row_id).await?;
+                rollback_if_cancelled!(transaction, is_cancelled);
                 if !row_exists(&mut transaction, &table, &workspace_id, &row_id).await? {
+                    rollback_if_cancelled!(transaction, is_cancelled);
                     remove_apply_guard(&mut transaction, &workspace_id, &table, &row_id).await?;
-                    transaction.commit().await?;
+                    rollback_if_cancelled!(transaction, is_cancelled);
+                    commit_e2ee_apply_transaction(transaction, is_cancelled).await?;
                     continue;
                 }
+                rollback_if_cancelled!(transaction, is_cancelled);
                 sqlx::query(
                     "DELETE FROM e2ee_local_state
                      WHERE workspace_id = ?
@@ -637,6 +1359,7 @@ async fn apply_e2ee_replica_changes_inner(
                 .bind(ROW_MANIFEST_FIELD)
                 .execute(&mut *transaction)
                 .await?;
+                rollback_if_cancelled!(transaction, is_cancelled);
                 states.retain(|_, state| state.field_name == ROW_MANIFEST_FIELD);
                 row_materialized = true;
             }
@@ -655,15 +1378,18 @@ async fn apply_e2ee_replica_changes_inner(
                 payload: manifest.payload,
             };
             upsert_local_state(&mut transaction, &state).await?;
+            rollback_if_cancelled!(transaction, is_cancelled);
             states.insert(state.record_id.clone(), state);
             stats.applied_fields += 1;
         } else if !row_was_present || manifest.field.deleted {
             remove_apply_guard(&mut transaction, &workspace_id, &table, &row_id).await?;
-            transaction.commit().await?;
+            rollback_if_cancelled!(transaction, is_cancelled);
+            commit_e2ee_apply_transaction(transaction, is_cancelled).await?;
             continue;
         }
 
         for record in records {
+            rollback_if_cancelled!(transaction, is_cancelled);
             let field_name = record.field.field.as_str();
             if field_name == ROW_MANIFEST_FIELD
                 || field_name == "id"
@@ -685,9 +1411,11 @@ async fn apply_e2ee_replica_changes_inner(
                     read_field(&mut transaction, &table, &workspace_id, &row_id, field_name)
                         .await?
                 else {
+                    rollback_if_cancelled!(transaction, is_cancelled);
                     stats.skipped_local_changes += 1;
                     continue;
                 };
+                rollback_if_cancelled!(transaction, is_cancelled);
                 let current_tag = key.value_tag(&table, &row_id, field_name, false, &current);
                 if current_tag != state.value_tag {
                     stats.skipped_local_changes += 1;
@@ -704,6 +1432,7 @@ async fn apply_e2ee_replica_changes_inner(
                 &record.field.value,
             )
             .await?;
+            rollback_if_cancelled!(transaction, is_cancelled);
             let value_tag = key.value_tag(&table, &row_id, field_name, false, &record.field.value);
             let state = LocalState {
                 record_id: record.record_id,
@@ -719,13 +1448,16 @@ async fn apply_e2ee_replica_changes_inner(
                 payload: record.payload,
             };
             upsert_local_state(&mut transaction, &state).await?;
+            rollback_if_cancelled!(transaction, is_cancelled);
             states.insert(state.record_id.clone(), state);
             stats.applied_fields += 1;
         }
         remove_apply_guard(&mut transaction, &workspace_id, &table, &row_id).await?;
-        transaction.commit().await?;
+        rollback_if_cancelled!(transaction, is_cancelled);
+        commit_e2ee_apply_transaction(transaction, is_cancelled).await?;
     }
 
+    check_e2ee_apply_cancellation(is_cancelled)?;
     Ok(stats)
 }
 
@@ -759,6 +1491,38 @@ pub async fn pending_e2ee_witness_uploads(
     max_records: usize,
     max_bytes: usize,
 ) -> E2eeReplicaResult<Vec<E2eeWitnessUpload>> {
+    pending_e2ee_witness_uploads_inner(pool, workspace_id, key, max_records, max_bytes, &|| false)
+        .await
+}
+
+pub async fn pending_e2ee_witness_uploads_cancellable(
+    pool: &SqlitePool,
+    workspace_id: &str,
+    key: &WorkspaceKey,
+    max_records: usize,
+    max_bytes: usize,
+    is_cancelled: impl Fn() -> bool + Sync,
+) -> E2eeReplicaResult<Vec<E2eeWitnessUpload>> {
+    pending_e2ee_witness_uploads_inner(
+        pool,
+        workspace_id,
+        key,
+        max_records,
+        max_bytes,
+        &is_cancelled,
+    )
+    .await
+}
+
+async fn pending_e2ee_witness_uploads_inner(
+    pool: &SqlitePool,
+    workspace_id: &str,
+    key: &WorkspaceKey,
+    max_records: usize,
+    max_bytes: usize,
+    is_cancelled: &(impl Fn() -> bool + Sync),
+) -> E2eeReplicaResult<Vec<E2eeWitnessUpload>> {
+    check_e2ee_cancellation(is_cancelled)?;
     if max_records == 0 || max_bytes == 0 {
         return Ok(Vec::new());
     }
@@ -766,19 +1530,32 @@ pub async fn pending_e2ee_witness_uploads(
         i64::try_from(max_records).map_err(|_| E2eeReplicaError::WitnessUploadTooLarge)?;
 
     let mut transaction = pool.begin().await?;
+    if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+        transaction.rollback().await?;
+        return Err(error);
+    }
     let pending: Vec<(String, i64)> = sqlx::query_as(PENDING_E2EE_WITNESS_UPLOADS_SQL)
         .bind(workspace_id)
         .bind(max_records)
         .fetch_all(&mut *transaction)
         .await?;
+    if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+        transaction.rollback().await?;
+        return Err(error);
+    }
     if pending.is_empty() {
         transaction.commit().await?;
+        check_e2ee_cancellation(is_cancelled)?;
         return Ok(Vec::new());
     }
 
     let mut selected_ids = Vec::with_capacity(pending.len());
     let mut selected_bytes = 0_usize;
     for (record_id, upload_bytes) in pending {
+        if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+            transaction.rollback().await?;
+            return Err(error);
+        }
         let upload_bytes =
             usize::try_from(upload_bytes).map_err(|_| E2eeReplicaError::InvalidRow)?;
         if selected_bytes.saturating_add(upload_bytes) > max_bytes {
@@ -807,6 +1584,10 @@ pub async fn pending_e2ee_witness_uploads(
     }
     query.push(") ORDER BY record_id");
     let states: Vec<LocalState> = query.build_query_as().fetch_all(&mut *transaction).await?;
+    if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+        transaction.rollback().await?;
+        return Err(error);
+    }
     if states.len() != selected_ids.len()
         || !states
             .iter()
@@ -815,7 +1596,12 @@ pub async fn pending_e2ee_witness_uploads(
     {
         return Err(E2eeReplicaError::InvalidRow);
     }
+    if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+        transaction.rollback().await?;
+        return Err(error);
+    }
     transaction.commit().await?;
+    check_e2ee_cancellation(is_cancelled)?;
 
     let loaded_bytes = states.iter().fold(0_usize, |total, state| {
         total
@@ -828,29 +1614,30 @@ pub async fn pending_e2ee_witness_uploads(
         return Err(E2eeReplicaError::WitnessUploadTooLarge);
     }
 
-    states
-        .into_iter()
-        .map(|state| {
-            validate_witness_payload(
-                key,
-                &state.workspace_id,
-                &state.record_id,
-                &state.payload_hash,
-                &state.payload,
-                state.revision,
-                &state.writer_id,
-            )?;
-            Ok(E2eeWitnessUpload {
-                record_id: state.record_id,
-                workspace_id: state.workspace_id,
-                revision: u64::try_from(state.revision)
-                    .map_err(|_| E2eeReplicaError::InvalidRow)?,
-                writer_id: state.writer_id,
-                payload_hash: state.payload_hash,
-                payload: state.payload,
-            })
-        })
-        .collect()
+    let mut uploads = Vec::with_capacity(states.len());
+    for state in states {
+        check_e2ee_cancellation(is_cancelled)?;
+        validate_witness_payload(
+            key,
+            &state.workspace_id,
+            &state.record_id,
+            &state.payload_hash,
+            &state.payload,
+            state.revision,
+            &state.writer_id,
+        )?;
+        check_e2ee_cancellation(is_cancelled)?;
+        uploads.push(E2eeWitnessUpload {
+            record_id: state.record_id,
+            workspace_id: state.workspace_id,
+            revision: u64::try_from(state.revision).map_err(|_| E2eeReplicaError::InvalidRow)?,
+            writer_id: state.writer_id,
+            payload_hash: state.payload_hash,
+            payload: state.payload,
+        });
+        yield_once().await;
+    }
+    Ok(uploads)
 }
 
 pub async fn acknowledge_e2ee_witness_uploads(
@@ -858,36 +1645,63 @@ pub async fn acknowledge_e2ee_witness_uploads(
     key: &WorkspaceKey,
     uploads: &[E2eeWitnessUpload],
 ) -> E2eeReplicaResult<()> {
-    let records = uploads
-        .iter()
-        .map(|upload| {
-            let revision =
-                i64::try_from(upload.revision).map_err(|_| E2eeReplicaError::InvalidRow)?;
-            validate_witness_payload(
-                key,
-                &upload.workspace_id,
-                &upload.record_id,
-                &upload.payload_hash,
-                &upload.payload,
-                revision,
-                &upload.writer_id,
-            )?;
-            Ok(WitnessRecord {
-                workspace_id: upload.workspace_id.clone(),
-                record_id: upload.record_id.clone(),
-                revision,
-                writer_id: upload.writer_id.clone(),
-                payload_hash: upload.payload_hash.clone(),
-                payload: upload.payload.clone(),
-                sequence: 0,
-            })
-        })
-        .collect::<E2eeReplicaResult<Vec<_>>>()?;
+    acknowledge_e2ee_witness_uploads_inner(pool, key, uploads, &|| false).await
+}
 
+pub async fn acknowledge_e2ee_witness_uploads_cancellable(
+    pool: &SqlitePool,
+    key: &WorkspaceKey,
+    uploads: &[E2eeWitnessUpload],
+    is_cancelled: impl Fn() -> bool + Sync,
+) -> E2eeReplicaResult<()> {
+    acknowledge_e2ee_witness_uploads_inner(pool, key, uploads, &is_cancelled).await
+}
+
+async fn acknowledge_e2ee_witness_uploads_inner(
+    pool: &SqlitePool,
+    key: &WorkspaceKey,
+    uploads: &[E2eeWitnessUpload],
+    is_cancelled: &(impl Fn() -> bool + Sync),
+) -> E2eeReplicaResult<()> {
+    let mut records = Vec::with_capacity(uploads.len());
+    for upload in uploads {
+        check_e2ee_cancellation(is_cancelled)?;
+        let revision = i64::try_from(upload.revision).map_err(|_| E2eeReplicaError::InvalidRow)?;
+        validate_witness_payload(
+            key,
+            &upload.workspace_id,
+            &upload.record_id,
+            &upload.payload_hash,
+            &upload.payload,
+            revision,
+            &upload.writer_id,
+        )?;
+        check_e2ee_cancellation(is_cancelled)?;
+        records.push(WitnessRecord {
+            workspace_id: upload.workspace_id.clone(),
+            record_id: upload.record_id.clone(),
+            revision,
+            writer_id: upload.writer_id.clone(),
+            payload_hash: upload.payload_hash.clone(),
+            payload: upload.payload.clone(),
+            sequence: 0,
+        });
+        yield_once().await;
+    }
     for record in records {
+        check_e2ee_cancellation(is_cancelled)?;
         let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+        if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+            transaction.rollback().await?;
+            return Err(error);
+        }
         upsert_witness_record(&mut transaction, &record).await?;
+        if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+            transaction.rollback().await?;
+            return Err(error);
+        }
         transaction.commit().await?;
+        check_e2ee_cancellation(is_cancelled)?;
     }
     Ok(())
 }
@@ -898,9 +1712,30 @@ pub async fn merge_e2ee_witness_events(
     workspace_id: &str,
     events: &[E2eeWitnessEvent],
 ) -> E2eeReplicaResult<()> {
+    merge_e2ee_witness_events_inner(pool, key, workspace_id, events, &|| false).await
+}
+
+pub async fn merge_e2ee_witness_events_cancellable(
+    pool: &SqlitePool,
+    key: &WorkspaceKey,
+    workspace_id: &str,
+    events: &[E2eeWitnessEvent],
+    is_cancelled: impl Fn() -> bool + Sync,
+) -> E2eeReplicaResult<()> {
+    merge_e2ee_witness_events_inner(pool, key, workspace_id, events, &is_cancelled).await
+}
+
+async fn merge_e2ee_witness_events_inner(
+    pool: &SqlitePool,
+    key: &WorkspaceKey,
+    workspace_id: &str,
+    events: &[E2eeWitnessEvent],
+    is_cancelled: &(impl Fn() -> bool + Sync),
+) -> E2eeReplicaResult<()> {
     let mut previous_sequence = 0;
     let mut records = Vec::with_capacity(events.len());
     for event in events {
+        check_e2ee_cancellation(is_cancelled)?;
         if event.workspace_id != workspace_id
             || event.sequence == 0
             || event.sequence <= previous_sequence
@@ -909,6 +1744,7 @@ pub async fn merge_e2ee_witness_events(
         }
         let sequence = i64::try_from(event.sequence).map_err(|_| E2eeReplicaError::InvalidRow)?;
         let field = key.open_field(workspace_id, &event.record_id, &event.payload)?;
+        check_e2ee_cancellation(is_cancelled)?;
         let revision = i64::try_from(field.revision).map_err(|_| E2eeReplicaError::InvalidRow)?;
         validate_opened_witness_field(
             &field,
@@ -927,11 +1763,22 @@ pub async fn merge_e2ee_witness_events(
             sequence,
         });
         previous_sequence = event.sequence;
+        yield_once().await;
     }
     for record in records {
+        check_e2ee_cancellation(is_cancelled)?;
         let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+        if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+            transaction.rollback().await?;
+            return Err(error);
+        }
         upsert_witness_record(&mut transaction, &record).await?;
+        if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+            transaction.rollback().await?;
+            return Err(error);
+        }
         transaction.commit().await?;
+        check_e2ee_cancellation(is_cancelled)?;
     }
     Ok(())
 }
@@ -973,17 +1820,72 @@ pub async fn repair_e2ee_replica_from_witness_bounded(
     max_records: i64,
     max_bytes: usize,
 ) -> E2eeReplicaResult<E2eeWitnessRepairOutcome> {
+    repair_e2ee_replica_from_witness_bounded_inner(
+        pool,
+        keys,
+        include_missing,
+        max_records,
+        max_bytes,
+        &|| false,
+    )
+    .await
+}
+
+pub async fn repair_e2ee_replica_from_witness_bounded_cancellable(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKey>,
+    include_missing: bool,
+    max_records: i64,
+    max_bytes: usize,
+    is_cancelled: impl Fn() -> bool + Sync,
+) -> E2eeReplicaResult<E2eeWitnessRepairOutcome> {
+    repair_e2ee_replica_from_witness_bounded_inner(
+        pool,
+        keys,
+        include_missing,
+        max_records,
+        max_bytes,
+        &is_cancelled,
+    )
+    .await
+}
+
+async fn repair_e2ee_replica_from_witness_bounded_inner(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKey>,
+    include_missing: bool,
+    max_records: i64,
+    max_bytes: usize,
+    is_cancelled: &(impl Fn() -> bool + Sync),
+) -> E2eeReplicaResult<E2eeWitnessRepairOutcome> {
+    check_e2ee_cancellation(is_cancelled)?;
     if keys.is_empty() || max_records <= 0 || max_bytes == 0 {
-        return Ok(E2eeWitnessRepairOutcome {
+        let outcome = E2eeWitnessRepairOutcome {
             repaired_records: 0,
-            remaining: has_pending_e2ee_witness_repairs(pool, keys, include_missing).await?,
-        });
+            remaining: has_pending_e2ee_witness_repairs_inner(
+                pool,
+                keys,
+                include_missing,
+                is_cancelled,
+            )
+            .await?,
+        };
+        check_e2ee_cancellation(is_cancelled)?;
+        return Ok(outcome);
     }
 
-    let (records, selected_more) =
-        load_bounded_e2ee_witness_repairs(pool, keys, include_missing, max_records, max_bytes)
-            .await?;
-    let repaired_records = persist_e2ee_witness_repairs(pool, keys, &records).await?;
+    let (records, selected_more) = load_bounded_e2ee_witness_repairs(
+        pool,
+        keys,
+        include_missing,
+        max_records,
+        max_bytes,
+        is_cancelled,
+    )
+    .await?;
+    check_e2ee_cancellation(is_cancelled)?;
+    let repaired_records = persist_e2ee_witness_repairs(pool, keys, &records, is_cancelled).await?;
+    check_e2ee_cancellation(is_cancelled)?;
     Ok(E2eeWitnessRepairOutcome {
         repaired_records,
         remaining: selected_more,
@@ -995,9 +1897,28 @@ pub async fn has_pending_e2ee_witness_repairs(
     keys: &HashMap<String, WorkspaceKey>,
     include_missing: bool,
 ) -> E2eeReplicaResult<bool> {
-    Ok(!load_e2ee_witness_repairs(pool, keys, include_missing, 1)
-        .await?
-        .is_empty())
+    has_pending_e2ee_witness_repairs_inner(pool, keys, include_missing, &|| false).await
+}
+
+pub async fn has_pending_e2ee_witness_repairs_cancellable(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKey>,
+    include_missing: bool,
+    is_cancelled: impl Fn() -> bool + Sync,
+) -> E2eeReplicaResult<bool> {
+    has_pending_e2ee_witness_repairs_inner(pool, keys, include_missing, &is_cancelled).await
+}
+
+async fn has_pending_e2ee_witness_repairs_inner(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKey>,
+    include_missing: bool,
+    is_cancelled: &(impl Fn() -> bool + Sync),
+) -> E2eeReplicaResult<bool> {
+    let (records, _) =
+        load_bounded_e2ee_witness_repairs(pool, keys, include_missing, 1, usize::MAX, is_cancelled)
+            .await?;
+    Ok(!records.is_empty())
 }
 
 async fn load_bounded_e2ee_witness_repairs(
@@ -1006,187 +1927,191 @@ async fn load_bounded_e2ee_witness_repairs(
     include_missing: bool,
     max_records: i64,
     max_bytes: usize,
+    is_cancelled: &(impl Fn() -> bool + Sync),
 ) -> E2eeReplicaResult<(Vec<WitnessRecord>, bool)> {
-    let mut workspace_ids = keys.keys().collect::<Vec<_>>();
-    workspace_ids.sort_unstable();
-    let mut transaction = pool.begin().await?;
-    let mut metadata_query = QueryBuilder::<Sqlite>::new(
-        "SELECT
-           witness.workspace_id,
-           witness.record_id,
-           LENGTH(CAST(witness.workspace_id AS BLOB))
-             + LENGTH(CAST(witness.record_id AS BLOB))
-             + LENGTH(CAST(witness.payload AS BLOB))
-             + 256
-         FROM e2ee_witness_records AS witness
-         LEFT JOIN e2ee_records AS replica
-           ON replica.id = witness.record_id
-         WHERE witness.workspace_id IN (",
-    );
-    {
-        let mut separated = metadata_query.separated(", ");
-        for workspace_id in &workspace_ids {
-            separated.push_bind(workspace_id);
-        }
-    }
-    metadata_query
-        .push(
-            ")
-           AND (
-             (
-               replica.id IS NULL
-               AND ",
-        )
-        .push_bind(include_missing)
-        .push(
-            "
-             )
-             OR (
-               replica.id IS NOT NULL
-               AND (
-                 replica.workspace_id != witness.workspace_id
-                 OR replica.payload != witness.payload
-               )
-             )
-           )
-         ORDER BY witness.workspace_id, witness.record_id
-         LIMIT ",
-        )
-        .push_bind(max_records.saturating_add(1));
-    let metadata: Vec<(String, String, i64)> = metadata_query
-        .build_query_as()
-        .fetch_all(&mut *transaction)
-        .await?;
-    if metadata.is_empty() {
-        transaction.commit().await?;
+    check_e2ee_cancellation(is_cancelled)?;
+    if keys.is_empty() || max_records <= 0 {
         return Ok((Vec::new(), false));
     }
-
     let max_records =
         usize::try_from(max_records).map_err(|_| E2eeReplicaError::WitnessRepairTooLarge)?;
-    let mut selected = Vec::with_capacity(metadata.len().min(max_records));
-    let mut selected_bytes = 0_usize;
-    for (workspace_id, record_id, record_bytes) in &metadata {
-        if selected.len() >= max_records {
-            break;
-        }
-        let record_bytes =
-            usize::try_from(*record_bytes).map_err(|_| E2eeReplicaError::InvalidRow)?;
-        if selected_bytes.saturating_add(record_bytes) > max_bytes {
-            if selected.is_empty() {
-                return Err(E2eeReplicaError::WitnessRepairTooLarge);
-            }
-            break;
-        }
-        selected.push((workspace_id, record_id));
-        selected_bytes = selected_bytes.saturating_add(record_bytes);
-    }
-
-    let mut records_query = QueryBuilder::<Sqlite>::new(
-        "SELECT workspace_id, record_id, revision, writer_id, payload_hash, payload, sequence
-         FROM e2ee_witness_records
-         WHERE ",
-    );
-    for (index, (workspace_id, record_id)) in selected.iter().enumerate() {
-        if index > 0 {
-            records_query.push(" OR ");
-        }
-        records_query
-            .push("(workspace_id = ")
-            .push_bind(workspace_id)
-            .push(" AND record_id = ")
-            .push_bind(record_id)
-            .push(")");
-    }
-    records_query.push(" ORDER BY workspace_id, record_id");
-    let records: Vec<WitnessRecord> = records_query
-        .build_query_as()
-        .fetch_all(&mut *transaction)
-        .await?;
-    if records.len() != selected.len() {
-        return Err(E2eeReplicaError::InvalidRow);
-    }
-    transaction.commit().await?;
-
-    let loaded_bytes = records.iter().fold(0_usize, |total, record| {
-        total
-            .saturating_add(record.workspace_id.len())
-            .saturating_add(record.record_id.len())
-            .saturating_add(record.payload.len())
-            .saturating_add(256)
-    });
-    if loaded_bytes > max_bytes {
-        return Err(E2eeReplicaError::WitnessRepairTooLarge);
-    }
-    Ok((records, metadata.len() > selected.len()))
-}
-
-async fn load_e2ee_witness_repairs(
-    pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
-    include_missing: bool,
-    limit: i64,
-) -> E2eeReplicaResult<Vec<WitnessRecord>> {
-    if keys.is_empty() || limit <= 0 {
-        return Ok(Vec::new());
-    }
-
     let mut workspace_ids = keys.keys().collect::<Vec<_>>();
     workspace_ids.sort_unstable();
-    let mut query = QueryBuilder::<Sqlite>::new(
-        "SELECT
-           witness.workspace_id,
-           witness.record_id,
-           witness.revision,
-           witness.writer_id,
-           witness.payload_hash,
-           witness.payload,
-           witness.sequence
-         FROM e2ee_witness_records AS witness
-         LEFT JOIN e2ee_records AS replica
-           ON replica.id = witness.record_id
-         WHERE witness.workspace_id IN (",
+    let mut selected = Vec::with_capacity(
+        max_records.min(
+            usize::try_from(E2EE_WITNESS_REPAIR_SCAN_PAGE_LIMIT)
+                .map_err(|_| E2eeReplicaError::InvalidRow)?,
+        ),
     );
-    {
-        let mut separated = query.separated(", ");
-        for workspace_id in workspace_ids {
-            separated.push_bind(workspace_id);
+    let mut selected_bytes = 0_usize;
+    let mut after: Option<(String, String)> = None;
+    loop {
+        check_e2ee_cancellation(is_cancelled)?;
+        let mut metadata_query = QueryBuilder::<Sqlite>::new(
+            "SELECT
+               workspace_id,
+               record_id,
+               LENGTH(CAST(workspace_id AS BLOB))
+                 + LENGTH(CAST(record_id AS BLOB))
+                 + LENGTH(CAST(payload AS BLOB))
+                 + 256
+             FROM e2ee_witness_records
+             WHERE workspace_id IN (",
+        );
+        {
+            let mut separated = metadata_query.separated(", ");
+            for workspace_id in &workspace_ids {
+                separated.push_bind(workspace_id);
+            }
         }
+        metadata_query.push(")");
+        if let Some((after_workspace_id, after_record_id)) = &after {
+            metadata_query
+                .push(" AND (workspace_id > ")
+                .push_bind(after_workspace_id)
+                .push(" OR (workspace_id = ")
+                .push_bind(after_workspace_id)
+                .push(" AND record_id > ")
+                .push_bind(after_record_id)
+                .push("))");
+        }
+        metadata_query
+            .push(" ORDER BY workspace_id, record_id LIMIT ")
+            .push_bind(E2EE_WITNESS_REPAIR_SCAN_PAGE_LIMIT);
+        let metadata: Vec<(String, String, i64)> =
+            metadata_query.build_query_as().fetch_all(pool).await?;
+        check_e2ee_cancellation(is_cancelled)?;
+        if metadata.is_empty() {
+            return Ok((selected, false));
+        }
+        let page_is_full = metadata.len()
+            == usize::try_from(E2EE_WITNESS_REPAIR_SCAN_PAGE_LIMIT)
+                .map_err(|_| E2eeReplicaError::InvalidRow)?;
+        let page_after = metadata
+            .last()
+            .map(|(workspace_id, record_id, _)| (workspace_id.clone(), record_id.clone()))
+            .ok_or(E2eeReplicaError::InvalidRow)?;
+
+        let mut offset = 0;
+        while offset < metadata.len() {
+            check_e2ee_cancellation(is_cancelled)?;
+            let mut end = offset;
+            let mut scan_bytes = 0_usize;
+            while end < metadata.len() {
+                let record_bytes =
+                    usize::try_from(metadata[end].2).map_err(|_| E2eeReplicaError::InvalidRow)?;
+                if end > offset
+                    && scan_bytes.saturating_add(record_bytes) > E2EE_WITNESS_REPAIR_SCAN_BYTE_LIMIT
+                {
+                    break;
+                }
+                scan_bytes = scan_bytes.saturating_add(record_bytes);
+                end += 1;
+                if scan_bytes >= E2EE_WITNESS_REPAIR_SCAN_BYTE_LIMIT {
+                    break;
+                }
+            }
+
+            let chunk = &metadata[offset..end];
+            let mut records_query = QueryBuilder::<Sqlite>::new(
+                "SELECT workspace_id, record_id, revision, writer_id, payload_hash, payload,
+                        sequence
+                 FROM e2ee_witness_records
+                 WHERE ",
+            );
+            for (index, (workspace_id, record_id, _)) in chunk.iter().enumerate() {
+                if index > 0 {
+                    records_query.push(" OR ");
+                }
+                records_query
+                    .push("(workspace_id = ")
+                    .push_bind(workspace_id)
+                    .push(" AND record_id = ")
+                    .push_bind(record_id)
+                    .push(")");
+            }
+            records_query.push(" ORDER BY workspace_id, record_id");
+            let records: Vec<WitnessRecord> =
+                records_query.build_query_as().fetch_all(pool).await?;
+            check_e2ee_cancellation(is_cancelled)?;
+            if records.len() != chunk.len()
+                || !records
+                    .iter()
+                    .zip(chunk)
+                    .all(|(record, (workspace_id, record_id, _))| {
+                        &record.workspace_id == workspace_id && &record.record_id == record_id
+                    })
+            {
+                return Err(E2eeReplicaError::InvalidRow);
+            }
+
+            let mut replica_query = QueryBuilder::<Sqlite>::new(
+                "SELECT id, workspace_id, payload FROM e2ee_records WHERE id IN (",
+            );
+            {
+                let mut separated = replica_query.separated(", ");
+                for record in &records {
+                    separated.push_bind(&record.record_id);
+                }
+            }
+            replica_query.push(")");
+            let replicas: Vec<(String, String, String)> =
+                replica_query.build_query_as().fetch_all(pool).await?;
+            check_e2ee_cancellation(is_cancelled)?;
+            let replicas = replicas
+                .into_iter()
+                .map(|(record_id, workspace_id, payload)| (record_id, (workspace_id, payload)))
+                .collect::<HashMap<_, _>>();
+
+            for (record, (_, _, record_bytes)) in records.into_iter().zip(chunk) {
+                check_e2ee_cancellation(is_cancelled)?;
+                let needs_repair = match replicas.get(&record.record_id) {
+                    None => include_missing,
+                    Some((workspace_id, payload)) => {
+                        workspace_id != &record.workspace_id || payload != &record.payload
+                    }
+                };
+                if !needs_repair {
+                    continue;
+                }
+                if selected.len() >= max_records {
+                    return Ok((selected, true));
+                }
+                let record_bytes =
+                    usize::try_from(*record_bytes).map_err(|_| E2eeReplicaError::InvalidRow)?;
+                if selected_bytes.saturating_add(record_bytes) > max_bytes {
+                    if selected.is_empty() {
+                        return Err(E2eeReplicaError::WitnessRepairTooLarge);
+                    }
+                    return Ok((selected, true));
+                }
+                selected_bytes = selected_bytes.saturating_add(record_bytes);
+                selected.push(record);
+                if selected.len() >= max_records {
+                    return Ok((selected, true));
+                }
+            }
+            offset = end;
+            yield_once().await;
+        }
+
+        if !page_is_full {
+            return Ok((selected, false));
+        }
+        after = Some(page_after);
+        yield_once().await;
     }
-    query
-        .push(
-            ")
-           AND (
-             (
-               replica.id IS NULL
-               AND ",
-        )
-        .push_bind(include_missing)
-        .push(
-            "
-             )
-             OR (
-             replica.id IS NOT NULL
-             AND (
-               replica.workspace_id != witness.workspace_id
-               OR replica.payload != witness.payload
-             )
-           )
-         )
-         ORDER BY witness.workspace_id, witness.record_id
-         LIMIT ",
-        )
-        .push_bind(limit);
-    Ok(query.build_query_as().fetch_all(pool).await?)
 }
 
 async fn persist_e2ee_witness_repairs(
     pool: &SqlitePool,
     keys: &HashMap<String, WorkspaceKey>,
     records: &[WitnessRecord],
+    is_cancelled: &(impl Fn() -> bool + Sync),
 ) -> E2eeReplicaResult<u64> {
     let mut repaired_records = 0_u64;
     for record in records {
+        check_e2ee_cancellation(is_cancelled)?;
         let key = keys
             .get(&record.workspace_id)
             .ok_or(E2eeReplicaError::InvalidRow)?;
@@ -1199,7 +2124,39 @@ async fn persist_e2ee_witness_repairs(
             record.revision,
             &record.writer_id,
         )?;
+        check_e2ee_cancellation(is_cancelled)?;
         let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+        if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+            transaction.rollback().await?;
+            return Err(error);
+        }
+        let current_witness: Option<(i64, String, String, String, i64)> = sqlx::query_as(
+            "SELECT revision, writer_id, payload_hash, payload, sequence
+             FROM e2ee_witness_records
+             WHERE workspace_id = ? AND record_id = ?",
+        )
+        .bind(&record.workspace_id)
+        .bind(&record.record_id)
+        .fetch_optional(&mut *transaction)
+        .await?;
+        if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+            transaction.rollback().await?;
+            return Err(error);
+        }
+        let current_matches = current_witness.is_some_and(
+            |(revision, writer_id, payload_hash, payload, sequence)| {
+                revision == record.revision
+                    && writer_id == record.writer_id
+                    && payload_hash == record.payload_hash
+                    && payload == record.payload
+                    && sequence == record.sequence
+            },
+        );
+        if !current_matches {
+            transaction.commit().await?;
+            check_e2ee_cancellation(is_cancelled)?;
+            continue;
+        }
         let result = sqlx::query(
             "INSERT INTO e2ee_records (id, workspace_id, payload)
              VALUES (?, ?, ?)
@@ -1214,6 +2171,10 @@ async fn persist_e2ee_witness_repairs(
         .bind(&record.payload)
         .execute(&mut *transaction)
         .await?;
+        if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+            transaction.rollback().await?;
+            return Err(error);
+        }
         if result.rows_affected() != 1 {
             let current: Option<(String, String)> = sqlx::query_as(
                 "SELECT workspace_id, payload
@@ -1223,6 +2184,10 @@ async fn persist_e2ee_witness_repairs(
             .bind(&record.record_id)
             .fetch_optional(&mut *transaction)
             .await?;
+            if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+                transaction.rollback().await?;
+                return Err(error);
+            }
             if !current.is_some_and(|(workspace_id, payload)| {
                 workspace_id == record.workspace_id && payload == record.payload
             }) {
@@ -1232,6 +2197,7 @@ async fn persist_e2ee_witness_repairs(
             repaired_records += 1;
         }
         transaction.commit().await?;
+        check_e2ee_cancellation(is_cancelled)?;
     }
     Ok(repaired_records)
 }
@@ -1350,25 +2316,21 @@ async fn load_dirty_rows_inner(
     Ok(query.build_query_as().fetch_all(pool).await?)
 }
 
-async fn count_dirty_rows(
+async fn load_dirty_rows_page(
     pool: &SqlitePool,
     keys: &HashMap<String, WorkspaceKey>,
+    max_rows: i64,
     defer_active_captures: bool,
-) -> E2eeReplicaResult<i64> {
-    let mut workspace_ids = keys.keys().collect::<Vec<_>>();
-    workspace_ids.sort_unstable();
-    let mut query = QueryBuilder::<Sqlite>::new(
-        "SELECT COUNT(*) FROM e2ee_dirty_rows AS dirty WHERE dirty.workspace_id IN (",
-    );
-    let mut separated = query.separated(", ");
-    for workspace_id in workspace_ids {
-        separated.push_bind(workspace_id);
+) -> E2eeReplicaResult<(Vec<DirtyRow>, bool)> {
+    if max_rows <= 0 {
+        return Ok((Vec::new(), false));
     }
-    separated.push_unseparated(")");
-    if defer_active_captures {
-        push_active_capture_exclusion(&mut query);
-    }
-    Ok(query.build_query_scalar().fetch_one(pool).await?)
+    let page_limit = max_rows.saturating_add(1);
+    let mut rows = load_dirty_rows_inner(pool, keys, page_limit, defer_active_captures).await?;
+    let max_rows = usize::try_from(max_rows).map_err(|_| E2eeReplicaError::InvalidRow)?;
+    let remaining = rows.len() > max_rows;
+    rows.truncate(max_rows);
+    Ok((rows, remaining))
 }
 
 fn push_active_capture_exclusion(query: &mut QueryBuilder<Sqlite>) {
@@ -1393,6 +2355,14 @@ fn push_active_capture_exclusion(query: &mut QueryBuilder<Sqlite>) {
            )
          )",
     );
+}
+
+fn check_e2ee_cancellation(is_cancelled: &(impl Fn() -> bool + Sync)) -> E2eeReplicaResult<()> {
+    if is_cancelled() {
+        Err(E2eeReplicaError::Cancelled)
+    } else {
+        Ok(())
+    }
 }
 
 async fn active_capture_marker_exists(
@@ -1435,12 +2405,24 @@ async fn yield_once() {
     .await;
 }
 
+#[cfg(test)]
 async fn prepare_dirty_row(
     pool: &SqlitePool,
     key: &WorkspaceKey,
     writer_id: &str,
     dirty: DirtyRow,
 ) -> E2eeReplicaResult<PreparedDirtyRow> {
+    prepare_dirty_row_cancellable(pool, key, writer_id, dirty, &|| false).await
+}
+
+async fn prepare_dirty_row_cancellable(
+    pool: &SqlitePool,
+    key: &WorkspaceKey,
+    writer_id: &str,
+    dirty: DirtyRow,
+    is_cancelled: &(impl Fn() -> bool + Sync),
+) -> E2eeReplicaResult<PreparedDirtyRow> {
+    check_e2ee_cancellation(is_cancelled)?;
     if !E2EE_DOMAIN_TABLES.contains(&dirty.table_name.as_str()) {
         return Err(E2eeReplicaError::InvalidField);
     }
@@ -1455,6 +2437,7 @@ async fn prepare_dirty_row(
         &dirty.row_id,
     )
     .await?;
+    check_e2ee_cancellation(is_cancelled)?;
     let sql = format!(
         "SELECT * FROM {} WHERE id = ? AND workspace_id = ? LIMIT 1",
         dirty.table_name
@@ -1464,6 +2447,7 @@ async fn prepare_dirty_row(
         .bind(&dirty.workspace_id)
         .fetch_optional(pool)
         .await?;
+    check_e2ee_cancellation(is_cancelled)?;
     let manifest_id = key.blind_field_id(&dirty.table_name, &dirty.row_id, ROW_MANIFEST_FIELD);
     let tombstone_tag = key.value_tag(
         &dirty.table_name,
@@ -1480,6 +2464,7 @@ async fn prepare_dirty_row(
     let mut record_ids = vec![manifest_id.clone()];
     if let Some(row) = row.as_ref() {
         for (index, column) in row.columns().iter().enumerate() {
+            check_e2ee_cancellation(is_cancelled)?;
             let field_name = column.name();
             if matches!(field_name, "id" | "workspace_id") {
                 continue;
@@ -1488,11 +2473,14 @@ async fn prepare_dirty_row(
             record_ids.push(key.blind_field_id(&dirty.table_name, &dirty.row_id, field_name));
         }
     }
+    check_e2ee_cancellation(is_cancelled)?;
     let witness_versions = load_witness_versions(pool, &dirty.workspace_id, &record_ids).await?;
+    check_e2ee_cancellation(is_cancelled)?;
     let mut fields = Vec::new();
 
     if row.is_some() {
         for (field_name, value) in values {
+            check_e2ee_cancellation(is_cancelled)?;
             let record_id = key.blind_field_id(&dirty.table_name, &dirty.row_id, &field_name);
             if let Some(field) = prepare_encrypted_field(
                 key,
@@ -1509,8 +2497,11 @@ async fn prepare_dirty_row(
             )? {
                 fields.push(field);
             }
+            check_e2ee_cancellation(is_cancelled)?;
+            yield_once().await;
         }
         let row_changed = recreating || !fields.is_empty();
+        check_e2ee_cancellation(is_cancelled)?;
         if let Some(field) = prepare_encrypted_field(
             key,
             &states,
@@ -1526,6 +2517,7 @@ async fn prepare_dirty_row(
         )? {
             fields.insert(0, field);
         }
+        check_e2ee_cancellation(is_cancelled)?;
     } else if states.contains_key(&manifest_id)
         && let Some(field) = prepare_encrypted_field(
             key,
@@ -1544,6 +2536,7 @@ async fn prepare_dirty_row(
         fields.push(field);
     }
 
+    check_e2ee_cancellation(is_cancelled)?;
     Ok(PreparedDirtyRow { dirty, fields })
 }
 
@@ -1646,12 +2639,27 @@ async fn persist_prepared_dirty_row(
     persist_prepared_dirty_row_inner(pool, prepared, false).await
 }
 
+#[cfg(test)]
 async fn persist_prepared_dirty_row_inner(
     pool: &SqlitePool,
     prepared: PreparedDirtyRow,
     defer_active_captures: bool,
 ) -> E2eeReplicaResult<u64> {
+    persist_prepared_dirty_row_cancellable(pool, prepared, defer_active_captures, &|| false).await
+}
+
+async fn persist_prepared_dirty_row_cancellable(
+    pool: &SqlitePool,
+    prepared: PreparedDirtyRow,
+    defer_active_captures: bool,
+    is_cancelled: &(impl Fn() -> bool + Sync),
+) -> E2eeReplicaResult<u64> {
+    check_e2ee_cancellation(is_cancelled)?;
     let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+        transaction.rollback().await?;
+        return Err(error);
+    }
     let generation: Option<i64> = sqlx::query_scalar(
         "SELECT generation
          FROM e2ee_dirty_rows
@@ -1662,19 +2670,35 @@ async fn persist_prepared_dirty_row_inner(
     .bind(&prepared.dirty.row_id)
     .fetch_optional(&mut *transaction)
     .await?;
+    if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+        transaction.rollback().await?;
+        return Err(error);
+    }
     if generation != Some(prepared.dirty.generation) {
         transaction.commit().await?;
+        check_e2ee_cancellation(is_cancelled)?;
         return Ok(0);
     }
-    if defer_active_captures
-        && prepared.dirty.table_name == "transcripts"
-        && active_capture_marker_exists(&mut transaction, &prepared.dirty.row_id).await?
-    {
+    let active_capture = if defer_active_captures && prepared.dirty.table_name == "transcripts" {
+        active_capture_marker_exists(&mut transaction, &prepared.dirty.row_id).await?
+    } else {
+        false
+    };
+    if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+        transaction.rollback().await?;
+        return Err(error);
+    }
+    if active_capture {
         transaction.commit().await?;
+        check_e2ee_cancellation(is_cancelled)?;
         return Ok(0);
     }
 
     for field in &prepared.fields {
+        if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+            transaction.rollback().await?;
+            return Err(error);
+        }
         let current_payload_hash: Option<String> = sqlx::query_scalar(
             "SELECT payload_hash
              FROM e2ee_local_state
@@ -1683,8 +2707,13 @@ async fn persist_prepared_dirty_row_inner(
         .bind(&field.state.record_id)
         .fetch_optional(&mut *transaction)
         .await?;
+        if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+            transaction.rollback().await?;
+            return Err(error);
+        }
         if current_payload_hash != field.previous_payload_hash {
             transaction.commit().await?;
+            check_e2ee_cancellation(is_cancelled)?;
             return Ok(0);
         }
         let current_witness_version: Option<(i64, String, String)> = sqlx::query_as(
@@ -1696,6 +2725,10 @@ async fn persist_prepared_dirty_row_inner(
         .bind(&field.state.record_id)
         .fetch_optional(&mut *transaction)
         .await?;
+        if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+            transaction.rollback().await?;
+            return Err(error);
+        }
         let current_witness_version =
             current_witness_version.map(|(revision, writer_id, payload_hash)| WitnessVersion {
                 revision,
@@ -1704,11 +2737,16 @@ async fn persist_prepared_dirty_row_inner(
             });
         if current_witness_version != field.expected_witness_version {
             transaction.commit().await?;
+            check_e2ee_cancellation(is_cancelled)?;
             return Ok(0);
         }
     }
 
     for field in &prepared.fields {
+        if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+            transaction.rollback().await?;
+            return Err(error);
+        }
         let result = sqlx::query(
             "INSERT INTO e2ee_records (id, workspace_id, payload)
              VALUES (?, ?, ?)
@@ -1723,6 +2761,10 @@ async fn persist_prepared_dirty_row_inner(
         .bind(&field.state.payload)
         .execute(&mut *transaction)
         .await?;
+        if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+            transaction.rollback().await?;
+            return Err(error);
+        }
         if result.rows_affected() == 0 {
             let current: Option<(String, String)> = sqlx::query_as(
                 "SELECT workspace_id, payload
@@ -1732,6 +2774,10 @@ async fn persist_prepared_dirty_row_inner(
             .bind(&field.state.record_id)
             .fetch_optional(&mut *transaction)
             .await?;
+            if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+                transaction.rollback().await?;
+                return Err(error);
+            }
             if !current.is_some_and(|(workspace_id, payload)| {
                 workspace_id == field.state.workspace_id && payload == field.state.payload
             }) {
@@ -1739,8 +2785,16 @@ async fn persist_prepared_dirty_row_inner(
             }
         }
         upsert_local_state(&mut transaction, &field.state).await?;
+        if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+            transaction.rollback().await?;
+            return Err(error);
+        }
     }
 
+    if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+        transaction.rollback().await?;
+        return Err(error);
+    }
     let deleted = sqlx::query(
         "DELETE FROM e2ee_dirty_rows
          WHERE workspace_id = ? AND table_name = ? AND row_id = ? AND generation = ?",
@@ -1751,23 +2805,29 @@ async fn persist_prepared_dirty_row_inner(
     .bind(prepared.dirty.generation)
     .execute(&mut *transaction)
     .await?;
+    if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+        transaction.rollback().await?;
+        return Err(error);
+    }
     if deleted.rows_affected() != 1 {
         return Err(E2eeReplicaError::InvalidRow);
     }
     let encrypted_fields =
         u64::try_from(prepared.fields.len()).map_err(|_| E2eeReplicaError::InvalidRow)?;
     transaction.commit().await?;
+    check_e2ee_cancellation(is_cancelled)?;
     Ok(encrypted_fields)
 }
 
 async fn load_encrypted_row_group(
     pool: &SqlitePool,
     key: &WorkspaceKey,
-    workspace_id: &str,
-    table: &str,
-    row_id: &str,
+    row: (&str, &str, &str),
     columns: &HashSet<String>,
+    max_bytes: usize,
+    is_cancelled: &(impl Fn() -> bool + Sync),
 ) -> E2eeReplicaResult<Vec<EncryptedRecord>> {
+    let (workspace_id, table, row_id) = row;
     let mut record_ids = columns
         .iter()
         .filter(|field| !matches!(field.as_str(), "id" | "workspace_id"))
@@ -1776,29 +2836,52 @@ async fn load_encrypted_row_group(
     record_ids.push(key.blind_field_id(table, row_id, ROW_MANIFEST_FIELD));
     record_ids.sort_unstable();
 
+    check_e2ee_apply_cancellation(is_cancelled)?;
     let mut query = QueryBuilder::<Sqlite>::new(
         "SELECT
            replica.id,
            replica.workspace_id,
-           replica.payload,
+           LENGTH(CAST(replica.id AS BLOB))
+             + LENGTH(CAST(replica.workspace_id AS BLOB))
+             + LENGTH(CAST(replica.payload AS BLOB))
+             + 256 AS record_bytes,
            EXISTS(
              SELECT 1
              FROM e2ee_witness_records AS witness
              WHERE witness.workspace_id = replica.workspace_id
                AND witness.record_id = replica.id
                AND witness.payload = replica.payload
-           ) AS witnessed
+           ) AS witnessed,
+           1 AS changed
          FROM e2ee_records AS replica
          WHERE replica.workspace_id = ",
     );
     query.push_bind(workspace_id);
     query.push(" AND replica.id IN (");
     let mut separated = query.separated(", ");
-    for record_id in record_ids {
+    for record_id in &record_ids {
         separated.push_bind(record_id);
     }
     separated.push_unseparated(") ORDER BY replica.id");
-    Ok(query.build_query_as().fetch_all(pool).await?)
+    let metadata: Vec<EncryptedRecordMetadata> = query.build_query_as().fetch_all(pool).await?;
+    check_e2ee_apply_cancellation(is_cancelled)?;
+    let row_bytes = metadata.iter().try_fold(0_usize, |total, record| {
+        let record_bytes =
+            usize::try_from(record.record_bytes).map_err(|_| E2eeReplicaError::InvalidRow)?;
+        total
+            .checked_add(record_bytes)
+            .ok_or(E2eeReplicaError::InvalidRow)
+    })?;
+    if row_bytes > max_bytes {
+        return Err(E2eeReplicaError::ReplicaApplyTooLarge);
+    }
+    check_e2ee_apply_cancellation(is_cancelled)?;
+    let records = load_encrypted_records_by_id(pool, &record_ids).await?;
+    check_e2ee_apply_cancellation(is_cancelled)?;
+    Ok(records
+        .into_iter()
+        .filter(|record| record.workspace_id == workspace_id)
+        .collect())
 }
 
 async fn replica_records_still_current(
@@ -3859,6 +4942,145 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn cancelled_snapshot_finishes_current_row_and_releases_local_writes() {
+        let calibration_db = test_db().await;
+        let calibration_keys = keys("workspace-a");
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('calibration', 'workspace-a', 'user-a', 'Snapshot row')",
+        )
+        .execute(calibration_db.pool())
+        .await
+        .unwrap();
+        let calibration_checks = std::sync::atomic::AtomicUsize::new(0);
+        encrypt_e2ee_replica_changes_bounded_deferring_active_captures_cancellable(
+            calibration_db.pool(),
+            &calibration_keys,
+            E2EE_ENCRYPT_ROW_LIMIT,
+            || {
+                calibration_checks.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                false
+            },
+        )
+        .await
+        .unwrap();
+        let cancel_after_first_persist = calibration_checks
+            .load(std::sync::atomic::Ordering::SeqCst)
+            .checked_sub(3)
+            .unwrap();
+
+        let db = test_db().await;
+        let workspace_keys = keys("workspace-a");
+        for index in 0..129 {
+            sqlx::query(
+                "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+                 VALUES (?, 'workspace-a', 'user-a', 'Snapshot row')",
+            )
+            .bind(format!("session-{index:03}"))
+            .execute(db.pool())
+            .await
+            .unwrap();
+        }
+        let initial_dirty_rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_dirty_rows")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(initial_dirty_rows, 129);
+
+        let cancellation_checks = std::sync::atomic::AtomicUsize::new(0);
+        let stats = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            encrypt_e2ee_replica_changes_bounded_deferring_active_captures_cancellable(
+                db.pool(),
+                &workspace_keys,
+                E2EE_ENCRYPT_ROW_LIMIT,
+                || {
+                    cancellation_checks.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+                        >= cancel_after_first_persist
+                },
+            ),
+        )
+        .await
+        .expect("snapshot cancellation exceeded the activity deadline")
+        .unwrap();
+
+        assert!(stats.remaining_replica_changes);
+        let remaining: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_dirty_rows")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(remaining, 128);
+
+        tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            sqlx::query(
+                "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+                 VALUES ('after-cancel', 'workspace-a', 'user-a', 'Local write')",
+            )
+            .execute(db.pool()),
+        )
+        .await
+        .expect("cancelled snapshot kept the database busy")
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn large_dirty_queue_cancellation_stays_bounded_and_releases_local_writes() {
+        let db = test_db().await;
+        let workspace_keys = keys("workspace-a");
+        sqlx::query(
+            "WITH RECURSIVE rows(id) AS (
+                SELECT 1
+                UNION ALL
+                SELECT id + 1 FROM rows WHERE id < 100000
+            )
+            INSERT INTO e2ee_dirty_rows (workspace_id, table_name, row_id)
+            SELECT 'workspace-a', 'sessions', printf('missing-%06d', id) FROM rows",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let (page, remaining) =
+            load_dirty_rows_page(db.pool(), &workspace_keys, E2EE_ENCRYPT_ROW_LIMIT, true)
+                .await
+                .unwrap();
+        assert_eq!(page.len(), E2EE_ENCRYPT_ROW_LIMIT as usize);
+        assert!(remaining);
+
+        let cancellation_checks = std::sync::atomic::AtomicUsize::new(0);
+        let stats = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            encrypt_e2ee_replica_changes_deferring_active_captures_cancellable(
+                db.pool(),
+                &workspace_keys,
+                || cancellation_checks.fetch_add(1, std::sync::atomic::Ordering::SeqCst) >= 1,
+            ),
+        )
+        .await
+        .expect("large dirty queue cancellation exceeded the activity deadline")
+        .unwrap();
+
+        assert!(stats.remaining_replica_changes);
+        let remaining: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_dirty_rows")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(remaining, 100_000);
+        tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            sqlx::query(
+                "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+                 VALUES ('after-large-cancel', 'workspace-a', 'user-a', 'Local write')",
+            )
+            .execute(db.pool()),
+        )
+        .await
+        .expect("large dirty queue cancellation kept the database busy")
+        .unwrap();
+    }
+
+    #[tokio::test]
     async fn witness_change_preserves_a_prepared_dirty_row() {
         let db = test_db().await;
         let workspace_keys = keys("workspace-a");
@@ -4783,6 +6005,7 @@ mod tests {
                 true,
                 64,
                 max_repair_bytes,
+                &|| false,
             )
             .await
             .unwrap();
@@ -4848,10 +6071,16 @@ mod tests {
 
         let target = test_db().await;
         copy_replica(source.pool(), target.pool()).await;
-        let mut stats =
-            apply_e2ee_replica_changes_inner(target.pool(), &workspace_keys, false, 3, usize::MAX)
-                .await
-                .unwrap();
+        let mut stats = apply_e2ee_replica_changes_inner(
+            target.pool(),
+            &workspace_keys,
+            false,
+            3,
+            usize::MAX,
+            &|| false,
+        )
+        .await
+        .unwrap();
         assert!(stats.remaining_replica_changes);
         assert_eq!(
             sqlx::query_scalar::<_, i64>(
@@ -4878,6 +6107,7 @@ mod tests {
                 false,
                 3,
                 usize::MAX,
+                &|| false,
             )
             .await
             .unwrap();
@@ -4907,6 +6137,175 @@ mod tests {
             .await
             .unwrap(),
             "Local"
+        );
+    }
+
+    #[tokio::test]
+    async fn cancelled_received_replica_preflight_is_bounded_and_releases_local_writes() {
+        use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
+
+        let workspace_keys = keys("workspace-a");
+        let key = &workspace_keys["workspace-a"];
+        let db = test_db().await;
+        let mut transaction = db.pool().begin().await.unwrap();
+        for index in 0..512 {
+            let row_id = format!("remote-session-{index:04}");
+            let sealed = key
+                .seal_field(
+                    "workspace-a",
+                    "sessions",
+                    &row_id,
+                    ROW_MANIFEST_FIELD,
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    1,
+                    false,
+                    json!(true),
+                )
+                .unwrap();
+            let payload_hash = hypr_e2ee::payload_hash(&sealed.payload);
+            sqlx::query(
+                "INSERT INTO e2ee_records (id, workspace_id, payload)
+                 VALUES (?, 'workspace-a', ?)",
+            )
+            .bind(&sealed.record_id)
+            .bind(&sealed.payload)
+            .execute(&mut *transaction)
+            .await
+            .unwrap();
+            sqlx::query(
+                "INSERT INTO e2ee_witness_records (
+                   workspace_id, record_id, revision, writer_id, payload_hash, payload, sequence
+                 ) VALUES (
+                   'workspace-a', ?, 1, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', ?, ?, ?
+                 )",
+            )
+            .bind(&sealed.record_id)
+            .bind(payload_hash)
+            .bind(&sealed.payload)
+            .bind(i64::from(index) + 1)
+            .execute(&mut *transaction)
+            .await
+            .unwrap();
+        }
+        transaction.commit().await.unwrap();
+
+        let checks = AtomicUsize::new(0);
+        let started_at = std::time::Instant::now();
+        let error = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            apply_received_e2ee_replica_changes_with_witness_cancellable(
+                db.pool(),
+                &workspace_keys,
+                false,
+                || checks.fetch_add(1, AtomicOrdering::SeqCst) >= 20,
+            ),
+        )
+        .await
+        .expect("received-replica cancellation exceeded the activity deadline")
+        .unwrap_err();
+
+        assert!(matches!(error, E2eeReplicaError::Cancelled));
+        assert!(started_at.elapsed() < std::time::Duration::from_secs(2));
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>(
+                "SELECT COUNT(*) FROM sessions WHERE id LIKE 'remote-session-%'",
+            )
+            .fetch_one(db.pool())
+            .await
+            .unwrap(),
+            0
+        );
+        tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            sqlx::query(
+                "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+                 VALUES ('local-after-apply-cancel', 'workspace-a', 'user-a', 'Local')",
+            )
+            .execute(db.pool()),
+        )
+        .await
+        .expect("cancelled received-replica preflight kept the database busy")
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn bounded_received_preflight_skips_foreign_and_unwitnessed_prefixes() {
+        let workspace_keys = keys("workspace-a");
+        let key = &workspace_keys["workspace-a"];
+        let db = test_db().await;
+        sqlx::query(
+            "WITH RECURSIVE rows(id) AS (
+               SELECT 1
+               UNION ALL
+               SELECT id + 1 FROM rows WHERE id < 256
+             )
+             INSERT INTO e2ee_records (id, workspace_id, payload)
+             SELECT printf('!foreign-%04d', id), 'workspace-z', 'foreign' FROM rows",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "WITH RECURSIVE rows(id) AS (
+               SELECT 1
+               UNION ALL
+               SELECT id + 1 FROM rows WHERE id < 256
+             )
+             INSERT INTO e2ee_records (id, workspace_id, payload)
+             SELECT printf('!unwitnessed-%04d', id), 'workspace-a', 'unwitnessed' FROM rows",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let sealed = key
+            .seal_field(
+                "workspace-a",
+                "sessions",
+                "witnessed-session",
+                ROW_MANIFEST_FIELD,
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                1,
+                false,
+                json!(true),
+            )
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO e2ee_records (id, workspace_id, payload)
+             VALUES (?, 'workspace-a', ?)",
+        )
+        .bind(&sealed.record_id)
+        .bind(&sealed.payload)
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO e2ee_witness_records (
+               workspace_id, record_id, revision, writer_id, payload_hash, payload, sequence
+             ) VALUES (
+               'workspace-a', ?, 1, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', ?, ?, 1
+             )",
+        )
+        .bind(&sealed.record_id)
+        .bind(hypr_e2ee::payload_hash(&sealed.payload))
+        .bind(&sealed.payload)
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let stats =
+            apply_received_e2ee_replica_changes_with_witness(db.pool(), &workspace_keys, false)
+                .await
+                .unwrap();
+
+        assert!(stats.rejected_unwitnessed >= 256);
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>(
+                "SELECT COUNT(*) FROM sessions WHERE id = 'witnessed-session'",
+            )
+            .fetch_one(db.pool())
+            .await
+            .unwrap(),
+            1
         );
     }
 

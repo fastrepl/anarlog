@@ -1,16 +1,23 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   createChatGroupWithMessage: vi.fn(),
+  generateChatTitle: vi.fn(),
   ids: [] as string[],
   setChatGroupTitleIfCurrent: vi.fn(),
+  titleModel: undefined as unknown,
   toastError: vi.fn(),
   upsertChatMessage: vi.fn(),
 }));
 
 vi.mock("~/ai/hooks", () => ({
-  useLanguageModel: () => undefined,
+  useLanguageModel: () => mocks.titleModel,
+}));
+
+vi.mock("./chat-title", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./chat-title")>()),
+  generateChatTitle: mocks.generateChatTitle,
 }));
 
 vi.mock("~/chat/store/queries", () => ({
@@ -33,19 +40,20 @@ vi.mock("~/shared/owner-user", () => ({
 
 import { useChatActions } from "./use-chat-actions";
 
+import type { ChatSendOptions } from "~/chat/types";
+
 describe("useChatActions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.ids = ["message-1", "group-1"];
+    mocks.titleModel = undefined;
     mocks.createChatGroupWithMessage.mockResolvedValue(undefined);
+    mocks.generateChatTitle.mockResolvedValue("Generated title");
     mocks.setChatGroupTitleIfCurrent.mockResolvedValue(undefined);
     mocks.upsertChatMessage.mockResolvedValue(undefined);
   });
 
-  it("sends immediately and persists the first group in the background", () => {
-    mocks.createChatGroupWithMessage.mockReturnValue(
-      new Promise<void>(() => {}),
-    );
+  it("queues first-group persistence until the transport preflight", async () => {
     const onGroupCreated = vi.fn();
     const sendMessage = vi.fn();
     const { result } = renderHook(() =>
@@ -62,9 +70,17 @@ describe("useChatActions", () => {
 
     expect(sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({ id: "message-1", role: "user" }),
-      { chatGroupId: "group-1" },
+      {
+        chatGroupId: "group-1",
+        beforeSend: expect.any(Function),
+      },
     );
-    expect(onGroupCreated).toHaveBeenCalledWith("group-1");
+    expect(mocks.createChatGroupWithMessage).not.toHaveBeenCalled();
+    expect(onGroupCreated).not.toHaveBeenCalled();
+
+    const options = sendMessage.mock.calls[0]?.[1] as ChatSendOptions;
+    await options.beforeSend?.(vi.fn());
+
     expect(mocks.createChatGroupWithMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         groupId: "group-1",
@@ -77,9 +93,10 @@ describe("useChatActions", () => {
         }),
       }),
     );
+    expect(onGroupCreated).toHaveBeenCalledWith("group-1");
   });
 
-  it("sends immediately when upserting into an existing group", () => {
+  it("queues existing-group persistence until the transport preflight", async () => {
     const sendMessage = vi.fn();
     const { result } = renderHook(() =>
       useChatActions({ groupId: "group-existing", onGroupCreated: vi.fn() }),
@@ -95,6 +112,11 @@ describe("useChatActions", () => {
 
     expect(sendMessage).toHaveBeenCalledOnce();
     expect(mocks.createChatGroupWithMessage).not.toHaveBeenCalled();
+    expect(mocks.upsertChatMessage).not.toHaveBeenCalled();
+
+    const options = sendMessage.mock.calls[0]?.[1] as ChatSendOptions;
+    await options.beforeSend?.(vi.fn());
+
     expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "message-1",
@@ -103,7 +125,7 @@ describe("useChatActions", () => {
     );
   });
 
-  it("still sends and surfaces an error toast when persistence fails", async () => {
+  it("rejects the preflight and rolls back when persistence fails", async () => {
     const error = new Error("database unavailable");
     mocks.createChatGroupWithMessage.mockRejectedValue(error);
     const consoleError = vi
@@ -128,13 +150,11 @@ describe("useChatActions", () => {
     });
 
     expect(sendMessage).toHaveBeenCalledOnce();
-    await waitFor(
-      () =>
-        expect(consoleError).toHaveBeenCalledWith(
-          "Failed to persist outgoing chat message",
-          error,
-        ),
-      { timeout: 3000 },
+    const options = sendMessage.mock.calls[0]?.[1] as ChatSendOptions;
+    await expect(options.beforeSend?.(vi.fn())).rejects.toBe(error);
+    expect(consoleError).toHaveBeenCalledWith(
+      "Failed to persist outgoing chat message",
+      error,
     );
     expect(mocks.toastError).toHaveBeenCalledWith(
       "Could not save this chat message.",
@@ -152,6 +172,7 @@ describe("useChatActions", () => {
       .spyOn(console, "error")
       .mockImplementation(() => {});
     const onGroupCreateFailed = vi.fn();
+    const sendMessage = vi.fn();
     const { result } = renderHook(() =>
       useChatActions({
         groupId: undefined,
@@ -164,16 +185,52 @@ describe("useChatActions", () => {
       result.current.handleSendMessage(
         "Hello",
         [{ type: "text", text: "Hello" }],
-        vi.fn(),
+        sendMessage,
       );
     });
 
-    await waitFor(
-      () => expect(mocks.createChatGroupWithMessage).toHaveBeenCalledTimes(2),
-      { timeout: 3000 },
-    );
+    const options = sendMessage.mock.calls[0]?.[1] as ChatSendOptions;
+    await options.beforeSend?.(vi.fn());
+
+    expect(mocks.createChatGroupWithMessage).toHaveBeenCalledTimes(2);
     expect(mocks.toastError).not.toHaveBeenCalled();
     expect(onGroupCreateFailed).not.toHaveBeenCalled();
     consoleError.mockRestore();
+  });
+
+  it("tracks generated title persistence as part of the chat attempt", async () => {
+    let finishTitle: ((title: string) => void) | undefined;
+    mocks.titleModel = {};
+    mocks.generateChatTitle.mockReturnValueOnce(
+      new Promise<string>((resolve) => {
+        finishTitle = resolve;
+      }),
+    );
+    const sendMessage = vi.fn();
+    const trackCompletion = vi.fn();
+    const { result } = renderHook(() =>
+      useChatActions({ groupId: undefined, onGroupCreated: vi.fn() }),
+    );
+
+    act(() => {
+      result.current.handleSendMessage(
+        "Hello",
+        [{ type: "text", text: "Hello" }],
+        sendMessage,
+      );
+    });
+
+    const options = sendMessage.mock.calls[0]?.[1] as ChatSendOptions;
+    await options.beforeSend?.(trackCompletion);
+    expect(trackCompletion).toHaveBeenCalledOnce();
+    expect(mocks.setChatGroupTitleIfCurrent).not.toHaveBeenCalled();
+
+    finishTitle?.("Generated title");
+    await trackCompletion.mock.calls[0]?.[0];
+    expect(mocks.setChatGroupTitleIfCurrent).toHaveBeenCalledWith({
+      groupId: "group-1",
+      expectedTitle: "Hello",
+      title: "Generated title",
+    });
   });
 });

@@ -3,7 +3,7 @@ use std::sync::LazyLock;
 use hypr_db_core::CloudsyncTableSpec;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sqlx::{Sqlite, SqlitePool, Transaction};
+use sqlx::{Executor, QueryBuilder, Sqlite, SqlitePool, Transaction};
 
 pub const CLOUDSYNC_WORKSPACE_BINDING_ID: &str = "cloudsync_workspace_binding";
 const CLOUDSYNC_FULL_RESYNC_PENDING_ID: &str = "cloudsync_full_resync_pending";
@@ -17,6 +17,8 @@ const LEGACY_DEFAULT_USER_ID: &str = "00000000-0000-0000-0000-000000000000";
 const CLOUDSYNC_RECOVERY_PROTOCOL_VERSION: u32 = 1;
 const CLOUDSYNC_RECOVERY_BARRIER_TABLE: &str = "__anarlog_cloudsync_control";
 const CLOUDSYNC_RECOVERY_BARRIER_FIELD: &str = "$snapshot_barrier";
+const CLOUDSYNC_WORKSPACE_CLAIM_BATCH_SIZE: usize = 128;
+const CLOUDSYNC_WORKSPACE_PROJECTION_BATCH_SIZE: i64 = 128;
 
 const USER_ID_REFERENCES: &[(&str, &str)] = &[
     ("organizations", "owner_user_id"),
@@ -41,6 +43,8 @@ const USER_ID_REFERENCES: &[(&str, &str)] = &[
 #[derive(Debug)]
 pub enum CloudsyncWorkspaceError {
     Sqlx(sqlx::Error),
+    ClaimCancelled,
+    ProjectionCancelled,
     InvalidWorkspaceId,
     InvalidBinding,
     InvalidWorkspaceProjection,
@@ -54,6 +58,10 @@ impl std::fmt::Display for CloudsyncWorkspaceError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Sqlx(error) => write!(f, "{error}"),
+            Self::ClaimCancelled => write!(f, "CloudSync workspace claim was cancelled"),
+            Self::ProjectionCancelled => {
+                write!(f, "CloudSync workspace projection was cancelled")
+            }
             Self::InvalidWorkspaceId => write!(f, "workspace ID is invalid"),
             Self::InvalidBinding => write!(f, "local CloudSync workspace binding is invalid"),
             Self::InvalidWorkspaceProjection => {
@@ -261,10 +269,43 @@ pub async fn claim_cloudsync_workspace(
     pool: &SqlitePool,
     account_user_id: &str,
 ) -> Result<(), CloudsyncWorkspaceError> {
+    claim_cloudsync_workspace_cancellable(pool, account_user_id, || false).await
+}
+
+pub async fn claim_cloudsync_workspace_cancellable(
+    pool: &SqlitePool,
+    account_user_id: &str,
+    mut is_cancelled: impl FnMut() -> bool,
+) -> Result<(), CloudsyncWorkspaceError> {
     let account_user_id = validated_account_user_id(account_user_id)?;
+    check_workspace_claim_cancellation(&mut is_cancelled)?;
 
     let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
-    let binding = load_or_create_binding(&mut transaction).await?;
+    let result = claim_cloudsync_workspace_in_transaction(
+        &mut transaction,
+        account_user_id,
+        &mut is_cancelled,
+    )
+    .await;
+    let result = result.and_then(|()| check_workspace_claim_cancellation(&mut is_cancelled));
+    match result {
+        Ok(()) => transaction.commit().await.map_err(Into::into),
+        Err(CloudsyncWorkspaceError::ClaimCancelled) => {
+            transaction.rollback().await?;
+            Err(CloudsyncWorkspaceError::ClaimCancelled)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+async fn claim_cloudsync_workspace_in_transaction(
+    transaction: &mut Transaction<'_, Sqlite>,
+    account_user_id: &str,
+    is_cancelled: &mut impl FnMut() -> bool,
+) -> Result<(), CloudsyncWorkspaceError> {
+    check_workspace_claim_cancellation(is_cancelled)?;
+    let binding = load_or_create_binding(transaction).await?;
+    check_workspace_claim_cancellation(is_cancelled)?;
     if binding
         .account_user_id
         .as_deref()
@@ -275,67 +316,83 @@ pub async fn claim_cloudsync_workspace(
     if binding.workspace_id == account_user_id
         && binding.account_user_id.as_deref() == Some(account_user_id)
     {
-        transaction.commit().await?;
         return Ok(());
     }
 
     for table_name in crate::E2EE_DOMAIN_TABLES {
-        let foreign_sql = format!(
-            "SELECT EXISTS(SELECT 1 FROM {} WHERE workspace_id <> '' AND workspace_id <> ? AND workspace_id <> ?)",
-            table_name
-        );
-        let has_foreign_workspace: bool =
-            sqlx::query_scalar(sqlx::AssertSqlSafe(foreign_sql.as_str()))
-                .bind(&binding.workspace_id)
-                .bind(account_user_id)
-                .fetch_one(&mut *transaction)
-                .await?;
-        if has_foreign_workspace {
-            return Err(CloudsyncWorkspaceError::ForeignWorkspace {
-                table: table_name.to_string(),
-            });
-        }
+        reject_foreign_workspace_rows_in_batches(
+            transaction,
+            table_name,
+            &binding.workspace_id,
+            account_user_id,
+            is_cancelled,
+        )
+        .await?;
     }
 
     for table_name in crate::E2EE_DOMAIN_TABLES {
-        let update_sql = if binding.workspace_id == account_user_id {
-            format!(
-                "UPDATE {} SET workspace_id = ? WHERE workspace_id = ''",
-                table_name
-            )
-        } else {
-            format!(
-                "UPDATE {} SET workspace_id = ? WHERE workspace_id = '' OR workspace_id = ?",
-                table_name
-            )
-        };
-        let mut query = sqlx::query(sqlx::AssertSqlSafe(update_sql.as_str())).bind(account_user_id);
-        if binding.workspace_id != account_user_id {
-            query = query.bind(&binding.workspace_id);
-        }
-        query.execute(&mut *transaction).await?;
+        claim_workspace_rows_in_batches(
+            transaction,
+            table_name,
+            &binding.workspace_id,
+            account_user_id,
+            is_cancelled,
+        )
+        .await?;
     }
 
-    rekey_local_user_identity(&mut transaction, &binding.workspace_id, account_user_id).await?;
+    rekey_local_user_identity(
+        transaction,
+        &binding.workspace_id,
+        account_user_id,
+        is_cancelled,
+    )
+    .await?;
     if binding.workspace_id != LEGACY_DEFAULT_USER_ID {
-        rekey_local_user_identity(&mut transaction, LEGACY_DEFAULT_USER_ID, account_user_id)
-            .await?;
+        rekey_local_user_identity(
+            transaction,
+            LEGACY_DEFAULT_USER_ID,
+            account_user_id,
+            is_cancelled,
+        )
+        .await?;
     }
 
     if binding.workspace_id != account_user_id
         || binding.account_user_id.as_deref() != Some(account_user_id)
     {
         save_binding(
-            &mut transaction,
+            transaction,
             &CloudsyncWorkspaceBinding {
                 workspace_id: account_user_id.to_string(),
                 account_user_id: Some(account_user_id.to_string()),
             },
         )
         .await?;
+        check_workspace_claim_cancellation(is_cancelled)?;
     }
-    transaction.commit().await?;
+    check_workspace_claim_cancellation(is_cancelled)?;
     Ok(())
+}
+
+fn check_workspace_claim_cancellation(
+    is_cancelled: &mut impl FnMut() -> bool,
+) -> Result<(), CloudsyncWorkspaceError> {
+    if is_cancelled() {
+        Err(CloudsyncWorkspaceError::ClaimCancelled)
+    } else {
+        Ok(())
+    }
+}
+
+fn check_workspace_projection_cancellation(
+    is_cancelled: &mut impl FnMut() -> bool,
+) -> Result<(), CloudsyncWorkspaceError> {
+    if is_cancelled() {
+        Err(CloudsyncWorkspaceError::ProjectionCancelled)
+    } else {
+        Ok(())
+    }
 }
 
 pub async fn replace_cloudsync_workspace_projection(
@@ -351,22 +408,55 @@ pub async fn stage_cloudsync_workspace_reconciliation(
     pool: &SqlitePool,
     projection: &CloudsyncWorkspaceProjection,
 ) -> Result<CloudsyncWorkspaceReconciliationPlan, CloudsyncWorkspaceError> {
+    stage_cloudsync_workspace_reconciliation_cancellable(pool, projection, || false).await
+}
+
+pub async fn stage_cloudsync_workspace_reconciliation_cancellable(
+    pool: &SqlitePool,
+    projection: &CloudsyncWorkspaceProjection,
+    mut is_cancelled: impl FnMut() -> bool,
+) -> Result<CloudsyncWorkspaceReconciliationPlan, CloudsyncWorkspaceError> {
     validate_cloudsync_workspace_projection(projection)?;
+    check_workspace_projection_cancellation(&mut is_cancelled)?;
 
     let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
-    require_claimed_binding(&mut transaction, &projection.account_user_id).await?;
-
-    let existing_workspace_ids: Vec<String> = sqlx::query_scalar(
-        "SELECT workspace_id
-         FROM workspace_memberships
-         WHERE user_id = ? AND deleted_at IS NULL",
+    let result = stage_cloudsync_workspace_reconciliation_in_transaction(
+        &mut transaction,
+        projection,
+        &mut is_cancelled,
     )
-    .bind(&projection.account_user_id)
-    .fetch_all(&mut *transaction)
+    .await;
+    let result = result.and_then(|plan| {
+        check_workspace_projection_cancellation(&mut is_cancelled)?;
+        Ok(plan)
+    });
+    match result {
+        Ok(plan) => {
+            transaction.commit().await?;
+            Ok(plan)
+        }
+        Err(CloudsyncWorkspaceError::ProjectionCancelled) => {
+            transaction.rollback().await?;
+            Err(CloudsyncWorkspaceError::ProjectionCancelled)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+async fn stage_cloudsync_workspace_reconciliation_in_transaction(
+    transaction: &mut Transaction<'_, Sqlite>,
+    projection: &CloudsyncWorkspaceProjection,
+    is_cancelled: &mut impl FnMut() -> bool,
+) -> Result<CloudsyncWorkspaceReconciliationPlan, CloudsyncWorkspaceError> {
+    require_claimed_binding(transaction, &projection.account_user_id).await?;
+    check_workspace_projection_cancellation(is_cancelled)?;
+
+    let existing_workspace_ids = load_active_workspace_ids_in_batches(
+        transaction,
+        &projection.account_user_id,
+        is_cancelled,
+    )
     .await?;
-    let existing_workspace_ids = existing_workspace_ids
-        .into_iter()
-        .collect::<std::collections::HashSet<_>>();
     let projected_workspace_ids = projection
         .workspaces
         .iter()
@@ -385,28 +475,124 @@ pub async fn stage_cloudsync_workspace_reconciliation(
     revoked_workspace_ids.sort();
 
     for workspace_id in &revoked_workspace_ids {
-        sqlx::query(
-            "INSERT INTO cloudsync_session_evictions (session_id, workspace_id)
-             SELECT id, workspace_id
-             FROM sessions
-             WHERE workspace_id = ?
-             ON CONFLICT(session_id) DO UPDATE SET
-               workspace_id = excluded.workspace_id,
-               queued_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
-               attempt_count = 0,
-               last_attempt_at = NULL,
-               last_error = ''",
-        )
-        .bind(workspace_id)
-        .execute(&mut *transaction)
-        .await?;
+        stage_workspace_session_evictions_in_batches(transaction, workspace_id, is_cancelled)
+            .await?;
+        check_workspace_projection_cancellation(is_cancelled)?;
     }
 
-    transaction.commit().await?;
     Ok(CloudsyncWorkspaceReconciliationPlan {
         granted_workspace_ids,
         revoked_workspace_ids,
     })
+}
+
+async fn load_active_workspace_ids_in_batches(
+    transaction: &mut Transaction<'_, Sqlite>,
+    account_user_id: &str,
+    is_cancelled: &mut impl FnMut() -> bool,
+) -> Result<std::collections::HashSet<String>, CloudsyncWorkspaceError> {
+    let mut workspace_ids = std::collections::HashSet::new();
+    let mut after_id = None::<String>;
+    loop {
+        check_workspace_projection_cancellation(is_cancelled)?;
+        let rows: Vec<(String, String)> = if let Some(after_id) = after_id.as_deref() {
+            sqlx::query_as(
+                "SELECT id, workspace_id
+                 FROM workspace_memberships
+                 WHERE user_id = ? AND deleted_at IS NULL AND id > ?
+                 ORDER BY id
+                 LIMIT ?",
+            )
+            .bind(account_user_id)
+            .bind(after_id)
+            .bind(CLOUDSYNC_WORKSPACE_PROJECTION_BATCH_SIZE)
+            .fetch_all(&mut **transaction)
+            .await?
+        } else {
+            sqlx::query_as(
+                "SELECT id, workspace_id
+                 FROM workspace_memberships
+                 WHERE user_id = ? AND deleted_at IS NULL
+                 ORDER BY id
+                 LIMIT ?",
+            )
+            .bind(account_user_id)
+            .bind(CLOUDSYNC_WORKSPACE_PROJECTION_BATCH_SIZE)
+            .fetch_all(&mut **transaction)
+            .await?
+        };
+        check_workspace_projection_cancellation(is_cancelled)?;
+
+        let batch_len = rows.len();
+        if let Some((last_id, _)) = rows.last() {
+            after_id = Some(last_id.clone());
+        }
+        workspace_ids.extend(rows.into_iter().map(|(_, workspace_id)| workspace_id));
+        if batch_len < CLOUDSYNC_WORKSPACE_PROJECTION_BATCH_SIZE as usize {
+            return Ok(workspace_ids);
+        }
+    }
+}
+
+async fn stage_workspace_session_evictions_in_batches(
+    transaction: &mut Transaction<'_, Sqlite>,
+    workspace_id: &str,
+    is_cancelled: &mut impl FnMut() -> bool,
+) -> Result<(), CloudsyncWorkspaceError> {
+    let mut last_session_id = None::<String>;
+    loop {
+        check_workspace_projection_cancellation(is_cancelled)?;
+        let session_ids: Vec<String> = if let Some(last_session_id) = last_session_id.as_deref() {
+            sqlx::query_scalar(
+                "INSERT INTO cloudsync_session_evictions (session_id, workspace_id)
+                 SELECT id, workspace_id
+                 FROM sessions
+                 WHERE workspace_id = ? AND id > ?
+                 ORDER BY id
+                 LIMIT ?
+                 ON CONFLICT(session_id) DO UPDATE SET
+                   workspace_id = excluded.workspace_id,
+                   queued_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                   attempt_count = 0,
+                   last_attempt_at = NULL,
+                   last_error = ''
+                 RETURNING session_id",
+            )
+            .bind(workspace_id)
+            .bind(last_session_id)
+            .bind(CLOUDSYNC_WORKSPACE_PROJECTION_BATCH_SIZE)
+            .fetch_all(&mut **transaction)
+            .await?
+        } else {
+            sqlx::query_scalar(
+                "INSERT INTO cloudsync_session_evictions (session_id, workspace_id)
+                 SELECT id, workspace_id
+                 FROM sessions
+                 WHERE workspace_id = ?
+                 ORDER BY id
+                 LIMIT ?
+                 ON CONFLICT(session_id) DO UPDATE SET
+                   workspace_id = excluded.workspace_id,
+                   queued_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                   attempt_count = 0,
+                   last_attempt_at = NULL,
+                   last_error = ''
+                 RETURNING session_id",
+            )
+            .bind(workspace_id)
+            .bind(CLOUDSYNC_WORKSPACE_PROJECTION_BATCH_SIZE)
+            .fetch_all(&mut **transaction)
+            .await?
+        };
+        check_workspace_projection_cancellation(is_cancelled)?;
+
+        let batch_len = session_ids.len();
+        if batch_len < CLOUDSYNC_WORKSPACE_PROJECTION_BATCH_SIZE as usize {
+            break;
+        }
+        last_session_id = session_ids.into_iter().max();
+    }
+    Ok(())
 }
 
 pub async fn commit_cloudsync_workspace_projection(
@@ -415,6 +601,22 @@ pub async fn commit_cloudsync_workspace_projection(
     require_full_resync: bool,
 ) -> Result<Option<String>, CloudsyncWorkspaceError> {
     write_cloudsync_workspace_projection(pool, projection, require_full_resync, true).await
+}
+
+pub async fn commit_cloudsync_workspace_projection_cancellable(
+    pool: &SqlitePool,
+    projection: &CloudsyncWorkspaceProjection,
+    require_full_resync: bool,
+    is_cancelled: impl FnMut() -> bool,
+) -> Result<Option<String>, CloudsyncWorkspaceError> {
+    write_cloudsync_workspace_projection_cancellable(
+        pool,
+        projection,
+        require_full_resync,
+        true,
+        is_cancelled,
+    )
+    .await
 }
 
 pub async fn cloudsync_full_resync_generation(
@@ -589,13 +791,16 @@ pub async fn ensure_cloudsync_recovery_state(
     Ok(state)
 }
 
-pub async fn cloudsync_recovery_state(
-    pool: &SqlitePool,
-) -> Result<Option<CloudsyncRecoveryState>, CloudsyncWorkspaceError> {
+pub async fn cloudsync_recovery_state<'e, E>(
+    executor: E,
+) -> Result<Option<CloudsyncRecoveryState>, CloudsyncWorkspaceError>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
     let value_json: Option<String> =
         sqlx::query_scalar("SELECT value_json FROM app_settings WHERE id = ?")
             .bind(CLOUDSYNC_FULL_RESYNC_RECOVERY_ID)
-            .fetch_optional(pool)
+            .fetch_optional(executor)
             .await?;
     value_json
         .map(|value_json| parse_cloudsync_recovery_state(&value_json))
@@ -1015,17 +1220,69 @@ async fn write_cloudsync_workspace_projection(
     require_full_resync: bool,
     require_claimed_account: bool,
 ) -> Result<Option<String>, CloudsyncWorkspaceError> {
+    write_cloudsync_workspace_projection_cancellable(
+        pool,
+        projection,
+        require_full_resync,
+        require_claimed_account,
+        || false,
+    )
+    .await
+}
+
+async fn write_cloudsync_workspace_projection_cancellable(
+    pool: &SqlitePool,
+    projection: &CloudsyncWorkspaceProjection,
+    require_full_resync: bool,
+    require_claimed_account: bool,
+    mut is_cancelled: impl FnMut() -> bool,
+) -> Result<Option<String>, CloudsyncWorkspaceError> {
     validate_cloudsync_workspace_projection(projection)?;
+    check_workspace_projection_cancellation(&mut is_cancelled)?;
 
     let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let result = write_cloudsync_workspace_projection_in_transaction(
+        &mut transaction,
+        projection,
+        require_full_resync,
+        require_claimed_account,
+        &mut is_cancelled,
+    )
+    .await;
+    let result = result.and_then(|generation| {
+        check_workspace_projection_cancellation(&mut is_cancelled)?;
+        Ok(generation)
+    });
+    match result {
+        Ok(generation) => {
+            transaction.commit().await?;
+            Ok(generation)
+        }
+        Err(CloudsyncWorkspaceError::ProjectionCancelled) => {
+            transaction.rollback().await?;
+            Err(CloudsyncWorkspaceError::ProjectionCancelled)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+async fn write_cloudsync_workspace_projection_in_transaction(
+    transaction: &mut Transaction<'_, Sqlite>,
+    projection: &CloudsyncWorkspaceProjection,
+    require_full_resync: bool,
+    require_claimed_account: bool,
+    is_cancelled: &mut impl FnMut() -> bool,
+) -> Result<Option<String>, CloudsyncWorkspaceError> {
     if require_claimed_account {
-        require_claimed_binding(&mut transaction, &projection.account_user_id).await?;
+        require_claimed_binding(transaction, &projection.account_user_id).await?;
+        check_workspace_projection_cancellation(is_cancelled)?;
     }
     let recovery_state: Option<String> =
         sqlx::query_scalar("SELECT value_json FROM app_settings WHERE id = ?")
             .bind(CLOUDSYNC_FULL_RESYNC_RECOVERY_ID)
-            .fetch_optional(&mut *transaction)
+            .fetch_optional(&mut **transaction)
             .await?;
+    check_workspace_projection_cancellation(is_cancelled)?;
     let full_resync_generation = if let Some(value_json) = recovery_state {
         let state = parse_cloudsync_recovery_state(&value_json)?;
         if state.account_user_id != projection.account_user_id
@@ -1039,12 +1296,9 @@ async fn write_cloudsync_workspace_projection(
     } else {
         None
     };
-    sqlx::query("DELETE FROM workspace_memberships")
-        .execute(&mut *transaction)
+    delete_workspace_projection_rows_in_batches(transaction, "workspace_memberships", is_cancelled)
         .await?;
-    sqlx::query("DELETE FROM workspaces")
-        .execute(&mut *transaction)
-        .await?;
+    delete_workspace_projection_rows_in_batches(transaction, "workspaces", is_cancelled).await?;
 
     for workspace in &projection.workspaces {
         sqlx::query(
@@ -1058,8 +1312,9 @@ async fn write_cloudsync_workspace_projection(
         .bind(&workspace.name)
         .bind(&workspace.created_at)
         .bind(&workspace.updated_at)
-        .execute(&mut *transaction)
+        .execute(&mut **transaction)
         .await?;
+        check_workspace_projection_cancellation(is_cancelled)?;
         sqlx::query(
             "INSERT INTO workspace_memberships (
                id, workspace_id, user_id, role, created_at, updated_at, deleted_at
@@ -1071,13 +1326,13 @@ async fn write_cloudsync_workspace_projection(
         .bind(&workspace.role)
         .bind(&workspace.membership_created_at)
         .bind(&workspace.membership_updated_at)
-        .execute(&mut *transaction)
+        .execute(&mut **transaction)
         .await?;
+        check_workspace_projection_cancellation(is_cancelled)?;
 
-        sqlx::query("DELETE FROM cloudsync_session_evictions WHERE workspace_id = ?")
-            .bind(&workspace.id)
-            .execute(&mut *transaction)
+        delete_workspace_session_evictions_in_batches(transaction, &workspace.id, is_cancelled)
             .await?;
+        check_workspace_projection_cancellation(is_cancelled)?;
     }
 
     if let Some(generation) = full_resync_generation.as_ref() {
@@ -1092,12 +1347,107 @@ async fn write_cloudsync_workspace_projection(
         )
         .bind(CLOUDSYNC_FULL_RESYNC_PENDING_ID)
         .bind(value_json)
-        .execute(&mut *transaction)
+        .execute(&mut **transaction)
         .await?;
+        check_workspace_projection_cancellation(is_cancelled)?;
     }
 
-    transaction.commit().await?;
     Ok(full_resync_generation)
+}
+
+async fn delete_workspace_projection_rows_in_batches(
+    transaction: &mut Transaction<'_, Sqlite>,
+    table_name: &str,
+    is_cancelled: &mut impl FnMut() -> bool,
+) -> Result<(), CloudsyncWorkspaceError> {
+    let delete_sql = match table_name {
+        "workspace_memberships" => {
+            "DELETE FROM workspace_memberships
+             WHERE id IN (
+               SELECT id
+               FROM workspace_memberships
+               ORDER BY id
+               LIMIT ?
+             )
+             RETURNING id"
+        }
+        "workspaces" => {
+            "DELETE FROM workspaces
+             WHERE id IN (
+               SELECT id
+               FROM workspaces
+               ORDER BY id
+               LIMIT ?
+             )
+             RETURNING id"
+        }
+        _ => unreachable!("workspace projection table names are fixed"),
+    };
+
+    loop {
+        check_workspace_projection_cancellation(is_cancelled)?;
+        let deleted_ids: Vec<String> = sqlx::query_scalar(delete_sql)
+            .bind(CLOUDSYNC_WORKSPACE_PROJECTION_BATCH_SIZE)
+            .fetch_all(&mut **transaction)
+            .await?;
+        check_workspace_projection_cancellation(is_cancelled)?;
+        if deleted_ids.len() < CLOUDSYNC_WORKSPACE_PROJECTION_BATCH_SIZE as usize {
+            return Ok(());
+        }
+    }
+}
+
+async fn delete_workspace_session_evictions_in_batches(
+    transaction: &mut Transaction<'_, Sqlite>,
+    workspace_id: &str,
+    is_cancelled: &mut impl FnMut() -> bool,
+) -> Result<(), CloudsyncWorkspaceError> {
+    let mut last_session_id = None::<String>;
+    loop {
+        check_workspace_projection_cancellation(is_cancelled)?;
+        let session_ids: Vec<String> = if let Some(last_session_id) = last_session_id.as_deref() {
+            sqlx::query_scalar(
+                "DELETE FROM cloudsync_session_evictions
+                 WHERE session_id IN (
+                   SELECT session_id
+                   FROM cloudsync_session_evictions
+                   WHERE workspace_id = ? AND session_id > ?
+                   ORDER BY session_id
+                   LIMIT ?
+                 )
+                 RETURNING session_id",
+            )
+            .bind(workspace_id)
+            .bind(last_session_id)
+            .bind(CLOUDSYNC_WORKSPACE_PROJECTION_BATCH_SIZE)
+            .fetch_all(&mut **transaction)
+            .await?
+        } else {
+            sqlx::query_scalar(
+                "DELETE FROM cloudsync_session_evictions
+                 WHERE session_id IN (
+                   SELECT session_id
+                   FROM cloudsync_session_evictions
+                   WHERE workspace_id = ?
+                   ORDER BY session_id
+                   LIMIT ?
+                 )
+                 RETURNING session_id",
+            )
+            .bind(workspace_id)
+            .bind(CLOUDSYNC_WORKSPACE_PROJECTION_BATCH_SIZE)
+            .fetch_all(&mut **transaction)
+            .await?
+        };
+        check_workspace_projection_cancellation(is_cancelled)?;
+
+        let batch_len = session_ids.len();
+        if batch_len < CLOUDSYNC_WORKSPACE_PROJECTION_BATCH_SIZE as usize {
+            break;
+        }
+        last_session_id = session_ids.into_iter().max();
+    }
+    Ok(())
 }
 
 pub fn validate_cloudsync_workspace_projection(
@@ -1153,11 +1503,133 @@ fn validated_account_user_id(account_user_id: &str) -> Result<&str, CloudsyncWor
     Ok(account_user_id)
 }
 
+async fn reject_foreign_workspace_rows_in_batches(
+    transaction: &mut Transaction<'_, Sqlite>,
+    table_name: &str,
+    local_workspace_id: &str,
+    account_user_id: &str,
+    is_cancelled: &mut impl FnMut() -> bool,
+) -> Result<(), CloudsyncWorkspaceError> {
+    let mut after_id = None;
+    loop {
+        check_workspace_claim_cancellation(is_cancelled)?;
+        let rows =
+            load_text_column_batch(transaction, table_name, "workspace_id", after_id.as_deref())
+                .await?;
+        check_workspace_claim_cancellation(is_cancelled)?;
+        if rows.iter().any(|(_, workspace_id)| {
+            !workspace_id.is_empty()
+                && workspace_id != local_workspace_id
+                && workspace_id != account_user_id
+        }) {
+            return Err(CloudsyncWorkspaceError::ForeignWorkspace {
+                table: table_name.to_string(),
+            });
+        }
+        let row_count = rows.len();
+        let Some((last_id, _)) = rows.last() else {
+            return Ok(());
+        };
+        after_id = Some(last_id.clone());
+        if row_count < CLOUDSYNC_WORKSPACE_CLAIM_BATCH_SIZE {
+            return Ok(());
+        }
+    }
+}
+
+async fn claim_workspace_rows_in_batches(
+    transaction: &mut Transaction<'_, Sqlite>,
+    table_name: &str,
+    local_workspace_id: &str,
+    account_user_id: &str,
+    is_cancelled: &mut impl FnMut() -> bool,
+) -> Result<(), CloudsyncWorkspaceError> {
+    let mut after_id = None;
+    loop {
+        check_workspace_claim_cancellation(is_cancelled)?;
+        let rows =
+            load_text_column_batch(transaction, table_name, "workspace_id", after_id.as_deref())
+                .await?;
+        check_workspace_claim_cancellation(is_cancelled)?;
+        let row_count = rows.len();
+        let Some((last_id, _)) = rows.last() else {
+            return Ok(());
+        };
+        after_id = Some(last_id.clone());
+        let ids = rows
+            .into_iter()
+            .filter_map(|(id, workspace_id)| {
+                (workspace_id.is_empty()
+                    || (local_workspace_id != account_user_id
+                        && workspace_id == local_workspace_id))
+                    .then_some(id)
+            })
+            .collect::<Vec<_>>();
+        if !ids.is_empty() {
+            check_workspace_claim_cancellation(is_cancelled)?;
+            update_text_column_for_ids(
+                transaction,
+                table_name,
+                "workspace_id",
+                account_user_id,
+                &ids,
+            )
+            .await?;
+            check_workspace_claim_cancellation(is_cancelled)?;
+        }
+        if row_count < CLOUDSYNC_WORKSPACE_CLAIM_BATCH_SIZE {
+            return Ok(());
+        }
+    }
+}
+
+async fn load_text_column_batch(
+    transaction: &mut Transaction<'_, Sqlite>,
+    table_name: &str,
+    column_name: &str,
+    after_id: Option<&str>,
+) -> Result<Vec<(String, String)>, CloudsyncWorkspaceError> {
+    let mut query =
+        QueryBuilder::<Sqlite>::new(format!("SELECT id, {column_name} FROM {table_name}"));
+    if let Some(after_id) = after_id {
+        query.push(" WHERE id > ").push_bind(after_id);
+    }
+    query
+        .push(" ORDER BY id LIMIT ")
+        .push_bind(CLOUDSYNC_WORKSPACE_CLAIM_BATCH_SIZE as i64);
+    query
+        .build_query_as()
+        .fetch_all(&mut **transaction)
+        .await
+        .map_err(Into::into)
+}
+
+async fn update_text_column_for_ids(
+    transaction: &mut Transaction<'_, Sqlite>,
+    table_name: &str,
+    column_name: &str,
+    value: &str,
+    ids: &[String],
+) -> Result<(), CloudsyncWorkspaceError> {
+    let mut query =
+        QueryBuilder::<Sqlite>::new(format!("UPDATE {table_name} SET {column_name} = "));
+    query.push_bind(value).push(" WHERE id IN (");
+    let mut ids_query = query.separated(", ");
+    for id in ids {
+        ids_query.push_bind(id);
+    }
+    ids_query.push_unseparated(")");
+    query.build().execute(&mut **transaction).await?;
+    Ok(())
+}
+
 async fn rekey_local_user_identity(
     transaction: &mut Transaction<'_, Sqlite>,
     source_user_id: &str,
     account_user_id: &str,
+    is_cancelled: &mut impl FnMut() -> bool,
 ) -> Result<(), CloudsyncWorkspaceError> {
+    check_workspace_claim_cancellation(is_cancelled)?;
     if source_user_id.is_empty() || source_user_id == account_user_id {
         return Ok(());
     }
@@ -1202,45 +1674,142 @@ async fn rekey_local_user_identity(
     .bind(source_user_id)
     .execute(&mut **transaction)
     .await?;
+    check_workspace_claim_cancellation(is_cancelled)?;
 
-    sqlx::query(
-        "UPDATE session_participants AS duplicate
-         SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
-             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-         WHERE duplicate.human_id = ?
-           AND duplicate.deleted_at IS NULL
-           AND EXISTS (
-             SELECT 1
-             FROM session_participants AS keeper
-             WHERE keeper.session_id = duplicate.session_id
-               AND keeper.deleted_at IS NULL
-               AND keeper.id <> duplicate.id
-               AND (
-                 keeper.human_id = ?
-                 OR (keeper.human_id = ? AND keeper.id < duplicate.id)
-               )
-           )",
+    tombstone_duplicate_self_participants_in_batches(
+        transaction,
+        source_user_id,
+        account_user_id,
+        is_cancelled,
     )
-    .bind(source_user_id)
-    .bind(account_user_id)
-    .bind(source_user_id)
-    .execute(&mut **transaction)
     .await?;
 
     for (table, column) in USER_ID_REFERENCES {
-        let update_sql = format!("UPDATE {table} SET {column} = ? WHERE {column} = ?");
-        sqlx::query(sqlx::AssertSqlSafe(update_sql.as_str()))
-            .bind(account_user_id)
-            .bind(source_user_id)
-            .execute(&mut **transaction)
-            .await?;
+        rekey_user_reference_in_batches(
+            transaction,
+            table,
+            column,
+            source_user_id,
+            account_user_id,
+            is_cancelled,
+        )
+        .await?;
     }
 
     sqlx::query("DELETE FROM humans WHERE id = ?")
         .bind(source_user_id)
         .execute(&mut **transaction)
         .await?;
+    check_workspace_claim_cancellation(is_cancelled)?;
     Ok(())
+}
+
+async fn tombstone_duplicate_self_participants_in_batches(
+    transaction: &mut Transaction<'_, Sqlite>,
+    source_user_id: &str,
+    account_user_id: &str,
+    is_cancelled: &mut impl FnMut() -> bool,
+) -> Result<(), CloudsyncWorkspaceError> {
+    let mut after_id = None;
+    loop {
+        check_workspace_claim_cancellation(is_cancelled)?;
+        let rows = load_text_column_batch(
+            transaction,
+            "session_participants",
+            "human_id",
+            after_id.as_deref(),
+        )
+        .await?;
+        check_workspace_claim_cancellation(is_cancelled)?;
+        let row_count = rows.len();
+        let Some((last_id, _)) = rows.last() else {
+            return Ok(());
+        };
+        after_id = Some(last_id.clone());
+        let ids = rows
+            .into_iter()
+            .filter_map(|(id, human_id)| (human_id == source_user_id).then_some(id))
+            .collect::<Vec<_>>();
+        if !ids.is_empty() {
+            check_workspace_claim_cancellation(is_cancelled)?;
+            let mut query = QueryBuilder::<Sqlite>::new(
+                "UPDATE session_participants AS duplicate
+                 SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                     updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                 WHERE duplicate.id IN (",
+            );
+            {
+                let mut ids_query = query.separated(", ");
+                for id in &ids {
+                    ids_query.push_bind(id);
+                }
+                ids_query.push_unseparated(")");
+            }
+            query
+                .push(" AND duplicate.human_id = ")
+                .push_bind(source_user_id)
+                .push(
+                    " AND duplicate.deleted_at IS NULL
+                      AND EXISTS (
+                        SELECT 1
+                        FROM session_participants AS keeper
+                        WHERE keeper.session_id = duplicate.session_id
+                          AND keeper.deleted_at IS NULL
+                          AND keeper.id <> duplicate.id
+                          AND (
+                            keeper.human_id = ",
+                )
+                .push_bind(account_user_id)
+                .push(" OR (keeper.human_id = ")
+                .push_bind(source_user_id)
+                .push(
+                    " AND keeper.id < duplicate.id)
+                          )
+                      )",
+                );
+            query.build().execute(&mut **transaction).await?;
+            check_workspace_claim_cancellation(is_cancelled)?;
+        }
+        if row_count < CLOUDSYNC_WORKSPACE_CLAIM_BATCH_SIZE {
+            return Ok(());
+        }
+    }
+}
+
+async fn rekey_user_reference_in_batches(
+    transaction: &mut Transaction<'_, Sqlite>,
+    table_name: &str,
+    column_name: &str,
+    source_user_id: &str,
+    account_user_id: &str,
+    is_cancelled: &mut impl FnMut() -> bool,
+) -> Result<(), CloudsyncWorkspaceError> {
+    let mut after_id = None;
+    loop {
+        check_workspace_claim_cancellation(is_cancelled)?;
+        let rows =
+            load_text_column_batch(transaction, table_name, column_name, after_id.as_deref())
+                .await?;
+        check_workspace_claim_cancellation(is_cancelled)?;
+        let row_count = rows.len();
+        let Some((last_id, _)) = rows.last() else {
+            return Ok(());
+        };
+        after_id = Some(last_id.clone());
+        let ids = rows
+            .into_iter()
+            .filter_map(|(id, value)| (value == source_user_id).then_some(id))
+            .collect::<Vec<_>>();
+        if !ids.is_empty() {
+            check_workspace_claim_cancellation(is_cancelled)?;
+            update_text_column_for_ids(transaction, table_name, column_name, account_user_id, &ids)
+                .await?;
+            check_workspace_claim_cancellation(is_cancelled)?;
+        }
+        if row_count < CLOUDSYNC_WORKSPACE_CLAIM_BATCH_SIZE {
+            return Ok(());
+        }
+    }
 }
 
 async fn load_or_create_binding(
@@ -1434,6 +2003,49 @@ mod tests {
             created_at: "2026-07-16T00:00:00Z".to_string(),
             updated_at: "2026-07-16T00:00:00Z".to_string(),
         }
+    }
+
+    async fn seed_legacy_workspace_projection_rows(pool: &SqlitePool, last_row_index: i64) {
+        sqlx::query(
+            "WITH RECURSIVE sequence(row_index) AS (
+               VALUES (0)
+               UNION ALL
+               SELECT row_index + 1
+               FROM sequence
+               WHERE row_index < ?
+             )
+             INSERT INTO workspaces (id, owner_user_id, kind, name)
+             SELECT
+               printf('legacy-workspace-%04d', row_index),
+               'legacy-owner',
+               'shared',
+               'Legacy'
+             FROM sequence",
+        )
+        .bind(last_row_index)
+        .execute(pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            "WITH RECURSIVE sequence(row_index) AS (
+               VALUES (0)
+               UNION ALL
+               SELECT row_index + 1
+               FROM sequence
+               WHERE row_index < ?
+             )
+             INSERT INTO workspace_memberships (id, workspace_id, user_id, role)
+             SELECT
+               printf('legacy-membership-%04d', row_index),
+               printf('legacy-workspace-%04d', row_index),
+               'user-a',
+               'member'
+             FROM sequence",
+        )
+        .bind(last_row_index)
+        .execute(pool)
+        .await
+        .unwrap();
     }
 
     #[tokio::test]
@@ -2054,6 +2666,538 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn cancelled_workspace_reconciliation_rolls_back_the_first_eviction_batch() {
+        let db = test_db().await;
+        claim_cloudsync_workspace(db.pool(), "user-a")
+            .await
+            .unwrap();
+        let current = projection(
+            "user-a",
+            vec![
+                projected_workspace(
+                    "user-a",
+                    "user-a",
+                    "personal",
+                    "membership-personal",
+                    "owner",
+                    "Personal",
+                ),
+                projected_workspace(
+                    "workspace-shared",
+                    "user-b",
+                    "shared",
+                    "membership-shared",
+                    "member",
+                    "Shared",
+                ),
+            ],
+        );
+        replace_cloudsync_workspace_projection(db.pool(), &current)
+            .await
+            .unwrap();
+        sqlx::query(
+            "WITH RECURSIVE sequence(row_index) AS (
+               VALUES (0)
+               UNION ALL
+               SELECT row_index + 1 FROM sequence WHERE row_index < 255
+             )
+             INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             SELECT
+               printf('shared-%03d', row_index),
+               'workspace-shared',
+               'user-b',
+               'Shared'
+             FROM sequence",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let personal_only = projection(
+            "user-a",
+            vec![projected_workspace(
+                "user-a",
+                "user-a",
+                "personal",
+                "membership-personal",
+                "owner",
+                "Personal",
+            )],
+        );
+
+        let cancellation_checks = std::sync::atomic::AtomicUsize::new(0);
+        let error = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            stage_cloudsync_workspace_reconciliation_cancellable(db.pool(), &personal_only, || {
+                cancellation_checks.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1 >= 7
+            }),
+        )
+        .await
+        .expect("workspace reconciliation did not drain after cancellation")
+        .unwrap_err();
+        assert!(matches!(
+            error,
+            CloudsyncWorkspaceError::ProjectionCancelled
+        ));
+        assert_eq!(
+            cancellation_checks.load(std::sync::atomic::Ordering::SeqCst),
+            7
+        );
+
+        let queued_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM cloudsync_session_evictions")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        let memberships: Vec<String> = sqlx::query_scalar(
+            "SELECT workspace_id FROM workspace_memberships ORDER BY workspace_id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(queued_count, 0);
+        assert_eq!(
+            memberships,
+            vec!["user-a".to_string(), "workspace-shared".to_string()]
+        );
+
+        tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            sqlx::query(
+                "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+                 VALUES ('after-cancelled-stage', 'user-a', 'user-a', 'Local write')",
+            )
+            .execute(db.pool()),
+        )
+        .await
+        .expect("cancelled workspace reconciliation kept the database busy")
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn cancelled_reconciliation_rolls_back_a_large_legacy_membership_scan() {
+        let db = test_db().await;
+        claim_cloudsync_workspace(db.pool(), "user-a")
+            .await
+            .unwrap();
+        let personal = projection(
+            "user-a",
+            vec![projected_workspace(
+                "user-a",
+                "user-a",
+                "personal",
+                "membership-personal",
+                "owner",
+                "Personal",
+            )],
+        );
+        replace_cloudsync_workspace_projection(db.pool(), &personal)
+            .await
+            .unwrap();
+        seed_legacy_workspace_projection_rows(db.pool(), 511).await;
+
+        let cancellation_checks = std::sync::atomic::AtomicUsize::new(0);
+        let error = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            stage_cloudsync_workspace_reconciliation_cancellable(db.pool(), &personal, || {
+                cancellation_checks.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1 >= 6
+            }),
+        )
+        .await
+        .expect("legacy membership reconciliation did not drain after cancellation")
+        .unwrap_err();
+        assert!(matches!(
+            error,
+            CloudsyncWorkspaceError::ProjectionCancelled
+        ));
+        assert_eq!(
+            cancellation_checks.load(std::sync::atomic::Ordering::SeqCst),
+            6
+        );
+
+        let workspace_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM workspaces")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        let membership_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM workspace_memberships")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(workspace_count, 513);
+        assert_eq!(membership_count, 513);
+
+        tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            sqlx::query(
+                "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+                 VALUES ('after-legacy-scan-cancel', 'user-a', 'user-a', 'Local write')",
+            )
+            .execute(db.pool()),
+        )
+        .await
+        .expect("cancelled legacy membership scan kept the database busy")
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn cancelled_projection_commit_rolls_back_projection_and_eviction_cleanup() {
+        let db = test_db().await;
+        claim_cloudsync_workspace(db.pool(), "user-a")
+            .await
+            .unwrap();
+        let current = projection(
+            "user-a",
+            vec![
+                projected_workspace(
+                    "user-a",
+                    "user-a",
+                    "personal",
+                    "membership-personal",
+                    "owner",
+                    "Personal",
+                ),
+                projected_workspace(
+                    "workspace-shared",
+                    "user-b",
+                    "shared",
+                    "membership-shared",
+                    "member",
+                    "Shared",
+                ),
+            ],
+        );
+        replace_cloudsync_workspace_projection(db.pool(), &current)
+            .await
+            .unwrap();
+        sqlx::query(
+            "WITH RECURSIVE sequence(row_index) AS (
+               VALUES (0)
+               UNION ALL
+               SELECT row_index + 1 FROM sequence WHERE row_index < 255
+             )
+             INSERT INTO cloudsync_session_evictions (session_id, workspace_id)
+             SELECT printf('eviction-%03d', row_index), 'user-a'
+             FROM sequence",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let personal_only = projection(
+            "user-a",
+            vec![projected_workspace(
+                "user-a",
+                "user-a",
+                "personal",
+                "membership-personal",
+                "owner",
+                "Changed",
+            )],
+        );
+
+        let cancellation_checks = std::sync::atomic::AtomicUsize::new(0);
+        let error = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            commit_cloudsync_workspace_projection_cancellable(
+                db.pool(),
+                &personal_only,
+                true,
+                || cancellation_checks.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1 >= 11,
+            ),
+        )
+        .await
+        .expect("workspace projection commit did not drain after cancellation")
+        .unwrap_err();
+        assert!(matches!(
+            error,
+            CloudsyncWorkspaceError::ProjectionCancelled
+        ));
+        assert_eq!(
+            cancellation_checks.load(std::sync::atomic::Ordering::SeqCst),
+            11
+        );
+
+        let queued_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM cloudsync_session_evictions")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        let workspaces: Vec<(String, String)> =
+            sqlx::query_as("SELECT id, name FROM workspaces ORDER BY id")
+                .fetch_all(db.pool())
+                .await
+                .unwrap();
+        let memberships: Vec<String> = sqlx::query_scalar(
+            "SELECT workspace_id FROM workspace_memberships ORDER BY workspace_id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(queued_count, 256);
+        assert_eq!(
+            workspaces,
+            vec![
+                ("user-a".to_string(), "Personal".to_string()),
+                ("workspace-shared".to_string(), "Shared".to_string()),
+            ]
+        );
+        assert_eq!(
+            memberships,
+            vec!["user-a".to_string(), "workspace-shared".to_string()]
+        );
+        assert!(
+            cloudsync_full_resync_generation(db.pool())
+                .await
+                .unwrap()
+                .is_none()
+        );
+
+        tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            sqlx::query(
+                "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+                 VALUES ('after-cancelled-commit', 'user-a', 'user-a', 'Local write')",
+            )
+            .execute(db.pool()),
+        )
+        .await
+        .expect("cancelled workspace projection commit kept the database busy")
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn cancelled_projection_commit_rolls_back_large_legacy_table_deletes() {
+        let db = test_db().await;
+        claim_cloudsync_workspace(db.pool(), "user-a")
+            .await
+            .unwrap();
+        let current = projection(
+            "user-a",
+            vec![projected_workspace(
+                "user-a",
+                "user-a",
+                "personal",
+                "membership-personal",
+                "owner",
+                "Personal",
+            )],
+        );
+        replace_cloudsync_workspace_projection(db.pool(), &current)
+            .await
+            .unwrap();
+        seed_legacy_workspace_projection_rows(db.pool(), 511).await;
+        let changed = projection(
+            "user-a",
+            vec![projected_workspace(
+                "user-a",
+                "user-a",
+                "personal",
+                "membership-personal",
+                "owner",
+                "Changed",
+            )],
+        );
+
+        let cancellation_checks = std::sync::atomic::AtomicUsize::new(0);
+        let error = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            commit_cloudsync_workspace_projection_cancellable(db.pool(), &changed, true, || {
+                cancellation_checks.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1 >= 7
+            }),
+        )
+        .await
+        .expect("legacy projection deletion did not drain after cancellation")
+        .unwrap_err();
+        assert!(matches!(
+            error,
+            CloudsyncWorkspaceError::ProjectionCancelled
+        ));
+        assert_eq!(
+            cancellation_checks.load(std::sync::atomic::Ordering::SeqCst),
+            7
+        );
+
+        let workspace_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM workspaces")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        let membership_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM workspace_memberships")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        let personal_name: String =
+            sqlx::query_scalar("SELECT name FROM workspaces WHERE id = 'user-a'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(workspace_count, 513);
+        assert_eq!(membership_count, 513);
+        assert_eq!(personal_name, "Personal");
+        assert!(
+            cloudsync_full_resync_generation(db.pool())
+                .await
+                .unwrap()
+                .is_none()
+        );
+
+        tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            sqlx::query(
+                "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+                 VALUES ('after-legacy-delete-cancel', 'user-a', 'user-a', 'Local write')",
+            )
+            .execute(db.pool()),
+        )
+        .await
+        .expect("cancelled legacy projection deletion kept the database busy")
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn late_projection_cancellation_rolls_back_100k_rows_within_two_seconds() {
+        const LEGACY_ROW_COUNT: usize = 100_000;
+
+        let db = test_db().await;
+        claim_cloudsync_workspace(db.pool(), "user-a")
+            .await
+            .unwrap();
+        let current = projection(
+            "user-a",
+            vec![projected_workspace(
+                "user-a",
+                "user-a",
+                "personal",
+                "membership-personal",
+                "owner",
+                "Personal",
+            )],
+        );
+        replace_cloudsync_workspace_projection(db.pool(), &current)
+            .await
+            .unwrap();
+        seed_legacy_workspace_projection_rows(db.pool(), (LEGACY_ROW_COUNT - 1) as i64).await;
+        let changed = projection(
+            "user-a",
+            vec![projected_workspace(
+                "user-a",
+                "user-a",
+                "personal",
+                "membership-personal",
+                "owner",
+                "Changed",
+            )],
+        );
+
+        let rows_per_table = LEGACY_ROW_COUNT + 1;
+        let batches_per_table =
+            rows_per_table.div_ceil(CLOUDSYNC_WORKSPACE_PROJECTION_BATCH_SIZE as usize);
+        let cancellation_barrier = 3 + (batches_per_table * 4);
+        let mut cancellation_checks = 0;
+        let mut cancellation_started_at = None;
+        let error = tokio::time::timeout(
+            std::time::Duration::from_secs(60),
+            commit_cloudsync_workspace_projection_cancellable(db.pool(), &changed, true, || {
+                cancellation_checks += 1;
+                if cancellation_checks >= cancellation_barrier {
+                    cancellation_started_at.get_or_insert_with(std::time::Instant::now);
+                    true
+                } else {
+                    false
+                }
+            }),
+        )
+        .await
+        .expect("100k-row projection did not reach late cancellation")
+        .unwrap_err();
+        let rollback_elapsed = cancellation_started_at
+            .expect("projection cancellation timestamp was not captured")
+            .elapsed();
+        assert!(matches!(
+            error,
+            CloudsyncWorkspaceError::ProjectionCancelled
+        ));
+        assert_eq!(cancellation_checks, cancellation_barrier);
+        assert!(
+            rollback_elapsed < std::time::Duration::from_secs(2),
+            "100k-row projection rollback took {rollback_elapsed:?}"
+        );
+
+        let workspace_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM workspaces")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        let membership_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM workspace_memberships")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(workspace_count, rows_per_table as i64);
+        assert_eq!(membership_count, rows_per_table as i64);
+
+        tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            sqlx::query(
+                "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+                 VALUES ('after-100k-projection-cancel', 'user-a', 'user-a', 'Local write')",
+            )
+            .execute(db.pool()),
+        )
+        .await
+        .expect("100k-row projection rollback kept the database busy")
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn workspace_projection_batches_have_composite_keyset_indexes() {
+        let db = test_db().await;
+        let session_index_columns: Vec<String> = sqlx::query_scalar(
+            "SELECT name
+             FROM pragma_index_info('idx_sessions_workspace_id_id')
+             ORDER BY seqno",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        let eviction_index_columns: Vec<String> = sqlx::query_scalar(
+            "SELECT name
+             FROM pragma_index_info(
+               'idx_cloudsync_session_evictions_workspace_id_session_id'
+             )
+             ORDER BY seqno",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        let membership_index_columns: Vec<String> = sqlx::query_scalar(
+            "SELECT name
+             FROM pragma_index_info(
+               'idx_workspace_memberships_user_deleted_id'
+             )
+             ORDER BY seqno",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+
+        assert_eq!(
+            session_index_columns,
+            vec!["workspace_id".to_string(), "id".to_string()]
+        );
+        assert_eq!(
+            eviction_index_columns,
+            vec!["workspace_id".to_string(), "session_id".to_string()]
+        );
+        assert_eq!(
+            membership_index_columns,
+            vec![
+                "user_id".to_string(),
+                "deleted_at".to_string(),
+                "id".to_string()
+            ]
+        );
+    }
+
+    #[tokio::test]
     async fn detects_whether_the_encrypted_replica_has_local_records() {
         let db = test_db().await;
 
@@ -2660,6 +3804,225 @@ mod tests {
                 .unwrap();
             assert_eq!(count, 0, "{table_name} was not claimed");
         }
+    }
+
+    #[tokio::test]
+    async fn cancelled_claim_rolls_back_and_releases_local_writes() {
+        let db = test_db().await;
+        let local_workspace = ensure_cloudsync_workspace_binding(db.pool()).await.unwrap();
+        sqlx::query(
+            "INSERT INTO humans (id, workspace_id, owner_user_id, name)
+             VALUES (?, ?, ?, 'Local user')",
+        )
+        .bind(&local_workspace)
+        .bind(&local_workspace)
+        .bind(&local_workspace)
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "WITH RECURSIVE sequence(row_index) AS (
+               VALUES (0)
+               UNION ALL
+               SELECT row_index + 1 FROM sequence WHERE row_index < 255
+             )
+             INSERT INTO action_items (
+               id, workspace_id, created_by, updated_by, text
+             )
+             SELECT
+               printf('action-%03d', row_index),
+               ?,
+               ?,
+               ?,
+               'Legacy action'
+             FROM sequence",
+        )
+        .bind(&local_workspace)
+        .bind(&local_workspace)
+        .bind(&local_workspace)
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let dirty_rows_before_claim: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_dirty_rows")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+
+        let cancellation_checks = std::sync::atomic::AtomicUsize::new(0);
+        let scan_checks = (crate::E2EE_DOMAIN_TABLES.len() * 2) + 4;
+        let cancellation_barrier = 3 + scan_checks + 4;
+        let error = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            claim_cloudsync_workspace_cancellable(db.pool(), "user-a", || {
+                cancellation_checks.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1
+                    >= cancellation_barrier
+            }),
+        )
+        .await
+        .expect("workspace claim did not drain after cancellation")
+        .unwrap_err();
+        assert!(matches!(error, CloudsyncWorkspaceError::ClaimCancelled));
+        assert_eq!(
+            cancellation_checks.load(std::sync::atomic::Ordering::SeqCst),
+            cancellation_barrier
+        );
+
+        let changed_action_items: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*)
+             FROM action_items
+             WHERE workspace_id <> ? OR created_by <> ? OR updated_by <> ?",
+        )
+        .bind(&local_workspace)
+        .bind(&local_workspace)
+        .bind(&local_workspace)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        let account_human_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM humans WHERE id = 'user-a'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        let dirty_rows_after_cancellation: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_dirty_rows")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(changed_action_items, 0);
+        assert_eq!(account_human_count, 0);
+        assert_eq!(dirty_rows_after_cancellation, dirty_rows_before_claim);
+        assert!(
+            !cloudsync_workspace_is_claimed_by(db.pool(), "user-a")
+                .await
+                .unwrap()
+        );
+
+        tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            sqlx::query(
+                "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+                 VALUES ('after-cancel', ?, ?, 'Local write')",
+            )
+            .bind(&local_workspace)
+            .bind(&local_workspace)
+            .execute(db.pool()),
+        )
+        .await
+        .expect("cancelled workspace claim kept the database busy")
+        .unwrap();
+
+        claim_cloudsync_workspace(db.pool(), "user-a")
+            .await
+            .unwrap();
+        let stale_action_items: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*)
+             FROM action_items
+             WHERE workspace_id <> 'user-a'
+                OR created_by <> 'user-a'
+                OR updated_by <> 'user-a'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(stale_action_items, 0);
+    }
+
+    #[tokio::test]
+    async fn late_claim_cancellation_rolls_back_100k_rows_within_two_seconds() {
+        const LEGACY_ROW_COUNT: usize = 100_000;
+
+        assert_eq!(crate::E2EE_DOMAIN_TABLES.first(), Some(&"action_items"));
+        let db = test_db().await;
+        let local_workspace = ensure_cloudsync_workspace_binding(db.pool()).await.unwrap();
+        sqlx::query(
+            "WITH RECURSIVE sequence(row_index) AS (
+               VALUES (0)
+               UNION ALL
+               SELECT row_index + 1
+               FROM sequence
+               WHERE row_index < 99999
+             )
+             INSERT INTO action_items (
+               id, workspace_id, created_by, updated_by, text
+             )
+             SELECT
+               printf('claim-stress-%06d', row_index),
+               ?,
+               ?,
+               ?,
+               'Legacy action'
+             FROM sequence",
+        )
+        .bind(&local_workspace)
+        .bind(&local_workspace)
+        .bind(&local_workspace)
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let action_item_batches = LEGACY_ROW_COUNT.div_ceil(CLOUDSYNC_WORKSPACE_CLAIM_BATCH_SIZE);
+        let empty_domain_tables = crate::E2EE_DOMAIN_TABLES.len() - 1;
+        let cancellation_barrier =
+            3 + (action_item_batches * 2) + (empty_domain_tables * 2) + (action_item_batches * 4);
+        let mut cancellation_checks = 0;
+        let mut cancellation_started_at = None;
+        let error = tokio::time::timeout(
+            std::time::Duration::from_secs(60),
+            claim_cloudsync_workspace_cancellable(db.pool(), "user-a", || {
+                cancellation_checks += 1;
+                if cancellation_checks >= cancellation_barrier {
+                    cancellation_started_at.get_or_insert_with(std::time::Instant::now);
+                    true
+                } else {
+                    false
+                }
+            }),
+        )
+        .await
+        .expect("100k-row claim did not reach late cancellation")
+        .unwrap_err();
+        let rollback_elapsed = cancellation_started_at
+            .expect("claim cancellation timestamp was not captured")
+            .elapsed();
+        assert!(matches!(error, CloudsyncWorkspaceError::ClaimCancelled));
+        assert_eq!(cancellation_checks, cancellation_barrier);
+        assert!(
+            rollback_elapsed < std::time::Duration::from_secs(2),
+            "100k-row claim rollback took {rollback_elapsed:?}"
+        );
+
+        let changed_action_items: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*)
+             FROM action_items
+             WHERE workspace_id <> ? OR created_by <> ? OR updated_by <> ?",
+        )
+        .bind(&local_workspace)
+        .bind(&local_workspace)
+        .bind(&local_workspace)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(changed_action_items, 0);
+        assert!(
+            !cloudsync_workspace_is_claimed_by(db.pool(), "user-a")
+                .await
+                .unwrap()
+        );
+
+        tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            sqlx::query(
+                "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+                 VALUES ('after-100k-claim-cancel', ?, ?, 'Local write')",
+            )
+            .bind(&local_workspace)
+            .bind(&local_workspace)
+            .execute(db.pool()),
+        )
+        .await
+        .expect("100k-row claim rollback kept the database busy")
+        .unwrap();
     }
 
     #[tokio::test]

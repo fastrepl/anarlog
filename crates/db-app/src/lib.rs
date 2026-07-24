@@ -255,6 +255,11 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         scope: hypr_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260725001400_e2ee_witness_pending.sql"),
     },
+    hypr_db_migrate::MigrationStep {
+        id: "20260725020000_cloudsync_projection_indexes",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260725020000_cloudsync_projection_indexes.sql"),
+    },
 ];
 
 pub fn schema() -> hypr_db_migrate::DbSchema {

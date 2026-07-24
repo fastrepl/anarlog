@@ -287,11 +287,13 @@ pub(crate) async fn configure_cloudsync_token<R: tauri::Runtime>(
         })?;
     state
         .configure_cloudsync_token_with_projection_at_generation(
-            database_id,
-            token,
-            workspace_id,
-            workspace_projection.map(Into::into),
-            e2ee_witness,
+            crate::runtime::CloudsyncTokenConfiguration::new(
+                database_id,
+                token,
+                workspace_id,
+                workspace_projection.map(Into::into),
+                e2ee_witness,
+            ),
             Some((personal_workspace_id, recovery_key)),
             auth_generation,
         )
@@ -334,6 +336,28 @@ pub(crate) async fn stop_cloudsync(state: tauri::State<'_, ManagedState>) -> Res
 pub(crate) async fn suspend_cloudsync(state: tauri::State<'_, ManagedState>) -> Result<(), String> {
     state
         .suspend_cloudsync()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn suspend_cloudsync_for_sign_out(
+    state: tauri::State<'_, ManagedState>,
+) -> Result<(), String> {
+    state
+        .suspend_cloudsync_for_sign_out()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn suspend_cloudsync_after_auth_loss(
+    state: tauri::State<'_, ManagedState>,
+) -> Result<(), String> {
+    state
+        .suspend_cloudsync_after_auth_loss()
         .await
         .map_err(|error| error.to_string())
 }

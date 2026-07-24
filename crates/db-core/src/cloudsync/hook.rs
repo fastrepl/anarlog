@@ -10,11 +10,13 @@ pub enum CloudsyncSyncDirective {
     #[default]
     SendAndReceive,
     ReceiveOnly,
+    Deferred,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct CloudsyncHookOutcome {
     pub local_work_remaining: bool,
+    pub deferred: bool,
 }
 
 pub type CloudsyncBeforeHookFuture<'a> = Pin<
@@ -27,6 +29,8 @@ pub trait CloudsyncSyncHook: Send + Sync + 'static {
     fn activity_paused(&self) -> bool {
         false
     }
+
+    fn cancel_active_sync(&self) {}
 
     fn before_sync<'a>(&'a self, pool: &'a SqlitePool) -> CloudsyncBeforeHookFuture<'a>;
     fn after_sync<'a>(

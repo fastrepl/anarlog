@@ -25,6 +25,8 @@ Default permissions for the plugin
 - `allow-configure-cloudsync-token`
 - `allow-stop-cloudsync`
 - `allow-suspend-cloudsync`
+- `allow-suspend-cloudsync-for-sign-out`
+- `allow-suspend-cloudsync-after-auth-loss`
 - `allow-get-cloudsync-status`
 
 ## Permission Table
@@ -682,6 +684,58 @@ Enables the suspend_cloudsync command without any pre-configured scope.
 <td>
 
 Denies the suspend_cloudsync command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-suspend-cloudsync-after-auth-loss`
+
+</td>
+<td>
+
+Enables the suspend_cloudsync_after_auth_loss command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-suspend-cloudsync-after-auth-loss`
+
+</td>
+<td>
+
+Denies the suspend_cloudsync_after_auth_loss command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-suspend-cloudsync-for-sign-out`
+
+</td>
+<td>
+
+Enables the suspend_cloudsync_for_sign_out command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-suspend-cloudsync-for-sign-out`
+
+</td>
+<td>
+
+Denies the suspend_cloudsync_for_sign_out command without any pre-configured scope.
 
 </td>
 </tr>

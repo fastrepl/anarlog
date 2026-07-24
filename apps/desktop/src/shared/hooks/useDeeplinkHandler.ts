@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { isTauri } from "@tauri-apps/api/core";
+import { useRef } from "react";
 import { useScheduleTaskRunCallback } from "tinytick/ui-react";
 
 import {
@@ -10,6 +11,7 @@ import {
 import { dismissInstruction } from "@hypr/plugin-windows";
 
 import { useAuth } from "~/auth";
+import { createAuthCallbackHandler } from "~/auth/deeplink";
 import {
   allowReconnectedCalendarConnections,
   CALENDAR_SYNC_TASK_ID,
@@ -35,6 +37,15 @@ export function useDeeplinkHandler() {
     0,
   );
   const authRef = useLatestRef(auth);
+  const authCallbackHandlerRef =
+    useRef<ReturnType<typeof createAuthCallbackHandler>>(null);
+  if (!authCallbackHandlerRef.current) {
+    authCallbackHandlerRef.current = createAuthCallbackHandler({
+      setSessionFromTokens: (accessToken, refreshToken) =>
+        authRef.current.setSessionFromTokens(accessToken, refreshToken),
+    });
+  }
+  const authCallbackHandler = authCallbackHandlerRef.current;
   const queryClientRef = useLatestRef(queryClient);
   const openNewRef = useLatestRef(openNew);
   const scheduleCalendarSyncRef = useLatestRef(scheduleCalendarSync);
@@ -58,10 +69,7 @@ export function useDeeplinkHandler() {
       if (payload.to === "/auth/callback") {
         const { access_token, refresh_token } = payload.search;
         if (access_token && refresh_token) {
-          void authRef.current.setSessionFromTokens(
-            access_token,
-            refresh_token,
-          );
+          authCallbackHandler(access_token, refresh_token);
         }
       } else if (payload.to === "/billing/refresh") {
         void authRef.current.refreshSession();

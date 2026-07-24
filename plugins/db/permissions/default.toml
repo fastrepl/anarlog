@@ -22,5 +22,7 @@ permissions = [
   "allow-configure-cloudsync-token",
   "allow-stop-cloudsync",
   "allow-suspend-cloudsync",
+  "allow-suspend-cloudsync-for-sign-out",
+  "allow-suspend-cloudsync-after-auth-loss",
   "allow-get-cloudsync-status",
 ]

@@ -3,6 +3,8 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import { beginCloudsyncActivity, endCloudsyncActivity } from "@hypr/plugin-db";
+
 import { isAudioUploadFile, useUploadFile } from "./useUploadFile";
 
 const {
@@ -15,6 +17,7 @@ const {
   parseSubtitleMock,
   createTranscriptMock,
   enhanceMock,
+  queueAutoEnhanceIfSummaryEmptyMock,
   handleBatchFailedMock,
   handleBatchStartedMock,
   updateBatchProgressMock,
@@ -35,6 +38,7 @@ const {
   parseSubtitleMock: vi.fn(),
   createTranscriptMock: vi.fn(),
   enhanceMock: vi.fn(),
+  queueAutoEnhanceIfSummaryEmptyMock: vi.fn(),
   handleBatchFailedMock: vi.fn(),
   handleBatchStartedMock: vi.fn(),
   updateBatchProgressMock: vi.fn(),
@@ -94,9 +98,7 @@ vi.mock("./useRunBatch", () => ({
 vi.mock("~/services/enhancer", () => ({
   getEnhancerService: vi.fn(() => ({
     enhance: enhanceMock,
-    queueAutoEnhanceIfSummaryEmpty: vi.fn().mockResolvedValue({
-      type: "queued",
-    }),
+    queueAutoEnhanceIfSummaryEmpty: queueAutoEnhanceIfSummaryEmptyMock,
   })),
 }));
 
@@ -154,6 +156,7 @@ describe("useUploadFile", () => {
     runBatchMock.mockResolvedValue(undefined);
     createTranscriptMock.mockResolvedValue(undefined);
     enhanceMock.mockResolvedValue({ type: "started", noteId: "note-1" });
+    queueAutoEnhanceIfSummaryEmptyMock.mockResolvedValue({ type: "queued" });
     useSessionMock.mockReturnValue({
       id: "session-1",
       user_id: "user-1",
@@ -224,6 +227,47 @@ describe("useUploadFile", () => {
       catalogLocalSessionAudioMock.mock.invocationCallOrder[0],
     ).toBeLessThan(runBatchMock.mock.invocationCallOrder[0]!);
     expect(handleBatchFailedMock).not.toHaveBeenCalled();
+  });
+
+  test("keeps CloudSync deferred until imported-audio summary scheduling settles", async () => {
+    let finishSummaryScheduling: (() => void) | undefined;
+    queueAutoEnhanceIfSummaryEmptyMock.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishSummaryScheduling = resolve;
+      }),
+    );
+    const { result } = renderHook(() => useUploadFile("session-1"), {
+      wrapper: createWrapper(),
+    });
+    const file = new File([new Uint8Array([1, 2, 3])], "drop.wav", {
+      type: "audio/wav",
+    });
+    Object.defineProperty(file, "arrayBuffer", {
+      value: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3]).buffer),
+    });
+
+    act(() => {
+      result.current.processAudioFile(file);
+    });
+
+    await waitFor(() => {
+      expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledWith(
+        "session-1",
+      );
+    });
+    expect(beginCloudsyncActivity).toHaveBeenCalledWith(
+      "transcription",
+      expect.stringMatching(/^session-1:audio-import:/),
+    );
+    expect(endCloudsyncActivity).not.toHaveBeenCalled();
+
+    finishSummaryScheduling?.();
+    await waitFor(() => {
+      expect(endCloudsyncActivity).toHaveBeenCalledWith(
+        "transcription",
+        vi.mocked(beginCloudsyncActivity).mock.calls[0]?.[1],
+      );
+    });
   });
 
   test.each(["webm", "aac"])(

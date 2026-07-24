@@ -10,6 +10,7 @@ import { useSTTConnection } from "./useSTTConnection";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
+import { withCloudsyncActivity } from "~/db/cloudsync-activity";
 import { env } from "~/env";
 import {
   deleteProcessedAudioForRetention,
@@ -395,95 +396,102 @@ export const useRunBatch = (sessionId: string) => {
           stagedHints.push(...newHints);
         });
 
-      const params: TranscriptionParams = {
-        session_id: sessionId,
-        provider: target.provider,
-        file_path: filePath,
-        model: target.model,
-        base_url: target.baseUrl,
-        api_key: target.apiKey,
-        keywords,
-        languages,
-        num_speakers: options?.numSpeakers ?? inferredNumSpeakers,
-        min_speakers: options?.minSpeakers,
-        max_speakers: options?.maxSpeakers,
-      };
+      const cloudsyncLeaseKey = `${sessionId}:${id()}`;
+      return withCloudsyncActivity(
+        "transcription",
+        cloudsyncLeaseKey,
+        async () => {
+          const params: TranscriptionParams = {
+            session_id: sessionId,
+            provider: target.provider,
+            file_path: filePath,
+            model: target.model,
+            base_url: target.baseUrl,
+            api_key: target.apiKey,
+            keywords,
+            languages,
+            num_speakers: options?.numSpeakers ?? inferredNumSpeakers,
+            min_speakers: options?.minSpeakers,
+            max_speakers: options?.maxSpeakers,
+          };
 
-      try {
-        await startTranscription(params, { handlePersist: persist });
-      } catch (error) {
-        if (
-          target.provider !== "hyprnote" ||
-          target.model !== "cloud" ||
-          !isTranscriptionAuthenticationError(error)
-        ) {
-          throw error;
-        }
-
-        const refreshedSession = await auth.refreshSession();
-        if (!refreshedSession?.access_token) {
-          throw error;
-        }
-
-        if (!handlePersist) {
-          resetStagedTranscript();
-        }
-        await startTranscription(
-          { ...params, api_key: refreshedSession.access_token },
-          { handlePersist: persist },
-        );
-      }
-
-      if (!handlePersist) {
-        const promoted = prepareTranscriptPromotion(
-          stagedWords,
-          stagedHints,
-          options?.promotion ?? { scope: "preserve_existing" },
-        );
-        if (
-          options?.promotion?.scope === "current_capture" &&
-          promoted.words.length === 0
-        ) {
-          throw new Error(EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE);
-        }
-        if (transcriptId) {
-          const completedTranscriptId = transcriptId;
-          if (promoted.words.length > 0) {
-            await persistTranscriptWrite(() =>
-              createTranscript({
-                id: completedTranscriptId,
-                sessionId,
-                ownerUserId: session?.user_id ?? "",
-                createdAt,
-                startedAt: promoted.startedAt ?? startedAt,
-                memo: memoMd,
-                source: "batch_transcription",
-                provider: target.provider,
-                model: target.model,
-                words: promoted.words,
-                speakerHints: promoted.hints,
-                replaceSession: promoted.replaceSession,
-                replaceTranscriptId: promoted.replaceTranscriptId,
-              }),
-            );
-          }
-        }
-        if (!options?.deferAudioFinalization) {
           try {
-            await persistTranscriptWrite(() =>
-              markSessionAudioTranscriptionComplete(sessionId),
-            );
+            await startTranscription(params, { handlePersist: persist });
           } catch (error) {
-            console.error(
-              "[runBatch] failed to mark session audio as processed",
-              error,
+            if (
+              target.provider !== "hyprnote" ||
+              target.model !== "cloud" ||
+              !isTranscriptionAuthenticationError(error)
+            ) {
+              throw error;
+            }
+
+            const refreshedSession = await auth.refreshSession();
+            if (!refreshedSession?.access_token) {
+              throw error;
+            }
+
+            if (!handlePersist) {
+              resetStagedTranscript();
+            }
+            await startTranscription(
+              { ...params, api_key: refreshedSession.access_token },
+              { handlePersist: persist },
             );
           }
-        }
-      }
-      if (!options?.deferAudioFinalization) {
-        await deleteProcessedAudioForRetention(audioRetention, sessionId);
-      }
+
+          if (!handlePersist) {
+            const promoted = prepareTranscriptPromotion(
+              stagedWords,
+              stagedHints,
+              options?.promotion ?? { scope: "preserve_existing" },
+            );
+            if (
+              options?.promotion?.scope === "current_capture" &&
+              promoted.words.length === 0
+            ) {
+              throw new Error(EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE);
+            }
+            if (transcriptId) {
+              const completedTranscriptId = transcriptId;
+              if (promoted.words.length > 0) {
+                await persistTranscriptWrite(() =>
+                  createTranscript({
+                    id: completedTranscriptId,
+                    sessionId,
+                    ownerUserId: session?.user_id ?? "",
+                    createdAt,
+                    startedAt: promoted.startedAt ?? startedAt,
+                    memo: memoMd,
+                    source: "batch_transcription",
+                    provider: target.provider,
+                    model: target.model,
+                    words: promoted.words,
+                    speakerHints: promoted.hints,
+                    replaceSession: promoted.replaceSession,
+                    replaceTranscriptId: promoted.replaceTranscriptId,
+                  }),
+                );
+              }
+            }
+            if (!options?.deferAudioFinalization) {
+              try {
+                await persistTranscriptWrite(() =>
+                  markSessionAudioTranscriptionComplete(sessionId),
+                );
+              } catch (error) {
+                console.error(
+                  "[runBatch] failed to mark session audio as processed",
+                  error,
+                );
+              }
+            }
+          }
+          if (!options?.deferAudioFinalization) {
+            await deleteProcessedAudioForRetention(audioRetention, sessionId);
+          }
+        },
+      );
     },
     [
       conn,

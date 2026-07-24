@@ -1,4 +1,8 @@
+import { useRef } from "react";
+
 import type { DesktopScheme } from "@/functions/desktop-flow";
+
+import { useMountEffect } from "../hooks/useMountEffect.ts";
 
 export function buildDesktopAuthDeeplink(
   scheme: DesktopScheme,
@@ -28,4 +32,24 @@ export function attemptDesktopAppOpen(
   documentRef.body.append(link);
   link.click();
   link.remove();
+}
+
+export function useDesktopAppAutoOpen(deeplink: string) {
+  const attemptedRef = useRef(false);
+
+  useMountEffect(() => {
+    if (attemptedRef.current) {
+      return;
+    }
+
+    attemptedRef.current = true;
+    attemptDesktopAppOpen(deeplink);
+  });
+}
+
+export function getDesktopAppOpenLinkProps(deeplink: string) {
+  return {
+    href: deeplink,
+    rel: "noreferrer",
+  } as const;
 }

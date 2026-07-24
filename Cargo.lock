@@ -4586,6 +4586,7 @@ dependencies = [
  "backon",
  "cloudsync",
  "db-change",
+ "libsqlite3-sys",
  "serde",
  "sqlx",
  "tempfile",
