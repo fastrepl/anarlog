@@ -292,7 +292,7 @@ export function createChatCloudsyncActivityController({
   };
 
   const resume = () => {
-    if (!disposed || leases.size > 0) {
+    if (!disposed) {
       return;
     }
 

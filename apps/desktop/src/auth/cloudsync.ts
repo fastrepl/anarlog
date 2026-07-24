@@ -907,7 +907,7 @@ async function activateCloudsync(
       scheduleActivityStatusRetry(
         session,
         activeGeneration,
-        false,
+        suspendBeforeExchange,
         onAccountMismatch,
       );
       return "ok";
