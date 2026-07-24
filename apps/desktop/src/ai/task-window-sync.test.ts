@@ -191,6 +191,62 @@ describe("handleMainAutoEnhanceRequest", () => {
         error: null,
       },
     );
+    expect(mocks.emit).not.toHaveBeenCalled();
+  });
+
+  it("broadcasts the completed result when targeted acknowledgement fails", async () => {
+    mocks.emitTo.mockRejectedValueOnce(new Error("target unavailable"));
+    const requestAutoEnhance = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      handleMainAutoEnhanceRequest(
+        { requestAutoEnhance },
+        {
+          requestId: "request-id",
+          sourceLabel: "note-window",
+          sessionId: "session-1",
+          mode: "regenerate",
+        },
+      ),
+    ).resolves.toBeUndefined();
+
+    const result = {
+      requestId: "request-id",
+      completed: true,
+      error: null,
+    };
+    expect(requestAutoEnhance).toHaveBeenCalledOnce();
+    expect(mocks.emitTo).toHaveBeenCalledWith(
+      "note-window",
+      "hypr:ai-task-auto-enhance-result",
+      result,
+    );
+    expect(mocks.emit).toHaveBeenCalledWith(
+      "hypr:ai-task-auto-enhance-result",
+      result,
+    );
+    expect(requestAutoEnhance).toHaveBeenCalledBefore(mocks.emitTo);
+    expect(mocks.emitTo).toHaveBeenCalledBefore(mocks.emit);
+  });
+
+  it("does not repeat scheduling when both acknowledgement paths fail", async () => {
+    mocks.emitTo.mockRejectedValueOnce(new Error("target unavailable"));
+    mocks.emit.mockRejectedValueOnce(new Error("broadcast unavailable"));
+    const requestAutoEnhance = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      handleMainAutoEnhanceRequest(
+        { requestAutoEnhance },
+        {
+          requestId: "request-id",
+          sourceLabel: "note-window",
+          sessionId: "session-1",
+          mode: "regenerate",
+        },
+      ),
+    ).rejects.toThrow("broadcast unavailable");
+
+    expect(requestAutoEnhance).toHaveBeenCalledOnce();
   });
 
   it("returns main-side errors to the requesting window", async () => {

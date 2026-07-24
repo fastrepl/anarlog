@@ -174,11 +174,17 @@ export async function handleMainAutoEnhanceRequest(
     error = getErrorMessage(cause);
   }
 
-  await emitTo(request.sourceLabel, TASK_AUTO_ENHANCE_RESULT_EVENT, {
+  const result = {
     requestId: request.requestId,
     completed: error === null,
     error,
-  } satisfies TaskAutoEnhanceResultPayload);
+  } satisfies TaskAutoEnhanceResultPayload;
+
+  try {
+    await emitTo(request.sourceLabel, TASK_AUTO_ENHANCE_RESULT_EVENT, result);
+  } catch {
+    await emit(TASK_AUTO_ENHANCE_RESULT_EVENT, result);
+  }
 }
 
 export function AITaskWindowSyncBridge({ store }: { store: AITaskStore }) {
