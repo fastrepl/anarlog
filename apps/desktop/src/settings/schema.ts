@@ -79,6 +79,11 @@ export const SETTING_DEFINITIONS = {
     path: ["general", "audio_retention"],
     default: "forever" as string,
   },
+  microphone_device: {
+    type: "string",
+    path: ["general", "microphone_device"],
+    default: "" as string,
+  },
   notification_event: {
     type: "boolean",
     path: ["notification", "event"],

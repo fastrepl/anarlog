@@ -36,6 +36,11 @@ interface AppSettingsViewProps {
     value: string;
     onChange: (value: string) => void;
   };
+  microphoneDevice: {
+    value: string;
+    devices: string[];
+    onChange: (value: string) => void;
+  };
 }
 
 export function AppSettingsView({
@@ -51,6 +56,7 @@ export function AppSettingsView({
   meetingDisclosureAutoPost,
   captureMeetingChat,
   audioRetention,
+  microphoneDevice,
 }: AppSettingsViewProps) {
   return (
     <div className="flex flex-col gap-8">
@@ -185,8 +191,71 @@ export function AppSettingsView({
             value={audioRetention.value}
             onChange={audioRetention.onChange}
           />
+          <MicrophoneRow
+            value={microphoneDevice.value}
+            devices={microphoneDevice.devices}
+            onChange={microphoneDevice.onChange}
+          />
         </div>
       </section>
+    </div>
+  );
+}
+
+const SYSTEM_DEFAULT_MICROPHONE = "__system_default_microphone__";
+
+function MicrophoneRow({
+  value,
+  devices,
+  onChange,
+}: {
+  value: string;
+  devices: string[];
+  onChange: (value: string) => void;
+}) {
+  const titleId = useId();
+  const descriptionId = useId();
+  const availableDevices = [...new Set(devices)].sort((a, b) =>
+    a.localeCompare(b),
+  );
+  if (value && !availableDevices.includes(value)) {
+    availableDevices.unshift(value);
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div className="flex-1">
+        <h3 id={titleId} className="mb-1 text-sm font-medium">
+          <Trans>Microphone</Trans>
+        </h3>
+        <p id={descriptionId} className="text-muted-foreground text-xs">
+          <Trans>Use your microphone to capture your voice</Trans>
+        </p>
+      </div>
+      <Select
+        value={value || SYSTEM_DEFAULT_MICROPHONE}
+        onValueChange={(device) =>
+          onChange(device === SYSTEM_DEFAULT_MICROPHONE ? "" : device)
+        }
+      >
+        <SelectTrigger
+          aria-labelledby={titleId}
+          aria-describedby={descriptionId}
+          className="bg-card h-9 w-48 shadow-none focus:ring-0"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="max-h-64">
+          <SelectItem value={SYSTEM_DEFAULT_MICROPHONE}>
+            <Trans>Current default</Trans>
+          </SelectItem>
+          {availableDevices.map((device) => (
+            <SelectItem key={device} value={device}>
+              {device}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

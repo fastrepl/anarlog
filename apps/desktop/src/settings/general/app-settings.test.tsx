@@ -37,6 +37,11 @@ function renderAppSettings({
         meetingDisclosureAutoPost={meetingDisclosureAutoPost}
         captureMeetingChat={captureMeetingChat}
         audioRetention={{ value: "forever", onChange: vi.fn() }}
+        microphoneDevice={{
+          value: "",
+          devices: ["External Microphone"],
+          onChange: vi.fn(),
+        }}
       />,
     ),
     meetingDisclosureAutoPost,
@@ -131,5 +136,12 @@ describe("AppSettingsView", () => {
     expect(
       screen.getByText(/A disclosure does not confirm participant consent/),
     ).toBeTruthy();
+  });
+
+  it("shows the microphone selector with the system default selected", () => {
+    renderAppSettings();
+
+    expect(screen.getByRole("combobox", { name: "Microphone" })).toBeTruthy();
+    expect(screen.getByText("Current default")).toBeTruthy();
   });
 });
