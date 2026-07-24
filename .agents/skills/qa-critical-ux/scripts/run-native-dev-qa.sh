@@ -13,9 +13,34 @@ qa_cache_marker="$qa_target_dir/.anarlog-native-dev-qa-cache-v1"
 qa_lock_dir="$qa_target_dir/.anarlog-native-dev-qa-lock"
 qa_frontend_dist="$qa_repo_root/apps/desktop/dist"
 qa_config_validator="$qa_repo_root/.agents/skills/qa-critical-ux/scripts/validate-native-dev-qa-config.mjs"
+qa_gitbutler_candidate_resolver="$qa_repo_root/.agents/skills/qa-critical-ux/scripts/resolve-gitbutler-candidate.mjs"
 qa_release_workflow="$qa_repo_root/.github/workflows/desktop_cd.yaml"
 qa_expected_supabase_url="https://ijoptyyjrfqwaqhyxkxj.supabase.co"
 qa_xcode_developer_dir="/Applications/Xcode.app/Contents/Developer"
+qa_git_source_pathspecs=(
+  ".agents/skills/qa-critical-ux/scripts"
+  ".cargo"
+  "apps/desktop"
+  "crates"
+  "legacy"
+  "packages"
+  "plugins"
+  "scripts"
+  ".github/workflows/desktop_cd.yaml"
+  "Cargo.lock"
+  "Cargo.toml"
+  "package.json"
+  "pnpm-lock.yaml"
+  "pnpm-workspace.yaml"
+  "rust-toolchain"
+  "rust-toolchain.toml"
+  ":(exclude,glob)**/dist/**"
+  ":(exclude,glob)**/node_modules/**"
+  ":(exclude,glob)**/.build/**"
+  ":(exclude,glob)**/target/**"
+  ":(exclude,glob)**/.env"
+  ":(exclude,glob)**/.env.*"
+)
 
 fail() {
   echo "$1" >&2
@@ -24,6 +49,139 @@ fail() {
 
 sha256_file() {
   shasum -a 256 "$1" | awk '{print $1}'
+}
+
+validated_commit_sha() {
+  local qa_requested_sha="$1"
+  local qa_normalized_sha
+  local qa_resolved_sha
+
+  [[ "$qa_requested_sha" =~ ^[0-9a-fA-F]{40}$ ]] ||
+    fail "ANARLOG_QA_GIT_SHA must be a full 40-character commit SHA."
+  qa_normalized_sha="$(
+    printf '%s' "$qa_requested_sha" |
+      tr '[:upper:]' '[:lower:]'
+  )"
+  qa_resolved_sha="$(
+    "$qa_git_executable" -C "$qa_repo_root" \
+      rev-parse --verify "$qa_normalized_sha^{commit}" 2>/dev/null
+  )" || fail "ANARLOG_QA_GIT_SHA does not resolve to a local Git commit."
+  [[ "$qa_resolved_sha" == "$qa_normalized_sha" ]] ||
+    fail "ANARLOG_QA_GIT_SHA must identify the commit object directly."
+  printf '%s' "$qa_resolved_sha"
+}
+
+candidate_git_sha() {
+  local qa_current_branch
+  local qa_derived_sha
+  local qa_but_executable
+
+  if [[ -n "${ANARLOG_QA_GIT_SHA:-}" ]]; then
+    qa_derived_sha="$(
+      "$qa_node_executable" \
+        "$qa_gitbutler_candidate_resolver" \
+        "$ANARLOG_QA_GIT_SHA"
+    )" || fail "ANARLOG_QA_GIT_SHA is not a valid candidate commit."
+  else
+    qa_current_branch="$(
+      "$qa_git_executable" -C "$qa_repo_root" \
+        symbolic-ref --quiet --short HEAD 2>/dev/null || true
+    )"
+    if [[ "$qa_current_branch" == "gitbutler/workspace" ]]; then
+      qa_but_executable="$(command -v but)" ||
+        fail "GitButler is required to derive the QA candidate. Set ANARLOG_QA_GIT_SHA explicitly."
+      qa_derived_sha="$(
+        (
+          cd "$qa_repo_root"
+          "$qa_but_executable" status --format json
+        ) |
+          "$qa_node_executable" "$qa_gitbutler_candidate_resolver"
+      )" || fail "Could not derive an unambiguous GitButler candidate commit."
+    else
+      qa_derived_sha="$(
+        "$qa_git_executable" -C "$qa_repo_root" rev-parse --verify HEAD
+      )" || fail "Could not derive the current Git commit."
+    fi
+  fi
+
+  validated_commit_sha "$qa_derived_sha"
+}
+
+candidate_source_dirty_state() {
+  local qa_candidate_sha="$1"
+  local qa_diff_status=0
+  local qa_untracked_files
+
+  "$qa_git_executable" -C "$qa_repo_root" diff --quiet \
+    "$qa_candidate_sha" -- "${qa_git_source_pathspecs[@]}" ||
+    qa_diff_status=$?
+  case "$qa_diff_status" in
+    0) ;;
+    1)
+      printf 'true'
+      return
+      ;;
+    *) fail "Could not compare QA build inputs with the candidate commit." ;;
+  esac
+
+  qa_untracked_files="$(
+    "$qa_git_executable" -C "$qa_repo_root" ls-files \
+      --others \
+      --exclude-standard \
+      -- "${qa_git_source_pathspecs[@]}"
+  )"
+  if [[ -n "$qa_untracked_files" ]]; then
+    printf 'true'
+  else
+    printf 'false'
+  fi
+}
+
+validate_builtin_audio_devices() {
+  local qa_audio_report
+
+  [[ -x /usr/sbin/system_profiler ]] ||
+    fail "system_profiler is required to validate the macOS QA audio devices."
+  qa_audio_report="$(/usr/sbin/system_profiler SPAudioDataType -json)"
+  printf '%s' "$qa_audio_report" |
+    "$qa_node_executable" -e '
+      let source = "";
+      process.stdin.on("data", (chunk) => (source += chunk));
+      process.stdin.on("end", () => {
+        let report;
+        try {
+          report = JSON.parse(source);
+        } catch {
+          console.error("Could not parse the macOS audio-device report.");
+          process.exit(1);
+        }
+        const devices = (report.SPAudioDataType ?? []).flatMap(
+          (group) => group._items ?? [],
+        );
+        const input = devices.find(
+          (device) =>
+            device.coreaudio_default_audio_input_device === "spaudio_yes",
+        );
+        const output = devices.find(
+          (device) =>
+            device.coreaudio_default_audio_output_device === "spaudio_yes",
+        );
+        const isBuiltIn = (device) =>
+          device?.coreaudio_device_transport ===
+          "coreaudio_device_type_builtin";
+        const name = (device) => device?._name ?? "none";
+        if (!isBuiltIn(input) || !isBuiltIn(output)) {
+          console.error(
+            `Native QA requires built-in Mac audio defaults. Current input: ${name(input)}; output: ${name(output)}.`,
+          );
+          process.exit(1);
+        }
+        console.log(
+          `Native QA audio defaults: input=${name(input)}; output=${name(output)}`,
+        );
+      });
+    ' ||
+    fail "Select the built-in MacBook microphone and speakers, then rerun native QA."
 }
 
 workflow_public_endpoint() {
@@ -256,6 +414,8 @@ validate_manifest() {
   local qa_current_bundle_sha256
   local qa_expected_frontend_config_sha256
   local qa_expected_bundle_config_binding
+  local qa_current_git_head_sha
+  local qa_current_git_dirty
 
   [[ -f "$qa_manifest" ]] ||
     fail "Dev QA manifest not found. Build the bundle without --launch-only first."
@@ -284,16 +444,30 @@ validate_manifest() {
     fail "Dev QA bundle is not bound to its validated public configuration."
   [[ "$(manifest_value source_fingerprint)" == "$(source_fingerprint)" ]] ||
     fail "Dev QA bundle is stale for the current source tree. Rebuild it first."
+  qa_current_git_head_sha="$(candidate_git_sha)"
+  qa_current_git_dirty="$(
+    candidate_source_dirty_state "$qa_current_git_head_sha"
+  )"
+  [[ "$(manifest_value git_head_sha)" == "$qa_current_git_head_sha" ]] ||
+    fail "Dev QA manifest was built for a different candidate commit. Rebuild it first."
+  [[ "$(manifest_value git_dirty)" == "$qa_current_git_dirty" ]] ||
+    fail "Dev QA candidate build-input state changed after the build. Rebuild it first."
 }
 
 [[ -f "$qa_release_workflow" ]] ||
   fail "Desktop release workflow not found: $qa_release_workflow"
 [[ -f "$qa_config_validator" ]] ||
   fail "Compiled frontend validator not found: $qa_config_validator"
+[[ -f "$qa_gitbutler_candidate_resolver" ]] ||
+  fail "GitButler candidate resolver not found: $qa_gitbutler_candidate_resolver"
 qa_node_executable="$(command -v node)" ||
   fail "Node.js is required for native Dev QA configuration validation."
+qa_git_executable="$(command -v git)" ||
+  fail "Git is required for native Dev QA provenance."
+candidate_git_sha >/dev/null
 qa_production_app_url="$(workflow_public_endpoint VITE_APP_URL)"
 qa_production_api_url="$(workflow_public_endpoint VITE_API_URL)"
+validate_builtin_audio_devices
 
 case "$qa_target_dir" in
   /*) ;;
@@ -395,6 +569,10 @@ elif [[ $# -eq 0 ]]; then
     "VITE_SUPABASE_URL=$qa_supabase_url"
     "VITE_SUPABASE_ANON_KEY=$qa_supabase_anon_key"
   )
+  qa_git_head_sha_before="$(candidate_git_sha)"
+  qa_git_dirty_before="$(
+    candidate_source_dirty_state "$qa_git_head_sha_before"
+  )"
   qa_source_fingerprint_before="$(source_fingerprint)"
   rm -f -- "$qa_manifest"
   (
@@ -411,6 +589,14 @@ elif [[ $# -eq 0 ]]; then
   qa_source_fingerprint_after="$(source_fingerprint)"
   [[ "$qa_source_fingerprint_before" == "$qa_source_fingerprint_after" ]] ||
     fail "Build inputs changed while the Dev QA bundle was being built. Rebuild it."
+  qa_git_head_sha_after="$(candidate_git_sha)"
+  qa_git_dirty_after="$(
+    candidate_source_dirty_state "$qa_git_head_sha_after"
+  )"
+  [[ "$qa_git_head_sha_before" == "$qa_git_head_sha_after" ]] ||
+    fail "The candidate Git commit changed while the Dev QA bundle was being built. Rebuild it."
+  [[ "$qa_git_dirty_before" == "$qa_git_dirty_after" ]] ||
+    fail "The candidate build-input state changed while the Dev QA bundle was being built. Rebuild it."
   qa_compiled_frontend_config_sha256="$(
     compiled_frontend_config_fingerprint
   )"
@@ -433,6 +619,8 @@ elif [[ $# -eq 0 ]]; then
     printf 'env_asset_url=%s%s\n' "$qa_production_app_url" "$qa_env_asset_path"
     printf 'env_asset_sha256=%s\n' "$qa_env_asset_sha256"
     printf 'anon_key_sha256=%s\n' "$qa_anon_key_sha256"
+    printf 'git_head_sha=%s\n' "$qa_git_head_sha_before"
+    printf 'git_dirty=%s\n' "$qa_git_dirty_before"
     printf 'source_fingerprint=%s\n' "$qa_source_fingerprint_before"
     printf 'executable_sha256=%s\n' "$(sha256_file "$qa_bundle_executable")"
     printf 'frontend_config_sha256=%s\n' "$qa_compiled_frontend_config_sha256"
@@ -445,6 +633,12 @@ elif [[ $# -eq 0 ]]; then
 else
   echo "Usage: $0 [--launch-only]" >&2
   exit 2
+fi
+
+echo "Native Dev QA manifest: $qa_manifest"
+echo "Native Dev QA candidate: $(manifest_value git_head_sha) (dirty=$(manifest_value git_dirty))"
+if [[ "$(manifest_value git_dirty)" == "true" ]]; then
+  echo "This bundle is valid for exploratory QA but not exact-SHA release evidence." >&2
 fi
 
 cleanup
