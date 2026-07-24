@@ -12,6 +12,7 @@ type Lease = {
   nativeKey: string;
   acquisition: Promise<void>;
   completions: Set<Promise<unknown>>;
+  preflightPending: boolean;
   finished: boolean;
   callbackConsumed: boolean;
   release?: Promise<void>;
@@ -31,6 +32,13 @@ export type ChatCloudsyncActivityAttempt = {
   key: string;
   finish: () => void;
   trackCompletion: (completion: Promise<unknown>) => void;
+};
+
+export type GuardedChatPreflight = {
+  run: (
+    trackCompletion: (completion: Promise<unknown>) => void,
+  ) => void | Promise<void>;
+  persistOnCancel: boolean;
 };
 
 export function createChatCloudsyncActivityController({
@@ -211,7 +219,11 @@ export function createChatCloudsyncActivityController({
   };
 
   const finishLeaseIfSettled = (lease: Lease) => {
-    if (!lease.callbackConsumed || lease.completions.size > 0) {
+    if (
+      !lease.callbackConsumed ||
+      lease.preflightPending ||
+      lease.completions.size > 0
+    ) {
       return;
     }
     finishLease(lease);
@@ -243,6 +255,13 @@ export function createChatCloudsyncActivityController({
 
   const start = async (
     logicalKey: string,
+    {
+      preflight,
+      isCancelled = () => false,
+    }: {
+      preflight?: GuardedChatPreflight;
+      isCancelled?: () => boolean;
+    } = {},
   ): Promise<ChatCloudsyncActivityAttempt | null> => {
     if (disposed) {
       return null;
@@ -255,6 +274,7 @@ export function createChatCloudsyncActivityController({
       nativeKey,
       acquisition: begin("chat", nativeKey),
       completions: new Set(),
+      preflightPending: Boolean(preflight),
       finished: false,
       callbackConsumed: false,
       releaseFailureReported: false,
@@ -267,13 +287,36 @@ export function createChatCloudsyncActivityController({
     try {
       await lease.acquisition;
     } catch (error) {
+      lease.preflightPending = false;
       consumeCallback(lease);
       await releaseLease(lease).catch(() => undefined);
       throw error;
     }
 
+    let preflightFailed = false;
+    let preflightError: unknown;
+    try {
+      if (
+        preflight &&
+        (preflight.persistOnCancel || (!disposed && !isCancelled()))
+      ) {
+        await preflight.run((completion) => trackCompletion(lease, completion));
+      }
+    } catch (error) {
+      preflightFailed = true;
+      preflightError = error;
+    } finally {
+      lease.preflightPending = false;
+      finishLeaseIfSettled(lease);
+    }
+
+    if (preflightFailed) {
+      consumeCallback(lease);
+      throw preflightError;
+    }
+
     if (disposed || leases.get(nativeKey) !== lease) {
-      finishLease(lease);
+      consumeCallback(lease);
       return null;
     }
 
@@ -355,13 +398,7 @@ export function guardChatTransport<UI_MESSAGE extends UIMessage>(
   {
     beforeSend,
   }: {
-    beforeSend?: (
-      logicalKey: string,
-    ) =>
-      | ((
-          trackCompletion: (completion: Promise<unknown>) => void,
-        ) => void | Promise<void>)
-      | undefined;
+    beforeSend?: (logicalKey: string) => GuardedChatPreflight | undefined;
   } = {},
 ): ChatTransport<UI_MESSAGE> {
   return {
@@ -378,7 +415,10 @@ export function guardChatTransport<UI_MESSAGE extends UIMessage>(
       }
 
       const key = userMessage.id;
-      const attempt = await activity.start(key);
+      const attempt = await activity.start(key, {
+        preflight: beforeSend?.(key),
+        isCancelled: () => Boolean(options.abortSignal?.aborted),
+      });
 
       if (!attempt) {
         const error = new Error("Chat request aborted");
@@ -393,7 +433,6 @@ export function guardChatTransport<UI_MESSAGE extends UIMessage>(
           throw error;
         }
 
-        await beforeSend?.(key)?.(attempt.trackCompletion);
         if (options.abortSignal?.aborted) {
           const error = new Error("Chat request aborted");
           error.name = "AbortError";

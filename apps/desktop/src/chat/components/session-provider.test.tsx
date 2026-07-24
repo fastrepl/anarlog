@@ -970,6 +970,122 @@ describe("ChatSession", () => {
     expect(mocks.endCloudsyncActivity).toHaveBeenCalledWith("chat", nativeKey);
   });
 
+  it("persists a queued outgoing message after unmount wins lease acquisition", async () => {
+    let acquireLease: (() => void) | undefined;
+    let finishPersist: (() => void) | undefined;
+    let finishTrackedWrite: (() => void) | undefined;
+    mocks.beginCloudsyncActivity.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        acquireLease = resolve;
+      }),
+    );
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const sendTransport = connectChatSendToTransport();
+    const captured: { send?: ChatSessionRenderProps["sendMessage"] } = {};
+    const view = render(
+      <ChatSession chatGroupId="group-1" sessionId="session-1">
+        {(props) => {
+          captured.send = props.sendMessage;
+          return null;
+        }}
+      </ChatSession>,
+    );
+    const userMessage: HyprUIMessage = {
+      id: "user-1",
+      role: "user",
+      parts: [{ type: "text", text: "Question" }],
+    };
+    const beforeSend = vi.fn(
+      (trackCompletion: (completion: Promise<unknown>) => void) => {
+        trackCompletion(
+          new Promise<void>((resolve) => {
+            finishTrackedWrite = resolve;
+          }),
+        );
+        return new Promise<void>((resolve) => {
+          finishPersist = resolve;
+        });
+      },
+    );
+
+    captured.send!(userMessage, { beforeSend });
+    await waitFor(() =>
+      expect(mocks.beginCloudsyncActivity).toHaveBeenCalledOnce(),
+    );
+    expect(beforeSend).not.toHaveBeenCalled();
+    expect(sendTransport).not.toHaveBeenCalled();
+
+    view.unmount();
+    await Promise.resolve();
+    expect(beforeSend).not.toHaveBeenCalled();
+    expect(sendTransport).not.toHaveBeenCalled();
+
+    acquireLease?.();
+    await waitFor(() => expect(beforeSend).toHaveBeenCalledOnce());
+    expect(mocks.endCloudsyncActivity).not.toHaveBeenCalled();
+    expect(sendTransport).not.toHaveBeenCalled();
+
+    finishPersist?.();
+    await waitFor(() =>
+      expect(consoleError).toHaveBeenCalledWith(
+        "Failed to send chat message",
+        expect.objectContaining({ name: "AbortError" }),
+      ),
+    );
+    expect(mocks.endCloudsyncActivity).not.toHaveBeenCalled();
+
+    finishTrackedWrite?.();
+    await waitFor(() =>
+      expect(mocks.endCloudsyncActivity).toHaveBeenCalledOnce(),
+    );
+    expect(sendTransport).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it("keeps the existing assistant when regeneration unmounts during lease acquisition", async () => {
+    let acquireLease: (() => void) | undefined;
+    mocks.beginCloudsyncActivity.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        acquireLease = resolve;
+      }),
+    );
+    mocks.messages = [
+      {
+        id: "user-1",
+        role: "user",
+        parts: [{ type: "text", text: "Question" }],
+      },
+      {
+        id: "assistant-1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Existing answer" }],
+      },
+    ];
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const sendTransport = connectChatRegenerateToTransport();
+    const view = renderSession();
+
+    fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
+    await waitFor(() =>
+      expect(mocks.beginCloudsyncActivity).toHaveBeenCalledOnce(),
+    );
+    expect(mocks.deleteChatMessage).not.toHaveBeenCalled();
+
+    view.unmount();
+    acquireLease?.();
+    await waitFor(() =>
+      expect(mocks.endCloudsyncActivity).toHaveBeenCalledOnce(),
+    );
+
+    expect(mocks.deleteChatMessage).not.toHaveBeenCalled();
+    expect(sendTransport).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
   it("releases the chat lease after an aborted response", async () => {
     connectChatSendToTransport();
     const captured: {

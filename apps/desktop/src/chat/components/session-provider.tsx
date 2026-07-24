@@ -17,6 +17,7 @@ import {
 import {
   createChatCloudsyncActivityController,
   guardChatTransport,
+  type GuardedChatPreflight,
 } from "~/chat/store/cloudsync-activity";
 import {
   hasPendingChatPersist,
@@ -119,7 +120,7 @@ function ChatSessionLifecycle({
   const initialMessagesRef = useRef<HyprUIMessage[]>([]);
   const submittedChatGroupIdsRef = useRef(new Map<string, string>());
   const pendingTransportPreflightsRef = useRef(
-    new Map<string, ChatTransportPreflight[]>(),
+    new Map<string, GuardedChatPreflight[]>(),
   );
   const pendingRegenerationTombstonesRef = useRef(
     new Map<
@@ -152,7 +153,8 @@ function ChatSessionLifecycle({
   const removeTransportPreflight = useCallback(
     (logicalKey: string, preflight: ChatTransportPreflight) => {
       const queue = pendingTransportPreflightsRef.current.get(logicalKey);
-      const index = queue?.indexOf(preflight) ?? -1;
+      const index =
+        queue?.findIndex((candidate) => candidate.run === preflight) ?? -1;
       if (queue && index !== -1) {
         queue.splice(index, 1);
       }
@@ -423,7 +425,7 @@ function ChatSessionLifecycle({
       if (preflight) {
         const queue =
           pendingTransportPreflightsRef.current.get(message.id) ?? [];
-        queue.push(preflight);
+        queue.push({ run: preflight, persistOnCancel: true });
         pendingTransportPreflightsRef.current.set(message.id, queue);
       }
       // HyprUIMessage is structurally compatible with CreateUIMessage<HyprUIMessage>:
@@ -519,7 +521,10 @@ function ChatSessionLifecycle({
         };
         const queue =
           pendingTransportPreflightsRef.current.get(submittedUser.id) ?? [];
-        queue.push(regenerationPreflight);
+        queue.push({
+          run: regenerationPreflight,
+          persistOnCancel: false,
+        });
         pendingTransportPreflightsRef.current.set(submittedUser.id, queue);
       }
       regenerateRequestInFlightRef.current = true;
@@ -544,7 +549,10 @@ function ChatSessionLifecycle({
           const queue = pendingTransportPreflightsRef.current.get(
             submittedUser.id,
           );
-          const index = queue?.indexOf(regenerationPreflight) ?? -1;
+          const index =
+            queue?.findIndex(
+              (candidate) => candidate.run === regenerationPreflight,
+            ) ?? -1;
           if (queue && index !== -1) {
             queue.splice(index, 1);
           }

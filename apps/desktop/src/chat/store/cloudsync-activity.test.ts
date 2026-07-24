@@ -303,7 +303,12 @@ describe("chat CloudSync activity", () => {
         reconnectToStream: vi.fn().mockResolvedValue(null),
       },
       activity,
-      { beforeSend: () => preflight },
+      {
+        beforeSend: () => ({
+          run: preflight,
+          persistOnCancel: true,
+        }),
+      },
     );
 
     const sent = transport.sendMessages({
@@ -345,7 +350,14 @@ describe("chat CloudSync activity", () => {
         reconnectToStream: vi.fn().mockResolvedValue(null),
       },
       activity,
-      { beforeSend: () => preflights.shift() },
+      {
+        beforeSend: () => {
+          const preflight = preflights.shift();
+          return preflight
+            ? { run: preflight, persistOnCancel: true }
+            : undefined;
+        },
+      },
     );
     const options = {
       trigger: "submit-message" as const,
@@ -366,6 +378,125 @@ describe("chat CloudSync activity", () => {
       ["chat", "turn-1:attempt-1"],
       ["chat", "turn-1:attempt-2"],
     ]);
+  });
+
+  it("finishes durable preflight work after disposal wins lease acquisition", async () => {
+    let acquireLease: (() => void) | undefined;
+    let finishPersist: (() => void) | undefined;
+    let finishTrackedWrite: (() => void) | undefined;
+    const begin = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          acquireLease = resolve;
+        }),
+    );
+    const end = vi.fn().mockResolvedValue(undefined);
+    const activity = createChatCloudsyncActivityController({
+      begin,
+      end,
+      createAttemptKey: sequentialAttemptKeys(),
+    });
+    const preflight = vi.fn(
+      (trackCompletion: (completion: Promise<unknown>) => void) => {
+        trackCompletion(
+          new Promise<void>((resolve) => {
+            finishTrackedWrite = resolve;
+          }),
+        );
+        return new Promise<void>((resolve) => {
+          finishPersist = resolve;
+        });
+      },
+    );
+    const sendMessages = vi.fn();
+    const transport = guardChatTransport(
+      {
+        sendMessages,
+        reconnectToStream: vi.fn().mockResolvedValue(null),
+      },
+      activity,
+      {
+        beforeSend: () => ({
+          run: preflight,
+          persistOnCancel: true,
+        }),
+      },
+    );
+
+    const sending = transport.sendMessages({
+      trigger: "submit-message",
+      chatId: "chat-1",
+      messageId: undefined,
+      messages: [{ id: "turn-1", role: "user", parts: [] }],
+      abortSignal: new AbortController().signal,
+    });
+    await Promise.resolve();
+    const disposed = activity.dispose();
+
+    acquireLease?.();
+    await vi.waitFor(() => expect(preflight).toHaveBeenCalledOnce());
+    expect(sendMessages).not.toHaveBeenCalled();
+    expect(end).not.toHaveBeenCalled();
+
+    finishPersist?.();
+    await expect(sending).rejects.toMatchObject({ name: "AbortError" });
+    expect(end).not.toHaveBeenCalled();
+
+    finishTrackedWrite?.();
+    await vi.advanceTimersByTimeAsync(0);
+    await disposed;
+    expect(end).toHaveBeenCalledWith("chat", "turn-1:attempt-1");
+    expect(sendMessages).not.toHaveBeenCalled();
+  });
+
+  it("skips cancellable preflight work after disposal wins lease acquisition", async () => {
+    let acquireLease: (() => void) | undefined;
+    const begin = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          acquireLease = resolve;
+        }),
+    );
+    const end = vi.fn().mockResolvedValue(undefined);
+    const activity = createChatCloudsyncActivityController({
+      begin,
+      end,
+      createAttemptKey: sequentialAttemptKeys(),
+    });
+    const preflight = vi.fn();
+    const sendMessages = vi.fn();
+    const transport = guardChatTransport(
+      {
+        sendMessages,
+        reconnectToStream: vi.fn().mockResolvedValue(null),
+      },
+      activity,
+      {
+        beforeSend: () => ({
+          run: preflight,
+          persistOnCancel: false,
+        }),
+      },
+    );
+
+    const sending = transport.sendMessages({
+      trigger: "regenerate-message",
+      chatId: "chat-1",
+      messageId: undefined,
+      messages: [{ id: "turn-1", role: "user", parts: [] }],
+      abortSignal: new AbortController().signal,
+    });
+    await Promise.resolve();
+    const disposed = activity.dispose();
+
+    acquireLease?.();
+    await expect(sending).rejects.toMatchObject({ name: "AbortError" });
+    await vi.advanceTimersByTimeAsync(0);
+    await disposed;
+
+    expect(preflight).not.toHaveBeenCalled();
+    expect(sendMessages).not.toHaveBeenCalled();
+    expect(end).toHaveBeenCalledWith("chat", "turn-1:attempt-1");
   });
 
   it("waits for active work before disposing", async () => {
