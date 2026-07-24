@@ -45,6 +45,9 @@ export function ChatBody({
     scrollToBottom,
     showGoToRecent,
     updateAutoScrollState,
+    handleKeyDown,
+    handlePointerDown,
+    handlePointerMove,
     handleWheel,
   } = useChatAutoScroll(status);
 
@@ -57,6 +60,9 @@ export function ChatBody({
     >
       <div
         ref={scrollRef}
+        onKeyDown={handleKeyDown}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
         onScroll={updateAutoScrollState}
         onWheel={handleWheel}
         className={cn([

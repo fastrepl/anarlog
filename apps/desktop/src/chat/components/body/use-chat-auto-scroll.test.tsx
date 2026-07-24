@@ -29,19 +29,30 @@ class MockResizeObserver implements ResizeObserver {
 }
 
 function TestAutoScroll({ status = "streaming" }: { status?: ChatStatus }) {
-  const { contentRef, handleWheel, scrollRef, updateAutoScrollState } =
-    useChatAutoScroll(status);
+  const {
+    contentRef,
+    handleKeyDown,
+    handlePointerDown,
+    handlePointerMove,
+    handleWheel,
+    scrollRef,
+    updateAutoScrollState,
+  } = useChatAutoScroll(status);
 
   return (
     <div
       data-testid="scroll-area"
+      onKeyDown={handleKeyDown}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
       onScroll={updateAutoScrollState}
       onWheel={handleWheel}
       ref={(element) => {
         scrollRef.current = element;
 
-        if (element) {
+        if (element && !element.dataset.scrollMetricsReady) {
           setScrollMetrics(element);
+          element.dataset.scrollMetricsReady = "true";
         }
       }}
     >
@@ -85,5 +96,59 @@ describe("useChatAutoScroll", () => {
     });
 
     expect(scrollArea.scrollTop).toBe(492);
+  });
+
+  it("stays pinned when streaming content grows without user input", () => {
+    render(<TestAutoScroll />);
+
+    const scrollArea = screen.getByTestId("scroll-area");
+
+    scrollArea.scrollTop = 500;
+    fireEvent.scroll(scrollArea);
+    Object.defineProperty(scrollArea, "scrollHeight", {
+      configurable: true,
+      value: 1400,
+    });
+    fireEvent.scroll(scrollArea);
+
+    act(() => {
+      resizeObservers.forEach((observer) => observer.trigger());
+    });
+
+    expect(scrollArea.scrollTop).toBe(1400);
+  });
+
+  it.each([
+    [
+      "pointer",
+      () => {
+        const scrollArea = screen.getByTestId("scroll-area");
+        fireEvent.pointerMove(scrollArea, {
+          buttons: 1,
+          pointerType: "mouse",
+        });
+      },
+    ],
+    [
+      "keyboard",
+      () => {
+        fireEvent.keyDown(screen.getByTestId("scroll-area"), { key: "PageUp" });
+      },
+    ],
+  ])("stops following after explicit %s scroll intent", (_, signalIntent) => {
+    render(<TestAutoScroll />);
+
+    const scrollArea = screen.getByTestId("scroll-area");
+    scrollArea.scrollTop = 500;
+    fireEvent.scroll(scrollArea);
+    signalIntent();
+    scrollArea.scrollTop = 420;
+    fireEvent.scroll(scrollArea);
+
+    act(() => {
+      resizeObservers.forEach((observer) => observer.trigger());
+    });
+
+    expect(scrollArea.scrollTop).toBe(420);
   });
 });

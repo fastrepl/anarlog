@@ -21,6 +21,9 @@ vi.mock("./non-empty", () => ({
 vi.mock("./use-chat-auto-scroll", () => ({
   useChatAutoScroll: () => ({
     contentRef: { current: null },
+    handleKeyDown: vi.fn(),
+    handlePointerDown: vi.fn(),
+    handlePointerMove: vi.fn(),
     handleWheel: vi.fn(),
     isAtBottom: true,
     scrollRef: { current: null },
