@@ -1,10 +1,26 @@
 import type { ChatStatus } from "ai";
-import { type WheelEvent, useLayoutEffect, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  type PointerEvent,
+  type WheelEvent,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const AUTO_SCROLL_BOTTOM_THRESHOLD = 24;
 const PINNED_BOTTOM_THRESHOLD = 1;
+const SCROLL_KEYS = new Set([
+  "ArrowDown",
+  "ArrowUp",
+  "End",
+  "Home",
+  "PageDown",
+  "PageUp",
+  " ",
+]);
 
 export function useChatAutoScroll(status: ChatStatus) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -48,17 +64,18 @@ export function useChatAutoScroll(status: ChatStatus) {
       shouldAutoScrollRef.current = true;
       pendingUserScrollIntentRef.current = false;
       setShowGoToRecent(false);
-      return;
     }
+  };
 
+  const markUserScrollIntent = () => {
     shouldAutoScrollRef.current = false;
+    pendingUserScrollIntentRef.current = true;
+    setShowGoToRecent(false);
   };
 
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
     if (event.deltaY < 0) {
-      shouldAutoScrollRef.current = false;
-      pendingUserScrollIntentRef.current = true;
-      setShowGoToRecent(false);
+      markUserScrollIntent();
       return;
     }
 
@@ -70,6 +87,24 @@ export function useChatAutoScroll(status: ChatStatus) {
 
     if (event.deltaY > 0) {
       pendingUserScrollIntentRef.current = false;
+    }
+  };
+
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) {
+      markUserScrollIntent();
+    }
+  };
+
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.buttons !== 0 || event.pointerType === "touch") {
+      markUserScrollIntent();
+    }
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (SCROLL_KEYS.has(event.key)) {
+      markUserScrollIntent();
     }
   };
 
@@ -110,6 +145,9 @@ export function useChatAutoScroll(status: ChatStatus) {
     scrollToBottom,
     showGoToRecent,
     updateAutoScrollState,
+    handleKeyDown,
+    handlePointerDown,
+    handlePointerMove,
     handleWheel,
   };
 }
