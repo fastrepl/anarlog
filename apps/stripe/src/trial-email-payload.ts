@@ -1,7 +1,5 @@
 import type Stripe from "stripe";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 export function buildTrialEndingEmail({
   subscription,
   customer,
@@ -33,11 +31,7 @@ export function buildTrialEndingEmail({
   return {
     email: customer.email,
     dataVariables: {
-      daysRemaining: Math.ceil((trialEndMs - now) / DAY_MS),
-      trialEndDate: new Intl.DateTimeFormat("en", {
-        dateStyle: "long",
-        timeZone: "UTC",
-      }).format(new Date(trialEndMs)),
+      firstName: customer.name?.trim().split(/\s+/)[0] || "there",
     },
   };
 }

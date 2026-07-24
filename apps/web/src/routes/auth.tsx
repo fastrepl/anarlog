@@ -323,6 +323,7 @@ function PasswordForm({
   scheme?: DesktopScheme;
   redirect?: string;
 }) {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -363,7 +364,7 @@ function PasswordForm({
   const signUpMutation = useMutation({
     mutationFn: () =>
       doPasswordSignUp({
-        data: { email, password, flow, scheme, redirect },
+        data: { name, email, password, flow, scheme, redirect },
       }),
     onSuccess: (result) => {
       if (result && "error" in result && result.error) {
@@ -425,6 +426,17 @@ function PasswordForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      {isSignUp && (
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Name"
+          autoComplete="name"
+          required
+          className={authInputClassName}
+        />
+      )}
       <input
         type="email"
         value={email}
@@ -457,7 +469,10 @@ function PasswordForm({
       <button
         type="submit"
         disabled={
-          isPending || !email || !password || (isSignUp && !confirmPassword)
+          isPending ||
+          !email ||
+          !password ||
+          (isSignUp && (!name.trim() || !confirmPassword))
         }
         className={authPrimaryButtonClassName}
       >
@@ -469,6 +484,7 @@ function PasswordForm({
           onClick={() => {
             setIsSignUp(!isSignUp);
             setErrorMessage("");
+            setName("");
             setConfirmPassword("");
           }}
           className="cursor-pointer text-sm text-[#756b5d] transition-colors hover:text-[#181613] hover:underline"

@@ -290,6 +290,7 @@ export const exchangeOAuthCode = createServerFn({ method: "POST" })
 export const doPasswordSignUp = createServerFn({ method: "POST" })
   .inputValidator(
     shared.extend({
+      name: z.string().trim().min(1).max(100),
       email: z.string().email(),
       password: z.string().min(6),
     }),
@@ -302,6 +303,10 @@ export const doPasswordSignUp = createServerFn({ method: "POST" })
       email: data.email,
       password: data.password,
       options: {
+        data: {
+          full_name: data.name,
+          name: data.name,
+        },
         emailRedirectTo: buildAuthCallbackUrl(params),
       },
     });

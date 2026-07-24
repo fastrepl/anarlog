@@ -16,6 +16,7 @@ const subscription = (overrides: Record<string, unknown> = {}) =>
 const customer = (overrides: Record<string, unknown> = {}) =>
   ({
     email: "user@example.com",
+    name: "Alex Morgan",
     invoice_settings: { default_payment_method: null },
     default_source: null,
     ...overrides,
@@ -32,10 +33,19 @@ describe("buildTrialEndingEmail", () => {
     expect(payload).toEqual({
       email: "user@example.com",
       dataVariables: {
-        daysRemaining: 3,
-        trialEndDate: "August 2, 2026",
+        firstName: "Alex",
       },
     });
+  });
+
+  it("uses a neutral greeting when the customer has no name", () => {
+    const payload = buildTrialEndingEmail({
+      subscription: subscription(),
+      customer: customer({ name: null }),
+      now: NOW,
+    });
+
+    expect(payload?.dataVariables).toEqual({ firstName: "there" });
   });
 
   it("skips card-backed trials", () => {
