@@ -27,6 +27,7 @@ export function useChatAutoScroll(status: ChatStatus) {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const shouldAutoScrollRef = useRef(true);
   const previousIsGeneratingRef = useRef(false);
+  const previousScrollTopRef = useRef(0);
   const pendingUserScrollIntentRef = useRef(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [showGoToRecent, setShowGoToRecent] = useState(false);
@@ -38,6 +39,7 @@ export function useChatAutoScroll(status: ChatStatus) {
     }
 
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    previousScrollTopRef.current = scrollRef.current.scrollTop;
     shouldAutoScrollRef.current = true;
     pendingUserScrollIntentRef.current = false;
     setIsAtBottom(true);
@@ -53,9 +55,14 @@ export function useChatAutoScroll(status: ChatStatus) {
     const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
     const nextIsAtBottom = distanceFromBottom <= AUTO_SCROLL_BOTTOM_THRESHOLD;
     const isPinnedAtBottom = distanceFromBottom <= PINNED_BOTTOM_THRESHOLD;
+    const scrolledUp = scrollTop < previousScrollTopRef.current;
+    previousScrollTopRef.current = scrollTop;
     setIsAtBottom(nextIsAtBottom);
 
-    if (pendingUserScrollIntentRef.current && !isPinnedAtBottom) {
+    if (
+      (pendingUserScrollIntentRef.current || scrolledUp) &&
+      !isPinnedAtBottom
+    ) {
       shouldAutoScrollRef.current = false;
       return;
     }

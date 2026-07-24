@@ -98,6 +98,23 @@ describe("useChatAutoScroll", () => {
     expect(scrollArea.scrollTop).toBe(492);
   });
 
+  it("does not clamp back to bottom after scrolling up with the scrollbar", () => {
+    render(<TestAutoScroll />);
+
+    const scrollArea = screen.getByTestId("scroll-area");
+
+    scrollArea.scrollTop = 500;
+    fireEvent.scroll(scrollArea);
+    scrollArea.scrollTop = 420;
+    fireEvent.scroll(scrollArea);
+
+    act(() => {
+      resizeObservers.forEach((observer) => observer.trigger());
+    });
+
+    expect(scrollArea.scrollTop).toBe(420);
+  });
+
   it("stays pinned when streaming content grows without user input", () => {
     render(<TestAutoScroll />);
 
