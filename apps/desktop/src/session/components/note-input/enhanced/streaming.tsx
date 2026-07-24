@@ -43,9 +43,12 @@ export function StreamingView({
   const taskId = createTaskId(enhancedNoteId, "enhance");
   const { streamedText, isGenerating } = useAITaskTask(taskId, "enhance");
   const titleTaskId = createTaskId(sessionId, "title");
-  const { streamedText: streamedTitle } = useAITaskTask(titleTaskId, "title");
+  const { streamedText: streamedTitle, isGenerating: isGeneratingTitle } =
+    useAITaskTask(titleTaskId, "title");
   const title = sessionTitle.trim();
-  const generatedTitle = getPersistableGeneratedTitle(streamedTitle);
+  const generatedTitle = isGeneratingTitle
+    ? ""
+    : getPersistableGeneratedTitle(streamedTitle);
   const visibleTitle = title || generatedTitle;
 
   if (streamedText.trim().length === 0) {

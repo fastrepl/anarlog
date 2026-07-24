@@ -10,6 +10,8 @@ import { loadSessionContentSnapshot } from "~/session/content-queries";
 import { ensureFirstLineTitle } from "~/session/title-content";
 import { hasLiveSessionTitleDraft } from "~/store/zustand/live-title";
 
+const GENERATED_TITLE_MAX_LENGTH = 160;
+
 const onSuccess: NonNullable<TaskConfig<"title">["onSuccess"]> = async ({
   text,
   args,
@@ -103,8 +105,28 @@ function createTitledDocumentUpdate(
 }
 
 export function getPersistableGeneratedTitle(text: string): string {
-  const trimmed = text.trim();
-  return trimmed && trimmed !== "<EMPTY>" ? trimmed : "";
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const lastLine = lines[lines.length - 1] ?? "";
+  const title = lastLine
+    .replace(/^(?:(?:final\s+)?title|final answer)\s*:\s*/i, "")
+    .replace(/^(?:\d+[.)]|[-*]|#+)\s+/, "")
+    .replace(/^(?:\*\*|__)+|(?:\*\*|__)+$/g, "")
+    .replace(/^["'`]+|["'`]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (
+    !title ||
+    title === "<EMPTY>" ||
+    title.length > GENERATED_TITLE_MAX_LENGTH
+  ) {
+    return "";
+  }
+
+  return title;
 }
 
 export const titleSuccess: Pick<TaskConfig<"title">, "onSuccess"> = {

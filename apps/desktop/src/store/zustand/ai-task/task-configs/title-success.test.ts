@@ -2,7 +2,11 @@ import type { LanguageModel } from "ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { TaskConfig } from ".";
-import { persistGeneratedTitle, titleSuccess } from "./title-success";
+import {
+  getPersistableGeneratedTitle,
+  persistGeneratedTitle,
+  titleSuccess,
+} from "./title-success";
 
 import { useLiveTitle } from "~/store/zustand/live-title";
 
@@ -99,6 +103,39 @@ describe("titleSuccess.onSuccess", () => {
     });
   });
 
+  it("persists only the final title when model reasoning leaks into text", async () => {
+    await titleSuccess.onSuccess?.(
+      createParams({
+        text: [
+          "We need to output a super concise title about the meeting.",
+          "The note discusses bore pit and wetland compliance.",
+          "",
+          "Bore Pit Wetland Compliance and Design Standards",
+        ].join("\n"),
+      }),
+    );
+
+    expect(mocks.applyGeneratedSessionTitle).toHaveBeenCalledWith({
+      sessionId: "session-1",
+      currentTitle: "",
+      nextTitle: "Bore Pit Wetland Compliance and Design Standards",
+      documents: [
+        expect.objectContaining({
+          id: "session-1",
+          nextContent: expect.not.stringContaining(
+            "We need to output a super concise title",
+          ),
+        }),
+        expect.objectContaining({
+          id: "note-1",
+          nextContent: expect.not.stringContaining(
+            "We need to output a super concise title",
+          ),
+        }),
+      ],
+    });
+  });
+
   it("does not overwrite an existing session title", async () => {
     mocks.loadSessionContentSnapshot.mockResolvedValue(
       createSnapshot("Custom title"),
@@ -146,5 +183,20 @@ describe("titleSuccess.onSuccess", () => {
     await expect(titleSuccess.onSuccess?.(createParams())).rejects.toThrow(
       "unexpected rows affected",
     );
+  });
+});
+
+describe("getPersistableGeneratedTitle", () => {
+  it("normalizes common model response wrappers", () => {
+    expect(
+      getPersistableGeneratedTitle(
+        'Reasoning about the response\nFinal title: **"Weekly Design Review"**',
+      ),
+    ).toBe("Weekly Design Review");
+  });
+
+  it("rejects placeholders and oversized output", () => {
+    expect(getPersistableGeneratedTitle('"<EMPTY>"')).toBe("");
+    expect(getPersistableGeneratedTitle("x".repeat(161))).toBe("");
   });
 });

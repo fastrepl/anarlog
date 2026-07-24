@@ -308,6 +308,28 @@ describe("Enhanced", () => {
     expect(screen.queryByText("Generating title...")).toBeNull();
   });
 
+  it("hides in-progress title reasoning while the summary is streaming", () => {
+    hoisted.enhanceTask = {
+      status: "generating",
+      error: undefined,
+      streamedText: "Streaming summary",
+      currentStep: undefined,
+      isGenerating: true,
+    };
+    hoisted.titleTask = {
+      status: "generating",
+      error: undefined,
+      streamedText: "We need to output a concise title.",
+      currentStep: undefined,
+      isGenerating: true,
+    };
+
+    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+
+    expect(screen.queryByText("We need to output a concise title.")).toBeNull();
+    expect(screen.getByText("Generating title...")).not.toBeNull();
+  });
+
   it("renders the editor after an empty enhance task returns idle", () => {
     hoisted.enhanceTask = {
       status: "idle",
