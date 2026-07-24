@@ -2,12 +2,12 @@ import { Link } from "@tanstack/react-router";
 
 export function SiteFooter() {
   return (
-    <footer className="mx-auto flex w-full max-w-[700px] flex-wrap items-center justify-between gap-5 px-5 py-8 text-sm text-[#4f4940] md:px-8">
+    <footer className="mx-auto flex w-full max-w-[700px] flex-wrap items-center justify-between gap-5 px-5 py-8 text-xs text-[#4f4940] md:px-8">
       <a
         href="https://fastrepl.com"
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 text-sm text-[#756b5d] opacity-75 transition-opacity hover:opacity-100"
+        className="inline-flex items-center gap-1.5 text-xs text-[#756b5d] opacity-75 transition-opacity hover:opacity-100"
       >
         <img src="/icons/fastrepl.svg" alt="Fastrepl" className="h-4 w-auto" />
         <span>© 2026</span>
