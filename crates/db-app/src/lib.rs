@@ -250,6 +250,11 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         scope: hypr_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260723120900_e2ee_witness_upload_index.sql"),
     },
+    hypr_db_migrate::MigrationStep {
+        id: "20260725001400_e2ee_witness_pending",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260725001400_e2ee_witness_pending.sql"),
+    },
 ];
 
 pub fn schema() -> hypr_db_migrate::DbSchema {
@@ -977,6 +982,7 @@ ON shared_session_cache(workspace_id);
                 "e2ee_local_device",
                 "e2ee_local_state",
                 "e2ee_records",
+                "e2ee_witness_pending",
                 "e2ee_witness_records",
                 "e2ee_witness_state",
                 "entity_mentions",
@@ -1456,6 +1462,98 @@ ON shared_session_cache(workspace_id);
             );
             assert!(!cloudsync_alter_guard_required(table_name));
         }
+    }
+
+    #[test]
+    fn e2ee_witness_pending_is_local_only_and_checksum_is_pinned() {
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260725001400_e2ee_witness_pending")
+            .unwrap();
+
+        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert!(
+            !cloudsync_table_registry()
+                .iter()
+                .any(|table| table.table_name == "e2ee_witness_pending")
+        );
+        assert!(!cloudsync_alter_guard_required("e2ee_witness_pending"));
+        assert_eq!(
+            checksum_hex(&migration_checksum(migration.sql)),
+            "c9d894875eac335555da8b9c093394f98df423e483bbaa4edca1d651bb46e23c9b37064f4fcacaeaaed12a720f89f654"
+        );
+    }
+
+    #[tokio::test]
+    async fn e2ee_witness_pending_migration_seeds_only_dominating_local_state() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(
+            &db,
+            hypr_db_migrate::DbSchema {
+                steps: migration_steps_before("20260725001400_e2ee_witness_pending"),
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
+
+        sqlx::raw_sql(
+            "INSERT INTO e2ee_local_state (
+               record_id, workspace_id, table_name, row_id, field_name, revision,
+               writer_id, value_tag, payload_hash, payload
+             ) VALUES
+               ('missing', 'workspace-a', 'sessions', 'row', 'title', 1, 'a', 'tag', 'a', 'payload'),
+               ('local-revision', 'workspace-a', 'sessions', 'row', 'title', 2, 'a', 'tag', 'a', 'payload'),
+               ('local-writer', 'workspace-a', 'sessions', 'row', 'title', 1, 'b', 'tag', 'a', 'payload'),
+               ('local-hash', 'workspace-a', 'sessions', 'row', 'title', 1, 'a', 'tag', 'b', 'payload'),
+               ('equal', 'workspace-a', 'sessions', 'row', 'title', 1, 'a', 'tag', 'a', 'payload'),
+               ('witness-revision', 'workspace-a', 'sessions', 'row', 'title', 1, 'a', 'tag', 'a', 'payload'),
+               ('witness-writer', 'workspace-a', 'sessions', 'row', 'title', 1, 'a', 'tag', 'a', 'payload'),
+               ('witness-hash', 'workspace-a', 'sessions', 'row', 'title', 1, 'a', 'tag', 'a', 'payload');
+
+             INSERT INTO e2ee_witness_records (
+               workspace_id, record_id, revision, writer_id, payload_hash, payload
+             ) VALUES
+               ('workspace-a', 'local-revision', 1, 'a', 'a', 'payload'),
+               ('workspace-a', 'local-writer', 1, 'a', 'a', 'payload'),
+               ('workspace-a', 'local-hash', 1, 'a', 'a', 'payload'),
+               ('workspace-a', 'equal', 1, 'a', 'a', 'payload'),
+               ('workspace-a', 'witness-revision', 2, 'a', 'a', 'payload'),
+               ('workspace-a', 'witness-writer', 1, 'b', 'a', 'payload'),
+               ('workspace-a', 'witness-hash', 1, 'a', 'b', 'payload');",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+
+        let pending: Vec<String> =
+            sqlx::query_scalar("SELECT record_id FROM e2ee_witness_pending ORDER BY record_id")
+                .fetch_all(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(
+            pending,
+            ["local-hash", "local-revision", "local-writer", "missing"]
+        );
+
+        let foreign_key: (String, String, String, String) = sqlx::query_as(
+            "SELECT \"table\", \"from\", \"to\", on_delete
+             FROM pragma_foreign_key_list('e2ee_witness_pending')",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(
+            foreign_key,
+            (
+                "e2ee_local_state".to_string(),
+                "record_id".to_string(),
+                "record_id".to_string(),
+                "CASCADE".to_string(),
+            )
+        );
     }
 
     #[test]

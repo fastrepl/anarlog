@@ -25,6 +25,21 @@ const E2EE_APPLY_ROW_LIMIT: usize = 16;
 const E2EE_APPLY_BYTE_LIMIT: usize = 16 * 1024 * 1024;
 const E2EE_WITNESS_REPAIR_RECORD_LIMIT: i64 = 64;
 const E2EE_WITNESS_REPAIR_BYTE_LIMIT: usize = 16 * 1024 * 1024;
+const PENDING_E2EE_WITNESS_UPLOADS_SQL: &str = "
+  SELECT
+    pending.record_id,
+    LENGTH(CAST(local.payload AS BLOB))
+      + LENGTH(CAST(local.record_id AS BLOB))
+      + LENGTH(CAST(local.payload_hash AS BLOB))
+      + 256
+  FROM e2ee_witness_pending AS pending
+  INDEXED BY idx_e2ee_witness_pending_workspace_record
+  CROSS JOIN e2ee_local_state AS local
+  WHERE pending.workspace_id = ?
+    AND local.record_id = pending.record_id
+    AND local.workspace_id = pending.workspace_id
+  ORDER BY pending.record_id
+  LIMIT ?";
 const ACTIVE_CAPTURE_MARKER_PREDICATE: &str = "
   length(capture.id) > length('capture_lifecycle_pending:')
   AND json_type(capture.marker_json, '$.version') IN ('integer', 'real')
@@ -751,35 +766,11 @@ pub async fn pending_e2ee_witness_uploads(
         i64::try_from(max_records).map_err(|_| E2eeReplicaError::WitnessUploadTooLarge)?;
 
     let mut transaction = pool.begin().await?;
-    let pending: Vec<(String, i64)> = sqlx::query_as(
-        "SELECT
-           local.record_id,
-           LENGTH(CAST(local.payload AS BLOB))
-             + LENGTH(CAST(local.record_id AS BLOB))
-             + LENGTH(CAST(local.payload_hash AS BLOB))
-             + 256
-         FROM e2ee_local_state AS local
-         LEFT JOIN e2ee_witness_records AS witness
-           ON witness.workspace_id = local.workspace_id
-          AND witness.record_id = local.record_id
-         WHERE local.workspace_id = ?
-           AND (
-             witness.record_id IS NULL
-             OR local.revision > witness.revision
-             OR (local.revision = witness.revision AND local.writer_id > witness.writer_id)
-             OR (
-               local.revision = witness.revision
-               AND local.writer_id = witness.writer_id
-               AND local.payload_hash > witness.payload_hash
-             )
-           )
-         ORDER BY local.record_id
-         LIMIT ?",
-    )
-    .bind(workspace_id)
-    .bind(max_records)
-    .fetch_all(&mut *transaction)
-    .await?;
+    let pending: Vec<(String, i64)> = sqlx::query_as(PENDING_E2EE_WITNESS_UPLOADS_SQL)
+        .bind(workspace_id)
+        .bind(max_records)
+        .fetch_all(&mut *transaction)
+        .await?;
     if pending.is_empty() {
         transaction.commit().await?;
         return Ok(Vec::new());
@@ -816,7 +807,12 @@ pub async fn pending_e2ee_witness_uploads(
     }
     query.push(") ORDER BY record_id");
     let states: Vec<LocalState> = query.build_query_as().fetch_all(&mut *transaction).await?;
-    if states.len() != selected_ids.len() {
+    if states.len() != selected_ids.len()
+        || !states
+            .iter()
+            .map(|state| state.record_id.as_str())
+            .eq(selected_ids.iter().map(String::as_str))
+    {
         return Err(E2eeReplicaError::InvalidRow);
     }
     transaction.commit().await?;
@@ -1281,6 +1277,7 @@ async fn upsert_witness_record(
     .bind(record.sequence)
     .execute(&mut **transaction)
     .await?;
+    reconcile_e2ee_witness_pending(transaction, &record.record_id).await?;
     Ok(())
 }
 
@@ -1952,6 +1949,40 @@ async fn upsert_local_state(
     .bind(&state.value_tag)
     .bind(&state.payload_hash)
     .bind(&state.payload)
+    .execute(&mut **transaction)
+    .await?;
+    reconcile_e2ee_witness_pending(transaction, &state.record_id).await?;
+    Ok(())
+}
+
+async fn reconcile_e2ee_witness_pending(
+    transaction: &mut Transaction<'_, Sqlite>,
+    record_id: &str,
+) -> E2eeReplicaResult<()> {
+    sqlx::query("DELETE FROM e2ee_witness_pending WHERE record_id = ?")
+        .bind(record_id)
+        .execute(&mut **transaction)
+        .await?;
+    sqlx::query(
+        "INSERT INTO e2ee_witness_pending (record_id, workspace_id)
+         SELECT local.record_id, local.workspace_id
+         FROM e2ee_local_state AS local
+         LEFT JOIN e2ee_witness_records AS witness
+           ON witness.workspace_id = local.workspace_id
+          AND witness.record_id = local.record_id
+         WHERE local.record_id = ?
+           AND (
+             witness.record_id IS NULL
+             OR local.revision > witness.revision
+             OR (local.revision = witness.revision AND local.writer_id > witness.writer_id)
+             OR (
+               local.revision = witness.revision
+               AND local.writer_id = witness.writer_id
+               AND local.payload_hash > witness.payload_hash
+             )
+           )",
+    )
+    .bind(record_id)
     .execute(&mut **transaction)
     .await?;
     Ok(())
@@ -4104,6 +4135,244 @@ mod tests {
             .unwrap();
         assert_eq!(next.len(), 1);
         assert_ne!(next[0].record_id, first[0].record_id);
+    }
+
+    #[tokio::test]
+    async fn pending_witness_uploads_never_scan_all_local_state() {
+        let db = test_db().await;
+        let explain = format!("EXPLAIN QUERY PLAN {PENDING_E2EE_WITNESS_UPLOADS_SQL}");
+        let plan: Vec<(i64, i64, i64, String)> =
+            sqlx::query_as(sqlx::AssertSqlSafe(explain.as_str()))
+                .bind("workspace-a")
+                .bind(16_i64)
+                .fetch_all(db.pool())
+                .await
+                .unwrap();
+        let details = plan
+            .into_iter()
+            .map(|(_, _, _, detail)| detail)
+            .collect::<Vec<_>>();
+
+        assert!(details.iter().any(|detail| {
+            detail.contains(
+                "SEARCH pending USING COVERING INDEX idx_e2ee_witness_pending_workspace_record",
+            )
+        }));
+        assert!(!details.iter().any(|detail| detail.contains("SCAN local")));
+    }
+
+    #[tokio::test]
+    async fn local_edits_enqueue_and_acknowledgements_drain_witness_uploads() {
+        let db = test_db().await;
+        let workspace_keys = keys("workspace-a");
+        let key = &workspace_keys["workspace-a"];
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session-1', 'workspace-a', 'user-a', 'Before')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        encrypt_e2ee_replica_changes(db.pool(), &workspace_keys)
+            .await
+            .unwrap();
+
+        let initial = pending_e2ee_witness_uploads(db.pool(), "workspace-a", key, 128, usize::MAX)
+            .await
+            .unwrap();
+        assert!(!initial.is_empty());
+        acknowledge_e2ee_witness_uploads(db.pool(), key, &initial)
+            .await
+            .unwrap();
+        let pending_after_ack: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_witness_pending")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(pending_after_ack, 0);
+
+        sqlx::query("UPDATE sessions SET title = 'After' WHERE id = 'session-1'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        encrypt_e2ee_replica_changes(db.pool(), &workspace_keys)
+            .await
+            .unwrap();
+
+        let title_record_id = key.blind_field_id("sessions", "session-1", "title");
+        let title_pending: bool = sqlx::query_scalar(
+            "SELECT EXISTS(
+               SELECT 1 FROM e2ee_witness_pending WHERE record_id = ?
+             )",
+        )
+        .bind(title_record_id)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert!(title_pending);
+    }
+
+    #[tokio::test]
+    async fn stale_witness_ack_keeps_a_newer_local_upload_pending() {
+        let db = test_db().await;
+        let workspace_keys = keys("workspace-a");
+        let key = &workspace_keys["workspace-a"];
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session-1', 'workspace-a', 'user-a', 'First')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        encrypt_e2ee_replica_changes(db.pool(), &workspace_keys)
+            .await
+            .unwrap();
+
+        let initial = pending_e2ee_witness_uploads(db.pool(), "workspace-a", key, 128, usize::MAX)
+            .await
+            .unwrap();
+        let title_record_id = key.blind_field_id("sessions", "session-1", "title");
+        let stale_title = initial
+            .iter()
+            .find(|upload| upload.record_id == title_record_id)
+            .unwrap()
+            .clone();
+        acknowledge_e2ee_witness_uploads(db.pool(), key, &initial)
+            .await
+            .unwrap();
+
+        sqlx::query("UPDATE sessions SET title = 'Second' WHERE id = 'session-1'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        encrypt_e2ee_replica_changes(db.pool(), &workspace_keys)
+            .await
+            .unwrap();
+        acknowledge_e2ee_witness_uploads(db.pool(), key, &[stale_title.clone()])
+            .await
+            .unwrap();
+
+        let pending = pending_e2ee_witness_uploads(db.pool(), "workspace-a", key, 128, usize::MAX)
+            .await
+            .unwrap();
+        let current_title = pending
+            .iter()
+            .find(|upload| upload.record_id == title_record_id)
+            .unwrap();
+        assert!(current_title.revision > stale_title.revision);
+        assert_ne!(current_title.payload, stale_title.payload);
+
+        acknowledge_e2ee_witness_uploads(db.pool(), key, &[current_title.clone()])
+            .await
+            .unwrap();
+        let title_pending: bool = sqlx::query_scalar(
+            "SELECT EXISTS(
+               SELECT 1 FROM e2ee_witness_pending WHERE record_id = ?
+             )",
+        )
+        .bind(title_record_id)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert!(!title_pending);
+    }
+
+    #[tokio::test]
+    async fn equal_remote_state_does_not_enqueue_a_witness_upload() {
+        let workspace_keys = keys("workspace-a");
+        let key = &workspace_keys["workspace-a"];
+        let source = test_db().await;
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session-1', 'workspace-a', 'user-a', 'Remote')",
+        )
+        .execute(source.pool())
+        .await
+        .unwrap();
+        encrypt_e2ee_replica_changes(source.pool(), &workspace_keys)
+            .await
+            .unwrap();
+        let uploads =
+            pending_e2ee_witness_uploads(source.pool(), "workspace-a", key, 128, usize::MAX)
+                .await
+                .unwrap();
+        let events = uploads
+            .iter()
+            .enumerate()
+            .map(|(index, upload)| E2eeWitnessEvent {
+                sequence: u64::try_from(index + 1).unwrap(),
+                record_id: upload.record_id.clone(),
+                workspace_id: upload.workspace_id.clone(),
+                payload_hash: upload.payload_hash.clone(),
+                payload: upload.payload.clone(),
+            })
+            .collect::<Vec<_>>();
+
+        let target = test_db().await;
+        copy_replica(source.pool(), target.pool()).await;
+        merge_e2ee_witness_events(target.pool(), key, "workspace-a", &events)
+            .await
+            .unwrap();
+        let stats = apply_e2ee_replica_changes_with_witness(target.pool(), &workspace_keys)
+            .await
+            .unwrap();
+
+        let title: String = sqlx::query_scalar("SELECT title FROM sessions WHERE id = 'session-1'")
+            .fetch_one(target.pool())
+            .await
+            .unwrap();
+        let pending: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_witness_pending")
+            .fetch_one(target.pool())
+            .await
+            .unwrap();
+        assert!(stats.applied_fields > 0);
+        assert_eq!(title, "Remote");
+        assert_eq!(pending, 0);
+    }
+
+    #[tokio::test]
+    async fn deleting_local_state_cascades_to_the_witness_queue() {
+        let db = test_db().await;
+        let workspace_keys = keys("workspace-a");
+        let key = &workspace_keys["workspace-a"];
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session-1', 'workspace-a', 'user-a', 'Pending')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        encrypt_e2ee_replica_changes(db.pool(), &workspace_keys)
+            .await
+            .unwrap();
+        let title_record_id = key.blind_field_id("sessions", "session-1", "title");
+        let pending_before: bool = sqlx::query_scalar(
+            "SELECT EXISTS(
+               SELECT 1 FROM e2ee_witness_pending WHERE record_id = ?
+             )",
+        )
+        .bind(&title_record_id)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert!(pending_before);
+
+        sqlx::query("DELETE FROM e2ee_local_state WHERE record_id = ?")
+            .bind(&title_record_id)
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        let pending_after: bool = sqlx::query_scalar(
+            "SELECT EXISTS(
+               SELECT 1 FROM e2ee_witness_pending WHERE record_id = ?
+             )",
+        )
+        .bind(title_record_id)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert!(!pending_after);
     }
 
     #[tokio::test]
