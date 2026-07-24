@@ -4248,7 +4248,7 @@ mod tests {
         encrypt_e2ee_replica_changes(db.pool(), &workspace_keys)
             .await
             .unwrap();
-        acknowledge_e2ee_witness_uploads(db.pool(), key, &[stale_title.clone()])
+        acknowledge_e2ee_witness_uploads(db.pool(), key, std::slice::from_ref(&stale_title))
             .await
             .unwrap();
 
@@ -4262,7 +4262,7 @@ mod tests {
         assert!(current_title.revision > stale_title.revision);
         assert_ne!(current_title.payload, stale_title.payload);
 
-        acknowledge_e2ee_witness_uploads(db.pool(), key, &[current_title.clone()])
+        acknowledge_e2ee_witness_uploads(db.pool(), key, std::slice::from_ref(current_title))
             .await
             .unwrap();
         let title_pending: bool = sqlx::query_scalar(
