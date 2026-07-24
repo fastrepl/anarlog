@@ -374,17 +374,17 @@ function Component() {
 
   return (
     <main className="min-h-screen bg-white text-[#181613]">
-      <AnnouncementBanner />
-
       <div className="mx-auto w-full max-w-[700px] px-5 pt-4 pb-8 md:px-8 md:pt-4 md:pb-12">
         <div className="min-w-0 text-center">
           <section className="pt-10 pb-2 md:pt-12 md:pb-4">
             <h1 className="font-hand mx-auto max-w-3xl text-5xl leading-[0.98] font-semibold tracking-normal text-balance md:text-7xl lg:relative lg:left-1/2 lg:w-max lg:max-w-none lg:-translate-x-1/2 lg:whitespace-nowrap">
-              AI notepad for private meetings.
+              <span className="block lg:inline">Anarlog is</span>{" "}
+              <span className="block lg:inline">the AI notepad for</span>{" "}
+              <span className="block lg:inline">private meetings.</span>
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
-              Jot notes during the call. Anarlog turns them into an editable
-              summary.
+              Jot notes during the call with a bot-free, open-source AI notepad
+              that keeps sensitive meeting data secure and under your control.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-3 text-sm">
               <DownloadButton />
@@ -1336,26 +1336,6 @@ function HeroWorkflowDemo() {
         className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 h-28 bg-linear-to-t from-white to-transparent"
         aria-hidden="true"
       />
-    </div>
-  );
-}
-
-function AnnouncementBanner() {
-  return (
-    <div className="flex justify-center px-5 pt-10 md:pt-12">
-      <div className="flex flex-col items-center gap-1.5 text-[#181613] opacity-75">
-        <span className="flex items-center gap-1 text-xs leading-none">
-          <img
-            src="/icons/fastrepl.svg"
-            alt="Fastrepl"
-            className="h-3.5 w-auto"
-          />
-          <span>presents</span>
-        </span>
-        <span className="font-hand text-3xl leading-none font-semibold">
-          Anarlog
-        </span>
-      </div>
     </div>
   );
 }
