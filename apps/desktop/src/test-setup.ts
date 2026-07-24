@@ -57,6 +57,11 @@ vi.mock("@tauri-apps/api/path", () => ({
 }));
 
 vi.mock("@hypr/plugin-db", () => ({
+  CLOUDSYNC_ACTIVITY_DEFERRED_ERROR: "cloudsync_activity_deferred",
+  isCloudsyncActivityDeferredError: (error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    return message === "cloudsync_activity_deferred";
+  },
   bindCloudsyncAccount: vi.fn().mockResolvedValue(true),
   configureCloudsyncToken: vi.fn().mockResolvedValue("configured"),
   execute: vi.fn().mockResolvedValue([]),
@@ -77,12 +82,14 @@ vi.mock("@hypr/plugin-db", () => ({
     configured: false,
     running: false,
     network_initialized: false,
+    activity_paused: false,
     last_sync: null,
     last_sync_at_ms: null,
     has_unsent_changes: null,
     last_error: null,
     last_error_kind: null,
     consecutive_failures: 0,
+    deferred_for_capture: false,
   }),
   getMeeting: vi.fn(),
   getMeetingTranscript: vi.fn(),

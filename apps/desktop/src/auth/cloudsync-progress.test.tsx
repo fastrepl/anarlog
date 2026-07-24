@@ -29,12 +29,14 @@ function cloudsyncStatus(lastSyncAtMs: number | null) {
     configured: true,
     running: true,
     network_initialized: true,
+    activity_paused: false,
     last_sync: lastSyncAtMs === null ? null : {},
     last_sync_at_ms: lastSyncAtMs,
     has_unsent_changes: false,
     last_error: null,
     last_error_kind: null,
     consecutive_failures: 0,
+    deferred_for_capture: false,
   };
 }
 

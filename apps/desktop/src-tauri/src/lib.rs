@@ -487,6 +487,24 @@ mod test {
     }
 
     #[test]
+    fn main_capability_allows_cloudsync_lifecycle_commands() {
+        let capability: serde_json::Value =
+            serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
+        let permissions = capability["permissions"].as_array().unwrap();
+
+        for expected in [
+            "db:allow-begin-cloudsync-activity",
+            "db:allow-end-cloudsync-activity",
+            "db:allow-sync-cloudsync-now",
+        ] {
+            assert!(
+                permissions.iter().any(|permission| permission == expected),
+                "missing permission: {expected}"
+            );
+        }
+    }
+
+    #[test]
     fn export_types() {
         const OUTPUT_FILE: &str = "../src/types/tauri.gen.ts";
 

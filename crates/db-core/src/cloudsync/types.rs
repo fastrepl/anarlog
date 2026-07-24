@@ -65,6 +65,7 @@ pub struct CloudsyncStatus {
     pub configured: bool,
     pub running: bool,
     pub network_initialized: bool,
+    pub activity_paused: bool,
     pub last_sync: Option<CloudsyncNetworkResult>,
     pub last_sync_at_ms: Option<u64>,
     pub has_unsent_changes: Option<bool>,

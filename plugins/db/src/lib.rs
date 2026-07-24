@@ -223,6 +223,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::suspend_cloudsync,
             commands::get_cloudsync_status,
             commands::sync_cloudsync_now,
+            commands::begin_cloudsync_activity,
+            commands::end_cloudsync_activity,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
@@ -308,6 +310,8 @@ mod test {
         let permissions = include_str!("../permissions/default.toml");
 
         assert!(permissions.contains("allow-configure-cloudsync-token"));
+        assert!(!permissions.contains("allow-begin-cloudsync-activity"));
+        assert!(!permissions.contains("allow-end-cloudsync-activity"));
         assert!(!permissions.contains("\"allow-configure-cloudsync\""));
         assert!(!permissions.contains("allow-start-cloudsync"));
         assert!(!permissions.contains("allow-sync-cloudsync-now"));

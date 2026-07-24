@@ -39,6 +39,32 @@ Default permissions for the plugin
 <tr>
 <td>
 
+`db:allow-begin-cloudsync-activity`
+
+</td>
+<td>
+
+Enables the begin_cloudsync_activity command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-begin-cloudsync-activity`
+
+</td>
+<td>
+
+Denies the begin_cloudsync_activity command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `db:allow-bind-cloudsync-account`
 
 </td>
@@ -162,6 +188,32 @@ Enables the create_e2ee_identity command without any pre-configured scope.
 <td>
 
 Denies the create_e2ee_identity command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-end-cloudsync-activity`
+
+</td>
+<td>
+
+Enables the end_cloudsync_activity command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-end-cloudsync-activity`
+
+</td>
+<td>
+
+Denies the end_cloudsync_activity command without any pre-configured scope.
 
 </td>
 </tr>

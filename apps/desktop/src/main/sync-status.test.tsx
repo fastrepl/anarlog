@@ -80,12 +80,14 @@ function syncedStatus(overrides: Record<string, unknown> = {}) {
     configured: true,
     running: true,
     network_initialized: true,
+    activity_paused: false,
     last_sync: null,
     last_sync_at_ms: Date.now() - 60_000,
     has_unsent_changes: false,
     last_error: null,
     last_error_kind: null,
     consecutive_failures: 0,
+    deferred_for_capture: false,
     ...overrides,
   };
 }
@@ -288,6 +290,7 @@ describe("SyncStatusIndicator", () => {
         last_error_kind: "auth",
         consecutive_failures: 2,
         has_unsent_changes: null,
+        deferred_for_capture: true,
       }),
     );
 
@@ -335,6 +338,66 @@ describe("SyncStatusIndicator", () => {
 
     expect(await screen.findByText("Syncing...")).toBeTruthy();
     expect(screen.queryByText("Synced")).toBeNull();
+  });
+
+  it("shows capture-deferred work as saved locally without offering a manual sync", async () => {
+    mocks.getCloudsyncStatus.mockResolvedValue(
+      syncedStatus({
+        deferred_for_capture: true,
+        has_unsent_changes: true,
+      }),
+    );
+
+    renderIndicator();
+    await openMenu();
+
+    expect(await screen.findByText("Saved locally")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Cloud sync resumes after this meeting finishes processing",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByLabelText("Cloud sync status: Saved locally")
+        .querySelector(".animate-spin"),
+    ).toBeNull();
+
+    const syncNowItem = screen.getByRole("menuitem", { name: "Sync now" });
+    expect(syncNowItem.getAttribute("data-disabled")).not.toBeNull();
+    fireEvent.click(syncNowItem);
+    expect(mocks.syncCloudsyncNow).not.toHaveBeenCalled();
+  });
+
+  it("shows capture deferral while recovery is paused during recording", async () => {
+    mocks.getCloudsyncStatus.mockResolvedValue(
+      syncedStatus({
+        running: false,
+        last_sync_at_ms: null,
+        has_unsent_changes: null,
+        recovery_pending: true,
+        recovery_delayed: true,
+        recovery_phase: "need_clean_receive",
+        deferred_for_capture: true,
+      }),
+    );
+
+    renderIndicator();
+    await openMenu();
+
+    expect(await screen.findByText("Saved locally")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Cloud sync resumes after this meeting finishes processing",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("Restoring cloud sync...")).toBeNull();
+    expect(screen.queryByText("Cloud sync delayed")).toBeNull();
+    expect(
+      screen
+        .getByLabelText("Cloud sync status: Saved locally")
+        .querySelector(".animate-spin"),
+    ).toBeNull();
   });
 
   it("explains background recovery without implying local notes are blocked", async () => {

@@ -9,6 +9,7 @@ import {
   execute,
   getCloudsyncStatus,
   getE2eeIdentityStatus,
+  isCloudsyncActivityDeferredError,
   suspendCloudsync,
 } from "@hypr/plugin-db";
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
@@ -27,6 +28,7 @@ import { DEVICE_FINGERPRINT_HEADER } from "~/shared/utils";
 
 const REFRESH_LEAD_MS = 2 * 60 * 1000;
 const RETRY_DELAY_MS = 60 * 1000;
+const ACTIVITY_RETRY_DELAY_MS = 5 * 1000;
 const MIN_REFRESH_DELAY_MS = 1000;
 const EXCHANGE_TIMEOUT_MS = 25 * 1000;
 const EVICTION_RETRY_DELAY_MS = 30 * 1000;
@@ -468,6 +470,75 @@ function scheduleExchange(
   }, delayMs);
 }
 
+function scheduleActivityStatusRetry(
+  session: Session,
+  activeGeneration: number,
+  suspendBeforeExchange: boolean,
+  onAccountMismatch?: CloudsyncAccountMismatchHandler,
+) {
+  if (activeGeneration !== generation) {
+    return;
+  }
+
+  refreshTimer = setTimeout(() => {
+    refreshTimer = null;
+    if (activeGeneration !== generation) {
+      return;
+    }
+
+    void enqueuePluginOperation(async () => {
+      if (activeGeneration !== generation) {
+        return null;
+      }
+      return getCloudsyncStatus();
+    })
+      .then((status) => {
+        if (activeGeneration !== generation || !status) {
+          return;
+        }
+        if (status.activity_paused) {
+          scheduleActivityStatusRetry(
+            session,
+            activeGeneration,
+            suspendBeforeExchange,
+            onAccountMismatch,
+          );
+          return;
+        }
+
+        void activateCloudsync(
+          session,
+          suspendBeforeExchange,
+          onAccountMismatch,
+        ).then(async (result) => {
+          if (result !== "account_mismatch" || !onAccountMismatch) {
+            return;
+          }
+
+          try {
+            await onAccountMismatch();
+          } catch {
+            console.warn("[cloudsync] account mismatch rejection failed");
+          }
+        });
+      })
+      .catch(() => {
+        if (activeGeneration !== generation) {
+          return;
+        }
+        console.warn(
+          "[cloudsync] activity status unavailable; retrying without credentials",
+        );
+        scheduleActivityStatusRetry(
+          session,
+          activeGeneration,
+          suspendBeforeExchange,
+          onAccountMismatch,
+        );
+      });
+  }, ACTIVITY_RETRY_DELAY_MS);
+}
+
 async function activateCloudsync(
   session: Session,
   suspendBeforeExchange: boolean,
@@ -498,6 +569,49 @@ async function activateCloudsync(
   if (!enabled) {
     setCredentialBlock(null);
     await suspendCloudsyncAfterCredentialRejection(activeGeneration);
+    return "ok";
+  }
+
+  let status;
+  try {
+    status = await enqueuePluginOperation(async () => {
+      if (activeGeneration !== generation) {
+        return null;
+      }
+      return getCloudsyncStatus();
+    });
+  } catch {
+    if (activeGeneration === generation) {
+      console.warn("[cloudsync] local sync status unavailable; retrying");
+      scheduleExchange(
+        session,
+        activeGeneration,
+        RETRY_DELAY_MS,
+        onAccountMismatch,
+      );
+    }
+    return "ok";
+  }
+
+  if (activeGeneration !== generation || !status) {
+    return "ok";
+  }
+
+  if (!status.cloudsync_enabled) {
+    setCredentialBlock("unavailable");
+    console.warn(
+      "[cloudsync] native sync is unavailable; sync remains disabled",
+    );
+    return "ok";
+  }
+
+  if (status.activity_paused) {
+    scheduleActivityStatusRetry(
+      session,
+      activeGeneration,
+      suspendBeforeExchange,
+      onAccountMismatch,
+    );
     return "ok";
   }
 
@@ -545,39 +659,6 @@ async function activateCloudsync(
         onAccountMismatch,
       );
     }
-    return "ok";
-  }
-
-  let status;
-  try {
-    status = await enqueuePluginOperation(async () => {
-      if (activeGeneration !== generation) {
-        return null;
-      }
-      return getCloudsyncStatus();
-    });
-  } catch {
-    if (activeGeneration === generation) {
-      console.warn("[cloudsync] local sync status unavailable; retrying");
-      scheduleExchange(
-        session,
-        activeGeneration,
-        RETRY_DELAY_MS,
-        onAccountMismatch,
-      );
-    }
-    return "ok";
-  }
-
-  if (activeGeneration !== generation || !status) {
-    return "ok";
-  }
-
-  if (!status.cloudsync_enabled) {
-    setCredentialBlock("unavailable");
-    console.warn(
-      "[cloudsync] native sync is unavailable; sync remains disabled",
-    );
     return "ok";
   }
 
@@ -822,6 +903,16 @@ async function activateCloudsync(
       return "ok";
     }
 
+    if (isCloudsyncActivityDeferredError(error)) {
+      scheduleActivityStatusRetry(
+        session,
+        activeGeneration,
+        false,
+        onAccountMismatch,
+      );
+      return "ok";
+    }
+
     try {
       await enqueuePluginOperation(suspendCloudsync);
     } catch {
@@ -861,7 +952,7 @@ async function suspendCloudsyncSession(): Promise<void> {
   setCredentialBlock(null);
 
   try {
-    await enqueuePluginOperation(suspendCloudsync);
+    await suspendCloudsync();
   } catch {
     console.warn("[cloudsync] local sync suspension failed");
   }
@@ -873,7 +964,7 @@ export async function prepareCloudsyncSignOut(
 ): Promise<void> {
   const activeGeneration = beginTransition();
   stopCloudsyncInitialSyncProgress();
-  const suspension = enqueuePluginOperation(suspendCloudsync);
+  const suspension = suspendCloudsync();
   let timeout: ReturnType<typeof setTimeout> | null = null;
 
   try {

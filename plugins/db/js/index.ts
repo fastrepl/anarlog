@@ -73,6 +73,14 @@ export type CloudsyncRuntimeConfig = {
   max_retries?: number;
 };
 
+export const CLOUDSYNC_ACTIVITY_DEFERRED_ERROR =
+  "cloudsync_activity_deferred" as const;
+
+export function isCloudsyncActivityDeferredError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message === CLOUDSYNC_ACTIVITY_DEFERRED_ERROR;
+}
+
 export type CloudsyncNetworkResult = {
   send?: {
     status: string;
@@ -94,6 +102,8 @@ export type CloudsyncStatus = {
   configured: boolean;
   running: boolean;
   network_initialized: boolean;
+  activity_paused: boolean;
+  deferred_for_capture: boolean;
   last_sync: CloudsyncNetworkResult | null;
   last_sync_at_ms: number | null;
   has_unsent_changes: boolean | null;
@@ -249,6 +259,20 @@ export async function suspendCloudsync(): Promise<void> {
 
 export async function getCloudsyncStatus(): Promise<CloudsyncStatus> {
   return invoke("plugin:db|get_cloudsync_status");
+}
+
+export async function beginCloudsyncActivity(
+  activity: string,
+  key: string,
+): Promise<void> {
+  return invoke("plugin:db|begin_cloudsync_activity", { activity, key });
+}
+
+export async function endCloudsyncActivity(
+  activity: string,
+  key: string,
+): Promise<void> {
+  return invoke("plugin:db|end_cloudsync_activity", { activity, key });
 }
 
 export async function syncCloudsyncNow(): Promise<CloudsyncNetworkResult> {

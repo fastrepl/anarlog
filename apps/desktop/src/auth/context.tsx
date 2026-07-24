@@ -525,7 +525,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           storageRevision,
           clearStorage,
         );
-      const queued = authTransitionQueueRef.current.then(apply, apply);
+      const queued =
+        event === "SIGNED_OUT"
+          ? Promise.resolve().then(apply)
+          : authTransitionQueueRef.current.then(apply, apply);
       authTransitionQueueRef.current = queued.catch(() => {});
       return queued;
     },

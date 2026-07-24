@@ -295,6 +295,18 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the begin_cloudsync_activity command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-begin-cloudsync-activity",
+          "markdownDescription": "Enables the begin_cloudsync_activity command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the begin_cloudsync_activity command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-begin-cloudsync-activity",
+          "markdownDescription": "Denies the begin_cloudsync_activity command without any pre-configured scope."
+        },
+        {
           "description": "Enables the bind_cloudsync_account command without any pre-configured scope.",
           "type": "string",
           "const": "allow-bind-cloudsync-account",
@@ -353,6 +365,18 @@
           "type": "string",
           "const": "deny-create-e2ee-identity",
           "markdownDescription": "Denies the create_e2ee_identity command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the end_cloudsync_activity command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-end-cloudsync-activity",
+          "markdownDescription": "Enables the end_cloudsync_activity command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the end_cloudsync_activity command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-end-cloudsync-activity",
+          "markdownDescription": "Denies the end_cloudsync_activity command without any pre-configured scope."
         },
         {
           "description": "Enables the execute command without any pre-configured scope.",
