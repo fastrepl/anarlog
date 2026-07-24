@@ -669,6 +669,64 @@ describe("ChatSession", () => {
     expect(mocks.chatSetMessages).not.toHaveBeenCalled();
   });
 
+  it("does not replace a finished response while its SQLite write is pending", async () => {
+    let finishAssistantPersist: (() => void) | undefined;
+    mocks.getChatMessageGroupId.mockResolvedValue("group-1");
+    mocks.upsertChatMessage.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishAssistantPersist = resolve;
+      }),
+    );
+    const userMessage: HyprUIMessage = {
+      id: "user-1",
+      role: "user",
+      parts: [{ type: "text", text: "Question" }],
+    };
+    const assistantMessage: HyprUIMessage = {
+      id: "assistant-1",
+      role: "assistant",
+      parts: [{ type: "text", text: "Finished answer" }],
+    };
+    mocks.persistedMessages = [persistedMessage(userMessage)];
+    mocks.messages = [userMessage, assistantMessage];
+    mocks.status = "streaming";
+
+    const view = render(
+      <ChatSession chatGroupId="group-1" sessionId="session-1">
+        {() => null}
+      </ChatSession>,
+    );
+    const chat = mocks.chatInits[0] as {
+      onFinish: (params: {
+        message: HyprUIMessage;
+        messages: HyprUIMessage[];
+        isAbort: boolean;
+      }) => void;
+    };
+    chat.onFinish({
+      isAbort: false,
+      message: assistantMessage,
+      messages: [userMessage, assistantMessage],
+    });
+
+    await waitFor(() =>
+      expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ id: assistantMessage.id }),
+      ),
+    );
+    mocks.status = "ready";
+    view.rerender(
+      <ChatSession chatGroupId="group-1" sessionId="session-1">
+        {() => null}
+      </ChatSession>,
+    );
+
+    await Promise.resolve();
+    expect(mocks.chatSetMessages).not.toHaveBeenCalled();
+
+    finishAssistantPersist?.();
+  });
+
   it("persists a first-send assistant response to the newly created group", async () => {
     const captured: { send?: ChatSessionRenderProps["sendMessage"] } = {};
     render(
