@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-begin-cloudsync-activity"
+description = "Enables the begin_cloudsync_activity command without any pre-configured scope."
+commands.allow = ["begin_cloudsync_activity"]
+
+[[permission]]
+identifier = "deny-begin-cloudsync-activity"
+description = "Denies the begin_cloudsync_activity command without any pre-configured scope."
+commands.deny = ["begin_cloudsync_activity"]

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use hypr_db_core::{Db, DbOpenError, DbOpenOptions, DbStorage};
@@ -15,16 +15,26 @@ const CLOUDSYNC_FULL_RESYNC_RETRY_INTERVAL: std::time::Duration = std::time::Dur
 const CLOUDSYNC_RECOVERY_DELAYED_AFTER: std::time::Duration = std::time::Duration::from_secs(60);
 const CLOUDSYNC_STATUS_ENRICHMENT_TIMEOUT: std::time::Duration =
     std::time::Duration::from_millis(250);
+const CLOUDSYNC_ACTIVITY_DRAIN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(1);
 const CLOUDSYNC_REPLICA_TABLE: &str = "e2ee_records";
 const E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT: i64 = 64;
 const E2EE_CLOUDSYNC_WITNESS_REPAIR_BYTE_LIMIT: usize = 16 * 1024 * 1024;
 const CLOUDSYNC_WRITE_FILTER: &str =
     "workspace_id IN (SELECT allowed_workspace_id FROM cloudsync_writable_workspaces)";
+const CLOUDSYNC_CAPTURE_ACTIVITY: &str = "capture";
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+struct CloudsyncActivity {
+    activity: String,
+    key: String,
+}
 
 #[derive(Default)]
 struct E2eeSyncHook {
     keys: std::sync::RwLock<HashMap<String, hypr_e2ee::WorkspaceKey>>,
     witness: std::sync::RwLock<Option<crate::e2ee_witness::E2eeWitnessClient>>,
+    activities: std::sync::RwLock<HashSet<CloudsyncActivity>>,
+    activity_changed: tokio::sync::Notify,
 }
 
 impl E2eeSyncHook {
@@ -63,6 +73,74 @@ impl E2eeSyncHook {
         self.witness.read().unwrap().clone()
     }
 
+    fn begin_activity(&self, activity: String, key: String) {
+        self.activities
+            .write()
+            .unwrap()
+            .insert(CloudsyncActivity { activity, key });
+        self.activity_changed.notify_waiters();
+    }
+
+    fn end_activity(&self, activity: &str, key: &str) -> bool {
+        let mut activities = self.activities.write().unwrap();
+        let removed = activities.remove(&CloudsyncActivity {
+            activity: activity.to_string(),
+            key: key.to_string(),
+        });
+        let resumed = removed && activities.is_empty();
+        resumed
+    }
+
+    fn activity_paused(&self) -> bool {
+        !self.activities.read().unwrap().is_empty()
+    }
+
+    fn has_activity_lease(&self, activity: &str, key: &str) -> bool {
+        self.activities
+            .read()
+            .unwrap()
+            .contains(&CloudsyncActivity {
+                activity: activity.to_string(),
+                key: key.to_string(),
+            })
+    }
+
+    fn has_activity(&self, activity: &str) -> bool {
+        self.activities
+            .read()
+            .unwrap()
+            .iter()
+            .any(|lease| lease.activity == activity)
+    }
+
+    async fn wait_until_activity_resumed(&self) {
+        loop {
+            let resumed = self.activity_changed.notified();
+            tokio::pin!(resumed);
+            resumed.as_mut().enable();
+            if !self.activity_paused() {
+                return;
+            }
+            resumed.await;
+        }
+    }
+
+    async fn wait_until_activity_paused(&self) {
+        loop {
+            let paused = self.activity_changed.notified();
+            tokio::pin!(paused);
+            paused.as_mut().enable();
+            if self.activity_paused() {
+                return;
+            }
+            paused.await;
+        }
+    }
+
+    fn notify_activity_changed(&self) {
+        self.activity_changed.notify_waiters();
+    }
+
     async fn prepare_local_snapshot(
         &self,
         pool: &sqlx::SqlitePool,
@@ -74,6 +152,10 @@ impl E2eeSyncHook {
 }
 
 impl hypr_db_core::CloudsyncSyncHook for E2eeSyncHook {
+    fn activity_paused(&self) -> bool {
+        self.activity_paused()
+    }
+
     fn before_sync<'a>(
         &'a self,
         pool: &'a sqlx::SqlitePool,
@@ -209,6 +291,9 @@ pub struct PluginDbRuntime {
     e2ee_sync_hook: std::sync::Arc<E2eeSyncHook>,
     scheduled_cloudsync_full_resync: std::sync::Arc<std::sync::Mutex<CloudsyncFullResyncSchedule>>,
     cloudsync_full_resync_task: tokio::sync::Mutex<Option<CloudsyncFullResyncTask>>,
+    cloudsync_control_operation: std::sync::Arc<tokio::sync::Mutex<()>>,
+    cloudsync_auth_generation: std::sync::Arc<std::sync::atomic::AtomicU64>,
+    cloudsync_auth_changed: std::sync::Arc<tokio::sync::Notify>,
 }
 
 struct CloudsyncFullResyncTask {
@@ -231,6 +316,7 @@ struct CloudsyncFullResyncSchedule {
 enum CloudsyncRecoveryStep {
     Progressed,
     Waiting,
+    Deferred,
     Complete,
 }
 
@@ -238,6 +324,7 @@ fn cloudsync_recovery_step_delay(step: CloudsyncRecoveryStep) -> Option<std::tim
     match step {
         CloudsyncRecoveryStep::Progressed => Some(CLOUDSYNC_FULL_RESYNC_PROGRESS_INTERVAL),
         CloudsyncRecoveryStep::Waiting => Some(CLOUDSYNC_FULL_RESYNC_RETRY_INTERVAL),
+        CloudsyncRecoveryStep::Deferred => None,
         CloudsyncRecoveryStep::Complete => None,
     }
 }
@@ -285,6 +372,12 @@ impl CloudsyncFullResyncSchedule {
         }
     }
 
+    fn mark_activity_resumed(&mut self) {
+        if self.generation.is_some() {
+            self.last_progress_at = Some(std::time::Instant::now());
+        }
+    }
+
     fn is_delayed(&self, generation: &str) -> bool {
         self.is_active(generation)
             && (self.recovery_delayed
@@ -307,6 +400,9 @@ impl PluginDbRuntime {
             e2ee_sync_hook,
             scheduled_cloudsync_full_resync: Default::default(),
             cloudsync_full_resync_task: Default::default(),
+            cloudsync_control_operation: Default::default(),
+            cloudsync_auth_generation: Default::default(),
+            cloudsync_auth_changed: Default::default(),
         }
     }
 
@@ -331,6 +427,124 @@ impl PluginDbRuntime {
 
     pub async fn synced_write_guard(&self) -> tokio::sync::RwLockReadGuard<'_, ()> {
         self.synced_write_barrier.read().await
+    }
+
+    async fn cloudsync_control_guard(&self) -> Result<tokio::sync::MutexGuard<'_, ()>> {
+        let activity_changed = self.e2ee_sync_hook.activity_changed.notified();
+        tokio::pin!(activity_changed);
+        activity_changed.as_mut().enable();
+        if self.e2ee_sync_hook.activity_paused() {
+            return Err(crate::Error::CloudsyncActivityDeferred);
+        }
+        let guard = tokio::select! {
+            biased;
+            _ = &mut activity_changed => {
+                return Err(crate::Error::CloudsyncActivityDeferred);
+            }
+            guard = self.cloudsync_control_operation.lock() => guard,
+        };
+        if self.e2ee_sync_hook.activity_paused() {
+            return Err(crate::Error::CloudsyncActivityDeferred);
+        }
+        Ok(guard)
+    }
+
+    fn cloudsync_auth_generation(&self) -> u64 {
+        self.cloudsync_auth_generation
+            .load(std::sync::atomic::Ordering::Acquire)
+    }
+
+    pub(crate) fn begin_cloudsync_auth_configuration(&self) -> u64 {
+        let generation = self
+            .cloudsync_auth_generation
+            .fetch_add(1, std::sync::atomic::Ordering::AcqRel)
+            .wrapping_add(1);
+        self.cloudsync_auth_changed.notify_waiters();
+        generation
+    }
+
+    fn invalidate_cloudsync_auth_generation(&self) {
+        self.cloudsync_auth_generation
+            .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+        self.cloudsync_auth_changed.notify_waiters();
+    }
+
+    fn ensure_cloudsync_auth_generation(&self, generation: u64) -> Result<()> {
+        if self.cloudsync_auth_generation() != generation {
+            return Err(crate::Error::CloudsyncConfigurationCancelled);
+        }
+        Ok(())
+    }
+
+    async fn wait_until_cloudsync_auth_generation_changes(&self, generation: u64) {
+        wait_until_cloudsync_auth_generation_changes(
+            self.cloudsync_auth_generation.as_ref(),
+            self.cloudsync_auth_changed.as_ref(),
+            generation,
+        )
+        .await;
+    }
+
+    pub async fn begin_cloudsync_activity(&self, activity: String, key: String) -> Result<()> {
+        self.begin_cloudsync_activity_with_timeout(activity, key, CLOUDSYNC_ACTIVITY_DRAIN_TIMEOUT)
+            .await
+    }
+
+    async fn begin_cloudsync_activity_with_timeout(
+        &self,
+        activity: String,
+        key: String,
+        drain_timeout: std::time::Duration,
+    ) -> Result<()> {
+        let activity = normalized_cloudsync_activity_part(activity, "activity")?;
+        let key = normalized_cloudsync_activity_part(key, "key")?;
+        self.e2ee_sync_hook
+            .begin_activity(activity.clone(), key.clone());
+        let drain = async {
+            self.db.cloudsync_wait_for_sync_idle().await;
+            drop(self.cloudsync_control_operation.lock().await);
+        };
+        if tokio::time::timeout(drain_timeout, drain).await.is_err() {
+            if !self.e2ee_sync_hook.has_activity_lease(&activity, &key) {
+                return Err(std::io::Error::other(
+                    "CloudSync activity ended before synchronization became idle",
+                )
+                .into());
+            }
+            tracing::warn!(
+                activity,
+                key,
+                timeout_ms = drain_timeout.as_millis(),
+                "CloudSync activity started before the in-flight operation became idle",
+            );
+            return Ok(());
+        }
+        if !self.e2ee_sync_hook.has_activity_lease(&activity, &key) {
+            return Err(std::io::Error::other(
+                "CloudSync activity ended before synchronization became idle",
+            )
+            .into());
+        }
+        Ok(())
+    }
+
+    pub async fn end_cloudsync_activity(&self, activity: String, key: String) -> Result<()> {
+        let activity = normalized_cloudsync_activity_part(activity, "activity")?;
+        let key = normalized_cloudsync_activity_part(key, "key")?;
+        self.finish_cloudsync_activity(&activity, &key);
+        Ok(())
+    }
+
+    fn finish_cloudsync_activity(&self, activity: &str, key: &str) {
+        if !self.e2ee_sync_hook.end_activity(activity, key) {
+            return;
+        }
+        self.scheduled_cloudsync_full_resync
+            .lock()
+            .unwrap()
+            .mark_activity_resumed();
+        self.e2ee_sync_hook.notify_activity_changed();
+        self.db.cloudsync_request_sync();
     }
 
     async fn ensure_app_schema(&self) -> Result<()> {
@@ -432,6 +646,7 @@ impl PluginDbRuntime {
     }
 
     pub async fn configure_cloudsync(&self, config_json: String) -> Result<()> {
+        let _control_operation = self.cloudsync_control_guard().await?;
         self.ensure_legacy_migration_verified().await?;
         let config = serde_json::from_str(&config_json)?;
         self.db.cloudsync_configure(config).await?;
@@ -463,21 +678,71 @@ impl PluginDbRuntime {
         workspace_projection: Option<hypr_db_app::CloudsyncWorkspaceProjection>,
         e2ee_witness: crate::CloudsyncE2eeWitness,
     ) -> Result<crate::CloudsyncTokenConfigurationResult> {
-        self.cancel_cloudsync_full_resync().await;
-        let result = self
-            .configure_cloudsync_token_with_projection_inner(
+        let auth_generation = self.begin_cloudsync_auth_configuration();
+        self.configure_cloudsync_token_with_projection_at_generation(
+            database_id,
+            token,
+            account_user_id,
+            workspace_projection,
+            e2ee_witness,
+            None,
+            auth_generation,
+        )
+        .await
+    }
+
+    pub(crate) async fn configure_cloudsync_token_with_projection_at_generation(
+        &self,
+        database_id: String,
+        token: String,
+        account_user_id: String,
+        workspace_projection: Option<hypr_db_app::CloudsyncWorkspaceProjection>,
+        e2ee_witness: crate::CloudsyncE2eeWitness,
+        recovery_key: Option<(String, hypr_e2ee::RecoveryKey)>,
+        auth_generation: u64,
+    ) -> Result<crate::CloudsyncTokenConfigurationResult> {
+        let _control_operation = self.cloudsync_control_guard().await?;
+        let mut attempt_started = false;
+        let result = async {
+            self.ensure_cloudsync_auth_generation(auth_generation)?;
+            attempt_started = true;
+            self.cancel_cloudsync_full_resync().await;
+            self.ensure_cloudsync_auth_generation(auth_generation)?;
+            if let Some((workspace_id, recovery_key)) = recovery_key {
+                self.set_e2ee_recovery_key(&workspace_id, &recovery_key)?;
+                self.ensure_cloudsync_auth_generation(auth_generation)?;
+            }
+            let configuration = self.configure_cloudsync_token_with_projection_inner(
                 database_id,
                 token,
                 account_user_id,
                 workspace_projection,
                 e2ee_witness,
-            )
-            .await;
-        if result.is_err()
-            || matches!(
-                &result,
-                Ok(crate::CloudsyncTokenConfigurationResult::AccountMismatch)
-            )
+                auth_generation,
+            );
+            tokio::pin!(configuration);
+            let result = tokio::select! {
+                biased;
+                _ = self.wait_until_cloudsync_auth_generation_changes(auth_generation) => {
+                    Err(crate::Error::CloudsyncConfigurationCancelled)
+                }
+                _ = self.e2ee_sync_hook.wait_until_activity_paused() => {
+                    Err(crate::Error::CloudsyncActivityDeferred)
+                }
+                result = &mut configuration => result,
+            }?;
+            self.ensure_cloudsync_auth_generation(auth_generation)?;
+            Ok(result)
+        }
+        .await;
+        let should_fail_closed =
+            attempt_started || self.cloudsync_auth_generation() == auth_generation;
+        if should_fail_closed
+            && (result.is_err()
+                || matches!(
+                    &result,
+                    Ok(crate::CloudsyncTokenConfigurationResult::AccountMismatch)
+                ))
         {
             self.cancel_cloudsync_full_resync().await;
             let _ = self.db.cloudsync_suspend().await;
@@ -493,6 +758,7 @@ impl PluginDbRuntime {
         account_user_id: String,
         workspace_projection: Option<hypr_db_app::CloudsyncWorkspaceProjection>,
         e2ee_witness: crate::CloudsyncE2eeWitness,
+        auth_generation: u64,
     ) -> Result<crate::CloudsyncTokenConfigurationResult> {
         if !self.db.cloudsync_enabled() {
             return Err(hypr_db_core::CloudsyncRuntimeError::Unavailable.into());
@@ -509,6 +775,7 @@ impl PluginDbRuntime {
         }
 
         self.ensure_legacy_migration_verified().await?;
+        self.ensure_cloudsync_auth_generation(auth_generation)?;
 
         let personal_workspace_id = workspace_projection
             .as_ref()
@@ -527,9 +794,11 @@ impl PluginDbRuntime {
         {
             return Ok(crate::CloudsyncTokenConfigurationResult::AccountMismatch);
         }
+        self.ensure_cloudsync_auth_generation(auth_generation)?;
 
         if workspace_projection.is_some() {
             self.db.cloudsync_suspend().await?;
+            self.ensure_cloudsync_auth_generation(auth_generation)?;
         }
         let witness =
             crate::e2ee_witness::E2eeWitnessClient::new(e2ee_witness, personal_workspace_id)?;
@@ -539,6 +808,7 @@ impl PluginDbRuntime {
             .ok_or(crate::Error::E2eeIdentityRequired)?;
         self.prepare_e2ee_cutover_and_initialize_witness(&witness, &key)
             .await?;
+        self.ensure_cloudsync_auth_generation(auth_generation)?;
         self.e2ee_sync_hook.set_witness(witness);
         let config = hypr_db_core::CloudsyncRuntimeConfig {
             connection_string: database_id,
@@ -590,6 +860,7 @@ impl PluginDbRuntime {
             )
             .await?;
         }
+        self.ensure_cloudsync_auth_generation(auth_generation)?;
 
         if let Some(generation) =
             hypr_db_app::cloudsync_full_resync_generation(self.db.pool()).await?
@@ -602,10 +873,13 @@ impl PluginDbRuntime {
                 &key,
             )
             .await?;
+            self.ensure_cloudsync_auth_generation(auth_generation)?;
             self.db.cloudsync_suspend().await?;
+            self.ensure_cloudsync_auth_generation(auth_generation)?;
             self.db
                 .cloudsync_prepare_manual_transport(config.clone())
                 .await?;
+            self.ensure_cloudsync_auth_generation(auth_generation)?;
             if hypr_db_app::cloudsync_recovery_state(self.db.pool())
                 .await?
                 .is_some_and(|state| {
@@ -613,16 +887,24 @@ impl PluginDbRuntime {
                         && state.phase == hypr_db_app::CloudsyncRecoveryPhase::NeedFirstLogout
                 })
             {
+                self.ensure_cloudsync_auth_generation(auth_generation)?;
                 discard_cloudsync_recovery_replica(self.db.as_ref(), &config, &generation).await?;
+                self.ensure_cloudsync_auth_generation(auth_generation)?;
             }
-            self.schedule_cloudsync_full_resync(generation, config)
+            self.ensure_cloudsync_auth_generation(auth_generation)?;
+            self.schedule_cloudsync_full_resync(generation, config, auth_generation)
                 .await;
+            self.ensure_cloudsync_auth_generation(auth_generation)?;
         } else {
+            self.ensure_cloudsync_auth_generation(auth_generation)?;
             let (pending_fits, pending_chunks, pending_rows, pending_bytes) = self
                 .prepare_cloudsync_config_fail_closed(config.clone())
                 .await?;
+            self.ensure_cloudsync_auth_generation(auth_generation)?;
             if pending_fits {
+                self.ensure_cloudsync_auth_generation(auth_generation)?;
                 self.db.cloudsync_resume_prepared_transport().await?;
+                self.ensure_cloudsync_auth_generation(auth_generation)?;
             } else {
                 tracing::warn!(
                     chunks = pending_chunks,
@@ -630,6 +912,7 @@ impl PluginDbRuntime {
                     bytes = pending_bytes,
                     "recovering an oversized CloudSync outbox before it reaches the server",
                 );
+                self.ensure_cloudsync_auth_generation(auth_generation)?;
                 let generation = prepare_cloudsync_poison_recovery(
                     self.db.as_ref(),
                     &account_user_id,
@@ -637,15 +920,19 @@ impl PluginDbRuntime {
                     &key,
                 )
                 .await?;
+                self.ensure_cloudsync_auth_generation(auth_generation)?;
                 discard_cloudsync_recovery_replica(self.db.as_ref(), &config, &generation).await?;
-                self.schedule_cloudsync_full_resync(generation, config)
+                self.ensure_cloudsync_auth_generation(auth_generation)?;
+                self.schedule_cloudsync_full_resync(generation, config, auth_generation)
                     .await;
+                self.ensure_cloudsync_auth_generation(auth_generation)?;
             }
         }
         Ok(crate::CloudsyncTokenConfigurationResult::Configured)
     }
 
     pub async fn bind_cloudsync_account(&self, account_user_id: String) -> Result<bool> {
+        let _control_operation = self.cloudsync_control_operation.lock().await;
         let _write_guard = self.synced_write_barrier.write().await;
         self.ensure_app_schema().await?;
         match hypr_db_app::bind_cloudsync_account(self.db.pool(), &account_user_id).await {
@@ -756,6 +1043,7 @@ impl PluginDbRuntime {
         &self,
         generation: String,
         config: hypr_db_core::CloudsyncRuntimeConfig,
+        auth_generation: u64,
     ) {
         let mut task_slot = self.cloudsync_full_resync_task.lock().await;
         self.scheduled_cloudsync_full_resync
@@ -777,18 +1065,46 @@ impl PluginDbRuntime {
         let db = std::sync::Arc::clone(&self.db);
         let scheduled = std::sync::Arc::clone(&self.scheduled_cloudsync_full_resync);
         let e2ee_sync_hook = std::sync::Arc::clone(&self.e2ee_sync_hook);
+        let control_operation = std::sync::Arc::clone(&self.cloudsync_control_operation);
+        let cloudsync_auth_generation = std::sync::Arc::clone(&self.cloudsync_auth_generation);
+        let cloudsync_auth_changed = std::sync::Arc::clone(&self.cloudsync_auth_changed);
         let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel();
         let join_handle = tokio::spawn(async move {
             let mut clean_receive_attempt_started = false;
             loop {
+                if cloudsync_auth_generation.load(std::sync::atomic::Ordering::Acquire)
+                    != auth_generation
+                {
+                    return;
+                }
                 if !scheduled.lock().unwrap().is_active(&generation) {
                     return;
+                }
+                if e2ee_sync_hook.activity_paused() {
+                    tokio::select! {
+                        biased;
+                        _ = &mut shutdown_rx => return,
+                        _ = e2ee_sync_hook.wait_until_activity_resumed() => {}
+                    }
+                    continue;
                 }
 
                 let step: Result<CloudsyncRecoveryStep> = tokio::select! {
                     biased;
                     _ = &mut shutdown_rx => return,
+                    _ = wait_until_cloudsync_auth_generation_changes(
+                        cloudsync_auth_generation.as_ref(),
+                        cloudsync_auth_changed.as_ref(),
+                        auth_generation,
+                    ) => return,
+                    _ = e2ee_sync_hook.wait_until_activity_paused() => {
+                        Ok(CloudsyncRecoveryStep::Deferred)
+                    }
                     step = async {
+                        let _control_operation = control_operation.lock().await;
+                        if e2ee_sync_hook.activity_paused() {
+                            return Ok(CloudsyncRecoveryStep::Deferred);
+                        }
                         let state = hypr_db_app::cloudsync_recovery_state(db.pool())
                             .await?
                             .ok_or_else(|| {
@@ -1113,6 +1429,9 @@ impl PluginDbRuntime {
                                 scheduled.lock().unwrap().mark_progress(&generation);
                             }
                             CloudsyncRecoveryStep::Waiting => {}
+                            CloudsyncRecoveryStep::Deferred => {
+                                continue;
+                            }
                         }
                         cloudsync_recovery_step_delay(step)
                             .expect("completed CloudSync recovery already returned")
@@ -1201,18 +1520,25 @@ impl PluginDbRuntime {
     }
 
     pub async fn start_cloudsync(&self) -> Result<()> {
+        let _control_operation = self.cloudsync_control_guard().await?;
         self.ensure_legacy_migration_verified().await?;
         self.db.cloudsync_start().await?;
         Ok(())
     }
 
     pub async fn stop_cloudsync(&self) -> Result<()> {
+        self.invalidate_cloudsync_auth_generation();
+        self.cancel_cloudsync_full_resync().await;
+        let _control_operation = self.cloudsync_control_operation.lock().await;
         self.cancel_cloudsync_full_resync().await;
         self.db.cloudsync_stop().await?;
         Ok(())
     }
 
     pub async fn suspend_cloudsync(&self) -> Result<()> {
+        self.invalidate_cloudsync_auth_generation();
+        self.cancel_cloudsync_full_resync().await;
+        let _control_operation = self.cloudsync_control_operation.lock().await;
         self.cancel_cloudsync_full_resync().await;
         self.db.cloudsync_suspend().await?;
         self.e2ee_sync_hook.clear();
@@ -1220,6 +1546,41 @@ impl PluginDbRuntime {
     }
 
     pub async fn cloudsync_status(&self) -> Result<serde_json::Value> {
+        let mut status = serde_json::to_value(self.db.cloudsync_status().await?)?;
+        let activity_paused = self.e2ee_sync_hook.activity_paused();
+        let deferred_for_capture = self.e2ee_sync_hook.has_activity(CLOUDSYNC_CAPTURE_ACTIVITY);
+        {
+            let status_object = status.as_object_mut().ok_or_else(|| {
+                std::io::Error::other("CloudSync status did not serialize to an object")
+            })?;
+            status_object.insert(
+                "activity_paused".to_string(),
+                serde_json::Value::Bool(activity_paused),
+            );
+            status_object.insert(
+                "deferred_for_capture".to_string(),
+                serde_json::Value::Bool(deferred_for_capture),
+            );
+            if activity_paused {
+                let recovery_pending = self
+                    .scheduled_cloudsync_full_resync
+                    .lock()
+                    .unwrap()
+                    .generation
+                    .is_some();
+                status_object.insert(
+                    "recovery_pending".to_string(),
+                    serde_json::Value::Bool(recovery_pending),
+                );
+                status_object.insert(
+                    "recovery_delayed".to_string(),
+                    serde_json::Value::Bool(false),
+                );
+                status_object.insert("recovery_phase".to_string(), serde_json::Value::Null);
+                return Ok(status);
+            }
+        }
+
         // Read the canonical dirty queue before the native outbox so a concurrent
         // promotion is visible in at least one status snapshot.
         let keys = self.e2ee_sync_hook.snapshot();
@@ -1241,7 +1602,6 @@ impl PluginDbRuntime {
             })
             .await
             .map_err(|_| hypr_db_core::CloudsyncRuntimeError::LocalStatusBusy)??;
-        let mut status = serde_json::to_value(self.db.cloudsync_status().await?)?;
         let recovery_delayed = recovery.as_ref().is_some_and(|state| {
             self.scheduled_cloudsync_full_resync
                 .lock()
@@ -1283,12 +1643,45 @@ impl PluginDbRuntime {
     }
 
     pub async fn logout_cloudsync(&self, discard_unsent_changes: bool) -> Result<()> {
+        self.invalidate_cloudsync_auth_generation();
+        self.cancel_cloudsync_full_resync().await;
+        let _control_operation = self.cloudsync_control_operation.lock().await;
         self.cancel_cloudsync_full_resync().await;
         let _write_guard = self.synced_write_barrier.write().await;
         self.db.cloudsync_logout(discard_unsent_changes).await?;
         self.e2ee_sync_hook.clear();
         Ok(())
     }
+}
+
+async fn wait_until_cloudsync_auth_generation_changes(
+    generation: &std::sync::atomic::AtomicU64,
+    changed: &tokio::sync::Notify,
+    expected: u64,
+) {
+    loop {
+        let generation_changed = changed.notified();
+        tokio::pin!(generation_changed);
+        generation_changed.as_mut().enable();
+        if generation.load(std::sync::atomic::Ordering::Acquire) != expected {
+            return;
+        }
+        generation_changed.await;
+    }
+}
+
+fn normalized_cloudsync_activity_part(value: String, label: &str) -> Result<String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Err(
+            std::io::Error::other(format!("CloudSync activity {label} cannot be empty")).into(),
+        );
+    }
+    let max_len = if label == "activity" { 32 } else { 128 };
+    if value.len() > max_len || value.chars().any(char::is_control) {
+        return Err(std::io::Error::other(format!("CloudSync activity {label} is invalid")).into());
+    }
+    Ok(value.to_string())
 }
 
 impl Drop for PluginDbRuntime {
@@ -1959,6 +2352,457 @@ mod tests {
         assert_eq!(protected_dirty, 0);
     }
 
+    #[tokio::test]
+    async fn cloudsync_activity_leases_are_idempotent_and_preserved_by_identity_clear() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(db);
+
+        runtime
+            .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
+            .await
+            .unwrap();
+        runtime
+            .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
+            .await
+            .unwrap();
+        runtime
+            .begin_cloudsync_activity("capture".to_string(), "session-2".to_string())
+            .await
+            .unwrap();
+        runtime.e2ee_sync_hook.clear();
+
+        let status = runtime.cloudsync_status().await.unwrap();
+        assert_eq!(status["activity_paused"], true);
+        assert_eq!(status["deferred_for_capture"], true);
+        assert_eq!(status["has_unsent_changes"], serde_json::Value::Null);
+
+        runtime
+            .end_cloudsync_activity("capture".to_string(), "missing".to_string())
+            .await
+            .unwrap();
+        assert!(runtime.e2ee_sync_hook.activity_paused());
+
+        runtime
+            .end_cloudsync_activity("capture".to_string(), "session-1".to_string())
+            .await
+            .unwrap();
+        assert!(runtime.e2ee_sync_hook.activity_paused());
+        runtime
+            .end_cloudsync_activity("capture".to_string(), "session-2".to_string())
+            .await
+            .unwrap();
+        runtime
+            .end_cloudsync_activity("capture".to_string(), "session-1".to_string())
+            .await
+            .unwrap();
+        assert!(!runtime.e2ee_sync_hook.activity_paused());
+    }
+
+    #[tokio::test]
+    async fn cloudsync_activity_pause_is_process_scoped() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+        runtime
+            .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
+            .await
+            .unwrap();
+        assert!(runtime.e2ee_sync_hook.activity_paused());
+        drop(runtime);
+
+        let restarted_runtime = PluginDbRuntime::new(db);
+        let status = restarted_runtime.cloudsync_status().await.unwrap();
+        assert_eq!(status["activity_paused"], false);
+        assert_eq!(status["deferred_for_capture"], false);
+    }
+
+    #[tokio::test]
+    async fn activity_resume_wait_cannot_lose_its_notification() {
+        let hook = E2eeSyncHook::default();
+        hook.begin_activity("capture".to_string(), "session-1".to_string());
+        let mut resumed = Box::pin(hook.wait_until_activity_resumed());
+
+        tokio::select! {
+            biased;
+            () = &mut resumed => panic!("activity resume wait completed while paused"),
+            _ = tokio::task::yield_now() => {}
+        }
+        assert!(hook.end_activity("capture", "session-1"));
+        hook.notify_activity_changed();
+        tokio::time::timeout(std::time::Duration::from_millis(100), resumed)
+            .await
+            .expect("activity resume notification was lost");
+
+        hook.wait_until_activity_resumed().await;
+    }
+
+    #[tokio::test]
+    async fn paused_cloudsync_status_does_not_probe_the_busy_database() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+        runtime
+            .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
+            .await
+            .unwrap();
+        let _held_connection = db.pool().acquire().await.unwrap();
+
+        let status = tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            runtime.cloudsync_status(),
+        )
+        .await
+        .expect("paused CloudSync status queried the busy database")
+        .unwrap();
+
+        assert_eq!(status["activity_paused"], true);
+        assert_eq!(status["deferred_for_capture"], true);
+    }
+
+    #[tokio::test]
+    async fn activity_begin_waits_for_an_in_flight_cloudsync_control_operation() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(db);
+        let control_operation = runtime.cloudsync_control_operation.lock().await;
+        let mut begin = Box::pin(
+            runtime.begin_cloudsync_activity("capture".to_string(), "session-1".to_string()),
+        );
+
+        tokio::select! {
+            biased;
+            result = &mut begin => panic!("activity begin bypassed recovery: {result:?}"),
+            _ = tokio::task::yield_now() => {}
+        }
+        assert!(runtime.e2ee_sync_hook.activity_paused());
+
+        drop(control_operation);
+        tokio::time::timeout(std::time::Duration::from_millis(100), begin)
+            .await
+            .expect("activity begin did not finish after CloudSync control became idle")
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn activity_begin_timeout_keeps_the_lease_and_allows_local_activity() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(db);
+        let control_operation = runtime.cloudsync_control_operation.lock().await;
+
+        tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            runtime.begin_cloudsync_activity_with_timeout(
+                "capture".to_string(),
+                "session-1".to_string(),
+                std::time::Duration::from_millis(10),
+            ),
+        )
+        .await
+        .expect("activity begin exceeded its drain deadline")
+        .unwrap();
+
+        assert!(runtime.e2ee_sync_hook.activity_paused());
+        assert!(
+            runtime
+                .e2ee_sync_hook
+                .has_activity_lease("capture", "session-1")
+        );
+        drop(control_operation);
+        runtime
+            .end_cloudsync_activity("capture".to_string(), "session-1".to_string())
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn duplicate_activity_begin_timeout_preserves_the_existing_lease() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(db);
+        runtime
+            .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
+            .await
+            .unwrap();
+        let control_operation = runtime.cloudsync_control_operation.lock().await;
+
+        runtime
+            .begin_cloudsync_activity_with_timeout(
+                "capture".to_string(),
+                "session-1".to_string(),
+                std::time::Duration::from_millis(10),
+            )
+            .await
+            .unwrap();
+
+        assert!(runtime.e2ee_sync_hook.activity_paused());
+        assert!(
+            runtime
+                .e2ee_sync_hook
+                .has_activity_lease("capture", "session-1")
+        );
+        drop(control_operation);
+        runtime
+            .end_cloudsync_activity("capture".to_string(), "session-1".to_string())
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn activity_end_cancels_a_begin_waiting_for_cloudsync_control() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(db);
+        let control_operation = runtime.cloudsync_control_operation.lock().await;
+        let mut begin = Box::pin(
+            runtime.begin_cloudsync_activity("capture".to_string(), "session-1".to_string()),
+        );
+
+        tokio::select! {
+            biased;
+            result = &mut begin => panic!("activity begin bypassed CloudSync control: {result:?}"),
+            _ = tokio::task::yield_now() => {}
+        }
+        runtime
+            .end_cloudsync_activity("capture".to_string(), "session-1".to_string())
+            .await
+            .unwrap();
+        drop(control_operation);
+
+        let error = tokio::time::timeout(std::time::Duration::from_millis(100), begin)
+            .await
+            .expect("cancelled activity begin did not finish")
+            .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("ended before synchronization became idle")
+        );
+    }
+
+    #[tokio::test]
+    async fn cloudsync_configuration_and_start_fail_promptly_during_activity() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(db);
+        runtime
+            .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
+            .await
+            .unwrap();
+        let config = serde_json::to_string(&hypr_db_core::CloudsyncRuntimeConfig {
+            connection_string: "managed-database-id".to_string(),
+            auth: hypr_db_core::CloudsyncAuth::None,
+            tables: Vec::new(),
+            sync_interval_ms: DEFAULT_CLOUDSYNC_INTERVAL_MS,
+            wait_ms: Some(5_000),
+            max_retries: Some(3),
+        })
+        .unwrap();
+
+        let configure_error = tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            runtime.configure_cloudsync(config),
+        )
+        .await
+        .expect("CloudSync configuration waited for the activity to finish")
+        .unwrap_err();
+        assert!(matches!(
+            configure_error,
+            crate::Error::CloudsyncActivityDeferred
+        ));
+        assert_eq!(configure_error.to_string(), "cloudsync_activity_deferred");
+
+        let token_error = tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            runtime.configure_cloudsync_token(
+                "managed-database-id".to_string(),
+                "token".to_string(),
+                "user-a".to_string(),
+                crate::CloudsyncE2eeWitness {
+                    endpoint: "https://example.com/witness".to_string(),
+                    access_token: "access-token".to_string(),
+                },
+            ),
+        )
+        .await
+        .expect("CloudSync token configuration waited for the activity to finish")
+        .unwrap_err();
+        assert!(matches!(
+            token_error,
+            crate::Error::CloudsyncActivityDeferred
+        ));
+
+        let start_error = tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            runtime.start_cloudsync(),
+        )
+        .await
+        .expect("CloudSync start waited for the activity to finish")
+        .unwrap_err();
+        assert!(matches!(
+            start_error,
+            crate::Error::CloudsyncActivityDeferred
+        ));
+    }
+
+    #[tokio::test]
+    async fn cloudsync_control_rechecks_activity_after_acquiring_serialization() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(db);
+        let control_operation = runtime.cloudsync_control_operation.lock().await;
+        let mut start = Box::pin(runtime.start_cloudsync());
+
+        tokio::select! {
+            biased;
+            result = &mut start => panic!("CloudSync start bypassed control serialization: {result:?}"),
+            _ = tokio::task::yield_now() => {}
+        }
+        runtime
+            .e2ee_sync_hook
+            .begin_activity("capture".to_string(), "session-1".to_string());
+
+        let error = tokio::time::timeout(std::time::Duration::from_millis(100), start)
+            .await
+            .expect("CloudSync start remained queued after activity began")
+            .unwrap_err();
+        assert!(matches!(error, crate::Error::CloudsyncActivityDeferred));
+        drop(control_operation);
+    }
+
+    #[tokio::test]
+    async fn local_account_binding_is_not_deferred_by_cloudsync_activity() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(db);
+        runtime
+            .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
+            .await
+            .unwrap();
+
+        let bound = tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            runtime.bind_cloudsync_account("user-a".to_string()),
+        )
+        .await
+        .expect("local account binding waited for the activity to finish")
+        .unwrap();
+        assert!(bound);
+        assert!(
+            runtime
+                .e2ee_sync_hook
+                .has_activity_lease("capture", "session-1")
+        );
+    }
+
+    #[tokio::test]
+    async fn stop_suspend_and_logout_are_not_deferred_by_cloudsync_activity() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(db);
+        runtime
+            .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
+            .await
+            .unwrap();
+
+        let stop = tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            runtime.stop_cloudsync(),
+        )
+        .await
+        .expect("CloudSync stop waited for the activity to finish");
+        assert!(!matches!(
+            stop,
+            Err(crate::Error::CloudsyncActivityDeferred)
+        ));
+
+        let suspend = tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            runtime.suspend_cloudsync(),
+        )
+        .await
+        .expect("CloudSync suspension waited for the activity to finish");
+        assert!(!matches!(
+            suspend,
+            Err(crate::Error::CloudsyncActivityDeferred)
+        ));
+
+        let logout = tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            runtime.logout_cloudsync(false),
+        )
+        .await
+        .expect("CloudSync logout waited for the activity to finish");
+        assert!(!matches!(
+            logout,
+            Err(crate::Error::CloudsyncActivityDeferred)
+        ));
+    }
+
+    #[tokio::test]
+    async fn final_activity_release_resets_the_recovery_delay_clock() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(db);
+        runtime
+            .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
+            .await
+            .unwrap();
+        {
+            let mut schedule = runtime.scheduled_cloudsync_full_resync.lock().unwrap();
+            schedule.claim("generation-1");
+            schedule.last_progress_at =
+                Some(std::time::Instant::now() - std::time::Duration::from_secs(61));
+        }
+
+        runtime
+            .end_cloudsync_activity("capture".to_string(), "session-1".to_string())
+            .await
+            .unwrap();
+
+        let schedule = runtime.scheduled_cloudsync_full_resync.lock().unwrap();
+        assert!(!schedule.recovery_delayed);
+        assert!(!schedule.is_delayed("generation-1"));
+    }
+
+    #[tokio::test]
+    async fn activity_release_does_not_hide_a_recovery_failure() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(db);
+        runtime
+            .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
+            .await
+            .unwrap();
+        {
+            let mut schedule = runtime.scheduled_cloudsync_full_resync.lock().unwrap();
+            schedule.claim("generation-1");
+            schedule.mark_failure("generation-1");
+        }
+
+        runtime
+            .end_cloudsync_activity("capture".to_string(), "session-1".to_string())
+            .await
+            .unwrap();
+
+        let schedule = runtime.scheduled_cloudsync_full_resync.lock().unwrap();
+        assert!(schedule.recovery_delayed);
+        assert!(schedule.is_delayed("generation-1"));
+    }
+
+    #[test]
+    fn cloudsync_activity_identifiers_are_bounded() {
+        assert!(normalized_cloudsync_activity_part(" ".to_string(), "activity").is_err());
+        assert!(
+            normalized_cloudsync_activity_part("capture\n".to_string(), "activity").is_ok(),
+            "outer whitespace is intentionally trimmed"
+        );
+        assert!(normalized_cloudsync_activity_part("cap\nture".to_string(), "activity").is_err());
+        assert!(normalized_cloudsync_activity_part("a".repeat(33), "activity").is_err());
+        assert!(normalized_cloudsync_activity_part("k".repeat(129), "key").is_err());
+    }
+
     #[test]
     fn recovery_waits_longer_without_progress() {
         assert_eq!(
@@ -2152,6 +2996,288 @@ mod tests {
         finished_rx
     }
 
+    async fn install_blocked_full_resync_cancellation(
+        runtime: &PluginDbRuntime,
+    ) -> (
+        tokio::sync::oneshot::Sender<()>,
+        tokio::sync::oneshot::Receiver<()>,
+    ) {
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+        let (cancellation_started_tx, cancellation_started_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = tokio::sync::oneshot::channel();
+        let join_handle = tokio::spawn(async move {
+            let _ = shutdown_rx.await;
+            let _ = cancellation_started_tx.send(());
+            let _ = release_rx.await;
+        });
+        runtime
+            .scheduled_cloudsync_full_resync
+            .lock()
+            .unwrap()
+            .claim("test-generation");
+        *runtime.cloudsync_full_resync_task.lock().await = Some(CloudsyncFullResyncTask {
+            config: test_full_resync_config("test-token"),
+            generation: "test-generation".to_string(),
+            shutdown_tx: Some(shutdown_tx),
+            join_handle,
+        });
+        (release_tx, cancellation_started_rx)
+    }
+
+    async fn assert_auth_invalidation_cancels_inflight_configuration(logout: bool) {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = std::sync::Arc::new(PluginDbRuntime::new(db));
+        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+            "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+        )
+        .unwrap();
+        runtime
+            .set_e2ee_recovery_key("user-a", &recovery_key)
+            .unwrap();
+        let (release_cancellation, cancellation_started) =
+            install_blocked_full_resync_cancellation(runtime.as_ref()).await;
+
+        let configure_runtime = std::sync::Arc::clone(&runtime);
+        let configure = tokio::spawn(async move {
+            configure_runtime
+                .configure_cloudsync_token(
+                    "managed-database-id".to_string(),
+                    "stale-token".to_string(),
+                    "user-a".to_string(),
+                    crate::CloudsyncE2eeWitness {
+                        endpoint: "https://example.com/witness".to_string(),
+                        access_token: "access-token".to_string(),
+                    },
+                )
+                .await
+        });
+        tokio::time::timeout(std::time::Duration::from_secs(1), cancellation_started)
+            .await
+            .expect("token configuration did not enter full-resync cancellation")
+            .unwrap();
+        let configuration_generation = runtime.cloudsync_auth_generation();
+
+        let invalidation_runtime = std::sync::Arc::clone(&runtime);
+        let invalidation = tokio::spawn(async move {
+            if logout {
+                invalidation_runtime.logout_cloudsync(false).await
+            } else {
+                invalidation_runtime.suspend_cloudsync().await
+            }
+        });
+        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            while runtime.cloudsync_auth_generation() == configuration_generation {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("auth generation was not invalidated before waiting");
+
+        release_cancellation
+            .send(())
+            .expect("failed to release full-resync cancellation");
+        let error = tokio::time::timeout(std::time::Duration::from_secs(1), configure)
+            .await
+            .expect("cancelled token configuration did not finish")
+            .unwrap()
+            .unwrap_err();
+        assert!(matches!(
+            error,
+            crate::Error::CloudsyncConfigurationCancelled
+        ));
+        tokio::time::timeout(std::time::Duration::from_secs(1), invalidation)
+            .await
+            .expect("CloudSync invalidation did not finish")
+            .unwrap()
+            .unwrap();
+
+        assert!(runtime.workspace_key("user-a").is_none());
+        assert!(runtime.cloudsync_full_resync_task.lock().await.is_none());
+        let status = runtime.cloudsync_status().await.unwrap();
+        assert_eq!(status["configured"], false);
+        assert_eq!(status["network_initialized"], false);
+    }
+
+    #[tokio::test]
+    async fn suspend_invalidates_and_fails_closed_an_inflight_token_configuration() {
+        assert_auth_invalidation_cancels_inflight_configuration(false).await;
+    }
+
+    #[tokio::test]
+    async fn logout_invalidates_and_fails_closed_an_inflight_token_configuration() {
+        assert_auth_invalidation_cancels_inflight_configuration(true).await;
+    }
+
+    async fn spawn_stalled_witness_configuration() -> (
+        tempfile::TempDir,
+        std::sync::Arc<PluginDbRuntime>,
+        MockServer,
+        tokio::task::JoinHandle<Result<crate::CloudsyncTokenConfigurationResult>>,
+    ) {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("app.db");
+        let db = Db::open(DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_enabled: true,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(4),
+        })
+        .await
+        .unwrap();
+        hypr_db_app::prepare_schema(&db).await.unwrap();
+        sqlx::query(
+            "UPDATE storage_migration_state
+             SET importer_version = ?, parity_verified = 1
+             WHERE id = 'legacy_v1'",
+        )
+        .bind(hypr_db_app::LEGACY_IMPORTER_VERSION)
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let runtime = std::sync::Arc::new(PluginDbRuntime::new(std::sync::Arc::new(db)));
+        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+            "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+        )
+        .unwrap();
+        runtime
+            .set_e2ee_recovery_key("user-a", &recovery_key)
+            .unwrap();
+        assert!(
+            runtime
+                .bind_cloudsync_account("user-a".to_string())
+                .await
+                .unwrap()
+        );
+        let witness_server = MockServer::start().await;
+        Mock::given(path("/sync/e2ee/witness/user-a"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_delay(std::time::Duration::from_secs(60))
+                    .set_body_json(serde_json::json!({
+                        "initialized": true,
+                        "initializedAt": "2026-07-23T00:00:00Z",
+                        "headSequence": 0,
+                        "throughSequence": 0,
+                        "nextAfterSequence": 0,
+                        "events": [],
+                    })),
+            )
+            .mount(&witness_server)
+            .await;
+        let witness_endpoint = format!("{}/sync/e2ee/witness/user-a", witness_server.uri());
+
+        let configure_runtime = std::sync::Arc::clone(&runtime);
+        let configure = tokio::spawn(async move {
+            configure_runtime
+                .configure_cloudsync_token(
+                    "managed-database-id".to_string(),
+                    "stale-token".to_string(),
+                    "user-a".to_string(),
+                    crate::CloudsyncE2eeWitness {
+                        endpoint: witness_endpoint,
+                        access_token: "access-token".to_string(),
+                    },
+                )
+                .await
+        });
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            loop {
+                if !witness_server
+                    .received_requests()
+                    .await
+                    .expect("failed to inspect witness requests")
+                    .is_empty()
+                {
+                    return;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("token configuration did not reach the witness");
+        (dir, runtime, witness_server, configure)
+    }
+
+    #[tokio::test]
+    async fn suspend_cancels_a_stalled_witness_configuration() {
+        let (_dir, runtime, _witness_server, configure) =
+            spawn_stalled_witness_configuration().await;
+        tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            runtime.suspend_cloudsync(),
+        )
+        .await
+        .expect("suspension waited for the stalled witness request")
+        .unwrap();
+        let error = configure.await.unwrap().unwrap_err();
+        assert!(matches!(
+            error,
+            crate::Error::CloudsyncConfigurationCancelled
+        ));
+    }
+
+    #[tokio::test]
+    async fn activity_begin_cancels_and_drains_a_stalled_witness_configuration() {
+        let (_dir, runtime, _witness_server, configure) =
+            spawn_stalled_witness_configuration().await;
+
+        tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            runtime.begin_cloudsync_activity_with_timeout(
+                "capture".to_string(),
+                "session-1".to_string(),
+                std::time::Duration::from_millis(500),
+            ),
+        )
+        .await
+        .expect("activity begin waited for the stalled witness request")
+        .unwrap();
+        let error = configure.await.unwrap().unwrap_err();
+        assert!(matches!(error, crate::Error::CloudsyncActivityDeferred));
+        assert!(runtime.e2ee_sync_hook.activity_paused());
+    }
+
+    #[tokio::test]
+    async fn stale_configuration_waiting_after_a_newer_attempt_does_not_clear_its_key() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(db);
+        let stale_generation = runtime.begin_cloudsync_auth_configuration();
+        let _newer_generation = runtime.begin_cloudsync_auth_configuration();
+        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+            "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+        )
+        .unwrap();
+        runtime
+            .set_e2ee_recovery_key("new-user", &recovery_key)
+            .unwrap();
+
+        let error = runtime
+            .configure_cloudsync_token_with_projection_at_generation(
+                "managed-database-id".to_string(),
+                "stale-token".to_string(),
+                "old-user".to_string(),
+                None,
+                crate::CloudsyncE2eeWitness {
+                    endpoint: "https://example.com/witness".to_string(),
+                    access_token: "access-token".to_string(),
+                },
+                Some(("old-user".to_string(), recovery_key)),
+                stale_generation,
+            )
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            error,
+            crate::Error::CloudsyncConfigurationCancelled
+        ));
+        assert!(runtime.workspace_key("new-user").is_some());
+        assert!(runtime.workspace_key("old-user").is_none());
+    }
+
     #[tokio::test]
     async fn suspend_joins_full_resync_before_returning() {
         let runtime = PluginDbRuntime::new(std::sync::Arc::new(
@@ -2173,6 +3299,44 @@ mod tests {
                 .unwrap()
                 .is_active("test-generation")
         );
+    }
+
+    #[tokio::test]
+    async fn suspend_cancels_recovery_before_waiting_for_its_control_guard() {
+        let runtime = PluginDbRuntime::new(std::sync::Arc::new(
+            Db::connect_memory_plain().await.unwrap(),
+        ));
+        let control_operation = std::sync::Arc::clone(&runtime.cloudsync_control_operation);
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+        let (control_acquired_tx, control_acquired_rx) = tokio::sync::oneshot::channel();
+        let join_handle = tokio::spawn(async move {
+            let _control_operation = control_operation.lock().await;
+            let _ = control_acquired_tx.send(());
+            let _ = shutdown_rx.await;
+        });
+        runtime
+            .scheduled_cloudsync_full_resync
+            .lock()
+            .unwrap()
+            .claim("test-generation");
+        *runtime.cloudsync_full_resync_task.lock().await = Some(CloudsyncFullResyncTask {
+            config: test_full_resync_config("test-token"),
+            generation: "test-generation".to_string(),
+            shutdown_tx: Some(shutdown_tx),
+            join_handle,
+        });
+        tokio::time::timeout(std::time::Duration::from_secs(1), control_acquired_rx)
+            .await
+            .expect("recovery task did not acquire CloudSync control")
+            .unwrap();
+
+        tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            runtime.suspend_cloudsync(),
+        )
+        .await
+        .expect("suspension waited for recovery instead of cancelling it")
+        .unwrap();
     }
 
     #[tokio::test]

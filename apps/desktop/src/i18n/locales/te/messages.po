@@ -471,6 +471,10 @@ msgid "Cloud sync is limited to 5 devices. Remove another device to sync here."
 msgstr ""
 
 #: src/main/sync-status.tsx
+msgid "Cloud sync resumes after this meeting finishes processing"
+msgstr ""
+
+#: src/main/sync-status.tsx
 msgid "Cloud sync setup required"
 msgstr ""
 
@@ -1701,6 +1705,10 @@ msgstr ""
 
 #: src/settings/general/e2ee-setup.tsx
 msgid "Save this key in a password manager. You need it to add a new device, and it will not be shown again."
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Saved locally"
 msgstr ""
 
 #: src/contacts/shared.tsx

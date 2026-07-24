@@ -916,6 +916,54 @@ describe("AuthProvider", () => {
     await teardown.promise;
   });
 
+  it("does not queue sign-out behind delayed CloudSync activation", async () => {
+    const currentSession = makeSession("bound-account");
+    const activation = deferred<"ok">();
+    mocks.handleCloudsyncAuthChange.mockReturnValueOnce(activation.promise);
+    mocks.signOut.mockImplementationOnce(async () => {
+      mocks.authCallback?.("SIGNED_OUT", null);
+      return { error: null };
+    });
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        currentSession.user.id,
+      );
+      expect(mocks.handleCloudsyncAuthChange).toHaveBeenCalledWith(
+        "SIGNED_IN",
+        currentSession,
+        expect.any(Function),
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe("none");
+      expect(mocks.handleCloudsyncAuthChange).toHaveBeenCalledWith(
+        "SIGNED_OUT",
+        null,
+      );
+    });
+
+    await act(async () => {
+      activation.resolve("ok");
+      await activation.promise;
+    });
+
+    expect(screen.getByTestId("session").textContent).toBe("none");
+  });
+
   it("fails remote sign-out closed when the React session is empty", async () => {
     mocks.prepareCloudsyncSignOut.mockRejectedValueOnce(
       new Error("cloudsync suspension failed"),

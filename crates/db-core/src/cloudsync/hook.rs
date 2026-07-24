@@ -24,6 +24,10 @@ pub type CloudsyncHookFuture<'a> =
     Pin<Box<dyn Future<Output = Result<CloudsyncHookOutcome, hypr_cloudsync::Error>> + Send + 'a>>;
 
 pub trait CloudsyncSyncHook: Send + Sync + 'static {
+    fn activity_paused(&self) -> bool {
+        false
+    }
+
     fn before_sync<'a>(&'a self, pool: &'a SqlitePool) -> CloudsyncBeforeHookFuture<'a>;
     fn after_sync<'a>(
         &'a self,

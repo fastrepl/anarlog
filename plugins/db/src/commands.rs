@@ -274,10 +274,11 @@ pub(crate) async fn configure_cloudsync_token<R: tauri::Runtime>(
     workspace_projection: Option<crate::CloudsyncWorkspaceProjection>,
     e2ee_witness: crate::CloudsyncE2eeWitness,
 ) -> Result<crate::CloudsyncTokenConfigurationResult, String> {
+    let auth_generation = state.begin_cloudsync_auth_configuration();
     let personal_workspace_id = workspace_projection
         .as_ref()
-        .map(|projection| projection.personal_workspace_id.as_str())
-        .unwrap_or(workspace_id.as_str());
+        .map(|projection| projection.personal_workspace_id.clone())
+        .unwrap_or_else(|| workspace_id.clone());
     let recovery_key = load_e2ee_recovery_key(app, &workspace_id)
         .await?
         .ok_or_else(|| {
@@ -285,15 +286,14 @@ pub(crate) async fn configure_cloudsync_token<R: tauri::Runtime>(
                 .to_string()
         })?;
     state
-        .set_e2ee_recovery_key(personal_workspace_id, &recovery_key)
-        .map_err(|error| error.to_string())?;
-    state
-        .configure_cloudsync_token_with_projection(
+        .configure_cloudsync_token_with_projection_at_generation(
             database_id,
             token,
             workspace_id,
             workspace_projection.map(Into::into),
             e2ee_witness,
+            Some((personal_workspace_id, recovery_key)),
+            auth_generation,
         )
         .await
         .map_err(|error| error.to_string())
@@ -356,6 +356,32 @@ pub(crate) async fn sync_cloudsync_now(
 ) -> Result<serde_json::Value, String> {
     state
         .sync_cloudsync_now()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn begin_cloudsync_activity(
+    state: tauri::State<'_, ManagedState>,
+    activity: String,
+    key: String,
+) -> Result<(), String> {
+    state
+        .begin_cloudsync_activity(activity, key)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn end_cloudsync_activity(
+    state: tauri::State<'_, ManagedState>,
+    activity: String,
+    key: String,
+) -> Result<(), String> {
+    state
+        .end_cloudsync_activity(activity, key)
         .await
         .map_err(|error| error.to_string())
 }

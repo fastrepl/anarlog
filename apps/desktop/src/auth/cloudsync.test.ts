@@ -20,6 +20,7 @@ import {
   getCloudsyncCredentialBlock,
   handleCloudsyncAuthChange,
   prepareCloudsyncSignOut,
+  refreshCloudsyncForSession,
 } from "./cloudsync";
 import {
   startCloudsyncInitialSyncProgress,
@@ -88,13 +89,14 @@ function credentialsResponse(
   workspaceId = "user-id",
   encryptionVersion = 2,
   encryptionKeyId = E2EE_KEY_ID,
+  token = "sqlite-token",
 ) {
   return new Response(
     JSON.stringify({
       encryptionVersion,
       encryptionKeyId,
       databaseId: "database-id",
-      token: "sqlite-token",
+      token,
       expiresAt: new Date(NOW.getTime() + 15 * 60 * 1000).toISOString(),
       workspaceId,
     }),
@@ -103,6 +105,24 @@ function credentialsResponse(
       headers: { "Content-Type": "application/json" },
     },
   );
+}
+
+function cloudsyncStatus(activityPaused = false) {
+  return {
+    cloudsync_enabled: true,
+    extension_loaded: true,
+    configured: false,
+    running: false,
+    network_initialized: false,
+    activity_paused: activityPaused,
+    last_sync: null,
+    last_sync_at_ms: null,
+    has_unsent_changes: null,
+    last_error: null,
+    last_error_kind: null,
+    consecutive_failures: 0,
+    deferred_for_capture: activityPaused,
+  };
 }
 
 function projectedCredentialsPayload() {
@@ -176,19 +196,7 @@ describe("CloudSync auth lifecycle", () => {
       status: "ok",
       data: null,
     });
-    vi.mocked(getCloudsyncStatus).mockResolvedValue({
-      cloudsync_enabled: true,
-      extension_loaded: true,
-      configured: false,
-      running: false,
-      network_initialized: false,
-      last_sync: null,
-      last_sync_at_ms: null,
-      has_unsent_changes: null,
-      last_error: null,
-      last_error_kind: null,
-      consecutive_failures: 0,
-    });
+    vi.mocked(getCloudsyncStatus).mockResolvedValue(cloudsyncStatus());
     vi.mocked(suspendCloudsync).mockResolvedValue(undefined);
     vi.mocked(getStoredSettingValues).mockResolvedValue({
       values: {},
@@ -243,6 +251,105 @@ describe("CloudSync auth lifecycle", () => {
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
     expect(getCloudsyncCredentialBlock()).toBe("setup_required");
+  });
+
+  test("polls only native status while CloudSync activity is paused", async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(credentialsResponse()));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.mocked(getCloudsyncStatus)
+      .mockResolvedValueOnce(cloudsyncStatus(true))
+      .mockResolvedValueOnce(cloudsyncStatus(true))
+      .mockResolvedValueOnce(cloudsyncStatus());
+
+    await handleCloudsyncAuthChange("SIGNED_IN", session());
+
+    expect(getCloudsyncStatus).toHaveBeenCalledTimes(1);
+    expect(getE2eeIdentityStatus).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
+    expect(suspendCloudsync).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(5 * 1000);
+
+    expect(getCloudsyncStatus).toHaveBeenCalledTimes(2);
+    expect(getE2eeIdentityStatus).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(5 * 1000);
+
+    expect(getCloudsyncStatus).toHaveBeenCalledTimes(4);
+    expect(getE2eeIdentityStatus).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(configureCloudsyncToken).toHaveBeenCalledTimes(1);
+    expect(suspendCloudsync).toHaveBeenCalledTimes(1);
+  });
+
+  test("sign-out cancels a pending activity status retry", async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(credentialsResponse()));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.mocked(getCloudsyncStatus).mockResolvedValue(cloudsyncStatus(true));
+
+    await handleCloudsyncAuthChange("SIGNED_IN", session());
+    await handleCloudsyncAuthChange("SIGNED_OUT", null);
+    await vi.advanceTimersByTimeAsync(60 * 1000);
+
+    expect(getCloudsyncStatus).toHaveBeenCalledTimes(1);
+    expect(getE2eeIdentityStatus).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
+    expect(suspendCloudsync).toHaveBeenCalledTimes(1);
+  });
+
+  test("retries native activity deferral with fresh credentials", async () => {
+    const fetchMock = vi
+      .fn<() => Promise<Response>>()
+      .mockResolvedValueOnce(
+        credentialsResponse("user-id", 2, E2EE_KEY_ID, "stale-token"),
+      )
+      .mockResolvedValueOnce(
+        credentialsResponse("user-id", 2, E2EE_KEY_ID, "fresh-token"),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.mocked(getCloudsyncStatus)
+      .mockResolvedValueOnce(cloudsyncStatus())
+      .mockResolvedValueOnce(cloudsyncStatus(true))
+      .mockResolvedValueOnce(cloudsyncStatus());
+    vi.mocked(configureCloudsyncToken)
+      .mockRejectedValueOnce("cloudsync_activity_deferred")
+      .mockResolvedValueOnce("configured");
+
+    await refreshCloudsyncForSession(session());
+
+    expect(configureCloudsyncToken).toHaveBeenCalledTimes(1);
+    expect(configureCloudsyncToken).toHaveBeenLastCalledWith(
+      "database-id",
+      "stale-token",
+      "user-id",
+      witness(),
+    );
+    expect(suspendCloudsync).not.toHaveBeenCalled();
+    expect(getCloudsyncCredentialBlock()).toBeNull();
+
+    await vi.advanceTimersByTimeAsync(5 * 1000);
+
+    expect(getCloudsyncStatus).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(getE2eeIdentityStatus).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(5 * 1000);
+
+    expect(getCloudsyncStatus).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(getE2eeIdentityStatus).toHaveBeenCalledTimes(2);
+    expect(configureCloudsyncToken).toHaveBeenCalledTimes(2);
+    expect(configureCloudsyncToken).toHaveBeenLastCalledWith(
+      "database-id",
+      "fresh-token",
+      "user-id",
+      witness(),
+    );
+    expect(suspendCloudsync).not.toHaveBeenCalled();
+    expect(startCloudsyncInitialSyncProgress).toHaveBeenCalledTimes(1);
   });
 
   test("exchanges the Supabase token and refreshes before expiry", async () => {
@@ -566,12 +673,14 @@ describe("CloudSync auth lifecycle", () => {
       configured: false,
       running: false,
       network_initialized: false,
+      activity_paused: false,
       last_sync: null,
       last_sync_at_ms: null,
       has_unsent_changes: null,
       last_error: null,
       last_error_kind: null,
       consecutive_failures: 0,
+      deferred_for_capture: false,
     });
     vi.spyOn(console, "warn").mockImplementation(() => {});
 

@@ -24,6 +24,8 @@ const COMMANDS: &[&str] = &[
     "suspend_cloudsync",
     "get_cloudsync_status",
     "sync_cloudsync_now",
+    "begin_cloudsync_activity",
+    "end_cloudsync_activity",
 ];
 
 fn main() {

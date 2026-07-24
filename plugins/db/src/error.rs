@@ -26,6 +26,10 @@ pub enum Error {
     Json(#[from] serde_json::Error),
     #[error("end-to-end encryption recovery key setup is required before CloudSync can start")]
     E2eeIdentityRequired,
+    #[error("cloudsync_activity_deferred")]
+    CloudsyncActivityDeferred,
+    #[error("cloudsync_configuration_cancelled")]
+    CloudsyncConfigurationCancelled,
     #[error("transaction statement {statement_index} affected {actual} rows; expected {expected}")]
     UnexpectedRowsAffected {
         statement_index: usize,
