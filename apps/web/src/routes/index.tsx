@@ -1344,7 +1344,7 @@ function AnnouncementBanner() {
   return (
     <div className="flex justify-center px-5 pt-10 md:pt-12">
       <div className="flex items-center gap-1.5 text-[#181613] opacity-75">
-        <span className="font-hand text-xl leading-none font-semibold">
+        <span className="font-hand text-3xl leading-none font-semibold">
           anarlog
         </span>
         <span className="text-sm">by</span>
