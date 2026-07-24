@@ -17,6 +17,7 @@ import {
   getLiveTranscriptionConfig,
   getOnDeviceTranscriptionConfig,
   getOnDeviceTranscriptionMode,
+  getSttModelTranscriptionMode,
   getTranscriptionLanguages,
   isConfiguredSttModel,
   isSupportedLanguagesBatch,
@@ -57,6 +58,29 @@ describe("getOnDeviceTranscriptionMode", () => {
     expect(
       getOnDeviceTranscriptionMode("soniqo-parakeet-streaming", ["de"]),
     ).toBe("live");
+  });
+});
+
+describe("getSttModelTranscriptionMode", () => {
+  test("distinguishes external batch and realtime model variants", () => {
+    expect(getSttModelTranscriptionMode("elevenlabs", "scribe_v2")).toBe(
+      "batch",
+    );
+    expect(
+      getSttModelTranscriptionMode("elevenlabs", "scribe_v2_realtime"),
+    ).toBe("live");
+    expect(getSttModelTranscriptionMode("assemblyai", "universal-3-pro")).toBe(
+      "batch",
+    );
+    expect(getSttModelTranscriptionMode("mistral", "voxtral-mini-2602")).toBe(
+      "batch",
+    );
+  });
+
+  test("leaves models without an explicit mode to provider inference", () => {
+    expect(getSttModelTranscriptionMode("deepgram", "nova-3-general")).toBe(
+      undefined,
+    );
   });
 });
 
@@ -116,6 +140,33 @@ describe("getOnDeviceTranscriptionConfig", () => {
 });
 
 describe("getLiveTranscriptionConfig", () => {
+  test("forces ElevenLabs Scribe V2 into after-recording batch mode", async () => {
+    await expect(
+      getLiveTranscriptionConfig({
+        provider: "elevenlabs",
+        model: "scribe_v2",
+        languages: ["en"],
+      }),
+    ).resolves.toEqual({
+      languages: ["en"],
+      transcriptionMode: "batch",
+    });
+    expect(isSupportedLanguagesLiveMock).not.toHaveBeenCalled();
+  });
+
+  test("keeps ElevenLabs Scribe V2 Realtime in live mode", async () => {
+    await expect(
+      getLiveTranscriptionConfig({
+        provider: "elevenlabs",
+        model: "scribe_v2_realtime",
+        languages: ["en"],
+      }),
+    ).resolves.toEqual({
+      languages: ["en"],
+      transcriptionMode: "live",
+    });
+  });
+
   test("keeps all languages when the selected provider supports them live", async () => {
     const config = await getLiveTranscriptionConfig({
       provider: "deepgram",

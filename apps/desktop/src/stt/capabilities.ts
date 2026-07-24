@@ -82,6 +82,42 @@ export function isRealtimeLocalModel(model?: string | null) {
   return model === "soniqo-parakeet-streaming";
 }
 
+export function getSttModelTranscriptionMode(
+  provider?: string | null,
+  model?: string | null,
+): TranscriptionMode | undefined {
+  if (provider === "assemblyai") {
+    if (model === "universal-3-pro") return "batch";
+    if (model === "u3-rt-pro") return "live";
+  }
+
+  if (provider === "elevenlabs") {
+    if (model === "scribe_v2") return "batch";
+    if (model === "scribe_v2_realtime") return "live";
+  }
+
+  if (provider === "mistral") {
+    if (model === "voxtral-mini-2602" || model === "voxtral-mini-latest") {
+      return "batch";
+    }
+    if (model === "voxtral-mini-transcribe-realtime-2602") return "live";
+  }
+
+  if (provider === "soniox") {
+    if (model === "stt-async-v5" || model === "stt-async-v4") return "batch";
+    if (
+      model === "stt-rt-v5" ||
+      model === "stt-rt-v4" ||
+      model === "stt-v5" ||
+      model === "stt-v4"
+    ) {
+      return "live";
+    }
+  }
+
+  return undefined;
+}
+
 function baseLanguageCode(language: string) {
   return language.split(/[-_]/)[0]?.toLowerCase() ?? "";
 }
@@ -197,10 +233,14 @@ export async function getLiveTranscriptionConfig({
 
   const config = {
     languages: [...languages],
-    transcriptionMode: undefined as TranscriptionMode | undefined,
+    transcriptionMode: getSttModelTranscriptionMode(provider, model),
   } satisfies LiveTranscriptionConfig;
 
-  if (!provider || languages.length <= 1) {
+  if (
+    !provider ||
+    config.transcriptionMode === "batch" ||
+    languages.length <= 1
+  ) {
     return config;
   }
 

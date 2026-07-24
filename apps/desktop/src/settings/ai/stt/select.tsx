@@ -75,6 +75,7 @@ import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { SettingsAlertToast } from "~/shared/ui/settings-alert";
 import {
   isConfiguredSttModel,
+  getSttModelTranscriptionMode,
   isHyprnoteLocalSttModel,
   isLiveTranscriptionSupported,
   isRealtimeLocalModel,
@@ -532,58 +533,6 @@ function getModelCategoryLabel(category?: ModelCategory) {
   return null;
 }
 
-function getProviderModelMode(
-  providerId: ProviderId,
-  model: string,
-): ModelEntry["mode"] {
-  if (providerId === "assemblyai") {
-    if (model === "universal-3-pro") {
-      return "batch";
-    }
-
-    if (model === "u3-rt-pro") {
-      return "realtime";
-    }
-  }
-
-  if (providerId === "elevenlabs") {
-    if (model === "scribe_v2") {
-      return "batch";
-    }
-
-    if (model === "scribe_v2_realtime") {
-      return "realtime";
-    }
-  }
-
-  if (providerId === "mistral") {
-    if (model === "voxtral-mini-2602" || model === "voxtral-mini-latest") {
-      return "batch";
-    }
-
-    if (model === "voxtral-mini-transcribe-realtime-2602") {
-      return "realtime";
-    }
-  }
-
-  if (providerId === "soniox") {
-    if (model === "stt-async-v5" || model === "stt-async-v4") {
-      return "batch";
-    }
-
-    if (
-      model === "stt-rt-v5" ||
-      model === "stt-rt-v4" ||
-      model === "stt-v5" ||
-      model === "stt-v4"
-    ) {
-      return "realtime";
-    }
-  }
-
-  return undefined;
-}
-
 function useConfiguredMapping(): {
   providers: Record<
     ProviderId,
@@ -672,11 +621,14 @@ function useConfiguredMapping(): {
         provider.id,
         {
           configured: true,
-          models: provider.models.map((model) => ({
-            id: model,
-            isDownloaded: true,
-            mode: getProviderModelMode(provider.id, model),
-          })),
+          models: provider.models.map((model) => {
+            const mode = getSttModelTranscriptionMode(provider.id, model);
+            return {
+              id: model,
+              isDownloaded: true,
+              mode: mode === "live" ? "realtime" : mode,
+            };
+          }),
         },
       ];
     }),
