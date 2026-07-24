@@ -291,6 +291,16 @@ pub async fn has_pending_e2ee_replica_changes_deferring_active_captures(
     has_pending_e2ee_replica_changes_inner(pool, keys, true).await
 }
 
+pub async fn has_pending_e2ee_dirty_rows_deferring_active_captures(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKey>,
+) -> E2eeReplicaResult<bool> {
+    if keys.is_empty() {
+        return Ok(false);
+    }
+    Ok(!load_dirty_rows_inner(pool, keys, 1, true).await?.is_empty())
+}
+
 async fn has_pending_e2ee_replica_changes_inner(
     pool: &SqlitePool,
     keys: &HashMap<String, WorkspaceKey>,
@@ -351,7 +361,7 @@ async fn apply_received_e2ee_replica_changes_with_witness_bounded(
     max_repair_records: i64,
     max_repair_bytes: usize,
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
-    if snapshot_complete {
+    let repair_remaining = if snapshot_complete {
         repair_e2ee_replica_from_witness_bounded(
             pool,
             keys,
@@ -359,16 +369,21 @@ async fn apply_received_e2ee_replica_changes_with_witness_bounded(
             max_repair_records,
             max_repair_bytes,
         )
-        .await?;
-    }
-    apply_e2ee_replica_changes_inner(
+        .await?
+        .remaining
+    } else {
+        false
+    };
+    let mut stats = apply_e2ee_replica_changes_inner(
         pool,
         keys,
         true,
         E2EE_APPLY_ROW_LIMIT,
         E2EE_APPLY_BYTE_LIMIT,
     )
-    .await
+    .await?;
+    stats.remaining_replica_changes |= repair_remaining;
+    Ok(stats)
 }
 
 async fn apply_e2ee_replica_changes_inner(
@@ -973,11 +988,9 @@ pub async fn repair_e2ee_replica_from_witness_bounded(
         load_bounded_e2ee_witness_repairs(pool, keys, include_missing, max_records, max_bytes)
             .await?;
     let repaired_records = persist_e2ee_witness_repairs(pool, keys, &records).await?;
-    let remaining =
-        selected_more || has_pending_e2ee_witness_repairs(pool, keys, include_missing).await?;
     Ok(E2eeWitnessRepairOutcome {
         repaired_records,
-        remaining,
+        remaining: selected_more,
     })
 }
 
@@ -4495,7 +4508,7 @@ mod tests {
             .fetch_one(target.pool())
             .await
             .unwrap();
-            apply_received_e2ee_replica_changes_with_witness_bounded(
+            let stats = apply_received_e2ee_replica_changes_with_witness_bounded(
                 target.pool(),
                 &workspace_keys,
                 true,
@@ -4525,10 +4538,11 @@ mod tests {
             assert!(usize::try_from(repaired_bytes).unwrap() <= max_repair_bytes);
             cycles += 1;
 
-            if !has_pending_e2ee_replica_changes(target.pool(), &workspace_keys)
+            let pending = has_pending_e2ee_replica_changes(target.pool(), &workspace_keys)
                 .await
-                .unwrap()
-            {
+                .unwrap();
+            assert_eq!(stats.remaining_replica_changes, pending);
+            if !pending {
                 break;
             }
             assert!(cycles < 130);

@@ -35,6 +35,8 @@ struct E2eeSyncHook {
     witness: std::sync::RwLock<Option<crate::e2ee_witness::E2eeWitnessClient>>,
     activities: std::sync::RwLock<HashSet<CloudsyncActivity>>,
     activity_changed: tokio::sync::Notify,
+    reconciliation_requested_epoch: std::sync::atomic::AtomicU64,
+    reconciliation_completed_epoch: std::sync::atomic::AtomicU64,
 }
 
 impl E2eeSyncHook {
@@ -45,6 +47,7 @@ impl E2eeSyncHook {
     ) -> std::result::Result<(), hypr_e2ee::Error> {
         let key = recovery_key.workspace_key(workspace_id)?;
         *self.keys.write().unwrap() = HashMap::from([(workspace_id.to_string(), key)]);
+        self.request_reconciliation();
         Ok(())
     }
 
@@ -59,6 +62,11 @@ impl E2eeSyncHook {
     fn clear(&self) {
         self.keys.write().unwrap().clear();
         *self.witness.write().unwrap() = None;
+        let requested = self
+            .reconciliation_requested_epoch
+            .load(std::sync::atomic::Ordering::Acquire);
+        self.reconciliation_completed_epoch
+            .fetch_max(requested, std::sync::atomic::Ordering::AcqRel);
     }
 
     fn snapshot(&self) -> HashMap<String, hypr_e2ee::WorkspaceKey> {
@@ -67,6 +75,7 @@ impl E2eeSyncHook {
 
     fn set_witness(&self, witness: crate::e2ee_witness::E2eeWitnessClient) {
         *self.witness.write().unwrap() = Some(witness);
+        self.request_reconciliation();
     }
 
     fn witness(&self) -> Option<crate::e2ee_witness::E2eeWitnessClient> {
@@ -141,6 +150,32 @@ impl E2eeSyncHook {
         self.activity_changed.notify_waiters();
     }
 
+    fn request_reconciliation(&self) -> u64 {
+        self.reconciliation_requested_epoch
+            .fetch_add(1, std::sync::atomic::Ordering::AcqRel)
+            .checked_add(1)
+            .expect("E2EE reconciliation epoch overflowed")
+    }
+
+    fn reconciliation_request_epoch(&self) -> Option<u64> {
+        let requested = self
+            .reconciliation_requested_epoch
+            .load(std::sync::atomic::Ordering::Acquire);
+        let completed = self
+            .reconciliation_completed_epoch
+            .load(std::sync::atomic::Ordering::Acquire);
+        (requested > completed).then_some(requested)
+    }
+
+    fn complete_reconciliation(&self, epoch: u64) {
+        self.reconciliation_completed_epoch
+            .fetch_max(epoch, std::sync::atomic::Ordering::AcqRel);
+    }
+
+    fn reconciliation_requested(&self) -> bool {
+        self.reconciliation_request_epoch().is_some()
+    }
+
     async fn prepare_local_snapshot(
         &self,
         pool: &sqlx::SqlitePool,
@@ -182,7 +217,11 @@ impl hypr_db_core::CloudsyncSyncHook for E2eeSyncHook {
                 );
                 return Ok(hypr_db_core::CloudsyncSyncDirective::ReceiveOnly);
             }
-            witness.refresh(pool, key).await?;
+            witness
+                .refresh_notifying(pool, key, || {
+                    self.request_reconciliation();
+                })
+                .await?;
             let stats =
                 hypr_db_app::encrypt_e2ee_replica_changes_bounded_deferring_active_captures(
                     pool,
@@ -197,7 +236,11 @@ impl hypr_db_core::CloudsyncSyncHook for E2eeSyncHook {
                 encrypted_fields = stats.encrypted_fields,
                 "prepared encrypted CloudSync replica"
             );
-            witness.publish_and_refresh(pool, key).await?;
+            witness
+                .publish_and_refresh_notifying(pool, key, || {
+                    self.request_reconciliation();
+                })
+                .await?;
             Ok(hypr_db_core::CloudsyncSyncDirective::SendAndReceive)
         })
     }
@@ -207,6 +250,9 @@ impl hypr_db_core::CloudsyncSyncHook for E2eeSyncHook {
         pool: &'a sqlx::SqlitePool,
         result: &'a hypr_db_core::CloudsyncNetworkResult,
     ) -> hypr_db_core::CloudsyncHookFuture<'a> {
+        if cloudsync_receive_requires_reconciliation(result) {
+            self.request_reconciliation();
+        }
         let keys = self.snapshot();
         let witness = self.witness();
         Box::pin(async move {
@@ -215,7 +261,11 @@ impl hypr_db_core::CloudsyncSyncHook for E2eeSyncHook {
             let key = keys.get(witness.workspace_id()).ok_or_else(|| {
                 std::io::Error::other("E2EE freshness witness identity is not configured")
             })?;
-            witness.refresh(pool, key).await?;
+            witness
+                .refresh_notifying(pool, key, || {
+                    self.request_reconciliation();
+                })
+                .await?;
             let recovery_pending = hypr_db_app::cloudsync_full_resync_generation(pool)
                 .await
                 .map_err(|error| {
@@ -225,15 +275,26 @@ impl hypr_db_core::CloudsyncSyncHook for E2eeSyncHook {
                 })?
                 .is_some();
             let snapshot_complete = !recovery_pending && cloudsync_receive_completed(result);
-            let stats = hypr_db_app::apply_received_e2ee_replica_changes_with_witness(
-                pool,
-                &keys,
-                snapshot_complete,
-            )
-            .await
-            .map_err(|error| {
-                std::io::Error::other(format!("E2EE post-sync decryption failed: {error}"))
-            })?;
+            let reconciliation_epoch = self.reconciliation_request_epoch();
+            let stats = if let Some(reconciliation_epoch) = reconciliation_epoch {
+                hypr_db_app::apply_received_e2ee_replica_changes_with_witness(
+                    pool,
+                    &keys,
+                    snapshot_complete,
+                )
+                .await
+                .map_err(|error| {
+                    std::io::Error::other(format!("E2EE post-sync decryption failed: {error}"))
+                })
+                .inspect(|stats| {
+                    if stats.remaining_replica_changes || !snapshot_complete {
+                        self.request_reconciliation();
+                    }
+                    self.complete_reconciliation(reconciliation_epoch);
+                })?
+            } else {
+                hypr_db_app::E2eeReplicaStats::default()
+            };
             tracing::debug!(
                 applied_fields = stats.applied_fields,
                 skipped_local_changes = stats.skipped_local_changes,
@@ -243,15 +304,14 @@ impl hypr_db_core::CloudsyncSyncHook for E2eeSyncHook {
                 "applied encrypted CloudSync replica"
             );
             let local_work_remaining = stats.remaining_replica_changes
-                || hypr_db_app::has_pending_e2ee_replica_changes_deferring_active_captures(
-                    pool, &keys,
-                )
-                .await
-                .map_err(|error| {
-                    std::io::Error::other(format!(
-                        "failed to inspect pending E2EE replica changes: {error}"
-                    ))
-                })?;
+                || self.reconciliation_requested()
+                || hypr_db_app::has_pending_e2ee_dirty_rows_deferring_active_captures(pool, &keys)
+                    .await
+                    .map_err(|error| {
+                        std::io::Error::other(format!(
+                            "failed to inspect pending E2EE replica changes: {error}"
+                        ))
+                    })?;
             Ok(hypr_db_core::CloudsyncHookOutcome {
                 local_work_remaining,
             })
@@ -707,6 +767,8 @@ impl PluginDbRuntime {
             self.ensure_cloudsync_auth_generation(auth_generation)?;
             attempt_started = true;
             self.cancel_cloudsync_full_resync().await;
+            self.ensure_cloudsync_auth_generation(auth_generation)?;
+            self.db.cloudsync_stop().await?;
             self.ensure_cloudsync_auth_generation(auth_generation)?;
             if let Some((workspace_id, recovery_key)) = recovery_key {
                 self.set_e2ee_recovery_key(&workspace_id, &recovery_key)?;
@@ -1522,6 +1584,7 @@ impl PluginDbRuntime {
     pub async fn start_cloudsync(&self) -> Result<()> {
         let _control_operation = self.cloudsync_control_guard().await?;
         self.ensure_legacy_migration_verified().await?;
+        self.e2ee_sync_hook.request_reconciliation();
         self.db.cloudsync_start().await?;
         Ok(())
     }
@@ -1587,7 +1650,7 @@ impl PluginDbRuntime {
         let (local_e2ee_work_pending, recovery) =
             tokio::time::timeout(CLOUDSYNC_STATUS_ENRICHMENT_TIMEOUT, async {
                 let local_e2ee_work_pending =
-                    hypr_db_app::has_pending_e2ee_replica_changes_deferring_active_captures(
+                    hypr_db_app::has_pending_e2ee_dirty_rows_deferring_active_captures(
                         self.db.pool(),
                         &keys,
                     )
@@ -1889,6 +1952,22 @@ fn cloudsync_receive_delivered(result: &hypr_db_core::CloudsyncNetworkResult) ->
     })
 }
 
+fn cloudsync_receive_incomplete(result: &hypr_db_core::CloudsyncNetworkResult) -> bool {
+    result.receive.as_ref().is_some_and(|receive| {
+        !receive.complete && receive.error.is_none() && receive.last_failure.is_none()
+    })
+}
+
+fn cloudsync_receive_requires_reconciliation(
+    result: &hypr_db_core::CloudsyncNetworkResult,
+) -> bool {
+    result
+        .receive
+        .as_ref()
+        .is_some_and(|receive| receive.chunks > 0)
+        || cloudsync_receive_incomplete(result)
+}
+
 fn cloudsync_receive_delivered_final(result: &hypr_db_core::CloudsyncNetworkResult) -> bool {
     cloudsync_receive_delivered(result)
         && result
@@ -2059,6 +2138,47 @@ mod tests {
                 "events": [],
             }))
         }
+    }
+
+    async fn configured_test_hook() -> (E2eeSyncHook, MockServer) {
+        let hook = E2eeSyncHook::default();
+        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+            "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+        )
+        .unwrap();
+        hook.set_personal_workspace("workspace-1", &recovery_key)
+            .unwrap();
+        let witness_state = InitiallyUninitializedWitness::default();
+        witness_state.initialized.store(true, Ordering::SeqCst);
+        let witness_server = MockServer::start().await;
+        Mock::given(path("/sync/e2ee/witness/workspace-1"))
+            .respond_with(witness_state)
+            .mount(&witness_server)
+            .await;
+        hook.set_witness(
+            crate::e2ee_witness::E2eeWitnessClient::new(
+                crate::CloudsyncE2eeWitness {
+                    endpoint: format!("{}/sync/e2ee/witness/workspace-1", witness_server.uri()),
+                    access_token: "access-token".to_string(),
+                },
+                "workspace-1",
+            )
+            .unwrap(),
+        );
+        (hook, witness_server)
+    }
+
+    fn receive_result(chunks: u64, complete: bool) -> hypr_db_core::CloudsyncNetworkResult {
+        serde_json::from_value(serde_json::json!({
+            "receive": {
+                "rows": chunks,
+                "tables": [],
+                "chunks": chunks,
+                "bytes": chunks,
+                "complete": complete
+            }
+        }))
+        .unwrap()
     }
 
     #[tokio::test]
@@ -2350,6 +2470,302 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(protected_dirty, 0);
+    }
+
+    #[tokio::test]
+    async fn idle_sync_skips_replica_reconciliation_until_new_work_arrives() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let (hook, _witness_server) = configured_test_hook().await;
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session-1', 'workspace-1', 'workspace-1', 'Local session')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        hypr_db_core::CloudsyncSyncHook::before_sync(&hook, db.pool())
+            .await
+            .unwrap();
+        let complete_idle = receive_result(0, true);
+        hypr_db_core::CloudsyncSyncHook::after_sync(&hook, db.pool(), &complete_idle)
+            .await
+            .unwrap();
+
+        let (record_id, original_payload): (String, String) = sqlx::query_as(
+            "SELECT replica.id, replica.payload
+             FROM e2ee_records AS replica
+             INNER JOIN e2ee_witness_records AS witness
+               ON witness.workspace_id = replica.workspace_id
+              AND witness.record_id = replica.id
+              AND witness.payload = replica.payload
+             WHERE replica.workspace_id = 'workspace-1'
+             ORDER BY replica.id
+             LIMIT 1",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        sqlx::query("UPDATE e2ee_records SET payload = 'corrupt' WHERE id = ?")
+            .bind(&record_id)
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        let idle_outcome =
+            hypr_db_core::CloudsyncSyncHook::after_sync(&hook, db.pool(), &complete_idle)
+                .await
+                .unwrap();
+        let idle_payload: String =
+            sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+                .bind(&record_id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(idle_payload, "corrupt");
+        assert!(!idle_outcome.local_work_remaining);
+
+        let delivered = receive_result(1, true);
+        hypr_db_core::CloudsyncSyncHook::after_sync(&hook, db.pool(), &delivered)
+            .await
+            .unwrap();
+        let reconciled_payload: String =
+            sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+                .bind(record_id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(reconciled_payload, original_payload);
+    }
+
+    #[tokio::test]
+    async fn nonfinal_receive_keeps_reconciliation_pending_for_final_snapshot() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let (hook, _witness_server) = configured_test_hook().await;
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session-1', 'workspace-1', 'workspace-1', 'Remote session')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        hypr_db_core::CloudsyncSyncHook::before_sync(&hook, db.pool())
+            .await
+            .unwrap();
+        hypr_db_core::CloudsyncSyncHook::after_sync(&hook, db.pool(), &receive_result(0, true))
+            .await
+            .unwrap();
+        let missing_record_id: String = sqlx::query_scalar(
+            "SELECT replica.id
+             FROM e2ee_records AS replica
+             INNER JOIN e2ee_witness_records AS witness
+               ON witness.workspace_id = replica.workspace_id
+              AND witness.record_id = replica.id
+             WHERE replica.workspace_id = 'workspace-1'
+             ORDER BY replica.id
+             LIMIT 1",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        sqlx::query("DELETE FROM e2ee_records WHERE id = ?")
+            .bind(&missing_record_id)
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        let partial_outcome = hypr_db_core::CloudsyncSyncHook::after_sync(
+            &hook,
+            db.pool(),
+            &receive_result(1, false),
+        )
+        .await
+        .unwrap();
+        assert!(partial_outcome.local_work_remaining);
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_records WHERE id = ?")
+                .bind(&missing_record_id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            0
+        );
+
+        let final_outcome =
+            hypr_db_core::CloudsyncSyncHook::after_sync(&hook, db.pool(), &receive_result(0, true))
+                .await
+                .unwrap();
+        assert!(!final_outcome.local_work_remaining);
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_records WHERE id = ?")
+                .bind(&missing_record_id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            1
+        );
+
+        sqlx::query("DELETE FROM e2ee_records WHERE id = ?")
+            .bind(&missing_record_id)
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let failed_after_chunks: hypr_db_core::CloudsyncNetworkResult =
+            serde_json::from_value(serde_json::json!({
+                "receive": {
+                    "rows": 1,
+                    "tables": ["e2ee_records"],
+                    "chunks": 1,
+                    "bytes": 1,
+                    "complete": false,
+                    "error": "later chunk failed"
+                }
+            }))
+            .unwrap();
+        let failed_outcome =
+            hypr_db_core::CloudsyncSyncHook::after_sync(&hook, db.pool(), &failed_after_chunks)
+                .await
+                .unwrap();
+        assert!(failed_outcome.local_work_remaining);
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_records WHERE id = ?")
+                .bind(&missing_record_id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            0
+        );
+
+        let retry_outcome =
+            hypr_db_core::CloudsyncSyncHook::after_sync(&hook, db.pool(), &receive_result(0, true))
+                .await
+                .unwrap();
+        assert!(!retry_outcome.local_work_remaining);
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_records WHERE id = ?")
+                .bind(missing_record_id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            1
+        );
+    }
+
+    #[test]
+    fn reconciliation_epochs_preserve_newer_requests() {
+        let hook = E2eeSyncHook::default();
+        hook.request_reconciliation();
+        let first_epoch = hook.reconciliation_request_epoch().unwrap();
+
+        hook.request_reconciliation();
+        hook.complete_reconciliation(first_epoch);
+
+        assert!(hook.reconciliation_requested());
+        let second_epoch = hook.reconciliation_request_epoch().unwrap();
+        assert!(second_epoch > first_epoch);
+        hook.complete_reconciliation(second_epoch);
+        assert!(!hook.reconciliation_requested());
+
+        hook.request_reconciliation();
+        hook.clear();
+        assert!(!hook.reconciliation_requested());
+        hook.request_reconciliation();
+        assert!(hook.reconciliation_requested());
+    }
+
+    #[tokio::test]
+    async fn witness_refresh_failure_keeps_reconciliation_pending() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let hook = E2eeSyncHook::default();
+        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+            "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+        )
+        .unwrap();
+        hook.set_personal_workspace("workspace-1", &recovery_key)
+            .unwrap();
+        let witness_server = MockServer::start().await;
+        Mock::given(path("/sync/e2ee/witness/workspace-1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "initialized": true,
+                "initializedAt": "2026-07-24T00:00:00Z",
+                "headSequence": 1,
+                "throughSequence": 1,
+                "nextAfterSequence": 1,
+                "events": [{
+                    "sequence": 1,
+                    "recordId": "invalid-record",
+                    "payloadHash": "invalid-hash",
+                    "payload": "invalid-payload"
+                }]
+            })))
+            .mount(&witness_server)
+            .await;
+        hook.set_witness(
+            crate::e2ee_witness::E2eeWitnessClient::new(
+                crate::CloudsyncE2eeWitness {
+                    endpoint: format!("{}/sync/e2ee/witness/workspace-1", witness_server.uri()),
+                    access_token: "access-token".to_string(),
+                },
+                "workspace-1",
+            )
+            .unwrap(),
+        );
+        let setup_epoch = hook.reconciliation_request_epoch().unwrap();
+        hook.complete_reconciliation(setup_epoch);
+
+        assert!(
+            hypr_db_core::CloudsyncSyncHook::before_sync(&hook, db.pool())
+                .await
+                .is_err()
+        );
+        assert!(hook.reconciliation_requested());
+    }
+
+    #[tokio::test]
+    async fn failed_reconciliation_epoch_stays_pending() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let (hook, _witness_server) = configured_test_hook().await;
+        let setup_epoch = hook.reconciliation_request_epoch().unwrap();
+        hook.complete_reconciliation(setup_epoch);
+        sqlx::query(
+            "INSERT INTO e2ee_witness_records (
+               workspace_id,
+               record_id,
+               revision,
+               writer_id,
+               payload_hash,
+               payload,
+               sequence
+             )
+             VALUES (
+               'workspace-1',
+               'invalid-record',
+               1,
+               'invalid-writer',
+               'invalid-hash',
+               'invalid-payload',
+               1
+             )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        assert!(
+            hypr_db_core::CloudsyncSyncHook::after_sync(
+                &hook,
+                db.pool(),
+                &receive_result(1, true),
+            )
+            .await
+            .is_err()
+        );
+        assert!(hook.reconciliation_requested());
     }
 
     #[tokio::test]
@@ -2647,6 +3063,38 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn cloudsync_start_prearms_reconciliation() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        sqlx::query(
+            "UPDATE storage_migration_state
+             SET importer_version = ?, parity_verified = 1
+             WHERE id = 'legacy_v1'",
+        )
+        .bind(hypr_db_app::LEGACY_IMPORTER_VERSION)
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let runtime = PluginDbRuntime::new(db);
+        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+            "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+        )
+        .unwrap();
+        runtime
+            .set_e2ee_recovery_key("workspace-1", &recovery_key)
+            .unwrap();
+        let setup_epoch = runtime
+            .e2ee_sync_hook
+            .reconciliation_request_epoch()
+            .unwrap();
+        runtime.e2ee_sync_hook.complete_reconciliation(setup_epoch);
+
+        let _ = runtime.start_cloudsync().await;
+
+        assert!(runtime.e2ee_sync_hook.reconciliation_requested());
+    }
+
+    #[tokio::test]
     async fn cloudsync_control_rechecks_activity_after_acquiring_serialization() {
         let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
         hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
@@ -2911,6 +3359,17 @@ mod tests {
                 }
             }))
             .unwrap();
+        let failed_after_chunks: hypr_db_core::CloudsyncNetworkResult =
+            serde_json::from_value(serde_json::json!({
+                "receive": {
+                    "rows": 1,
+                    "tables": ["e2ee_records"],
+                    "chunks": 1,
+                    "complete": false,
+                    "error": "later chunk failed"
+                }
+            }))
+            .unwrap();
 
         assert!(cloudsync_send_completed(&completed));
         assert!(cloudsync_receive_completed(&completed));
@@ -2933,6 +3392,10 @@ mod tests {
         assert!(!cloudsync_recovery_snapshot_ready(false, &delivered_final));
         assert!(cloudsync_send_completed(&failed_receive));
         assert!(!cloudsync_receive_completed(&failed_receive));
+        assert!(!cloudsync_receive_delivered(&failed_after_chunks));
+        assert!(cloudsync_receive_requires_reconciliation(
+            &failed_after_chunks
+        ));
         assert!(!cloudsync_send_completed(
             &hypr_db_core::CloudsyncNetworkResult::default()
         ));
@@ -3963,6 +4426,40 @@ mod tests {
         let status = runtime.cloudsync_status().await.unwrap();
 
         assert_eq!(status["has_unsent_changes"], true);
+    }
+
+    #[tokio::test]
+    async fn cloudsync_status_does_not_treat_inbound_reconciliation_as_unsent() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+            "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+        )
+        .unwrap();
+        runtime
+            .set_e2ee_recovery_key("workspace-1", &recovery_key)
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO e2ee_witness_records (
+               workspace_id,
+               record_id,
+               revision,
+               writer_id,
+               payload_hash,
+               payload,
+               sequence
+             )
+             VALUES ('workspace-1', 'record-1', 1, 'writer-1', 'hash', 'payload', 1)",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let status = runtime.cloudsync_status().await.unwrap();
+
+        assert!(runtime.e2ee_sync_hook.reconciliation_requested());
+        assert_ne!(status["has_unsent_changes"], true);
     }
 
     #[tokio::test]

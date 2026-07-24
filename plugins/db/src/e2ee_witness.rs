@@ -118,24 +118,49 @@ impl E2eeWitnessClient {
             self.publish_pending(pool, key, true).await?;
         }
 
-        self.refresh(pool, key).await
+        self.refresh(pool, key).await.map(|_| ())
     }
 
     pub(crate) async fn publish_and_refresh(
         &self,
         pool: &sqlx::SqlitePool,
         key: &hypr_e2ee::WorkspaceKey,
-    ) -> io::Result<()> {
+    ) -> io::Result<usize> {
         self.publish_pending(pool, key, false).await?;
         self.refresh(pool, key).await
+    }
+
+    pub(crate) async fn publish_and_refresh_notifying<F>(
+        &self,
+        pool: &sqlx::SqlitePool,
+        key: &hypr_e2ee::WorkspaceKey,
+        on_events: F,
+    ) -> io::Result<usize>
+    where
+        F: FnMut(),
+    {
+        self.publish_pending(pool, key, false).await?;
+        self.refresh_notifying(pool, key, on_events).await
     }
 
     pub(crate) async fn refresh(
         &self,
         pool: &sqlx::SqlitePool,
         key: &hypr_e2ee::WorkspaceKey,
-    ) -> io::Result<()> {
-        let cursor = witness_cursor(pool, &self.workspace_id).await?;
+    ) -> io::Result<usize> {
+        self.refresh_notifying(pool, key, || {}).await
+    }
+
+    pub(crate) async fn refresh_notifying<F>(
+        &self,
+        pool: &sqlx::SqlitePool,
+        key: &hypr_e2ee::WorkspaceKey,
+        mut on_events: F,
+    ) -> io::Result<usize>
+    where
+        F: FnMut(),
+    {
+        let mut cursor = witness_cursor(pool, &self.workspace_id).await?;
         let mut page = self.read_page(cursor, None).await?;
         self.validate_page(&page, cursor, None)?;
         if !page.initialized {
@@ -148,7 +173,12 @@ impl E2eeWitnessClient {
         }
 
         let through = page.through_sequence;
+        let mut received_events = 0_usize;
         loop {
+            received_events = received_events.saturating_add(page.events.len());
+            if !page.events.is_empty() {
+                on_events();
+            }
             let events = page
                 .events
                 .into_iter()
@@ -164,9 +194,12 @@ impl E2eeWitnessClient {
                 .await
                 .map_err(replica_error)?;
             let after = page.next_after_sequence;
-            hypr_db_app::advance_e2ee_witness_cursor(pool, &self.workspace_id, after)
-                .await
-                .map_err(replica_error)?;
+            if after != cursor {
+                hypr_db_app::advance_e2ee_witness_cursor(pool, &self.workspace_id, after)
+                    .await
+                    .map_err(replica_error)?;
+                cursor = after;
+            }
             if after == through {
                 break;
             }
@@ -176,7 +209,7 @@ impl E2eeWitnessClient {
             page = self.read_page(after, Some(through)).await?;
             self.validate_page(&page, after, Some(through))?;
         }
-        Ok(())
+        Ok(received_events)
     }
 
     async fn publish_pending(
@@ -399,7 +432,7 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::{
         Arc, Mutex,
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     };
 
     use serde_json::json;
@@ -537,6 +570,40 @@ mod tests {
 
         assert_eq!(page.head_sequence, 0);
         assert_eq!(responder.requests.load(Ordering::Relaxed), 2);
+    }
+
+    #[tokio::test]
+    async fn empty_refresh_does_not_write_an_unchanged_cursor() {
+        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
+        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+            "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+        )
+        .unwrap();
+        let key = recovery_key.workspace_key("user-a").unwrap();
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/sync/e2ee/witness/user-a"))
+            .respond_with(witness_page(&[], 0, 0))
+            .mount(&server)
+            .await;
+        let client = E2eeWitnessClient::new(
+            crate::CloudsyncE2eeWitness {
+                endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+                access_token: "access-token".to_string(),
+            },
+            "user-a",
+        )
+        .unwrap();
+
+        assert_eq!(client.refresh(db.pool(), &key).await.unwrap(), 0);
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_witness_state")
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+            0
+        );
     }
 
     #[tokio::test]
@@ -783,7 +850,17 @@ mod tests {
         )
         .unwrap();
 
-        assert!(client.refresh(db.pool(), &key).await.is_err());
+        let reconciliation_requested = Arc::new(AtomicBool::new(false));
+        let reconciliation_requested_for_refresh = Arc::clone(&reconciliation_requested);
+        assert!(
+            client
+                .refresh_notifying(db.pool(), &key, move || {
+                    reconciliation_requested_for_refresh.store(true, Ordering::SeqCst);
+                })
+                .await
+                .is_err()
+        );
+        assert!(reconciliation_requested.load(Ordering::SeqCst));
         assert_eq!(
             hypr_db_app::e2ee_witness_cursor(db.pool(), "user-a")
                 .await
@@ -791,7 +868,7 @@ mod tests {
             3
         );
 
-        client.refresh(db.pool(), &key).await.unwrap();
+        assert_eq!(client.refresh(db.pool(), &key).await.unwrap(), 1);
 
         assert_eq!(
             hypr_db_app::e2ee_witness_cursor(db.pool(), "user-a")
