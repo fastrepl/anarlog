@@ -26,7 +26,7 @@ import {
   DEFAULT_DESKTOP_SCHEME,
   desktopSchemeSchema,
 } from "@/functions/desktop-flow";
-import { getGitHubStats, getStargazers } from "@/functions/github";
+import { getGitHubStats } from "@/functions/github";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { appleIntelDownloadUrl, appleSiliconDownloadUrl } from "@/lib/download";
 import {
@@ -339,14 +339,10 @@ export const Route = createFileRoute("/")({
   },
   component: Component,
   loader: async () => {
-    const [githubStats, stargazers] = await Promise.all([
-      getGitHubStats(),
-      getStargazers(),
-    ]);
+    const githubStats = await getGitHubStats();
 
     return {
       githubStars: githubStats.stars ?? 8466,
-      githubStargazers: stargazers,
     };
   },
   head: () => ({
@@ -369,7 +365,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Component() {
-  const { githubStars, githubStargazers } = Route.useLoaderData();
+  const { githubStars } = Route.useLoaderData();
   const formattedGithubStars = githubStars.toLocaleString("en-US");
 
   return (
@@ -401,10 +397,7 @@ function Component() {
 
           <TestimonialsSection />
 
-          <OpenSourceSection
-            formattedGithubStars={formattedGithubStars}
-            stargazers={githubStargazers}
-          />
+          <OpenSourceSection formattedGithubStars={formattedGithubStars} />
 
           <PricingSection />
 
@@ -612,20 +605,11 @@ function FinalCtaSection() {
   );
 }
 
-type GitHubStargazer = {
-  username: string;
-  avatar: string;
-};
-
 function OpenSourceSection({
   formattedGithubStars,
-  stargazers,
 }: {
   formattedGithubStars: string;
-  stargazers: GitHubStargazer[];
 }) {
-  const visibleStargazers = stargazers.slice(0, 24);
-
   return (
     <section
       className="relative left-1/2 w-screen max-w-[880px] -translate-x-1/2 py-12 md:py-14"
@@ -653,40 +637,6 @@ function OpenSourceSection({
           <span>{formattedGithubStars} stars on GitHub</span>
         </a>
       </div>
-
-      {visibleStargazers.length > 0 && (
-        <div className="relative mt-8 overflow-hidden px-5 md:px-8">
-          <div
-            className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-linear-to-r from-white to-transparent md:w-20"
-            aria-hidden="true"
-          />
-          <div
-            className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-linear-to-l from-white to-transparent md:w-20"
-            aria-hidden="true"
-          />
-          <div className="mx-auto grid max-w-[620px] grid-cols-6 gap-2 sm:grid-cols-12">
-            {visibleStargazers.map((stargazer) => (
-              <a
-                key={stargazer.username}
-                href={`https://github.com/${stargazer.username}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group aspect-square overflow-hidden rounded-[4px] border border-neutral-200 bg-neutral-100 transition-transform hover:-translate-y-0.5 hover:border-neutral-400"
-                aria-label={`${stargazer.username} on GitHub`}
-                title={stargazer.username}
-              >
-                <img
-                  src={stargazer.avatar}
-                  alt=""
-                  className="h-full w-full object-cover grayscale transition duration-200 group-hover:grayscale-0"
-                  loading="lazy"
-                  decoding="async"
-                />
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
     </section>
   );
 }
