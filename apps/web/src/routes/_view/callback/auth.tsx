@@ -27,6 +27,10 @@ import {
   prepareAuthRoutePrivacy,
   readDesktopAuthHandoff,
 } from "@/lib/auth-route-privacy";
+import {
+  attemptDesktopAppOpen,
+  buildDesktopAuthDeeplink,
+} from "@/lib/desktop-auth-handoff";
 
 const validateSearch = z.object({
   code: z.string().optional(),
@@ -128,17 +132,11 @@ function Component() {
 
   const accessToken = search.access_token ?? storedHandoff?.accessToken;
   const refreshToken = search.refresh_token ?? storedHandoff?.refreshToken;
-
-  const getDeeplink = () => {
-    return buildAuthDeeplink(search.scheme, accessToken, refreshToken);
-  };
-
-  const handleDeeplink = () => {
-    const deeplink = getDeeplink();
-    if (search.flow === "desktop" && deeplink) {
-      window.location.href = deeplink;
-    }
-  };
+  const deeplink = buildDesktopAuthDeeplink(
+    search.scheme,
+    accessToken,
+    refreshToken,
+  );
 
   useMountEffect(() => {
     prepareAuthRoutePrivacy();
@@ -150,18 +148,17 @@ function Component() {
       setStoredHandoff(handoff);
     }
 
-    const deeplink = buildAuthDeeplink(
+    const initialDeeplink = buildDesktopAuthDeeplink(
       search.scheme,
       search.access_token ?? handoff?.accessToken,
       search.refresh_token ?? handoff?.refreshToken,
     );
-    if (search.flow === "desktop" && deeplink) {
-      window.location.href = deeplink;
+    if (search.flow === "desktop" && initialDeeplink) {
+      attemptDesktopAppOpen(initialDeeplink);
     }
   });
 
   const handleCopy = async () => {
-    const deeplink = getDeeplink();
     if (deeplink) {
       await navigator.clipboard.writeText(deeplink);
       setCopied(true);
@@ -211,14 +208,15 @@ function Component() {
         }
       >
         <div className="flex flex-col gap-4">
-          {hasTokens && (
+          {deeplink && (
             <div className="flex flex-col gap-3">
-              <button
-                onClick={handleDeeplink}
+              <a
+                href={deeplink}
+                rel="noreferrer"
                 className={authPrimaryButtonClassName}
               >
                 Open Anarlog
-              </button>
+              </a>
 
               <div className="rounded-xl border border-[#e5ddcf] bg-[#fbfaf7] p-4 text-center">
                 <p className="mb-3 text-sm leading-6 text-[#756b5d]">
@@ -270,22 +268,6 @@ function Component() {
       </AuthShell>
     );
   }
-}
-
-function buildAuthDeeplink(
-  scheme: z.infer<typeof desktopSchemeSchema>,
-  accessToken: string | undefined,
-  refreshToken: string | undefined,
-) {
-  if (!accessToken || !refreshToken) {
-    return null;
-  }
-
-  const params = new URLSearchParams({
-    access_token: accessToken,
-    refresh_token: refreshToken,
-  });
-  return `${scheme}://auth/callback?${params.toString()}`;
 }
 
 function redirectToExchangeError(
