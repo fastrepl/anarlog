@@ -29,6 +29,7 @@ import {
   deleteChatMessage,
   deleteChatMessagesExcept,
   getChatMessageGroupId,
+  replaceChatMessage,
   setChatGroupTitleIfCurrent,
   upsertChatMessage,
   useChatGroup,
@@ -143,6 +144,48 @@ describe("chat SQLite queries", () => {
     const conflictUpdate = statement.sql.split("ON CONFLICT(id)")[1];
     expect(conflictUpdate).not.toContain("created_at =");
     expect(statement.params).toContain(message.createdAt);
+  });
+
+  it("atomically persists a replacement before retiring the prior message", async () => {
+    await replaceChatMessage({
+      message: { ...message, id: "message-new" },
+      previousMessageId: "message-old",
+    });
+
+    expect(mocks.executeTransaction).toHaveBeenCalledTimes(1);
+    const statements = mocks.executeTransaction.mock.calls[0][0];
+    expect(statements).toHaveLength(2);
+    expect(statements[0].sql).toContain("INSERT INTO chat_messages");
+    expect(statements[0].params[0]).toBe("message-new");
+    expect(statements[1].sql).toContain("SET deleted_at = ?");
+    expect(statements[1].params.slice(-2)).toEqual(["message-old", "group-1"]);
+    expect(statements[1].params[0]).toBe(statements[0].params.at(-1));
+    expect(statements[1].params[1]).toBe(statements[0].params.at(-1));
+  });
+
+  it("upserts a same-id replacement without tombstoning it", async () => {
+    await replaceChatMessage({
+      message,
+      previousMessageId: message.id,
+    });
+
+    const statements = mocks.executeTransaction.mock.calls[0][0];
+    expect(statements).toHaveLength(1);
+    expect(statements[0].sql).toContain("INSERT INTO chat_messages");
+    expect(statements[0].params[0]).toBe(message.id);
+  });
+
+  it("surfaces an atomic replacement failure", async () => {
+    const transactionError = new Error("database unavailable");
+    mocks.executeTransaction.mockRejectedValueOnce(transactionError);
+
+    await expect(
+      replaceChatMessage({
+        message: { ...message, id: "message-new" },
+        previousMessageId: "message-old",
+      }),
+    ).rejects.toBe(transactionError);
+    expect(mocks.executeTransaction).toHaveBeenCalledTimes(1);
   });
 
   it("only replaces a generated title while the fallback is current", async () => {

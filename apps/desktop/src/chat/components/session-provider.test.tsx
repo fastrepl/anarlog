@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   getChatMessageGroupId: vi.fn().mockResolvedValue(null),
   messages: [] as unknown[],
   persistedMessages: [] as PersistedChatMessage[],
+  replaceChatMessage: vi.fn().mockResolvedValue(undefined),
   status: "ready",
   store: {} as unknown,
   transport: {} as unknown,
@@ -70,6 +71,7 @@ vi.mock("~/chat/store/queries", () => ({
   deleteChatMessage: mocks.deleteChatMessage,
   deleteChatMessagesExcept: mocks.deleteChatMessagesExcept,
   getChatMessageGroupId: mocks.getChatMessageGroupId,
+  replaceChatMessage: mocks.replaceChatMessage,
   upsertChatMessage: mocks.upsertChatMessage,
   usePersistedChatMessages: () => mocks.persistedMessages,
 }));
@@ -209,6 +211,7 @@ describe("ChatSession", () => {
     mocks.endCloudsyncActivity.mockReset().mockResolvedValue(undefined);
     mocks.flushDatabaseWritesByPrefix.mockReset().mockResolvedValue(undefined);
     mocks.getChatMessageGroupId.mockReset().mockResolvedValue(null);
+    mocks.replaceChatMessage.mockReset().mockResolvedValue(undefined);
     mocks.upsertChatMessage.mockReset().mockResolvedValue(undefined);
   });
 
@@ -219,7 +222,7 @@ describe("ChatSession", () => {
       parts: [] as HyprUIMessage["parts"],
       isAbort: false,
       isError: false,
-      shouldPersist: false,
+      shouldReplace: false,
     },
     {
       name: "aborted",
@@ -229,7 +232,7 @@ describe("ChatSession", () => {
       ] as HyprUIMessage["parts"],
       isAbort: true,
       isError: false,
-      shouldPersist: false,
+      shouldReplace: false,
     },
     {
       name: "failed",
@@ -239,7 +242,7 @@ describe("ChatSession", () => {
       ] as HyprUIMessage["parts"],
       isAbort: false,
       isError: true,
-      shouldPersist: true,
+      shouldReplace: false,
     },
     {
       name: "failed-same-id",
@@ -249,7 +252,7 @@ describe("ChatSession", () => {
       ] as HyprUIMessage["parts"],
       isAbort: false,
       isError: true,
-      shouldPersist: false,
+      shouldReplace: false,
     },
     {
       name: "same-id",
@@ -259,11 +262,11 @@ describe("ChatSession", () => {
       ] as HyprUIMessage["parts"],
       isAbort: false,
       isError: false,
-      shouldPersist: true,
+      shouldReplace: true,
     },
   ])(
     "keeps the prior assistant for a $name replacement",
-    async ({ id, parts, isAbort, isError, shouldPersist }) => {
+    async ({ id, parts, isAbort, isError, shouldReplace }) => {
       const userMessage: HyprUIMessage = {
         id: "user-1",
         role: "user",
@@ -301,34 +304,314 @@ describe("ChatSession", () => {
         messages: [userMessage, replacement],
       });
 
-      if (shouldPersist) {
+      if (shouldReplace) {
         await waitFor(() =>
-          expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
-            expect.objectContaining({ id: replacement.id }),
-          ),
+          expect(mocks.replaceChatMessage).toHaveBeenCalledWith({
+            message: expect.objectContaining({ id: replacement.id }),
+            previousMessageId: oldAssistant.id,
+          }),
         );
       } else {
         await Promise.resolve();
         await Promise.resolve();
-        expect(mocks.upsertChatMessage).not.toHaveBeenCalledWith(
-          expect.objectContaining({ id: replacement.id }),
-        );
+        expect(mocks.replaceChatMessage).not.toHaveBeenCalled();
       }
-      expect(mocks.deleteChatMessage).not.toHaveBeenCalledWith(
-        "group-1",
-        oldAssistant.id,
+      expect(mocks.upsertChatMessage).not.toHaveBeenCalledWith(
+        expect.objectContaining({ id: replacement.id }),
       );
     },
   );
 
-  it("persists a regenerated answer before retiring the prior assistant", async () => {
-    let finishReplacementPersist: (() => void) | undefined;
-    let finishPriorRetirement: (() => void) | undefined;
-    const replacementPersist = new Promise<void>((resolve) => {
-      finishReplacementPersist = resolve;
+  it("keeps persisting partial failures for normal sends", async () => {
+    const userMessage: HyprUIMessage = {
+      id: "user-1",
+      role: "user",
+      parts: [{ type: "text", text: "Question" }],
+    };
+    const partialAssistant: HyprUIMessage = {
+      id: "assistant-partial",
+      role: "assistant",
+      parts: [{ type: "text", text: "Partial answer" }],
+    };
+    mocks.messages = [userMessage];
+    mocks.getChatMessageGroupId.mockResolvedValue("group-1");
+
+    renderSession();
+    const chat = mocks.chatInits[0] as {
+      onFinish: (params: {
+        message: HyprUIMessage;
+        messages: HyprUIMessage[];
+        isAbort: boolean;
+        isError: boolean;
+      }) => void;
+    };
+    chat.onFinish({
+      isAbort: false,
+      isError: true,
+      message: partialAssistant,
+      messages: [userMessage, partialAssistant],
     });
-    const priorRetirement = new Promise<void>((resolve) => {
-      finishPriorRetirement = resolve;
+
+    await waitFor(() =>
+      expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ id: partialAssistant.id }),
+      ),
+    );
+    expect(mocks.replaceChatMessage).not.toHaveBeenCalled();
+  });
+
+  it("does not replace an assistant from before the latest user", async () => {
+    const firstUser: HyprUIMessage = {
+      id: "user-1",
+      role: "user",
+      parts: [{ type: "text", text: "First question" }],
+    };
+    const firstAssistant: HyprUIMessage = {
+      id: "assistant-1",
+      role: "assistant",
+      parts: [{ type: "text", text: "First answer" }],
+    };
+    const latestUser: HyprUIMessage = {
+      id: "user-2",
+      role: "user",
+      parts: [{ type: "text", text: "Second question" }],
+    };
+    const latestAssistant: HyprUIMessage = {
+      id: "assistant-2",
+      role: "assistant",
+      parts: [{ type: "text", text: "Second answer" }],
+    };
+    mocks.status = "error";
+    mocks.messages = [firstUser, firstAssistant, latestUser];
+    mocks.getChatMessageGroupId.mockResolvedValue("group-1");
+    const sendTransport = connectChatRegenerateToTransport();
+
+    renderSession();
+    fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
+    await waitFor(() => expect(sendTransport).toHaveBeenCalledOnce());
+    const chat = mocks.chatInits[0] as {
+      onFinish: (params: {
+        message: HyprUIMessage;
+        messages: HyprUIMessage[];
+        isAbort: boolean;
+        isError: boolean;
+      }) => void;
+    };
+    chat.onFinish({
+      isAbort: false,
+      isError: false,
+      message: latestAssistant,
+      messages: [firstUser, firstAssistant, latestUser, latestAssistant],
+    });
+
+    await waitFor(() =>
+      expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ id: latestAssistant.id }),
+      ),
+    );
+    expect(mocks.replaceChatMessage).not.toHaveBeenCalled();
+    expect(mocks.deleteChatMessage).not.toHaveBeenCalledWith(
+      "group-1",
+      firstAssistant.id,
+    );
+  });
+
+  it.each([
+    {
+      name: "partial error",
+      failedMessage: {
+        id: "assistant-failed",
+        role: "assistant" as const,
+        parts: [{ type: "text" as const, text: "Partial answer" }],
+      },
+      isAbort: false,
+      isError: true,
+    },
+    {
+      name: "empty response",
+      failedMessage: {
+        id: "assistant-empty",
+        role: "assistant" as const,
+        parts: [],
+      },
+      isAbort: false,
+      isError: false,
+    },
+    {
+      name: "aborted response",
+      failedMessage: {
+        id: "assistant-aborted",
+        role: "assistant" as const,
+        parts: [{ type: "text" as const, text: "Partial answer" }],
+      },
+      isAbort: true,
+      isError: false,
+    },
+  ])(
+    "keeps the original durable target across a $name retry",
+    async ({ failedMessage, isAbort, isError }) => {
+      const userMessage: HyprUIMessage = {
+        id: "user-1",
+        role: "user",
+        parts: [{ type: "text", text: "Question" }],
+      };
+      const oldAssistant: HyprUIMessage = {
+        id: "assistant-old",
+        role: "assistant",
+        parts: [{ type: "text", text: "Old answer" }],
+      };
+      const replacement: HyprUIMessage = {
+        id: "assistant-new",
+        role: "assistant",
+        parts: [{ type: "text", text: "Replacement answer" }],
+      };
+      mocks.messages = [userMessage, oldAssistant];
+      mocks.getChatMessageGroupId.mockResolvedValue("group-1");
+      const sendTransport = connectChatRegenerateToTransport();
+
+      const view = renderSession();
+      fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
+      await waitFor(() => expect(sendTransport).toHaveBeenCalledOnce());
+      const chat = mocks.chatInits[0] as {
+        onFinish: (params: {
+          message: HyprUIMessage;
+          messages: HyprUIMessage[];
+          isAbort: boolean;
+          isError: boolean;
+        }) => void;
+      };
+      chat.onFinish({
+        isAbort,
+        isError,
+        message: failedMessage,
+        messages: [userMessage, failedMessage],
+      });
+      await Promise.resolve();
+      expect(mocks.replaceChatMessage).not.toHaveBeenCalled();
+      expect(mocks.upsertChatMessage).not.toHaveBeenCalledWith(
+        expect.objectContaining({ id: failedMessage.id }),
+      );
+
+      mocks.messages = failedMessage.parts.length
+        ? [userMessage, failedMessage]
+        : [userMessage];
+      view.rerender(
+        <ChatSession chatGroupId="group-1" sessionId="session-1">
+          {({ regenerate }) => (
+            <button type="button" onClick={regenerate}>
+              Regenerate
+            </button>
+          )}
+        </ChatSession>,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
+      await waitFor(() => expect(sendTransport).toHaveBeenCalledTimes(2));
+      chat.onFinish({
+        isAbort: false,
+        isError: false,
+        message: replacement,
+        messages: [userMessage, replacement],
+      });
+
+      await waitFor(() =>
+        expect(mocks.replaceChatMessage).toHaveBeenCalledWith({
+          message: expect.objectContaining({ id: replacement.id }),
+          previousMessageId: oldAssistant.id,
+        }),
+      );
+    },
+  );
+
+  it("keeps the original target when atomic replacement fails", async () => {
+    const transactionError = new Error("database unavailable");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const userMessage: HyprUIMessage = {
+      id: "user-1",
+      role: "user",
+      parts: [{ type: "text", text: "Question" }],
+    };
+    const oldAssistant: HyprUIMessage = {
+      id: "assistant-old",
+      role: "assistant",
+      parts: [{ type: "text", text: "Old answer" }],
+    };
+    const failedReplacement: HyprUIMessage = {
+      id: "assistant-failed",
+      role: "assistant",
+      parts: [{ type: "text", text: "Failed replacement" }],
+    };
+    const successfulReplacement: HyprUIMessage = {
+      id: "assistant-success",
+      role: "assistant",
+      parts: [{ type: "text", text: "Successful replacement" }],
+    };
+    mocks.messages = [userMessage, oldAssistant];
+    mocks.getChatMessageGroupId.mockResolvedValue("group-1");
+    mocks.replaceChatMessage
+      .mockRejectedValueOnce(transactionError)
+      .mockResolvedValueOnce(undefined);
+    const sendTransport = connectChatRegenerateToTransport();
+
+    const view = renderSession();
+    fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
+    await waitFor(() => expect(sendTransport).toHaveBeenCalledOnce());
+    const chat = mocks.chatInits[0] as {
+      onFinish: (params: {
+        message: HyprUIMessage;
+        messages: HyprUIMessage[];
+        isAbort: boolean;
+        isError: boolean;
+      }) => void;
+    };
+    chat.onFinish({
+      isAbort: false,
+      isError: false,
+      message: failedReplacement,
+      messages: [userMessage, failedReplacement],
+    });
+    await waitFor(() =>
+      expect(consoleError).toHaveBeenCalledWith(
+        "Failed to persist finished chat message",
+        transactionError,
+      ),
+    );
+
+    mocks.messages = [userMessage, failedReplacement];
+    view.rerender(
+      <ChatSession chatGroupId="group-1" sessionId="session-1">
+        {({ regenerate }) => (
+          <button type="button" onClick={regenerate}>
+            Regenerate
+          </button>
+        )}
+      </ChatSession>,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
+    await waitFor(() => expect(sendTransport).toHaveBeenCalledTimes(2));
+    chat.onFinish({
+      isAbort: false,
+      isError: false,
+      message: successfulReplacement,
+      messages: [userMessage, successfulReplacement],
+    });
+
+    await waitFor(() =>
+      expect(mocks.replaceChatMessage).toHaveBeenLastCalledWith({
+        message: expect.objectContaining({ id: successfulReplacement.id }),
+        previousMessageId: oldAssistant.id,
+      }),
+    );
+    consoleError.mockRestore();
+  });
+
+  it("holds CloudSync through the atomic regenerated answer replacement", async () => {
+    let finishReplacement: (() => void) | undefined;
+    const replacement = new Promise<void>((resolve) => {
+      finishReplacement = resolve;
     });
     const userMessage: HyprUIMessage = {
       id: "user-1",
@@ -340,15 +623,14 @@ describe("ChatSession", () => {
       role: "assistant",
       parts: [{ type: "text", text: "Old answer" }],
     };
-    const replacement: HyprUIMessage = {
+    const replacementMessage: HyprUIMessage = {
       id: "assistant-new",
       role: "assistant",
       parts: [{ type: "text", text: "Replacement answer" }],
     };
     mocks.messages = [userMessage, oldAssistant];
     mocks.getChatMessageGroupId.mockResolvedValue("group-1");
-    mocks.upsertChatMessage.mockReturnValueOnce(replacementPersist);
-    mocks.deleteChatMessage.mockReturnValueOnce(priorRetirement);
+    mocks.replaceChatMessage.mockReturnValueOnce(replacement);
     const sendTransport = connectChatRegenerateToTransport();
 
     renderSession();
@@ -366,35 +648,23 @@ describe("ChatSession", () => {
     chat.onFinish({
       isAbort: false,
       isError: false,
-      message: replacement,
-      messages: [userMessage, replacement],
+      message: replacementMessage,
+      messages: [userMessage, replacementMessage],
     });
 
     await waitFor(() =>
-      expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ id: replacement.id }),
-      ),
-    );
-    expect(mocks.deleteChatMessage).not.toHaveBeenCalled();
-
-    finishReplacementPersist?.();
-    await replacementPersist;
-    await waitFor(() =>
-      expect(mocks.deleteChatMessage).toHaveBeenCalledWith(
-        "group-1",
-        oldAssistant.id,
-      ),
+      expect(mocks.replaceChatMessage).toHaveBeenCalledWith({
+        message: expect.objectContaining({ id: replacementMessage.id }),
+        previousMessageId: oldAssistant.id,
+      }),
     );
     expect(mocks.endCloudsyncActivity).not.toHaveBeenCalledWith(
       "chat",
       nativeKey,
     );
-    expect(mocks.upsertChatMessage.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.deleteChatMessage.mock.invocationCallOrder[0],
-    );
 
-    finishPriorRetirement?.();
-    await priorRetirement;
+    finishReplacement?.();
+    await replacement;
     await waitFor(
       () =>
         expect(mocks.endCloudsyncActivity).toHaveBeenCalledWith(
@@ -427,7 +697,7 @@ describe("ChatSession", () => {
     };
     mocks.messages = [userMessage, oldAssistant];
     mocks.getChatMessageGroupId.mockResolvedValue("group-1");
-    mocks.upsertChatMessage.mockReturnValueOnce(firstPersist);
+    mocks.replaceChatMessage.mockReturnValueOnce(firstPersist);
     const sendTransport = vi
       .fn()
       .mockResolvedValue(
@@ -479,9 +749,10 @@ describe("ChatSession", () => {
     const view = renderSession();
     fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
     await waitFor(() =>
-      expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ id: firstReplacement.id }),
-      ),
+      expect(mocks.replaceChatMessage).toHaveBeenCalledWith({
+        message: expect.objectContaining({ id: firstReplacement.id }),
+        previousMessageId: oldAssistant.id,
+      }),
     );
 
     mocks.messages = [userMessage, firstReplacement];
@@ -505,12 +776,6 @@ describe("ChatSession", () => {
     view.unmount();
     finishFirstPersist?.();
     await firstPersist;
-    await waitFor(() =>
-      expect(mocks.deleteChatMessage).toHaveBeenCalledWith(
-        "group-1",
-        oldAssistant.id,
-      ),
-    );
     await waitFor(() => {
       for (const nativeKey of nativeKeys) {
         expect(mocks.endCloudsyncActivity).toHaveBeenCalledWith(
@@ -520,9 +785,10 @@ describe("ChatSession", () => {
       }
     });
 
-    expect(mocks.deleteChatMessage).not.toHaveBeenCalledWith(
-      "group-1",
-      firstReplacement.id,
+    expect(mocks.replaceChatMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        previousMessageId: firstReplacement.id,
+      }),
     );
     expect(sendTransport).toHaveBeenCalledOnce();
     consoleError.mockRestore();
@@ -577,7 +843,7 @@ describe("ChatSession", () => {
     };
     mocks.messages = [userMessage, oldAssistant];
     mocks.getChatMessageGroupId.mockResolvedValue("group-1");
-    mocks.upsertChatMessage.mockReturnValueOnce(assistantPersist);
+    mocks.replaceChatMessage.mockReturnValueOnce(assistantPersist);
     const sendTransport = vi
       .fn()
       .mockResolvedValue(
@@ -630,9 +896,10 @@ describe("ChatSession", () => {
     const view = renderSession();
     fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
     await waitFor(() =>
-      expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ id: regeneratedAssistant.id }),
-      ),
+      expect(mocks.replaceChatMessage).toHaveBeenCalledWith({
+        message: expect.objectContaining({ id: regeneratedAssistant.id }),
+        previousMessageId: oldAssistant.id,
+      }),
     );
 
     mocks.messages = [userMessage, regeneratedAssistant];
@@ -648,22 +915,19 @@ describe("ChatSession", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
     expect(mocks.chatRegenerate).toHaveBeenCalledTimes(2);
-    expect(mocks.deleteChatMessage).not.toHaveBeenCalledWith(
-      "group-1",
-      regeneratedAssistant.id,
-    );
+    expect(mocks.replaceChatMessage).toHaveBeenCalledOnce();
     expect(sendTransport).toHaveBeenCalledOnce();
 
     finishAssistantPersist?.();
     await assistantPersist;
 
-    await waitFor(() =>
-      expect(mocks.deleteChatMessage).toHaveBeenCalledWith(
-        "group-1",
-        regeneratedAssistant.id,
-      ),
-    );
     await waitFor(() => expect(sendTransport).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(mocks.replaceChatMessage).toHaveBeenLastCalledWith({
+        message: expect.objectContaining({ id: "assistant-next" }),
+        previousMessageId: regeneratedAssistant.id,
+      }),
+    );
   });
 
   it("allows regeneration retries from the error state", async () => {

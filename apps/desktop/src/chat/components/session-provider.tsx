@@ -33,6 +33,7 @@ import {
   deleteChatMessage,
   deleteChatMessagesExcept,
   getChatMessageGroupId,
+  replaceChatMessage,
   upsertChatMessage,
   usePersistedChatMessages,
 } from "~/chat/store/queries";
@@ -234,7 +235,7 @@ function ChatSessionLifecycle({
                 submittedUserMessage.id,
               )
             : undefined;
-          const clearRegenerationTarget = () => {
+          const advanceRegenerationTarget = (assistantMessageId: string) => {
             if (
               submittedUserMessage &&
               regenerationTarget &&
@@ -242,18 +243,30 @@ function ChatSessionLifecycle({
                 submittedUserMessage.id,
               ) === regenerationTarget
             ) {
-              pendingRegenerationTombstonesRef.current.delete(
+              pendingRegenerationTombstonesRef.current.set(
                 submittedUserMessage.id,
+                {
+                  chatGroupId: regenerationTarget.chatGroupId,
+                  assistantMessageId,
+                },
               );
             }
           };
+          const sanitizedParts = stripEphemeralToolContext(message.parts);
+          const sanitizedMessage =
+            sanitizedParts === message.parts
+              ? message
+              : { ...message, parts: sanitizedParts };
+          const retainPriorRegeneration =
+            regenerationTarget &&
+            (isError || !shouldPersistFinishedMessage(sanitizedMessage));
 
           if (
             isAbort ||
             !currentUserId ||
-            !acceptFinishedChatPersistenceRef.current
+            !acceptFinishedChatPersistenceRef.current ||
+            retainPriorRegeneration
           ) {
-            clearRegenerationTarget();
             if (submittedUserMessage) {
               chatCloudsyncActivity.finish(submittedUserMessage.id);
             }
@@ -311,74 +324,53 @@ function ChatSessionLifecycle({
               );
             }
 
-            const sanitizedParts = stripEphemeralToolContext(message.parts);
-            const sanitizedMessage =
-              sanitizedParts === message.parts
-                ? message
-                : { ...message, parts: sanitizedParts };
             if (!shouldPersistFinishedMessage(sanitizedMessage)) {
-              if (
-                !regenerationTarget ||
-                regenerationTarget.assistantMessageId !== sanitizedMessage.id
-              ) {
-                await deleteChatMessage(targetChatGroupId, sanitizedMessage.id);
-              }
-              clearRegenerationTarget();
-              return;
-            }
-            if (
-              isError &&
-              regenerationTarget?.assistantMessageId === sanitizedMessage.id
-            ) {
+              await deleteChatMessage(targetChatGroupId, sanitizedMessage.id);
               return;
             }
 
-            await upsertChatMessage(
-              buildPersistedChatMessage({
-                message: sanitizedMessage,
-                chatGroupId: targetChatGroupId,
-                ownerUserId: currentUserId,
-                status: "ready",
-              }),
-            );
-            if (
-              regenerationTarget &&
-              !isError &&
-              regenerationTarget.chatGroupId === targetChatGroupId
-            ) {
-              if (
-                regenerationTarget.assistantMessageId !== sanitizedMessage.id
-              ) {
-                await deleteChatMessage(
-                  regenerationTarget.chatGroupId,
-                  regenerationTarget.assistantMessageId,
-                );
-              }
-              clearRegenerationTarget();
-            }
-          })()
-            .catch((error) => {
-              console.error("Failed to persist finished chat message", error);
-            })
-            .finally(() => {
-              if (submittedUserMessage) {
-                chatCloudsyncActivity.finish(submittedUserMessage.id);
-              }
+            const persistedMessage = buildPersistedChatMessage({
+              message: sanitizedMessage,
+              chatGroupId: targetChatGroupId,
+              ownerUserId: currentUserId,
+              status: "ready",
             });
+            if (regenerationTarget) {
+              if (regenerationTarget.chatGroupId !== targetChatGroupId) {
+                throw new Error("Regenerated chat message group changed");
+              }
+              await replaceChatMessage({
+                message: persistedMessage,
+                previousMessageId: regenerationTarget.assistantMessageId,
+              });
+              advanceRegenerationTarget(sanitizedMessage.id);
+              return;
+            }
+            await upsertChatMessage(persistedMessage);
+          })().finally(() => {
+            if (submittedUserMessage) {
+              chatCloudsyncActivity.finish(submittedUserMessage.id);
+            }
+          });
+          void finishedPersist.catch((error) => {
+            console.error("Failed to persist finished chat message", error);
+          });
           if (submittedUserMessage) {
             const userMessageId = submittedUserMessage.id;
             pendingFinishedChatPersistsRef.current.set(
               userMessageId,
               finishedPersist,
             );
-            void finishedPersist.finally(() => {
-              if (
-                pendingFinishedChatPersistsRef.current.get(userMessageId) ===
-                finishedPersist
-              ) {
-                pendingFinishedChatPersistsRef.current.delete(userMessageId);
-              }
-            });
+            void finishedPersist
+              .catch(() => undefined)
+              .finally(() => {
+                if (
+                  pendingFinishedChatPersistsRef.current.get(userMessageId) ===
+                  finishedPersist
+                ) {
+                  pendingFinishedChatPersistsRef.current.delete(userMessageId);
+                }
+              });
           }
         },
       }),
@@ -507,13 +499,14 @@ function ChatSessionLifecycle({
     ) {
       return;
     }
-    let submittedUserMessage: HyprUIMessage | undefined;
+    let submittedUserIndex = -1;
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role === "user") {
-        submittedUserMessage = messages[i];
+        submittedUserIndex = i;
         break;
       }
     }
+    const submittedUserMessage = messages[submittedUserIndex];
     if (!submittedUserMessage) {
       return;
     }
@@ -524,22 +517,36 @@ function ChatSessionLifecycle({
 
     const runRegenerate = (assistantMessageId?: string) => {
       let regenerationPreflight: (() => Promise<void>) | undefined;
-      let target = pendingRegenerationTombstonesRef.current.get(
+      const nextTarget = assistantMessageId
+        ? {
+            chatGroupId,
+            assistantMessageId,
+          }
+        : undefined;
+      const currentTarget = pendingRegenerationTombstonesRef.current.get(
         submittedUser.id,
       );
-      if (assistantMessageId) {
-        target = {
-          chatGroupId,
-          assistantMessageId,
-        };
-        pendingRegenerationTombstonesRef.current.set(submittedUser.id, target);
-      } else if (target?.chatGroupId !== chatGroupId) {
-        target = undefined;
-      }
+      const initializeTarget = () => {
+        const liveTarget = pendingRegenerationTombstonesRef.current.get(
+          submittedUser.id,
+        );
+        if (liveTarget?.chatGroupId === chatGroupId) {
+          return;
+        }
+        if (nextTarget) {
+          pendingRegenerationTombstonesRef.current.set(
+            submittedUser.id,
+            nextTarget,
+          );
+        } else if (liveTarget) {
+          pendingRegenerationTombstonesRef.current.delete(submittedUser.id);
+        }
+      };
 
       if (priorFinishedPersist) {
         regenerationPreflight = async () => {
           await priorFinishedPersist;
+          initializeTarget();
         };
         const queue =
           pendingTransportPreflightsRef.current.get(submittedUser.id) ?? [];
@@ -548,6 +555,8 @@ function ChatSessionLifecycle({
           persistOnCancel: false,
         });
         pendingTransportPreflightsRef.current.set(submittedUser.id, queue);
+      } else if (!currentTarget || currentTarget.chatGroupId !== chatGroupId) {
+        initializeTarget();
       }
       regenerateRequestInFlightRef.current = true;
       let regeneration: Promise<void>;
@@ -581,10 +590,11 @@ function ChatSessionLifecycle({
           if (queue?.length === 0) {
             pendingTransportPreflightsRef.current.delete(submittedUser.id);
           }
-        });
+        })
+        .catch(() => undefined);
     };
 
-    for (let i = messages.length - 1; i >= 0; i--) {
+    for (let i = messages.length - 1; i > submittedUserIndex; i--) {
       if (messages[i].role !== "assistant") {
         continue;
       }
