@@ -38,6 +38,10 @@ vi.mock("~/shared/owner-user", () => ({
   useOwnerUserId: () => "user-1",
 }));
 
+import {
+  clearFailedChatGroupCreate,
+  isFailedChatGroupCreate,
+} from "./pending-persists";
 import { useChatActions } from "./use-chat-actions";
 
 import type { ChatSendOptions } from "~/chat/types";
@@ -51,6 +55,7 @@ describe("useChatActions", () => {
     mocks.generateChatTitle.mockResolvedValue("Generated title");
     mocks.setChatGroupTitleIfCurrent.mockResolvedValue(undefined);
     mocks.upsertChatMessage.mockResolvedValue(undefined);
+    clearFailedChatGroupCreate("group-1");
   });
 
   it("queues first-group persistence until the transport preflight", async () => {
@@ -133,10 +138,13 @@ describe("useChatActions", () => {
       .mockImplementation(() => {});
     const sendMessage = vi.fn();
     const onGroupCreateFailed = vi.fn();
+    const onGroupCreated = vi.fn(() => {
+      expect(isFailedChatGroupCreate("group-1")).toBe(false);
+    });
     const { result } = renderHook(() =>
       useChatActions({
         groupId: undefined,
-        onGroupCreated: vi.fn(),
+        onGroupCreated,
         onGroupCreateFailed,
       }),
     );
@@ -161,6 +169,15 @@ describe("useChatActions", () => {
     );
     expect(mocks.createChatGroupWithMessage).toHaveBeenCalledTimes(3);
     expect(onGroupCreateFailed).toHaveBeenCalledWith("group-1");
+    expect(isFailedChatGroupCreate("group-1")).toBe(true);
+
+    mocks.createChatGroupWithMessage.mockResolvedValue(undefined);
+    await options.beforeSend?.(vi.fn());
+
+    expect(mocks.createChatGroupWithMessage).toHaveBeenCalledTimes(4);
+    expect(isFailedChatGroupCreate("group-1")).toBe(false);
+    expect(onGroupCreated).toHaveBeenCalledWith("group-1");
+    expect(onGroupCreateFailed).toHaveBeenCalledOnce();
     consoleError.mockRestore();
   });
 

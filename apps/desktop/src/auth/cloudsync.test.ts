@@ -9,6 +9,7 @@ import {
   getCloudsyncStatus,
   getE2eeIdentityStatus,
   suspendCloudsync,
+  suspendCloudsyncAfterAuthLoss,
   suspendCloudsyncForSignOut,
 } from "@hypr/plugin-db";
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
@@ -199,6 +200,7 @@ describe("CloudSync auth lifecycle", () => {
     });
     vi.mocked(getCloudsyncStatus).mockResolvedValue(cloudsyncStatus());
     vi.mocked(suspendCloudsync).mockResolvedValue(undefined);
+    vi.mocked(suspendCloudsyncAfterAuthLoss).mockResolvedValue(undefined);
     vi.mocked(suspendCloudsyncForSignOut).mockResolvedValue(undefined);
     vi.mocked(getStoredSettingValues).mockResolvedValue({
       values: {},
@@ -300,7 +302,8 @@ describe("CloudSync auth lifecycle", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
     expect(suspendCloudsync).not.toHaveBeenCalled();
-    expect(suspendCloudsyncForSignOut).toHaveBeenCalledTimes(1);
+    expect(suspendCloudsyncAfterAuthLoss).toHaveBeenCalledTimes(1);
+    expect(suspendCloudsyncForSignOut).not.toHaveBeenCalled();
   });
 
   test("retries native activity deferral with fresh credentials", async () => {
@@ -620,7 +623,8 @@ describe("CloudSync auth lifecycle", () => {
 
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
-    expect(suspendCloudsyncForSignOut).toHaveBeenCalledTimes(1);
+    expect(suspendCloudsyncAfterAuthLoss).toHaveBeenCalledTimes(1);
+    expect(suspendCloudsyncForSignOut).not.toHaveBeenCalled();
   });
 
   test("suspends existing sync when exchange is not configured", async () => {
@@ -814,7 +818,8 @@ describe("CloudSync auth lifecycle", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
     expect(suspendCloudsync).not.toHaveBeenCalled();
-    expect(suspendCloudsyncForSignOut).toHaveBeenCalledTimes(1);
+    expect(suspendCloudsyncAfterAuthLoss).toHaveBeenCalledTimes(1);
+    expect(suspendCloudsyncForSignOut).not.toHaveBeenCalled();
     expect(getCloudsyncCredentialBlock()).toBeNull();
   });
 
@@ -966,11 +971,12 @@ describe("CloudSync auth lifecycle", () => {
     await handleCloudsyncAuthChange("SIGNED_OUT", null);
 
     expect(suspendCloudsync).not.toHaveBeenCalled();
-    expect(suspendCloudsyncForSignOut).toHaveBeenCalledTimes(1);
+    expect(suspendCloudsyncAfterAuthLoss).toHaveBeenCalledTimes(1);
+    expect(suspendCloudsyncForSignOut).not.toHaveBeenCalled();
   });
 
-  test("continues null-session teardown when sign-out suspension fails", async () => {
-    vi.mocked(suspendCloudsyncForSignOut).mockRejectedValueOnce(
+  test("continues null-session teardown when auth-loss suspension fails", async () => {
+    vi.mocked(suspendCloudsyncAfterAuthLoss).mockRejectedValueOnce(
       new Error("cloudsync suspension failed"),
     );
     vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -983,7 +989,8 @@ describe("CloudSync auth lifecycle", () => {
       "[cloudsync] local sync suspension failed",
     );
     expect(suspendCloudsync).not.toHaveBeenCalled();
-    expect(suspendCloudsyncForSignOut).toHaveBeenCalledTimes(1);
+    expect(suspendCloudsyncAfterAuthLoss).toHaveBeenCalledTimes(1);
+    expect(suspendCloudsyncForSignOut).not.toHaveBeenCalled();
   });
 
   test("does not block sign-out on a stalled cloudsync suspension", async () => {
@@ -1032,6 +1039,96 @@ describe("CloudSync auth lifecycle", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
+  });
+
+  test("bounds serialized auth teardown and resumes re-login after cleanup", async () => {
+    let finishSignOutSuspension!: () => void;
+    let finishAuthLossSuspension!: () => void;
+    const signOutSuspension = new Promise<void>((resolve) => {
+      finishSignOutSuspension = resolve;
+    });
+    const authLossSuspension = signOutSuspension.then(
+      () =>
+        new Promise<void>((resolve) => {
+          finishAuthLossSuspension = resolve;
+        }),
+    );
+    const fetchMock = vi.fn(() => Promise.resolve(credentialsResponse()));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.mocked(suspendCloudsyncForSignOut).mockReturnValueOnce(
+      signOutSuspension,
+    );
+    vi.mocked(suspendCloudsyncAfterAuthLoss).mockReturnValueOnce(
+      authLossSuspension,
+    );
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const preparation = prepareCloudsyncSignOut(session());
+    await vi.advanceTimersByTimeAsync(2_000);
+    await preparation;
+
+    const teardown = handleCloudsyncAuthChange("SIGNED_OUT", null);
+    await vi.advanceTimersByTimeAsync(2_000);
+    await expect(teardown).resolves.toBe("ok");
+
+    await expect(
+      handleCloudsyncAuthChange("SIGNED_IN", session()),
+    ).resolves.toBe("ok");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
+
+    finishSignOutSuspension();
+    await signOutSuspension;
+    await Promise.resolve();
+    expect(finishAuthLossSuspension).toBeTypeOf("function");
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    finishAuthLossSuspension();
+    await authLossSuspension;
+    await vi.advanceTimersByTimeAsync(999);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(configureCloudsyncToken).toHaveBeenCalledTimes(1);
+  });
+
+  test("reactivates without waiting forever for a stalled teardown", async () => {
+    let finishSuspension!: () => void;
+    const suspension = new Promise<void>((resolve) => {
+      finishSuspension = resolve;
+    });
+    const fetchMock = vi.fn(() => Promise.resolve(credentialsResponse()));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.mocked(suspendCloudsyncAfterAuthLoss).mockReturnValueOnce(suspension);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const teardown = handleCloudsyncAuthChange("SIGNED_OUT", null);
+    await vi.advanceTimersByTimeAsync(2_000);
+    await expect(teardown).resolves.toBe("ok");
+
+    await expect(
+      handleCloudsyncAuthChange("SIGNED_IN", session()),
+    ).resolves.toBe("ok");
+    await vi.advanceTimersByTimeAsync(1_999);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(configureCloudsyncToken).toHaveBeenCalledTimes(1);
+    expect(suspendCloudsync).not.toHaveBeenCalled();
+
+    finishSuspension();
+    await suspension;
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(configureCloudsyncToken).toHaveBeenCalledTimes(2);
   });
 
   test("resumes token refresh when sign-out suspension fails", async () => {

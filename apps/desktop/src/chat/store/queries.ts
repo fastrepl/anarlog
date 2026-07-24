@@ -152,6 +152,29 @@ export function upsertChatMessage(message: ChatMessageRecord): Promise<void> {
   });
 }
 
+export function replaceChatMessage({
+  message,
+  previousMessageId,
+}: {
+  message: ChatMessageRecord;
+  previousMessageId: string;
+}): Promise<void> {
+  return enqueueDatabaseWrite(chatWriteKey(message.chatGroupId), async () => {
+    const now = new Date().toISOString();
+    const statements = [buildUpsertChatMessageStatement(message, now)];
+    if (previousMessageId !== message.id) {
+      statements.push(
+        buildDeleteChatMessageStatement(
+          message.chatGroupId,
+          previousMessageId,
+          now,
+        ),
+      );
+    }
+    await executeTransaction(statements);
+  });
+}
+
 export function setChatGroupTitleIfCurrent({
   groupId,
   expectedTitle,
@@ -199,14 +222,7 @@ export function deleteChatMessage(
   return enqueueDatabaseWrite(chatWriteKey(chatGroupId), async () => {
     const now = new Date().toISOString();
     await executeTransaction([
-      {
-        sql: `
-          UPDATE chat_messages
-          SET deleted_at = ?, updated_at = ?
-          WHERE id = ? AND chat_group_id = ? AND deleted_at IS NULL
-        `,
-        params: [now, now, messageId, chatGroupId],
-      },
+      buildDeleteChatMessageStatement(chatGroupId, messageId, now),
     ]);
   });
 }
@@ -276,6 +292,21 @@ function buildUpsertChatMessageStatement(
       message.createdAt,
       updatedAt,
     ],
+  };
+}
+
+function buildDeleteChatMessageStatement(
+  chatGroupId: string,
+  messageId: string,
+  updatedAt: string,
+) {
+  return {
+    sql: `
+      UPDATE chat_messages
+      SET deleted_at = ?, updated_at = ?
+      WHERE id = ? AND chat_group_id = ? AND deleted_at IS NULL
+    `,
+    params: [updatedAt, updatedAt, messageId, chatGroupId],
   };
 }
 

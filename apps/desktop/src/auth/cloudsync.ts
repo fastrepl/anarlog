@@ -11,6 +11,7 @@ import {
   getE2eeIdentityStatus,
   isCloudsyncActivityDeferredError,
   suspendCloudsync,
+  suspendCloudsyncAfterAuthLoss,
   suspendCloudsyncForSignOut,
 } from "@hypr/plugin-db";
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
@@ -33,7 +34,7 @@ const ACTIVITY_RETRY_DELAY_MS = 5 * 1000;
 const MIN_REFRESH_DELAY_MS = 1000;
 const EXCHANGE_TIMEOUT_MS = 25 * 1000;
 const EVICTION_RETRY_DELAY_MS = 30 * 1000;
-const SIGN_OUT_SUSPEND_TIMEOUT_MS = 2 * 1000;
+const CLOUDSYNC_TEARDOWN_TIMEOUT_MS = 2 * 1000;
 
 export type CloudsyncAuthChangeResult = "ok" | "account_mismatch";
 
@@ -159,6 +160,13 @@ let exchangeController: AbortController | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let evictionRetryTimer: ReturnType<typeof setTimeout> | null = null;
 let pluginOperation = Promise.resolve();
+const pendingCloudsyncTeardowns = new Set<Promise<void>>();
+const timedOutCloudsyncTeardowns = new Set<Promise<void>>();
+let currentCloudsyncReactivation: {
+  session: Session;
+  generation: number;
+  onAccountMismatch: CloudsyncAccountMismatchHandler | undefined;
+} | null = null;
 
 function beginTransition() {
   generation += 1;
@@ -184,6 +192,34 @@ function enqueuePluginOperation<T>(operation: () => Promise<T>) {
     () => {},
   );
   return next;
+}
+
+function trackCloudsyncTeardown(teardown: Promise<void>) {
+  const tracked = teardown.finally(() => {
+    pendingCloudsyncTeardowns.delete(tracked);
+    timedOutCloudsyncTeardowns.delete(tracked);
+  });
+  pendingCloudsyncTeardowns.add(tracked);
+  return tracked;
+}
+
+function getPendingCloudsyncTeardowns() {
+  if (pendingCloudsyncTeardowns.size === 0) {
+    return null;
+  }
+  return [...pendingCloudsyncTeardowns];
+}
+
+function stopWaitingForCloudsyncTeardowns(teardowns: Promise<void>[]) {
+  for (const teardown of teardowns) {
+    if (pendingCloudsyncTeardowns.delete(teardown)) {
+      timedOutCloudsyncTeardowns.add(teardown);
+      void teardown.then(
+        scheduleCurrentCloudsyncReactivation,
+        scheduleCurrentCloudsyncReactivation,
+      );
+    }
+  }
 }
 
 async function flushCloudsyncSessionEvictions(): Promise<boolean> {
@@ -471,6 +507,19 @@ function scheduleExchange(
   }, delayMs);
 }
 
+function scheduleCurrentCloudsyncReactivation() {
+  const reactivation = currentCloudsyncReactivation;
+  if (!reactivation || reactivation.generation !== generation) {
+    return;
+  }
+  scheduleExchange(
+    reactivation.session,
+    reactivation.generation,
+    MIN_REFRESH_DELAY_MS,
+    reactivation.onAccountMismatch,
+  );
+}
+
 function scheduleActivityStatusRetry(
   session: Session,
   activeGeneration: number,
@@ -546,6 +595,46 @@ async function activateCloudsync(
   onAccountMismatch?: CloudsyncAccountMismatchHandler,
 ): Promise<CloudsyncAuthChangeResult> {
   const activeGeneration = beginTransition();
+  currentCloudsyncReactivation = {
+    session,
+    generation: activeGeneration,
+    onAccountMismatch,
+  };
+  const scheduleReactivation = () => {
+    if (activeGeneration === generation) {
+      scheduleExchange(
+        session,
+        activeGeneration,
+        MIN_REFRESH_DELAY_MS,
+        onAccountMismatch,
+      );
+    }
+  };
+
+  const pendingTeardowns = getPendingCloudsyncTeardowns();
+  if (pendingTeardowns) {
+    let finishedWaiting = false;
+    const timeout = setTimeout(() => {
+      if (finishedWaiting) {
+        return;
+      }
+      finishedWaiting = true;
+      stopWaitingForCloudsyncTeardowns(pendingTeardowns);
+      scheduleReactivation();
+    }, CLOUDSYNC_TEARDOWN_TIMEOUT_MS);
+    void Promise.allSettled(pendingTeardowns).then(() => {
+      if (finishedWaiting) {
+        return;
+      }
+      finishedWaiting = true;
+      clearTimeout(timeout);
+      scheduleReactivation();
+    });
+    return "ok";
+  }
+  const shouldSuspendBeforeExchange =
+    suspendBeforeExchange && timedOutCloudsyncTeardowns.size === 0;
+
   let enabled: boolean;
   try {
     enabled = resolveConfigValue(
@@ -610,7 +699,7 @@ async function activateCloudsync(
     scheduleActivityStatusRetry(
       session,
       activeGeneration,
-      suspendBeforeExchange,
+      shouldSuspendBeforeExchange,
       onAccountMismatch,
     );
     return "ok";
@@ -649,7 +738,7 @@ async function activateCloudsync(
   }
 
   if (
-    suspendBeforeExchange &&
+    shouldSuspendBeforeExchange &&
     !(await suspendCloudsyncForGeneration(activeGeneration))
   ) {
     if (activeGeneration === generation) {
@@ -729,7 +818,7 @@ async function activateCloudsync(
   if (!response.ok) {
     if (response.status === 404 || response.status === 501) {
       setCredentialBlock("unavailable");
-      if (!suspendBeforeExchange) {
+      if (!shouldSuspendBeforeExchange) {
         await suspendCloudsyncAfterCredentialRejection(activeGeneration);
       }
       console.warn("[cloudsync] credential exchange is not configured");
@@ -744,7 +833,7 @@ async function activateCloudsync(
       setCredentialBlock(
         errorCode === DEVICE_LIMIT_ERROR_CODE ? "device_limit" : "not_entitled",
       );
-      if (!suspendBeforeExchange) {
+      if (!shouldSuspendBeforeExchange) {
         await suspendCloudsyncAfterCredentialRejection(activeGeneration);
       }
       if (errorCode === DEVICE_LIMIT_ERROR_CODE) {
@@ -765,7 +854,7 @@ async function activateCloudsync(
 
     if (response.status === 401) {
       setCredentialBlock("reauth_required");
-      if (!suspendBeforeExchange) {
+      if (!shouldSuspendBeforeExchange) {
         await suspendCloudsyncAfterCredentialRejection(activeGeneration);
       }
       console.warn("[cloudsync] credential exchange requires a fresh session");
@@ -813,7 +902,7 @@ async function activateCloudsync(
     : credentials.workspaceId;
   if (accountUserId !== session.user.id) {
     setCredentialBlock("identity_mismatch");
-    if (!suspendBeforeExchange) {
+    if (!shouldSuspendBeforeExchange) {
       await suspendCloudsyncAfterCredentialRejection(activeGeneration);
     }
     console.warn(
@@ -908,7 +997,7 @@ async function activateCloudsync(
       scheduleActivityStatusRetry(
         session,
         activeGeneration,
-        suspendBeforeExchange,
+        shouldSuspendBeforeExchange,
         onAccountMismatch,
       );
       return "ok";
@@ -949,23 +1038,10 @@ async function activateCloudsync(
 
 async function suspendCloudsyncSession(): Promise<void> {
   beginTransition();
+  currentCloudsyncReactivation = null;
   stopCloudsyncInitialSyncProgress();
   setCredentialBlock(null);
-
-  try {
-    await suspendCloudsyncForSignOut();
-  } catch {
-    console.warn("[cloudsync] local sync suspension failed");
-  }
-}
-
-export async function prepareCloudsyncSignOut(
-  session: Session | null | undefined,
-  onAccountMismatch?: CloudsyncAccountMismatchHandler,
-): Promise<void> {
-  const activeGeneration = beginTransition();
-  stopCloudsyncInitialSyncProgress();
-  const suspension = suspendCloudsyncForSignOut();
+  const suspension = trackCloudsyncTeardown(suspendCloudsyncAfterAuthLoss());
   let timeout: ReturnType<typeof setTimeout> | null = null;
 
   try {
@@ -974,7 +1050,48 @@ export async function prepareCloudsyncSignOut(
       new Promise<"timed_out">((resolve) => {
         timeout = setTimeout(
           () => resolve("timed_out"),
-          SIGN_OUT_SUSPEND_TIMEOUT_MS,
+          CLOUDSYNC_TEARDOWN_TIMEOUT_MS,
+        );
+      }),
+    ]);
+
+    if (result === "timed_out") {
+      console.warn(
+        "[cloudsync] auth-loss suspension is finishing in background",
+      );
+      void suspension.catch((error) => {
+        console.warn(
+          "[cloudsync] background auth-loss suspension failed",
+          error,
+        );
+      });
+    }
+  } catch {
+    console.warn("[cloudsync] local sync suspension failed");
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
+}
+
+export async function prepareCloudsyncSignOut(
+  session: Session | null | undefined,
+  onAccountMismatch?: CloudsyncAccountMismatchHandler,
+): Promise<void> {
+  const activeGeneration = beginTransition();
+  currentCloudsyncReactivation = null;
+  stopCloudsyncInitialSyncProgress();
+  const suspension = trackCloudsyncTeardown(suspendCloudsyncForSignOut());
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+
+  try {
+    const result = await Promise.race([
+      suspension.then(() => "suspended" as const),
+      new Promise<"timed_out">((resolve) => {
+        timeout = setTimeout(
+          () => resolve("timed_out"),
+          CLOUDSYNC_TEARDOWN_TIMEOUT_MS,
         );
       }),
     ]);

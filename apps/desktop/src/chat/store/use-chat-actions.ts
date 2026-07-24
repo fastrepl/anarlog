@@ -4,6 +4,7 @@ import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import { createFallbackChatTitle, generateChatTitle } from "./chat-title";
 import {
+  clearFailedChatGroupCreate,
   markFailedChatGroupCreate,
   trackPendingChatPersist,
 } from "./pending-persists";
@@ -141,6 +142,7 @@ export function useChatActions({
           try {
             await persist;
             if (fallbackTitle) {
+              clearFailedChatGroupCreate(currentGroupId);
               onGroupCreated(currentGroupId);
               const titleCompletion = queueChatTitleGeneration({
                 groupId: currentGroupId,

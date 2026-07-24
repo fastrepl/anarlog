@@ -48,6 +48,10 @@ export function markFailedChatGroupCreate(chatGroupId: string) {
   failedGroupCreates.add(chatGroupId);
 }
 
+export function clearFailedChatGroupCreate(chatGroupId: string) {
+  failedGroupCreates.delete(chatGroupId);
+}
+
 export function isFailedChatGroupCreate(chatGroupId: string) {
   return failedGroupCreates.has(chatGroupId);
 }

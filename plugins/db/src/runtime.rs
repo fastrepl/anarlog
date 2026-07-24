@@ -2174,17 +2174,18 @@ impl PluginDbRuntime {
 
     pub async fn suspend_cloudsync_for_sign_out(&self) -> Result<()> {
         let _activity_acquisition = self.cloudsync_activity_acquisition.lock().await;
-        match self.suspend_cloudsync().await {
-            Ok(()) => {}
+        let result = match self.suspend_cloudsync().await {
+            Ok(()) => Ok(()),
             Err(crate::Error::Cloudsync(hypr_db_core::CloudsyncRuntimeError::LocalStatusBusy)) => {
                 tracing::warn!(
                     "CloudSync pool teardown remains pending after account sign-out suspension"
                 );
+                Ok(())
             }
-            Err(error) => return Err(error),
-        }
+            Err(error) => Err(error),
+        };
         self.e2ee_sync_hook.clear_activities();
-        Ok(())
+        result
     }
 
     pub async fn suspend_cloudsync_after_auth_loss(&self) -> Result<()> {
@@ -4080,6 +4081,34 @@ mod tests {
         runtime.suspend_cloudsync_for_sign_out().await.unwrap();
 
         assert!(!runtime.e2ee_sync_hook.activity_paused());
+    }
+
+    #[tokio::test]
+    async fn sign_out_suspend_clears_activity_leases_after_non_busy_error() {
+        let db = std::sync::Arc::new(Db::connect_memory().await.unwrap());
+        let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+        runtime
+            .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
+            .await
+            .unwrap();
+        let mut resumed = Box::pin(runtime.e2ee_sync_hook.wait_until_activity_resumed());
+        tokio::select! {
+            biased;
+            () = &mut resumed => panic!("activity resume wait completed while paused"),
+            _ = tokio::task::yield_now() => {}
+        }
+        db.pool().close().await;
+
+        let error = runtime.suspend_cloudsync_for_sign_out().await.unwrap_err();
+
+        assert!(!matches!(
+            error,
+            crate::Error::Cloudsync(hypr_db_core::CloudsyncRuntimeError::LocalStatusBusy)
+        ));
+        assert!(!runtime.e2ee_sync_hook.activity_paused());
+        tokio::time::timeout(std::time::Duration::from_millis(100), resumed)
+            .await
+            .expect("sign-out cleanup did not notify activity resume waiters");
     }
 
     #[tokio::test]

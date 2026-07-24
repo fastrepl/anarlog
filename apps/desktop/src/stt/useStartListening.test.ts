@@ -1285,6 +1285,68 @@ describe("useStartListening", () => {
     );
   });
 
+  test("requeues recovery when post-stop finalization fails after reattaching", async () => {
+    transcriptExistsMock.mockRejectedValueOnce(new Error("database is locked"));
+    const marker = {
+      version: 1,
+      sessionId: "session-1",
+      transcriptId: "transcript-before-reload",
+      startedAt: 1_000,
+      createdAt: "2026-07-24T00:00:00.000Z",
+      audioOffsetMs: 10_000,
+      preserveExistingTranscript: true,
+      ownerUserId: "user-1",
+      memo: "Existing memo",
+    } as const;
+    loadCaptureLifecycleMarkerMock.mockResolvedValue(marker);
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const { result, unmount } = renderHook(() =>
+      useResumeListeningLifecycle("session-1"),
+    );
+
+    await act(async () => {
+      await expect(result.current()).resolves.toBe("attached");
+    });
+
+    const onStopped = attachLiveSessionMock.mock.calls[0]?.[1]?.onStopped;
+    unmount();
+    await act(async () => {
+      await expect(
+        onStopped?.("session-1", {
+          durationSeconds: 61,
+          audioPath: "/tmp/session.wav",
+          requestedLiveTranscription: true,
+          liveTranscriptionActive: true,
+          needsBatchRepair: false,
+        }),
+      ).rejects.toThrow("database is locked");
+    });
+
+    expect(requestCaptureRecoveryMock).toHaveBeenCalledWith("session-1");
+    expect(beginCloudsyncActivityMock).toHaveBeenCalledOnce();
+    expect(endCloudsyncActivityMock).not.toHaveBeenCalled();
+
+    loadCaptureLifecycleMarkerMock
+      .mockReset()
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(null);
+    attachLiveSessionMock.mockResolvedValue("inactive");
+    const retry = renderHook(() => useResumeListeningLifecycle("session-1"));
+
+    await act(async () => {
+      await expect(retry.result.current()).resolves.toBe("inactive");
+    });
+
+    expect(endCloudsyncActivityMock).toHaveBeenCalledWith(
+      "capture",
+      "session-1:transcript-before-reload",
+    );
+    consoleError.mockRestore();
+  });
+
   test("acquires sync deferral before reattach can deliver an immediate live delta", async () => {
     useSessionHasTranscriptMock.mockReturnValue(true);
     transcriptExistsMock.mockResolvedValue(true);
