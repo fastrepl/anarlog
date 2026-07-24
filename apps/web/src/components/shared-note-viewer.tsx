@@ -249,27 +249,36 @@ function SharedNoteShell({
 }
 
 let headerHidden = false;
+let lastHeaderScrollY = 0;
+const headerVisibilityListeners = new Set<() => void>();
+
+function handleHeaderScroll() {
+  const nextScrollY = window.scrollY;
+  const nextHidden =
+    nextScrollY > 80 &&
+    (nextScrollY > lastHeaderScrollY + 8
+      ? true
+      : nextScrollY < lastHeaderScrollY - 8
+        ? false
+        : headerHidden);
+  lastHeaderScrollY = nextScrollY;
+  if (nextHidden === headerHidden) return;
+  headerHidden = nextHidden;
+  headerVisibilityListeners.forEach((listener) => listener());
+}
 
 function subscribeHeaderVisibility(onChange: () => void) {
-  let lastScrollY = window.scrollY;
-  const handleScroll = () => {
-    const nextScrollY = window.scrollY;
-    const nextHidden =
-      nextScrollY > 80 &&
-      (nextScrollY > lastScrollY + 8
-        ? true
-        : nextScrollY < lastScrollY - 8
-          ? false
-          : headerHidden);
-    lastScrollY = nextScrollY;
-    if (nextHidden === headerHidden) return;
-    headerHidden = nextHidden;
-    onChange();
-  };
-  window.addEventListener("scroll", handleScroll, { passive: true });
+  headerVisibilityListeners.add(onChange);
+  if (headerVisibilityListeners.size === 1) {
+    lastHeaderScrollY = window.scrollY;
+    window.addEventListener("scroll", handleHeaderScroll, { passive: true });
+  }
   return () => {
-    window.removeEventListener("scroll", handleScroll);
-    headerHidden = false;
+    headerVisibilityListeners.delete(onChange);
+    if (headerVisibilityListeners.size === 0) {
+      window.removeEventListener("scroll", handleHeaderScroll);
+      headerHidden = false;
+    }
   };
 }
 

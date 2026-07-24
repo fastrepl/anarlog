@@ -85,15 +85,7 @@ export function SharedNoteAudioPlayer({
     }
     setPinnedDownload(refreshed.data);
     if (activeDownload?.signedUrl === refreshed.data.signedUrl) {
-      requestAnimationFrame(() => {
-        const current = audioRef.current;
-        if (!current) return;
-        current.currentTime = playbackTime;
-        setCurrentTime(playbackTime);
-        if (shouldResume) {
-          void current.play().catch(() => setPlaying(false));
-        }
-      });
+      setPlaying(false);
       return;
     }
     pendingPlaybackRef.current = {

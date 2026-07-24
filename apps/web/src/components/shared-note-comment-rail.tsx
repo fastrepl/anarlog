@@ -391,6 +391,7 @@ function ReplyComposer({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
   const validated = validateSharedNoteCommentBody(body);
+  const tooLong = validated.byteLength > MAX_SHARED_NOTE_COMMENT_BYTES;
 
   const submit = async () => {
     if (!validated.valid || pending) return;
@@ -419,8 +420,8 @@ function ReplyComposer({
         <Avatar seed="shared-note:you" label="You" size={24} />
         <textarea
           aria-label="Reply to comment"
+          aria-invalid={tooLong}
           className="max-h-20 min-h-6 min-w-0 flex-1 resize-none bg-transparent py-0.5 text-xs leading-[18px] text-stone-800 placeholder:text-stone-400 focus:outline-hidden"
-          maxLength={MAX_SHARED_NOTE_COMMENT_BYTES}
           placeholder="Reply…"
           rows={1}
           value={body}
@@ -448,6 +449,12 @@ function ReplyComposer({
           )}
         </button>
       </div>
+      {tooLong ? (
+        <p className="mt-1.5 text-[11px] text-red-700" role="alert">
+          Reply is too long ({validated.byteLength.toLocaleString()}/
+          {MAX_SHARED_NOTE_COMMENT_BYTES.toLocaleString()} bytes).
+        </p>
+      ) : null}
       {error ? (
         <p className="mt-1.5 text-[11px] text-red-700" role="status">
           Your reply couldn’t be added. Try again.
