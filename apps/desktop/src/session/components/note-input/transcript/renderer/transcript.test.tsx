@@ -83,6 +83,7 @@ describe("RenderTranscript", () => {
         shouldScrollToEnd={false}
         transcriptId="transcript-1"
         currentActive
+        captureGeneration={7}
         liveSegments={createSegments(500)}
         currentMs={0}
         seek={vi.fn()}
@@ -96,6 +97,7 @@ describe("RenderTranscript", () => {
     expect(mocks.useRenderedTranscriptData).toHaveBeenCalledWith(
       "transcript-1",
       true,
+      7,
     );
     expect(mocks.useTranscript).toHaveBeenCalledTimes(1);
     expect(mocks.useTranscript).toHaveBeenCalledWith("transcript-1");
@@ -166,6 +168,7 @@ describe("RenderTranscript", () => {
     expect(mocks.useRenderedTranscriptData).toHaveBeenCalledWith(
       "transcript-1",
       false,
+      0,
     );
     expect(document.querySelectorAll("section")).toHaveLength(1);
   });
@@ -195,6 +198,7 @@ describe("RenderTranscript", () => {
     expect(mocks.useRenderedTranscriptData).toHaveBeenCalledWith(
       "transcript-1",
       true,
+      0,
     );
     expect(document.querySelectorAll("section")).toHaveLength(1);
   });

@@ -35,6 +35,7 @@ export type TranscriptScreen =
       transcriptIds: string[];
       liveSegments: Segment[];
       currentActive: boolean;
+      captureGeneration: number;
     };
 
 export function useTranscriptScreen({
@@ -96,6 +97,7 @@ export function useTranscriptScreen({
     transcriptIds,
     liveSegments,
     currentActive,
+    captureGeneration: live.captureGenerationBySession[sessionId] ?? 0,
   };
 }
 

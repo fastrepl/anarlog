@@ -699,9 +699,69 @@ describe("General Listener Slice", () => {
       expect(store.getState().getSessionMode("session-a")).toBe("active");
       expect(store.getState().live.sessionId).toBe("session-a");
       expect(store.getState().live.liveTranscriptionActive).toBe(true);
+      expect(
+        store.getState().live.captureGenerationBySession["session-a"],
+      ).toBe(1);
       expect(listenCaptureLifecycleMock).toHaveBeenCalledTimes(1);
       expect(listenCaptureStatusMock).toHaveBeenCalledTimes(1);
       expect(listenCaptureDataMock).toHaveBeenCalledTimes(1);
+    });
+
+    test("attached windows advance once for each observed native capture", async () => {
+      let lifecycleHandler:
+        | ((event: { payload: Record<string, unknown> }) => void)
+        | undefined;
+      listenCaptureLifecycleMock.mockImplementation((handler) => {
+        lifecycleHandler = handler;
+        return Promise.resolve(() => {});
+      });
+
+      await store.getState().attachLiveSession("session-a");
+      expect(
+        store.getState().live.captureGenerationBySession["session-a"],
+      ).toBeUndefined();
+
+      const started = {
+        type: "started",
+        session_id: "session-a",
+        requested_live_transcription: true,
+        live_transcription_active: true,
+        degraded: null,
+      };
+      const stopped = {
+        type: "stopped",
+        session_id: "session-a",
+        audio_path: "/tmp/session.wav",
+        requested_live_transcription: true,
+        live_transcription_active: true,
+        error: null,
+      };
+
+      lifecycleHandler?.({ payload: started });
+      expect(
+        store.getState().live.captureGenerationBySession["session-a"],
+      ).toBe(1);
+      lifecycleHandler?.({ payload: started });
+      expect(
+        store.getState().live.captureGenerationBySession["session-a"],
+      ).toBe(1);
+      lifecycleHandler?.({
+        payload: { type: "finalizing", session_id: "session-a" },
+      });
+      expect(
+        store.getState().live.captureGenerationBySession["session-a"],
+      ).toBe(1);
+      lifecycleHandler?.({ payload: stopped });
+      expect(
+        store.getState().live.captureGenerationBySession["session-a"],
+      ).toBeUndefined();
+
+      await store.getState().attachLiveSession("session-a");
+      lifecycleHandler?.({ payload: started });
+      expect(
+        store.getState().live.captureGenerationBySession["session-a"],
+      ).toBe(2);
+      lifecycleHandler?.({ payload: stopped });
     });
 
     test("attachLiveSession restores transcript and stop callbacks for an active native capture", async () => {
@@ -1196,6 +1256,37 @@ describe("General Listener Slice", () => {
       expect(store.getState().live.sessionId).toBeNull();
     });
 
+    test("attachLiveSession keeps a finalizing target attached while another capture is active", async () => {
+      const handlePersist = vi.fn();
+      const onStopped = vi.fn();
+      getCaptureSnapshotMock.mockResolvedValueOnce({
+        status: "ok",
+        data: {
+          activeSessionId: "session-b",
+          finalizingSessionIds: ["session-a"],
+          liveTranscriptionActive: true,
+          requestedLiveTranscription: true,
+          state: "active",
+        },
+      });
+
+      await expect(
+        store.getState().attachLiveSession("session-a", {
+          handlePersist,
+          onStopped,
+        }),
+      ).resolves.toBe("attached");
+
+      expect(store.getState().getSessionMode("session-a")).toBe("finalizing");
+      expect(
+        store.getState().live.captureGenerationBySession["session-a"],
+      ).toBe(1);
+      expect(store.getState().handlePersistBySession["session-a"]).toBe(
+        handlePersist,
+      );
+      expect(store.getState().onStoppedBySession["session-a"]).toBe(onStopped);
+    });
+
     test("attachLiveSession hydrates finalizing native capture for the same session", async () => {
       let dataHandler:
         | ((event: {
@@ -1225,6 +1316,9 @@ describe("General Listener Slice", () => {
 
       expect(store.getState().live.sessionId).toBe("session-a");
       expect(store.getState().getSessionMode("session-a")).toBe("finalizing");
+      expect(
+        store.getState().live.captureGenerationBySession["session-a"],
+      ).toBe(1);
 
       dataHandler?.({
         payload: {
@@ -1372,6 +1466,129 @@ describe("General Listener Slice", () => {
       await expect(start).resolves.toBe(true);
       await queued;
       expect(nextOperation).toHaveBeenCalledOnce();
+    });
+
+    test("releases a failed start generation before retrying", async () => {
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      const params = {
+        session_id: "session-a",
+        languages: [],
+        onboarding: false,
+        model: "test-model",
+        base_url: "http://localhost",
+        api_key: "test-key",
+        keywords: [],
+      };
+      startCaptureMock.mockResolvedValueOnce({
+        status: "error",
+        error: "capture unavailable",
+      });
+
+      await expect(store.getState().start(params)).resolves.toBe(false);
+      expect(
+        store.getState().live.captureGenerationBySession["session-a"],
+      ).toBeUndefined();
+      expect(store.getState().live.captureGenerationCounter).toBe(1);
+
+      await expect(store.getState().start(params)).resolves.toBe(true);
+      expect(
+        store.getState().live.captureGenerationBySession["session-a"],
+      ).toBe(2);
+      consoleError.mockRestore();
+    });
+
+    test("keeps the capture generation when stop command delivery fails", async () => {
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      const intervalId = setInterval(() => {}, 1000);
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          markLiveActive(draft.live, "session-a", intervalId, true, true, null);
+        }),
+      );
+      stopCaptureMock.mockResolvedValueOnce({
+        status: "error",
+        error: "stop unavailable",
+      });
+
+      store.getState().stop();
+
+      await vi.waitFor(() =>
+        expect(store.getState().live.status).toBe("active"),
+      );
+      expect(
+        store.getState().live.captureGenerationBySession["session-a"],
+      ).toBe(1);
+      clearInterval(store.getState().live.intervalId);
+      consoleError.mockRestore();
+    });
+
+    test("deduplicates capture generation across native start event ordering", async () => {
+      let lifecycleHandler:
+        | ((event: { payload: Record<string, unknown> }) => void)
+        | undefined;
+      let resolveStart:
+        | ((value: { status: "ok"; data: null }) => void)
+        | undefined;
+      listenCaptureLifecycleMock.mockImplementation((handler) => {
+        lifecycleHandler = handler;
+        return Promise.resolve(() => {});
+      });
+      startCaptureMock.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveStart = resolve;
+        }),
+      );
+      const params = {
+        session_id: "session-a",
+        languages: [],
+        onboarding: false,
+        model: "test-model",
+        base_url: "http://localhost",
+        api_key: "test-key",
+        keywords: [],
+      };
+      const started = {
+        type: "started",
+        session_id: "session-a",
+        requested_live_transcription: true,
+        live_transcription_active: true,
+        degraded: null,
+      };
+      const stopped = {
+        type: "stopped",
+        session_id: "session-a",
+        audio_path: "/tmp/session.wav",
+        requested_live_transcription: true,
+        live_transcription_active: true,
+        error: null,
+      };
+
+      const firstStart = store.getState().start(params);
+      await vi.waitFor(() => expect(startCaptureMock).toHaveBeenCalledOnce());
+      lifecycleHandler?.({ payload: started });
+      expect(
+        store.getState().live.captureGenerationBySession["session-a"],
+      ).toBe(1);
+      resolveStart?.({ status: "ok", data: null });
+      await expect(firstStart).resolves.toBe(true);
+      expect(
+        store.getState().live.captureGenerationBySession["session-a"],
+      ).toBe(1);
+      lifecycleHandler?.({ payload: stopped });
+
+      await expect(store.getState().start(params)).resolves.toBe(true);
+      expect(
+        store.getState().live.captureGenerationBySession["session-a"],
+      ).toBe(2);
+      lifecycleHandler?.({ payload: started });
+      expect(
+        store.getState().live.captureGenerationBySession["session-a"],
+      ).toBe(2);
+      lifecycleHandler?.({ payload: stopped });
     });
 
     test("getSessionMode returns finalizing for non-active finalizing sessions", () => {

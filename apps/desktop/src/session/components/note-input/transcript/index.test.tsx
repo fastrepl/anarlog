@@ -47,7 +47,12 @@ vi.mock("./screens/listening", () => ({
 }));
 
 vi.mock("./renderer", () => ({
-  TranscriptViewer: () => <div data-testid="transcript-viewer" />,
+  TranscriptViewer: ({ captureGeneration }: { captureGeneration: number }) => (
+    <div
+      data-testid="transcript-viewer"
+      data-capture-generation={captureGeneration}
+    />
+  ),
 }));
 
 vi.mock("~/stt/useUploadFile", () => ({
@@ -70,6 +75,8 @@ describe("Transcript", () => {
     getSessionMode: (id: string) => "inactive" | "active" | "finalizing";
     batch: Record<string, { error?: string | null }>;
     live: {
+      captureGenerationCounter: number;
+      captureGenerationBySession: Record<string, number>;
       degraded: null;
       requestedLiveTranscription: boolean;
       liveTranscriptionActive: boolean;
@@ -91,6 +98,11 @@ describe("Transcript", () => {
       getSessionMode: () => "active",
       batch: {},
       live: {
+        captureGenerationCounter: 2,
+        captureGenerationBySession: {
+          [sessionId]: 1,
+          "session-2": 2,
+        },
         degraded: null,
         requestedLiveTranscription: true,
         liveTranscriptionActive: true,
@@ -119,7 +131,11 @@ describe("Transcript", () => {
 
     view.rerender(<Transcript sessionId={sessionId} scrollRef={scrollRef} />);
 
-    expect(screen.queryByTestId("transcript-viewer")).not.toBeNull();
+    expect(
+      screen
+        .getByTestId("transcript-viewer")
+        .getAttribute("data-capture-generation"),
+    ).toBe("1");
   });
 
   it("keeps existing transcript content unobstructed while finalizing", () => {

@@ -46,14 +46,17 @@ vi.mock("./transcript", () => ({
     shouldScrollToEnd,
     transcriptId,
     currentActive,
+    captureGeneration,
   }: {
     liveSegments: unknown[];
     shouldScrollToEnd: boolean;
     transcriptId: string;
     currentActive: boolean;
+    captureGeneration?: number;
   }) => (
     <div
       data-testid="render-transcript"
+      data-capture-generation={String(captureGeneration ?? 0)}
       data-current-active={String(currentActive)}
       data-live-segment-count={String(liveSegments.length)}
       data-should-scroll-to-end={String(shouldScrollToEnd)}
@@ -108,6 +111,7 @@ describe("TranscriptViewer", () => {
         transcriptIds={["transcript-1"]}
         liveSegments={[]}
         currentActive
+        captureGeneration={7}
         scrollRef={createRef()}
       />,
     );
@@ -117,6 +121,11 @@ describe("TranscriptViewer", () => {
         .getByTestId("render-transcript")
         .getAttribute("data-should-scroll-to-end"),
     ).toBe("true");
+    expect(
+      screen
+        .getByTestId("render-transcript")
+        .getAttribute("data-capture-generation"),
+    ).toBe("7");
   });
 
   it("keeps active transcript sessions pinned near the exact bottom edge", () => {

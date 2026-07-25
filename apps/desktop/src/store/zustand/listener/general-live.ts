@@ -24,10 +24,12 @@ import {
   type GeneralState,
   type LiveIntervalId,
   markLiveActive,
+  markLiveCaptureStarted,
   markLiveFinalizing,
   markLiveInactive,
   markLiveStartFailed,
   noteLiveTranscriptActivity,
+  releaseLiveCaptureGeneration,
   setLiveState,
   tickTranscriptionStallWatchdog,
   updateLiveAmplitude,
@@ -208,6 +210,7 @@ const createSessionEventHandlers = <T extends LiveStore>(
     setLiveState(set, (live) => {
       delete live.eventUnlistenersBySession[targetSessionId];
       delete live.finalizingBySession[targetSessionId];
+      releaseLiveCaptureGeneration(live, targetSessionId);
       if (onStopped) {
         live.postStopProcessingBySession[targetSessionId] = true;
       }
@@ -393,9 +396,7 @@ export const startLiveSession = <T extends LiveStore>(
     yield* startSessionEffect(params);
 
     setLiveState(set, (live) => {
-      live.status = "active";
-      live.loading = false;
-      live.sessionId = targetSessionId;
+      markLiveCaptureStarted(live, targetSessionId);
     });
   });
 
@@ -494,8 +495,7 @@ export const attachLiveSession = <T extends LiveStore>(
         const isAttached =
           (snapshot.state === "active" &&
             snapshot.activeSessionId === targetSessionId) ||
-          (snapshot.state === "finalizing" &&
-            snapshot.finalizingSessionIds.includes(targetSessionId));
+          snapshot.finalizingSessionIds.includes(targetSessionId);
         if (!isAttached) {
           clearAttachedCallbacks();
         }
@@ -557,8 +557,7 @@ export const attachLiveSession = <T extends LiveStore>(
     const isAttached =
       (snapshot.state === "active" &&
         snapshot.activeSessionId === targetSessionId) ||
-      (snapshot.state === "finalizing" &&
-        snapshot.finalizingSessionIds.includes(targetSessionId));
+      snapshot.finalizingSessionIds.includes(targetSessionId);
     if (!isAttached) {
       clearAttachedCallbacks();
     }
@@ -629,10 +628,7 @@ function applyCaptureSnapshot<T extends GeneralState>(
     return;
   }
 
-  if (
-    snapshot.state === "finalizing" &&
-    snapshot.finalizingSessionIds.includes(targetSessionId)
-  ) {
+  if (snapshot.finalizingSessionIds.includes(targetSessionId)) {
     setLiveState(set, (live) => {
       if (!live.sessionId) {
         live.sessionId = targetSessionId;
@@ -644,6 +640,9 @@ function applyCaptureSnapshot<T extends GeneralState>(
 
   setLiveState(set, (live) => {
     if (live.sessionId === targetSessionId && live.status === "inactive") {
+      if (!live.loading) {
+        releaseLiveCaptureGeneration(live, targetSessionId);
+      }
       live.loading = false;
       live.sessionId = null;
     }

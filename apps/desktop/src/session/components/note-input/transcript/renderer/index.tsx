@@ -29,11 +29,13 @@ export function TranscriptViewer({
   transcriptIds,
   liveSegments,
   currentActive,
+  captureGeneration = 0,
   scrollRef,
 }: {
   transcriptIds: string[];
   liveSegments: Segment[];
   currentActive: boolean;
+  captureGeneration?: number;
   scrollRef: RefObject<HTMLDivElement | null>;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -131,6 +133,7 @@ export function TranscriptViewer({
                 shouldScrollToEnd={shouldScrollLastTranscriptToEnd}
                 transcriptId={transcriptId}
                 currentActive={isActiveTranscript}
+                captureGeneration={isActiveTranscript ? captureGeneration : 0}
                 liveSegments={isActiveTranscript ? liveSegments : []}
                 currentMs={deferredCurrentMs}
                 seek={seek}

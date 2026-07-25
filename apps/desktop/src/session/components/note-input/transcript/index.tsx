@@ -62,6 +62,7 @@ export function Transcript({
           transcriptIds={screen.transcriptIds}
           liveSegments={screen.liveSegments}
           currentActive={screen.currentActive}
+          captureGeneration={screen.captureGeneration}
           scrollRef={scrollRef}
         />
       )}

@@ -3,24 +3,67 @@ import { describe, expect, it } from "vitest";
 import {
   type GeneralState,
   initialGeneralState,
+  markLiveCaptureStarted,
+  markLiveFinalizing,
+  markLiveStartRequested,
   noteLiveTranscriptActivity,
+  releaseLiveCaptureGeneration,
   TRANSCRIPTION_FINAL_STALL_AUDIBLE_SECONDS,
   TRANSCRIPTION_STALL_AUDIBLE_SECONDS,
   tickTranscriptionStallWatchdog,
 } from "./general-shared";
 
-function createActiveLive(): GeneralState["live"] {
+function createLive(): GeneralState["live"] {
   return {
     ...initialGeneralState.live,
+    captureGenerationBySession: {},
+    finalizingBySession: {},
+    eventUnlistenersBySession: {},
+  };
+}
+
+function createActiveLive(): GeneralState["live"] {
+  return {
+    ...createLive(),
     status: "active",
     sessionId: "session-1",
     requestedLiveTranscription: true,
     liveTranscriptionActive: true,
     amplitude: { mic: 0.4, speaker: 0.4 },
-    finalizingBySession: {},
-    eventUnlistenersBySession: {},
   };
 }
+
+describe("markLiveCaptureStarted", () => {
+  it("keeps one generation per capture across lifecycle observations", () => {
+    const live = createLive();
+
+    markLiveStartRequested(live, "session-1");
+    expect(live.captureGenerationBySession["session-1"]).toBe(1);
+    markLiveCaptureStarted(live, "session-1");
+    expect(live.captureGenerationBySession["session-1"]).toBe(1);
+    markLiveCaptureStarted(live, "session-1");
+    markLiveFinalizing(live, "session-1");
+    expect(live.captureGenerationBySession["session-1"]).toBe(1);
+
+    releaseLiveCaptureGeneration(live, "session-1");
+    markLiveStartRequested(live, "session-1");
+    expect(live.captureGenerationBySession["session-1"]).toBe(2);
+  });
+
+  it("keeps a finalizing session stable while another capture starts", () => {
+    const live = createLive();
+
+    markLiveStartRequested(live, "session-a");
+    markLiveCaptureStarted(live, "session-a");
+    markLiveFinalizing(live, "session-a");
+    markLiveStartRequested(live, "session-b");
+
+    expect(live.captureGenerationBySession).toEqual({
+      "session-a": 1,
+      "session-b": 2,
+    });
+  });
+});
 
 describe("tickTranscriptionStallWatchdog", () => {
   it("flags a stalled live transcription after sustained audible silence", () => {

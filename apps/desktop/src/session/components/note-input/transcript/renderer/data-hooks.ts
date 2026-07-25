@@ -23,6 +23,7 @@ export function useRenderedTranscriptSegments(transcriptId: string): Segment[] {
 export function useRenderedTranscriptData(
   transcriptId: string,
   currentActive = false,
+  captureGeneration = 0,
 ): {
   maxSpeakerNumber?: number;
   request: RenderTranscriptRequest | null;
@@ -32,6 +33,7 @@ export function useRenderedTranscriptData(
   // Recovery needs the persisted prefix. The active key stays stable across
   // word and assignment writes so tab remounts reuse the same native render.
   const activeBaselineRef = useRef<{
+    captureGeneration: number;
     transcriptId: string;
     request: typeof request;
   } | null>(null);
@@ -39,16 +41,24 @@ export function useRenderedTranscriptData(
     activeBaselineRef.current = null;
   } else if (
     activeBaselineRef.current?.transcriptId !== transcriptId ||
+    activeBaselineRef.current.captureGeneration !== captureGeneration ||
     activeBaselineRef.current.request === null
   ) {
-    activeBaselineRef.current = { transcriptId, request };
+    activeBaselineRef.current = {
+      captureGeneration,
+      transcriptId,
+      request,
+    };
   }
   const activeBaselineRequest = currentActive
     ? (activeBaselineRef.current?.request ?? null)
     : request;
   const requestKey = useMemo(
-    () => (currentActive ? "baseline" : getRenderTranscriptRequestKey(request)),
-    [currentActive, request],
+    () =>
+      currentActive
+        ? `baseline:${captureGeneration}`
+        : getRenderTranscriptRequestKey(request),
+    [captureGeneration, currentActive, request],
   );
 
   // eslint-disable-next-line @tanstack/query/exhaustive-deps -- active input is frozen and reconciled with current SQLite state in JavaScript.

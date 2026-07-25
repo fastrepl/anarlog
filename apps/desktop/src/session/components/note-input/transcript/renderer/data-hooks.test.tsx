@@ -70,7 +70,7 @@ describe("useRenderedTranscriptData", () => {
           "rendered-transcript-segments",
           "transcript-1",
           "volatile",
-          "baseline",
+          "baseline:0",
         ],
         enabled: true,
         staleTime: Number.POSITIVE_INFINITY,
@@ -140,24 +140,28 @@ describe("useRenderedTranscriptData", () => {
     mocks.useTranscriptRenderData.mockReturnValue({ request: null });
 
     const { rerender, result } = renderHook(
-      ({ currentActive }) =>
-        useRenderedTranscriptData("transcript-1", currentActive),
-      { initialProps: { currentActive: true } },
+      ({ currentActive, captureGeneration }) =>
+        useRenderedTranscriptData(
+          "transcript-1",
+          currentActive,
+          captureGeneration,
+        ),
+      { initialProps: { currentActive: true, captureGeneration: 1 } },
     );
 
     expect(mocks.useQuery.mock.lastCall?.[0].enabled).toBe(false);
 
     mocks.useTranscriptRenderData.mockReturnValue({ request: requestA });
-    rerender({ currentActive: true });
+    rerender({ currentActive: true, captureGeneration: 1 });
     mocks.useTranscriptRenderData.mockReturnValue({ request: requestB });
-    rerender({ currentActive: true });
+    rerender({ currentActive: true, captureGeneration: 1 });
 
     const activeQuery = mocks.useQuery.mock.lastCall?.[0];
     expect(activeQuery.queryKey).toEqual([
       "rendered-transcript-segments",
       "transcript-1",
       "volatile",
-      "baseline",
+      "baseline:1",
     ]);
     await activeQuery.queryFn();
     expect(mocks.renderTranscriptSegments).toHaveBeenLastCalledWith(
@@ -172,16 +176,16 @@ describe("useRenderedTranscriptData", () => {
     );
 
     mocks.useTranscriptRenderData.mockReturnValue({ request: requestC });
-    rerender({ currentActive: true });
+    rerender({ currentActive: true, captureGeneration: 1 });
     mocks.useTranscriptRenderData.mockReturnValue({ request: requestD });
-    rerender({ currentActive: true });
+    rerender({ currentActive: true, captureGeneration: 1 });
 
     const updatedActiveQuery = mocks.useQuery.mock.lastCall?.[0];
     expect(updatedActiveQuery.queryKey).toEqual([
       "rendered-transcript-segments",
       "transcript-1",
       "volatile",
-      "baseline",
+      "baseline:1",
     ]);
     await updatedActiveQuery.queryFn();
     expect(mocks.renderTranscriptSegments).toHaveBeenLastCalledWith(
@@ -196,7 +200,7 @@ describe("useRenderedTranscriptData", () => {
     );
     expect(result.current.request).toBe(requestD);
 
-    rerender({ currentActive: false });
+    rerender({ currentActive: false, captureGeneration: 1 });
 
     const settledQuery = mocks.useQuery.mock.lastCall?.[0];
     expect(settledQuery.queryKey).toEqual([
@@ -206,6 +210,18 @@ describe("useRenderedTranscriptData", () => {
       "request-d",
     ]);
     await settledQuery.queryFn();
+    expect(mocks.renderTranscriptSegments).toHaveBeenLastCalledWith(requestD);
+
+    rerender({ currentActive: true, captureGeneration: 2 });
+
+    const nextCaptureQuery = mocks.useQuery.mock.lastCall?.[0];
+    expect(nextCaptureQuery.queryKey).toEqual([
+      "rendered-transcript-segments",
+      "transcript-1",
+      "volatile",
+      "baseline:2",
+    ]);
+    await nextCaptureQuery.queryFn();
     expect(mocks.renderTranscriptSegments).toHaveBeenLastCalledWith(requestD);
   });
 });

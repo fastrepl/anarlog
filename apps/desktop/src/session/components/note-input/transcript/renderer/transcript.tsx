@@ -34,6 +34,7 @@ export function RenderTranscript({
   shouldScrollToEnd,
   transcriptId,
   currentActive,
+  captureGeneration = 0,
   liveSegments,
   currentMs,
   seek,
@@ -45,6 +46,7 @@ export function RenderTranscript({
   shouldScrollToEnd: boolean;
   transcriptId: string;
   currentActive: boolean;
+  captureGeneration?: number;
   liveSegments: Segment[];
   currentMs: number;
   seek: (sec: number) => void;
@@ -56,6 +58,7 @@ export function RenderTranscript({
       scrollElement={scrollElement}
       transcriptId={transcriptId}
       currentActive={currentActive}
+      captureGeneration={captureGeneration}
       liveSegments={liveSegments}
       shouldScrollToEnd={isLastTranscript && shouldScrollToEnd}
       currentMs={currentMs}
@@ -70,6 +73,7 @@ function PersistedTranscript({
   scrollElement,
   transcriptId,
   currentActive,
+  captureGeneration,
   liveSegments,
   shouldScrollToEnd,
   currentMs,
@@ -80,6 +84,7 @@ function PersistedTranscript({
   scrollElement: HTMLDivElement | null;
   transcriptId: string;
   currentActive: boolean;
+  captureGeneration: number;
   liveSegments: Segment[];
   shouldScrollToEnd: boolean;
   currentMs: number;
@@ -91,7 +96,7 @@ function PersistedTranscript({
     maxSpeakerNumber,
     request,
     segments: storedSegments,
-  } = useRenderedTranscriptData(transcriptId, currentActive);
+  } = useRenderedTranscriptData(transcriptId, currentActive, captureGeneration);
   const mergedSegments = useMemo(() => {
     const merged = mergeRenderedAndLiveSegments(
       storedSegments,

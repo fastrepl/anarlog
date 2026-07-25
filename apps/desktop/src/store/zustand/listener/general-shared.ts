@@ -38,6 +38,8 @@ export type GeneralState = {
     status: LiveSessionStatus;
     amplitude: { mic: number; speaker: number };
     seconds: number;
+    captureGenerationCounter: number;
+    captureGenerationBySession: Record<string, number>;
     intervalId?: LiveIntervalId;
     sessionId: string | null;
     muted: boolean;
@@ -68,6 +70,8 @@ const initialLiveState: LiveState = {
   loadingPhase: "idle",
   amplitude: { mic: 0, speaker: 0 },
   seconds: 0,
+  captureGenerationCounter: 0,
+  captureGenerationBySession: {},
   sessionId: null,
   muted: false,
   lastError: null,
@@ -141,7 +145,29 @@ export const setLiveState = <T extends GeneralState>(
   );
 };
 
+const ensureLiveCaptureGeneration = (live: LiveState, sessionId: string) => {
+  if (live.captureGenerationBySession[sessionId] === undefined) {
+    live.captureGenerationCounter += 1;
+    live.captureGenerationBySession[sessionId] = live.captureGenerationCounter;
+  }
+};
+
+export const releaseLiveCaptureGeneration = (
+  live: LiveState,
+  sessionId: string,
+) => {
+  delete live.captureGenerationBySession[sessionId];
+};
+
+export const markLiveCaptureStarted = (live: LiveState, sessionId: string) => {
+  ensureLiveCaptureGeneration(live, sessionId);
+  live.status = "active";
+  live.loading = false;
+  live.sessionId = sessionId;
+};
+
 export const markLiveStartRequested = (live: LiveState, sessionId: string) => {
+  ensureLiveCaptureGeneration(live, sessionId);
   live.loading = true;
   live.status = "inactive";
   live.sessionId = sessionId;
@@ -162,12 +188,10 @@ export const markLiveActive = (
   liveTranscriptionActive: boolean,
   degraded: DegradedError | null,
 ) => {
-  live.status = "active";
-  live.loading = false;
+  markLiveCaptureStarted(live, sessionId);
   live.loadingPhase = "idle";
   live.seconds = 0;
   live.intervalId = intervalId;
-  live.sessionId = sessionId;
   live.degraded = degraded;
   live.requestedLiveTranscription = requestedLiveTranscription;
   live.liveTranscriptionActive = liveTranscriptionActive;
@@ -187,6 +211,7 @@ export const markLiveFinalizing = (live: LiveState, sessionId: string) => {
     live.sessionId === sessionId
       ? live.needsBatchRepair
       : (existing?.needsBatchRepair ?? false);
+  ensureLiveCaptureGeneration(live, sessionId);
   if (live.sessionId === sessionId) {
     live.status = "finalizing";
     live.loading = true;
@@ -219,6 +244,9 @@ export const markLiveInactive = (live: LiveState, error: string | null) => {
 };
 
 export const markLiveStartFailed = (live: LiveState) => {
+  if (live.sessionId) {
+    releaseLiveCaptureGeneration(live, live.sessionId);
+  }
   live.intervalId = undefined;
   live.loading = false;
   live.loadingPhase = "idle";
