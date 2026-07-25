@@ -508,6 +508,49 @@ describe("OuterHeader", () => {
     );
   });
 
+  it("ignores repeated welcome demo joins while startup is in progress", async () => {
+    let resolveCallbackServer: (value: {
+      status: "ok";
+      data: number;
+    }) => void = () => {};
+    mocks.startCallbackServer.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCallbackServer = resolve;
+      }),
+    );
+    mocks.sessionEvents = {
+      "session-1": {
+        tracking_id: "anarlog-onboarding-demo-v1",
+        meeting_link: "https://anarlog.so/onboarding-demo/",
+      },
+    };
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+      />,
+    );
+
+    const joinButton = screen.getByRole("button", { name: "Join & record" });
+
+    fireEvent.click(joinButton);
+    fireEvent.click(joinButton);
+
+    expect(joinButton.hasAttribute("disabled")).toBe(true);
+    expect(mocks.startListening).toHaveBeenCalledOnce();
+    await vi.waitFor(() => {
+      expect(mocks.startCallbackServer).toHaveBeenCalledOnce();
+    });
+
+    resolveCallbackServer({ status: "ok", data: 43210 });
+
+    await vi.waitFor(() => {
+      expect(mocks.openUrl).toHaveBeenCalledOnce();
+      expect(joinButton.hasAttribute("disabled")).toBe(false);
+    });
+  });
+
   it("shows the meeting countdown to the left of the header action", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-05T09:55:30.000Z"));

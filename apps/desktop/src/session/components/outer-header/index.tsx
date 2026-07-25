@@ -5,7 +5,7 @@ import {
   SquareIcon,
   VideoIcon,
 } from "lucide-react";
-import { useCallback } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { commands as deeplinkCommands } from "@hypr/plugin-deeplink2";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
@@ -164,13 +164,15 @@ function HeaderMeetingActionPill({
   const { audioExists } = useAudioPlayer();
   const canResume = audioExists || hasTranscript;
   const { t } = useLingui();
-  const start = useCallback(() => {
+  const joiningMeetingRef = useRef(false);
+  const [joiningMeeting, setJoiningMeeting] = useState(false);
+  const start = useCallback(async () => {
     if (!isMainWebviewWindow()) {
-      void requestMainListenerControl("start", sessionId);
+      await requestMainListenerControl("start", sessionId);
       return;
     }
 
-    void startListening();
+    await startListening();
   }, [sessionId, startListening]);
   const openMeeting = useCallback(async () => {
     if (!meetingLink) {
@@ -195,21 +197,36 @@ function HeaderMeetingActionPill({
 
     void openerCommands.openUrl(url, null);
   }, [event?.tracking_id, meetingLink]);
+  const joinMeeting = useCallback(async () => {
+    if (joiningMeetingRef.current) {
+      return;
+    }
+
+    joiningMeetingRef.current = true;
+    setJoiningMeeting(true);
+    try {
+      await Promise.all([openMeeting(), start()]);
+    } finally {
+      joiningMeetingRef.current = false;
+      setJoiningMeeting(false);
+    }
+  }, [openMeeting, start]);
   const handleCountdownExpire = useCallback(() => {
     if (!autoStartScheduledMeetings || !canStartLiveSession) {
       return;
     }
 
     if (autoJoinScheduledMeetings && meetingLink) {
-      void openMeeting();
+      void joinMeeting();
+    } else {
+      void start();
     }
-    start();
   }, [
     autoJoinScheduledMeetings,
     autoStartScheduledMeetings,
     canStartLiveSession,
+    joinMeeting,
     meetingLink,
-    openMeeting,
     start,
   ]);
   const countdown = useEventCountdown(sessionId, {
@@ -255,8 +272,7 @@ function HeaderMeetingActionPill({
             getMeetingDisplay(remote.type).icon
           ) : undefined,
         onClick: () => {
-          void openMeeting();
-          start();
+          void joinMeeting();
         },
       };
     }
@@ -277,7 +293,7 @@ function HeaderMeetingActionPill({
       onClick: start,
     };
   })();
-  const disabled = sessionMode === "finalizing";
+  const disabled = sessionMode === "finalizing" || joiningMeeting;
   const showCountdown =
     Boolean(countdown.label) &&
     sessionMode !== "active" &&
