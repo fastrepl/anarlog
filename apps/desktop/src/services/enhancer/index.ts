@@ -65,6 +65,17 @@ const UUID_TITLE_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ISO_TITLE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 const PENDING_AUTO_ENHANCE_RECOVERY_INTERVAL_MS = 5_000;
+const TEXT_CONTAINER_TYPES = new Set([
+  "doc",
+  "heading",
+  "paragraph",
+  "text",
+  "codeBlock",
+  "blockquote",
+  "bulletList",
+  "orderedList",
+  "listItem",
+]);
 
 type TiptapNode = {
   type?: string;
@@ -79,12 +90,7 @@ function hasMeaningfulTiptapContent(node: TiptapNode): boolean {
     return true;
   }
 
-  if (
-    node.type !== "doc" &&
-    node.type !== "heading" &&
-    node.type !== "paragraph" &&
-    node.type !== "text"
-  ) {
+  if (!node.type || !TEXT_CONTAINER_TYPES.has(node.type)) {
     return true;
   }
 

@@ -418,6 +418,55 @@ describe("EnhancerService", () => {
     );
   });
 
+  it("treats empty text containers as an empty summary", async () => {
+    snapshot = createSnapshot({
+      notes: [
+        createNote({
+          content: JSON.stringify({
+            type: "doc",
+            content: [
+              {
+                type: "heading",
+                attrs: { level: 1 },
+                content: [{ type: "text", text: "Planning" }],
+              },
+              {
+                type: "bulletList",
+                content: [
+                  {
+                    type: "listItem",
+                    content: [{ type: "paragraph" }],
+                  },
+                ],
+              },
+              {
+                type: "blockquote",
+                content: [{ type: "paragraph" }],
+              },
+            ],
+          }),
+        }),
+      ],
+      wordCount: 40,
+    });
+    const service = new EnhancerService(createDeps());
+    const queueSpy = vi
+      .spyOn(service, "queueAutoEnhance")
+      .mockImplementation(() => {});
+
+    await expect(
+      service.queueAutoEnhanceIfSummaryEmpty("session-1"),
+    ).resolves.toEqual({ type: "queued" });
+    expect(mocks.ensurePendingAutoEnhanceDocument).toHaveBeenCalledWith(
+      "session-1",
+      undefined,
+    );
+    expect(queueSpy).toHaveBeenCalledWith(
+      "session-1",
+      expect.objectContaining({ noteId: "note-1" }),
+    );
+  });
+
   it("preserves formatting applied to a synthesized session title", async () => {
     snapshot = createSnapshot({
       notes: [
