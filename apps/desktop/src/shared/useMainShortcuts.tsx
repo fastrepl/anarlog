@@ -25,25 +25,11 @@ export function useMainShortcuts() {
         return;
       }
 
-      const fromProseMirrorEditor = isFromProseMirrorEditor(event.target);
-      const fromSessionTitleInput = isFromSessionTitleInput(event.target);
-      const fromSessionSurface = isFromSessionSurface(event.target);
-      const hadEditorEscapeConsumer =
-        fromProseMirrorEditor &&
-        document.querySelector("[data-editor-escape-consumer]") !== null;
-      const hadMeaningfulFocus = hasMeaningfulFocus(event.target);
+      const escapeContext = getEscapeShortcutContext(event.target);
       const hadOpenChat = chatRef.current.mode !== "FloatingClosed";
 
       window.setTimeout(() => {
-        if (
-          shouldSkipEscapeShortcut(event, {
-            fromProseMirrorEditor,
-            fromSessionTitleInput,
-            fromSessionSurface,
-            hadEditorEscapeConsumer,
-            hadMeaningfulFocus,
-          })
-        ) {
+        if (shouldSkipEscapeShortcut(event, escapeContext)) {
           return;
         }
 
@@ -146,7 +132,21 @@ export function useMainEscapeShortcutAction() {
   }, [chat.mode, chat.sendEvent]);
 }
 
-function shouldSkipEscapeShortcut(
+export function getEscapeShortcutContext(target: EventTarget | null) {
+  const fromProseMirrorEditor = isFromProseMirrorEditor(target);
+
+  return {
+    fromProseMirrorEditor,
+    fromSessionTitleInput: isFromSessionTitleInput(target),
+    fromSessionSurface: isFromSessionSurface(target),
+    hadEditorEscapeConsumer:
+      fromProseMirrorEditor &&
+      document.querySelector("[data-editor-escape-consumer]") !== null,
+    hadMeaningfulFocus: hasMeaningfulFocus(target),
+  };
+}
+
+export function shouldSkipEscapeShortcut(
   event: KeyboardEvent,
   {
     fromProseMirrorEditor,
