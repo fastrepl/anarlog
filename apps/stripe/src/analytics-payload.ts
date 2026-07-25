@@ -100,13 +100,18 @@ function invoicePayload(
 ): BillingAnalyticsPayload {
   return {
     event,
-    properties: {
-      plan: "pro",
-      amount_paid: invoice.amount_paid,
-      amount_due: invoice.amount_due,
-      currency: invoice.currency,
-      billing_reason: invoice.billing_reason,
-      attempt_count: invoice.attempt_count,
-    },
+    properties: getInvoiceAnalyticsProperties(invoice),
+  };
+}
+
+export function getInvoiceAnalyticsProperties(invoice: Stripe.Invoice) {
+  return {
+    plan: "pro",
+    amount_paid: invoice.amount_paid,
+    amount_due: invoice.amount_due,
+    currency: invoice.currency,
+    billing_reason: invoice.billing_reason,
+    attempt_count: invoice.attempt_count,
+    stripe_invoice_id: invoice.id,
   };
 }

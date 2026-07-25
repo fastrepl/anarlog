@@ -32,11 +32,11 @@ jobs:
           set -euo pipefail
 
           posthog_api_key="$(
-            infisical secrets get POSTHOG_API_KEY \
+            infisical secrets get VITE_POSTHOG_API_KEY \
               --token="$INFISICAL_TOKEN" \
               --env=prod \
               --projectId="$INFISICAL_PROJECT_ID" \
-              --path=/anarlog/ai \
+              --path=/anarlog/web \
               --output=json |
               python3 -c 'import json, sys; print(json.load(sys.stdin)[0]["secretValue"])'
           )"
