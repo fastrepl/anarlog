@@ -44,7 +44,7 @@ test("sends stable distinct and insert IDs with original timestamps", async () =
     host: "https://us.i.posthog.com/",
     fetcher: async (url, init) => {
       request = { url: String(url), init };
-      return new Response(null, { status: 200 });
+      return Response.json({ status: "Ok" });
     },
   });
 
@@ -70,5 +70,17 @@ test("surfaces PostHog ingestion errors", async () => {
       fetcher: async () => new Response("invalid token", { status: 401 }),
     }),
     /PostHog batch rejected with 401: invalid token/,
+  );
+});
+
+test("rejects a malformed PostHog acknowledgement", async () => {
+  await assert.rejects(
+    sendPostHogBatch({
+      events: [events[0]],
+      projectToken: "project-token",
+      host: "https://us.i.posthog.com",
+      fetcher: async () => Response.json({ status: "Ignored" }),
+    }),
+    /PostHog batch returned an invalid acknowledgement/,
   );
 });

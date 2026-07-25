@@ -27,3 +27,20 @@ export function getStripeCustomerOwnership(
     ? "claimable"
     : "unowned";
 }
+
+export function getStripeCustomerIdentityMetadata(
+  metadata: Record<string, string> | null | undefined,
+  userId: string,
+) {
+  if (
+    metadata?.["userId"] === userId &&
+    metadata["posthog_person_distinct_id"] === userId
+  ) {
+    return null;
+  }
+
+  return {
+    userId,
+    posthog_person_distinct_id: userId,
+  };
+}

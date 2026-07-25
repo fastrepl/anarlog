@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getStripeCustomerOwnership } from "./stripe-customer.ts";
+import {
+  getStripeCustomerIdentityMetadata,
+  getStripeCustomerOwnership,
+} from "./stripe-customer.ts";
 
 test("Stripe metadata must belong to the authenticated user", () => {
   assert.equal(
@@ -68,5 +71,28 @@ test("empty aliases do not hide a conflicting owner", () => {
       { id: "owner-user", email: "owner@example.com" },
     ),
     "claimable",
+  );
+});
+
+test("repairs missing Stripe identity metadata", () => {
+  assert.deepEqual(
+    getStripeCustomerIdentityMetadata({ user_id: "owner-user" }, "owner-user"),
+    {
+      userId: "owner-user",
+      posthog_person_distinct_id: "owner-user",
+    },
+  );
+});
+
+test("leaves complete Stripe identity metadata unchanged", () => {
+  assert.equal(
+    getStripeCustomerIdentityMetadata(
+      {
+        userId: "owner-user",
+        posthog_person_distinct_id: "owner-user",
+      },
+      "owner-user",
+    ),
+    null,
   );
 });

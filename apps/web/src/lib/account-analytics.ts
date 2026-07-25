@@ -54,4 +54,9 @@ export async function sendPostHogBatch({
       `PostHog batch rejected with ${response.status}: ${await response.text()}`,
     );
   }
+
+  const result = (await response.json()) as { status?: unknown };
+  if (result.status !== "Ok") {
+    throw new Error("PostHog batch returned an invalid acknowledgement");
+  }
 }

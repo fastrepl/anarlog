@@ -1,5 +1,9 @@
 import Stripe from "stripe";
 
+import {
+  getCustomerIdentityMetadata,
+  getCustomerUserId,
+} from "./customer-metadata";
 import { stripe } from "./integration/stripe";
 import { supabaseAdmin } from "./integration/supabase";
 
@@ -32,6 +36,16 @@ export async function syncBillingBridge(event: Stripe.Event) {
 
   if (!userId) {
     return;
+  }
+
+  const identityMetadata = getCustomerIdentityMetadata(
+    customer.metadata,
+    userId,
+  );
+  if (identityMetadata) {
+    await stripe.customers.update(customerId, {
+      metadata: identityMetadata,
+    });
   }
 
   const { data, error } = await supabaseAdmin.rpc(
@@ -116,10 +130,4 @@ const isDeletedCustomer = (
 
 export const getUserIdFromCustomer = (
   customer: Stripe.Customer,
-): string | null => {
-  const metadata = customer.metadata ?? {};
-
-  return (
-    metadata["userId"] || metadata["user_id"] || metadata["userID"] || null
-  );
-};
+): string | null => getCustomerUserId(customer.metadata);

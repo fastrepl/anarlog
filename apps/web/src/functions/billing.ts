@@ -21,7 +21,10 @@ import {
   sanitizeInternalReturnPath,
   toAbsoluteInternalReturnUrl,
 } from "@/lib/auth-redirect";
-import { getStripeCustomerOwnership } from "@/lib/stripe-customer";
+import {
+  getStripeCustomerIdentityMetadata,
+  getStripeCustomerOwnership,
+} from "@/lib/stripe-customer";
 import { WEB_TRIAL_CHECKOUT_FIELDS } from "@/lib/trial-policy";
 
 type SupabaseClient = ReturnType<typeof getSupabaseServerClient>;
@@ -89,8 +92,12 @@ const getStripeCustomerIdForUser = async (
   }
 
   const updates: Stripe.CustomerUpdateParams = {};
-  if (ownership === "claimable") {
-    updates.metadata = { userId: user.id };
+  const identityMetadata = getStripeCustomerIdentityMetadata(
+    customer.metadata,
+    user.id,
+  );
+  if (identityMetadata) {
+    updates.metadata = identityMetadata;
   }
 
   const name = getAuthUserName(user);

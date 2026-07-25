@@ -180,6 +180,31 @@ fn customer_ownership(
     }
 }
 
+fn customer_identity_metadata(
+    metadata: Option<&HashMap<String, String>>,
+    user_id: &str,
+) -> Option<HashMap<String, String>> {
+    if metadata.is_some_and(|values| {
+        values.get("userId").is_some_and(|value| value == user_id)
+            && values
+                .get("posthog_person_distinct_id")
+                .is_some_and(|value| value == user_id)
+    }) {
+        return None;
+    }
+
+    Some(
+        [
+            ("userId".to_string(), user_id.to_string()),
+            (
+                "posthog_person_distinct_id".to_string(),
+                user_id.to_string(),
+            ),
+        ]
+        .into(),
+    )
+}
+
 async fn verify_customer_ownership(
     stripe: &stripe::Client,
     customer_id: &str,
@@ -196,33 +221,28 @@ async fn verify_customer_ownership(
         ));
     };
 
-    match customer_ownership(
+    let ownership = customer_ownership(
         customer.metadata.as_ref(),
         customer.email.as_deref(),
         user_id,
         user_email,
-    ) {
-        CustomerOwnership::Owned => {}
-        CustomerOwnership::Claimable => {
-            let metadata: HashMap<String, String> = [
-                ("userId".to_string(), user_id.to_string()),
-                (
-                    "posthog_person_distinct_id".to_string(),
-                    user_id.to_string(),
-                ),
-            ]
-            .into();
-            UpdateCustomer::new(customer_id)
-                .metadata(metadata)
-                .send(stripe)
-                .await
-                .map_err(|e: stripe::StripeError| SubscriptionError::Stripe(e.to_string()))?;
-        }
+    );
+
+    match ownership {
+        CustomerOwnership::Owned | CustomerOwnership::Claimable => {}
         CustomerOwnership::Unowned => {
             return Err(SubscriptionError::Stripe(
                 "Stripe customer does not belong to authenticated user".to_string(),
             ));
         }
+    }
+
+    if let Some(metadata) = customer_identity_metadata(customer.metadata.as_ref(), user_id) {
+        UpdateCustomer::new(customer_id)
+            .metadata(metadata)
+            .send(stripe)
+            .await
+            .map_err(|e: stripe::StripeError| SubscriptionError::Stripe(e.to_string()))?;
     }
 
     Ok(())
@@ -300,8 +320,8 @@ mod tests {
     use crate::trial::pro_trial_days;
 
     use super::{
-        CustomerOwnership, build_trial_subscription, customer_ownership,
-        trial_subscription_idempotency_key,
+        CustomerOwnership, build_trial_subscription, customer_identity_metadata,
+        customer_ownership, trial_subscription_idempotency_key,
     };
 
     #[test]
@@ -354,6 +374,43 @@ mod tests {
                 Some("owner@example.com"),
             ),
             CustomerOwnership::Claimable
+        );
+    }
+
+    #[test]
+    fn incomplete_customer_identity_metadata_is_repaired() {
+        let metadata: HashMap<String, String> =
+            [("userId".to_string(), "owner-user".to_string())].into();
+
+        assert_eq!(
+            customer_identity_metadata(Some(&metadata), "owner-user"),
+            Some(
+                [
+                    ("userId".to_string(), "owner-user".to_string()),
+                    (
+                        "posthog_person_distinct_id".to_string(),
+                        "owner-user".to_string(),
+                    ),
+                ]
+                .into()
+            )
+        );
+    }
+
+    #[test]
+    fn complete_customer_identity_metadata_is_unchanged() {
+        let metadata: HashMap<String, String> = [
+            ("userId".to_string(), "owner-user".to_string()),
+            (
+                "posthog_person_distinct_id".to_string(),
+                "owner-user".to_string(),
+            ),
+        ]
+        .into();
+
+        assert_eq!(
+            customer_identity_metadata(Some(&metadata), "owner-user"),
+            None
         );
     }
 
