@@ -37,29 +37,15 @@ export async function sendPostHogBatch({
     body: JSON.stringify({
       api_key: projectToken,
       historical_migration: events.every((event) => event.historical),
-      batch: events.map((event) => {
-        const personProperties = event.properties["$set"] as
-          | Record<string, unknown>
-          | undefined;
-
-        return {
-          event: event.event_name,
-          properties: {
-            ...event.properties,
-            ...(personProperties?.["email"]
-              ? {
-                  $set: {
-                    ...personProperties,
-                    $email: personProperties["email"],
-                  },
-                }
-              : {}),
-            distinct_id: event.user_id,
-            $insert_id: `${event.event_name}:${event.user_id}`,
-          },
-          timestamp: event.occurred_at,
-        };
-      }),
+      batch: events.map((event) => ({
+        event: event.event_name,
+        properties: {
+          ...event.properties,
+          distinct_id: event.user_id,
+          $insert_id: `${event.event_name}:${event.user_id}`,
+        },
+        timestamp: event.occurred_at,
+      })),
     }),
   });
 

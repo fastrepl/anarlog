@@ -13,10 +13,7 @@ const events: AccountAnalyticsEvent[] = [
     event_name: "account_created",
     user_id: "user-live",
     occurred_at: "2026-07-25T03:00:00.000Z",
-    properties: {
-      source: "supabase_auth",
-      $set: { email: "live@example.com" },
-    },
+    properties: { source: "supabase_auth" },
     historical: false,
   },
   {
@@ -62,12 +59,6 @@ test("sends stable distinct and insert IDs with original timestamps", async () =
     "account_confirmed:user-historical",
   );
   assert.equal(body.batch[0].timestamp, "2025-07-25T03:00:00.000Z");
-
-  const liveRequest = await capturePostHogRequest(events[0]);
-  assert.deepEqual(liveRequest.batch[0].properties.$set, {
-    email: "live@example.com",
-    $email: "live@example.com",
-  });
 });
 
 test("surfaces PostHog ingestion errors", async () => {
@@ -93,21 +84,3 @@ test("rejects a malformed PostHog acknowledgement", async () => {
     /PostHog batch returned an invalid acknowledgement/,
   );
 });
-
-async function capturePostHogRequest(event: AccountAnalyticsEvent) {
-  let body: unknown;
-
-  await sendPostHogBatch({
-    events: [event],
-    projectToken: "project-token",
-    host: "https://us.i.posthog.com",
-    fetcher: async (_url, init) => {
-      body = JSON.parse(String(init?.body));
-      return Response.json({ status: "Ok" });
-    },
-  });
-
-  return body as {
-    batch: { properties: Record<string, unknown> }[];
-  };
-}
