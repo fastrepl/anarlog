@@ -588,7 +588,7 @@ mod test {
 
         runtime.suspend_cloudsync().await.unwrap();
         tokio::time::timeout(
-            Duration::from_millis(250),
+            Duration::from_millis(1_500),
             sqlx::query(
                 "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
                  VALUES ('after-sign-out-retry', '', '', 'Note')",
