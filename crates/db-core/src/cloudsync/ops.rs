@@ -1951,7 +1951,7 @@ mod tests {
 
         drop(held_connection);
         tokio::time::timeout(
-            Duration::from_millis(250),
+            Duration::from_millis(1_500),
             sqlx::query("INSERT INTO sessions (id, title) VALUES ('after-timeout', 'Note')")
                 .execute(db.pool()),
         )

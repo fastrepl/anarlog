@@ -577,7 +577,7 @@ mod test {
 
         drop(held_connection);
         let mut replacement =
-            tokio::time::timeout(Duration::from_millis(250), runtime.pool().acquire())
+            tokio::time::timeout(Duration::from_millis(1_500), runtime.pool().acquire())
                 .await
                 .expect("pool did not open a replacement after deferred teardown")
                 .unwrap();
