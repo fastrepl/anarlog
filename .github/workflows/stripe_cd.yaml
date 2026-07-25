@@ -31,23 +31,47 @@ jobs:
       - run: |
           set -euo pipefail
 
+          project_id="$(
+            python3 -c 'import json; print(json.load(open(".infisical.json"))["workspaceId"])'
+          )"
           posthog_api_key="$(
             infisical secrets get VITE_POSTHOG_API_KEY \
               --token="$INFISICAL_TOKEN" \
               --env=prod \
-              --projectId="$INFISICAL_PROJECT_ID" \
+              --projectId="$project_id" \
               --path=/anarlog/web \
               --output=json |
               python3 -c 'import json, sys; print(json.load(sys.stdin)[0]["secretValue"])'
           )"
+
+          echo "::add-mask::$posthog_api_key"
+          if [[ "$posthog_api_key" != phc_* || ${#posthog_api_key} -lt 20 ]]; then
+            echo "Invalid Anarlog PostHog project token" >&2
+            exit 1
+          fi
+
           flyctl secrets set POSTHOG_API_KEY="$posthog_api_key" --stage --app hyprnote-stripe
+
+          flyctl deploy \
+            --config apps/stripe/fly.toml \
+            --dockerfile apps/stripe/Dockerfile \
+            --remote-only
+
+          expected_hash="$(printf %s "$posthog_api_key" | sha256sum | cut -d " " -f 1)"
+          actual_hash="$(
+            flyctl ssh console \
+              --app hyprnote-stripe \
+              --command 'sh -lc '\''printf %s "$POSTHOG_API_KEY" | sha256sum | cut -d " " -f 1'\''' |
+              grep -Eo '[0-9a-f]{64}' |
+              tail -n 1
+          )"
+          if [[ "$actual_hash" != "$expected_hash" ]]; then
+            echo "Deployed Stripe service has the wrong PostHog project token" >&2
+            exit 1
+          fi
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           INFISICAL_TOKEN: ${{ secrets.INFISICAL_TOKEN }}
-          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
-      - run: flyctl deploy --config apps/stripe/fly.toml --dockerfile apps/stripe/Dockerfile --remote-only
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
   tag:
     needs: [compute-version, deploy]
