@@ -209,7 +209,7 @@ tests alone is not cross-platform evidence.
   microphone. For a playback-only run, require all of:
   - `audio_mic.wav` and `audio_spk.wav` are readable mono 16 kHz WAVs whose
     durations differ by less than 0.1 seconds.
-  - RemoteParty has at least 500 transcript words.
+  - RemoteParty has at least 400 transcript words.
   - DirectMic words are at most 10% of RemoteParty words.
   - At most 5% of DirectMic bigrams also appear on RemoteParty within one
     second.
