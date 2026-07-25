@@ -16,10 +16,6 @@ interface SettingItem {
   disabled?: boolean;
 }
 
-interface CloudSyncSettingItem extends SettingItem {
-  available: boolean;
-}
-
 interface AppSettingsViewProps {
   autostart: SettingItem;
   autoJoinScheduledMeetings: SettingItem;
@@ -29,7 +25,6 @@ interface AppSettingsViewProps {
   showAppInDock: SettingItem;
   showTrayIcon: SettingItem;
   telemetryConsent: SettingItem;
-  cloudSync: CloudSyncSettingItem;
   meetingDisclosureAutoPost: SettingItem;
   captureMeetingChat: SettingItem;
   audioRetention: {
@@ -52,7 +47,6 @@ export function AppSettingsView({
   showAppInDock,
   showTrayIcon,
   telemetryConsent,
-  cloudSync,
   meetingDisclosureAutoPost,
   captureMeetingChat,
   audioRetention,
@@ -95,22 +89,6 @@ export function AppSettingsView({
             }
             checked={showTrayIcon.value}
             onChange={showTrayIcon.onChange}
-          />
-          <SettingRow
-            title={<Trans>Cloud sync</Trans>}
-            description={
-              cloudSync.available ? (
-                <Trans>
-                  End-to-end encrypted across your signed-in devices. Anarlog
-                  cannot read your synced notes.
-                </Trans>
-              ) : (
-                <Trans>Available with Anarlog Pro.</Trans>
-              )
-            }
-            checked={cloudSync.available && cloudSync.value}
-            onChange={cloudSync.onChange}
-            disabled={cloudSync.disabled}
           />
         </div>
       </section>

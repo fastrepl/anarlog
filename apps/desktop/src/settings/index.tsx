@@ -13,6 +13,7 @@ import { STT } from "~/settings/ai/stt";
 import { SettingsDevelopers } from "~/settings/developers";
 import { SettingsDictionary } from "~/settings/dictionary";
 import { SettingsHydrationBoundary } from "~/settings/hydration-boundary";
+import { SettingsSync } from "~/settings/sync";
 import { StandardContentWrapper } from "~/shared/main";
 import { type Tab } from "~/store/zustand/tabs";
 
@@ -47,6 +48,8 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <SettingsApp />;
       case "notifications":
         return <SettingsNotifications />;
+      case "sync":
+        return <SettingsSync />;
       case "permissions":
         return <SettingsPermissions />;
       case "developers":

@@ -13,8 +13,6 @@ function setting(value = true) {
 function renderAppSettings({
   autoStartScheduledMeetings = true,
   floatingBar = true,
-  cloudSync = setting(),
-  cloudSyncAvailable = true,
   meetingDisclosureAutoPost = setting(),
   captureMeetingChat = setting(false),
   microphoneDevice = {
@@ -34,11 +32,6 @@ function renderAppSettings({
         showAppInDock={setting()}
         showTrayIcon={setting()}
         telemetryConsent={setting()}
-        cloudSync={{
-          ...cloudSync,
-          available: cloudSyncAvailable,
-          disabled: !cloudSyncAvailable,
-        }}
         meetingDisclosureAutoPost={meetingDisclosureAutoPost}
         captureMeetingChat={captureMeetingChat}
         audioRetention={{ value: "forever", onChange: vi.fn() }}
@@ -47,7 +40,6 @@ function renderAppSettings({
     ),
     meetingDisclosureAutoPost,
     captureMeetingChat,
-    cloudSync,
   };
 }
 
@@ -68,32 +60,10 @@ describe("AppSettingsView", () => {
     expect(screen.getByText("Show floating bar")).toBeTruthy();
   });
 
-  it("lets Pro users turn cloud sync off", () => {
-    const cloudSync = setting(true);
-    renderAppSettings({ cloudSync });
-
-    fireEvent.click(screen.getByRole("switch", { name: "Cloud sync" }));
-
-    expect(cloudSync.onChange).toHaveBeenCalledWith(false);
-  });
-
-  it("describes cloud sync as unreadable to Anarlog", () => {
+  it("keeps cloud sync in its dedicated settings page", () => {
     renderAppSettings();
 
-    expect(
-      screen.getByText(/Anarlog cannot read your synced notes/),
-    ).toBeTruthy();
-  });
-
-  it("shows cloud sync as unavailable without Pro", () => {
-    renderAppSettings({ cloudSyncAvailable: false });
-
-    expect(
-      screen
-        .getByRole("switch", { name: "Cloud sync" })
-        .hasAttribute("disabled"),
-    ).toBe(true);
-    expect(screen.getByText("Available with Anarlog Pro.")).toBeTruthy();
+    expect(screen.queryByRole("switch", { name: "Cloud sync" })).toBeNull();
   });
 
   it("only enables automatic joining when scheduled listening is enabled", () => {

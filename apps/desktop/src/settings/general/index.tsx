@@ -1,16 +1,13 @@
 import { Trans } from "@lingui/react/macro";
 import { useForm } from "@tanstack/react-form";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Loader2Icon } from "lucide-react";
-import { useState } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { getE2eeIdentityStatus } from "@hypr/plugin-db";
 import { commands as listenerCommands } from "@hypr/plugin-transcription";
 
 export { SettingsAccount } from "./account";
 import { AppSettingsView } from "./app-settings";
-import { E2eeSetupDialog } from "./e2ee-setup";
 import {
   CORE_TRANSCRIPTION_LANGUAGE_CODES,
   getAdditionalSpokenLanguages,
@@ -24,12 +21,8 @@ import { ThemeSelector } from "./theme";
 import { TimezoneSelector } from "./timezone";
 import { WeekStartSelector } from "./week-start";
 
-import { useAuth } from "~/auth";
-import { useBillingAccess } from "~/auth/billing-context";
-import { applyCloudsyncPreference } from "~/auth/cloudsync";
 import { SettingsPageTitle } from "~/settings/page-title";
 import {
-  setSettingValue,
   type StoredSettingValues,
   useSetSettingValues,
   useStoredSettingValuesQuery,
@@ -176,18 +169,6 @@ function SettingsAppContent({
     "microphone_device",
     storedSettings,
   );
-  const auth = useAuth();
-  const { isPro } = useBillingAccess();
-  const [e2eeSetupOpen, setE2eeSetupOpen] = useState(false);
-  const storedCloudSyncEnabled = resolveConfigValue(
-    "cloud_sync_enabled",
-    storedSettings,
-  );
-  const e2eeIdentityQuery = useQuery({
-    queryKey: ["e2ee-identity", auth.session?.user.id],
-    queryFn: () => getE2eeIdentityStatus(auth.session!.user.id),
-    enabled: Boolean(auth.session?.user.id),
-  });
   const microphoneDevicesQuery = useQuery({
     queryKey: ["microphone-devices"],
     queryFn: async () => {
@@ -199,40 +180,6 @@ function SettingsAppContent({
     },
     refetchInterval: 3_000,
   });
-  const cloudSyncMutation = useMutation({
-    mutationKey: ["cloudsync-preference"],
-    mutationFn: async (enabled: boolean) => {
-      await setSettingValue("cloud_sync_enabled", enabled);
-      const result = await applyCloudsyncPreference(auth.session);
-      if (result === "account_mismatch") {
-        await auth.signOut();
-      }
-    },
-    onError: (error) => {
-      console.error("[cloudsync] failed to apply sync preference", error);
-    },
-  });
-  const e2eePreflightMutation = useMutation({
-    mutationKey: ["e2ee-preflight"],
-    mutationFn: async () => {
-      const accountUserId = auth.session?.user.id;
-      if (!accountUserId) {
-        throw new Error("Sign in before enabling encrypted cloud sync");
-      }
-      return getE2eeIdentityStatus(accountUserId);
-    },
-    onSuccess: ({ configured }) => {
-      if (configured) {
-        cloudSyncMutation.mutate(true);
-      } else {
-        setE2eeSetupOpen(true);
-      }
-    },
-  });
-  const cloudSyncEnabled = cloudSyncMutation.isPending
-    ? (cloudSyncMutation.variables ?? storedCloudSyncEnabled)
-    : storedCloudSyncEnabled && e2eeIdentityQuery.data?.configured !== false;
-
   return (
     <div className="flex flex-col gap-8">
       <SettingsPageTitle title={<Trans>App</Trans>} />
@@ -330,24 +277,6 @@ function SettingsAppContent({
                                                       telemetryConsentField.handleChange(
                                                         val,
                                                       ),
-                                                  }}
-                                                  cloudSync={{
-                                                    value: cloudSyncEnabled,
-                                                    onChange: (enabled) => {
-                                                      if (enabled) {
-                                                        e2eePreflightMutation.mutate();
-                                                      } else {
-                                                        cloudSyncMutation.mutate(
-                                                          false,
-                                                        );
-                                                      }
-                                                    },
-                                                    disabled:
-                                                      !isPro ||
-                                                      cloudSyncMutation.isPending ||
-                                                      e2eePreflightMutation.isPending ||
-                                                      e2eeIdentityQuery.isLoading,
-                                                    available: isPro,
                                                   }}
                                                   meetingDisclosureAutoPost={{
                                                     value:
@@ -455,19 +384,6 @@ function SettingsAppContent({
       </div>
 
       <StorageSettingsView />
-      {auth.session?.user.id && (
-        <E2eeSetupDialog
-          open={e2eeSetupOpen}
-          onOpenChange={setE2eeSetupOpen}
-          accountUserId={auth.session.user.id}
-          accessToken={auth.session.access_token}
-          onReady={() => {
-            setE2eeSetupOpen(false);
-            void e2eeIdentityQuery.refetch();
-            cloudSyncMutation.mutate(true);
-          }}
-        />
-      )}
     </div>
   );
 }

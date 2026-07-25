@@ -116,6 +116,7 @@ describe("SettingsNav", () => {
       "General",
       "App",
       "Account",
+      "Sync",
       "Notifications",
       "Developers",
       "Permissions",
@@ -196,6 +197,17 @@ describe("SettingsNav", () => {
     expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
       mocks.currentTab,
       { tab: "dictionary" },
+    );
+  });
+
+  it("opens Sync inside settings", () => {
+    render(<SettingsNav />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync" }));
+
+    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
+      mocks.currentTab,
+      { tab: "sync" },
     );
   });
 });

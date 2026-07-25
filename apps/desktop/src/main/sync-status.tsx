@@ -2,10 +2,12 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CloudAlertIcon,
-  CloudCheckIcon,
+  CheckCircle2Icon,
+  CloudOffIcon,
   HardDriveIcon,
   Loader2Icon,
   PauseIcon,
+  PlayIcon,
   RefreshCwIcon,
   SettingsIcon,
 } from "lucide-react";
@@ -71,16 +73,16 @@ export function SyncStatusIndicator() {
   });
 
   const openSyncSettings = () => {
-    openNewTab({ type: "settings", state: { tab: "app" } });
+    openNewTab({ type: "settings", state: { tab: "sync" } });
   };
 
-  const pauseSyncMutation = useMutation({
+  const setSyncEnabledMutation = useMutation({
     mutationKey: ["cloudsync-preference"],
-    mutationFn: async () => {
+    mutationFn: async (enabled: boolean) => {
       if (!session) {
         return;
       }
-      await setSettingValue("cloud_sync_enabled", false);
+      await setSettingValue("cloud_sync_enabled", enabled);
       const result = await applyCloudsyncPreference(session);
       if (result === "account_mismatch") {
         await auth.signOut();
@@ -98,7 +100,7 @@ export function SyncStatusIndicator() {
     },
   });
 
-  if (!session || !isReady || !settingsReady || !isPro || !syncPreferred) {
+  if (!session || !isReady || !settingsReady || !isPro) {
     return null;
   }
 
@@ -107,6 +109,14 @@ export function SyncStatusIndicator() {
   const deferredForCapture = status?.deferred_for_capture === true;
   const statusUnavailable = credentialBlock === null && statusQuery.isError;
   const view = (() => {
+    if (!syncPreferred) {
+      return {
+        kind: "paused" as const,
+        label: t`Sync paused`,
+        description: t`Changes stay on this device until you resume sync`,
+      };
+    }
+
     switch (credentialBlock) {
       case "device_limit":
         return {
@@ -243,7 +253,7 @@ export function SyncStatusIndicator() {
           data-testid="sync-status-indicator"
           className={cn([
             "fixed right-3 bottom-3 z-40",
-            "border-border/60 bg-background/85 flex size-7 items-center justify-center rounded-full border shadow-sm backdrop-blur",
+            "border-border/60 bg-background/90 flex size-8 items-center justify-center rounded-xl border shadow-sm backdrop-blur",
             "text-muted-foreground hover:text-foreground transition-colors",
           ])}
         >
@@ -251,13 +261,16 @@ export function SyncStatusIndicator() {
             <CloudAlertIcon className="size-4 text-yellow-600" />
           )}
           {view.kind === "connecting" && (
-            <Loader2Icon className="size-4 animate-spin" />
+            <Loader2Icon className="size-4 animate-spin text-blue-500" />
           )}
           {view.kind === "syncing" && (
-            <RefreshCwIcon className="size-4 animate-spin" />
+            <RefreshCwIcon className="size-4 animate-spin text-blue-500" />
           )}
           {view.kind === "deferred" && <HardDriveIcon className="size-4" />}
-          {view.kind === "synced" && <CloudCheckIcon className="size-4" />}
+          {view.kind === "paused" && <CloudOffIcon className="size-4" />}
+          {view.kind === "synced" && (
+            <CheckCircle2Icon className="size-4 text-emerald-500" />
+          )}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent side="top" align="end" className="w-64">
@@ -272,6 +285,7 @@ export function SyncStatusIndicator() {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           disabled={
+            !syncPreferred ||
             syncNowMutation.isPending ||
             statusQuery.isFetching ||
             activityPaused ||
@@ -289,11 +303,19 @@ export function SyncStatusIndicator() {
           {canRetry ? <Trans>Retry</Trans> : <Trans>Sync now</Trans>}
         </DropdownMenuItem>
         <DropdownMenuItem
-          disabled={pauseSyncMutation.isPending}
-          onSelect={() => pauseSyncMutation.mutate()}
+          disabled={setSyncEnabledMutation.isPending}
+          onSelect={() => setSyncEnabledMutation.mutate(!syncPreferred)}
         >
-          <PauseIcon className="size-4" />
-          <Trans>Pause sync</Trans>
+          {syncPreferred ? (
+            <PauseIcon className="size-4" />
+          ) : (
+            <PlayIcon className="size-4" />
+          )}
+          {syncPreferred ? (
+            <Trans>Pause sync</Trans>
+          ) : (
+            <Trans>Resume sync</Trans>
+          )}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={openSyncSettings}>

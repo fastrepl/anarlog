@@ -151,6 +151,11 @@ describe("SyncStatusIndicator", () => {
     expect(screen.getByText("Sync now")).toBeTruthy();
     expect(screen.getByText("Pause sync")).toBeTruthy();
     expect(screen.queryByText("Upgrade to Pro")).toBeNull();
+    expect(
+      screen
+        .getByLabelText("Cloud sync status: Synced")
+        .querySelector(".text-emerald-500"),
+    ).toBeTruthy();
   });
 
   it("does not render for free users", () => {
@@ -177,13 +182,24 @@ describe("SyncStatusIndicator", () => {
     expect(mocks.applyCloudsyncPreference).toHaveBeenCalledWith(mocks.session);
   });
 
-  it("does not render when sync is paused", () => {
+  it("stays visible when sync is paused and offers resume", async () => {
     mocks.settings.cloudSyncEnabled = false;
 
     renderIndicator();
+    await openMenu();
 
-    expect(screen.queryByTestId("sync-status-indicator")).toBeNull();
+    expect(await screen.findByText("Sync paused")).toBeTruthy();
+    expect(screen.getByText("Resume sync")).toBeTruthy();
     expect(mocks.getCloudsyncStatus).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText("Resume sync"));
+
+    await vi.waitFor(() => {
+      expect(mocks.setSettingValue).toHaveBeenCalledWith(
+        "cloud_sync_enabled",
+        true,
+      );
+    });
   });
 
   it("shows a blocked state when the device limit was hit instead of connecting forever", async () => {
@@ -404,6 +420,11 @@ describe("SyncStatusIndicator", () => {
 
     expect(await screen.findByText("Syncing...")).toBeTruthy();
     expect(screen.queryByText("Synced")).toBeNull();
+    expect(
+      screen
+        .getByLabelText("Cloud sync status: Syncing...")
+        .querySelector(".animate-spin.text-blue-500"),
+    ).toBeTruthy();
   });
 
   it("shows capture-deferred work as saved locally without offering a manual sync", async () => {
@@ -587,6 +608,18 @@ describe("SyncStatusIndicator", () => {
 
     await vi.waitFor(() => {
       expect(mocks.syncCloudsyncNow).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("opens the dedicated sync settings page", async () => {
+    renderIndicator();
+    await openMenu();
+
+    fireEvent.click(await screen.findByText("Sync settings"));
+
+    expect(mocks.openNew).toHaveBeenCalledWith({
+      type: "settings",
+      state: { tab: "sync" },
     });
   });
 });
