@@ -839,6 +839,7 @@ describe("useStartListening", () => {
   });
 
   test("flushes canonical note persistence before releasing the capture sync lease", async () => {
+    useSessionHasTranscriptMock.mockReturnValue(true);
     let finishEditorFlush: (() => void) | undefined;
     flushCanonicalSessionEditorChangesMock.mockReturnValueOnce(
       new Promise<void>((resolve) => {
@@ -867,11 +868,15 @@ describe("useStartListening", () => {
     });
     expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
     expect(endCloudsyncActivityMock).not.toHaveBeenCalled();
+    expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
 
     finishEditorFlush?.();
     await act(async () => {
       await stopped;
     });
+    expect(flushCanonicalSessionEditorChangesMock).toHaveBeenCalledBefore(
+      queueAutoEnhanceIfSummaryEmptyMock,
+    );
     expect(flushCanonicalSessionEditorChangesMock).toHaveBeenCalledBefore(
       clearCaptureLifecycleMarkerMock,
     );

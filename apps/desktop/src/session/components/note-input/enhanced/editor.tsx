@@ -32,6 +32,19 @@ import {
 
 const extraNodeViews = { appLink: AppLinkView, session: SessionNodeView };
 
+function isCanonicalEmptyDocument(content: JSONContent): boolean {
+  const [title, body, ...rest] = content.content ?? [];
+  return (
+    content.type === "doc" &&
+    rest.length === 0 &&
+    title?.type === "heading" &&
+    title.attrs?.level === 1 &&
+    !title.content?.length &&
+    body?.type === "paragraph" &&
+    !body.content?.length
+  );
+}
+
 const EnhancedEditorInner = forwardRef<
   NoteEditorRef,
   {
@@ -82,6 +95,9 @@ const EnhancedEditorInner = forwardRef<
     const handleChange = useCallback(
       (input: JSONContent) => {
         const portableInput = normalizePortableAttachmentUrls(input);
+        if (content === "" && isCanonicalEmptyDocument(portableInput)) {
+          return;
+        }
         const title = extractFirstLineTitle(portableInput);
         const nextTitle =
           title !== null || hasStoredNoteContent(content)

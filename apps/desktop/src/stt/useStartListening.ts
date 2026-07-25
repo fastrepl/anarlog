@@ -625,6 +625,17 @@ function useCaptureLifecycle(sessionId: string) {
           return;
         }
 
+        try {
+          await flushCanonicalSessionEditorChanges(sessionId);
+        } catch (error) {
+          console.error(
+            "[listener] failed to flush session notes before completing capture",
+            error,
+          );
+          await requestRecovery();
+          return;
+        }
+
         const hasTranscriptEvidence =
           Boolean(pendingSummaryMode) ||
           preserveExistingTranscript ||
@@ -685,17 +696,6 @@ function useCaptureLifecycle(sessionId: string) {
           (!details.audioPath && !transcriptWriteError) ||
           (transcriptIsComplete && summaryScheduled);
         if (!recoveryComplete) {
-          await requestRecovery();
-          return;
-        }
-
-        try {
-          await flushCanonicalSessionEditorChanges(sessionId);
-        } catch (error) {
-          console.error(
-            "[listener] failed to flush session notes before completing capture",
-            error,
-          );
           await requestRecovery();
           return;
         }
