@@ -190,6 +190,10 @@ msgstr ""
 msgid "Anarlog could not read the local shared-note cache."
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Anarlog could not start cloud sync on this device."
+msgstr ""
+
 #: src/main/sync-status.tsx
 msgid "Anarlog couldn't read cloud sync status. Your notes are still available locally."
 msgstr ""
@@ -228,6 +232,14 @@ msgstr ""
 
 #: src/main/sync-status.tsx
 msgid "Anarlog will keep retrying in the background. Your notes remain available locally."
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Anarlog will keep retrying."
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Anarlog will retry automatically."
 msgstr ""
 
 #: src/main/sync-status.tsx
@@ -321,10 +333,6 @@ msgstr "Comença a escoltar automàticament quan una nota amb el suport d'un esd
 msgid "Automatically stop listening when the meeting app releases the microphone."
 msgstr "Deixa d'escoltar automàticament quan l'aplicació de reunió alliberi el micròfon."
 
-#: src/settings/general/app-settings.tsx
-msgid "Available with Anarlog Pro."
-msgstr ""
-
 #: src/calendar/components/apple/permission.tsx
 #: src/instruction/index.tsx
 #: src/settings/general/e2ee-setup.tsx
@@ -373,6 +381,14 @@ msgstr ""
 
 #: src/onboarding/folder-location.tsx
 msgid "Change"
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Changes stay on this device until you resume sync"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Changes stay on this device until you resume sync."
 msgstr ""
 
 #: src/chat/components/toolbar-controls.tsx
@@ -450,7 +466,7 @@ msgstr ""
 msgid "Closed"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/sync/index.tsx
 msgid "Cloud sync"
 msgstr ""
 
@@ -459,11 +475,16 @@ msgid "Cloud sync could not start on this device. Open Sync settings to try agai
 msgstr ""
 
 #: src/main/sync-status.tsx
+#: src/settings/sync/index.tsx
 msgid "Cloud sync delayed"
 msgstr ""
 
 #: src/main/sync-status.tsx
 msgid "Cloud sync identity mismatch"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Cloud sync is available with Anarlog Pro"
 msgstr ""
 
 #: src/auth/cloudsync.ts
@@ -474,8 +495,16 @@ msgstr ""
 msgid "Cloud sync resumes after this meeting finishes processing"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Cloud sync resumes after this meeting finishes processing."
+msgstr ""
+
 #: src/main/sync-status.tsx
 msgid "Cloud sync resumes when the current activity finishes"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Cloud sync resumes when the current activity finishes."
 msgstr ""
 
 #: src/main/sync-status.tsx
@@ -578,6 +607,7 @@ msgid "Connect your integration"
 msgstr ""
 
 #: src/main/sync-status.tsx
+#: src/settings/sync/index.tsx
 msgid "Connecting..."
 msgstr ""
 
@@ -789,8 +819,8 @@ msgstr ""
 msgid "Enable {0}"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx
-msgid "End-to-end encrypted across your signed-in devices. Anarlog cannot read your synced notes."
+#: src/settings/sync/index.tsx
+msgid "End-to-end encryption"
 msgstr ""
 
 #: src/session/components/outer-header/metadata/participants/chip.tsx
@@ -1078,6 +1108,10 @@ msgstr ""
 msgid "Keep desktop edits"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Keep notes end-to-end encrypted and up to date across your signed-in devices."
+msgstr ""
+
 #: src/settings/general/index.tsx
 msgid "Language & Region"
 msgstr "Idioma i regió"
@@ -1092,6 +1126,7 @@ msgstr ""
 
 #. placeholder {0}: formatDistanceToNow( new Date(status.last_sync_at_ms), { addSuffix: true }, )
 #: src/main/sync-status.tsx
+#: src/settings/sync/index.tsx
 msgid "Last synced {0}"
 msgstr ""
 
@@ -1129,6 +1164,10 @@ msgstr ""
 
 #: src/settings/ai/shared/model-combobox.tsx
 msgid "Loading models..."
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Loading sync settings"
 msgstr ""
 
 #: src/changelog/index.tsx
@@ -1672,6 +1711,7 @@ msgid "Respect Do-Not-Disturb mode"
 msgstr ""
 
 #: src/main/sync-status.tsx
+#: src/settings/sync/index.tsx
 msgid "Restoring cloud sync..."
 msgstr ""
 
@@ -1685,6 +1725,10 @@ msgstr ""
 
 #: src/session/components/outer-header/index.tsx
 msgid "Resume listening"
+msgstr ""
+
+#: src/main/sync-status.tsx
+msgid "Resume sync"
 msgstr ""
 
 #: src/chat/components/message/error.tsx
@@ -1712,6 +1756,7 @@ msgid "Save this key in a password manager. You need it to add a new device, and
 msgstr ""
 
 #: src/main/sync-status.tsx
+#: src/settings/sync/index.tsx
 msgid "Saved locally"
 msgstr ""
 
@@ -1773,6 +1818,10 @@ msgstr ""
 msgid "Section actions"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Security"
+msgstr ""
+
 #: src/session/components/note-input/header.tsx
 msgid "See all templates"
 msgstr ""
@@ -1827,6 +1876,10 @@ msgstr ""
 msgid "Send message"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Sending and receiving your latest changes."
+msgstr ""
+
 #: src/templates/auto-form.tsx
 msgid "Session details"
 msgstr ""
@@ -1848,8 +1901,16 @@ msgstr ""
 msgid "Set up AI summaries"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Set up your recovery key to start encrypted cloud sync."
+msgstr ""
+
 #: src/main/sync-status.tsx
 msgid "Setting up cloud sync"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Setting up encrypted cloud sync."
 msgstr ""
 
 #: src/main/empty.tsx
@@ -1956,12 +2017,17 @@ msgstr ""
 
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 #: src/settings/general/account.tsx
+#: src/settings/sync/index.tsx
 #: src/shared-notes/index.tsx
 msgid "Sign in"
 msgstr ""
 
 #: src/main/sync-status.tsx
 msgid "Sign in again"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Sign in before enabling encrypted cloud sync"
 msgstr ""
 
 #: src/settings/todo/github.tsx
@@ -1995,6 +2061,10 @@ msgstr ""
 
 #: src/onboarding/index.tsx
 msgid "Sign in to unlock powerful AI models, sync across devices, and personalization."
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Sign in to use cloud sync"
 msgstr ""
 
 #: src/shared-notes/index.tsx
@@ -2134,12 +2204,31 @@ msgstr ""
 msgid "Symbols"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+#: src/sidebar/settings.tsx
+msgid "Sync"
+msgstr ""
+
 #: src/main/sync-status.tsx
 msgid "Sync issue"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Sync needs attention"
+msgstr ""
+
 #: src/main/sync-status.tsx
+#: src/settings/sync/index.tsx
 msgid "Sync now"
+msgstr ""
+
+#: src/main/sync-status.tsx
+#: src/settings/sync/index.tsx
+msgid "Sync paused"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Sync runs automatically in the background."
 msgstr ""
 
 #: src/main/sync-status.tsx
@@ -2147,6 +2236,7 @@ msgid "Sync settings"
 msgstr ""
 
 #: src/main/sync-status.tsx
+#: src/settings/sync/index.tsx
 msgid "Sync status unavailable"
 msgstr ""
 
@@ -2155,10 +2245,12 @@ msgid "Sync your changes before signing out."
 msgstr ""
 
 #: src/main/sync-status.tsx
+#: src/settings/sync/index.tsx
 msgid "Synced"
 msgstr ""
 
 #: src/main/sync-status.tsx
+#: src/settings/sync/index.tsx
 msgid "Syncing..."
 msgstr ""
 
@@ -2266,6 +2358,10 @@ msgstr ""
 msgid "Try again"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Turn on sync to create or enter your recovery key."
+msgstr ""
+
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Unknown"
 msgstr ""
@@ -2368,6 +2464,10 @@ msgstr ""
 msgid "View LinkedIn profile"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "View plans"
+msgstr ""
+
 #: src/settings/general/week-start.tsx
 msgid "Week starts on"
 msgstr ""
@@ -2420,8 +2520,20 @@ msgstr ""
 msgid "Your comment couldn’t be added. Try again."
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Your notes remain available locally."
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Your notes remain available locally. Try again in a moment."
+msgstr ""
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read them."
 msgstr ""
 
 #: src/templates/template-sidebar.tsx
