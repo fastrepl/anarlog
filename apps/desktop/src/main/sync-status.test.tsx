@@ -1,5 +1,15 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  focusManager,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -128,6 +138,8 @@ describe("SyncStatusIndicator", () => {
 
   afterEach(() => {
     cleanup();
+    focusManager.setFocused(undefined);
+    vi.restoreAllMocks();
   });
 
   it("shows synced state with sync now and pause actions for pro users", async () => {
@@ -281,6 +293,60 @@ describe("SyncStatusIndicator", () => {
       ["cloudsync-status-indicator", "user-1"],
       ["cloudsync-status-indicator", "user-2"],
     ]);
+  });
+
+  it("keeps status current while the app is backgrounded", async () => {
+    let pollStatus: (() => void) | undefined;
+    vi.spyOn(globalThis, "setInterval").mockImplementation(
+      (handler: TimerHandler, delay?: number) => {
+        if (delay === 10_000 && typeof handler === "function") {
+          pollStatus = () => handler();
+        }
+        return 1 as unknown as ReturnType<typeof setInterval>;
+      },
+    );
+    focusManager.setFocused(false);
+    mocks.getCloudsyncStatus
+      .mockResolvedValueOnce(
+        syncedStatus({
+          configured: false,
+          running: false,
+          last_sync_at_ms: null,
+          has_unsent_changes: null,
+        }),
+      )
+      .mockResolvedValueOnce(
+        syncedStatus({
+          activity_paused: true,
+          deferred_for_capture: true,
+          has_unsent_changes: true,
+        }),
+      )
+      .mockResolvedValueOnce(syncedStatus());
+
+    renderIndicator();
+    expect(
+      await screen.findByLabelText("Cloud sync status: Connecting..."),
+    ).toBeTruthy();
+    expect(mocks.getCloudsyncStatus).toHaveBeenCalledTimes(1);
+    expect(pollStatus).toBeDefined();
+
+    await act(async () => {
+      pollStatus?.();
+      await Promise.resolve();
+    });
+    expect(
+      await screen.findByLabelText("Cloud sync status: Saved locally"),
+    ).toBeTruthy();
+
+    await act(async () => {
+      pollStatus?.();
+      await Promise.resolve();
+    });
+    expect(
+      await screen.findByLabelText("Cloud sync status: Synced"),
+    ).toBeTruthy();
+    expect(mocks.getCloudsyncStatus).toHaveBeenCalledTimes(3);
   });
 
   it("shows a sync issue with the last error", async () => {

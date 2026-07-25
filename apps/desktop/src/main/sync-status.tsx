@@ -66,6 +66,7 @@ export function SyncStatusIndicator() {
     queryKey: statusQueryKey,
     queryFn: getCloudsyncStatus,
     refetchInterval: STATUS_POLL_INTERVAL_MS,
+    refetchIntervalInBackground: true,
     enabled: Boolean(session) && isPro && syncPreferred,
   });
 
