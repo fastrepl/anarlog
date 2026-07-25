@@ -74,6 +74,7 @@ const totals = {
   current: 0,
   updates: 0,
   deleted: 0,
+  missing: 0,
   conflicts: 0,
   errors: 0,
 };
@@ -117,7 +118,15 @@ for (let offset = 0; offset < profiles.length; offset += concurrency) {
             metadata,
           });
         }
-      } catch {
+      } catch (error) {
+        if (
+          error instanceof Stripe.errors.StripeError &&
+          error.statusCode === 404
+        ) {
+          totals.missing++;
+          return;
+        }
+
         totals.errors++;
       }
     }),
