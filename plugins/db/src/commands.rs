@@ -3,6 +3,8 @@ use tauri::ipc::Channel;
 use crate::{ExecuteProxyResult, ManagedState, QueryEvent, TransactionStatement};
 
 const E2EE_SECRET_SCOPE: &str = "e2ee";
+const E2EE_SECRET_READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(25);
+const E2EE_SECRET_READ_TIMEOUT_ERROR: &str = "E2EE recovery key read timed out";
 
 fn e2ee_recovery_key_name(account_user_id: &str) -> Result<String, String> {
     let account_user_id = uuid::Uuid::parse_str(account_user_id.trim())
@@ -15,10 +17,22 @@ async fn load_e2ee_recovery_key<R: tauri::Runtime>(
     account_user_id: &str,
 ) -> Result<Option<hypr_e2ee::RecoveryKey>, String> {
     let key = e2ee_recovery_key_name(account_user_id)?;
-    tauri_plugin_store2::read_secret(app, E2EE_SECRET_SCOPE.to_string(), key)
-        .await?
-        .map(|value| hypr_e2ee::RecoveryKey::parse(&value).map_err(|error| error.to_string()))
-        .transpose()
+    read_e2ee_secret_with_timeout(
+        E2EE_SECRET_READ_TIMEOUT,
+        tauri_plugin_store2::read_secret(app, E2EE_SECRET_SCOPE.to_string(), key),
+    )
+    .await?
+    .map(|value| hypr_e2ee::RecoveryKey::parse(&value).map_err(|error| error.to_string()))
+    .transpose()
+}
+
+async fn read_e2ee_secret_with_timeout(
+    timeout: std::time::Duration,
+    read: impl std::future::Future<Output = Result<Option<String>, String>>,
+) -> Result<Option<String>, String> {
+    tokio::time::timeout(timeout, read)
+        .await
+        .map_err(|_| E2EE_SECRET_READ_TIMEOUT_ERROR.to_string())?
 }
 
 #[tauri::command]
@@ -408,4 +422,21 @@ pub(crate) async fn end_cloudsync_activity(
         .end_cloudsync_activity(activity, key)
         .await
         .map_err(|error| error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn e2ee_secret_read_timeout_is_bounded() {
+        let error = read_e2ee_secret_with_timeout(
+            std::time::Duration::ZERO,
+            std::future::pending::<Result<Option<String>, String>>(),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(error, E2EE_SECRET_READ_TIMEOUT_ERROR);
+    }
 }

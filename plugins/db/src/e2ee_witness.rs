@@ -45,7 +45,7 @@ impl E2eeWitnessCancellation {
         }
     }
 
-    async fn cancelled(&self) {
+    pub(crate) async fn cancelled(&self) {
         loop {
             let changed = self.state.changed.notified();
             tokio::pin!(changed);

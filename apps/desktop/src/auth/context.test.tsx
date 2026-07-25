@@ -1228,6 +1228,55 @@ describe("AuthProvider", () => {
     });
   });
 
+  it("keeps a rapid sign-out then sign-in hidden until the new account is claimed", async () => {
+    const nextSession = makeSession("new-account");
+    const claim = deferred<boolean>();
+    mocks.bindCloudsyncAccountForAuth.mockReturnValue(claim.promise);
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_OUT", null);
+      mocks.authCallback?.("SIGNED_IN", nextSession);
+    });
+
+    await waitFor(() => {
+      expect(mocks.bindCloudsyncAccountForAuth).toHaveBeenCalledWith(
+        nextSession.user.id,
+      );
+    });
+    expect(screen.getByTestId("session").textContent).toBe("none");
+    expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalledWith(
+      "SIGNED_OUT",
+      null,
+    );
+    expect(mocks.handleCloudsyncAuthChange).not.toHaveBeenCalledWith(
+      "SIGNED_IN",
+      nextSession,
+      expect.any(Function),
+    );
+
+    await act(async () => {
+      claim.resolve(true);
+      await claim.promise;
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe(
+        nextSession.user.id,
+      );
+    });
+    expect(mocks.handleCloudsyncAuthChange).toHaveBeenCalledWith(
+      "SIGNED_IN",
+      nextSession,
+      expect.any(Function),
+    );
+  });
+
   it("keeps a refreshed session hidden until admission succeeds", async () => {
     const currentSession = makeSession("bound-account");
     const refreshedSession = {

@@ -101,6 +101,65 @@ let cachedDeviceIdentity: {
   fingerprint: string | null;
   name: string | null;
 } | null = null;
+let pendingStoredSettings: ReturnType<typeof getStoredSettingValues> | null =
+  null;
+const pendingE2eeIdentityReads = new Map<
+  string,
+  ReturnType<typeof getE2eeIdentityStatus>
+>();
+
+function raceWithAbort<T>(operation: Promise<T>, signal: AbortSignal) {
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => {
+      signal.removeEventListener("abort", abort);
+      reject(new Error("aborted"));
+    };
+    if (signal.aborted) {
+      abort();
+    } else {
+      signal.addEventListener("abort", abort, { once: true });
+    }
+    operation.then(
+      (value) => {
+        signal.removeEventListener("abort", abort);
+        resolve(value);
+      },
+      (error) => {
+        signal.removeEventListener("abort", abort);
+        reject(error);
+      },
+    );
+  });
+}
+
+function readStoredSettings() {
+  if (pendingStoredSettings) {
+    return pendingStoredSettings;
+  }
+
+  const read = getStoredSettingValues().finally(() => {
+    if (pendingStoredSettings === read) {
+      pendingStoredSettings = null;
+    }
+  });
+  pendingStoredSettings = read;
+  return read;
+}
+
+function readE2eeIdentity(userId: string) {
+  const pending = pendingE2eeIdentityReads.get(userId);
+  if (pending) {
+    return pending;
+  }
+
+  const read = getE2eeIdentityStatus(userId).finally(() => {
+    if (pendingE2eeIdentityReads.get(userId) === read) {
+      pendingE2eeIdentityReads.delete(userId);
+    }
+  });
+  pendingE2eeIdentityReads.set(userId, read);
+  return read;
+}
 
 async function getDeviceIdentity() {
   if (cachedDeviceIdentity) {
@@ -162,6 +221,10 @@ let evictionRetryTimer: ReturnType<typeof setTimeout> | null = null;
 let pluginOperation = Promise.resolve();
 const pendingCloudsyncTeardowns = new Set<Promise<void>>();
 const timedOutCloudsyncTeardowns = new Set<Promise<void>>();
+let cleanupSuspendFailureVersion = 0;
+let cleanupSuspendCompletedVersion = 0;
+let signedOutGeneration: number | null = null;
+let cleanupServiceGeneration: number | null = null;
 let currentCloudsyncReactivation: {
   session: Session;
   generation: number;
@@ -194,13 +257,67 @@ function enqueuePluginOperation<T>(operation: () => Promise<T>) {
   return next;
 }
 
-function trackCloudsyncTeardown(teardown: Promise<void>) {
-  const tracked = teardown.finally(() => {
-    pendingCloudsyncTeardowns.delete(tracked);
-    timedOutCloudsyncTeardowns.delete(tracked);
-  });
+function requireCleanupSuspend(serviceCurrent: boolean = true) {
+  cleanupSuspendFailureVersion += 1;
+  exchangeController?.abort();
+  if (serviceCurrent) {
+    serviceCurrentCloudsyncCleanup();
+  }
+}
+
+function completeCleanupSuspend(failureVersion: number) {
+  cleanupSuspendCompletedVersion = Math.max(
+    cleanupSuspendCompletedVersion,
+    failureVersion,
+  );
+}
+
+function isCleanupSuspendRequired() {
+  return cleanupSuspendFailureVersion > cleanupSuspendCompletedVersion;
+}
+
+function trackCloudsyncTeardown(
+  teardown: Promise<void>,
+  completesPriorCleanup: boolean = true,
+) {
+  const failureVersion = cleanupSuspendFailureVersion;
+  const tracked = teardown
+    .then(
+      () => {
+        if (completesPriorCleanup) {
+          completeCleanupSuspend(failureVersion);
+        }
+      },
+      (error) => {
+        requireCleanupSuspend();
+        throw error;
+      },
+    )
+    .finally(() => {
+      pendingCloudsyncTeardowns.delete(tracked);
+      timedOutCloudsyncTeardowns.delete(tracked);
+    });
   pendingCloudsyncTeardowns.add(tracked);
   return tracked;
+}
+
+async function settleCloudsyncOperationWithin<T>(
+  operation: Promise<T>,
+  timeoutMs: number = CLOUDSYNC_TEARDOWN_TIMEOUT_MS,
+): Promise<{ status: "settled"; value: T } | { status: "timed_out" }> {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      operation.then((value) => ({ status: "settled" as const, value })),
+      new Promise<{ status: "timed_out" }>((resolve) => {
+        timeout = setTimeout(() => resolve({ status: "timed_out" }), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
 }
 
 function getPendingCloudsyncTeardowns() {
@@ -210,7 +327,14 @@ function getPendingCloudsyncTeardowns() {
   return [...pendingCloudsyncTeardowns];
 }
 
-function stopWaitingForCloudsyncTeardowns(teardowns: Promise<void>[]) {
+function stopWaitingForCloudsyncTeardowns(
+  teardowns: Promise<void>[],
+  activeGeneration: number,
+) {
+  if (activeGeneration !== generation) {
+    return;
+  }
+
   for (const teardown of teardowns) {
     if (pendingCloudsyncTeardowns.delete(teardown)) {
       timedOutCloudsyncTeardowns.add(teardown);
@@ -222,10 +346,24 @@ function stopWaitingForCloudsyncTeardowns(teardowns: Promise<void>[]) {
   }
 }
 
-async function flushCloudsyncSessionEvictions(): Promise<boolean> {
+function shouldStopCloudsyncSessionEvictions(activeGeneration: number) {
+  return (
+    activeGeneration !== generation ||
+    isCleanupSuspendRequired() ||
+    timedOutCloudsyncTeardowns.size > 0
+  );
+}
+
+async function flushCloudsyncSessionEvictions(
+  activeGeneration: number,
+): Promise<boolean> {
   const batchSize = 128;
 
   while (true) {
+    if (shouldStopCloudsyncSessionEvictions(activeGeneration)) {
+      return false;
+    }
+
     let rows: { sessionId: string; workspaceId: string }[];
     try {
       rows = await execute(
@@ -255,10 +393,17 @@ async function flushCloudsyncSessionEvictions(): Promise<boolean> {
       return true;
     }
 
+    if (shouldStopCloudsyncSessionEvictions(activeGeneration)) {
+      return false;
+    }
     if (rows.length === 0) return false;
 
     let failed = false;
     for (const row of rows) {
+      if (shouldStopCloudsyncSessionEvictions(activeGeneration)) {
+        return false;
+      }
+
       let deletionError = "";
       try {
         const result = await fsSyncCommands.deleteSessionFolder(row.sessionId);
@@ -267,6 +412,10 @@ async function flushCloudsyncSessionEvictions(): Promise<boolean> {
         }
       } catch (error) {
         deletionError = error instanceof Error ? error.message : String(error);
+      }
+
+      if (shouldStopCloudsyncSessionEvictions(activeGeneration)) {
+        return false;
       }
 
       try {
@@ -320,11 +469,11 @@ function scheduleCloudsyncSessionEvictionRetry(activeGeneration: number) {
   }
   evictionRetryTimer = setTimeout(() => {
     evictionRetryTimer = null;
-    if (activeGeneration !== generation) return;
+    if (shouldStopCloudsyncSessionEvictions(activeGeneration)) return;
 
     void enqueuePluginOperation(async () => {
-      if (activeGeneration !== generation) return;
-      const retry = await flushCloudsyncSessionEvictions();
+      if (shouldStopCloudsyncSessionEvictions(activeGeneration)) return;
+      const retry = await flushCloudsyncSessionEvictions(activeGeneration);
       if (retry && activeGeneration === generation) {
         scheduleCloudsyncSessionEvictionRetry(activeGeneration);
       }
@@ -335,7 +484,128 @@ function scheduleCloudsyncSessionEvictionRetry(activeGeneration: number) {
 export async function bindCloudsyncAccountForAuth(
   accountUserId: string,
 ): Promise<boolean> {
-  return enqueuePluginOperation(() => bindCloudsyncAccount(accountUserId));
+  const activeGeneration = beginTransition();
+  signedOutGeneration = null;
+  currentCloudsyncReactivation = null;
+  const pendingTeardowns = getPendingCloudsyncTeardowns();
+  let teardownTimedOut = false;
+
+  if (pendingTeardowns) {
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    const result = await Promise.race([
+      Promise.allSettled(pendingTeardowns).then(() => "settled" as const),
+      new Promise<"timed_out">((resolve) => {
+        timeout = setTimeout(
+          () => resolve("timed_out"),
+          CLOUDSYNC_TEARDOWN_TIMEOUT_MS,
+        );
+      }),
+    ]);
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    if (activeGeneration !== generation) {
+      return true;
+    }
+    if (result === "timed_out") {
+      teardownTimedOut = true;
+      stopWaitingForCloudsyncTeardowns(pendingTeardowns, activeGeneration);
+    }
+  }
+
+  const preemptPluginQueue =
+    teardownTimedOut ||
+    timedOutCloudsyncTeardowns.size > 0 ||
+    isCleanupSuspendRequired();
+  if (preemptPluginQueue) {
+    const cleanup = await settleCloudsyncOperationWithin(
+      suspendCloudsyncPreemptivelyForGeneration(activeGeneration),
+    );
+    if (activeGeneration !== generation) {
+      return true;
+    }
+    if (cleanup.status === "timed_out" || !cleanup.value) {
+      throw new Error("cloudsync cleanup unavailable");
+    }
+  }
+
+  let claimed: boolean;
+  if (preemptPluginQueue) {
+    claimed = await bindCloudsyncAccount(accountUserId);
+  } else {
+    const queuedBinding = await enqueuePluginOperation(async () => {
+      if (activeGeneration !== generation) {
+        return { status: "stale" as const };
+      }
+      if (isCleanupSuspendRequired()) {
+        return { status: "cleanup_required" as const };
+      }
+      return {
+        status: "bound" as const,
+        claimed: await bindCloudsyncAccount(accountUserId),
+      };
+    });
+    if (activeGeneration !== generation || queuedBinding.status === "stale") {
+      return true;
+    }
+    if (queuedBinding.status === "cleanup_required") {
+      const cleanup = await settleCloudsyncOperationWithin(
+        suspendCloudsyncPreemptivelyForGeneration(activeGeneration),
+      );
+      if (activeGeneration !== generation) {
+        return true;
+      }
+      if (cleanup.status === "timed_out" || !cleanup.value) {
+        throw new Error("cloudsync cleanup unavailable");
+      }
+      claimed = await bindCloudsyncAccount(accountUserId);
+    } else {
+      claimed = queuedBinding.claimed;
+    }
+  }
+  if (activeGeneration !== generation) {
+    return true;
+  }
+
+  if (isCleanupSuspendRequired()) {
+    const cleanup = await settleCloudsyncOperationWithin(
+      suspendCloudsyncPreemptivelyForGeneration(activeGeneration),
+    );
+    if (activeGeneration !== generation) {
+      return true;
+    }
+    if (cleanup.status === "timed_out" || !cleanup.value) {
+      throw new Error("cloudsync cleanup unavailable");
+    }
+  }
+
+  return claimed;
+}
+
+async function suspendCloudsyncNow() {
+  const failureVersion = cleanupSuspendFailureVersion;
+  try {
+    await suspendCloudsync();
+  } catch (error) {
+    requireCleanupSuspend();
+    throw error;
+  }
+  completeCleanupSuspend(failureVersion);
+  stopCloudsyncInitialSyncProgress();
+}
+
+async function suspendCloudsyncForAuthCleanupNow(
+  serviceCurrentOnFailure: boolean = true,
+) {
+  const failureVersion = cleanupSuspendFailureVersion;
+  try {
+    await suspendCloudsync();
+  } catch (error) {
+    requireCleanupSuspend(serviceCurrentOnFailure);
+    throw error;
+  }
+  completeCleanupSuspend(failureVersion);
+  stopCloudsyncInitialSyncProgress();
 }
 
 async function suspendCloudsyncForGeneration(activeGeneration: number) {
@@ -348,8 +618,7 @@ async function suspendCloudsyncForGeneration(activeGeneration: number) {
       if (activeGeneration !== generation) {
         return;
       }
-      await suspendCloudsync();
-      stopCloudsyncInitialSyncProgress();
+      await suspendCloudsyncNow();
     });
   } catch {
     if (activeGeneration === generation) {
@@ -358,16 +627,102 @@ async function suspendCloudsyncForGeneration(activeGeneration: number) {
     return false;
   }
 
-  return activeGeneration === generation;
+  if (activeGeneration !== generation) {
+    if (isCleanupSuspendRequired()) {
+      scheduleCurrentCloudsyncReactivation();
+    }
+    return false;
+  }
+
+  return !isCleanupSuspendRequired();
+}
+
+async function suspendCloudsyncPreemptivelyForGeneration(
+  activeGeneration: number,
+  serviceCurrentOnFailure: boolean = true,
+) {
+  if (activeGeneration !== generation) {
+    return false;
+  }
+
+  try {
+    await suspendCloudsyncForAuthCleanupNow(serviceCurrentOnFailure);
+  } catch {
+    if (activeGeneration === generation) {
+      console.warn("[cloudsync] local sync suspension failed");
+    }
+  }
+
+  if (activeGeneration !== generation) {
+    if (isCleanupSuspendRequired()) {
+      serviceCurrentCloudsyncCleanup();
+    } else {
+      scheduleCurrentCloudsyncReactivation();
+    }
+    return false;
+  }
+
+  return !isCleanupSuspendRequired();
+}
+
+function serviceCurrentCloudsyncCleanup() {
+  if (!isCleanupSuspendRequired()) {
+    return;
+  }
+
+  if (signedOutGeneration !== generation) {
+    scheduleCurrentCloudsyncReactivation();
+    return;
+  }
+
+  const activeGeneration = generation;
+  if (cleanupServiceGeneration === activeGeneration) {
+    return;
+  }
+  if (refreshTimer) {
+    clearTimeout(refreshTimer);
+    refreshTimer = null;
+  }
+
+  cleanupServiceGeneration = activeGeneration;
+  void suspendCloudsyncPreemptivelyForGeneration(activeGeneration).then(
+    (suspended) => {
+      if (cleanupServiceGeneration === activeGeneration) {
+        cleanupServiceGeneration = null;
+      }
+      if (
+        activeGeneration !== generation ||
+        signedOutGeneration !== activeGeneration ||
+        (suspended && !isCleanupSuspendRequired())
+      ) {
+        return;
+      }
+
+      refreshTimer = setTimeout(() => {
+        refreshTimer = null;
+        serviceCurrentCloudsyncCleanup();
+      }, RETRY_DELAY_MS);
+    },
+  );
 }
 
 async function suspendCloudsyncAfterCredentialRejection(
   activeGeneration: number,
 ) {
-  if (!(await suspendCloudsyncForGeneration(activeGeneration))) {
+  const cleanup = await settleCloudsyncOperationWithin(
+    suspendCloudsyncPreemptivelyForGeneration(activeGeneration, false),
+  );
+  if (cleanup.status === "timed_out" && activeGeneration === generation) {
+    requireCleanupSuspend(false);
+  }
+  if (cleanup.status === "timed_out" || !cleanup.value) {
     if (activeGeneration === generation) {
       refreshTimer = setTimeout(() => {
+        refreshTimer = null;
         if (activeGeneration !== generation) {
+          return;
+        }
+        if (!isCleanupSuspendRequired()) {
           return;
         }
 
@@ -486,7 +841,11 @@ function scheduleExchange(
     return;
   }
 
+  if (refreshTimer) {
+    clearTimeout(refreshTimer);
+  }
   refreshTimer = setTimeout(() => {
+    refreshTimer = null;
     if (activeGeneration !== generation) {
       return;
     }
@@ -537,15 +896,25 @@ function scheduleActivityStatusRetry(
     }
 
     void enqueuePluginOperation(async () => {
-      if (activeGeneration !== generation) {
-        return null;
+      if (activeGeneration !== generation || isCleanupSuspendRequired()) {
+        return Promise.resolve(null);
       }
       return getCloudsyncStatus();
     })
       .then((status) => {
-        if (activeGeneration !== generation || !status) {
+        if (activeGeneration !== generation) {
           return;
         }
+        if (isCleanupSuspendRequired()) {
+          scheduleExchange(
+            session,
+            activeGeneration,
+            MIN_REFRESH_DELAY_MS,
+            onAccountMismatch,
+          );
+          return;
+        }
+        if (!status) return;
         if (status.activity_paused) {
           scheduleActivityStatusRetry(
             session,
@@ -576,6 +945,15 @@ function scheduleActivityStatusRetry(
         if (activeGeneration !== generation) {
           return;
         }
+        if (isCleanupSuspendRequired()) {
+          scheduleExchange(
+            session,
+            activeGeneration,
+            MIN_REFRESH_DELAY_MS,
+            onAccountMismatch,
+          );
+          return;
+        }
         console.warn(
           "[cloudsync] activity status unavailable; retrying without credentials",
         );
@@ -595,6 +973,7 @@ async function activateCloudsync(
   onAccountMismatch?: CloudsyncAccountMismatchHandler,
 ): Promise<CloudsyncAuthChangeResult> {
   const activeGeneration = beginTransition();
+  signedOutGeneration = null;
   currentCloudsyncReactivation = {
     session,
     generation: activeGeneration,
@@ -618,8 +997,11 @@ async function activateCloudsync(
       if (finishedWaiting) {
         return;
       }
+      if (activeGeneration !== generation) {
+        return;
+      }
       finishedWaiting = true;
-      stopWaitingForCloudsyncTeardowns(pendingTeardowns);
+      stopWaitingForCloudsyncTeardowns(pendingTeardowns, activeGeneration);
       scheduleReactivation();
     }, CLOUDSYNC_TEARDOWN_TIMEOUT_MS);
     void Promise.allSettled(pendingTeardowns).then(() => {
@@ -632,15 +1014,37 @@ async function activateCloudsync(
     });
     return "ok";
   }
-  const shouldSuspendBeforeExchange =
-    suspendBeforeExchange && timedOutCloudsyncTeardowns.size === 0;
+
+  let suspendedBeforeCredentialExchange = false;
+  if (isCleanupSuspendRequired()) {
+    if (!(await suspendCloudsyncPreemptivelyForGeneration(activeGeneration))) {
+      if (activeGeneration === generation) {
+        scheduleExchange(
+          session,
+          activeGeneration,
+          RETRY_DELAY_MS,
+          onAccountMismatch,
+        );
+      }
+      return "ok";
+    }
+    if (isCleanupSuspendRequired()) {
+      scheduleReactivation();
+      return "ok";
+    }
+    suspendedBeforeCredentialExchange = true;
+  }
 
   let enabled: boolean;
   try {
-    enabled = resolveConfigValue(
-      "cloud_sync_enabled",
-      await getStoredSettingValues(),
+    const settings = await settleCloudsyncOperationWithin(
+      readStoredSettings(),
+      EXCHANGE_TIMEOUT_MS,
     );
+    if (settings.status === "timed_out") {
+      throw new Error("sync preference read timed out");
+    }
+    enabled = resolveConfigValue("cloud_sync_enabled", settings.value);
   } catch {
     console.warn(
       "[cloudsync] sync preference is unavailable; sync remains disabled",
@@ -648,7 +1052,17 @@ async function activateCloudsync(
     if (activeGeneration === generation) {
       setCredentialBlock("unavailable");
     }
-    await suspendCloudsyncAfterCredentialRejection(activeGeneration);
+    if (!suspendedBeforeCredentialExchange) {
+      await suspendCloudsyncAfterCredentialRejection(activeGeneration);
+    }
+    if (activeGeneration === generation) {
+      scheduleExchange(
+        session,
+        activeGeneration,
+        RETRY_DELAY_MS,
+        onAccountMismatch,
+      );
+    }
     return "ok";
   }
 
@@ -658,19 +1072,38 @@ async function activateCloudsync(
 
   if (!enabled) {
     setCredentialBlock(null);
-    await suspendCloudsyncAfterCredentialRejection(activeGeneration);
+    if (!suspendedBeforeCredentialExchange) {
+      await suspendCloudsyncAfterCredentialRejection(activeGeneration);
+    }
     return "ok";
   }
 
   let status;
   try {
     status = await enqueuePluginOperation(async () => {
-      if (activeGeneration !== generation) {
+      if (activeGeneration !== generation || isCleanupSuspendRequired()) {
         return null;
       }
       return getCloudsyncStatus();
     });
   } catch {
+    if (activeGeneration === generation && isCleanupSuspendRequired()) {
+      const suspended =
+        await suspendCloudsyncPreemptivelyForGeneration(activeGeneration);
+      if (activeGeneration === generation) {
+        if (suspended) {
+          scheduleReactivation();
+        } else {
+          scheduleExchange(
+            session,
+            activeGeneration,
+            RETRY_DELAY_MS,
+            onAccountMismatch,
+          );
+        }
+      }
+      return "ok";
+    }
     if (activeGeneration === generation) {
       console.warn("[cloudsync] local sync status unavailable; retrying");
       scheduleExchange(
@@ -683,8 +1116,31 @@ async function activateCloudsync(
     return "ok";
   }
 
-  if (activeGeneration !== generation || !status) {
+  if (activeGeneration !== generation) {
     return "ok";
+  }
+  if (!status) {
+    scheduleReactivation();
+    return "ok";
+  }
+
+  if (isCleanupSuspendRequired()) {
+    if (!(await suspendCloudsyncPreemptivelyForGeneration(activeGeneration))) {
+      if (activeGeneration === generation) {
+        scheduleExchange(
+          session,
+          activeGeneration,
+          RETRY_DELAY_MS,
+          onAccountMismatch,
+        );
+      }
+      return "ok";
+    }
+    if (isCleanupSuspendRequired()) {
+      scheduleReactivation();
+      return "ok";
+    }
+    suspendedBeforeCredentialExchange = true;
   }
 
   if (!status.cloudsync_enabled) {
@@ -699,7 +1155,7 @@ async function activateCloudsync(
     scheduleActivityStatusRetry(
       session,
       activeGeneration,
-      shouldSuspendBeforeExchange,
+      suspendBeforeExchange && !suspendedBeforeCredentialExchange,
       onAccountMismatch,
     );
     return "ok";
@@ -707,11 +1163,36 @@ async function activateCloudsync(
 
   let encryptionKeyId: string;
   try {
-    const identity = await enqueuePluginOperation(() =>
-      getE2eeIdentityStatus(session.user.id),
+    const identityRead = await settleCloudsyncOperationWithin(
+      readE2eeIdentity(session.user.id),
+      EXCHANGE_TIMEOUT_MS,
     );
+    if (identityRead.status === "timed_out") {
+      throw new Error("E2EE identity read timed out");
+    }
+    const identity = identityRead.value;
     if (activeGeneration !== generation) {
       return "ok";
+    }
+    if (isCleanupSuspendRequired()) {
+      if (
+        !(await suspendCloudsyncPreemptivelyForGeneration(activeGeneration))
+      ) {
+        if (activeGeneration === generation) {
+          scheduleExchange(
+            session,
+            activeGeneration,
+            RETRY_DELAY_MS,
+            onAccountMismatch,
+          );
+        }
+        return "ok";
+      }
+      if (isCleanupSuspendRequired()) {
+        scheduleReactivation();
+        return "ok";
+      }
+      suspendedBeforeCredentialExchange = true;
     }
     if (
       !identity.configured ||
@@ -727,6 +1208,11 @@ async function activateCloudsync(
     }
     encryptionKeyId = identity.keyId;
   } catch {
+    if (isCleanupSuspendRequired()) {
+      await suspendCloudsyncPreemptivelyForGeneration(activeGeneration);
+      scheduleReactivation();
+      return "ok";
+    }
     if (activeGeneration === generation) {
       setCredentialBlock("unavailable");
     }
@@ -734,9 +1220,40 @@ async function activateCloudsync(
     console.warn(
       "[cloudsync] E2EE recovery key is unavailable; sync remains disabled",
     );
+    if (activeGeneration === generation) {
+      scheduleExchange(
+        session,
+        activeGeneration,
+        RETRY_DELAY_MS,
+        onAccountMismatch,
+      );
+    }
     return "ok";
   }
 
+  if (isCleanupSuspendRequired()) {
+    if (!(await suspendCloudsyncPreemptivelyForGeneration(activeGeneration))) {
+      if (activeGeneration === generation) {
+        scheduleExchange(
+          session,
+          activeGeneration,
+          RETRY_DELAY_MS,
+          onAccountMismatch,
+        );
+      }
+      return "ok";
+    }
+    if (isCleanupSuspendRequired()) {
+      scheduleReactivation();
+      return "ok";
+    }
+    suspendedBeforeCredentialExchange = true;
+  }
+
+  const shouldSuspendBeforeExchange =
+    suspendBeforeExchange &&
+    !suspendedBeforeCredentialExchange &&
+    timedOutCloudsyncTeardowns.size === 0;
   if (
     shouldSuspendBeforeExchange &&
     !(await suspendCloudsyncForGeneration(activeGeneration))
@@ -752,6 +1269,11 @@ async function activateCloudsync(
     return "ok";
   }
 
+  if (isCleanupSuspendRequired()) {
+    scheduleReactivation();
+    return "ok";
+  }
+
   const controller = new AbortController();
   exchangeController = controller;
   let exchangeTimedOut = false;
@@ -762,8 +1284,13 @@ async function activateCloudsync(
 
   let response: Response | null = null;
   let credentials: unknown;
+  let credentialErrorCode: string | null = null;
   try {
-    const device = await getDeviceIdentity();
+    const device = await raceWithAbort(getDeviceIdentity(), controller.signal);
+    if (isCleanupSuspendRequired()) {
+      scheduleReactivation();
+      return "ok";
+    }
     const headers: Record<string, string> = {
       Authorization: `Bearer ${session.access_token}`,
       "X-Anarlog-E2EE-Key-Id": encryptionKeyId,
@@ -775,14 +1302,29 @@ async function activateCloudsync(
       headers[DEVICE_NAME_HEADER] = device.name;
     }
 
-    response = await fetch(new URL("/sync/token", env.VITE_API_URL), {
-      method: "POST",
-      headers,
-      signal: controller.signal,
-    });
+    response = await raceWithAbort(
+      fetch(new URL("/sync/token", env.VITE_API_URL), {
+        method: "POST",
+        headers,
+        signal: controller.signal,
+      }),
+      controller.signal,
+    );
 
     if (response.ok) {
-      credentials = await response.json();
+      credentials = await raceWithAbort(response.json(), controller.signal);
+    } else if (response.status === 403) {
+      try {
+        credentialErrorCode = await raceWithAbort(
+          readCredentialErrorCode(response),
+          controller.signal,
+        );
+      } catch {
+        if (activeGeneration !== generation) {
+          return "ok";
+        }
+        credentialErrorCode = null;
+      }
     }
   } catch {
     if (
@@ -815,6 +1357,11 @@ async function activateCloudsync(
     return "ok";
   }
 
+  if (isCleanupSuspendRequired()) {
+    scheduleReactivation();
+    return "ok";
+  }
+
   if (!response.ok) {
     if (response.status === 404 || response.status === 501) {
       setCredentialBlock("unavailable");
@@ -826,17 +1373,18 @@ async function activateCloudsync(
     }
 
     if (response.status === 403) {
-      const errorCode = await readCredentialErrorCode(response);
       if (activeGeneration !== generation) {
         return "ok";
       }
       setCredentialBlock(
-        errorCode === DEVICE_LIMIT_ERROR_CODE ? "device_limit" : "not_entitled",
+        credentialErrorCode === DEVICE_LIMIT_ERROR_CODE
+          ? "device_limit"
+          : "not_entitled",
       );
       if (!shouldSuspendBeforeExchange) {
         await suspendCloudsyncAfterCredentialRejection(activeGeneration);
       }
-      if (errorCode === DEVICE_LIMIT_ERROR_CODE) {
+      if (credentialErrorCode === DEVICE_LIMIT_ERROR_CODE) {
         sonnerToast.error(
           t`Cloud sync is limited to 5 devices. Remove another device to sync here.`,
           { id: DEVICE_LIMIT_TOAST_ID },
@@ -930,6 +1478,9 @@ async function activateCloudsync(
       if (activeGeneration !== generation) {
         return "configured" as const;
       }
+      if (isCleanupSuspendRequired()) {
+        return "cleanup_required" as const;
+      }
 
       const configuration = hasWorkspaceProjection(credentials)
         ? await configureCloudsyncToken(
@@ -962,23 +1513,42 @@ async function activateCloudsync(
             },
           );
 
+      let cleanupRequired = isCleanupSuspendRequired();
+      if (activeGeneration !== generation || cleanupRequired) {
+        if (configuration === "configured") {
+          await suspendCloudsyncNow();
+        }
+        return cleanupRequired ? ("cleanup_required" as const) : configuration;
+      }
+
       if (configuration === "configured" && activeGeneration === generation) {
-        const retryEvictions = await flushCloudsyncSessionEvictions();
+        const retryEvictions =
+          await flushCloudsyncSessionEvictions(activeGeneration);
         if (retryEvictions) {
           scheduleCloudsyncSessionEvictionRetry(activeGeneration);
         }
       }
 
-      if (activeGeneration !== generation) {
+      cleanupRequired = isCleanupSuspendRequired();
+      if (activeGeneration !== generation || cleanupRequired) {
         if (configuration === "configured") {
-          await suspendCloudsync();
+          await suspendCloudsyncNow();
         }
+        return cleanupRequired ? ("cleanup_required" as const) : configuration;
       }
 
       return configuration;
     });
 
     if (activeGeneration !== generation) {
+      return "ok";
+    }
+
+    if (configured === "cleanup_required" || isCleanupSuspendRequired()) {
+      if (isCleanupSuspendRequired()) {
+        await suspendCloudsyncPreemptivelyForGeneration(activeGeneration);
+      }
+      scheduleReactivation();
       return "ok";
     }
 
@@ -993,6 +1563,12 @@ async function activateCloudsync(
       return "ok";
     }
 
+    if (isCleanupSuspendRequired()) {
+      await suspendCloudsyncPreemptivelyForGeneration(activeGeneration);
+      scheduleReactivation();
+      return "ok";
+    }
+
     if (isCloudsyncActivityDeferredError(error)) {
       scheduleActivityStatusRetry(
         session,
@@ -1003,11 +1579,7 @@ async function activateCloudsync(
       return "ok";
     }
 
-    try {
-      await enqueuePluginOperation(suspendCloudsync);
-    } catch {
-      console.warn("[cloudsync] local sync suspension failed");
-    }
+    await suspendCloudsyncPreemptivelyForGeneration(activeGeneration);
 
     console.warn(
       "[cloudsync] local sync configuration failed; retrying",
@@ -1037,7 +1609,8 @@ async function activateCloudsync(
 }
 
 async function suspendCloudsyncSession(): Promise<void> {
-  beginTransition();
+  const activeGeneration = beginTransition();
+  signedOutGeneration = activeGeneration;
   currentCloudsyncReactivation = null;
   stopCloudsyncInitialSyncProgress();
   setCredentialBlock(null);
@@ -1059,15 +1632,19 @@ async function suspendCloudsyncSession(): Promise<void> {
       console.warn(
         "[cloudsync] auth-loss suspension is finishing in background",
       );
+      requireCleanupSuspend();
       void suspension.catch((error) => {
         console.warn(
           "[cloudsync] background auth-loss suspension failed",
           error,
         );
       });
+    } else if (activeGeneration === generation && isCleanupSuspendRequired()) {
+      serviceCurrentCloudsyncCleanup();
     }
   } catch {
     console.warn("[cloudsync] local sync suspension failed");
+    serviceCurrentCloudsyncCleanup();
   } finally {
     if (timeout) {
       clearTimeout(timeout);
@@ -1080,9 +1657,14 @@ export async function prepareCloudsyncSignOut(
   onAccountMismatch?: CloudsyncAccountMismatchHandler,
 ): Promise<void> {
   const activeGeneration = beginTransition();
+  signedOutGeneration = session ? null : activeGeneration;
   currentCloudsyncReactivation = null;
   stopCloudsyncInitialSyncProgress();
-  const suspension = trackCloudsyncTeardown(suspendCloudsyncForSignOut());
+  requireCleanupSuspend(false);
+  const suspension = trackCloudsyncTeardown(
+    suspendCloudsyncForSignOut(),
+    false,
+  );
   let timeout: ReturnType<typeof setTimeout> | null = null;
 
   try {
@@ -1120,6 +1702,9 @@ export async function prepareCloudsyncSignOut(
   } finally {
     if (timeout) {
       clearTimeout(timeout);
+    }
+    if (!session) {
+      serviceCurrentCloudsyncCleanup();
     }
   }
 }

@@ -512,7 +512,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn sign_out_suspend_command_clears_activity_leases() {
+    async fn sign_out_suspend_command_preserves_activity_leases() {
         let (_dir, runtime) = setup_runtime().await;
         runtime
             .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
@@ -528,8 +528,8 @@ mod test {
             .unwrap();
 
         let status = runtime.cloudsync_status().await.unwrap();
-        assert_eq!(status["activity_paused"], false);
-        assert_eq!(status["deferred_for_capture"], false);
+        assert_eq!(status["activity_paused"], true);
+        assert_eq!(status["deferred_for_capture"], true);
     }
 
     #[cfg(any(
@@ -583,8 +583,8 @@ mod test {
                 .unwrap();
         replacement.return_to_pool().await;
         let status = runtime.cloudsync_status().await.unwrap();
-        assert_eq!(status["activity_paused"], false);
-        assert_eq!(status["deferred_for_capture"], false);
+        assert_eq!(status["activity_paused"], true);
+        assert_eq!(status["deferred_for_capture"], true);
 
         runtime.suspend_cloudsync().await.unwrap();
         tokio::time::timeout(

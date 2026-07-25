@@ -16,6 +16,7 @@ const CLOUDSYNC_RECOVERY_DELAYED_AFTER: std::time::Duration = std::time::Duratio
 const CLOUDSYNC_STATUS_POOL_RETURN_GRACE: std::time::Duration =
     std::time::Duration::from_millis(10);
 const CLOUDSYNC_ACTIVITY_DRAIN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
+const CLOUDSYNC_AUTH_LOCK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
 const CLOUDSYNC_REPLICA_TABLE: &str = "e2ee_records";
 const E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT: i64 = 64;
 const E2EE_CLOUDSYNC_WITNESS_REPAIR_BYTE_LIMIT: usize = 16 * 1024 * 1024;
@@ -68,6 +69,8 @@ struct E2eeSyncHook {
         std::sync::Mutex<Option<(u64, crate::e2ee_witness::E2eeWitnessCancellation)>>,
     #[cfg(test)]
     received_apply_cancellation_checks: std::sync::atomic::AtomicU64,
+    #[cfg(test)]
+    full_resync_control_waits: std::sync::atomic::AtomicU64,
 }
 
 struct ActiveE2eeSync<'a> {
@@ -120,9 +123,6 @@ impl E2eeSyncHook {
 
     fn clear_activities(&self) {
         let mut activities = self.activities.write().unwrap();
-        if activities.is_empty() {
-            return;
-        }
         activities.clear();
         drop(activities);
         self.activity_changed.notify_waiters();
@@ -1330,8 +1330,27 @@ impl PluginDbRuntime {
     }
 
     pub async fn bind_cloudsync_account(&self, account_user_id: String) -> Result<bool> {
-        let _control_operation = self.cloudsync_control_operation.lock().await;
-        let _write_guard = self.synced_write_barrier.write().await;
+        self.bind_cloudsync_account_with_lock_timeout(account_user_id, CLOUDSYNC_AUTH_LOCK_TIMEOUT)
+            .await
+    }
+
+    async fn bind_cloudsync_account_with_lock_timeout(
+        &self,
+        account_user_id: String,
+        lock_timeout: std::time::Duration,
+    ) -> Result<bool> {
+        let (_control_operation, _write_guard) = tokio::time::timeout(lock_timeout, async {
+            let control_operation = self.cloudsync_control_operation.lock().await;
+            let write_guard = self.synced_write_barrier.write().await;
+            (control_operation, write_guard)
+        })
+        .await
+        .map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "CloudSync account binding lock preflight timed out",
+            )
+        })?;
         self.ensure_app_schema().await?;
         match hypr_db_app::bind_cloudsync_account(self.db.pool(), &account_user_id).await {
             Ok(()) => Ok(true),
@@ -1528,7 +1547,17 @@ impl PluginDbRuntime {
                 let recovery_cancelled = std::sync::atomic::AtomicBool::new(false);
                 let witness_cancellation = crate::e2ee_witness::E2eeWitnessCancellation::default();
                 let mut recovery_step = Box::pin(async {
-                    let _control_operation = control_operation.lock().await;
+                    #[cfg(test)]
+                    e2ee_sync_hook
+                        .full_resync_control_waits
+                        .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+                    let _control_operation = tokio::select! {
+                        biased;
+                        _ = witness_cancellation.cancelled() => {
+                            return Ok(CloudsyncRecoveryStep::Deferred);
+                        }
+                        control_operation = control_operation.lock() => control_operation,
+                    };
                     if cloudsync_recovery_cancelled(&recovery_cancelled)
                         || e2ee_sync_hook.activity_paused()
                     {
@@ -2173,7 +2202,6 @@ impl PluginDbRuntime {
     }
 
     pub async fn suspend_cloudsync_for_sign_out(&self) -> Result<()> {
-        let _activity_acquisition = self.cloudsync_activity_acquisition.lock().await;
         let result = match self.suspend_cloudsync().await {
             Ok(()) => Ok(()),
             Err(crate::Error::Cloudsync(hypr_db_core::CloudsyncRuntimeError::LocalStatusBusy)) => {
@@ -2184,15 +2212,11 @@ impl PluginDbRuntime {
             }
             Err(error) => Err(error),
         };
-        self.e2ee_sync_hook.clear_activities();
         result
     }
 
     pub async fn suspend_cloudsync_after_auth_loss(&self) -> Result<()> {
-        let _activity_acquisition = self.cloudsync_activity_acquisition.lock().await;
-        let result = self.suspend_cloudsync().await;
-        self.e2ee_sync_hook.clear_activities();
-        result
+        self.suspend_cloudsync().await
     }
 
     pub async fn cloudsync_status(&self) -> Result<serde_json::Value> {
@@ -2233,16 +2257,10 @@ impl PluginDbRuntime {
 
         // Read the canonical dirty queue before the native outbox so a concurrent
         // promotion is visible in at least one status snapshot.
-        let mut connection = self.db.pool().try_acquire();
-        if connection.is_none() {
-            tokio::task::yield_now().await;
-            connection = self.db.pool().try_acquire();
-        }
-        if connection.is_none() {
-            tokio::time::sleep(CLOUDSYNC_STATUS_POOL_RETURN_GRACE).await;
-            connection = self.db.pool().try_acquire();
-        }
-        let Some(mut connection) = connection else {
+        let Ok(Ok(mut connection)) =
+            tokio::time::timeout(CLOUDSYNC_STATUS_POOL_RETURN_GRACE, self.db.pool().acquire())
+                .await
+        else {
             return Ok(status);
         };
         let keys = self.e2ee_sync_hook.snapshot();
@@ -4019,6 +4037,46 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn local_account_binding_times_out_before_mutation_and_remains_fail_closed() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(db);
+        let control = runtime.cloudsync_control_operation.lock().await;
+
+        let error = runtime
+            .bind_cloudsync_account_with_lock_timeout(
+                "user-a".to_string(),
+                std::time::Duration::from_millis(10),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "CloudSync account binding lock preflight timed out"
+        );
+        drop(control);
+
+        assert!(
+            runtime
+                .bind_cloudsync_account("user-a".to_string())
+                .await
+                .unwrap()
+        );
+        assert!(
+            runtime
+                .bind_cloudsync_account("user-a".to_string())
+                .await
+                .unwrap()
+        );
+        assert!(
+            !runtime
+                .bind_cloudsync_account("user-b".to_string())
+                .await
+                .unwrap()
+        );
+    }
+
+    #[tokio::test]
     async fn stop_suspend_and_logout_are_not_deferred_by_cloudsync_activity() {
         let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
         hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
@@ -4065,7 +4123,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn sign_out_suspend_clears_activity_leases() {
+    async fn sign_out_suspend_preserves_activity_leases() {
         let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
         hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
         let runtime = PluginDbRuntime::new(db);
@@ -4080,23 +4138,23 @@ mod tests {
 
         runtime.suspend_cloudsync_for_sign_out().await.unwrap();
 
-        assert!(!runtime.e2ee_sync_hook.activity_paused());
+        assert!(runtime.e2ee_sync_hook.activity_paused());
+        assert!(
+            runtime
+                .e2ee_sync_hook
+                .has_activity_lease("capture", "session-1")
+        );
+        assert!(runtime.e2ee_sync_hook.has_activity_lease("chat", "chat-1"));
     }
 
     #[tokio::test]
-    async fn sign_out_suspend_clears_activity_leases_after_non_busy_error() {
+    async fn sign_out_suspend_preserves_activity_leases_after_non_busy_error() {
         let db = std::sync::Arc::new(Db::connect_memory().await.unwrap());
         let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
         runtime
             .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
             .await
             .unwrap();
-        let mut resumed = Box::pin(runtime.e2ee_sync_hook.wait_until_activity_resumed());
-        tokio::select! {
-            biased;
-            () = &mut resumed => panic!("activity resume wait completed while paused"),
-            _ = tokio::task::yield_now() => {}
-        }
         db.pool().close().await;
 
         let error = runtime.suspend_cloudsync_for_sign_out().await.unwrap_err();
@@ -4105,26 +4163,22 @@ mod tests {
             error,
             crate::Error::Cloudsync(hypr_db_core::CloudsyncRuntimeError::LocalStatusBusy)
         ));
-        assert!(!runtime.e2ee_sync_hook.activity_paused());
-        tokio::time::timeout(std::time::Duration::from_millis(100), resumed)
+        assert!(runtime.e2ee_sync_hook.activity_paused());
+        runtime
+            .end_cloudsync_activity("capture".to_string(), "session-1".to_string())
             .await
-            .expect("sign-out cleanup did not notify activity resume waiters");
+            .unwrap();
+        assert!(!runtime.e2ee_sync_hook.activity_paused());
     }
 
     #[tokio::test]
-    async fn auth_loss_suspend_clears_activity_leases_after_non_busy_error() {
+    async fn auth_loss_suspend_preserves_activity_leases_after_non_busy_error() {
         let db = std::sync::Arc::new(Db::connect_memory().await.unwrap());
         let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
         runtime
             .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
             .await
             .unwrap();
-        let mut resumed = Box::pin(runtime.e2ee_sync_hook.wait_until_activity_resumed());
-        tokio::select! {
-            biased;
-            () = &mut resumed => panic!("activity resume wait completed while paused"),
-            _ = tokio::task::yield_now() => {}
-        }
         db.pool().close().await;
 
         let error = runtime
@@ -4136,10 +4190,78 @@ mod tests {
             error,
             crate::Error::Cloudsync(hypr_db_core::CloudsyncRuntimeError::LocalStatusBusy)
         ));
-        assert!(!runtime.e2ee_sync_hook.activity_paused());
-        tokio::time::timeout(std::time::Duration::from_millis(100), resumed)
+        assert!(runtime.e2ee_sync_hook.activity_paused());
+        runtime
+            .end_cloudsync_activity("capture".to_string(), "session-1".to_string())
             .await
-            .expect("auth-loss cleanup did not notify activity resume waiters");
+            .unwrap();
+        assert!(!runtime.e2ee_sync_hook.activity_paused());
+    }
+
+    #[tokio::test]
+    async fn auth_suspension_bypasses_activity_acquisition_without_clearing_leases() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(db);
+        runtime
+            .e2ee_sync_hook
+            .begin_activity("capture".to_string(), "session-1".to_string());
+        let acquisition = runtime.cloudsync_activity_acquisition.lock().await;
+        tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            runtime.suspend_cloudsync_after_auth_loss(),
+        )
+        .await
+        .expect("auth-loss suspension waited for activity acquisition")
+        .unwrap();
+        tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            runtime.suspend_cloudsync_for_sign_out(),
+        )
+        .await
+        .expect("sign-out suspension waited for activity acquisition")
+        .unwrap();
+        assert!(runtime.e2ee_sync_hook.activity_paused());
+        drop(acquisition);
+    }
+
+    #[tokio::test]
+    async fn raw_suspend_bypasses_activity_acquisition_and_preserves_leases() {
+        let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+        hypr_db_app::prepare_schema(db.as_ref()).await.unwrap();
+        let runtime = PluginDbRuntime::new(db);
+        runtime
+            .e2ee_sync_hook
+            .begin_activity("chat".to_string(), "chat-1".to_string());
+        let acquisition = runtime.cloudsync_activity_acquisition.lock().await;
+        let mut queued_activity = Box::pin(
+            runtime.begin_cloudsync_activity("capture".to_string(), "session-1".to_string()),
+        );
+        tokio::select! {
+            biased;
+            result = &mut queued_activity => panic!("queued activity unexpectedly completed: {result:?}"),
+            _ = tokio::task::yield_now() => {}
+        }
+
+        tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            runtime.suspend_cloudsync(),
+        )
+        .await
+        .expect("forced auth cleanup waited for activity acquisition")
+        .unwrap();
+        assert!(runtime.e2ee_sync_hook.activity_paused());
+        drop(acquisition);
+        tokio::time::timeout(std::time::Duration::from_millis(100), queued_activity)
+            .await
+            .expect("queued activity remained blocked")
+            .unwrap();
+        assert!(
+            runtime
+                .e2ee_sync_hook
+                .has_activity_lease("capture", "session-1")
+        );
+        assert!(runtime.e2ee_sync_hook.has_activity_lease("chat", "chat-1"));
     }
 
     #[tokio::test]
@@ -5115,6 +5237,42 @@ mod tests {
         .await
         .expect("suspension waited for recovery instead of cancelling it")
         .unwrap();
+    }
+
+    #[tokio::test]
+    async fn full_resync_cancellation_drains_while_control_is_held() {
+        let runtime = PluginDbRuntime::new(std::sync::Arc::new(
+            Db::connect_memory_plain().await.unwrap(),
+        ));
+        let control = runtime.cloudsync_control_operation.lock().await;
+        runtime
+            .schedule_cloudsync_full_resync(
+                "test-generation".to_string(),
+                test_full_resync_config("test-token"),
+                runtime.cloudsync_auth_generation(),
+            )
+            .await;
+        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            while runtime
+                .e2ee_sync_hook
+                .full_resync_control_waits
+                .load(Ordering::Acquire)
+                == 0
+            {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("full resync did not wait for CloudSync control");
+
+        tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            runtime.cancel_cloudsync_full_resync(),
+        )
+        .await
+        .expect("full resync cancellation deadlocked behind CloudSync control");
+        assert!(runtime.cloudsync_full_resync_task.lock().await.is_none());
+        drop(control);
     }
 
     #[tokio::test]
