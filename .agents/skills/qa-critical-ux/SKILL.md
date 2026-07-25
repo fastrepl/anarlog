@@ -99,16 +99,16 @@ waived by the user) before running the release-new-version skill.
    built-in speakers and microphone with no external audio device attached.
    The Dev helper fails before launch unless both macOS default devices use
    the built-in transport; do not bypass that preflight.
-6. Play the 15-minute Lex Fridman fixture from a long-lived terminal
+6. Play at most three minutes of the Lex Fridman fixture from a long-lived terminal
    command after recording starts:
 
    ```bash
-   /usr/bin/afplay -v 0.7 \
+   /usr/bin/afplay -v 0.7 -t 180 \
      "$PWD/crates/data/src/english_10/audio.mp3"
    ```
 
-   Let it finish naturally, or stop it with Ctrl-C. Do not use QuickTime or
-   Computer Use just to control fixture playback.
+   Let the three-minute cap finish naturally, or stop it earlier with Ctrl-C.
+   Do not use QuickTime or Computer Use just to control fixture playback.
 
 ## Release-candidate order
 
@@ -141,7 +141,7 @@ waived by the user) before running the release-new-version skill.
 5. After stable publishes, download the matching architecture DMG from the
    `desktop_v<version>` GitHub release, record its SHA-256, install it, and
    verify the app reports that version. Use Computer Use to repeat the core
-   sign-in, note, full-fixture recording/AEC, transcript, summary, chat, and
+   sign-in, note, three-minute recording/AEC, transcript, summary, chat, and
    CloudSync gates against the installed stable app. Keep fixture playback in
    the terminal. Do not mark the release complete until this stable pass
    succeeds.
@@ -239,7 +239,8 @@ tests alone is not cross-platform evidence.
 - After Stop settles, require `deferred_for_capture: false`, one prompt
   trailing sync, and no SQLite lock/error cluster. A staged native outbox
   batch must remain unsent during capture and flush only after Stop.
-- For transcript-integrity regressions, let the full 15:02 fixture play.
+- For transcript-integrity regressions, play no more than three minutes of
+  the fixture.
   Capture transcript word count, text length, and content hash immediately
   before Stop, after Stop settles, and after app restart. Counts must never
   shrink; the settled post-stop hash must survive restart unchanged.
