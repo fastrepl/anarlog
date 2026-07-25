@@ -12,7 +12,6 @@ import { WordSpan } from "./word-span";
 
 import { createHighlightSegments } from "~/session/components/note-input/search/matching";
 import type { Segment, SegmentWord } from "~/stt/live-segment";
-import { SpeakerLabelManager } from "~/stt/live-segment";
 
 export type TranscriptSearchRenderState = {
   query: string;
@@ -45,7 +44,8 @@ export const SegmentRenderer = memo(
     segment,
     offsetMs,
     transcriptId,
-    speakerLabelManager,
+    sessionId,
+    speakerLabel,
     currentMs,
     seekAndPlay,
     audioExists,
@@ -54,7 +54,8 @@ export const SegmentRenderer = memo(
     segment: Segment;
     offsetMs: number;
     transcriptId: string;
-    speakerLabelManager?: SpeakerLabelManager;
+    sessionId?: string;
+    speakerLabel: string;
     currentMs: number;
     seekAndPlay: (word: SegmentWord) => void;
     audioExists: boolean;
@@ -90,7 +91,8 @@ export const SegmentRenderer = memo(
         <SegmentHeader
           segment={segment}
           transcriptId={transcriptId}
-          speakerLabelManager={speakerLabelManager}
+          sessionId={sessionId}
+          label={speakerLabel}
         />
 
         <div
@@ -147,7 +149,8 @@ export const SegmentRenderer = memo(
       prev.segment !== next.segment ||
       prev.offsetMs !== next.offsetMs ||
       prev.transcriptId !== next.transcriptId ||
-      prev.speakerLabelManager !== next.speakerLabelManager ||
+      prev.sessionId !== next.sessionId ||
+      prev.speakerLabel !== next.speakerLabel ||
       prev.audioExists !== next.audioExists ||
       prev.seekAndPlay !== next.seekAndPlay
     ) {

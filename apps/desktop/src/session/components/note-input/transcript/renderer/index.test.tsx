@@ -45,13 +45,16 @@ vi.mock("./transcript", () => ({
     liveSegments,
     shouldScrollToEnd,
     transcriptId,
+    currentActive,
   }: {
     liveSegments: unknown[];
     shouldScrollToEnd: boolean;
     transcriptId: string;
+    currentActive: boolean;
   }) => (
     <div
       data-testid="render-transcript"
+      data-current-active={String(currentActive)}
       data-live-segment-count={String(liveSegments.length)}
       data-should-scroll-to-end={String(shouldScrollToEnd)}
       data-transcript-id={transcriptId}
@@ -160,6 +163,32 @@ describe("TranscriptViewer", () => {
     expect(transcript.getAttribute("data-transcript-id")).toBe(
       "__live-transcript__",
     );
+  });
+
+  it("keeps prior transcript rows settled during an active capture", () => {
+    render(
+      <TranscriptViewer
+        transcriptIds={["transcript-1", "transcript-2"]}
+        liveSegments={[
+          {
+            end_ms: 1000,
+            id: "segment-1",
+            key: { channel: "DirectMic" },
+            start_ms: 0,
+            text: "hello",
+            words: [],
+          },
+        ]}
+        currentActive
+        scrollRef={createRef()}
+      />,
+    );
+
+    const transcripts = screen.getAllByTestId("render-transcript");
+    expect(transcripts[0]?.getAttribute("data-current-active")).toBe("false");
+    expect(transcripts[0]?.getAttribute("data-live-segment-count")).toBe("0");
+    expect(transcripts[1]?.getAttribute("data-current-active")).toBe("true");
+    expect(transcripts[1]?.getAttribute("data-live-segment-count")).toBe("1");
   });
 
   it("does not show scroll controls when the transcript cannot scroll", () => {

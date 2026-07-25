@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
+
+import type { RenderTranscriptRequest } from "@hypr/plugin-transcription";
 
 import { TRANSCRIPT_RENDER_CACHE_TIME_MS } from "../cache";
 import { useTranscriptRenderData } from "../render-request-hooks";
@@ -18,27 +20,53 @@ export function useRenderedTranscriptSegments(transcriptId: string): Segment[] {
   return useRenderedTranscriptData(transcriptId).segments;
 }
 
-export function useRenderedTranscriptData(transcriptId: string): {
+export function useRenderedTranscriptData(
+  transcriptId: string,
+  currentActive = false,
+): {
   maxSpeakerNumber?: number;
+  request: RenderTranscriptRequest | null;
   segments: Segment[];
 } {
   const { request } = useTranscriptRenderData(transcriptId);
+  // Recovery needs the persisted prefix. The active key stays stable across
+  // word and assignment writes so tab remounts reuse the same native render.
+  const activeBaselineRef = useRef<{
+    transcriptId: string;
+    request: typeof request;
+  } | null>(null);
+  if (!currentActive) {
+    activeBaselineRef.current = null;
+  } else if (
+    activeBaselineRef.current?.transcriptId !== transcriptId ||
+    activeBaselineRef.current.request === null
+  ) {
+    activeBaselineRef.current = { transcriptId, request };
+  }
+  const activeBaselineRequest = currentActive
+    ? (activeBaselineRef.current?.request ?? null)
+    : request;
   const requestKey = useMemo(
-    () => getRenderTranscriptRequestKey(request),
-    [request],
+    () => (currentActive ? "baseline" : getRenderTranscriptRequestKey(request)),
+    [currentActive, request],
   );
 
-  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- requestKey is the canonical hash of the complete render request.
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- active input is frozen and reconciled with current SQLite state in JavaScript.
   const { data = [] } = useQuery({
-    queryKey: ["rendered-transcript-segments", transcriptId, requestKey],
+    queryKey: [
+      "rendered-transcript-segments",
+      transcriptId,
+      currentActive ? "volatile" : "settled",
+      requestKey,
+    ],
     queryFn: async () => {
-      if (!request) {
+      if (!activeBaselineRequest) {
         return [];
       }
 
-      return renderTranscriptSegments(request);
+      return renderTranscriptSegments(activeBaselineRequest);
     },
-    enabled: !!request,
+    enabled: !!activeBaselineRequest,
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: TRANSCRIPT_RENDER_CACHE_TIME_MS,
   });
@@ -54,7 +82,7 @@ export function useRenderedTranscriptData(transcriptId: string): {
     [request],
   );
 
-  return { maxSpeakerNumber, segments: data };
+  return { maxSpeakerNumber, request, segments: data };
 }
 
 export function useTranscriptOffset(transcriptId: string): number {

@@ -119,26 +119,28 @@ export function TranscriptViewer({
           "pb-[calc(4rem+env(safe-area-inset-bottom))]",
         ])}
       >
-        {visibleTranscriptIds.map((transcriptId, index) => (
-          <div key={transcriptId} className="flex flex-col gap-8">
-            <RenderTranscript
-              scrollElement={scrollElement}
-              isLastTranscript={index === visibleTranscriptIds.length - 1}
-              shouldScrollToEnd={shouldScrollLastTranscriptToEnd}
-              transcriptId={transcriptId}
-              liveSegments={
-                index === visibleTranscriptIds.length - 1 && currentActive
-                  ? liveSegments
-                  : []
-              }
-              currentMs={deferredCurrentMs}
-              seek={seek}
-              startPlayback={start}
-              audioExists={audioExists}
-            />
-            {index < visibleTranscriptIds.length - 1 && <TranscriptSeparator />}
-          </div>
-        ))}
+        {visibleTranscriptIds.map((transcriptId, index) => {
+          const isLastTranscript = index === visibleTranscriptIds.length - 1;
+          const isActiveTranscript = currentActive && isLastTranscript;
+
+          return (
+            <div key={transcriptId} className="flex flex-col gap-8">
+              <RenderTranscript
+                scrollElement={scrollElement}
+                isLastTranscript={isLastTranscript}
+                shouldScrollToEnd={shouldScrollLastTranscriptToEnd}
+                transcriptId={transcriptId}
+                currentActive={isActiveTranscript}
+                liveSegments={isActiveTranscript ? liveSegments : []}
+                currentMs={deferredCurrentMs}
+                seek={seek}
+                startPlayback={start}
+                audioExists={audioExists}
+              />
+              {!isLastTranscript && <TranscriptSeparator />}
+            </div>
+          );
+        })}
 
         <SelectionMenu
           containerRef={containerRef}

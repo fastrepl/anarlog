@@ -134,7 +134,6 @@ vi.mock("~/session/queries", () => ({
 
 vi.mock("~/stt/queries", () => ({
   assignTranscriptSpeaker: assignTranscriptSpeakerMock,
-  useTranscript: () => ({ sessionId: "session-1" }),
 }));
 
 beforeEach(() => {

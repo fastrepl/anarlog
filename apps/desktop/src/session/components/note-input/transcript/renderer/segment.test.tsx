@@ -46,6 +46,7 @@ describe("SegmentRenderer", () => {
         segment={segment}
         offsetMs={0}
         transcriptId="transcript-1"
+        speakerLabel="Speaker 1"
         currentMs={0}
         seekAndPlay={seekAndPlay}
         audioExists
@@ -64,6 +65,7 @@ describe("SegmentRenderer", () => {
         segment={segment}
         offsetMs={0}
         transcriptId="transcript-1"
+        speakerLabel="Speaker 1"
         currentMs={500}
         seekAndPlay={seekAndPlay}
         audioExists
@@ -78,6 +80,7 @@ describe("SegmentRenderer", () => {
         segment={segment}
         offsetMs={0}
         transcriptId="transcript-1"
+        speakerLabel="Speaker 1"
         currentMs={700}
         seekAndPlay={seekAndPlay}
         audioExists
@@ -96,6 +99,7 @@ describe("SegmentRenderer", () => {
         segment={segment}
         offsetMs={0}
         transcriptId="transcript-1"
+        speakerLabel="Speaker 1"
         currentMs={500}
         seekAndPlay={seekAndPlay}
         audioExists
@@ -110,6 +114,7 @@ describe("SegmentRenderer", () => {
         segment={segment}
         offsetMs={0}
         transcriptId="transcript-1"
+        speakerLabel="Speaker 1"
         currentMs={1500}
         seekAndPlay={seekAndPlay}
         audioExists
@@ -129,6 +134,7 @@ describe("SegmentRenderer", () => {
         segment={segment}
         offsetMs={0}
         transcriptId="transcript-1"
+        speakerLabel="Speaker 1"
         currentMs={0}
         seekAndPlay={seekAndPlay}
         audioExists
@@ -143,6 +149,7 @@ describe("SegmentRenderer", () => {
         segment={segment}
         offsetMs={0}
         transcriptId="transcript-1"
+        speakerLabel="Speaker 1"
         currentMs={0}
         seekAndPlay={seekAndPlay}
         audioExists
@@ -161,6 +168,7 @@ describe("SegmentRenderer", () => {
         segment={segment}
         offsetMs={0}
         transcriptId="transcript-1"
+        speakerLabel="Speaker 1"
         currentMs={0}
         seekAndPlay={seekAndPlay}
         audioExists
@@ -175,10 +183,45 @@ describe("SegmentRenderer", () => {
         segment={segment}
         offsetMs={0}
         transcriptId="transcript-1"
+        speakerLabel="Speaker 1"
         currentMs={0}
         seekAndPlay={seekAndPlay}
         audioExists
         search={createSearch("word-3")}
+      />,
+    );
+
+    expect(mocks.wordSpan).toHaveBeenCalledTimes(8);
+  });
+
+  it("rerenders when the computed speaker label changes", () => {
+    const segment = createSegment();
+    const seekAndPlay = vi.fn();
+    const view = render(
+      <SegmentRenderer
+        segment={segment}
+        offsetMs={0}
+        transcriptId="transcript-1"
+        speakerLabel="Speaker 1"
+        currentMs={0}
+        seekAndPlay={seekAndPlay}
+        audioExists
+        search={EMPTY_TRANSCRIPT_SEARCH}
+      />,
+    );
+
+    expect(mocks.wordSpan).toHaveBeenCalledTimes(4);
+
+    view.rerender(
+      <SegmentRenderer
+        segment={segment}
+        offsetMs={0}
+        transcriptId="transcript-1"
+        speakerLabel="Alice"
+        currentMs={0}
+        seekAndPlay={seekAndPlay}
+        audioExists
+        search={EMPTY_TRANSCRIPT_SEARCH}
       />,
     );
 

@@ -20,13 +20,14 @@ import {
   useSessionParticipants,
 } from "~/session/queries";
 import type { Segment } from "~/stt/live-segment";
-import { assignTranscriptSpeaker, useTranscript } from "~/stt/queries";
+import { assignTranscriptSpeaker } from "~/stt/queries";
 
 type AssignmentMode = "all" | "segment";
 
 export function SpeakerAssignPopover({
   segment,
   transcriptId,
+  sessionId,
   color,
   label,
   className,
@@ -34,13 +35,13 @@ export function SpeakerAssignPopover({
 }: {
   segment: Segment;
   transcriptId: string;
+  sessionId?: string;
   color: string;
   label: string;
   className?: string;
   onAssigned?: (humanId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const sessionId = useTranscript(transcriptId)?.sessionId;
 
   const handleOpenChange = useCallback((nextOpen: boolean) => {
     setOpen(nextOpen);
