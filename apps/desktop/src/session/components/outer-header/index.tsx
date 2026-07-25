@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useCallback } from "react";
 
+import { commands as deeplinkCommands } from "@hypr/plugin-deeplink2";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { cn, safeParseDate } from "@hypr/utils";
 
@@ -17,7 +18,10 @@ import { OverflowButton } from "./overflow";
 import { useAudioPlayer } from "~/audio-player";
 import { useNow } from "~/calendar/hooks";
 import { useShell } from "~/contexts/shell";
-import { WELCOME_NOTE_TRACKING_ID } from "~/onboarding/welcome-note.constants";
+import {
+  buildWelcomeNoteDemoUrl,
+  WELCOME_NOTE_TRACKING_ID,
+} from "~/onboarding/welcome-note.constants";
 import { SessionShareButton } from "~/session-sharing";
 import { useEventCountdown } from "~/session/hooks/useEventCountdown";
 import {
@@ -26,6 +30,7 @@ import {
 } from "~/session/hooks/useRemoteMeeting";
 import { useSessionEvent } from "~/session/hooks/useSessionEvent";
 import { useConfigValue } from "~/shared/config";
+import { getScheme } from "~/shared/utils";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 import { useStartListening } from "~/stt/useStartListening";
@@ -167,13 +172,36 @@ function HeaderMeetingActionPill({
 
     void startListening();
   }, [sessionId, startListening]);
+  const openMeeting = useCallback(async () => {
+    if (!meetingLink) {
+      return;
+    }
+
+    let url = meetingLink;
+    if (event?.tracking_id === WELCOME_NOTE_TRACKING_ID) {
+      try {
+        const scheme = await getScheme();
+        const result = await deeplinkCommands.startCallbackServer(scheme);
+        if (result.status === "ok") {
+          url = buildWelcomeNoteDemoUrl(meetingLink, result.data);
+        }
+      } catch (error) {
+        console.error(
+          "[onboarding] failed to prepare demo completion callback",
+          error,
+        );
+      }
+    }
+
+    void openerCommands.openUrl(url, null);
+  }, [event?.tracking_id, meetingLink]);
   const handleCountdownExpire = useCallback(() => {
     if (!autoStartScheduledMeetings || !canStartLiveSession) {
       return;
     }
 
     if (autoJoinScheduledMeetings && meetingLink) {
-      void openerCommands.openUrl(meetingLink, null);
+      void openMeeting();
     }
     start();
   }, [
@@ -181,6 +209,7 @@ function HeaderMeetingActionPill({
     autoStartScheduledMeetings,
     canStartLiveSession,
     meetingLink,
+    openMeeting,
     start,
   ]);
   const countdown = useEventCountdown(sessionId, {
@@ -226,7 +255,7 @@ function HeaderMeetingActionPill({
             getMeetingDisplay(remote.type).icon
           ) : undefined,
         onClick: () => {
-          void openerCommands.openUrl(meetingLink, null);
+          void openMeeting();
           start();
         },
       };

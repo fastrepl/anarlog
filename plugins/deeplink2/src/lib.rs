@@ -11,7 +11,7 @@ mod docs;
 pub use error::{Error, Result};
 pub use types::{
     AuthCallbackSearch, BillingRefreshSearch, DeepLink, DeepLinkEvent, IntegrationCallbackSearch,
-    ShareOpenPendingEvent, ShareOpenRequest,
+    OnboardingDemoCompleteSearch, ShareOpenPendingEvent, ShareOpenRequest,
 };
 
 use std::str::FromStr;

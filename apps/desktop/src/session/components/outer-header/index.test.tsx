@@ -23,6 +23,8 @@ const mocks = vi.hoisted(() => ({
   sessionEvents: {} as Record<string, any>,
   nowMs: new Date("2026-06-05T09:50:00.000Z").getTime(),
   openUrl: vi.fn(),
+  startCallbackServer: vi.fn(),
+  getScheme: vi.fn(),
   startListening: vi.fn(),
   stopListening: vi.fn(),
   stopTranscription: vi.fn(),
@@ -85,6 +87,12 @@ vi.mock("@hypr/plugin-opener2", () => ({
   },
 }));
 
+vi.mock("@hypr/plugin-deeplink2", () => ({
+  commands: {
+    startCallbackServer: mocks.startCallbackServer,
+  },
+}));
+
 vi.mock("~/calendar/hooks", () => ({
   useNow: () => new Date(mocks.nowMs),
 }));
@@ -106,6 +114,11 @@ vi.mock("~/session/hooks/useSessionEvent", () => ({
 
 vi.mock("~/shared/config", () => ({
   useConfigValue: (key: string) => mocks.configValues[key],
+}));
+
+vi.mock("~/shared/utils", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("~/shared/utils")>()),
+  getScheme: mocks.getScheme,
 }));
 
 vi.mock("~/store/zustand/tabs", () => ({
@@ -155,6 +168,13 @@ describe("OuterHeader", () => {
     mocks.sessionEvents = {};
     mocks.nowMs = new Date("2026-06-05T09:50:00.000Z").getTime();
     mocks.openUrl.mockClear();
+    mocks.startCallbackServer.mockReset();
+    mocks.startCallbackServer.mockResolvedValue({
+      status: "ok",
+      data: 43210,
+    });
+    mocks.getScheme.mockReset();
+    mocks.getScheme.mockResolvedValue("anarlog-dev");
     mocks.startListening.mockClear();
     mocks.stopListening.mockClear();
     mocks.stopTranscription.mockClear();
@@ -451,7 +471,7 @@ describe("OuterHeader", () => {
     expect(mocks.startListening).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the Anarlog logo for the welcome note meeting", () => {
+  it("opens the welcome demo with an automatic completion callback", async () => {
     mocks.sessionEvents = {
       "session-1": {
         tracking_id: "anarlog-onboarding-demo-v1",
@@ -469,8 +489,23 @@ describe("OuterHeader", () => {
     const joinButton = screen.getByRole("button", { name: "Join & record" });
     const logo = joinButton.querySelector("img");
 
+    fireEvent.click(joinButton);
+
     expect(logo?.getAttribute("src")).toBe("/assets/anarlog-icon.png");
     expect(logo?.getAttribute("alt")).toBe("");
+    expect(mocks.startListening).toHaveBeenCalledOnce();
+    await vi.waitFor(() => {
+      expect(mocks.startCallbackServer).toHaveBeenCalledWith("anarlog-dev");
+      expect(mocks.openUrl).toHaveBeenCalledOnce();
+    });
+
+    const openedUrl = new URL(mocks.openUrl.mock.calls[0][0]);
+    expect(openedUrl.origin + openedUrl.pathname).toBe(
+      "https://anarlog.so/onboarding-demo/",
+    );
+    expect(openedUrl.searchParams.get("completion_url")).toBe(
+      "http://127.0.0.1:43210/onboarding-demo/complete",
+    );
   });
 
   it("shows the meeting countdown to the left of the header action", () => {

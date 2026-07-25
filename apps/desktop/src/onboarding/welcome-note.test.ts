@@ -3,6 +3,14 @@ import { beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   createSession: vi.fn(),
   execute: vi.fn(),
+  listenerState: {
+    live: {
+      sessionId: null as string | null,
+      status: "inactive",
+      captureGenerationBySession: {} as Record<string, number>,
+    },
+    stop: vi.fn(),
+  },
 }));
 
 vi.mock("~/db", () => ({
@@ -13,9 +21,16 @@ vi.mock("~/session/queries", () => ({
   createSession: mocks.createSession,
 }));
 
+vi.mock("~/store/zustand/listener/instance", () => ({
+  listenerStore: {
+    getState: () => mocks.listenerState,
+  },
+}));
+
 import {
   getOrCreateWelcomeSession,
   setPendingWelcomeSession,
+  stopActiveWelcomeDemo,
   takePendingWelcomeSession,
 } from "./welcome-note";
 
@@ -27,6 +42,11 @@ beforeEach(() => {
     removeItem: (key: string) => values.delete(key),
     setItem: (key: string, value: string) => values.set(key, value),
   });
+  mocks.listenerState.live = {
+    sessionId: null,
+    status: "inactive",
+    captureGenerationBySession: {},
+  };
 });
 
 it("reuses an existing onboarding welcome note", async () => {
@@ -77,4 +97,72 @@ it("carries the welcome note across a one-time onboarding relaunch", () => {
 
   expect(takePendingWelcomeSession()).toBe("welcome-session");
   expect(takePendingWelcomeSession()).toBeNull();
+});
+
+it("stops an active welcome demo after its browser callback", async () => {
+  mocks.listenerState.live = {
+    sessionId: "welcome-session",
+    status: "active",
+    captureGenerationBySession: { "welcome-session": 1 },
+  };
+  mocks.execute.mockResolvedValueOnce([{ id: "welcome-session" }]);
+
+  await stopActiveWelcomeDemo();
+
+  expect(mocks.execute).toHaveBeenCalledWith(expect.any(String), [
+    "welcome-session",
+    "anarlog-onboarding-demo-v1",
+  ]);
+  expect(mocks.listenerState.stop).toHaveBeenCalledOnce();
+});
+
+it("ignores a demo callback while another session is active", async () => {
+  mocks.listenerState.live = {
+    sessionId: "regular-session",
+    status: "active",
+    captureGenerationBySession: { "regular-session": 1 },
+  };
+  mocks.execute.mockResolvedValueOnce([]);
+
+  await stopActiveWelcomeDemo();
+
+  expect(mocks.listenerState.stop).not.toHaveBeenCalled();
+});
+
+it("does not stop a newer capture of the welcome session", async () => {
+  mocks.listenerState.live = {
+    sessionId: "welcome-session",
+    status: "active",
+    captureGenerationBySession: { "welcome-session": 1 },
+  };
+  let finishQuery!: (rows: { id: string }[]) => void;
+  mocks.execute.mockReturnValueOnce(
+    new Promise((resolve) => {
+      finishQuery = resolve;
+    }),
+  );
+
+  const completion = stopActiveWelcomeDemo();
+  mocks.listenerState.live = {
+    sessionId: "welcome-session",
+    status: "active",
+    captureGenerationBySession: { "welcome-session": 2 },
+  };
+  finishQuery([{ id: "welcome-session" }]);
+  await completion;
+
+  expect(mocks.listenerState.stop).not.toHaveBeenCalled();
+});
+
+it("ignores a demo callback when listening already stopped", async () => {
+  mocks.listenerState.live = {
+    sessionId: "welcome-session",
+    status: "inactive",
+    captureGenerationBySession: {},
+  };
+
+  await stopActiveWelcomeDemo();
+
+  expect(mocks.execute).not.toHaveBeenCalled();
+  expect(mocks.listenerState.stop).not.toHaveBeenCalled();
 });

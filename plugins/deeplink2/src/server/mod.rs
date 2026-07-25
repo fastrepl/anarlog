@@ -122,6 +122,11 @@ fn ui_content(deep_link: &DeepLink) -> (bool, &'static str, &'static str) {
             "Connection failed",
             "Something went wrong. Please close this window and try again.",
         ),
+        DeepLink::OnboardingDemoComplete(_) => (
+            true,
+            "Demo complete",
+            "Anarlog is finishing your transcript and creating your summary.",
+        ),
     }
 }
 

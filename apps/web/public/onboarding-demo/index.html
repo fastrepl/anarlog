@@ -976,12 +976,45 @@
       const chatMessages = document.querySelector(".chat-messages");
       const avatarPhoto = document.querySelector(".avatar-photo");
       const params = new URLSearchParams(window.location.search);
-      const joiningUrl =
-        window.location.protocol === "file:"
-          ? "https://anarlog.so/onboarding-demo"
-          : window.location.href;
+      const completionUrl = getCompletionUrl(params.get("completion_url"));
+      const joiningUrl = getJoiningUrl();
 
       document.querySelector(".joining-url").textContent = joiningUrl;
+
+      function getJoiningUrl() {
+        if (window.location.protocol === "file:") {
+          return "https://anarlog.so/onboarding-demo";
+        }
+
+        const url = new URL(window.location.href);
+        url.searchParams.delete("completion_url");
+        return url.toString();
+      }
+
+      function getCompletionUrl(value) {
+        if (!value) return null;
+
+        try {
+          const url = new URL(value);
+          const validPort = /^[0-9]+$/.test(url.port);
+          const validPath = url.pathname === "/onboarding-demo/complete";
+          if (
+            url.protocol !== "http:" ||
+            url.hostname !== "127.0.0.1" ||
+            !validPort ||
+            !validPath ||
+            url.username ||
+            url.password ||
+            url.search ||
+            url.hash
+          ) {
+            return null;
+          }
+          return url.toString();
+        } catch {
+          return null;
+        }
+      }
 
       function updateTime() {
         document.querySelector(".current-time").textContent = new Intl.DateTimeFormat(
@@ -1122,7 +1155,11 @@
         }
       });
       video.addEventListener("ended", () => {
-        closeMeeting();
+        if (completionUrl) {
+          window.location.replace(completionUrl);
+        } else {
+          closeMeeting();
+        }
       });
       joinButton.addEventListener("click", playFromStart);
       chatButton.addEventListener("click", () => {

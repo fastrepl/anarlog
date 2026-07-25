@@ -8,6 +8,7 @@ import {
 } from "~/onboarding/welcome-note.constants";
 import { createSession } from "~/session/queries";
 import { DEFAULT_USER_ID } from "~/shared/utils";
+import { listenerStore } from "~/store/zustand/listener/instance";
 
 const PENDING_WELCOME_SESSION_KEY = "anarlog.pending-welcome-session";
 
@@ -20,7 +21,7 @@ This note is a quick way to see how Anarlog works.
 Click **Join & record** in the top-right corner. It will open a private, prerecorded demo meeting, so you don't have to worry about your camera or microphone. Anarlog will listen, transcribe the conversation, and turn it into notes just like a real meeting.
 
 
-When the video ends, come back here to review the transcript and notes.`;
+When the video ends, Anarlog will stop listening and start creating your summary automatically.`;
 
 let pendingWelcomeSession: Promise<string> | null = null;
 
@@ -45,6 +46,42 @@ export function takePendingWelcomeSession(): string | null {
   const sessionId = localStorage.getItem(PENDING_WELCOME_SESSION_KEY);
   localStorage.removeItem(PENDING_WELCOME_SESSION_KEY);
   return sessionId;
+}
+
+export async function stopActiveWelcomeDemo() {
+  const active = listenerStore.getState().live;
+  const sessionId = active.sessionId;
+  if (!sessionId || active.status !== "active") {
+    return;
+  }
+  const captureGeneration = active.captureGenerationBySession[sessionId];
+
+  const rows = await liveQueryClient.execute<{ id: string }>(
+    `
+      SELECT id
+      FROM sessions
+      WHERE id = ?
+        AND deleted_at IS NULL
+        AND CASE
+          WHEN json_valid(event_json)
+          THEN json_extract(event_json, '$.tracking_id')
+        END = ?
+      LIMIT 1
+    `,
+    [sessionId, WELCOME_NOTE_TRACKING_ID],
+  );
+  if (!rows[0]) {
+    return;
+  }
+
+  const current = listenerStore.getState();
+  if (
+    current.live.sessionId === sessionId &&
+    current.live.status === "active" &&
+    current.live.captureGenerationBySession[sessionId] === captureGeneration
+  ) {
+    current.stop();
+  }
 }
 
 async function findOrCreateWelcomeSession(): Promise<string> {
