@@ -70,6 +70,7 @@ type TiptapNode = {
   type?: string;
   attrs?: Record<string, unknown>;
   content?: TiptapNode[];
+  marks?: Array<{ type?: string; attrs?: Record<string, unknown> }>;
   text?: string;
 };
 
@@ -119,13 +120,18 @@ function hasSummaryContent(value: unknown, sessionTitle?: string): boolean {
       const document = parsed as TiptapNode;
       const blocks = document.content ?? [];
       const firstBlock = blocks[0];
+      const firstBlockAttrs = firstBlock?.attrs ?? {};
       const synthesizedTitle =
         sessionTitle?.trim() &&
         firstBlock?.type === "heading" &&
-        firstBlock.attrs?.level === 1 &&
+        firstBlockAttrs.level === 1 &&
+        Object.keys(firstBlockAttrs).length === 1 &&
         collectTiptapText(firstBlock).trim() === sessionTitle.trim() &&
         !firstBlock.content?.some(
-          (child) => child.type !== "text" || !child.text?.trim(),
+          (child) =>
+            child.type !== "text" ||
+            !child.text?.trim() ||
+            Boolean(child.marks?.length),
         );
       return (synthesizedTitle ? blocks.slice(1) : blocks).some(
         hasMeaningfulTiptapContent,

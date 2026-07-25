@@ -285,6 +285,45 @@ describe("EnhancedEditor", () => {
     expect(hoisted.persistContent).not.toHaveBeenCalled();
   });
 
+  it("persists formatting applied to a synthesized session title", () => {
+    hoisted.content = "";
+    hoisted.sessionTitle = "Weekly sync";
+
+    render(
+      <EnhancedEditor
+        sessionId="session-1"
+        enhancedNoteId="note-1"
+        content={hoisted.content}
+      />,
+    );
+
+    const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
+    const input = {
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 1 },
+          content: [
+            {
+              type: "text",
+              text: "Weekly sync",
+              marks: [{ type: "bold" }],
+            },
+          ],
+        },
+        { type: "paragraph" },
+      ],
+    };
+
+    (props?.handleChange as (input: unknown) => void)(input);
+
+    expect(hoisted.persistContent).toHaveBeenCalledWith(
+      JSON.stringify(input),
+      "Weekly sync",
+    );
+  });
+
   it("persists clearing an existing summary", () => {
     hoisted.content = JSON.stringify({
       type: "doc",

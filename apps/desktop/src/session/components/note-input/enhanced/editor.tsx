@@ -39,6 +39,8 @@ function isCanonicalEmptyDocument(
   const [title, body, ...rest] = content.content ?? [];
   const expectedTitle = sessionTitle.trim();
   const titleContent = title?.content ?? [];
+  const titleAttrs = title?.attrs ?? {};
+  const bodyAttrs = body?.attrs ?? {};
   const hasExpectedTitle = expectedTitle
     ? titleContent.length === 1 &&
       titleContent[0]?.type === "text" &&
@@ -49,9 +51,11 @@ function isCanonicalEmptyDocument(
     content.type === "doc" &&
     rest.length === 0 &&
     title?.type === "heading" &&
-    title.attrs?.level === 1 &&
+    titleAttrs.level === 1 &&
+    Object.keys(titleAttrs).length === 1 &&
     hasExpectedTitle &&
     body?.type === "paragraph" &&
+    Object.keys(bodyAttrs).length === 0 &&
     !body.content?.length
   );
 }
