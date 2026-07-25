@@ -32,14 +32,25 @@ import {
 
 const extraNodeViews = { appLink: AppLinkView, session: SessionNodeView };
 
-function isCanonicalEmptyDocument(content: JSONContent): boolean {
+function isCanonicalEmptyDocument(
+  content: JSONContent,
+  sessionTitle: string,
+): boolean {
   const [title, body, ...rest] = content.content ?? [];
+  const expectedTitle = sessionTitle.trim();
+  const titleContent = title?.content ?? [];
+  const hasExpectedTitle = expectedTitle
+    ? titleContent.length === 1 &&
+      titleContent[0]?.type === "text" &&
+      titleContent[0].text === expectedTitle &&
+      !titleContent[0].marks?.length
+    : titleContent.length === 0;
   return (
     content.type === "doc" &&
     rest.length === 0 &&
     title?.type === "heading" &&
     title.attrs?.level === 1 &&
-    !title.content?.length &&
+    hasExpectedTitle &&
     body?.type === "paragraph" &&
     !body.content?.length
   );
@@ -95,7 +106,10 @@ const EnhancedEditorInner = forwardRef<
     const handleChange = useCallback(
       (input: JSONContent) => {
         const portableInput = normalizePortableAttachmentUrls(input);
-        if (content === "" && isCanonicalEmptyDocument(portableInput)) {
+        if (
+          content === "" &&
+          isCanonicalEmptyDocument(portableInput, sessionTitle)
+        ) {
           return;
         }
         const title = extractFirstLineTitle(portableInput);
@@ -109,7 +123,7 @@ const EnhancedEditorInner = forwardRef<
           },
         );
       },
-      [content, updateContent],
+      [content, sessionTitle, updateContent],
     );
 
     const mentionConfig = useMentionConfig();

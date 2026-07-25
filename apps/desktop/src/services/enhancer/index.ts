@@ -67,19 +67,35 @@ const ISO_TITLE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 const PENDING_AUTO_ENHANCE_RECOVERY_INTERVAL_MS = 5_000;
 
 type TiptapNode = {
+  type?: string;
+  attrs?: Record<string, unknown>;
   content?: TiptapNode[];
   text?: string;
 };
 
-function hasTiptapText(node: TiptapNode): boolean {
+function hasMeaningfulTiptapContent(node: TiptapNode): boolean {
   if (typeof node.text === "string" && node.text.trim()) {
     return true;
   }
 
-  return node.content?.some(hasTiptapText) ?? false;
+  if (
+    node.type !== "doc" &&
+    node.type !== "heading" &&
+    node.type !== "paragraph" &&
+    node.type !== "text"
+  ) {
+    return true;
+  }
+
+  return node.content?.some(hasMeaningfulTiptapContent) ?? false;
 }
 
-function hasSummaryContent(value: unknown): boolean {
+function collectTiptapText(node: TiptapNode): string {
+  const text = typeof node.text === "string" ? node.text : "";
+  return text + (node.content?.map(collectTiptapText).join("") ?? "");
+}
+
+function hasSummaryContent(value: unknown, sessionTitle?: string): boolean {
   if (typeof value !== "string") {
     return false;
   }
@@ -100,7 +116,20 @@ function hasSummaryContent(value: unknown): boolean {
       parsed !== null &&
       (parsed as { type?: unknown }).type === "doc"
     ) {
-      return hasTiptapText(parsed);
+      const document = parsed as TiptapNode;
+      const blocks = document.content ?? [];
+      const firstBlock = blocks[0];
+      const synthesizedTitle =
+        sessionTitle?.trim() &&
+        firstBlock?.type === "heading" &&
+        firstBlock.attrs?.level === 1 &&
+        collectTiptapText(firstBlock).trim() === sessionTitle.trim() &&
+        !firstBlock.content?.some(
+          (child) => child.type !== "text" || !child.text?.trim(),
+        );
+      return (synthesizedTitle ? blocks.slice(1) : blocks).some(
+        hasMeaningfulTiptapContent,
+      );
     }
     return true;
   } catch {
@@ -224,7 +253,10 @@ export class EnhancerService {
       const templateId = this.deps.getSelectedTemplateId();
       const existingNote = getAutoEnhancedNote(snapshot, templateId);
 
-      if (existingNote && hasSummaryContent(existingNote.content)) {
+      if (
+        existingNote &&
+        hasSummaryContent(existingNote.content, snapshot.title)
+      ) {
         return { type: "summary_exists", noteId: existingNote.id };
       }
 
@@ -449,7 +481,10 @@ export class EnhancerService {
       };
     }
 
-    if (existingTask?.status === "success" && hasSummaryContent(note.content)) {
+    if (
+      existingTask?.status === "success" &&
+      hasSummaryContent(note.content, snapshot.title)
+    ) {
       return { type: "already_active", noteId: note.id };
     }
 

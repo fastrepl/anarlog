@@ -346,6 +346,78 @@ describe("EnhancerService", () => {
     expect(queueSpy).not.toHaveBeenCalled();
   });
 
+  it("does not replace an attachment-only summary", async () => {
+    snapshot = createSnapshot({
+      notes: [
+        createNote({
+          content: JSON.stringify({
+            type: "doc",
+            content: [
+              {
+                type: "heading",
+                attrs: { level: 1 },
+                content: [{ type: "text", text: "Planning" }],
+              },
+              {
+                type: "fileAttachment",
+                attrs: {
+                  attachmentId: "attachment-1",
+                  name: "notes.pdf",
+                },
+              },
+            ],
+          }),
+        }),
+      ],
+      wordCount: 40,
+    });
+    const service = new EnhancerService(createDeps());
+    const queueSpy = vi.spyOn(service, "queueAutoEnhance");
+
+    await expect(
+      service.queueAutoEnhanceIfSummaryEmpty("session-1"),
+    ).resolves.toEqual({ type: "summary_exists", noteId: "note-1" });
+    expect(mocks.ensurePendingAutoEnhanceDocument).not.toHaveBeenCalled();
+    expect(queueSpy).not.toHaveBeenCalled();
+  });
+
+  it("treats a synthesized session title as an empty summary", async () => {
+    snapshot = createSnapshot({
+      notes: [
+        createNote({
+          content: JSON.stringify({
+            type: "doc",
+            content: [
+              {
+                type: "heading",
+                attrs: { level: 1 },
+                content: [{ type: "text", text: "Planning" }],
+              },
+              { type: "paragraph" },
+            ],
+          }),
+        }),
+      ],
+      wordCount: 40,
+    });
+    const service = new EnhancerService(createDeps());
+    const queueSpy = vi
+      .spyOn(service, "queueAutoEnhance")
+      .mockImplementation(() => {});
+
+    await expect(
+      service.queueAutoEnhanceIfSummaryEmpty("session-1"),
+    ).resolves.toEqual({ type: "queued" });
+    expect(mocks.ensurePendingAutoEnhanceDocument).toHaveBeenCalledWith(
+      "session-1",
+      undefined,
+    );
+    expect(queueSpy).toHaveBeenCalledWith(
+      "session-1",
+      expect.objectContaining({ noteId: "note-1" }),
+    );
+  });
+
   it("creates a visible empty summary when a short transcript cannot enhance", async () => {
     snapshot = createSnapshot({ wordCount: 2 });
     const service = new EnhancerService(createDeps());
