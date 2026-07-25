@@ -73,7 +73,13 @@ waived by the user) before running the release-new-version skill.
    without rebuilding.
 
    A newly rebuilt ad-hoc Dev bundle can prompt for access to the E2EE recovery
-   key because its code-signing hash changed. Approve **Always Allow** once;
+   key because its code-signing hash changed. When the login Keychain prompt
+   appears, use Computer Use to enter the password explicitly supplied by the
+   user for that QA machine, then click **Always Allow**. Fetch fresh app state
+   and verify the prompt has disappeared before continuing. If the app or
+   SecurityAgent prompt closes first, record the step as incomplete and
+   relaunch the exact same bundle until it succeeds. Never place the password
+   in commands, logs, screenshots, reports, or repository files.
    `--launch-only` keeps the same binary and avoids another prompt. Staging and
    stable use a persistent Developer ID identity and do not have this Dev-only
    behavior.
