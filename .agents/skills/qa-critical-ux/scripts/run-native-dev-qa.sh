@@ -576,6 +576,11 @@ elif [[ $# -eq 0 ]]; then
   qa_source_fingerprint_before="$(source_fingerprint)"
   rm -f -- "$qa_manifest"
   (
+    cd "$qa_repo_root"
+    env -i "${qa_build_env[@]}" \
+      "$qa_pnpm_executable" -F ui build
+  )
+  (
     cd "$qa_repo_root/apps/desktop"
     env -i "${qa_build_env[@]}" \
       "$qa_pnpm_executable" exec tauri build \

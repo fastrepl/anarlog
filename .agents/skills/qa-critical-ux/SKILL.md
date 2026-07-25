@@ -37,7 +37,9 @@ waived by the user) before running the release-new-version skill.
    can contain enough old, provenance-tracked proc-macro dylibs for macOS
    assessment to stall `rustc` for minutes. Native builds use the full Xcode
    toolchain explicitly so Swift/MLX can invoke the Metal compiler instead of
-   inheriting Command Line Tools.
+   inheriting Command Line Tools. The helper also builds the workspace UI
+   package before Tauri, so a clean checkout does not depend on generated
+   `packages/ui/dist` output from an earlier build.
 
    A successful-build manifest fingerprints the complete app bundle, all
    desktop build inputs (including legacy crates), and the deployed public
