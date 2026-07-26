@@ -1,6 +1,6 @@
 #[cfg(target_os = "macos")]
 use std::os::unix::fs::PermissionsExt;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -39,7 +39,7 @@ pub fn check<R: tauri::Runtime, T: tauri::Manager<R>>(manager: &T) -> EmbeddedCl
         return unavailable_status(command_name, "Anarlog could not find your home directory.");
     };
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         let _ = manager;
         return EmbeddedCliStatus {
@@ -47,8 +47,25 @@ pub fn check<R: tauri::Runtime, T: tauri::Manager<R>>(manager: &T) -> EmbeddedCl
             command_name: command_name.to_string(),
             install_path: install_path.display().to_string(),
             state: EmbeddedCliState::Unsupported,
-            details: Some("Bundled CLI installation is currently available on macOS.".to_string()),
+            details: Some(
+                "Bundled CLI installation is not yet available on this platform.".to_string(),
+            ),
         };
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let Some(_resource_path) = resolve_resource_path(manager) else {
+            return EmbeddedCliStatus {
+                supported: true,
+                command_name: command_name.to_string(),
+                install_path: install_path.display().to_string(),
+                state: EmbeddedCliState::ResourceMissing,
+                details: Some("The CLI is not included in this build of Anarlog.".to_string()),
+            };
+        };
+
+        classify_windows_status(command_name, install_path)
     }
 
     #[cfg(target_os = "macos")]
@@ -73,9 +90,32 @@ pub fn install<R: tauri::Runtime, T: tauri::Manager<R>>(
 ) -> Result<EmbeddedCliStatus, String> {
     let status = check(manager);
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         Ok(status)
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        match status.state {
+            EmbeddedCliState::Unsupported | EmbeddedCliState::ResourceMissing => {
+                return Ok(status);
+            }
+            EmbeddedCliState::Conflict => {
+                return Err(format!(
+                    "Another file already exists at {}. Move it before installing the Anarlog CLI.",
+                    status.install_path
+                ));
+            }
+            EmbeddedCliState::Installed | EmbeddedCliState::Missing => {}
+        }
+
+        let resource_path = resolve_resource_path(manager)
+            .ok_or_else(|| "The bundled CLI could not be found.".to_string())?;
+        let install_path = PathBuf::from(&status.install_path);
+        install_windows_cli(&resource_path, &install_path)?;
+        add_windows_cli_to_path(&install_path)?;
+        Ok(classify_windows_status(&status.command_name, install_path))
     }
 
     #[cfg(target_os = "macos")]
@@ -128,16 +168,32 @@ fn command_name_from_identifier(identifier: &str) -> &'static str {
 }
 
 fn install_path_for_command(command_name: &str) -> Option<PathBuf> {
-    dirs::home_dir().map(|home| home.join(".local/bin").join(command_name))
+    #[cfg(target_os = "windows")]
+    {
+        return dirs::data_local_dir().map(|data_dir| {
+            data_dir
+                .join("Anarlog")
+                .join("bin")
+                .join(format!("{command_name}.exe"))
+        });
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        dirs::home_dir().map(|home| home.join(".local/bin").join(command_name))
+    }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 fn resolve_resource_path<R: tauri::Runtime, T: tauri::Manager<R>>(manager: &T) -> Option<PathBuf> {
     use tauri::path::BaseDirectory;
 
     if let Some(sidecar_path) = std::env::current_exe()
         .ok()
-        .and_then(|path| path.parent().map(|parent| parent.join("anarlog-cli")))
+        .and_then(|path| {
+            path.parent()
+                .map(|parent| parent.join(sidecar_binary_name()))
+        })
         .filter(|path| path.is_file())
     {
         return Some(sidecar_path);
@@ -161,20 +217,220 @@ fn resolve_resource_path<R: tauri::Runtime, T: tauri::Manager<R>>(manager: &T) -
     debug_path.exists().then_some(debug_path)
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+fn sidecar_binary_name() -> &'static str {
+    if cfg!(target_os = "windows") {
+        "anarlog-cli.exe"
+    } else {
+        "anarlog-cli"
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 fn bundled_binary_name() -> Option<&'static str> {
-    #[cfg(target_arch = "aarch64")]
+    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+    {
+        return Some("anarlog-cli-x86_64-pc-windows-msvc.exe");
+    }
+
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     {
         return Some("anarlog-cli-aarch64-apple-darwin");
     }
 
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
     {
         return Some("anarlog-cli-x86_64-apple-darwin");
     }
 
     #[allow(unreachable_code)]
     None
+}
+
+#[cfg(target_os = "windows")]
+fn classify_windows_status(command_name: &str, install_path: PathBuf) -> EmbeddedCliStatus {
+    let state = match std::fs::symlink_metadata(&install_path) {
+        Ok(metadata) if metadata.is_file() => install_path
+            .parent()
+            .ok_or_else(|| "The CLI install directory is invalid.".to_string())
+            .and_then(windows_path_contains)
+            .map(|on_path| {
+                if on_path {
+                    EmbeddedCliState::Installed
+                } else {
+                    EmbeddedCliState::Missing
+                }
+            }),
+        Ok(_) => Ok(EmbeddedCliState::Conflict),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(EmbeddedCliState::Missing),
+        Err(error) => Err(format!(
+            "Failed to inspect {}: {error}",
+            install_path.display()
+        )),
+    };
+
+    match state {
+        Ok(state) => EmbeddedCliStatus {
+            supported: true,
+            command_name: command_name.to_string(),
+            install_path: install_path.display().to_string(),
+            state,
+            details: windows_details_for_state(state, &install_path),
+        },
+        Err(error) => EmbeddedCliStatus {
+            supported: true,
+            command_name: command_name.to_string(),
+            install_path: install_path.display().to_string(),
+            state: EmbeddedCliState::Conflict,
+            details: Some(error),
+        },
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn windows_details_for_state(state: EmbeddedCliState, install_path: &Path) -> Option<String> {
+    match state {
+        EmbeddedCliState::Installed => Some(format!(
+            "Installed at {} and available in new terminals.",
+            install_path.display()
+        )),
+        EmbeddedCliState::Missing => Some(format!(
+            "Install the command at {} and add it to your user PATH.",
+            install_path.display()
+        )),
+        EmbeddedCliState::Conflict => Some(format!(
+            "Another file already exists at {}.",
+            install_path.display()
+        )),
+        EmbeddedCliState::Unsupported | EmbeddedCliState::ResourceMissing => None,
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn install_windows_cli(resource_path: &Path, install_path: &Path) -> Result<(), String> {
+    let install_dir = install_path
+        .parent()
+        .ok_or_else(|| "The CLI install directory is invalid.".to_string())?;
+    std::fs::create_dir_all(install_dir)
+        .map_err(|error| format!("Could not create {}: {error}", install_dir.display()))?;
+
+    let file_name = install_path
+        .file_name()
+        .ok_or_else(|| "The CLI install path is invalid.".to_string())?;
+    let temp_path = install_path.with_file_name(format!(
+        ".{}.tmp-{}",
+        file_name.to_string_lossy(),
+        std::process::id()
+    ));
+    if std::fs::symlink_metadata(&temp_path).is_ok() {
+        std::fs::remove_file(&temp_path).map_err(|error| {
+            format!(
+                "Could not prepare the CLI update at {}: {error}",
+                temp_path.display()
+            )
+        })?;
+    }
+
+    std::fs::copy(resource_path, &temp_path).map_err(|error| {
+        format!(
+            "Could not copy the bundled CLI to {}: {error}",
+            temp_path.display()
+        )
+    })?;
+    if install_path.exists() {
+        std::fs::remove_file(install_path).map_err(|error| {
+            format!(
+                "Could not replace the CLI at {}: {error}",
+                install_path.display()
+            )
+        })?;
+    }
+    if let Err(error) = std::fs::rename(&temp_path, install_path) {
+        let _ = std::fs::remove_file(&temp_path);
+        return Err(format!(
+            "Could not install the CLI at {}: {error}",
+            install_path.display()
+        ));
+    }
+
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn windows_path_contains(install_dir: &Path) -> Result<bool, String> {
+    let environment = windows_registry::CURRENT_USER
+        .open("Environment")
+        .map_err(|error| format!("Could not read the user environment: {error}"))?;
+    let path = environment.get_string("Path").unwrap_or_default();
+    Ok(path_list_contains(&path, install_dir))
+}
+
+#[cfg(target_os = "windows")]
+fn add_windows_cli_to_path(install_path: &Path) -> Result<(), String> {
+    let install_dir = install_path
+        .parent()
+        .ok_or_else(|| "The CLI install directory is invalid.".to_string())?;
+    let environment = windows_registry::CURRENT_USER
+        .create("Environment")
+        .map_err(|error| format!("Could not open the user environment: {error}"))?;
+    let path = environment.get_string("Path").unwrap_or_default();
+    if path_list_contains(&path, install_dir) {
+        return Ok(());
+    }
+
+    let updated = if path.trim().is_empty() {
+        install_dir.display().to_string()
+    } else {
+        format!("{};{}", path.trim_end_matches(';'), install_dir.display())
+    };
+    let result = if environment.get_type("Path") == Ok(windows_registry::Type::ExpandString) {
+        environment
+            .set_expand_string("Path", updated)
+            .map_err(|error| format!("Could not update the user PATH: {error}"))
+    } else {
+        environment
+            .set_string("Path", updated)
+            .map_err(|error| format!("Could not update the user PATH: {error}"))
+    };
+    result?;
+    notify_windows_environment_changed();
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn notify_windows_environment_changed() {
+    use windows::Win32::Foundation::{LPARAM, WPARAM};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        HWND_BROADCAST, SMTO_ABORTIFHUNG, SendMessageTimeoutW, WM_SETTINGCHANGE,
+    };
+
+    unsafe {
+        let _ = SendMessageTimeoutW(
+            HWND_BROADCAST,
+            WM_SETTINGCHANGE,
+            WPARAM(0),
+            LPARAM(windows::core::w!("Environment").as_ptr() as isize),
+            SMTO_ABORTIFHUNG,
+            5_000,
+            None,
+        );
+    }
+}
+
+#[cfg(any(test, target_os = "windows"))]
+fn path_list_contains(path_list: &str, expected: &Path) -> bool {
+    let expected = expected
+        .to_string_lossy()
+        .trim_matches('"')
+        .trim_end_matches(['\\', '/'])
+        .to_string();
+    path_list.split(';').any(|entry| {
+        entry
+            .trim()
+            .trim_matches('"')
+            .trim_end_matches(['\\', '/'])
+            .eq_ignore_ascii_case(&expected)
+    })
 }
 
 #[cfg(target_os = "macos")]
@@ -496,6 +752,20 @@ mod tests {
         );
         assert_eq!(command_name_from_identifier(DEV_BUNDLE_ID), "anarlog-dev");
         assert_eq!(command_name_from_identifier("unknown"), "anarlog-dev");
+    }
+
+    #[test]
+    fn finds_windows_path_entries_case_insensitively() {
+        let expected = Path::new(r"C:\Users\Test\AppData\Local\Anarlog\bin");
+
+        assert!(path_list_contains(
+            r"C:\Windows;C:\USERS\TEST\APPDATA\LOCAL\ANARLOG\BIN\;C:\Tools",
+            expected
+        ));
+        assert!(!path_list_contains(
+            r"C:\Windows;C:\Users\Test\AppData\Local\Other\bin",
+            expected
+        ));
     }
 
     #[cfg(target_os = "macos")]

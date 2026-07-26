@@ -36,7 +36,11 @@ fn resolve_default_path(data_dir: &Path) -> PathBuf {
 }
 
 fn resolve_default_path_for_command(data_dir: &Path, command_name: Option<&OsStr>) -> PathBuf {
-    let channel_identifier = match command_name.and_then(OsStr::to_str) {
+    let command_name = command_name
+        .and_then(OsStr::to_str)
+        .and_then(|name| Path::new(name).file_stem())
+        .and_then(OsStr::to_str);
+    let channel_identifier = match command_name {
         Some("anarlog-dev") => Some("com.hyprnote.dev"),
         Some("anarlog-staging") => Some("com.hyprnote.staging"),
         _ => None,
@@ -118,6 +122,14 @@ mod tests {
         );
         assert_eq!(
             resolve_default_path_for_command(dir.path(), Some(OsStr::new("anarlog-staging"))),
+            dir.path().join("com.hyprnote.staging/app.db")
+        );
+        assert_eq!(
+            resolve_default_path_for_command(dir.path(), Some(OsStr::new("anarlog-dev.exe"))),
+            dir.path().join("com.hyprnote.dev/app.db")
+        );
+        assert_eq!(
+            resolve_default_path_for_command(dir.path(), Some(OsStr::new("anarlog-staging.exe"))),
             dir.path().join("com.hyprnote.staging/app.db")
         );
     }

@@ -118,5 +118,9 @@ automation = ["tauri-plugin-automation"]
 tauri-plugin-automation = { version = "0.1", optional = true }
 hypr-intercept = { workspace = true }
 
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { workspace = true, features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+windows-registry = "0.5.3"
+
 [dev-dependencies]
 tempfile = { workspace = true }

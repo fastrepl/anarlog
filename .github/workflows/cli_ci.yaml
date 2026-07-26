@@ -125,3 +125,40 @@ jobs:
         working-directory: docs
         env:
           PUPPETEER_SKIP_DOWNLOAD: "true"
+
+  cli-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: windows
+      - run: cargo test --locked -p anarlog-cli
+      - run: |
+          cargo clippy --locked \
+            -p anarlog-cli \
+            --all-targets \
+            --no-deps \
+            -- \
+            -D warnings
+        shell: bash
+      - run: cargo build --locked --release -p anarlog-cli
+      - run: |
+          target/release/anarlog.exe --help
+          target/release/anarlog.exe --version
+          target/release/anarlog.exe meetings --help
+          target/release/anarlog.exe mcp --help
+          if doctor_output="$(target/release/anarlog.exe --json --db-path "$RUNNER_TEMP/missing.db" doctor)"; then
+            echo "doctor unexpectedly reported a missing database as ready"
+            exit 1
+          fi
+          grep -q '"ready": false' <<<"$doctor_output"
+          if invalid_output="$(target/release/anarlog.exe --json meetings list --limit 0 2>&1)"; then
+            echo "invalid arguments unexpectedly succeeded"
+            exit 1
+          fi
+          grep -q '"code": "invalid_arguments"' <<<"$invalid_output"
+        shell: bash

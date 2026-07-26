@@ -163,6 +163,16 @@ jobs:
       - if: github.event_name == 'workflow_dispatch'
         uses: ./.github/actions/pnpm_install
       - if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          cargo build --locked --release -p anarlog-cli --target x86_64-pc-windows-msvc
+          cp \
+            target/x86_64-pc-windows-msvc/release/anarlog.exe \
+            apps/desktop/src-tauri/resources/cli/anarlog-cli-x86_64-pc-windows-msvc.exe
+          ./scripts/sidecar.sh \
+            ./apps/desktop/src-tauri/tauri.conf.staging.json \
+            resources/cli/anarlog-cli
+      - if: github.event_name == 'workflow_dispatch'
         run: pnpm -F ui build
       - if: github.event_name == 'workflow_dispatch'
         run: pnpm -F desktop tauri build --ci --bundles nsis --no-sign --target x86_64-pc-windows-msvc --config ./src-tauri/tauri.conf.staging.json --features devtools --verbose
