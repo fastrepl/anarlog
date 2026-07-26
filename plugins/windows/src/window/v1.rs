@@ -104,14 +104,9 @@ impl AppWindow {
                 .title_bar_style(tauri::TitleBarStyle::Overlay);
         }
 
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         {
-            builder = builder.decorations(false);
-        }
-
-        #[cfg(target_os = "linux")]
-        {
-            builder = builder.decorations(false);
+            builder = builder.decorations(true);
         }
 
         builder
