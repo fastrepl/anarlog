@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   execute: vi.fn(),
   getPreferredLanguages: vi.fn(),
   getTemplateSource: vi.fn(),
+  setAutomaticUpdatesEnabled: vi.fn(async () => undefined),
   setProperties: vi.fn(async () => undefined),
   executeTransaction: vi.fn(
     (_statements: Array<{ sql: string; params: unknown[] }>) =>
@@ -27,6 +28,12 @@ vi.mock("@hypr/plugin-detect", () => ({
 vi.mock("@hypr/plugin-template", () => ({
   commands: {
     getTemplateSource: mocks.getTemplateSource,
+  },
+}));
+
+vi.mock("@hypr/plugin-updater2", () => ({
+  commands: {
+    setAutomaticUpdatesEnabled: mocks.setAutomaticUpdatesEnabled,
   },
 }));
 
@@ -146,6 +153,12 @@ describe("SQLite settings", () => {
       "notification_event",
       JSON.stringify(false),
     ]);
+  });
+
+  it("applies the automatic update policy when it changes", async () => {
+    await setSettingValues({ automatic_updates: false });
+
+    expect(mocks.setAutomaticUpdatesEnabled).toHaveBeenCalledWith(false);
   });
 
   it("migrates and persists the consent chat auto-send setting", async () => {

@@ -6,6 +6,7 @@ import { commands as detectCommands } from "@hypr/plugin-detect";
 import { commands as localSttCommands } from "@hypr/plugin-local-stt";
 import { commands as templateCommands } from "@hypr/plugin-template";
 import { commands as trayCommands } from "@hypr/plugin-tray";
+import { commands as updaterCommands } from "@hypr/plugin-updater2";
 import { commands as windowsCommands } from "@hypr/plugin-windows";
 
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
@@ -424,6 +425,11 @@ function applySettingSideEffects(values: SettingValues): void {
   if (values.show_tray_icon !== undefined) {
     void trayCommands
       .setTrayIconVisible(values.show_tray_icon)
+      .catch(console.error);
+  }
+  if (values.automatic_updates !== undefined) {
+    void updaterCommands
+      .setAutomaticUpdatesEnabled(values.automatic_updates)
       .catch(console.error);
   }
   if (

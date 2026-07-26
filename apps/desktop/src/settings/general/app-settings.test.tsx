@@ -11,6 +11,7 @@ function setting(value = true) {
 }
 
 function renderAppSettings({
+  automaticUpdates = setting(),
   autoStartScheduledMeetings = true,
   floatingBar = true,
   meetingDisclosureAutoPost = setting(),
@@ -25,6 +26,7 @@ function renderAppSettings({
     ...render(
       <AppSettingsView
         autostart={setting()}
+        automaticUpdates={automaticUpdates}
         autoJoinScheduledMeetings={setting()}
         autoStartScheduledMeetings={setting(autoStartScheduledMeetings)}
         autoStopMeetings={setting()}
@@ -38,6 +40,7 @@ function renderAppSettings({
         microphoneDevice={microphoneDevice}
       />,
     ),
+    automaticUpdates,
     meetingDisclosureAutoPost,
     captureMeetingChat,
   };
@@ -58,6 +61,20 @@ describe("AppSettingsView", () => {
     renderAppSettings({ floatingBar: false });
 
     expect(screen.getByText("Show floating bar")).toBeTruthy();
+  });
+
+  it("toggles automatic updates", () => {
+    const automaticUpdates = setting(false);
+    renderAppSettings({ automaticUpdates });
+
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Automatically install updates" }),
+    );
+
+    expect(automaticUpdates.onChange).toHaveBeenCalledWith(true);
+    expect(
+      screen.getByText(/install them the next time Anarlog opens/),
+    ).toBeTruthy();
   });
 
   it("keeps cloud sync in its dedicated settings page", () => {

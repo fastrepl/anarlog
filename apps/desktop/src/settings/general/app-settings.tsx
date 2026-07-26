@@ -18,6 +18,7 @@ interface SettingItem {
 
 interface AppSettingsViewProps {
   autostart: SettingItem;
+  automaticUpdates: SettingItem;
   autoJoinScheduledMeetings: SettingItem;
   autoStartScheduledMeetings: SettingItem;
   autoStopMeetings: SettingItem;
@@ -40,6 +41,7 @@ interface AppSettingsViewProps {
 
 export function AppSettingsView({
   autostart,
+  automaticUpdates,
   autoJoinScheduledMeetings,
   autoStartScheduledMeetings,
   autoStopMeetings,
@@ -63,6 +65,17 @@ export function AppSettingsView({
             }
             checked={autostart.value}
             onChange={autostart.onChange}
+          />
+          <SettingRow
+            title={<Trans>Automatically install updates</Trans>}
+            description={
+              <Trans>
+                Download updates in the background and install them the next
+                time Anarlog opens.
+              </Trans>
+            }
+            checked={automaticUpdates.value}
+            onChange={automaticUpdates.onChange}
           />
           <SettingRow
             title={<Trans>Share usage data</Trans>}

@@ -22,6 +22,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::install::<tauri::Wry>,
             commands::is_downloaded::<tauri::Wry>,
             commands::postinstall::<tauri::Wry>,
+            commands::set_automatic_updates_enabled::<tauri::Wry>,
             commands::maybe_emit_updated::<tauri::Wry>,
         ])
         .events(tauri_specta::collect_events![
@@ -52,8 +53,10 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 
             let handle = app.clone();
             tauri::async_runtime::spawn(async move {
+                let mut install_cached_update = true;
                 loop {
-                    check_and_download(&handle).await;
+                    check_and_download(&handle, install_cached_update).await;
+                    install_cached_update = false;
                     tokio::time::sleep(std::time::Duration::from_secs(30 * 60)).await;
                 }
             });
@@ -63,12 +66,24 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
-async fn check_and_download<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+async fn check_and_download<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    install_cached_update: bool,
+) {
     if cfg!(debug_assertions) {
         return;
     }
 
     let updater2 = app.updater2();
+
+    match updater2.automatic_updates_enabled() {
+        Ok(true) => {}
+        Ok(false) => return,
+        Err(e) => {
+            tracing::error!("automatic_update_policy_read_failed: {}", e);
+            return;
+        }
+    }
 
     let version = match updater2.check().await {
         Ok(Some(v)) => v,
@@ -78,6 +93,21 @@ async fn check_and_download<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
             return;
         }
     };
+
+    if install_cached_update && updater2.has_cached_update(&version) {
+        let result = match updater2.install(&version).await {
+            Ok(result) => result,
+            Err(e) => {
+                tracing::error!("cached_update_install_failed: {}", e);
+                return;
+            }
+        };
+
+        if let Err(e) = updater2.postinstall(result).await {
+            tracing::error!("cached_update_relaunch_failed: {}", e);
+        }
+        return;
+    }
 
     if let Err(e) = updater2.download(&version).await {
         tracing::error!("update_download_failed: {}", e);

@@ -318,6 +318,10 @@ msgid "Automatically detect when a meeting starts based on microphone activity."
 msgstr "Automatically detect when a meeting starts based on microphone activity."
 
 #: src/settings/general/app-settings.tsx
+msgid "Automatically install updates"
+msgstr "Automatically install updates"
+
+#: src/settings/general/app-settings.tsx
 msgid "Automatically open the meeting link when scheduled listening starts."
 msgstr "Automatically open the meeting link when scheduled listening starts."
 
@@ -784,6 +788,10 @@ msgstr "Download"
 #: src/settings/general/e2ee-setup.tsx
 msgid "Download recovery key (.txt)"
 msgstr "Download recovery key (.txt)"
+
+#: src/settings/general/app-settings.tsx
+msgid "Download updates in the background and install them the next time Anarlog opens."
+msgstr "Download updates in the background and install them the next time Anarlog opens."
 
 #: src/templates/details.tsx
 #: src/templates/template-form.tsx

@@ -25,6 +25,20 @@ pub struct Updater2<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
 }
 
 impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
+    pub fn automatic_updates_enabled(&self) -> Result<bool, crate::Error> {
+        let store = self.manager.store2().scoped_store(crate::PLUGIN_NAME)?;
+        let enabled = store
+            .get(crate::StoreKey::AutomaticUpdatesEnabled)?
+            .unwrap_or(true);
+        Ok(enabled)
+    }
+
+    pub fn set_automatic_updates_enabled(&self, enabled: bool) -> Result<(), crate::Error> {
+        let store = self.manager.store2().scoped_store(crate::PLUGIN_NAME)?;
+        store.set(crate::StoreKey::AutomaticUpdatesEnabled, enabled)?;
+        Ok(())
+    }
+
     pub fn get_last_seen_version(&self) -> Result<Option<String>, crate::Error> {
         let store = self.manager.store2().scoped_store(crate::PLUGIN_NAME)?;
         let v = store.get(crate::StoreKey::LastSeenVersion)?;

@@ -38,4 +38,13 @@ describe("resolveConfigValue", () => {
       }),
     ).toBe(false);
   });
+
+  test("keeps automatic updates on until explicitly disabled", () => {
+    expect(
+      resolveConfigValue("automatic_updates", {
+        values: {},
+        hasValues: new Set(),
+      }),
+    ).toBe(true);
+  });
 });

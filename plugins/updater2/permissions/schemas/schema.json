@@ -367,10 +367,22 @@
           "markdownDescription": "Denies the postinstall command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-check`\n- `allow-download`\n- `allow-install`\n- `allow-is-downloaded`\n- `allow-postinstall`\n- `allow-maybe-emit-updated`",
+          "description": "Enables the set_automatic_updates_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-automatic-updates-enabled",
+          "markdownDescription": "Enables the set_automatic_updates_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_automatic_updates_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-automatic-updates-enabled",
+          "markdownDescription": "Denies the set_automatic_updates_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-check`\n- `allow-download`\n- `allow-install`\n- `allow-is-downloaded`\n- `allow-postinstall`\n- `allow-maybe-emit-updated`\n- `allow-set-automatic-updates-enabled`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-check`\n- `allow-download`\n- `allow-install`\n- `allow-is-downloaded`\n- `allow-postinstall`\n- `allow-maybe-emit-updated`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-check`\n- `allow-download`\n- `allow-install`\n- `allow-is-downloaded`\n- `allow-postinstall`\n- `allow-maybe-emit-updated`\n- `allow-set-automatic-updates-enabled`"
         }
       ]
     }

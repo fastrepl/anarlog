@@ -3,7 +3,9 @@ const COMMANDS: &[&str] = &[
     "download",
     "install",
     "is_downloaded",
+    "maybe_emit_updated",
     "postinstall",
+    "set_automatic_updates_enabled",
 ];
 
 fn main() {
