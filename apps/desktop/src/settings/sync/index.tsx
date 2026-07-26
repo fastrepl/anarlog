@@ -16,11 +16,14 @@ import {
   getE2eeIdentityStatus,
   syncCloudsyncNow,
 } from "@hypr/plugin-db";
+import { commands as openerCommands } from "@hypr/plugin-opener2";
+import { commands as settingsCommands } from "@hypr/plugin-settings";
 import { Button } from "@hypr/ui/components/ui/button";
 import { Switch } from "@hypr/ui/components/ui/switch";
 import { cn, formatDistanceToNow } from "@hypr/utils";
 
 import { E2eeSetupDialog } from "../general/e2ee-setup";
+import { detectCloudStorageService } from "../general/storage/path-utils";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
@@ -38,6 +41,7 @@ import { resolveConfigValue } from "~/shared/config";
 import { useTabs } from "~/store/zustand/tabs";
 
 const STATUS_POLL_INTERVAL_MS = 10_000;
+const SYNC_GUIDE_URL = "https://docs.anarlog.so/sync";
 
 export function SettingsSync() {
   const { t } = useLingui();
@@ -66,6 +70,19 @@ export function SettingsSync() {
     queryFn: () => getE2eeIdentityStatus(session!.user.id),
     enabled: Boolean(session?.user.id),
   });
+  const vaultBaseQuery = useQuery({
+    queryKey: ["vault-base-path"],
+    queryFn: async () => {
+      const result = await settingsCommands.vaultBase();
+      if (result.status === "error") {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
+  });
+  const cloudStorageService = vaultBaseQuery.data
+    ? detectCloudStorageService(vaultBaseQuery.data)
+    : null;
   const setSyncEnabledMutation = useMutation({
     mutationKey: ["cloudsync-preference"],
     mutationFn: async (enabled: boolean) => {
@@ -333,6 +350,41 @@ export function SettingsSync() {
           </Button>
         </div>
       </section>
+
+      {cloudStorageService && (
+        <section className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-5">
+          <div className="flex items-start gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-500/10">
+              <AlertTriangleIcon className="size-4 text-amber-500" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-medium">
+                <Trans>
+                  Your storage location is inside {cloudStorageService}
+                </Trans>
+              </h3>
+              <p className="text-muted-foreground mt-1 text-xs leading-5">
+                <Trans>
+                  Cloud sync and {cloudStorageService} can both change the same
+                  files, which can create conflicted copies and incomplete
+                  recordings. Move your Anarlog storage location to a folder
+                  that {cloudStorageService} does not sync.
+                </Trans>
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() =>
+                  void openerCommands.openUrl(SYNC_GUIDE_URL, null)
+                }
+              >
+                <Trans>Learn more</Trans>
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section>
         <h2 className="mb-4 font-sans text-lg font-semibold">

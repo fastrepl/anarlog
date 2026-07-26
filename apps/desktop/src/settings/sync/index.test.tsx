@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   syncCloudsyncNow: vi.fn(),
   setSettingValue: vi.fn(),
   applyCloudsyncPreference: vi.fn(),
+  vaultBase: vi.fn(),
+  openUrl: vi.fn(),
   openNew: vi.fn(),
   signOut: vi.fn(),
   billing: { isPro: true, isReady: true },
@@ -23,6 +25,14 @@ vi.mock("@hypr/plugin-db", () => ({
   getCloudsyncStatus: mocks.getCloudsyncStatus,
   getE2eeIdentityStatus: mocks.getE2eeIdentityStatus,
   syncCloudsyncNow: mocks.syncCloudsyncNow,
+}));
+
+vi.mock("@hypr/plugin-settings", () => ({
+  commands: { vaultBase: mocks.vaultBase },
+}));
+
+vi.mock("@hypr/plugin-opener2", () => ({
+  commands: { openUrl: mocks.openUrl },
 }));
 
 vi.mock("~/auth", () => ({
@@ -116,6 +126,10 @@ describe("SettingsSync", () => {
     };
     mocks.getE2eeIdentityStatus.mockResolvedValue({ configured: true });
     mocks.getCloudsyncStatus.mockResolvedValue(syncedStatus());
+    mocks.vaultBase.mockResolvedValue({
+      status: "ok",
+      data: "/Users/test/Library/Application Support/anarlog",
+    });
     mocks.syncCloudsyncNow.mockResolvedValue({});
     mocks.setSettingValue.mockResolvedValue(undefined);
     mocks.applyCloudsyncPreference.mockResolvedValue("ok");
@@ -130,6 +144,24 @@ describe("SettingsSync", () => {
     expect(screen.getByRole("switch", { name: "Cloud sync" })).toBeTruthy();
     expect(screen.getByText("End-to-end encryption")).toBeTruthy();
     expect(screen.getByText(/Anarlog cannot read them/)).toBeTruthy();
+    expect(screen.queryByText(/conflicted copies/)).toBeNull();
+  });
+
+  it("warns when the storage location is inside a cloud-synced folder", async () => {
+    mocks.vaultBase.mockResolvedValue({
+      status: "ok",
+      data: "/Users/test/Library/Mobile Documents/iCloud~md~obsidian/Documents/Vault",
+    });
+    renderSettings();
+
+    expect(await screen.findByText(/storage location is inside/)).toBeTruthy();
+    expect(screen.getAllByText(/iCloud Drive/).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Learn more" }));
+    expect(mocks.openUrl).toHaveBeenCalledWith(
+      "https://docs.anarlog.so/sync",
+      null,
+    );
   });
 
   it("pauses cloud sync from its settings page", async () => {

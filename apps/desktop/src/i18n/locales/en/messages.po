@@ -474,6 +474,10 @@ msgstr "Closed"
 msgid "Cloud sync"
 msgstr "Cloud sync"
 
+#: src/settings/sync/index.tsx
+msgid "Cloud sync and {cloudStorageService} can both change the same files, which can create conflicted copies and incomplete recordings. Move your Anarlog storage location to a folder that {cloudStorageService} does not sync."
+msgstr "Cloud sync and {cloudStorageService} can both change the same files, which can create conflicted copies and incomplete recordings. Move your Anarlog storage location to a folder that {cloudStorageService} does not sync."
+
 #: src/main/sync-status.tsx
 msgid "Cloud sync could not start on this device. Open Sync settings to try again."
 msgstr "Cloud sync could not start on this device. Open Sync settings to try again."
@@ -1141,6 +1145,10 @@ msgstr "Last synced {0}"
 #: src/chat/components/message/error.tsx
 msgid "Learn how to fix this"
 msgstr "Learn how to fix this"
+
+#: src/settings/sync/index.tsx
+msgid "Learn more"
+msgstr "Learn more"
 
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Legacy JSON and Markdown files were removed"
@@ -2543,6 +2551,10 @@ msgstr "Your recovery key encrypts synced notes before they leave this device. A
 #: src/settings/sync/index.tsx
 msgid "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read them."
 msgstr "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read them."
+
+#: src/settings/sync/index.tsx
+msgid "Your storage location is inside {cloudStorageService}"
+msgstr "Your storage location is inside {cloudStorageService}"
 
 #: src/templates/template-sidebar.tsx
 msgid "Z to A"
