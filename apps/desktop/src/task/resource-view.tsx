@@ -173,7 +173,7 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
           {issue.body ? (
             <div className="border-border border-t pt-4">
               <Streamdown
-                className="text-muted-foreground mt-1 text-sm"
+                className="note-typography text-muted-foreground mt-1 [--note-editor-font-size:0.875rem]"
                 components={streamdownComponents}
                 isAnimating={false}
                 rehypePlugins={rehypePlugins}
@@ -228,7 +228,7 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
                     <div className="px-4 py-3">
                       {comment.body ? (
                         <Streamdown
-                          className="text-muted-foreground mt-1 text-sm"
+                          className="note-typography text-muted-foreground mt-1 [--note-editor-font-size:0.875rem]"
                           components={streamdownComponents}
                           isAnimating={false}
                           rehypePlugins={rehypePlugins}

@@ -60,7 +60,7 @@ export function SharedNoteDocument({
   }, [attachments, document, excludedAttachmentIds]);
   return (
     <AttachmentContext.Provider value={context}>
-      <div className="ProseMirror prosemirror-editor session-note-editor shared-note-document text-color [&_li]:!text-base [&_li]:!leading-5 [&_p]:!text-base [&_p]:!leading-5">
+      <div className="ProseMirror prosemirror-editor note-typography session-note-editor shared-note-document text-color">
         {renderChildren(document.content, "document")}
         {unreferencedAttachments.length > 0 ? (
           <section className="border-color-subtle mt-10 border-t pt-6">

@@ -1,21 +1,18 @@
 @import "./prosemirror/scrollbar.css";
 @import "./prosemirror/base.css";
 
-@import "./prosemirror/nodes/heading.css";
-@import "./prosemirror/nodes/code.css";
-@import "./prosemirror/nodes/blockquote.css";
-@import "./prosemirror/nodes/link.css";
-@import "./prosemirror/nodes/list.css";
 @import "./prosemirror/nodes/task-list.css";
 @import "./prosemirror/nodes/table.css";
 @import "./prosemirror/nodes/search.css";
-@import "./prosemirror/nodes/mark.css";
 @import "./prosemirror/nodes/ai-highlight.css";
 @import "./prosemirror/nodes/hashtag.css";
 @import "./prosemirror/nodes/comment-anchor.css";
 
 @import "./prosemirror/dark.css";
 @import "./prosemirror/mention.css";
+
+/* Last so note surfaces win specificity ties against the shared rules. */
+@import "./prosemirror/note-typography.css";
 
 .ProseMirror.prompt-editor {
   padding-bottom: 0;

@@ -885,6 +885,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
                     "aria-readonly": readOnly ? "true" : "false",
                     class: cn([
                       "prosemirror-editor",
+                      "note-typography",
                       enforceTitleHeading && "note-title-editor",
                       className,
                     ]),

@@ -367,7 +367,7 @@ export function SharedNoteReadSurface({
     >
       <SharedReadAttachmentsContext.Provider value={attachmentContext}>
         <NoteEditor
-          className="session-note-editor outline-hidden [&_li]:!text-base [&_li]:!leading-5 [&_p]:!text-base [&_p]:!leading-5"
+          className="session-note-editor outline-hidden"
           commentAnchorsEnabled
           enforceTitleHeading={false}
           extraNodeViews={readAttachmentNodeViews}
