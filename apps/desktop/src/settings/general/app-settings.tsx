@@ -78,16 +78,6 @@ export function AppSettingsView({
             onChange={automaticUpdates.onChange}
           />
           <SettingRow
-            title={<Trans>Share usage data</Trans>}
-            description={
-              <Trans>
-                Send anonymous usage analytics to help improve Anarlog.
-              </Trans>
-            }
-            checked={telemetryConsent.value}
-            onChange={telemetryConsent.onChange}
-          />
-          <SettingRow
             title={<Trans>Show app in Dock</Trans>}
             description={
               <Trans>Show Anarlog in the Dock and app switcher.</Trans>
@@ -186,6 +176,24 @@ export function AppSettingsView({
             value={microphoneDevice.value}
             devices={microphoneDevice.devices}
             onChange={microphoneDevice.onChange}
+          />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-4 font-sans text-lg font-semibold">
+          <Trans>Privacy</Trans>
+        </h2>
+        <div className="flex flex-col gap-4">
+          <SettingRow
+            title={<Trans>Share usage data</Trans>}
+            description={
+              <Trans>
+                Send anonymous usage analytics to help improve Anarlog.
+              </Trans>
+            }
+            checked={telemetryConsent.value}
+            onChange={telemetryConsent.onChange}
           />
         </div>
       </section>

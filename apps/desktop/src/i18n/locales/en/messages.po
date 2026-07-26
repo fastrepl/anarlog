@@ -1587,6 +1587,10 @@ msgstr "Previous broad access is still active"
 msgid "Previous match"
 msgstr "Previous match"
 
+#: src/settings/general/app-settings.tsx
+msgid "Privacy"
+msgstr "Privacy"
+
 #: src/settings/ai/stt/select.tsx
 msgid "Pro"
 msgstr "Pro"
