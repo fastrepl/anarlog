@@ -1,4 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { platform } from "@tauri-apps/plugin-os";
 import {
   ALargeSmallIcon,
   ChevronDownIcon,
@@ -101,6 +102,7 @@ export function SearchBar({
 }) {
   const { t } = useLingui();
   const search = useSearch();
+  const primaryModifier = platform() === "macos" ? "⌘" : "Ctrl";
   const searchInputRef = useRef<HTMLInputElement>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
 
@@ -237,7 +239,7 @@ export function SearchBar({
                 <span>
                   <Trans>Replace</Trans>
                 </span>
-                <Kbd className="animate-kbd-press">⌘ H</Kbd>
+                <Kbd className="animate-kbd-press">{primaryModifier} H</Kbd>
               </>
             }
           >
@@ -324,7 +326,7 @@ export function SearchBar({
                   <span>
                     <Trans>Replace all</Trans>
                   </span>
-                  <Kbd className="animate-kbd-press">⌘ ↵</Kbd>
+                  <Kbd className="animate-kbd-press">{primaryModifier} ↵</Kbd>
                 </>
               }
             >

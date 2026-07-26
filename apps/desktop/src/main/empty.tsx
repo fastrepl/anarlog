@@ -1,4 +1,5 @@
 import { Trans } from "@lingui/react/macro";
+import { platform } from "@tauri-apps/plugin-os";
 import { useCallback } from "react";
 
 import { Kbd } from "@hypr/ui/components/ui/kbd";
@@ -25,6 +26,7 @@ function EmptyView() {
   const newNote = useNewNote({ behavior: "current" });
   const newNoteAndListen = useNewNoteAndListen({ behavior: "current" });
   const openCurrent = useTabs((state) => state.openCurrent);
+  const primaryModifier = platform() === "macos" ? "⌘" : "Ctrl";
 
   const openSettings = useCallback(
     () => openCurrent({ type: "settings" }),
@@ -39,18 +41,18 @@ function EmptyView() {
       <div className="flex min-w-[280px] flex-col gap-1 text-center">
         <ActionItem
           label={<Trans>New Note</Trans>}
-          shortcut={["⌘", "N"]}
+          shortcut={[primaryModifier, "N"]}
           onClick={newNote}
         />
         <ActionItem
           label={<Trans>Start Recording</Trans>}
-          shortcut={["⌘", "⇧", "N"]}
+          shortcut={[primaryModifier, "⇧", "N"]}
           onClick={newNoteAndListen}
         />
         <div className="bg-accent my-1 h-px" />
         <ActionItem
           label={<Trans>Settings</Trans>}
-          shortcut={["⌘", ","]}
+          shortcut={[primaryModifier, ","]}
           onClick={openSettings}
         />
       </div>

@@ -1,3 +1,4 @@
+import { platform } from "@tauri-apps/plugin-os";
 import {
   ArrowUpIcon,
   ArrowUpRightIcon,
@@ -186,6 +187,7 @@ function ComposerInput({
     onSendMessage,
   });
   const mentionConfig = useMentionConfig();
+  const primaryModifier = platform() === "macos" ? "⌘" : "Ctrl";
 
   useAutoFocusEditor({
     editorRef,
@@ -258,7 +260,7 @@ function ComposerInput({
             Esc to dismiss
           </span>
           <span className="bg-primary-foreground/8 rounded-full px-2 py-1">
-            ⌘ ↩ to send
+            {primaryModifier} ↩ to send
           </span>
         </div>
 

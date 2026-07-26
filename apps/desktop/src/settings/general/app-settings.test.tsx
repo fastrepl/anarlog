@@ -1,6 +1,14 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const mocks = vi.hoisted(() => ({
+  platform: vi.fn(() => "macos"),
+}));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  platform: mocks.platform,
+}));
+
 import { AppSettingsView } from "./app-settings";
 
 function setting(value = true) {
@@ -49,6 +57,7 @@ function renderAppSettings({
 describe("AppSettingsView", () => {
   afterEach(() => {
     cleanup();
+    mocks.platform.mockReturnValue("macos");
   });
 
   it("does not expose a separate live transcript overlay setting", () => {
@@ -61,6 +70,19 @@ describe("AppSettingsView", () => {
     renderAppSettings({ floatingBar: false });
 
     expect(screen.getByText("Show floating bar")).toBeTruthy();
+  });
+
+  it("hides macOS-only Dock controls outside macOS", () => {
+    mocks.platform.mockReturnValue("windows");
+    renderAppSettings();
+
+    expect(
+      screen.queryByRole("switch", { name: "Show app in Dock" }),
+    ).toBeNull();
+    expect(
+      screen.queryByText("Keep Anarlog available from the menu bar."),
+    ).toBeNull();
+    expect(screen.getByRole("switch", { name: "Show tray icon" })).toBeTruthy();
   });
 
   it("toggles automatic updates", () => {

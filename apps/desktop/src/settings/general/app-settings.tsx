@@ -1,4 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { platform } from "@tauri-apps/plugin-os";
 import { type ReactNode, useId } from "react";
 
 import {
@@ -54,6 +55,8 @@ export function AppSettingsView({
   audioRetention,
   microphoneDevice,
 }: AppSettingsViewProps) {
+  const isMacos = platform() === "macos";
+
   return (
     <div className="flex flex-col gap-8">
       <section>
@@ -77,18 +80,22 @@ export function AppSettingsView({
             checked={automaticUpdates.value}
             onChange={automaticUpdates.onChange}
           />
-          <SettingRow
-            title={<Trans>Show app in Dock</Trans>}
-            description={
-              <Trans>Show Anarlog in the Dock and app switcher.</Trans>
-            }
-            checked={showAppInDock.value}
-            onChange={showAppInDock.onChange}
-          />
+          {isMacos && (
+            <SettingRow
+              title={<Trans>Show app in Dock</Trans>}
+              description={
+                <Trans>Show Anarlog in the Dock and app switcher.</Trans>
+              }
+              checked={showAppInDock.value}
+              onChange={showAppInDock.onChange}
+            />
+          )}
           <SettingRow
             title={<Trans>Show tray icon</Trans>}
             description={
-              <Trans>Keep Anarlog available from the menu bar.</Trans>
+              isMacos ? (
+                <Trans>Keep Anarlog available from the menu bar.</Trans>
+              ) : undefined
             }
             checked={showTrayIcon.value}
             onChange={showTrayIcon.onChange}
@@ -333,7 +340,7 @@ function SettingRow({
   disabled = false,
 }: {
   title: ReactNode;
-  description: ReactNode;
+  description?: ReactNode;
   checked: boolean;
   onChange: (checked: boolean) => void;
   disabled?: boolean;
@@ -347,16 +354,18 @@ function SettingRow({
         <h3 id={titleId} className="mb-1 text-sm font-medium">
           {title}
         </h3>
-        <p id={descriptionId} className="text-muted-foreground text-xs">
-          {description}
-        </p>
+        {description && (
+          <p id={descriptionId} className="text-muted-foreground text-xs">
+            {description}
+          </p>
+        )}
       </div>
       <Switch
         checked={checked}
         onCheckedChange={onChange}
         disabled={disabled}
         aria-labelledby={titleId}
-        aria-describedby={descriptionId}
+        aria-describedby={description ? descriptionId : undefined}
       />
     </div>
   );

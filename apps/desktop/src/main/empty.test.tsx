@@ -2,6 +2,14 @@ import { cleanup, render, screen } from "@testing-library/react";
 import type React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const mocks = vi.hoisted(() => ({
+  platform: vi.fn(() => "macos"),
+}));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  platform: mocks.platform,
+}));
+
 vi.mock("~/shared/main", () => ({
   StandardContentWrapper: ({
     children,
@@ -43,6 +51,7 @@ import { TabContentEmpty } from "./empty";
 describe("TabContentEmpty", () => {
   afterEach(() => {
     cleanup();
+    mocks.platform.mockReturnValue("macos");
   });
 
   it("shows the home actions and global chat FAB", () => {
@@ -61,6 +70,28 @@ describe("TabContentEmpty", () => {
     expect(
       screen.getByRole("button", { name: "Ask Anarlog anything" }),
     ).toBeTruthy();
+  });
+
+  it("shows Windows shortcut modifiers", () => {
+    mocks.platform.mockReturnValue("windows");
+
+    render(
+      <TabContentEmpty
+        tab={{
+          active: true,
+          pinned: false,
+          slotId: "slot-home",
+          type: "empty",
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: /New Note/ }).textContent,
+    ).toContain("Ctrl N");
+    expect(
+      screen.getByRole("button", { name: /Start Recording/ }).textContent,
+    ).toContain("Ctrl ⇧ N");
   });
 
   it("centers actions in a draggable empty surface while keeping actions clickable", () => {
