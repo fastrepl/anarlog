@@ -2,7 +2,7 @@
 
 Tauri desktop note-taking app (`apps/desktop/`) with a web app (`apps/web/`).
 Uses pnpm workspaces.
-SQLite is the primary data store (schema and migrations in `crates/db-app/`, desktop transport in `plugins/db/`), Zustand is used for UI state, and TipTap powers the editor. Sessions are the core entity — all notes are backed by sessions.
+SQLite is the primary data store (schema and migrations in `crates/db-app/`, desktop transport in `plugins/db/`), Zustand is used for UI state, and ProseMirror powers the editor (`packages/editor`, via `@handlewithcare/react-prosemirror`); documents are stored as TipTap-dialect ProseMirror JSON (converters/validation in `crates/tiptap`). Sessions are the core entity — all notes are backed by sessions.
 
 ## Commands
 
