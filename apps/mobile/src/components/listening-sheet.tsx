@@ -7,7 +7,8 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { Waveform } from "@/components/waveform";
+import { useLiveAudioLevels } from "@/audio/use-live-audio-levels";
+import { Waveform, WAVEFORM_BAR_COUNT } from "@/components/waveform";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useMockLiveTranscript } from "@/data/transcript";
 
@@ -18,6 +19,7 @@ export function ListeningSheet({ onStop }: { onStop: () => void }) {
   const transcriptHeight = useSharedValue(0);
   const scrollRef = useRef<ScrollView>(null);
   const lines = useMockLiveTranscript();
+  const levels = useLiveAudioLevels(WAVEFORM_BAR_COUNT);
 
   const toggle = () => {
     const next = !expanded;
@@ -62,7 +64,7 @@ export function ListeningSheet({ onStop }: { onStop: () => void }) {
         onPress={onStop}
         style={({ pressed }) => [styles.panel, pressed && styles.panelPressed]}
       >
-        <Waveform />
+        <Waveform levels={levels} />
       </Pressable>
     </View>
   );

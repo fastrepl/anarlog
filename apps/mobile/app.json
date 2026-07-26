@@ -34,6 +34,12 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Anarlog uses the microphone to capture and transcribe your meetings."
+        }
       ]
     ],
     "experiments": {

@@ -11,9 +11,9 @@ import Animated, {
 
 import { Colors } from "@/constants/theme";
 
-const BAR_COUNT = 28;
+export const WAVEFORM_BAR_COUNT = 28;
 
-function Bar({ index }: { index: number }) {
+function IdleBar({ index }: { index: number }) {
   const peak = 0.35 + 0.65 * Math.abs(Math.sin(index * 2.7));
   const scale = useSharedValue(0.2);
 
@@ -38,11 +38,24 @@ function Bar({ index }: { index: number }) {
   return <Animated.View style={[styles.bar, animatedStyle]} />;
 }
 
-export function Waveform() {
+export function Waveform({ levels }: { levels: number[] | null }) {
+  if (!levels) {
+    return (
+      <View style={styles.container}>
+        {Array.from({ length: WAVEFORM_BAR_COUNT }, (_, index) => (
+          <IdleBar key={index} index={index} />
+        ))}
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {Array.from({ length: BAR_COUNT }, (_, index) => (
-        <Bar key={index} index={index} />
+      {levels.map((level, index) => (
+        <View
+          key={index}
+          style={[styles.bar, { transform: [{ scaleY: 0.1 + 0.9 * level }] }]}
+        />
       ))}
     </View>
   );
