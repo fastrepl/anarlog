@@ -28,11 +28,8 @@ import {
 
 const QUERY_KEY = ["legacy-migration"] as const;
 
-export function LegacyMigrationCleanupRow() {
-  const { t } = useLingui();
-  const queryClient = useQueryClient();
-  const [confirmationOpen, setConfirmationOpen] = useState(false);
-  const migrationQuery = useQuery({
+export function useLegacyMigrationCleanup() {
+  const query = useQuery({
     queryKey: QUERY_KEY,
     queryFn: async () => {
       const [status, report] = await Promise.all([
@@ -44,9 +41,24 @@ export function LegacyMigrationCleanupRow() {
     // The status commands can fail transiently while the database is busy
     // (e.g. during CloudSync enablement); keep retrying instead of parking
     // the row in an error state.
-    refetchInterval: (query) =>
-      query.state.status === "error" ? 15_000 : false,
+    refetchInterval: (q) => (q.state.status === "error" ? 15_000 : false),
   });
+
+  const status = query.data?.status;
+  // A verified migration with no legacy files left needs no user action, so
+  // the row (and its section) stays hidden instead of reporting a no-op.
+  const visible = status
+    ? !status.migrationVerified || status.available
+    : !query.isPending;
+
+  return { ...query, visible };
+}
+
+export function LegacyMigrationCleanupRow() {
+  const { t } = useLingui();
+  const queryClient = useQueryClient();
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const migrationQuery = useLegacyMigrationCleanup();
   const cleanupMutation = useMutation({
     mutationFn: cleanupLegacyFiles,
     onSuccess: async () => {
@@ -93,26 +105,10 @@ export function LegacyMigrationCleanupRow() {
         };
       }
 
-      if (status.alreadyCleaned) {
-        return {
-          state: "success" as const,
-          label: t`Migration complete`,
-          description: t`Legacy JSON and Markdown files were removed`,
-        };
-      }
-
-      if (status.available) {
-        return {
-          state: "success" as const,
-          label: t`Migration complete`,
-          description: null,
-        };
-      }
-
       return {
         state: "success" as const,
         label: t`Migration complete`,
-        description: t`No legacy JSON or Markdown files remain`,
+        description: null,
       };
     }
 
@@ -130,6 +126,8 @@ export function LegacyMigrationCleanupRow() {
       description: t`Anarlog will retry automatically. This does not affect your notes.`,
     };
   })();
+
+  if (!migrationQuery.visible) return null;
 
   return (
     <>

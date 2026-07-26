@@ -1150,10 +1150,6 @@ msgstr "Learn how to fix this"
 msgid "Learn more"
 msgstr "Learn more"
 
-#: src/settings/general/storage/legacy-cleanup.tsx
-msgid "Legacy JSON and Markdown files were removed"
-msgstr "Legacy JSON and Markdown files were removed"
-
 #: src/settings/general/theme.tsx
 msgid "Light"
 msgstr "Light"
@@ -1358,10 +1354,6 @@ msgstr "No icons found"
 #: src/sidebar/timeline/index.tsx
 msgid "No items today"
 msgstr "No items today"
-
-#: src/settings/general/storage/legacy-cleanup.tsx
-msgid "No legacy JSON or Markdown files remain"
-msgstr "No legacy JSON or Markdown files remain"
 
 #: src/settings/dictionary/index.tsx
 msgid "No match"

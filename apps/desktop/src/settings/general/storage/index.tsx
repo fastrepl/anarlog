@@ -1,8 +1,14 @@
 import { Trans } from "@lingui/react/macro";
 
-import { LegacyMigrationCleanupRow } from "./legacy-cleanup";
+import {
+  LegacyMigrationCleanupRow,
+  useLegacyMigrationCleanup,
+} from "./legacy-cleanup";
 
 export function StorageSettingsView() {
+  const { visible } = useLegacyMigrationCleanup();
+  if (!visible) return null;
+
   return (
     <div>
       <h2 className="mb-4 font-sans text-lg font-semibold">

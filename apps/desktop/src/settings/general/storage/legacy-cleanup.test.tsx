@@ -145,6 +145,25 @@ describe("LegacyMigrationCleanupRow", () => {
     );
   });
 
+  it("renders nothing once the migration is verified and no legacy files remain", async () => {
+    mocks.getLegacyCleanupStatus.mockResolvedValue({
+      migrationVerified: true,
+      available: false,
+      alreadyCleaned: true,
+      fileCount: 0,
+      totalBytes: 0,
+      sourceRoot: "/Users/test/Anarlog",
+      blockingReason: null,
+    });
+
+    const { container } = renderRow();
+
+    await waitFor(() =>
+      expect(mocks.getLegacyCleanupStatus).toHaveBeenCalledTimes(1),
+    );
+    await waitFor(() => expect(container.innerHTML).toBe(""));
+  });
+
   it("shows a verification warning without offering cleanup", async () => {
     mocks.getLegacyCleanupStatus.mockResolvedValue({
       migrationVerified: false,
