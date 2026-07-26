@@ -6,6 +6,8 @@ set -euo pipefail
 
 sudo apt update
 sudo apt-get install -y \
+  clang \
+  libclang-dev \
   libgtk-3-dev \
   libgtk-4-dev \
   libasound2-dev \
@@ -15,6 +17,7 @@ sudo apt-get install -y \
   libgraphene-1.0-dev \
   pkg-config \
   patchelf \
+  xdg-utils \
   cmake \
   curl \
   jq \

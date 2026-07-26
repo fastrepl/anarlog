@@ -207,6 +207,73 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  desktop_linux:
+    if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
+    runs-on: depot-ubuntu-24.04-8
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: ./.github/actions/install_desktop_deps
+        with:
+          target: linux
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: linux
+      - run: cargo check --locked -p desktop
+      - run: cargo test --locked -p desktop embedded_cli --lib
+      - run: cargo test --locked -p cloudsync loads_bundled_cloudsync
+      - if: github.event_name == 'workflow_dispatch'
+        uses: ./.github/actions/pnpm_install
+      - if: github.event_name == 'workflow_dispatch'
+        run: |
+          TAURI_ENV_TARGET_TRIPLE=x86_64-unknown-linux-gnu cargo xtask prepare-binaries
+          ./scripts/sidecar.sh \
+            ./apps/desktop/src-tauri/tauri.conf.staging.json \
+            resources/cli/anarlog-cli
+      - if: github.event_name == 'workflow_dispatch'
+        run: pnpm -F ui build
+      - if: github.event_name == 'workflow_dispatch'
+        run: pnpm -F desktop tauri build --ci --bundles appimage,deb --no-sign --target x86_64-unknown-linux-gnu --config ./src-tauri/tauri.conf.staging.json --features devtools --verbose
+        env:
+          POSTHOG_API_KEY: phc_linux_ci
+          VITE_POSTHOG_API_KEY: phc_linux_ci
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN_HYPRNOTE_2 }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_APP_URL: https://anarlog.so
+          VITE_API_URL: https://api.anarlog.so
+          VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
+      - if: github.event_name == 'workflow_dispatch'
+        run: |
+          shopt -s nullglob
+          bundles=(
+            apps/desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
+            apps/desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
+          )
+          if [[ ${#bundles[@]} -eq 0 ]]; then
+            echo "No Linux bundles found"
+            exit 1
+          fi
+          for bundle in "${bundles[@]}"; do
+            sha256sum "$bundle" > "$bundle.sha256"
+          done
+      - if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: anarlog-linux-x64-${{ github.sha }}
+          path: |
+            apps/desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
+            apps/desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.sha256
+            apps/desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
+            apps/desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb/*.sha256
+          if-no-files-found: error
+          retention-days: 7
+
   desktop_i18n:
     if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
     runs-on: ubuntu-latest
@@ -233,7 +300,13 @@ jobs:
 
   ci:
     if: always()
-    needs: [desktop_ci, desktop_windows, desktop_i18n, desktop_swift]
+    needs: [
+      desktop_ci,
+      desktop_windows,
+      desktop_linux,
+      desktop_i18n,
+      desktop_swift,
+    ]
     runs-on: ubuntu-latest
     steps:
       - run: exit 1

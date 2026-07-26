@@ -1,13 +1,13 @@
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 use std::os::unix::fs::PermissionsExt;
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 use std::path::Path;
 use std::path::PathBuf;
 
 use serde::Serialize;
 
 const DEV_BUNDLE_ID: &str = "com.hyprnote.dev";
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 const MANAGED_CLI_DIR: &str = ".anarlog-cli";
 const STABLE_BUNDLE_ID: &str = "com.hyprnote.stable";
 const STAGING_BUNDLE_ID: &str = "com.hyprnote.staging";
@@ -46,7 +46,7 @@ pub fn check<R: tauri::Runtime, T: tauri::Manager<R>>(manager: &T) -> EmbeddedCl
         return unavailable_status(command_name, missing_dir);
     };
 
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
         let _ = manager;
         return EmbeddedCliStatus {
@@ -75,7 +75,7 @@ pub fn check<R: tauri::Runtime, T: tauri::Manager<R>>(manager: &T) -> EmbeddedCl
         classify_windows_status(command_name, install_path)
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         let Some(_resource_path) = resolve_resource_path(manager) else {
             return EmbeddedCliStatus {
@@ -97,7 +97,7 @@ pub fn install<R: tauri::Runtime, T: tauri::Manager<R>>(
 ) -> Result<EmbeddedCliStatus, String> {
     let status = check(manager);
 
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
         Ok(status)
     }
@@ -125,7 +125,7 @@ pub fn install<R: tauri::Runtime, T: tauri::Manager<R>>(
         Ok(classify_windows_status(&status.command_name, install_path))
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         match status.state {
             EmbeddedCliState::Unsupported | EmbeddedCliState::ResourceMissing => {
@@ -191,7 +191,7 @@ fn install_path_for_command(command_name: &str) -> Option<PathBuf> {
     }
 }
 
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 fn resolve_resource_path<R: tauri::Runtime, T: tauri::Manager<R>>(manager: &T) -> Option<PathBuf> {
     use tauri::path::BaseDirectory;
 
@@ -224,7 +224,7 @@ fn resolve_resource_path<R: tauri::Runtime, T: tauri::Manager<R>>(manager: &T) -
     debug_path.exists().then_some(debug_path)
 }
 
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 fn sidecar_binary_name() -> &'static str {
     if cfg!(target_os = "windows") {
         "anarlog-cli.exe"
@@ -233,7 +233,7 @@ fn sidecar_binary_name() -> &'static str {
     }
 }
 
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 fn bundled_binary_name() -> Option<&'static str> {
     #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
     {
@@ -248,6 +248,16 @@ fn bundled_binary_name() -> Option<&'static str> {
     #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
     {
         return Some("anarlog-cli-x86_64-apple-darwin");
+    }
+
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    {
+        return Some("anarlog-cli-x86_64-unknown-linux-gnu");
+    }
+
+    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    {
+        return Some("anarlog-cli-aarch64-unknown-linux-gnu");
     }
 
     #[allow(unreachable_code)]
@@ -472,7 +482,7 @@ fn path_list_contains(path_list: &str, expected: &Path) -> bool {
     })
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn classify_status(
     command_name: &str,
     install_path: PathBuf,
@@ -499,7 +509,7 @@ fn classify_status(
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn classify_installation(
     install_path: &Path,
     managed_path: &Path,
@@ -555,12 +565,22 @@ fn classify_installation(
     Ok(EmbeddedCliState::Installed)
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn is_replaceable_symlink_target(target: &Path, managed_path: &Path) -> bool {
-    managed_path
+    if managed_path
         .parent()
         .is_some_and(|managed_dir| target.parent() == Some(managed_dir))
-        || is_legacy_app_cli_target(target)
+    {
+        return true;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        return is_legacy_app_cli_target(target);
+    }
+
+    #[cfg(target_os = "linux")]
+    false
 }
 
 #[cfg(target_os = "macos")]
@@ -601,7 +621,7 @@ fn is_legacy_app_cli_target(target: &Path) -> bool {
     )
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn details_for_state(state: EmbeddedCliState, install_path: &Path) -> Option<String> {
     match state {
         EmbeddedCliState::Installed => Some(format!(
@@ -621,7 +641,7 @@ fn details_for_state(state: EmbeddedCliState, install_path: &Path) -> Option<Str
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn managed_binary_path(
     install_path: &Path,
     command_name: &str,
@@ -637,7 +657,7 @@ fn managed_binary_path(
         .join(app_version))
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn install_managed_cli(
     resource_path: &Path,
     managed_path: &Path,
@@ -699,7 +719,7 @@ fn install_managed_cli(
     install_symlink(managed_path, install_path)
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn install_symlink(managed_path: &Path, install_path: &Path) -> Result<(), String> {
     let install_dir = install_path
         .parent()
@@ -745,7 +765,7 @@ fn install_symlink(managed_path: &Path, install_path: &Path) -> Result<(), Strin
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn ensure_install_path_replaceable(install_path: &Path, managed_path: &Path) -> Result<(), String> {
     let metadata = match std::fs::symlink_metadata(install_path) {
         Ok(metadata) => metadata,
@@ -779,7 +799,7 @@ fn ensure_install_path_replaceable(install_path: &Path, managed_path: &Path) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     use std::os::unix::fs::PermissionsExt;
 
     #[test]
@@ -791,6 +811,26 @@ mod tests {
         );
         assert_eq!(command_name_from_identifier(DEV_BUNDLE_ID), "anarlog-dev");
         assert_eq!(command_name_from_identifier("unknown"), "anarlog-dev");
+    }
+
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    #[test]
+    fn resolves_linux_x64_bundled_binary() {
+        assert_eq!(
+            bundled_binary_name(),
+            Some("anarlog-cli-x86_64-unknown-linux-gnu")
+        );
+        assert_eq!(sidecar_binary_name(), "anarlog-cli");
+    }
+
+    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    #[test]
+    fn resolves_linux_arm64_bundled_binary() {
+        assert_eq!(
+            bundled_binary_name(),
+            Some("anarlog-cli-aarch64-unknown-linux-gnu")
+        );
+        assert_eq!(sidecar_binary_name(), "anarlog-cli");
     }
 
     #[test]
@@ -807,7 +847,7 @@ mod tests {
         ));
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     #[test]
     fn classifies_missing_install() {
         let dir = tempfile::tempdir().unwrap();
@@ -818,7 +858,7 @@ mod tests {
         assert_eq!(state, EmbeddedCliState::Missing);
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     #[test]
     fn classifies_installed_symlink() {
         let dir = tempfile::tempdir().unwrap();
@@ -832,7 +872,7 @@ mod tests {
         assert_eq!(state, EmbeddedCliState::Installed);
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     #[test]
     fn classifies_non_executable_managed_cli_as_missing() {
         let dir = tempfile::tempdir().unwrap();
@@ -848,7 +888,7 @@ mod tests {
         );
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     #[test]
     fn classifies_stale_symlinks_as_missing() {
         let dir = tempfile::tempdir().unwrap();
@@ -926,7 +966,7 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&install_path).unwrap(), "new cli");
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     #[test]
     fn classifies_foreign_symlink_as_conflict() {
         let dir = tempfile::tempdir().unwrap();
@@ -940,7 +980,7 @@ mod tests {
         );
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     #[test]
     fn installer_refuses_to_replace_foreign_symlink() {
         let dir = tempfile::tempdir().unwrap();
@@ -955,7 +995,7 @@ mod tests {
         assert_eq!(std::fs::read_link(&install_path).unwrap(), foreign_target);
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     #[test]
     fn installed_cli_survives_bundled_resource_move() {
         let dir = tempfile::tempdir().unwrap();
@@ -984,7 +1024,7 @@ mod tests {
         );
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     #[test]
     fn app_update_requires_installing_the_new_cli_version() {
         let dir = tempfile::tempdir().unwrap();
@@ -1010,7 +1050,7 @@ mod tests {
         );
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     #[test]
     fn classifies_regular_file_as_conflict() {
         let dir = tempfile::tempdir().unwrap();
