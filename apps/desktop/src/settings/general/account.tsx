@@ -146,12 +146,9 @@ export function SettingsAccount() {
         description={auth.session?.user.email ?? t`Signed in`}
         action={
           <Button
-            variant="outline"
+            variant="destructive"
             onClick={() => signOutMutation.mutate()}
             disabled={signOutMutation.isPending}
-            className={cn([
-              "border-alert-border text-alert-foreground hover:bg-alert hover:text-alert-foreground",
-            ])}
           >
             {signOutMutation.isPending ? t`Signing out...` : t`Sign out`}
           </Button>
