@@ -211,7 +211,25 @@ jobs:
 
   linux_ci:
     if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
-    runs-on: depot-ubuntu-24.04-8
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: depot-ubuntu-22.04-8
+            target: x86_64-unknown-linux-gnu
+            rust_platform: linux-x86_64
+            artifact_name: x64
+            debian_arch: amd64
+            file_arch: x86-64
+            docker_arch: amd64
+          - runner: depot-ubuntu-22.04-arm-8
+            target: aarch64-unknown-linux-gnu
+            rust_platform: linux-aarch64
+            artifact_name: arm64
+            debian_arch: arm64
+            file_arch: ARM aarch64
+            docker_arch: arm64
+    runs-on: ${{ matrix.runner }}
     defaults:
       run:
         shell: bash
@@ -225,22 +243,22 @@ jobs:
           target: linux
       - uses: ./.github/actions/rust_install
         with:
-          platform: linux
-      - run: cargo check --locked -p desktop
-      - run: cargo test --locked -p desktop embedded_cli --lib
-      - run: cargo test --locked -p cloudsync loads_bundled_cloudsync
+          platform: ${{ matrix.rust_platform }}
+      - run: cargo check --locked --target ${{ matrix.target }} -p desktop
+      - run: cargo test --locked --target ${{ matrix.target }} -p desktop embedded_cli --lib
+      - run: cargo test --locked --target ${{ matrix.target }} -p cloudsync loads_bundled_cloudsync
       - if: github.event_name == 'workflow_dispatch'
         uses: ./.github/actions/pnpm_install
       - if: github.event_name == 'workflow_dispatch'
         run: |
-          TAURI_ENV_TARGET_TRIPLE=x86_64-unknown-linux-gnu cargo xtask prepare-binaries
+          TAURI_ENV_TARGET_TRIPLE=${{ matrix.target }} cargo xtask prepare-binaries
           ./scripts/sidecar.sh \
             ./apps/desktop/src-tauri/tauri.conf.staging.json \
             resources/cli/anarlog-cli
       - if: github.event_name == 'workflow_dispatch'
         run: pnpm -F ui build
       - if: github.event_name == 'workflow_dispatch'
-        run: pnpm -F desktop tauri build --ci --bundles appimage,deb --no-sign --target x86_64-unknown-linux-gnu --config ./src-tauri/tauri.conf.staging.json --features devtools --verbose
+        run: pnpm -F desktop tauri build --ci --bundles appimage,deb --target ${{ matrix.target }} --config ./src-tauri/tauri.conf.staging.json --features devtools --verbose
         env:
           POSTHOG_API_KEY: phc_linux_ci
           VITE_POSTHOG_API_KEY: phc_linux_ci
@@ -250,18 +268,41 @@ jobs:
           VITE_APP_URL: https://anarlog.so
           VITE_API_URL: https://api.anarlog.so
           VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       - if: github.event_name == 'workflow_dispatch'
         run: |
           shopt -s nullglob
-          bundles=(
-            apps/desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
-            apps/desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
-          )
-          if [[ ${#bundles[@]} -eq 0 ]]; then
-            echo "No Linux bundles found"
+          appimage_dir="apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/appimage"
+          deb_dir="apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/deb"
+          appimages=("$appimage_dir"/*.AppImage)
+          debs=("$deb_dir"/*.deb)
+          appimage_signatures=("$appimage_dir"/*.AppImage.sig)
+          deb_signatures=("$deb_dir"/*.deb.sig)
+
+          if [[ ${#appimages[@]} -ne 1 || ${#debs[@]} -ne 1 ]]; then
+            echo "Expected one AppImage and one .deb for ${{ matrix.target }}"
             exit 1
           fi
+          if [[ ${#appimage_signatures[@]} -ne 1 || ${#deb_signatures[@]} -ne 1 ]]; then
+            echo "Expected AppImage and .deb updater signatures for ${{ matrix.target }}"
+            exit 1
+          fi
+
+          package_arch=$(dpkg-deb --field "${debs[0]}" Architecture)
+          if [[ "$package_arch" != "${{ matrix.debian_arch }}" ]]; then
+            echo "Expected Debian architecture ${{ matrix.debian_arch }}, got $package_arch"
+            exit 1
+          fi
+          if ! file "${appimages[0]}" | grep -Fq "${{ matrix.file_arch }}"; then
+            file "${appimages[0]}"
+            echo "AppImage architecture does not match ${{ matrix.target }}"
+            exit 1
+          fi
+
+          bundles=("$appimage_dir"/* "$deb_dir"/*)
           for bundle in "${bundles[@]}"; do
+            [[ -f "$bundle" && "$bundle" != *.sha256 ]] || continue
             # Record the basename, like the Windows job does, so `sha256sum -c`
             # works next to the downloaded artifact rather than only inside the
             # CI directory layout.
@@ -269,14 +310,36 @@ jobs:
             (cd "$(dirname "$bundle")" && sha256sum "$name" > "$name.sha256")
           done
       - if: github.event_name == 'workflow_dispatch'
+        run: |
+          deb=$(find "apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/deb" -maxdepth 1 -name '*.deb' -type f -print -quit)
+          docker run --rm \
+            --platform linux/${{ matrix.docker_arch }} \
+            --volume "$PWD:/workspace:ro" \
+            --env DEB_PATH="/workspace/$deb" \
+            --env BINARY_PATH=/usr/bin/anarlog-staging \
+            ubuntu:22.04 \
+            bash -euxo pipefail -c '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y "$DEB_PATH"
+              apt-get install -y dbus-x11 xvfb
+              set +e
+              timeout --signal=TERM 20s xvfb-run -a dbus-run-session -- "$BINARY_PATH" >/tmp/anarlog.log 2>&1
+              status=$?
+              set -e
+              cat /tmp/anarlog.log
+              if [[ $status -ne 124 ]]; then
+                echo "Anarlog exited before the smoke timeout with status $status"
+                exit 1
+              fi
+            '
+      - if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
-          name: anarlog-linux-x64-${{ github.sha }}
+          name: anarlog-linux-${{ matrix.artifact_name }}-${{ github.sha }}
           path: |
-            apps/desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
-            apps/desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.sha256
-            apps/desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
-            apps/desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb/*.sha256
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/deb/*
           if-no-files-found: error
           retention-days: 7
 

@@ -48,6 +48,10 @@ jobs:
           EXPECTED_PLATFORMS=(
             "dmg-aarch64"
             "dmg-x86_64"
+            "appimage-x86_64"
+            "debian-x86_64"
+            "appimage-aarch64"
+            "debian-aarch64"
           )
 
           MISSING_PLATFORMS=()
@@ -103,12 +107,52 @@ jobs:
           platform: dmg-x86_64
           output: char-macos-x86_64.dmg
           key: ${{ secrets.CN_API_KEY }}
+      - id: download-linux-x86_64-appimage
+        uses: ./.github/actions/cn_download
+        with:
+          app: ${{ env.CN_APPLICATION }}
+          version: ${{ needs.parse.outputs.version }}
+          channel: ${{ needs.parse.outputs.channel }}
+          platform: appimage-x86_64
+          output: anarlog-linux-x86_64.AppImage
+          key: ${{ secrets.CN_API_KEY }}
+      - id: download-linux-x86_64-deb
+        uses: ./.github/actions/cn_download
+        with:
+          app: ${{ env.CN_APPLICATION }}
+          version: ${{ needs.parse.outputs.version }}
+          channel: ${{ needs.parse.outputs.channel }}
+          platform: debian-x86_64
+          output: anarlog-linux-x86_64.deb
+          key: ${{ secrets.CN_API_KEY }}
+      - id: download-linux-aarch64-appimage
+        uses: ./.github/actions/cn_download
+        with:
+          app: ${{ env.CN_APPLICATION }}
+          version: ${{ needs.parse.outputs.version }}
+          channel: ${{ needs.parse.outputs.channel }}
+          platform: appimage-aarch64
+          output: anarlog-linux-aarch64.AppImage
+          key: ${{ secrets.CN_API_KEY }}
+      - id: download-linux-aarch64-deb
+        uses: ./.github/actions/cn_download
+        with:
+          app: ${{ env.CN_APPLICATION }}
+          version: ${{ needs.parse.outputs.version }}
+          channel: ${{ needs.parse.outputs.channel }}
+          platform: debian-aarch64
+          output: anarlog-linux-aarch64.deb
+          key: ${{ secrets.CN_API_KEY }}
       - id: checksums
         uses: ./.github/actions/generate_checksums
         with:
           files: |
             char-macos-aarch64.dmg
             char-macos-x86_64.dmg
+            anarlog-linux-x86_64.AppImage
+            anarlog-linux-x86_64.deb
+            anarlog-linux-aarch64.AppImage
+            anarlog-linux-aarch64.deb
       - id: release-body
         run: |
           echo "value=https://anarlog.so/changelog/${{ needs.parse.outputs.version }}" >> "$GITHUB_OUTPUT"
@@ -118,7 +162,7 @@ jobs:
           name: desktop_v${{ needs.parse.outputs.version }}
           body: ${{ steps.release-body.outputs.value }}
           prerelease: false
-          artifacts: char-macos-aarch64.dmg,char-macos-x86_64.dmg,${{ steps.checksums.outputs.checksum_files }}
+          artifacts: char-macos-aarch64.dmg,char-macos-x86_64.dmg,anarlog-linux-x86_64.AppImage,anarlog-linux-x86_64.deb,anarlog-linux-aarch64.AppImage,anarlog-linux-aarch64.deb,${{ steps.checksums.outputs.checksum_files }}
           allowUpdates: true
           makeLatest: true
           replacesArtifacts: true

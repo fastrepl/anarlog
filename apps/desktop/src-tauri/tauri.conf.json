@@ -28,6 +28,21 @@
     "active": true,
     "createUpdaterArtifacts": true,
     "targets": "all",
+    "linux": {
+      "deb": {
+        "depends": [
+          "libpipewire-0.3-0",
+          "libpulse0",
+          "libasound2",
+          "libssl3",
+          "libstdc++6",
+          "ca-certificates",
+          "desktop-file-utils",
+          "xdg-utils",
+          "libayatana-appindicator3-1"
+        ]
+      }
+    },
     "externalBin": [],
     "icon": [
       "icons/stable/32x32.png",

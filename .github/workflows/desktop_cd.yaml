@@ -203,9 +203,179 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
 
+  build-linux:
+    needs: [compute-version, cn-draft]
+    if: ${{ !cancelled() && (needs.cn-draft.result == 'success' || needs.cn-draft.result == 'skipped') }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - runner: depot-ubuntu-22.04-8
+            target: x86_64-unknown-linux-gnu
+            rust_platform: linux-x86_64
+            artifact_name: x64
+            debian_arch: amd64
+            file_arch: x86-64
+            docker_arch: amd64
+          - runner: depot-ubuntu-22.04-arm-8
+            target: aarch64-unknown-linux-gnu
+            rust_platform: linux-aarch64
+            artifact_name: arm64
+            debian_arch: arm64
+            file_arch: ARM aarch64
+            docker_arch: arm64
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+          fetch-tags: true
+          submodules: recursive
+      - run: ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "${{ needs.compute-version.outputs.version }}"
+      - uses: ./.github/actions/install_desktop_deps
+        with:
+          target: linux
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: ${{ matrix.rust_platform }}
+      - uses: ./.github/actions/pnpm_install
+      - run: pnpm -F ui build
+      - run: |
+          TAURI_ENV_TARGET_TRIPLE=${{ matrix.target }} cargo xtask prepare-binaries
+          ./scripts/sidecar.sh "./apps/desktop/${{ env.TAURI_CONF_PATH }}" "binaries/char-chrome-native-host"
+          ./scripts/sidecar.sh "./apps/desktop/${{ env.TAURI_CONF_PATH }}" "resources/cli/anarlog-cli"
+      - run: |
+          BUILD_ARGS=(
+            --ci
+            --bundles appimage,deb
+            --target "${{ matrix.target }}"
+            --config "${{ env.TAURI_CONF_PATH }}"
+            --verbose
+          )
+          if [[ "${{ inputs.channel }}" == "staging" ]]; then
+            BUILD_ARGS+=(--features devtools)
+          fi
+          pnpm -F desktop tauri build "${BUILD_ARGS[@]}"
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          VITE_POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN_HYPRNOTE_2 }}
+          APP_VERSION: ${{ needs.compute-version.outputs.version }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_APP_URL: https://anarlog.so
+          VITE_API_URL: https://api.anarlog.so
+          VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
+          VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
+      - run: |
+          shopt -s nullglob
+          appimage_dir="apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/appimage"
+          deb_dir="apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/deb"
+          appimages=("$appimage_dir"/*.AppImage)
+          debs=("$deb_dir"/*.deb)
+          appimage_signatures=("$appimage_dir"/*.AppImage.sig)
+          deb_signatures=("$deb_dir"/*.deb.sig)
+
+          if [[ ${#appimages[@]} -ne 1 || ${#debs[@]} -ne 1 ]]; then
+            echo "Expected one AppImage and one .deb for ${{ matrix.target }}"
+            exit 1
+          fi
+          if [[ ${#appimage_signatures[@]} -ne 1 || ${#deb_signatures[@]} -ne 1 ]]; then
+            echo "Expected AppImage and .deb updater signatures for ${{ matrix.target }}"
+            exit 1
+          fi
+
+          package_arch=$(dpkg-deb --field "${debs[0]}" Architecture)
+          if [[ "$package_arch" != "${{ matrix.debian_arch }}" ]]; then
+            echo "Expected Debian architecture ${{ matrix.debian_arch }}, got $package_arch"
+            exit 1
+          fi
+          if ! file "${appimages[0]}" | grep -Fq "${{ matrix.file_arch }}"; then
+            file "${appimages[0]}"
+            echo "AppImage architecture does not match ${{ matrix.target }}"
+            exit 1
+          fi
+
+          bundles=("$appimage_dir"/* "$deb_dir"/*)
+          for bundle in "${bundles[@]}"; do
+            [[ -f "$bundle" && "$bundle" != *.sha256 ]] || continue
+            sha256sum "$bundle" > "$bundle.sha256"
+          done
+      - run: |
+          deb=$(find "apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/deb" -maxdepth 1 -name '*.deb' -type f -print -quit)
+          binary_name="${{ inputs.channel == 'staging' && 'anarlog-staging' || 'anarlog' }}"
+          docker run --rm \
+            --platform linux/${{ matrix.docker_arch }} \
+            --volume "$PWD:/workspace:ro" \
+            --env DEB_PATH="/workspace/$deb" \
+            --env BINARY_PATH="/usr/bin/$binary_name" \
+            ubuntu:22.04 \
+            bash -euxo pipefail -c '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y "$DEB_PATH"
+              apt-get install -y dbus-x11 xvfb
+              set +e
+              timeout --signal=TERM 20s xvfb-run -a dbus-run-session -- "$BINARY_PATH" >/tmp/anarlog.log 2>&1
+              status=$?
+              set -e
+              cat /tmp/anarlog.log
+              if [[ $status -ne 124 ]]; then
+                echo "Anarlog exited before the smoke timeout with status $status"
+                exit 1
+              fi
+            '
+      - run: |
+          mkdir -p target/release
+          find target/${{ matrix.target }}/release/bundle/appimage target/${{ matrix.target }}/release/bundle/deb \
+            -maxdepth 1 -type f -exec cp {} target/release/ \;
+        working-directory: ./apps/desktop/src-tauri
+      - uses: actions/upload-artifact@v4
+        with:
+          name: anarlog-${{ inputs.channel }}-linux-${{ matrix.artifact_name }}
+          path: |
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/deb/*
+          if-no-files-found: error
+          retention-days: 7
+      - if: ${{ inputs.channel != 'staging' }}
+        uses: ./.github/actions/cn_release
+        with:
+          cmd: upload
+          app: ${{ env.CN_APPLICATION }}
+          key: ${{ secrets.CN_API_KEY }}
+          channel: ${{ env.RELEASE_CHANNEL }}
+          framework: tauri
+          working-directory: ./apps/desktop
+      - if: ${{ inputs.channel == 'staging' }}
+        run: |
+          timestamp=$(date -u +"%Y%m%d%H%M%S")
+          commit_hash=$(git rev-parse --short HEAD)
+          prefix="anarlog-staging-${timestamp}-${commit_hash}-linux-${{ matrix.artifact_name }}"
+          upload_dir=$(mktemp -d)
+          for bundle_dir in appimage deb; do
+            for file in apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/$bundle_dir/*; do
+              cp "$file" "$upload_dir/${prefix}-$(basename "$file")"
+            done
+          done
+          aws s3 cp "$upload_dir/" \
+            s3://hyprnote-build/desktop/staging/ \
+            --recursive \
+            --endpoint-url ${{ secrets.CLOUDFLARE_R2_ENDPOINT_URL }} \
+            --region auto
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+
   create-tag:
-    if: ${{ inputs.channel != 'staging' && !cancelled() && needs.build-macos.result == 'success' }}
-    needs: [compute-version, build-macos]
+    if: ${{ inputs.channel != 'staging' && !cancelled() && needs.build-macos.result == 'success' && needs.build-linux.result == 'success' }}
+    needs: [compute-version, build-macos, build-linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -231,7 +401,7 @@ jobs:
 
   cn-publish:
     if: ${{ inputs.channel != 'staging' && inputs.publish }}
-    needs: [compute-version, build-macos, create-tag]
+    needs: [compute-version, build-macos, build-linux, create-tag]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -246,8 +416,8 @@ jobs:
           working-directory: ./apps/desktop
 
   release:
-    if: ${{ inputs.channel != 'staging' && inputs.publish && !cancelled() && needs.cn-publish.result == 'success' && needs.build-macos.result == 'success' }}
-    needs: [compute-version, build-macos, cn-publish]
+    if: ${{ inputs.channel != 'staging' && inputs.publish && !cancelled() && needs.cn-publish.result == 'success' && needs.build-macos.result == 'success' && needs.build-linux.result == 'success' }}
+    needs: [compute-version, build-macos, build-linux, cn-publish]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -275,17 +445,65 @@ jobs:
           platform: dmg-x86_64
           output: hyprnote-macos-x86_64.dmg
           key: ${{ secrets.CN_API_KEY }}
+      - if: ${{ needs.build-linux.result == 'success' }}
+        uses: ./.github/actions/cn_download
+        with:
+          app: ${{ env.CN_APPLICATION }}
+          version: ${{ needs.compute-version.outputs.version }}
+          channel: ${{ env.RELEASE_CHANNEL }}
+          platform: appimage-x86_64
+          output: anarlog-linux-x86_64.AppImage
+          key: ${{ secrets.CN_API_KEY }}
+      - if: ${{ needs.build-linux.result == 'success' }}
+        uses: ./.github/actions/cn_download
+        with:
+          app: ${{ env.CN_APPLICATION }}
+          version: ${{ needs.compute-version.outputs.version }}
+          channel: ${{ env.RELEASE_CHANNEL }}
+          platform: debian-x86_64
+          output: anarlog-linux-x86_64.deb
+          key: ${{ secrets.CN_API_KEY }}
+      - if: ${{ needs.build-linux.result == 'success' }}
+        uses: ./.github/actions/cn_download
+        with:
+          app: ${{ env.CN_APPLICATION }}
+          version: ${{ needs.compute-version.outputs.version }}
+          channel: ${{ env.RELEASE_CHANNEL }}
+          platform: appimage-aarch64
+          output: anarlog-linux-aarch64.AppImage
+          key: ${{ secrets.CN_API_KEY }}
+      - if: ${{ needs.build-linux.result == 'success' }}
+        uses: ./.github/actions/cn_download
+        with:
+          app: ${{ env.CN_APPLICATION }}
+          version: ${{ needs.compute-version.outputs.version }}
+          channel: ${{ env.RELEASE_CHANNEL }}
+          platform: debian-aarch64
+          output: anarlog-linux-aarch64.deb
+          key: ${{ secrets.CN_API_KEY }}
       - id: checksums
         uses: ./.github/actions/generate_checksums
         with:
           files: |
             ${{ needs.build-macos.result == 'success' && 'hyprnote-macos-aarch64.dmg' || '' }}
             ${{ needs.build-macos.result == 'success' && 'hyprnote-macos-x86_64.dmg' || '' }}
+            ${{ needs.build-linux.result == 'success' && 'anarlog-linux-x86_64.AppImage' || '' }}
+            ${{ needs.build-linux.result == 'success' && 'anarlog-linux-x86_64.deb' || '' }}
+            ${{ needs.build-linux.result == 'success' && 'anarlog-linux-aarch64.AppImage' || '' }}
+            ${{ needs.build-linux.result == 'success' && 'anarlog-linux-aarch64.deb' || '' }}
       - id: artifacts
         run: |
           ARTIFACTS=""
           if [[ "${{ needs.build-macos.result }}" == "success" ]]; then
             ARTIFACTS="hyprnote-macos-aarch64.dmg,hyprnote-macos-x86_64.dmg"
+          fi
+          if [[ "${{ needs.build-linux.result }}" == "success" ]]; then
+            LINUX_ARTIFACTS="anarlog-linux-x86_64.AppImage,anarlog-linux-x86_64.deb,anarlog-linux-aarch64.AppImage,anarlog-linux-aarch64.deb"
+            if [[ -n "$ARTIFACTS" ]]; then
+              ARTIFACTS="$ARTIFACTS,$LINUX_ARTIFACTS"
+            else
+              ARTIFACTS="$LINUX_ARTIFACTS"
+            fi
           fi
           if [[ -z "$ARTIFACTS" ]]; then
             echo "No artifacts to release" >&2
