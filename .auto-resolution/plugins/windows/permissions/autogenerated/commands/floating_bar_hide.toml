@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-floating-bar-hide"
+description = "Enables the floating_bar_hide command without any pre-configured scope."
+commands.allow = ["floating_bar_hide"]
+
+[[permission]]
+identifier = "deny-floating-bar-hide"
+description = "Denies the floating_bar_hide command without any pre-configured scope."
+commands.deny = ["floating_bar_hide"]

@@ -1,0 +1,92 @@
+[
+  {
+    "event_identifier": "fixture-event-1",
+    "calendar_item_identifier": "fixture-item-1",
+    "external_identifier": "ext-fixture-1",
+    "calendar": {
+      "id": "fixture-calendar-1",
+      "title": "Work Calendar"
+    },
+    "title": "Team Standup",
+    "location": "Conference Room A",
+    "url": null,
+    "notes": "Daily standup meeting with the team",
+    "creation_date": "2025-01-01T08:00:00Z",
+    "last_modified_date": "2025-01-01T08:00:00Z",
+    "time_zone": "America/Los_Angeles",
+    "start_date": "2025-01-02T09:00:00Z",
+    "end_date": "2025-01-02T09:30:00Z",
+    "is_all_day": false,
+    "availability": "Busy",
+    "status": "Confirmed",
+    "has_alarms": true,
+    "has_attendees": true,
+    "has_notes": true,
+    "has_recurrence_rules": false,
+    "organizer": {
+      "name": "John Doe",
+      "email": "john@example.com",
+      "is_current_user": false,
+      "role": "Chair",
+      "status": "Accepted",
+      "participant_type": "Person",
+
+      "url": null,
+      "contact": null
+    },
+    "attendees": [
+      {
+        "name": "Jane Smith",
+        "email": "jane@example.com",
+        "is_current_user": true,
+        "role": "Required",
+        "status": "Accepted",
+        "participant_type": "Person",
+
+        "url": null,
+        "contact": null
+      }
+    ],
+    "structured_location": null,
+    "recurrence": null,
+    "occurrence_date": null,
+    "is_detached": false,
+    "alarms": [],
+    "birthday_contact_identifier": null,
+    "is_birthday": false
+  },
+  {
+    "event_identifier": "fixture-event-2",
+    "calendar_item_identifier": "fixture-item-2",
+    "external_identifier": "ext-fixture-2",
+    "calendar": {
+      "id": "fixture-calendar-1",
+      "title": "Work Calendar"
+    },
+    "title": "Project Review",
+    "location": null,
+    "url": "https://meet.example.com/review",
+    "notes": null,
+    "creation_date": "2025-01-01T10:00:00Z",
+    "last_modified_date": "2025-01-01T10:00:00Z",
+    "time_zone": "America/Los_Angeles",
+    "start_date": "2025-01-02T14:00:00Z",
+    "end_date": "2025-01-02T15:00:00Z",
+    "is_all_day": false,
+    "availability": "Busy",
+    "status": "Confirmed",
+    "has_alarms": false,
+    "has_attendees": false,
+    "has_notes": false,
+    "has_recurrence_rules": false,
+    "organizer": null,
+    "attendees": [],
+    "structured_location": null,
+    "recurrence": null,
+    "occurrence_date": null,
+    "is_detached": false,
+    "alarms": [],
+    "birthday_contact_identifier": null,
+    "is_birthday": false
+  }
+]

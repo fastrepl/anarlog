@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-audio-open"
+description = "Enables the audio_open command without any pre-configured scope."
+commands.allow = ["audio_open"]
+
+[[permission]]
+identifier = "deny-audio-open"
+description = "Denies the audio_open command without any pre-configured scope."
+commands.deny = ["audio_open"]

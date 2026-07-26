@@ -1,0 +1,2 @@
+* text=auto eol=lf
+apps/desktop/src-tauri/resources/llm.gguf filter=lfs diff=lfs merge=lfs -text

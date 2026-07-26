@@ -1,0 +1,286 @@
+import {
+  type ChatTransport,
+  convertToModelMessages,
+  type LanguageModel,
+  smoothStream,
+  stepCountIs,
+  ToolLoopAgent,
+  type ToolSet,
+} from "ai";
+
+import {
+  type SessionContext,
+  commands as templateCommands,
+} from "@hypr/plugin-template";
+
+import type { ContextRef } from "../context/entities";
+import { extractContextRefsFromMessages } from "../context/refs";
+import { CONTEXT_TEXT_FIELD } from "../tools/context-text";
+import type { HyprUIMessage } from "../types";
+import {
+  getMeetingIdsFromSearchOutput,
+  hasContextText,
+  isRecord,
+  isToolOutputPart,
+  MAX_TOOL_STEPS,
+  MESSAGE_WINDOW_SIZE,
+  MESSAGE_WINDOW_THRESHOLD,
+  type ToolOutputPart,
+} from "./helpers";
+
+export type ResolvedChatContext =
+  | { kind: "session"; context: SessionContext }
+  | { kind: "text"; text: string };
+
+export class CustomChatTransport implements ChatTransport<HyprUIMessage> {
+  constructor(
+    private model: LanguageModel,
+    private tools: ToolSet,
+    private systemPrompt?: string,
+    private resolveContextRef?: (
+      ref: ContextRef,
+    ) => Promise<ResolvedChatContext | null>,
+  ) {}
+
+  private async renderContextBlock(
+    contextRefs: ContextRef[],
+    cache: Map<string, string | null>,
+  ): Promise<string | null> {
+    if (!this.resolveContextRef || contextRefs.length === 0) {
+      return null;
+    }
+
+    const cacheKey = JSON.stringify(contextRefs);
+    if (cache.has(cacheKey)) {
+      return cache.get(cacheKey) ?? null;
+    }
+
+    const seen = new Set<string>();
+    const sessionContexts: SessionContext[] = [];
+    const textContexts: string[] = [];
+    for (const ref of contextRefs) {
+      if (seen.has(ref.key)) continue;
+      seen.add(ref.key);
+      const context = await this.resolveContextRef(ref);
+      if (!context) {
+        continue;
+      }
+
+      if (context.kind === "session") {
+        sessionContexts.push(context.context);
+      } else if (context.text.trim()) {
+        textContexts.push(context.text.trim());
+      }
+    }
+
+    if (sessionContexts.length === 0 && textContexts.length === 0) {
+      cache.set(cacheKey, null);
+      return null;
+    }
+
+    const blocks: string[] = [];
+
+    if (sessionContexts.length > 0) {
+      // Rendered by Rust-side template engine via Tauri plugin
+      const rendered = await templateCommands.render({
+        contextBlock: { contexts: sessionContexts },
+      });
+      if (rendered.status === "ok" && rendered.data.trim()) {
+        blocks.push(rendered.data.trim());
+      }
+    }
+
+    if (textContexts.length > 0) {
+      blocks.push(textContexts.join("\n\n"));
+    }
+
+    const result = blocks.length > 0 ? blocks.join("\n\n") : null;
+    cache.set(cacheKey, result);
+    return result;
+  }
+
+  private async hydrateMeetingSearchOutput(
+    output: unknown,
+    cache: Map<string, string | null>,
+  ): Promise<unknown> {
+    const sessionIds = getMeetingIdsFromSearchOutput(output);
+    if (sessionIds.length === 0) return output;
+
+    const refs: ContextRef[] = sessionIds.map((sessionId) => ({
+      kind: "session" as const,
+      key: `session:search:${sessionId}`,
+      source: "tool" as const,
+      sessionId,
+    }));
+
+    const contextText = await this.renderContextBlock(refs, cache);
+    if (!contextText) return output;
+
+    return {
+      ...(isRecord(output) ? output : {}),
+      [CONTEXT_TEXT_FIELD]: contextText,
+    };
+  }
+
+  private async expandSearchMeetingsOutput(
+    part: ToolOutputPart,
+    cache: Map<string, string | null>,
+  ): Promise<ToolOutputPart> {
+    if (hasContextText(part.output)) {
+      return part;
+    }
+
+    const output = await this.hydrateMeetingSearchOutput(part.output, cache);
+    if (output === part.output) return part;
+
+    return {
+      ...part,
+      output,
+    };
+  }
+
+  private buildHydratingToolSet(cache: Map<string, string | null>): ToolSet {
+    const meetingSearchTool = this.tools.search_meetings;
+    if (!meetingSearchTool || typeof meetingSearchTool !== "object") {
+      return this.tools;
+    }
+
+    const execute = (
+      meetingSearchTool as {
+        execute?: (...args: unknown[]) => Promise<unknown>;
+      }
+    ).execute;
+    if (typeof execute !== "function") {
+      return this.tools;
+    }
+
+    return {
+      ...this.tools,
+      search_meetings: {
+        ...meetingSearchTool,
+        execute: async (...args: unknown[]) => {
+          const output = await execute(...args);
+          if (hasContextText(output)) {
+            return output;
+          }
+          return this.hydrateMeetingSearchOutput(output, cache);
+        },
+      },
+    };
+  }
+
+  sendMessages: ChatTransport<HyprUIMessage>["sendMessages"] = async (
+    options,
+  ) => {
+    const cache = new Map<string, string | null>();
+    const tools = this.buildHydratingToolSet(cache);
+
+    const effectiveContextRefs = extractContextRefsFromMessages(
+      options.messages,
+    );
+    const effectiveContextBlock = await this.renderContextBlock(
+      effectiveContextRefs,
+      cache,
+    );
+
+    let lastUserMessageIndex = -1;
+    for (let i = options.messages.length - 1; i >= 0; i -= 1) {
+      if (options.messages[i]?.role === "user") {
+        lastUserMessageIndex = i;
+        break;
+      }
+    }
+
+    const agent = new ToolLoopAgent({
+      model: this.model,
+      instructions: this.systemPrompt,
+      tools,
+      stopWhen: stepCountIs(MAX_TOOL_STEPS),
+      prepareStep: async ({ messages }) => {
+        if (messages.length > MESSAGE_WINDOW_THRESHOLD) {
+          return { messages: messages.slice(-MESSAGE_WINDOW_SIZE) };
+        }
+        return {};
+      },
+    });
+
+    const messagesWithContext: HyprUIMessage[] = [];
+
+    for (const [index, msg] of options.messages.entries()) {
+      if (msg.role === "user") {
+        if (
+          !effectiveContextBlock ||
+          lastUserMessageIndex === -1 ||
+          index !== lastUserMessageIndex
+        ) {
+          messagesWithContext.push(msg);
+          continue;
+        }
+
+        messagesWithContext.push({
+          ...msg,
+          parts: [
+            { type: "text" as const, text: `${effectiveContextBlock}\n\n` },
+            ...msg.parts,
+          ],
+        });
+      } else if (msg.role === "assistant") {
+        const expandedParts = await Promise.all(
+          msg.parts.map((part) => {
+            if (
+              isToolOutputPart(part) &&
+              (part.type === "tool-search_meetings" ||
+                part.type === "tool-search_sessions")
+            ) {
+              return this.expandSearchMeetingsOutput(part, cache);
+            }
+            return part;
+          }),
+        );
+        messagesWithContext.push({
+          ...msg,
+          parts: expandedParts as HyprUIMessage["parts"],
+        });
+      } else {
+        messagesWithContext.push(msg);
+      }
+    }
+
+    const result = await agent.stream({
+      messages: await convertToModelMessages(messagesWithContext),
+      abortSignal: options.abortSignal,
+      experimental_transform: smoothStream({
+        chunking: "line",
+        delayInMs: null,
+      }),
+    });
+
+    return result.toUIMessageStream({
+      originalMessages: options.messages,
+      messageMetadata: ({ part }: { part: { type: string } }) => {
+        if (part.type === "start") {
+          return { createdAt: Date.now() };
+        }
+      },
+      onError: (error: unknown) => {
+        console.error(error);
+        if (error instanceof Error) {
+          return `${error.name}: ${error.message}`;
+        }
+        if (isRecord(error) && typeof error.message === "string") {
+          return error.message;
+        }
+        try {
+          return JSON.stringify(error);
+        } catch {
+          return String(error);
+        }
+      },
+    });
+  };
+
+  reconnectToStream: ChatTransport<HyprUIMessage>["reconnectToStream"] =
+    async () => {
+      return null;
+    };
+}

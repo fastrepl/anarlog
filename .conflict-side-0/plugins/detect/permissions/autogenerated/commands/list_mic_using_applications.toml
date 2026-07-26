@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-list-mic-using-applications"
+description = "Enables the list_mic_using_applications command without any pre-configured scope."
+commands.allow = ["list_mic_using_applications"]
+
+[[permission]]
+identifier = "deny-list-mic-using-applications"
+description = "Denies the list_mic_using_applications command without any pre-configured scope."
+commands.deny = ["list_mic_using_applications"]

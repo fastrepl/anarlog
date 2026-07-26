@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-git-hash"
+description = "Enables the get_git_hash command without any pre-configured scope."
+commands.allow = ["get_git_hash"]
+
+[[permission]]
+identifier = "deny-get-git-hash"
+description = "Denies the get_git_hash command without any pre-configured scope."
+commands.deny = ["get_git_hash"]

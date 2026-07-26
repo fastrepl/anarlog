@@ -1,0 +1,288 @@
+---
+source: apps/cli/src/cli.rs
+expression: contract
+---
+{
+  "about": "Query local Anarlog meeting data",
+  "global_options": [
+    {
+      "flags": "--base",
+      "is_flag": false,
+      "required": false,
+      "value_name": "DIR"
+    },
+    {
+      "flags": "--db-path",
+      "is_flag": false,
+      "required": false,
+      "value_name": "FILE"
+    },
+    {
+      "flags": "--json",
+      "is_flag": true,
+      "required": false
+    }
+  ],
+  "name": "anarlog",
+  "options": [
+    {
+      "flags": "-h, --help",
+      "help": "Print help",
+      "is_flag": false,
+      "required": false
+    },
+    {
+      "flags": "-V, --version",
+      "help": "Print version",
+      "is_flag": false,
+      "required": false
+    }
+  ],
+  "subcommands": [
+    {
+      "about": "Check the local CLI and database connection without changing data",
+      "name": "anarlog doctor",
+      "options": [
+        {
+          "flags": "-h, --help",
+          "help": "Print help",
+          "is_flag": false,
+          "required": false
+        }
+      ],
+      "synopsis": "anarlog doctor [-h]"
+    },
+    {
+      "about": "Browse and export meetings",
+      "name": "anarlog meetings",
+      "options": [
+        {
+          "flags": "-h, --help",
+          "help": "Print help",
+          "is_flag": false,
+          "required": false
+        }
+      ],
+      "subcommands": [
+        {
+          "about": "List meetings, optionally filtered by text or recurring series",
+          "name": "anarlog meetings list",
+          "options": [
+            {
+              "flags": "-q, --query",
+              "is_flag": false,
+              "required": false,
+              "value_name": "QUERY"
+            },
+            {
+              "flags": "--series-id",
+              "is_flag": false,
+              "required": false,
+              "value_name": "SERIES_ID"
+            },
+            {
+              "default": "20",
+              "flags": "--limit",
+              "help": "Maximum results (1-200)",
+              "is_flag": false,
+              "required": false,
+              "value_name": "LIMIT"
+            },
+            {
+              "default": "0",
+              "flags": "--offset",
+              "help": "Number of results to skip",
+              "is_flag": false,
+              "required": false,
+              "value_name": "OFFSET"
+            },
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog meetings list [-q] [--series-id] [--limit] [--offset] [-h]"
+        },
+        {
+          "about": "Show meeting metadata, notes, summaries, people, and action items",
+          "arguments": [
+            {
+              "name": "ID",
+              "required": true
+            }
+          ],
+          "name": "anarlog meetings get",
+          "options": [
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog meetings get [-h] <id>"
+        },
+        {
+          "about": "Show the note or generated summaries for a meeting",
+          "arguments": [
+            {
+              "name": "ID",
+              "required": true
+            }
+          ],
+          "name": "anarlog meetings note",
+          "options": [
+            {
+              "default": "note",
+              "flags": "--kind",
+              "is_flag": false,
+              "possible_values": [
+                "note",
+                "summary",
+                "all"
+              ],
+              "required": false,
+              "value_name": "KIND"
+            },
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog meetings note [--kind] [-h] <id>"
+        },
+        {
+          "about": "Show a bounded page of a meeting transcript",
+          "arguments": [
+            {
+              "name": "ID",
+              "required": true
+            }
+          ],
+          "name": "anarlog meetings transcript",
+          "options": [
+            {
+              "default": "200",
+              "flags": "--limit",
+              "help": "Maximum transcript words (1-500)",
+              "is_flag": false,
+              "required": false,
+              "value_name": "LIMIT"
+            },
+            {
+              "default": "0",
+              "flags": "--offset",
+              "help": "Word offset",
+              "is_flag": false,
+              "required": false,
+              "value_name": "OFFSET"
+            },
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog meetings transcript [--limit] [--offset] [-h] <id>"
+        },
+        {
+          "about": "List meetings from the same recurring series",
+          "arguments": [
+            {
+              "name": "ID",
+              "required": true
+            }
+          ],
+          "name": "anarlog meetings history",
+          "options": [
+            {
+              "default": "20",
+              "flags": "--limit",
+              "help": "Maximum meetings (1-200)",
+              "is_flag": false,
+              "required": false,
+              "value_name": "LIMIT"
+            },
+            {
+              "default": "0",
+              "flags": "--offset",
+              "help": "Number of meetings to skip",
+              "is_flag": false,
+              "required": false,
+              "value_name": "OFFSET"
+            },
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog meetings history [--limit] [--offset] [-h] <id>"
+        },
+        {
+          "about": "Export a meeting to Markdown or JSON",
+          "arguments": [
+            {
+              "name": "ID",
+              "required": true
+            }
+          ],
+          "name": "anarlog meetings export",
+          "options": [
+            {
+              "default": "markdown",
+              "flags": "--format",
+              "is_flag": false,
+              "possible_values": [
+                "markdown",
+                "json"
+              ],
+              "required": false,
+              "value_name": "FORMAT"
+            },
+            {
+              "flags": "-o, --output",
+              "is_flag": false,
+              "required": false,
+              "value_name": "FILE"
+            },
+            {
+              "flags": "--force",
+              "help": "Replace an existing output file",
+              "is_flag": true,
+              "required": false
+            },
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog meetings export [--format] [-o] [--force] [-h] <id>"
+        }
+      ],
+      "synopsis": "anarlog meetings [-h] <command>"
+    },
+    {
+      "about": "Run the read-only Anarlog MCP server over stdio",
+      "name": "anarlog mcp",
+      "options": [
+        {
+          "flags": "-h, --help",
+          "help": "Print help",
+          "is_flag": false,
+          "required": false
+        }
+      ],
+      "synopsis": "anarlog mcp [-h]"
+    }
+  ],
+  "synopsis": "anarlog [--base] [--db-path] [--json] [-h] [-V] <command>"
+}

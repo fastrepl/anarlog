@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-attachment-list"
+description = "Enables the attachment_list command without any pre-configured scope."
+commands.allow = ["attachment_list"]
+
+[[permission]]
+identifier = "deny-attachment-list"
+description = "Denies the attachment_list command without any pre-configured scope."
+commands.deny = ["attachment_list"]

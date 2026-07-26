@@ -1,0 +1,21 @@
+:root {
+  --cm-placeholder: #999999;
+  --cm-syntax-brace: #d97706;
+  --cm-syntax-variable: #0369a1;
+  --cm-syntax-keyword: #7c3aed;
+  --cm-syntax-string: #059669;
+  --cm-syntax-operator: #64748b;
+  --cm-syntax-property: #0891b2;
+  --cm-syntax-comment: #9ca3af;
+}
+
+.dark {
+  --cm-placeholder: #78716c;
+  --cm-syntax-brace: #fbbf24;
+  --cm-syntax-variable: #38bdf8;
+  --cm-syntax-keyword: #c4b5fd;
+  --cm-syntax-string: #34d399;
+  --cm-syntax-operator: #a8a29e;
+  --cm-syntax-property: #67e8f9;
+  --cm-syntax-comment: #78716c;
+}

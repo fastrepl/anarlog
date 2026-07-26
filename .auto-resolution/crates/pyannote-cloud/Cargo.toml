@@ -1,0 +1,21 @@
+[package]
+name = "pyannote-cloud"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = { workspace = true, features = ["serde"] }
+progenitor-client = { workspace = true }
+regress = "0.10"
+reqwest = { workspace = true, features = ["json", "stream"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+utoipa = { workspace = true }
+
+[build-dependencies]
+progenitor-utils = { path = "../progenitor-utils" }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+wiremock = { workspace = true }

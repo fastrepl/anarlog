@@ -1,0 +1,38 @@
+name: fmt
+
+on:
+  push:
+    branches:
+      - main
+      - .github/workflows/fmt.yaml
+  pull_request:
+jobs:
+  fmt:
+    runs-on: depot-ubuntu-24.04-4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - uses: ./.github/actions/rust_install
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/dprint/cache/plugins
+          key: dprint-${{ hashFiles('dprint.json') }}
+      - name: Check formatting
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ -n "$BASE_SHA" ] && git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            git diff --name-only --diff-filter=ACMR -z "$BASE_SHA" "$HEAD_SHA" | xargs -0 --no-run-if-empty pnpm exec dprint check --allow-no-files
+          else
+            pnpm fmt:check
+          fi

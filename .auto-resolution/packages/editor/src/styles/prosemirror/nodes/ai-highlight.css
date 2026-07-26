@@ -1,0 +1,22 @@
+/* AI highlight - DEAD SIMPLE APPROACH */
+.prosemirror-editor mark[data-ai-highlight="true"] {
+  color: inherit !important;
+  background: rgba(59, 130, 246, 0.08) !important;
+  border-bottom: 2px dotted rgba(59, 130, 246, 0.6) !important;
+  padding: 0.1rem 0.2rem !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  animation: ai-highlight-pulse 2s ease-in-out !important;
+}
+
+@keyframes ai-highlight-pulse {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-item"
+description = "Enables the set_item command without any pre-configured scope."
+commands.allow = ["set_item"]
+
+[[permission]]
+identifier = "deny-set-item"
+description = "Denies the set_item command without any pre-configured scope."
+commands.deny = ["set_item"]

@@ -1,0 +1,131 @@
+import { create } from "zustand";
+
+import { type BasicActions, type BasicState, createBasicSlice } from "./basic";
+import {
+  type ChatModeActions,
+  type ChatModeState,
+  createChatModeSlice,
+} from "./chat-mode";
+import {
+  createLifecycleSlice,
+  type LifecycleActions,
+  lifecycleMiddleware,
+  type LifecycleState,
+} from "./lifecycle";
+import {
+  createNavigationSlice,
+  type NavigationActions,
+  navigationMiddleware,
+  type NavigationState,
+} from "./navigation";
+import {
+  pinnedPersistenceMiddleware,
+  restorePinnedTabsToStore,
+} from "./pinned-persistence";
+import {
+  createRecentlyOpenedSlice,
+  type RecentlyOpenedActions,
+  recentlyOpenedMiddleware,
+  type RecentlyOpenedState,
+  restoreRecentlyOpenedToStore,
+} from "./recently-opened";
+import {
+  createRestoreSlice,
+  type RestoreActions,
+  restoreMiddleware,
+  type RestoreState,
+} from "./restore";
+import { createStateUpdaterSlice, type StateBasicActions } from "./state";
+
+import { wrapSliceWithLogging } from "~/store/zustand/shared";
+
+export type { ChatEvent, ChatMode } from "./chat-mode";
+export type {
+  DailySummaryState,
+  SettingsState,
+  SettingsTab,
+  Tab,
+  TabInput,
+  TaskResource,
+} from "./schema";
+export type { StateBasicActions } from "./state";
+export {
+  isSameTab,
+  isTabInputSupported,
+  normalizeSettingsTab,
+  uniqueIdfromTab,
+} from "./schema";
+export { restorePinnedTabsToStore, restoreRecentlyOpenedToStore };
+
+type State = BasicState &
+  NavigationState &
+  LifecycleState &
+  RestoreState &
+  RecentlyOpenedState &
+  ChatModeState;
+type Actions = BasicActions &
+  StateBasicActions &
+  NavigationActions &
+  LifecycleActions &
+  RestoreActions &
+  RecentlyOpenedActions &
+  ChatModeActions;
+type Store = State & Actions;
+
+type TabsStoreSingleton = ReturnType<typeof createTabsStore>;
+
+const TABS_STORE_KEY = "__hypr_tabs_store__" as const;
+
+const createTabsStore = () =>
+  create<Store>()(
+    recentlyOpenedMiddleware(
+      pinnedPersistenceMiddleware(
+        restoreMiddleware(
+          lifecycleMiddleware(
+            navigationMiddleware((set, get) => ({
+              ...wrapSliceWithLogging("basic", createBasicSlice(set, get)),
+              ...wrapSliceWithLogging(
+                "state",
+                createStateUpdaterSlice(set, get),
+              ),
+              ...wrapSliceWithLogging(
+                "navigation",
+                createNavigationSlice(set, get),
+              ),
+              ...wrapSliceWithLogging(
+                "lifecycle",
+                createLifecycleSlice(set, get),
+              ),
+              ...wrapSliceWithLogging("restore", createRestoreSlice(set, get)),
+              ...wrapSliceWithLogging(
+                "recentlyOpened",
+                createRecentlyOpenedSlice(set, get),
+              ),
+              ...wrapSliceWithLogging(
+                "chatMode",
+                createChatModeSlice(set, get),
+              ),
+            })),
+          ),
+        ),
+      ),
+    ),
+  );
+
+const getTabsStore = (): TabsStoreSingleton => {
+  if (!import.meta.hot) {
+    return createTabsStore();
+  }
+
+  const hotData = (import.meta.hot.data ?? {}) as {
+    [TABS_STORE_KEY]?: TabsStoreSingleton;
+  };
+
+  if (!hotData[TABS_STORE_KEY]) {
+    hotData[TABS_STORE_KEY] = createTabsStore();
+  }
+
+  return hotData[TABS_STORE_KEY];
+};
+
+export const useTabs = getTabsStore();

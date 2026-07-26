@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=Anarlog
+GenericName=AI Meeting Notes
+Comment=The AI notepad for private meetings
+Exec=hyprnote %U
+Icon=com.hyprnote.Hyprnote
+Terminal=false
+Type=Application
+Categories=Office;AudioVideo;Recorder;
+Keywords=notes;meeting;transcription;ai;audio;recording;
+StartupNotify=true
+StartupWMClass=hyprnote
+MimeType=x-scheme-handler/hypr;

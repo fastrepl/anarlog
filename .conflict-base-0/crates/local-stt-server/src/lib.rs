@@ -1,0 +1,80 @@
+#[cfg(feature = "whisper-cpp")]
+use std::{path::PathBuf, sync::Arc};
+
+#[cfg(feature = "whisper-cpp")]
+use axum::http::StatusCode;
+#[cfg(feature = "whisper-cpp")]
+use tower_http::cors::{self, CorsLayer};
+
+mod axum_server;
+pub mod events;
+pub mod runtime;
+
+pub use axum_server::LocalAxumServer;
+
+#[cfg(feature = "whisper-cpp")]
+use runtime::{LocalServerRuntime, NoopRuntime};
+
+#[cfg(feature = "whisper-cpp")]
+const WHISPER_LISTEN_PATH: &str = "/v1";
+
+pub struct LocalSttServer {
+    inner: LocalAxumServer,
+}
+
+impl LocalSttServer {
+    #[cfg(feature = "whisper-cpp")]
+    pub async fn start_whisper(model_path: PathBuf) -> std::io::Result<Self> {
+        Self::start_whisper_with_runtime(Arc::new(NoopRuntime), model_path).await
+    }
+
+    #[cfg(feature = "whisper-cpp")]
+    pub async fn start_whisper_with_runtime(
+        runtime: Arc<dyn LocalServerRuntime>,
+        model_path: PathBuf,
+    ) -> std::io::Result<Self> {
+        use axum::{Router, error_handling::HandleError};
+
+        tracing::info!(model_path = %model_path.display(), "starting local whisper server");
+
+        let service = HandleError::new(
+            hypr_transcribe_whisper_local::TranscribeService::builder()
+                .model_path(model_path)
+                .build(),
+            move |err: String| async move { (StatusCode::INTERNAL_SERVER_ERROR, err) },
+        );
+
+        let router = Router::new()
+            .route_service("/v1/listen", service)
+            .layer(cors_layer());
+
+        let inner =
+            LocalAxumServer::start_with_runtime(runtime, router, WHISPER_LISTEN_PATH).await?;
+
+        tracing::info!(base_url = %inner.base_url(), "local STT server ready");
+
+        Ok(Self { inner })
+    }
+
+    pub fn base_url(&self) -> &str {
+        self.inner.base_url()
+    }
+
+    pub fn stop(&mut self) {
+        self.inner.stop();
+    }
+}
+
+impl Drop for LocalSttServer {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+
+#[cfg(feature = "whisper-cpp")]
+fn cors_layer() -> CorsLayer {
+    CorsLayer::new()
+        .allow_origin(cors::Any)
+        .allow_methods(cors::Any)
+        .allow_headers(cors::Any)
+}

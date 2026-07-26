@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-start-callback-server"
+description = "Enables the start_callback_server command without any pre-configured scope."
+commands.allow = ["start_callback_server"]
+
+[[permission]]
+identifier = "deny-start-callback-server"
+description = "Denies the start_callback_server command without any pre-configured scope."
+commands.deny = ["start_callback_server"]

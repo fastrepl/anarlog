@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-is-model-downloading"
+description = "Enables the is_model_downloading command without any pre-configured scope."
+commands.allow = ["is_model_downloading"]
+
+[[permission]]
+identifier = "deny-is-model-downloading"
+description = "Denies the is_model_downloading command without any pre-configured scope."
+commands.deny = ["is_model_downloading"]

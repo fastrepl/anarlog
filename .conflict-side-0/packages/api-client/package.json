@@ -1,0 +1,14 @@
+{
+  "name": "@hypr/api-client",
+  "exports": {
+    ".": "./src/generated/index.ts",
+    "./client": "./src/generated/client/index.ts"
+  },
+  "scripts": {
+    "openapi": "openapi-ts -f openapi-ts.config.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "^0.91.1"
+  }
+}

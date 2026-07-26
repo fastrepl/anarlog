@@ -1,0 +1,19 @@
+[package]
+name = "updater-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+base64 = { workspace = true }
+futures-util = { workspace = true }
+reqwest = { workspace = true, features = ["json", "stream"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+url = { workspace = true, features = ["serde"] }
+
+http = "1"
+minisign-verify = "0.2"
+percent-encoding = "2"
+semver = "1"
+time = { version = "0.3", features = ["parsing", "serde"] }

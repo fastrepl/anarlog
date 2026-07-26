@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-end-cloudsync-activity"
+description = "Enables the end_cloudsync_activity command without any pre-configured scope."
+commands.allow = ["end_cloudsync_activity"]
+
+[[permission]]
+identifier = "deny-end-cloudsync-activity"
+description = "Denies the end_cloudsync_activity command without any pre-configured scope."
+commands.deny = ["end_cloudsync_activity"]

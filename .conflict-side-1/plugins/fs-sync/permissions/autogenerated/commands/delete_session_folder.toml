@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-delete-session-folder"
+description = "Enables the delete_session_folder command without any pre-configured scope."
+commands.allow = ["delete_session_folder"]
+
+[[permission]]
+identifier = "deny-delete-session-folder"
+description = "Denies the delete_session_folder command without any pre-configured scope."
+commands.deny = ["delete_session_folder"]

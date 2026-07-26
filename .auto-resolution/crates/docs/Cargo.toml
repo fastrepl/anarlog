@@ -1,0 +1,11 @@
+[package]
+name = "docs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { workspace = true }
+
+swc_common = "16"
+swc_ecma_ast = "17"
+swc_ecma_parser = "26"

@@ -1,0 +1,1 @@
+- Every `path` we expose through `commands` should be relative to `app.path2().base()`.

@@ -1,0 +1,111 @@
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  actions: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  check-permission:
+    runs-on: ubuntu-latest
+    outputs:
+      allowed: ${{ steps.permission.outputs.allowed }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: permission
+        uses: ./.github/actions/check-permission
+        with:
+          user: ${{ github.event.comment.user.login }}
+          allowed-users: yujonglee|ComputelessComputer|goranmoomin|elstua
+
+  parse-stable-options:
+    needs: check-permission
+    if: needs.check-permission.outputs.allowed == 'true' && contains(github.event.comment.body, '/stable')
+    runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.parse.outputs.publish }}
+    steps:
+      - id: parse
+        env:
+          COMMENT: ${{ github.event.comment.body }}
+        run: |
+          PUBLISH="true"
+          if [[ "$COMMENT" =~ --no-publish ]]; then
+            PUBLISH="false"
+          fi
+          echo "publish=$PUBLISH" >> $GITHUB_OUTPUT
+
+  handle-stable:
+    needs: [check-permission, parse-stable-options]
+    if: needs.check-permission.outputs.allowed == 'true' && contains(github.event.comment.body, '/stable')
+    uses: ./.github/workflows/handle_release.yaml
+    with:
+      channel: stable
+      publish: ${{ needs.parse-stable-options.outputs.publish == 'true' }}
+      issue_number: ${{ github.event.issue.number }}
+      comment_id: ${{ github.event.comment.id }}
+    secrets: inherit
+
+  parse-staging-ref:
+    needs: check-permission
+    if: needs.check-permission.outputs.allowed == 'true' && contains(github.event.comment.body, '/staging')
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.parse.outputs.ref }}
+    steps:
+      - id: parse
+        env:
+          COMMENT: ${{ github.event.comment.body }}
+        run: |
+          if [[ "$COMMENT" =~ /staging[[:space:]]+([a-zA-Z0-9_.][a-zA-Z0-9_./-]*)($|[[:space:]]) ]]; then
+            echo "ref=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+          fi
+
+  handle-staging:
+    needs: [check-permission, parse-staging-ref]
+    if: needs.check-permission.outputs.allowed == 'true' && contains(github.event.comment.body, '/staging')
+    uses: ./.github/workflows/handle_staging.yaml
+    with:
+      ref: ${{ needs.parse-staging-ref.outputs.ref }}
+      issue_number: ${{ github.event.issue.number }}
+      comment_id: ${{ github.event.comment.id }}
+    secrets: inherit
+
+  handle-update:
+    needs: check-permission
+    if: needs.check-permission.outputs.allowed == 'true' && contains(github.event.comment.body, '/update')
+    uses: ./.github/workflows/handle_update.yaml
+    with:
+      issue_number: ${{ github.event.issue.number }}
+      comment_id: ${{ github.event.comment.id }}
+    secrets: inherit
+
+  parse-changelog-channel:
+    needs: check-permission
+    if: needs.check-permission.outputs.allowed == 'true' && contains(github.event.comment.body, '/changelog')
+    runs-on: ubuntu-latest
+    outputs:
+      channel: ${{ steps.parse.outputs.channel }}
+    steps:
+      - id: parse
+        env:
+          COMMENT: ${{ github.event.comment.body }}
+        run: |
+          if [[ "$COMMENT" =~ /changelog[[:space:]]+(stable)($|[[:space:]]) ]]; then
+            echo "channel=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+          else
+            echo "channel=stable" >> $GITHUB_OUTPUT
+          fi
+
+  handle-changelog:
+    needs: [check-permission, parse-changelog-channel]
+    if: needs.check-permission.outputs.allowed == 'true' && contains(github.event.comment.body, '/changelog')
+    uses: ./.github/workflows/changelog.yaml
+    with:
+      channel: ${{ needs.parse-changelog-channel.outputs.channel }}
+      issue_number: ${{ github.event.issue.number }}
+      comment_id: ${{ github.event.comment.id }}
+    secrets: inherit

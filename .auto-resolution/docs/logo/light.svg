@@ -1,0 +1,5 @@
+<svg width="144" height="32" viewBox="0 0 144 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="8" fill="#F5EEDC" />
+  <path d="M9 20C9 15.5 12.4 12 16.5 12C20.4 12 23 14.8 23 18.5V22H19.2V20C18.2 21.5 16.6 22.5 14.7 22.5C11.6 22.5 9 21.6 9 20ZM13 19.2C13 19.8 13.8 20.2 14.9 20.2C17.1 20.2 18.5 19 19.1 17.6V17C18.2 16.6 17.2 16.4 16.1 16.4C14.2 16.4 13 17.4 13 19.2Z" fill="#74540F" />
+  <text x="42" y="22" fill="#2A2112" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="20" font-weight="600">anarlog</text>
+</svg>

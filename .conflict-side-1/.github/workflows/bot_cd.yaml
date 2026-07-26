@@ -1,0 +1,19 @@
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "apps/bot/**"
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: depot-ubuntu-24.04-8
+    timeout-minutes: 60
+    concurrency: bot-fly-deploy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: flyctl deploy --config apps/bot/fly.toml --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-devtools-panel-hide"
+description = "Enables the devtools_panel_hide command without any pre-configured scope."
+commands.allow = ["devtools_panel_hide"]
+
+[[permission]]
+identifier = "deny-devtools-panel-hide"
+description = "Denies the devtools_panel_hide command without any pre-configured scope."
+commands.deny = ["devtools_panel_hide"]

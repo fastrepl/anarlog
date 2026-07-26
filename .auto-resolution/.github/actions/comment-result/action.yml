@@ -1,0 +1,39 @@
+name: Comment Result
+description: Post a result comment with markdown table
+
+inputs:
+  token:
+    description: GitHub token
+    required: true
+  repo:
+    description: Repository (owner/repo)
+    required: true
+  issue_number:
+    description: Issue or PR number
+    required: true
+  data:
+    description: JSON array of {header, value} objects for horizontal table
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - id: comment
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        DATA: ${{ inputs.data }}
+      run: |
+        json_to_md_table() {
+          echo "$1" | jq -r '
+            ([.[] | .header] | "| " + join(" | ") + " |"),
+            ([.[] | "---"] | "| " + join(" | ") + " |"),
+            ([.[] | .value] | "| " + join(" | ") + " |")
+          '
+        }
+
+        TABLE=$(json_to_md_table "$DATA")
+        BODY="$TABLE"
+
+        gh pr comment ${{ inputs.issue_number }} --repo ${{ inputs.repo }} --body "$BODY" 2>/dev/null || \
+        gh issue comment ${{ inputs.issue_number }} --repo ${{ inputs.repo }} --body "$BODY"

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-scan-and-read"
+description = "Enables the scan_and_read command without any pre-configured scope."
+commands.allow = ["scan_and_read"]
+
+[[permission]]
+identifier = "deny-scan-and-read"
+description = "Denies the scan_and_read command without any pre-configured scope."
+commands.deny = ["scan_and_read"]

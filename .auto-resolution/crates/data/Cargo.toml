@@ -1,0 +1,12 @@
+[package]
+name = "data"
+version = "0.1.0"
+edition = "2024"
+
+[build-dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+owhisper-interface = { workspace = true }
+
+[dependencies]
+serde_json = { workspace = true }

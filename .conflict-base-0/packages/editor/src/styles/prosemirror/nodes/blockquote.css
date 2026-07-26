@@ -1,0 +1,7 @@
+.prosemirror-editor {
+  blockquote {
+    border-left: 3px solid #000000;
+    padding-left: 0.5rem;
+    caret-color: #000000;
+  }
+}

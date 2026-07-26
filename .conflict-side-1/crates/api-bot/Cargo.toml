@@ -1,0 +1,19 @@
+[package]
+name = "api-bot"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hypr-api-error = { workspace = true }
+hypr-recall = { workspace = true }
+
+utoipa = { workspace = true }
+
+axum = { workspace = true }
+sentry = { workspace = true }
+tracing = { workspace = true }
+
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+urlencoding = { workspace = true }

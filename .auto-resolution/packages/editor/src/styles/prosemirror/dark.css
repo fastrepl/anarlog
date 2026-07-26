@@ -1,0 +1,29 @@
+/* Note typography (headings, blockquote, links, code, marks) is token-driven
+ * in note-typography.css and needs no dark overrides; the rules here cover
+ * the remaining shared editor chrome. */
+.dark .prosemirror-editor {
+  caret-color: #d6d3d1;
+}
+
+.dark .ProseMirror td,
+.dark .ProseMirror th {
+  border-color: #57534e;
+}
+
+.dark .ProseMirror th {
+  background-color: #292524;
+}
+
+.dark .ProseMirror .ProseMirror-search-match {
+  background-color: rgb(113 63 18 / 0.45);
+}
+
+.dark .ProseMirror .ProseMirror-active-search-match {
+  background-color: rgb(202 138 4);
+}
+
+.dark .ProseMirror .is-editor-empty:first-child::before,
+.dark .ProseMirror .is-empty::before,
+.dark .ProseMirror .react-placeholder-widget {
+  color: #78716c;
+}

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-list-documented-language-codes-batch"
+description = "Enables the list_documented_language_codes_batch command without any pre-configured scope."
+commands.allow = ["list_documented_language_codes_batch"]
+
+[[permission]]
+identifier = "deny-list-documented-language-codes-batch"
+description = "Denies the list_documented_language_codes_batch command without any pre-configured scope."
+commands.deny = ["list_documented_language_codes_batch"]

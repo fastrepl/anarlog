@@ -1,0 +1,15 @@
+[package]
+name = "bundle"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["cidre"]
+cidre = ["dep:cidre"]
+objc2 = ["dep:objc2-app-kit", "dep:objc2-foundation"]
+
+[target."cfg(target_os = \"macos\")".dependencies]
+cidre = { workspace = true, optional = true }
+objc2-app-kit = { workspace = true, features = ["NSRunningApplication"], optional = true }
+objc2-foundation = { workspace = true, features = ["NSString"], optional = true }
+plist = "1.7"

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-tray-schedule"
+description = "Enables the set_tray_schedule command without any pre-configured scope."
+commands.allow = ["set_tray_schedule"]
+
+[[permission]]
+identifier = "deny-set-tray-schedule"
+description = "Denies the set_tray_schedule command without any pre-configured scope."
+commands.deny = ["set_tray_schedule"]

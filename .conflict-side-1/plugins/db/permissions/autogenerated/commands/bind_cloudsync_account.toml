@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-bind-cloudsync-account"
+description = "Enables the bind_cloudsync_account command without any pre-configured scope."
+commands.allow = ["bind_cloudsync_account"]
+
+[[permission]]
+identifier = "deny-bind-cloudsync-account"
+description = "Denies the bind_cloudsync_account command without any pre-configured scope."
+commands.deny = ["bind_cloudsync_account"]

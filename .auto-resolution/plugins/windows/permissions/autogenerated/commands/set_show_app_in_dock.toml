@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-show-app-in-dock"
+description = "Enables the set_show_app_in_dock command without any pre-configured scope."
+commands.allow = ["set_show_app_in_dock"]
+
+[[permission]]
+identifier = "deny-set-show-app-in-dock"
+description = "Denies the set_show_app_in_dock command without any pre-configured scope."
+commands.deny = ["set_show_app_in_dock"]

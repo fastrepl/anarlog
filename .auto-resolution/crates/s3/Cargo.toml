@@ -1,0 +1,15 @@
+[package]
+name = "s3"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+thiserror = { workspace = true }
+
+aws-config = { version = "1.5.11", features = ["behavior-version-latest"] }
+aws-credential-types = { version = "1.2.1", features = ["hardcoded-credentials"] }
+aws-sdk-s3 = { version = "1.66.0", features = ["behavior-version-latest"] }
+
+[dev-dependencies]
+testcontainers-modules = { workspace = true, features = ["minio"] }
+tokio = { workspace = true, features = ["macros", "rt"] }

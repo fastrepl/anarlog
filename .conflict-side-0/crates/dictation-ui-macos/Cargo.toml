@@ -1,0 +1,25 @@
+[package]
+name = "dictation-ui-macos"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+examples = []
+
+[[example]]
+name = "manual"
+required-features = ["examples"]
+
+[build-dependencies]
+swift-rs = { workspace = true, features = ["build"] }
+
+[dependencies]
+swift-rs = { workspace = true }
+
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dev-dependencies]
+objc2 = { workspace = true }
+objc2-app-kit = { workspace = true }
+objc2-foundation = { workspace = true }

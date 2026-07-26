@@ -1,0 +1,3 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = ["allow-set-dock-icon", "allow-reset-dock-icon", "allow-get-icon", "allow-set-recording-indicator"]

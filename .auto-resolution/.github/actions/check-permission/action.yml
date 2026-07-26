@@ -1,0 +1,26 @@
+name: Check Permission
+description: Check if user is allowed to run slash commands
+
+inputs:
+  user:
+    description: GitHub username to check
+    required: true
+  allowed-users:
+    description: Pipe-separated list of allowed usernames (e.g. "user1|user2")
+    required: true
+
+outputs:
+  allowed:
+    description: Whether the user is allowed
+    value: ${{ steps.check.outputs.allowed }}
+
+runs:
+  using: composite
+  steps:
+    - id: check
+      shell: bash
+      run: |
+        case "${{ inputs.user }}" in
+          ${{ inputs.allowed-users }}) echo "allowed=true" >> $GITHUB_OUTPUT ;;
+          *) echo "allowed=false" >> $GITHUB_OUTPUT ;;
+        esac

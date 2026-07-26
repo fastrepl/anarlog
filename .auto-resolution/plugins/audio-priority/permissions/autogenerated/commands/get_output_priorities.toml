@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-output-priorities"
+description = "Enables the get_output_priorities command without any pre-configured scope."
+commands.allow = ["get_output_priorities"]
+
+[[permission]]
+identifier = "deny-get-output-priorities"
+description = "Denies the get_output_priorities command without any pre-configured scope."
+commands.deny = ["get_output_priorities"]

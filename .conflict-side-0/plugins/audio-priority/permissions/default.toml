@@ -1,0 +1,12 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = [
+    "allow-list-input-devices",
+    "allow-list-output-devices",
+    "allow-set-default-input-device",
+    "allow-set-default-output-device",
+    "allow-get-input-priorities",
+    "allow-get-output-priorities",
+    "allow-save-input-priorities",
+    "allow-save-output-priorities",
+]

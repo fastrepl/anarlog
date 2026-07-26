@@ -1,0 +1,127 @@
+name: cli-ci
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/cli_ci.yaml
+      - .github/actions/rust_install/**
+      - .cargo/**
+      - .agents/skills/**
+      - apps/cli/**
+      - apps/web/netlify.toml
+      - apps/web/public/llms.txt
+      - crates/agent-access/**
+      - crates/cloudsync/**
+      - crates/cli-docs/**
+      - crates/db-app/**
+      - crates/db-change/**
+      - crates/db-core/**
+      - crates/db-migrate/**
+      - crates/tiptap/**
+      - docs/**
+      - skills/**
+      - Cargo.lock
+      - Cargo.toml
+      - clippy.toml
+      - rust-toolchain.toml
+      - rustfmt.toml
+  pull_request:
+    paths:
+      - .github/workflows/cli_ci.yaml
+      - .github/actions/rust_install/**
+      - .cargo/**
+      - .agents/skills/**
+      - apps/cli/**
+      - apps/web/netlify.toml
+      - apps/web/public/llms.txt
+      - crates/agent-access/**
+      - crates/cloudsync/**
+      - crates/cli-docs/**
+      - crates/db-app/**
+      - crates/db-change/**
+      - crates/db-core/**
+      - crates/db-migrate/**
+      - crates/tiptap/**
+      - docs/**
+      - skills/**
+      - Cargo.lock
+      - Cargo.toml
+      - clippy.toml
+      - rust-toolchain.toml
+      - rustfmt.toml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cli-ci:
+    runs-on: depot-ubuntu-24.04-4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: ./.github/actions/rust_install
+      - run: |
+          cargo test --locked -p agent-access
+          cargo test --locked -p anarlog-cli
+          cargo test --locked -p db-app --lib
+          cargo test --locked -p db-core --lib
+          cargo test --locked -p db-migrate --lib
+          cargo test --locked -p tiptap
+      - run: |
+          cargo clippy --locked \
+            -p agent-access \
+            -p anarlog-cli \
+            -p db-app \
+            -p db-core \
+            -p db-migrate \
+            -p tiptap \
+            --all-targets \
+            --no-deps \
+            -- \
+            -D warnings
+      - run: cargo build --locked --release -p anarlog-cli
+      - run: |
+          target/release/anarlog --help
+          target/release/anarlog --version
+          target/release/anarlog meetings --help
+          target/release/anarlog mcp --help
+          if doctor_output="$(target/release/anarlog --json --db-path "$RUNNER_TEMP/missing.db" doctor)"; then
+            echo "doctor unexpectedly reported a missing database as ready"
+            exit 1
+          fi
+          grep -q '"ready": false' <<<"$doctor_output"
+          if invalid_output="$(target/release/anarlog --json meetings list --limit 0 2>&1)"; then
+            echo "invalid arguments unexpectedly succeeded"
+            exit 1
+          fi
+          grep -q '"code": "invalid_arguments"' <<<"$invalid_output"
+      - run: |
+          test -s skills/anarlog/SKILL.md
+          test "$(sed -n '1p' skills/anarlog/SKILL.md)" = "---"
+          grep -Eq '^name:[[:space:]]+anarlog[[:space:]]*$' skills/anarlog/SKILL.md
+          grep -Eq '^description:[[:space:]]*(>|\||[^[:space:]])' skills/anarlog/SKILL.md
+          awk 'NR > 1 && $0 == "---" { found = 1; exit } END { if (!found) exit 1 }' skills/anarlog/SKILL.md
+          test "$(readlink docs/.mintlify/skills)" = "../../skills"
+          test -f docs/.mintlify/skills/anarlog/SKILL.md
+          skill_list="$(npx --yes skills@1.5.16 add . --list)"
+          echo "$skill_list"
+          grep -q 'anarlog' <<<"$skill_list"
+          ! grep -q 'add-plugin' <<<"$skill_list"
+      - run: |
+          npx --yes mint@4.2.687 validate
+          npx --yes mint@4.2.687 broken-links
+        working-directory: docs
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "true"

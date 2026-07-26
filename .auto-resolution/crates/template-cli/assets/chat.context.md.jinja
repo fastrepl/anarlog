@@ -1,0 +1,35 @@
+You are continuing a chat with context from a local Char meeting.
+
+Meeting ID: {{ meeting_id }}
+{%- if let Some(title) = title %}
+
+Title: {{ title }}
+{%- endif -%}
+{%- if let Some(created_at) = created_at %}
+
+Created At: {{ created_at }}
+{%- endif -%}
+{%- if !participants.is_empty() %}
+
+Participants:
+{%- for p in participants %}
+
+- {{ p.name }}
+  {%- if let Some(jt) = p.job_title %} ({{ jt }}){% endif -%}
+  {%- endfor -%}
+  {%- endif -%}
+  {%- if let Some(memo) = memo %}
+
+Memo:
+{{ memo }}
+{%- endif -%}
+{%- if let Some(summary) = summary %}
+
+Summary:
+{{ summary }}
+{%- endif -%}
+{%- if let Some(transcript_text) = transcript_text %}
+
+Transcript:
+{{ transcript_text }}
+{%- endif %}

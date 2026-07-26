@@ -1,0 +1,35 @@
+[package]
+name = "audio-chunking"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["vad"]
+vad = [
+  "dep:futures-util",
+  "dep:hypr-audio-interface",
+  "dep:hypr-onnx",
+  "dep:hypr-vad",
+  "dep:pin-project",
+]
+segmentation = []
+
+[dev-dependencies]
+futures-util = { workspace = true }
+hound = { workspace = true }
+hypr-data = { workspace = true }
+rodio = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+[[example]]
+name = "chunking"
+required-features = ["vad"]
+
+[dependencies]
+hypr-audio-interface = { workspace = true, optional = true }
+hypr-onnx = { workspace = true, optional = true }
+hypr-vad = { workspace = true, features = ["silero-onnx"], optional = true }
+
+futures-util = { workspace = true, optional = true }
+pin-project = { workspace = true, optional = true }
+thiserror = { workspace = true }

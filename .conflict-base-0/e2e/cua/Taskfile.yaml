@@ -1,0 +1,9 @@
+version: "3"
+
+tasks:
+  py:init:
+    dir: "{{.TASKFILE_DIR}}"
+    cmd: POETRY_VIRTUALENVS_IN_PROJECT=true poetry install --no-cache --no-interaction --all-extras
+  py:run:
+    dir: "{{.TASKFILE_DIR}}"
+    cmd: poetry run python3 {{.CLI_ARGS}}

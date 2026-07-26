@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-take-pending-deep-links"
+description = "Enables the take_pending_deep_links command without any pre-configured scope."
+commands.allow = ["take_pending_deep_links"]
+
+[[permission]]
+identifier = "deny-take-pending-deep-links"
+description = "Denies the take_pending_deep_links command without any pre-configured scope."
+commands.deny = ["take_pending_deep_links"]

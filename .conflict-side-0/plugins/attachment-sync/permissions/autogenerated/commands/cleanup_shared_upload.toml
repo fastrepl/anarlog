@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-cleanup-shared-upload"
+description = "Enables the cleanup_shared_upload command without any pre-configured scope."
+commands.allow = ["cleanup_shared_upload"]
+
+[[permission]]
+identifier = "deny-cleanup-shared-upload"
+description = "Denies the cleanup_shared_upload command without any pre-configured scope."
+commands.deny = ["cleanup_shared_upload"]

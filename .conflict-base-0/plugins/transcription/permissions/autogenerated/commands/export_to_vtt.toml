@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-export-to-vtt"
+description = "Enables the export_to_vtt command without any pre-configured scope."
+commands.allow = ["export_to_vtt"]
+
+[[permission]]
+identifier = "deny-export-to-vtt"
+description = "Denies the export_to_vtt command without any pre-configured scope."
+commands.deny = ["export_to_vtt"]

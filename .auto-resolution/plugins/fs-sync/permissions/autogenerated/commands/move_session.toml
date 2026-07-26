@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-move-session"
+description = "Enables the move_session command without any pre-configured scope."
+commands.allow = ["move_session"]
+
+[[permission]]
+identifier = "deny-move-session"
+description = "Denies the move_session command without any pre-configured scope."
+commands.deny = ["move_session"]

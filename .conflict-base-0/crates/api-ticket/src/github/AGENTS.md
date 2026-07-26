@@ -1,0 +1,3 @@
+- (O) https://nango.dev/docs/api-integrations/github.md
+- (X) https://nango.dev/docs/api-integrations/github-app.md
+- (X) https://nango.dev/docs/api-integrations/github-app-oauth.md

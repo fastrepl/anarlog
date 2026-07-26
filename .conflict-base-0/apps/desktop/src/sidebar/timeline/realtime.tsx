@@ -1,0 +1,181 @@
+import { forwardRef, useEffect, useMemo, useState } from "react";
+
+import { TZDate, format, safeParseDate } from "@hypr/utils";
+
+import type { TimelineEventsTable, TimelineSessionsTable } from "./utils";
+
+import { getSessionEvent } from "~/session/utils";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
+
+const MINUTE_MS = 60_000;
+const CURRENT_TIME_TICK_OFFSET_MS = 100;
+
+export const CurrentTimeIndicator = forwardRef<
+  HTMLDivElement,
+  { timezone?: string; variant?: "seam" | "inside"; progress?: number }
+>(function CurrentTimeIndicator(
+  { timezone, variant = "seam", progress = 0.5 },
+  ref,
+) {
+  const currentTimeMs = useCurrentTimeMs();
+  const insideOffset = `${(1 - progress) * 100}%`;
+  const label = useMemo(() => {
+    const now = timezone
+      ? new TZDate(new Date(currentTimeMs), timezone)
+      : new Date(currentTimeMs);
+    return format(now, "h:mm a").toUpperCase();
+  }, [currentTimeMs, timezone]);
+
+  return (
+    <div
+      ref={ref}
+      aria-hidden
+      className={
+        variant === "inside"
+          ? "group absolute inset-x-0 z-30 h-px"
+          : "group relative z-30 h-px"
+      }
+      style={variant === "inside" ? { top: insideOffset } : undefined}
+    >
+      <div className="absolute inset-x-0 top-0 -translate-y-1/2">
+        <div
+          data-sidebar-current-time-line
+          className="absolute top-1/2 right-0 left-0 h-px -translate-y-1/2 bg-red-500/85 dark:bg-red-400/70"
+        />
+        <div className="relative flex h-5 items-center justify-center">
+          <div
+            data-sidebar-current-time-label
+            className="rounded-full border border-red-500 bg-red-500 px-2 py-0.5 font-mono text-[11px] font-semibold text-white opacity-0 shadow-xs transition-opacity group-hover:opacity-100 dark:border-red-500 dark:bg-red-500 dark:text-white"
+          >
+            {label}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+export function useCurrentTimeMs(maxTickDelayMs = MINUTE_MS) {
+  const [now, setNow] = useState(() => new Date().getTime());
+
+  useMountEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    const clearUpdate = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = undefined;
+      }
+    };
+
+    const scheduleUpdate = () => {
+      clearUpdate();
+      timeoutId = setTimeout(
+        update,
+        getCurrentTimeTickDelay(Date.now(), maxTickDelayMs),
+      );
+    };
+
+    const update = () => {
+      setNow(Date.now());
+      scheduleUpdate();
+    };
+
+    const sync = () => {
+      update();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        sync();
+      }
+    };
+
+    sync();
+    window.addEventListener("focus", sync);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearUpdate();
+      window.removeEventListener("focus", sync);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  });
+
+  return now;
+}
+
+function getCurrentTimeTickDelay(
+  nowMs: number,
+  maxTickDelayMs: number,
+): number {
+  const msIntoMinute = nowMs % MINUTE_MS;
+  return Math.min(
+    MINUTE_MS - msIntoMinute + CURRENT_TIME_TICK_OFFSET_MS,
+    maxTickDelayMs,
+  );
+}
+
+export function useSmartCurrentTime(
+  eventsTable: TimelineEventsTable,
+  sessionsTable: TimelineSessionsTable,
+) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    const scheduleNext = () => {
+      const currentTime = Date.now();
+      setNow(currentTime);
+
+      const importantTimes: number[] = [];
+
+      if (eventsTable) {
+        Object.values(eventsTable).forEach((event) => {
+          const startTime = safeParseDate(event.started_at);
+          const endTime = safeParseDate(event.ended_at);
+
+          if (startTime && startTime.getTime() > currentTime) {
+            importantTimes.push(startTime.getTime());
+          }
+          if (endTime && endTime.getTime() > currentTime) {
+            importantTimes.push(endTime.getTime());
+          }
+        });
+      }
+
+      if (sessionsTable) {
+        Object.values(sessionsTable).forEach((session) => {
+          const time = safeParseDate(
+            getSessionEvent(session)?.started_at ?? session.created_at,
+          );
+          if (time && time.getTime() > currentTime) {
+            importantTimes.push(time.getTime());
+          }
+        });
+      }
+
+      let nextUpdateDelay: number;
+      if (importantTimes.length > 0) {
+        const nextTime = Math.min(...importantTimes);
+        const msUntilNext = nextTime - currentTime;
+        nextUpdateDelay = Math.max(100, Math.min(msUntilNext + 100, 60_000));
+      } else {
+        nextUpdateDelay = 60_000;
+      }
+
+      timeoutId = setTimeout(scheduleNext, nextUpdateDelay);
+    };
+
+    scheduleNext();
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [eventsTable, sessionsTable]);
+
+  return now;
+}

@@ -1,0 +1,23 @@
+[project]
+name = "hyprnote-scripts"
+version = "0.1.0"
+description = ""
+authors = [{ name = "Yujong Lee", email = "yujonglee.dev@gmail.com" }]
+requires-python = ">=3.12,<4.0"
+dependencies = [
+  "gguf (>=0.17.1,<0.18.0)",
+  "jiwer (>=4.0.0,<5.0.0)",
+  "deepgram-sdk (>=5.3.0,<6.0.0)",
+  "soundfile (>=0.13.1,<0.14.0)",
+]
+
+[tool.poetry]
+name = "hyprnote-scripts"
+version = "0.1.0"
+description = ""
+authors = ["Yujong Lee <yujonglee.dev@gmail.com>"]
+package-mode = false
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

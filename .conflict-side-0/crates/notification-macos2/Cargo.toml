@@ -1,0 +1,18 @@
+[package]
+name = "notification-macos2"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hypr-notification-interface = { workspace = true }
+log = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+
+[dev-dependencies]
+env_logger = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = { workspace = true }
+objc2 = { workspace = true }
+objc2-foundation = { workspace = true }
+objc2-user-notifications = { workspace = true }

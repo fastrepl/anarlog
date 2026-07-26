@@ -1,0 +1,9 @@
+**/target
+**/node_modules
+**/dist
+**/build
+**/.env
+lago
+lago-openapi
+nango
+.venv

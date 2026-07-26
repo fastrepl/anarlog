@@ -1,0 +1,10 @@
+[package]
+name = "supervisor"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ractor = { workspace = true, features = ["async-trait"] }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }

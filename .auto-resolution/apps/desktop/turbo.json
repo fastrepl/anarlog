@@ -1,0 +1,19 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "dev": {
+      "dependsOn": ["@hypr/ui#build"]
+    },
+    "build": {
+      "dependsOn": ["@hypr/ui#build"],
+      "outputs": ["dist/**"]
+    },
+    "tauri:dev": {
+      "dependsOn": ["@hypr/ui#build"]
+    },
+    "tauri:build": {
+      "dependsOn": ["@hypr/ui#build"]
+    }
+  }
+}

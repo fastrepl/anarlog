@@ -1,0 +1,3086 @@
+[
+  {
+    "text": "alright",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 320,
+    "end_ms": 720
+  },
+  {
+    "text": "team",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 720,
+    "end_ms": 1020
+  },
+  {
+    "text": "let's",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 1020,
+    "end_ms": 1280
+  },
+  {
+    "text": "kick",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 1280,
+    "end_ms": 1480
+  },
+  {
+    "text": "off",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 1480,
+    "end_ms": 1680
+  },
+  {
+    "text": "our",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 1680,
+    "end_ms": 1880
+  },
+  {
+    "text": "sprint",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 1880,
+    "end_ms": 2280
+  },
+  {
+    "text": "planning",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 2280,
+    "end_ms": 2680
+  },
+  {
+    "text": "session",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 2680,
+    "end_ms": 3180
+  },
+  {
+    "text": "yujong",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 3380,
+    "end_ms": 3780
+  },
+  {
+    "text": "can",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 3780,
+    "end_ms": 3980
+  },
+  {
+    "text": "you",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 3980,
+    "end_ms": 4180
+  },
+  {
+    "text": "walk",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 4180,
+    "end_ms": 4480
+  },
+  {
+    "text": "us",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 4480,
+    "end_ms": 4680
+  },
+  {
+    "text": "through",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 4680,
+    "end_ms": 4980
+  },
+  {
+    "text": "the",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 4980,
+    "end_ms": 5180
+  },
+  {
+    "text": "user",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 5180,
+    "end_ms": 5580
+  },
+  {
+    "text": "stories",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 5580,
+    "end_ms": 6080
+  },
+  {
+    "text": "for",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 6080,
+    "end_ms": 6280
+  },
+  {
+    "text": "this",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 6280,
+    "end_ms": 6480
+  },
+  {
+    "text": "sprint",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 6480,
+    "end_ms": 6980
+  },
+  {
+    "text": "sure",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 7280,
+    "end_ms": 7580
+  },
+  {
+    "text": "duck",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 7580,
+    "end_ms": 7880
+  },
+  {
+    "text": "so",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 7980,
+    "end_ms": 8180
+  },
+  {
+    "text": "we've",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 8180,
+    "end_ms": 8480
+  },
+  {
+    "text": "got",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 8480,
+    "end_ms": 8680
+  },
+  {
+    "text": "three",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 8680,
+    "end_ms": 8980
+  },
+  {
+    "text": "main",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 8980,
+    "end_ms": 9280
+  },
+  {
+    "text": "priorities",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 9280,
+    "end_ms": 9880
+  },
+  {
+    "text": "based",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 9880,
+    "end_ms": 10280
+  },
+  {
+    "text": "on",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 10280,
+    "end_ms": 10480
+  },
+  {
+    "text": "customer",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 10480,
+    "end_ms": 10980
+  },
+  {
+    "text": "feedback",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 10980,
+    "end_ms": 11480
+  },
+  {
+    "text": "first",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 11680,
+    "end_ms": 12080
+  },
+  {
+    "text": "is",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 12080,
+    "end_ms": 12280
+  },
+  {
+    "text": "improving",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 12280,
+    "end_ms": 12780
+  },
+  {
+    "text": "the",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 12780,
+    "end_ms": 12980
+  },
+  {
+    "text": "onboarding",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 12980,
+    "end_ms": 13580
+  },
+  {
+    "text": "flow",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 13580,
+    "end_ms": 13980
+  },
+  {
+    "text": "we're",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 14180,
+    "end_ms": 14480
+  },
+  {
+    "text": "seeing",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 14480,
+    "end_ms": 14780
+  },
+  {
+    "text": "a",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 14780,
+    "end_ms": 14880
+  },
+  {
+    "text": "thirty",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 14880,
+    "end_ms": 15280
+  },
+  {
+    "text": "percent",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 15280,
+    "end_ms": 15680
+  },
+  {
+    "text": "drop",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 15680,
+    "end_ms": 15980
+  },
+  {
+    "text": "off",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 15980,
+    "end_ms": 16280
+  },
+  {
+    "text": "rate",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 16280,
+    "end_ms": 16580
+  },
+  {
+    "text": "at",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 16580,
+    "end_ms": 16780
+  },
+  {
+    "text": "step",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 16780,
+    "end_ms": 17080
+  },
+  {
+    "text": "three",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 17080,
+    "end_ms": 17480
+  },
+  {
+    "text": "that's",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 17780,
+    "end_ms": 18080
+  },
+  {
+    "text": "concerning",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 18080,
+    "end_ms": 18680
+  },
+  {
+    "text": "what's",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 18880,
+    "end_ms": 19180
+  },
+  {
+    "text": "the",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 19180,
+    "end_ms": 19380
+  },
+  {
+    "text": "engineering",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 19380,
+    "end_ms": 19980
+  },
+  {
+    "text": "estimate",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 19980,
+    "end_ms": 20480
+  },
+  {
+    "text": "for",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 20480,
+    "end_ms": 20680
+  },
+  {
+    "text": "fixing",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 20680,
+    "end_ms": 21080
+  },
+  {
+    "text": "that",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 21080,
+    "end_ms": 21380
+  },
+  {
+    "text": "the",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 21680,
+    "end_ms": 21880
+  },
+  {
+    "text": "team",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 21880,
+    "end_ms": 22180
+  },
+  {
+    "text": "estimates",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 22180,
+    "end_ms": 22680
+  },
+  {
+    "text": "it's",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 22680,
+    "end_ms": 22980
+  },
+  {
+    "text": "about",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 22980,
+    "end_ms": 23280
+  },
+  {
+    "text": "five",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 23280,
+    "end_ms": 23580
+  },
+  {
+    "text": "story",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 23580,
+    "end_ms": 23980
+  },
+  {
+    "text": "points",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 23980,
+    "end_ms": 24380
+  },
+  {
+    "text": "we",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 24580,
+    "end_ms": 24780
+  },
+  {
+    "text": "need",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 24780,
+    "end_ms": 25080
+  },
+  {
+    "text": "to",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 25080,
+    "end_ms": 25280
+  },
+  {
+    "text": "simplify",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 25280,
+    "end_ms": 25880
+  },
+  {
+    "text": "the",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 25880,
+    "end_ms": 26080
+  },
+  {
+    "text": "form",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 26080,
+    "end_ms": 26480
+  },
+  {
+    "text": "validation",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 26480,
+    "end_ms": 27080
+  },
+  {
+    "text": "and",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 27080,
+    "end_ms": 27280
+  },
+  {
+    "text": "add",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 27280,
+    "end_ms": 27580
+  },
+  {
+    "text": "progress",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 27580,
+    "end_ms": 28080
+  },
+  {
+    "text": "indicators",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 28080,
+    "end_ms": 28680
+  },
+  {
+    "text": "okay",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 28980,
+    "end_ms": 29180
+  },
+  {
+    "text": "yujong",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 29180,
+    "end_ms": 29380
+  },
+  {
+    "text": "let's",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 29380,
+    "end_ms": 29680
+  },
+  {
+    "text": "prioritize",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 29680,
+    "end_ms": 30280
+  },
+  {
+    "text": "that",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 30280,
+    "end_ms": 30580
+  },
+  {
+    "text": "what",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 30780,
+    "end_ms": 31080
+  },
+  {
+    "text": "about",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 31080,
+    "end_ms": 31380
+  },
+  {
+    "text": "the",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 31380,
+    "end_ms": 31580
+  },
+  {
+    "text": "analytics",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 31580,
+    "end_ms": 32180
+  },
+  {
+    "text": "dashboard",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 32180,
+    "end_ms": 32780
+  },
+  {
+    "text": "feature",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 32780,
+    "end_ms": 33280
+  },
+  {
+    "text": "that",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 33280,
+    "end_ms": 33480
+  },
+  {
+    "text": "enterprise",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 33480,
+    "end_ms": 34080
+  },
+  {
+    "text": "clients",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 34080,
+    "end_ms": 34580
+  },
+  {
+    "text": "are",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 34580,
+    "end_ms": 34780
+  },
+  {
+    "text": "requesting",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 34780,
+    "end_ms": 35380
+  },
+  {
+    "text": "that's",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 35680,
+    "end_ms": 35980
+  },
+  {
+    "text": "our",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 35980,
+    "end_ms": 36180
+  },
+  {
+    "text": "second",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 36180,
+    "end_ms": 36580
+  },
+  {
+    "text": "priority",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 36580,
+    "end_ms": 37180
+  },
+  {
+    "text": "we've",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 37380,
+    "end_ms": 37680
+  },
+  {
+    "text": "got",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 37680,
+    "end_ms": 37880
+  },
+  {
+    "text": "three",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 37880,
+    "end_ms": 38180
+  },
+  {
+    "text": "deals",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 38180,
+    "end_ms": 38580
+  },
+  {
+    "text": "in",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 38580,
+    "end_ms": 38780
+  },
+  {
+    "text": "the",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 38780,
+    "end_ms": 38980
+  },
+  {
+    "text": "pipeline",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 38980,
+    "end_ms": 39580
+  },
+  {
+    "text": "worth",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 39580,
+    "end_ms": 39880
+  },
+  {
+    "text": "about",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 39880,
+    "end_ms": 40180
+  },
+  {
+    "text": "two",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 40180,
+    "end_ms": 40480
+  },
+  {
+    "text": "hundred",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 40480,
+    "end_ms": 40880
+  },
+  {
+    "text": "thousand",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 40880,
+    "end_ms": 41380
+  },
+  {
+    "text": "total",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 41380,
+    "end_ms": 41780
+  },
+  {
+    "text": "that",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 41780,
+    "end_ms": 41980
+  },
+  {
+    "text": "are",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 41980,
+    "end_ms": 42180
+  },
+  {
+    "text": "contingent",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 42180,
+    "end_ms": 42780
+  },
+  {
+    "text": "on",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 42780,
+    "end_ms": 42980
+  },
+  {
+    "text": "this",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 42980,
+    "end_ms": 43280
+  },
+  {
+    "text": "feature",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 43280,
+    "end_ms": 43780
+  },
+  {
+    "text": "wow",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 44080,
+    "end_ms": 44480
+  },
+  {
+    "text": "that's",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 44480,
+    "end_ms": 44780
+  },
+  {
+    "text": "significant",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 44780,
+    "end_ms": 45380
+  },
+  {
+    "text": "revenue",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 45380,
+    "end_ms": 45880
+  },
+  {
+    "text": "how",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 46080,
+    "end_ms": 46380
+  },
+  {
+    "text": "complex",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 46380,
+    "end_ms": 46880
+  },
+  {
+    "text": "is",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 46880,
+    "end_ms": 47080
+  },
+  {
+    "text": "the",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 47080,
+    "end_ms": 47280
+  },
+  {
+    "text": "implementation",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 47280,
+    "end_ms": 48080
+  },
+  {
+    "text": "the",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 48380,
+    "end_ms": 48580
+  },
+  {
+    "text": "backend",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 48580,
+    "end_ms": 49080
+  },
+  {
+    "text": "team",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 49080,
+    "end_ms": 49380
+  },
+  {
+    "text": "says",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 49380,
+    "end_ms": 49680
+  },
+  {
+    "text": "it's",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 49680,
+    "end_ms": 49980
+  },
+  {
+    "text": "an",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 49980,
+    "end_ms": 50180
+  },
+  {
+    "text": "eight",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 50180,
+    "end_ms": 50480
+  },
+  {
+    "text": "pointer",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 50480,
+    "end_ms": 50980
+  },
+  {
+    "text": "but",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 51180,
+    "end_ms": 51380
+  },
+  {
+    "text": "we",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 51380,
+    "end_ms": 51580
+  },
+  {
+    "text": "can",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 51580,
+    "end_ms": 51780
+  },
+  {
+    "text": "deliver",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 51780,
+    "end_ms": 52280
+  },
+  {
+    "text": "an",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 52280,
+    "end_ms": 52480
+  },
+  {
+    "text": "mvp",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 52480,
+    "end_ms": 53080
+  },
+  {
+    "text": "version",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 53080,
+    "end_ms": 53580
+  },
+  {
+    "text": "with",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 53580,
+    "end_ms": 53780
+  },
+  {
+    "text": "basic",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 53780,
+    "end_ms": 54280
+  },
+  {
+    "text": "metrics",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 54280,
+    "end_ms": 54780
+  },
+  {
+    "text": "in",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 54780,
+    "end_ms": 54980
+  },
+  {
+    "text": "about",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 54980,
+    "end_ms": 55280
+  },
+  {
+    "text": "three",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 55280,
+    "end_ms": 55580
+  },
+  {
+    "text": "points",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 55580,
+    "end_ms": 56080
+  },
+  {
+    "text": "perfect",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 56380,
+    "end_ms": 56680
+  },
+  {
+    "text": "yujong",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 56680,
+    "end_ms": 56880
+  },
+  {
+    "text": "let's",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 56880,
+    "end_ms": 57180
+  },
+  {
+    "text": "go",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 57180,
+    "end_ms": 57380
+  },
+  {
+    "text": "with",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 57380,
+    "end_ms": 57580
+  },
+  {
+    "text": "the",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 57580,
+    "end_ms": 57780
+  },
+  {
+    "text": "mvp",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 57780,
+    "end_ms": 58380
+  },
+  {
+    "text": "approach",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 58380,
+    "end_ms": 58880
+  },
+  {
+    "text": "we",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 59080,
+    "end_ms": 59280
+  },
+  {
+    "text": "can",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 59280,
+    "end_ms": 59480
+  },
+  {
+    "text": "iterate",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 59480,
+    "end_ms": 59980
+  },
+  {
+    "text": "on",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 59980,
+    "end_ms": 60180
+  },
+  {
+    "text": "it",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 60180,
+    "end_ms": 60380
+  },
+  {
+    "text": "later",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 60380,
+    "end_ms": 60780
+  },
+  {
+    "text": "what's",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 60980,
+    "end_ms": 61280
+  },
+  {
+    "text": "the",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 61280,
+    "end_ms": 61480
+  },
+  {
+    "text": "third",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 61480,
+    "end_ms": 61780
+  },
+  {
+    "text": "priority",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 61780,
+    "end_ms": 62380
+  },
+  {
+    "text": "mobile",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 62680,
+    "end_ms": 63180
+  },
+  {
+    "text": "app",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 63180,
+    "end_ms": 63480
+  },
+  {
+    "text": "performance",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 63480,
+    "end_ms": 64080
+  },
+  {
+    "text": "improvements",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 64080,
+    "end_ms": 64680
+  },
+  {
+    "text": "we're",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 64880,
+    "end_ms": 65180
+  },
+  {
+    "text": "getting",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 65180,
+    "end_ms": 65480
+  },
+  {
+    "text": "complaints",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 65480,
+    "end_ms": 66080
+  },
+  {
+    "text": "about",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 66080,
+    "end_ms": 66380
+  },
+  {
+    "text": "slow",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 66380,
+    "end_ms": 66780
+  },
+  {
+    "text": "load",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 66780,
+    "end_ms": 67080
+  },
+  {
+    "text": "times",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 67080,
+    "end_ms": 67580
+  },
+  {
+    "text": "and",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 67580,
+    "end_ms": 67780
+  },
+  {
+    "text": "our",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 67780,
+    "end_ms": 67980
+  },
+  {
+    "text": "app",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 67980,
+    "end_ms": 68280
+  },
+  {
+    "text": "store",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 68280,
+    "end_ms": 68680
+  },
+  {
+    "text": "rating",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 68680,
+    "end_ms": 69080
+  },
+  {
+    "text": "dropped",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 69080,
+    "end_ms": 69480
+  },
+  {
+    "text": "to",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 69480,
+    "end_ms": 69680
+  },
+  {
+    "text": "three",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 69680,
+    "end_ms": 69980
+  },
+  {
+    "text": "point",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 69980,
+    "end_ms": 70280
+  },
+  {
+    "text": "eight",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 70280,
+    "end_ms": 70580
+  },
+  {
+    "text": "stars",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 70580,
+    "end_ms": 71080
+  },
+  {
+    "text": "that's",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 71380,
+    "end_ms": 71680
+  },
+  {
+    "text": "definitely",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 71680,
+    "end_ms": 72280
+  },
+  {
+    "text": "impacting",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 72280,
+    "end_ms": 72880
+  },
+  {
+    "text": "acquisition",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 72880,
+    "end_ms": 73580
+  },
+  {
+    "text": "how",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 73780,
+    "end_ms": 74080
+  },
+  {
+    "text": "many",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 74080,
+    "end_ms": 74380
+  },
+  {
+    "text": "points",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 74380,
+    "end_ms": 74780
+  },
+  {
+    "text": "for",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 74780,
+    "end_ms": 74980
+  },
+  {
+    "text": "performance",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 74980,
+    "end_ms": 75580
+  },
+  {
+    "text": "optimization",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 75580,
+    "end_ms": 76280
+  },
+  {
+    "text": "it's",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 76580,
+    "end_ms": 76880
+  },
+  {
+    "text": "another",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 76880,
+    "end_ms": 77280
+  },
+  {
+    "text": "five",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 77280,
+    "end_ms": 77580
+  },
+  {
+    "text": "pointer",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 77580,
+    "end_ms": 78080
+  },
+  {
+    "text": "we",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 78280,
+    "end_ms": 78480
+  },
+  {
+    "text": "need",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 78480,
+    "end_ms": 78780
+  },
+  {
+    "text": "to",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 78780,
+    "end_ms": 78980
+  },
+  {
+    "text": "implement",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 78980,
+    "end_ms": 79480
+  },
+  {
+    "text": "lazy",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 79480,
+    "end_ms": 79880
+  },
+  {
+    "text": "loading",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 79880,
+    "end_ms": 80380
+  },
+  {
+    "text": "and",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 80380,
+    "end_ms": 80580
+  },
+  {
+    "text": "optimize",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 80580,
+    "end_ms": 81180
+  },
+  {
+    "text": "our",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 81180,
+    "end_ms": 81380
+  },
+  {
+    "text": "api",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 81380,
+    "end_ms": 81980
+  },
+  {
+    "text": "calls",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 81980,
+    "end_ms": 82480
+  },
+  {
+    "text": "so",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 82780,
+    "end_ms": 83080
+  },
+  {
+    "text": "we're",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 83080,
+    "end_ms": 83380
+  },
+  {
+    "text": "looking",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 83380,
+    "end_ms": 83680
+  },
+  {
+    "text": "at",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 83680,
+    "end_ms": 83880
+  },
+  {
+    "text": "thirteen",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 83880,
+    "end_ms": 84380
+  },
+  {
+    "text": "points",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 84380,
+    "end_ms": 84780
+  },
+  {
+    "text": "total",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 84780,
+    "end_ms": 85280
+  },
+  {
+    "text": "for",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 85280,
+    "end_ms": 85480
+  },
+  {
+    "text": "this",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 85480,
+    "end_ms": 85680
+  },
+  {
+    "text": "sprint",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 85680,
+    "end_ms": 86180
+  },
+  {
+    "text": "team",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 86380,
+    "end_ms": 86680
+  },
+  {
+    "text": "do",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 86680,
+    "end_ms": 86880
+  },
+  {
+    "text": "we",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 86880,
+    "end_ms": 87080
+  },
+  {
+    "text": "have",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 87080,
+    "end_ms": 87280
+  },
+  {
+    "text": "capacity",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 87280,
+    "end_ms": 87880
+  },
+  {
+    "text": "for",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 87880,
+    "end_ms": 88080
+  },
+  {
+    "text": "all",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 88080,
+    "end_ms": 88280
+  },
+  {
+    "text": "three",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 88280,
+    "end_ms": 88680
+  },
+  {
+    "text": "actually",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 88980,
+    "end_ms": 89480
+  },
+  {
+    "text": "our",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 89480,
+    "end_ms": 89680
+  },
+  {
+    "text": "velocity",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 89680,
+    "end_ms": 90280
+  },
+  {
+    "text": "is",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 90280,
+    "end_ms": 90480
+  },
+  {
+    "text": "usually",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 90480,
+    "end_ms": 90980
+  },
+  {
+    "text": "around",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 90980,
+    "end_ms": 91380
+  },
+  {
+    "text": "fifteen",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 91380,
+    "end_ms": 91880
+  },
+  {
+    "text": "points",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 91880,
+    "end_ms": 92380
+  },
+  {
+    "text": "so",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 92380,
+    "end_ms": 92580
+  },
+  {
+    "text": "we",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 92580,
+    "end_ms": 92780
+  },
+  {
+    "text": "should",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 92780,
+    "end_ms": 93080
+  },
+  {
+    "text": "be",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 93080,
+    "end_ms": 93280
+  },
+  {
+    "text": "good",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 1
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 93280,
+    "end_ms": 93580
+  },
+  {
+    "text": "excellent",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 93880,
+    "end_ms": 94280
+  },
+  {
+    "text": "duck",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 94280,
+    "end_ms": 94480
+  },
+  {
+    "text": "let's",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 94680,
+    "end_ms": 94980
+  },
+  {
+    "text": "commit",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 94980,
+    "end_ms": 95380
+  },
+  {
+    "text": "to",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 95380,
+    "end_ms": 95580
+  },
+  {
+    "text": "these",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 95580,
+    "end_ms": 95880
+  },
+  {
+    "text": "stories",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 95880,
+    "end_ms": 96380
+  },
+  {
+    "text": "and",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 96380,
+    "end_ms": 96580
+  },
+  {
+    "text": "let's",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 96580,
+    "end_ms": 96880
+  },
+  {
+    "text": "make",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 96880,
+    "end_ms": 97080
+  },
+  {
+    "text": "this",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 97080,
+    "end_ms": 97280
+  },
+  {
+    "text": "sprint",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 97280,
+    "end_ms": 97680
+  },
+  {
+    "text": "count",
+    "speaker": {
+      "type": "unassigned",
+      "value": {
+        "index": 0
+      }
+    },
+    "confidence": 1.0,
+    "start_ms": 97680,
+    "end_ms": 98080
+  }
+]

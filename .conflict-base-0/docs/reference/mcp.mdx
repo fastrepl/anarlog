@@ -1,0 +1,45 @@
+---
+title: "MCP reference"
+description: "Tools, resources, limits, and transport details exposed by Anarlog MCP."
+---
+
+Run the server with `anarlog mcp`. It uses the MCP `2024-11-05` protocol over stdio. Every tool is read-only, non-destructive, idempotent, and local-only.
+
+## Tools
+
+### `list_meetings`
+
+| Parameter | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `query` | string | — | Case-insensitive title or meeting ID substring. |
+| `series_id` | string | — | Exact recurring series ID. |
+| `limit` | integer | `20` | Clamped to `1..200`. |
+| `offset` | integer | `0` | Number of results to skip. |
+
+### `get_meeting`
+
+Accepts required string `meeting_id`. Returns meeting metadata, the canonical note, summaries, participants, and action items. Transcript words are intentionally separate.
+
+### `get_meeting_transcript`
+
+| Parameter | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `meeting_id` | string | required | A returned Anarlog meeting ID. |
+| `offset` | integer | `0` | Word offset. |
+| `limit` | integer | `200` | Clamped to `1..500`. |
+
+The result includes `meeting_id`, `text`, `words`, and a `pagination` object. Pagination contains `offset`, `limit`, `returned`, `total`, and `next_offset`. A missing `pagination.next_offset` means the page reached the end.
+
+### `get_recurring_meeting_history`
+
+Accepts required string `meeting_id` plus optional integer `limit` and `offset`. The limit defaults to 20 and is clamped to `1..200`; the offset defaults to 0.
+
+## Resources
+
+| URI | MIME type | Content |
+| --- | --- | --- |
+| `anarlog://meetings/{meeting_id}` | `text/markdown` | Meeting detail without transcript text. |
+| `anarlog://meetings/{meeting_id}/transcript{?offset,limit}` | `text/plain` | A bounded transcript page. |
+| `anarlog://series/{series_id}` | `text/markdown` | Up to 100 meetings in a recurring series. |
+
+Resource listing returns recent meeting resources in pages of 20. Its cursor is a numeric result offset.

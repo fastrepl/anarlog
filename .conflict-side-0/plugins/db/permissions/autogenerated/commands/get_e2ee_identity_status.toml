@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-e2ee-identity-status"
+description = "Enables the get_e2ee_identity_status command without any pre-configured scope."
+commands.allow = ["get_e2ee_identity_status"]
+
+[[permission]]
+identifier = "deny-get-e2ee-identity-status"
+description = "Denies the get_e2ee_identity_status command without any pre-configured scope."
+commands.deny = ["get_e2ee_identity_status"]

@@ -1,0 +1,28 @@
+[package]
+name = "tauri-plugin-bedrock"
+version = "0.1.0"
+authors = ["You"]
+edition = "2024"
+exclude = ["/js", "/node_modules"]
+links = "tauri-plugin-bedrock"
+description = ""
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+specta-typescript = { workspace = true }
+tokio = { workspace = true, features = ["macros"] }
+
+[dependencies]
+aws-config = "1.8"
+aws-sdk-bedrock = "1.127"
+
+tauri = { workspace = true, features = ["test"] }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+tokio = { workspace = true }
+
+serde = { workspace = true }
+specta = { workspace = true }
+
+thiserror = { workspace = true }

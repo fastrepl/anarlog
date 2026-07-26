@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-do-log"
+description = "Enables the do_log command without any pre-configured scope."
+commands.allow = ["do_log"]
+
+[[permission]]
+identifier = "deny-do-log"
+description = "Denies the do_log command without any pre-configured scope."
+commands.deny = ["do_log"]

@@ -1,0 +1,35 @@
+[package]
+name = "tauri-plugin-local-llm"
+version = "0.1.0"
+authors = ["You"]
+edition = "2024"
+exclude = ["/js", "/node_modules"]
+links = "tauri-plugin-local-llm"
+description = ""
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+dirs = { workspace = true }
+reqwest = { workspace = true, features = ["json", "stream"] }
+specta-typescript = { workspace = true }
+tauri-plugin-store = { workspace = true }
+
+[dependencies]
+hypr-local-llm-core = { workspace = true, features = ["specta"] }
+hypr-local-model = { workspace = true }
+hypr-model-downloader = { workspace = true }
+
+tauri = { workspace = true, features = ["test"] }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+
+tauri-plugin-settings = { workspace = true }
+
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+dirs = { workspace = true }
+serde = { workspace = true }
+specta = { workspace = true }
+tokio = { workspace = true, features = ["rt", "macros"] }

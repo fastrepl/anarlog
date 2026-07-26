@@ -1,0 +1,3 @@
+ancestorEntries = ["packages/editor/src/styles/prosemirror/dark.css"]
+ourEntries = ["packages/editor/src/styles/prosemirror/dark.css", "packages/editor/src/styles/prosemirror/note-typography.css"]
+theirEntries = ["packages/editor/src/styles/prosemirror/dark.css", "packages/editor/src/styles/prosemirror/note-typography.css"]

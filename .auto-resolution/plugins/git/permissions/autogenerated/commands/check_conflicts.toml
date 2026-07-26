@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-check-conflicts"
+description = "Enables the check_conflicts command without any pre-configured scope."
+commands.allow = ["check_conflicts"]
+
+[[permission]]
+identifier = "deny-check-conflicts"
+description = "Denies the check_conflicts command without any pre-configured scope."
+commands.deny = ["check_conflicts"]

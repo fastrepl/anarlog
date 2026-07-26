@@ -1,0 +1,4 @@
+ALTER TABLE
+  sessions
+ADD
+  COLUMN words TEXT NOT NULL DEFAULT '[]';

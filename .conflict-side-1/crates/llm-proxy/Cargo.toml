@@ -1,0 +1,31 @@
+[package]
+name = "llm-proxy"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hypr-analytics = { workspace = true }
+hypr-api-env = { workspace = true }
+hypr-observability = { workspace = true }
+hypr-openrouter = { workspace = true }
+
+async-stream = { workspace = true }
+axum = { workspace = true }
+futures-util = { workspace = true }
+reqwest = { workspace = true, features = ["json", "stream"] }
+sentry = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "time", "sync", "macros"] }
+tracing = { workspace = true }
+
+backon = { workspace = true }
+bytes = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+utoipa = { workspace = true }
+
+[dev-dependencies]
+tower = { workspace = true, features = ["util"] }
+tracing-subscriber = { workspace = true }
+wiremock = { workspace = true }

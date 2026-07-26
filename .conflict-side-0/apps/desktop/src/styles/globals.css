@@ -1,0 +1,267 @@
+@import "./scrollbar.css" layer(base);
+@import "./scrollbar.utilities.css";
+
+@import "tailwindcss";
+@import "./dark-theme.css";
+@import "../../../../packages/ui/src/styles/scroll-fade.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+.undo-delete-toast-gauge {
+  animation: undo-delete-toast-gauge var(--undo-delete-duration) linear
+    forwards;
+  transform: scaleX(var(--undo-delete-progress));
+  transform-origin: left;
+}
+
+@keyframes undo-delete-toast-gauge {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@source "../../node_modules/streamdown/dist/index.js";
+@source "../../../../packages/changelog/src";
+@source "../../../../packages/editor/src";
+
+@theme {
+  --font-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-hand: "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive;
+
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+
+  --kbd-press-shadow-outer: rgba(0, 0, 0, 0.1);
+  --kbd-press-shadow-inset: rgba(255, 255, 255, 0.8);
+  --selection-overlay: rgba(59, 130, 246, 0.3);
+
+  --animate-shimmer: shimmer 2s infinite;
+  --animate-reveal-left: reveal-left 0.5s ease-out forwards;
+  --animate-title-hover-scroll: title-hover-scroll var(
+    --title-hover-scroll-duration,
+    4s
+  ) ease-in-out forwards;
+  --animate-kbd-press: kbd-press 0.4s ease-out forwards;
+
+  --animate-wiggle: wiggle 1s ease-in-out infinite;
+
+  @keyframes wiggle {
+    0%, 100% {
+      transform: rotate(0deg);
+    }
+    15% {
+      transform: rotate(14deg);
+    }
+    30% {
+      transform: rotate(-8deg);
+    }
+    40% {
+      transform: rotate(7deg);
+    }
+    50% {
+      transform: rotate(-4deg);
+    }
+    60% {
+      transform: rotate(2deg);
+    }
+    70%, 100% {
+      transform: rotate(0deg);
+    }
+  }
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes reveal-left {
+    0% {
+      clip-path: inset(0 100% 0 0);
+    }
+    100% {
+      clip-path: inset(0 0 0 0);
+    }
+  }
+  @keyframes title-hover-scroll {
+    0%, 16% {
+      transform: translateX(0);
+    }
+    84%, 100% {
+      transform: translateX(var(--title-hover-scroll-distance, 0px));
+    }
+  }
+  @keyframes kbd-press {
+    0% {
+      transform: translateY(2px);
+      box-shadow: none;
+    }
+    50% {
+      transform: translateY(2px);
+      box-shadow: none;
+    }
+    100% {
+      transform: translateY(0);
+      box-shadow:
+        0 1px 0 0 var(--kbd-press-shadow-outer),
+        inset 0 1px 0 0 var(--kbd-press-shadow-inset);
+    }
+  }
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-border, currentcolor);
+  }
+}
+
+@utility select-text-deep {
+  user-select: text !important;
+
+  & * {
+    user-select: text !important;
+  }
+}
+
+@layer utilities {
+  /* https://www.joshwcomeau.com/css/custom-css-reset/ */
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  * {
+    margin: 0;
+  }
+
+  body {
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  img,
+  picture,
+  video,
+  canvas,
+  svg {
+    display: block;
+    max-width: 100%;
+  }
+
+  input,
+  button,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    overflow-wrap: break-word;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    text-wrap: balance;
+  }
+
+  #root,
+  #__next {
+    isolation: isolate;
+    height: 100%;
+  }
+
+  /* https://github.com/gitbutlerapp/gitbutler/blob/master/apps/desktop/src/styles/styles.css */
+
+  html,
+  body {
+    height: 100vh;
+    width: 100vw;
+    overflow-y: hidden;
+    font-family: var(--font-sans);
+
+    user-select: none;
+    overscroll-behavior: none;
+  }
+}
+
+@layer base {
+  * {
+    user-select: none;
+  }
+
+  input,
+  textarea,
+  [contenteditable="true"],
+  [contenteditable="true"] * {
+    user-select: text;
+  }
+}
+
+@layer components {
+  [data-settings-content] button,
+  [data-settings-content] button:hover,
+  [data-settings-content] [role="combobox"],
+  [data-settings-content] [role="combobox"]:hover,
+  [data-settings-content] [data-slot="select-trigger"],
+  [data-settings-content] [data-slot="select-trigger"]:hover {
+    box-shadow: none !important;
+  }
+}
+
+/* Search result highlighting styles — matches transcript's bg-yellow-200/50 and bg-yellow-500 */
+.ProseMirror-search-match {
+  background-color: rgb(254 240 138 / 0.5);
+  border-radius: 2px;
+}
+
+.ProseMirror-active-search-match {
+  background-color: rgb(234 179 8) !important;
+  border-radius: 2px;
+}

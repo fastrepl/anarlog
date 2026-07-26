@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-linear-list-teams"
+description = "Enables the linear_list_teams command without any pre-configured scope."
+commands.allow = ["linear_list_teams"]
+
+[[permission]]
+identifier = "deny-linear-list-teams"
+description = "Denies the linear_list_teams command without any pre-configured scope."
+commands.deny = ["linear_list_teams"]

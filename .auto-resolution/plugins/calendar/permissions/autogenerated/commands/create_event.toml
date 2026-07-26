@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-create-event"
+description = "Enables the create_event command without any pre-configured scope."
+commands.allow = ["create_event"]
+
+[[permission]]
+identifier = "deny-create-event"
+description = "Denies the create_event command without any pre-configured scope."
+commands.deny = ["create_event"]

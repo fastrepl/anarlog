@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-reset-permission"
+description = "Enables the reset_permission command without any pre-configured scope."
+commands.allow = ["reset_permission"]
+
+[[permission]]
+identifier = "deny-reset-permission"
+description = "Denies the reset_permission command without any pre-configured scope."
+commands.deny = ["reset_permission"]

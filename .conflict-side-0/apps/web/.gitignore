@@ -1,0 +1,15 @@
+node_modules
+.DS_Store
+dist
+dist-ssr
+*.local
+.nitro
+.tanstack
+.output
+.vinxi
+.content-collections
+.netlify
+public/sitemap.xml
+test-results
+playwright-report
+.argos

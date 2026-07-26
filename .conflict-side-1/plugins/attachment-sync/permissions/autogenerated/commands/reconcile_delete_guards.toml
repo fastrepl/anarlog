@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-reconcile-delete-guards"
+description = "Enables the reconcile_delete_guards command without any pre-configured scope."
+commands.allow = ["reconcile_delete_guards"]
+
+[[permission]]
+identifier = "deny-reconcile-delete-guards"
+description = "Denies the reconcile_delete_guards command without any pre-configured scope."
+commands.deny = ["reconcile_delete_guards"]

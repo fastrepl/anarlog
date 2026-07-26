@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-is-disabled"
+description = "Enables the is_disabled command without any pre-configured scope."
+commands.allow = ["is_disabled"]
+
+[[permission]]
+identifier = "deny-is-disabled"
+description = "Denies the is_disabled command without any pre-configured scope."
+commands.deny = ["is_disabled"]

@@ -1,0 +1,17 @@
+[package]
+name = "gbnf"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+specta = { workspace = true, features = ["derive"] }
+
+tracing = { workspace = true }
+
+[dev-dependencies]
+colored = "3"
+gbnf-validator = { workspace = true }
+indoc = { workspace = true }
+insta = { workspace = true }
+serde_json = { workspace = true }

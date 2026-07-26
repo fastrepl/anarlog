@@ -1,0 +1,3753 @@
+#![forbid(unsafe_code)]
+
+mod calendar_ops;
+mod calendar_types;
+mod cloudsync;
+mod e2ee;
+mod event_ops;
+mod event_types;
+mod legacy_import;
+mod session_ops;
+mod session_types;
+mod template_ops;
+mod template_types;
+
+pub use calendar_ops::*;
+pub use calendar_types::*;
+pub use cloudsync::*;
+pub use e2ee::*;
+pub use event_ops::*;
+pub use event_types::*;
+pub use legacy_import::*;
+pub use session_ops::*;
+pub use session_types::*;
+use sha2::{Digest, Sha384};
+pub use template_ops::*;
+pub use template_types::*;
+
+pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
+    hypr_db_migrate::MigrationStep {
+        id: "20260413020000_templates",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260413020000_templates.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260414120000_calendars_events",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260414120000_calendars_events.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260524000000_default_templates",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260524000000_default_templates.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260624000000_repair_templates",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260624000000_repair_templates.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260710223922_canonical_data_model",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260710223922_canonical_data_model.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260710231809_import_target_audit",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260710231809_import_target_audit.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260711000000_calendar_event_tombstones",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260711000000_calendar_event_tombstones.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260712170000_template_icons",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260712170000_template_icons.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260713164500_repair_empty_session_titles",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260713164500_repair_empty_session_titles.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260714120000_search_index_queue",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260714120000_search_index_queue.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260714120100_search_index_sessions_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "sessions",
+        },
+        sql: include_str!("../migrations/20260714120100_search_index_sessions_triggers.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260714120200_search_index_session_documents_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "session_documents",
+        },
+        sql: include_str!(
+            "../migrations/20260714120200_search_index_session_documents_triggers.sql"
+        ),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260714120300_search_index_transcripts_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "transcripts",
+        },
+        sql: include_str!("../migrations/20260714120300_search_index_transcripts_triggers.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260714120400_search_index_humans_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "humans",
+        },
+        sql: include_str!("../migrations/20260714120400_search_index_humans_triggers.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260714120500_search_index_organizations_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "organizations",
+        },
+        sql: include_str!("../migrations/20260714120500_search_index_organizations_triggers.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260716120000_personal_workspaces",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260716120000_personal_workspaces.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260716130000_cloudsync_session_evictions",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260716130000_cloudsync_session_evictions.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260716173000_shared_session_cache",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260716173000_shared_session_cache.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260717120000_e2ee_replica",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260717120000_e2ee_replica.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260717140000_attachment_local_state",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260717140000_attachment_local_state.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260717192000_e2ee_replica_order",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260717192000_e2ee_replica_order.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260717193000_e2ee_freshness_witness",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260717193000_e2ee_freshness_witness.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260717150000_attachment_transfer_jobs",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260717150000_attachment_transfer_jobs.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260717170000_attachment_cloud_sync_intent",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "session_attachments",
+        },
+        sql: include_str!("../migrations/20260717170000_attachment_cloud_sync_intent.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260717171000_shared_session_attachment_cache",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260717171000_shared_session_attachment_cache.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260717172000_shared_session_cache_attachments",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260717172000_shared_session_cache_attachments.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260717190000_shared_session_cache_web_edits",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260717190000_shared_session_cache_web_edits.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260717191000_session_share_sync_state",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260717191000_session_share_sync_state.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260723120000_e2ee_dirty_rows",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260723120000_e2ee_dirty_rows.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260723120100_e2ee_dirty_action_items_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "action_items",
+        },
+        sql: include_str!("../migrations/20260723120100_e2ee_dirty_action_items_triggers.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260723120200_e2ee_dirty_humans_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "humans",
+        },
+        sql: include_str!("../migrations/20260723120200_e2ee_dirty_humans_triggers.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260723120300_e2ee_dirty_organizations_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "organizations",
+        },
+        sql: include_str!("../migrations/20260723120300_e2ee_dirty_organizations_triggers.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260723120400_e2ee_dirty_session_attachments_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "session_attachments",
+        },
+        sql: include_str!(
+            "../migrations/20260723120400_e2ee_dirty_session_attachments_triggers.sql"
+        ),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260723120500_e2ee_dirty_session_documents_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "session_documents",
+        },
+        sql: include_str!("../migrations/20260723120500_e2ee_dirty_session_documents_triggers.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260723120600_e2ee_dirty_session_participants_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "session_participants",
+        },
+        sql: include_str!(
+            "../migrations/20260723120600_e2ee_dirty_session_participants_triggers.sql"
+        ),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260723120700_e2ee_dirty_sessions_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "sessions",
+        },
+        sql: include_str!("../migrations/20260723120700_e2ee_dirty_sessions_triggers.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260723120800_e2ee_dirty_transcripts_triggers",
+        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "transcripts",
+        },
+        sql: include_str!("../migrations/20260723120800_e2ee_dirty_transcripts_triggers.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260723120900_e2ee_witness_upload_index",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260723120900_e2ee_witness_upload_index.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260725001400_e2ee_witness_pending",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260725001400_e2ee_witness_pending.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260725020000_cloudsync_projection_indexes",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260725020000_cloudsync_projection_indexes.sql"),
+    },
+];
+
+pub fn schema() -> hypr_db_migrate::DbSchema {
+    hypr_db_migrate::DbSchema {
+        steps: APP_MIGRATION_STEPS,
+        validate_cloudsync_table: cloudsync_alter_guard_required,
+    }
+}
+
+const SHARED_SESSION_CACHE_MIGRATION_VERSION: i64 = 20260716173000;
+const LEGACY_SHARED_SESSION_CACHE_CHECKSUM: &str = "4813db532e44e6db8a3ba85e0b248ff99a927ec40b6aa971210452b588bcb2361d3661bd23d045a32ac3a9fcbed99b4a";
+const CURRENT_SHARED_SESSION_CACHE_CHECKSUM: &str = "84376d223c0b1ca3298810b101fef7f599d50267dca4e5693feaddd481e4a082b87a12d37360e11b94b3cb39e8c58dee";
+const ATTACHMENT_TRANSFER_JOBS_MIGRATION_VERSION: i64 = 20260717150000;
+const LEGACY_ATTACHMENT_TRANSFER_JOBS_CHECKSUM: &str = "fd846a54c653d8e737371a950747b442bba2da055566dbcd35907b36fe7829a3a09c81052346bb05100ba71be552efc0";
+const CURRENT_ATTACHMENT_TRANSFER_JOBS_CHECKSUM: &str = "9250233e7b51b83bb74ef4e4af159a9c2bbc753ee64751cac8316968b66bb1b2e0e224770d8b63a631350183dc81c2e0";
+const LEGACY_ATTACHMENT_TRANSFER_JOBS_SCHEMA_CHECKSUM: &str = "5702d2831ccfe75bfca957aa6d37cacc54347090c0d106aaaa9c3af124fcf7e57e49b0432ad5191ff3075f2d9d489916";
+const CURRENT_ATTACHMENT_TRANSFER_JOBS_SCHEMA_CHECKSUM: &str = "3beb182b60f84e0f53ae6069fc7a6e4ba28e51e87d37e4fda7e5ab9b8e8ca713bd43bb8bd79100c6116a4d23dfff55ef";
+
+#[derive(Debug)]
+pub enum AppSchemaError {
+    Migrate(hypr_db_migrate::MigrateError),
+    Sqlx(sqlx::Error),
+    CloudsyncWorkspace(CloudsyncWorkspaceError),
+    SharedSessionCacheRepair(&'static str),
+    AttachmentTransferJobsRepair(&'static str),
+}
+
+impl std::fmt::Display for AppSchemaError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Migrate(error) => write!(f, "{error}"),
+            Self::Sqlx(error) => write!(f, "{error}"),
+            Self::CloudsyncWorkspace(error) => write!(f, "{error}"),
+            Self::SharedSessionCacheRepair(error) => write!(f, "{error}"),
+            Self::AttachmentTransferJobsRepair(error) => write!(f, "{error}"),
+        }
+    }
+}
+
+impl std::error::Error for AppSchemaError {}
+
+impl From<hypr_db_migrate::MigrateError> for AppSchemaError {
+    fn from(error: hypr_db_migrate::MigrateError) -> Self {
+        Self::Migrate(error)
+    }
+}
+
+impl From<sqlx::Error> for AppSchemaError {
+    fn from(error: sqlx::Error) -> Self {
+        Self::Sqlx(error)
+    }
+}
+
+impl From<CloudsyncWorkspaceError> for AppSchemaError {
+    fn from(error: CloudsyncWorkspaceError) -> Self {
+        Self::CloudsyncWorkspace(error)
+    }
+}
+
+pub async fn prepare_schema(db: &hypr_db_core::Db) -> Result<(), AppSchemaError> {
+    let templates_missing_before_migration = !templates_table_exists(db.pool()).await?;
+    repair_legacy_shared_session_cache_migration(db.pool()).await?;
+    repair_legacy_attachment_transfer_jobs_migration(db.pool()).await?;
+    hypr_db_migrate::migrate(db, schema()).await?;
+    repair_missing_core_tables(db.pool(), templates_missing_before_migration).await?;
+    ensure_cloudsync_workspace_binding(db.pool()).await?;
+    Ok(())
+}
+
+async fn repair_legacy_attachment_transfer_jobs_migration(
+    pool: &sqlx::SqlitePool,
+) -> Result<(), AppSchemaError> {
+    let migration_table_exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM sqlite_master
+            WHERE type = 'table' AND name = '_sqlx_migrations'
+        )",
+    )
+    .fetch_one(pool)
+    .await?;
+    if !migration_table_exists {
+        return Ok(());
+    }
+
+    let checksum: Option<String> = sqlx::query_scalar(
+        "SELECT lower(hex(checksum))
+         FROM _sqlx_migrations
+         WHERE version = ? AND success = 1",
+    )
+    .bind(ATTACHMENT_TRANSFER_JOBS_MIGRATION_VERSION)
+    .fetch_optional(pool)
+    .await?;
+    match checksum.as_deref() {
+        None | Some(CURRENT_ATTACHMENT_TRANSFER_JOBS_CHECKSUM) => return Ok(()),
+        Some(LEGACY_ATTACHMENT_TRANSFER_JOBS_CHECKSUM) => {}
+        Some(_) => {
+            return Err(AppSchemaError::AttachmentTransferJobsRepair(
+                "attachment-transfer jobs migration has an unknown checksum",
+            ));
+        }
+    }
+
+    let current_migration_checksum = migration_checksum(include_str!(
+        "../migrations/20260717150000_attachment_transfer_jobs.sql"
+    ));
+    if checksum_hex(&current_migration_checksum) != CURRENT_ATTACHMENT_TRANSFER_JOBS_CHECKSUM {
+        return Err(AppSchemaError::AttachmentTransferJobsRepair(
+            "compiled attachment-transfer jobs migration has an unexpected checksum",
+        ));
+    }
+
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let locked_checksum: Option<String> = sqlx::query_scalar(
+        "SELECT lower(hex(checksum))
+         FROM _sqlx_migrations
+         WHERE version = ? AND success = 1",
+    )
+    .bind(ATTACHMENT_TRANSFER_JOBS_MIGRATION_VERSION)
+    .fetch_optional(&mut *transaction)
+    .await?;
+    match locked_checksum.as_deref() {
+        Some(LEGACY_ATTACHMENT_TRANSFER_JOBS_CHECKSUM) => {}
+        Some(CURRENT_ATTACHMENT_TRANSFER_JOBS_CHECKSUM) => {
+            transaction.commit().await?;
+            return Ok(());
+        }
+        _ => {
+            return Err(AppSchemaError::AttachmentTransferJobsRepair(
+                "attachment-transfer jobs migration changed during repair",
+            ));
+        }
+    }
+
+    let legacy_schema_checksum = attachment_transfer_jobs_schema_checksum(&mut transaction).await?;
+    if legacy_schema_checksum != LEGACY_ATTACHMENT_TRANSFER_JOBS_SCHEMA_CHECKSUM {
+        return Err(AppSchemaError::AttachmentTransferJobsRepair(
+            "attachment-transfer jobs migration has an unexpected schema",
+        ));
+    }
+
+    // Only the queue's uniqueness rules changed; keep every transfer job intact.
+    sqlx::raw_sql(
+        "DROP INDEX idx_attachment_transfer_jobs_delete_object;
+         DROP INDEX idx_attachment_transfer_jobs_upload_object_id;
+         DROP INDEX idx_attachment_transfer_jobs_delete_object_id;
+
+         CREATE UNIQUE INDEX idx_attachment_transfer_jobs_delete_object
+         ON attachment_transfer_jobs(object_key)
+         WHERE direction = 'delete' AND phase <> 'completed';
+
+         CREATE UNIQUE INDEX idx_attachment_transfer_jobs_upload_object_id
+         ON attachment_transfer_jobs(remote_object_id)
+         WHERE direction = 'upload'
+           AND remote_object_id <> ''
+           AND phase <> 'completed';
+
+         CREATE UNIQUE INDEX idx_attachment_transfer_jobs_delete_object_id
+         ON attachment_transfer_jobs(remote_object_id)
+         WHERE direction = 'delete'
+           AND remote_object_id <> ''
+           AND phase <> 'completed';",
+    )
+    .execute(&mut *transaction)
+    .await?;
+
+    let current_schema_checksum =
+        attachment_transfer_jobs_schema_checksum(&mut transaction).await?;
+    if current_schema_checksum != CURRENT_ATTACHMENT_TRANSFER_JOBS_SCHEMA_CHECKSUM {
+        return Err(AppSchemaError::AttachmentTransferJobsRepair(
+            "attachment-transfer jobs repair produced an unexpected schema",
+        ));
+    }
+
+    let result = sqlx::query(
+        "UPDATE _sqlx_migrations
+         SET checksum = ?
+         WHERE version = ? AND success = 1 AND lower(hex(checksum)) = ?",
+    )
+    .bind(current_migration_checksum.as_slice())
+    .bind(ATTACHMENT_TRANSFER_JOBS_MIGRATION_VERSION)
+    .bind(LEGACY_ATTACHMENT_TRANSFER_JOBS_CHECKSUM)
+    .execute(&mut *transaction)
+    .await?;
+    if result.rows_affected() != 1 {
+        return Err(AppSchemaError::AttachmentTransferJobsRepair(
+            "attachment-transfer jobs migration changed during repair",
+        ));
+    }
+
+    transaction.commit().await?;
+    Ok(())
+}
+
+async fn attachment_transfer_jobs_schema_checksum(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+) -> Result<String, sqlx::Error> {
+    let objects: Vec<(String, String, String)> = sqlx::query_as(
+        "SELECT type, name, sql
+         FROM sqlite_master
+         WHERE sql IS NOT NULL
+           AND (
+             (type = 'table' AND name = 'attachment_transfer_jobs')
+             OR (
+               type IN ('index', 'trigger')
+               AND tbl_name = 'attachment_transfer_jobs'
+             )
+           )
+         ORDER BY type, name",
+    )
+    .fetch_all(&mut **transaction)
+    .await?;
+    let mut schema = String::new();
+    for (object_type, name, sql) in objects {
+        schema.push_str(&object_type);
+        schema.push('\n');
+        schema.push_str(&name);
+        schema.push('\n');
+        schema.push_str(&normalize_schema_sql(&sql));
+        schema.push('\n');
+    }
+
+    Ok(checksum_hex(&migration_checksum(&schema)))
+}
+
+fn normalize_schema_sql(sql: &str) -> String {
+    sql.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+async fn repair_legacy_shared_session_cache_migration(
+    pool: &sqlx::SqlitePool,
+) -> Result<(), AppSchemaError> {
+    let migration_table_exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM sqlite_master
+            WHERE type = 'table' AND name = '_sqlx_migrations'
+        )",
+    )
+    .fetch_one(pool)
+    .await?;
+    if !migration_table_exists {
+        return Ok(());
+    }
+
+    let checksum: Option<String> = sqlx::query_scalar(
+        "SELECT lower(hex(checksum))
+         FROM _sqlx_migrations
+         WHERE version = ? AND success = 1",
+    )
+    .bind(SHARED_SESSION_CACHE_MIGRATION_VERSION)
+    .fetch_optional(pool)
+    .await?;
+    match checksum.as_deref() {
+        None | Some(CURRENT_SHARED_SESSION_CACHE_CHECKSUM) => return Ok(()),
+        Some(LEGACY_SHARED_SESSION_CACHE_CHECKSUM) => {}
+        Some(_) => {
+            return Err(AppSchemaError::SharedSessionCacheRepair(
+                "shared-session cache migration has an unknown checksum",
+            ));
+        }
+    }
+
+    let current_migration_checksum = migration_checksum(include_str!(
+        "../migrations/20260716173000_shared_session_cache.sql"
+    ));
+    if checksum_hex(&current_migration_checksum) != CURRENT_SHARED_SESSION_CACHE_CHECKSUM {
+        return Err(AppSchemaError::SharedSessionCacheRepair(
+            "compiled shared-session cache migration has an unexpected checksum",
+        ));
+    }
+
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let locked_checksum: Option<String> = sqlx::query_scalar(
+        "SELECT lower(hex(checksum))
+         FROM _sqlx_migrations
+         WHERE version = ? AND success = 1",
+    )
+    .bind(SHARED_SESSION_CACHE_MIGRATION_VERSION)
+    .fetch_optional(&mut *transaction)
+    .await?;
+    match locked_checksum.as_deref() {
+        Some(LEGACY_SHARED_SESSION_CACHE_CHECKSUM) => {}
+        Some(CURRENT_SHARED_SESSION_CACHE_CHECKSUM) => {
+            transaction.commit().await?;
+            return Ok(());
+        }
+        _ => {
+            return Err(AppSchemaError::SharedSessionCacheRepair(
+                "shared-session cache migration changed during repair",
+            ));
+        }
+    }
+
+    let table_exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM sqlite_master
+            WHERE type = 'table' AND name = 'shared_session_cache'
+        )",
+    )
+    .fetch_one(&mut *transaction)
+    .await?;
+    let has_viewer_user_id = table_exists
+        && shared_session_cache_column_exists(&mut transaction, "viewer_user_id").await?;
+    let share_id_is_primary_key: bool = if table_exists {
+        sqlx::query_scalar(
+            "SELECT EXISTS(
+                SELECT 1 FROM pragma_table_info('shared_session_cache')
+                WHERE name = 'share_id' AND pk = 1
+            )",
+        )
+        .fetch_one(&mut *transaction)
+        .await?
+    } else {
+        false
+    };
+    if !table_exists || has_viewer_user_id || !share_id_is_primary_key {
+        return Err(AppSchemaError::SharedSessionCacheRepair(
+            "legacy shared-session cache migration has an unexpected schema",
+        ));
+    }
+
+    let attachments_checksum = applied_migration_checksum(&mut transaction, 20260717172000).await?;
+    let expected_attachments_checksum = migration_checksum(include_str!(
+        "../migrations/20260717172000_shared_session_cache_attachments.sql"
+    ));
+    if attachments_checksum
+        .as_deref()
+        .is_some_and(|checksum| checksum != expected_attachments_checksum.as_slice())
+    {
+        return Err(AppSchemaError::SharedSessionCacheRepair(
+            "shared-session cache attachment migration has an unknown checksum",
+        ));
+    }
+    let attachments_applied = attachments_checksum.is_some();
+    let attachments_present =
+        shared_session_cache_column_exists(&mut transaction, "attachments_json").await?;
+    let web_edits_checksum = applied_migration_checksum(&mut transaction, 20260717190000).await?;
+    let expected_web_edits_checksum = migration_checksum(include_str!(
+        "../migrations/20260717190000_shared_session_cache_web_edits.sql"
+    ));
+    if web_edits_checksum
+        .as_deref()
+        .is_some_and(|checksum| checksum != expected_web_edits_checksum.as_slice())
+    {
+        return Err(AppSchemaError::SharedSessionCacheRepair(
+            "shared-session cache web-edit migration has an unknown checksum",
+        ));
+    }
+    let web_edits_applied = web_edits_checksum.is_some();
+    let web_edit_columns = [
+        "web_editable",
+        "web_edit_base_content_revision",
+        "web_edit_base_title",
+        "web_edit_base_body_json",
+    ];
+    let mut web_edit_columns_present = Vec::with_capacity(web_edit_columns.len());
+    for column in web_edit_columns {
+        web_edit_columns_present
+            .push(shared_session_cache_column_exists(&mut transaction, column).await?);
+    }
+    if attachments_applied != attachments_present
+        || web_edit_columns_present
+            .iter()
+            .any(|present| *present != web_edits_applied)
+    {
+        return Err(AppSchemaError::SharedSessionCacheRepair(
+            "legacy shared-session cache migration history does not match its schema",
+        ));
+    }
+
+    // The legacy cache has no viewer identity, so its derived rows cannot be
+    // assigned to an account safely. Rebuild it and let sync repopulate it.
+    sqlx::query("DROP TABLE shared_session_cache")
+        .execute(&mut *transaction)
+        .await?;
+    sqlx::raw_sql(include_str!(
+        "../migrations/20260716173000_shared_session_cache.sql"
+    ))
+    .execute(&mut *transaction)
+    .await?;
+    if attachments_applied {
+        sqlx::raw_sql(include_str!(
+            "../migrations/20260717172000_shared_session_cache_attachments.sql"
+        ))
+        .execute(&mut *transaction)
+        .await?;
+    }
+    if web_edits_applied {
+        sqlx::raw_sql(include_str!(
+            "../migrations/20260717190000_shared_session_cache_web_edits.sql"
+        ))
+        .execute(&mut *transaction)
+        .await?;
+    }
+
+    let result = sqlx::query(
+        "UPDATE _sqlx_migrations
+         SET checksum = ?
+         WHERE version = ? AND lower(hex(checksum)) = ?",
+    )
+    .bind(current_migration_checksum.as_slice())
+    .bind(SHARED_SESSION_CACHE_MIGRATION_VERSION)
+    .bind(LEGACY_SHARED_SESSION_CACHE_CHECKSUM)
+    .execute(&mut *transaction)
+    .await?;
+    if result.rows_affected() != 1 {
+        return Err(AppSchemaError::SharedSessionCacheRepair(
+            "legacy shared-session cache migration changed during repair",
+        ));
+    }
+
+    transaction.commit().await?;
+    Ok(())
+}
+
+async fn shared_session_cache_column_exists(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    column: &str,
+) -> Result<bool, sqlx::Error> {
+    sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM pragma_table_info('shared_session_cache')
+            WHERE name = ?
+        )",
+    )
+    .bind(column)
+    .fetch_one(&mut **transaction)
+    .await
+}
+
+async fn applied_migration_checksum(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    version: i64,
+) -> Result<Option<Vec<u8>>, sqlx::Error> {
+    sqlx::query_scalar(
+        "SELECT checksum FROM _sqlx_migrations
+         WHERE version = ? AND success = 1",
+    )
+    .bind(version)
+    .fetch_optional(&mut **transaction)
+    .await
+}
+
+fn migration_checksum(sql: &str) -> Vec<u8> {
+    Sha384::digest(sql.as_bytes()).to_vec()
+}
+
+fn checksum_hex(checksum: &[u8]) -> String {
+    use std::fmt::Write as _;
+
+    checksum.iter().fold(
+        String::with_capacity(checksum.len() * 2),
+        |mut hex, byte| {
+            write!(hex, "{byte:02x}").expect("writing to a string cannot fail");
+            hex
+        },
+    )
+}
+
+async fn templates_table_exists(pool: &sqlx::SqlitePool) -> Result<bool, sqlx::Error> {
+    sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1
+            FROM sqlite_master
+            WHERE type = 'table' AND name = 'templates'
+        )",
+    )
+    .fetch_one(pool)
+    .await
+}
+
+async fn repair_missing_core_tables(
+    pool: &sqlx::SqlitePool,
+    templates_missing_before_migration: bool,
+) -> Result<(), sqlx::Error> {
+    if !templates_table_exists(pool).await? {
+        sqlx::query(include_str!("../migrations/20260413020000_templates.sql"))
+            .execute(pool)
+            .await?;
+    }
+
+    let has_icon_json = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('templates') WHERE name = 'icon_json')",
+    )
+    .fetch_one(pool)
+    .await?;
+    if !has_icon_json {
+        sqlx::query(include_str!(
+            "../migrations/20260712170000_template_icons.sql"
+        ))
+        .execute(pool)
+        .await?;
+    }
+
+    if templates_missing_before_migration {
+        sqlx::query(include_str!(
+            "../migrations/20260524000000_default_templates.sql"
+        ))
+        .execute(pool)
+        .await?;
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hypr_db_core::Db;
+    use sqlx::Row;
+
+    const LEGACY_SHARED_SESSION_CACHE_SQL: &str = r#"CREATE TABLE IF NOT EXISTS shared_session_cache (
+  share_id          TEXT PRIMARY KEY NOT NULL CHECK (
+    share_id = trim(share_id) AND length(share_id) > 0
+  ),
+  workspace_id      TEXT NOT NULL CHECK (
+    workspace_id = trim(workspace_id) AND length(workspace_id) > 0
+  ),
+  session_id        TEXT NOT NULL CHECK (
+    session_id = trim(session_id) AND length(session_id) > 0
+  ),
+  schema_version    INTEGER NOT NULL DEFAULT 1 CHECK (schema_version = 1),
+  content_revision  INTEGER NOT NULL CHECK (content_revision > 0),
+  title             TEXT NOT NULL DEFAULT '' CHECK (
+    title = trim(title) AND length(CAST(title AS BLOB)) <= 4096
+  ),
+  body_json         TEXT NOT NULL DEFAULT '{"type":"doc","content":[{"type":"paragraph"}]}' CHECK (
+    CASE
+      WHEN json_valid(body_json) THEN
+        json_type(body_json) = 'object'
+        AND json_extract(body_json, '$.type') = 'doc'
+        AND length(CAST(body_json AS BLOB)) <= 2097152
+      ELSE 0
+    END
+  ),
+  capability        TEXT NOT NULL DEFAULT 'viewer' CHECK (
+    capability IN ('viewer', 'commenter', 'editor')
+  ),
+  manage_access     INTEGER NOT NULL DEFAULT 0 CHECK (manage_access IN (0, 1)),
+  access_version    INTEGER NOT NULL CHECK (access_version > 0),
+  published_at      TEXT NOT NULL CHECK (
+    published_at = trim(published_at) AND length(published_at) > 0
+  ),
+  cached_at         TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+) STRICT;
+
+CREATE INDEX IF NOT EXISTS idx_shared_session_cache_workspace_id
+ON shared_session_cache(workspace_id);
+"#;
+
+    async fn test_db() -> Db {
+        let db = Db::open(hypr_db_core::DbOpenOptions {
+            storage: hypr_db_core::DbStorage::Memory,
+            cloudsync_enabled: false,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .await
+        .unwrap();
+        prepare_schema(&db).await.unwrap();
+        db
+    }
+
+    async fn initialize_enabled_cloudsync_tables(db: &Db) {
+        for table in cloudsync_table_registry()
+            .iter()
+            .filter(|table| table.enabled)
+        {
+            db.cloudsync_init(
+                &table.table_name,
+                table.crdt_algo.as_deref(),
+                table.init_flags,
+            )
+            .await
+            .unwrap();
+        }
+    }
+
+    fn migration_steps_before(id: &str) -> &'static [hypr_db_migrate::MigrationStep] {
+        let index = APP_MIGRATION_STEPS
+            .iter()
+            .position(|step| step.id == id)
+            .unwrap();
+        &APP_MIGRATION_STEPS[..index]
+    }
+
+    fn schema_with_legacy_shared_session_cache(
+        include_later_migrations: bool,
+    ) -> hypr_db_migrate::DbSchema {
+        let migration_index = APP_MIGRATION_STEPS
+            .iter()
+            .position(|step| step.id == "20260716173000_shared_session_cache")
+            .unwrap();
+        let mut steps = if include_later_migrations {
+            APP_MIGRATION_STEPS.to_vec()
+        } else {
+            APP_MIGRATION_STEPS[..=migration_index].to_vec()
+        };
+        let migration = steps
+            .iter_mut()
+            .find(|step| step.id == "20260716173000_shared_session_cache")
+            .unwrap();
+        migration.sql = LEGACY_SHARED_SESSION_CACHE_SQL;
+
+        hypr_db_migrate::DbSchema {
+            steps: Box::leak(steps.into_boxed_slice()),
+            validate_cloudsync_table: cloudsync_alter_guard_required,
+        }
+    }
+
+    fn legacy_attachment_transfer_jobs_sql() -> String {
+        include_str!("../migrations/20260717150000_attachment_transfer_jobs.sql")
+            .replace(
+                "WHERE direction = 'delete' AND phase <> 'completed';",
+                "WHERE direction = 'delete';",
+            )
+            .replace(
+                "WHERE direction = 'upload'\n  AND remote_object_id <> ''\n  AND phase <> 'completed';",
+                "WHERE direction = 'upload' AND remote_object_id <> '';",
+            )
+            .replace(
+                "WHERE direction = 'delete'\n  AND remote_object_id <> ''\n  AND phase <> 'completed';",
+                "WHERE direction = 'delete' AND remote_object_id <> '';",
+            )
+    }
+
+    fn schema_with_legacy_attachment_transfer_jobs() -> hypr_db_migrate::DbSchema {
+        let mut steps = APP_MIGRATION_STEPS.to_vec();
+        let migration = steps
+            .iter_mut()
+            .find(|step| step.id == "20260717150000_attachment_transfer_jobs")
+            .unwrap();
+        migration.sql = Box::leak(legacy_attachment_transfer_jobs_sql().into_boxed_str());
+
+        hypr_db_migrate::DbSchema {
+            steps: Box::leak(steps.into_boxed_slice()),
+            validate_cloudsync_table: cloudsync_alter_guard_required,
+        }
+    }
+
+    async fn attachment_transfer_jobs_schema_checksum_for_test(db: &Db) -> String {
+        let mut transaction = db.pool().begin().await.unwrap();
+        let checksum = attachment_transfer_jobs_schema_checksum(&mut transaction)
+            .await
+            .unwrap();
+        transaction.rollback().await.unwrap();
+        checksum
+    }
+
+    async fn test_db_without_default_templates() -> Db {
+        let db = Db::open(hypr_db_core::DbOpenOptions {
+            storage: hypr_db_core::DbStorage::Memory,
+            cloudsync_enabled: false,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .await
+        .unwrap();
+        hypr_db_migrate::migrate(
+            &db,
+            hypr_db_migrate::DbSchema {
+                steps: &APP_MIGRATION_STEPS[..2],
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
+        sqlx::query(include_str!(
+            "../migrations/20260712170000_template_icons.sql"
+        ))
+        .execute(db.pool())
+        .await
+        .unwrap();
+        db
+    }
+
+    #[tokio::test]
+    async fn schema_declares_legacy_migrations_and_cloudsync_registry() {
+        let db = test_db().await;
+
+        let tables: Vec<String> = sqlx::query_scalar(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+
+        assert!(tables.contains(&"_sqlx_migrations".to_string()));
+        assert!(tables.contains(&"templates".to_string()));
+        assert!(tables.contains(&"sessions".to_string()));
+        assert!(tables.contains(&"migration_import_runs".to_string()));
+    }
+
+    #[tokio::test]
+    async fn migrations_apply_cleanly() {
+        let db = test_db().await;
+
+        let tables: Vec<String> = sqlx::query_as::<_, (String,)>(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|r| r.0)
+        .collect();
+
+        assert_eq!(
+            tables,
+            vec![
+                "_sqlx_migrations",
+                "action_items",
+                "app_settings",
+                "attachment_local_state",
+                "attachment_transfer_jobs",
+                "calendars",
+                "chat_groups",
+                "chat_messages",
+                "cloudsync_session_evictions",
+                "cloudsync_writable_workspaces",
+                "daily_notes",
+                "e2ee_apply_guard",
+                "e2ee_dirty_rows",
+                "e2ee_local_device",
+                "e2ee_local_state",
+                "e2ee_records",
+                "e2ee_witness_pending",
+                "e2ee_witness_records",
+                "e2ee_witness_state",
+                "entity_mentions",
+                "events",
+                "humans",
+                "migration_import_items",
+                "migration_import_runs",
+                "migration_import_targets",
+                "organizations",
+                "search_index_dirty",
+                "search_index_state",
+                "session_attachments",
+                "session_documents",
+                "session_participants",
+                "session_share_sync_state",
+                "session_tags",
+                "sessions",
+                "shared_session_attachment_cache",
+                "shared_session_cache",
+                "storage_migration_state",
+                "tags",
+                "templates",
+                "transcripts",
+                "workspace_memberships",
+                "workspaces",
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn personal_workspace_migration_preserves_existing_session_workspace_ids() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(
+            &db,
+            hypr_db_migrate::DbSchema {
+                steps: migration_steps_before("20260716120000_personal_workspaces"),
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
+
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session-1', 'user-1', 'user-1', 'Existing note')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+        sqlx::query(
+            "INSERT INTO workspaces (id, owner_user_id, name)
+             VALUES ('user-1', 'user-1', 'Personal')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO workspace_memberships (id, workspace_id, user_id, role)
+             VALUES ('membership-1', 'user-1', 'user-1', 'owner')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let session_workspace_id: String =
+            sqlx::query_scalar("SELECT workspace_id FROM sessions WHERE id = 'session-1'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        let workspace: (String, String) =
+            sqlx::query_as("SELECT id, kind FROM workspaces WHERE id = 'user-1'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        let membership_role: String =
+            sqlx::query_scalar("SELECT role FROM workspace_memberships WHERE id = 'membership-1'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+
+        assert_eq!(session_workspace_id, "user-1");
+        assert_eq!(workspace, ("user-1".to_string(), "personal".to_string()));
+        assert_eq!(membership_role, "owner");
+
+        let duplicate = sqlx::query(
+            "INSERT INTO workspace_memberships (id, workspace_id, user_id)
+             VALUES ('membership-2', 'user-1', 'user-1')",
+        )
+        .execute(db.pool())
+        .await;
+        assert!(duplicate.is_err());
+    }
+
+    #[cfg(any(
+        all(target_os = "macos", target_arch = "aarch64"),
+        all(target_os = "macos", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "x86_64"),
+        all(target_os = "windows", target_arch = "x86_64"),
+    ))]
+    #[tokio::test]
+    async fn workspace_tables_can_be_initialized_by_cloudsync() {
+        let db = Db::connect_memory().await.unwrap();
+        prepare_schema(&db).await.unwrap();
+
+        for table_name in ["workspaces", "workspace_memberships"] {
+            db.cloudsync_init(table_name, None, None).await.unwrap();
+            assert!(
+                hypr_db_core::cloudsync_is_enabled_on(db.pool(), table_name)
+                    .await
+                    .unwrap()
+            );
+        }
+    }
+
+    #[cfg(any(
+        all(target_os = "macos", target_arch = "aarch64"),
+        all(target_os = "macos", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "x86_64"),
+        all(target_os = "windows", target_arch = "x86_64"),
+    ))]
+    #[tokio::test]
+    async fn search_index_migrations_apply_before_cloudsync_initialization() {
+        let db = Db::connect_memory().await.unwrap();
+
+        prepare_schema(&db).await.unwrap();
+
+        let trigger_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM sqlite_master
+             WHERE type = 'trigger' AND name LIKE 'search_index_%'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(trigger_count, 15);
+
+        initialize_enabled_cloudsync_tables(&db).await;
+
+        sqlx::query("INSERT INTO sessions (id, title) VALUES ('session-1', 'Planning')")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let generation: i64 = sqlx::query_scalar(
+            "SELECT generation FROM search_index_dirty
+             WHERE entity_type = 'session' AND entity_id = 'session-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(generation, 1);
+    }
+
+    #[cfg(any(
+        all(target_os = "macos", target_arch = "aarch64"),
+        all(target_os = "macos", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "x86_64"),
+        all(target_os = "windows", target_arch = "x86_64"),
+    ))]
+    #[tokio::test]
+    async fn search_index_migrations_apply_to_initialized_cloudsync_tables() {
+        let db = Db::connect_memory().await.unwrap();
+        hypr_db_migrate::migrate(
+            &db,
+            hypr_db_migrate::DbSchema {
+                steps: migration_steps_before("20260714120000_search_index_queue"),
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
+        for table_name in E2EE_DOMAIN_TABLES {
+            db.cloudsync_init(table_name, None, None).await.unwrap();
+        }
+
+        prepare_schema(&db).await.unwrap();
+        initialize_enabled_cloudsync_tables(&db).await;
+
+        sqlx::query("INSERT INTO sessions (id, title) VALUES ('session-1', 'Planning')")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let generation: i64 = sqlx::query_scalar(
+            "SELECT generation FROM search_index_dirty
+             WHERE entity_type = 'session' AND entity_id = 'session-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(generation, 1);
+
+        for table in cloudsync_table_registry()
+            .iter()
+            .filter(|table| table.enabled)
+        {
+            assert!(
+                hypr_db_core::cloudsync_is_enabled_on(db.pool(), &table.table_name)
+                    .await
+                    .unwrap()
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn migration_repairs_empty_titles_from_summary_headings() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(
+            &db,
+            hypr_db_migrate::DbSchema {
+                steps: migration_steps_before("20260713164500_repair_empty_session_titles"),
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
+
+        sqlx::query(
+            "INSERT INTO sessions (id, title)
+             VALUES ('json', ''), ('markdown', '   '), ('generic', ''), ('existing', 'Keep Me')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO session_documents
+             (id, session_id, kind, body_format, body, sort_order)
+             VALUES
+             ('json-summary', 'json', 'summary', 'prosemirror_json',
+              '{\"type\":\"doc\",\"content\":[{\"type\":\"heading\",\"attrs\":{\"level\":1},\"content\":[{\"type\":\"text\",\"text\":\"Transcript Test \"},{\"type\":\"text\",\"text\":\"Utterances\"}]}]}', 0),
+             ('markdown-summary', 'markdown', 'summary', 'markdown',
+              char(10) || '# Markdown Title' || char(10) || char(10) || 'Details', 0),
+             ('generic-summary', 'generic', 'summary', 'markdown', '# Summary' || char(10) || 'Details', 0),
+             ('existing-summary', 'existing', 'summary', 'markdown', '# Replacement' || char(10) || 'Details', 0)",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+
+        let titles =
+            sqlx::query_as::<_, (String, String)>("SELECT id, title FROM sessions ORDER BY id")
+                .fetch_all(db.pool())
+                .await
+                .unwrap()
+                .into_iter()
+                .collect::<std::collections::HashMap<_, _>>();
+
+        assert_eq!(titles["json"], "Transcript Test Utterances");
+        assert_eq!(titles["markdown"], "Markdown Title");
+        assert_eq!(titles["generic"], "");
+        assert_eq!(titles["existing"], "Keep Me");
+    }
+
+    #[tokio::test]
+    async fn repair_migration_recreates_missing_templates_table() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(
+            &db,
+            hypr_db_migrate::DbSchema {
+                steps: &APP_MIGRATION_STEPS[..3],
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
+
+        sqlx::query("DROP TABLE templates")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+
+        let row_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM templates")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(row_count, 0);
+    }
+
+    #[tokio::test]
+    async fn prepare_schema_recreates_templates_after_repair_migration_was_already_applied() {
+        let db = test_db().await;
+
+        sqlx::query("DROP TABLE templates")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        prepare_schema(&db).await.unwrap();
+
+        let row_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM templates")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert!(row_count > 0);
+
+        let icon_json: String =
+            sqlx::query_scalar("SELECT icon_json FROM templates ORDER BY id LIMIT 1")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(
+            icon_json,
+            r##"{"type":"icon","value":"notebook-tabs","color":"#9ca3af"}"##
+        );
+    }
+
+    #[tokio::test]
+    async fn prepare_schema_seeds_templates_when_repair_migration_creates_missing_table() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(
+            &db,
+            hypr_db_migrate::DbSchema {
+                steps: &APP_MIGRATION_STEPS[..3],
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
+
+        sqlx::query("DROP TABLE templates")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        prepare_schema(&db).await.unwrap();
+
+        let row_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM templates")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert!(row_count > 0);
+    }
+
+    #[test]
+    fn cloudsync_registry_enables_only_the_encrypted_replica() {
+        let registry = cloudsync_table_registry();
+        let enabled: Vec<&str> = registry
+            .iter()
+            .filter(|table| table.enabled)
+            .map(|table| table.table_name.as_str())
+            .collect();
+
+        assert_eq!(registry.len(), 20);
+        assert_eq!(enabled, vec!["e2ee_records"]);
+        assert!(
+            !registry
+                .iter()
+                .any(|table| table.table_name == "migration_import_runs")
+        );
+        assert!(!registry.iter().any(|table| {
+            matches!(
+                table.table_name.as_str(),
+                "search_index_dirty" | "search_index_state"
+            )
+        }));
+        assert!(
+            registry
+                .iter()
+                .any(|table| { table.table_name == "workspaces" && !table.enabled })
+        );
+        assert!(
+            registry
+                .iter()
+                .any(|table| { table.table_name == "workspace_memberships" && !table.enabled })
+        );
+        assert!(cloudsync_alter_guard_required("sessions"));
+        assert!(cloudsync_alter_guard_required("e2ee_records"));
+        assert!(!cloudsync_alter_guard_required("workspaces"));
+        assert!(!cloudsync_alter_guard_required("workspace_memberships"));
+        assert!(!cloudsync_alter_guard_required("calendars"));
+    }
+
+    #[tokio::test]
+    async fn e2ee_order_migration_backfills_the_canonical_payload_locally() {
+        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
+        let payload = "ciphertext";
+        let payload_hash = hypr_e2ee::payload_hash(payload);
+        sqlx::raw_sql(include_str!(
+            "../migrations/20260717120000_e2ee_replica.sql"
+        ))
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO e2ee_records (id, workspace_id, payload)
+             VALUES ('record-1', 'workspace-a', ?)",
+        )
+        .bind(payload)
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO e2ee_local_state (
+               record_id, workspace_id, table_name, row_id, field_name,
+               revision, value_tag, payload_hash
+             ) VALUES (
+               'record-1', 'workspace-a', 'sessions', 'session-1',
+               'title', 1, 'tag', ?
+             )",
+        )
+        .bind(&payload_hash)
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO e2ee_local_state (
+               record_id, workspace_id, table_name, row_id, field_name,
+               revision, value_tag, payload_hash
+             ) VALUES (
+               'orphan-record', 'workspace-a', 'sessions', 'session-2',
+               'title', 1, 'tag', 'stale-hash'
+             )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260717192000_e2ee_replica_order")
+            .unwrap();
+        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        sqlx::raw_sql(migration.sql)
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        let state: (String, String, String) = sqlx::query_as(
+            "SELECT writer_id, payload, payload_hash
+             FROM e2ee_local_state
+             WHERE record_id = 'record-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(state, (String::new(), payload.to_string(), payload_hash));
+        let orphan_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM e2ee_local_state WHERE record_id = 'orphan-record'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(orphan_count, 0);
+        assert!(
+            !cloudsync_table_registry()
+                .iter()
+                .any(|table| table.table_name == "e2ee_local_device")
+        );
+        assert!(!cloudsync_alter_guard_required("e2ee_local_device"));
+    }
+
+    #[test]
+    fn e2ee_witness_state_is_local_only() {
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260717193000_e2ee_freshness_witness")
+            .unwrap();
+
+        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        for table_name in ["e2ee_witness_records", "e2ee_witness_state"] {
+            assert!(
+                !cloudsync_table_registry()
+                    .iter()
+                    .any(|table| table.table_name == table_name)
+            );
+            assert!(!cloudsync_alter_guard_required(table_name));
+        }
+    }
+
+    #[test]
+    fn e2ee_witness_pending_is_local_only_and_checksum_is_pinned() {
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260725001400_e2ee_witness_pending")
+            .unwrap();
+
+        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert!(
+            !cloudsync_table_registry()
+                .iter()
+                .any(|table| table.table_name == "e2ee_witness_pending")
+        );
+        assert!(!cloudsync_alter_guard_required("e2ee_witness_pending"));
+        assert_eq!(
+            checksum_hex(&migration_checksum(migration.sql)),
+            "c9d894875eac335555da8b9c093394f98df423e483bbaa4edca1d651bb46e23c9b37064f4fcacaeaaed12a720f89f654"
+        );
+    }
+
+    #[tokio::test]
+    async fn e2ee_witness_pending_migration_seeds_only_dominating_local_state() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(
+            &db,
+            hypr_db_migrate::DbSchema {
+                steps: migration_steps_before("20260725001400_e2ee_witness_pending"),
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
+
+        sqlx::raw_sql(
+            "INSERT INTO e2ee_local_state (
+               record_id, workspace_id, table_name, row_id, field_name, revision,
+               writer_id, value_tag, payload_hash, payload
+             ) VALUES
+               ('missing', 'workspace-a', 'sessions', 'row', 'title', 1, 'a', 'tag', 'a', 'payload'),
+               ('local-revision', 'workspace-a', 'sessions', 'row', 'title', 2, 'a', 'tag', 'a', 'payload'),
+               ('local-writer', 'workspace-a', 'sessions', 'row', 'title', 1, 'b', 'tag', 'a', 'payload'),
+               ('local-hash', 'workspace-a', 'sessions', 'row', 'title', 1, 'a', 'tag', 'b', 'payload'),
+               ('equal', 'workspace-a', 'sessions', 'row', 'title', 1, 'a', 'tag', 'a', 'payload'),
+               ('witness-revision', 'workspace-a', 'sessions', 'row', 'title', 1, 'a', 'tag', 'a', 'payload'),
+               ('witness-writer', 'workspace-a', 'sessions', 'row', 'title', 1, 'a', 'tag', 'a', 'payload'),
+               ('witness-hash', 'workspace-a', 'sessions', 'row', 'title', 1, 'a', 'tag', 'a', 'payload');
+
+             INSERT INTO e2ee_witness_records (
+               workspace_id, record_id, revision, writer_id, payload_hash, payload
+             ) VALUES
+               ('workspace-a', 'local-revision', 1, 'a', 'a', 'payload'),
+               ('workspace-a', 'local-writer', 1, 'a', 'a', 'payload'),
+               ('workspace-a', 'local-hash', 1, 'a', 'a', 'payload'),
+               ('workspace-a', 'equal', 1, 'a', 'a', 'payload'),
+               ('workspace-a', 'witness-revision', 2, 'a', 'a', 'payload'),
+               ('workspace-a', 'witness-writer', 1, 'b', 'a', 'payload'),
+               ('workspace-a', 'witness-hash', 1, 'a', 'b', 'payload');",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+
+        let pending: Vec<String> =
+            sqlx::query_scalar("SELECT record_id FROM e2ee_witness_pending ORDER BY record_id")
+                .fetch_all(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(
+            pending,
+            ["local-hash", "local-revision", "local-writer", "missing"]
+        );
+
+        let foreign_key: (String, String, String, String) = sqlx::query_as(
+            "SELECT \"table\", \"from\", \"to\", on_delete
+             FROM pragma_foreign_key_list('e2ee_witness_pending')",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(
+            foreign_key,
+            (
+                "e2ee_local_state".to_string(),
+                "record_id".to_string(),
+                "record_id".to_string(),
+                "CASCADE".to_string(),
+            )
+        );
+    }
+
+    #[test]
+    fn e2ee_dirty_rows_is_local_only_with_scoped_domain_triggers() {
+        let table_migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260723120000_e2ee_dirty_rows")
+            .unwrap();
+        assert_eq!(
+            table_migration.scope,
+            hypr_db_migrate::MigrationScope::Plain
+        );
+        for local_table in ["e2ee_apply_guard", "e2ee_dirty_rows"] {
+            assert!(
+                !cloudsync_table_registry()
+                    .iter()
+                    .any(|table| table.table_name == local_table)
+            );
+            assert!(!cloudsync_alter_guard_required(local_table));
+        }
+
+        let trigger_migrations: Vec<_> = APP_MIGRATION_STEPS
+            .iter()
+            .filter(|step| step.id.starts_with("2026072312") && step.id.ends_with("_triggers"))
+            .collect();
+        assert_eq!(trigger_migrations.len(), E2EE_DOMAIN_TABLES.len());
+        for table_name in E2EE_DOMAIN_TABLES {
+            assert!(trigger_migrations.iter().any(|step| matches!(
+                step.scope,
+                hypr_db_migrate::MigrationScope::CloudsyncAlter {
+                    table_name: scoped_table
+                } if scoped_table == *table_name
+            )));
+        }
+    }
+
+    #[tokio::test]
+    async fn e2ee_dirty_rows_migration_seeds_existing_domain_rows_and_tombstones() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(
+            &db,
+            hypr_db_migrate::DbSchema {
+                steps: migration_steps_before("20260723120000_e2ee_dirty_rows"),
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
+
+        for table_name in E2EE_DOMAIN_TABLES {
+            let insert_sql = format!(
+                "INSERT INTO {table_name} (id, workspace_id, deleted_at)
+                 VALUES (?, 'workspace-a', NULL), (?, 'workspace-a', '2026-07-23T00:00:00Z')"
+            );
+            sqlx::query(sqlx::AssertSqlSafe(insert_sql.as_str()))
+                .bind(format!("live-{table_name}"))
+                .bind(format!("deleted-{table_name}"))
+                .execute(db.pool())
+                .await
+                .unwrap();
+            sqlx::query(
+                "INSERT INTO e2ee_local_state (
+                   record_id, workspace_id, table_name, row_id, field_name
+                 ) VALUES (?, 'workspace-a', ?, ?, '$row')",
+            )
+            .bind(format!("manifest-{table_name}"))
+            .bind(table_name)
+            .bind(format!("absent-{table_name}"))
+            .execute(db.pool())
+            .await
+            .unwrap();
+        }
+
+        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+
+        let dirty_rows: Vec<(String, String, String, i64)> = sqlx::query_as(
+            "SELECT workspace_id, table_name, row_id, generation
+             FROM e2ee_dirty_rows
+             ORDER BY table_name, row_id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(dirty_rows.len(), E2EE_DOMAIN_TABLES.len() * 3);
+        for table_name in E2EE_DOMAIN_TABLES {
+            assert!(dirty_rows.contains(&(
+                "workspace-a".to_string(),
+                table_name.to_string(),
+                format!("live-{table_name}"),
+                1,
+            )));
+            assert!(dirty_rows.contains(&(
+                "workspace-a".to_string(),
+                table_name.to_string(),
+                format!("deleted-{table_name}"),
+                1,
+            )));
+            assert!(dirty_rows.contains(&(
+                "workspace-a".to_string(),
+                table_name.to_string(),
+                format!("absent-{table_name}"),
+                1,
+            )));
+        }
+    }
+
+    #[tokio::test]
+    async fn e2ee_dirty_triggers_track_domain_inserts_updates_and_deletes() {
+        let db = test_db().await;
+
+        let trigger_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*)
+             FROM sqlite_master
+             WHERE type = 'trigger' AND name LIKE 'e2ee_dirty_%'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(trigger_count, (E2EE_DOMAIN_TABLES.len() * 3) as i64);
+
+        for table_name in E2EE_DOMAIN_TABLES {
+            let row_id = format!("row-{table_name}");
+            let insert_sql =
+                format!("INSERT INTO {table_name} (id, workspace_id) VALUES (?, 'workspace-a')");
+            sqlx::query(sqlx::AssertSqlSafe(insert_sql.as_str()))
+                .bind(&row_id)
+                .execute(db.pool())
+                .await
+                .unwrap();
+
+            let update_sql = format!(
+                "UPDATE {table_name}
+                 SET updated_at = '2026-07-23T01:00:00Z'
+                 WHERE id = ?"
+            );
+            sqlx::query(sqlx::AssertSqlSafe(update_sql.as_str()))
+                .bind(&row_id)
+                .execute(db.pool())
+                .await
+                .unwrap();
+
+            let delete_sql = format!("DELETE FROM {table_name} WHERE id = ?");
+            sqlx::query(sqlx::AssertSqlSafe(delete_sql.as_str()))
+                .bind(&row_id)
+                .execute(db.pool())
+                .await
+                .unwrap();
+
+            let generation: i64 = sqlx::query_scalar(
+                "SELECT generation
+                 FROM e2ee_dirty_rows
+                 WHERE workspace_id = 'workspace-a'
+                   AND table_name = ?
+                   AND row_id = ?",
+            )
+            .bind(table_name)
+            .bind(&row_id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+            assert_eq!(generation, 3, "{table_name}");
+        }
+    }
+
+    #[tokio::test]
+    async fn e2ee_dirty_update_tracks_both_sides_of_an_identity_move() {
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id)
+             VALUES ('session-a', 'workspace-a')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "UPDATE sessions
+             SET workspace_id = 'workspace-b'
+             WHERE id = 'session-a'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let generations: Vec<(String, i64)> = sqlx::query_as(
+            "SELECT workspace_id, generation
+             FROM e2ee_dirty_rows
+             WHERE table_name = 'sessions' AND row_id = 'session-a'
+             ORDER BY workspace_id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(
+            generations,
+            vec![
+                ("workspace-a".to_string(), 2),
+                ("workspace-b".to_string(), 1)
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn e2ee_apply_guard_suppresses_only_the_guarded_write() {
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id)
+             VALUES ('local-session', 'workspace-a')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO e2ee_apply_guard (workspace_id, table_name, row_id)
+             VALUES ('workspace-a', 'sessions', 'local-session')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "UPDATE sessions
+             SET title = 'remote title'
+             WHERE id = 'local-session'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let generation: i64 = sqlx::query_scalar(
+            "SELECT generation
+             FROM e2ee_dirty_rows
+             WHERE workspace_id = 'workspace-a'
+               AND table_name = 'sessions'
+               AND row_id = 'local-session'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(generation, 1);
+        sqlx::query("DELETE FROM sessions WHERE id = 'local-session'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let generation_after_delete: i64 = sqlx::query_scalar(
+            "SELECT generation
+             FROM e2ee_dirty_rows
+             WHERE workspace_id = 'workspace-a'
+               AND table_name = 'sessions'
+               AND row_id = 'local-session'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(generation_after_delete, 1);
+
+        sqlx::query(
+            "INSERT INTO e2ee_apply_guard (workspace_id, table_name, row_id)
+             VALUES
+               ('workspace-a', 'sessions', 'remote-session'),
+               ('workspace-b', 'sessions', 'remote-session')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id)
+             VALUES ('remote-session', 'workspace-a')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "UPDATE sessions
+             SET workspace_id = 'workspace-b'
+             WHERE id = 'remote-session'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query("DELETE FROM sessions WHERE id = 'remote-session'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        let remote_dirty_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*)
+             FROM e2ee_dirty_rows
+             WHERE table_name = 'sessions' AND row_id = 'remote-session'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(remote_dirty_count, 0);
+    }
+
+    #[cfg(any(
+        all(target_os = "macos", target_arch = "aarch64"),
+        all(target_os = "macos", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "gnu", target_arch = "x86_64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "aarch64"),
+        all(target_os = "linux", target_env = "musl", target_arch = "x86_64"),
+        all(target_os = "windows", target_arch = "x86_64"),
+    ))]
+    #[tokio::test]
+    async fn e2ee_dirty_triggers_apply_to_initialized_cloudsync_tables() {
+        let db = Db::connect_memory().await.unwrap();
+        hypr_db_migrate::migrate(
+            &db,
+            hypr_db_migrate::DbSchema {
+                steps: migration_steps_before("20260723120000_e2ee_dirty_rows"),
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
+        for table_name in E2EE_DOMAIN_TABLES {
+            db.cloudsync_init(table_name, None, None).await.unwrap();
+        }
+
+        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+
+        let trigger_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*)
+             FROM sqlite_master
+             WHERE type = 'trigger' AND name LIKE 'e2ee_dirty_%'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(trigger_count, (E2EE_DOMAIN_TABLES.len() * 3) as i64);
+
+        sqlx::query(
+            "INSERT INTO transcripts (id, workspace_id)
+             VALUES ('transcript-a', 'workspace-a')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let generation: i64 = sqlx::query_scalar(
+            "SELECT generation
+             FROM e2ee_dirty_rows
+             WHERE workspace_id = 'workspace-a'
+               AND table_name = 'transcripts'
+               AND row_id = 'transcript-a'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(generation, 1);
+    }
+
+    #[test]
+    fn shared_session_cache_is_plain_and_excluded_from_cloudsync() {
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260716173000_shared_session_cache")
+            .unwrap();
+
+        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert!(
+            !cloudsync_table_registry()
+                .iter()
+                .any(|table| table.table_name == "shared_session_cache")
+        );
+        assert!(!cloudsync_alter_guard_required("shared_session_cache"));
+    }
+
+    #[test]
+    fn shared_session_cache_migration_checksums_are_pinned() {
+        assert_eq!(
+            checksum_hex(&migration_checksum(LEGACY_SHARED_SESSION_CACHE_SQL)),
+            LEGACY_SHARED_SESSION_CACHE_CHECKSUM
+        );
+        assert_eq!(
+            checksum_hex(&migration_checksum(include_str!(
+                "../migrations/20260716173000_shared_session_cache.sql"
+            ))),
+            CURRENT_SHARED_SESSION_CACHE_CHECKSUM
+        );
+    }
+
+    #[tokio::test]
+    async fn repairs_the_base_only_dev_cache_without_touching_notes() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(&db, schema_with_legacy_shared_session_cache(false))
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session-1', 'workspace-1', 'user-1', 'Important note')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO session_documents (id, workspace_id, session_id, title, body)
+             VALUES ('document-1', 'workspace-1', 'session-1', 'Notes', '{\"type\":\"doc\"}')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO transcripts (id, workspace_id, owner_user_id, session_id, words_json)
+             VALUES ('transcript-1', 'workspace-1', 'user-1', 'session-1', '[{\"text\":\"hello\"}]')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO shared_session_cache (
+                share_id, workspace_id, session_id, content_revision,
+                access_version, published_at
+             ) VALUES (
+                'share-1', 'workspace-1', 'shared-session-1', 1,
+                1, '2026-07-18T00:00:00Z'
+             )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        prepare_schema(&db).await.unwrap();
+
+        let source_rows: (i64, i64, i64) = sqlx::query_as(
+            "SELECT
+                (SELECT COUNT(*) FROM sessions WHERE id = 'session-1'),
+                (SELECT COUNT(*) FROM session_documents WHERE id = 'document-1'),
+                (SELECT COUNT(*) FROM transcripts WHERE id = 'transcript-1')",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(source_rows, (1, 1, 1));
+        let cache_rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM shared_session_cache")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(cache_rows, 0);
+    }
+
+    #[tokio::test]
+    async fn repairs_the_known_legacy_shared_session_cache_migration() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(&db, schema_with_legacy_shared_session_cache(true))
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO shared_session_cache (
+                share_id, workspace_id, session_id, content_revision,
+                access_version, published_at
+             ) VALUES (
+                'share-1', 'workspace-1', 'session-1', 1,
+                1, '2026-07-18T00:00:00Z'
+             )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let legacy_checksum: String = sqlx::query_scalar(
+            "SELECT lower(hex(checksum))
+             FROM _sqlx_migrations
+             WHERE version = ?",
+        )
+        .bind(SHARED_SESSION_CACHE_MIGRATION_VERSION)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(legacy_checksum, LEGACY_SHARED_SESSION_CACHE_CHECKSUM);
+
+        prepare_schema(&db).await.unwrap();
+        prepare_schema(&db).await.unwrap();
+
+        let checksum: String = sqlx::query_scalar(
+            "SELECT lower(hex(checksum))
+             FROM _sqlx_migrations
+             WHERE version = ?",
+        )
+        .bind(SHARED_SESSION_CACHE_MIGRATION_VERSION)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(checksum, CURRENT_SHARED_SESSION_CACHE_CHECKSUM);
+        for column in [
+            "viewer_user_id",
+            "attachments_json",
+            "web_editable",
+            "web_edit_base_content_revision",
+            "web_edit_base_title",
+            "web_edit_base_body_json",
+        ] {
+            assert!(
+                sqlx::query_scalar::<_, bool>(
+                    "SELECT EXISTS(
+                        SELECT 1 FROM pragma_table_info('shared_session_cache')
+                        WHERE name = ?
+                    )",
+                )
+                .bind(column)
+                .fetch_one(db.pool())
+                .await
+                .unwrap(),
+                "missing repaired column {column}"
+            );
+        }
+        let primary_key_columns: Vec<String> = sqlx::query_scalar(
+            "SELECT name
+             FROM pragma_table_info('shared_session_cache')
+             WHERE pk > 0
+             ORDER BY pk",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(primary_key_columns, ["viewer_user_id", "share_id"]);
+        let cache_rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM shared_session_cache")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(cache_rows, 0);
+    }
+
+    #[tokio::test]
+    async fn current_shared_session_cache_is_left_untouched() {
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO shared_session_cache (
+                share_id, viewer_user_id, workspace_id, session_id,
+                content_revision, access_version, published_at
+             ) VALUES (
+                'share-1', 'user-1', 'workspace-1', 'session-1',
+                1, 1, '2026-07-18T00:00:00Z'
+             )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        prepare_schema(&db).await.unwrap();
+
+        let cache_rows: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM shared_session_cache
+             WHERE viewer_user_id = 'user-1' AND share_id = 'share-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(cache_rows, 1);
+    }
+
+    #[tokio::test]
+    async fn unknown_shared_session_cache_checksum_fails_without_mutation() {
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO shared_session_cache (
+                share_id, viewer_user_id, workspace_id, session_id,
+                content_revision, access_version, published_at
+             ) VALUES (
+                'share-1', 'user-1', 'workspace-1', 'session-1',
+                1, 1, '2026-07-18T00:00:00Z'
+             )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "UPDATE _sqlx_migrations
+             SET checksum = X'00'
+             WHERE version = ?",
+        )
+        .bind(SHARED_SESSION_CACHE_MIGRATION_VERSION)
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let error = prepare_schema(&db).await.unwrap_err();
+        assert!(matches!(
+            error,
+            AppSchemaError::SharedSessionCacheRepair(
+                "shared-session cache migration has an unknown checksum"
+            )
+        ));
+        let cache_rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM shared_session_cache")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(cache_rows, 1);
+        let checksum: Vec<u8> =
+            sqlx::query_scalar("SELECT checksum FROM _sqlx_migrations WHERE version = ?")
+                .bind(SHARED_SESSION_CACHE_MIGRATION_VERSION)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(checksum, [0]);
+    }
+
+    #[tokio::test]
+    async fn rejects_a_legacy_checksum_with_the_current_cache_schema() {
+        let db = test_db().await;
+        sqlx::query(
+            "UPDATE _sqlx_migrations
+             SET checksum = X'4813DB532E44E6DB8A3BA85E0B248FF99A927EC40B6AA971210452B588BCB2361D3661BD23D045A32AC3A9FCBED99B4A'
+             WHERE version = ?",
+        )
+        .bind(SHARED_SESSION_CACHE_MIGRATION_VERSION)
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let error = prepare_schema(&db).await.unwrap_err();
+        assert!(matches!(
+            error,
+            AppSchemaError::SharedSessionCacheRepair(
+                "legacy shared-session cache migration has an unexpected schema"
+            )
+        ));
+    }
+
+    #[test]
+    fn session_share_sync_state_is_plain_and_excluded_from_replication() {
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260717191000_session_share_sync_state")
+            .unwrap();
+
+        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert!(
+            !cloudsync_table_registry()
+                .iter()
+                .any(|table| table.table_name == "session_share_sync_state")
+        );
+        assert!(!E2EE_DOMAIN_TABLES.contains(&"session_share_sync_state"));
+        assert!(!cloudsync_alter_guard_required("session_share_sync_state"));
+    }
+
+    #[tokio::test]
+    async fn session_share_sync_state_enforces_local_reconciliation_contract() {
+        let db = test_db().await;
+        let insert = "INSERT INTO session_share_sync_state (
+            viewer_user_id,
+            share_id,
+            session_id,
+            acknowledged_content_revision,
+            baseline_source_hash,
+            status
+        ) VALUES (?, ?, ?, ?, ?, ?)";
+
+        sqlx::query(insert)
+            .bind("viewer-1")
+            .bind("share-1")
+            .bind("session-1")
+            .bind(3_i64)
+            .bind("a".repeat(64))
+            .bind("clean")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        for (viewer, share, session, revision, hash, status) in [
+            ("", "share-2", "session-2", 1_i64, "b".repeat(64), "clean"),
+            (
+                "viewer-2",
+                "share-2",
+                "session-2",
+                0_i64,
+                "b".repeat(64),
+                "clean",
+            ),
+            (
+                "viewer-2",
+                "share-2",
+                "session-2",
+                1_i64,
+                "B".repeat(64),
+                "clean",
+            ),
+            (
+                "viewer-2",
+                "share-2",
+                "session-2",
+                1_i64,
+                "b".repeat(63),
+                "clean",
+            ),
+            (
+                "viewer-2",
+                "share-2",
+                "session-2",
+                1_i64,
+                "b".repeat(64),
+                "pending",
+            ),
+        ] {
+            assert!(
+                sqlx::query(insert)
+                    .bind(viewer)
+                    .bind(share)
+                    .bind(session)
+                    .bind(revision)
+                    .bind(hash)
+                    .bind(status)
+                    .execute(db.pool())
+                    .await
+                    .is_err()
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn shared_session_cache_enforces_manager_web_edit_base() {
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260717190000_shared_session_cache_web_edits")
+            .unwrap();
+        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+
+        let db = test_db().await;
+        let insert = "INSERT INTO shared_session_cache (
+            share_id,
+            viewer_user_id,
+            workspace_id,
+            session_id,
+            content_revision,
+            manage_access,
+            access_version,
+            web_editable,
+            web_edit_base_content_revision,
+            web_edit_base_title,
+            web_edit_base_body_json,
+            published_at
+        ) VALUES (?, ?, 'workspace-1', 'session-1', 2, ?, 1, 0, ?, ?, ?, '2026-07-17T00:00:00Z')";
+        let body = r#"{"type":"doc","content":[{"type":"paragraph"}]}"#;
+
+        sqlx::query(insert)
+            .bind("share-1")
+            .bind("viewer-1")
+            .bind(1_i64)
+            .bind(1_i64)
+            .bind("Before")
+            .bind(body)
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        for (share, viewer, manager, revision, title, body) in [
+            (
+                "share-2",
+                "viewer-2",
+                0_i64,
+                Some(1_i64),
+                Some("Before"),
+                Some(body),
+            ),
+            (
+                "share-3",
+                "viewer-3",
+                1_i64,
+                Some(2_i64),
+                Some("Before"),
+                Some(body),
+            ),
+            ("share-4", "viewer-4", 1_i64, Some(1_i64), None, Some(body)),
+        ] {
+            assert!(
+                sqlx::query(insert)
+                    .bind(share)
+                    .bind(viewer)
+                    .bind(manager)
+                    .bind(revision)
+                    .bind(title)
+                    .bind(body)
+                    .execute(db.pool())
+                    .await
+                    .is_err()
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn shared_session_cache_attachment_manifest_is_local_and_bounded() {
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260717172000_shared_session_cache_attachments")
+            .unwrap();
+        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO shared_session_cache (
+                share_id,
+                viewer_user_id,
+                workspace_id,
+                session_id,
+                content_revision,
+                access_version,
+                published_at
+            ) VALUES (
+                '11111111-1111-4111-8111-111111111111',
+                'viewer-1',
+                '22222222-2222-4222-8222-222222222222',
+                'session-1',
+                1,
+                1,
+                '2026-07-17T00:00:00Z'
+            )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let manifest: String = sqlx::query_scalar(
+            "SELECT attachments_json FROM shared_session_cache
+             WHERE viewer_user_id = 'viewer-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(manifest, "[]");
+
+        let oversized = format!(
+            "[{}]",
+            (0..65)
+                .map(|index| format!(r#"{{"id":{index}}}"#))
+                .collect::<Vec<_>>()
+                .join(",")
+        );
+        let invalid = sqlx::query(
+            "UPDATE shared_session_cache SET attachments_json = ?
+             WHERE viewer_user_id = 'viewer-1'",
+        )
+        .bind(oversized)
+        .execute(db.pool())
+        .await;
+        assert!(invalid.is_err());
+    }
+
+    #[test]
+    fn attachment_local_state_is_plain_and_excluded_from_cloudsync() {
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260717140000_attachment_local_state")
+            .unwrap();
+
+        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert!(
+            !cloudsync_table_registry()
+                .iter()
+                .any(|table| table.table_name == "attachment_local_state")
+        );
+        assert!(!E2EE_DOMAIN_TABLES.contains(&"attachment_local_state"));
+        assert!(!cloudsync_alter_guard_required("attachment_local_state"));
+    }
+
+    #[test]
+    fn attachment_transfer_jobs_are_plain_and_excluded_from_cloudsync() {
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260717150000_attachment_transfer_jobs")
+            .unwrap();
+
+        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert!(
+            !cloudsync_table_registry()
+                .iter()
+                .any(|table| table.table_name == "attachment_transfer_jobs")
+        );
+        assert!(!E2EE_DOMAIN_TABLES.contains(&"attachment_transfer_jobs"));
+        assert!(!cloudsync_alter_guard_required("attachment_transfer_jobs"));
+    }
+
+    #[test]
+    fn attachment_transfer_jobs_migration_checksums_are_pinned() {
+        assert_eq!(
+            checksum_hex(&migration_checksum(&legacy_attachment_transfer_jobs_sql())),
+            LEGACY_ATTACHMENT_TRANSFER_JOBS_CHECKSUM
+        );
+        assert_eq!(
+            checksum_hex(&migration_checksum(include_str!(
+                "../migrations/20260717150000_attachment_transfer_jobs.sql"
+            ))),
+            CURRENT_ATTACHMENT_TRANSFER_JOBS_CHECKSUM
+        );
+        assert_ne!(
+            normalize_schema_sql("WHERE direction = 'delete'"),
+            normalize_schema_sql("WHERE direction = 'DELETE'")
+        );
+    }
+
+    #[tokio::test]
+    async fn repairs_known_attachment_transfer_job_indexes_without_dropping_jobs() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(&db, schema_with_legacy_attachment_transfer_jobs())
+            .await
+            .unwrap();
+        assert_eq!(
+            attachment_transfer_jobs_schema_checksum_for_test(&db).await,
+            LEGACY_ATTACHMENT_TRANSFER_JOBS_SCHEMA_CHECKSUM
+        );
+        sqlx::query(
+            "INSERT INTO attachment_transfer_jobs (
+                id, attachment_id, session_id, workspace_id, direction,
+                expected_sha256, expected_size_bytes, ciphertext_sha256,
+                ciphertext_size_bytes, remote_object_id, object_key, cache_id,
+                phase, attempt_count, next_attempt_at, last_attempt_at,
+                last_error, created_at, updated_at, completed_at
+             ) VALUES (
+                'job-1', 'attachment-1', 'session-1', 'workspace-1', 'upload',
+                'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+                42,
+                'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+                99, 'object-1', 'objects/object-1', 'cache-1', 'completed', 2,
+                '2026-07-17T01:00:00.000Z', '2026-07-17T00:30:00.000Z',
+                'previous retry', '2026-07-17T00:00:00.000Z',
+                '2026-07-17T00:45:00.000Z', '2026-07-17T00:45:00.000Z'
+             )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let row_snapshot_sql = "SELECT json_object(
+            'id', id,
+            'attachment_id', attachment_id,
+            'session_id', session_id,
+            'workspace_id', workspace_id,
+            'direction', direction,
+            'expected_sha256', expected_sha256,
+            'expected_size_bytes', expected_size_bytes,
+            'ciphertext_sha256', ciphertext_sha256,
+            'ciphertext_size_bytes', ciphertext_size_bytes,
+            'remote_object_id', remote_object_id,
+            'object_key', object_key,
+            'cache_id', cache_id,
+            'phase', phase,
+            'attempt_count', attempt_count,
+            'next_attempt_at', next_attempt_at,
+            'last_attempt_at', last_attempt_at,
+            'last_error', last_error,
+            'created_at', created_at,
+            'updated_at', updated_at,
+            'completed_at', completed_at
+         ) FROM attachment_transfer_jobs WHERE id = 'job-1'";
+        let row_before: String = sqlx::query_scalar(row_snapshot_sql)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+
+        prepare_schema(&db).await.unwrap();
+        prepare_schema(&db).await.unwrap();
+
+        let checksum: String = sqlx::query_scalar(
+            "SELECT lower(hex(checksum))
+             FROM _sqlx_migrations WHERE version = ?",
+        )
+        .bind(ATTACHMENT_TRANSFER_JOBS_MIGRATION_VERSION)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(checksum, CURRENT_ATTACHMENT_TRANSFER_JOBS_CHECKSUM);
+        assert_eq!(
+            attachment_transfer_jobs_schema_checksum_for_test(&db).await,
+            CURRENT_ATTACHMENT_TRANSFER_JOBS_SCHEMA_CHECKSUM
+        );
+        let row_after: String = sqlx::query_scalar(row_snapshot_sql)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(row_after, row_before);
+
+        sqlx::query(
+            "INSERT INTO attachment_transfer_jobs (
+                id, attachment_id, session_id, workspace_id, direction,
+                expected_sha256, remote_object_id
+             ) VALUES (
+                'job-2', 'attachment-2', 'session-1', 'workspace-1', 'upload',
+                'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+                'object-1'
+             )",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let jobs: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM attachment_transfer_jobs")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(jobs, 2);
+    }
+
+    #[tokio::test]
+    async fn unknown_attachment_transfer_jobs_checksum_fails_without_mutation() {
+        let db = test_db().await;
+        let original_index_sql: String = sqlx::query_scalar(
+            "SELECT sql FROM sqlite_master
+             WHERE type = 'index'
+               AND name = 'idx_attachment_transfer_jobs_upload_object_id'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "UPDATE _sqlx_migrations SET checksum = X'00'
+             WHERE version = ?",
+        )
+        .bind(ATTACHMENT_TRANSFER_JOBS_MIGRATION_VERSION)
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let error = prepare_schema(&db).await.unwrap_err();
+        assert!(matches!(
+            error,
+            AppSchemaError::AttachmentTransferJobsRepair(
+                "attachment-transfer jobs migration has an unknown checksum"
+            )
+        ));
+        let index_sql: String = sqlx::query_scalar(
+            "SELECT sql FROM sqlite_master
+             WHERE type = 'index'
+               AND name = 'idx_attachment_transfer_jobs_upload_object_id'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(index_sql, original_index_sql);
+        let checksum: Vec<u8> =
+            sqlx::query_scalar("SELECT checksum FROM _sqlx_migrations WHERE version = ?")
+                .bind(ATTACHMENT_TRANSFER_JOBS_MIGRATION_VERSION)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(checksum, [0]);
+    }
+
+    #[tokio::test]
+    async fn legacy_attachment_transfer_checksum_rejects_a_changed_schema() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(&db, schema_with_legacy_attachment_transfer_jobs())
+            .await
+            .unwrap();
+        sqlx::raw_sql(
+            "DROP INDEX idx_attachment_transfer_jobs_due;
+             CREATE INDEX idx_attachment_transfer_jobs_due
+             ON attachment_transfer_jobs(created_at, phase, next_attempt_at);",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let changed_schema = attachment_transfer_jobs_schema_checksum_for_test(&db).await;
+
+        let error = prepare_schema(&db).await.unwrap_err();
+        assert!(matches!(
+            error,
+            AppSchemaError::AttachmentTransferJobsRepair(
+                "attachment-transfer jobs migration has an unexpected schema"
+            )
+        ));
+        assert_eq!(
+            attachment_transfer_jobs_schema_checksum_for_test(&db).await,
+            changed_schema
+        );
+        let checksum: String = sqlx::query_scalar(
+            "SELECT lower(hex(checksum))
+             FROM _sqlx_migrations WHERE version = ?",
+        )
+        .bind(ATTACHMENT_TRANSFER_JOBS_MIGRATION_VERSION)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(checksum, LEGACY_ATTACHMENT_TRANSFER_JOBS_CHECKSUM);
+    }
+
+    #[tokio::test]
+    async fn legacy_attachment_transfer_checksum_rejects_current_indexes() {
+        let db = test_db().await;
+        sqlx::query(
+            "UPDATE _sqlx_migrations
+             SET checksum = X'FD846A54C653D8E737371A950747B442BBA2DA055566DBCD35907B36FE7829A3A09C81052346BB05100BA71BE552EFC0'
+             WHERE version = ?",
+        )
+        .bind(ATTACHMENT_TRANSFER_JOBS_MIGRATION_VERSION)
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let error = prepare_schema(&db).await.unwrap_err();
+        assert!(matches!(
+            error,
+            AppSchemaError::AttachmentTransferJobsRepair(
+                "attachment-transfer jobs migration has an unexpected schema"
+            )
+        ));
+        assert_eq!(
+            attachment_transfer_jobs_schema_checksum_for_test(&db).await,
+            CURRENT_ATTACHMENT_TRANSFER_JOBS_SCHEMA_CHECKSUM
+        );
+    }
+
+    #[tokio::test]
+    async fn attachment_transfer_job_index_repair_rolls_back_when_checksum_update_fails() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(&db, schema_with_legacy_attachment_transfer_jobs())
+            .await
+            .unwrap();
+        sqlx::raw_sql(
+            "CREATE TRIGGER block_attachment_transfer_jobs_checksum_update
+             BEFORE UPDATE OF checksum ON _sqlx_migrations
+             WHEN OLD.version = 20260717150000
+             BEGIN
+               SELECT RAISE(ABORT, 'blocked checksum update');
+             END;",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let error = prepare_schema(&db).await.unwrap_err();
+        assert!(matches!(error, AppSchemaError::Sqlx(_)));
+        assert_eq!(
+            attachment_transfer_jobs_schema_checksum_for_test(&db).await,
+            LEGACY_ATTACHMENT_TRANSFER_JOBS_SCHEMA_CHECKSUM
+        );
+        let checksum: String = sqlx::query_scalar(
+            "SELECT lower(hex(checksum))
+             FROM _sqlx_migrations WHERE version = ?",
+        )
+        .bind(ATTACHMENT_TRANSFER_JOBS_MIGRATION_VERSION)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(checksum, LEGACY_ATTACHMENT_TRANSFER_JOBS_CHECKSUM);
+    }
+
+    #[tokio::test]
+    async fn attachment_cloud_sync_intent_is_a_synced_additive_column() {
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260717170000_attachment_cloud_sync_intent")
+            .unwrap();
+
+        assert_eq!(
+            migration.scope,
+            hypr_db_migrate::MigrationScope::CloudsyncAlter {
+                table_name: "session_attachments",
+            }
+        );
+
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO session_attachments (id, workspace_id, session_id)
+             VALUES ('attachment-intent', 'workspace-1', 'session-1')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let enabled: i64 = sqlx::query_scalar(
+            "SELECT cloud_sync_enabled FROM session_attachments
+             WHERE id = 'attachment-intent'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(enabled, 0);
+
+        let invalid = sqlx::query(
+            "UPDATE session_attachments SET cloud_sync_enabled = 2
+             WHERE id = 'attachment-intent'",
+        )
+        .execute(db.pool())
+        .await;
+        assert!(invalid.is_err());
+    }
+
+    #[test]
+    fn shared_attachment_cache_is_plain_and_excluded_from_cloudsync() {
+        let migration = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260717171000_shared_session_attachment_cache")
+            .unwrap();
+
+        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert!(
+            !cloudsync_table_registry()
+                .iter()
+                .any(|table| table.table_name == "shared_session_attachment_cache")
+        );
+        assert!(!E2EE_DOMAIN_TABLES.contains(&"shared_session_attachment_cache"));
+        assert!(!cloudsync_alter_guard_required(
+            "shared_session_attachment_cache"
+        ));
+    }
+
+    #[tokio::test]
+    async fn attachment_transfer_jobs_deduplicate_work_without_collapsing_old_objects() {
+        let db = test_db().await;
+        let insert = "INSERT INTO attachment_transfer_jobs (
+            id,
+            attachment_id,
+            session_id,
+            workspace_id,
+            direction,
+            expected_sha256,
+            expected_size_bytes,
+            remote_object_id,
+            object_key
+        ) VALUES (?, 'attachment-1', 'session-1', 'workspace-1', ?, ?, 42, ?, ?)";
+        let sha256 = "a".repeat(64);
+
+        sqlx::query(insert)
+            .bind("upload-1")
+            .bind("upload")
+            .bind(&sha256)
+            .bind("remote-object-1")
+            .bind("")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        let duplicate_upload = sqlx::query(insert)
+            .bind("upload-2")
+            .bind("upload")
+            .bind(&sha256)
+            .bind("remote-object-1")
+            .bind("")
+            .execute(db.pool())
+            .await;
+        assert!(duplicate_upload.is_err());
+
+        let competing_download = sqlx::query(insert)
+            .bind("download-1")
+            .bind("download")
+            .bind(&sha256)
+            .bind("remote-object-1")
+            .bind("private/current-object")
+            .execute(db.pool())
+            .await;
+        assert!(competing_download.is_err());
+
+        sqlx::query(
+            "UPDATE attachment_transfer_jobs SET phase = 'completed' WHERE id = 'upload-1'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(insert)
+            .bind("download-1")
+            .bind("download")
+            .bind(&sha256)
+            .bind("remote-object-1")
+            .bind("private/current-object")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query(
+            "UPDATE attachment_transfer_jobs SET phase = 'completed' WHERE id = 'download-1'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(insert)
+            .bind("upload-2")
+            .bind("upload")
+            .bind(&sha256)
+            .bind("remote-object-1")
+            .bind("")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query(
+            "UPDATE attachment_transfer_jobs SET phase = 'completed' WHERE id = 'upload-2'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        for (id, remote_object_id, object_key) in [
+            ("delete-old-1", "remote-object-1", "private/old-object-1"),
+            ("delete-old-2", "remote-object-2", "private/old-object-2"),
+        ] {
+            sqlx::query(insert)
+                .bind(id)
+                .bind("delete")
+                .bind(&sha256)
+                .bind(remote_object_id)
+                .bind(object_key)
+                .execute(db.pool())
+                .await
+                .unwrap();
+        }
+
+        let delete_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM attachment_transfer_jobs
+             WHERE attachment_id = 'attachment-1' AND direction = 'delete'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(delete_count, 2);
+
+        let duplicate_delete = sqlx::query(insert)
+            .bind("delete-old-1-again")
+            .bind("delete")
+            .bind(&sha256)
+            .bind("remote-object-3")
+            .bind("private/old-object-1")
+            .execute(db.pool())
+            .await;
+        assert!(duplicate_delete.is_err());
+
+        let duplicate_delete_object = sqlx::query(insert)
+            .bind("delete-old-1-different-key")
+            .bind("delete")
+            .bind(&sha256)
+            .bind("remote-object-1")
+            .bind("private/other-key")
+            .execute(db.pool())
+            .await;
+        assert!(duplicate_delete_object.is_err());
+
+        sqlx::query(
+            "UPDATE attachment_transfer_jobs SET phase = 'completed' WHERE id = 'delete-old-1'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(insert)
+            .bind("delete-old-1-again")
+            .bind("delete")
+            .bind(&sha256)
+            .bind("remote-object-1")
+            .bind("private/old-object-1")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        for (id, object_key) in [
+            ("delete-by-key-1", "private/key-only-1"),
+            ("delete-by-key-2", "private/key-only-2"),
+        ] {
+            sqlx::query(insert)
+                .bind(id)
+                .bind("delete")
+                .bind(&sha256)
+                .bind("")
+                .bind(object_key)
+                .execute(db.pool())
+                .await
+                .unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn attachment_transfer_jobs_require_complete_ciphertext_metadata() {
+        let db = test_db().await;
+        let sha256 = "a".repeat(64);
+        sqlx::query(
+            "INSERT INTO attachment_transfer_jobs (
+                id,
+                attachment_id,
+                session_id,
+                workspace_id,
+                direction,
+                expected_sha256,
+                expected_size_bytes
+            ) VALUES ('upload-1', 'attachment-1', 'session-1', 'workspace-1', 'upload', ?, 42)",
+        )
+        .bind(&sha256)
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let incomplete = sqlx::query(
+            "UPDATE attachment_transfer_jobs
+             SET ciphertext_sha256 = ?
+             WHERE id = 'upload-1'",
+        )
+        .bind(&sha256)
+        .execute(db.pool())
+        .await;
+        assert!(incomplete.is_err());
+
+        sqlx::query(
+            "UPDATE attachment_transfer_jobs
+             SET ciphertext_sha256 = ?, ciphertext_size_bytes = 84
+             WHERE id = 'upload-1'",
+        )
+        .bind(&sha256)
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let oversized = sqlx::query(
+            "UPDATE attachment_transfer_jobs
+             SET ciphertext_size_bytes = 545259521
+             WHERE id = 'upload-1'",
+        )
+        .execute(db.pool())
+        .await;
+        assert!(oversized.is_err());
+    }
+
+    #[tokio::test]
+    async fn shared_session_cache_enforces_snapshot_contract() {
+        let db = test_db().await;
+        let insert = "INSERT INTO shared_session_cache (
+            share_id,
+            viewer_user_id,
+            workspace_id,
+            session_id,
+            schema_version,
+            content_revision,
+            title,
+            body_json,
+            capability,
+            manage_access,
+            access_version,
+            published_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        sqlx::query(insert)
+            .bind("share-1")
+            .bind("viewer-1")
+            .bind("workspace-1")
+            .bind("session-1")
+            .bind(1_i64)
+            .bind(3_i64)
+            .bind("Shared note")
+            .bind(r#"{"type":"doc","content":[{"type":"paragraph"}]}"#)
+            .bind("commenter")
+            .bind(1_i64)
+            .bind(4_i64)
+            .bind("2026-07-16T17:30:00.000Z")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        let cached: (i64, String, i64, i64) = sqlx::query_as(
+            "SELECT content_revision, capability, manage_access, access_version
+             FROM shared_session_cache
+             WHERE viewer_user_id = 'viewer-1' AND share_id = 'share-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(cached, (3, "commenter".to_string(), 1, 4));
+
+        sqlx::query(insert)
+            .bind("share-1")
+            .bind("viewer-2")
+            .bind("workspace-1")
+            .bind("session-1")
+            .bind(1_i64)
+            .bind(3_i64)
+            .bind("Shared note")
+            .bind(r#"{"type":"doc"}"#)
+            .bind("viewer")
+            .bind(0_i64)
+            .bind(4_i64)
+            .bind("2026-07-16T17:30:00.000Z")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let viewer_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM shared_session_cache WHERE share_id = 'share-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(viewer_count, 2);
+
+        for (
+            share_id,
+            viewer_user_id,
+            workspace_id,
+            session_id,
+            schema_version,
+            content_revision,
+            title,
+            body_json,
+            capability,
+            manage_access,
+            access_version,
+            published_at,
+        ) in [
+            (
+                "share-schema",
+                "viewer-1",
+                "workspace-1",
+                "session-1",
+                2,
+                1,
+                "Shared note",
+                r#"{"type":"doc"}"#,
+                "viewer",
+                0,
+                1,
+                "2026-07-16T17:30:00.000Z",
+            ),
+            (
+                "share-revision",
+                "viewer-1",
+                "workspace-1",
+                "session-1",
+                1,
+                0,
+                "Shared note",
+                r#"{"type":"doc"}"#,
+                "viewer",
+                0,
+                1,
+                "2026-07-16T17:30:00.000Z",
+            ),
+            (
+                "share-body",
+                "viewer-1",
+                "workspace-1",
+                "session-1",
+                1,
+                1,
+                "Shared note",
+                r#"{"type":"paragraph"}"#,
+                "viewer",
+                0,
+                1,
+                "2026-07-16T17:30:00.000Z",
+            ),
+            (
+                "share-capability",
+                "viewer-1",
+                "workspace-1",
+                "session-1",
+                1,
+                1,
+                "Shared note",
+                r#"{"type":"doc"}"#,
+                "owner",
+                0,
+                1,
+                "2026-07-16T17:30:00.000Z",
+            ),
+            (
+                "share-manage",
+                "viewer-1",
+                "workspace-1",
+                "session-1",
+                1,
+                1,
+                "Shared note",
+                r#"{"type":"doc"}"#,
+                "viewer",
+                2,
+                1,
+                "2026-07-16T17:30:00.000Z",
+            ),
+            (
+                "share-access-version",
+                "viewer-1",
+                "workspace-1",
+                "session-1",
+                1,
+                1,
+                "Shared note",
+                r#"{"type":"doc"}"#,
+                "viewer",
+                0,
+                0,
+                "2026-07-16T17:30:00.000Z",
+            ),
+            (
+                "share-id",
+                "viewer-1",
+                " ",
+                "session-1",
+                1,
+                1,
+                "Shared note",
+                r#"{"type":"doc"}"#,
+                "viewer",
+                0,
+                1,
+                "2026-07-16T17:30:00.000Z",
+            ),
+            (
+                "share-viewer",
+                " ",
+                "workspace-1",
+                "session-1",
+                1,
+                1,
+                "Shared note",
+                r#"{"type":"doc"}"#,
+                "viewer",
+                0,
+                1,
+                "2026-07-16T17:30:00.000Z",
+            ),
+        ] {
+            let result = sqlx::query(insert)
+                .bind(share_id)
+                .bind(viewer_user_id)
+                .bind(workspace_id)
+                .bind(session_id)
+                .bind(schema_version)
+                .bind(content_revision)
+                .bind(title)
+                .bind(body_json)
+                .bind(capability)
+                .bind(manage_access)
+                .bind(access_version)
+                .bind(published_at)
+                .execute(db.pool())
+                .await;
+            assert!(result.is_err(), "invalid cache row {share_id} was accepted");
+        }
+
+        let malformed_json = sqlx::query(insert)
+            .bind("share-json")
+            .bind("viewer-1")
+            .bind("workspace-1")
+            .bind("session-1")
+            .bind(1_i64)
+            .bind(1_i64)
+            .bind("Shared note")
+            .bind("not-json")
+            .bind("viewer")
+            .bind(0_i64)
+            .bind(1_i64)
+            .bind("2026-07-16T17:30:00.000Z")
+            .execute(db.pool())
+            .await;
+        assert!(malformed_json.is_err());
+    }
+
+    #[test]
+    fn search_index_trigger_migrations_are_cloudsync_guarded() {
+        let queue_step = APP_MIGRATION_STEPS
+            .iter()
+            .find(|step| step.id == "20260714120000_search_index_queue")
+            .unwrap();
+        assert_eq!(queue_step.scope, hypr_db_migrate::MigrationScope::Plain);
+
+        for (id, table_name) in [
+            ("20260714120100_search_index_sessions_triggers", "sessions"),
+            (
+                "20260714120200_search_index_session_documents_triggers",
+                "session_documents",
+            ),
+            (
+                "20260714120300_search_index_transcripts_triggers",
+                "transcripts",
+            ),
+            ("20260714120400_search_index_humans_triggers", "humans"),
+            (
+                "20260714120500_search_index_organizations_triggers",
+                "organizations",
+            ),
+        ] {
+            let step = APP_MIGRATION_STEPS
+                .iter()
+                .find(|step| step.id == id)
+                .unwrap();
+            assert_eq!(
+                step.scope,
+                hypr_db_migrate::MigrationScope::CloudsyncAlter { table_name }
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn search_index_queue_coalesces_changes_and_tracks_session_moves() {
+        let db = test_db().await;
+
+        sqlx::query(
+            "INSERT INTO sessions (id, title) VALUES ('session-1', 'One'), ('session-2', 'Two')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query("DELETE FROM search_index_dirty")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        sqlx::query(
+            "INSERT INTO session_documents (id, session_id, body) VALUES ('document-1', 'session-1', 'one')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query("UPDATE session_documents SET body = 'two' WHERE id = 'document-1'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query(
+            "UPDATE session_documents SET session_id = 'session-2' WHERE id = 'document-1'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        sqlx::query(
+            "INSERT INTO transcripts (id, session_id, words_json) VALUES ('transcript-1', 'session-1', '[]')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query("UPDATE transcripts SET session_id = 'session-2' WHERE id = 'transcript-1'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM transcripts WHERE id = 'transcript-1'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM session_documents WHERE id = 'document-1'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        let rows = sqlx::query_as::<_, (String, String, i64)>(
+            "SELECT entity_type, entity_id, generation
+             FROM search_index_dirty
+             ORDER BY entity_type, entity_id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+
+        assert_eq!(
+            rows,
+            vec![
+                ("session".to_string(), "session-1".to_string(), 5),
+                ("session".to_string(), "session-2".to_string(), 4),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn search_index_queue_tracks_entity_lifecycle_and_starts_unversioned() {
+        let db = test_db().await;
+
+        let projection_version: i64 = sqlx::query_scalar(
+            "SELECT projection_version FROM search_index_state WHERE id = 'default'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(projection_version, 0);
+
+        sqlx::query("INSERT INTO sessions (id, title) VALUES ('session-1', 'One')")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO humans (id, name) VALUES ('human-1', 'Ada')")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO organizations (id, name) VALUES ('organization-1', 'Acme')")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        sqlx::query(
+            "UPDATE sessions SET deleted_at = '2026-07-14T00:00:00Z' WHERE id = 'session-1'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query("UPDATE humans SET memo = 'Updated' WHERE id = 'human-1'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM organizations WHERE id = 'organization-1'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        let rows = sqlx::query_as::<_, (String, String, i64)>(
+            "SELECT entity_type, entity_id, generation
+             FROM search_index_dirty
+             ORDER BY entity_type, entity_id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+
+        assert_eq!(
+            rows,
+            vec![
+                ("human".to_string(), "human-1".to_string(), 2),
+                ("organization".to_string(), "organization-1".to_string(), 2,),
+                ("session".to_string(), "session-1".to_string(), 2),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn registered_tables_match_cloudsync_schema_requirements() {
+        let db = test_db().await;
+
+        for table in cloudsync_table_registry() {
+            let rows = sqlx::query(
+                "SELECT name, type, \"notnull\", dflt_value, pk
+                 FROM pragma_table_info(?)
+                 ORDER BY cid",
+            )
+            .bind(&table.table_name)
+            .fetch_all(db.pool())
+            .await
+            .unwrap();
+
+            let pk_columns: Vec<_> = rows
+                .iter()
+                .filter(|row| row.get::<i64, _>("pk") > 0)
+                .collect();
+            assert_eq!(
+                pk_columns.len(),
+                1,
+                "{} must have one primary key",
+                table.table_name
+            );
+
+            let pk = pk_columns[0];
+            assert_eq!(pk.get::<String, _>("name"), "id", "{}", table.table_name);
+            assert_eq!(
+                pk.get::<String, _>("type").to_uppercase(),
+                "TEXT",
+                "{}",
+                table.table_name
+            );
+            assert_eq!(pk.get::<i64, _>("notnull"), 1, "{}", table.table_name);
+
+            for row in rows
+                .iter()
+                .filter(|row| row.get::<i64, _>("pk") == 0 && row.get::<i64, _>("notnull") == 1)
+            {
+                assert!(
+                    row.get::<Option<String>, _>("dflt_value").is_some(),
+                    "{}.{} must define a DEFAULT value for SQLite Sync compatibility",
+                    table.table_name,
+                    row.get::<String, _>("name")
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn calendar_roundtrip() {
+        let db = test_db().await;
+
+        upsert_calendar(
+            db.pool(),
+            UpsertCalendar {
+                id: "cal1",
+                tracking_id_calendar: "tracking-cal-1",
+                name: "Work",
+                enabled: true,
+                provider: "google",
+                source: "team",
+                color: "#123456",
+                connection_id: "conn-1",
+            },
+        )
+        .await
+        .unwrap();
+
+        let row = get_calendar(db.pool(), "cal1").await.unwrap().unwrap();
+        assert_eq!(row.name, "Work");
+        assert!(row.enabled);
+
+        let rows = list_calendars(db.pool()).await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, "cal1");
+    }
+
+    #[tokio::test]
+    async fn event_roundtrip() {
+        let db = test_db().await;
+
+        upsert_event(
+            db.pool(),
+            UpsertEvent {
+                id: "evt1",
+                tracking_id_event: "tracking-evt-1",
+                calendar_id: "cal1",
+                title: "Standup",
+                started_at: "2026-04-15T09:00:00Z",
+                ended_at: "2026-04-15T09:30:00Z",
+                location: "",
+                meeting_link: "https://meet.example/1",
+                description: "Daily sync",
+                note: "",
+                recurrence_series_id: "series-1",
+                has_recurrence_rules: true,
+                is_all_day: false,
+                provider: "google",
+                participants_json: Some("[{\"email\":\"a@example.com\"}]"),
+            },
+        )
+        .await
+        .unwrap();
+
+        let row = get_event(db.pool(), "evt1").await.unwrap().unwrap();
+        assert_eq!(row.title, "Standup");
+        assert_eq!(row.calendar_id, "cal1");
+
+        let rows = list_events(db.pool()).await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, "evt1");
+    }
+
+    #[tokio::test]
+    async fn template_roundtrip() {
+        let db = test_db().await;
+
+        upsert_template(
+            db.pool(),
+            UpsertTemplate {
+                id: "template-1",
+                title: "Standup",
+                description: "Daily sync",
+                pinned: true,
+                pin_order: Some(2),
+                category: Some("meetings"),
+                targets_json: Some("[\"engineering\"]"),
+                sections_json: "[{\"title\":\"Notes\",\"description\":\"...\"}]",
+            },
+        )
+        .await
+        .unwrap();
+
+        let row = get_template(db.pool(), "template-1")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(row.title, "Standup");
+        assert_eq!(row.targets_json.as_deref(), Some("[\"engineering\"]"));
+        assert_eq!(
+            row.sections_json,
+            "[{\"title\":\"Notes\",\"description\":\"...\"}]"
+        );
+    }
+
+    #[tokio::test]
+    async fn migrations_seed_default_templates_without_overwriting_existing_rows() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        hypr_db_migrate::migrate(
+            &db,
+            hypr_db_migrate::DbSchema {
+                steps: &APP_MIGRATION_STEPS[..1],
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
+
+        upsert_template(
+            db.pool(),
+            UpsertTemplate {
+                id: "default-daily-standup",
+                title: "Custom Standup",
+                description: "Keep user edit",
+                pinned: true,
+                pin_order: Some(1),
+                category: Some("Custom"),
+                targets_json: Some("[\"Team\"]"),
+                sections_json: "[{\"title\":\"Custom\",\"description\":\"Keep\"}]",
+            },
+        )
+        .await
+        .unwrap();
+
+        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+
+        let rows = list_templates(db.pool()).await.unwrap();
+        assert_eq!(rows.len(), 17);
+        assert_eq!(
+            rows.iter().map(|row| row.id.as_str()).collect::<Vec<_>>(),
+            vec![
+                "default-board-meeting",
+                "default-brainstorming-session",
+                "default-client-kickoff",
+                "default-customer-discovery",
+                "default-daily-standup",
+                "default-executive-briefing",
+                "default-incident-postmortem",
+                "default-investor-pitch",
+                "default-lecture-notes",
+                "default-one-on-one-meeting",
+                "default-performance-review",
+                "default-product-roadmap-review",
+                "default-project-kickoff",
+                "default-sales-discovery-call",
+                "default-sprint-planning",
+                "default-sprint-retrospective",
+                "default-technical-design-review",
+            ]
+        );
+
+        let custom_row = get_template(db.pool(), "default-daily-standup")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(custom_row.title, "Custom Standup");
+        assert_eq!(custom_row.description, "Keep user edit");
+
+        let seeded_row = get_template(db.pool(), "default-sales-discovery-call")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(seeded_row.title, "Sales Discovery Call");
+        assert_eq!(
+            seeded_row.targets_json.as_deref(),
+            Some("[\"Account Executive\",\"Sales Rep\",\"BDR\"]")
+        );
+    }
+
+    #[tokio::test]
+    async fn list_templates_returns_all_ordered_by_id() {
+        let db = test_db_without_default_templates().await;
+
+        upsert_template(
+            db.pool(),
+            UpsertTemplate {
+                id: "template-2",
+                title: "Two",
+                description: "",
+                pinned: false,
+                pin_order: None,
+                category: None,
+                targets_json: None,
+                sections_json: "[]",
+            },
+        )
+        .await
+        .unwrap();
+
+        upsert_template(
+            db.pool(),
+            UpsertTemplate {
+                id: "template-1",
+                title: "One",
+                description: "",
+                pinned: false,
+                pin_order: None,
+                category: None,
+                targets_json: None,
+                sections_json: "[]",
+            },
+        )
+        .await
+        .unwrap();
+
+        let rows = list_templates(db.pool()).await.unwrap();
+        let ids: Vec<&str> = rows.iter().map(|row| row.id.as_str()).collect();
+
+        assert_eq!(ids, vec!["template-1", "template-2"]);
+    }
+
+    #[tokio::test]
+    async fn template_upsert_replaces_existing_row_by_id() {
+        let db = test_db_without_default_templates().await;
+
+        upsert_template(
+            db.pool(),
+            UpsertTemplate {
+                id: "template-1",
+                title: "First",
+                description: "A",
+                pinned: false,
+                pin_order: None,
+                category: None,
+                targets_json: None,
+                sections_json: "[]",
+            },
+        )
+        .await
+        .unwrap();
+
+        upsert_template(
+            db.pool(),
+            UpsertTemplate {
+                id: "template-1",
+                title: "Second",
+                description: "B",
+                pinned: true,
+                pin_order: Some(5),
+                category: Some("sales"),
+                targets_json: Some("[\"exec\"]"),
+                sections_json: "[{\"title\":\"Summary\",\"description\":\"Updated\"}]",
+            },
+        )
+        .await
+        .unwrap();
+
+        let row = get_template(db.pool(), "template-1")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(row.title, "Second");
+        assert_eq!(row.description, "B");
+        assert!(row.pinned);
+        assert_eq!(row.pin_order, Some(5));
+        assert_eq!(row.category.as_deref(), Some("sales"));
+        assert_eq!(row.targets_json.as_deref(), Some("[\"exec\"]"));
+        assert_eq!(
+            row.sections_json,
+            "[{\"title\":\"Summary\",\"description\":\"Updated\"}]"
+        );
+        assert_eq!(list_templates(db.pool()).await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn template_delete_removes_row() {
+        let db = test_db().await;
+
+        upsert_template(
+            db.pool(),
+            UpsertTemplate {
+                id: "template-1",
+                title: "Delete Me",
+                description: "",
+                pinned: false,
+                pin_order: None,
+                category: None,
+                targets_json: None,
+                sections_json: "[]",
+            },
+        )
+        .await
+        .unwrap();
+
+        delete_template(db.pool(), "template-1").await.unwrap();
+
+        assert!(
+            get_template(db.pool(), "template-1")
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[tokio::test]
+    async fn template_insert_if_missing_preserves_existing_row() {
+        let db = test_db().await;
+
+        upsert_template(
+            db.pool(),
+            UpsertTemplate {
+                id: "template-1",
+                title: "Original",
+                description: "A",
+                pinned: false,
+                pin_order: None,
+                category: None,
+                targets_json: None,
+                sections_json: "[]",
+            },
+        )
+        .await
+        .unwrap();
+
+        let inserted = insert_template_if_missing(
+            db.pool(),
+            UpsertTemplate {
+                id: "template-1",
+                title: "Replacement",
+                description: "B",
+                pinned: true,
+                pin_order: Some(4),
+                category: Some("meetings"),
+                targets_json: Some("[\"exec\"]"),
+                sections_json: "[{\"title\":\"Summary\",\"description\":\"Updated\"}]",
+            },
+        )
+        .await
+        .unwrap();
+
+        assert!(!inserted);
+
+        let row = get_template(db.pool(), "template-1")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(row.title, "Original");
+        assert_eq!(row.description, "A");
+        assert!(!row.pinned);
+        assert_eq!(row.pin_order, None);
+        assert_eq!(row.category, None);
+        assert_eq!(row.targets_json, None);
+        assert_eq!(row.sections_json, "[]");
+    }
+}

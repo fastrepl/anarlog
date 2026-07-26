@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-list-connection-ids"
+description = "Enables the list_connection_ids command without any pre-configured scope."
+commands.allow = ["list_connection_ids"]
+
+[[permission]]
+identifier = "deny-list-connection-ids"
+description = "Denies the list_connection_ids command without any pre-configured scope."
+commands.deny = ["list_connection_ids"]

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-commit-delete-guard"
+description = "Enables the commit_delete_guard command without any pre-configured scope."
+commands.allow = ["commit_delete_guard"]
+
+[[permission]]
+identifier = "deny-commit-delete-guard"
+description = "Denies the commit_delete_guard command without any pre-configured scope."
+commands.deny = ["commit_delete_guard"]

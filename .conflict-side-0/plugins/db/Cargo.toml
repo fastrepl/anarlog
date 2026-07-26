@@ -1,0 +1,47 @@
+[package]
+name = "tauri-plugin-db"
+version = "0.1.0"
+authors = ["You"]
+edition = "2024"
+exclude = ["/js", "/node_modules"]
+links = "tauri-plugin-db"
+description = ""
+
+[dependencies]
+hypr-agent-access = { workspace = true }
+hypr-db-app = { workspace = true }
+hypr-db-core = { workspace = true }
+hypr-db-execute = { workspace = true }
+hypr-db-migrate = { workspace = true }
+hypr-db-reactive = { workspace = true, features = ["specta"] }
+hypr-e2ee = { workspace = true }
+hypr-fs-sync-core = { workspace = true }
+hypr-storage = { workspace = true }
+hypr-tauri-utils = { workspace = true }
+
+futures-util = { workspace = true }
+reqwest = { workspace = true, features = ["json", "query", "stream"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+specta = { workspace = true, features = ["serde_json"] }
+specta-typescript = { workspace = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled", "macros"] }
+tauri = { workspace = true, features = ["test"] }
+tauri-plugin-store2 = { workspace = true }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync", "time"] }
+tracing = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+
+[dev-dependencies]
+anyhow = { workspace = true }
+hypr-db-core = { workspace = true, features = ["test-utils"] }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
+wiremock = { workspace = true }
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }

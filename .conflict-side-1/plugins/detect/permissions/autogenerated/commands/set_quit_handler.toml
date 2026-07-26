@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-quit-handler"
+description = "Enables the set_quit_handler command without any pre-configured scope."
+commands.allow = ["set_quit_handler"]
+
+[[permission]]
+identifier = "deny-set-quit-handler"
+description = "Denies the set_quit_handler command without any pre-configured scope."
+commands.deny = ["set_quit_handler"]

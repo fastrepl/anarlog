@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-download-and-restore"
+description = "Enables the download_and_restore command without any pre-configured scope."
+commands.allow = ["download_and_restore"]
+
+[[permission]]
+identifier = "deny-download-and-restore"
+description = "Denies the download_and_restore command without any pre-configured scope."
+commands.deny = ["download_and_restore"]

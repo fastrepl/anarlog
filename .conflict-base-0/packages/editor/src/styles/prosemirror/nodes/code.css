@@ -1,0 +1,38 @@
+.prosemirror-editor {
+  /* code block */
+  pre {
+    background: #262626;
+    border-radius: 0.5rem;
+    color: #ffffff;
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      "Courier New", monospace;
+    margin: 0 0 0.25rem 0;
+    padding: 0.75rem 1rem;
+    caret-color: white;
+
+    code {
+      background: none;
+      color: inherit;
+      font-size: 0.8rem;
+      padding: 0;
+      border: none;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+  }
+
+  /* inline code */
+  code {
+    border-radius: 0.4rem;
+    color: var(--black);
+    font-size: 0.85rem;
+    line-height: 1;
+    padding: 0.15em 0.3em;
+    border: 1px solid #e5e5e5;
+    vertical-align: middle;
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      "Courier New", monospace;
+  }
+}

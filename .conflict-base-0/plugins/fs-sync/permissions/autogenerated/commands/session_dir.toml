@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-session-dir"
+description = "Enables the session_dir command without any pre-configured scope."
+commands.allow = ["session_dir"]
+
+[[permission]]
+identifier = "deny-session-dir"
+description = "Denies the session_dir command without any pre-configured scope."
+commands.deny = ["session_dir"]
