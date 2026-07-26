@@ -1,14 +1,18 @@
 .prosemirror-editor {
   .hashtag {
-    color: #f59e0b;
-    text-decoration: underline;
-    text-decoration-color: #f59e0b;
+    color: var(--color-violet-600, #7c3aed);
     display: inline;
     padding: 0 2px;
     border-radius: 0;
     background: none;
     border: none;
     font-weight: 500;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .hashtag:hover {
+    text-decoration: underline;
   }
 
   code .hashtag,

@@ -202,7 +202,7 @@ export const ResizableImageView = forwardRef<
           className={cn([
             "prosemirror-image bg-card max-w-full rounded-md transition-[box-shadow,border-color] select-none",
             isSelected
-              ? "ring-offset-card ring-2 ring-blue-500 ring-offset-2"
+              ? "ring-foreground/55 ring-offset-card ring-1 ring-offset-2"
               : "",
             isHovered && !isSelected
               ? "ring-border ring-offset-card ring-1 ring-offset-2"

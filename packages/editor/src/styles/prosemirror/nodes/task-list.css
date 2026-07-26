@@ -1,97 +1,132 @@
-.prosemirror-editor {
-  .task-checkbox-label {
-    flex: 0 0 auto;
-    margin-right: 6px;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    user-select: none;
-    position: relative;
-    display: inline-flex;
-    align-items: center;
+/* Task lists (note surfaces only). DOM: ul[data-type="taskList"] > li >
+ * label.task-checkbox-label + div(content). The checkbox sits in the list
+ * marker column like a bullet; content flows at the standard text column.
+ * Colors ride the --color-* tokens so dark mode needs no overrides. */
+
+/* Base label box — also used outside task lists (session rows). */
+.note-typography .task-checkbox-label {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  margin-right: 6px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.note-typography ul[data-type="taskList"] {
+  &.is-empty::before {
+    margin-left: 1.5em;
   }
 
-  input.task-checkbox {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 18px;
-    height: 18px;
-    border: 2px solid #ccc;
-    border-radius: 4px;
-    margin: 0;
-    transition: all 0.2s ease;
-    position: relative;
-
-    &[data-interactive="true"] {
-      cursor: pointer;
-    }
-
-    &[data-interactive="false"] {
-      cursor: default;
-    }
-
-    &[data-selected="true"] {
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
-    }
-
-    &:checked {
-      background-color: #3b82f6;
-      border-color: #3b82f6;
-    }
-
-    &:checked::after {
-      content: "";
+  & > li {
+    & > .task-checkbox-label {
       position: absolute;
-      left: 4.5px;
-      top: 1px;
-      width: 5px;
-      height: 10px;
-      border: solid white;
-      border-width: 0 2px 2px 0;
-      transform: rotate(45deg);
-    }
-
-    &:focus {
-      outline: none;
-      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
-    }
-
-    &[data-interactive="true"]:hover:not(:checked) {
-      border-color: #9ca3af;
-    }
-  }
-
-  /* task list */
-  ul[data-type="taskList"] {
-    list-style: none;
-    margin-left: 0;
-    padding: 0;
-
-    &.is-empty::before {
-      margin-left: 24px;
-    }
-
-    li {
+      top: 0.375em;
+      left: 0;
+      display: inline-flex;
       align-items: center;
-      display: flex;
-      margin-bottom: 0.25rem;
-
-      > div {
-        flex: 1 1 auto;
-        margin-top: 0;
-
-        > p {
-          margin: 0;
-        }
-      }
+      margin: 0;
+      user-select: none;
+      -webkit-user-select: none;
     }
 
-    ul[data-type="taskList"] {
-      margin: 0;
-
-      li {
-        margin-top: 0.25rem;
-      }
+    & > div {
+      margin-top: 0;
     }
   }
+
+  & ul[data-type="taskList"] {
+    margin: 0;
+  }
+}
+
+.note-typography.prosemirror-editor
+  ul[data-type="taskList"]
+  > li
+  > .task-checkbox-label {
+  left: 0.75em;
+}
+
+.note-typography input.task-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  position: relative;
+  width: 1em;
+  height: 1em;
+  margin: 0;
+  border: 1.5px solid
+    color-mix(in oklab, var(--color-foreground, #111827), transparent 35%);
+  border-radius: 0.3125em;
+  corner-shape: squircle;
+  transition:
+    transform 150ms ease-out,
+    background-color 300ms ease-out,
+    border-color 300ms ease-out;
+
+  &[data-interactive="true"] {
+    cursor: pointer;
+
+    &:active {
+      transform: scale(1.2);
+    }
+
+    &:hover:not(:checked) {
+      border-color: var(--color-foreground, #111827);
+    }
+  }
+
+  &[data-interactive="false"] {
+    cursor: default;
+  }
+
+  &:checked {
+    background-color: var(--color-foreground, #111827);
+    border-color: var(--color-foreground, #111827);
+  }
+
+  &:checked::after {
+    content: "";
+    position: absolute;
+    top: 0.04em;
+    left: 0.26em;
+    width: 0.28em;
+    height: 0.55em;
+    border: solid var(--color-background, #ffffff);
+    border-width: 0 0.125em 0.125em 0;
+    transform: rotate(45deg);
+  }
+
+  &:focus {
+    outline: none;
+  }
+
+  &[data-selected="true"] {
+    outline: 2px solid
+      color-mix(in oklab, var(--color-foreground, #111827), transparent 55%);
+    outline-offset: 1px;
+  }
+}
+
+/* Checked: fade only the content (the checkbox keeps its real foreground
+ * color) and grow a strikethrough across the task text. */
+.note-typography ul[data-type="taskList"] > li[data-checked="true"] > div {
+  opacity: 0.5;
+}
+
+.note-typography ul[data-type="taskList"] > li > div > p {
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  width: fit-content;
+  max-width: 100%;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-position: 0 55%;
+  background-size: 0 1px;
+  background-repeat: no-repeat;
+  transition: background-size 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.note-typography ul[data-type="taskList"] > li[data-checked="true"] > div > p {
+  background-size: 100% 1px;
 }

@@ -49,15 +49,33 @@
   color: #a3a3a3;
 }
 
-/* Inline mention chip */
+/* Inline mention chip. Hover, arrow-key node selection, and focus are one
+ * state: a dashed underline marking the chip as the center of attention. */
 .mention {
   display: inline;
+  vertical-align: baseline;
+  font: inherit;
   font-weight: 500;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-decoration: none;
   padding: 0;
-  font-size: inherit;
   line-height: inherit;
   color: inherit;
+}
+
+.mention:hover,
+.mention:focus-visible,
+.mention.ProseMirror-selectednode {
+  outline: none;
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-color: color-mix(
+    in oklab,
+    var(--color-foreground, #111827),
+    transparent 70%
+  );
+  text-underline-offset: 3px;
 }
 
 .mention .mention-avatar {

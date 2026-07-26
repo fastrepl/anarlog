@@ -5,16 +5,6 @@
   caret-color: #d6d3d1;
 }
 
-.dark .prosemirror-editor input.task-checkbox {
-  border-color: #78716c;
-}
-
-.dark
-  .prosemirror-editor
-  input.task-checkbox[data-interactive="true"]:hover:not(:checked) {
-  border-color: #a8a29e;
-}
-
 .dark .ProseMirror td,
 .dark .ProseMirror th {
   border-color: #57534e;
