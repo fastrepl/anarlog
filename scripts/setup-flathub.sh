@@ -5,5 +5,5 @@
 set -euo pipefail
 
 sudo apt-get update
-sudo apt-get install -y flatpak flatpak-builder
+sudo apt-get install -y appstream desktop-file-utils flatpak flatpak-builder git python3-venv
 flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo

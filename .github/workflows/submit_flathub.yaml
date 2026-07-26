@@ -8,5 +8,30 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup_flathub
 
+      - name: Generate offline dependency sources
+        run: ./scripts/generate-flatpak-sources.sh
+
+      - name: Validate exported metadata
+        run: |
+          desktop-file-validate apps/desktop/flatpak/so.anarlog.Anarlog.desktop
+          appstreamcli validate --pedantic apps/desktop/flatpak/so.anarlog.Anarlog.metainfo.xml
+
       - name: Build Flatpak
-        run: flatpak-builder --user --force-clean build-dir flatpak/com.hyprnote.app.yml
+        run: |
+          flatpak-builder \
+            --user \
+            --install-deps-from=flathub \
+            --force-clean \
+            --repo=flatpak-repo \
+            flatpak-build-dir \
+            apps/desktop/flatpak/so.anarlog.Anarlog.yml
+          flatpak build-bundle \
+            flatpak-repo \
+            anarlog.flatpak \
+            so.anarlog.Anarlog
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: anarlog-flatpak-${{ github.sha }}
+          path: anarlog.flatpak
+          if-no-files-found: error

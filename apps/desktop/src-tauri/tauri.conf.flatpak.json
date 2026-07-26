@@ -1,9 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Anarlog",
-  "mainBinaryName": "hyprnote",
-  "identifier": "com.hyprnote.Hyprnote",
+  "mainBinaryName": "anarlog",
+  "identifier": "so.anarlog.Anarlog",
   "plugins": {
+    "deep-link": {
+      "desktop": { "schemes": ["anarlog", "hyprnote"] }
+    },
     "updater": {
       "active": false
     }

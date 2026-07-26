@@ -1,0 +1,58 @@
+diff --git a/cargo/flatpak-cargo-generator.py b/cargo/flatpak-cargo-generator.py
+index b160088..e4621d8 100755
+--- a/cargo/flatpak-cargo-generator.py
++++ b/cargo/flatpak-cargo-generator.py
+@@ -97,6 +97,8 @@ def get_git_tarball(repo_url: str, commit: str) -> str:
+         return f"https://{url.hostname}/{owner}/{repo}/-/archive/{commit}/{repo}-{commit}.tar.gz"
+     elif url.hostname == "bitbucket.org":
+         return f"https://{url.hostname}/{owner}/{repo}/get/{commit}.tar.gz"
++    elif url.hostname == "codeberg.org":
++        return f"https://{url.hostname}/{owner}/{repo}/archive/{commit}.tar.gz"
+     else:
+         raise ValueError(f"Don't know how to get tarball for {repo_url}")
+ 
+@@ -311,6 +313,8 @@ async def get_git_package_sources(
+     assert commit, "The commit needs to be indicated in the fragement part"
+     canonical = canonical_url(source)
+     repo_url = canonical.geturl()
++    vendored_source = f"vendored-{git_repo_name(repo_url, commit)}"
++    vendored_dir = f"{CARGO_HOME}/{vendored_source}"
+ 
+     git_repo = git_repos.setdefault(
+         repo_url,
+@@ -326,8 +330,9 @@ async def get_git_package_sources(
+     cargo_vendored_entry: _VendorEntryType = {
+         repo_url: {
+             "git": repo_url,
+-            "replace-with": VENDORED_SOURCES,
+-        }
++            "replace-with": vendored_source,
++        },
++        vendored_source: {"directory": vendored_dir},
+     }
+     rev = parse_qs(urlparse(source).query).get("rev")
+     tag = parse_qs(urlparse(source).query).get("tag")
+@@ -351,19 +356,20 @@ async def get_git_package_sources(
+         {
+             "type": "shell",
+             "commands": [
+-                f'cp -r --reflink=auto "{pkg_repo_dir}" "{CARGO_CRATES}/{name}"'
++                f'mkdir -p "{vendored_dir}"',
++                f'cp -r --reflink=auto "{pkg_repo_dir}" "{vendored_dir}/{name}"'
+             ],
+         },
+         {
+             "type": "inline",
+             "contents": tomlkit.dumps(git_pkg.normalized),
+-            "dest": f"{CARGO_CRATES}/{name}",  # -{version}',
++            "dest": f"{vendored_dir}/{name}",
+             "dest-filename": "Cargo.toml",
+         },
+         {
+             "type": "inline",
+             "contents": json.dumps({"package": None, "files": {}}),
+-            "dest": f"{CARGO_CRATES}/{name}",  # -{version}',
++            "dest": f"{vendored_dir}/{name}",
+             "dest-filename": ".cargo-checksum.json",
+         },
+     ]

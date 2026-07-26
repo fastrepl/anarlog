@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>com.hyprnote.Hyprnote</id>
+  <id>so.anarlog.Anarlog</id>
 
   <name>Anarlog</name>
   <summary>The AI notepad for private meetings</summary>
@@ -10,29 +10,27 @@
 
   <description>
     <p>
-      Anarlog is an AI notetaking app specifically designed to take meeting notes.
-      With Anarlog, you can transcribe all kinds of meetings whether it be online or offline.
+      Anarlog is a private meeting notepad that records microphone and computer
+      audio, transcribes conversations, and keeps notes alongside the transcript.
     </p>
-    <p>Features:</p>
+    <p>Features include:</p>
     <ul>
-      <li>Listens to your meetings so you can only jot down important stuff</li>
-      <li>No bots joining your meetings - Anarlog listens directly to sounds coming in and out of your computer</li>
-      <li>Crafts perfect summaries based on your memos, right after the meeting is over</li>
-      <li>Run completely offline by using LM Studio or Ollama</li>
-      <li>Bring your own LLM - use local models via Ollama or third-party APIs like Gemini, Claude, or Azure-hosted GPT</li>
-      <li>Note templates - choose from predefined templates or create your own</li>
-      <li>AI Chat - ask follow-ups right inside your notes</li>
+      <li>Bot-free microphone and computer-audio capture</li>
+      <li>Live transcription with notes in the same workspace</li>
+      <li>AI summaries and follow-up chat</li>
+      <li>Local and bring-your-own-provider workflows</li>
+      <li>Reusable note templates</li>
     </ul>
   </description>
 
-  <launchable type="desktop-id">com.hyprnote.Hyprnote.desktop</launchable>
+  <launchable type="desktop-id">so.anarlog.Anarlog.desktop</launchable>
 
-  <url type="homepage">https://hyprnote.com</url>
-  <url type="bugtracker">https://github.com/fastrepl/char/issues</url>
-  <url type="vcs-browser">https://github.com/fastrepl/char</url>
-  <url type="contribute">https://github.com/fastrepl/char/blob/main/CONTRIBUTING.md</url>
+  <url type="homepage">https://anarlog.so</url>
+  <url type="bugtracker">https://github.com/fastrepl/anarlog/issues</url>
+  <url type="vcs-browser">https://github.com/fastrepl/anarlog</url>
+  <url type="contribute">https://github.com/fastrepl/anarlog/blob/main/CONTRIBUTING.md</url>
 
-  <developer id="com.hyprnote">
+  <developer id="com.fastrepl">
     <name>Fastrepl</name>
   </developer>
 
@@ -54,15 +52,12 @@
 
   <categories>
     <category>Office</category>
-    <category>AudioVideo</category>
-    <category>Recorder</category>
   </categories>
 
   <keywords>
     <keyword>notes</keyword>
     <keyword>meeting</keyword>
     <keyword>transcription</keyword>
-    <keyword>ai</keyword>
     <keyword>audio</keyword>
     <keyword>recording</keyword>
     <keyword>speech-to-text</keyword>
@@ -78,19 +73,15 @@
       <image>https://github.com/user-attachments/assets/e63ce73f-1a5f-49ce-a14d-dd8ba161e5bc</image>
     </screenshot>
     <screenshot>
-      <caption>Bring your own LLM - use local models or third-party APIs</caption>
+      <caption>Bring your own local or hosted AI provider</caption>
       <image>https://github.com/user-attachments/assets/a6552c99-acbc-4d47-9d21-7f1925989344</image>
-    </screenshot>
-    <screenshot>
-      <caption>AI Chat - ask follow-ups right inside your notes</caption>
-      <image>https://github.com/user-attachments/assets/52b7dc14-906f-445f-91f9-b0089d40a495</image>
     </screenshot>
   </screenshots>
 
   <releases>
     <release version="0.1.0" date="2025-01-01">
       <description>
-        <p>Initial Flatpak release</p>
+        <p>Initial Flatpak candidate</p>
       </description>
     </release>
   </releases>

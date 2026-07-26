@@ -1,0 +1,104 @@
+# Flatpak manifest for Anarlog.
+# Flatpak remains an internal candidate until the sandboxed audio, credentials,
+# and desktop-integration release gates in ANLG-169 pass.
+
+id: so.anarlog.Anarlog
+
+runtime: org.gnome.Platform
+runtime-version: "50"
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.llvm21
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.node24
+
+command: anarlog
+
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
+  - --socket=pulseaudio
+  - --share=network
+  - --filesystem=~/.local/bin:create
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.kde.StatusNotifierWatcher
+  - --talk-name=org.freedesktop.secrets
+  - --own-name=so.anarlog.Anarlog
+  - --env=FLATPAK=1
+
+build-options:
+  append-path: /usr/lib/sdk/llvm21/bin:/usr/lib/sdk/node24/bin:/usr/lib/sdk/rust-stable/bin:/run/build/anarlog/pnpm-cli/bin
+  env:
+    CARGO_HOME: /run/build/anarlog/cargo
+    CARGO_NET_OFFLINE: "true"
+    LIBCLANG_PATH: /usr/lib/sdk/llvm21/lib
+    ORT_LIB_LOCATION: /run/build/anarlog/flatpak-onnxruntime/lib
+    POSTHOG_API_KEY: phc_flatpak_candidate
+    npm_config_nodedir: /usr/lib/sdk/node24
+    npm_config_offline: "true"
+    XDG_CACHE_HOME: /run/build/anarlog/cache
+    VITE_API_URL: https://api.anarlog.so
+    VITE_APP_URL: https://anarlog.so
+
+modules:
+  - name: anarlog
+    buildsystem: simple
+
+    sources:
+      - type: dir
+        path: ../../..
+        skip:
+          - .cache
+          - .git
+          - .netlify
+          - .supabase
+          - .tmp
+          - .turbo
+          - .venv
+          - node_modules
+          - target
+          - "*/node_modules"
+          - "*/*/node_modules"
+          - "*/*/*/node_modules"
+          - "*/target"
+          - "*/*/target"
+          - "*/*/*/target"
+          - "*/.build"
+          - "*/*/.build"
+          - "*/*/*/.build"
+      - pnpm-sources.json
+      - cargo-sources.json
+      - type: archive
+        url: https://cdn.pyke.io/0/pyke:ort-rs/ms@1.22.0/aarch64-unknown-linux-gnu.tgz
+        sha256: 24e4760207136fc50b854bb5012ab81de6189039cf6d4fd3f5b8d3db7e929f1e
+        dest: flatpak-onnxruntime
+        only-arches:
+          - aarch64
+      - type: archive
+        url: https://cdn.pyke.io/0/pyke:ort-rs/ms@1.22.0/x86_64-unknown-linux-gnu.tgz
+        sha256: ed1716de95974bf47ab0223ca33734a0b5a5d09a181225d0e8ed62d070aea893
+        dest: flatpak-onnxruntime
+        only-arches:
+          - x86_64
+      - type: file
+        url: https://registry.npmjs.org/pnpm/-/pnpm-11.1.1.tgz
+        sha256: 05b282d06332295c736f0b20c8bdf185325bf1bca682c91ed81154a3c6851cc0
+        dest-filename: pnpm-11.1.1.tgz
+
+    build-commands:
+      - npm install --offline --global --prefix=/run/build/anarlog/pnpm-cli ./pnpm-11.1.1.tgz
+      - pnpm install --offline --frozen-lockfile
+      - cargo build --locked --offline --release -p anarlog-cli
+      - pnpm -F desktop tauri build --no-bundle --config src-tauri/tauri.conf.flatpak.json
+      - install -Dm755 apps/desktop/src-tauri/target/release/anarlog /app/bin/anarlog
+      - install -Dm755 target/release/anarlog /app/libexec/anarlog-cli
+      - install -Dm755 apps/desktop/flatpak/anarlog-cli /app/bin/anarlog-cli
+      - install -Dm644 apps/desktop/flatpak/so.anarlog.Anarlog.desktop /app/share/applications/so.anarlog.Anarlog.desktop
+      - install -Dm644 apps/desktop/flatpak/so.anarlog.Anarlog.metainfo.xml /app/share/metainfo/so.anarlog.Anarlog.metainfo.xml
+      - install -Dm644 apps/desktop/src-tauri/icons/stable/32x32.png /app/share/icons/hicolor/32x32/apps/so.anarlog.Anarlog.png
+      - install -Dm644 apps/desktop/src-tauri/icons/stable/64x64.png /app/share/icons/hicolor/64x64/apps/so.anarlog.Anarlog.png
+      - install -Dm644 apps/desktop/src-tauri/icons/stable/128x128.png /app/share/icons/hicolor/128x128/apps/so.anarlog.Anarlog.png
+      - install -Dm644 apps/desktop/src-tauri/icons/stable/128x128@2x.png /app/share/icons/hicolor/256x256/apps/so.anarlog.Anarlog.png
+      - install -Dm644 apps/desktop/src-tauri/icons/stable/icon.png /app/share/icons/hicolor/512x512/apps/so.anarlog.Anarlog.png

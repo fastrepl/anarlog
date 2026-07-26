@@ -1,0 +1,7 @@
+#!/bin/sh
+
+if [ "${FLATPAK_ID:-}" = "so.anarlog.Anarlog" ]; then
+  exec /app/libexec/anarlog-cli "$@"
+fi
+
+exec flatpak run --command=/app/libexec/anarlog-cli so.anarlog.Anarlog "$@"
