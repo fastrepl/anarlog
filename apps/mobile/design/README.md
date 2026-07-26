@@ -16,7 +16,8 @@ Linear project: https://linear.app/fastrepl-inc/project/anarlog-mobile-3ccc6cca3
 
 - Header: back arrow (left), overflow menu (right).
 - Editable title, then a free-form note body filling the screen.
-- While listening, a red rounded panel with a live waveform sits at the bottom. Tapping it stops listening.
+- While listening, a bottom sheet sits at the bottom: a chevron handle above a red rounded panel with a live waveform. Tapping the waveform stops listening.
+- Tapping the chevron expands the sheet to show the live transcript (speaker + text lines, auto-scrolling); tapping again collapses it.
 
 ## Direction
 

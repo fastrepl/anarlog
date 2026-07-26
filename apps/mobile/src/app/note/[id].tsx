@@ -4,8 +4,8 @@ import { useState } from "react";
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Waveform } from "@/components/waveform";
-import { Colors, Radius, Spacing } from "@/constants/theme";
+import { ListeningSheet } from "@/components/listening-sheet";
+import { Colors, Spacing } from "@/constants/theme";
 import { getSession } from "@/data/sessions";
 
 export default function NoteScreen() {
@@ -39,17 +39,7 @@ export default function NoteScreen() {
         textAlignVertical="top"
       />
 
-      {listening && (
-        <Pressable
-          onPress={() => setListening(false)}
-          style={({ pressed }) => [
-            styles.listeningPanel,
-            pressed && styles.listeningPanelPressed,
-          ]}
-        >
-          <Waveform />
-        </Pressable>
-      )}
+      {listening && <ListeningSheet onStop={() => setListening(false)} />}
     </SafeAreaView>
   );
 }
@@ -78,15 +68,5 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     fontSize: 16,
     color: Colors.ink,
-  },
-  listeningPanel: {
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    paddingVertical: Spacing.md,
-    borderRadius: Radius.card,
-    backgroundColor: Colors.accent,
-  },
-  listeningPanelPressed: {
-    opacity: 0.9,
   },
 });

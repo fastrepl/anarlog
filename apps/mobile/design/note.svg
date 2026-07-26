@@ -10,7 +10,9 @@
     <circle cx="316" cy="56" r="2.5"/>
   </g>
   <text x="40" y="112" font-size="24" font-weight="700" fill="#111111">lorem ipsum dolor</text>
-  <rect x="28" y="556" width="304" height="124" rx="18" fill="#E5483F"/>
+  <path d="M 24 712 L 24 544 Q 24 516 52 516 L 308 516 Q 336 516 336 544 L 336 712" fill="#FFFFFF" stroke="#111111" stroke-width="2.5"/>
+  <polyline points="168,548 180,536 192,548" fill="none" stroke="#111111" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="40" y="560" width="280" height="128" rx="18" fill="#E5483F"/>
   <g stroke="#FFFFFF" stroke-width="3" stroke-linecap="round">
     <line x1="52" y1="600" x2="52" y2="636"/>
     <line x1="64" y1="590" x2="64" y2="646"/>
