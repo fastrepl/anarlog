@@ -5,48 +5,62 @@ import {
   type Permission,
   commands as permissionsCommands,
   type PermissionStatus,
+  type Result,
 } from "@hypr/plugin-permissions";
+
+function unwrap<T>(result: Result<T, string>): T {
+  if (result.status === "error") {
+    throw new Error(result.error);
+  }
+
+  return result.data;
+}
 
 export function usePermission(type: Permission) {
   const [optimisticStatus, setOptimisticStatus] =
     useState<PermissionStatus | null>(null);
-  const status = useQuery({
+  const statusQuery = useQuery({
     queryKey: [`${type}Permission`],
     queryFn: () => permissionsCommands.checkPermission(type),
     refetchInterval: 1000,
-    select: (result): PermissionStatus => {
-      if (result.status === "error") {
-        return "denied";
-      }
-      return result.data;
-    },
   });
+  const status: PermissionStatus | undefined =
+    statusQuery.data?.status === "ok"
+      ? statusQuery.data.data
+      : statusQuery.data
+        ? "denied"
+        : undefined;
 
   const requestMutation = useMutation({
-    mutationFn: () => permissionsCommands.requestPermission(type),
+    mutationFn: async () =>
+      unwrap(await permissionsCommands.requestPermission(type)),
     onSuccess: async () => {
       if (type === "systemAudio" || type === "screenRecording") {
         setOptimisticStatus("authorized");
-        setTimeout(() => void status.refetch(), 1000);
+        setTimeout(() => void statusQuery.refetch(), 1000);
         return;
       }
       setOptimisticStatus(null);
-      setTimeout(() => status.refetch(), 1000);
+      setTimeout(() => statusQuery.refetch(), 1000);
+    },
+    onError: () => {
+      setOptimisticStatus(null);
     },
   });
 
   const resetMutation = useMutation({
-    mutationFn: () => permissionsCommands.resetPermission(type),
+    mutationFn: async () =>
+      unwrap(await permissionsCommands.resetPermission(type)),
     onSuccess: () => {
       setOptimisticStatus(null);
-      setTimeout(() => status.refetch(), 1000);
+      setTimeout(() => statusQuery.refetch(), 1000);
     },
   });
 
   const isPending = requestMutation.isPending || resetMutation.isPending;
 
   const open = async () => {
-    await permissionsCommands.openPermission(type);
+    unwrap(await permissionsCommands.openPermission(type));
   };
 
   const request = () => {
@@ -58,8 +72,15 @@ export function usePermission(type: Permission) {
   };
 
   return {
-    status: optimisticStatus ?? status.data,
+    status: optimisticStatus ?? status,
     isPending,
+    error:
+      requestMutation.error?.message ??
+      (statusQuery.data?.status === "error"
+        ? statusQuery.data.error
+        : statusQuery.error instanceof Error
+          ? statusQuery.error.message
+          : null),
     open,
     request,
     reset,

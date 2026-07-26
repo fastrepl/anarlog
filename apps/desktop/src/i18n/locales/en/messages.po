@@ -2366,7 +2366,9 @@ msgstr "Trial"
 msgid "Trial activated - {trialDays} days of Pro"
 msgstr "Trial activated - {trialDays} days of Pro"
 
+#: src/onboarding/permissions.tsx
 #: src/session-sharing/index.tsx
+#: src/settings/general/permissions.tsx
 msgid "Try again"
 msgstr "Try again"
 

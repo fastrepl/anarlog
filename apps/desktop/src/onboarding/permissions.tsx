@@ -26,6 +26,7 @@ function PermissionBlock({
   status,
   isPending,
   onAction,
+  actionLabel,
   opensSettingsWhenDenied = true,
 }: {
   enabledLabel: string;
@@ -37,6 +38,7 @@ function PermissionBlock({
   status: PermissionStatus | undefined;
   isPending: boolean;
   onAction: () => void;
+  actionLabel?: string;
   opensSettingsWhenDenied?: boolean;
 }) {
   const { t } = useLingui();
@@ -63,7 +65,7 @@ function PermissionBlock({
       aria-label={
         opensSettings
           ? t`Open ${permissionName.toLowerCase()} settings`
-          : t`Enable ${permissionName.toLowerCase()}`
+          : (actionLabel ?? t`Enable ${permissionName.toLowerCase()}`)
       }
     >
       <div
@@ -114,9 +116,11 @@ function ContinueWhenComplete({
 function PermissionsSectionContent({
   onContinue,
   accessibility,
+  runtimeCapabilities = false,
 }: {
   onContinue?: () => void;
   accessibility?: ReturnType<typeof usePermission>;
+  runtimeCapabilities?: boolean;
 }) {
   const { t } = useLingui();
   const mic = usePermission("microphone");
@@ -128,8 +132,11 @@ function PermissionsSectionContent({
     systemAudio.status === "authorized" &&
     (!accessibility || accessibility.status === "authorized");
 
-  const handleAction = (perm: ReturnType<typeof usePermission>) => {
-    if (perm.status === "denied") {
+  const handleAction = (
+    perm: ReturnType<typeof usePermission>,
+    opensSettingsWhenDenied: boolean,
+  ) => {
+    if (opensSettingsWhenDenied && perm.status === "denied") {
       perm.open();
     } else {
       perm.request();
@@ -150,24 +157,38 @@ function PermissionsSectionContent({
           enabledLabel={t`Anarlog can hear your voice`}
           enableLabel={t`Help Anarlog listen to you`}
           enabledBody={t`Microphone access turned on`}
-          enableBody={t`Use your microphone to capture your voice`}
+          enableBody={mic.error ?? t`Use your microphone to capture your voice`}
           Icon={MicIcon}
           permissionName={t`Microphone`}
           status={mic.status}
           isPending={mic.isPending}
-          onAction={() => handleAction(mic)}
+          onAction={() => handleAction(mic, !runtimeCapabilities)}
+          actionLabel={
+            runtimeCapabilities && mic.status === "denied"
+              ? `${t`Try again`}: ${t`Microphone`}`
+              : undefined
+          }
+          opensSettingsWhenDenied={!runtimeCapabilities}
         />
 
         <PermissionBlock
           enabledLabel={t`Anarlog can hear others`}
           enableLabel={t`Help Anarlog listen to others`}
           enabledBody={t`System audio enabled`}
-          enableBody={t`Use system audio to capture other speakers`}
+          enableBody={
+            systemAudio.error ?? t`Use system audio to capture other speakers`
+          }
           Icon={Volume2Icon}
           permissionName={t`System audio`}
           status={systemAudio.status}
           isPending={systemAudio.isPending}
-          onAction={() => handleAction(systemAudio)}
+          onAction={() => handleAction(systemAudio, !runtimeCapabilities)}
+          actionLabel={
+            runtimeCapabilities && systemAudio.status === "denied"
+              ? `${t`Try again`}: ${t`System audio`}`
+              : undefined
+          }
+          opensSettingsWhenDenied={!runtimeCapabilities}
         />
 
         {accessibility && (
@@ -209,5 +230,7 @@ export function PermissionsSection({
     return <MacOSPermissionsSection onContinue={onContinue} />;
   }
 
-  return <PermissionsSectionContent onContinue={onContinue} />;
+  return (
+    <PermissionsSectionContent onContinue={onContinue} runtimeCapabilities />
+  );
 }

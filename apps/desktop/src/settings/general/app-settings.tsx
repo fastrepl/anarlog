@@ -142,31 +142,35 @@ export function AppSettingsView({
             checked={autoStopMeetings.value}
             onChange={autoStopMeetings.onChange}
           />
-          <SettingRow
-            title={<Trans>Post recording disclosure in meeting chat</Trans>}
-            description={
-              <Trans>
-                Automatically post a disclosure after listening starts when the
-                active meeting chat supports safe posting. Posting failure does
-                not stop listening. A disclosure does not confirm participant
-                consent.
-              </Trans>
-            }
-            checked={meetingDisclosureAutoPost.value}
-            onChange={meetingDisclosureAutoPost.onChange}
-          />
-          <SettingRow
-            title={<Trans>Capture meeting chat in Memos</Trans>}
-            description={
-              <Trans>
-                While listening, use Accessibility access to copy visible chat
-                from supported meeting apps and browser meetings into the active
-                note.
-              </Trans>
-            }
-            checked={captureMeetingChat.value}
-            onChange={captureMeetingChat.onChange}
-          />
+          {isMacos && (
+            <>
+              <SettingRow
+                title={<Trans>Post recording disclosure in meeting chat</Trans>}
+                description={
+                  <Trans>
+                    Automatically post a disclosure after listening starts when
+                    the active meeting chat supports safe posting. Posting
+                    failure does not stop listening. A disclosure does not
+                    confirm participant consent.
+                  </Trans>
+                }
+                checked={meetingDisclosureAutoPost.value}
+                onChange={meetingDisclosureAutoPost.onChange}
+              />
+              <SettingRow
+                title={<Trans>Capture meeting chat in Memos</Trans>}
+                description={
+                  <Trans>
+                    While listening, use Accessibility access to copy visible
+                    chat from supported meeting apps and browser meetings into
+                    the active note.
+                  </Trans>
+                }
+                checked={captureMeetingChat.value}
+                onChange={captureMeetingChat.onChange}
+              />
+            </>
+          )}
           <SettingRow
             title={<Trans>Show floating bar</Trans>}
             description={

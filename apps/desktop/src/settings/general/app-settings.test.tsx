@@ -82,6 +82,10 @@ describe("AppSettingsView", () => {
     expect(
       screen.queryByText("Keep Anarlog available from the menu bar."),
     ).toBeNull();
+    expect(
+      screen.queryByText("Post recording disclosure in meeting chat"),
+    ).toBeNull();
+    expect(screen.queryByText("Capture meeting chat in Memos")).toBeNull();
     expect(screen.getByRole("switch", { name: "Show tray icon" })).toBeTruthy();
   });
 

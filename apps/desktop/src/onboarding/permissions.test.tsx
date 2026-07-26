@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => {
     open: vi.fn(),
     request: vi.fn(),
     reset: vi.fn(),
+    error: null as string | null,
   });
   const permissions = {
     microphone: createPermission(),
@@ -55,6 +56,7 @@ describe("PermissionsSection", () => {
     Object.values(mocks.permissions).forEach((permission) => {
       permission.status = "denied";
       permission.isPending = false;
+      permission.error = null;
     });
   });
 
@@ -102,6 +104,37 @@ describe("PermissionsSection", () => {
     expect(screen.queryByText("Help Anarlog read meeting activity")).toBeNull();
     expect(mocks.usePermission).not.toHaveBeenCalledWith("accessibility");
     expect(onContinue).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries denied runtime audio probes outside macOS", () => {
+    mocks.currentPlatform = "linux";
+    mocks.permissions.microphone.error = "microphone device unavailable";
+    mocks.permissions.systemAudio.error = "PipeWire source unavailable";
+
+    render(<PermissionsSection />);
+
+    expect(
+      screen
+        .getByRole("button", { name: "Try again: Microphone" })
+        .getAttribute("title"),
+    ).toBe("microphone device unavailable");
+    expect(
+      screen
+        .getByRole("button", { name: "Try again: System audio" })
+        .getAttribute("title"),
+    ).toBe("PipeWire source unavailable");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Try again: Microphone" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Try again: System audio" }),
+    );
+
+    expect(mocks.permissions.microphone.request).toHaveBeenCalledOnce();
+    expect(mocks.permissions.systemAudio.request).toHaveBeenCalledOnce();
+    expect(mocks.permissions.microphone.open).not.toHaveBeenCalled();
+    expect(mocks.permissions.systemAudio.open).not.toHaveBeenCalled();
   });
 
   it("requests denied Accessibility permission instead of opening Settings", () => {

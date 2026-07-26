@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Permission, PermissionStatus } from "@hypr/plugin-permissions";
 
 const mocks = vi.hoisted(() => ({
+  currentPlatform: "macos",
   permissions: new Map<
     Permission,
     {
@@ -12,12 +13,21 @@ const mocks = vi.hoisted(() => ({
       open: ReturnType<typeof vi.fn>;
       request: ReturnType<typeof vi.fn>;
       reset: ReturnType<typeof vi.fn>;
+      error: string | null;
     }
   >(),
+  usePermission: vi.fn(),
+}));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  platform: () => mocks.currentPlatform,
 }));
 
 vi.mock("~/shared/hooks/usePermissions", () => ({
-  usePermission: (permission: Permission) => mocks.permissions.get(permission),
+  usePermission: (permission: Permission) => {
+    mocks.usePermission(permission);
+    return mocks.permissions.get(permission);
+  },
 }));
 
 import { Permissions } from "./permissions";
@@ -29,6 +39,7 @@ function permission(status: PermissionStatus) {
     open: vi.fn(),
     request: vi.fn(),
     reset: vi.fn(),
+    error: null as string | null,
   };
 }
 
@@ -48,7 +59,9 @@ function renderPermissions(accessibilityStatus: PermissionStatus) {
 describe("Permissions", () => {
   afterEach(() => {
     cleanup();
+    mocks.currentPlatform = "macos";
     mocks.permissions.clear();
+    mocks.usePermission.mockClear();
   });
 
   it("explains what Accessibility enables and opens Settings when denied", () => {
@@ -79,5 +92,36 @@ describe("Permissions", () => {
 
     expect(accessibility.request).toHaveBeenCalledOnce();
     expect(accessibility.open).not.toHaveBeenCalled();
+  });
+
+  it("shows retryable audio capability checks outside macOS", () => {
+    mocks.currentPlatform = "linux";
+    const microphone = permission("denied");
+    const systemAudio = permission("denied");
+    microphone.error = "microphone device unavailable";
+    systemAudio.error = "PipeWire source unavailable";
+    mocks.permissions.set("microphone", microphone);
+    mocks.permissions.set("systemAudio", systemAudio);
+
+    render(<Permissions />);
+
+    expect(screen.queryByText("Accessibility")).toBeNull();
+    expect(screen.queryByText("Calendar")).toBeNull();
+    expect(screen.getByText("microphone device unavailable")).toBeTruthy();
+    expect(screen.getByText("PipeWire source unavailable")).toBeTruthy();
+    expect(mocks.usePermission).not.toHaveBeenCalledWith("accessibility");
+    expect(mocks.usePermission).not.toHaveBeenCalledWith("calendar");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Try again: Microphone" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Try again: System audio" }),
+    );
+
+    expect(microphone.request).toHaveBeenCalledOnce();
+    expect(systemAudio.request).toHaveBeenCalledOnce();
+    expect(microphone.open).not.toHaveBeenCalled();
+    expect(systemAudio.open).not.toHaveBeenCalled();
   });
 });

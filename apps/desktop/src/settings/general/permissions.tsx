@@ -1,4 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { platform } from "@tauri-apps/plugin-os";
 import { AlertCircleIcon, ArrowRightIcon, CheckIcon } from "lucide-react";
 
 import type { PermissionStatus } from "@hypr/plugin-permissions";
@@ -12,21 +13,30 @@ function PermissionRow({
   description,
   status,
   isPending,
+  error,
   onRequest,
   onOpen,
+  runtimeCapability = false,
 }: {
   title: string;
   description: string;
   status: PermissionStatus | undefined;
   isPending: boolean;
+  error?: string | null;
   onRequest: () => void;
   onOpen: () => void;
+  runtimeCapability?: boolean;
 }) {
   const { t } = useLingui();
   const isAuthorized = status === "authorized";
   const isDenied = status === "denied";
 
   const handleButtonClick = () => {
+    if (runtimeCapability) {
+      if (!isAuthorized) onRequest();
+      return;
+    }
+
     if (isAuthorized || isDenied) {
       onOpen();
     } else {
@@ -47,21 +57,30 @@ function PermissionRow({
           <h3 className="text-sm font-medium">{title}</h3>
         </div>
         <p className="text-muted-foreground text-xs">{description}</p>
+        {error && (
+          <p role="alert" className="mt-1 text-xs text-red-500">
+            {error}
+          </p>
+        )}
       </div>
       <Button
         variant={isAuthorized ? "ghost" : "default"}
         size="icon"
         onClick={handleButtonClick}
-        disabled={isPending}
+        disabled={isPending || (runtimeCapability && isAuthorized)}
         className={cn([
           "size-8",
           isAuthorized &&
             "text-green-600 hover:bg-transparent hover:text-green-600",
         ])}
         aria-label={
-          isAuthorized || isDenied
-            ? t`Open ${title.toLowerCase()} settings`
-            : t`Request ${title.toLowerCase()} permission`
+          runtimeCapability
+            ? isDenied
+              ? `${t`Try again`}: ${title}`
+              : title
+            : isAuthorized || isDenied
+              ? t`Open ${title.toLowerCase()} settings`
+              : t`Request ${title.toLowerCase()} permission`
         }
       >
         {isAuthorized ? (
@@ -92,32 +111,60 @@ function PermissionGroup({
 }
 
 export function Permissions() {
+  if (platform() === "macos") {
+    return <MacOSPermissions />;
+  }
+
+  return (
+    <div className="flex flex-col gap-8">
+      <AudioPermissions runtimeCapabilities />
+    </div>
+  );
+}
+
+function AudioPermissions({
+  runtimeCapabilities = false,
+}: {
+  runtimeCapabilities?: boolean;
+}) {
   const { t } = useLingui();
-  const calendar = usePermission("calendar");
   const mic = usePermission("microphone");
   const systemAudio = usePermission("systemAudio");
+
+  return (
+    <PermissionGroup title={<Trans>Audio</Trans>}>
+      <PermissionRow
+        title={t`Microphone`}
+        description={t`Required to record your voice during meetings and calls`}
+        status={mic.status}
+        isPending={mic.isPending}
+        error={mic.error}
+        onRequest={mic.request}
+        onOpen={mic.open}
+        runtimeCapability={runtimeCapabilities}
+      />
+      <PermissionRow
+        title={t`System audio`}
+        description={t`Required to capture other participants' voices in meetings`}
+        status={systemAudio.status}
+        isPending={systemAudio.isPending}
+        error={systemAudio.error}
+        onRequest={systemAudio.request}
+        onOpen={systemAudio.open}
+        runtimeCapability={runtimeCapabilities}
+      />
+    </PermissionGroup>
+  );
+}
+
+function MacOSPermissions() {
+  const { t } = useLingui();
+  const calendar = usePermission("calendar");
   const accessibility = usePermission("accessibility");
 
   return (
     <div className="flex flex-col gap-8">
-      <PermissionGroup title={<Trans>Audio</Trans>}>
-        <PermissionRow
-          title={t`Microphone`}
-          description={t`Required to record your voice during meetings and calls`}
-          status={mic.status}
-          isPending={mic.isPending}
-          onRequest={mic.request}
-          onOpen={mic.open}
-        />
-        <PermissionRow
-          title={t`System audio`}
-          description={t`Required to capture other participants' voices in meetings`}
-          status={systemAudio.status}
-          isPending={systemAudio.isPending}
-          onRequest={systemAudio.request}
-          onOpen={systemAudio.open}
-        />
-      </PermissionGroup>
+      <AudioPermissions />
 
       <PermissionRow
         title={t`Accessibility`}
