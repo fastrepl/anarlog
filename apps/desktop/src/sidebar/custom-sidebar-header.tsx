@@ -5,6 +5,7 @@ import { type ReactNode, useCallback } from "react";
 import { cn } from "@hypr/utils";
 
 import { useShell } from "~/contexts/shell";
+import { useWindowControlsGutter } from "~/shared/hooks/useWindowControlsGutter";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function CustomSidebarHeader({
@@ -16,6 +17,7 @@ export function CustomSidebarHeader({
 }) {
   const { t } = useLingui();
   const { chat } = useShell();
+  const showWindowControlsGutter = useWindowControlsGutter();
   const currentTab = useTabs((state) => state.currentTab);
   const tabs = useTabs((state) => state.tabs);
   const select = useTabs((state) => state.select);
@@ -43,7 +45,10 @@ export function CustomSidebarHeader({
   return (
     <div
       data-tauri-drag-region
-      className="-mt-11 flex h-12 shrink-0 items-start py-0 pt-[9px] pr-1 pl-[76px]"
+      className={cn([
+        "-mt-11 flex h-12 shrink-0 items-start py-0 pt-[9px] pr-1",
+        showWindowControlsGutter ? "pl-[76px]" : "pl-2",
+      ])}
     >
       <div
         data-tauri-drag-region

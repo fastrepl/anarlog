@@ -1,8 +1,10 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -16,6 +18,10 @@ const mocks = vi.hoisted(() => ({
   runEscapeShortcut: vi.fn(),
   toggleLeftSidebar: vi.fn(),
   isTauri: vi.fn(() => true),
+  isFullscreen: vi.fn().mockResolvedValue(false),
+  isMaximized: vi.fn().mockResolvedValue(false),
+  platform: "macos" as "linux" | "macos" | "windows",
+  resizeListeners: [] as Array<() => void>,
   startDragging: vi.fn().mockResolvedValue(undefined),
   devtoolsPanelActionListeners: [] as Array<
     (event: { payload: { action: string } }) => void
@@ -62,8 +68,22 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
+    isFullscreen: mocks.isFullscreen,
+    isMaximized: mocks.isMaximized,
+    onResized: vi.fn(async (listener: () => void) => {
+      mocks.resizeListeners.push(listener);
+      return () => {
+        mocks.resizeListeners = mocks.resizeListeners.filter(
+          (candidate) => candidate !== listener,
+        );
+      };
+    }),
     startDragging: mocks.startDragging,
   }),
+}));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  platform: () => mocks.platform,
 }));
 
 vi.mock("@hypr/plugin-windows", () => ({
@@ -177,6 +197,12 @@ describe("ClassicMainBody", () => {
     mocks.runEscapeShortcut.mockClear();
     mocks.toggleLeftSidebar.mockClear();
     mocks.isTauri.mockReturnValue(true);
+    mocks.isFullscreen.mockReset();
+    mocks.isFullscreen.mockResolvedValue(false);
+    mocks.isMaximized.mockReset();
+    mocks.isMaximized.mockResolvedValue(false);
+    mocks.platform = "macos";
+    mocks.resizeListeners = [];
     mocks.startDragging.mockClear();
     mocks.devtoolsPanelActionListeners = [];
     mocks.windowsCommands.devtoolsPanelHide.mockClear();
@@ -301,6 +327,89 @@ describe("ClassicMainBody", () => {
     expect(contentRow?.hasAttribute("data-tauri-drag-region")).toBe(false);
     expect(mocks.toggleLeftSidebar).toHaveBeenCalledTimes(1);
   });
+
+  it.each([
+    ["expanded", true, "Hide sidebar"],
+    ["collapsed", false, "Show sidebar"],
+  ])(
+    "removes the window controls gutter while maximized with the sidebar %s",
+    async (_state, expanded, toggleLabel) => {
+      mocks.leftSidebarExpanded = expanded;
+
+      render(<ClassicMainBody />);
+
+      const sidebarToggle = screen.getByRole("button", { name: toggleLabel });
+      const chromeFrame = expanded
+        ? document.querySelector<HTMLElement>("[data-sidebar-timeline-header]")
+        : sidebarToggle.parentElement?.parentElement?.parentElement;
+
+      expect(chromeFrame?.className).toContain("pl-[76px]");
+
+      mocks.isMaximized.mockResolvedValue(true);
+      act(() => {
+        for (const listener of mocks.resizeListeners) {
+          listener();
+        }
+      });
+
+      await waitFor(() => {
+        expect(chromeFrame?.className).toContain("pl-0");
+      });
+      expect(chromeFrame?.className).not.toContain("pl-[76px]");
+    },
+  );
+
+  it.each([
+    {
+      expanded: true,
+      platform: "windows",
+      platformName: "Windows",
+      sidebarState: "expanded",
+      toggleLabel: "Hide sidebar",
+    },
+    {
+      expanded: false,
+      platform: "windows",
+      platformName: "Windows",
+      sidebarState: "collapsed",
+      toggleLabel: "Show sidebar",
+    },
+    {
+      expanded: true,
+      platform: "linux",
+      platformName: "Linux",
+      sidebarState: "expanded",
+      toggleLabel: "Hide sidebar",
+    },
+    {
+      expanded: false,
+      platform: "linux",
+      platformName: "Linux",
+      sidebarState: "collapsed",
+      toggleLabel: "Show sidebar",
+    },
+  ] as const)(
+    "does not reserve the window controls gutter on $platformName with the sidebar $sidebarState",
+    async ({ expanded, platform, toggleLabel }) => {
+      mocks.leftSidebarExpanded = expanded;
+      mocks.platform = platform;
+
+      render(<ClassicMainBody />);
+
+      const sidebarToggle = screen.getByRole("button", { name: toggleLabel });
+      const chromeFrame = expanded
+        ? document.querySelector<HTMLElement>("[data-sidebar-timeline-header]")
+        : sidebarToggle.parentElement?.parentElement?.parentElement;
+
+      await waitFor(() => {
+        expect(chromeFrame?.className).toContain("pl-0");
+      });
+      expect(chromeFrame?.className).not.toContain("pl-[76px]");
+      expect(mocks.isMaximized).not.toHaveBeenCalled();
+      expect(mocks.isFullscreen).not.toHaveBeenCalled();
+      expect(mocks.resizeListeners).toHaveLength(0);
+    },
+  );
 
   it("shows the update button in the expanded sidebar control group", () => {
     mocks.sidebarUpdateControl.status = "available";

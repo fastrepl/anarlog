@@ -30,6 +30,7 @@ import {
 } from "~/session/hooks/useRemoteMeeting";
 import { useSessionEvent } from "~/session/hooks/useSessionEvent";
 import { useConfigValue } from "~/shared/config";
+import { useWindowControlsGutter } from "~/shared/hooks/useWindowControlsGutter";
 import { getScheme } from "~/shared/utils";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
@@ -54,6 +55,7 @@ export function OuterHeader({
 }) {
   const { leftsidebar } = useShell();
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
+  const showWindowControlsGutter = useWindowControlsGutter();
   const showSidebarTimelineHeaderGutter =
     !standaloneWindow && !leftsidebar.expanded;
   const showExpandedSidebarTimelineHeader = leftsidebar.expanded;
@@ -64,7 +66,8 @@ export function OuterHeader({
       className={cn([
         "relative flex w-full items-center",
         "h-12",
-        showSidebarTimelineHeaderGutter && "pl-[156px]",
+        showSidebarTimelineHeaderGutter &&
+          (showWindowControlsGutter ? "pl-[156px]" : "pl-[80px]"),
       ])}
     >
       {title ? (
@@ -77,7 +80,9 @@ export function OuterHeader({
             standaloneWindow
               ? "left-[76px]"
               : showSidebarTimelineHeaderGutter
-                ? "left-[104px]"
+                ? showWindowControlsGutter
+                  ? "left-[104px]"
+                  : "left-[28px]"
                 : showExpandedSidebarTimelineHeader
                   ? "left-0"
                   : "left-[114px]",

@@ -44,6 +44,7 @@ import { useClassicMainShortcuts } from "./useShortcuts";
 import { useShell } from "~/contexts/shell";
 import { scrollElementByWheel } from "~/shared/dom/scroll-wheel";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
+import { useWindowControlsGutter } from "~/shared/hooks/useWindowControlsGutter";
 import {
   NOTE_SURFACE_MIN_WIDTH_PX,
   usesNoteSurfaceMinWidth,
@@ -100,6 +101,7 @@ export function ClassicMainBody() {
     useState(false);
   const [showDevtoolsPanelButton, setShowDevtoolsPanelButton] = useState(false);
   const [devtoolsPanelOpen, setDevtoolsPanelOpen] = useState(false);
+  const showWindowControlsGutter = useWindowControlsGutter();
   leftSidebarPanelConstraintsRef.current = leftSidebarPanelConstraints;
 
   useMountEffect(() => {
@@ -471,7 +473,10 @@ export function ClassicMainBody() {
     <div
       data-tauri-drag-region
       data-sidebar-timeline-header
-      className="flex h-9 shrink-0 items-start pt-[9px] pr-1 pl-[76px]"
+      className={cn([
+        "flex h-9 shrink-0 items-start pt-[9px] pr-1",
+        showWindowControlsGutter ? "pl-[76px]" : "pl-0",
+      ])}
       onWheelCapture={handleSidebarTimelineHeaderWheel}
     >
       {showSidebarTimeline ? (
@@ -510,7 +515,10 @@ export function ClassicMainBody() {
         >
           <div
             data-tauri-drag-region
-            className="flex h-full min-w-0 items-start pt-[9px] pr-1 pl-[76px]"
+            className={cn([
+              "flex h-full min-w-0 items-start pt-[9px] pr-1",
+              showWindowControlsGutter ? "pl-[76px]" : "pl-0",
+            ])}
           >
             <SidebarTimelineChromeWithUpcomingMeeting
               currentSessionId={currentSessionId}
@@ -537,7 +545,10 @@ export function ClassicMainBody() {
         <div data-tauri-drag-region className="relative h-10 shrink-0">
           <div
             data-tauri-drag-region
-            className="flex h-full min-w-0 items-start pt-1 pl-[76px]"
+            className={cn([
+              "flex h-full min-w-0 items-start pt-1",
+              showWindowControlsGutter ? "pl-[76px]" : "pl-0",
+            ])}
           />
         </div>
       )}
@@ -550,7 +561,10 @@ export function ClassicMainBody() {
         >
           <div
             data-tauri-drag-region
-            className="flex h-full min-w-0 items-start pt-[9px] pl-[76px]"
+            className={cn([
+              "flex h-full min-w-0 items-start pt-[9px]",
+              showWindowControlsGutter ? "pl-[76px]" : "pl-2",
+            ])}
           >
             <LeftSurfaceChromeButton
               ariaLabel="Go back"

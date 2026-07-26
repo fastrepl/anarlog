@@ -10,6 +10,7 @@ import { useChangelogContent } from "./data";
 
 import { useShell } from "~/contexts/shell";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
+import { useWindowControlsGutter } from "~/shared/hooks/useWindowControlsGutter";
 import { StandardContentWrapper } from "~/shared/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
@@ -135,12 +136,14 @@ function ChangelogHeader({
   onClose: () => void;
 }) {
   const { t } = useLingui();
+  const showWindowControlsGutter = useWindowControlsGutter();
   return (
     <div
       data-tauri-drag-region
       className={cn([
         "relative flex h-12 w-full items-center",
-        showSidebarTimelineHeaderGutter && "pl-[156px]",
+        showSidebarTimelineHeaderGutter &&
+          (showWindowControlsGutter ? "pl-[156px]" : "pl-[80px]"),
       ])}
     >
       <div
@@ -150,7 +153,10 @@ function ChangelogHeader({
           showExpandedSidebarTimelineHeader
             ? "right-[70px] left-0 justify-start"
             : showSidebarTimelineHeaderGutter
-              ? "right-[70px] left-[104px] justify-start"
+              ? cn([
+                  "right-[70px] justify-start",
+                  showWindowControlsGutter ? "left-[104px]" : "left-[28px]",
+                ])
               : "left-1/2 w-[min(640px,calc(100%_-_160px))] -translate-x-1/2 justify-center",
         ])}
       >
