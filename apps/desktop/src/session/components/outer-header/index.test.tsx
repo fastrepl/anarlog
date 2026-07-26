@@ -41,6 +41,7 @@ const mocks = vi.hoisted(() => ({
     standaloneWindow?: boolean;
   }>,
   shareSessionIds: [] as string[],
+  windowControlsGutter: true,
 }));
 
 vi.mock("./metadata", () => ({
@@ -116,6 +117,10 @@ vi.mock("~/shared/config", () => ({
   useConfigValue: (key: string) => mocks.configValues[key],
 }));
 
+vi.mock("~/shared/hooks/useWindowControlsGutter", () => ({
+  useWindowControlsGutter: () => mocks.windowControlsGutter,
+}));
+
 vi.mock("~/shared/utils", async (importOriginal) => ({
   ...(await importOriginal<typeof import("~/shared/utils")>()),
   getScheme: mocks.getScheme,
@@ -188,6 +193,7 @@ describe("OuterHeader", () => {
     };
     mocks.overflowProps = [];
     mocks.shareSessionIds = [];
+    mocks.windowControlsGutter = true;
   });
 
   afterEach(() => {
@@ -433,6 +439,32 @@ describe("OuterHeader", () => {
     expect(titleSlot?.className).toContain("left-[76px]");
     expect(titleSlot?.className).toContain("right-[140px]");
   });
+
+  it.each([
+    ["expanded", true],
+    ["collapsed", false],
+  ])(
+    "drops the window controls inset in standalone windows without native chrome with the sidebar %s",
+    (_state, expanded) => {
+      mocks.leftsidebar.expanded = expanded;
+      mocks.windowControlsGutter = false;
+
+      render(
+        <OuterHeader
+          sessionId="session-1"
+          currentView={{ type: "raw" } as EditorView}
+          standaloneWindow
+          title={<span>Session title</span>}
+        />,
+      );
+
+      const title = screen.getByText("Session title");
+      const titleSlot = title.parentElement?.parentElement;
+
+      expect(titleSlot?.className).toContain("left-2");
+      expect(titleSlot?.className).not.toContain("left-[76px]");
+    },
+  );
 
   it("shows a join-and-record pill before a remote meeting with a video link", () => {
     mocks.sessionEvents = {

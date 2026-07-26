@@ -78,7 +78,9 @@ export function OuterHeader({
             centerTitle && "justify-center",
             "right-[140px]",
             standaloneWindow
-              ? "left-[76px]"
+              ? showWindowControlsGutter
+                ? "left-[76px]"
+                : "left-2"
               : showSidebarTimelineHeaderGutter
                 ? showWindowControlsGutter
                   ? "left-[104px]"
