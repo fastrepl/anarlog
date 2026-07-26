@@ -481,7 +481,7 @@ function PlanTierList({
   return (
     <div ref={containerRef}>
       {isWide ? (
-        <div className="divide-border border-border grid grid-cols-2 divide-x border-t">
+        <div className="divide-border grid grid-cols-2 divide-x">
           {PLAN_TIERS.map((tier) => {
             const isCurrent = tier.id === currentTier;
             const action = getActionForTier(
@@ -606,7 +606,7 @@ function Container({
   children?: ReactNode;
 }) {
   return (
-    <section className="border-border border-b pb-4 last:border-b-0">
+    <section>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <h3 className="text-sm font-medium">{title}</h3>
