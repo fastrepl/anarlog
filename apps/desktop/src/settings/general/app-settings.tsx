@@ -301,7 +301,7 @@ function AudioRetentionRow({
         <SelectTrigger
           aria-labelledby={titleId}
           aria-describedby={descriptionId}
-          className="bg-card h-9 w-36 shadow-none focus:ring-0"
+          className="bg-card h-9 w-48 shadow-none focus:ring-0"
         >
           <SelectValue />
         </SelectTrigger>

@@ -48,7 +48,7 @@ export function ThemeSelector() {
           setTheme(next);
         }}
       >
-        <SelectTrigger className="bg-card w-40 shadow-none focus:ring-0">
+        <SelectTrigger className="bg-card h-9 w-48 shadow-none focus:ring-0">
           <SelectValue placeholder={t`Select appearance`} />
         </SelectTrigger>
         <SelectContent>
