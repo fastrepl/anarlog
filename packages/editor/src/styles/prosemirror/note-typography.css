@@ -294,7 +294,7 @@
   margin-block: 0;
   border-radius: 0.375rem;
   background-color: var(--color-muted, #f5f5f4);
-  padding-inline: 1.5em;
+  padding-inline: 0.75em;
   padding-block: 1em;
   overflow-x: auto;
   color: inherit;
@@ -319,6 +319,20 @@
     font-size: inherit;
     line-height: inherit;
   }
+}
+
+/* In the editor, the hover-row rule (higher specificity than the element
+ * rules above) would drag these blocks into the -0.75em row inset. Their
+ * visible left edge — quote border, code background — belongs at the text
+ * column, aligned with plain text. */
+.note-typography.prosemirror-editor blockquote {
+  margin-inline-start: 0;
+  padding-inline: 1em 0.75em;
+}
+
+.note-typography.prosemirror-editor pre {
+  margin-inline: 0;
+  padding-inline: 0.75em;
 }
 
 .note-typography a {
