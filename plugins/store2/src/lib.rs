@@ -2,7 +2,9 @@ mod commands;
 mod error;
 mod ext;
 
-pub use commands::{read_secret, write_secret};
+pub use commands::{
+    delete_secret_blocking, read_secret, read_secret_blocking, write_secret, write_secret_blocking,
+};
 pub use error::*;
 pub use ext::*;
 

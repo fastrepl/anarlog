@@ -4,6 +4,12 @@ const SECURE_STORE_SUFFIX: &str = "secure-store";
 const NATIVE_SECRET_ACCOUNT_PREFIXES: &[&str] = &["e2ee:"];
 #[cfg(target_os = "macos")]
 const MACOS_KEYCHAIN_ACCESS_ERROR_PREFIX: &str = "macOS couldn't access your login Keychain.";
+#[cfg(target_os = "linux")]
+const LINUX_SECRET_SERVICE_ACCESS_ERROR: &str =
+    "Linux couldn't access Secret Service. Unlock your login keyring, then try again.";
+#[cfg(target_os = "linux")]
+const LINUX_SECRET_SERVICE_UNAVAILABLE_ERROR: &str =
+    "Linux Secret Service is unavailable. Start your desktop keyring service, then try again.";
 
 #[cfg(target_os = "macos")]
 const ERR_SEC_AUTH_FAILED: i32 = -25293;
@@ -54,6 +60,17 @@ fn secure_store_error(error: keyring::Error) -> String {
         return format!(
             "{MACOS_KEYCHAIN_ACCESS_ERROR_PREFIX} Use “Repair Keychain Access” below, then try again."
         );
+    }
+
+    #[cfg(target_os = "linux")]
+    match error {
+        keyring::Error::NoStorageAccess(_) => {
+            return LINUX_SECRET_SERVICE_ACCESS_ERROR.to_string();
+        }
+        keyring::Error::PlatformFailure(_) => {
+            return LINUX_SECRET_SERVICE_UNAVAILABLE_ERROR.to_string();
+        }
+        _ => {}
     }
 
     error.to_string()
@@ -128,7 +145,7 @@ fn legacy_secret_entries<R: tauri::Runtime>(
     legacy_secret_locations(&app.config().identifier, scope, key)
         .into_iter()
         .map(|(service, account)| {
-            keyring::Entry::new(&service, &account).map_err(|error| error.to_string())
+            keyring::Entry::new(&service, &account).map_err(secure_store_error)
         })
         .collect()
 }
@@ -145,7 +162,7 @@ fn secret_entry<R: tauri::Runtime>(
     let identifier = &app.config().identifier;
     let service = secure_store_service(identifier);
     let account = secure_store_account(identifier, scope, key);
-    keyring::Entry::new(&service, &account).map_err(|error| error.to_string())
+    keyring::Entry::new(&service, &account).map_err(secure_store_error)
 }
 
 #[tauri::command]
@@ -279,6 +296,14 @@ pub async fn read_secret<R: tauri::Runtime>(
     read_secret_for(SecretCaller::Native, app, scope, key).await
 }
 
+pub fn read_secret_blocking<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    scope: &str,
+    key: &str,
+) -> Result<Option<String>, String> {
+    read_secret_blocking_for(SecretCaller::Native, app, scope, key)
+}
+
 async fn read_secret_for<R: tauri::Runtime>(
     caller: SecretCaller,
     app: tauri::AppHandle<R>,
@@ -287,29 +312,39 @@ async fn read_secret_for<R: tauri::Runtime>(
 ) -> Result<Option<String>, String> {
     validate_secret_coordinate(caller, &scope, &key)?;
     tauri::async_runtime::spawn_blocking(move || {
-        let entry = secret_entry(&app, &scope, &key)?;
-        match entry.get_password() {
-            Ok(secret) => Ok(Some(secret)),
-            Err(keyring::Error::NoEntry) => {
-                for legacy_entry in legacy_secret_entries(&app, &scope, &key)? {
-                    match legacy_entry.get_password() {
-                        Ok(secret) => {
-                            if entry.set_password(&secret).is_ok() {
-                                let _ = legacy_entry.delete_credential();
-                            }
-                            return Ok(Some(secret));
-                        }
-                        Err(keyring::Error::NoEntry | keyring::Error::PlatformFailure(_)) => {}
-                        Err(error) => return Err(secure_store_error(error)),
-                    }
-                }
-                Ok(None)
-            }
-            Err(error) => Err(secure_store_error(error)),
-        }
+        read_secret_blocking_for(caller, &app, &scope, &key)
     })
     .await
     .map_err(|error| error.to_string())?
+}
+
+fn read_secret_blocking_for<R: tauri::Runtime>(
+    caller: SecretCaller,
+    app: &tauri::AppHandle<R>,
+    scope: &str,
+    key: &str,
+) -> Result<Option<String>, String> {
+    validate_secret_coordinate(caller, scope, key)?;
+    let entry = secret_entry(app, scope, key)?;
+    match entry.get_password() {
+        Ok(secret) => Ok(Some(secret)),
+        Err(keyring::Error::NoEntry) => {
+            for legacy_entry in legacy_secret_entries(app, scope, key)? {
+                match legacy_entry.get_password() {
+                    Ok(secret) => {
+                        if entry.set_password(&secret).is_ok() {
+                            let _ = legacy_entry.delete_credential();
+                        }
+                        return Ok(Some(secret));
+                    }
+                    Err(keyring::Error::NoEntry | keyring::Error::PlatformFailure(_)) => {}
+                    Err(error) => return Err(secure_store_error(error)),
+                }
+            }
+            Ok(None)
+        }
+        Err(error) => Err(secure_store_error(error)),
+    }
 }
 
 #[tauri::command]
@@ -332,6 +367,15 @@ pub async fn write_secret<R: tauri::Runtime>(
     write_secret_for(SecretCaller::Native, app, scope, key, value).await
 }
 
+pub fn write_secret_blocking<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    scope: &str,
+    key: &str,
+    value: &str,
+) -> Result<(), String> {
+    write_secret_blocking_for(SecretCaller::Native, app, scope, key, value)
+}
+
 async fn write_secret_for<R: tauri::Runtime>(
     caller: SecretCaller,
     app: tauri::AppHandle<R>,
@@ -341,15 +385,26 @@ async fn write_secret_for<R: tauri::Runtime>(
 ) -> Result<(), String> {
     validate_secret_coordinate(caller, &scope, &key)?;
     tauri::async_runtime::spawn_blocking(move || {
-        let entry = secret_entry(&app, &scope, &key)?;
-        entry.set_password(&value).map_err(secure_store_error)?;
-        for legacy_entry in legacy_secret_entries(&app, &scope, &key)? {
-            let _ = legacy_entry.delete_credential();
-        }
-        Ok(())
+        write_secret_blocking_for(caller, &app, &scope, &key, &value)
     })
     .await
     .map_err(|error| error.to_string())?
+}
+
+fn write_secret_blocking_for<R: tauri::Runtime>(
+    caller: SecretCaller,
+    app: &tauri::AppHandle<R>,
+    scope: &str,
+    key: &str,
+    value: &str,
+) -> Result<(), String> {
+    validate_secret_coordinate(caller, scope, key)?;
+    let entry = secret_entry(app, scope, key)?;
+    entry.set_password(value).map_err(secure_store_error)?;
+    for legacy_entry in legacy_secret_entries(app, scope, key)? {
+        let _ = legacy_entry.delete_credential();
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -362,6 +417,14 @@ pub(crate) async fn delete_secret<R: tauri::Runtime>(
     delete_secret_for(SecretCaller::Renderer, app, scope, key).await
 }
 
+pub fn delete_secret_blocking<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    scope: &str,
+    key: &str,
+) -> Result<(), String> {
+    delete_secret_blocking_for(SecretCaller::Native, app, scope, key)
+}
+
 async fn delete_secret_for<R: tauri::Runtime>(
     caller: SecretCaller,
     app: tauri::AppHandle<R>,
@@ -370,21 +433,31 @@ async fn delete_secret_for<R: tauri::Runtime>(
 ) -> Result<(), String> {
     validate_secret_coordinate(caller, &scope, &key)?;
     tauri::async_runtime::spawn_blocking(move || {
-        for legacy_entry in legacy_secret_entries(&app, &scope, &key)? {
-            match legacy_entry.delete_credential() {
-                Ok(()) | Err(keyring::Error::NoEntry | keyring::Error::PlatformFailure(_)) => {}
-                Err(error) => return Err(secure_store_error(error)),
-            }
-        }
-        let entry = secret_entry(&app, &scope, &key)?;
-        match entry.delete_credential() {
-            Ok(()) | Err(keyring::Error::NoEntry) => {}
-            Err(error) => return Err(secure_store_error(error)),
-        }
-        Ok(())
+        delete_secret_blocking_for(caller, &app, &scope, &key)
     })
     .await
     .map_err(|error| error.to_string())?
+}
+
+fn delete_secret_blocking_for<R: tauri::Runtime>(
+    caller: SecretCaller,
+    app: &tauri::AppHandle<R>,
+    scope: &str,
+    key: &str,
+) -> Result<(), String> {
+    validate_secret_coordinate(caller, scope, key)?;
+    for legacy_entry in legacy_secret_entries(app, scope, key)? {
+        match legacy_entry.delete_credential() {
+            Ok(()) | Err(keyring::Error::NoEntry | keyring::Error::PlatformFailure(_)) => {}
+            Err(error) => return Err(secure_store_error(error)),
+        }
+    }
+    let entry = secret_entry(app, scope, key)?;
+    match entry.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => {}
+        Err(error) => return Err(secure_store_error(error)),
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -529,5 +602,24 @@ mod tests {
         let error = keyring::Error::PlatformFailure(Box::new(platform_error));
 
         assert_eq!(secure_store_error(error), expected);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn explains_locked_linux_secret_service() {
+        let error = keyring::Error::NoStorageAccess(Box::new(std::io::Error::other("locked")));
+
+        assert_eq!(secure_store_error(error), LINUX_SECRET_SERVICE_ACCESS_ERROR);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn explains_unavailable_linux_secret_service() {
+        let error = keyring::Error::PlatformFailure(Box::new(std::io::Error::other("unavailable")));
+
+        assert_eq!(
+            secure_store_error(error),
+            LINUX_SECRET_SERVICE_UNAVAILABLE_ERROR
+        );
     }
 }

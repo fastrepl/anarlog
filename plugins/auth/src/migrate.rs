@@ -7,18 +7,79 @@ use crate::PLUGIN_NAME;
 
 const FILENAME: &str = "auth.json";
 
-pub(crate) fn auth_path<R: tauri::Runtime>(
-    app: &tauri::AppHandle<R>,
-) -> std::result::Result<PathBuf, String> {
-    let new_auth_path = new_auth_path(app).map_err(|e| e.to_string())?;
-    let legacy_auth_path = legacy_auth_path(app).map_err(|e| e.to_string())?;
-    let legacy_store_json_path = legacy_store_json_path(app).map_err(|e| e.to_string())?;
+pub(crate) fn auth_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> crate::Result<PathBuf> {
+    let new_auth_path = new_auth_path(app)?;
+    let legacy_auth_path = legacy_auth_path(app)?;
+    let legacy_store_json_path = legacy_store_json_path(app)?;
 
     Ok(resolve_auth_path_from_paths(
         &legacy_auth_path,
         &legacy_store_json_path,
         &new_auth_path,
     ))
+}
+
+#[cfg(all(target_os = "linux", not(test)))]
+const AUTH_SCOPE: &str = "auth";
+#[cfg(all(target_os = "linux", not(test)))]
+const AUTH_KEY: &str = "supabase-storage";
+
+#[cfg(all(target_os = "linux", not(test)))]
+pub(crate) fn load_linux_auth<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> crate::Result<HashMap<String, String>> {
+    let auth_path = auth_path(app)?;
+    let secure_data = tauri_plugin_store2::read_secret_blocking(app, AUTH_SCOPE, AUTH_KEY)
+        .map_err(crate::Error::Storage)?;
+
+    if let Some(data) = secure_data {
+        remove_plaintext_auth(&auth_path)?;
+        return serde_json::from_str(&data).map_err(Into::into);
+    }
+
+    if !auth_path.is_file() {
+        return Ok(HashMap::new());
+    }
+
+    let data = std::fs::read_to_string(&auth_path)?;
+    let auth: HashMap<String, String> = serde_json::from_str(&data)?;
+    persist_linux_auth(app, &auth)?;
+    remove_plaintext_auth(&auth_path)?;
+    Ok(auth)
+}
+
+#[cfg(all(target_os = "linux", not(test)))]
+pub(crate) fn persist_linux_auth<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    auth: &HashMap<String, String>,
+) -> crate::Result<()> {
+    if auth.is_empty() {
+        return clear_linux_auth(app);
+    }
+
+    let data = serde_json::to_string(auth)?;
+    tauri_plugin_store2::write_secret_blocking(app, AUTH_SCOPE, AUTH_KEY, &data)
+        .map_err(crate::Error::Storage)
+}
+
+#[cfg(all(target_os = "linux", not(test)))]
+pub(crate) fn clear_linux_auth<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> crate::Result<()> {
+    tauri_plugin_store2::delete_secret_blocking(app, AUTH_SCOPE, AUTH_KEY)
+        .map_err(crate::Error::Storage)
+}
+
+#[cfg(all(target_os = "linux", not(test)))]
+fn remove_plaintext_auth(path: &Path) -> std::io::Result<()> {
+    if !path.is_file() {
+        return Ok(());
+    }
+
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(path)?;
+    file.sync_all()?;
+    std::fs::remove_file(path)
 }
 
 fn new_auth_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> std::io::Result<PathBuf> {

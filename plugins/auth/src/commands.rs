@@ -25,25 +25,34 @@ pub(crate) fn get_item<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) fn set_item<R: tauri::Runtime>(
+pub(crate) async fn set_item<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     key: String,
     value: String,
 ) -> Result<(), String> {
-    app.set_item(key, value).map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || app.set_item(key, value))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) fn remove_item<R: tauri::Runtime>(
+pub(crate) async fn remove_item<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     key: String,
 ) -> Result<(), String> {
-    app.remove_item(key).map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || app.remove_item(key))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) fn clear<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
-    app.clear_auth().map_err(|e| e.to_string())
+pub(crate) async fn clear<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || app.clear_auth())
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
 }

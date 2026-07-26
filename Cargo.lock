@@ -18173,6 +18173,7 @@ dependencies = [
  "tauri",
  "tauri-plugin",
  "tauri-plugin-settings",
+ "tauri-plugin-store2",
  "tauri-specta",
  "tempfile",
  "template-support",

@@ -3,6 +3,9 @@ use std::collections::HashMap;
 use hypr_supabase_auth::{client::store::AuthStore, session::find_session};
 use hypr_template_support::AccountInfo;
 
+#[cfg(all(target_os = "linux", not(test)))]
+static LINUX_AUTH_WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 pub(crate) fn parse_account_info(
     data: &HashMap<String, String>,
 ) -> Result<Option<AccountInfo>, crate::Error> {
@@ -37,15 +40,49 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> AuthPluginExt<R> for T {
     }
 
     fn set_item(&self, key: String, value: String) -> Result<(), crate::Error> {
-        self.state::<AuthStore>().set(key, value)
+        let store = self.state::<AuthStore>();
+
+        #[cfg(all(target_os = "linux", not(test)))]
+        {
+            let _guard = LINUX_AUTH_WRITE_LOCK.lock().unwrap();
+            store.set(key, value)?;
+            return crate::migrate::persist_linux_auth(self.app_handle(), &store.snapshot());
+        }
+
+        #[cfg(any(not(target_os = "linux"), test))]
+        store.set(key, value).map_err(Into::into)
     }
 
     fn remove_item(&self, key: String) -> Result<(), crate::Error> {
-        self.state::<AuthStore>().remove(&key)
+        let store = self.state::<AuthStore>();
+
+        #[cfg(all(target_os = "linux", not(test)))]
+        {
+            let _guard = LINUX_AUTH_WRITE_LOCK.lock().unwrap();
+            let mut data = store.snapshot();
+            data.remove(&key);
+            crate::migrate::persist_linux_auth(self.app_handle(), &data)?;
+            store.replace(data);
+            return Ok(());
+        }
+
+        #[cfg(any(not(target_os = "linux"), test))]
+        store.remove(&key).map_err(Into::into)
     }
 
     fn clear_auth(&self) -> Result<(), crate::Error> {
-        self.state::<AuthStore>().clear()
+        let store = self.state::<AuthStore>();
+
+        #[cfg(all(target_os = "linux", not(test)))]
+        {
+            let _guard = LINUX_AUTH_WRITE_LOCK.lock().unwrap();
+            crate::migrate::clear_linux_auth(self.app_handle())?;
+            store.replace(HashMap::new());
+            return Ok(());
+        }
+
+        #[cfg(any(not(target_os = "linux"), test))]
+        store.clear().map_err(Into::into)
     }
 
     fn get_account_info(&self) -> Result<Option<AccountInfo>, crate::Error> {

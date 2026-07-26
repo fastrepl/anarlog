@@ -5,7 +5,7 @@ use std::sync::Mutex;
 /// In-memory state is the source of truth, not the file.
 /// This lets the session survive disk write failures.
 pub struct AuthStore {
-    path: PathBuf,
+    path: Option<PathBuf>,
     data: Mutex<HashMap<String, String>>,
 }
 
@@ -16,7 +16,14 @@ impl AuthStore {
 
     pub fn from_data(path: PathBuf, data: HashMap<String, String>) -> Self {
         Self {
-            path,
+            path: Some(path),
+            data: Mutex::new(data),
+        }
+    }
+
+    pub fn in_memory(data: HashMap<String, String>) -> Self {
+        Self {
+            path: None,
             data: Mutex::new(data),
         }
     }
@@ -36,18 +43,22 @@ impl AuthStore {
         // _removeSession() → SIGNED_OUT. Keeping the new token in memory lets the
         // current session survive; only a cold restart before a successful write
         // would be affected.
-        atomic_save(&self.path, &data)?;
+        if let Some(path) = &self.path {
+            atomic_save(path, &data)?;
+        }
         Ok(())
     }
 
     pub fn remove(&self, key: &str) -> super::Result<()> {
         let mut data = self.data.lock().unwrap();
         let old = data.remove(key);
-        if let Err(e) = atomic_save(&self.path, &data) {
-            if let Some(prev) = old {
-                data.insert(key.to_string(), prev);
+        if let Some(path) = &self.path {
+            if let Err(e) = atomic_save(path, &data) {
+                if let Some(prev) = old {
+                    data.insert(key.to_string(), prev);
+                }
+                return Err(e);
             }
-            return Err(e);
         }
         Ok(())
     }
@@ -55,10 +66,16 @@ impl AuthStore {
     pub fn clear(&self) -> super::Result<()> {
         let mut data = self.data.lock().unwrap();
         data.clear();
-        if self.path.exists() {
-            std::fs::remove_file(&self.path)?;
+        if let Some(path) = &self.path
+            && path.exists()
+        {
+            std::fs::remove_file(path)?;
         }
         Ok(())
+    }
+
+    pub fn replace(&self, data: HashMap<String, String>) {
+        *self.data.lock().unwrap() = data;
     }
 
     pub fn snapshot(&self) -> HashMap<String, String> {
@@ -77,4 +94,28 @@ fn atomic_save(path: &Path, data: &HashMap<String, String>) -> super::Result<()>
     let content = serde_json::to_string(data)?;
     hypr_storage::fs::atomic_write(path, &content)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn in_memory_store_supports_secure_persistence_adapters() {
+        let store = AuthStore::in_memory(HashMap::new());
+
+        store
+            .set("session".to_string(), "first".to_string())
+            .unwrap();
+        assert_eq!(store.get("session").as_deref(), Some("first"));
+
+        store.replace(HashMap::from([(
+            "session".to_string(),
+            "second".to_string(),
+        )]));
+        assert_eq!(store.get("session").as_deref(), Some("second"));
+
+        store.remove("session").unwrap();
+        assert!(store.snapshot().is_empty());
+    }
 }

@@ -1,9 +1,10 @@
 mod commands;
+mod error;
 mod ext;
 mod migrate;
 
+pub use error::{Error, Result};
 pub use ext::*;
-pub use hypr_supabase_auth::client::{Error, Result};
 use tauri::Manager;
 
 const PLUGIN_NAME: &str = "auth";
@@ -29,10 +30,18 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new(PLUGIN_NAME)
         .invoke_handler(specta_builder.invoke_handler())
         .setup(|app, _api| {
-            let auth_path = migrate::auth_path(app)?;
-            app.manage(hypr_supabase_auth::client::store::AuthStore::load(
-                auth_path,
-            ));
+            #[cfg(all(target_os = "linux", not(test)))]
+            let auth_store = hypr_supabase_auth::client::store::AuthStore::in_memory(
+                migrate::load_linux_auth(app)?,
+            );
+
+            #[cfg(any(not(target_os = "linux"), test))]
+            let auth_store = {
+                let auth_path = migrate::auth_path(app)?;
+                hypr_supabase_auth::client::store::AuthStore::load(auth_path)
+            };
+
+            app.manage(auth_store);
             Ok(())
         })
         .build()
