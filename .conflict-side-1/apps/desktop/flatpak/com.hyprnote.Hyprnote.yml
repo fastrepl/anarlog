@@ -1,0 +1,108 @@
+# Flatpak manifest for Anarlog
+# https://docs.flathub.org/docs/for-app-authors/requirements
+#
+# To generate vendored dependencies:
+#   flatpak-node-generator pnpm -o flatpak/pnpm-sources.json pnpm-lock.yaml
+#   flatpak-cargo-generator.py -d Cargo.lock -o flatpak/cargo-sources.json
+#
+# To build locally:
+#   flatpak-builder --user --install --force-clean flatpak-build-dir flatpak/com.hyprnote.Hyprnote.yml
+#
+# To run:
+#   flatpak run com.hyprnote.Hyprnote
+
+id: com.hyprnote.Hyprnote
+
+runtime: org.gnome.Platform
+runtime-version: "47"
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.node22
+
+command: hyprnote
+
+finish-args:
+  # Display - Wayland and X11 fallback
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
+
+  # Audio - for microphone and speaker capture
+  - --socket=pulseaudio
+
+  # Network - for cloud AI services and calendar sync
+  - --share=network
+
+  # Notifications
+  - --talk-name=org.freedesktop.Notifications
+
+  # System tray (StatusNotifier)
+  - --talk-name=org.kde.StatusNotifierWatcher
+
+  # Single instance D-Bus
+  - --own-name=com.hyprnote.Hyprnote
+
+  # Filesystem access for user documents and notes
+  - --filesystem=xdg-documents
+  - --filesystem=xdg-download
+
+  # Environment variable to detect Flatpak
+  - --env=FLATPAK=1
+
+build-options:
+  append-path: /usr/lib/sdk/node22/bin:/usr/lib/sdk/rust-stable/bin
+  env:
+    CARGO_HOME: /run/build/hyprnote/cargo
+    npm_config_nodedir: /usr/lib/sdk/node22
+
+modules:
+  - name: hyprnote
+    buildsystem: simple
+
+    sources:
+      # The application source code
+      # For Flathub submission, this should be a git source with a specific tag/commit
+      - type: dir
+        path: ../..
+
+      # Vendored pnpm dependencies
+      # Generate with: flatpak-node-generator pnpm -o flatpak/pnpm-sources.json pnpm-lock.yaml
+      - pnpm-sources.json
+
+      # Vendored Cargo dependencies
+      # Generate with: flatpak-cargo-generator.py -d Cargo.lock -o flatpak/cargo-sources.json
+      - cargo-sources.json
+
+    build-options:
+      env:
+        XDG_CACHE_HOME: /run/build/hyprnote/cache
+        npm_config_cache: /run/build/hyprnote/npm-cache
+        npm_config_offline: "true"
+
+    build-commands:
+      # Install pnpm dependencies offline
+      - pnpm install --offline --frozen-lockfile
+
+      # Build UI components
+      - pnpm -F ui build
+
+      # Build the Tauri app without bundling (Flatpak handles packaging)
+      - pnpm -F desktop tauri build --no-bundle --target x86_64-unknown-linux-gnu --config src-tauri/tauri.conf.flatpak.json
+
+      # Install the binary
+      - install -Dm755 apps/desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/hyprnote /app/bin/hyprnote
+
+      # Install desktop file
+      - install -Dm644 apps/desktop/flatpak/com.hyprnote.Hyprnote.desktop /app/share/applications/com.hyprnote.Hyprnote.desktop
+
+      # Install metainfo
+      - install -Dm644 apps/desktop/flatpak/com.hyprnote.Hyprnote.metainfo.xml /app/share/metainfo/com.hyprnote.Hyprnote.metainfo.xml
+
+      # Install icons
+      - install -Dm644 apps/desktop/src-tauri/icons/stable/32x32.png /app/share/icons/hicolor/32x32/apps/com.hyprnote.Hyprnote.png
+      - install -Dm644 apps/desktop/src-tauri/icons/stable/64x64.png /app/share/icons/hicolor/64x64/apps/com.hyprnote.Hyprnote.png
+      - install -Dm644 apps/desktop/src-tauri/icons/stable/128x128.png /app/share/icons/hicolor/128x128/apps/com.hyprnote.Hyprnote.png
+      - install -Dm644 apps/desktop/src-tauri/icons/stable/128x128@2x.png /app/share/icons/hicolor/256x256/apps/com.hyprnote.Hyprnote.png
+      - install -Dm644 apps/desktop/src-tauri/icons/stable/icon.png /app/share/icons/hicolor/512x512/apps/com.hyprnote.Hyprnote.png

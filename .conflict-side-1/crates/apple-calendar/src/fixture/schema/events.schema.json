@@ -1,0 +1,694 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Array_of_AppleEvent",
+  "type": "array",
+  "items": {
+    "$ref": "#/definitions/AppleEvent"
+  },
+  "definitions": {
+    "Alarm": {
+      "type": "object",
+      "properties": {
+        "absolute_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "alarm_type": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AlarmType"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "email_address": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "proximity": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AlarmProximity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "relative_offset": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "sound_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "structured_location": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/StructuredLocation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "AlarmProximity": {
+      "type": "string",
+      "enum": [
+        "None",
+        "Enter",
+        "Leave"
+      ]
+    },
+    "AlarmType": {
+      "type": "string",
+      "enum": [
+        "Display",
+        "Audio",
+        "Procedure",
+        "Email"
+      ]
+    },
+    "AppleEvent": {
+      "type": "object",
+      "required": [
+        "alarms",
+        "attendees",
+        "availability",
+        "calendar",
+        "calendar_item_identifier",
+        "end_date",
+        "event_identifier",
+        "external_identifier",
+        "has_alarms",
+        "has_attendees",
+        "has_notes",
+        "has_recurrence_rules",
+        "is_all_day",
+        "is_birthday",
+        "is_detached",
+        "start_date",
+        "status",
+        "title"
+      ],
+      "properties": {
+        "alarms": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Alarm"
+          }
+        },
+        "attendees": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Participant"
+          }
+        },
+        "availability": {
+          "$ref": "#/definitions/EventAvailability"
+        },
+        "birthday_contact_identifier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "calendar": {
+          "$ref": "#/definitions/CalendarRef"
+        },
+        "calendar_item_identifier": {
+          "type": "string"
+        },
+        "creation_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "end_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "event_identifier": {
+          "type": "string"
+        },
+        "external_identifier": {
+          "type": "string"
+        },
+        "has_alarms": {
+          "type": "boolean"
+        },
+        "has_attendees": {
+          "type": "boolean"
+        },
+        "has_notes": {
+          "type": "boolean"
+        },
+        "has_recurrence_rules": {
+          "type": "boolean"
+        },
+        "is_all_day": {
+          "type": "boolean"
+        },
+        "is_birthday": {
+          "type": "boolean"
+        },
+        "is_detached": {
+          "type": "boolean"
+        },
+        "last_modified_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "location": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "occurrence_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "organizer": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Participant"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recurrence": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/RecurrenceInfo"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "start_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "$ref": "#/definitions/EventStatus"
+        },
+        "structured_location": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/StructuredLocation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "time_zone": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "CalendarRef": {
+      "type": "object",
+      "required": [
+        "id",
+        "title"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      }
+    },
+    "EventAvailability": {
+      "type": "string",
+      "enum": [
+        "NotSupported",
+        "Busy",
+        "Free",
+        "Tentative",
+        "Unavailable"
+      ]
+    },
+    "EventStatus": {
+      "type": "string",
+      "enum": [
+        "None",
+        "Confirmed",
+        "Tentative",
+        "Canceled"
+      ]
+    },
+    "GeoLocation": {
+      "type": "object",
+      "required": [
+        "latitude",
+        "longitude"
+      ],
+      "properties": {
+        "latitude": {
+          "type": "number",
+          "format": "double"
+        },
+        "longitude": {
+          "type": "number",
+          "format": "double"
+        }
+      }
+    },
+    "Participant": {
+      "type": "object",
+      "required": [
+        "is_current_user",
+        "participant_type",
+        "role",
+        "status"
+      ],
+      "properties": {
+        "contact": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ParticipantContact"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "email": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "is_current_user": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "participant_type": {
+          "$ref": "#/definitions/ParticipantType"
+        },
+        "role": {
+          "$ref": "#/definitions/ParticipantRole"
+        },
+        "status": {
+          "$ref": "#/definitions/ParticipantStatus"
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "ParticipantContact": {
+      "type": "object",
+      "required": [
+        "email_addresses",
+        "identifier",
+        "image_available",
+        "phone_numbers",
+        "url_addresses"
+      ],
+      "properties": {
+        "email_addresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "family_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "given_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "identifier": {
+          "type": "string"
+        },
+        "image_available": {
+          "type": "boolean"
+        },
+        "job_title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "middle_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "organization_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "phone_numbers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "url_addresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ParticipantRole": {
+      "type": "string",
+      "enum": [
+        "Unknown",
+        "Required",
+        "Optional",
+        "Chair",
+        "NonParticipant"
+      ]
+    },
+    "ParticipantStatus": {
+      "type": "string",
+      "enum": [
+        "Unknown",
+        "Pending",
+        "Accepted",
+        "Declined",
+        "Tentative",
+        "Delegated",
+        "Completed",
+        "InProgress"
+      ]
+    },
+    "ParticipantType": {
+      "type": "string",
+      "enum": [
+        "Unknown",
+        "Person",
+        "Room",
+        "Resource",
+        "Group"
+      ]
+    },
+    "RecurrenceDayOfWeek": {
+      "type": "object",
+      "required": [
+        "weekday"
+      ],
+      "properties": {
+        "week_number": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int8"
+        },
+        "weekday": {
+          "$ref": "#/definitions/Weekday"
+        }
+      }
+    },
+    "RecurrenceEnd": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "Count"
+          ],
+          "properties": {
+            "Count": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "Until"
+          ],
+          "properties": {
+            "Until": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "RecurrenceFrequency": {
+      "type": "string",
+      "enum": [
+        "Daily",
+        "Weekly",
+        "Monthly",
+        "Yearly"
+      ]
+    },
+    "RecurrenceInfo": {
+      "type": "object",
+      "required": [
+        "has_recurrence_rules",
+        "rules",
+        "series_identifier"
+      ],
+      "properties": {
+        "has_recurrence_rules": {
+          "type": "boolean"
+        },
+        "occurrence": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/RecurrenceOccurrence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RecurrenceRule"
+          }
+        },
+        "series_identifier": {
+          "type": "string"
+        }
+      }
+    },
+    "RecurrenceOccurrence": {
+      "type": "object",
+      "required": [
+        "is_detached",
+        "original_start"
+      ],
+      "properties": {
+        "is_detached": {
+          "type": "boolean"
+        },
+        "original_start": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "RecurrenceRule": {
+      "type": "object",
+      "required": [
+        "days_of_month",
+        "days_of_week",
+        "days_of_year",
+        "frequency",
+        "interval",
+        "months_of_year",
+        "set_positions",
+        "weeks_of_year"
+      ],
+      "properties": {
+        "days_of_month": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int8"
+          }
+        },
+        "days_of_week": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RecurrenceDayOfWeek"
+          }
+        },
+        "days_of_year": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int16"
+          }
+        },
+        "end": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/RecurrenceEnd"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "first_day_of_week": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Weekday"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "frequency": {
+          "$ref": "#/definitions/RecurrenceFrequency"
+        },
+        "interval": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "months_of_year": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "uint8",
+            "minimum": 0.0
+          }
+        },
+        "set_positions": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int16"
+          }
+        },
+        "weeks_of_year": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int8"
+          }
+        }
+      }
+    },
+    "StructuredLocation": {
+      "type": "object",
+      "required": [
+        "title"
+      ],
+      "properties": {
+        "geo": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/GeoLocation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "radius": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "title": {
+          "type": "string"
+        }
+      }
+    },
+    "Weekday": {
+      "type": "string",
+      "enum": [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday"
+      ]
+    }
+  }
+}

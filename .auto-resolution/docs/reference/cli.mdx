@@ -1,0 +1,68 @@
+---
+title: "CLI reference"
+description: "Commands and global options available in the Anarlog CLI."
+---
+
+## Global syntax
+
+```text
+anarlog [--base DIR] [--db-path FILE] [--json] <command>
+```
+
+| Option | Environment variable | Behavior |
+| --- | --- | --- |
+| `--base DIR` | `ANARLOG_BASE` | Use `DIR/app.db`. |
+| `--db-path FILE` | `ANARLOG_DB_PATH` | Use an explicit SQLite file. |
+| `--json` | — | Emit a versioned JSON response or machine-readable JSON error. |
+
+`--db-path` takes precedence over `--base`. Without either option, the CLI uses Anarlog's platform application-data directory and recognized legacy locations.
+
+## Meeting commands
+
+| Command | Options | Result |
+| --- | --- | --- |
+| `meetings list` | `--query TEXT`, `--series-id ID`, `--limit 1..200`, `--offset NUMBER` | Meetings ordered by the application query layer. Defaults to 20 results. |
+| `meetings get ID` | — | Metadata, canonical note, summaries, participants, and action items. |
+| `meetings note ID` | `--kind note\|summary\|all` | The selected note documents. Defaults to `note`. |
+| `meetings transcript ID` | `--limit 1..500`, `--offset NUMBER` | A bounded transcript word page. Defaults to 200 words from offset 0. |
+| `meetings history ID` | `--limit 1..200`, `--offset NUMBER` | A page of meetings from the same recurring series. Defaults to 20 from offset 0. |
+| `meetings export ID` | `--format markdown\|json`, `--output FILE`, `--force` | A complete meeting export, including transcripts. Defaults to Markdown on stdout. Existing files require `--force`. |
+
+## JSON response contract
+
+Successful `--json` responses contain:
+
+| Field | Meaning |
+| --- | --- |
+| `schema_version` | CLI JSON contract version. Currently `1`. |
+| `command` | Stable command identifier such as `meetings.list`. |
+| `data` | Command result. |
+| `pagination` | Page metadata when the command is paginated. |
+
+Pagination includes `offset`, `limit`, `returned`, optional `total`, and optional `next_offset`.
+
+## Doctor command
+
+```bash
+anarlog --json doctor
+```
+
+Checks the resolved database path, read-only access, and required schema without changing data.
+It exits with status 0 when `ready` is true and status 1 when `ready` is false.
+
+## MCP command
+
+```bash
+anarlog mcp
+```
+
+Starts the read-only MCP server over stdio. Do not write other output to the server's stdout.
+
+## Help and version
+
+```bash
+anarlog --help
+anarlog meetings --help
+anarlog meetings list --help
+anarlog --version
+```

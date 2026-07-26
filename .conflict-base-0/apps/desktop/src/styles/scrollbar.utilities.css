@@ -1,0 +1,19 @@
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility scrollbar-soft {
+  scrollbar-color: hsl(var(--muted-foreground) / 0.18) transparent;
+
+  &::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.18);
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.28);
+  }
+}

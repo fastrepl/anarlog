@@ -1,0 +1,41 @@
+[package]
+name = "tauri-plugin-icon"
+version = "0.1.0"
+authors = ["You"]
+edition = "2024"
+exclude = ["/js", "/node_modules"]
+links = "tauri-plugin-icon"
+description = ""
+
+[features]
+examples = []
+
+[[example]]
+name = "test_overlay"
+required-features = ["examples"]
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+specta-typescript = { workspace = true }
+tokio = { workspace = true, features = ["macros"] }
+
+[target."cfg(target_os = \"macos\")".dev-dependencies]
+objc2 = { workspace = true }
+objc2-app-kit = { workspace = true }
+objc2-foundation = { workspace = true }
+
+[dependencies]
+tauri = { workspace = true, features = ["test"] }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+
+base64 = { workspace = true }
+serde = { workspace = true }
+specta = { workspace = true }
+thiserror = { workspace = true }
+
+[target."cfg(target_os = \"macos\")".dependencies]
+objc2 = { workspace = true }
+objc2-app-kit = { workspace = true, features = ["NSApplication", "NSAttributedString", "NSBezierPath", "NSBitmapImageRep", "NSColor", "NSFont", "NSGraphicsContext", "NSImage", "NSImageRep", "NSStringDrawing"] }
+objc2-foundation = { workspace = true, features = ["NSArray", "NSData", "NSDictionary", "NSObject", "NSString"] }

@@ -1,0 +1,38 @@
+{
+  "files.associations": {
+    "*.promptl": "markdown"
+  },
+  "search.useParentIgnoreFiles": true,
+  "search.useIgnoreFiles": true,
+  "files.watcherExclude": {
+    "**/routeTree.gen.ts": true,
+    "**/vendor/**": true
+  },
+  "search.exclude": {
+    "**/routeTree.gen.ts": true,
+    "**/generated/**": true,
+    "**/vendor/**": true
+  },
+  "files.readonlyInclude": {
+    "**/routeTree.gen.ts": true,
+    "**/*.gen.json": true,
+    "**/vendor/**": true,
+    "**/migrations/[!_]*.sql": true
+  },
+  "editor.wordBasedSuggestions": "off",
+  "editor.quickSuggestionsDelay": 200,
+  "editor.inlayHints.enabled": "offUnlessPressed",
+  "css.lint.unknownAtRules": "ignore",
+  "editor.defaultFormatter": "dprint.dprint",
+  "editor.formatOnSave": true,
+  "rust-analyzer.diagnostics.disabled": ["macro-error"],
+  "rust-analyzer.check.command": "check",
+  "rust-analyzer.check.workspace": false,
+  "rust-analyzer.checkOnSave": true,
+  "rust-analyzer.check.allTargets": true,
+  "rust-analyzer.cargo.targetDir": "target/analyzer",
+  "rust-analyzer.cargo.extraEnv": { "MACOSX_DEPLOYMENT_TARGET": "14.2" },
+  "deno.enable": true,
+  "deno.lint": true,
+  "deno.enablePaths": ["apps/web/netlify/edge-functions", "extensions/shared"]
+}

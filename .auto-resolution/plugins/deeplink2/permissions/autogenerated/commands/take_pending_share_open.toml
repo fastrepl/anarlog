@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-take-pending-share-open"
+description = "Enables the take_pending_share_open command without any pre-configured scope."
+commands.allow = ["take_pending_share_open"]
+
+[[permission]]
+identifier = "deny-take-pending-share-open"
+description = "Denies the take_pending_share_open command without any pre-configured scope."
+commands.deny = ["take_pending_share_open"]

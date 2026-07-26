@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-window-expand-width"
+description = "Enables the window_expand_width command without any pre-configured scope."
+commands.allow = ["window_expand_width"]
+
+[[permission]]
+identifier = "deny-window-expand-width"
+description = "Denies the window_expand_width command without any pre-configured scope."
+commands.deny = ["window_expand_width"]

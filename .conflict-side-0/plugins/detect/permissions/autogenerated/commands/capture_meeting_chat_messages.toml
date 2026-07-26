@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-capture-meeting-chat-messages"
+description = "Enables the capture_meeting_chat_messages command without any pre-configured scope."
+commands.allow = ["capture_meeting_chat_messages"]
+
+[[permission]]
+identifier = "deny-capture-meeting-chat-messages"
+description = "Denies the capture_meeting_chat_messages command without any pre-configured scope."
+commands.deny = ["capture_meeting_chat_messages"]

@@ -1,0 +1,2 @@
+{"direction":"server_to_client","timestamp_ms":50,"kind":{"type":"text"},"content":"{\"err_code\":\"INVALID_AUTH\",\"err_msg\":\"Invalid credentials.\",\"request_id\":\"test-request-id\"}"}
+{"direction":"server_to_client","timestamp_ms":100,"kind":{"type":"close","code":1008,"reason":"policy violation"}}

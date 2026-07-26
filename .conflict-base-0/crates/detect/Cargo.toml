@@ -1,0 +1,49 @@
+[package]
+name = "detect"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = []
+mic = []
+language = []
+list = []
+app = []
+zoom = []
+sleep = []
+
+[dependencies]
+isolang = { workspace = true }
+lazy_static = { workspace = true }
+regex = { workspace = true }
+sysinfo = { workspace = true }
+thiserror = { workspace = true }
+url = { workspace = true }
+
+tokio = { workspace = true, features = ["rt", "sync", "time", "macros"] }
+tracing = { workspace = true }
+
+serde = { workspace = true, features = ["derive"] }
+specta = { workspace = true, features = ["derive"] }
+
+[target."cfg(target_os = \"macos\")".dependencies]
+hypr-bundle = { workspace = true }
+hypr-language = { workspace = true }
+
+plist = "1.7"
+cidre = { workspace = true, features = ["ax"] }
+block2 = { workspace = true }
+
+objc2-foundation = { workspace = true, features = ["NSLocale", "NSArray", "NSString"] }
+objc2-app-kit = { workspace = true, features = ["NSWorkspace", "NSRunningApplication", "libc"] }
+objc2 = { workspace = true }
+objc2-core-foundation = { workspace = true }
+objc2-application-services = { workspace = true }
+macos-accessibility-client = { workspace = true }
+
+[[example]]
+name = "detector"
+required-features = ["mic", "list", "zoom", "sleep", "app", "language"]
+
+[target."cfg(target_os = \"linux\")".dependencies]
+libpulse-binding = "2.30"

@@ -1,0 +1,11 @@
+[package]
+name = "audio-snapshot"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+approx = { workspace = true }
+hound = { workspace = true }
+realfft = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }

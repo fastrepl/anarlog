@@ -1,0 +1,190 @@
+---
+source: apps/cli/src/mcp.rs
+expression: "serde_json::json!({\n    \"protocol_version\": info.protocol_version, \"instructions\":\n    info.instructions, \"tools\": tools, \"resource_templates\": templates,\n})"
+---
+{
+  "instructions": "Read-only, local access to Anarlog meeting data. Start with list_meetings to resolve a meeting_id, then call get_meeting for notes, summaries, participants, and action items. Request transcript pages with get_meeting_transcript and continue with pagination.next_offset; each page is capped at 500 words. Use get_recurring_meeting_history for series context. Never invent meeting ids, access SQLite directly, or claim a write occurred: every tool is idempotent and performs no writes. Documentation: https://docs.anarlog.so",
+  "protocol_version": "2024-11-05",
+  "resource_templates": [
+    {
+      "description": "Meeting metadata, note, summaries, people, and action items",
+      "mimeType": "text/markdown",
+      "name": "Anarlog meeting",
+      "uriTemplate": "anarlog://meetings/{meeting_id}"
+    },
+    {
+      "description": "A bounded page of meeting transcript text",
+      "mimeType": "text/plain",
+      "name": "Anarlog meeting transcript",
+      "uriTemplate": "anarlog://meetings/{meeting_id}/transcript{?offset,limit}"
+    },
+    {
+      "description": "Recurring meeting history",
+      "mimeType": "text/markdown",
+      "name": "Anarlog meeting series",
+      "uriTemplate": "anarlog://series/{series_id}"
+    }
+  ],
+  "tools": [
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Get one Anarlog meeting with its canonical note, summaries, participants, and action items. Use get_meeting_transcript separately for transcript words.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "meeting_id": {
+            "description": "Anarlog meeting id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "meeting_id"
+        ],
+        "title": "GetMeetingInput",
+        "type": "object"
+      },
+      "name": "get_meeting"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Get a bounded page of transcript words and readable text for an Anarlog meeting. Pass pagination.next_offset as offset to continue.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "limit": {
+            "description": "Maximum words; defaults to 200 and is capped at 500",
+            "format": "uint32",
+            "maximum": 500,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "meeting_id": {
+            "description": "Anarlog meeting id",
+            "type": "string"
+          },
+          "offset": {
+            "description": "Word offset; defaults to 0",
+            "format": "uint32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "meeting_id"
+        ],
+        "title": "GetMeetingTranscriptInput",
+        "type": "object"
+      },
+      "name": "get_meeting_transcript"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List meetings in the same recurring series as the supplied meeting, newest first, with pagination metadata.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "limit": {
+            "description": "Maximum meetings; defaults to 20 and is capped at 200",
+            "format": "uint32",
+            "maximum": 200,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "meeting_id": {
+            "description": "A meeting id used to resolve its recurring series",
+            "type": "string"
+          },
+          "offset": {
+            "description": "Number of meetings to skip; defaults to 0",
+            "format": "uint32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "meeting_id"
+        ],
+        "title": "GetRecurringMeetingHistoryInput",
+        "type": "object"
+      },
+      "name": "get_recurring_meeting_history"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List recent Anarlog meetings with pagination metadata. Use query to narrow by title or meeting id, then pass next_offset as offset to continue.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "limit": {
+            "description": "Maximum results; defaults to 20 and is capped at 200",
+            "format": "uint32",
+            "maximum": 200,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "offset": {
+            "description": "Number of results to skip; defaults to 0",
+            "format": "uint32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "query": {
+            "description": "Case-insensitive title or meeting id substring",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "series_id": {
+            "description": "Exact recurring series id",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "title": "ListMeetingsInput",
+        "type": "object"
+      },
+      "name": "list_meetings"
+    }
+  ]
+}

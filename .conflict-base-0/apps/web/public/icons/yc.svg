@@ -1,0 +1,5 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="yc-title">
+  <title id="yc-title">Y Combinator</title>
+  <rect width="64" height="64" rx="4" fill="#ff5a1f"/>
+  <path fill="#fff" d="M29.77 36.73 17.9 14.3h6.55l8.55 16.87 8.74-16.87h6.36L35.95 36.73V50h-6.18V36.73Z"/>
+</svg>

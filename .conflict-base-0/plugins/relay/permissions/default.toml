@@ -1,0 +1,3 @@
+[default]
+description = "Default permissions for the relay plugin"
+permissions = ["allow-relay-result"]

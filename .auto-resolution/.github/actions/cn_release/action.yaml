@@ -1,0 +1,58 @@
+inputs:
+  raw:
+    description: "raw"
+    required: false
+    default: ""
+  key:
+    description: "key"
+    required: true
+  cmd:
+    description: "cmd"
+    required: false
+  app:
+    description: "app"
+    required: false
+  channel:
+    description: "channel"
+    required: false
+  working-directory:
+    description: "working-directory"
+    required: false
+  framework:
+    description: "framework"
+    required: false
+    default: ""
+  version:
+    description: "version"
+    required: false
+    default: ""
+
+outputs:
+  raw:
+    description: "Output from raw command"
+    value: ${{ steps.raw.outputs.stdout }}
+
+runs:
+  using: "composite"
+  steps:
+    - uses: crabnebula-dev/cloud-release@v0
+      id: raw
+      if: inputs.raw != ''
+      with:
+        command: ${{ inputs.raw }}
+        api-key: ${{ inputs.key }}
+    - uses: crabnebula-dev/cloud-release@v0
+      if: inputs.raw == '' && inputs.framework == 'tauri'
+      with:
+        command: >-
+          release ${{ inputs.cmd }} ${{ inputs.app }}
+          --framework tauri${{ inputs.channel != '' && format(' --channel {0}', inputs.channel) || '' }}
+        api-key: ${{ inputs.key }}
+        working-directory: ${{ inputs.working-directory }}
+    - uses: crabnebula-dev/cloud-release@v0
+      if: inputs.raw == '' && inputs.framework != 'tauri'
+      with:
+        command: >-
+          release ${{ inputs.cmd }} ${{ inputs.app }} ${{ inputs.version }}${{ inputs.channel != '' && format(' --channel {0}', inputs.channel) || '' }}
+        api-key: ${{ inputs.key }}
+        working-directory: ${{ inputs.working-directory }}

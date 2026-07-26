@@ -1,0 +1,153 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Array_of_AppleCalendar",
+  "type": "array",
+  "items": {
+    "$ref": "#/definitions/AppleCalendar"
+  },
+  "definitions": {
+    "AppleCalendar": {
+      "type": "object",
+      "required": [
+        "allowed_entity_types",
+        "allows_content_modifications",
+        "calendar_type",
+        "id",
+        "is_immutable",
+        "is_subscribed",
+        "source",
+        "supported_event_availabilities",
+        "title"
+      ],
+      "properties": {
+        "allowed_entity_types": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CalendarEntityType"
+          }
+        },
+        "allows_content_modifications": {
+          "type": "boolean"
+        },
+        "calendar_type": {
+          "$ref": "#/definitions/CalendarType"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/CalendarColor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "is_immutable": {
+          "type": "boolean"
+        },
+        "is_subscribed": {
+          "type": "boolean"
+        },
+        "source": {
+          "$ref": "#/definitions/CalendarSource"
+        },
+        "supported_event_availabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EventAvailability"
+          }
+        },
+        "title": {
+          "type": "string"
+        }
+      }
+    },
+    "CalendarColor": {
+      "type": "object",
+      "required": [
+        "alpha",
+        "blue",
+        "green",
+        "red"
+      ],
+      "properties": {
+        "alpha": {
+          "type": "number",
+          "format": "float"
+        },
+        "blue": {
+          "type": "number",
+          "format": "float"
+        },
+        "green": {
+          "type": "number",
+          "format": "float"
+        },
+        "red": {
+          "type": "number",
+          "format": "float"
+        }
+      }
+    },
+    "CalendarEntityType": {
+      "type": "string",
+      "enum": [
+        "Event",
+        "Reminder"
+      ]
+    },
+    "CalendarSource": {
+      "type": "object",
+      "required": [
+        "identifier",
+        "source_type",
+        "title"
+      ],
+      "properties": {
+        "identifier": {
+          "type": "string"
+        },
+        "source_type": {
+          "$ref": "#/definitions/CalendarSourceType"
+        },
+        "title": {
+          "type": "string"
+        }
+      }
+    },
+    "CalendarSourceType": {
+      "type": "string",
+      "enum": [
+        "Local",
+        "Exchange",
+        "CalDav",
+        "MobileMe",
+        "Subscribed",
+        "Birthdays"
+      ]
+    },
+    "CalendarType": {
+      "type": "string",
+      "enum": [
+        "Local",
+        "CalDav",
+        "Exchange",
+        "Subscription",
+        "Birthday"
+      ]
+    },
+    "EventAvailability": {
+      "type": "string",
+      "enum": [
+        "NotSupported",
+        "Busy",
+        "Free",
+        "Tentative",
+        "Unavailable"
+      ]
+    }
+  }
+}

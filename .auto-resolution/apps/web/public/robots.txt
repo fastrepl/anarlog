@@ -1,0 +1,41 @@
+# https://www.robotstxt.org/robotstxt.html
+
+# Allow all major search engines
+User-agent: *
+Allow: /
+
+# Block crawling of app routes (protected user areas)
+Disallow: /_view/app/
+Disallow: /app/
+
+# Block admin routes
+Disallow: /admin/
+
+# Block authentication and callback routes
+Disallow: /auth
+Disallow: /_view/callback/
+
+# Block API endpoints
+Disallow: /api/
+
+# Allow public content
+Allow: /blog
+Allow: /docs
+Allow: /changelog
+Allow: /pricing
+Allow: /enterprise
+Allow: /privacy
+Allow: /terms
+Allow: /download
+Allow: /faq
+Allow: /about
+
+# Disallow private or intentionally non-indexed routes
+Disallow: /product/
+Disallow: /press-kit
+
+# AI-specific content reference
+# AI crawlers can find detailed content at /llms.txt
+
+# Sitemap location
+Sitemap: https://anarlog.so/sitemap.xml

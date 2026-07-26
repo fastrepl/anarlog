@@ -1,0 +1,143 @@
+{
+  "model": "pyannote/speaker-diarization-community-1 (segmentation submodel)",
+  "sample_rate": 16000,
+  "segment_count": 17,
+  "segments": [
+    {
+      "index": 0,
+      "start_sec": 3.3215937500000003,
+      "end_sec": 25.02284375,
+      "duration_sec": 21.701249999999998,
+      "sample_start": 53146,
+      "sample_end": 400366
+    },
+    {
+      "index": 1,
+      "start_sec": 25.512218750000002,
+      "end_sec": 37.64534375,
+      "duration_sec": 12.133125,
+      "sample_start": 408196,
+      "sample_end": 602326
+    },
+    {
+      "index": 2,
+      "start_sec": 37.89846875,
+      "end_sec": 40.95284375,
+      "duration_sec": 3.0543750000000003,
+      "sample_start": 606376,
+      "sample_end": 655246
+    },
+    {
+      "index": 3,
+      "start_sec": 41.77971875,
+      "end_sec": 42.72471875,
+      "duration_sec": 0.9450000000000003,
+      "sample_start": 668476,
+      "sample_end": 683596
+    },
+    {
+      "index": 4,
+      "start_sec": 43.298468750000005,
+      "end_sec": 73.99409375,
+      "duration_sec": 30.695625,
+      "sample_start": 692776,
+      "sample_end": 1183906
+    },
+    {
+      "index": 5,
+      "start_sec": 74.46659375,
+      "end_sec": 99.05346875000001,
+      "duration_sec": 24.586875000000006,
+      "sample_start": 1191466,
+      "sample_end": 1584856
+    },
+    {
+      "index": 6,
+      "start_sec": 99.32346875,
+      "end_sec": 100.50471875000001,
+      "duration_sec": 1.1812500000000057,
+      "sample_start": 1589176,
+      "sample_end": 1608076
+    },
+    {
+      "index": 7,
+      "start_sec": 101.07846875000001,
+      "end_sec": 101.63534375,
+      "duration_sec": 0.5568749999999909,
+      "sample_start": 1617256,
+      "sample_end": 1626166
+    },
+    {
+      "index": 8,
+      "start_sec": 102.10784375,
+      "end_sec": 103.81221875,
+      "duration_sec": 1.7043749999999989,
+      "sample_start": 1633726,
+      "sample_end": 1660996
+    },
+    {
+      "index": 9,
+      "start_sec": 104.25096875000001,
+      "end_sec": 109.70159375,
+      "duration_sec": 5.450624999999988,
+      "sample_start": 1668016,
+      "sample_end": 1755226
+    },
+    {
+      "index": 10,
+      "start_sec": 109.95471875000001,
+      "end_sec": 115.45596875000001,
+      "duration_sec": 5.501249999999999,
+      "sample_start": 1759276,
+      "sample_end": 1847296
+    },
+    {
+      "index": 11,
+      "start_sec": 116.36721875,
+      "end_sec": 117.29534375,
+      "duration_sec": 0.9281249999999943,
+      "sample_start": 1861876,
+      "sample_end": 1876726
+    },
+    {
+      "index": 12,
+      "start_sec": 117.76784375000001,
+      "end_sec": 122.13846875,
+      "duration_sec": 4.37062499999999,
+      "sample_start": 1884286,
+      "sample_end": 1954216
+    },
+    {
+      "index": 13,
+      "start_sec": 124.19721875,
+      "end_sec": 133.30971875,
+      "duration_sec": 9.112499999999997,
+      "sample_start": 1987156,
+      "sample_end": 2132956
+    },
+    {
+      "index": 14,
+      "start_sec": 134.03534375,
+      "end_sec": 144.44721875000002,
+      "duration_sec": 10.411875000000009,
+      "sample_start": 2144566,
+      "sample_end": 2311156
+    },
+    {
+      "index": 15,
+      "start_sec": 145.12221875,
+      "end_sec": 152.64846875,
+      "duration_sec": 7.5262500000000045,
+      "sample_start": 2321956,
+      "sample_end": 2442376
+    },
+    {
+      "index": 16,
+      "start_sec": 152.93534375000002,
+      "end_sec": 153.40784375,
+      "duration_sec": 0.4724999999999966,
+      "sample_start": 2446966,
+      "sample_end": 2454526
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+# Context
+
+Date: {{ date }}
+Timezone: {% match timezone %}{% when Some with (tz) %}{{ tz }}{% when None %}local{% endmatch %}
+
+# Stats
+
+- Signals: {{ stats.signal_count }}
+- Screenshots: {{ stats.screenshot_count }}
+- Analyses: {{ stats.analysis_count }}
+- Unique apps: {{ stats.unique_app_count }}
+- First signal: {% match stats.first_signal %}{% when Some with (value) %}{{ value }}{% when None %}—{% endmatch %}
+- Last signal: {% match stats.last_signal %}{% when Some with (value) %}{{ value }}{% when None %}—{% endmatch %}
+
+# Top Apps
+
+{%- if top_apps.is_empty() %}
+None
+{%- else %}
+{%- for app in top_apps %}
+
+- {{ app.app_name }}: {{ app.count }}
+  {%- endfor %}
+  {%- endif %}
+  {%- match existing_summary %}
+  {%- when Some with (summary) %}
+
+# Existing Summary
+
+{{ summary }}
+{%- when None %}
+{%- endmatch %}
+
+# Activity Analyses
+
+Showing {{ analyses.len() }} of {{ total_analysis_count }} analyses.
+
+{%- for analysis in analyses %}
+
+- {{ analysis.time }} | {{ analysis.app_name }}{% match analysis.window_title %}{% when Some with (title) %} · {{ title }}{% when None %}{% endmatch %} | {{ analysis.reason }} | {{ analysis.summary }}
+  {%- endfor %}
+
+# Required Output
+
+Return a JSON object with:
+
+- summaryMd: markdown daily summary with this structure:
+  - a short opening paragraph that captures the day at a high level
+  - 2 to 5 sections ordered by time
+  - each section title should combine a topic with an approximate time range, for example `## Planning the release (~09:00-10:30)`
+  - each section should summarize one coherent activity block, not one app switch
+  - use short bullet points only when they add concrete detail; otherwise use a short paragraph
+- topics: array of 3 to 6 major themes, each with title and summary
+  - topics should be concept-level clusters, not app names
+  - each topic summary should explain what the thread of work was and why it mattered that day
+- timeline: array of 4 to 10 notable moments, each with time and summary
+  - timeline items should be key beats or pivots, not every captured event
+  - time may be approximate if the exact boundary is unclear
+
+Grouping rules:
+
+- Group primarily by what you were doing, secondarily by when it happened.
+- Keep one section focused on one main thread, even if it spans multiple apps.
+- Split sections when the intent clearly changes.
+- If the day returns to the same topic later, treat that as a new section when there is a meaningful gap or context shift.
+- Ignore noisy app churn unless it changes the story of the day.

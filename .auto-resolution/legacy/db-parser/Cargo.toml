@@ -1,0 +1,21 @@
+[package]
+name = "db-parser"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hypr-importer-core = { workspace = true }
+legacy-db-core = { workspace = true }
+legacy-db-user = { workspace = true }
+owhisper-interface = { workspace = true }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+
+htmd = { workspace = true }
+
+[dev-dependencies]
+dirs = { workspace = true }
+tokio = { workspace = true }

@@ -1,0 +1,12 @@
+[package]
+name = "tiptap"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+markdown = { workspace = true }
+mdast_util_to_markdown = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }

@@ -1,0 +1,25 @@
+[package]
+name = "template-app-legacy"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+owhisper-interface = { workspace = true }
+
+codes-iso-639 = { workspace = true }
+itertools = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+specta = { workspace = true, features = ["derive"] }
+strum = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+
+minijinja = { workspace = true, features = ["loader", "preserve_order", "json"] }
+minijinja-contrib = { workspace = true, features = ["pycompat"] }
+
+htmd = { workspace = true }
+reqwest = { workspace = true, features = ["blocking"] }
+
+[dev-dependencies]
+hypr-data = { workspace = true }
+insta = { workspace = true }

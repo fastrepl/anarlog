@@ -1,0 +1,1 @@
+ALTER TYPE "stripe"."subscription_status" ADD VALUE 'paused';

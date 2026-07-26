@@ -1,0 +1,7 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = [
+    "allow-list-available-sources",
+    "allow-run-import",
+    "allow-run-import-dry",
+]

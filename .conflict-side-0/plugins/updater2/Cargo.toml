@@ -1,0 +1,28 @@
+[package]
+name = "tauri-plugin-updater2"
+version = "0.1.0"
+authors = ["You"]
+edition = "2024"
+exclude = ["/js", "/node_modules"]
+links = "tauri-plugin-updater2"
+description = ""
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+specta-typescript = { workspace = true }
+
+[dependencies]
+tauri-plugin-store2 = { workspace = true }
+tauri-plugin-updater = { workspace = true }
+tokio = { workspace = true, features = ["macros", "time", "sync"] }
+
+tauri = { workspace = true, features = ["test"] }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+
+serde = { workspace = true }
+specta = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+tracing = { workspace = true }

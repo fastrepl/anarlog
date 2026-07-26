@@ -1,0 +1,26 @@
+[package]
+name = "notification-linux"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+linux-examples = []
+
+[[example]]
+name = "test_notification"
+required-features = ["linux-examples"]
+
+[dev-dependencies]
+tokio = { workspace = true }
+
+[dependencies]
+hypr-notification-interface = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gdk = "0.18"
+glib = "0.18"
+gtk = "0.18"
+pango = "0.18"
+indexmap = "2.6"
+open = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }

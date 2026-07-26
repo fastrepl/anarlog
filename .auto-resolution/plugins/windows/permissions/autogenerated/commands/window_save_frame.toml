@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-window-save-frame"
+description = "Enables the window_save_frame command without any pre-configured scope."
+commands.allow = ["window_save_frame"]
+
+[[permission]]
+identifier = "deny-window-save-frame"
+description = "Denies the window_save_frame command without any pre-configured scope."
+commands.deny = ["window_save_frame"]

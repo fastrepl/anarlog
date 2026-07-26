@@ -1,0 +1,24 @@
+.prosemirror-editor {
+  .comment-anchor {
+    background: rgb(251 191 36 / 0.22);
+    border-bottom: 2px solid rgb(245 158 11 / 0.55);
+    cursor: pointer;
+    transition: background 120ms ease;
+  }
+
+  .comment-anchor-active {
+    background: rgb(251 191 36 / 0.42);
+    border-bottom-color: rgb(217 119 6 / 0.85);
+  }
+
+  code .comment-anchor,
+  pre .comment-anchor {
+    background: rgb(251 191 36 / 0.28);
+    border-bottom: none;
+  }
+
+  code .comment-anchor-active,
+  pre .comment-anchor-active {
+    background: rgb(251 191 36 / 0.5);
+  }
+}

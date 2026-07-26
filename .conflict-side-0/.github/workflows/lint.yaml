@@ -1,0 +1,20 @@
+name: lint
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+jobs:
+  lint:
+    runs-on: depot-ubuntu-24.04-4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm exec oxlint --quiet --format=github apps/desktop/src/

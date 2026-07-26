@@ -1,0 +1,75 @@
+import Cocoa
+
+extension NotificationManager {
+  func createAndShowNotification(payload: NotificationPayload) {
+    guard let screen = getTargetScreen() else { return }
+    let hasFooter = payload.footer != nil
+
+    manageNotificationLimit()
+
+    let yPosition = calculateYPosition(screen: screen, hasFooter: hasFooter)
+    let panel = createPanel(screen: screen, yPosition: yPosition, hasFooter: hasFooter)
+    let clickableView = createClickableView(hasFooter: hasFooter)
+    let container = createContainer(clickableView: clickableView)
+
+    let notification = NotificationInstance(
+      payload: payload,
+      panel: panel,
+      clickableView: clickableView,
+      creationIndex: nextCreationIndex
+    )
+    nextCreationIndex += 1
+    clickableView.notification = notification
+
+    let (effectView, _) = createEffectView(container: container)
+    notification.effectView = effectView
+
+    clickableView.addSubview(container)
+    panel.contentView = clickableView
+    if isMacOS26() {
+      panel.contentView?.wantsLayer = true
+      panel.contentView?.layer?.cornerRadius = notificationCornerRadius()
+      panel.contentView?.layer?.masksToBounds = false
+      if #available(macOS 11.0, *) {
+        panel.contentView?.layer?.cornerCurve = .continuous
+      }
+    }
+
+    setupContent(effectView: effectView, container: container, notification: notification)
+
+    activeNotifications[notification.key] = notification
+    hoverStates[notification.key] = false
+
+    showWithAnimation(
+      notification: notification, screen: screen, timeoutSeconds: payload.timeoutSeconds)
+    ensureGlobalMouseMonitor()
+    ensureNativeNotificationMonitor()
+  }
+
+  func setupContent(
+    effectView: NSVisualEffectView,
+    container: NSView,
+    notification: NotificationInstance
+  ) {
+    let contentView = createNotificationView(notification: notification)
+    contentView.translatesAutoresizingMaskIntoConstraints = false
+    effectView.addSubview(contentView)
+
+    NSLayoutConstraint.activate([
+      contentView.leadingAnchor.constraint(equalTo: effectView.leadingAnchor),
+      contentView.trailingAnchor.constraint(equalTo: effectView.trailingAnchor),
+      contentView.topAnchor.constraint(equalTo: effectView.topAnchor),
+      contentView.bottomAnchor.constraint(equalTo: effectView.bottomAnchor),
+    ])
+
+    notification.compactContentView = contentView
+
+    let (closeButton, closeButtonBackdrop) = createCloseButton(
+      clickableView: notification.clickableView, container: container, notification: notification)
+    setupCloseButtonHover(
+      clickableView: notification.clickableView,
+      closeButton: closeButton,
+      backdropView: closeButtonBackdrop
+    )
+  }
+}

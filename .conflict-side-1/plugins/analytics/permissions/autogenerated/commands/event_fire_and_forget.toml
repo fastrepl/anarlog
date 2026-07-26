@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-event-fire-and-forget"
+description = "Enables the event_fire_and_forget command without any pre-configured scope."
+commands.allow = ["event_fire_and_forget"]
+
+[[permission]]
+identifier = "deny-event-fire-and-forget"
+description = "Denies the event_fire_and_forget command without any pre-configured scope."
+commands.deny = ["event_fire_and_forget"]

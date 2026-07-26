@@ -1,0 +1,47 @@
+[package]
+name = "owhisper-client"
+version = "0.0.1"
+edition = "2024"
+
+[features]
+default = []
+local = ["hypr-audio-utils", "hypr-transcribe-soniqo"]
+
+[dependencies]
+hypr-am = { workspace = true }
+hypr-audio-utils = { workspace = true, optional = true }
+hypr-language = { workspace = true }
+hypr-observability = { workspace = true }
+hypr-transcribe-soniqo = { workspace = true, optional = true }
+hypr-ws-client = { workspace = true }
+soniox = { workspace = true }
+
+openai-transcription = { workspace = true }
+owhisper-interface = { workspace = true }
+
+futures-util = { workspace = true }
+reqwest = { workspace = true, features = ["json", "multipart", "stream"] }
+reqwest-middleware = { workspace = true, features = ["json", "multipart"] }
+reqwest-tracing = { workspace = true }
+tokio = { workspace = true, features = ["fs"] }
+tokio-stream = { workspace = true }
+
+backon = { workspace = true }
+base64 = { workspace = true }
+bytes = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+url = { workspace = true }
+
+[dev-dependencies]
+hypr-audio-utils = { workspace = true }
+hypr-data = { workspace = true }
+
+deepgram = { workspace = true, features = ["listen"] }
+rodio = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tracing-subscriber = { workspace = true }

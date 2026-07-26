@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-meeting-transcript"
+description = "Enables the get_meeting_transcript command without any pre-configured scope."
+commands.allow = ["get_meeting_transcript"]
+
+[[permission]]
+identifier = "deny-get-meeting-transcript"
+description = "Denies the get_meeting_transcript command without any pre-configured scope."
+commands.deny = ["get_meeting_transcript"]

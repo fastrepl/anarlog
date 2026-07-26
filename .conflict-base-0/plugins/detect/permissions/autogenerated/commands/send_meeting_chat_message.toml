@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-send-meeting-chat-message"
+description = "Enables the send_meeting_chat_message command without any pre-configured scope."
+commands.allow = ["send_meeting_chat_message"]
+
+[[permission]]
+identifier = "deny-send-meeting-chat-message"
+description = "Denies the send_meeting_chat_message command without any pre-configured scope."
+commands.deny = ["send_meeting_chat_message"]

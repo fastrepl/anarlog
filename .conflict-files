@@ -1,0 +1,3 @@
+ancestorEntries = ["packages/editor/src/note/keymap.ts"]
+ourEntries = ["packages/editor/src/note/keymap.ts"]
+theirEntries = ["packages/editor/src/note/keymap.ts"]

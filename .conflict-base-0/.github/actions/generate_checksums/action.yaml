@@ -1,0 +1,43 @@
+name: "Generate SHA256 Checksums"
+description: "Generate SHA-256 checksum files for build artifacts"
+
+inputs:
+  files:
+    description: "Newline-separated list of files to generate checksums for"
+    required: true
+
+outputs:
+  checksum_files:
+    description: "Comma-separated list of generated checksum files"
+    value: ${{ steps.generate.outputs.checksum_files }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: generate
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        CHECKSUM_FILES=""
+
+        while IFS= read -r file; do
+          if [[ -z "$file" ]]; then
+            continue
+          fi
+
+          if [[ ! -f "$file" ]]; then
+            echo "File not found for checksum: $file" >&2
+            exit 1
+          fi
+
+          sha256sum "$file" > "${file}.sha256"
+
+          if [[ -n "$CHECKSUM_FILES" ]]; then
+            CHECKSUM_FILES="${CHECKSUM_FILES},${file}.sha256"
+          else
+            CHECKSUM_FILES="${file}.sha256"
+          fi
+        done <<< "${{ inputs.files }}"
+
+        echo "checksum_files=$CHECKSUM_FILES" >> "$GITHUB_OUTPUT"

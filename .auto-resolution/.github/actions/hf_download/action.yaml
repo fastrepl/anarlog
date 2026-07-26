@@ -1,0 +1,71 @@
+inputs:
+  repo:
+    required: true
+    type: string
+  path:
+    required: true
+    type: string
+  local-dir:
+    required: true
+    type: string
+  token:
+    required: false
+    default: ""
+    type: string
+  revision:
+    required: false
+    default: ""
+    type: string
+  repo-type:
+    required: false
+    default: ""
+    type: string
+  hf-hub-download-timeout:
+    required: false
+    default: "60"
+    type: string
+
+outputs:
+  downloaded-path:
+    description: Downloaded file path printed by `hf download`.
+    value: ${{ steps.download.outputs.downloaded-path }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install Hugging Face CLI
+      shell: bash
+      run: |
+        pipx install huggingface_hub
+        pipx ensurepath
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    - id: download
+      name: Download from Hugging Face Hub
+      shell: bash
+      env:
+        HF_HUB_DOWNLOAD_TIMEOUT: ${{ inputs.hf-hub-download-timeout }}
+      run: |
+        args=(
+          download
+          "${{ inputs.repo }}"
+          "${{ inputs.path }}"
+          --local-dir
+          "${{ inputs.local-dir }}"
+          --quiet
+        )
+
+        if [[ -n "${{ inputs.repo-type }}" ]]; then
+          args+=(--repo-type "${{ inputs.repo-type }}")
+        fi
+
+        if [[ -n "${{ inputs.revision }}" ]]; then
+          args+=(--revision "${{ inputs.revision }}")
+        fi
+
+        if [[ -n "${{ inputs.token }}" ]]; then
+          args+=(--token "${{ inputs.token }}")
+        fi
+
+        downloaded_path=$(hf "${args[@]}")
+        echo "downloaded-path=$downloaded_path" >> "$GITHUB_OUTPUT"

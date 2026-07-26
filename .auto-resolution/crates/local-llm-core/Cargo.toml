@@ -1,0 +1,20 @@
+[package]
+name = "local-llm-core"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+specta = ["dep:specta"]
+
+[dependencies]
+hypr-file = { workspace = true }
+hypr-gguf = { workspace = true }
+hypr-lmstudio = { workspace = true }
+hypr-local-model = { workspace = true }
+
+dirs = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+
+specta = { workspace = true, optional = true }

@@ -1,0 +1,46 @@
+---
+title: "MCP for agents"
+description: "Connect an MCP client to local Anarlog meeting context over stdio."
+---
+
+The MCP server runs inside the `anarlog` executable and communicates over standard input and output. It does not open a port or send meeting data to a hosted service.
+
+## Configure a client
+
+Use this generic MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "anarlog": {
+      "command": "anarlog",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+If `anarlog` is not on the client's `PATH`, use the executable's absolute path as `command`. Restart the client after changing its configuration.
+
+For a custom database path:
+
+```json
+{
+  "mcpServers": {
+    "anarlog": {
+      "command": "anarlog",
+      "args": ["--db-path", "/path/to/app.db", "mcp"]
+    }
+  }
+}
+```
+
+## Use tools deliberately
+
+Start with `list_meetings`, then pass the returned `id` to `get_meeting`. Only call `get_meeting_transcript` if notes and summaries do not contain the required evidence.
+
+Transcript pages default to 200 words and cap at 500 words. Continue from `pagination.next_offset` only when the next page is necessary.
+
+Use `get_recurring_meeting_history` with a known meeting ID when a task depends on earlier meetings in the same series.
+
+See the [MCP reference](/reference/mcp) for exact parameters and resources.

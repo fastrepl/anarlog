@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-parse-subtitle"
+description = "Enables the parse_subtitle command without any pre-configured scope."
+commands.allow = ["parse_subtitle"]
+
+[[permission]]
+identifier = "deny-parse-subtitle"
+description = "Denies the parse_subtitle command without any pre-configured scope."
+commands.deny = ["parse_subtitle"]

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-rename-folder"
+description = "Enables the rename_folder command without any pre-configured scope."
+commands.allow = ["rename_folder"]
+
+[[permission]]
+identifier = "deny-rename-folder"
+description = "Denies the rename_folder command without any pre-configured scope."
+commands.deny = ["rename_folder"]

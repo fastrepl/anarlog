@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-log-content"
+description = "Enables the log_content command without any pre-configured scope."
+commands.allow = ["log_content"]
+
+[[permission]]
+identifier = "deny-log-content"
+description = "Denies the log_content command without any pre-configured scope."
+commands.deny = ["log_content"]

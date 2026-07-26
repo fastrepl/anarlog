@@ -1,0 +1,39 @@
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - crates/llm-proxy/**
+  pull_request:
+    paths:
+      - crates/llm-proxy/**
+
+jobs:
+  proxy-non-streaming:
+    runs-on: depot-ubuntu-24.04-8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: linux
+      - uses: ./.github/actions/infisical_install
+      - run: infisical run --token="$INFISICAL_TOKEN" --env=dev --projectId="$INFISICAL_PROJECT_ID" --path="/anarlog/llm" -- cargo test -p llm-proxy proxy_e2e::openrouter::non_streaming -- --ignored --nocapture
+        env:
+          INFISICAL_TOKEN: ${{ secrets.INFISICAL_TOKEN }}
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+  proxy-streaming:
+    runs-on: depot-ubuntu-24.04-8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: linux
+      - uses: ./.github/actions/infisical_install
+      - run: infisical run --token="$INFISICAL_TOKEN" --env=dev --projectId="$INFISICAL_PROJECT_ID" --path="/anarlog/llm" -- cargo test -p llm-proxy proxy_e2e::openrouter::streaming -- --ignored --nocapture
+        env:
+          INFISICAL_TOKEN: ${{ secrets.INFISICAL_TOKEN }}
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}

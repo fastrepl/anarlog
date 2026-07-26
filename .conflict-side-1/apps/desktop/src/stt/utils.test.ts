@@ -1,0 +1,1110 @@
+import { describe, expect, it } from "vitest";
+
+import type { LiveTranscriptDelta } from "@hypr/plugin-transcription";
+
+import {
+  createTranscriptAccumulator,
+  updateTranscriptHints,
+  upsertSpeakerAssignment,
+} from "./utils";
+
+import type { SegmentKey } from "~/stt/live-segment";
+
+type TranscriptRow = {
+  words?: string;
+  speaker_hints?: string;
+};
+
+function createStore(row: TranscriptRow) {
+  const transcript = {
+    words: row.words ?? JSON.stringify([]),
+    speaker_hints: row.speaker_hints ?? JSON.stringify([]),
+  };
+  const getCellCalls: string[] = [];
+
+  return {
+    getCellCalls,
+    readCell: (cellId: "words" | "speaker_hints") => transcript[cellId],
+    getCell: (
+      tableId: "transcripts",
+      rowId: string,
+      cellId: "words" | "speaker_hints",
+    ) => {
+      if (tableId !== "transcripts" || rowId !== "transcript-1") {
+        return undefined;
+      }
+
+      getCellCalls.push(cellId);
+      return transcript[cellId];
+    },
+    setCell: (
+      tableId: "transcripts",
+      rowId: string,
+      cellId: "words" | "speaker_hints",
+      value: string,
+    ) => {
+      if (tableId !== "transcripts" || rowId !== "transcript-1") {
+        return;
+      }
+
+      transcript[cellId] = value;
+    },
+  };
+}
+
+function liveDelta(
+  newWords: LiveTranscriptDelta["new_words"],
+  replacedIds: string[] = [],
+): LiveTranscriptDelta {
+  return {
+    new_words: newWords,
+    replaced_ids: replacedIds,
+    partials: [],
+  };
+}
+
+describe("TranscriptAccumulator", () => {
+  it("applies live deltas without rereading newly-created transcript JSON", () => {
+    const store = createStore({});
+    const accumulator = createTranscriptAccumulator(store, "transcript-1", {
+      words: [],
+      hints: [],
+    });
+
+    accumulator.applyLiveDelta(
+      liveDelta([
+        {
+          id: "word-1",
+          text: "hello",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 0,
+          state: "final",
+          speaker_index: 1,
+        },
+      ]),
+    );
+    accumulator.applyLiveDelta(
+      liveDelta(
+        [
+          {
+            id: "word-2",
+            text: "hello",
+            start_ms: 100,
+            end_ms: 220,
+            channel: 0,
+            state: "final",
+          },
+        ],
+        ["word-1"],
+      ),
+    );
+    accumulator.dispose();
+
+    expect(store.getCellCalls).toEqual([]);
+    expect(JSON.parse(store.readCell("words"))).toEqual([
+      {
+        id: "word-2",
+        text: "hello",
+        start_ms: 100,
+        end_ms: 220,
+        channel: 0,
+      },
+    ]);
+    expect(JSON.parse(store.readCell("speaker_hints"))).toEqual([]);
+  });
+
+  it("keeps segment assignment word ids current when a scoped word is replaced", () => {
+    const store = createStore({});
+    const accumulator = createTranscriptAccumulator(store, "transcript-1", {
+      words: [
+        {
+          id: "word-1",
+          text: "hello",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 0,
+        },
+        {
+          id: "word-2",
+          text: "there",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 0,
+        },
+      ],
+      hints: [
+        {
+          id: "word-1:user_speaker_assignment:segment",
+          word_id: "word-1",
+          type: "user_speaker_assignment",
+          value: JSON.stringify({
+            human_id: "human-1",
+            scope: "segment",
+            word_ids: ["word-1", "word-2"],
+          }),
+        },
+      ],
+    });
+
+    accumulator.applyLiveDelta(
+      liveDelta(
+        [
+          {
+            id: "word-2b",
+            text: "there",
+            start_ms: 100,
+            end_ms: 220,
+            channel: 0,
+            state: "final",
+          },
+        ],
+        ["word-2"],
+      ),
+    );
+    accumulator.dispose();
+
+    expect(JSON.parse(store.readCell("speaker_hints"))).toEqual([
+      {
+        id: "word-1:user_speaker_assignment:segment",
+        word_id: "word-1",
+        type: "user_speaker_assignment",
+        value: JSON.stringify({
+          human_id: "human-1",
+          scope: "segment",
+          word_ids: ["word-1", "word-2b"],
+        }),
+      },
+    ]);
+  });
+
+  it("moves a segment assignment anchor when the anchor word is replaced", () => {
+    const store = createStore({});
+    const accumulator = createTranscriptAccumulator(store, "transcript-1", {
+      words: [
+        {
+          id: "word-1",
+          text: "hello",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 0,
+        },
+        {
+          id: "word-2",
+          text: "there",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 0,
+        },
+      ],
+      hints: [
+        {
+          id: "word-1:user_speaker_assignment:segment",
+          word_id: "word-1",
+          type: "user_speaker_assignment",
+          value: JSON.stringify({
+            human_id: "human-1",
+            scope: "segment",
+            word_ids: ["word-1", "word-2"],
+          }),
+        },
+      ],
+    });
+
+    accumulator.applyLiveDelta(
+      liveDelta(
+        [
+          {
+            id: "word-1b",
+            text: "hello",
+            start_ms: 0,
+            end_ms: 110,
+            channel: 0,
+            state: "final",
+          },
+          {
+            id: "word-2b",
+            text: "there",
+            start_ms: 110,
+            end_ms: 220,
+            channel: 0,
+            state: "final",
+          },
+        ],
+        ["word-1", "word-2"],
+      ),
+    );
+    accumulator.dispose();
+
+    expect(JSON.parse(store.readCell("speaker_hints"))).toEqual([
+      {
+        id: "word-1b:user_speaker_assignment:segment",
+        word_id: "word-1b",
+        type: "user_speaker_assignment",
+        value: JSON.stringify({
+          human_id: "human-1",
+          scope: "segment",
+          word_ids: ["word-1b", "word-2b"],
+        }),
+      },
+    ]);
+  });
+
+  it("adds appended live words to a continuing segment assignment", () => {
+    const store = createStore({});
+    const accumulator = createTranscriptAccumulator(store, "transcript-1", {
+      words: [
+        {
+          id: "word-1",
+          text: "hello",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 0,
+        },
+        {
+          id: "word-2",
+          text: "there",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 0,
+        },
+      ],
+      hints: [
+        {
+          id: "word-1:provider_speaker_index",
+          word_id: "word-1",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 0, speaker_index: 2 }),
+        },
+        {
+          id: "word-2:provider_speaker_index",
+          word_id: "word-2",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 0, speaker_index: 2 }),
+        },
+        {
+          id: "word-1:user_speaker_assignment:segment",
+          word_id: "word-1",
+          type: "user_speaker_assignment",
+          value: JSON.stringify({
+            human_id: "human-1",
+            scope: "segment",
+            word_ids: ["word-1", "word-2"],
+          }),
+        },
+      ],
+    });
+
+    accumulator.applyLiveDelta(
+      liveDelta([
+        {
+          id: "word-3",
+          text: "again",
+          start_ms: 200,
+          end_ms: 300,
+          channel: 0,
+          state: "final",
+          speaker_index: 2,
+        },
+      ]),
+    );
+    accumulator.dispose();
+
+    expect(JSON.parse(store.readCell("speaker_hints"))).toEqual([
+      {
+        id: "word-1:provider_speaker_index",
+        word_id: "word-1",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 0, speaker_index: 2 }),
+      },
+      {
+        id: "word-1:user_speaker_assignment:segment",
+        word_id: "word-1",
+        type: "user_speaker_assignment",
+        value: JSON.stringify({
+          human_id: "human-1",
+          scope: "segment",
+          word_ids: ["word-1", "word-2", "word-3"],
+        }),
+      },
+      {
+        id: "word-2:provider_speaker_index",
+        word_id: "word-2",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 0, speaker_index: 2 }),
+      },
+      {
+        id: "word-3:provider_speaker_index",
+        word_id: "word-3",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 0, speaker_index: 2 }),
+      },
+    ]);
+  });
+
+  it("does not add unrelated words from the same live delta to a segment assignment", () => {
+    const store = createStore({});
+    const accumulator = createTranscriptAccumulator(store, "transcript-1", {
+      words: [
+        {
+          id: "word-1",
+          text: "hello",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 0,
+        },
+        {
+          id: "word-2",
+          text: "there",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 0,
+        },
+      ],
+      hints: [
+        {
+          id: "word-1:provider_speaker_index",
+          word_id: "word-1",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 0, speaker_index: 2 }),
+        },
+        {
+          id: "word-2:provider_speaker_index",
+          word_id: "word-2",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 0, speaker_index: 2 }),
+        },
+        {
+          id: "word-1:user_speaker_assignment:segment",
+          word_id: "word-1",
+          type: "user_speaker_assignment",
+          value: JSON.stringify({
+            human_id: "human-1",
+            scope: "segment",
+            word_ids: ["word-1", "word-2"],
+          }),
+        },
+      ],
+    });
+
+    accumulator.applyLiveDelta(
+      liveDelta([
+        {
+          id: "word-3",
+          text: "again",
+          start_ms: 200,
+          end_ms: 300,
+          channel: 0,
+          state: "final",
+          speaker_index: 2,
+        },
+        {
+          id: "word-4",
+          text: "other",
+          start_ms: 300,
+          end_ms: 400,
+          channel: 0,
+          state: "final",
+          speaker_index: 3,
+        },
+        {
+          id: "word-5",
+          text: "later",
+          start_ms: 400,
+          end_ms: 500,
+          channel: 0,
+          state: "final",
+          speaker_index: 2,
+        },
+      ]),
+    );
+    accumulator.dispose();
+
+    const assignment = JSON.parse(store.readCell("speaker_hints")).find(
+      (hint: { id?: string }) =>
+        hint.id === "word-1:user_speaker_assignment:segment",
+    );
+    expect(JSON.parse(assignment.value).word_ids).toEqual([
+      "word-1",
+      "word-2",
+      "word-3",
+    ]);
+  });
+
+  it("appends batch chunks without reparsing stored words and hints", () => {
+    const store = createStore({
+      words: JSON.stringify([
+        {
+          id: "existing-word",
+          text: "existing",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 0,
+        },
+      ]),
+      speaker_hints: JSON.stringify([]),
+    });
+    const accumulator = createTranscriptAccumulator(store, "transcript-1");
+
+    accumulator.appendWordsAndHints(
+      [
+        {
+          id: "word-1",
+          text: "hello",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 0,
+        },
+      ],
+      [],
+    );
+    accumulator.appendWordsAndHints(
+      [
+        {
+          id: "word-2",
+          text: "world",
+          start_ms: 200,
+          end_ms: 300,
+          channel: 0,
+        },
+      ],
+      [],
+    );
+    accumulator.dispose();
+
+    expect(store.getCellCalls).toEqual(["words", "speaker_hints"]);
+    expect(JSON.parse(store.readCell("words"))).toEqual([
+      {
+        id: "existing-word",
+        text: "existing",
+        start_ms: 0,
+        end_ms: 100,
+        channel: 0,
+      },
+      {
+        id: "word-1",
+        text: "hello",
+        start_ms: 100,
+        end_ms: 200,
+        channel: 0,
+      },
+      {
+        id: "word-2",
+        text: "world",
+        start_ms: 200,
+        end_ms: 300,
+        channel: 0,
+      },
+    ]);
+  });
+
+  it("preserves live speaker assignments made while an accumulator is active", () => {
+    const store = createStore({});
+    const accumulator = createTranscriptAccumulator(store, "transcript-1", {
+      words: [],
+      hints: [],
+    });
+
+    accumulator.applyLiveDelta(
+      liveDelta([
+        {
+          id: "word-1",
+          text: "hello",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 1,
+          state: "final",
+          speaker_index: 2,
+        },
+      ]),
+    );
+    upsertSpeakerAssignment(
+      store,
+      "transcript-1",
+      remoteSpeakerKey(2),
+      "human-1",
+      "word-1",
+    );
+    accumulator.applyLiveDelta(
+      liveDelta([
+        {
+          id: "word-2",
+          text: "there",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 1,
+          state: "final",
+          speaker_index: 2,
+        },
+      ]),
+    );
+    accumulator.dispose();
+
+    expect(JSON.parse(store.readCell("speaker_hints"))).toEqual([
+      {
+        id: "word-1:provider_speaker_index",
+        word_id: "word-1",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+      },
+      {
+        id: "word-1:user_speaker_assignment",
+        word_id: "word-1",
+        type: "user_speaker_assignment",
+        value: JSON.stringify({ human_id: "human-1" }),
+      },
+      {
+        id: "word-2:provider_speaker_index",
+        word_id: "word-2",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+      },
+    ]);
+  });
+
+  it("does not restore externally removed speaker assignments from the accumulator cache", () => {
+    const store = createStore({});
+    const accumulator = createTranscriptAccumulator(store, "transcript-1", {
+      words: [],
+      hints: [],
+    });
+
+    accumulator.applyLiveDelta(
+      liveDelta([
+        {
+          id: "word-1",
+          text: "hello",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 1,
+          state: "final",
+          speaker_index: 2,
+        },
+      ]),
+    );
+    upsertSpeakerAssignment(
+      store,
+      "transcript-1",
+      remoteSpeakerKey(2),
+      "human-1",
+      "word-1",
+    );
+    accumulator.applyLiveDelta(
+      liveDelta([
+        {
+          id: "word-2",
+          text: "there",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 1,
+          state: "final",
+          speaker_index: 2,
+        },
+      ]),
+    );
+
+    const hintsWithoutAssignment = JSON.parse(
+      store.readCell("speaker_hints"),
+    ).filter(
+      (hint: { type?: string }) => hint.type !== "user_speaker_assignment",
+    );
+    updateTranscriptHints(store, "transcript-1", hintsWithoutAssignment);
+
+    accumulator.applyLiveDelta(
+      liveDelta([
+        {
+          id: "word-3",
+          text: "again",
+          start_ms: 200,
+          end_ms: 300,
+          channel: 1,
+          state: "final",
+          speaker_index: 2,
+        },
+      ]),
+    );
+    accumulator.dispose();
+
+    expect(JSON.parse(store.readCell("speaker_hints"))).toEqual([
+      {
+        id: "word-1:provider_speaker_index",
+        word_id: "word-1",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+      },
+      {
+        id: "word-2:provider_speaker_index",
+        word_id: "word-2",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+      },
+      {
+        id: "word-3:provider_speaker_index",
+        word_id: "word-3",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+      },
+    ]);
+  });
+});
+
+function remoteSpeakerKey(speakerIndex: number | null): SegmentKey {
+  return {
+    channel: "RemoteParty",
+    speaker_index: speakerIndex,
+    speaker_human_id: null,
+  } as SegmentKey;
+}
+
+describe("upsertSpeakerAssignment", () => {
+  it("removes a stale channel-wide assignment when reassigning a speaker", () => {
+    const store = createStore({
+      words: JSON.stringify([
+        {
+          id: "old-word",
+          text: " hello",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 1,
+        },
+        {
+          id: "new-word",
+          text: " there",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 1,
+        },
+      ]),
+      speaker_hints: JSON.stringify([
+        {
+          id: "old-word:user_speaker_assignment",
+          word_id: "old-word",
+          type: "user_speaker_assignment",
+          value: JSON.stringify({ human_id: "alice" }),
+        },
+        {
+          id: "new-word:provider_speaker_index",
+          word_id: "new-word",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+        },
+      ]),
+    });
+
+    upsertSpeakerAssignment(
+      store,
+      "transcript-1",
+      remoteSpeakerKey(2),
+      "bob",
+      "new-word",
+    );
+
+    expect(
+      JSON.parse(
+        store.getCell("transcripts", "transcript-1", "speaker_hints") as string,
+      ),
+    ).toEqual([
+      {
+        id: "new-word:provider_speaker_index",
+        word_id: "new-word",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+      },
+      {
+        id: "new-word:user_speaker_assignment",
+        word_id: "new-word",
+        type: "user_speaker_assignment",
+        value: JSON.stringify({ human_id: "bob" }),
+      },
+    ]);
+  });
+
+  it("keeps other speaker assignments on the same channel", () => {
+    const store = createStore({
+      words: JSON.stringify([
+        {
+          id: "speaker-1-word",
+          text: " first",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 1,
+        },
+        {
+          id: "speaker-2-word-old",
+          text: " second",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 1,
+        },
+        {
+          id: "speaker-2-word-new",
+          text: " later",
+          start_ms: 200,
+          end_ms: 300,
+          channel: 1,
+        },
+      ]),
+      speaker_hints: JSON.stringify([
+        {
+          id: "speaker-1-word:provider_speaker_index",
+          word_id: "speaker-1-word",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 1 }),
+        },
+        {
+          id: "speaker-1-word:user_speaker_assignment",
+          word_id: "speaker-1-word",
+          type: "user_speaker_assignment",
+          value: JSON.stringify({ human_id: "alice" }),
+        },
+        {
+          id: "speaker-2-word-old:provider_speaker_index",
+          word_id: "speaker-2-word-old",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+        },
+        {
+          id: "speaker-2-word-old:user_speaker_assignment",
+          word_id: "speaker-2-word-old",
+          type: "user_speaker_assignment",
+          value: JSON.stringify({ human_id: "bob" }),
+        },
+        {
+          id: "speaker-2-word-new:provider_speaker_index",
+          word_id: "speaker-2-word-new",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+        },
+      ]),
+    });
+
+    upsertSpeakerAssignment(
+      store,
+      "transcript-1",
+      remoteSpeakerKey(2),
+      "carol",
+      "speaker-2-word-new",
+    );
+
+    expect(
+      JSON.parse(
+        store.getCell("transcripts", "transcript-1", "speaker_hints") as string,
+      ),
+    ).toEqual([
+      {
+        id: "speaker-1-word:provider_speaker_index",
+        word_id: "speaker-1-word",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 1 }),
+      },
+      {
+        id: "speaker-1-word:user_speaker_assignment",
+        word_id: "speaker-1-word",
+        type: "user_speaker_assignment",
+        value: JSON.stringify({ human_id: "alice" }),
+      },
+      {
+        id: "speaker-2-word-old:provider_speaker_index",
+        word_id: "speaker-2-word-old",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+      },
+      {
+        id: "speaker-2-word-new:provider_speaker_index",
+        word_id: "speaker-2-word-new",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+      },
+      {
+        id: "speaker-2-word-new:user_speaker_assignment",
+        word_id: "speaker-2-word-new",
+        type: "user_speaker_assignment",
+        value: JSON.stringify({ human_id: "carol" }),
+      },
+    ]);
+  });
+
+  it("stores segment-only assignments with the selected word ids", () => {
+    const store = createStore({
+      words: JSON.stringify([
+        {
+          id: "word-1",
+          text: " first",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 0,
+        },
+        {
+          id: "word-2",
+          text: " second",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 0,
+        },
+      ]),
+      speaker_hints: JSON.stringify([
+        {
+          id: "word-1:provider_speaker_index",
+          word_id: "word-1",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 0, speaker_index: 2 }),
+        },
+        {
+          id: "word-2:provider_speaker_index",
+          word_id: "word-2",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 0, speaker_index: 2 }),
+        },
+      ]),
+    });
+
+    upsertSpeakerAssignment(
+      store,
+      "transcript-1",
+      {
+        channel: "DirectMic",
+        speaker_index: 2,
+        speaker_human_id: null,
+      } as SegmentKey,
+      "john",
+      "word-1",
+      {
+        mode: "segment",
+        wordIds: ["word-1", "word-2"],
+      },
+    );
+
+    expect(
+      JSON.parse(
+        store.getCell("transcripts", "transcript-1", "speaker_hints") as string,
+      ),
+    ).toEqual([
+      {
+        id: "word-1:provider_speaker_index",
+        word_id: "word-1",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 0, speaker_index: 2 }),
+      },
+      {
+        id: "word-2:provider_speaker_index",
+        word_id: "word-2",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 0, speaker_index: 2 }),
+      },
+      {
+        id: "word-1:user_speaker_assignment:segment",
+        word_id: "word-1",
+        type: "user_speaker_assignment",
+        value: JSON.stringify({
+          human_id: "john",
+          scope: "segment",
+          word_ids: ["word-1", "word-2"],
+        }),
+      },
+    ]);
+  });
+
+  it("removes segment overrides when assigning the full matching speaker", () => {
+    const store = createStore({
+      words: JSON.stringify([
+        {
+          id: "word-1",
+          text: " first",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 1,
+        },
+      ]),
+      speaker_hints: JSON.stringify([
+        {
+          id: "word-1:provider_speaker_index",
+          word_id: "word-1",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+        },
+        {
+          id: "word-1:user_speaker_assignment:segment",
+          word_id: "word-1",
+          type: "user_speaker_assignment",
+          value: JSON.stringify({
+            human_id: "alice",
+            scope: "segment",
+            word_ids: ["word-1"],
+          }),
+        },
+      ]),
+    });
+
+    upsertSpeakerAssignment(
+      store,
+      "transcript-1",
+      remoteSpeakerKey(2),
+      "bob",
+      "word-1",
+    );
+
+    expect(
+      JSON.parse(
+        store.getCell("transcripts", "transcript-1", "speaker_hints") as string,
+      ),
+    ).toEqual([
+      {
+        id: "word-1:provider_speaker_index",
+        word_id: "word-1",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+      },
+      {
+        id: "word-1:user_speaker_assignment",
+        word_id: "word-1",
+        type: "user_speaker_assignment",
+        value: JSON.stringify({ human_id: "bob" }),
+      },
+    ]);
+  });
+
+  it("keeps segment overrides without speaker identity when assigning a specific full speaker", () => {
+    const store = createStore({
+      words: JSON.stringify([
+        {
+          id: "word-1",
+          text: " first",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 1,
+        },
+        {
+          id: "word-2",
+          text: " second",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 1,
+        },
+      ]),
+      speaker_hints: JSON.stringify([
+        {
+          id: "word-1:provider_speaker_index",
+          word_id: "word-1",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+        },
+        {
+          id: "word-2:user_speaker_assignment:segment",
+          word_id: "word-2",
+          type: "user_speaker_assignment",
+          value: JSON.stringify({
+            human_id: "alice",
+            scope: "segment",
+            word_ids: ["word-2"],
+          }),
+        },
+      ]),
+    });
+
+    upsertSpeakerAssignment(
+      store,
+      "transcript-1",
+      remoteSpeakerKey(2),
+      "bob",
+      "word-1",
+    );
+
+    expect(
+      JSON.parse(
+        store.getCell("transcripts", "transcript-1", "speaker_hints") as string,
+      ),
+    ).toEqual([
+      {
+        id: "word-1:provider_speaker_index",
+        word_id: "word-1",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+      },
+      {
+        id: "word-2:user_speaker_assignment:segment",
+        word_id: "word-2",
+        type: "user_speaker_assignment",
+        value: JSON.stringify({
+          human_id: "alice",
+          scope: "segment",
+          word_ids: ["word-2"],
+        }),
+      },
+      {
+        id: "word-1:user_speaker_assignment",
+        word_id: "word-1",
+        type: "user_speaker_assignment",
+        value: JSON.stringify({ human_id: "bob" }),
+      },
+    ]);
+  });
+
+  it("keeps full speaker assignment when adding a segment override", () => {
+    const store = createStore({
+      words: JSON.stringify([
+        {
+          id: "word-1",
+          text: " first",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 1,
+        },
+      ]),
+      speaker_hints: JSON.stringify([
+        {
+          id: "word-1:provider_speaker_index",
+          word_id: "word-1",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+        },
+        {
+          id: "word-1:user_speaker_assignment",
+          word_id: "word-1",
+          type: "user_speaker_assignment",
+          value: JSON.stringify({ human_id: "alice" }),
+        },
+      ]),
+    });
+
+    upsertSpeakerAssignment(
+      store,
+      "transcript-1",
+      remoteSpeakerKey(2),
+      "bob",
+      "word-1",
+      {
+        mode: "segment",
+        wordIds: ["word-1"],
+      },
+    );
+
+    expect(
+      JSON.parse(
+        store.getCell("transcripts", "transcript-1", "speaker_hints") as string,
+      ),
+    ).toEqual([
+      {
+        id: "word-1:provider_speaker_index",
+        word_id: "word-1",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+      },
+      {
+        id: "word-1:user_speaker_assignment",
+        word_id: "word-1",
+        type: "user_speaker_assignment",
+        value: JSON.stringify({ human_id: "alice" }),
+      },
+      {
+        id: "word-1:user_speaker_assignment:segment",
+        word_id: "word-1",
+        type: "user_speaker_assignment",
+        value: JSON.stringify({
+          human_id: "bob",
+          scope: "segment",
+          word_ids: ["word-1"],
+        }),
+      },
+    ]);
+  });
+});

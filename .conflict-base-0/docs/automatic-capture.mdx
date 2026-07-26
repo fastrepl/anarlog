@@ -1,0 +1,34 @@
+---
+title: "Automate meeting capture"
+description: "Use calendar timing, microphone detection, and automatic stopping without losing control."
+---
+
+Anarlog can start an event-backed note at its scheduled time, remind you when another meeting app uses your microphone, and stop listening when the call ends.
+
+## Start scheduled meetings automatically
+
+Open **Settings → App → Meetings** and enable **Start when meeting begins**.
+
+When a calendar-backed note reaches its scheduled start time, Anarlog starts listening. This setting does not apply to ordinary notes without a calendar event.
+
+Keep Anarlog running and make sure microphone and system-audio access are allowed. See [Connect a calendar](/calendar) if your events are not visible.
+
+## Detect unscheduled calls
+
+Open **Settings → Notifications** and enable **Microphone detection**. Anarlog watches for sustained microphone activity and notifies you that a meeting may have started.
+
+Microphone detection is a reminder; it does not start recording by itself. Choose a detection delay from 5 seconds to 2 minutes, and exclude apps that should not trigger a meeting prompt.
+
+Accessibility permission is required to detect meeting apps and synchronize mute state. You can manage it under **Settings → Permissions**.
+
+## Stop when the call ends
+
+Under **Settings → App → Meetings**, enable **Stop when meeting ends**. Anarlog stops listening when the meeting app releases the microphone.
+
+If you switch audio devices or use an app with unusual microphone behavior, check that the recording is still active before closing the meeting.
+
+## Keep controls nearby
+
+Enable **Show floating bar** under **Settings → App → Meetings** to keep compact recording controls visible while Anarlog listens.
+
+Event and microphone notifications can also respect your system's Do Not Disturb mode from **Settings → Notifications**.

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-prepare-delete-guard"
+description = "Enables the prepare_delete_guard command without any pre-configured scope."
+commands.allow = ["prepare_delete_guard"]
+
+[[permission]]
+identifier = "deny-prepare-delete-guard"
+description = "Denies the prepare_delete_guard command without any pre-configured scope."
+commands.deny = ["prepare_delete_guard"]

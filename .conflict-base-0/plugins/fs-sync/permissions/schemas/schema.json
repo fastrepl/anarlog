@@ -1,0 +1,642 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PermissionFile",
+  "description": "Permission file that can define a default permission, a set of permissions or a list of inlined permissions.",
+  "type": "object",
+  "properties": {
+    "default": {
+      "description": "The default permission set for the plugin",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/DefaultPermission"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "set": {
+      "description": "A list of permissions sets defined",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/PermissionSet"
+      }
+    },
+    "permission": {
+      "description": "A list of inlined permissions",
+      "default": [],
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Permission"
+      }
+    }
+  },
+  "definitions": {
+    "DefaultPermission": {
+      "description": "The default permission set of the plugin.\n\nWorks similarly to a permission with the \"default\" identifier.",
+      "type": "object",
+      "required": [
+        "permissions"
+      ],
+      "properties": {
+        "version": {
+          "description": "The version of the permission.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 1.0
+        },
+        "description": {
+          "description": "Human-readable description of what the permission does. Tauri convention is to use `<h4>` headings in markdown content for Tauri documentation generation purposes.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "permissions": {
+          "description": "All permissions this set contains.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "PermissionSet": {
+      "description": "A set of direct permissions grouped together under a new name.",
+      "type": "object",
+      "required": [
+        "description",
+        "identifier",
+        "permissions"
+      ],
+      "properties": {
+        "identifier": {
+          "description": "A unique identifier for the permission.",
+          "type": "string"
+        },
+        "description": {
+          "description": "Human-readable description of what the permission does.",
+          "type": "string"
+        },
+        "permissions": {
+          "description": "All permissions this set contains.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PermissionKind"
+          }
+        }
+      }
+    },
+    "Permission": {
+      "description": "Descriptions of explicit privileges of commands.\n\nIt can enable commands to be accessible in the frontend of the application.\n\nIf the scope is defined it can be used to fine grain control the access of individual or multiple commands.",
+      "type": "object",
+      "required": [
+        "identifier"
+      ],
+      "properties": {
+        "version": {
+          "description": "The version of the permission.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 1.0
+        },
+        "identifier": {
+          "description": "A unique identifier for the permission.",
+          "type": "string"
+        },
+        "description": {
+          "description": "Human-readable description of what the permission does. Tauri internal convention is to use `<h4>` headings in markdown content for Tauri documentation generation purposes.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "commands": {
+          "description": "Allowed or denied commands when using this permission.",
+          "default": {
+            "allow": [],
+            "deny": []
+          },
+          "allOf": [
+            {
+              "$ref": "#/definitions/Commands"
+            }
+          ]
+        },
+        "scope": {
+          "description": "Allowed or denied scoped when using this permission.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Scopes"
+            }
+          ]
+        },
+        "platforms": {
+          "description": "Target platforms this permission applies. By default all platforms are affected by this permission.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/Target"
+          }
+        }
+      }
+    },
+    "Commands": {
+      "description": "Allowed and denied commands inside a permission.\n\nIf two commands clash inside of `allow` and `deny`, it should be denied by default.",
+      "type": "object",
+      "properties": {
+        "allow": {
+          "description": "Allowed command.",
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "deny": {
+          "description": "Denied command, which takes priority.",
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Scopes": {
+      "description": "An argument for fine grained behavior control of Tauri commands.\n\nIt can be of any serde serializable type and is used to allow or prevent certain actions inside a Tauri command. The configured scope is passed to the command and will be enforced by the command implementation.\n\n## Example\n\n```json { \"allow\": [{ \"path\": \"$HOME/**\" }], \"deny\": [{ \"path\": \"$HOME/secret.txt\" }] } ```",
+      "type": "object",
+      "properties": {
+        "allow": {
+          "description": "Data that defines what is allowed by the scope.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/Value"
+          }
+        },
+        "deny": {
+          "description": "Data that defines what is denied by the scope. This should be prioritized by validation logic.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/Value"
+          }
+        }
+      }
+    },
+    "Value": {
+      "description": "All supported ACL values.",
+      "anyOf": [
+        {
+          "description": "Represents a null JSON value.",
+          "type": "null"
+        },
+        {
+          "description": "Represents a [`bool`].",
+          "type": "boolean"
+        },
+        {
+          "description": "Represents a valid ACL [`Number`].",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Number"
+            }
+          ]
+        },
+        {
+          "description": "Represents a [`String`].",
+          "type": "string"
+        },
+        {
+          "description": "Represents a list of other [`Value`]s.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Value"
+          }
+        },
+        {
+          "description": "Represents a map of [`String`] keys to [`Value`]s.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/Value"
+          }
+        }
+      ]
+    },
+    "Number": {
+      "description": "A valid ACL number.",
+      "anyOf": [
+        {
+          "description": "Represents an [`i64`].",
+          "type": "integer",
+          "format": "int64"
+        },
+        {
+          "description": "Represents a [`f64`].",
+          "type": "number",
+          "format": "double"
+        }
+      ]
+    },
+    "Target": {
+      "description": "Platform target.",
+      "oneOf": [
+        {
+          "description": "MacOS.",
+          "type": "string",
+          "enum": [
+            "macOS"
+          ]
+        },
+        {
+          "description": "Windows.",
+          "type": "string",
+          "enum": [
+            "windows"
+          ]
+        },
+        {
+          "description": "Linux.",
+          "type": "string",
+          "enum": [
+            "linux"
+          ]
+        },
+        {
+          "description": "Android.",
+          "type": "string",
+          "enum": [
+            "android"
+          ]
+        },
+        {
+          "description": "iOS.",
+          "type": "string",
+          "enum": [
+            "iOS"
+          ]
+        }
+      ]
+    },
+    "PermissionKind": {
+      "type": "string",
+      "oneOf": [
+        {
+          "description": "Enables the attachment_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-attachment-list",
+          "markdownDescription": "Enables the attachment_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the attachment_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-attachment-list",
+          "markdownDescription": "Denies the attachment_list command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the attachment_read command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-attachment-read",
+          "markdownDescription": "Enables the attachment_read command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the attachment_read command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-attachment-read",
+          "markdownDescription": "Denies the attachment_read command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the attachment_remove command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-attachment-remove",
+          "markdownDescription": "Enables the attachment_remove command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the attachment_remove command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-attachment-remove",
+          "markdownDescription": "Denies the attachment_remove command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the attachment_save command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-attachment-save",
+          "markdownDescription": "Enables the attachment_save command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the attachment_save command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-attachment-save",
+          "markdownDescription": "Denies the attachment_save command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the audio_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-audio-delete",
+          "markdownDescription": "Enables the audio_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the audio_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-audio-delete",
+          "markdownDescription": "Denies the audio_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the audio_delete_orphaned_expired command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-audio-delete-orphaned-expired",
+          "markdownDescription": "Enables the audio_delete_orphaned_expired command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the audio_delete_orphaned_expired command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-audio-delete-orphaned-expired",
+          "markdownDescription": "Denies the audio_delete_orphaned_expired command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the audio_exist command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-audio-exist",
+          "markdownDescription": "Enables the audio_exist command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the audio_exist command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-audio-exist",
+          "markdownDescription": "Denies the audio_exist command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the audio_import command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-audio-import",
+          "markdownDescription": "Enables the audio_import command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the audio_import command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-audio-import",
+          "markdownDescription": "Denies the audio_import command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the audio_import_data command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-audio-import-data",
+          "markdownDescription": "Enables the audio_import_data command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the audio_import_data command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-audio-import-data",
+          "markdownDescription": "Denies the audio_import_data command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the audio_metadata command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-audio-metadata",
+          "markdownDescription": "Enables the audio_metadata command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the audio_metadata command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-audio-metadata",
+          "markdownDescription": "Denies the audio_metadata command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the audio_path command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-audio-path",
+          "markdownDescription": "Enables the audio_path command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the audio_path command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-audio-path",
+          "markdownDescription": "Denies the audio_path command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the audio_source_metadata command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-audio-source-metadata",
+          "markdownDescription": "Enables the audio_source_metadata command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the audio_source_metadata command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-audio-source-metadata",
+          "markdownDescription": "Denies the audio_source_metadata command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the chat_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-chat-dir",
+          "markdownDescription": "Enables the chat_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the chat_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-chat-dir",
+          "markdownDescription": "Denies the chat_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the cleanup_orphan command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-cleanup-orphan",
+          "markdownDescription": "Enables the cleanup_orphan command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the cleanup_orphan command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-cleanup-orphan",
+          "markdownDescription": "Denies the cleanup_orphan command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the create_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-create-folder",
+          "markdownDescription": "Enables the create_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the create_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-create-folder",
+          "markdownDescription": "Denies the create_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the delete_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-delete-folder",
+          "markdownDescription": "Enables the delete_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the delete_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-delete-folder",
+          "markdownDescription": "Denies the delete_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the delete_session_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-delete-session-folder",
+          "markdownDescription": "Enables the delete_session_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the delete_session_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-delete-session-folder",
+          "markdownDescription": "Denies the delete_session_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the deserialize command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-deserialize",
+          "markdownDescription": "Enables the deserialize command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the deserialize command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-deserialize",
+          "markdownDescription": "Denies the deserialize command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the entity_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-entity-dir",
+          "markdownDescription": "Enables the entity_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the entity_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-entity-dir",
+          "markdownDescription": "Denies the entity_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the list_folders command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-list-folders",
+          "markdownDescription": "Enables the list_folders command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the list_folders command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-list-folders",
+          "markdownDescription": "Denies the list_folders command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the load_session_content command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-load-session-content",
+          "markdownDescription": "Enables the load_session_content command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the load_session_content command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-load-session-content",
+          "markdownDescription": "Denies the load_session_content command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the move_session command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-move-session",
+          "markdownDescription": "Enables the move_session command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the move_session command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-move-session",
+          "markdownDescription": "Denies the move_session command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the read_document_batch command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-read-document-batch",
+          "markdownDescription": "Enables the read_document_batch command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the read_document_batch command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-read-document-batch",
+          "markdownDescription": "Denies the read_document_batch command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the rename_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-rename-folder",
+          "markdownDescription": "Enables the rename_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the rename_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-rename-folder",
+          "markdownDescription": "Denies the rename_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the scan_and_read command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-scan-and-read",
+          "markdownDescription": "Enables the scan_and_read command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the scan_and_read command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-scan-and-read",
+          "markdownDescription": "Denies the scan_and_read command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the session_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-session-dir",
+          "markdownDescription": "Enables the session_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the session_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-session-dir",
+          "markdownDescription": "Denies the session_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the write_document_batch command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-write-document-batch",
+          "markdownDescription": "Enables the write_document_batch command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the write_document_batch command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-write-document-batch",
+          "markdownDescription": "Denies the write_document_batch command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the write_json_batch command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-write-json-batch",
+          "markdownDescription": "Enables the write_json_batch command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the write_json_batch command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-write-json-batch",
+          "markdownDescription": "Denies the write_json_batch command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the fs-sync plugin\n#### This default permission set includes:\n\n- `allow-deserialize`\n- `allow-write-json-batch`\n- `allow-write-document-batch`\n- `allow-read-document-batch`\n- `allow-list-folders`\n- `allow-move-session`\n- `allow-create-folder`\n- `allow-rename-folder`\n- `allow-delete-folder`\n- `allow-audio-exist`\n- `allow-audio-delete`\n- `allow-audio-metadata`\n- `allow-audio-delete-orphaned-expired`\n- `allow-audio-import`\n- `allow-audio-import-data`\n- `allow-audio-source-metadata`\n- `allow-audio-path`\n- `allow-session-dir`\n- `allow-load-session-content`\n- `allow-delete-session-folder`\n- `allow-scan-and-read`\n- `allow-chat-dir`\n- `allow-entity-dir`\n- `allow-attachment-save`\n- `allow-attachment-list`\n- `allow-attachment-read`\n- `allow-attachment-remove`",
+          "type": "string",
+          "const": "default",
+          "markdownDescription": "Default permissions for the fs-sync plugin\n#### This default permission set includes:\n\n- `allow-deserialize`\n- `allow-write-json-batch`\n- `allow-write-document-batch`\n- `allow-read-document-batch`\n- `allow-list-folders`\n- `allow-move-session`\n- `allow-create-folder`\n- `allow-rename-folder`\n- `allow-delete-folder`\n- `allow-audio-exist`\n- `allow-audio-delete`\n- `allow-audio-metadata`\n- `allow-audio-delete-orphaned-expired`\n- `allow-audio-import`\n- `allow-audio-import-data`\n- `allow-audio-source-metadata`\n- `allow-audio-path`\n- `allow-session-dir`\n- `allow-load-session-content`\n- `allow-delete-session-folder`\n- `allow-scan-and-read`\n- `allow-chat-dir`\n- `allow-entity-dir`\n- `allow-attachment-save`\n- `allow-attachment-list`\n- `allow-attachment-read`\n- `allow-attachment-remove`"
+        }
+      ]
+    }
+  }
+}

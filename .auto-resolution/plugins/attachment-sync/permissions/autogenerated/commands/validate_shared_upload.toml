@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-validate-shared-upload"
+description = "Enables the validate_shared_upload command without any pre-configured scope."
+commands.allow = ["validate_shared_upload"]
+
+[[permission]]
+identifier = "deny-validate-shared-upload"
+description = "Denies the validate_shared_upload command without any pre-configured scope."
+commands.deny = ["validate_shared_upload"]

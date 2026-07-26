@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-logs-dir"
+description = "Enables the logs_dir command without any pre-configured scope."
+commands.allow = ["logs_dir"]
+
+[[permission]]
+identifier = "deny-logs-dir"
+description = "Denies the logs_dir command without any pre-configured scope."
+commands.deny = ["logs_dir"]

@@ -1,0 +1,44 @@
+[
+  {
+    "id": "fixture-calendar-1",
+    "title": "Work Calendar",
+    "calendar_type": "CalDav",
+    "color": {
+      "red": 0.2,
+      "green": 0.4,
+      "blue": 0.8,
+      "alpha": 1.0
+    },
+    "allows_content_modifications": true,
+    "is_immutable": false,
+    "is_subscribed": false,
+    "supported_event_availabilities": ["Busy", "Free", "Tentative"],
+    "allowed_entity_types": ["Event"],
+    "source": {
+      "identifier": "fixture-source-1",
+      "title": "iCloud",
+      "source_type": "CalDav"
+    }
+  },
+  {
+    "id": "fixture-calendar-2",
+    "title": "Personal Calendar",
+    "calendar_type": "Local",
+    "color": {
+      "red": 0.8,
+      "green": 0.2,
+      "blue": 0.2,
+      "alpha": 1.0
+    },
+    "allows_content_modifications": true,
+    "is_immutable": false,
+    "is_subscribed": false,
+    "supported_event_availabilities": ["Busy", "Free"],
+    "allowed_entity_types": ["Event", "Reminder"],
+    "source": {
+      "identifier": "fixture-source-2",
+      "title": "Local",
+      "source_type": "Local"
+    }
+  }
+]

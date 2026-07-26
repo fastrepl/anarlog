@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-attachment-save"
+description = "Enables the attachment_save command without any pre-configured scope."
+commands.allow = ["attachment_save"]
+
+[[permission]]
+identifier = "deny-attachment-save"
+description = "Denies the attachment_save command without any pre-configured scope."
+commands.deny = ["attachment_save"]

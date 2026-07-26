@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-vault-base"
+description = "Enables the vault_base command without any pre-configured scope."
+commands.allow = ["vault_base"]
+
+[[permission]]
+identifier = "deny-vault-base"
+description = "Denies the vault_base command without any pre-configured scope."
+commands.deny = ["vault_base"]

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-save-output-priorities"
+description = "Enables the save_output_priorities command without any pre-configured scope."
+commands.allow = ["save_output_priorities"]
+
+[[permission]]
+identifier = "deny-save-output-priorities"
+description = "Denies the save_output_priorities command without any pre-configured scope."
+commands.deny = ["save_output_priorities"]

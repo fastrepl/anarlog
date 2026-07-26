@@ -1,0 +1,15 @@
+[package]
+name = "onnx"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = []
+cuda = ["ort/cuda"]
+coreml = ["ort/coreml"]
+directml = ["ort/directml"]
+
+[dependencies]
+ndarray = "0.16"
+ort = { version = "=2.0.0-rc.10", features = ["ndarray"] }
+thiserror = { workspace = true }

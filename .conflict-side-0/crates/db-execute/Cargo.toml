@@ -1,0 +1,14 @@
+[package]
+name = "db-execute"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hypr-db-core = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled"] }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }

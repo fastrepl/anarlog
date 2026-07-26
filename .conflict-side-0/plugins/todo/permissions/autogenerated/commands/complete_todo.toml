@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-complete-todo"
+description = "Enables the complete_todo command without any pre-configured scope."
+commands.allow = ["complete_todo"]
+
+[[permission]]
+identifier = "deny-complete-todo"
+description = "Denies the complete_todo command without any pre-configured scope."
+commands.deny = ["complete_todo"]

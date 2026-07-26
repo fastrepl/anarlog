@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-list-calendars"
+description = "Enables the list_calendars command without any pre-configured scope."
+commands.allow = ["list_calendars"]
+
+[[permission]]
+identifier = "deny-list-calendars"
+description = "Denies the list_calendars command without any pre-configured scope."
+commands.deny = ["list_calendars"]

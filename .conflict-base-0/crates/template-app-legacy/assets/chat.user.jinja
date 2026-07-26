@@ -1,0 +1,26 @@
+{{ message }}
+{%- if selectionData %}
+
+[[The user has selected content from the note. Here is the selected content with its HTML formatting preserved:]]
+
+--- Selected Content (Position {{ selectionData.startOffset }} to {{ selectionData.endOffset }}) ---
+{{ selectionData.text }}
+
+[[When editing this content, please respond with HTML that maintains the same structure and formatting. The selected content above shows the exact HTML formatting that exists in the document.]]
+{%- endif %}
+{%- if mentionedContent and mentionedContent | length > 0 %}
+
+[[From here is an automatically appended content from the mentioned notes & people, not what the user wrote. Use this only as a reference for more context. Your focus should always be the current meeting user is viewing]]
+
+{%- for mention in mentionedContent %}
+{%- if mention.type == "note" %}
+
+--- Content from the note"{{ mention.label }}" ---
+{{ mention.content }}
+{%- elif mention.type == "human" %}
+
+--- Content about the person "{{ mention.label }}" ---
+{{ mention.content }}
+{%- endif %}
+{%- endfor %}
+{%- endif %}

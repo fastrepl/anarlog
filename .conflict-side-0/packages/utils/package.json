@@ -1,0 +1,15 @@
+{
+  "name": "@hypr/utils",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@date-fns/tz": "^1.4.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "tailwind-merge": "^2.6.1"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

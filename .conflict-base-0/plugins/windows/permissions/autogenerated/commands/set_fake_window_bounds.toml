@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-fake-window-bounds"
+description = "Enables the set_fake_window_bounds command without any pre-configured scope."
+commands.allow = ["set_fake_window_bounds"]
+
+[[permission]]
+identifier = "deny-set-fake-window-bounds"
+description = "Denies the set_fake_window_bounds command without any pre-configured scope."
+commands.deny = ["set_fake_window_bounds"]

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-begin-attachment-download"
+description = "Enables the begin_attachment_download command without any pre-configured scope."
+commands.allow = ["begin_attachment_download"]
+
+[[permission]]
+identifier = "deny-begin-attachment-download"
+description = "Denies the begin_attachment_download command without any pre-configured scope."
+commands.deny = ["begin_attachment_download"]

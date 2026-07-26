@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-preferred-languages"
+description = "Enables the get_preferred_languages command without any pre-configured scope."
+commands.allow = ["get_preferred_languages"]
+
+[[permission]]
+identifier = "deny-get-preferred-languages"
+description = "Denies the get_preferred_languages command without any pre-configured scope."
+commands.deny = ["get_preferred_languages"]

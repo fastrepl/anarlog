@@ -1,0 +1,24 @@
+[package]
+name = "db-user"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hypr-buffer = { workspace = true }
+hypr-language = { workspace = true }
+legacy-db-core = { workspace = true }
+owhisper-interface = { workspace = true }
+
+libsql = { workspace = true }
+tokio = { workspace = true, features = ["rt", "macros"] }
+
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
+
+schemars = { workspace = true, features = ["chrono04"] }
+specta = { workspace = true, features = ["derive", "chrono", "serde_json"] }
+
+chrono = { workspace = true, features = ["serde"] }
+indoc = { workspace = true }
+uuid = { workspace = true, features = ["v4", "serde"] }

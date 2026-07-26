@@ -1,0 +1,24 @@
+[package]
+name = "am"
+version = "0.1.0"
+edition = "2024"
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["rt", "macros"] }
+
+[dependencies]
+hypr-download-interface = { workspace = true }
+hypr-file = { workspace = true }
+hypr-language = { workspace = true }
+
+reqwest = { workspace = true, features = ["json", "query"] }
+tracing = { workspace = true }
+
+dirs = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+specta = { workspace = true, features = ["derive"] }
+strum = { workspace = true, features = ["derive"] }
+tar = "0.4.44"
+thiserror = { workspace = true }

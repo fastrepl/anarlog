@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-clear-shared-attachment-preview-scopes"
+description = "Enables the clear_shared_attachment_preview_scopes command without any pre-configured scope."
+commands.allow = ["clear_shared_attachment_preview_scopes"]
+
+[[permission]]
+identifier = "deny-clear-shared-attachment-preview-scopes"
+description = "Denies the clear_shared_attachment_preview_scopes command without any pre-configured scope."
+commands.deny = ["clear_shared_attachment_preview_scopes"]

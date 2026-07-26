@@ -1,0 +1,25 @@
+{
+  "ignorePatterns": ["**/*.gen.ts"],
+  "plugins": ["promise"],
+  "jsPlugins": ["./eslint-plugin-hypr.mjs"],
+  "rules": {
+    "hypr/await-tauri-commands": "warn",
+    "hypr/no-raw-tinybase": "off"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.{ts,tsx}"],
+      "plugins": ["typescript"]
+    },
+    {
+      "files": ["apps/desktop/src/**/*.{ts,tsx}", "apps/web/src/**/*.{ts,tsx}"],
+      "plugins": ["react", "react-perf"]
+    },
+    {
+      "files": ["apps/desktop/src/**/*.{ts,tsx}"],
+      "rules": {
+        "hypr/no-raw-tinybase": "error"
+      }
+    }
+  ]
+}

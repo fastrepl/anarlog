@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-reveal-session-in-finder"
+description = "Enables the reveal_session_in_finder command without any pre-configured scope."
+commands.allow = ["reveal_session_in_finder"]
+
+[[permission]]
+identifier = "deny-reveal-session-in-finder"
+description = "Denies the reveal_session_in_finder command without any pre-configured scope."
+commands.deny = ["reveal_session_in_finder"]

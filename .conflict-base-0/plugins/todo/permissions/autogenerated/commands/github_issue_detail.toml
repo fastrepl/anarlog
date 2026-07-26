@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-github-issue-detail"
+description = "Enables the github_issue_detail command without any pre-configured scope."
+commands.allow = ["github_issue_detail"]
+
+[[permission]]
+identifier = "deny-github-issue-detail"
+description = "Denies the github_issue_detail command without any pre-configured scope."
+commands.deny = ["github_issue_detail"]

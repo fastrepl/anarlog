@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-repair-keychain-access"
+description = "Enables the repair_keychain_access command without any pre-configured scope."
+commands.allow = ["repair_keychain_access"]
+
+[[permission]]
+identifier = "deny-repair-keychain-access"
+description = "Denies the repair_keychain_access command without any pre-configured scope."
+commands.deny = ["repair_keychain_access"]

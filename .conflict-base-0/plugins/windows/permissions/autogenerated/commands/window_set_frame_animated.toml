@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-window-set-frame-animated"
+description = "Enables the window_set_frame_animated command without any pre-configured scope."
+commands.allow = ["window_set_frame_animated"]
+
+[[permission]]
+identifier = "deny-window-set-frame-animated"
+description = "Denies the window_set_frame_animated command without any pre-configured scope."
+commands.deny = ["window_set_frame_animated"]

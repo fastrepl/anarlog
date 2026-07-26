@@ -1,0 +1,22 @@
+[package]
+name = "tauri-plugin-relay"
+version = "0.1.0"
+authors = ["You"]
+edition = "2024"
+exclude = ["/js", "/node_modules"]
+links = "tauri-plugin-relay"
+description = "Remote UI relay: serves frontend over HTTP and proxies IPC via WebSocket"
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dependencies]
+axum = { workspace = true, features = ["ws"] }
+futures-util = { workspace = true, features = ["sink"] }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tauri = { workspace = true }
+tokio = { workspace = true, features = ["macros", "net", "sync", "rt", "time"] }
+tower-http = { workspace = true, features = ["cors"] }
+tracing = { workspace = true }

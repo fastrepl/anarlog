@@ -1,0 +1,206 @@
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        type: choice
+        options:
+          - deepgram
+          - assemblyai
+          - soniox
+          - gladia
+          - fireworks
+          - openai
+          - elevenlabs
+  push:
+    branches:
+      - main
+    paths:
+      - crates/transcribe-proxy/**
+      - crates/owhisper-client/src/adapter/**
+  pull_request:
+    paths:
+      - crates/transcribe-proxy/**
+      - crates/owhisper-client/src/adapter/**
+
+jobs:
+  detect-changes:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      providers: ${{ steps.detect.outputs.providers }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            transcribe_proxy:
+              - 'crates/transcribe-proxy/**'
+            deepgram:
+              - 'crates/owhisper-client/src/adapter/deepgram/**'
+            assemblyai:
+              - 'crates/owhisper-client/src/adapter/assemblyai/**'
+            soniox:
+              - 'crates/owhisper-client/src/adapter/soniox/**'
+            gladia:
+              - 'crates/owhisper-client/src/adapter/gladia/**'
+            fireworks:
+              - 'crates/owhisper-client/src/adapter/fireworks/**'
+            openai:
+              - 'crates/owhisper-client/src/adapter/openai/**'
+            elevenlabs:
+              - 'crates/owhisper-client/src/adapter/elevenlabs/**'
+      - id: detect
+        run: |
+          set -euo pipefail
+
+          providers=()
+
+          if [ "${{ steps.filter.outputs.deepgram }}" == "true" ]; then providers+=("deepgram"); fi
+          if [ "${{ steps.filter.outputs.assemblyai }}" == "true" ]; then providers+=("assemblyai"); fi
+          if [ "${{ steps.filter.outputs.soniox }}" == "true" ]; then providers+=("soniox"); fi
+          if [ "${{ steps.filter.outputs.gladia }}" == "true" ]; then providers+=("gladia"); fi
+          if [ "${{ steps.filter.outputs.fireworks }}" == "true" ]; then providers+=("fireworks"); fi
+          if [ "${{ steps.filter.outputs.openai }}" == "true" ]; then providers+=("openai"); fi
+          if [ "${{ steps.filter.outputs.elevenlabs }}" == "true" ]; then providers+=("elevenlabs"); fi
+
+          if [ ${#providers[@]} -eq 0 ]; then
+            if [ "${{ steps.filter.outputs.transcribe_proxy }}" == "true" ]; then
+              providers=("deepgram" "soniox")
+            else
+              providers=("deepgram")
+            fi
+          fi
+
+          json="$(printf '%s\n' "${providers[@]}" | jq -Rsc 'split("\n")[:-1] | unique')"
+          echo "providers=$json" >> "$GITHUB_OUTPUT"
+
+  setup:
+    runs-on: ubuntu-latest
+    needs: [detect-changes]
+    if: always()
+    outputs:
+      providers: ${{ steps.set.outputs.providers }}
+    steps:
+      - id: set
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo 'providers=["${{ inputs.provider }}"]' >> $GITHUB_OUTPUT
+          else
+            printf 'providers=%s\n' '${{ needs.detect-changes.outputs.providers }}' >> "$GITHUB_OUTPUT"
+          fi
+
+  direct-provider-batch-e2e:
+    needs: setup
+    if: needs.setup.outputs.providers != ''
+    runs-on: depot-ubuntu-24.04-8
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: ${{ fromJson(needs.setup.outputs.providers) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: linux
+      - uses: ./.github/actions/infisical_install
+      - run: |
+          infisical run --token="$INFISICAL_TOKEN" --env=dev --projectId="$INFISICAL_PROJECT_ID" --path="/anarlog/stt" -- bash -lc '
+            set -euo pipefail
+
+            provider="${PROVIDER}"
+
+            case "$provider" in
+              deepgram)
+                : "${DEEPGRAM_API_KEY:?DEEPGRAM_API_KEY is required}"
+                ;;
+              assemblyai)
+                : "${ASSEMBLYAI_API_KEY:?ASSEMBLYAI_API_KEY is required}"
+                ;;
+              soniox)
+                : "${SONIOX_API_KEY:?SONIOX_API_KEY is required}"
+                ;;
+              gladia)
+                : "${GLADIA_API_KEY:?GLADIA_API_KEY is required}"
+                ;;
+              fireworks)
+                : "${FIREWORKS_API_KEY:?FIREWORKS_API_KEY is required}"
+                ;;
+              openai)
+                : "${OPENAI_API_KEY:?OPENAI_API_KEY is required}"
+                ;;
+              elevenlabs)
+                : "${ELEVENLABS_API_KEY:?ELEVENLABS_API_KEY is required}"
+                ;;
+              *)
+                echo "Unknown provider: $provider"
+                exit 1
+                ;;
+            esac
+
+            echo "Running direct provider batch e2e for $provider"
+            cargo test -p owhisper-client --test provider_batch_e2e "direct_batch::${provider}" -- --ignored --nocapture
+          '
+        env:
+          PROVIDER: ${{ matrix.provider }}
+          INFISICAL_TOKEN: ${{ secrets.INFISICAL_TOKEN }}
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
+
+  proxy-provider-e2e:
+    needs: setup
+    if: needs.setup.outputs.providers != ''
+    runs-on: depot-ubuntu-24.04-8
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: ${{ fromJson(needs.setup.outputs.providers) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: linux
+      - uses: ./.github/actions/infisical_install
+      - run: |
+          infisical run --token="$INFISICAL_TOKEN" --env=dev --projectId="$INFISICAL_PROJECT_ID" --path="/anarlog/stt" -- bash -lc '
+            set -euo pipefail
+
+            provider="${PROVIDER}"
+
+            case "$provider" in
+              deepgram)
+                : "${DEEPGRAM_API_KEY:?DEEPGRAM_API_KEY is required}"
+                ;;
+              assemblyai)
+                : "${ASSEMBLYAI_API_KEY:?ASSEMBLYAI_API_KEY is required}"
+                ;;
+              soniox)
+                : "${SONIOX_API_KEY:?SONIOX_API_KEY is required}"
+                ;;
+              gladia)
+                : "${GLADIA_API_KEY:?GLADIA_API_KEY is required}"
+                ;;
+              fireworks)
+                : "${FIREWORKS_API_KEY:?FIREWORKS_API_KEY is required}"
+                ;;
+              openai)
+                : "${OPENAI_API_KEY:?OPENAI_API_KEY is required}"
+                ;;
+              elevenlabs)
+                : "${ELEVENLABS_API_KEY:?ELEVENLABS_API_KEY is required}"
+                ;;
+              *)
+                echo "Unknown provider: $provider"
+                exit 1
+                ;;
+            esac
+
+            echo "Running transcribe-proxy provider e2e tests for $provider"
+
+            for suite in passthrough::live passthrough::batch hyprnote::live hyprnote::batch; do
+              cargo test -p transcribe-proxy --test proxy_provider_e2e "${suite}::${provider}" -- --ignored --nocapture
+            done
+          '
+        env:
+          PROVIDER: ${{ matrix.provider }}
+          INFISICAL_TOKEN: ${{ secrets.INFISICAL_TOKEN }}
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}

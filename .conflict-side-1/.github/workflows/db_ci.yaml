@@ -1,0 +1,23 @@
+# https://supabase.com/docs/guides/deployment/ci/testing
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - supabase/**
+  pull_request:
+    paths:
+      - supabase/**
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase db start
+      - run: supabase test db

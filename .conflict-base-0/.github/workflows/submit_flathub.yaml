@@ -1,0 +1,12 @@
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup_flathub
+
+      - name: Build Flatpak
+        run: flatpak-builder --user --force-clean build-dir flatpak/com.hyprnote.app.yml

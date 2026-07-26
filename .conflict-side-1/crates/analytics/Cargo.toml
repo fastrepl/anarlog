@@ -1,0 +1,17 @@
+[package]
+name = "analytics"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+posthog-rs = { workspace = true }
+
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+specta = { workspace = true, features = ["derive", "serde_json"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

@@ -1,0 +1,18 @@
+inputs:
+  enabled:
+    required: false
+    type: boolean
+    default: false
+  detached:
+    required: false
+    type: boolean
+    default: true
+
+runs:
+  using: "composite"
+  steps:
+    # https://docs.warpbuild.com/tools/action-debugger
+    - uses: Warpbuilds/action-debugger@v1.3
+      if: inputs.enabled
+      with:
+        detached: ${{ inputs.detached }}

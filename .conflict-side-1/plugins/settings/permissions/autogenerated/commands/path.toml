@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-path"
+description = "Enables the path command without any pre-configured scope."
+commands.allow = ["path"]
+
+[[permission]]
+identifier = "deny-path"
+description = "Denies the path command without any pre-configured scope."
+commands.deny = ["path"]

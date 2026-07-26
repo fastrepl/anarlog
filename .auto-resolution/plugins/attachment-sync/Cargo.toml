@@ -1,0 +1,38 @@
+[package]
+name = "tauri-plugin-attachment-sync"
+version = "0.1.0"
+authors = ["You"]
+edition = "2024"
+exclude = ["/js", "/node_modules"]
+links = "tauri-plugin-attachment-sync"
+description = ""
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+specta-typescript = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[dependencies]
+hypr-e2ee = { workspace = true }
+hypr-fs-sync-core = { workspace = true }
+
+tauri = { workspace = true, features = ["test"] }
+tauri-plugin-db = { workspace = true }
+tauri-plugin-settings = { workspace = true }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+
+futures-util = { workspace = true }
+reqwest = { workspace = true, features = ["stream"] }
+serde = { workspace = true }
+sha2 = { workspace = true }
+specta = { workspace = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "macros"] }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["fs", "io-util", "macros"] }
+tokio-util = { workspace = true }
+url = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }

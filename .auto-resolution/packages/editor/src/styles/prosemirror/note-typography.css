@@ -1,0 +1,434 @@
+/* Note typography, ported from char's editor-core styles.
+ *
+ * Shared by every surface that renders note content: the ProseMirror note
+ * editor AND the Streamdown streaming view both put `.note-typography` on
+ * their root, so the streaming enhanced note and the persisted editor render
+ * identically and the swap between them is pixel-stable.
+ *
+ * Editor-only interaction styling (block-row hover backdrop, negative row
+ * margins, placeholder, focus backdrop, caret) scopes to
+ * `.note-typography.prosemirror-editor`. Non-editor containers (Streamdown)
+ * get the same text column without the row treatment.
+ *
+ * Colors ride the shadcn `--color-*` token contract; every var() carries a
+ * literal fallback for surfaces that do not define it (web share pages). */
+
+.note-typography {
+  font-size: var(--note-editor-font-size, 1rem);
+  line-height: 1.5;
+}
+
+/* Shared vertical rhythm; the editor adds the hover-row inset on top so the
+ * text column stays at the same x in both contexts. */
+.note-typography > * {
+  padding-block: 0.125em;
+}
+
+.note-typography.prosemirror-editor > * {
+  transition: background-color 120ms ease;
+  margin-inline: -0.75em;
+  border-radius: 0.5rem;
+  padding-inline: 0.75em;
+}
+
+/* font-size is explicit, not inherited: web's `@layer base` sets `p` to
+ * 1.3rem, and a direct match beats inheritance from the container. */
+.note-typography p {
+  margin-block: 0;
+  font-size: inherit;
+  line-height: 1.5;
+}
+
+/* Document hierarchy is proportional to the base size. */
+.note-typography h1 {
+  font-weight: 700;
+  font-size: 1.5em;
+  line-height: 1.3333;
+}
+.note-typography h2 {
+  font-weight: 600;
+  font-size: 1.25em;
+  line-height: 1.6;
+}
+.note-typography h3 {
+  font-weight: 600;
+  font-size: 1.125em;
+  line-height: 1.5;
+}
+.note-typography :where(h4, h5, h6) {
+  font-weight: 600;
+}
+.note-typography :where(h1, h2, h3, h4, h5, h6) {
+  margin-block: 0;
+  color: inherit;
+}
+
+/* First-line session title. */
+.note-typography.note-title-editor > h1:first-child {
+  font-size: 1.5rem;
+  line-height: 1.875rem;
+  margin-bottom: 1rem;
+}
+
+/* Lists. Hide native `::marker` and draw our own via `::before`. */
+.note-typography ul,
+.note-typography ol {
+  margin-block: 0;
+  padding-inline: 0;
+  padding-block: 0;
+  list-style: none;
+}
+
+/* Unordered markers cycle by depth: filled disc -> hollow disc -> square. */
+.note-typography ul:not([data-type="taskList"]) {
+  & > li::before {
+    position: absolute;
+    top: calc(0.125em + 0.75em);
+    left: 0.5em;
+    transform: translate(-50%, -50%);
+    /* Border-box so the hollow variant's border draws inward and every
+     * marker shape keeps the same outer size. */
+    box-sizing: border-box;
+    border: 0 solid currentColor;
+    border-radius: 50%;
+    background-color: currentColor;
+    width: 0.5em;
+    height: 0.5em;
+    pointer-events: none;
+    content: "";
+    color: color-mix(in oklab, currentColor, transparent 35%);
+    user-select: none;
+  }
+
+  & ul:not([data-type="taskList"]) {
+    & > li::before {
+      border-width: 1.5px;
+      border-radius: 50%;
+      background-color: transparent;
+    }
+
+    & ul:not([data-type="taskList"]) {
+      & > li::before {
+        border-width: 0;
+        border-radius: 0.1em;
+        background-color: currentColor;
+        width: 0.42em;
+        height: 0.42em;
+      }
+
+      & ul:not([data-type="taskList"]) {
+        & > li::before {
+          border-width: 0;
+          border-radius: 50%;
+          background-color: currentColor;
+          width: 0.5em;
+          height: 0.5em;
+        }
+
+        & ul:not([data-type="taskList"]) {
+          & > li::before {
+            border-width: 1.5px;
+            border-radius: 50%;
+            background-color: transparent;
+          }
+
+          & ul:not([data-type="taskList"]) > li::before {
+            border-width: 0;
+            border-radius: 0.1em;
+            background-color: currentColor;
+            width: 0.42em;
+            height: 0.42em;
+          }
+        }
+      }
+    }
+  }
+}
+
+.note-typography.prosemirror-editor
+  ul:not([data-type="taskList"])
+  > li::before {
+  left: calc(0.5em + 0.75em);
+}
+
+/* Ordered markers cycle by depth: decimal -> lower-alpha -> lower-roman. */
+.note-typography ol {
+  counter-reset: ol-counter;
+
+  & > li {
+    counter-increment: ol-counter;
+
+    &::before {
+      position: absolute;
+      top: 0.125em;
+      left: 0;
+      width: 1em;
+      pointer-events: none;
+      content: counter(ol-counter) ".";
+      color: color-mix(in oklab, currentColor, transparent 35%);
+      line-height: 1.5;
+      user-select: none;
+      text-align: center;
+    }
+  }
+
+  & ol {
+    & > li::before {
+      content: counter(ol-counter, lower-alpha) ".";
+    }
+
+    & ol {
+      & > li::before {
+        content: counter(ol-counter, lower-roman) ".";
+      }
+
+      & ol {
+        & > li::before {
+          content: counter(ol-counter) ".";
+        }
+
+        & ol {
+          & > li::before {
+            content: counter(ol-counter, lower-alpha) ".";
+          }
+
+          & ol > li::before {
+            content: counter(ol-counter, lower-roman) ".";
+          }
+        }
+      }
+    }
+  }
+}
+.note-typography.prosemirror-editor ol > li::before {
+  left: 0.75em;
+}
+
+/* Li layout. In the editor the margin extends past the text column for the
+ * hover backdrop and padding compensates; outside it the padding alone
+ * produces the same 1.5em indent. */
+.note-typography li {
+  position: relative;
+  margin-block: 0;
+  padding-left: 1.5em;
+
+  & > p,
+  & > div > p {
+    margin-block: 0;
+    padding-top: 0.125em;
+    padding-bottom: 0.125em;
+  }
+}
+
+.note-typography.prosemirror-editor li {
+  transition: background-color 120ms ease;
+  margin-inline: -0.75em;
+  border-radius: 0.5rem;
+  padding-right: 0.75em;
+  padding-left: calc(1.5em + 0.75em);
+}
+
+/* Guide rail centered under the parent li marker. Second selector handles
+ * task-item's content `<div>`. */
+.note-typography li > :where(ul, ol),
+.note-typography li > div > :where(ul, ol) {
+  position: relative;
+
+  &::before {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(-1em - 0.5px);
+    background-color: color-mix(in oklab, currentColor, transparent 70%);
+    width: 1px;
+    pointer-events: none;
+    content: "";
+  }
+}
+
+.note-typography blockquote {
+  margin-block: 0;
+  margin-inline-start: 0;
+  border-left: 3px solid var(--color-border, #e5e7eb);
+  border-radius: 0;
+  background-color: transparent;
+  padding-inline: 1em 0;
+  padding-block: 0.125em;
+  color: var(--color-muted-foreground, #6b7280);
+  caret-color: var(--color-foreground, #111827);
+  font-style: normal;
+}
+
+.note-typography blockquote > * + * {
+  margin-top: 0.5em;
+}
+
+.note-typography hr {
+  border-top-width: 1px;
+  border-color: var(--color-border, #e5e7eb);
+}
+
+.note-typography code {
+  border: none;
+  border-radius: 0.25rem;
+  background-color: var(--color-muted, #f5f5f4);
+  padding: 0.125em 0.25em;
+  color: inherit;
+  vertical-align: baseline;
+  font-size: 0.875em;
+  line-height: 1.4286;
+  font-family: var(
+    --font-mono,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace
+  );
+}
+
+.note-typography pre {
+  margin-block: 0;
+  border-radius: 0.375rem;
+  background-color: var(--color-muted, #f5f5f4);
+  padding-inline: 0.75em;
+  padding-block: 1em;
+  overflow-x: auto;
+  color: inherit;
+  caret-color: var(--color-foreground, #111827);
+  font-size: 0.875em;
+  line-height: 1.4286;
+  font-family: var(
+    --font-mono,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace
+  );
+
+  & code {
+    background-color: transparent;
+    padding: 0;
+    font-size: inherit;
+    line-height: inherit;
+  }
+}
+
+/* In the editor, the hover-row rule (higher specificity than the element
+ * rules above) would drag these blocks into the -0.75em row inset. Their
+ * visible left edge — quote border, code background — belongs at the text
+ * column, aligned with plain text. */
+.note-typography.prosemirror-editor blockquote {
+  margin-inline-start: 0;
+  padding-inline: 1em 0.75em;
+}
+
+.note-typography.prosemirror-editor pre {
+  margin-inline: 0;
+  padding-inline: 0.75em;
+}
+
+.note-typography a {
+  color: var(--color-blue-600, #2563eb);
+  text-decoration-line: underline;
+  text-underline-offset: 2px;
+  cursor: text;
+
+  &:hover {
+    color: color-mix(in oklab, var(--color-blue-600, #2563eb), transparent 20%);
+    cursor: pointer;
+  }
+
+  &.mention {
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  &.mention:hover {
+    color: inherit;
+  }
+
+  &.mention:hover::after,
+  &.mention:hover::before {
+    display: none;
+  }
+}
+
+.note-typography strong {
+  font-weight: 600;
+}
+.note-typography em {
+  font-style: italic;
+}
+.note-typography s {
+  text-decoration-line: line-through;
+}
+.note-typography u {
+  text-decoration-line: underline;
+  text-underline-offset: 2px;
+}
+
+.note-typography mark {
+  border-radius: 0.125rem;
+  background-color: var(--color-yellow-200, #fef08a);
+  padding: 0;
+  color: inherit;
+}
+.note-typography mark[data-highlight-color="orange"] {
+  background-color: var(--color-orange-200, #fed7aa);
+}
+.note-typography mark[data-highlight-color="green"] {
+  background-color: var(--color-green-200, #bbf7d0);
+}
+.note-typography mark[data-highlight-color="blue"] {
+  background-color: var(--color-blue-200, #bfdbfe);
+}
+.note-typography mark[data-highlight-color="purple"] {
+  background-color: var(--color-purple-200, #e9d5ff);
+}
+.note-typography mark[data-highlight-color="pink"] {
+  background-color: var(--color-pink-200, #fbcfe8);
+}
+
+/* Highlight backgrounds stay on the light -200 palette in dark mode, so the
+ * inherited light foreground would wash out — pin dark text instead. */
+.dark .note-typography mark {
+  color: #1c1917;
+}
+
+.note-typography img {
+  border-radius: 0.375rem;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Editor-only: caret, placeholder, focus backdrop. */
+.note-typography.prosemirror-editor {
+  caret-color: var(--color-foreground, #374151);
+}
+
+.note-typography.prosemirror-editor .is-editor-empty:first-child::before,
+.note-typography.prosemirror-editor .is-empty::before,
+.note-typography.prosemirror-editor .react-placeholder-widget {
+  opacity: 0.6;
+  color: var(--color-muted-foreground, #9ca3af);
+}
+
+/* Innermost block under the caret gets a subtle backdrop; `.is-empty`
+ * excluded so the placeholder shows. */
+:is(.note-typography.prosemirror-editor li, .note-typography.prosemirror-editor
+  > *):not(.is-empty):focus-within:not(:has(li:focus-within)) {
+  background-color: color-mix(
+    in oklab,
+    var(--color-muted, #f5f5f4),
+    transparent 35%
+  );
+}

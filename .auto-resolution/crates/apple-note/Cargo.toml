@@ -1,0 +1,13 @@
+[package]
+name = "apple-note"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+flate2 = "1"
+prost = "0.13"
+serde = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+
+[build-dependencies]
+prost-build = "0.13"

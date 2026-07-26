@@ -1,0 +1,19 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = [
+    "allow-is-repo",
+    "allow-init",
+    "allow-status",
+    "allow-add",
+    "allow-reset",
+    "allow-commit",
+    "allow-log",
+    "allow-add-remote",
+    "allow-list-remotes",
+    "allow-fetch",
+    "allow-push",
+    "allow-pull",
+    "allow-check-conflicts",
+    "allow-abort-merge",
+    "allow-get-current-branch",
+]

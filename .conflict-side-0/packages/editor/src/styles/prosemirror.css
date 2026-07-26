@@ -1,0 +1,65 @@
+@import "./prosemirror/scrollbar.css";
+@import "./prosemirror/base.css";
+
+@import "./prosemirror/nodes/task-list.css";
+@import "./prosemirror/nodes/table.css";
+@import "./prosemirror/nodes/search.css";
+@import "./prosemirror/nodes/ai-highlight.css";
+@import "./prosemirror/nodes/hashtag.css";
+@import "./prosemirror/nodes/comment-anchor.css";
+
+@import "./prosemirror/dark.css";
+@import "./prosemirror/mention.css";
+
+/* Last so note surfaces win specificity ties against the shared rules. */
+@import "./prosemirror/note-typography.css";
+
+.ProseMirror.prompt-editor {
+  padding-bottom: 0;
+}
+
+.ProseMirror .prompt-token {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 1.25rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 9999px;
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+  padding: 0 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+
+.ProseMirror .prompt-token.ProseMirror-selectednode {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 1px;
+}
+
+.ProseMirror .is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #e5e5e5;
+  pointer-events: none;
+  height: 0;
+}
+
+.ProseMirror .is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #e5e5e5;
+  pointer-events: none;
+  height: 0;
+}
+
+.ProseMirror .react-placeholder-widget {
+  float: left;
+  pointer-events: auto;
+  user-select: none;
+  height: 0;
+  color: #e5e5e5;
+}

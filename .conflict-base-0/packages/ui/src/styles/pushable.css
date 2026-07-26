@@ -1,0 +1,47 @@
+.pushable {
+  background: #1a1a1a;
+  border: none;
+  border-radius: 12px;
+  padding: 0;
+  cursor: pointer;
+  outline-offset: 4px;
+}
+
+.pushable:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.front {
+  display: block;
+  padding: 12px 42px;
+  border-radius: 12px;
+  font-size: 1.25rem;
+  background: #333333;
+  color: white;
+  transform: translateY(-6px);
+  transition: transform 50ms;
+  position: relative;
+}
+
+.front::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+}
+
+.pushable:active .front {
+  transform: translateY(-2px);
+}
+
+.pushable:disabled {
+  background: rgb(75 85 99); /* neutral-600 */
+  cursor: not-allowed;
+}
+
+.pushable:disabled .front {
+  background: rgb(156 163 175); /* neutral-400 */
+  transform: translateY(-2px);
+}

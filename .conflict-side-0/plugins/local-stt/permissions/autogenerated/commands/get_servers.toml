@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-servers"
+description = "Enables the get_servers command without any pre-configured scope."
+commands.allow = ["get_servers"]
+
+[[permission]]
+identifier = "deny-get-servers"
+description = "Denies the get_servers command without any pre-configured scope."
+commands.deny = ["get_servers"]

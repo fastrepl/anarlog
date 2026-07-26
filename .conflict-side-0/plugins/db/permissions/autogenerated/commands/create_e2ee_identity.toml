@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-create-e2ee-identity"
+description = "Enables the create_e2ee_identity command without any pre-configured scope."
+commands.allow = ["create_e2ee_identity"]
+
+[[permission]]
+identifier = "deny-create-e2ee-identity"
+description = "Denies the create_e2ee_identity command without any pre-configured scope."
+commands.deny = ["create_e2ee_identity"]

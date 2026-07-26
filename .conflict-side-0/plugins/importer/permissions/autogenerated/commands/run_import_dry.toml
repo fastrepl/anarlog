@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-run-import-dry"
+description = "Enables the run_import_dry command without any pre-configured scope."
+commands.allow = ["run_import_dry"]
+
+[[permission]]
+identifier = "deny-run-import-dry"
+description = "Denies the run_import_dry command without any pre-configured scope."
+commands.deny = ["run_import_dry"]

@@ -1,0 +1,25 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = [
+    "allow-window-show",
+    "allow-window-hide",
+    "allow-window-destroy",
+    "allow-window-navigate",
+    "allow-window-emit-navigate",
+    "allow-window-is-exists",
+    "allow-window-is-occluded",
+    "allow-window-set-frame-animated",
+    "allow-window-save-frame",
+    "allow-window-restore-frame-animated",
+    "allow-window-expand-width",
+    "allow-window-restore-width",
+    "allow-set-show-app-in-dock",
+    "allow-floating-bar-show",
+    "allow-floating-bar-hide",
+    "allow-floating-bar-update",
+    "allow-live-caption-show",
+    "allow-live-caption-hide",
+    "allow-live-caption-update",
+    "allow-devtools-panel-show",
+    "allow-devtools-panel-hide",
+]

@@ -1,0 +1,24 @@
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  zizmor:
+    runs-on: depot-ubuntu-24.04-8
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v5
+      - run: uvx zizmor --format sarif . > results.sarif
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+          category: zizmor

@@ -1,0 +1,32 @@
+[package]
+name = "resampler"
+version = "0.0.1"
+edition = "2024"
+
+[features]
+default = ["async-source"]
+async-source = [
+  "dep:dasp",
+  "dep:futures-util",
+  "dep:hypr-audio-interface",
+  "dep:pin-project",
+]
+
+[dependencies]
+audioadapter-buffers = "2.0"
+dasp = { workspace = true, optional = true }
+futures-util = { workspace = true, optional = true }
+hypr-audio-interface = { workspace = true, optional = true }
+pin-project = { workspace = true, optional = true }
+rubato = "1.0.1"
+thiserror = { workspace = true }
+
+[dev-dependencies]
+hound = { workspace = true }
+hypr-data = { workspace = true }
+rodio = { workspace = true, features = ["symphonia-all"] }
+tokio = { workspace = true, features = ["full"] }
+
+[[bench]]
+name = "polynomial_degree"
+harness = false

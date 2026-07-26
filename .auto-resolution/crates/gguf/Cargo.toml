@@ -1,0 +1,13 @@
+[package]
+name = "gguf"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+byteorder = "1.5.0"
+memmap2 = "0.9.5"
+strum = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+dirs = { workspace = true }

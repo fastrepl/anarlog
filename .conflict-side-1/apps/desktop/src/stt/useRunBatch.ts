@@ -1,0 +1,524 @@
+import { platform } from "@tauri-apps/plugin-os";
+import { useCallback } from "react";
+
+import type { TranscriptionParams } from "@hypr/plugin-transcription";
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
+
+import { useListener } from "./contexts";
+import { persistTranscriptWrite } from "./persist-retry";
+import { getSessionKeywords } from "./useKeywords";
+import { useSTTConnection } from "./useSTTConnection";
+
+import { useAuth } from "~/auth";
+import { useBillingAccess } from "~/auth/billing-context";
+import { withCloudsyncActivity } from "~/db/cloudsync-activity";
+import { env } from "~/env";
+import {
+  deleteProcessedAudioForRetention,
+  normalizeAudioRetention,
+} from "~/services/audio-retention";
+import { markSessionAudioTranscriptionComplete } from "~/session/attachments";
+import { useSession, useSessionParticipants } from "~/session/queries";
+import { useConfigValue } from "~/shared/config";
+import { id } from "~/shared/utils";
+import type { BatchPersistCallback } from "~/store/zustand/listener/transcript";
+import {
+  getTranscriptionLanguages,
+  isSupportedLanguagesBatch,
+} from "~/stt/capabilities";
+import { createTranscript } from "~/stt/queries";
+import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
+
+type RunOptions = {
+  deferAudioFinalization?: boolean;
+  handlePersist?: BatchPersistCallback;
+  model?: string;
+  baseUrl?: string;
+  apiKey?: string;
+  keywords?: string[];
+  languages?: string[];
+  numSpeakers?: number;
+  minSpeakers?: number;
+  maxSpeakers?: number;
+  promotion?:
+    | { scope: "preserve_existing" }
+    | { scope: "whole_session" }
+    | {
+        scope: "current_capture";
+        audioOffsetMs: number;
+        replaceTranscriptId?: string;
+        startedAt: number;
+      };
+};
+
+type BatchTarget = {
+  provider: TranscriptionParams["provider"];
+  model: string;
+  baseUrl: string;
+  apiKey: string;
+  label: string;
+};
+
+const DIRECT_BATCH_PROVIDERS: Set<TranscriptionParams["provider"]> = new Set([
+  "deepgram",
+  "cartesia",
+  "soniox",
+  "assemblyai",
+  "openai",
+  "gladia",
+  "elevenlabs",
+  "mistral",
+  "fireworks",
+  "pyannote",
+  "aquavoice",
+]);
+
+export const STOPPED_TRANSCRIPTION_ERROR_MESSAGE = "Transcription stopped.";
+export const EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE =
+  "Batch transcription did not include the current recording.";
+const LOCAL_SONIQO_BATCH_TARGET = {
+  provider: "soniqo",
+  model: "soniqo-parakeet-batch",
+  baseUrl: "soniqo://local",
+  apiKey: "",
+  label: "Soniqo batch transcription",
+} satisfies BatchTarget;
+
+export function getBatchProvider(
+  provider: string,
+  model: string,
+): TranscriptionParams["provider"] | null {
+  if (provider === "cloudflare_workers_ai") {
+    return "deepgram";
+  }
+
+  if (provider === "hyprnote") {
+    if (model.startsWith("soniqo-")) return "soniqo";
+    if (model.startsWith("am-")) return "am";
+    return "hyprnote";
+  }
+  if (DIRECT_BATCH_PROVIDERS.has(provider as TranscriptionParams["provider"])) {
+    return provider as TranscriptionParams["provider"];
+  }
+  return null;
+}
+
+export function canRunBatchTranscription(
+  _conn: { provider: string; model: string } | null,
+  _modelOverride?: string,
+) {
+  return true;
+}
+
+export function getBatchFallbackTarget({
+  isPaid,
+  accessToken,
+  apiBaseUrl,
+  currentPlatform = platform(),
+}: {
+  isPaid: boolean;
+  accessToken?: string | null;
+  apiBaseUrl: string;
+  currentPlatform?: ReturnType<typeof platform>;
+}): BatchTarget | null {
+  if (isPaid && accessToken) {
+    return {
+      provider: "hyprnote",
+      model: "cloud",
+      baseUrl: new URL("/stt", apiBaseUrl).toString(),
+      apiKey: accessToken,
+      label: "Pro cloud transcription",
+    };
+  }
+
+  return currentPlatform === "macos" ? LOCAL_SONIQO_BATCH_TARGET : null;
+}
+
+async function canUseBatchTarget(
+  provider: TranscriptionParams["provider"],
+  model: string,
+  languages: readonly string[],
+) {
+  return isSupportedLanguagesBatch(provider, model, languages);
+}
+
+function selectedProviderLabel(
+  conn: { provider: string; model: string } | null,
+  modelOverride?: string,
+) {
+  if (!conn) {
+    return "the selected speech-to-text provider";
+  }
+
+  return modelOverride ?? conn.model ?? conn.provider;
+}
+
+function sameBatchTarget(
+  a: Pick<BatchTarget, "provider" | "model"> | null,
+  b: Pick<BatchTarget, "provider" | "model">,
+) {
+  return a?.provider === b.provider && a.model === b.model;
+}
+
+function prepareTranscriptPromotion(
+  words: WordWithId[],
+  hints: SpeakerHintWithId[],
+  promotion: NonNullable<RunOptions["promotion"]>,
+) {
+  if (promotion.scope !== "current_capture") {
+    return {
+      words,
+      hints,
+      replaceSession: promotion.scope === "whole_session",
+      replaceTranscriptId: undefined,
+      startedAt: undefined,
+    };
+  }
+
+  const offsetMs = Number.isFinite(promotion.audioOffsetMs)
+    ? Math.max(0, promotion.audioOffsetMs)
+    : 0;
+  const currentWords = words.flatMap((word) => {
+    const startMs = word.start_ms ?? 0;
+    const endMs = word.end_ms ?? startMs;
+    if (endMs <= offsetMs) {
+      return [];
+    }
+    return [
+      {
+        ...word,
+        start_ms: Math.max(0, startMs - offsetMs),
+        end_ms: Math.max(0, endMs - offsetMs),
+      },
+    ];
+  });
+  const currentWordIds = new Set(currentWords.map((word) => word.id));
+
+  return {
+    words: currentWords,
+    hints: hints.filter(
+      (hint) =>
+        typeof hint.word_id === "string" && currentWordIds.has(hint.word_id),
+    ),
+    replaceSession: false,
+    replaceTranscriptId: promotion.replaceTranscriptId,
+    startedAt: promotion.startedAt,
+  };
+}
+
+export function isStoppedTranscriptionError(error: unknown) {
+  return (
+    (error instanceof Error ? error.message : String(error)) ===
+    STOPPED_TRANSCRIPTION_ERROR_MESSAGE
+  );
+}
+
+export function isTranscriptionAuthenticationError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /authentication failed|invalid_token|unauthorized|\b401\b/i.test(
+    message,
+  );
+}
+
+export function getSessionSpeakerCount(
+  participantHumanIds: Iterable<string>,
+  selfHumanId?: string | null,
+): number | undefined {
+  const humanIds = new Set(
+    Array.from(participantHumanIds).filter((humanId) => Boolean(humanId)),
+  );
+
+  if (typeof selfHumanId === "string" && selfHumanId) {
+    humanIds.add(selfHumanId);
+  }
+
+  return humanIds.size > 1 ? humanIds.size : undefined;
+}
+
+export const useRunBatch = (sessionId: string) => {
+  const session = useSession(sessionId);
+  const participants = useSessionParticipants(sessionId);
+
+  const startTranscription = useListener((state) => state.startTranscription);
+  const { conn } = useSTTConnection();
+  const auth = useAuth();
+  const billing = useBillingAccess();
+  const aiLanguage = useConfigValue("ai_language");
+  const spokenLanguages = useConfigValue("spoken_languages");
+  const dictionaryTerms = useConfigValue("personalization_dictionary_terms");
+  const audioRetention = normalizeAudioRetention(
+    useConfigValue("audio_retention"),
+  );
+
+  return useCallback(
+    async (filePath: string, options?: RunOptions) => {
+      if (!startTranscription) {
+        throw new Error(
+          "STT connection is not available. Please configure your speech-to-text provider.",
+        );
+      }
+
+      const languages =
+        options?.languages ??
+        getTranscriptionLanguages(aiLanguage, spokenLanguages);
+      const currentPlatform = platform();
+      const selectedModel = options?.model ?? conn?.model;
+      const selectedProvider =
+        conn && selectedModel
+          ? getBatchProvider(conn.provider, selectedModel)
+          : null;
+      const selectedTarget =
+        conn && selectedModel && selectedProvider
+          ? {
+              provider: selectedProvider,
+              model: selectedModel,
+              baseUrl: options?.baseUrl ?? conn.baseUrl,
+              apiKey: options?.apiKey ?? conn.apiKey,
+              label: selectedModel,
+            }
+          : null;
+      const selectedTargetSupported =
+        selectedTarget &&
+        (selectedTarget.provider !== "soniqo" || currentPlatform === "macos")
+          ? await canUseBatchTarget(
+              selectedTarget.provider,
+              selectedTarget.model,
+              languages,
+            )
+          : false;
+      const fallbackTarget = getBatchFallbackTarget({
+        isPaid: billing.isPaid,
+        accessToken: auth?.session?.access_token,
+        apiBaseUrl: env.VITE_API_URL,
+        currentPlatform,
+      });
+      const shouldUseSelectedTarget =
+        selectedTargetSupported ||
+        (fallbackTarget && sameBatchTarget(selectedTarget, fallbackTarget));
+      const target = shouldUseSelectedTarget
+        ? (selectedTarget ?? fallbackTarget)
+        : fallbackTarget;
+
+      if (!target) {
+        throw new Error(
+          `${selectedProviderLabel(conn, selectedModel)} is not available for batch transcription on this platform. Configure a batch-capable speech-to-text provider.`,
+        );
+      }
+
+      if (!shouldUseSelectedTarget) {
+        sonnerToast.warning("Using a batch transcription provider", {
+          description: `${
+            selectedTarget
+              ? selectedProviderLabel(conn, selectedModel)
+              : selectedProviderLabel(conn)
+          } is not available for batch transcription. Using ${target.label} instead.`,
+        });
+      }
+
+      const createdAt = new Date().toISOString();
+      const startedAt = Date.now();
+      const memoMd = session?.raw_md ?? "";
+      const keywords =
+        options?.keywords ??
+        (await getSessionKeywords({
+          sessionId,
+          dictionaryTerms,
+        }));
+      let transcriptId: string | null = null;
+      const inferredNumSpeakers =
+        options?.numSpeakers === undefined &&
+        options?.minSpeakers === undefined &&
+        options?.maxSpeakers === undefined
+          ? getSessionSpeakerCount(
+              participants
+                .filter((participant) => participant.source !== "excluded")
+                .map((participant) => participant.humanId),
+              session?.user_id,
+            )
+          : undefined;
+
+      const handlePersist: BatchPersistCallback | undefined =
+        options?.handlePersist;
+      let stagedWords: WordWithId[] = [];
+      let stagedHints: SpeakerHintWithId[] = [];
+      const resetStagedTranscript = () => {
+        transcriptId = null;
+        stagedWords = [];
+        stagedHints = [];
+      };
+
+      const persist =
+        handlePersist ??
+        ((words, hints, persistOptions) => {
+          if (words.length === 0) {
+            return;
+          }
+
+          const newWords: WordWithId[] = [];
+          const newWordIds: string[] = [];
+
+          words.forEach((word) => {
+            const wordId = id();
+
+            newWords.push({
+              id: wordId,
+              text: word.text,
+              start_ms: word.start_ms,
+              end_ms: word.end_ms,
+              channel: word.channel,
+              metadata: word.metadata
+                ? JSON.stringify(word.metadata)
+                : undefined,
+            });
+
+            newWordIds.push(wordId);
+          });
+
+          const newHints: SpeakerHintWithId[] = [];
+
+          hints.forEach((hint) => {
+            if (hint.data.type !== "provider_speaker_index") {
+              return;
+            }
+
+            const wordId = newWordIds[hint.wordIndex];
+            const word = words[hint.wordIndex];
+
+            if (!wordId || !word) {
+              return;
+            }
+
+            newHints.push({
+              id: id(),
+              word_id: wordId,
+              type: "provider_speaker_index",
+              value: JSON.stringify({
+                provider: hint.data.provider ?? target.provider,
+                channel: hint.data.channel ?? word.channel,
+                speaker_index: hint.data.speaker_index,
+              }),
+            });
+          });
+
+          transcriptId ??= id();
+          if (persistOptions?.mode === "replace") {
+            stagedWords = [];
+            stagedHints = [];
+          }
+          stagedWords.push(...newWords);
+          stagedHints.push(...newHints);
+        });
+
+      const cloudsyncLeaseKey = `${sessionId}:${id()}`;
+      return withCloudsyncActivity(
+        "transcription",
+        cloudsyncLeaseKey,
+        async () => {
+          const params: TranscriptionParams = {
+            session_id: sessionId,
+            provider: target.provider,
+            file_path: filePath,
+            model: target.model,
+            base_url: target.baseUrl,
+            api_key: target.apiKey,
+            keywords,
+            languages,
+            num_speakers: options?.numSpeakers ?? inferredNumSpeakers,
+            min_speakers: options?.minSpeakers,
+            max_speakers: options?.maxSpeakers,
+          };
+
+          try {
+            await startTranscription(params, { handlePersist: persist });
+          } catch (error) {
+            if (
+              target.provider !== "hyprnote" ||
+              target.model !== "cloud" ||
+              !isTranscriptionAuthenticationError(error)
+            ) {
+              throw error;
+            }
+
+            const refreshedSession = await auth.refreshSession();
+            if (!refreshedSession?.access_token) {
+              throw error;
+            }
+
+            if (!handlePersist) {
+              resetStagedTranscript();
+            }
+            await startTranscription(
+              { ...params, api_key: refreshedSession.access_token },
+              { handlePersist: persist },
+            );
+          }
+
+          if (!handlePersist) {
+            const promoted = prepareTranscriptPromotion(
+              stagedWords,
+              stagedHints,
+              options?.promotion ?? { scope: "preserve_existing" },
+            );
+            if (
+              options?.promotion?.scope === "current_capture" &&
+              promoted.words.length === 0
+            ) {
+              throw new Error(EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE);
+            }
+            if (transcriptId) {
+              const completedTranscriptId = transcriptId;
+              if (promoted.words.length > 0) {
+                await persistTranscriptWrite(() =>
+                  createTranscript({
+                    id: completedTranscriptId,
+                    sessionId,
+                    ownerUserId: session?.user_id ?? "",
+                    createdAt,
+                    startedAt: promoted.startedAt ?? startedAt,
+                    memo: memoMd,
+                    source: "batch_transcription",
+                    provider: target.provider,
+                    model: target.model,
+                    words: promoted.words,
+                    speakerHints: promoted.hints,
+                    replaceSession: promoted.replaceSession,
+                    replaceTranscriptId: promoted.replaceTranscriptId,
+                  }),
+                );
+              }
+            }
+            if (!options?.deferAudioFinalization) {
+              try {
+                await persistTranscriptWrite(() =>
+                  markSessionAudioTranscriptionComplete(sessionId),
+                );
+              } catch (error) {
+                console.error(
+                  "[runBatch] failed to mark session audio as processed",
+                  error,
+                );
+              }
+            }
+          }
+          if (!options?.deferAudioFinalization) {
+            await deleteProcessedAudioForRetention(audioRetention, sessionId);
+          }
+        },
+      );
+    },
+    [
+      conn,
+      auth,
+      auth?.session?.access_token,
+      aiLanguage,
+      audioRetention,
+      billing.isPaid,
+      dictionaryTerms,
+      session,
+      participants,
+      spokenLanguages,
+      startTranscription,
+      sessionId,
+    ],
+  );
+};

@@ -1,0 +1,21 @@
+[package]
+name = "granola"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hypr-importer-core = { workspace = true }
+
+chrono = { workspace = true, features = ["serde"] }
+dirs = { workspace = true }
+regex = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true, features = ["v4", "v5"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["rt", "macros"] }

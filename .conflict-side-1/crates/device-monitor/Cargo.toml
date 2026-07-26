@@ -1,0 +1,14 @@
+[package]
+name = "device-monitor"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hypr-audio-device = { workspace = true }
+tracing = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+cidre = { workspace = true, features = ["av"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libpulse-binding = "2.30.1"

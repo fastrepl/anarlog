@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-write-json-batch"
+description = "Enables the write_json_batch command without any pre-configured scope."
+commands.allow = ["write_json_batch"]
+
+[[permission]]
+identifier = "deny-write-json-batch"
+description = "Denies the write_json_batch command without any pre-configured scope."
+commands.deny = ["write_json_batch"]

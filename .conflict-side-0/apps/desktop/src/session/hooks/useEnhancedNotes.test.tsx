@@ -1,0 +1,239 @@
+import { cleanup, renderHook, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { LLMConnectionStatus } from "~/ai/hooks";
+
+const hoisted = vi.hoisted(() => ({
+  hasTranscript: true,
+  sessionMode: "inactive",
+  batchError: null as string | null,
+  enhancedNoteIds: [] as string[],
+  selectedTemplateId: "template-1" as string | undefined,
+  llmStatus: {
+    status: "success",
+    providerId: "hyprnote",
+    isHosted: true,
+  } as LLMConnectionStatus,
+  service: {
+    ensureNote: vi.fn(),
+    queueAutoEnhanceIfSummaryEmpty: vi.fn(),
+  },
+}));
+
+vi.mock("../components/shared", () => ({
+  useHasTranscript: () => hoisted.hasTranscript,
+}));
+
+vi.mock("~/ai/hooks", () => ({
+  useLLMConnectionStatus: () => hoisted.llmStatus,
+}));
+
+vi.mock("~/ai/contexts", () => ({
+  useAITask: vi.fn(),
+}));
+
+vi.mock("~/services/enhancer", () => ({
+  getEnhancerService: () => hoisted.service,
+}));
+
+vi.mock("~/session/queries", () => ({
+  useEnhancedNoteRecords: () => hoisted.enhancedNoteIds.map((id) => ({ id })),
+}));
+
+vi.mock("~/shared/config", () => ({
+  useConfigValue: () => hoisted.selectedTemplateId,
+}));
+
+vi.mock("~/stt/contexts", () => ({
+  useListener: (selector: (state: unknown) => unknown) =>
+    selector({
+      getSessionMode: () => hoisted.sessionMode,
+      batch: {
+        "session-1": {
+          error: hoisted.batchError,
+        },
+      },
+    }),
+}));
+
+import {
+  useEnsureDefaultSummary,
+  useEnsureDefaultSummaryFromState,
+} from "./useEnhancedNotes";
+
+describe("useEnsureDefaultSummary", () => {
+  beforeEach(() => {
+    cleanup();
+    hoisted.hasTranscript = true;
+    hoisted.sessionMode = "inactive";
+    hoisted.batchError = null;
+    hoisted.enhancedNoteIds = [];
+    hoisted.selectedTemplateId = "template-1";
+    hoisted.llmStatus = {
+      status: "success",
+      providerId: "hyprnote",
+      isHosted: true,
+    };
+    hoisted.service.ensureNote.mockClear();
+    hoisted.service.queueAutoEnhanceIfSummaryEmpty.mockClear();
+  });
+
+  it("creates the summary row without queueing generation on open", async () => {
+    renderHook(() => useEnsureDefaultSummary("session-1"));
+
+    await waitFor(() => {
+      expect(hoisted.service.ensureNote).toHaveBeenCalledWith(
+        "session-1",
+        "template-1",
+      );
+    });
+    expect(
+      hoisted.service.queueAutoEnhanceIfSummaryEmpty,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("does not create the summary row before transcript exists", async () => {
+    hoisted.hasTranscript = false;
+
+    renderHook(() => useEnsureDefaultSummary("session-1"));
+
+    await waitFor(() => {
+      expect(hoisted.service.ensureNote).not.toHaveBeenCalled();
+    });
+    expect(
+      hoisted.service.queueAutoEnhanceIfSummaryEmpty,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("does not create the summary row during active recording", async () => {
+    hoisted.sessionMode = "active";
+
+    renderHook(() => useEnsureDefaultSummary("session-1"));
+
+    await waitFor(() => {
+      expect(hoisted.service.ensureNote).not.toHaveBeenCalled();
+    });
+  });
+
+  it("does not create the summary row before hydration enables it", async () => {
+    renderHook(() =>
+      useEnsureDefaultSummaryFromState({
+        batchError: false,
+        enabled: false,
+        enhancedNoteCount: 0,
+        hasTranscript: true,
+        sessionId: "session-1",
+        sessionMode: "inactive",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(hoisted.service.ensureNote).not.toHaveBeenCalled();
+    });
+  });
+
+  it("does not create the summary row while finalizing recording", async () => {
+    hoisted.sessionMode = "finalizing";
+
+    renderHook(() => useEnsureDefaultSummary("session-1"));
+
+    await waitFor(() => {
+      expect(hoisted.service.ensureNote).not.toHaveBeenCalled();
+    });
+  });
+
+  it("creates the summary row while batch transcription is running", async () => {
+    hoisted.hasTranscript = false;
+    hoisted.sessionMode = "running_batch";
+
+    renderHook(() => useEnsureDefaultSummary("session-1"));
+
+    await waitFor(() => {
+      expect(hoisted.service.ensureNote).toHaveBeenCalledWith(
+        "session-1",
+        "template-1",
+      );
+    });
+    expect(
+      hoisted.service.queueAutoEnhanceIfSummaryEmpty,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("creates the summary row after batch transcription fails", async () => {
+    hoisted.hasTranscript = false;
+    hoisted.batchError = "Transcription failed";
+
+    renderHook(() => useEnsureDefaultSummary("session-1"));
+
+    await waitFor(() => {
+      expect(hoisted.service.ensureNote).toHaveBeenCalledWith(
+        "session-1",
+        "template-1",
+      );
+    });
+    expect(
+      hoisted.service.queueAutoEnhanceIfSummaryEmpty,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("creates the summary row when a hosted subscription blocks generation", async () => {
+    hoisted.llmStatus = {
+      status: "error",
+      reason: "not_pro",
+      providerId: "hyprnote",
+    };
+
+    renderHook(() => useEnsureDefaultSummary("session-1"));
+
+    await waitFor(() => {
+      expect(hoisted.service.ensureNote).toHaveBeenCalledWith(
+        "session-1",
+        "template-1",
+      );
+    });
+    expect(
+      hoisted.service.queueAutoEnhanceIfSummaryEmpty,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("creates the summary row when provider API keys are missing", async () => {
+    hoisted.llmStatus = {
+      status: "error",
+      reason: "missing_config",
+      providerId: "openai",
+      missing: ["api_key"],
+    };
+
+    renderHook(() => useEnsureDefaultSummary("session-1"));
+
+    await waitFor(() => {
+      expect(hoisted.service.ensureNote).toHaveBeenCalledWith(
+        "session-1",
+        "template-1",
+      );
+    });
+    expect(
+      hoisted.service.queueAutoEnhanceIfSummaryEmpty,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("creates the summary row when model selection is pending", async () => {
+    hoisted.llmStatus = {
+      status: "pending",
+      reason: "missing_model",
+      providerId: "hyprnote",
+    };
+
+    renderHook(() => useEnsureDefaultSummary("session-1"));
+
+    await waitFor(() => {
+      expect(hoisted.service.ensureNote).toHaveBeenCalledWith(
+        "session-1",
+        "template-1",
+      );
+    });
+    expect(
+      hoisted.service.queueAutoEnhanceIfSummaryEmpty,
+    ).not.toHaveBeenCalled();
+  });
+});

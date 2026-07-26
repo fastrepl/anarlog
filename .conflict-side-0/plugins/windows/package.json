@@ -1,0 +1,16 @@
+{
+  "name": "@hypr/plugin-windows",
+  "private": true,
+  "main": "./js/index.ts",
+  "exports": {
+    ".": "./js/index.ts",
+    "./v1": "./js/bindings.v1.gen.ts"
+  },
+  "scripts": {
+    "codegen": "cargo test -p tauri-plugin-windows",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.10.1"
+  }
+}

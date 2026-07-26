@@ -1,0 +1,702 @@
+[
+  {
+    "text": "He's",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "run",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "everything",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "at",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "some",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "point",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "in",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "Google,",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "including",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "overseeing",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "the",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "genesis",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "of",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "this",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "industry",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "and",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "the",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "who's",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "been",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "about",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "a",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "decade",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "before",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "Sequoia",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "running",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "most",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "of",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "engineering",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "at",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "Google",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "with",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "Jeff.",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "and",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "so",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "please",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "welcome",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "Jeff",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "and",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "Bill.",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "Now",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "thank",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "you",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "and",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "Jeff",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "it's",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "great",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "to",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "see",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "you.",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "We",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "got",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "to",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "work",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "together",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "for",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "a",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "few",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "years",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "and",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "what",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "I",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "Jeff",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "Still",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "was",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "occasionally",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "willing",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "to",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "talk",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "to",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "me",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "which",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "I'm",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "very",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "proud",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "of.",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "We",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "have",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "an",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "occasional",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "dinner",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "which",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "is",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "great",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "fun.",
+    "speaker": { "type": "unassigned", "value": { "index": 1 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "I",
+    "speaker": { "type": "unassigned", "value": { "index": 0 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "think",
+    "speaker": { "type": "unassigned", "value": { "index": 0 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "you've",
+    "speaker": { "type": "unassigned", "value": { "index": 0 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "got",
+    "speaker": { "type": "unassigned", "value": { "index": 0 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "to",
+    "speaker": { "type": "unassigned", "value": { "index": 0 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "say,",
+    "speaker": { "type": "unassigned", "value": { "index": 0 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "Jeff",
+    "speaker": { "type": "unassigned", "value": { "index": 0 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "Dean,",
+    "speaker": { "type": "unassigned", "value": { "index": 0 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "talk,",
+    "speaker": { "type": "unassigned", "value": { "index": 0 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "give.",
+    "speaker": { "type": "unassigned", "value": { "index": 0 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "are",
+    "speaker": { "type": "unassigned", "value": { "index": 0 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "really",
+    "speaker": { "type": "unassigned", "value": { "index": 0 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "inspiring",
+    "speaker": { "type": "unassigned", "value": { "index": 0 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "and",
+    "speaker": { "type": "unassigned", "value": { "index": 0 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "really",
+    "speaker": { "type": "unassigned", "value": { "index": 0 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  },
+  {
+    "text": "important.",
+    "speaker": { "type": "unassigned", "value": { "index": 0 } },
+    "confidence": null,
+    "start_ms": null,
+    "end_ms": null
+  }
+]

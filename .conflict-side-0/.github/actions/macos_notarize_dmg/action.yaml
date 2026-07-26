@@ -1,0 +1,62 @@
+# Apple's guidance: notarize the outermost shipped container.
+# Tauri already signs+notarizes+staples the .app; it also signs the DMG.
+# But Tauri does NOT notarize or staple the DMG itself.
+# This action closes that gap: verify the DMG is signed (sign if not),
+# then notarize and staple it as the outermost distribution artifact.
+#
+# https://developer.apple.com/documentation/xcode/packaging-mac-software-for-distribution
+# https://developer.apple.com/forums/thread/794045
+# https://developer.apple.com/videos/play/wwdc2019/703/
+# https://developer.apple.com/forums/thread/122045
+
+name: "Notarize macOS DMG"
+description: "Sign (if needed), notarize, and staple a macOS DMG"
+inputs:
+  dmg-path:
+    description: "Path to the DMG file"
+    required: true
+  signing-identity:
+    description: "Developer ID Application signing identity (used to sign the DMG if it is not already signed)"
+    required: false
+  apple-id:
+    description: "Apple ID for notarization"
+    required: true
+  apple-password:
+    description: "App-specific password for notarization"
+    required: true
+  apple-team-id:
+    description: "Apple Developer Team ID"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Notarize DMG
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        DMG_PATH="${{ inputs.dmg-path }}"
+
+        if [[ ! -f "$DMG_PATH" ]]; then
+          echo "::error::DMG not found at $DMG_PATH"
+          exit 1
+        fi
+
+        if ! codesign --verify --verbose=4 "$DMG_PATH"; then
+          if [[ -z "${{ inputs.signing-identity }}" ]]; then
+            echo "::error::DMG is not signed and no signing identity was provided"
+            exit 1
+          fi
+          codesign --force --sign "${{ inputs.signing-identity }}" --timestamp "$DMG_PATH"
+          codesign --verify --verbose=4 "$DMG_PATH"
+        fi
+
+        xcrun notarytool submit "$DMG_PATH" \
+          --apple-id "${{ inputs.apple-id }}" \
+          --password "${{ inputs.apple-password }}" \
+          --team-id "${{ inputs.apple-team-id }}" \
+          --wait
+
+        xcrun stapler staple "$DMG_PATH"
+        xcrun stapler validate "$DMG_PATH"
+        spctl -a -t open -vvv --context context:primary-signature "$DMG_PATH"

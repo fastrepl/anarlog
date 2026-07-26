@@ -1,0 +1,47 @@
+[package]
+name = "whisper-local"
+version = "0.1.0"
+edition = "2024"
+
+# https://github.com/tazz4843/whisper-rs/blob/e3d67d5/Cargo.toml
+[features]
+default = ["actual"]
+actual = ["dep:whisper-rs"]
+
+coreml = ["actual", "whisper-rs/coreml"]
+cuda = ["actual", "whisper-rs/cuda"]
+hipblas = ["actual", "whisper-rs/hipblas"]
+openblas = ["actual", "whisper-rs/openblas"]
+metal = ["actual", "whisper-rs/metal"]
+vulkan = ["actual", "whisper-rs/vulkan"]
+openmp = ["actual", "whisper-rs/openmp"]
+
+[dependencies]
+hypr-audio-utils = { workspace = true }
+hypr-whisper = { workspace = true }
+
+dasp = { workspace = true }
+hound = { workspace = true }
+
+hypr-audio-interface = { workspace = true }
+rodio = { workspace = true }
+whisper-rs = { git = "https://codeberg.org/tazz4843/whisper-rs", rev = "129b982", features = ["raw-api", "tracing_backend"], optional = true }
+
+futures-util = { workspace = true }
+tracing = { workspace = true }
+
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+specta = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+
+lazy_static = { workspace = true }
+regex = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+
+[dev-dependencies]
+hypr-data = { workspace = true }
+
+dirs = { workspace = true }
+futures-util = { workspace = true }
+tokio = { workspace = true }

@@ -1,0 +1,20 @@
+[package]
+name = "transcription-core"
+version = "0.1.0"
+edition = "2024"
+description = ""
+
+[features]
+default = []
+specta = [
+  "hypr-listener-core/specta",
+  "hypr-listener2-core/specta",
+]
+tauri-event = [
+  "hypr-listener-core/tauri-event",
+  "hypr-listener2-core/tauri-event",
+]
+
+[dependencies]
+hypr-listener-core = { workspace = true }
+hypr-listener2-core = { workspace = true }

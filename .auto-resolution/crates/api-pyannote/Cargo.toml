@@ -1,0 +1,22 @@
+[package]
+name = "api-pyannote"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hypr-api-auth = { workspace = true }
+hypr-api-env = { workspace = true }
+hypr-api-error = { workspace = true }
+hypr-pyannote-cloud = { workspace = true }
+
+axum = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+utoipa = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tower = { workspace = true }
+wiremock = { workspace = true }
