@@ -83,6 +83,9 @@
     top: calc(0.125em + 0.75em);
     left: 0.5em;
     transform: translate(-50%, -50%);
+    /* Border-box so the hollow variant's border draws inward and every
+     * marker shape keeps the same outer size. */
+    box-sizing: border-box;
     border: 0 solid currentColor;
     border-radius: 50%;
     background-color: currentColor;
