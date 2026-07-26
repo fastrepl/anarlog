@@ -6,7 +6,8 @@ Linear project: https://linear.app/fastrepl-inc/project/anarlog-mobile-3ccc6cca3
 
 ## Home — session timeline (`home.svg`)
 
-- Header: profile avatar (left), search (right).
+- Header: profile avatar (left, opens the account sheet), search (right).
+- Above the Start-listening pill: "New note" and "Import memo" outline buttons — creating notes and pulling in voice memos are first-class home actions.
 - Sessions grouped by day, reverse chronological: Tomorrow above Today above Yesterday.
 - Within Today, upcoming sessions render above a red "now" divider (dot + full-bleed line); past sessions render below it. The upcoming card shows a relative time label ("10 mins later").
 - Session cards: title, overflow ellipsis, relative time subtitle. Untitled sessions show a placeholder title.
@@ -16,8 +17,8 @@ Linear project: https://linear.app/fastrepl-inc/project/anarlog-mobile-3ccc6cca3
 
 - Header: back arrow (left), overflow menu (right).
 - Editable title, then a free-form note body filling the screen.
-- While listening, a bottom sheet sits at the bottom: a chevron handle above a red rounded panel with a live waveform. Tapping the waveform stops listening.
-- Tapping the chevron expands the sheet to show the live transcript (speaker + text lines, auto-scrolling); tapping again collapses it.
+- While listening, a bottom sheet sits at the bottom: a chevron handle above a red rounded panel with a live mic-driven waveform. Tapping the waveform stops listening and saves the recording as the session's audio attachment.
+- Tapping the chevron expands the sheet to show recording status and duration. Live transcript is deliberately not shown — the phone sits on the table during in-person conversations; transcription happens after the recording syncs.
 
 ## Direction
 

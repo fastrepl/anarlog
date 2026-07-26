@@ -4,24 +4,32 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "start": "dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f .env -- expo start",
+    "android": "dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f .env -- expo start --android",
+    "ios": "dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f .env -- expo start --ios",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@expo/ui": "~57.0.7",
     "@expo/vector-icons": "^15.1.1",
+    "@hypr/db-react": "workspace:*",
+    "@hypr/db-runtime": "workspace:*",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@supabase/supabase-js": "^2.103.0",
     "expo": "~57.0.8",
     "expo-audio": "~57.0.3",
     "expo-constants": "~57.0.7",
+    "expo-crypto": "~57.0.1",
     "expo-device": "~57.0.1",
+    "expo-document-picker": "~57.0.1",
+    "expo-file-system": "~57.0.1",
     "expo-font": "~57.0.1",
     "expo-glass-effect": "~57.0.1",
     "expo-image": "~57.0.1",
     "expo-linking": "~57.0.4",
     "expo-router": "~57.0.8",
     "expo-splash-screen": "~57.0.5",
+    "expo-sqlite": "~57.0.1",
     "expo-status-bar": "~57.0.1",
     "expo-symbols": "~57.0.1",
     "expo-system-ui": "~57.0.1",
@@ -37,6 +45,7 @@
     "react-native-worklets": "0.10.0"
   },
   "devDependencies": {
+    "@dotenvx/dotenvx": "^1.61.0",
     "@types/react": "~19.2.2",
     "typescript": "~6.0.3"
   }

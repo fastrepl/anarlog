@@ -4,11 +4,19 @@ Expo (SDK 57) app for Anarlog. Expo has changed significantly — read the exact
 
 ## Commands
 
-- Dev: `pnpm -F @hypr/mobile ios` (or `android`)
+- Dev: `pnpm -F @hypr/mobile ios` (or `android`; scripts load `.env.supabase` via dotenvx)
 - Typecheck: `pnpm -F @hypr/mobile typecheck`
 
-## Direction
+## Architecture
 
-- Local-first client on the canonical SQLite schema (`crates/db-app`) via the UniFFI `crates/mobile-bridge` transport. The TS side should implement the `@hypr/db-runtime` client contracts (like `packages/db-tauri` does for desktop) once the native module lands.
-- Screens currently render mock data from `src/data/sessions.ts`; swap it for live queries when the bridge transport exists.
+- Local-first, Pro-only client on the canonical SQLite schema. `src/db/` is the mobile twin of `packages/db-tauri`: an expo-sqlite transport implementing the `@hypr/db-runtime` `LiveQueryClient`/`TransactionClient` contracts, consumed through `@hypr/db-react`'s `useLiveQuery`.
+- `src/db/migrations.ts` is an interim TS mirror of `crates/db-app/migrations` (subset, final shape). The UniFFI `crates/mobile-bridge` will own the schema later; this local DB is disposable — cloud sync repopulates it. Keep every statement semantically identical to desktop (`apps/desktop/src/session/queries.ts` is the reference for session SQL).
+- `src/data/` mirrors desktop query semantics: canonical create-session transaction, note docs as ProseMirror JSON with `id == session_id`, `session-audio:<sessionId>` attachment rows.
+- `src/auth/` is supabase-js with AsyncStorage plus the desktop browser-handoff flow (`/auth?flow=desktop&scheme=anarlog`). Pro gating uses the same JWT-claims logic as `packages/supabase/src/billing.ts` (ported, since jose does not run on Hermes). No Supabase env → bypass mode (local dev, no gate).
+- Recording/import write files under `<documents>/sessions/<sessionId>/audio.<ext>` and catalog them via `src/data/audio-catalog.ts`. No on-device transcription: `transcript_status` stays `processing` until sync-side transcription exists.
+
+## Rules
+
+- Local writes never wait on network. Remote side effects are best-effort afterwards.
+- Keep schema/SQL parity with desktop; do not invent mobile-only columns or enums.
 - UX reference: `design/README.md`.

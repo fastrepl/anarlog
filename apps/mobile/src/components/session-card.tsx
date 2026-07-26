@@ -1,13 +1,13 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Colors, Radius, Spacing } from "@/constants/theme";
-import { relativeLabel, type SessionRow } from "@/data/sessions";
+import { relativeLabel, type TimelineSession } from "@/data/timeline";
 
 export function SessionCard({
   session,
   onPress,
 }: {
-  session: SessionRow;
+  session: TimelineSession;
   onPress: () => void;
 }) {
   return (

@@ -22,7 +22,7 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -38,9 +38,11 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Anarlog uses the microphone to capture and transcribe your meetings."
+          "microphonePermission": "Anarlog uses the microphone to capture and transcribe your meetings.",
+          "enableBackgroundRecording": true
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,

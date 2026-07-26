@@ -1,36 +1,70 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
 
-import { useLiveAudioLevels } from "@/audio/use-live-audio-levels";
-import { Waveform, WAVEFORM_BAR_COUNT } from "@/components/waveform";
+import type { RecorderPhase } from "@/audio/use-session-recorder";
+import { Waveform } from "@/components/waveform";
 import { Colors, Radius, Spacing } from "@/constants/theme";
-import { useMockLiveTranscript } from "@/data/transcript";
 
-const TRANSCRIPT_HEIGHT = 320;
+const DETAIL_HEIGHT = 96;
 
-export function ListeningSheet({ onStop }: { onStop: () => void }) {
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function statusLabel(phase: RecorderPhase, durationMs: number): string {
+  switch (phase) {
+    case "recording":
+      return `Listening · ${formatDuration(durationMs)}`;
+    case "saving":
+      return "Saving recording…";
+    case "unavailable":
+      return "Microphone unavailable";
+    case "error":
+      return "Couldn't save the recording";
+    default:
+      return "Getting ready…";
+  }
+}
+
+export function ListeningSheet({
+  phase,
+  levels,
+  durationMs,
+  onStop,
+}: {
+  phase: RecorderPhase;
+  levels: number[] | null;
+  durationMs: number;
+  onStop: () => void;
+}) {
   const [expanded, setExpanded] = useState(false);
-  const transcriptHeight = useSharedValue(0);
-  const scrollRef = useRef<ScrollView>(null);
-  const lines = useMockLiveTranscript();
-  const levels = useLiveAudioLevels(WAVEFORM_BAR_COUNT);
+  const detailHeight = useSharedValue(0);
 
   const toggle = () => {
     const next = !expanded;
     setExpanded(next);
-    transcriptHeight.value = withTiming(next ? TRANSCRIPT_HEIGHT : 0, {
+    detailHeight.value = withTiming(next ? DETAIL_HEIGHT : 0, {
       duration: 240,
     });
   };
 
-  const transcriptStyle = useAnimatedStyle(() => ({
-    height: transcriptHeight.value,
+  const detailStyle = useAnimatedStyle(() => ({
+    height: detailHeight.value,
   }));
 
   return (
@@ -43,28 +77,37 @@ export function ListeningSheet({ onStop }: { onStop: () => void }) {
         />
       </Pressable>
 
-      <Animated.View style={[styles.transcript, transcriptStyle]}>
-        <ScrollView
-          ref={scrollRef}
-          onContentSizeChange={() =>
-            scrollRef.current?.scrollToEnd({ animated: true })
-          }
-          contentContainerStyle={styles.transcriptContent}
-        >
-          {lines.map((line) => (
-            <View key={line.id} style={styles.line}>
-              <Text style={styles.speaker}>{line.speaker}</Text>
-              <Text style={styles.words}>{line.text}</Text>
-            </View>
-          ))}
-        </ScrollView>
+      <Animated.View style={[styles.detail, detailStyle]}>
+        <View style={styles.detailRow}>
+          <View style={styles.recordingDot} />
+          <Text style={styles.detailStatus}>
+            {statusLabel(phase, durationMs)}
+          </Text>
+        </View>
+        <Text style={styles.detailHint}>
+          Leave your phone on the table and talk. The transcript is generated
+          once the recording syncs.
+        </Text>
       </Animated.View>
 
       <Pressable
         onPress={onStop}
+        disabled={phase === "saving"}
         style={({ pressed }) => [styles.panel, pressed && styles.panelPressed]}
       >
-        <Waveform levels={levels} />
+        {phase === "saving" ? (
+          <View style={styles.panelCenter}>
+            <ActivityIndicator color={Colors.inkInverse} />
+          </View>
+        ) : phase === "error" ? (
+          <View style={styles.panelCenter}>
+            <Text style={styles.panelMessage}>
+              Couldn't save — tap to dismiss
+            </Text>
+          </View>
+        ) : (
+          <Waveform levels={levels} />
+        )}
       </Pressable>
     </View>
   );
@@ -85,25 +128,32 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     paddingVertical: Spacing.sm,
   },
-  transcript: {
+  detail: {
     overflow: "hidden",
   },
-  transcriptContent: {
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
     paddingHorizontal: Spacing.sm,
-    paddingBottom: Spacing.md,
   },
-  line: {
-    marginBottom: Spacing.md,
+  recordingDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.accent,
   },
-  speaker: {
-    fontSize: 13,
+  detailStatus: {
+    fontSize: 15,
     fontWeight: "600",
-    color: Colors.muted,
-    marginBottom: 2,
-  },
-  words: {
-    fontSize: 16,
     color: Colors.ink,
+  },
+  detailHint: {
+    paddingHorizontal: Spacing.sm,
+    paddingTop: Spacing.sm,
+    fontSize: 14,
+    lineHeight: 20,
+    color: Colors.muted,
   },
   panel: {
     borderRadius: Radius.card + 4,
@@ -112,5 +162,15 @@ const styles = StyleSheet.create({
   },
   panelPressed: {
     opacity: 0.9,
+  },
+  panelCenter: {
+    height: 72,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  panelMessage: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.inkInverse,
   },
 });
