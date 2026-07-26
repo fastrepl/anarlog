@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 720" font-family="ui-rounded, system-ui, sans-serif">
+  <rect x="8" y="8" width="344" height="704" rx="36" fill="#FFFFFF" stroke="#111111" stroke-width="3"/>
+  <circle cx="52" cy="60" r="14" fill="none" stroke="#111111" stroke-width="3"/>
+  <g stroke="#111111" stroke-width="3" fill="none">
+    <circle cx="304" cy="56" r="9"/>
+    <line x1="311" y1="63" x2="320" y2="72"/>
+  </g>
+  <text x="40" y="112" font-size="17" font-weight="600" fill="#111111">Tomorrow</text>
+  <rect x="36" y="126" width="288" height="52" rx="14" fill="none" stroke="#111111" stroke-width="2.5"/>
+  <text x="40" y="222" font-size="17" font-weight="600" fill="#111111">Today</text>
+  <rect x="36" y="236" width="288" height="62" rx="14" fill="none" stroke="#111111" stroke-width="2.5"/>
+  <text x="52" y="262" font-size="17" font-weight="600" fill="#111111">lorem ipsum dolor</text>
+  <text x="296" y="262" font-size="17" fill="#8A8F98">…</text>
+  <text x="52" y="286" font-size="13" fill="#8A8F98">10 mins later</text>
+  <circle cx="32" cy="316" r="8" fill="#E5483F"/>
+  <line x1="40" y1="316" x2="336" y2="316" stroke="#E5483F" stroke-width="4"/>
+  <rect x="36" y="332" width="288" height="52" rx="14" fill="none" stroke="#111111" stroke-width="2.5"/>
+  <rect x="36" y="398" width="288" height="52" rx="14" fill="none" stroke="#111111" stroke-width="2.5"/>
+  <text x="40" y="492" font-size="17" font-weight="600" fill="#111111">Yesterday</text>
+  <rect x="36" y="506" width="288" height="52" rx="14" fill="none" stroke="#111111" stroke-width="2.5"/>
+  <rect x="36" y="596" width="288" height="84" rx="28" fill="#111111"/>
+  <circle cx="128" cy="638" r="8" fill="#E5483F"/>
+  <text x="146" y="645" font-size="19" font-weight="600" fill="#FFFFFF">Start listening</text>
+</svg>

@@ -1,0 +1,69 @@
+import { Pressable, StyleSheet, Text, View } from "react-native";
+
+import { Colors, Radius, Spacing } from "@/constants/theme";
+import { relativeLabel, type SessionRow } from "@/data/sessions";
+
+export function SessionCard({
+  session,
+  onPress,
+}: {
+  session: SessionRow;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+    >
+      <View style={styles.row}>
+        <Text
+          style={[styles.title, !session.title && styles.titleEmpty]}
+          numberOfLines={1}
+        >
+          {session.title || "Untitled"}
+        </Text>
+        <Text style={styles.ellipsis}>…</Text>
+      </View>
+      <Text style={styles.subtitle}>{relativeLabel(session.startedAt)}</Text>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    borderWidth: 1.5,
+    borderColor: Colors.ink,
+    borderRadius: Radius.card,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.paper,
+  },
+  cardPressed: {
+    opacity: 0.6,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  title: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: "600",
+    color: Colors.ink,
+  },
+  titleEmpty: {
+    color: Colors.muted,
+  },
+  ellipsis: {
+    fontSize: 17,
+    color: Colors.muted,
+    marginLeft: Spacing.sm,
+  },
+  subtitle: {
+    marginTop: Spacing.xs,
+    fontSize: 13,
+    color: Colors.muted,
+  },
+});

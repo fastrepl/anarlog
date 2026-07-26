@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 720" font-family="ui-rounded, system-ui, sans-serif">
+  <rect x="8" y="8" width="344" height="704" rx="36" fill="#FFFFFF" stroke="#111111" stroke-width="3"/>
+  <g stroke="#111111" stroke-width="3" fill="none" stroke-linecap="round">
+    <line x1="40" y1="56" x2="68" y2="56"/>
+    <polyline points="50,46 40,56 50,66"/>
+  </g>
+  <g fill="#111111">
+    <circle cx="296" cy="56" r="2.5"/>
+    <circle cx="306" cy="56" r="2.5"/>
+    <circle cx="316" cy="56" r="2.5"/>
+  </g>
+  <text x="40" y="112" font-size="24" font-weight="700" fill="#111111">lorem ipsum dolor</text>
+  <rect x="28" y="556" width="304" height="124" rx="18" fill="#E5483F"/>
+  <g stroke="#FFFFFF" stroke-width="3" stroke-linecap="round">
+    <line x1="52" y1="600" x2="52" y2="636"/>
+    <line x1="64" y1="590" x2="64" y2="646"/>
+    <line x1="76" y1="606" x2="76" y2="630"/>
+    <line x1="88" y1="584" x2="88" y2="652"/>
+    <line x1="100" y1="598" x2="100" y2="638"/>
+    <line x1="112" y1="608" x2="112" y2="628"/>
+    <line x1="124" y1="588" x2="124" y2="648"/>
+    <line x1="136" y1="600" x2="136" y2="636"/>
+    <line x1="148" y1="580" x2="148" y2="656"/>
+    <line x1="160" y1="602" x2="160" y2="634"/>
+    <line x1="172" y1="592" x2="172" y2="644"/>
+    <line x1="184" y1="606" x2="184" y2="630"/>
+    <line x1="196" y1="586" x2="196" y2="650"/>
+    <line x1="208" y1="600" x2="208" y2="636"/>
+    <line x1="220" y1="594" x2="220" y2="642"/>
+    <line x1="232" y1="606" x2="232" y2="630"/>
+    <line x1="244" y1="588" x2="244" y2="648"/>
+    <line x1="256" y1="600" x2="256" y2="636"/>
+    <line x1="268" y1="582" x2="268" y2="654"/>
+    <line x1="280" y1="602" x2="280" y2="634"/>
+    <line x1="292" y1="592" x2="292" y2="644"/>
+    <line x1="304" y1="604" x2="304" y2="632"/>
+  </g>
+</svg>
