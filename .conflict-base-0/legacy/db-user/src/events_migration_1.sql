@@ -1,4 +1,0 @@
-ALTER TABLE
-  events
-ADD
-  COLUMN participants TEXT DEFAULT NULL;

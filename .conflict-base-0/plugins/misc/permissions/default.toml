@@ -1,8 +1,0 @@
-[default]
-description = "Default permissions for the plugin"
-permissions = [
-    "allow-get-git-hash",
-    "allow-get-fingerprint",
-    "allow-get-device-info",
-    "allow-opinionated-md-to-html",
-]

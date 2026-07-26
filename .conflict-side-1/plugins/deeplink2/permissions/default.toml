@@ -1,9 +1,0 @@
-[default]
-description = "Default permissions for the plugin"
-permissions = [
-  "allow-list-pending-share-opens",
-  "allow-start-callback-server",
-  "allow-stop-callback-server",
-  "allow-take-pending-deep-links",
-  "allow-take-pending-share-open",
-]

@@ -1,1 +1,0 @@
-- Hook is intended to be called in TS side, with `hooksCommands.runEventHooks({`
