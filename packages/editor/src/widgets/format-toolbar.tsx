@@ -17,6 +17,7 @@ import {
   HighlighterIcon,
   ItalicIcon,
   StrikethroughIcon,
+  UnderlineIcon,
 } from "lucide-react";
 import { toggleMark } from "prosemirror-commands";
 import type { MarkType } from "prosemirror-model";
@@ -61,6 +62,7 @@ const TOOLBAR_BUTTONS: {
 }[] = [
   { id: "bold", icon: BoldIcon, markType: schema.marks.bold },
   { id: "italic", icon: ItalicIcon, markType: schema.marks.italic },
+  { id: "underline", icon: UnderlineIcon, markType: schema.marks.underline },
   { id: "strike", icon: StrikethroughIcon, markType: schema.marks.strike },
   { id: "code", icon: CodeIcon, markType: schema.marks.code },
   { id: "highlight", icon: HighlighterIcon, markType: schema.marks.highlight },

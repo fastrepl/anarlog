@@ -380,6 +380,9 @@ function renderMarkedText(node: SharedNoteNode, key: string) {
       case "strike":
         content = <s key={markKey}>{content}</s>;
         break;
+      case "underline":
+        content = <u key={markKey}>{content}</u>;
+        break;
       case "highlight":
         content = <mark key={markKey}>{content}</mark>;
         break;

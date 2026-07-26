@@ -830,3 +830,132 @@ describe("fileAttachment round-trip", () => {
     expect(attachments[0].attrs?.name).toBe("CE2 (Group 5) PPT.pdf");
   });
 });
+
+describe("schema mirror", () => {
+  // Guard for the note-schema/markdownSchema contract: a node or mark added
+  // to the note schema without its mirror makes PMNode.fromJSON throw inside
+  // json2md, which then silently returns "" (killing export, copy-as-md, and
+  // LLM snapshots). This fixture must contain every type both schemas share.
+  const fixture: JSONContent = {
+    type: "doc",
+    content: [
+      {
+        type: "heading",
+        attrs: { level: 1 },
+        content: [{ type: "text", text: "Title" }],
+      },
+      {
+        type: "paragraph",
+        content: [
+          { type: "text", text: "bold", marks: [{ type: "bold" }] },
+          { type: "text", text: " italic", marks: [{ type: "italic" }] },
+          { type: "text", text: " underline", marks: [{ type: "underline" }] },
+          { type: "text", text: " strike", marks: [{ type: "strike" }] },
+          { type: "text", text: " code", marks: [{ type: "code" }] },
+          { type: "text", text: " mark", marks: [{ type: "highlight" }] },
+          {
+            type: "text",
+            text: " link",
+            marks: [{ type: "link", attrs: { href: "https://example.com" } }],
+          },
+          { type: "hardBreak" },
+          { type: "text", text: "after break" },
+        ],
+      },
+      {
+        type: "blockquote",
+        content: [
+          { type: "paragraph", content: [{ type: "text", text: "quote" }] },
+        ],
+      },
+      { type: "codeBlock", content: [{ type: "text", text: "const x = 1;" }] },
+      { type: "horizontalRule" },
+      {
+        type: "bulletList",
+        content: [
+          {
+            type: "listItem",
+            content: [
+              { type: "paragraph", content: [{ type: "text", text: "one" }] },
+            ],
+          },
+        ],
+      },
+      {
+        type: "orderedList",
+        content: [
+          {
+            type: "listItem",
+            content: [
+              { type: "paragraph", content: [{ type: "text", text: "two" }] },
+            ],
+          },
+        ],
+      },
+      {
+        type: "taskList",
+        content: [
+          {
+            type: "taskItem",
+            attrs: { checked: true },
+            content: [
+              { type: "paragraph", content: [{ type: "text", text: "done" }] },
+            ],
+          },
+        ],
+      },
+      {
+        type: "table",
+        content: [
+          {
+            type: "tableRow",
+            content: [
+              {
+                type: "tableHeader",
+                content: [
+                  { type: "paragraph", content: [{ type: "text", text: "h" }] },
+                ],
+              },
+            ],
+          },
+          {
+            type: "tableRow",
+            content: [
+              {
+                type: "tableCell",
+                content: [
+                  { type: "paragraph", content: [{ type: "text", text: "c" }] },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        type: "paragraph",
+        content: [
+          {
+            type: "image",
+            attrs: { src: "https://example.com/a.png", alt: "alt" },
+          },
+        ],
+      },
+      {
+        type: "fileAttachment",
+        attrs: { name: "doc.pdf", src: "asset://localhost/doc.pdf" },
+      },
+    ],
+  };
+
+  test("note schema loads the full fixture", () => {
+    expect(() => PMNode.fromJSON(noteSchema, fixture)).not.toThrow();
+  });
+
+  test("json2md produces non-empty output for the full fixture", () => {
+    const md = json2md(fixture);
+    expect(md.trim().length).toBeGreaterThan(0);
+    for (const text of ["Title", "bold", "quote", "const x = 1;", "done"]) {
+      expect(md).toContain(text);
+    }
+  });
+});

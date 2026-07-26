@@ -351,6 +351,93 @@ function textReplacementRule(pattern: RegExp, replacement: string) {
   });
 }
 
+// Char-style typographic replacements. Patterns capture an optional prefix
+// (kept) and the token (replaced); a third group is a kept suffix.
+const SYMBOL_REPLACEMENTS: Record<string, string> = {
+  "->": "→",
+  "<-": "←",
+  "<->": "↔",
+  "==>": "⇒",
+  "<==": "⇐",
+  "<=>": "⇔",
+  "+-": "±",
+  "+/-": "±",
+  "=/=": "≠",
+};
+
+const ABBREVIATION_REPLACEMENTS: Record<string, string> = {
+  "(c)": "©",
+  "(r)": "®",
+  "(tm)": "™",
+};
+
+const FRACTION_REPLACEMENTS: Record<string, string> = {
+  "c/o": "℅",
+  "1/2": "½",
+  "1/3": "⅓",
+  "1/4": "¼",
+  "1/5": "⅕",
+  "1/6": "⅙",
+  "1/8": "⅛",
+  "2/3": "⅔",
+  "2/5": "⅖",
+  "3/4": "¾",
+  "3/5": "⅗",
+  "3/8": "⅜",
+  "4/5": "⅘",
+  "5/6": "⅚",
+  "5/8": "⅝",
+  "7/8": "⅞",
+};
+
+function mappedReplacementRule(pattern: RegExp, map: Record<string, string>) {
+  return new InputRule(pattern, (state, match, start, end) => {
+    if (isInCodeInputContext(state)) return null;
+    const prefix = match[1] ?? "";
+    const replacement = map[(match[2] ?? "").toLowerCase()];
+    if (!replacement) return null;
+    const suffix = match[3] ?? "";
+    return state.tr.insertText(
+      replacement + suffix,
+      start + prefix.length,
+      end,
+    );
+  });
+}
+
+function symbolReplacementRule() {
+  return new InputRule(
+    /(?:<->|==>|<==|<=>|->|<-|\+\/-|\+-|=\/=)$/,
+    (state, match, start, end) => {
+      if (isInCodeInputContext(state)) return null;
+      const replacement = SYMBOL_REPLACEMENTS[match[0].toLowerCase()];
+      if (!replacement) return null;
+      return state.tr.insertText(replacement, start, end);
+    },
+  );
+}
+
+function dashReplacementRule() {
+  return new InputRule(/(.)--$/, (state, match, start, end) => {
+    if (isInCodeInputContext(state)) return null;
+    const prefix = match[1] ?? "";
+    return state.tr.insertText("—", start + prefix.length, end);
+  });
+}
+
+// Same semantics as prosemirror-inputrules smartQuotes/ellipsis, but guarded
+// so quotes inside code stay straight.
+function quoteRule(pattern: RegExp, replacement: string) {
+  return new InputRule(pattern, (state, match, start, end) => {
+    if (isInCodeInputContext(state)) return null;
+    let insertStart = start;
+    if (match.length > 1 && typeof match[1] === "string") {
+      insertStart = start + match[0].lastIndexOf(match[1]);
+    }
+    return state.tr.insertText(replacement, insertStart, end);
+  });
+}
+
 function taskListRule() {
   return new InputRule(/^\s*\[([ x]?)\]\s$/, (state, match, start, end) => {
     const checked = match[1] === "x";
@@ -373,10 +460,24 @@ export function buildInputRules() {
       codeBlockRule(schema.nodes.codeBlock),
       horizontalRuleRule(),
       taskListRule(),
-      textReplacementRule(/->$/, "→"),
-      textReplacementRule(/\(c\)$/i, "©"),
+      symbolReplacementRule(),
+      dashReplacementRule(),
+      mappedReplacementRule(
+        /(^|[\s([{])(\((?:c|r|tm)\))$/i,
+        ABBREVIATION_REPLACEMENTS,
+      ),
+      mappedReplacementRule(
+        /(^|[\s([{])((?:c\/o|1\/2|1\/3|1\/4|1\/5|1\/6|1\/8|2\/3|2\/5|3\/4|3\/5|3\/8|4\/5|5\/6|5\/8|7\/8))([\s.,;:!?])$/i,
+        FRACTION_REPLACEMENTS,
+      ),
+      quoteRule(/(?:^|[\s{[(<'"‘“])(")$/, "“"),
+      quoteRule(/"$/, "”"),
+      quoteRule(/(?:^|[\s{[(<'"‘“])(')$/, "‘"),
+      quoteRule(/'$/, "’"),
+      textReplacementRule(/\.\.\.$/, "…"),
       markInputRule(/(^|[^*])\*\*([^*]+)\*\*$/, schema.marks.bold, 2),
       markInputRule(/(^|[^~])~~([^~]+)~~$/, schema.marks.strike, 2),
+      markInputRule(/(^|[^=])==([^=]+)==$/, schema.marks.highlight, 2),
       markInputRule(/(^|[^*])\*([^*]+)\*$/, schema.marks.italic, 1),
       markInputRule(/(^|[^_])_([^_]+)_$/, schema.marks.italic, 1),
       markInputRule(/(^|[^~])~([^~]+)~$/, schema.marks.strike, 1),
@@ -401,6 +502,7 @@ export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
 
   keys["Mod-b"] = toggleMark(schema.marks.bold);
   keys["Mod-i"] = toggleMark(schema.marks.italic);
+  keys["Mod-u"] = toggleMark(schema.marks.underline);
   keys["Mod-`"] = toggleMark(schema.marks.code);
 
   const exitCodeBlockOnEmptyLine: Command = (state, dispatch) => {
