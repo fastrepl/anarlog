@@ -254,7 +254,7 @@ export function SyncStatusIndicator() {
           className={cn([
             "fixed right-3 bottom-3 z-40",
             "border-border/60 bg-background/90 flex size-8 items-center justify-center rounded-xl border shadow-sm backdrop-blur",
-            "text-muted-foreground hover:text-foreground transition-colors",
+            "text-muted-foreground hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground outline-hidden transition-colors",
           ])}
         >
           {view.kind === "error" && (
