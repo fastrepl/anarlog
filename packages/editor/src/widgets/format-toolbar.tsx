@@ -128,9 +128,11 @@ export function FormatToolbar() {
   return createPortal(
     <div
       ref={toolbarRef}
+      role="toolbar"
+      aria-label="Format selection"
       className={cn([
-        "border-border bg-card/95 fixed flex items-center gap-0.5 rounded-lg border p-1",
-        "shadow-[0_2px_8px_rgba(0,0,0,0.08),0_18px_42px_-16px_rgba(0,0,0,0.34)] backdrop-blur-sm",
+        "bg-popover ring-border fixed flex items-center gap-0.5 rounded-xl p-1 ring-1",
+        "shadow-lg",
       ])}
       style={{ top: 0, left: 0, zIndex: 40 }}
       onMouseDown={(e) => e.preventDefault()}
@@ -140,12 +142,13 @@ export function FormatToolbar() {
         return (
           <button
             key={button.id}
+            aria-pressed={active}
             className={cn([
-              "flex size-8 items-center justify-center rounded-md",
+              "flex size-7 items-center justify-center rounded-md",
               "cursor-pointer border-none transition-colors",
               active
-                ? "bg-accent text-foreground"
-                : "text-muted-foreground hover:bg-accent bg-transparent",
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground bg-transparent",
             ])}
             onClick={() => toggle(button.markType)}
           >

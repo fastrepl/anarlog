@@ -357,39 +357,36 @@ export function SlashCommandMenu() {
       ref={popupRef}
       data-editor-escape-consumer
       className={cn([
-        "absolute z-[9999] max-h-64 w-[240px]",
-        "border-border bg-card/95 overflow-y-auto rounded-lg border p-1",
-        "shadow-[0_2px_8px_rgba(0,0,0,0.08),0_18px_42px_-16px_rgba(0,0,0,0.34)] backdrop-blur-sm",
+        "absolute z-[9999] max-h-64 w-[224px]",
+        "bg-popover text-popover-foreground ring-border overflow-y-auto rounded-[1rem] p-1 ring-1",
+        "text-sm shadow-lg",
       ])}
       style={{ top: 0, left: 0 }}
     >
-      <div className="text-muted-foreground px-1.5 py-0.5 text-[0.65rem] font-semibold tracking-wide uppercase select-none">
+      <div className="text-muted-foreground px-2 pb-0.5 text-[10px] font-semibold tracking-wide uppercase select-none">
         Commands
       </div>
-      {items.map((item, index) => (
-        <button
-          key={item.id}
-          className={cn([
-            "flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left",
-            "cursor-pointer border-none bg-transparent transition-colors",
-            index === selectedIndex && "bg-muted",
-          ])}
-          onClick={() => executeCommand(item)}
-          onMouseEnter={() => setSelectedIndex(index)}
-        >
-          <span className="border-border bg-muted flex size-7 shrink-0 items-center justify-center rounded-md border">
-            <item.icon className="text-muted-foreground size-3.5" />
-          </span>
-          <span className="flex flex-col gap-px overflow-hidden">
-            <span className="text-foreground truncate text-[0.8rem] font-medium">
+      <div className="space-y-0.5">
+        {items.map((item, index) => (
+          <button
+            key={item.id}
+            className={cn([
+              "flex h-8 w-full items-center gap-1.5 rounded-xl px-2 text-left",
+              "cursor-pointer border-none bg-transparent transition-colors outline-none",
+              index === selectedIndex && "bg-muted",
+            ])}
+            onClick={() => executeCommand(item)}
+            onMouseEnter={() => setSelectedIndex(index)}
+          >
+            <span className="text-muted-foreground flex size-4 shrink-0 items-center justify-center">
+              <item.icon className="size-4" />
+            </span>
+            <span className="text-popover-foreground min-w-0 flex-1 truncate text-sm leading-4">
               {item.label}
             </span>
-            <span className="text-muted-foreground truncate text-[0.7rem]">
-              {item.description}
-            </span>
-          </span>
-        </button>
-      ))}
+          </button>
+        ))}
+      </div>
     </div>,
     document.body,
   );

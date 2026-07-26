@@ -27,22 +27,3 @@
 .dark .ProseMirror .react-placeholder-widget {
   color: #78716c;
 }
-
-.dark .mention-container {
-  background: #292524;
-  box-shadow:
-    0 0 0 1px rgb(255 255 255 / 0.08),
-    0 6px 12px -3px rgb(0 0 0 / 0.35);
-}
-
-.dark .mention-item.is-selected {
-  background-color: #44403c;
-}
-
-.dark .mention-item:hover {
-  background-color: #292524;
-}
-
-.dark .mention .mention-avatar-icon {
-  color: #a8a29e;
-}
