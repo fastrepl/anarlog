@@ -127,10 +127,11 @@ impl MicInput {
 }
 
 impl MicInput {
-    pub fn stream(&self) -> MicStream {
+    pub fn stream(&self) -> Result<MicStream, crate::Error> {
         let config = self.config.clone();
         let device = self.device.clone();
         let (drop_tx, drop_rx) = std::sync::mpsc::channel();
+        let (init_tx, init_rx) = std::sync::mpsc::channel();
 
         let rb = HeapRb::<f32>::new(MIC_BUFFER_SIZE);
         let (producer, consumer) = rb.split();
@@ -187,7 +188,7 @@ impl MicInput {
                 )
             }
 
-            let start_stream = || {
+            let start_stream = || -> Result<cpal::Stream, String> {
                 let stream = match config.sample_format() {
                     cpal::SampleFormat::I8 => build_stream::<i8>(
                         &device,
@@ -227,45 +228,62 @@ impl MicInput {
                     ),
                     sample_format => {
                         tracing::error!(sample_format = ?sample_format, "unsupported");
-                        return None;
+                        return Err(format!(
+                            "unsupported microphone sample format: {sample_format:?}"
+                        ));
                     }
                 };
 
-                let stream = match stream {
-                    Ok(stream) => stream,
-                    Err(err) => {
-                        tracing::error!("Error starting stream: {}", err);
-                        return None;
-                    }
-                };
+                let stream = stream.map_err(|err| {
+                    tracing::error!(error = %err, "mic_stream_build_failed");
+                    format!("failed to build microphone stream: {err}")
+                })?;
 
-                if let Err(err) = stream.play() {
-                    tracing::error!("Error playing stream: {}", err);
-                    return None;
-                }
+                stream.play().map_err(|err| {
+                    tracing::error!(error = %err, "mic_stream_start_failed");
+                    format!("failed to start microphone stream: {err}")
+                })?;
 
-                Some(stream)
+                Ok(stream)
             };
 
             let stream = match start_stream() {
-                Some(stream) => stream,
-                None => {
+                Ok(stream) => stream,
+                Err(error) => {
+                    let _ = init_tx.send(Err(error));
                     alive_for_thread.store(false, Ordering::Release);
                     waker_for_thread.wake();
                     return;
                 }
             };
 
-            // Wait for the stream to be dropped
+            let _ = init_tx.send(Ok(()));
             let _ = drop_rx.recv();
 
-            // Then drop the stream
             alive_for_thread.store(false, Ordering::Release);
             waker_for_thread.wake();
             drop(stream);
         });
 
-        MicStream {
+        match init_rx.recv_timeout(std::time::Duration::from_secs(5)) {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => {
+                return Err(crate::Error::MicStreamInitializationFailed(error));
+            }
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                let _ = drop_tx.send(());
+                return Err(crate::Error::MicStreamInitializationFailed(
+                    "timed out while starting the microphone stream".to_string(),
+                ));
+            }
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                return Err(crate::Error::MicStreamInitializationFailed(
+                    "microphone capture stopped during initialization".to_string(),
+                ));
+            }
+        }
+
+        Ok(MicStream {
             drop_tx,
             config: self.config.clone(),
             reader: RingbufAsyncReader::new(
@@ -276,7 +294,7 @@ impl MicInput {
             )
             .with_alive(alive)
             .with_dropped_samples(dropped_samples, "mic_samples_dropped"),
-        }
+        })
     }
 }
 
@@ -319,21 +337,40 @@ mod tests {
     use super::*;
     use futures_util::StreamExt;
 
+    fn rms(samples: &[f32]) -> f32 {
+        (samples.iter().map(|sample| sample * sample).sum::<f32>() / samples.len() as f32).sqrt()
+    }
+
     #[tokio::test]
-    #[ignore = "requires audio hardware"]
+    #[ignore = "requires audio hardware and speech near the microphone"]
     async fn test_mic() {
         let mic = MicInput::new(None).unwrap();
-        let mut stream = mic.stream();
+        let mut stream = mic.stream().unwrap();
 
         let mut buffer = Vec::new();
-        while let Some(sample) = stream.next().await {
-            buffer.push(sample);
-            if buffer.len() > 6000 {
-                break;
+        let timeout = tokio::time::sleep(tokio::time::Duration::from_secs(5));
+        tokio::pin!(timeout);
+
+        loop {
+            tokio::select! {
+                _ = &mut timeout => break,
+                sample = stream.next() => {
+                    match sample {
+                        Some(sample) => buffer.push(sample),
+                        None => panic!("microphone stream ended unexpectedly"),
+                    }
+                    if buffer.len() >= mic.sample_rate() as usize {
+                        break;
+                    }
+                }
             }
         }
 
-        assert!(buffer.iter().any(|x| *x != 0.0));
+        assert!(!buffer.is_empty(), "microphone produced no samples");
+        assert!(
+            rms(&buffer) > 1e-4,
+            "microphone capture was silent; speak while running this test"
+        );
     }
 
     #[tokio::test]
@@ -350,7 +387,7 @@ mod tests {
         let chunk_size = chunk_size_for_stt(target_rate);
         println!("target_rate: {}, chunk_size: {}", target_rate, chunk_size);
 
-        let stream = mic.stream();
+        let stream = mic.stream().unwrap();
         let mut resampled = stream.resampled_chunks(target_rate, chunk_size).unwrap();
 
         let mut chunks_received = 0;

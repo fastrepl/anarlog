@@ -12,8 +12,12 @@ pub enum Error {
     MicOpenFailed,
     #[error("mic_stream_setup_failed")]
     MicStreamSetupFailed,
+    #[error("microphone capture initialization failed: {0}")]
+    MicStreamInitializationFailed(String),
     #[error("speaker_stream_setup_failed")]
     SpeakerStreamSetupFailed,
+    #[error("system audio capture initialization failed: {0}")]
+    SpeakerStreamInitializationFailed(String),
     #[error("mic_resample_failed")]
     MicResampleFailed,
     #[error("speaker_resample_failed")]

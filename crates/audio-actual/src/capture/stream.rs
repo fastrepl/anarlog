@@ -61,7 +61,7 @@ pub(crate) fn setup_mic_stream(
     mic_device: Option<String>,
 ) -> Result<ChunkStream, Error> {
     let mic = MicInput::new(mic_device).map_err(|_| Error::MicOpenFailed)?;
-    mic.stream()
+    mic.stream()?
         .resampled_chunks(sample_rate, chunk_size)
         .map(|stream| Box::pin(stream) as ChunkStream)
         .map_err(|_| Error::MicStreamSetupFailed)
@@ -71,10 +71,11 @@ pub(crate) fn setup_speaker_stream(
     sample_rate: u32,
     chunk_size: usize,
 ) -> Result<ChunkStream, Error> {
-    let speaker = SpeakerInput::new().map_err(|_| Error::SpeakerStreamSetupFailed)?;
+    let speaker = SpeakerInput::new()
+        .map_err(|error| Error::SpeakerStreamInitializationFailed(error.to_string()))?;
     speaker
         .stream()
-        .map_err(|_| Error::SpeakerStreamSetupFailed)?
+        .map_err(|error| Error::SpeakerStreamInitializationFailed(error.to_string()))?
         .resampled_chunks(sample_rate, chunk_size)
         .map(|stream| Box::pin(stream) as ChunkStream)
         .map_err(|_| Error::SpeakerStreamSetupFailed)

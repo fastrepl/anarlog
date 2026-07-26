@@ -15,10 +15,7 @@ use pulse::sample::{Format, Spec};
 use pulse::stream::{FlagSet as StreamFlagSet, Stream as PaStream};
 use pw::properties::properties;
 use pw::spa::utils::Direction;
-use ringbuf::{
-    HeapCons, HeapProd, HeapRb,
-    traits::{Producer, Split},
-};
+use ringbuf::{HeapCons, HeapProd, HeapRb, traits::Split};
 
 use crate::async_ring::RingbufAsyncReader;
 use crate::rt_ring::push_f32le_bytes_first_channel_to_ringbuf;
@@ -51,6 +48,7 @@ enum BackendControl {
 
 struct PipeWireUserData {
     format: pw::spa::param::audio::AudioInfoRaw,
+    init_tx: Option<std::sync::mpsc::Sender<Result<()>>>,
     producer: HeapProd<f32>,
     waker: Arc<AtomicWaker>,
     wake_pending: Arc<AtomicBool>,
@@ -133,10 +131,14 @@ impl SpeakerStream {
                 let _ = capture_thread.join();
                 return Err(err);
             }
-            Err(_) => {
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                 let _ = shutdown_tx.send(());
                 let _ = capture_thread.join();
                 anyhow::bail!("Timed out initializing PipeWire speaker capture");
+            }
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                let _ = capture_thread.join();
+                anyhow::bail!("PipeWire speaker capture stopped during initialization");
             }
         }
 
@@ -200,10 +202,14 @@ impl SpeakerStream {
                 let _ = capture_thread.join();
                 return Err(err);
             }
-            Err(_) => {
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                 running.store(false, Ordering::Release);
                 let _ = capture_thread.join();
                 anyhow::bail!("Timed out initializing PulseAudio speaker capture");
+            }
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                let _ = capture_thread.join();
+                anyhow::bail!("PulseAudio speaker capture stopped during initialization");
             }
         }
 
@@ -265,6 +271,7 @@ fn pipewire_capture_loop(
     let _listener = stream
         .add_local_listener_with_user_data(PipeWireUserData {
             format: Default::default(),
+            init_tx: Some(init_tx),
             producer,
             waker,
             wake_pending,
@@ -274,10 +281,15 @@ fn pipewire_capture_loop(
         })
         .state_changed({
             let mainloop = mainloop.clone();
-            move |_, _, old, new| {
+            move |_, user_data, old, new| {
                 tracing::debug!(?old, ?new, "pipewire_stream_state_changed");
                 if let pw::stream::StreamState::Error(error) = new {
                     tracing::error!(error = %error, "pipewire_stream_error");
+                    if let Some(init_tx) = user_data.init_tx.take() {
+                        let _ = init_tx.send(Err(anyhow::anyhow!(
+                            "PipeWire stream entered an error state: {error}"
+                        )));
+                    }
                     mainloop.quit();
                 }
             }
@@ -308,6 +320,9 @@ fn pipewire_capture_loop(
                         hyprnote.audio.sample_rate_hz = rate,
                         "pipewire_capture_initialized"
                     );
+                    if let Some(init_tx) = user_data.init_tx.take() {
+                        let _ = init_tx.send(Ok(()));
+                    }
                 }
             }
         })
@@ -383,7 +398,6 @@ fn pipewire_capture_loop(
         )
         .context("Failed to connect PipeWire capture stream")?;
 
-    let _ = init_tx.send(Ok(()));
     mainloop.run();
 
     alive.store(false, Ordering::Release);

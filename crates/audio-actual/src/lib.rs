@@ -161,19 +161,23 @@ impl AudioInput {
         }
     }
 
-    pub fn stream(&mut self) -> AudioStream {
-        match &self.source {
+    pub fn stream(&mut self) -> Result<AudioStream, Error> {
+        Ok(match &self.source {
             AudioSource::RealtimeMic => AudioStream::RealtimeMic {
-                mic: self.mic.as_ref().unwrap().stream(),
+                mic: self.mic.as_ref().unwrap().stream()?,
             },
-            AudioSource::RealtimeSpeaker => AudioStream::RealtimeSpeaker {
-                speaker: self.speaker.take().unwrap().stream().unwrap(),
-            },
+            AudioSource::RealtimeSpeaker => {
+                AudioStream::RealtimeSpeaker {
+                    speaker: self.speaker.take().unwrap().stream().map_err(|error| {
+                        Error::SpeakerStreamInitializationFailed(error.to_string())
+                    })?,
+                }
+            }
             AudioSource::Recorded => AudioStream::Recorded {
                 data: self.data.as_ref().unwrap().clone(),
                 position: 0,
             },
-        }
+        })
     }
 }
 
@@ -268,15 +272,16 @@ impl AudioProvider for ActualAudio {
 
     fn probe_mic(&self, device: Option<String>) -> Result<(), Error> {
         let mut input = AudioInput::from_mic(device)?;
-        let _stream = input.stream();
+        let _stream = input.stream()?;
         Ok(())
     }
 
     fn probe_speaker(&self) -> Result<(), Error> {
-        let speaker = SpeakerInput::new().map_err(|_| Error::SpeakerStreamSetupFailed)?;
+        let speaker = SpeakerInput::new()
+            .map_err(|error| Error::SpeakerStreamInitializationFailed(error.to_string()))?;
         let _stream = speaker
             .stream()
-            .map_err(|_| Error::SpeakerStreamSetupFailed)?;
+            .map_err(|error| Error::SpeakerStreamInitializationFailed(error.to_string()))?;
         Ok(())
     }
 }
