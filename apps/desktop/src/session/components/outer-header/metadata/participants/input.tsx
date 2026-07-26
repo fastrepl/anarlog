@@ -139,7 +139,7 @@ export function ParticipantInput({ sessionId }: { sessionId: string }) {
             variant="secondary"
             className="bg-foreground/10 flex items-center gap-1 px-2 py-0.5 text-xs opacity-60"
           >
-            <span>{pending.name || "Unknown"}</span>
+            <span>{pending.name}</span>
             <Loader2Icon className="size-2.5 animate-spin" aria-hidden="true" />
           </Badge>
         ))}
@@ -282,7 +282,11 @@ function useParticipantMutations(
       const key = ++pendingAddKeyRef.current;
       setPendingAdds((prev) => [
         ...prev,
-        { key, humanId: option.isNew ? null : option.id, name: option.name },
+        {
+          key,
+          humanId: option.isNew ? null : option.id,
+          name: option.name || option.email || "",
+        },
       ]);
 
       void (async () => {

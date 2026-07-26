@@ -52,7 +52,13 @@ export function ParticipantChip({
     return null;
   }
 
-  const { humanName } = details;
+  const { humanName, humanEmail } = details;
+  const displayName = humanName.trim() || humanEmail?.trim();
+
+  if (!displayName) {
+    return null;
+  }
+
   const isEnhancing = enhancingHumanId === assignedHumanId;
   const canEnhance = Boolean(onEnhanceContact && assignedHumanId);
 
@@ -71,12 +77,12 @@ export function ParticipantChip({
           className="animate-shimmer pointer-events-none absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/60 to-transparent"
         />
       )}
-      <span className="relative z-10">{humanName || "Unknown"}</span>
+      <span className="relative z-10">{displayName}</span>
       {canEnhance && (
         <EnhanceContactButton
           isEnhancing={isEnhancing}
           isDisabled={Boolean(enhancingHumanId)}
-          label={humanName || "contact"}
+          label={displayName}
           onClick={() => {
             if (assignedHumanId) {
               onEnhanceContact?.(assignedHumanId);
