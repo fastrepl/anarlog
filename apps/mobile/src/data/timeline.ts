@@ -79,7 +79,7 @@ WHERE deleted_at IS NULL
 ORDER BY created_at DESC
 `;
 
-type TimelineRow = {
+export type TimelineRow = {
   id: string;
   title: string;
   created_at: string;
@@ -105,7 +105,7 @@ function sessionStartedAt(row: TimelineRow): string {
   return row.created_at;
 }
 
-function mapTimelineRows(rows: TimelineRow[]): TimelineSession[] {
+export function mapTimelineRows(rows: TimelineRow[]): TimelineSession[] {
   return rows.map((row) => ({
     id: row.id,
     title: row.title,

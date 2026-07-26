@@ -189,6 +189,35 @@ export async function saveSessionNote(
   ]);
 }
 
+// Mirrors desktop buildSessionTombstoneStatements: one transaction, the same
+// tombstone timestamp on the session and all child rows.
+const TOMBSTONE_CHILD_TABLES = [
+  "session_documents",
+  "transcripts",
+  "session_participants",
+  "session_tags",
+  "action_items",
+  "session_attachments",
+];
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  const now = nowIso();
+  await executeTransaction([
+    ...TOMBSTONE_CHILD_TABLES.map((table) => ({
+      sql: `UPDATE ${table} SET deleted_at = ?, updated_at = ? WHERE session_id = ? AND deleted_at IS NULL`,
+      params: [now, now, sessionId],
+    })),
+    {
+      sql: "UPDATE entity_mentions SET deleted_at = ?, updated_at = ? WHERE deleted_at IS NULL AND ((source_type = 'session' AND source_id = ?) OR (target_type = 'session' AND target_id = ?))",
+      params: [now, now, sessionId, sessionId],
+    },
+    {
+      sql: "UPDATE sessions SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL",
+      params: [now, now, sessionId],
+    },
+  ]);
+}
+
 export async function saveSessionTitle(
   sessionId: string,
   title: string,

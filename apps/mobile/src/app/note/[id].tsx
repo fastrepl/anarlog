@@ -1,24 +1,30 @@
 import { Ionicons } from "@expo/vector-icons";
+import { File, Paths } from "expo-file-system";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useSessionRecorder } from "@/audio/use-session-recorder";
+import { AudioChip } from "@/components/audio-chip";
 import { ListeningSheet } from "@/components/listening-sheet";
-import { Colors, Radius, Spacing } from "@/constants/theme";
+import { Colors, Spacing } from "@/constants/theme";
 import { useSessionAudio } from "@/data/audio-catalog";
 import {
+  deleteSession,
   saveSessionNote,
   saveSessionTitle,
   useSessionDetail,
 } from "@/data/session";
-
-function formatBytes(bytes: number): string {
-  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${bytes} B`;
-}
+import { useSessionTranscripts } from "@/data/transcripts";
+import { confirmDestructive } from "@/lib/confirm";
 
 export default function NoteScreen() {
   const router = useRouter();
@@ -28,6 +34,7 @@ export default function NoteScreen() {
   }>();
   const { data, isLoading } = useSessionDetail(id);
   const audio = useSessionAudio(id);
+  const transcripts = useSessionTranscripts(id);
   const [listening, setListening] = useState(listen === "1");
   const recorder = useSessionRecorder(id, listening);
 
@@ -83,14 +90,27 @@ export default function NoteScreen() {
     if (result !== "failed") setListening(false);
   };
 
+  const handleDelete = async () => {
+    const confirmed = await confirmDestructive(
+      `Delete "${data?.title || "Untitled"}"?`,
+      "Delete",
+    );
+    if (!confirmed) return;
+    if (recorder.phase === "recording") await recorder.stop();
+    draftRef.current = {};
+    await deleteSession(id);
+    if (router.canGoBack()) router.back();
+    else router.replace("/");
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Pressable hitSlop={8} onPress={() => void handleBack()}>
           <Ionicons name="arrow-back" size={24} color={Colors.ink} />
         </Pressable>
-        <Pressable hitSlop={8}>
-          <Ionicons name="ellipsis-horizontal" size={22} color={Colors.ink} />
+        <Pressable hitSlop={8} onPress={() => void handleDelete()}>
+          <Ionicons name="trash-outline" size={20} color={Colors.ink} />
         </Pressable>
       </View>
 
@@ -104,14 +124,30 @@ export default function NoteScreen() {
             onChangeText={(title) => onEdit({ title })}
           />
           {audio.data && (
-            <View style={styles.audioChip}>
-              <Ionicons name="mic" size={14} color={Colors.accent} />
-              <Text style={styles.audioLabel} numberOfLines={1}>
-                {audio.data.filename} · {formatBytes(audio.data.sizeBytes)}
-              </Text>
-              {audio.data.transcriptStatus !== "complete" && (
-                <Text style={styles.audioStatus}>Transcribes after sync</Text>
-              )}
+            <AudioChip
+              key={audio.data.filename}
+              uri={
+                new File(Paths.document, "sessions", id, audio.data.filename)
+                  .uri
+              }
+              filename={audio.data.filename}
+              sizeBytes={audio.data.sizeBytes}
+              pending={
+                audio.data.transcriptStatus !== "complete" &&
+                transcripts.length === 0
+              }
+            />
+          )}
+          {transcripts.length > 0 && (
+            <View style={styles.transcript}>
+              <Text style={styles.transcriptTitle}>Transcript</Text>
+              <ScrollView style={styles.transcriptScroll} nestedScrollEnabled>
+                {transcripts.map((segment) => (
+                  <Text key={segment.id} style={styles.transcriptText}>
+                    {segment.text}
+                  </Text>
+                ))}
+              </ScrollView>
             </View>
           )}
           {!data.plainEditable && (
@@ -172,28 +208,24 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.ink,
   },
-  audioChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
+  transcript: {
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    borderRadius: Radius.card,
-    alignSelf: "flex-start",
   },
-  audioLabel: {
-    fontSize: 12,
+  transcriptTitle: {
+    fontSize: 13,
     fontWeight: "600",
-    color: Colors.ink,
-    maxWidth: 180,
-  },
-  audioStatus: {
-    fontSize: 12,
     color: Colors.muted,
+    marginBottom: Spacing.xs,
+  },
+  transcriptScroll: {
+    maxHeight: 160,
+  },
+  transcriptText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: Colors.ink,
+    marginBottom: Spacing.sm,
   },
   readOnlyChip: {
     flexDirection: "row",

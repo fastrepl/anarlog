@@ -1,23 +1,43 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ProfileSheet } from "@/components/profile-sheet";
 import { SessionCard } from "@/components/session-card";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { importVoiceMemos } from "@/data/import-voice-memo";
-import { createSession } from "@/data/session";
-import { useTimelineSessions } from "@/data/timeline";
+import { useSessionSearch } from "@/data/search";
+import { createSession, deleteSession } from "@/data/session";
+import { useTimelineSessions, type TimelineSession } from "@/data/timeline";
+import { confirmDestructive } from "@/lib/confirm";
 
 export default function HomeScreen() {
   const router = useRouter();
   const { items, isLoading } = useTimelineSessions();
   const [profileOpen, setProfileOpen] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [query, setQuery] = useState<string | null>(null);
+  const searching = query !== null;
+  const search = useSessionSearch(query ?? "");
   // Ref, not state: two taps in the same frame both pass a state check.
   const busyRef = useRef(false);
+
+  const handleDelete = async (session: TimelineSession) => {
+    const confirmed = await confirmDestructive(
+      `Delete "${session.title || "Untitled"}"?`,
+      "Delete",
+    );
+    if (confirmed) void deleteSession(session.id);
+  };
 
   const createAndOpen = async (query = "") => {
     if (busyRef.current) return;
@@ -48,50 +68,92 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <Pressable hitSlop={8} onPress={() => setProfileOpen(true)}>
-          <View style={styles.avatar} />
-        </Pressable>
-        <Pressable hitSlop={8}>
-          <Ionicons name="search" size={22} color={Colors.ink} />
-        </Pressable>
+        {searching ? (
+          <>
+            <TextInput
+              style={styles.searchInput}
+              autoFocus
+              value={query ?? ""}
+              onChangeText={setQuery}
+              placeholder="Search notes"
+              placeholderTextColor={Colors.muted}
+            />
+            <Pressable hitSlop={8} onPress={() => setQuery(null)}>
+              <Ionicons name="close" size={22} color={Colors.ink} />
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <Pressable hitSlop={8} onPress={() => setProfileOpen(true)}>
+              <View style={styles.avatar} />
+            </Pressable>
+            <Pressable hitSlop={8} onPress={() => setQuery("")}>
+              <Ionicons name="search" size={22} color={Colors.ink} />
+            </Pressable>
+          </>
+        )}
       </View>
 
       <ScrollView
         style={styles.list}
         contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
       >
-        {!isLoading && items.length === 0 && (
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>No notes yet</Text>
-            <Text style={styles.emptyBody}>
-              Start listening, write a note, or import a voice memo.
-            </Text>
-          </View>
-        )}
-        {items.map((item) => {
-          if (item.type === "header") {
-            return (
-              <Text key={item.key} style={styles.sectionLabel}>
-                {item.label}
-              </Text>
-            );
-          }
-          if (item.type === "now") {
-            return (
-              <View key={item.key} style={styles.nowDivider}>
-                <View style={styles.nowDot} />
-                <View style={styles.nowLine} />
+        {searching ? (
+          <>
+            {query.trim() !== "" &&
+              !search.isLoading &&
+              search.results.length === 0 && (
+                <View style={styles.empty}>
+                  <Text style={styles.emptyBody}>No matches</Text>
+                </View>
+              )}
+            {search.results.map((session) => (
+              <SessionCard
+                key={session.id}
+                session={session}
+                onPress={() => router.push(`/note/${session.id}`)}
+                onDelete={() => void handleDelete(session)}
+              />
+            ))}
+          </>
+        ) : (
+          <>
+            {!isLoading && items.length === 0 && (
+              <View style={styles.empty}>
+                <Text style={styles.emptyTitle}>No notes yet</Text>
+                <Text style={styles.emptyBody}>
+                  Start listening, write a note, or import a voice memo.
+                </Text>
               </View>
-            );
-          }
-          return (
-            <SessionCard
-              key={item.key}
-              session={item.session}
-              onPress={() => router.push(`/note/${item.session.id}`)}
-            />
-          );
-        })}
+            )}
+            {items.map((item) => {
+              if (item.type === "header") {
+                return (
+                  <Text key={item.key} style={styles.sectionLabel}>
+                    {item.label}
+                  </Text>
+                );
+              }
+              if (item.type === "now") {
+                return (
+                  <View key={item.key} style={styles.nowDivider}>
+                    <View style={styles.nowDot} />
+                    <View style={styles.nowLine} />
+                  </View>
+                );
+              }
+              return (
+                <SessionCard
+                  key={item.key}
+                  session={item.session}
+                  onPress={() => router.push(`/note/${item.session.id}`)}
+                  onDelete={() => void handleDelete(item.session)}
+                />
+              );
+            })}
+          </>
+        )}
       </ScrollView>
 
       <View style={styles.actions}>
@@ -157,6 +219,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1.5,
     borderColor: Colors.ink,
+  },
+  searchInput: {
+    flex: 1,
+    marginRight: Spacing.sm,
+    fontSize: 17,
+    color: Colors.ink,
+    paddingVertical: 0,
   },
   list: {
     flex: 1,

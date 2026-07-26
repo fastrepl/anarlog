@@ -6,9 +6,11 @@ import { relativeLabel, type TimelineSession } from "@/data/timeline";
 export function SessionCard({
   session,
   onPress,
+  onDelete,
 }: {
   session: TimelineSession;
   onPress: () => void;
+  onDelete?: () => void;
 }) {
   return (
     <Pressable
@@ -22,7 +24,11 @@ export function SessionCard({
         >
           {session.title || "Untitled"}
         </Text>
-        <Text style={styles.ellipsis}>…</Text>
+        {onDelete && (
+          <Pressable hitSlop={8} onPress={onDelete}>
+            <Text style={styles.ellipsis}>…</Text>
+          </Pressable>
+        )}
       </View>
       <Text style={styles.subtitle}>{relativeLabel(session.startedAt)}</Text>
     </Pressable>
