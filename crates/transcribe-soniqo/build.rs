@@ -34,10 +34,7 @@ fn swift_runtime_rpaths() -> Vec<String> {
 
 #[cfg(target_os = "macos")]
 fn swift_bin_path() -> Option<PathBuf> {
-    let output = Command::new("xcrun")
-        .args(["--find", "swift"])
-        .output()
-        .ok()?;
+    let output = xcrun(None).args(["--find", "swift"]).output().ok()?;
 
     if !output.status.success() {
         return None;
@@ -46,6 +43,47 @@ fn swift_bin_path() -> Option<PathBuf> {
     let path = String::from_utf8(output.stdout).ok()?;
     let path = path.trim();
     (!path.is_empty()).then(|| PathBuf::from(path))
+}
+
+#[cfg(target_os = "macos")]
+fn xcrun(developer_dir: Option<&Path>) -> Command {
+    let mut command = Command::new("xcrun");
+    if let Some(developer_dir) = developer_dir {
+        command.env("DEVELOPER_DIR", developer_dir);
+    }
+    command
+}
+
+#[cfg(target_os = "macos")]
+fn has_metal_compiler(developer_dir: Option<&Path>) -> bool {
+    xcrun(developer_dir)
+        .args(["--find", "metal"])
+        .output()
+        .is_ok_and(|output| output.status.success())
+}
+
+/// The Command Line Tools ship no Metal compiler, so fall back to a full Xcode
+/// install when it is present but not selected via `xcode-select`.
+#[cfg(target_os = "macos")]
+fn metal_developer_dir() -> Option<PathBuf> {
+    if has_metal_compiler(None) {
+        return None;
+    }
+
+    let developer_dir = ["/Applications/Xcode.app", "/Applications/Xcode-beta.app"]
+        .into_iter()
+        .map(|app| PathBuf::from(app).join("Contents/Developer"))
+        .find(|candidate| has_metal_compiler(Some(candidate)));
+
+    if developer_dir.is_none() {
+        panic!(
+            "no Metal compiler found; install Xcode, select it with \
+             `sudo xcode-select -s /Applications/Xcode.app`, then run \
+             `xcodebuild -downloadComponent MetalToolchain`"
+        );
+    }
+
+    developer_dir
 }
 
 #[cfg(target_os = "macos")]
@@ -301,11 +339,12 @@ fn compile_mlx_metallib(swift_build_dir: &Path, profile: &str) -> PathBuf {
     });
 
     let include_root = mlx_swift_dir.join("Source").join("Cmlx").join("mlx");
+    let developer_dir = metal_developer_dir();
     let mut air_files = Vec::with_capacity(metal_sources.len());
 
     for (index, source) in metal_sources.iter().enumerate() {
         let air_file = air_dir.join(format!("{index}.air"));
-        let mut command = Command::new("xcrun");
+        let mut command = xcrun(developer_dir.as_deref());
         command
             .args([
                 "-sdk",
@@ -333,7 +372,7 @@ fn compile_mlx_metallib(swift_build_dir: &Path, profile: &str) -> PathBuf {
         air_files.push(air_file);
     }
 
-    let mut command = Command::new("xcrun");
+    let mut command = xcrun(developer_dir.as_deref());
     command.args(["-sdk", "macosx", "metallib"]);
     command.args(&air_files);
     command.arg("-o").arg(&output_metallib);
