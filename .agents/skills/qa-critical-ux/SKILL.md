@@ -1,6 +1,6 @@
 ---
 name: qa-critical-ux
-description: QA-test the critical desktop user experience before a release — auth, CloudSync, calendar connect + notifications, note creation, recording, chat, and automated summaries across on-device, API-key, and Pro providers. Use before cutting a stable release, after changes to auth/CloudSync/STT/enhance/calendar/billing flows, or when asked to "QA the app".
+description: QA-test the critical desktop user experience before a release — auth, CloudSync, calendar connect + notifications, note creation, recording, speaker identification, chat, and automated summaries across on-device, API-key, and Pro providers. Use before cutting a stable release, after changes to auth/CloudSync/STT/enhance/calendar/billing flows, or when asked to "QA the app".
 ---
 
 # QA: Critical User Experience
@@ -99,8 +99,19 @@ waived by the user) before running the release-new-version skill.
    built-in speakers and microphone with no external audio device attached.
    The Dev helper fails before launch unless both macOS default devices use
    the built-in transport; do not bypass that preflight.
-6. Play at most three minutes of the Lex Fridman fixture from a long-lived terminal
-   command after recording starts:
+6. Create an untitled note, open its metadata through the UI, and add exactly
+   these two fixture participants before recording:
+
+   - **Lex Fridman**
+   - **George Hotz**
+
+   Do not seed participant rows directly in SQLite. The participant field must
+   show both names without an **Unknown** chip, and the two named mappings must
+   persist after the app restarts. In the fixture reference
+   `crates/data/src/english_10/pyannote.json`, `SPEAKER_01` is Lex Fridman and
+   `SPEAKER_00` is George Hotz.
+7. Play at most three minutes of the Lex Fridman/George Hotz fixture from a
+   long-lived terminal command after recording starts:
 
    ```bash
    /usr/bin/afplay -v 0.7 -t 180 \
@@ -109,6 +120,37 @@ waived by the user) before running the release-new-version skill.
 
    Let the three-minute cap finish naturally, or stop it earlier with Ctrl-C.
    Do not use QuickTime or Computer Use just to control fixture playback.
+
+## Known fixture ground truth
+
+The bundled audio is an excerpt from Lex Fridman Podcast #387 with George
+Hotz. Use the repo's time-aligned
+`crates/data/src/english_10/pyannote.json` as the transcription reference and
+the [official episode transcript](https://lexfridman.com/george-hotz-3-transcript)
+as the identity reference. Together they establish this canonical mapping:
+
+| Fixture speaker | Participant |
+| --- | --- |
+| `SPEAKER_01` | Lex Fridman |
+| `SPEAKER_00` | George Hotz |
+
+Validate at least these opening checkpoints after aligning to the first
+recognized fixture phrase. Fixture timestamps are audio-relative, not session
+wall-clock timestamps:
+
+| Fixture time | Expected participant | Semantic checkpoint |
+| --- | --- | --- |
+| 2.925-13.005 s | Lex Fridman | Asks what George thinks about Llama being open sourced |
+| 14.145-19.025 s | George Hotz | Says Mark Zuckerberg is the good guy |
+| 20.125-29.665 s | Lex Fridman | Asks whether open source is ultimately good |
+| 30.365-36.065 s | George Hotz | Answers "Undoubtedly" and begins discussing AI safety people |
+
+Use `turnLevelTranscription` for turn ownership and
+`wordLevelTranscription` only when finer alignment is needed. Provider wording
+and punctuation may differ, so compare the meaning and speaker ownership
+rather than requiring byte-identical text. The generic fixture IDs are valid
+only inside the reference file; they are not acceptable participant labels in
+the app.
 
 ## Release-candidate order
 
@@ -205,6 +247,17 @@ tests alone is not cross-platform evidence.
 - Also verify both microphone and system-audio inputs carry nonzero signal,
   AEC initializes without an error or fallback, and the transcript follows
   the podcast once rather than duplicating phrases from speaker leakage.
+- Speaker diarization and identity are separate release gates for this known
+  fixture. After the full recording settles, require exactly two RemoteParty
+  speaker clusters and compare their turns with the **Known fixture ground
+  truth** above. Every listed checkpoint must have the expected participant.
+- PASS speaker identification only when the live or settled transcript labels
+  those clusters **Lex Fridman** and **George Hotz** automatically. Generic
+  labels such as **Speaker 1**, swapped names, a third RemoteParty cluster, or
+  names that appear only after a tester manually assigns them are failures. A
+  transcript that names only the opening turns and later reverts to generic or
+  inconsistent labels also fails. Verify both named assignments and the
+  participant mappings survive app restart unchanged.
 - `audio_mic.wav` is the post-AEC, post-VAD microphone track, not the raw
   microphone. For a playback-only run, require all of:
   - `audio_mic.wav` and `audio_spk.wav` are readable mono 16 kHz WAVs whose
@@ -306,11 +359,17 @@ tests alone is not cross-platform evidence.
 - Useful signals: `sessions`, `transcripts`, and `session_documents`
   (kind = summary) tables via the app DB; console/log output from the
   dev server for stall-watchdog and enhance-task errors.
+- For the known two-speaker fixture, inspect `session_participants` and the
+  transcript's `speaker_hints_json` alongside the rendered UI. Count distinct
+  `provider_speaker_index` values per channel, but use the visible names to
+  gate identity attribution. Do not create `user_speaker_assignment` hints
+  before recording the automatic-identification result.
 
 ## Reporting
 
 Produce a table: checklist item × provider config → PASS/FAIL with a
 one-line note. Include the Dev manifest's Git SHA/dirty state, staging run
 URL and head SHA, staging artifact SHA-256, stable release URL and artifact
-SHA-256, app version, and any explicit waiver. Any FAIL or SHA mismatch blocks
-release; file or fix before cutting.
+SHA-256, app version, speaker-cluster count, speaker-name result, and any
+explicit waiver. Any FAIL or SHA mismatch blocks release; file or fix before
+cutting.
