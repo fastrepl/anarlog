@@ -1,6 +1,0 @@
-[default]
-description = "Default permissions for the plugin"
-permissions = [
-  "allow-register-hotkey",
-  "allow-unregister-hotkey",
-]

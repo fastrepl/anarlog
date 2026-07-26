@@ -1,6 +1,0 @@
-[default]
-description = "Default permissions for the plugin"
-permissions = [
-    "allow-set-tray-icon-visible",
-    "allow-set-tray-schedule",
-]

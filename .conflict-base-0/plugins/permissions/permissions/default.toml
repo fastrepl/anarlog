@@ -1,8 +1,0 @@
-[default]
-description = "Default permissions for the plugin"
-permissions = [
-    "allow-open-permission",
-    "allow-check-permission",
-    "allow-request-permission",
-    "allow-reset-permission",
-]
