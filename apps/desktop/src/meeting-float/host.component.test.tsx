@@ -2,6 +2,7 @@ import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  platform: vi.fn(() => "macos"),
   settings: {
     current: {
       floating_bar_opacity: 0.78,
@@ -34,6 +35,10 @@ const mocks = vi.hoisted(() => ({
     stop: vi.fn(),
   },
   subscribeListener: vi.fn(() => vi.fn()),
+}));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  platform: mocks.platform,
 }));
 
 vi.mock("@hypr/plugin-windows", () => ({
@@ -83,6 +88,7 @@ import { FloatingMeetingWindowHost } from "./host";
 describe("FloatingMeetingWindowHost", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.platform.mockReturnValue("macos");
     mocks.settings.current = {
       floating_bar_opacity: 0.78,
       live_caption_opacity: 0.3,
@@ -120,5 +126,19 @@ describe("FloatingMeetingWindowHost", () => {
     });
     expect(mocks.floatingBarShow).toHaveBeenCalledOnce();
     expect(mocks.floatingBarHide).not.toHaveBeenCalled();
+  });
+
+  it("keeps unsupported floating overlays disabled outside macOS", async () => {
+    mocks.platform.mockReturnValue("linux");
+
+    render(<FloatingMeetingWindowHost />);
+
+    await waitFor(() => {
+      expect(mocks.floatingBarHide).toHaveBeenCalledOnce();
+      expect(mocks.liveCaptionHide).toHaveBeenCalledOnce();
+    });
+    expect(mocks.floatingBarShow).not.toHaveBeenCalled();
+    expect(mocks.floatingBarUpdate).not.toHaveBeenCalled();
+    expect(mocks.listen).not.toHaveBeenCalled();
   });
 });

@@ -23,6 +23,7 @@ const {
   useHasTranscriptMock,
   useListenerMock,
   useConfigValueMock,
+  platformMock,
   windowShowMock,
 } = vi.hoisted(() => ({
   uploadAudioMock: vi.fn(),
@@ -37,7 +38,12 @@ const {
   useHasTranscriptMock: vi.fn(),
   useListenerMock: vi.fn(),
   useConfigValueMock: vi.fn(),
+  platformMock: vi.fn(() => "macos"),
   windowShowMock: vi.fn(() => Promise.resolve({ status: "ok", data: null })),
+}));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  platform: platformMock,
 }));
 
 vi.mock("@hypr/ui/components/ui/button", () => ({
@@ -146,6 +152,7 @@ describe("OverflowButton", () => {
     currentNoteContent.value = "";
     useHasTranscriptMock.mockReturnValue(true);
     useConfigValueMock.mockReturnValue(false);
+    platformMock.mockReturnValue("macos");
     useListenerMock.mockImplementation((selector) =>
       selector({
         getSessionMode: () => "inactive",
@@ -419,6 +426,27 @@ describe("OverflowButton", () => {
         enabled: true,
       }),
     );
+  });
+
+  it("hides the unsupported floating panel action outside macOS", () => {
+    platformMock.mockReturnValue("linux");
+    useConfigValueMock.mockReturnValue(true);
+    useListenerMock.mockImplementation((selector) =>
+      selector({
+        getSessionMode: () => "active",
+      }),
+    );
+
+    render(
+      <OverflowButton
+        sessionId="session-1"
+        currentView={{ type: "enhanced", id: "note-1" } as EditorView}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Open floating panel" }),
+    ).toBeNull();
   });
 
   it("opens the current note in a standalone window", () => {

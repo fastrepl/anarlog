@@ -66,7 +66,7 @@ describe("AppSettingsView", () => {
     expect(screen.queryByText("Show live transcript overlay")).toBeNull();
   });
 
-  it("keeps the floating bar setting available", () => {
+  it("keeps the floating bar setting available on macOS", () => {
     renderAppSettings({ floatingBar: false });
 
     expect(screen.getByText("Show floating bar")).toBeTruthy();
@@ -86,6 +86,7 @@ describe("AppSettingsView", () => {
       screen.queryByText("Post recording disclosure in meeting chat"),
     ).toBeNull();
     expect(screen.queryByText("Capture meeting chat in Memos")).toBeNull();
+    expect(screen.queryByText("Show floating bar")).toBeNull();
     expect(screen.getByRole("switch", { name: "Show tray icon" })).toBeTruthy();
   });
 

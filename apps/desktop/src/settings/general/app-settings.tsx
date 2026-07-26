@@ -171,14 +171,18 @@ export function AppSettingsView({
               />
             </>
           )}
-          <SettingRow
-            title={<Trans>Show floating bar</Trans>}
-            description={
-              <Trans>Show the compact floating control while listening.</Trans>
-            }
-            checked={floatingBar.value}
-            onChange={floatingBar.onChange}
-          />
+          {isMacos && (
+            <SettingRow
+              title={<Trans>Show floating bar</Trans>}
+              description={
+                <Trans>
+                  Show the compact floating control while listening.
+                </Trans>
+              }
+              checked={floatingBar.value}
+              onChange={floatingBar.onChange}
+            />
+          )}
           <AudioRetentionRow
             value={audioRetention.value}
             onChange={audioRetention.onChange}

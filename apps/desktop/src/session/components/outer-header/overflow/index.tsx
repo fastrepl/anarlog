@@ -1,4 +1,5 @@
 import { Trans } from "@lingui/react/macro";
+import { platform } from "@tauri-apps/plugin-os";
 import {
   AudioLinesIcon,
   FileDownIcon,
@@ -62,6 +63,7 @@ export function OverflowButton({
   const regenerateTranscript = useRegenerateTranscript(sessionId);
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const floatingBarEnabled = useConfigValue("floating_bar_enabled");
+  const floatingBarSupported = platform() === "macos";
   const isMeetingInProgress =
     sessionMode === "active" || sessionMode === "finalizing";
   const showListeningAction = allowListening;
@@ -74,7 +76,10 @@ export function OverflowButton({
     !currentNoteHasContent &&
     !isMeetingInProgress;
   const canOpenFloatingPanel =
-    allowListening && floatingBarEnabled && sessionMode === "active";
+    floatingBarSupported &&
+    allowListening &&
+    floatingBarEnabled &&
+    sessionMode === "active";
   const hasMeetingActions =
     showListeningAction ||
     showRetranscribeAction ||
