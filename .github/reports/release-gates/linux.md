@@ -62,6 +62,23 @@ both must exist before the beta ships. A VM result must remain labeled as VM evi
 Building release artifacts on Debian 12 or Ubuntu 22.04 for an older glibc baseline is a
 CI policy; it is not a substitute for the Ubuntu 24.04 runtime cells above.
 
+### Development setup
+
+The supported source-development setup is Debian or Ubuntu on x86_64 or ARM64. The setup
+script installs Node 22 when needed, selects Rust 1.94.0, pins pnpm 11.1.1, installs the
+native desktop dependencies, and downloads architecture-matched development tools:
+
+~~~bash
+bash scripts/setup-linux.sh
+exec "$SHELL" -l
+pnpm install --frozen-lockfile
+pnpm -F ui build
+pnpm -F @hypr/desktop tauri:dev
+~~~
+
+Release packages still use the older Debian 12 or Ubuntu 22.04 build baseline. Run the
+beta itself on the Ubuntu 24.04 environments listed above.
+
 ### Package matrix
 
 | Package ID             | Architecture | Package   | Release role                                      | Required | Current status | Evidence |
@@ -349,14 +366,12 @@ Confirm the path from the running sandbox rather than assuming the native-packag
 
 ### Optional source-build smoke
 
-The repository's current Linux setup and E2E path uses these commands. The setup scripts
-are Ubuntu-oriented and are not yet a clean ARM64 setup path; that remains tracked by
-ANLG-164. These commands are useful before packaging, but they do not replace tests of
-published AppImage and .deb artifacts:
+The repository's current Linux setup and E2E path uses these commands. These commands are
+useful before packaging, but they do not replace tests of published AppImage and .deb
+artifacts:
 
 ~~~bash
-bash scripts/setup-linux-tauri.sh
-bash scripts/setup-linux-others.sh
+bash scripts/setup-linux.sh
 pnpm -F ui build
 pnpm -F desktop typecheck
 cargo check -p desktop --target x86_64-unknown-linux-gnu
