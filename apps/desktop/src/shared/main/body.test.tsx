@@ -332,7 +332,7 @@ describe("ClassicMainBody", () => {
     ["expanded", true, "Hide sidebar"],
     ["collapsed", false, "Show sidebar"],
   ])(
-    "removes the window controls gutter while maximized with the sidebar %s",
+    "removes the window controls gutter in fullscreen with the sidebar %s",
     async (_state, expanded, toggleLabel) => {
       mocks.leftSidebarExpanded = expanded;
 
@@ -345,7 +345,7 @@ describe("ClassicMainBody", () => {
 
       expect(chromeFrame?.className).toContain("pl-[76px]");
 
-      mocks.isMaximized.mockResolvedValue(true);
+      mocks.isFullscreen.mockResolvedValue(true);
       act(() => {
         for (const listener of mocks.resizeListeners) {
           listener();
@@ -356,6 +356,36 @@ describe("ClassicMainBody", () => {
         expect(chromeFrame?.className).toContain("pl-0");
       });
       expect(chromeFrame?.className).not.toContain("pl-[76px]");
+    },
+  );
+
+  it.each([
+    ["expanded", true, "Hide sidebar"],
+    ["collapsed", false, "Show sidebar"],
+  ])(
+    "keeps the window controls gutter while maximized with the sidebar %s",
+    async (_state, expanded, toggleLabel) => {
+      mocks.leftSidebarExpanded = expanded;
+      mocks.isMaximized.mockResolvedValue(true);
+
+      render(<ClassicMainBody />);
+
+      const sidebarToggle = screen.getByRole("button", { name: toggleLabel });
+      const chromeFrame = expanded
+        ? document.querySelector<HTMLElement>("[data-sidebar-timeline-header]")
+        : sidebarToggle.parentElement?.parentElement?.parentElement;
+
+      act(() => {
+        for (const listener of mocks.resizeListeners) {
+          listener();
+        }
+      });
+
+      await waitFor(() => {
+        expect(mocks.isFullscreen).toHaveBeenCalled();
+      });
+      expect(chromeFrame?.className).toContain("pl-[76px]");
+      expect(chromeFrame?.className).not.toContain("pl-0");
     },
   );
 
@@ -405,7 +435,6 @@ describe("ClassicMainBody", () => {
         expect(chromeFrame?.className).toContain("pl-0");
       });
       expect(chromeFrame?.className).not.toContain("pl-[76px]");
-      expect(mocks.isMaximized).not.toHaveBeenCalled();
       expect(mocks.isFullscreen).not.toHaveBeenCalled();
       expect(mocks.resizeListeners).toHaveLength(0);
     },

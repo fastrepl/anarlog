@@ -19,13 +19,10 @@ export function useWindowControlsGutter() {
     let unlistenResize: (() => void) | undefined;
     const appWindow = getCurrentWindow();
     const sync = async () => {
-      const [isMaximized, isFullscreen] = await Promise.all([
-        appWindow.isMaximized(),
-        appWindow.isFullscreen(),
-      ]).catch(() => [false, false]);
+      const isFullscreen = await appWindow.isFullscreen().catch(() => false);
 
       if (!cancelled) {
-        setVisible(!isMaximized && !isFullscreen);
+        setVisible(!isFullscreen);
       }
     };
 
