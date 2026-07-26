@@ -23,6 +23,7 @@ import {
   saveSessionTitle,
   useSessionDetail,
 } from "@/data/session";
+import { transcribeSession, useTranscriptionState } from "@/data/transcribe";
 import { useSessionTranscripts } from "@/data/transcripts";
 import { confirmDestructive } from "@/lib/confirm";
 
@@ -35,6 +36,7 @@ export default function NoteScreen() {
   const { data, isLoading } = useSessionDetail(id);
   const audio = useSessionAudio(id);
   const transcripts = useSessionTranscripts(id);
+  const transcription = useTranscriptionState(id);
   const [listening, setListening] = useState(listen === "1");
   const recorder = useSessionRecorder(id, listening);
 
@@ -146,12 +148,26 @@ export default function NoteScreen() {
               }
               filename={audio.data.filename}
               sizeBytes={audio.data.sizeBytes}
-              pending={
-                audio.data.transcriptStatus !== "complete" &&
-                transcripts.length === 0
-              }
             />
           )}
+          {audio.data &&
+            audio.data.transcriptStatus !== "complete" &&
+            transcripts.length === 0 &&
+            (transcription === "running" ? (
+              <Text style={styles.transcribeStatus}>Transcribing…</Text>
+            ) : (
+              <Pressable
+                hitSlop={4}
+                onPress={() => void transcribeSession(id)}
+                style={({ pressed }) => pressed && styles.transcribePressed}
+              >
+                <Text style={styles.transcribeAction}>
+                  {transcription === "failed"
+                    ? "Transcription failed — tap to retry"
+                    : "Tap to transcribe"}
+                </Text>
+              </Pressable>
+            ))}
           {transcripts.length > 0 && (
             <View style={styles.transcript}>
               <Text style={styles.transcriptTitle}>Transcript</Text>
@@ -221,6 +237,22 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "700",
     color: Colors.ink,
+  },
+  transcribeStatus: {
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.xs,
+    fontSize: 12,
+    color: Colors.muted,
+  },
+  transcribeAction: {
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.xs,
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.accent,
+  },
+  transcribePressed: {
+    opacity: 0.6,
   },
   transcript: {
     marginHorizontal: Spacing.lg,

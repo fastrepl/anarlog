@@ -6,6 +6,7 @@ import { Directory, File, Paths } from "expo-file-system";
 
 import { catalogSessionAudio } from "@/data/audio-catalog";
 import { createSession, deleteSession } from "@/data/session";
+import { transcribeSession } from "@/data/transcribe";
 import { nowIso } from "@/lib/ids";
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -69,6 +70,8 @@ async function importAsset(asset: DocumentPickerAsset): Promise<string> {
     await deleteSession(sessionId).catch(() => {});
     throw error;
   }
+
+  void transcribeSession(sessionId);
 
   return sessionId;
 }

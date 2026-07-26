@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { WAVEFORM_BAR_COUNT } from "@/components/waveform";
 import { catalogSessionAudio } from "@/data/audio-catalog";
+import { transcribeSession } from "@/data/transcribe";
 
 const METERING_FLOOR_DB = -50;
 
@@ -124,6 +125,7 @@ export function useSessionRecorder(
         contentType: CONTENT_TYPES[extension] ?? "application/octet-stream",
         sizeBytes: destination.size ?? 0,
       });
+      void transcribeSession(sessionId);
       setPhase("saved");
       return "saved";
     } catch (error) {

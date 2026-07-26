@@ -19,12 +19,10 @@ export function AudioChip({
   uri,
   filename,
   sizeBytes,
-  pending,
 }: {
   uri: string;
   filename: string;
   sizeBytes: number;
-  pending: boolean;
 }) {
   const player = useAudioPlayer(uri);
   const status = useAudioPlayerStatus(player);
@@ -58,7 +56,6 @@ export function AudioChip({
       <Text style={styles.label} numberOfLines={1}>
         {filename} · {detail}
       </Text>
-      {pending && <Text style={styles.status}>Transcribes after sync</Text>}
     </Pressable>
   );
 }
@@ -85,9 +82,5 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.ink,
     maxWidth: 180,
-  },
-  status: {
-    fontSize: 12,
-    color: Colors.muted,
   },
 });
