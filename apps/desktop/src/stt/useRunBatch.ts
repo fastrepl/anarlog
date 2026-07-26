@@ -1,3 +1,4 @@
+import { platform } from "@tauri-apps/plugin-os";
 import { useCallback } from "react";
 
 import type { TranscriptionParams } from "@hypr/plugin-transcription";
@@ -113,11 +114,13 @@ export function getBatchFallbackTarget({
   isPaid,
   accessToken,
   apiBaseUrl,
+  currentPlatform = platform(),
 }: {
   isPaid: boolean;
   accessToken?: string | null;
   apiBaseUrl: string;
-}): BatchTarget {
+  currentPlatform?: ReturnType<typeof platform>;
+}): BatchTarget | null {
   if (isPaid && accessToken) {
     return {
       provider: "hyprnote",
@@ -128,7 +131,7 @@ export function getBatchFallbackTarget({
     };
   }
 
-  return LOCAL_SONIQO_BATCH_TARGET;
+  return currentPlatform === "macos" ? LOCAL_SONIQO_BATCH_TARGET : null;
 }
 
 async function canUseBatchTarget(
@@ -258,6 +261,7 @@ export const useRunBatch = (sessionId: string) => {
       const languages =
         options?.languages ??
         getTranscriptionLanguages(aiLanguage, spokenLanguages);
+      const currentPlatform = platform();
       const selectedModel = options?.model ?? conn?.model;
       const selectedProvider =
         conn && selectedModel
@@ -273,24 +277,33 @@ export const useRunBatch = (sessionId: string) => {
               label: selectedModel,
             }
           : null;
-      const selectedTargetSupported = selectedTarget
-        ? await canUseBatchTarget(
-            selectedTarget.provider,
-            selectedTarget.model,
-            languages,
-          )
-        : false;
+      const selectedTargetSupported =
+        selectedTarget &&
+        (selectedTarget.provider !== "soniqo" || currentPlatform === "macos")
+          ? await canUseBatchTarget(
+              selectedTarget.provider,
+              selectedTarget.model,
+              languages,
+            )
+          : false;
       const fallbackTarget = getBatchFallbackTarget({
         isPaid: billing.isPaid,
         accessToken: auth?.session?.access_token,
         apiBaseUrl: env.VITE_API_URL,
+        currentPlatform,
       });
       const shouldUseSelectedTarget =
         selectedTargetSupported ||
-        sameBatchTarget(selectedTarget, fallbackTarget);
+        (fallbackTarget && sameBatchTarget(selectedTarget, fallbackTarget));
       const target = shouldUseSelectedTarget
         ? (selectedTarget ?? fallbackTarget)
         : fallbackTarget;
+
+      if (!target) {
+        throw new Error(
+          `${selectedProviderLabel(conn, selectedModel)} is not available for batch transcription on this platform. Configure a batch-capable speech-to-text provider.`,
+        );
+      }
 
       if (!shouldUseSelectedTarget) {
         sonnerToast.warning("Using a batch transcription provider", {

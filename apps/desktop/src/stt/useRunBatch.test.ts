@@ -28,6 +28,7 @@ const {
   markSessionAudioTranscriptionCompleteMock,
   createTranscriptMock,
   idMock,
+  platformMock,
 } = vi.hoisted(() => ({
   startTranscriptionMock: vi.fn(),
   useListenerMock: vi.fn(),
@@ -44,6 +45,11 @@ const {
   markSessionAudioTranscriptionCompleteMock: vi.fn(),
   createTranscriptMock: vi.fn(),
   idMock: vi.fn(),
+  platformMock: vi.fn(),
+}));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  platform: platformMock,
 }));
 
 vi.mock("./contexts", () => ({
@@ -186,6 +192,7 @@ describe("getBatchFallbackTarget", () => {
         isPaid: true,
         accessToken: "token",
         apiBaseUrl: "https://api.test",
+        currentPlatform: "windows",
       }),
     ).toEqual({
       provider: "hyprnote",
@@ -202,6 +209,7 @@ describe("getBatchFallbackTarget", () => {
         isPaid: false,
         accessToken: null,
         apiBaseUrl: "https://api.test",
+        currentPlatform: "macos",
       }),
     ).toEqual({
       provider: "soniqo",
@@ -211,11 +219,26 @@ describe("getBatchFallbackTarget", () => {
       label: "Soniqo batch transcription",
     });
   });
+
+  test.each(["windows", "linux"] as const)(
+    "does not use local Soniqo on %s",
+    (currentPlatform) => {
+      expect(
+        getBatchFallbackTarget({
+          isPaid: false,
+          accessToken: null,
+          apiBaseUrl: "https://api.test",
+          currentPlatform,
+        }),
+      ).toBeNull();
+    },
+  );
 });
 
 describe("useRunBatch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    platformMock.mockReturnValue("macos");
 
     let nextId = 0;
     idMock.mockImplementation(() => `generated-${++nextId}`);
@@ -552,6 +575,34 @@ describe("useRunBatch", () => {
       }),
     );
   });
+
+  test.each(["windows", "linux"] as const)(
+    "does not invoke Soniqo as a batch fallback on %s",
+    async (currentPlatform) => {
+      platformMock.mockReturnValue(currentPlatform);
+      useSTTConnectionMock.mockReturnValue({
+        conn: {
+          provider: "custom",
+          model: "realtime-only",
+          baseUrl: "https://custom.test",
+          apiKey: "custom-key",
+        },
+      });
+
+      const { result } = renderHook(() => useRunBatch("session-1"));
+
+      await expect(
+        act(async () => {
+          await result.current("/tmp/session.wav");
+        }),
+      ).rejects.toThrow(
+        "realtime-only is not available for batch transcription on this platform",
+      );
+
+      expect(startTranscriptionMock).not.toHaveBeenCalled();
+      expect(sonnerToastWarningMock).not.toHaveBeenCalled();
+    },
+  );
 
   test("falls back to hosted cloud transcription for paid users", async () => {
     isSupportedLanguagesBatchMock.mockResolvedValue(false);
