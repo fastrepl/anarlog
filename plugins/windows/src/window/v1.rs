@@ -166,6 +166,9 @@ impl WindowImpl for AppWindow {
             }
         };
 
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
+        window.set_decorations(true)?;
+
         Ok(window)
     }
 
