@@ -35,6 +35,7 @@ import { initializeApplicationSettings } from "./settings/queries";
 import { initializeAppExitFlush } from "./shared/app-exit";
 import { useConfigValue } from "./shared/config";
 import { ErrorComponent, NotFoundComponent } from "./shared/control";
+import { startInteractionProfiler } from "./shared/perf/interaction-profiler";
 import { bootstrapThemeFromSettings } from "./shared/theme/apply";
 import { AppThemeProvider } from "./shared/theme/provider";
 import type { ThemePreference } from "./shared/theme/resolve";
@@ -135,6 +136,8 @@ async function enableReactScanInDev() {
   } catch (error) {
     console.warn("Failed to start React Scan:", error);
   }
+
+  startInteractionProfiler();
 }
 
 async function renderApp() {
