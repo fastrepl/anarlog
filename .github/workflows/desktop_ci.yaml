@@ -260,7 +260,11 @@ jobs:
             exit 1
           fi
           for bundle in "${bundles[@]}"; do
-            sha256sum "$bundle" > "$bundle.sha256"
+            # Record the basename, like the Windows job does, so `sha256sum -c`
+            # works next to the downloaded artifact rather than only inside the
+            # CI directory layout.
+            name=$(basename "$bundle")
+            (cd "$(dirname "$bundle")" && sha256sum "$name" > "$name.sha256")
           done
       - if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
