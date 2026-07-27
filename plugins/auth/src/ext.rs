@@ -61,9 +61,11 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> AuthPluginExt<R> for T {
             let _guard = LINUX_AUTH_WRITE_LOCK.lock().unwrap();
             let mut data = store.snapshot();
             data.remove(&key);
-            crate::migrate::persist_linux_auth(self.app_handle(), &data)?;
+            // Apply the removal in memory even when the keyring refuses, so a
+            // reported failure cannot leave the value readable via get_item.
+            let result = crate::migrate::persist_linux_auth(self.app_handle(), &data);
             store.replace(data);
-            return Ok(());
+            return result;
         }
 
         #[cfg(any(not(target_os = "linux"), test))]
@@ -76,9 +78,12 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> AuthPluginExt<R> for T {
         #[cfg(all(target_os = "linux", not(test)))]
         {
             let _guard = LINUX_AUTH_WRITE_LOCK.lock().unwrap();
-            crate::migrate::clear_linux_auth(self.app_handle())?;
+            // Sign-out must drop the in-memory session even if the keyring is
+            // locked; callers that ignore the error would otherwise keep a
+            // readable session that returns once the keyring unlocks.
+            let result = crate::migrate::clear_linux_auth(self.app_handle());
             store.replace(HashMap::new());
-            return Ok(());
+            return result;
         }
 
         #[cfg(any(not(target_os = "linux"), test))]
