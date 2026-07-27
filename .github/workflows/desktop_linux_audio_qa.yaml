@@ -68,9 +68,21 @@ jobs:
           ref: ${{ needs.parse.outputs.candidate_sha }}
           fetch-depth: 0
       - env:
+          DISPATCH_REF: ${{ github.ref }}
+          DISPATCH_SHA: ${{ github.sha }}
           EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
           VERSION: ${{ needs.parse.outputs.version }}
         run: |
+          dispatch_sha=${DISPATCH_SHA,,}
+          if [[ "$DISPATCH_REF" != "refs/heads/main" ]]; then
+            echo "::error::Run this QA workflow from main, not $DISPATCH_REF"
+            exit 1
+          fi
+          if [[ "$dispatch_sha" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Workflow logic is from $dispatch_sha, not candidate $EXPECTED_SHA"
+            exit 1
+          fi
+
           git fetch origin main --no-tags
 
           checkout_sha=$(git rev-parse HEAD)

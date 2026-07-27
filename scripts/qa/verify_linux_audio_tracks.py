@@ -232,11 +232,7 @@ def find_alignment(speaker: WavTrack, phases: dict[str, dict[str, float]]) -> fl
     if not candidates:
         raise ValueError("could not align phase evidence with the persisted tracks")
     best_score = max(score for score, _ in candidates)
-    plateau = [
-        offset
-        for score, offset in candidates
-        if score >= best_score * 0.98
-    ]
+    plateau = [offset for score, offset in candidates if score >= best_score * 0.98]
     return (min(plateau) + max(plateau)) / 2.0
 
 
@@ -370,6 +366,18 @@ def analyze(
         "speaker recording tail",
         metrics["speaker_recording_tail_seconds"],
         -THRESHOLDS["recording_tail_tolerance_seconds"],
+    )
+    require_at_most(
+        failures,
+        "mic recording tail",
+        metrics["mic_recording_tail_seconds"],
+        THRESHOLDS["recording_tail_tolerance_seconds"],
+    )
+    require_at_most(
+        failures,
+        "speaker recording tail",
+        metrics["speaker_recording_tail_seconds"],
+        THRESHOLDS["recording_tail_tolerance_seconds"],
     )
     require_at_most(
         failures,
