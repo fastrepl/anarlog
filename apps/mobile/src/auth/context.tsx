@@ -272,8 +272,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       : session
         ? "signed_in"
         : "signed_out";
-  const billingReady =
-    bypass || (status !== "loading" && (!session || payload !== null));
+  // `payload` is derived from the session in the same render, so it is only ever
+  // null here because the token failed to decode. Gating on it would wedge the
+  // app on a loading spinner with no way out, so an undecodable token resolves
+  // as ready without entitlement instead.
+  const billingReady = bypass || status !== "loading";
 
   const value = useMemo<AuthState>(
     () => ({

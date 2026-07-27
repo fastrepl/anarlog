@@ -235,8 +235,11 @@ export async function saveSessionTitle(
     const patched = retitleBody(note.body, note.body_format, title);
     if (patched !== null) {
       statements.push({
-        sql: "UPDATE session_documents SET body = ?, updated_at = ? WHERE id = ? AND kind = 'note' AND deleted_at IS NULL",
-        params: [patched, now, sessionId],
+        // The body was read outside this transaction, so the write is guarded on
+        // it: a saveSessionNote that landed in between must keep its newer text
+        // rather than be overwritten by a stale patch.
+        sql: "UPDATE session_documents SET body = ?, updated_at = ? WHERE id = ? AND kind = 'note' AND deleted_at IS NULL AND body = ?",
+        params: [patched, now, sessionId, note.body],
       });
     }
   }

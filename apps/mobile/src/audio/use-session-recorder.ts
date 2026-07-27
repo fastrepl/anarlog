@@ -50,12 +50,13 @@ export function useSessionRecorder(
   const [levels, setLevels] = useState<number[] | null>(null);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
+  const startRef = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
     let active = true;
     setPhase("starting");
-    (async () => {
+    startRef.current = (async () => {
       try {
         const permission = await requestRecordingPermissionsAsync();
         if (!active) return;
@@ -99,6 +100,12 @@ export function useSessionRecorder(
   }, [metering]);
 
   const stop = async (): Promise<StopResult> => {
+    if (phaseRef.current !== "recording" && phaseRef.current !== "starting") {
+      return "noop";
+    }
+    // Stopping mid-startup has to wait for record() to actually happen,
+    // otherwise the recorder is left running with nobody able to stop it.
+    await startRef.current?.catch(() => {});
     if (phaseRef.current !== "recording") return "noop";
     setPhase("saving");
     try {
@@ -125,6 +132,18 @@ export function useSessionRecorder(
       return "failed";
     }
   };
+
+  // Gesture and hardware back unmount the screen without reaching its own back
+  // handler, so the recorder has to tear itself down or the mic keeps running
+  // and the capture is never saved.
+  const stopRef = useRef(stop);
+  stopRef.current = stop;
+  useEffect(
+    () => () => {
+      void stopRef.current();
+    },
+    [],
+  );
 
   return {
     phase,

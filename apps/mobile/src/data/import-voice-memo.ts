@@ -5,7 +5,7 @@ import {
 import { Directory, File, Paths } from "expo-file-system";
 
 import { catalogSessionAudio } from "@/data/audio-catalog";
-import { createSession } from "@/data/session";
+import { createSession, deleteSession } from "@/data/session";
 import { nowIso } from "@/lib/ids";
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -47,19 +47,28 @@ async function importAsset(asset: DocumentPickerAsset): Promise<string> {
 
   const sessionId = await createSession({ title, createdAt });
 
-  const directory = new Directory(Paths.document, "sessions", sessionId);
-  directory.create({ intermediates: true, idempotent: true });
+  try {
+    const directory = new Directory(Paths.document, "sessions", sessionId);
+    directory.create({ intermediates: true, idempotent: true });
 
-  const filename = `audio.${extension}`;
-  const destination = new File(directory, filename);
-  await new File(asset.uri).copy(destination);
+    const filename = `audio.${extension}`;
+    const destination = new File(directory, filename);
+    await new File(asset.uri).copy(destination);
 
-  await catalogSessionAudio(sessionId, {
-    filename,
-    contentType:
-      asset.mimeType ?? CONTENT_TYPES[extension] ?? "application/octet-stream",
-    sizeBytes: asset.size ?? destination.size,
-  });
+    await catalogSessionAudio(sessionId, {
+      filename,
+      contentType:
+        asset.mimeType ??
+        CONTENT_TYPES[extension] ??
+        "application/octet-stream",
+      sizeBytes: asset.size ?? destination.size ?? 0,
+    });
+  } catch (error) {
+    // The session exists before the audio does, so a failed copy or catalog
+    // would otherwise strand an empty session on the timeline.
+    await deleteSession(sessionId).catch(() => {});
+    throw error;
+  }
 
   return sessionId;
 }

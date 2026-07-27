@@ -43,6 +43,13 @@ export default function NoteScreen() {
   const draftRef = useRef<{ title?: string; body?: string }>({});
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // The live query lags our own writes, so a body-only flush would otherwise
+  // resend the pre-edit title and undo the title we just persisted.
+  const savedTitleRef = useRef<string | null>(null);
+  if (savedTitleRef.current !== null && data?.title === savedTitleRef.current) {
+    savedTitleRef.current = null;
+  }
+
   const flush = () => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
@@ -53,12 +60,15 @@ export default function NoteScreen() {
     const current = dataRef.current;
     if (!current) return;
     if (draft.body !== undefined) {
+      const title = draft.title ?? savedTitleRef.current ?? current.title;
+      savedTitleRef.current = title;
       void saveSessionNote(id, {
-        title: draft.title ?? current.title,
+        title,
         bodyText: draft.body,
         bodyFormat: current.bodyFormat,
       });
     } else if (draft.title !== undefined) {
+      savedTitleRef.current = draft.title;
       void saveSessionTitle(id, draft.title);
     }
   };

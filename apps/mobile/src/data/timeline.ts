@@ -27,9 +27,14 @@ export function dayLabel(iso: string): string {
   if (day === today) return "Today";
   if (day === today + DAY) return "Tomorrow";
   if (day === today - DAY) return "Yesterday";
-  return new Date(day).toLocaleDateString(undefined, {
+  const date = new Date(day);
+  // Section labels double as React keys, so an older year has to be spelled out
+  // or the same calendar day across years collides.
+  const sameYear = date.getFullYear() === new Date(today).getFullYear();
+  return date.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
   });
 }
 
