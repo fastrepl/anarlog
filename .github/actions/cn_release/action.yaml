@@ -41,6 +41,7 @@ runs:
       with:
         command: ${{ inputs.raw }}
         api-key: ${{ inputs.key }}
+        path: ${{ github.workspace }}
     - uses: crabnebula-dev/cloud-release@1a8803698ba41de6b23e42abc5dcc3721308233c # v0.2.6
       if: inputs.raw == '' && inputs.framework == 'tauri'
       with:
@@ -48,6 +49,7 @@ runs:
           release ${{ inputs.cmd }} ${{ inputs.app }}
           --framework tauri${{ inputs.channel != '' && format(' --channel {0}', inputs.channel) || '' }}
         api-key: ${{ inputs.key }}
+        path: ${{ github.workspace }}
         working-directory: ${{ inputs.working-directory }}
     - uses: crabnebula-dev/cloud-release@1a8803698ba41de6b23e42abc5dcc3721308233c # v0.2.6
       if: inputs.raw == '' && inputs.framework != 'tauri'
@@ -55,4 +57,5 @@ runs:
         command: >-
           release ${{ inputs.cmd }} ${{ inputs.app }} ${{ inputs.version }}${{ inputs.channel != '' && format(' --channel {0}', inputs.channel) || '' }}
         api-key: ${{ inputs.key }}
+        path: ${{ github.workspace }}
         working-directory: ${{ inputs.working-directory }}
