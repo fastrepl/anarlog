@@ -130,7 +130,7 @@
     "@rolldown/plugin-babel": "^0.2.3",
     "@tanstack/react-router-devtools": "^1.166.13",
     "@tanstack/router-plugin": "^1.167.19",
-    "@tauri-apps/cli": "^2.10.1",
+    "@tauri-apps/cli": "^2.11.4",
     "@testing-library/react": "^16.3.2",
     "@types/chroma-js": "^3.1.2",
     "@types/node": "^24.12.2",
