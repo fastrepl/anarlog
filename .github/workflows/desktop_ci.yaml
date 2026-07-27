@@ -162,8 +162,8 @@ jobs:
       - if: github.event_name == 'workflow_dispatch'
         uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
-          install: git make mingw-w64-x86_64-gcc
+          msystem: UCRT64
+          install: git make mingw-w64-ucrt-x86_64-gcc
           update: true
       - if: github.event_name == 'workflow_dispatch'
         shell: "msys2 {0}"
