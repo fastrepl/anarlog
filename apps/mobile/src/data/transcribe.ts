@@ -188,15 +188,22 @@ function mapBatchResponse(payload: unknown): {
   return { words, hints };
 }
 
-const UPLOAD_TIMEOUT_BASE_MS = 60_000;
-const UPLOAD_TIMEOUT_MAX_MS = 600_000;
+const REQUEST_TIMEOUT_BASE_MS = 60_000;
+const REQUEST_TIMEOUT_MAX_MS = 900_000;
+// Upload on a slow link, plus the provider transcribing the same audio before
+// the synchronous response comes back.
+const UPLOAD_MS_PER_KIB = 8;
+const PROCESSING_MS_PER_KIB = 8;
 
-function uploadTimeoutMs(sizeBytes: number): number {
-  // Scale with file size so long recordings on slow links aren't killed
-  // mid-upload: base + ~1ms/KiB, capped at 10 minutes.
+function requestTimeoutMs(sizeBytes: number): number {
+  // The abort covers the whole /stt/listen round trip, not just the upload, so
+  // budgeting for transfer alone aborts long recordings the provider is still
+  // transcribing and reports them as failures.
+  const kib = sizeBytes / 1024;
   return Math.min(
-    UPLOAD_TIMEOUT_BASE_MS + Math.round(sizeBytes / 1024),
-    UPLOAD_TIMEOUT_MAX_MS,
+    REQUEST_TIMEOUT_BASE_MS +
+      Math.round(kib * (UPLOAD_MS_PER_KIB + PROCESSING_MS_PER_KIB)),
+    REQUEST_TIMEOUT_MAX_MS,
   );
 }
 
@@ -263,7 +270,7 @@ async function runTranscription(sessionId: string): Promise<void> {
     file,
     audio.content_type || "application/octet-stream",
     token,
-    uploadTimeoutMs(audio.size_bytes),
+    requestTimeoutMs(audio.size_bytes),
   );
   if (response.status < 200 || response.status >= 300) {
     throw new Error(
