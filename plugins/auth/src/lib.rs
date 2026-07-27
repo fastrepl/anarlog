@@ -5,6 +5,13 @@ mod migrate;
 #[cfg(any(target_os = "windows", test))]
 mod windows;
 
+// Tauri unit tests bypass the application manifest while still importing
+// TaskDialogIndirect, so the test object must activate Common Controls v6.
+#[cfg(all(test, target_os = "windows", target_env = "msvc"))]
+#[used]
+#[unsafe(link_section = ".drectve")]
+static WINDOWS_TEST_MANIFEST_DIRECTIVES: [u8; 184] = *b" /MANIFEST:EMBED /MANIFESTDEPENDENCY:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"\0";
+
 pub use error::{Error, Result};
 pub use ext::*;
 use tauri::Manager;
