@@ -475,7 +475,7 @@ export function ClassicMainBody() {
       data-sidebar-timeline-header
       className={cn([
         "flex h-9 shrink-0 items-start pt-[9px] pr-1",
-        showWindowControlsGutter ? "pl-[76px]" : "pl-0",
+        showWindowControlsGutter ? "pl-[76px]" : "pl-2",
       ])}
       onWheelCapture={handleSidebarTimelineHeaderWheel}
     >
@@ -517,7 +517,7 @@ export function ClassicMainBody() {
             data-tauri-drag-region
             className={cn([
               "flex h-full min-w-0 items-start pt-[9px] pr-1",
-              showWindowControlsGutter ? "pl-[76px]" : "pl-0",
+              showWindowControlsGutter ? "pl-[76px]" : "pl-2",
             ])}
           >
             <SidebarTimelineChromeWithUpcomingMeeting
@@ -547,7 +547,7 @@ export function ClassicMainBody() {
             data-tauri-drag-region
             className={cn([
               "flex h-full min-w-0 items-start pt-1",
-              showWindowControlsGutter ? "pl-[76px]" : "pl-0",
+              showWindowControlsGutter ? "pl-[76px]" : "pl-2",
             ])}
           />
         </div>

@@ -454,7 +454,7 @@ describe("ClassicMainBody", () => {
       { state: { selectedMineId: null, selectedWebIndex: null } },
     ],
   ] as const)(
-    "uses compact %s spacing for the %s back button",
+    "uses the 8px %s fallback gutter for the %s back button",
     (runtimePlatform, type, extraTabState) => {
       mocks.runtimePlatform = runtimePlatform;
       mocks.currentTab = {

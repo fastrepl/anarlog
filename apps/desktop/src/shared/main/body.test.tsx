@@ -353,7 +353,7 @@ describe("ClassicMainBody", () => {
       });
 
       await waitFor(() => {
-        expect(chromeFrame?.className).toContain("pl-0");
+        expect(chromeFrame?.className).toContain("pl-2");
       });
       expect(chromeFrame?.className).not.toContain("pl-[76px]");
     },
@@ -385,7 +385,7 @@ describe("ClassicMainBody", () => {
         expect(mocks.isFullscreen).toHaveBeenCalled();
       });
       expect(chromeFrame?.className).toContain("pl-[76px]");
-      expect(chromeFrame?.className).not.toContain("pl-0");
+      expect(chromeFrame?.className).not.toContain("pl-2");
     },
   );
 
@@ -419,7 +419,7 @@ describe("ClassicMainBody", () => {
       toggleLabel: "Show sidebar",
     },
   ] as const)(
-    "does not reserve the window controls gutter on $platformName with the sidebar $sidebarState",
+    "uses the 8px fallback gutter on $platformName with the sidebar $sidebarState",
     async ({ expanded, platform, toggleLabel }) => {
       mocks.leftSidebarExpanded = expanded;
       mocks.platform = platform;
@@ -432,7 +432,7 @@ describe("ClassicMainBody", () => {
         : sidebarToggle.parentElement?.parentElement?.parentElement;
 
       await waitFor(() => {
-        expect(chromeFrame?.className).toContain("pl-0");
+        expect(chromeFrame?.className).toContain("pl-2");
       });
       expect(chromeFrame?.className).not.toContain("pl-[76px]");
       expect(mocks.isFullscreen).not.toHaveBeenCalled();
