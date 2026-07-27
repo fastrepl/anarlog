@@ -240,6 +240,40 @@ fn pipewire_capture_loop(
     shutdown_rx: pw::channel::Receiver<()>,
     init_tx: std::sync::mpsc::Sender<Result<()>>,
 ) -> Result<()> {
+    // `init_tx` moves into the listener's user data partway through setup, so any
+    // failure would otherwise just drop the sender and reach the parent as a bare
+    // "stopped during initialization". This clone carries the real error instead.
+    // After a successful init the receiver is gone and the send is a no-op.
+    let setup_err_tx = init_tx.clone();
+
+    let result = pipewire_capture_setup(
+        producer,
+        waker,
+        wake_pending,
+        alive,
+        current_sample_rate,
+        dropped_samples,
+        shutdown_rx,
+        init_tx,
+    );
+
+    if let Err(error) = &result {
+        let _ = setup_err_tx.send(Err(anyhow::anyhow!(error.to_string())));
+    }
+
+    result
+}
+
+fn pipewire_capture_setup(
+    producer: HeapProd<f32>,
+    waker: Arc<AtomicWaker>,
+    wake_pending: Arc<AtomicBool>,
+    alive: Arc<AtomicBool>,
+    current_sample_rate: Arc<AtomicU32>,
+    dropped_samples: Arc<AtomicUsize>,
+    shutdown_rx: pw::channel::Receiver<()>,
+    init_tx: std::sync::mpsc::Sender<Result<()>>,
+) -> Result<()> {
     pw::init();
     let _deinit_guard = PipeWireDeinitGuard;
 
