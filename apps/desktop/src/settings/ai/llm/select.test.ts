@@ -48,6 +48,11 @@ describe("getLlmProviderStatus", () => {
   });
 
   test("only configures Apple Foundation Models when available", () => {
+    const pending = getLlmProviderStatus({
+      provider: provider("apple_foundation"),
+      isAuthenticated: false,
+      isPaid: false,
+    });
     const unavailable = getLlmProviderStatus({
       provider: provider("apple_foundation"),
       isAuthenticated: false,
@@ -61,9 +66,13 @@ describe("getLlmProviderStatus", () => {
       isAvailable: true,
     });
 
+    expect(pending.configured).toBe(false);
+    expect(pending.availabilityPending).toBe(true);
     expect(unavailable.configured).toBe(false);
+    expect(unavailable.availabilityPending).toBeUndefined();
     expect(unavailable.listModels).toBeUndefined();
     expect(available.configured).toBe(true);
+    expect(available.availabilityPending).toBeUndefined();
     expect(available.listModels).toBeTypeOf("function");
   });
 });

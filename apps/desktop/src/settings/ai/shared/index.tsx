@@ -153,9 +153,15 @@ export function useIsProviderReady(
     refetchInterval: checkAvailability ? 5_000 : false,
   });
 
-  return (
-    isConfigured && (!checkAvailability || availabilityQuery.data === true)
-  );
+  if (!isConfigured || !checkAvailability) {
+    return isConfigured;
+  }
+
+  if (availabilityQuery.isPending) {
+    return undefined;
+  }
+
+  return availabilityQuery.data === true;
 }
 
 export function NonHyprProviderCard({

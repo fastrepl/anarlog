@@ -429,6 +429,7 @@ export function SelectProviderAndModel() {
 
 type ProviderStatus = {
   configured: boolean;
+  availabilityPending?: boolean;
   listModels?: () => Promise<ListModelsResult>;
 };
 
@@ -464,8 +465,13 @@ export function getLlmProviderStatus({
     return { configured: false };
   }
 
-  if (provider.id === "apple_foundation" && isAvailable !== true) {
-    return { configured: false };
+  if (provider.id === "apple_foundation") {
+    if (isAvailable === undefined) {
+      return { configured: false, availabilityPending: true };
+    }
+    if (!isAvailable) {
+      return { configured: false };
+    }
   }
 
   if (provider.id === "hyprnote") {
@@ -565,5 +571,8 @@ function useConfiguredMapping(): {
     ) as Record<string, ProviderStatus>;
   }, [configuredProviders, auth, billing, appleFoundationAvailable]);
 
-  return { providers: mapping, isReady };
+  return {
+    providers: mapping,
+    isReady: isReady && mapping.apple_foundation?.availabilityPending !== true,
+  };
 }
