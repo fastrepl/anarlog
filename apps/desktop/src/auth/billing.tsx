@@ -234,6 +234,33 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     isReady,
   ]);
 
+  useEffect(() => {
+    if (auth?.session && !isReady) {
+      return;
+    }
+
+    const repair = getUnsupportedDesktopLocalSttRepair(
+      platform(),
+      currentSttProvider,
+      currentSttModel,
+      isReady && billing.isPaid && !!auth?.session,
+    );
+    if (!repair) {
+      return;
+    }
+
+    void setSettingValues({
+      current_stt_provider: repair.provider,
+      current_stt_model: repair.model,
+    });
+  }, [
+    auth?.session?.user.id,
+    billing.isPaid,
+    currentSttModel,
+    currentSttProvider,
+    isReady,
+  ]);
+
   const prevIsPaidRef = useRef(billing.isPaid);
   useEffect(() => {
     const wasPaid = prevIsPaidRef.current;
