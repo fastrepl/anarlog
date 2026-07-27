@@ -1,4 +1,3 @@
-import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { platform } from "@tauri-apps/plugin-os";
 import { useState } from "react";
@@ -6,12 +5,14 @@ import { useState } from "react";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export function useWindowControlsGutter() {
-  const [visible, setVisible] = useState(
-    () => !isTauri() || platform() === "macos",
-  );
+  const [visible, setVisible] = useState(() => {
+    const runtimePlatform = getRuntimePlatform();
+
+    return runtimePlatform === null || runtimePlatform === "macos";
+  });
 
   useMountEffect(() => {
-    if (!isTauri() || platform() !== "macos") {
+    if (getRuntimePlatform() !== "macos") {
       return;
     }
 
@@ -48,4 +49,12 @@ export function useWindowControlsGutter() {
   });
 
   return visible;
+}
+
+function getRuntimePlatform() {
+  try {
+    return platform();
+  } catch {
+    return null;
+  }
 }
