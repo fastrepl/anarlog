@@ -42,6 +42,17 @@ jobs:
       - run: |
           git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
           git fetch --tags --force
+      - if: ${{ inputs.channel == 'stable' }}
+        run: |
+          git fetch origin main --no-tags
+
+          TARGET=$(git rev-parse HEAD)
+          MAIN=$(git rev-parse origin/main)
+
+          if [[ "$TARGET" != "$MAIN" ]]; then
+            echo "::error::Stable releases must run from the current main commit ($MAIN), got $TARGET"
+            exit 1
+          fi
       - uses: ./.github/actions/doxxer_install
       - id: version
         run: |
@@ -376,9 +387,251 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
 
+  build-windows:
+    needs: [compute-version, cn-draft]
+    if: ${{ !cancelled() && (needs.cn-draft.result == 'success' || needs.cn-draft.result == 'skipped') }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+          fetch-tags: true
+          submodules: recursive
+      - run: ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "${{ needs.compute-version.outputs.version }}"
+        shell: bash
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: windows
+      - uses: ./.github/actions/pnpm_install
+      - run: pnpm -F ui build
+      - shell: bash
+        run: |
+          cargo build --locked --release -p anarlog-cli --target x86_64-pc-windows-msvc
+          cp \
+            target/x86_64-pc-windows-msvc/release/anarlog.exe \
+            apps/desktop/src-tauri/resources/cli/anarlog-cli-x86_64-pc-windows-msvc.exe
+          ./scripts/sidecar.sh \
+            "./apps/desktop/${{ env.TAURI_CONF_PATH }}" \
+            resources/cli/anarlog-cli
+      - if: ${{ inputs.channel == 'stable' }}
+        name: Import Windows signing certificate
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if (
+            [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE) -or
+            [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_PASSWORD)
+          ) {
+            throw "Stable Windows releases require WINDOWS_CERTIFICATE and WINDOWS_CERTIFICATE_PASSWORD"
+          }
+
+          $encodedCertificate = Join-Path $env:RUNNER_TEMP "anarlog-windows-certificate.txt"
+          $certificatePath = Join-Path $env:RUNNER_TEMP "anarlog-windows-certificate.pfx"
+          Set-Content -Path $encodedCertificate -Value $env:WINDOWS_CERTIFICATE
+          certutil -decode $encodedCertificate $certificatePath
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not decode the Windows signing certificate"
+          }
+
+          $password = ConvertTo-SecureString `
+            -String $env:WINDOWS_CERTIFICATE_PASSWORD `
+            -Force `
+            -AsPlainText
+          $certificate = @(
+            Import-PfxCertificate `
+              -FilePath $certificatePath `
+              -CertStoreLocation Cert:\CurrentUser\My `
+              -Password $password
+          ) |
+            Where-Object { $_.HasPrivateKey } |
+            Select-Object -First 1
+          if (-not $certificate) {
+            throw "Could not import the Windows signing certificate"
+          }
+          Remove-Item $encodedCertificate, $certificatePath -Force
+
+          $signingConfigPath = Join-Path $env:RUNNER_TEMP "tauri.windows-signing.json"
+          @{
+            bundle = @{
+              windows = @{
+                certificateThumbprint = $certificate.Thumbprint
+                digestAlgorithm = "sha256"
+                timestampUrl = "http://timestamp.digicert.com"
+              }
+            }
+          } |
+            ConvertTo-Json -Depth 4 |
+            Set-Content -Path $signingConfigPath -Encoding utf8
+
+          "WINDOWS_SIGNING_CONFIG=$($signingConfigPath.Replace('\', '/'))" |
+            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - shell: bash
+        run: |
+          BUILD_ARGS=(
+            --ci
+            --bundles nsis
+            --target x86_64-pc-windows-msvc
+            --config "${{ env.TAURI_CONF_PATH }}"
+            --verbose
+          )
+          if [[ "${{ inputs.channel }}" == "staging" ]]; then
+            BUILD_ARGS+=(--features devtools --no-sign)
+          else
+            BUILD_ARGS+=(--config "$WINDOWS_SIGNING_CONFIG")
+          fi
+          pnpm -F desktop tauri build "${BUILD_ARGS[@]}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          VITE_POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN_HYPRNOTE_2 }}
+          APP_VERSION: ${{ needs.compute-version.outputs.version }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_APP_URL: https://anarlog.so
+          VITE_API_URL: https://api.anarlog.so
+          VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
+          VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
+      - shell: pwsh
+        env:
+          EXPECTED_VERSION: ${{ needs.compute-version.outputs.version }}
+          RELEASE_CHANNEL: ${{ inputs.channel }}
+        run: |
+          $config = Get-Content "apps/desktop/src-tauri/tauri.conf.json" | ConvertFrom-Json
+          if ($config.version -ne $env:EXPECTED_VERSION) {
+            throw "Expected app version $env:EXPECTED_VERSION, got $($config.version)"
+          }
+
+          $bundleDir = "apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis"
+          $installers = @(Get-ChildItem $bundleDir -Filter "*.exe")
+          if ($installers.Count -ne 1) {
+            throw "Expected one NSIS installer in $bundleDir, found $($installers.Count)"
+          }
+          if ($installers[0].Name -notmatch [regex]::Escape($env:EXPECTED_VERSION)) {
+            throw "Installer filename does not contain version $env:EXPECTED_VERSION"
+          }
+
+          if ($env:RELEASE_CHANNEL -eq "stable") {
+            $updaterSignatures = @(Get-ChildItem $bundleDir -Filter "*.exe.sig")
+            $expectedUpdaterSignature = "$($installers[0].FullName).sig"
+            if (
+              $updaterSignatures.Count -ne 1 -or
+              $updaterSignatures[0].FullName -ne $expectedUpdaterSignature
+            ) {
+              throw "Expected the NSIS installer and its updater signature for the stable release"
+            }
+
+            $appBinary = "apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/anarlog.exe"
+            foreach ($signedFile in @($appBinary, $installers[0].FullName)) {
+              $signature = Get-AuthenticodeSignature $signedFile
+              if ($signature.Status -ne "Valid") {
+                throw "Invalid Authenticode signature for $signedFile`: $($signature.Status)"
+              }
+            }
+          }
+
+          $hash = (Get-FileHash -Algorithm SHA256 $installers[0].FullName).Hash.ToLowerInvariant()
+          "$hash  $($installers[0].Name)" |
+            Out-File "$($installers[0].FullName).sha256" -Encoding ascii
+      - shell: pwsh
+        run: |
+          $source = "apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis"
+          $destination = "apps/desktop/src-tauri/target/release"
+          New-Item -ItemType Directory -Force -Path $destination | Out-Null
+          Copy-Item "$source/*" $destination
+      - uses: actions/upload-artifact@v4
+        with:
+          name: anarlog-${{ inputs.channel }}-windows-x64
+          path: apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*
+          if-no-files-found: error
+          retention-days: 7
+      - if: ${{ inputs.channel != 'staging' }}
+        uses: ./.github/actions/cn_release
+        with:
+          cmd: upload
+          app: ${{ env.CN_APPLICATION }}
+          key: ${{ secrets.CN_API_KEY }}
+          channel: ${{ env.RELEASE_CHANNEL }}
+          framework: tauri
+          working-directory: ./apps/desktop
+
+  verify-cn-release:
+    if: ${{ inputs.channel != 'staging' && !cancelled() && needs.build-macos.result == 'success' && needs.build-windows.result == 'success' && needs.build-linux.result == 'success' }}
+    needs: [compute-version, build-macos, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: release
+        uses: ./.github/actions/cn_release
+        with:
+          raw: >-
+            release show ${{ env.CN_APPLICATION }} ${{ needs.compute-version.outputs.version }}
+            --channel ${{ env.RELEASE_CHANNEL }}
+          key: ${{ secrets.CN_API_KEY }}
+      - env:
+          EXPECTED_VERSION: ${{ needs.compute-version.outputs.version }}
+          RELEASE: ${{ steps.release.outputs.raw }}
+        run: |
+          ACTUAL_VERSION=$(echo "$RELEASE" | jq -r '.version // empty')
+          if [[ "$ACTUAL_VERSION" != "$EXPECTED_VERSION" ]]; then
+            echo "::error::Expected CrabNebula release $EXPECTED_VERSION, got $ACTUAL_VERSION"
+            exit 1
+          fi
+
+          EXPECTED_PLATFORMS=(
+            "dmg-aarch64"
+            "dmg-x86_64"
+            "nsis-x86_64"
+            "appimage-x86_64"
+            "deb-x86_64"
+            "appimage-aarch64"
+            "deb-aarch64"
+          )
+
+          INVALID_PLATFORMS=()
+          for platform in "${EXPECTED_PLATFORMS[@]}"; do
+            if ! echo "$RELEASE" | jq -e --arg platform "$platform" \
+              '[.assets[]? | select(.publicPlatform == $platform and ((.size // 0) | tonumber) > 0)] | length == 1' > /dev/null; then
+              INVALID_PLATFORMS+=("$platform")
+            fi
+          done
+
+          if [[ "${#INVALID_PLATFORMS[@]}" -gt 0 ]]; then
+            echo "::error::CrabNebula release $EXPECTED_VERSION has missing, duplicate, or empty download assets: ${INVALID_PLATFORMS[*]}"
+            exit 1
+          fi
+
+          EXPECTED_UPDATE_PLATFORMS=(
+            "darwin-aarch64"
+            "darwin-x86_64"
+            "windows-x86_64-nsis"
+            "linux-x86_64-appimage"
+            "linux-x86_64-deb"
+            "linux-aarch64-appimage"
+            "linux-aarch64-deb"
+          )
+
+          INVALID_UPDATE_PLATFORMS=()
+          for platform in "${EXPECTED_UPDATE_PLATFORMS[@]}"; do
+            if ! echo "$RELEASE" | jq -e --arg platform "$platform" \
+              '[.assets[]? | select(.updatePlatform == $platform and ((.signature // "") | length) > 0 and ((.size // 0) | tonumber) > 0)] | length == 1' > /dev/null; then
+              INVALID_UPDATE_PLATFORMS+=("$platform")
+            fi
+          done
+
+          if [[ "${#INVALID_UPDATE_PLATFORMS[@]}" -gt 0 ]]; then
+            echo "::error::CrabNebula release $EXPECTED_VERSION has missing, duplicate, unsigned, or empty updater assets: ${INVALID_UPDATE_PLATFORMS[*]}"
+            exit 1
+          fi
+
   create-tag:
-    if: ${{ inputs.channel != 'staging' && !cancelled() && needs.build-macos.result == 'success' && needs.build-linux.result == 'success' }}
-    needs: [compute-version, build-macos, build-linux]
+    if: ${{ inputs.channel != 'staging' && inputs.publish && !cancelled() && needs.verify-cn-release.result == 'success' }}
+    needs: [compute-version, verify-cn-release]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -394,17 +647,21 @@ jobs:
           TARGET=$(git rev-parse HEAD)
           EXISTING=$(git rev-parse -q --verify "refs/tags/$TAG" || true)
 
-          if [[ -n "$EXISTING" && -z "${{ inputs.version }}" ]]; then
-            echo "::error::Tag $TAG already exists"
-            exit 1
-          fi
+          if [[ -n "$EXISTING" ]]; then
+            if [[ "$EXISTING" != "$TARGET" ]]; then
+              echo "::error::Tag $TAG points to $EXISTING instead of candidate $TARGET"
+              exit 1
+            fi
 
-          git tag -f "$TAG" "$TARGET"
-          git push origin "refs/tags/$TAG" --force
+            echo "Tag $TAG already points to candidate $TARGET"
+          else
+            git tag "$TAG" "$TARGET"
+            git push origin "refs/tags/$TAG"
+          fi
 
   cn-publish:
     if: ${{ inputs.channel != 'staging' && inputs.publish }}
-    needs: [compute-version, build-macos, build-linux, create-tag]
+    needs: [compute-version, verify-cn-release, create-tag]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -419,8 +676,14 @@ jobs:
           working-directory: ./apps/desktop
 
   release:
-    if: ${{ inputs.channel != 'staging' && inputs.publish && !cancelled() && needs.cn-publish.result == 'success' && needs.build-macos.result == 'success' && needs.build-linux.result == 'success' }}
-    needs: [compute-version, build-macos, build-linux, cn-publish]
+    if: ${{ inputs.channel != 'staging' && inputs.publish && !cancelled() && needs.cn-publish.result == 'success' && needs.build-macos.result == 'success' && needs.build-windows.result == 'success' && needs.build-linux.result == 'success' }}
+    needs: [
+      compute-version,
+      build-macos,
+      build-windows,
+      build-linux,
+      cn-publish,
+    ]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -463,7 +726,7 @@ jobs:
           app: ${{ env.CN_APPLICATION }}
           version: ${{ needs.compute-version.outputs.version }}
           channel: ${{ env.RELEASE_CHANNEL }}
-          platform: debian-x86_64
+          platform: deb-x86_64
           output: anarlog-linux-x86_64.deb
           key: ${{ secrets.CN_API_KEY }}
       - if: ${{ needs.build-linux.result == 'success' }}
@@ -481,8 +744,17 @@ jobs:
           app: ${{ env.CN_APPLICATION }}
           version: ${{ needs.compute-version.outputs.version }}
           channel: ${{ env.RELEASE_CHANNEL }}
-          platform: debian-aarch64
+          platform: deb-aarch64
           output: anarlog-linux-aarch64.deb
+          key: ${{ secrets.CN_API_KEY }}
+      - if: ${{ needs.build-windows.result == 'success' }}
+        uses: ./.github/actions/cn_download
+        with:
+          app: ${{ env.CN_APPLICATION }}
+          version: ${{ needs.compute-version.outputs.version }}
+          channel: ${{ env.RELEASE_CHANNEL }}
+          platform: nsis-x86_64
+          output: anarlog-windows-x86_64-setup.exe
           key: ${{ secrets.CN_API_KEY }}
       - id: checksums
         uses: ./.github/actions/generate_checksums
@@ -494,6 +766,7 @@ jobs:
             ${{ needs.build-linux.result == 'success' && 'anarlog-linux-x86_64.deb' || '' }}
             ${{ needs.build-linux.result == 'success' && 'anarlog-linux-aarch64.AppImage' || '' }}
             ${{ needs.build-linux.result == 'success' && 'anarlog-linux-aarch64.deb' || '' }}
+            ${{ needs.build-windows.result == 'success' && 'anarlog-windows-x86_64-setup.exe' || '' }}
       - id: artifacts
         run: |
           ARTIFACTS=""
@@ -506,6 +779,14 @@ jobs:
               ARTIFACTS="$ARTIFACTS,$LINUX_ARTIFACTS"
             else
               ARTIFACTS="$LINUX_ARTIFACTS"
+            fi
+          fi
+          if [[ "${{ needs.build-windows.result }}" == "success" ]]; then
+            WINDOWS_ARTIFACT="anarlog-windows-x86_64-setup.exe"
+            if [[ -n "$ARTIFACTS" ]]; then
+              ARTIFACTS="$ARTIFACTS,$WINDOWS_ARTIFACT"
+            else
+              ARTIFACTS="$WINDOWS_ARTIFACT"
             fi
           fi
           if [[ -z "$ARTIFACTS" ]]; then
