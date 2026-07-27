@@ -241,37 +241,54 @@ mod tests {
     #[cfg(target_os = "windows")]
     #[tokio::test]
     #[serial]
+    #[ignore = "requires Windows audio hardware and active system playback"]
     async fn test_windows() {
-        let input = match SpeakerInput::new() {
-            Ok(input) => input,
-            Err(e) => {
-                println!("Failed to create SpeakerInput: {}", e);
-                return;
-            }
-        };
+        println!("Play continuous audio through the Windows default output while this test runs");
 
-        let mut stream = match input.stream() {
-            Ok(stream) => stream,
-            Err(e) => {
-                println!("Failed to create speaker stream: {}", e);
-                return;
-            }
-        };
+        let input = SpeakerInput::new().expect("failed to create Windows WASAPI speaker input");
+        let mut stream = input
+            .stream()
+            .expect("failed to initialize Windows WASAPI loopback capture");
 
         let sample_rate = stream.sample_rate();
-        assert!(sample_rate > 0);
         println!("Windows speaker sample rate: {}", sample_rate);
+        assert!(sample_rate > 0);
 
-        let mut sample_count = 0;
-        while let Some(_sample) = stream.next().await {
-            sample_count += 1;
-            if sample_count > 100 {
-                break;
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+
+        let mut samples = Vec::new();
+        let timeout = tokio::time::sleep(tokio::time::Duration::from_secs(5));
+        tokio::pin!(timeout);
+
+        loop {
+            tokio::select! {
+                _ = &mut timeout => {
+                    break;
+                }
+                sample = stream.next() => {
+                    match sample {
+                        Some(sample) => samples.push(sample),
+                        None => panic!("Windows WASAPI loopback capture ended unexpectedly"),
+                    }
+                    if samples.len() >= sample_rate as usize {
+                        break;
+                    }
+                }
             }
         }
 
-        assert!(sample_count > 0, "Should receive some audio samples");
-        println!("Received {} samples from Windows speaker", sample_count);
+        println!("Received {} Windows speaker samples", samples.len());
+        assert!(
+            !samples.is_empty(),
+            "Windows WASAPI loopback capture produced no samples"
+        );
+        let rms = (samples.iter().map(|sample| sample * sample).sum::<f32>()
+            / samples.len() as f32)
+            .sqrt();
+        assert!(
+            rms > 1e-4,
+            "Windows WASAPI loopback capture was silent; play audio through the default output while running this test"
+        );
     }
 
     #[cfg(target_os = "linux")]
