@@ -7,6 +7,7 @@ import {
 } from "./searchable-select";
 
 import { useSetSettingValue } from "~/settings/queries";
+import { SettingRow } from "~/settings/setting-row";
 import { useConfigValue } from "~/shared/config";
 
 const COMMON_TIMEZONES = [
@@ -52,24 +53,24 @@ export function TimezoneSelector() {
   };
 
   return (
-    <div className="flex flex-row items-center justify-between">
-      <div>
-        <h3 className="mb-1 text-sm font-medium">
-          <Trans>Timezone</Trans>
-        </h3>
-        <p className="text-muted-foreground text-xs">
-          <Trans>Override the timezone used for the sidebar timeline</Trans>
-        </p>
-      </div>
-      <SearchableSelect
-        value={displayValue}
-        onChange={handleChange}
-        options={options}
-        placeholder={t`Select timezone`}
-        searchPlaceholder={t`Search timezone...`}
-        className="w-48"
-        dropdownClassName="w-72"
-      />
-    </div>
+    <SettingRow
+      title={<Trans>Timezone</Trans>}
+      description={
+        <Trans>Override the timezone used for the sidebar timeline</Trans>
+      }
+    >
+      {(labelProps) => (
+        <SearchableSelect
+          {...labelProps}
+          value={displayValue}
+          onChange={handleChange}
+          options={options}
+          placeholder={t`Select timezone`}
+          searchPlaceholder={t`Search timezone...`}
+          className="w-full"
+          dropdownClassName="w-72"
+        />
+      )}
+    </SettingRow>
   );
 }

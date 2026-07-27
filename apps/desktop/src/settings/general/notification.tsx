@@ -34,7 +34,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@hypr/ui/components/ui/select";
-import { Switch } from "@hypr/ui/components/ui/switch";
 import { cn } from "@hypr/utils";
 
 import {
@@ -44,6 +43,7 @@ import {
 } from "./notification-app-options";
 
 import { useSetSettingValues } from "~/settings/queries";
+import { SettingSwitchRow } from "~/settings/setting-row";
 import { useConfigValues } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
@@ -161,22 +161,14 @@ export function NotificationSettingsView() {
     <div className="flex flex-col gap-6">
       <form.Field name="notification_event">
         {(field) => (
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <h3 className="mb-1 text-sm font-medium">
-                <Trans>Event notifications</Trans>
-              </h3>
-              <p className="text-muted-foreground text-xs">
-                <Trans>
-                  Get notified 5 minutes before calendar events start
-                </Trans>
-              </p>
-            </div>
-            <Switch
-              checked={field.state.value}
-              onCheckedChange={field.handleChange}
-            />
-          </div>
+          <SettingSwitchRow
+            title={<Trans>Event notifications</Trans>}
+            description={
+              <Trans>Get notified 5 minutes before calendar events start</Trans>
+            }
+            checked={field.state.value}
+            onChange={field.handleChange}
+          />
         )}
       </form.Field>
 
@@ -184,23 +176,17 @@ export function NotificationSettingsView() {
         <form.Field name="notification_detect">
           {(field) => (
             <div className="flex flex-col gap-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <h3 className="mb-1 text-sm font-medium">
-                    <Trans>Microphone detection</Trans>
-                  </h3>
-                  <p className="text-muted-foreground text-xs">
-                    <Trans>
-                      Automatically detect when a meeting starts based on
-                      microphone activity.
-                    </Trans>
-                  </p>
-                </div>
-                <Switch
-                  checked={field.state.value}
-                  onCheckedChange={field.handleChange}
-                />
-              </div>
+              <SettingSwitchRow
+                title={<Trans>Microphone detection</Trans>}
+                description={
+                  <Trans>
+                    Automatically detect when a meeting starts based on
+                    microphone activity.
+                  </Trans>
+                }
+                checked={field.state.value}
+                onChange={field.handleChange}
+              />
 
               {field.state.value && (
                 <div className={cn(["border-muted ml-3 border-l-2 pt-2 pl-4"])}>
@@ -415,24 +401,18 @@ export function NotificationSettingsView() {
             {(anyNotificationEnabled) => (
               <form.Field name="respect_dnd">
                 {(field) => (
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <h3 className="mb-1 text-sm font-medium">
-                        <Trans>Respect Do-Not-Disturb mode</Trans>
-                      </h3>
-                      <p className="text-muted-foreground text-xs">
-                        <Trans>
-                          Don't show notifications when Do-Not-Disturb is
-                          enabled on your system
-                        </Trans>
-                      </p>
-                    </div>
-                    <Switch
-                      checked={field.state.value}
-                      onCheckedChange={field.handleChange}
-                      disabled={!anyNotificationEnabled}
-                    />
-                  </div>
+                  <SettingSwitchRow
+                    title={<Trans>Respect Do-Not-Disturb mode</Trans>}
+                    description={
+                      <Trans>
+                        Don't show notifications when Do-Not-Disturb is enabled
+                        on your system
+                      </Trans>
+                    }
+                    checked={field.state.value}
+                    onChange={field.handleChange}
+                    disabled={!anyNotificationEnabled}
+                  />
                 )}
               </form.Field>
             )}

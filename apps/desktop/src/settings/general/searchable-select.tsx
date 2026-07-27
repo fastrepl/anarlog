@@ -34,6 +34,8 @@ interface SearchableSelectProps {
   emptyMessage?: string;
   className?: string;
   dropdownClassName?: string;
+  "aria-labelledby"?: string;
+  "aria-describedby"?: string;
 }
 
 const filterFunction = (value: string, search: string) => {
@@ -54,6 +56,8 @@ export function SearchableSelect({
   emptyMessage,
   className,
   dropdownClassName,
+  "aria-labelledby": ariaLabelledBy,
+  "aria-describedby": ariaDescribedBy,
 }: SearchableSelectProps) {
   const { t } = useLingui();
   const [open, setOpen] = useState(false);
@@ -81,6 +85,8 @@ export function SearchableSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          aria-labelledby={ariaLabelledBy}
+          aria-describedby={ariaDescribedBy}
           className={cn([
             "bg-card justify-between font-normal shadow-none focus-visible:ring-0",
             "rounded-full px-3",

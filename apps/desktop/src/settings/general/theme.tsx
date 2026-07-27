@@ -10,6 +10,7 @@ import {
 } from "@hypr/ui/components/ui/select";
 
 import { useSetSettingValue } from "~/settings/queries";
+import { SETTING_CONTROL_CLASS, SettingRow } from "~/settings/setting-row";
 import { useConfigValue } from "~/shared/config";
 import { applyThemePreference } from "~/shared/theme/provider";
 import type { ThemePreference } from "~/shared/theme/resolve";
@@ -31,34 +32,33 @@ export function ThemeSelector() {
   );
 
   return (
-    <div className="flex flex-row items-center justify-between">
-      <div>
-        <h3 className="mb-1 text-sm font-medium">
-          <Trans>Appearance</Trans>
-        </h3>
-        <p className="text-muted-foreground text-xs">
-          <Trans>Choose light, dark, or match your system setting.</Trans>
-        </p>
-      </div>
-      <Select
-        value={THEME_OPTIONS.includes(value) ? value : "system"}
-        onValueChange={(next) => {
-          const preference = next as ThemePreference;
-          void applyThemePreference(preference);
-          setTheme(next);
-        }}
-      >
-        <SelectTrigger className="bg-card h-9 w-48 shadow-none focus:ring-0">
-          <SelectValue placeholder={t`Select appearance`} />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <SettingRow
+      title={<Trans>Appearance</Trans>}
+      description={
+        <Trans>Choose light, dark, or match your system setting.</Trans>
+      }
+    >
+      {(labelProps) => (
+        <Select
+          value={THEME_OPTIONS.includes(value) ? value : "system"}
+          onValueChange={(next) => {
+            const preference = next as ThemePreference;
+            void applyThemePreference(preference);
+            setTheme(next);
+          }}
+        >
+          <SelectTrigger {...labelProps} className={SETTING_CONTROL_CLASS}>
+            <SelectValue placeholder={t`Select appearance`} />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    </SettingRow>
   );
 }

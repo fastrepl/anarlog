@@ -7,6 +7,8 @@ import {
   type SearchableSelectOption,
 } from "./searchable-select";
 
+import { SettingRow } from "~/settings/setting-row";
+
 export function MainLanguageView({
   value,
   onChange,
@@ -44,26 +46,24 @@ export function MainLanguageView({
   );
 
   return (
-    <div className="flex flex-row items-center justify-between">
-      <div>
-        <h3 className="mb-1 text-sm font-medium">
-          <Trans>Main language</Trans>
-        </h3>
-        <p className="text-muted-foreground text-xs">
-          <Trans>
-            Language for summaries, chats, and AI-generated responses
-          </Trans>
-        </p>
-      </div>
-      <SearchableSelect
-        value={normalizedValue}
-        onChange={onChange}
-        options={options}
-        placeholder={t`Select language`}
-        searchPlaceholder={t`Search language...`}
-        emptyMessage={t`No matching languages found`}
-        className="w-48"
-      />
-    </div>
+    <SettingRow
+      title={<Trans>Main language</Trans>}
+      description={
+        <Trans>Language for summaries, chats, and AI-generated responses</Trans>
+      }
+    >
+      {(labelProps) => (
+        <SearchableSelect
+          {...labelProps}
+          value={normalizedValue}
+          onChange={onChange}
+          options={options}
+          placeholder={t`Select language`}
+          searchPlaceholder={t`Search language...`}
+          emptyMessage={t`No matching languages found`}
+          className="w-full"
+        />
+      )}
+    </SettingRow>
   );
 }
