@@ -9,8 +9,17 @@ on:
         description: "Exact 40-character main commit used to build the candidate"
         required: true
         type: string
+      dry_run_id:
+        description: "Successful publish=false desktop CD run that built the candidate"
+        required: true
+        type: string
+
+concurrency:
+  group: desktop-stable-release
+  cancel-in-progress: false
 
 env:
+  CN_ACTION_REF: "crabnebula-dev/cloud-release@1a8803698ba41de6b23e42abc5dcc3721308233c"
   CN_APPLICATION: "fastrepl/hyprnote2"
 
 jobs:
@@ -20,10 +29,12 @@ jobs:
       version: ${{ steps.parse.outputs.version }}
       channel: ${{ steps.parse.outputs.channel }}
       candidate_sha: ${{ steps.parse.outputs.candidate_sha }}
+      dry_run_id: ${{ steps.parse.outputs.dry_run_id }}
     steps:
       - id: parse
         env:
           INPUT_CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          INPUT_DRY_RUN_ID: ${{ inputs.dry_run_id }}
           INPUT_VERSION: ${{ inputs.version }}
         run: |
           if [[ ! "$INPUT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -35,12 +46,17 @@ jobs:
             echo "::error::Candidate SHA must be a full 40-character commit SHA"
             exit 1
           fi
+          if [[ ! "$INPUT_DRY_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::Dry-run workflow ID must be a positive integer"
+            exit 1
+          fi
 
           VERSION="$INPUT_VERSION"
           CANDIDATE_SHA="${INPUT_CANDIDATE_SHA,,}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "channel=stable" >> $GITHUB_OUTPUT
           echo "candidate_sha=$CANDIDATE_SHA" >> $GITHUB_OUTPUT
+          echo "dry_run_id=$INPUT_DRY_RUN_ID" >> $GITHUB_OUTPUT
 
   verify-candidate:
     needs: parse
@@ -140,6 +156,7 @@ jobs:
     needs: [parse, verify-candidate, verify-windows-signature]
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: write
     steps:
       - uses: actions/checkout@v4
@@ -148,6 +165,31 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
       - run: ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "${{ needs.parse.outputs.version }}"
+      - name: Download candidate provenance
+        env:
+          EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ needs.parse.outputs.dry_run_id }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")
+          if ! echo "$RUN" | jq -e \
+            --arg sha "$EXPECTED_SHA" \
+            --arg workflow ".github/workflows/desktop_cd.yaml" \
+            '
+              (.head_sha | ascii_downcase) == $sha
+              and .event == "workflow_dispatch"
+              and .conclusion == "success"
+              and (.path | split("@")[0]) == $workflow
+            ' > /dev/null; then
+            echo "::error::Run $RUN_ID is not a successful desktop CD run for candidate $EXPECTED_SHA"
+            exit 1
+          fi
+
+          gh run download "$RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "desktop-release-provenance-$VERSION-$EXPECTED_SHA" \
+            --dir release-provenance
       - id: release
         uses: ./.github/actions/cn_release
         with:
@@ -225,6 +267,24 @@ jobs:
               exit 1
               ;;
           esac
+      - name: Verify candidate provenance
+        env:
+          CN_ACTION_REF: ${{ env.CN_ACTION_REF }}
+          EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
+          RELEASE: ${{ steps.release.outputs.raw }}
+          RUN_ID: ${{ needs.parse.outputs.dry_run_id }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          printf '%s' "$RELEASE" > "$RUNNER_TEMP/crabnebula-release.json"
+          CN_VERSION=$("$GITHUB_WORKSPACE/cn" --version)
+          node scripts/desktop-release-provenance.mjs verify \
+            --release "$RUNNER_TEMP/crabnebula-release.json" \
+            --manifest release-provenance/manifest.json \
+            --version "$VERSION" \
+            --candidate-sha "$EXPECTED_SHA" \
+            --run-id "$RUN_ID" \
+            --cn-version "$CN_VERSION" \
+            --cn-action-ref "$CN_ACTION_REF"
       - name: Create immutable release tag
         env:
           EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
@@ -253,6 +313,22 @@ jobs:
           else
             git tag "$TAG" "$EXPECTED_SHA"
             git push origin "refs/tags/$TAG"
+          fi
+      - name: Verify candidate before publication
+        if: ${{ steps.publish-decision.outputs.publish_needed == 'true' }}
+        env:
+          EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          git fetch origin main --no-tags
+          git fetch --tags --force
+
+          TARGET=$(git rev-parse HEAD)
+          MAIN=$(git rev-parse origin/main)
+          TAG_TARGET=$(git rev-parse "desktop_v$VERSION^{commit}")
+          if [[ "$TARGET" != "$EXPECTED_SHA" || "$MAIN" != "$EXPECTED_SHA" || "$TAG_TARGET" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Candidate moved before publication (candidate=$EXPECTED_SHA, checkout=$TARGET, main=$MAIN, tag=$TAG_TARGET)"
+            exit 1
           fi
       - uses: ./.github/actions/cn_release
         if: ${{ steps.publish-decision.outputs.publish_needed == 'true' }}
@@ -294,7 +370,7 @@ jobs:
           version: ${{ needs.parse.outputs.version }}
           channel: ${{ needs.parse.outputs.channel }}
           platform: dmg-aarch64
-          output: char-macos-aarch64.dmg
+          output: hyprnote-macos-aarch64.dmg
           key: ${{ secrets.CN_API_KEY }}
       - id: download-macos-x86_64
         uses: ./.github/actions/cn_download
@@ -303,7 +379,7 @@ jobs:
           version: ${{ needs.parse.outputs.version }}
           channel: ${{ needs.parse.outputs.channel }}
           platform: dmg-x86_64
-          output: char-macos-x86_64.dmg
+          output: hyprnote-macos-x86_64.dmg
           key: ${{ secrets.CN_API_KEY }}
       - id: download-linux-x86_64-appimage
         uses: ./.github/actions/cn_download
@@ -354,8 +430,8 @@ jobs:
         uses: ./.github/actions/generate_checksums
         with:
           files: |
-            char-macos-aarch64.dmg
-            char-macos-x86_64.dmg
+            hyprnote-macos-aarch64.dmg
+            hyprnote-macos-x86_64.dmg
             anarlog-linux-x86_64.AppImage
             anarlog-linux-x86_64.deb
             anarlog-linux-aarch64.AppImage
@@ -370,7 +446,7 @@ jobs:
           name: desktop_v${{ needs.parse.outputs.version }}
           body: ${{ steps.release-body.outputs.value }}
           prerelease: false
-          artifacts: char-macos-aarch64.dmg,char-macos-x86_64.dmg,anarlog-linux-x86_64.AppImage,anarlog-linux-x86_64.deb,anarlog-linux-aarch64.AppImage,anarlog-linux-aarch64.deb,anarlog-windows-x86_64-setup.exe,${{ steps.checksums.outputs.checksum_files }}
+          artifacts: hyprnote-macos-aarch64.dmg,hyprnote-macos-x86_64.dmg,anarlog-linux-x86_64.AppImage,anarlog-linux-x86_64.deb,anarlog-linux-aarch64.AppImage,anarlog-linux-aarch64.deb,anarlog-windows-x86_64-setup.exe,${{ steps.checksums.outputs.checksum_files }}
           allowUpdates: true
           makeLatest: true
           replacesArtifacts: true

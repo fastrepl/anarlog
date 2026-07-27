@@ -14,15 +14,16 @@ on:
         type: boolean
         default: true
       version:
-        description: "Optional explicit version for stable releases"
+        description: "Explicit semantic version required for stable releases"
         required: false
         type: string
         default: ""
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.channel }}
-  cancel-in-progress: true
+  group: ${{ inputs.channel == 'stable' && 'desktop-stable-release' || format('{0}-{1}-{2}', github.workflow, github.ref, inputs.channel) }}
+  cancel-in-progress: ${{ inputs.channel != 'stable' }}
 env:
+  CN_ACTION_REF: "crabnebula-dev/cloud-release@1a8803698ba41de6b23e42abc5dcc3721308233c"
   CN_APPLICATION: "fastrepl/hyprnote2"
   RELEASE_CHANNEL: ${{ inputs.channel }}
   TAURI_CONF_PATH: ./src-tauri/tauri.conf.${{ inputs.channel }}.json
@@ -55,13 +56,24 @@ jobs:
           fi
       - uses: ./.github/actions/doxxer_install
       - id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          RELEASE_CHANNEL: ${{ inputs.channel }}
         run: |
-          if [[ -n "${{ inputs.version }}" ]]; then
-            VERSION="${{ inputs.version }}"
-          elif [[ "${{ inputs.channel }}" == "staging" ]]; then
+          if [[ "$RELEASE_CHANNEL" == "stable" ]]; then
+            if [[ ! "$INPUT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::Stable releases require an explicit semantic version such as 1.4.0"
+              exit 1
+            fi
+            VERSION="$INPUT_VERSION"
+            if [[ ! -f "packages/changelog/content/$VERSION.md" ]]; then
+              echo "::error::Missing changelog for stable version $VERSION"
+              exit 1
+            fi
+          elif [[ -n "$INPUT_VERSION" ]]; then
+            VERSION="$INPUT_VERSION"
+          elif [[ "$RELEASE_CHANNEL" == "staging" ]]; then
             VERSION=$(doxxer --config doxxer.desktop.toml next dev)
-          elif [[ "${{ inputs.channel }}" == "stable" ]]; then
-            VERSION=$(doxxer --config doxxer.desktop.toml next patch)
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Computed version: $VERSION"
@@ -708,6 +720,31 @@ jobs:
             echo "::error::CrabNebula release $EXPECTED_VERSION has missing, duplicate, unsigned, or empty updater assets: ${INVALID_UPDATE_PLATFORMS[*]}"
             exit 1
           fi
+      - if: ${{ !inputs.publish }}
+        name: Record release provenance
+        env:
+          CN_ACTION_REF: ${{ env.CN_ACTION_REF }}
+          RELEASE: ${{ steps.release.outputs.raw }}
+          VERSION: ${{ needs.compute-version.outputs.version }}
+        run: |
+          mkdir -p release-provenance
+          printf '%s' "$RELEASE" > "$RUNNER_TEMP/crabnebula-release.json"
+          CN_VERSION=$("$GITHUB_WORKSPACE/cn" --version)
+          node scripts/desktop-release-provenance.mjs create \
+            --release "$RUNNER_TEMP/crabnebula-release.json" \
+            --output release-provenance/manifest.json \
+            --version "$VERSION" \
+            --candidate-sha "$GITHUB_SHA" \
+            --run-id "$GITHUB_RUN_ID" \
+            --cn-version "$CN_VERSION" \
+            --cn-action-ref "$CN_ACTION_REF"
+      - if: ${{ !inputs.publish }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-release-provenance-${{ needs.compute-version.outputs.version }}-${{ github.sha }}
+          path: release-provenance/manifest.json
+          if-no-files-found: error
+          retention-days: 30
 
   create-tag:
     if: ${{ inputs.channel != 'staging' && inputs.publish && !cancelled() && needs.verify-cn-release.result == 'success' }}
@@ -721,11 +758,18 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
       - run: |
+          git fetch origin main --no-tags
           git fetch --tags --force
 
           TAG="desktop_v${{ needs.compute-version.outputs.version }}"
           TARGET=$(git rev-parse HEAD)
+          MAIN=$(git rev-parse origin/main)
           EXISTING=$(git rev-parse -q --verify "refs/tags/$TAG" || true)
+
+          if [[ "$TARGET" != "$MAIN" ]]; then
+            echo "::error::Candidate moved before tagging (candidate=$TARGET, main=$MAIN)"
+            exit 1
+          fi
 
           if [[ -n "$EXISTING" ]]; then
             if [[ "$EXISTING" != "$TARGET" ]]; then
@@ -745,7 +789,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       - run: ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "${{ needs.compute-version.outputs.version }}"
+      - name: Verify candidate before publication
+        run: |
+          git fetch origin main --no-tags
+          git fetch --tags --force
+
+          TARGET=$(git rev-parse HEAD)
+          MAIN=$(git rev-parse origin/main)
+          TAG="desktop_v${{ needs.compute-version.outputs.version }}"
+          TAG_TARGET=$(git rev-parse "$TAG^{commit}")
+
+          if [[ "$TARGET" != "$MAIN" || "$TAG_TARGET" != "$TARGET" ]]; then
+            echo "::error::Candidate moved before publication (candidate=$TARGET, main=$MAIN, tag=$TAG_TARGET)"
+            exit 1
+          fi
       - uses: ./.github/actions/cn_release
         with:
           cmd: publish

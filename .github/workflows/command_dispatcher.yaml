@@ -27,16 +27,24 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       publish: ${{ steps.parse.outputs.publish }}
+      version: ${{ steps.parse.outputs.version }}
     steps:
       - id: parse
         env:
           COMMENT: ${{ github.event.comment.body }}
         run: |
+          if [[ ! "$COMMENT" =~ /stable[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+)($|[[:space:]]) ]]; then
+            echo "::error::Use /stable <version> [--no-publish], for example /stable 1.4.0"
+            exit 1
+          fi
+
+          VERSION="${BASH_REMATCH[1]}"
           PUBLISH="true"
           if [[ "$COMMENT" =~ --no-publish ]]; then
             PUBLISH="false"
           fi
           echo "publish=$PUBLISH" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
   handle-stable:
     needs: [check-permission, parse-stable-options]
@@ -45,6 +53,7 @@ jobs:
     with:
       channel: stable
       publish: ${{ needs.parse-stable-options.outputs.publish == 'true' }}
+      version: ${{ needs.parse-stable-options.outputs.version }}
       issue_number: ${{ github.event.issue.number }}
       comment_id: ${{ github.event.comment.id }}
     secrets: inherit
