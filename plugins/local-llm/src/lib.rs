@@ -47,6 +47,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::list_custom_models::<Wry>,
             commands::server_url::<Wry>,
             commands::foundation_model_availability,
+            commands::foundation_model_begin,
+            commands::foundation_model_cancel,
             commands::foundation_model_generate,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)

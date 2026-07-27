@@ -8,6 +8,7 @@ pub struct FoundationModelAvailability {
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct FoundationModelRequest {
+    pub request_id: String,
     pub instructions: String,
     pub prompt: String,
     pub maximum_response_tokens: Option<u32>,
@@ -42,6 +43,38 @@ pub fn availability() -> Result<FoundationModelAvailability, String> {
     }
 }
 
+pub async fn begin(request_id: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        tokio::task::spawn_blocking(move || platform::begin(&request_id))
+            .await
+            .map_err(|error| error.to_string())??;
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = request_id;
+    }
+
+    Ok(())
+}
+
+pub async fn cancel(request_id: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        tokio::task::spawn_blocking(move || platform::cancel(&request_id))
+            .await
+            .map_err(|error| error.to_string())??;
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = request_id;
+    }
+
+    Ok(())
+}
+
 pub async fn generate(request: FoundationModelRequest) -> Result<FoundationModelResponse, String> {
     #[cfg(target_os = "macos")]
     {
@@ -74,11 +107,25 @@ mod platform {
     use super::{FoundationModelAvailability, NativeGenerationPayload};
 
     swift!(fn _foundation_model_availability() -> SRString);
+    swift!(fn _foundation_model_begin(request_id: &SRString) -> SRString);
+    swift!(fn _foundation_model_cancel(request_id: &SRString) -> SRString);
     swift!(fn _foundation_model_generate(request_json: &SRString) -> SRString);
 
     pub(super) fn availability() -> Result<FoundationModelAvailability, String> {
         let payload = unsafe { _foundation_model_availability() };
         serde_json::from_str(payload.as_str()).map_err(|error| error.to_string())
+    }
+
+    pub(super) fn begin(request_id: &str) -> Result<(), String> {
+        let request_id = SRString::from(request_id);
+        unsafe { _foundation_model_begin(&request_id) };
+        Ok(())
+    }
+
+    pub(super) fn cancel(request_id: &str) -> Result<(), String> {
+        let request_id = SRString::from(request_id);
+        unsafe { _foundation_model_cancel(&request_id) };
+        Ok(())
     }
 
     pub(super) fn generate(request_json: &str) -> Result<NativeGenerationPayload, String> {

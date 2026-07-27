@@ -1,8 +1,33 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { prepareFoundationModelRequest } from "./apple-foundation-model";
+const localLlmCommands = vi.hoisted(() => ({
+  foundationModelBegin: vi.fn(),
+  foundationModelCancel: vi.fn(),
+  foundationModelGenerate: vi.fn(),
+}));
+
+vi.mock("@hypr/plugin-local-llm", () => ({ commands: localLlmCommands }));
+
+import {
+  createAppleFoundationModel,
+  prepareFoundationModelRequest,
+} from "./apple-foundation-model";
 
 type CallOptions = Parameters<typeof prepareFoundationModelRequest>[0];
+
+beforeEach(() => {
+  localLlmCommands.foundationModelBegin.mockReset();
+  localLlmCommands.foundationModelCancel.mockReset();
+  localLlmCommands.foundationModelGenerate.mockReset();
+  localLlmCommands.foundationModelBegin.mockResolvedValue({
+    status: "ok",
+    data: null,
+  });
+  localLlmCommands.foundationModelCancel.mockResolvedValue({
+    status: "ok",
+    data: null,
+  });
+});
 
 describe("prepareFoundationModelRequest", () => {
   it("keeps system instructions separate from a simple user prompt", () => {
@@ -90,5 +115,79 @@ describe("prepareFoundationModelRequest", () => {
         ],
       } as CallOptions),
     ).toThrow("currently supports text only");
+  });
+
+  it("cancels and drains native generation when the request is aborted", async () => {
+    const controller = new AbortController();
+    const reason = new Error("stop generation");
+    let finish:
+      | ((value: { status: "error"; error: string }) => void)
+      | undefined;
+    localLlmCommands.foundationModelGenerate.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+
+    const generation = createAppleFoundationModel().doGenerate({
+      prompt: [
+        {
+          role: "user",
+          content: [{ type: "text", text: "Summarize this." }],
+        },
+      ],
+      abortSignal: controller.signal,
+    } as CallOptions);
+    await vi.waitFor(() =>
+      expect(localLlmCommands.foundationModelGenerate).toHaveBeenCalled(),
+    );
+    const requestId = localLlmCommands.foundationModelBegin.mock.calls[0]?.[0];
+
+    controller.abort(reason);
+    await vi.waitFor(() =>
+      expect(localLlmCommands.foundationModelCancel).toHaveBeenCalledWith(
+        requestId,
+      ),
+    );
+    finish?.({ status: "error", error: "Generation was cancelled." });
+
+    await expect(generation).rejects.toBe(reason);
+    expect(localLlmCommands.foundationModelGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({ requestId }),
+    );
+  });
+
+  it("cancels after registration when abort wins the begin race", async () => {
+    const controller = new AbortController();
+    const reason = new Error("cancel before generation");
+    let finishBegin:
+      | ((value: { status: "ok"; data: null }) => void)
+      | undefined;
+    localLlmCommands.foundationModelBegin.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishBegin = resolve;
+        }),
+    );
+
+    const generation = createAppleFoundationModel().doGenerate({
+      prompt: [
+        {
+          role: "user",
+          content: [{ type: "text", text: "Summarize this." }],
+        },
+      ],
+      abortSignal: controller.signal,
+    } as CallOptions);
+    controller.abort(reason);
+    finishBegin?.({ status: "ok", data: null });
+
+    await expect(generation).rejects.toBe(reason);
+    const requestId = localLlmCommands.foundationModelBegin.mock.calls[0]?.[0];
+    expect(localLlmCommands.foundationModelCancel).toHaveBeenCalledWith(
+      requestId,
+    );
+    expect(localLlmCommands.foundationModelGenerate).not.toHaveBeenCalled();
   });
 });

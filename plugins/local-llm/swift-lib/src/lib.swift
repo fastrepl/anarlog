@@ -3,6 +3,7 @@ import FoundationModels
 import SwiftRs
 
 private struct GenerationRequest: Decodable {
+  let requestId: String
   let instructions: String
   let prompt: String
   let maximumResponseTokens: Int?
@@ -67,6 +68,26 @@ private func availabilityPayload() -> AvailabilityPayload {
 private actor FoundationModelBridge {
   static let shared = FoundationModelBridge()
 
+  private enum GenerationState {
+    case pending
+    case running(Task<String, Never>)
+  }
+
+  private var generations: [String: GenerationState] = [:]
+
+  func begin(requestID: String) {
+    generations[requestID] = .pending
+  }
+
+  func cancel(requestID: String) {
+    guard let generation = generations.removeValue(forKey: requestID) else {
+      return
+    }
+    if case .running(let task) = generation {
+      task.cancel()
+    }
+  }
+
   func generateJSON(requestJSON: String) async -> String {
     guard #available(macOS 26.0, *) else {
       return encodeJSON(
@@ -82,31 +103,74 @@ private actor FoundationModelBridge {
           error: "Apple Intelligence is not available on this Mac."))
     }
 
+    let request: GenerationRequest
     do {
-      let request = try JSONDecoder().decode(
-        GenerationRequest.self,
-        from: Data(requestJSON.utf8))
-      let instructions = request.instructions.isEmpty ? nil : request.instructions
-      let session = LanguageModelSession(instructions: instructions)
-      let options = GenerationOptions(
-        sampling: request.useGreedySampling ? .greedy : nil,
-        temperature: request.useGreedySampling ? nil : request.temperature,
-        maximumResponseTokens: request.maximumResponseTokens)
-      let response = try await session.respond(to: request.prompt, options: options)
-
-      return encodeJSON(GenerationPayload(text: response.content, error: nil))
+      request = try JSONDecoder().decode(
+        GenerationRequest.self, from: Data(requestJSON.utf8))
     } catch {
       let message =
         (error as? LocalizedError)?.errorDescription
         ?? error.localizedDescription
       return encodeJSON(GenerationPayload(text: nil, error: message))
     }
+
+    guard let state = generations[request.requestId],
+      case .pending = state
+    else {
+      return encodeJSON(
+        GenerationPayload(text: nil, error: "Generation was cancelled."))
+    }
+
+    let task = Task { () -> String in
+      do {
+        try Task.checkCancellation()
+        let instructions = request.instructions.isEmpty ? nil : request.instructions
+        let session = LanguageModelSession(instructions: instructions)
+        let options = GenerationOptions(
+          sampling: request.useGreedySampling ? .greedy : nil,
+          temperature: request.useGreedySampling ? nil : request.temperature,
+          maximumResponseTokens: request.maximumResponseTokens)
+        let response = try await session.respond(to: request.prompt, options: options)
+
+        return encodeJSON(GenerationPayload(text: response.content, error: nil))
+      } catch {
+        let message =
+          Task.isCancelled
+          ? "Generation was cancelled."
+          : (error as? LocalizedError)?.errorDescription
+            ?? error.localizedDescription
+        return encodeJSON(GenerationPayload(text: nil, error: message))
+      }
+    }
+
+    generations[request.requestId] = .running(task)
+    let response = await task.value
+    generations.removeValue(forKey: request.requestId)
+    return response
   }
 }
 
 @_cdecl("_foundation_model_availability")
 public func _foundationModelAvailability() -> SRString {
   SRString(encodeJSON(availabilityPayload()))
+}
+
+@_cdecl("_foundation_model_begin")
+public func _foundationModelBegin(requestID: SRString) -> SRString {
+  SRString(
+    waitForValue {
+      await FoundationModelBridge.shared.begin(requestID: requestID.toString())
+      return ""
+    })
+}
+
+@_cdecl("_foundation_model_cancel")
+public func _foundationModelCancel(requestID: SRString) -> SRString {
+  SRString(
+    waitForValue {
+      await FoundationModelBridge.shared.cancel(requestID: requestID.toString())
+      return ""
+    })
 }
 
 @_cdecl("_foundation_model_generate")

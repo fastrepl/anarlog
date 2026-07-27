@@ -15,6 +15,8 @@ Default permissions for the plugin
 - `allow-list-custom-models`
 - `allow-server-url`
 - `allow-foundation-model-availability`
+- `allow-foundation-model-begin`
+- `allow-foundation-model-cancel`
 - `allow-foundation-model-generate`
 
 ## Permission Table
@@ -126,6 +128,58 @@ Enables the foundation_model_availability command without any pre-configured sco
 <td>
 
 Denies the foundation_model_availability command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-llm:allow-foundation-model-begin`
+
+</td>
+<td>
+
+Enables the foundation_model_begin command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-llm:deny-foundation-model-begin`
+
+</td>
+<td>
+
+Denies the foundation_model_begin command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-llm:allow-foundation-model-cancel`
+
+</td>
+<td>
+
+Enables the foundation_model_cancel command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-llm:deny-foundation-model-cancel`
+
+</td>
+<td>
+
+Denies the foundation_model_cancel command without any pre-configured scope.
 
 </td>
 </tr>

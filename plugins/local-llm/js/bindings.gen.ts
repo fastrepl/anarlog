@@ -94,6 +94,22 @@ async foundationModelAvailability() : Promise<Result<FoundationModelAvailability
     else return { status: "error", error: e  as any };
 }
 },
+async foundationModelBegin(requestId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:local-llm|foundation_model_begin", { requestId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async foundationModelCancel(requestId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:local-llm|foundation_model_cancel", { requestId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async foundationModelGenerate(request: FoundationModelRequest) : Promise<Result<FoundationModelResponse, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:local-llm|foundation_model_generate", { request }) };
@@ -116,7 +132,7 @@ async foundationModelGenerate(request: FoundationModelRequest) : Promise<Result<
 
 export type CustomModelInfo = { path: string; name: string }
 export type FoundationModelAvailability = { status: string; reason: string | null }
-export type FoundationModelRequest = { instructions: string; prompt: string; maximumResponseTokens: number | null; temperature: number | null; useGreedySampling: boolean }
+export type FoundationModelRequest = { requestId: string; instructions: string; prompt: string; maximumResponseTokens: number | null; temperature: number | null; useGreedySampling: boolean }
 export type FoundationModelResponse = { text: string }
 export type GgufLlmModel = "Llama3p2_3bQ4" | "Gemma3_4bQ4" | "HyprLLM"
 export type ModelInfo = { key: GgufLlmModel; name: string; description: string; size_bytes: number }

@@ -14,17 +14,46 @@ export function createAppleFoundationModel(
   modelId = MODEL_ID,
 ): LanguageModelV3 {
   const generate = async (options: CallOptions) => {
+    throwIfAborted(options.abortSignal);
+    const requestId = crypto.randomUUID();
     const request = prepareFoundationModelRequest(options);
-    const result = await abortable(
-      localLlmCommands.foundationModelGenerate(request),
-      options.abortSignal,
-    );
-
-    if (result.status === "error") {
-      throw new Error(result.error);
+    const begin = await localLlmCommands.foundationModelBegin(requestId);
+    if (begin.status === "error") {
+      throw new Error(begin.error);
     }
 
-    return result.data.text;
+    let cancellation: Promise<void> | undefined;
+    const cancel = () => {
+      cancellation ??= localLlmCommands
+        .foundationModelCancel(requestId)
+        .then(() => undefined);
+      return cancellation;
+    };
+    const handleAbort = () => void cancel();
+    options.abortSignal?.addEventListener("abort", handleAbort, { once: true });
+
+    try {
+      if (options.abortSignal?.aborted) {
+        await cancel();
+        throwAbort(options.abortSignal);
+      }
+
+      const result = await localLlmCommands.foundationModelGenerate({
+        ...request,
+        requestId,
+      });
+      if (options.abortSignal?.aborted) {
+        throwAbort(options.abortSignal);
+      }
+      if (result.status === "error") {
+        throw new Error(result.error);
+      }
+
+      return result.data.text;
+    } finally {
+      options.abortSignal?.removeEventListener("abort", handleAbort);
+      await cancel();
+    }
   };
 
   return {
@@ -216,29 +245,17 @@ function unknownUsage(): GenerateResult["usage"] {
   };
 }
 
-function abortable<T>(
-  promise: Promise<T>,
-  signal: AbortSignal | undefined,
-): Promise<T> {
-  if (!signal) {
-    return promise;
+function throwIfAborted(signal: AbortSignal | undefined) {
+  if (signal?.aborted) {
+    throwAbort(signal);
   }
-  if (signal.aborted) {
-    return Promise.reject(new Error("Generation was cancelled."));
-  }
+}
 
-  return new Promise((resolve, reject) => {
-    const handleAbort = () => reject(new Error("Generation was cancelled."));
-    signal.addEventListener("abort", handleAbort, { once: true });
-    promise.then(
-      (value) => {
-        signal.removeEventListener("abort", handleAbort);
-        resolve(value);
-      },
-      (error) => {
-        signal.removeEventListener("abort", handleAbort);
-        reject(error);
-      },
-    );
-  });
+function throwAbort(signal: AbortSignal): never {
+  if (signal.reason) {
+    throw signal.reason;
+  }
+  const error = new Error("Generation was cancelled.");
+  error.name = "AbortError";
+  throw error;
 }

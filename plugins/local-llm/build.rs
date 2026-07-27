@@ -10,6 +10,8 @@ const COMMANDS: &[&str] = &[
     "list_custom_models",
     "server_url",
     "foundation_model_availability",
+    "foundation_model_begin",
+    "foundation_model_cancel",
     "foundation_model_generate",
 ];
 

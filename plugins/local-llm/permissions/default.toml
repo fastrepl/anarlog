@@ -12,5 +12,7 @@ permissions = [
     "allow-list-custom-models",
     "allow-server-url",
     "allow-foundation-model-availability",
+    "allow-foundation-model-begin",
+    "allow-foundation-model-cancel",
     "allow-foundation-model-generate",
 ]
