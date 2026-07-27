@@ -5,6 +5,9 @@ pub enum Error {
     #[cfg(target_os = "windows")]
     #[error("failed to show Windows notification: {0}")]
     WindowsNotification(#[from] notify_rust::error::Error),
+    #[cfg(target_os = "windows")]
+    #[error("failed to clear Windows notifications: {0}")]
+    WindowsNotificationHistory(#[from] windows::core::Error),
 }
 
 impl Serialize for Error {

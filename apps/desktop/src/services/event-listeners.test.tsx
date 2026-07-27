@@ -212,6 +212,52 @@ describe("EventListeners notification events", () => {
     expect(openNewMock).not.toHaveBeenCalled();
   });
 
+  test("notification_timeout with auto-stop prompt stops the active session", async () => {
+    render(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(notificationListenMock).toHaveBeenCalledTimes(1),
+    );
+
+    const handler = notificationListenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "notification_timeout",
+        key: createAutoStopEndedNotificationKey("session-1"),
+        source: null,
+      },
+    });
+
+    expect(stopMock).toHaveBeenCalledTimes(1);
+    expect(createSessionMock).not.toHaveBeenCalled();
+    expect(openNewMock).not.toHaveBeenCalled();
+  });
+
+  test("notification_timeout ignores a stale auto-stop session", async () => {
+    render(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(notificationListenMock).toHaveBeenCalledTimes(1),
+    );
+
+    const handler = notificationListenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "notification_timeout",
+        key: createAutoStopEndedNotificationKey("session-old"),
+        source: null,
+      },
+    });
+
+    expect(stopMock).not.toHaveBeenCalled();
+    expect(createSessionMock).not.toHaveBeenCalled();
+    expect(openNewMock).not.toHaveBeenCalled();
+  });
+
   test("live capture config sync mounts without auth providers", async () => {
     vi.useFakeTimers();
     useConfigValuesMock.mockReturnValue({

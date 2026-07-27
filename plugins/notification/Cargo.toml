@@ -40,3 +40,4 @@ chrono = { workspace = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 notify-rust = { workspace = true }
+windows = { workspace = true, features = ["UI_Notifications"] }

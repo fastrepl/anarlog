@@ -18836,6 +18836,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "windows 0.62.2",
 ]
 
 [[package]]

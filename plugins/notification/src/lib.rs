@@ -41,7 +41,9 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                     tauri_plugin_windows::AppWindow::from_str(label.as_ref())
                     && let tauri::WindowEvent::Focused(true) = event
                 {
-                    app.notification().clear().unwrap();
+                    if let Err(error) = app.notification().clear() {
+                        tracing::warn!(%error, "failed_to_clear_notifications");
+                    }
                 }
             }
             _ => {}
