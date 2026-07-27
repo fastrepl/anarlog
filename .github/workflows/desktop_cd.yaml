@@ -9,6 +9,11 @@ on:
         options:
           - staging
           - stable
+      candidate_sha:
+        description: "Immutable candidate commit to check out"
+        required: false
+        type: string
+        default: ""
       publish:
         description: "Legacy compatibility input; stable publication must use desktop_publish"
         type: boolean
@@ -36,6 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
           lfs: true
           fetch-depth: 0
           fetch-tags: true
@@ -88,6 +94,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
       - run: ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "${{ needs.compute-version.outputs.version }}"
       - name: Verify stable signing credentials
         env:
@@ -126,6 +134,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
           lfs: true
           fetch-depth: 0
           fetch-tags: true
@@ -291,6 +300,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
           lfs: true
           fetch-depth: 0
           fetch-tags: true
@@ -462,6 +472,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
           lfs: true
           fetch-depth: 0
           fetch-tags: true
@@ -656,6 +667,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
       - id: release
         uses: ./.github/actions/cn_release
         with:

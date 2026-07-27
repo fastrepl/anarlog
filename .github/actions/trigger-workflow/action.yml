@@ -8,6 +8,9 @@ inputs:
   ref:
     description: Git ref to run on
     required: true
+  sha:
+    description: Immutable commit SHA to check out
+    required: true
   channel:
     description: Channel input for the workflow
     required: true
@@ -41,6 +44,7 @@ runs:
         PUBLISH: ${{ inputs.publish }}
         REF: ${{ inputs.ref }}
         REPO: ${{ inputs.repo }}
+        SHA: ${{ inputs.sha }}
         VERSION: ${{ inputs.version }}
         WORKFLOW: ${{ inputs.workflow }}
       run: |
@@ -50,6 +54,7 @@ runs:
           "repos/$REPO/actions/workflows/$WORKFLOW/dispatches"
           -f "ref=$REF"
           -f "inputs[channel]=$CHANNEL"
+          -f "inputs[candidate_sha]=$SHA"
           -F "inputs[publish]=$PUBLISH"
           -F "return_run_details=true"
         )

@@ -66,6 +66,7 @@ jobs:
         with:
           workflow: desktop_cd.yaml
           ref: ${{ steps.resolve.outputs.branch }}
+          sha: ${{ steps.resolve.outputs.sha }}
           channel: staging
           token: ${{ secrets.GITHUB_TOKEN }}
           repo: ${{ github.repository }}
