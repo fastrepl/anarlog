@@ -10,6 +10,7 @@
     "updater": {
       "active": true,
       "endpoints": [
+        "https://desktop2.hyprnote.com/update/{{target}}-{{arch}}-{{bundle_type}}/{{current_version}}?channel=stable",
         "https://desktop2.hyprnote.com/update/{{target}}-{{arch}}/{{current_version}}?channel=stable"
       ]
     }

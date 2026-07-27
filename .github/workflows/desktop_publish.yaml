@@ -5,6 +5,10 @@ on:
         description: "Version to publish (e.g., 1.0.2)"
         required: true
         type: string
+      candidate_sha:
+        description: "Exact 40-character main commit used to build the candidate"
+        required: true
+        type: string
 
 env:
   CN_APPLICATION: "fastrepl/hyprnote2"
@@ -15,21 +19,97 @@ jobs:
     outputs:
       version: ${{ steps.parse.outputs.version }}
       channel: ${{ steps.parse.outputs.channel }}
+      candidate_sha: ${{ steps.parse.outputs.candidate_sha }}
     steps:
       - id: parse
+        env:
+          INPUT_CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          VERSION="${{ inputs.version }}"
+          if [[ ! "$INPUT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version must be a stable semantic version such as 1.4.0"
+            exit 1
+          fi
+
+          if [[ ! "$INPUT_CANDIDATE_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "::error::Candidate SHA must be a full 40-character commit SHA"
+            exit 1
+          fi
+
+          VERSION="$INPUT_VERSION"
+          CANDIDATE_SHA="${INPUT_CANDIDATE_SHA,,}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "channel=stable" >> $GITHUB_OUTPUT
+          echo "candidate_sha=$CANDIDATE_SHA" >> $GITHUB_OUTPUT
 
-  cn-publish:
+  verify-candidate:
     needs: parse
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.parse.outputs.candidate_sha }}
+          fetch-depth: 0
+          fetch-tags: true
+      - env:
+          EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          git fetch origin main --no-tags
+
+          TARGET=$(git rev-parse HEAD)
+          MAIN=$(git rev-parse origin/main)
+
+          if [[ "$TARGET" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Checked out $TARGET instead of candidate $EXPECTED_SHA"
+            exit 1
+          fi
+
+          if [[ "$MAIN" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Candidate $EXPECTED_SHA is not the current main commit ($MAIN)"
+            exit 1
+          fi
+
+          if [[ ! -f "packages/changelog/content/$VERSION.md" ]]; then
+            echo "::error::Missing changelog for $VERSION at candidate $EXPECTED_SHA"
+            exit 1
+          fi
+
+  verify-windows-signature:
+    needs: [parse, verify-candidate]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.parse.outputs.candidate_sha }}
+      - uses: ./.github/actions/cn_download
+        with:
+          app: ${{ env.CN_APPLICATION }}
+          version: ${{ needs.parse.outputs.version }}
+          channel: ${{ needs.parse.outputs.channel }}
+          platform: nsis-x86_64
+          output: anarlog-windows-x86_64-setup.exe
+          key: ${{ secrets.CN_API_KEY }}
+      - shell: pwsh
+        run: |
+          $signature = Get-AuthenticodeSignature "anarlog-windows-x86_64-setup.exe"
+          if ($signature.Status -ne "Valid") {
+            throw "Invalid Windows Authenticode signature: $($signature.Status)"
+          }
+
+  cn-publish:
+    needs: [parse, verify-candidate, verify-windows-signature]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.parse.outputs.candidate_sha }}
+          fetch-depth: 0
+          fetch-tags: true
       - run: ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "${{ needs.parse.outputs.version }}"
-      - id: existing-release
-        continue-on-error: true
+      - id: release
         uses: ./.github/actions/cn_release
         with:
           raw: >-
@@ -38,36 +118,103 @@ jobs:
           key: ${{ secrets.CN_API_KEY }}
       - id: publish-decision
         env:
-          ASSETS: ${{ steps.existing-release.outputs.raw }}
+          RELEASE: ${{ steps.release.outputs.raw }}
+          EXPECTED_VERSION: ${{ needs.parse.outputs.version }}
         run: |
-          if [[ "${{ steps.existing-release.outcome }}" != "success" ]]; then
-            echo "publish_needed=true" >> "$GITHUB_OUTPUT"
-            exit 0
+          ACTUAL_VERSION=$(echo "$RELEASE" | jq -r '.version // empty')
+          if [[ "$ACTUAL_VERSION" != "$EXPECTED_VERSION" ]]; then
+            echo "::error::Expected CrabNebula release $EXPECTED_VERSION, got $ACTUAL_VERSION"
+            exit 1
           fi
 
           EXPECTED_PLATFORMS=(
             "dmg-aarch64"
             "dmg-x86_64"
+            "nsis-x86_64"
             "appimage-x86_64"
-            "debian-x86_64"
+            "deb-x86_64"
             "appimage-aarch64"
-            "debian-aarch64"
+            "deb-aarch64"
           )
 
-          MISSING_PLATFORMS=()
+          INVALID_PLATFORMS=()
           for platform in "${EXPECTED_PLATFORMS[@]}"; do
-            if ! echo "$ASSETS" | jq -e --arg platform "$platform" '.assets[] | select(.publicPlatform == $platform)' > /dev/null; then
-              MISSING_PLATFORMS+=("$platform")
+            if ! echo "$RELEASE" | jq -e --arg platform "$platform" \
+              '[.assets[]? | select(.publicPlatform == $platform and ((.size // 0) | tonumber) > 0)] | length == 1' > /dev/null; then
+              INVALID_PLATFORMS+=("$platform")
             fi
           done
 
-          if [[ "${#MISSING_PLATFORMS[@]}" -gt 0 ]]; then
-            echo "publish_needed=true" >> "$GITHUB_OUTPUT"
-            echo "missing_platforms=${MISSING_PLATFORMS[*]}" >> "$GITHUB_OUTPUT"
-            exit 0
+          if [[ "${#INVALID_PLATFORMS[@]}" -gt 0 ]]; then
+            echo "::error::CrabNebula release $EXPECTED_VERSION has missing, duplicate, or empty download assets: ${INVALID_PLATFORMS[*]}"
+            exit 1
           fi
 
-          echo "publish_needed=false" >> "$GITHUB_OUTPUT"
+          EXPECTED_UPDATE_PLATFORMS=(
+            "darwin-aarch64"
+            "darwin-x86_64"
+            "windows-x86_64-nsis"
+            "linux-x86_64-appimage"
+            "linux-x86_64-deb"
+            "linux-aarch64-appimage"
+            "linux-aarch64-deb"
+          )
+
+          INVALID_UPDATE_PLATFORMS=()
+          for platform in "${EXPECTED_UPDATE_PLATFORMS[@]}"; do
+            if ! echo "$RELEASE" | jq -e --arg platform "$platform" \
+              '[.assets[]? | select(.updatePlatform == $platform and ((.signature // "") | length) > 0 and ((.size // 0) | tonumber) > 0)] | length == 1' > /dev/null; then
+              INVALID_UPDATE_PLATFORMS+=("$platform")
+            fi
+          done
+
+          if [[ "${#INVALID_UPDATE_PLATFORMS[@]}" -gt 0 ]]; then
+            echo "::error::CrabNebula release $EXPECTED_VERSION has missing, duplicate, unsigned, or empty updater assets: ${INVALID_UPDATE_PLATFORMS[*]}"
+            exit 1
+          fi
+
+          STATUS=$(echo "$RELEASE" | jq -r '.status // empty | ascii_downcase')
+          case "$STATUS" in
+            draft)
+              echo "publish_needed=true" >> "$GITHUB_OUTPUT"
+              ;;
+            published)
+              echo "publish_needed=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::error::Unexpected CrabNebula release status: $STATUS"
+              exit 1
+              ;;
+          esac
+      - name: Create immutable release tag
+        env:
+          EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          git fetch origin main --no-tags
+          git fetch --tags --force
+
+          TARGET=$(git rev-parse HEAD)
+          MAIN=$(git rev-parse origin/main)
+          TAG="desktop_v$VERSION"
+          EXISTING=$(git rev-parse -q --verify "refs/tags/$TAG" || true)
+
+          if [[ "$TARGET" != "$EXPECTED_SHA" || "$MAIN" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Candidate moved before publication (candidate=$EXPECTED_SHA, checkout=$TARGET, main=$MAIN)"
+            exit 1
+          fi
+
+          if [[ -n "$EXISTING" ]]; then
+            if [[ "$EXISTING" != "$EXPECTED_SHA" ]]; then
+              echo "::error::Tag $TAG points to $EXISTING instead of candidate $EXPECTED_SHA"
+              exit 1
+            fi
+
+            echo "Tag $TAG already points to candidate $EXPECTED_SHA"
+          else
+            git tag "$TAG" "$EXPECTED_SHA"
+            git push origin "refs/tags/$TAG"
+          fi
       - uses: ./.github/actions/cn_release
         if: ${{ steps.publish-decision.outputs.publish_needed == 'true' }}
         with:
@@ -86,9 +233,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ needs.parse.outputs.candidate_sha }}
           fetch-depth: 0
           fetch-tags: true
-      - run: git fetch --tags --force
+      - env:
+          EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          git fetch --tags --force
+
+          TAG="desktop_v$VERSION"
+          TAG_TARGET=$(git rev-parse "$TAG^{commit}")
+          if [[ "$TAG_TARGET" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Tag $TAG points to $TAG_TARGET instead of candidate $EXPECTED_SHA"
+            exit 1
+          fi
       - id: download-macos-aarch64
         uses: ./.github/actions/cn_download
         with:
@@ -122,7 +281,7 @@ jobs:
           app: ${{ env.CN_APPLICATION }}
           version: ${{ needs.parse.outputs.version }}
           channel: ${{ needs.parse.outputs.channel }}
-          platform: debian-x86_64
+          platform: deb-x86_64
           output: anarlog-linux-x86_64.deb
           key: ${{ secrets.CN_API_KEY }}
       - id: download-linux-aarch64-appimage
@@ -140,8 +299,17 @@ jobs:
           app: ${{ env.CN_APPLICATION }}
           version: ${{ needs.parse.outputs.version }}
           channel: ${{ needs.parse.outputs.channel }}
-          platform: debian-aarch64
+          platform: deb-aarch64
           output: anarlog-linux-aarch64.deb
+          key: ${{ secrets.CN_API_KEY }}
+      - id: download-windows-x86_64
+        uses: ./.github/actions/cn_download
+        with:
+          app: ${{ env.CN_APPLICATION }}
+          version: ${{ needs.parse.outputs.version }}
+          channel: ${{ needs.parse.outputs.channel }}
+          platform: nsis-x86_64
+          output: anarlog-windows-x86_64-setup.exe
           key: ${{ secrets.CN_API_KEY }}
       - id: checksums
         uses: ./.github/actions/generate_checksums
@@ -153,6 +321,7 @@ jobs:
             anarlog-linux-x86_64.deb
             anarlog-linux-aarch64.AppImage
             anarlog-linux-aarch64.deb
+            anarlog-windows-x86_64-setup.exe
       - id: release-body
         run: |
           echo "value=https://anarlog.so/changelog/${{ needs.parse.outputs.version }}" >> "$GITHUB_OUTPUT"
@@ -162,7 +331,7 @@ jobs:
           name: desktop_v${{ needs.parse.outputs.version }}
           body: ${{ steps.release-body.outputs.value }}
           prerelease: false
-          artifacts: char-macos-aarch64.dmg,char-macos-x86_64.dmg,anarlog-linux-x86_64.AppImage,anarlog-linux-x86_64.deb,anarlog-linux-aarch64.AppImage,anarlog-linux-aarch64.deb,${{ steps.checksums.outputs.checksum_files }}
+          artifacts: char-macos-aarch64.dmg,char-macos-x86_64.dmg,anarlog-linux-x86_64.AppImage,anarlog-linux-x86_64.deb,anarlog-linux-aarch64.AppImage,anarlog-linux-aarch64.deb,anarlog-windows-x86_64-setup.exe,${{ steps.checksums.outputs.checksum_files }}
           allowUpdates: true
           makeLatest: true
           replacesArtifacts: true
