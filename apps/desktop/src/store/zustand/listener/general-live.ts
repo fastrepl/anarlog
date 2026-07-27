@@ -1,5 +1,5 @@
 import { getIdentifier } from "@tauri-apps/api/app";
-import { Effect, Exit } from "effect";
+import { Cause, Effect, Exit } from "effect";
 import type { StoreApi } from "zustand";
 
 import { commands as detectCommands } from "@hypr/plugin-detect";
@@ -81,6 +81,20 @@ const stopSessionEffect = () => fromResult(listenerCommands.stopCapture());
 
 export const updateLiveSessionConfig = (update: CaptureConfigUpdate) =>
   fromResult(listenerCommands.updateCaptureConfig(update));
+
+const getCaptureStartErrorMessage = (cause: Cause.Cause<unknown>): string => {
+  const failure = Cause.squash(cause);
+
+  if (failure instanceof Error && failure.message.trim()) {
+    return failure.message;
+  }
+
+  if (typeof failure === "string" && failure.trim()) {
+    return failure;
+  }
+
+  return "Recording could not start. Check your audio permissions and devices.";
+};
 
 function getAutoStopTriggerAppIds(
   appIds: string[] | null,
@@ -404,6 +418,7 @@ export const startLiveSession = <T extends LiveStore>(
     Exit.match(exit, {
       onFailure: (cause) => {
         console.error(JSON.stringify(cause));
+        const error = getCaptureStartErrorMessage(cause);
         const currentLive = get().live;
         clearLiveInterval(currentLive.intervalId);
         clearLiveEventUnlisteners(
@@ -411,7 +426,7 @@ export const startLiveSession = <T extends LiveStore>(
         );
         setLiveState(set, (live) => {
           delete live.eventUnlistenersBySession[targetSessionId];
-          markLiveStartFailed(live);
+          markLiveStartFailed(live, error);
         });
         return false;
       },

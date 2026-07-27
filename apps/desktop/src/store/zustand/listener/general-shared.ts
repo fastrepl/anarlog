@@ -243,7 +243,7 @@ export const markLiveInactive = (live: LiveState, error: string | null) => {
   live.triggerAppIds = null;
 };
 
-export const markLiveStartFailed = (live: LiveState) => {
+export const markLiveStartFailed = (live: LiveState, error: string) => {
   if (live.sessionId) {
     releaseLiveCaptureGeneration(live, live.sessionId);
   }
@@ -255,7 +255,7 @@ export const markLiveStartFailed = (live: LiveState) => {
   live.seconds = 0;
   live.sessionId = null;
   live.muted = initialLiveState.muted;
-  live.lastError = null;
+  live.lastError = error;
   live.device = null;
   live.degraded = null;
   live.requestedLiveTranscription = null;

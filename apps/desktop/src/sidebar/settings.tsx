@@ -1,5 +1,4 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { platform } from "@tauri-apps/plugin-os";
 import {
   AudioLinesIcon,
   ArrowUpRightIcon,
@@ -81,6 +80,7 @@ export function SettingsNav() {
         { id: "account", label: t`Account`, icon: UserIcon },
         { id: "sync", label: t`Sync`, icon: RefreshCwIcon },
         { id: "notifications", label: t`Notifications`, icon: BellIcon },
+        { id: "permissions", label: t`Permissions`, icon: LockIcon },
         { id: "developers", label: t`Developers`, icon: Code2Icon },
       ],
     },
@@ -117,14 +117,6 @@ export function SettingsNav() {
       ],
     },
   ];
-  const isMacos = platform() === "macos";
-  if (isMacos) {
-    groups[0].items.push({
-      id: "permissions" as const,
-      label: t`Permissions`,
-      icon: LockIcon,
-    });
-  }
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">

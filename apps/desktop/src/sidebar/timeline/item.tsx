@@ -1,4 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
+import { platform } from "@tauri-apps/plugin-os";
 import { SquareIcon, UsersRoundIcon } from "lucide-react";
 import {
   createContext,
@@ -601,7 +602,7 @@ const SessionItem = memo(
       });
     }, [deleteSession, sessionId, sessionEvent?.tracking_id, title]);
 
-    const handleShowInFinder = useCallback(async () => {
+    const handleShowInFolder = useCallback(async () => {
       const result = await fsSyncCommands.sessionDir(sessionId);
       if (result.status === "ok") {
         await openerCommands.openPath(result.data, null);
@@ -617,8 +618,8 @@ const SessionItem = memo(
         },
         {
           id: "show",
-          text: t`Show in Finder`,
-          action: handleShowInFinder,
+          text: platform() === "macos" ? t`Show in Finder` : "Show in folder",
+          action: handleShowInFolder,
         },
         { separator: true as const },
         {
@@ -627,7 +628,7 @@ const SessionItem = memo(
           action: handleDelete,
         },
       ],
-      [handleOpenStandaloneWindow, handleShowInFinder, handleDelete, t],
+      [handleOpenStandaloneWindow, handleShowInFolder, handleDelete, t],
     );
 
     return (

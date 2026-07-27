@@ -1,3 +1,5 @@
+import { platform } from "@tauri-apps/plugin-os";
+
 import { Button } from "@hypr/ui/components/ui/button";
 import {
   Dialog,
@@ -21,6 +23,8 @@ export function TrialEndedDialog({
   onOpenChange,
   onUpgrade,
 }: TrialEndedDialogProps) {
+  const supportsFreeLocalTranscription = platform() === "macos";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="border-border/45 bg-card/95 w-[calc(100vw-48px)] max-w-[320px] gap-0 overflow-hidden rounded-[26px] p-0 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:rounded-[26px] [&>button:last-child]:hidden">
@@ -30,8 +34,9 @@ export function TrialEndedDialog({
             Your Pro trial has ended
           </DialogTitle>
           <DialogDescription className="text-foreground max-w-[260px] text-center text-[13px] leading-[1.36]">
-            Your notes and recordings are safe. Free local transcription still
-            works. Upgrade anytime to keep Pro features.
+            {supportsFreeLocalTranscription
+              ? "Your notes and recordings are safe. Free local transcription still works. Upgrade anytime to keep Pro features."
+              : "Your notes and recordings are safe. Upgrade anytime to keep cloud transcription and Pro features, or configure your own transcription provider."}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="grid grid-cols-2 gap-2 px-4 pt-4 pb-4 sm:grid-cols-2 sm:justify-normal">

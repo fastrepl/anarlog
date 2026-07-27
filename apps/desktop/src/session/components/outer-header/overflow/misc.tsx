@@ -1,12 +1,13 @@
-import { Icon } from "@iconify-icon/react";
 import { useMutation } from "@tanstack/react-query";
-import { Loader2Icon } from "lucide-react";
+import { platform } from "@tauri-apps/plugin-os";
+import { FolderOpenIcon, Loader2Icon } from "lucide-react";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { DropdownMenuItem } from "@hypr/ui/components/ui/dropdown-menu";
 
-export function ShowInFinder({ sessionId }: { sessionId: string }) {
+export function ShowInFolder({ sessionId }: { sessionId: string }) {
+  const label = platform() === "macos" ? "Show in Finder" : "Show in folder";
   const { mutate, isPending } = useMutation({
     mutationFn: async () => {
       const result = await fsSyncCommands.sessionDir(sessionId);
@@ -29,9 +30,9 @@ export function ShowInFinder({ sessionId }: { sessionId: string }) {
       {isPending ? (
         <Loader2Icon className="animate-spin" />
       ) : (
-        <Icon icon="ri:finder-line" />
+        <FolderOpenIcon />
       )}
-      <span>{isPending ? "Opening..." : "Show in Finder"}</span>
+      <span>{isPending ? "Opening..." : label}</span>
     </DropdownMenuItem>
   );
 }

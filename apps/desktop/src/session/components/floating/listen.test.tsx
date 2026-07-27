@@ -33,6 +33,7 @@ vi.mock("~/session/components/shared", () => ({
     shouldRender: true,
     isDisabled: false,
     warningMessage: "",
+    recoverySettingsTab: null,
   }),
 }));
 

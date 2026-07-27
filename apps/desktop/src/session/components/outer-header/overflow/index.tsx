@@ -24,7 +24,7 @@ import {
 import { DeleteNote } from "./delete";
 import { ExportModal } from "./export-modal";
 import { Listening } from "./listening";
-import { ShowInFinder } from "./misc";
+import { ShowInFolder } from "./misc";
 
 import { useAudioPlayer } from "~/audio-player";
 import { openFloatingMeetingPanel } from "~/meeting-float/host";
@@ -199,7 +199,7 @@ export function OverflowButton({
                 </span>
               </DropdownMenuItem>
             )}
-            <ShowInFinder sessionId={sessionId} />
+            <ShowInFolder sessionId={sessionId} />
             <DeleteNote sessionId={sessionId} />
           </AppFloatingPanel>
         </DropdownMenuContent>

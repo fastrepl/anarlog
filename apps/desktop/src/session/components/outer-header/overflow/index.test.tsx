@@ -96,7 +96,7 @@ vi.mock("./listening", () => ({
 }));
 
 vi.mock("./misc", () => ({
-  ShowInFinder: () => <button type="button">Show in Finder</button>,
+  ShowInFolder: () => <button type="button">Show in folder</button>,
 }));
 
 vi.mock("~/meeting-float/host", () => ({

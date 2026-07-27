@@ -58,6 +58,7 @@ const {
   endCloudsyncActivityMock,
   flushCanonicalSessionEditorChangesMock,
   idMock,
+  openNewMock,
 } = vi.hoisted(() => ({
   queueAutoEnhanceMock: vi.fn(),
   queueAutoEnhanceIfSummaryEmptyMock: vi.fn(),
@@ -104,6 +105,7 @@ const {
   endCloudsyncActivityMock: vi.fn(),
   flushCanonicalSessionEditorChangesMock: vi.fn(),
   idMock: vi.fn(() => "generated-id"),
+  openNewMock: vi.fn(),
 }));
 
 vi.mock("@hypr/plugin-db", () => ({
@@ -214,6 +216,11 @@ vi.mock("~/shared/config", () => ({
 
 vi.mock("~/shared/utils", () => ({
   id: idMock,
+}));
+
+vi.mock("~/store/zustand/tabs", () => ({
+  useTabs: (selector: (state: { openNew: typeof openNewMock }) => unknown) =>
+    selector({ openNew: openNewMock }),
 }));
 
 vi.mock("~/stt/capture-lifecycle-storage", () => ({
@@ -506,6 +513,57 @@ describe("useStartListening", () => {
     );
     expect(clearCaptureLifecycleMarkerMock).toHaveBeenCalledBefore(
       endCloudsyncActivityMock,
+    );
+  });
+
+  test("records without STT while offering an actionable transcription setup", async () => {
+    useSTTConnectionMock.mockReturnValue({ conn: null });
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(startMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "",
+        base_url: "",
+        api_key: "",
+      }),
+      expect.any(Object),
+    );
+    expect(sonnerToastWarningMock).toHaveBeenCalledWith(
+      "Live transcription is not configured",
+      expect.objectContaining({
+        id: "recording-without-transcription",
+        description:
+          "Audio is being saved. Choose a transcription provider to ensure this recording can be transcribed.",
+        action: expect.objectContaining({ label: "Configure" }),
+      }),
+    );
+
+    const warningCalls = sonnerToastWarningMock.mock.calls;
+    const warningOptions = warningCalls[warningCalls.length - 1]?.[1];
+    warningOptions?.action.onClick();
+
+    expect(openNewMock).toHaveBeenCalledWith({
+      type: "settings",
+      state: { tab: "transcription" },
+    });
+  });
+
+  test("does not advertise record-only capture when native recording fails", async () => {
+    useSTTConnectionMock.mockReturnValue({ conn: null });
+    startMock.mockResolvedValue(false);
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(sonnerToastWarningMock).not.toHaveBeenCalledWith(
+      "Live transcription is not configured",
+      expect.anything(),
     );
   });
 

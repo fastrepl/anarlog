@@ -1491,11 +1491,37 @@ describe("General Listener Slice", () => {
         store.getState().live.captureGenerationBySession["session-a"],
       ).toBeUndefined();
       expect(store.getState().live.captureGenerationCounter).toBe(1);
+      expect(store.getState().live.lastError).toBe("capture unavailable");
 
       await expect(store.getState().start(params)).resolves.toBe(true);
       expect(
         store.getState().live.captureGenerationBySession["session-a"],
       ).toBe(2);
+      expect(store.getState().live.lastError).toBeNull();
+      consoleError.mockRestore();
+    });
+
+    test("keeps a rejected capture startup error visible", async () => {
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      startCaptureMock.mockRejectedValueOnce(
+        new Error("audio backend unavailable"),
+      );
+
+      await expect(
+        store.getState().start({
+          session_id: "session-a",
+          languages: [],
+          onboarding: false,
+          model: "test-model",
+          base_url: "http://localhost",
+          api_key: "test-key",
+          keywords: [],
+        }),
+      ).resolves.toBe(false);
+
+      expect(store.getState().live.lastError).toBe("audio backend unavailable");
       consoleError.mockRestore();
     });
 

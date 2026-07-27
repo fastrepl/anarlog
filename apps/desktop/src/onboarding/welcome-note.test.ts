@@ -72,6 +72,11 @@ it("creates a prerecorded demo note with normal meeting metadata", async () => {
   expect(event.tracking_id).toBe("anarlog-onboarding-demo-v1");
   expect(initial.raw_md).toContain("prerecorded demo meeting");
   expect(initial.raw_md).toContain("Join & record");
+  expect(initial.raw_md).toContain("Settings → Transcription");
+  expect(initial.raw_md).toContain(
+    "If transcription and intelligence are configured",
+  );
+  expect(initial.raw_md).not.toContain("Anarlog will listen, transcribe");
 
   const note = JSON.parse(initial.raw_md);
   expect(note.content).toHaveLength(7);

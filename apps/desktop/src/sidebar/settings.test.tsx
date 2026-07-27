@@ -68,10 +68,6 @@ vi.mock("@lingui/react/macro", () => ({
   }),
 }));
 
-vi.mock("@tauri-apps/plugin-os", () => ({
-  platform: () => "macos",
-}));
-
 vi.mock("./custom-sidebar-header", () => ({
   CustomSidebarHeader: ({ title }: { title: ReactNode }) => <div>{title}</div>,
 }));
@@ -131,6 +127,19 @@ describe("SettingsNav", () => {
     ].forEach((label) => {
       expect(screen.getByText(label)).toBeTruthy();
     });
+  });
+
+  it("opens runtime audio capabilities from the Permissions item", () => {
+    render(<SettingsNav />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Permissions" }));
+
+    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
+      mocks.currentTab,
+      {
+        tab: "permissions",
+      },
+    );
   });
 
   it("places dictionary and templates in the AI section", () => {

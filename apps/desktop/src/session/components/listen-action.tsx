@@ -19,7 +19,7 @@ import {
 } from "~/stt/window-control";
 
 export function ListenActionButton({ sessionId }: { sessionId: string }) {
-  const { shouldRender, isDisabled, warningMessage } =
+  const { shouldRender, isDisabled, warningMessage, recoverySettingsTab } =
     useListenButtonState(sessionId);
   const loading = useListener(
     (state) => state.live.loading && state.live.sessionId === sessionId,
@@ -38,6 +38,7 @@ export function ListenActionButton({ sessionId }: { sessionId: string }) {
       sessionId={sessionId}
       isDisabled={isDisabled}
       warningMessage={warningMessage}
+      recoverySettingsTab={recoverySettingsTab}
     />
   );
 }
@@ -67,10 +68,12 @@ function StartListeningButton({
   sessionId,
   isDisabled,
   warningMessage,
+  recoverySettingsTab,
 }: {
   sessionId: string;
   isDisabled: boolean;
   warningMessage: string;
+  recoverySettingsTab: "permissions" | null;
 }) {
   const startListening = useStartListening(sessionId);
   const openNew = useTabs((state) => state.openNew);
@@ -86,9 +89,10 @@ function StartListeningButton({
   }, [sessionId, startListening]);
 
   const handleConfigure = useCallback(() => {
-    handleStart();
-    openNew({ type: "settings", state: { tab: "transcription" } });
-  }, [handleStart, openNew]);
+    if (recoverySettingsTab) {
+      openNew({ type: "settings", state: { tab: recoverySettingsTab } });
+    }
+  }, [openNew, recoverySettingsTab]);
 
   return (
     <div>
@@ -97,7 +101,7 @@ function StartListeningButton({
         disabled={isDisabled}
         warningMessage={warningMessage}
         hideUploadActions={noteHasContent}
-        onConfigure={handleConfigure}
+        onConfigure={recoverySettingsTab ? handleConfigure : undefined}
       >
         <FloatingButton
           onClick={handleStart}
@@ -110,10 +114,14 @@ function StartListeningButton({
                   content: (
                     <ActionableTooltipContent
                       message={warningMessage}
-                      action={{
-                        label: "Configure",
-                        handleClick: handleConfigure,
-                      }}
+                      action={
+                        recoverySettingsTab
+                          ? {
+                              label: "Configure",
+                              handleClick: handleConfigure,
+                            }
+                          : undefined
+                      }
                     />
                   ),
                 }

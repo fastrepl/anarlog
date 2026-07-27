@@ -132,8 +132,10 @@ export function useListenButtonState(sessionId: string) {
   const isDisabled = batching;
 
   let warningMessage = "";
+  let recoverySettingsTab: "permissions" | null = null;
   if (lastError) {
     warningMessage = `Session failed: ${lastError}`;
+    recoverySettingsTab = "permissions";
   } else if (batching) {
     warningMessage = "Batch transcription in progress.";
   }
@@ -142,6 +144,7 @@ export function useListenButtonState(sessionId: string) {
     shouldRender,
     isDisabled,
     warningMessage,
+    recoverySettingsTab,
   };
 }
 

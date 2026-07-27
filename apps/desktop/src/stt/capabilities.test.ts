@@ -19,6 +19,7 @@ import {
   getOnDeviceTranscriptionMode,
   getSttModelTranscriptionMode,
   getTranscriptionLanguages,
+  getUnsupportedDesktopLocalSttRepair,
   isConfiguredSttModel,
   isSupportedLanguagesBatch,
   isSupportedLanguagesLive,
@@ -107,6 +108,61 @@ describe("isConfiguredSttModel", () => {
 
   test("allows custom model ids for external providers", () => {
     expect(isConfiguredSttModel("custom", "whisper-large-v3")).toBe(true);
+  });
+});
+
+describe("getUnsupportedDesktopLocalSttRepair", () => {
+  test.each(["windows", "linux"])(
+    "uses hosted transcription for entitled users on %s",
+    (currentPlatform) => {
+      expect(
+        getUnsupportedDesktopLocalSttRepair(
+          currentPlatform,
+          "hyprnote",
+          "soniqo-parakeet-streaming",
+          true,
+        ),
+      ).toEqual({ provider: "hyprnote", model: "cloud" });
+    },
+  );
+
+  test.each(["windows", "linux"])(
+    "requires a new provider selection for free users on %s",
+    (currentPlatform) => {
+      expect(
+        getUnsupportedDesktopLocalSttRepair(
+          currentPlatform,
+          "hyprnote",
+          "am-parakeet-v3",
+          false,
+        ),
+      ).toEqual({ provider: "", model: "" });
+    },
+  );
+
+  test("keeps supported Apple-local selections on macOS", () => {
+    expect(
+      getUnsupportedDesktopLocalSttRepair(
+        "macos",
+        "hyprnote",
+        "soniqo-parakeet-streaming",
+        false,
+      ),
+    ).toBeNull();
+  });
+
+  test("does not rewrite cloud or BYOK selections", () => {
+    expect(
+      getUnsupportedDesktopLocalSttRepair("windows", "hyprnote", "cloud", true),
+    ).toBeNull();
+    expect(
+      getUnsupportedDesktopLocalSttRepair(
+        "linux",
+        "deepgram",
+        "nova-3-general",
+        false,
+      ),
+    ).toBeNull();
   });
 });
 

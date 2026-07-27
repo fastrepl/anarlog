@@ -63,6 +63,24 @@ export function isHyprnoteLocalSttModel(
   return provider === "hyprnote" && isSupportedLocalSttModel(model);
 }
 
+export function getUnsupportedDesktopLocalSttRepair(
+  currentPlatform: string,
+  provider: string | undefined,
+  model: string | undefined,
+  canUseCloud: boolean,
+) {
+  if (
+    (currentPlatform !== "windows" && currentPlatform !== "linux") ||
+    !isHyprnoteLocalSttModel(provider, model)
+  ) {
+    return null;
+  }
+
+  return canUseCloud
+    ? { provider: "hyprnote", model: "cloud" }
+    : { provider: "", model: "" };
+}
+
 export function isConfiguredSttModel(
   provider?: string | null,
   model?: string | null,

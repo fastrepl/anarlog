@@ -15,15 +15,30 @@ const authState = vi.hoisted(() => ({
   session: {
     access_token: "stale-token",
     user: { id: "user-1", email: "test@example.com" },
+  } as {
+    access_token: string;
+    user: { id: string; email: string };
+  } | null,
+}));
+const settingsState = vi.hoisted(() => ({
+  currentPlatform: "macos",
+  values: {
+    current_llm_provider: undefined as string | undefined,
+    current_stt_provider: undefined as string | undefined,
+    current_stt_model: undefined as string | undefined,
   },
+  setSettingValues: vi.fn(),
 }));
 
 vi.mock("./auth-context", () => ({
   useAuth: () => ({
     session: authState.session,
-    getHeaders: () => ({
-      Authorization: `Bearer ${authState.session.access_token}`,
-    }),
+    getHeaders: () =>
+      authState.session
+        ? {
+            Authorization: `Bearer ${authState.session.access_token}`,
+          }
+        : undefined,
     refreshSession,
   }),
 }));
@@ -51,6 +66,23 @@ vi.mock("@hypr/plugin-opener2", () => ({
 vi.mock("@hypr/plugin-windows", () => ({
   openUrlWithInstruction: vi.fn(),
 }));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  platform: () => settingsState.currentPlatform,
+}));
+
+vi.mock("~/shared/config", () => ({
+  useConfigValues: (keys: Array<keyof typeof settingsState.values>) =>
+    Object.fromEntries(keys.map((key) => [key, settingsState.values[key]])),
+}));
+
+vi.mock("~/settings/queries", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("~/settings/queries")>();
+  return {
+    ...actual,
+    setSettingValues: settingsState.setSettingValues,
+  };
+});
 
 vi.mock("../billing/trial-ended-dialog", () => ({
   TrialEndedDialog: ({ open }: { open: boolean }) => (
@@ -153,11 +185,16 @@ describe("BillingProvider", () => {
       setItem: vi.fn(),
     });
 
-    refreshSession.mockReset();
+    refreshSession.mockReset().mockResolvedValue(null);
     authState.session = {
       access_token: "stale-token",
       user: { id: "user-1", email: "test@example.com" },
     };
+    settingsState.currentPlatform = "macos";
+    settingsState.values.current_llm_provider = undefined;
+    settingsState.values.current_stt_provider = undefined;
+    settingsState.values.current_stt_model = undefined;
+    settingsState.setSettingValues.mockReset().mockResolvedValue(undefined);
 
     vi.mocked(authCommands.decodeClaims)
       .mockReset()
@@ -217,7 +254,7 @@ describe("BillingProvider", () => {
     });
 
     authState.session = {
-      ...authState.session,
+      ...authState.session!,
       access_token: "refreshed-token",
     };
     view.rerender(billingTree(queryClient));
@@ -318,5 +355,79 @@ describe("BillingProvider", () => {
           .getAttribute("data-open"),
       ).toBe("false");
     });
+  });
+
+  it.each(["windows", "linux"])(
+    "repairs Apple-local transcription to hosted transcription for paid users on %s",
+    async (currentPlatform) => {
+      settingsState.currentPlatform = currentPlatform;
+      settingsState.values.current_stt_provider = "hyprnote";
+      settingsState.values.current_stt_model = "soniqo-parakeet-streaming";
+      vi.mocked(authCommands.decodeClaims).mockResolvedValue(
+        paidClaims("user-1"),
+      );
+
+      renderBillingProvider();
+
+      await waitFor(() => {
+        expect(settingsState.setSettingValues).toHaveBeenCalledWith({
+          current_stt_provider: "hyprnote",
+          current_stt_model: "cloud",
+        });
+      });
+    },
+  );
+
+  it.each(["windows", "linux"])(
+    "requires provider selection for free users with Apple-local transcription on %s",
+    async (currentPlatform) => {
+      settingsState.currentPlatform = currentPlatform;
+      settingsState.values.current_stt_provider = "hyprnote";
+      settingsState.values.current_stt_model = "am-parakeet-v3";
+
+      renderBillingProvider();
+
+      await waitFor(() => {
+        expect(settingsState.setSettingValues).toHaveBeenCalledWith({
+          current_stt_provider: "",
+          current_stt_model: "",
+        });
+      });
+    },
+  );
+
+  it("requires provider selection for signed-out Windows users with Apple-local transcription", async () => {
+    authState.session = null;
+    settingsState.currentPlatform = "windows";
+    settingsState.values.current_stt_provider = "hyprnote";
+    settingsState.values.current_stt_model = "soniqo-parakeet-streaming";
+
+    renderBillingProvider();
+
+    await waitFor(() => {
+      expect(settingsState.setSettingValues).toHaveBeenCalledWith({
+        current_stt_provider: "",
+        current_stt_model: "",
+      });
+    });
+  });
+
+  it("defers Windows transcription repair when authenticated billing claims fail", async () => {
+    settingsState.currentPlatform = "windows";
+    settingsState.values.current_stt_provider = "hyprnote";
+    settingsState.values.current_stt_model = "soniqo-parakeet-streaming";
+    vi.mocked(authCommands.decodeClaims).mockResolvedValue({
+      status: "error",
+      error: "claims unavailable",
+    });
+
+    renderBillingProvider();
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("billing-access").getAttribute("data-is-ready"),
+      ).toBe("false");
+    });
+    expect(settingsState.setSettingValues).not.toHaveBeenCalled();
   });
 });

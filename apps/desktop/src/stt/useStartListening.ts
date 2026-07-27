@@ -39,6 +39,7 @@ import type {
   LiveTranscriptPersistCallback,
   OnStoppedCallback,
 } from "~/store/zustand/listener/transcript";
+import { useTabs } from "~/store/zustand/tabs";
 import {
   getLiveTranscriptionConfig,
   getTranscriptionLanguages,
@@ -1063,6 +1064,7 @@ export function useStartListening(sessionId: string) {
   const start = useListener((state) => state.start);
   const { leftsidebar } = useShell();
   const setLeftSidebarExpanded = leftsidebar.setExpanded;
+  const openNew = useTabs((state) => state.openNew);
 
   const startListening = useCallback(async () => {
     if (!canStartLiveSession(sessionId)) {
@@ -1189,6 +1191,23 @@ export function useStartListening(sessionId: string) {
       return;
     }
 
+    if (!conn) {
+      sonnerToast.warning("Live transcription is not configured", {
+        id: "recording-without-transcription",
+        description:
+          "Audio is being saved. Choose a transcription provider to ensure this recording can be transcribed.",
+        action: {
+          label: "Configure",
+          onClick: () => {
+            openNew({
+              type: "settings",
+              state: { tab: "transcription" },
+            });
+          },
+        },
+      });
+    }
+
     setLeftSidebarExpanded(false);
 
     setStopMeetingChatCapture(
@@ -1225,6 +1244,7 @@ export function useStartListening(sessionId: string) {
     dictionaryTerms,
     getSessionMode,
     microphoneDevice,
+    openNew,
     participantHumanIds,
     session,
     sessionId,
