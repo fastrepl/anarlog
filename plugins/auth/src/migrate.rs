@@ -31,8 +31,12 @@ pub(crate) fn load_linux_auth<R: tauri::Runtime>(
     let auth_path = auth_path(app)?;
 
     // A locked or unavailable keyring must not abort plugin setup, otherwise the app
-    // cannot start and the plaintext session can never be migrated.
-    let secure_data = match tauri_plugin_store2::read_secret_blocking(app, AUTH_SCOPE, AUTH_KEY) {
+    // cannot start and the plaintext session can never be migrated. `Ok(None)` means
+    // there is no secret yet; `Err` only means it could not be read this time, which
+    // is a distinction the migration below depends on.
+    let secure_read = tauri_plugin_store2::read_secret_blocking(app, AUTH_SCOPE, AUTH_KEY);
+    let keyring_readable = secure_read.is_ok();
+    let secure_data = match secure_read {
         Ok(data) => data,
         Err(error) => {
             tracing::warn!(%error, "failed_to_read_auth_from_secret_service");
@@ -71,6 +75,12 @@ pub(crate) fn load_linux_auth<R: tauri::Runtime>(
             return Ok(HashMap::new());
         }
     };
+
+    // Writing now could clobber a secret that exists but could not be read, so an
+    // unreadable keyring keeps the plaintext copy and retries on a later launch.
+    if !keyring_readable {
+        return Ok(auth);
+    }
 
     // persist_linux_auth drops the plaintext copy itself once the keyring owns it.
     if let Err(error) = persist_linux_auth(app, &auth) {
