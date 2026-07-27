@@ -291,7 +291,8 @@
 }
 
 /* Outer margin so the filled background clears neighbouring text by the same
- * gap two plain paragraphs leave between them. */
+ * gap two plain paragraphs leave between them. `pre` is the only element here
+ * carrying a margin, so this is also the only pair that can double up. */
 .note-typography pre {
   margin-block: 0.5em;
   border-radius: 0.375rem;
@@ -321,6 +322,21 @@
     font-size: inherit;
     line-height: inherit;
   }
+}
+
+/* Adjacent margins collapse in the editor's block flow but not in the streaming
+ * surface, which puts `flex flex-col` on this same scope. Dropping the second
+ * block's top margin leaves one 0.5em gap in both, keeping the swap stable. */
+.note-typography pre + pre {
+  margin-block-start: 0;
+}
+
+/* base.css zeroes the first child's top margin, but only under
+ * `.prosemirror-editor`, so streaming would start a leading code block 0.5em
+ * lower than the editor does. `pre` is the only element with a top margin, so
+ * this is the whole divergence. */
+.note-typography > :first-child {
+  margin-block-start: 0;
 }
 
 /* In the editor, the hover-row rule (higher specificity than the element
