@@ -6,6 +6,7 @@ import test from "node:test";
 
 import {
   createManifest,
+  verifyDesktopPlatformSets,
   verifyLocalAssets,
   verifyManifest,
 } from "./desktop-release-provenance.mjs";
@@ -15,6 +16,101 @@ const cnAssetId = "01KVDB8KPSKMQ5X3SJ0ANF6943";
 const cnSha256 =
   "760b11d1ab9326dc78068ac8ef450685ea116e329903b14d94a5133641a54128";
 const cnVersion = "cn 0.13.2";
+
+function createDesktopRelease() {
+  const publicPlatforms = [
+    "dmg-aarch64",
+    "dmg-x86_64",
+    "nsis-x86_64",
+    "appimage-x86_64",
+    "deb-x86_64",
+    "appimage-aarch64",
+    "deb-aarch64",
+  ];
+  const updatePlatforms = [
+    "darwin-aarch64",
+    "darwin-x86_64",
+    "windows-x86_64-nsis",
+    "linux-x86_64-appimage",
+    "linux-x86_64-deb",
+    "linux-aarch64-appimage",
+    "linux-aarch64-deb",
+  ];
+
+  return {
+    version: "1.4.0",
+    status: "draft",
+    assets: publicPlatforms.map((publicPlatform, index) => ({
+      id: `asset-${index}`,
+      publicPlatform,
+      updatePlatform: updatePlatforms[index],
+      size: index + 1,
+      signature: `signature-${index}`,
+    })),
+  };
+}
+
+test("accepts the exact desktop public and update platform sets", () => {
+  verifyDesktopPlatformSets(createDesktopRelease());
+});
+
+test("rejects an extra public desktop platform", () => {
+  const release = createDesktopRelease();
+  release.assets.push({
+    id: "asset-extra-public",
+    publicPlatform: "rpm-x86_64",
+    updatePlatform: null,
+    size: 1,
+    signature: null,
+  });
+
+  assert.throws(
+    () => verifyDesktopPlatformSets(release),
+    /exactly 7 desktop assets/,
+  );
+});
+
+test("rejects duplicate public desktop platforms", () => {
+  const release = createDesktopRelease();
+  release.assets[0].publicPlatform = release.assets[1].publicPlatform;
+
+  assert.throws(
+    () => verifyDesktopPlatformSets(release),
+    /public platforms do not match/,
+  );
+});
+
+test("rejects an updater-only desktop platform", () => {
+  const release = createDesktopRelease();
+  release.assets.push({
+    id: "asset-extra-updater",
+    publicPlatform: null,
+    updatePlatform: "linux-x86_64-rpm",
+    size: 1,
+    signature: "signature-extra",
+  });
+
+  assert.throws(
+    () => verifyDesktopPlatformSets(release),
+    /exactly 7 desktop assets/,
+  );
+});
+
+test("rejects an opaque desktop release asset", () => {
+  const release = createDesktopRelease();
+  release.assets.push({
+    id: "asset-opaque",
+    publicPlatform: null,
+    updatePlatform: null,
+    size: 1,
+    signature: null,
+  });
+
+  assert.throws(
+    () => verifyDesktopPlatformSets(release),
+    /exactly 7 desktop assets/,
+  );
+});
 
 test("binds every release asset to a candidate run and detects replacement", async () => {
   const directory = await mkdtemp(

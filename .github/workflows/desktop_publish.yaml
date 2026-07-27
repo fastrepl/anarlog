@@ -37,6 +37,8 @@ jobs:
     steps:
       - id: parse
         env:
+          EXECUTION_REF: ${{ github.ref }}
+          EXECUTION_SHA: ${{ github.sha }}
           INPUT_AUDIO_QA_RUN_ID: ${{ inputs.audio_qa_run_id }}
           INPUT_CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           INPUT_DRY_RUN_ID: ${{ inputs.dry_run_id }}
@@ -62,6 +64,15 @@ jobs:
 
           VERSION="$INPUT_VERSION"
           CANDIDATE_SHA="${INPUT_CANDIDATE_SHA,,}"
+          if [[ "$EXECUTION_REF" != "refs/heads/main" ]]; then
+            echo "::error::Stable publication must run from refs/heads/main, not $EXECUTION_REF"
+            exit 1
+          fi
+          if [[ "${EXECUTION_SHA,,}" != "$CANDIDATE_SHA" ]]; then
+            echo "::error::Executing workflow SHA $EXECUTION_SHA does not match candidate $CANDIDATE_SHA"
+            exit 1
+          fi
+
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "channel=stable" >> $GITHUB_OUTPUT
           echo "candidate_sha=$CANDIDATE_SHA" >> $GITHUB_OUTPUT
@@ -275,6 +286,10 @@ jobs:
             echo "::error::Expected CrabNebula release $EXPECTED_VERSION, got $ACTUAL_VERSION"
             exit 1
           fi
+
+          printf '%s' "$RELEASE" > "$RUNNER_TEMP/crabnebula-release.json"
+          node scripts/desktop-release-provenance.mjs verify-platforms \
+            --release "$RUNNER_TEMP/crabnebula-release.json"
 
           EXPECTED_PLATFORMS=(
             "dmg-aarch64"

@@ -6,6 +6,24 @@ import { pathToFileURL } from "node:url";
 
 const DEFAULT_ASSET_BASE_URL = "https://cdn.crabnebula.app/asset";
 const SOURCE_WORKFLOW = ".github/workflows/desktop_cd.yaml";
+const EXPECTED_PUBLIC_PLATFORMS = [
+  "appimage-aarch64",
+  "appimage-x86_64",
+  "deb-aarch64",
+  "deb-x86_64",
+  "dmg-aarch64",
+  "dmg-x86_64",
+  "nsis-x86_64",
+];
+const EXPECTED_UPDATE_PLATFORMS = [
+  "darwin-aarch64",
+  "darwin-x86_64",
+  "linux-aarch64-appimage",
+  "linux-aarch64-deb",
+  "linux-x86_64-appimage",
+  "linux-x86_64-deb",
+  "windows-x86_64-nsis",
+];
 
 function invariant(condition, message) {
   if (!condition) {
@@ -122,6 +140,34 @@ function normalizeAssets(release) {
     "Release contains duplicate asset IDs",
   );
   return assets;
+}
+
+export function verifyDesktopPlatformSets(release) {
+  const assets = normalizeAssets(release);
+  invariant(
+    assets.length === EXPECTED_PUBLIC_PLATFORMS.length,
+    `Release must contain exactly ${EXPECTED_PUBLIC_PLATFORMS.length} desktop assets`,
+  );
+
+  const publicPlatforms = assets
+    .map((asset) => asset.publicPlatform)
+    .filter((platform) => platform !== null)
+    .sort();
+  invariant(
+    JSON.stringify(publicPlatforms) ===
+      JSON.stringify(EXPECTED_PUBLIC_PLATFORMS),
+    "Release public platforms do not match the desktop allowlist",
+  );
+
+  const updatePlatforms = assets
+    .map((asset) => asset.updatePlatform)
+    .filter((platform) => platform !== null)
+    .sort();
+  invariant(
+    JSON.stringify(updatePlatforms) ===
+      JSON.stringify(EXPECTED_UPDATE_PLATFORMS),
+    "Release update platforms do not match the desktop allowlist",
+  );
 }
 
 async function hashStream(stream) {
@@ -373,8 +419,11 @@ export async function verifyLocalAssets({
 async function main() {
   const { command, args } = parseArgs(process.argv.slice(2));
   invariant(
-    command === "create" || command === "verify" || command === "verify-assets",
-    "Expected create, verify, or verify-assets command",
+    command === "create" ||
+      command === "verify" ||
+      command === "verify-assets" ||
+      command === "verify-platforms",
+    "Expected create, verify, verify-assets, or verify-platforms command",
   );
 
   const common = {
@@ -395,6 +444,13 @@ async function main() {
       output: args.output,
     });
     console.log(`Wrote release provenance to ${args.output}`);
+    return;
+  }
+
+  if (command === "verify-platforms") {
+    invariant(args.release, "Missing --release");
+    verifyDesktopPlatformSets(await readJson(args.release));
+    console.log("Release desktop platforms match the allowlist");
     return;
   }
 

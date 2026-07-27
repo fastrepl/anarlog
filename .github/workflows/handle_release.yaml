@@ -77,6 +77,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           repo: ${{ github.repository }}
       - id: result
+        if: ${{ always() }}
         run: |
           CHANNEL="${{ inputs.channel }}"
           RESOLVED="${{ steps.resolve.outputs.resolved }}"
@@ -105,12 +106,13 @@ jobs:
           fi
           echo "data=$DATA" >> $GITHUB_OUTPUT
       - uses: ./.github/actions/comment-result
+        if: ${{ always() && steps.result.outputs.data != '' }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           repo: ${{ github.repository }}
           issue_number: ${{ inputs.issue_number }}
           data: ${{ steps.result.outputs.data }}
-      - if: steps.resolve.outputs.resolved == 'true'
+      - if: ${{ always() && steps.resolve.outputs.resolved == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.YUJONGLEE_GITHUB_TOKEN_REPO }}
         run: gh api repos/${{ github.repository }}/git/refs/heads/${{ steps.resolve.outputs.branch }} -X DELETE || true
