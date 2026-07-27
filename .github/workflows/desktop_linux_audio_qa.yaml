@@ -1,0 +1,361 @@
+name: Desktop Linux Virtual Audio QA
+run-name: Linux audio QA v${{ inputs.version }} at ${{ inputs.candidate_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable version whose CrabNebula DEBs should be tested
+        required: true
+        type: string
+      candidate_sha:
+        description: Exact 40-character current main commit for the candidate
+        required: true
+        type: string
+      dry_run_id:
+        description: Successful publish=false desktop CD run that built the candidate
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: desktop-linux-audio-qa-${{ inputs.version }}-${{ inputs.candidate_sha }}
+  cancel-in-progress: false
+
+env:
+  CN_APPLICATION: fastrepl/hyprnote2
+
+jobs:
+  parse:
+    runs-on: ubuntu-latest
+    outputs:
+      candidate_sha: ${{ steps.parse.outputs.candidate_sha }}
+      dry_run_id: ${{ steps.parse.outputs.dry_run_id }}
+      version: ${{ steps.parse.outputs.version }}
+    steps:
+      - id: parse
+        env:
+          INPUT_CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          INPUT_DRY_RUN_ID: ${{ inputs.dry_run_id }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ ! "$INPUT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version must be a stable semantic version such as 1.4.0"
+            exit 1
+          fi
+          if [[ ! "$INPUT_CANDIDATE_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "::error::Candidate SHA must be a full 40-character commit SHA"
+            exit 1
+          fi
+          if [[ ! "$INPUT_DRY_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::Dry-run workflow ID must be a positive integer"
+            exit 1
+          fi
+
+          echo "version=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "candidate_sha=${INPUT_CANDIDATE_SHA,,}" >> "$GITHUB_OUTPUT"
+          echo "dry_run_id=$INPUT_DRY_RUN_ID" >> "$GITHUB_OUTPUT"
+
+  verify-candidate:
+    needs: parse
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.parse.outputs.candidate_sha }}
+          fetch-depth: 0
+      - env:
+          EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          git fetch origin main --no-tags
+
+          checkout_sha=$(git rev-parse HEAD)
+          main_sha=$(git rev-parse origin/main)
+          if [[ "$checkout_sha" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Checked out $checkout_sha instead of candidate $EXPECTED_SHA"
+            exit 1
+          fi
+          if [[ "$main_sha" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Candidate $EXPECTED_SHA is not current main ($main_sha)"
+            exit 1
+          fi
+
+          changelog="packages/changelog/content/$VERSION.md"
+          if [[ ! -s "$changelog" ]]; then
+            echo "::error::Missing or empty changelog $changelog at candidate $EXPECTED_SHA"
+            exit 1
+          fi
+
+          {
+            echo "### Linux virtual-audio candidate"
+            echo
+            echo "- Version: \`$VERSION\`"
+            echo "- Candidate: \`$EXPECTED_SHA\`"
+            echo "- Changelog SHA-256: \`$(sha256sum "$changelog" | cut -d' ' -f1)\`"
+            echo
+            echo "This gate uses \`NO_AEC=1\` and does not validate AEC."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  audio-qa:
+    needs: [parse, verify-candidate]
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: depot-ubuntu-24.04-8
+            artifact_arch: x64
+            public_platform: deb-x86_64
+            debian_arch: amd64
+          - runner: depot-ubuntu-24.04-arm-8
+            artifact_arch: arm64
+            public_platform: deb-aarch64
+            debian_arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.parse.outputs.candidate_sha }}
+          fetch-depth: 0
+          lfs: true
+      - env:
+          EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
+        run: |
+          git fetch origin main --no-tags
+          main_sha=$(git rev-parse origin/main)
+          checkout_sha=$(git rev-parse HEAD)
+          if [[ "$main_sha" != "$EXPECTED_SHA" || "$checkout_sha" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Candidate moved before QA (candidate=$EXPECTED_SHA, checkout=$checkout_sha, main=$main_sha)"
+            exit 1
+          fi
+      - env:
+          EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ needs.parse.outputs.dry_run_id }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")
+          if ! jq -e \
+            --arg sha "$EXPECTED_SHA" \
+            --arg workflow ".github/workflows/desktop_cd.yaml" \
+            '
+              (.head_sha | ascii_downcase) == $sha
+              and .event == "workflow_dispatch"
+              and .conclusion == "success"
+              and (.path | split("@")[0]) == $workflow
+            ' <<< "$run" > /dev/null; then
+            echo "::error::Run $RUN_ID is not a successful desktop CD dry run for candidate $EXPECTED_SHA"
+            exit 1
+          fi
+
+          artifact_dir="$GITHUB_WORKSPACE/qa-artifacts/linux-${{ matrix.artifact_arch }}"
+          mkdir -p "$artifact_dir"
+          gh run download "$RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "desktop-release-provenance-$VERSION-$EXPECTED_SHA" \
+            --dir "$artifact_dir/release-provenance"
+          manifest="$artifact_dir/release-provenance/manifest.json"
+          if ! jq -e \
+            --arg run_id "$RUN_ID" \
+            --arg sha "$EXPECTED_SHA" \
+            --arg version "$VERSION" \
+            '
+              .schemaVersion == 1
+              and .sourceWorkflow == ".github/workflows/desktop_cd.yaml"
+              and .workflowRunId == $run_id
+              and .candidateSha == $sha
+              and .version == $version
+              and .channel == "stable"
+              and .publish == false
+              and (.assets | type == "array" and length > 0)
+            ' "$manifest" > /dev/null; then
+            echo "::error::Dry-run provenance does not match this candidate"
+            exit 1
+          fi
+      - id: release
+        uses: ./.github/actions/cn_release
+        with:
+          raw: >-
+            release show ${{ env.CN_APPLICATION }} ${{ needs.parse.outputs.version }}
+            --channel stable
+          key: ${{ secrets.CN_API_KEY }}
+      - id: asset
+        env:
+          CANDIDATE_SHA: ${{ needs.parse.outputs.candidate_sha }}
+          PLATFORM: ${{ matrix.public_platform }}
+          RELEASE: ${{ steps.release.outputs.raw }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          actual_version=$(jq -r '.version // empty' <<< "$RELEASE")
+          if [[ "$actual_version" != "$VERSION" ]]; then
+            echo "::error::Expected CrabNebula release $VERSION, got $actual_version"
+            exit 1
+          fi
+
+          asset=$(jq -cer --arg platform "$PLATFORM" '
+            [.assets[]?
+              | select(
+                  .publicPlatform == $platform
+                  and ((.size // 0) | tonumber) > 0
+                )
+            ]
+            | if length == 1 then .[0]
+              else error("expected exactly one nonempty asset for " + $platform)
+              end
+          ' <<< "$RELEASE")
+
+          asset_id=$(jq -r '.id' <<< "$asset")
+          asset_size=$(jq -r '.size | tonumber' <<< "$asset")
+          asset_filename=$(jq -r '.filename // empty' <<< "$asset")
+          if [[ -z "$asset_id" || -z "$asset_filename" ]]; then
+            echo "::error::CrabNebula asset metadata is incomplete"
+            exit 1
+          fi
+
+          artifact_dir="$GITHUB_WORKSPACE/qa-artifacts/linux-${{ matrix.artifact_arch }}"
+          manifest="$artifact_dir/release-provenance/manifest.json"
+          manifest_asset=$(jq -cer --arg id "$asset_id" '
+            [.assets[]? | select(.id == $id)]
+            | if length == 1 then .[0]
+              else error("expected one matching asset in dry-run provenance")
+              end
+          ' "$manifest")
+          expected_sha256=$(jq -r '.sha256 // empty' <<< "$manifest_asset")
+          if [[ ! "$expected_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "::error::Dry-run provenance has no valid SHA-256 for asset $asset_id"
+            exit 1
+          fi
+          if ! jq -e \
+            --arg platform "$PLATFORM" \
+            --argjson size "$asset_size" \
+            '
+              .publicPlatform == $platform
+              and .size == $size
+            ' <<< "$manifest_asset" > /dev/null; then
+            echo "::error::CrabNebula asset metadata changed after the candidate dry run"
+            exit 1
+          fi
+
+          jq '{
+            id,
+            filename,
+            publicPlatform,
+            updatePlatform,
+            size,
+            createdAt,
+            updatedAt
+          }' <<< "$asset" > "$artifact_dir/crabnebula-asset.json"
+          jq -n \
+            --arg application "$CN_APPLICATION" \
+            --arg asset_id "$asset_id" \
+            --arg candidate_sha "$CANDIDATE_SHA" \
+            --arg platform "$PLATFORM" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg source_run_id "${{ needs.parse.outputs.dry_run_id }}" \
+            --arg version "$VERSION" \
+            --arg expected_sha256 "$expected_sha256" \
+            --argjson asset_size "$asset_size" \
+            '{
+              application: $application,
+              version: $version,
+              candidate_sha: $candidate_sha,
+              workflow_run_id: $run_id,
+              source_workflow_run_id: $source_run_id,
+              public_platform: $platform,
+              crabnebula_asset_id: $asset_id,
+              crabnebula_asset_size: $asset_size,
+              expected_sha256: $expected_sha256
+            }' > "$artifact_dir/provenance.json"
+
+          echo "id=$asset_id" >> "$GITHUB_OUTPUT"
+          echo "size=$asset_size" >> "$GITHUB_OUTPUT"
+          echo "sha256=$expected_sha256" >> "$GITHUB_OUTPUT"
+      - env:
+          ASSET_ID: ${{ steps.asset.outputs.id }}
+          EXPECTED_SIZE: ${{ steps.asset.outputs.size }}
+          EXPECTED_SHA256: ${{ steps.asset.outputs.sha256 }}
+        run: |
+          output="$GITHUB_WORKSPACE/candidate-linux-${{ matrix.artifact_arch }}.deb"
+          curl \
+            --fail \
+            --show-error \
+            --location \
+            --retry 3 \
+            --retry-all-errors \
+            "https://cdn.crabnebula.app/asset/$ASSET_ID" \
+            --output "$output"
+
+          actual_size=$(stat --format='%s' "$output")
+          if [[ "$actual_size" != "$EXPECTED_SIZE" ]]; then
+            echo "::error::Downloaded asset size $actual_size does not match CrabNebula metadata $EXPECTED_SIZE"
+            exit 1
+          fi
+
+          echo "$EXPECTED_SHA256  $output" | sha256sum --check
+          sha256sum "$output" \
+            | awk '{print $1 "  candidate-linux-${{ matrix.artifact_arch }}.deb"}' \
+            > "$GITHUB_WORKSPACE/qa-artifacts/linux-${{ matrix.artifact_arch }}/download.sha256"
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: linux
+      - uses: ./.github/actions/pnpm_install
+      - run: |
+          sudo apt-get update
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            alsa-utils \
+            dbus-x11 \
+            desktop-file-utils \
+            ffmpeg \
+            libasound2-plugins \
+            pipewire \
+            pipewire-pulse \
+            pulseaudio-utils \
+            webkit2gtk-driver \
+            wireplumber \
+            xvfb
+          ./scripts/setup-desktop-e2e.sh
+      - run: pnpm -F e2e-blackbox typecheck
+      - id: audio-qa
+        continue-on-error: true
+        env:
+          EXPECTED_DEBIAN_ARCH: ${{ matrix.debian_arch }}
+          EXPECTED_VERSION: ${{ needs.parse.outputs.version }}
+          QA_ARTIFACT_DIR: ${{ github.workspace }}/qa-artifacts/linux-${{ matrix.artifact_arch }}
+        run: |
+          ./scripts/qa/linux_virtual_audio_smoke.sh \
+            "$GITHUB_WORKSPACE/candidate-linux-${{ matrix.artifact_arch }}.deb"
+      - if: always()
+        env:
+          ARCH: ${{ matrix.artifact_arch }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          artifact_dir="$GITHUB_WORKSPACE/qa-artifacts/linux-$ARCH"
+          {
+            echo "### Linux $ARCH virtual-audio QA"
+            echo
+            echo "- Version: \`$VERSION\`"
+            echo "- Scope: packaged-app virtual routing, capture, separation, and persistence"
+            echo "- AEC: **not tested** (\`NO_AEC=1\`)"
+            if [[ -f "$artifact_dir/download.sha256" ]]; then
+              echo "- Download: \`$(cat "$artifact_dir/download.sha256")\`"
+            fi
+            if [[ -f "$artifact_dir/analysis.json" ]]; then
+              echo "- Result: \`$(jq -r '.status' "$artifact_dir/analysis.json")\`"
+              echo "- Alignment offset: \`$(jq -r '.metrics.alignment_offset_seconds // "n/a"' "$artifact_dir/analysis.json")s\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-audio-qa-${{ needs.parse.outputs.version }}-${{ matrix.artifact_arch }}
+          path: |
+            qa-artifacts/linux-${{ matrix.artifact_arch }}/
+            e2e/blackbox/videos/
+          if-no-files-found: warn
+          retention-days: 14
+      - if: steps.audio-qa.outcome == 'failure'
+        run: exit 1
