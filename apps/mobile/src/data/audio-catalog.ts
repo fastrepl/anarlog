@@ -24,10 +24,16 @@ ON CONFLICT(id) DO UPDATE SET
   deleted_at = NULL
 `;
 
+// Mirrors the attachment upsert's guard: without it a missing or deleted session
+// skips the attachment insert but still commits local state pointing at nothing.
 const LOCAL_STATE_UPSERT_SQL = `
 INSERT INTO attachment_local_state (
   attachment_id, session_id, relative_path, availability, updated_at
-) VALUES (?, ?, ?, 'present', ?)
+)
+SELECT ?, ?, ?, 'present', ?
+WHERE EXISTS (
+  SELECT 1 FROM session_attachments WHERE id = ? AND deleted_at IS NULL
+)
 ON CONFLICT(attachment_id) DO UPDATE SET
   session_id = excluded.session_id,
   relative_path = excluded.relative_path,
@@ -64,7 +70,7 @@ export async function catalogSessionAudio(
     },
     {
       sql: LOCAL_STATE_UPSERT_SQL,
-      params: [attachmentId, sessionId, file.filename, now],
+      params: [attachmentId, sessionId, file.filename, now, attachmentId],
     },
   ]);
 }

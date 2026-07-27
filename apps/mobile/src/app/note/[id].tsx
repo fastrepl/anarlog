@@ -106,7 +106,11 @@ export default function NoteScreen() {
       "Delete",
     );
     if (!confirmed) return;
-    if (recorder.phase === "recording") await recorder.stop();
+    // Same window as handleBack: unmounting during startup would let the hook's
+    // own teardown save audio against an already-tombstoned session.
+    if (recorder.phase === "recording" || recorder.phase === "starting") {
+      await recorder.stop();
+    }
     draftRef.current = {};
     await deleteSession(id);
     if (router.canGoBack()) router.back();
