@@ -24,6 +24,8 @@ const config = defineConfig(() => ({
         filter: ({ path }) => {
           return [
             "/",
+            "/download",
+            "/download/",
             "/blog",
             "/blog/",
             "/blog/char-is-now-anarlog",

@@ -1,14 +1,13 @@
 import { Icon } from "@iconify-icon/react";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import {
   ArrowRight,
-  ChevronDown,
   Cloud,
   Cpu,
   KeyRound,
   type LucideIcon,
 } from "lucide-react";
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useState } from "react";
 import { z } from "zod";
 
 import {
@@ -28,7 +27,6 @@ import {
 } from "@/functions/desktop-flow";
 import { getGitHubStats } from "@/functions/github";
 import { useMountEffect } from "@/hooks/useMountEffect";
-import { appleIntelDownloadUrl, appleSiliconDownloadUrl } from "@/lib/download";
 import {
   ANARLOG_SITE_URL,
   ROOT_DESCRIPTION,
@@ -554,8 +552,8 @@ function PricingCard({ plan }: { plan: MarketingPlanData }) {
       </div>
 
       <div className="mt-auto pt-6">
-        <a
-          href={appleSiliconDownloadUrl}
+        <Link
+          to="/download/"
           className={cn([
             "flex h-11 w-full items-center justify-center rounded-full text-sm font-medium transition-all hover:scale-[102%] active:scale-[98%]",
             plan.popular
@@ -566,7 +564,7 @@ function PricingCard({ plan }: { plan: MarketingPlanData }) {
           {plan.price
             ? `Download and start your ${PRO_TRIAL_DAYS}-day Pro trial`
             : "Download for free"}
-        </a>
+        </Link>
       </div>
     </article>
   );
@@ -582,19 +580,13 @@ function FinalCtaSection() {
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
           Try Anarlog today and be present in meetings.
         </p>
-        <a
-          href={appleSiliconDownloadUrl}
+        <Link
+          to="/download/"
           className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#181613] px-5 py-3 text-sm font-medium text-white"
         >
-          <Icon
-            icon="simple-icons:apple"
-            width={16}
-            height={16}
-            className="shrink-0"
-            aria-hidden="true"
-          />
           <span>Download for free</span>
-        </a>
+          <ArrowRight size={16} strokeWidth={2.2} aria-hidden="true" />
+        </Link>
       </div>
     </section>
   );
@@ -772,13 +764,13 @@ function TestimonialsSection() {
             Try for yourself.
           </p>
           <div className="mt-6 flex items-center justify-center">
-            <a
-              href={appleSiliconDownloadUrl}
+            <Link
+              to="/download/"
               className="inline-flex items-center gap-2 rounded-full bg-[#181613] px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-[#4f4940]"
             >
               Start using for free
               <ArrowRight size={16} strokeWidth={2.2} aria-hidden="true" />
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -1290,80 +1282,13 @@ function HeroWorkflowDemo() {
 }
 
 function DownloadButton() {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const onPointerDown = (event: MouseEvent | TouchEvent) => {
-      if (!containerRef.current) return;
-      if (!containerRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("touchstart", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("touchstart", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
-
   return (
-    <div
-      ref={containerRef}
-      className="relative inline-flex text-sm font-medium"
+    <Link
+      to="/download/"
+      className="inline-flex items-center gap-2 rounded-full bg-[#181613] px-5 py-3 text-sm font-medium text-white"
     >
-      <a
-        href={appleSiliconDownloadUrl}
-        className="inline-flex items-center gap-1 rounded-l-full bg-[#181613] py-3 pr-1 pl-4 text-[13px] text-white sm:pl-5 sm:text-sm"
-      >
-        <Icon
-          icon="simple-icons:apple"
-          width={16}
-          height={16}
-          className="shrink-0"
-          aria-hidden="true"
-        />
-        <span>Download for Apple Silicon</span>
-      </a>
-      <button
-        type="button"
-        aria-label="Choose download platform"
-        aria-expanded={open}
-        aria-haspopup="menu"
-        onClick={() => setOpen((prev) => !prev)}
-        className="inline-flex h-full cursor-pointer items-center rounded-r-full bg-[#181613] py-3 pr-3 pl-2 text-white"
-      >
-        <ChevronDown size={17} strokeWidth={2.2} aria-hidden="true" />
-      </button>
-      {open && (
-        <div
-          role="menu"
-          className="absolute top-[calc(100%+0.5rem)] left-0 z-10 w-full max-w-[calc(100vw-2.5rem)] rounded-2xl border border-[#d8d0c5] bg-white p-2 shadow-[0_14px_40px_rgba(24,22,19,0.12)]"
-        >
-          <a
-            href={appleIntelDownloadUrl}
-            className="flex items-center gap-3 rounded-xl px-3 py-3 text-[#181613] transition-colors hover:bg-[#f7f4ef]"
-          >
-            <Icon
-              icon="simple-icons:apple"
-              width={20}
-              height={20}
-              className="shrink-0"
-              aria-hidden="true"
-            />
-            <span>Apple Intel</span>
-          </a>
-        </div>
-      )}
-    </div>
+      <span>Download Anarlog</span>
+      <ArrowRight size={16} strokeWidth={2.2} aria-hidden="true" />
+    </Link>
   );
 }

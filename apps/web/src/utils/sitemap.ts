@@ -51,6 +51,10 @@ export function getSitemap(): Sitemap<TRoutes> {
         priority: 0.7,
         changeFrequency: "weekly",
       },
+      "/download/": {
+        priority: 0.9,
+        changeFrequency: "weekly",
+      },
       "/changelog/$version": changelogVersions.map((version) => ({
         path: `/changelog/${version}`,
         priority: 0.5,

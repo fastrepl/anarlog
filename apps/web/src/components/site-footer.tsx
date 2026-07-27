@@ -13,6 +13,9 @@ export function SiteFooter() {
         <span>© 2026</span>
       </a>
       <nav className="flex flex-wrap gap-x-5 gap-y-2">
+        <Link to="/download/" className="hover:text-[#181613]">
+          Download
+        </Link>
         <a
           href="https://github.com/fastrepl/anarlog"
           className="hover:text-[#181613]"

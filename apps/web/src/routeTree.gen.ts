@@ -27,6 +27,7 @@ import { Route as ApiTemplatesRouteImport } from './routes/api/templates'
 import { Route as ApiShortcutsRouteImport } from './routes/api/shortcuts'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media-upload'
 import { Route as ViewAppRouteRouteImport } from './routes/_view/app/route'
+import { Route as ViewDownloadIndexRouteImport } from './routes/_view/download/index'
 import { Route as ViewAppIndexRouteImport } from './routes/_view/app/index'
 import { Route as SharePublicPublicSlugRouteImport } from './routes/share/public/$publicSlug'
 import { Route as ShareLinkShareIdRouteImport } from './routes/share/link/$shareId'
@@ -165,6 +166,11 @@ const ApiMediaUploadRoute = ApiMediaUploadRouteImport.update({
 const ViewAppRouteRoute = ViewAppRouteRouteImport.update({
   id: '/app',
   path: '/app',
+  getParentRoute: () => ViewRouteRoute,
+} as any)
+const ViewDownloadIndexRoute = ViewDownloadIndexRouteImport.update({
+  id: '/download/',
+  path: '/download/',
   getParentRoute: () => ViewRouteRoute,
 } as any)
 const ViewAppIndexRoute = ViewAppIndexRouteImport.update({
@@ -462,6 +468,7 @@ export interface FileRoutesByFullPath {
   '/share/link/$shareId': typeof ShareLinkShareIdRoute
   '/share/public/$publicSlug': typeof SharePublicPublicSlugRoute
   '/app/': typeof ViewAppIndexRoute
+  '/download/': typeof ViewDownloadIndexRoute
   '/api/admin/blog/upload-image': typeof ApiAdminBlogUploadImageRoute
   '/api/admin/content/audit': typeof ApiAdminContentAuditRoute
   '/api/admin/content/create': typeof ApiAdminContentCreateRoute
@@ -530,6 +537,7 @@ export interface FileRoutesByTo {
   '/share/link/$shareId': typeof ShareLinkShareIdRoute
   '/share/public/$publicSlug': typeof SharePublicPublicSlugRoute
   '/app': typeof ViewAppIndexRoute
+  '/download': typeof ViewDownloadIndexRoute
   '/api/admin/blog/upload-image': typeof ApiAdminBlogUploadImageRoute
   '/api/admin/content/audit': typeof ApiAdminContentAuditRoute
   '/api/admin/content/create': typeof ApiAdminContentCreateRoute
@@ -601,6 +609,7 @@ export interface FileRoutesById {
   '/share/link/$shareId': typeof ShareLinkShareIdRoute
   '/share/public/$publicSlug': typeof SharePublicPublicSlugRoute
   '/_view/app/': typeof ViewAppIndexRoute
+  '/_view/download/': typeof ViewDownloadIndexRoute
   '/api/admin/blog/upload-image': typeof ApiAdminBlogUploadImageRoute
   '/api/admin/content/audit': typeof ApiAdminContentAuditRoute
   '/api/admin/content/create': typeof ApiAdminContentCreateRoute
@@ -672,6 +681,7 @@ export interface FileRouteTypes {
     | '/share/link/$shareId'
     | '/share/public/$publicSlug'
     | '/app/'
+    | '/download/'
     | '/api/admin/blog/upload-image'
     | '/api/admin/content/audit'
     | '/api/admin/content/create'
@@ -740,6 +750,7 @@ export interface FileRouteTypes {
     | '/share/link/$shareId'
     | '/share/public/$publicSlug'
     | '/app'
+    | '/download'
     | '/api/admin/blog/upload-image'
     | '/api/admin/content/audit'
     | '/api/admin/content/create'
@@ -810,6 +821,7 @@ export interface FileRouteTypes {
     | '/share/link/$shareId'
     | '/share/public/$publicSlug'
     | '/_view/app/'
+    | '/_view/download/'
     | '/api/admin/blog/upload-image'
     | '/api/admin/content/audit'
     | '/api/admin/content/create'
@@ -1028,6 +1040,13 @@ declare module '@tanstack/react-router' {
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof ViewAppRouteRouteImport
+      parentRoute: typeof ViewRouteRoute
+    }
+    '/_view/download/': {
+      id: '/_view/download/'
+      path: '/download'
+      fullPath: '/download/'
+      preLoaderRoute: typeof ViewDownloadIndexRouteImport
       parentRoute: typeof ViewRouteRoute
     }
     '/_view/app/': {
@@ -1413,6 +1432,7 @@ interface ViewRouteRouteChildren {
   ViewCallbackSignoutRoute: typeof ViewCallbackSignoutRoute
   ViewDownloadAppleIntelRoute: typeof ViewDownloadAppleIntelRoute
   ViewDownloadAppleSiliconRoute: typeof ViewDownloadAppleSiliconRoute
+  ViewDownloadIndexRoute: typeof ViewDownloadIndexRoute
 }
 
 const ViewRouteRouteChildren: ViewRouteRouteChildren = {
@@ -1423,6 +1443,7 @@ const ViewRouteRouteChildren: ViewRouteRouteChildren = {
   ViewCallbackSignoutRoute: ViewCallbackSignoutRoute,
   ViewDownloadAppleIntelRoute: ViewDownloadAppleIntelRoute,
   ViewDownloadAppleSiliconRoute: ViewDownloadAppleSiliconRoute,
+  ViewDownloadIndexRoute: ViewDownloadIndexRoute,
 }
 
 const ViewRouteRouteWithChildren = ViewRouteRoute._addFileChildren(
