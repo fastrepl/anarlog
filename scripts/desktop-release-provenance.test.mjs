@@ -198,7 +198,11 @@ test("binds local GitHub release assets to exact manifest IDs and bytes", async 
     assetDir,
   });
   const manifest = JSON.parse(await readFile(output, "utf8"));
-  const verify = () =>
+  const platformAssetIds = {
+    "dmg-aarch64": "asset-a",
+    "nsis-x86_64": "asset-b",
+  };
+  const verify = (assetIds = platformAssetIds) =>
     verifyLocalAssets({
       manifest,
       version: "1.4.0",
@@ -208,6 +212,7 @@ test("binds local GitHub release assets to exact manifest IDs and bytes", async 
       cnAssetId,
       cnSha256,
       assetDir,
+      platformAssetIds: assetIds,
     });
 
   await verify();
@@ -219,5 +224,67 @@ test("binds local GitHub release assets to exact manifest IDs and bytes", async 
   await assert.rejects(
     verify(),
     /Local asset IDs do not match the provenance manifest/,
+  );
+});
+
+test("rejects swapped public platform asset IDs with identical bytes", async () => {
+  const directory = await mkdtemp(
+    path.join(os.tmpdir(), "anarlog-release-platform-map-"),
+  );
+  const assetDir = path.join(directory, "assets");
+  await mkdir(assetDir);
+  const contents = "identical payload";
+  await writeFile(path.join(assetDir, "asset-a"), contents);
+  await writeFile(path.join(assetDir, "asset-b"), contents);
+
+  const release = {
+    version: "1.4.0",
+    status: "draft",
+    assets: [
+      {
+        id: "asset-a",
+        publicPlatform: "dmg-aarch64",
+        size: Buffer.byteLength(contents),
+        signature: null,
+      },
+      {
+        id: "asset-b",
+        publicPlatform: "nsis-x86_64",
+        updatePlatform: "windows-x86_64-nsis",
+        size: Buffer.byteLength(contents),
+        signature: "signature",
+      },
+    ],
+  };
+  const output = path.join(directory, "manifest.json");
+  await createManifest({
+    release,
+    output,
+    version: "1.4.0",
+    candidateSha,
+    workflowRunId: "12345",
+    cnVersion,
+    cnAssetId,
+    cnSha256,
+    assetDir,
+  });
+  const manifest = JSON.parse(await readFile(output, "utf8"));
+
+  await assert.rejects(
+    verifyLocalAssets({
+      manifest,
+      version: "1.4.0",
+      candidateSha,
+      workflowRunId: "12345",
+      cnVersion,
+      cnAssetId,
+      cnSha256,
+      assetDir,
+      platformAssetIds: {
+        "dmg-aarch64": "asset-b",
+        "nsis-x86_64": "asset-a",
+      },
+    }),
+    /Downloaded asset ID for dmg-aarch64 does not match the provenance manifest/,
   );
 });

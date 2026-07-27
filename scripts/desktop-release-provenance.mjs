@@ -298,6 +298,7 @@ export async function verifyLocalAssets({
   cnAssetId,
   cnSha256,
   assetDir,
+  platformAssetIds,
 }) {
   invariant(assetDir, "Missing local asset directory");
   invariant(
@@ -314,6 +315,34 @@ export async function verifyLocalAssets({
     (asset) => typeof asset?.publicPlatform === "string",
   );
   invariant(mirroredAssets.length > 0, "Provenance has no public assets");
+  invariant(
+    platformAssetIds &&
+      typeof platformAssetIds === "object" &&
+      !Array.isArray(platformAssetIds),
+    "Missing downloaded platform asset IDs",
+  );
+  const expectedPlatforms = mirroredAssets
+    .map((asset) => asset.publicPlatform)
+    .sort();
+  invariant(
+    new Set(expectedPlatforms).size === expectedPlatforms.length,
+    "Provenance contains duplicate public platforms",
+  );
+  const downloadedPlatforms = Object.keys(platformAssetIds).sort();
+  invariant(
+    JSON.stringify(downloadedPlatforms) === JSON.stringify(expectedPlatforms),
+    "Downloaded public platforms do not match the provenance manifest",
+  );
+  for (const asset of mirroredAssets) {
+    const downloadedAssetId = normalizeCnAssetId(
+      platformAssetIds[asset.publicPlatform],
+    );
+    invariant(
+      downloadedAssetId === normalizeCnAssetId(asset.id),
+      `Downloaded asset ID for ${asset.publicPlatform} does not match the provenance manifest`,
+    );
+  }
+
   const expectedAssetIds = mirroredAssets
     .map((asset) => normalizeCnAssetId(asset?.id))
     .sort();
@@ -372,7 +401,13 @@ async function main() {
   invariant(args.manifest, "Missing --manifest");
   const manifest = await readJson(args.manifest);
   if (command === "verify-assets") {
-    await verifyLocalAssets({ ...common, manifest });
+    let platformAssetIds;
+    try {
+      platformAssetIds = JSON.parse(args["platform-asset-ids"]);
+    } catch {
+      throw new Error("Downloaded platform asset IDs must be valid JSON");
+    }
+    await verifyLocalAssets({ ...common, manifest, platformAssetIds });
     console.log("Local release assets match provenance");
     return;
   }

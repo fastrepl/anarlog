@@ -540,9 +540,28 @@ jobs:
           copy_asset "$LINUX_ARM64_DEB_ID" "anarlog-linux-aarch64.deb"
           copy_asset "$WINDOWS_X64_ID" "anarlog-windows-x86_64-setup.exe"
 
+          PLATFORM_ASSET_IDS=$(jq -cn \
+            --arg dmg_aarch64 "$MACOS_ARM64_ID" \
+            --arg dmg_x86_64 "$MACOS_X64_ID" \
+            --arg appimage_x86_64 "$LINUX_X64_APPIMAGE_ID" \
+            --arg deb_x86_64 "$LINUX_X64_DEB_ID" \
+            --arg appimage_aarch64 "$LINUX_ARM64_APPIMAGE_ID" \
+            --arg deb_aarch64 "$LINUX_ARM64_DEB_ID" \
+            --arg nsis_x86_64 "$WINDOWS_X64_ID" \
+            '{
+              "dmg-aarch64": $dmg_aarch64,
+              "dmg-x86_64": $dmg_x86_64,
+              "appimage-x86_64": $appimage_x86_64,
+              "deb-x86_64": $deb_x86_64,
+              "appimage-aarch64": $appimage_aarch64,
+              "deb-aarch64": $deb_aarch64,
+              "nsis-x86_64": $nsis_x86_64
+            }')
+
           node scripts/desktop-release-provenance.mjs verify-assets \
             --manifest release-provenance/manifest.json \
             --asset-dir "$ASSET_DIR" \
+            --platform-asset-ids "$PLATFORM_ASSET_IDS" \
             --version "$VERSION" \
             --candidate-sha "$EXPECTED_SHA" \
             --run-id "$RUN_ID" \
