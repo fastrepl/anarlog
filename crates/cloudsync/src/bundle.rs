@@ -8,7 +8,7 @@ use crate::CLOUDSYNC_VERSION;
 use crate::error::Error;
 
 static TEMP_FILE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
-const CLOUDSYNC_BUNDLE_REVISION: &str = "anarlog-request-cancellation-4";
+const CLOUDSYNC_BUNDLE_REVISION: &str = "anarlog-request-cancellation-5";
 
 macro_rules! configure_cloudsync_target {
     ($target:literal, $file_name:literal, $path:literal) => {
