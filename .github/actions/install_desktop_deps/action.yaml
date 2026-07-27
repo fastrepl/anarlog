@@ -8,7 +8,11 @@ runs:
   steps:
     - if: ${{ runner.os == 'macOS' }}
       shell: bash
-      run: xcodebuild -downloadComponent MetalToolchain
+      run: |
+        xcode_major=$(xcodebuild -version | awk 'NR == 1 { split($2, version, "."); print version[1] }')
+        if [[ "$xcode_major" -ge 26 ]]; then
+          xcodebuild -downloadComponent MetalToolchain
+        fi
     - if: ${{ runner.os == 'Linux' }}
       shell: bash
       run: |
