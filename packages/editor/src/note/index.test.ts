@@ -215,6 +215,33 @@ describe("browser-safe editor controls", () => {
     expect(handleChange).toHaveBeenCalledWith(baseDoc);
   });
 
+  it("persists during uninterrupted typing instead of waiting for a pause", async () => {
+    const ref = createRef<NoteEditorRef>();
+    const handleChange = vi.fn();
+    render(
+      createElement(NoteEditor, {
+        ref,
+        initialContent: baseDoc,
+        handleChange,
+        enforceTitleHeading: false,
+      }),
+    );
+    await waitFor(() => expect(ref.current?.view).not.toBeNull());
+    vi.useFakeTimers();
+
+    // Keystrokes arrive faster than the debounce delay for 25s, so the
+    // trailing edge never fires and only maxWait can force a write.
+    for (let keystroke = 0; keystroke < 100; keystroke++) {
+      act(() => {
+        const view = ref.current?.view;
+        view?.dispatch(view.state.tr.insertText("a", 4));
+      });
+      await act(() => vi.advanceTimersByTimeAsync(250));
+    }
+
+    expect(handleChange).toHaveBeenCalled();
+  });
+
   it("cancels the original debounce after callback-changing rerenders", async () => {
     const ref = createRef<NoteEditorRef>();
     const handleChange = vi.fn();

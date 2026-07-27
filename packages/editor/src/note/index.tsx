@@ -210,6 +210,18 @@ const baseNodeViews = {
 
 const COMPOSITION_SYNC_GRACE_MS = 500;
 
+// Stretching this delay does not reduce upload volume -- CloudSync stages a
+// row's current value, not one entry per write, so a sync tick ships the note
+// once however often it was written (crates/db-core/tests/write_coalescing.rs).
+// maxWait is the part that matters: trailing-only never fires while keystrokes
+// keep arriving under the delay, so a fluent burst could persist nothing for as
+// long as it lasted, losing all of it on an unclean exit and going stale for
+// readers that query session_documents instead of calling flushPendingChanges().
+// Must stay module-level -- useDebounceCallback memoizes on the options
+// identity, and a fresh object each render would drop the pending timer.
+const CHANGE_FLUSH_DEBOUNCE_MS = 500;
+const CHANGE_FLUSH_OPTIONS = { maxWait: 10_000, trailing: true } as const;
+
 export type CompositionState = {
   active: boolean;
   endedAt: number;
@@ -663,7 +675,11 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       (doc: PMNode) => flushChangeRef.current(doc),
       [],
     );
-    const onUpdate = useDebounceCallback(flushLatestChange, 500);
+    const onUpdate = useDebounceCallback(
+      flushLatestChange,
+      CHANGE_FLUSH_DEBOUNCE_MS,
+      CHANGE_FLUSH_OPTIONS,
+    );
     const onUpdateRef = useRef(onUpdate);
     onUpdateRef.current = onUpdate;
 
