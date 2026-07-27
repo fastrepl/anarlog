@@ -888,3 +888,5 @@ jobs:
           prerelease: false
           makeLatest: true
           artifacts: ${{ steps.artifacts.outputs.list }}
+          allowUpdates: true
+          replacesArtifacts: true
