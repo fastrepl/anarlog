@@ -623,10 +623,47 @@ pub(crate) async fn interruptible_cleanup(
     table_name: &str,
     interrupt: &super::CloudsyncInterruptHandle,
 ) -> Result<(), hypr_cloudsync::Error> {
-    let registration = interrupt.register(connection).await?;
+    sqlx::query("SAVEPOINT cloudsync_cleanup")
+        .execute(&mut *connection)
+        .await?;
+    let registration = match interrupt.register(connection).await {
+        Ok(registration) => registration,
+        Err(error) => {
+            rollback_cleanup_savepoint(connection).await?;
+            return Err(error.into());
+        }
+    };
     let result = hypr_cloudsync::cleanup(&mut *connection, table_name).await;
-    registration.finish(connection).await?;
-    result
+    if let Err(error) = registration.finish(connection).await {
+        rollback_cleanup_savepoint(connection).await?;
+        return Err(error.into());
+    }
+
+    match result {
+        Ok(()) => match sqlx::query("RELEASE cloudsync_cleanup")
+            .execute(&mut *connection)
+            .await
+        {
+            Ok(_) => Ok(()),
+            Err(error) => {
+                rollback_cleanup_savepoint(connection).await?;
+                Err(error.into())
+            }
+        },
+        Err(error) => {
+            rollback_cleanup_savepoint(connection).await?;
+            Err(error)
+        }
+    }
+}
+
+async fn rollback_cleanup_savepoint(
+    connection: &mut SqliteConnection,
+) -> Result<(), hypr_cloudsync::Error> {
+    sqlx::query("ROLLBACK TO cloudsync_cleanup; RELEASE cloudsync_cleanup")
+        .execute(connection)
+        .await?;
+    Ok(())
 }
 
 pub(crate) async fn interruptible_init(
@@ -1154,6 +1191,16 @@ mod tests {
         .execute(db.pool())
         .await
         .unwrap();
+        let tracking_schema_before: Vec<(String, String)> = sqlx::query_as(
+            "SELECT type, name
+             FROM sqlite_schema
+             WHERE (type = 'table' AND name = 'items_cloudsync')
+                OR (type = 'trigger' AND tbl_name = 'items')
+             ORDER BY type, name",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
 
         let request_db = Arc::clone(&db);
         let request = tokio::spawn(async move { request_db.cloudsync_cleanup("items").await });
@@ -1184,6 +1231,20 @@ mod tests {
         db.cloudsync_version()
             .await
             .expect("native CloudSync table cleanup interruption crashed the pinned SQLite worker");
+        let tracking_schema_after: Vec<(String, String)> = sqlx::query_as(
+            "SELECT type, name
+             FROM sqlite_schema
+             WHERE (type = 'table' AND name = 'items_cloudsync')
+                OR (type = 'trigger' AND tbl_name = 'items')
+             ORDER BY type, name",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(
+            tracking_schema_after, tracking_schema_before,
+            "interrupted native CloudSync table cleanup left partial tracking schema"
+        );
         tokio::time::timeout(
             Duration::from_millis(250),
             sqlx::query("INSERT INTO items (id, value) VALUES ('after', 'local')")
@@ -1194,6 +1255,27 @@ mod tests {
             "immediate local write remained blocked after native CloudSync table cleanup interruption",
         )
         .unwrap();
+        db.cloudsync_cleanup("items")
+            .await
+            .expect("CloudSync table cleanup retry failed after interruption");
+        let tracking_schema_after_retry: Vec<(String, String)> = sqlx::query_as(
+            "SELECT type, name
+             FROM sqlite_schema
+             WHERE (type = 'table' AND name = 'items_cloudsync')
+                OR (type = 'trigger' AND tbl_name = 'items')
+             ORDER BY type, name",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap();
+        assert!(
+            tracking_schema_after_retry.is_empty(),
+            "successful CloudSync table cleanup retry left tracking schema"
+        );
+        sqlx::query("INSERT INTO items (id, value) VALUES ('after-retry', 'local')")
+            .execute(db.pool())
+            .await
+            .expect("local write failed after successful CloudSync table cleanup retry");
     }
 
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
