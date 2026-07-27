@@ -2010,11 +2010,13 @@ msgstr "Show Event"
 msgid "Show floating bar"
 msgstr "Show floating bar"
 
+#: src/calendar/components/session-chip.tsx
 #: src/settings/ai/stt/select.tsx
 #: src/sidebar/timeline/item.tsx
 msgid "Show in Finder"
 msgstr "Show in Finder"
 
+#: src/calendar/components/session-chip.tsx
 #: src/sidebar/timeline/item.tsx
 msgid "Show in folder"
 msgstr "Show in folder"
