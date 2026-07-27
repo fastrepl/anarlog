@@ -337,23 +337,47 @@ fn install_windows_cli(resource_path: &Path, install_path: &Path) -> Result<(), 
             temp_path.display()
         )
     })?;
-    if install_path.exists() {
-        std::fs::remove_file(install_path).map_err(|error| {
+    // Windows refuses to delete a running executable but still allows renaming it, so
+    // the old binary is moved aside rather than removed. Anything still running keeps
+    // its handle to the backup, which the next install clears once it is released.
+    let backup_path = install_path.with_file_name(format!(".{}.old", file_name.to_string_lossy()));
+    let _ = std::fs::remove_file(&backup_path);
+
+    let replaced = install_path.exists();
+    if replaced {
+        std::fs::rename(install_path, &backup_path).map_err(|error| {
+            let _ = std::fs::remove_file(&temp_path);
             format!(
                 "Could not replace the CLI at {}: {error}",
                 install_path.display()
             )
         })?;
     }
+
     if let Err(error) = std::fs::rename(&temp_path, install_path) {
         let _ = std::fs::remove_file(&temp_path);
+        if replaced {
+            let _ = std::fs::rename(&backup_path, install_path);
+        }
         return Err(format!(
             "Could not install the CLI at {}: {error}",
             install_path.display()
         ));
     }
 
+    let _ = std::fs::remove_file(&backup_path);
     Ok(())
+}
+
+// Treating an unreadable Path as empty would let the caller overwrite the user PATH
+// with only the install directory, so only a genuinely absent value reads as empty.
+#[cfg(target_os = "windows")]
+fn read_user_path(environment: &windows_registry::Key) -> Result<String, String> {
+    match environment.get_string("Path") {
+        Ok(path) => Ok(path),
+        Err(_) if environment.get_type("Path").is_err() => Ok(String::new()),
+        Err(error) => Err(format!("Could not read the user PATH: {error}")),
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -361,7 +385,7 @@ fn windows_path_contains(install_dir: &Path) -> Result<bool, String> {
     let environment = windows_registry::CURRENT_USER
         .open("Environment")
         .map_err(|error| format!("Could not read the user environment: {error}"))?;
-    let path = environment.get_string("Path").unwrap_or_default();
+    let path = read_user_path(&environment)?;
     Ok(path_list_contains(&path, install_dir))
 }
 
@@ -373,7 +397,7 @@ fn add_windows_cli_to_path(install_path: &Path) -> Result<(), String> {
     let environment = windows_registry::CURRENT_USER
         .create("Environment")
         .map_err(|error| format!("Could not open the user environment: {error}"))?;
-    let path = environment.get_string("Path").unwrap_or_default();
+    let path = read_user_path(&environment)?;
     if path_list_contains(&path, install_dir) {
         return Ok(());
     }
