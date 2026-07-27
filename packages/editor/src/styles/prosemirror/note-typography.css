@@ -290,8 +290,10 @@
   );
 }
 
+/* Outer margin so the filled background clears neighbouring text by the same
+ * gap two plain paragraphs leave between them. */
 .note-typography pre {
-  margin-block: 0;
+  margin-block: 0.5em;
   border-radius: 0.375rem;
   background-color: var(--color-muted, #f5f5f4);
   padding-inline: 0.75em;
