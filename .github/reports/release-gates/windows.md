@@ -5,9 +5,10 @@ This is the canonical manual QA checklist for
 It gates the first Windows release tracked by
 [ANLG-68](https://linear.app/fastrepl-inc/issue/ANLG-68/ship-windows-desktop-capture-notifications-and-overlay-support).
 
-Use the exact candidate artifact in every required run. A source build, VM run, or
-remote-desktop run can find defects, but it does not replace a required physical-hardware
-run.
+Use the exact candidate artifact in every required run. Version 1.4.0 is a VM-first
+Windows preview: its explicitly listed VM scope may ship while physical-hardware and AEC
+rows remain DEFERRED. VM evidence proves guest endpoint capture only; it does not prove
+AEC, real-device routing, hot-plug, suspend/resume, or mixed-DPI behavior.
 
 ## Status values
 
@@ -17,7 +18,8 @@ Use one of these values in every result cell:
 - FAIL: the behavior was exercised and did not meet the pass criteria.
 - BLOCKED: the test could not start because a prerequisite is missing or broken.
 - NOT RUN: the test has not been attempted for this candidate.
-- DEFERRED: product scope explicitly excludes the behavior from this release.
+- DEFERRED: product scope explicitly excludes the behavior from this release. It is not
+  PASS and must name the waiver.
 - NOT SUPPORTED: the release explicitly does not support this platform or architecture.
 
 Do not use PASS for a code review, successful compilation, or a result inherited from a
@@ -27,8 +29,11 @@ different artifact hash.
 
 | Field                | Value                                |
 | -------------------- | ------------------------------------ |
-| Version              | TBD                                  |
+| Version              | 1.4.0                                |
 | Commit               | TBD                                  |
+| Release scope         | VM-first preview                     |
+| Cross-platform parity | Version and commit must match macOS and Linux |
+| Physical/AEC status   | DEFERRED; not evaluated              |
 | Installer artifact   | TBD                                  |
 | Installer SHA-256    | TBD                                  |
 | Updater artifact     | TBD                                  |
@@ -45,11 +50,11 @@ different artifact hash.
 
 | Cell ID            | Environment                                      | Release role                                                              | Required for the first release | Current status | Evidence |
 | ------------------ | ------------------------------------------------ | ------------------------------------------------------------------------- | ------------------------------ | -------------- | -------- |
-| W-ENV-X64-AMD      | Physical Windows 11 x64 on AMD                    | Primary real-hardware release gate                                        | Yes                            | NOT RUN        | TBD      |
-| W-ENV-X64-INTEL    | Physical Windows 11 x64 on Intel                  | Additional x64 confidence; status must be explicit                        | No independent block          | NOT RUN        | TBD      |
-| W-ENV-X64-CLEAN    | Clean Windows 11 x64 local machine or local VM    | Installer, SmartScreen, launch, updater, and uninstall                    | Yes                            | NOT RUN        | TBD      |
+| W-ENV-X64-AMD      | Physical Windows 11 x64 on AMD                    | Primary real-hardware release gate                                        | Yes                            | DEFERRED       | 1.4.0 VM-first waiver |
+| W-ENV-X64-INTEL    | Physical Windows 11 x64 on Intel                  | Additional x64 confidence; status must be explicit                        | No independent block          | DEFERRED       | 1.4.0 VM-first waiver |
+| W-ENV-X64-CLEAN    | Clean Windows 11 x64 local machine or local VM    | Installer, core app, guest audio, credentials, CloudSync, updater, and uninstall | Yes                       | NOT RUN        | TBD      |
 | W-ENV-ARM-EMU      | Windows 11 ARM running the published x64 artifact | Optional x64-emulation install, launch, auth, SQLite, CloudSync, and recording smoke | No                             | NOT RUN        | TBD      |
-| W-ENV-ARM-PHYSICAL | Physical Windows ARM                              | Community confidence only                                                 | No                             | NOT RUN        | TBD      |
+| W-ENV-ARM-PHYSICAL | Physical Windows ARM                              | Community confidence only                                                 | No                             | DEFERRED       | 1.4.0 VM-first waiver |
 | W-ENV-ARM64-NATIVE | Native Windows ARM64 artifact                     | Not supported until a native CloudSync DLL and release artifact exist     | No                             | NOT SUPPORTED  | TBD      |
 
 AMD and Intel are both Windows x64. A passing AMD run is the initial physical x64 gate;
@@ -65,10 +70,11 @@ same devices after these rows pass.
 
 | Test ID  | Input                     | Output                     | Application              | Required | Current status | Evidence |
 | -------- | ------------------------- | -------------------------- | ------------------------ | -------- | -------------- | -------- |
-| W-AUD-01 | Built-in microphone       | Built-in speakers          | Zoom                     | Yes      | NOT RUN        | TBD      |
-| W-AUD-02 | Bluetooth headset         | Bluetooth headset          | Google Meet in a browser | Yes      | NOT RUN        | TBD      |
-| W-AUD-03 | USB microphone            | Wired or USB headphones    | Slack huddle or call     | Yes      | NOT RUN        | TBD      |
+| W-AUD-01 | Built-in microphone       | Built-in speakers          | Zoom                     | Yes      | DEFERRED       | 1.4.0 VM-first waiver |
+| W-AUD-02 | Bluetooth headset         | Bluetooth headset          | Google Meet in a browser | Yes      | DEFERRED       | 1.4.0 VM-first waiver |
+| W-AUD-03 | USB microphone            | Wired or USB headphones    | Slack huddle or call     | Yes      | DEFERRED       | 1.4.0 VM-first waiver |
 | W-AUD-04 | Any already-passing input | Any already-passing output | Microsoft Teams          | No       | NOT RUN        | TBD      |
+| W-AUD-11 | Guest or redirected mic   | Guest default output       | Browser fixture playback | Yes, VM smoke | NOT RUN     | TBD      |
 
 If the machine has no built-in audio, record the OEM configuration and substitute a
 second independent USB or wired device. Do not silently drop a required device class.
@@ -78,11 +84,25 @@ second independent USB or wired device. Do not silently drop a required device c
 | Test ID  | Display configuration                         | Required    | Current status | Evidence |
 | -------- | --------------------------------------------- | ----------- | -------------- | -------- |
 | W-DSP-01 | Single display                                | Yes         | NOT RUN        | TBD      |
-| W-DSP-02 | Internal plus external display                | Yes         | NOT RUN        | TBD      |
-| W-DSP-03 | Mixed-DPI displays, when hardware supports it | Conditional | NOT RUN        | TBD      |
+| W-DSP-02 | Internal plus external display                | Yes         | DEFERRED       | 1.4.0 VM-first waiver |
+| W-DSP-03 | Mixed-DPI displays, when hardware supports it | Conditional | DEFERRED       | 1.4.0 VM-first waiver |
 
 If mixed-DPI hardware is unavailable, mark W-DSP-03 DEFERRED, record the gap in the
 release notes, and do not claim mixed-DPI overlay support.
+
+## 1.4.0 VM-first scope
+
+For this candidate only, the following tests are required for **VM-FIRST PREVIEW SHIP**:
+W-ENV-X64-CLEAN; W-DSP-01; W-ART-01 through W-ART-03; W-INS-01 and W-INS-02;
+W-UPD-01 and W-UPD-02; W-UNINS-01; W-CORE-01 and W-CORE-02; W-CRED-01 and
+W-CRED-02; W-SYNC-01 and W-SYNC-02; W-AUD-05, W-AUD-06, W-AUD-09, and W-AUD-11;
+W-NOT-01; W-PERM-01; and W-DESK-01.
+
+W-ENV-X64-AMD, W-ENV-X64-INTEL, W-ENV-ARM-PHYSICAL, W-AUD-01 through W-AUD-03,
+W-AUD-07, W-AUD-08, W-AUD-10, W-AEC-01, W-DSP-02, and W-DSP-03 remain explicitly
+DEFERRED for physical validation. W-NOT-02, W-OVR-01 through W-OVR-03, W-DET-01, and
+W-DET-02 are DEFERRED while their controls are hidden in 1.4.0. Optional and unsupported
+rows keep their existing scope.
 
 ## Required test checklist
 
@@ -105,7 +125,7 @@ release notes, and do not claim mixed-DPI overlay support.
 | --------- | -------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------- |
 | W-CORE-01 | Yes      | Launch, sign in, reach the main shell, open settings, create a session, edit its title and notes, then restart. | No platform-only crash occurs; the session and edits remain present after restart.                                                         | NOT RUN             |
 | W-CORE-02 | Yes      | Lock and unlock Windows, minimize and restore the app, then reboot and launch from the Start menu.             | Main-window state is usable after each transition and no duplicate background instance remains.                                            | NOT RUN             |
-| W-CRED-01 | Yes      | Save and update a provider secret through the app, restart twice, and use the provider after each restart.     | The secret remains usable and a Windows Credential Manager entry exists under the Anarlog secure-store service without plaintext fallback. | NOT RUN             |
+| W-CRED-01 | Yes      | Sign in, restart twice, and inspect only auth-store file metadata after migration.                              | The session remains usable, current-user DPAPI storage owns auth.dpapi, and no plaintext auth.json fallback remains.                         | NOT RUN             |
 | W-CRED-02 | Yes      | Sign out and back in, including one canceled sign-in, then repeat the provider and sync checks.                | Auth state follows the sign-in lifecycle, durable provider secrets follow declared product policy, and existing secrets are not corrupted. | NOT RUN             |
 | W-SYNC-01 | Yes      | Enable CloudSync, create and edit a session, observe it on a second client, restart Windows, and edit again.    | Sync completes in both directions before and after restart without duplicate or missing sessions.                                          | NOT RUN             |
 | W-SYNC-02 | Yes      | Start once without network, edit existing local data, restore network, and trigger or wait for sync.           | The app remains usable offline and later syncs without losing the offline edit.                                                             | NOT RUN             |
@@ -115,40 +135,46 @@ observable behavior.
 
 ### Audio capture
 
-For W-AUD-01 through W-AUD-03, play remote speech and speak locally for at least 30
-seconds. Inspect the saved recording or transcript and the log markers. A visual level
-meter alone is not proof.
+For physical W-AUD-01 through W-AUD-03, play remote speech and speak locally for at
+least 30 seconds. For VM W-AUD-11, record 15 seconds of microphone-only input, 15 seconds
+of browser playback only, then 30 seconds concurrently. Inspect persisted audio and log
+markers; a visual level meter alone is not proof. Host or remote-desktop preprocessing
+means W-AUD-11 cannot count as AEC evidence.
 
 | Test ID  | Required | Procedure                                                                                               | Pass criteria                                                                                                                            | Result and evidence |
 | -------- | -------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| W-AUD-01 | Yes      | Run the built-in audio and Zoom matrix row.                                                             | Microphone and WASAPI system audio are both non-silent, concurrent, intelligible, and assigned to the expected channels.                 | NOT RUN             |
-| W-AUD-02 | Yes      | Run the Bluetooth and Meet matrix row.                                                                  | Both streams remain non-silent and usable with the Bluetooth profile selected by Windows.                                                | NOT RUN             |
-| W-AUD-03 | Yes      | Run the USB microphone and Slack matrix row.                                                            | Both streams remain non-silent and usable without stalls or persistent drift.                                                            | NOT RUN             |
+| W-AUD-01 | Yes      | Run the built-in audio and Zoom matrix row.                                                             | Microphone and WASAPI system audio are both non-silent, concurrent, intelligible, and assigned to the expected channels.                 | DEFERRED — 1.4.0 VM-first scope |
+| W-AUD-02 | Yes      | Run the Bluetooth and Meet matrix row.                                                                  | Both streams remain non-silent and usable with the Bluetooth profile selected by Windows.                                                | DEFERRED — 1.4.0 VM-first scope |
+| W-AUD-03 | Yes      | Run the USB microphone and Slack matrix row.                                                            | Both streams remain non-silent and usable without stalls or persistent drift.                                                            | DEFERRED — 1.4.0 VM-first scope |
 | W-AUD-05 | Yes      | Start capture before meeting audio, stop, then start capture after meeting audio is already playing.    | Both start orders initialize microphone and WASAPI loopback and produce usable recordings.                                               | NOT RUN             |
 | W-AUD-06 | Yes      | Start and stop ten recordings in succession.                                                            | All ten recordings finalize, no source remains stuck, and the next recording starts normally.                                            | NOT RUN             |
-| W-AUD-07 | Yes      | Change the default input and output while recording, then hot-plug the Bluetooth and USB devices.       | Capture recovers automatically or stops with a visible actionable error; the app can start a new good recording without restart.         | NOT RUN             |
-| W-AUD-08 | Yes      | Suspend and resume Windows during an active recording, then start a new recording.                      | The interrupted recording is not silently presented as complete; the app recovers or reports an actionable error and can record again.  | NOT RUN             |
+| W-AUD-07 | Yes      | Change the default input and output while recording, then hot-plug the Bluetooth and USB devices.       | Capture recovers automatically or stops with a visible actionable error; the app can start a new good recording without restart.         | DEFERRED — 1.4.0 VM-first scope |
+| W-AUD-08 | Yes      | Suspend and resume Windows during an active recording, then start a new recording.                      | The interrupted recording is not silently presented as complete; the app recovers or reports an actionable error and can record again.  | DEFERRED — 1.4.0 VM-first scope |
 | W-AUD-09 | Yes      | Record continuously for 60 minutes with microphone and system audio active.                            | Both streams remain present through the end, finalization succeeds, and logs show no sustained queue overflow or capture-thread failure. | NOT RUN             |
-| W-AUD-10 | Yes      | Change Windows sample rate for one endpoint between recordings and repeat a short concurrent capture. | The next recording uses the new configuration or shows a clear unsupported-state error; output remains playable.                        | NOT RUN             |
+| W-AUD-10 | Yes      | Change Windows sample rate for one endpoint between recordings and repeat a short concurrent capture. | The next recording uses the new configuration or shows a clear unsupported-state error; output remains playable.                        | DEFERRED — 1.4.0 VM-first scope |
+| W-AUD-11 | Yes      | Run the microphone-only, playback-only, and concurrent phases in W-ENV-X64-CLEAN.                      | Persisted mic and system tracks are readable and non-silent in the expected phases, both persist concurrently, finalization succeeds, and logs contain no capture failure or sustained queue overflow. This does not evaluate AEC. | NOT RUN |
+| W-AEC-01 | Physical phase | On physical x64 speakers and microphone, play remote speech while speaking a unique local phrase. | AEC initializes without failure, remote speech is not duplicated into the mic/transcript, and local speech remains intelligible during double-talk. | DEFERRED — physical/AEC phase |
 
 ### Notifications, overlay, detection, and desktop lifecycle
 
 | Test ID   | Required    | Procedure                                                                                                           | Pass criteria                                                                                                                                | Result and evidence |
 | --------- | ----------- | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| W-NOT-01  | Yes         | Trigger meeting-detected and reminder notifications with Anarlog focused, minimized, and backgrounded.              | Each required notification appears once with correct title, body, icon, and app identity; click and dismiss behavior match product intent.  | NOT RUN             |
-| W-NOT-02  | Yes         | Repeat one notification with Windows Do Not Disturb or Focus Assist off and on, then clear notifications.           | Suppression behavior follows Windows settings, no silent app error occurs, and clear removes Anarlog notifications.                         | NOT RUN             |
-| W-OVR-01  | Yes         | Start a recording on a single display; move, interact with, and stop from the floating bar.                         | The bar is visible, always on top without stealing focus, controls emit once, and all overlay state closes after stop.                      | NOT RUN             |
-| W-OVR-02  | Yes         | Move the recording window and floating bar between internal and external displays, minimize, restore, and Alt-Tab. | Position, scale, drag behavior, and controls remain usable and the bar does not become stranded off-screen.                                 | NOT RUN             |
-| W-OVR-03  | Conditional | Repeat W-OVR-02 across mixed-DPI displays and after changing display scale.                                        | The overlay rescales and remains inside the active display bounds without requiring an app restart.                                        | NOT RUN             |
-| W-DET-01  | Yes         | Start and end calls in Zoom, Meet, and Slack; observe meeting detection and microphone-using application state.     | Each supported app is identified without persistent helper-process noise; start/end transitions do not duplicate.                          | NOT RUN             |
-| W-DET-02  | Yes         | Ignore one supported app, restore it, and exercise background and foreground browser tabs.                         | Ignore/include settings change behavior predictably and unsupported detection cases fail quietly with diagnostics.                         | NOT RUN             |
-| W-PERM-01 | Yes         | Review onboarding and settings before and after microphone/system-audio use.                                       | Windows copy describes capability state accurately and does not promise a macOS-style permission prompt.                                   | NOT RUN             |
+| W-NOT-01  | Yes         | Trigger a supported basic notification with Anarlog focused, minimized, and backgrounded.                           | Each toast appears once with the correct title, body, icon, and app identity.                                                               | NOT RUN             |
+| W-NOT-02  | Future scope | Repeat one notification with Windows Do Not Disturb or Focus Assist off and on, then clear notifications.          | Suppression behavior follows Windows settings, no silent app error occurs, and clear removes Anarlog notifications.                         | DEFERRED — controls hidden in 1.4.0 |
+| W-OVR-01  | Future scope | Start a recording on a single display; move, interact with, and stop from the floating bar.                        | The bar is visible, always on top without stealing focus, controls emit once, and all overlay state closes after stop.                      | DEFERRED — controls hidden in 1.4.0 |
+| W-OVR-02  | Future scope | Move the recording window and floating bar between internal and external displays, minimize, restore, and Alt-Tab. | Position, scale, drag behavior, and controls remain usable and the bar does not become stranded off-screen.                                 | DEFERRED — controls hidden in 1.4.0 |
+| W-OVR-03  | Future scope | Repeat W-OVR-02 across mixed-DPI displays and after changing display scale.                                        | The overlay rescales and remains inside the active display bounds without requiring an app restart.                                        | DEFERRED — controls hidden in 1.4.0 |
+| W-DET-01  | Future scope | Start and end calls in Zoom, Meet, and Slack; observe meeting detection and microphone-using application state.    | Each supported app is identified without persistent helper-process noise; start/end transitions do not duplicate.                          | DEFERRED — controls hidden in 1.4.0 |
+| W-DET-02  | Future scope | Ignore one supported app, restore it, and exercise background and foreground browser tabs.                        | Ignore/include settings change behavior predictably and unsupported detection cases fail quietly with diagnostics.                         | DEFERRED — controls hidden in 1.4.0 |
+| W-PERM-01 | Yes         | Review onboarding and settings before and after microphone/system-audio use.                                       | Windows copy describes capability state accurately without a macOS-style prompt; detection, mic auto-stop, floating controls, DND controls, and notification clearing are absent or clearly unavailable rather than silent no-ops. | NOT RUN |
 | W-DESK-01 | Yes         | Exercise tray show/hide, autostart, global shortcut, deep link, and second-instance activation.                    | Every advertised integration works after restart or is visibly gated before release.                                                        | NOT RUN             |
 | W-UIA-01  | No          | If structured Windows UI Automation context is advertised, inspect supported meeting apps and capture evidence.    | Advertised fields are stable and accurate; otherwise the feature is absent from UI and release claims.                                      | DEFERRED            |
 
-W-NOT-01 and W-NOT-02 depend on ANLG-126. W-OVR-01 through W-OVR-03 depend on
-ANLG-127. W-DET-01 and W-DET-02 depend on ANLG-128. W-UIA-01 belongs to
-ANLG-129 and is not a v1 release gate unless the feature is advertised.
+W-NOT-02 depends on ANLG-126. W-OVR-01 through W-OVR-03 depend on ANLG-127.
+W-DET-01 and W-DET-02 depend on ANLG-128. Their controls, mic-based auto-stop, DND
+controls, and notification-history clearing are hidden in 1.4.0; W-PERM-01 fails if any
+unsupported control is interactive or silently no-ops. W-UIA-01 belongs to ANLG-129 and
+is not a v1 release gate unless the feature is advertised.
 
 ## Evidence collection
 
@@ -164,6 +190,8 @@ Before attaching evidence:
   the candidate hash.
 - Record whether the run was local physical hardware, a local VM, ARM x64 emulation, or
   remote desktop.
+- For a VM run, record the hypervisor or remote client, host-to-guest audio redirection,
+  selected guest endpoints, and `AEC evaluation: NOT EVALUATED`.
 
 ### Environment metadata
 
@@ -264,12 +292,33 @@ $dbCandidates |
 Get-ChildItem (Join-Path $env:LOCALAPPDATA "char\cloudsync") -Recurse -Filter "cloudsync.dll" -ErrorAction SilentlyContinue |
   Select-Object FullName, Length, LastWriteTime
 
-cmdkey /list |
-  Select-String "com.anarlog.stable.secure-store"
+$authCandidates = @(
+  (Join-Path $env:LOCALAPPDATA "anarlog\auth.dpapi"),
+  (Join-Path $env:LOCALAPPDATA "hyprnote\auth.dpapi"),
+  (Join-Path $env:LOCALAPPDATA "com.hyprnote.stable\auth.dpapi")
+)
+
+$authCandidates |
+  Where-Object { Test-Path $_ } |
+  ForEach-Object { Get-Item $_ } |
+  Select-Object FullName, Length, LastWriteTime
+
+$plaintextAuthCandidates = @(
+  (Join-Path $env:LOCALAPPDATA "anarlog\auth.json"),
+  (Join-Path $env:LOCALAPPDATA "hyprnote\auth.json"),
+  (Join-Path $env:LOCALAPPDATA "com.hyprnote.stable\auth.json"),
+  (Join-Path $env:APPDATA "anarlog\auth.json"),
+  (Join-Path $env:APPDATA "hyprnote\auth.json"),
+  (Join-Path $env:APPDATA "com.hyprnote.stable\auth.json")
+)
+
+$plaintextAuthCandidates |
+  Where-Object { Test-Path $_ }
 ~~~
 
-The Credential Manager command records only target metadata. Never export or print the
-credential value. The CloudSync cache path intentionally still uses char/cloudsync.
+The auth.dpapi listing records only metadata, and the final command must produce no
+auth.json paths. Never print the encrypted payload or credential values. The CloudSync
+cache path intentionally still uses char/cloudsync.
 
 For an application crash, also collect a bounded Windows event-log slice:
 
@@ -320,32 +369,40 @@ Copy this section for each failure:
 
 ## Ship and no-ship rules
 
-Mark the candidate SHIP only when all of the following are true:
+Mark the candidate **VM-FIRST PREVIEW SHIP** only when all of the following are true:
 
-- Every required test is PASS for the exact published artifact hash.
-- W-ENV-X64-AMD and W-ENV-X64-CLEAN pass their assigned gates.
-- Intel x64, Windows ARM emulation, and physical ARM are explicitly labeled TESTED,
-  UNTESTED, or NOT SUPPORTED in the current decision.
+- Every test in the 1.4.0 VM-first scope is PASS for the exact published artifact hash.
+- Version and commit exactly match the macOS and Linux 1.4.0 candidate reports.
 - Authenticode, updater signatures, published checksums, install, update, and uninstall
   pass.
-- Microphone and WASAPI system audio are non-silent, concurrent, recoverable, and stable
-  on physical x64 hardware.
-- Credential Manager persistence, local SQLite durability, and CloudSync lifecycle tests
-  pass.
-- Notifications, recording controls, meeting detection, and the declared overlay scope
-  pass.
-- No open release-blocking issue remains.
+- W-AUD-11 proves non-silent concurrent guest microphone and WASAPI system audio; it is
+  not reported as AEC evidence.
+- DPAPI-protected auth persistence, local SQLite durability, CloudSync, basic
+  notifications, and W-PERM-01 capability gating pass.
+- The download page and release notes label Windows as a preview and list the deferred
+  physical-device, AEC, suspend/resume, and multi-display coverage.
+- Every physical row in the 1.4.0 waiver remains DEFERRED, and no open blocker remains in
+  the preview scope.
+
+Mark the candidate **HARDWARE-VALIDATED SHIP** only after VM-FIRST PREVIEW SHIP and all
+of the following:
+
+- W-ENV-X64-AMD and the physical W-AUD-01 through W-AUD-03, W-AUD-07, W-AUD-08,
+  W-AUD-10, and W-AEC-01 pass.
+- Microphone, WASAPI system audio, AEC, device recovery, and double-talk are stable on
+  physical x64 hardware.
+- The claimed physical display and overlay rows pass.
 
 Mark the candidate NO SHIP when any of these conditions is present:
 
 - The artifact is unsigned, has an invalid signature, has a mismatched checksum, or is not
   the artifact that was tested.
 - Install, launch, update, or uninstall can corrupt or unexpectedly remove user data.
-- Microphone or system audio is silent, stalls, drifts beyond usable output, or cannot
-  recover or fail visibly after a device change.
+- Microphone or system audio is silent, stalls, or fails to finalize in a required
+  environment.
 - Credentials disappear unexpectedly, are written to plaintext, or CloudSync loses or
   duplicates user data.
-- A required notification, recording control, meeting-detection path, or declared overlay
+- An advertised notification, recording control, meeting-detection path, or overlay
   behavior is absent or silently no-ops.
 - A platform capability is advertised even though it is unavailable.
 
@@ -358,10 +415,13 @@ say so explicitly:
 - Microsoft Teams-specific confidence coverage.
 - Mixed-DPI overlay support when no suitable test hardware is available.
 - Optional live-caption or overlay settings beyond the declared W-OVR scope.
+- Meeting/app detection, mic-based auto-stop, floating controls, DND controls, and
+  notification-history clearing while those controls remain hidden from Windows users.
 
-It may not defer signed x64 artifacts, clean install/update/uninstall, physical x64 mic
-and system-audio capture, durable local data, secure credentials, CloudSync, or the
-desktop behaviors advertised to Windows users.
+For the 1.4.0 VM-first preview only, the explicit physical and AEC rows above may be
+deferred. It may not defer signed x64 artifacts, clean install/update/uninstall, VM mic
+and system-audio capture, durable local data, secure credentials, CloudSync, or desktop
+behaviors advertised to Windows preview users.
 
 ## Run ledger
 
