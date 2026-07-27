@@ -374,6 +374,7 @@ jobs:
             debian_arch: amd64
             file_arch: x86-64
             docker_arch: amd64
+            cloudsync_arch: x86_64
           - runner: depot-ubuntu-24.04-arm-8
             target: aarch64-unknown-linux-gnu
             rust_platform: linux-aarch64
@@ -381,6 +382,7 @@ jobs:
             debian_arch: arm64
             file_arch: ARM aarch64
             docker_arch: arm64
+            cloudsync_arch: aarch64
     runs-on: ${{ matrix.runner }}
     defaults:
       run:
@@ -396,6 +398,15 @@ jobs:
       - uses: ./.github/actions/rust_install
         with:
           platform: ${{ matrix.rust_platform }}
+      - if: github.event_name == 'workflow_dispatch'
+        run: crates/cloudsync/scripts/rebuild-linux.sh
+      - if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudsync-linux-gnu-${{ matrix.cloudsync_arch }}-${{ github.sha }}
+          path: crates/cloudsync/vendor/cloudsync/linux/gnu/${{ matrix.cloudsync_arch }}/cloudsync.so
+          if-no-files-found: error
+          retention-days: 7
       - run: cargo check --locked --target ${{ matrix.target }} -p desktop
       - run: cargo test --locked --target ${{ matrix.target }} -p desktop embedded_cli --lib
       - run: cargo test --locked --target ${{ matrix.target }} -p cloudsync

@@ -31,13 +31,21 @@ critical checklist results. Any failure, missing evidence, SHA mismatch,
 rebuild, or later source change blocks stable unless the user explicitly
 waives that specific gate.
 
-This release path currently approves macOS only. The patched CloudSync vendor
-bundle was rebuilt and cancellation-tested for Apple Silicon and Intel, but
-not for Windows, Linux, or mobile. Before opening any of those release lanes,
-rebuild the bundled native library for every target architecture and pass the
-QA skill's equivalent stalled-network, logout, configuration cleanup/init,
-worker-drain, and immediate-local-write cancellation gates. Do not treat the
-macOS artifacts or Rust-only tests as cross-platform approval.
+This release path approves macOS, Windows, and Linux. Mobile remains closed.
+The patched CloudSync vendor bundle is rebuilt from source and
+cancellation-tested on every desktop lane: `rebuild-macos.sh` for Apple
+Silicon and Intel, `rebuild-windows.sh` under UCRT64 in `windows_ci`, and
+`rebuild-linux.sh` in `linux_ci` for x86_64 and aarch64. Each lane then runs
+`cargo test -p cloudsync` and `cargo test -p db-core cloudsync::` against that
+freshly built library, covering the stalled-network, logout, configuration
+cleanup/init, worker-drain, and immediate-local-write cancellation gates.
+
+The rebuild steps run only on `workflow_dispatch`, so a routine pull-request
+run does not prove them. Dispatch `desktop_ci.yaml` against the candidate SHA
+and confirm the `cloudsync-windows-*` and `cloudsync-linux-*` artifacts before
+treating a desktop lane as approved. Do not treat macOS artifacts or
+Rust-only tests as cross-platform approval, and do not open the mobile lane
+until its bundle gets the same treatment.
 
 ## Preflight
 
