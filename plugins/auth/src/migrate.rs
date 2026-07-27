@@ -125,10 +125,10 @@ fn drop_plaintext_auth_for<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     }
 }
 
-// A leftover auth.json is less harmful than refusing a session the keyring already
-// holds, so cleanup failures are reported rather than propagated.
-#[cfg(all(target_os = "linux", not(test)))]
-fn discard_plaintext_auth(path: &Path) {
+// A leftover auth.json is less harmful than refusing a session the secure store
+// already holds, so cleanup failures are reported rather than propagated.
+#[cfg(any(all(target_os = "linux", not(test)), target_os = "windows", test))]
+pub(crate) fn discard_plaintext_auth(path: &Path) {
     if let Err(error) = remove_plaintext_auth(path) {
         tracing::warn!(
             path = %path.display(),
@@ -138,8 +138,8 @@ fn discard_plaintext_auth(path: &Path) {
     }
 }
 
-#[cfg(all(target_os = "linux", not(test)))]
-fn remove_plaintext_auth(path: &Path) -> std::io::Result<()> {
+#[cfg(any(all(target_os = "linux", not(test)), target_os = "windows", test))]
+pub(crate) fn remove_plaintext_auth(path: &Path) -> std::io::Result<()> {
     if !path.is_file() {
         return Ok(());
     }
@@ -160,6 +160,13 @@ fn new_auth_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> std::io::Resul
         .join(FILENAME))
 }
 
+#[cfg(target_os = "windows")]
+pub(crate) fn windows_secure_auth_path<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> std::io::Result<PathBuf> {
+    Ok(new_auth_path(app)?.with_file_name("auth.dpapi"))
+}
+
 fn legacy_auth_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> std::io::Result<PathBuf> {
     Ok(legacy_base_path(app)?.join(FILENAME))
 }
@@ -168,6 +175,29 @@ fn legacy_store_json_path<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
 ) -> std::io::Result<PathBuf> {
     Ok(legacy_base_path(app)?.join("store.json"))
+}
+
+#[cfg(target_os = "windows")]
+pub(crate) fn discard_windows_plaintext_auth<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    for path in [new_auth_path(app), legacy_auth_path(app)] {
+        match path {
+            Ok(path) => discard_plaintext_auth(&path),
+            Err(error) => tracing::warn!(%error, "failed_to_resolve_plaintext_auth_path"),
+        }
+    }
+
+    match legacy_store_json_path(app) {
+        Ok(path) => {
+            if let Err(error) = remove_auth_from_store_json(&path) {
+                tracing::warn!(
+                    path = %path.display(),
+                    %error,
+                    "failed_to_remove_auth_from_legacy_store"
+                );
+            }
+        }
+        Err(error) => tracing::warn!(%error, "failed_to_resolve_legacy_store_path"),
+    }
 }
 
 fn legacy_base_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> std::io::Result<PathBuf> {
@@ -251,6 +281,33 @@ fn migrate_from_store_json(store_json_path: &Path, auth_path: &Path) -> std::io:
     )?;
 
     Ok(())
+}
+
+#[cfg(any(target_os = "windows", test))]
+fn remove_auth_from_store_json(store_json_path: &Path) -> std::io::Result<()> {
+    if !store_json_path.is_file() {
+        return Ok(());
+    }
+
+    let content = std::fs::read_to_string(store_json_path)?;
+    let mut store: serde_json::Map<String, serde_json::Value> = match serde_json::from_str(&content)
+    {
+        Ok(store) => store,
+        Err(_) => {
+            // The legacy store is already unreadable. Replace it so a partial
+            // auth payload cannot survive after the encrypted store is authoritative.
+            return hypr_storage::fs::atomic_write(store_json_path, "{}");
+        }
+    };
+
+    if store.remove(PLUGIN_NAME).is_none() {
+        return Ok(());
+    }
+
+    hypr_storage::fs::atomic_write(
+        store_json_path,
+        &serde_json::to_string(&store).map_err(invalid_data)?,
+    )
 }
 
 fn invalid_data(e: impl std::fmt::Display) -> std::io::Error {
@@ -446,6 +503,52 @@ mod test {
             auth_json("legacy-token")
         );
         assert!(new_auth_path.is_dir());
+    }
+
+    #[test]
+    fn plaintext_removal_truncates_contents_before_unlinking() {
+        let temp = tempdir().unwrap();
+        let auth_path = temp.path().join(FILENAME);
+        let surviving_link = temp.path().join("auth-backup.json");
+        std::fs::write(&auth_path, auth_json("secret-token")).unwrap();
+        std::fs::hard_link(&auth_path, &surviving_link).unwrap();
+
+        remove_plaintext_auth(&auth_path).unwrap();
+
+        assert!(!auth_path.exists());
+        assert_eq!(std::fs::read(&surviving_link).unwrap(), b"");
+    }
+
+    #[test]
+    fn plaintext_cleanup_removes_auth_from_legacy_store() {
+        let temp = tempdir().unwrap();
+        let store_path = temp.path().join("store.json");
+        std::fs::write(
+            &store_path,
+            legacy_store_json(
+                &auth_json("secret-token"),
+                Some(("other", serde_json::json!("value"))),
+            ),
+        )
+        .unwrap();
+
+        remove_auth_from_store_json(&store_path).unwrap();
+
+        let store: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(store_path).unwrap()).unwrap();
+        assert!(store.get(PLUGIN_NAME).is_none());
+        assert_eq!(store.get("other"), Some(&serde_json::json!("value")));
+    }
+
+    #[test]
+    fn plaintext_cleanup_scrubs_unreadable_legacy_store() {
+        let temp = tempdir().unwrap();
+        let store_path = temp.path().join("store.json");
+        std::fs::write(&store_path, r#"{"auth":"partial-secret""#).unwrap();
+
+        remove_auth_from_store_json(&store_path).unwrap();
+
+        assert_eq!(std::fs::read_to_string(store_path).unwrap(), "{}");
     }
 
     fn auth_json(token: &str) -> String {

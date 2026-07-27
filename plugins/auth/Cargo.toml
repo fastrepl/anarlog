@@ -15,6 +15,7 @@ specta-typescript = { workspace = true }
 tempfile = { workspace = true }
 
 [dependencies]
+base64 = { workspace = true }
 hypr-storage = { workspace = true }
 hypr-supabase-auth = { workspace = true, features = ["client"] }
 hypr-template-support = { workspace = true }
@@ -31,3 +32,6 @@ strum = { workspace = true, features = ["derive"] }
 
 thiserror = { workspace = true }
 tracing = { workspace = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { workspace = true, features = ["Win32_Foundation", "Win32_Security_Cryptography"] }

@@ -2,6 +2,8 @@ mod commands;
 mod error;
 mod ext;
 mod migrate;
+#[cfg(any(target_os = "windows", test))]
+mod windows;
 
 pub use error::{Error, Result};
 pub use ext::*;
@@ -35,7 +37,11 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
                 migrate::load_linux_auth(app)?,
             );
 
-            #[cfg(any(not(target_os = "linux"), test))]
+            #[cfg(all(target_os = "windows", not(test)))]
+            let auth_store =
+                hypr_supabase_auth::client::store::AuthStore::in_memory(windows::load_auth(app)?);
+
+            #[cfg(any(not(any(target_os = "linux", target_os = "windows")), test))]
             let auth_store = {
                 let auth_path = migrate::auth_path(app)?;
                 hypr_supabase_auth::client::store::AuthStore::load(auth_path)
