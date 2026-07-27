@@ -31,8 +31,11 @@
   padding-inline: 0.75em;
 }
 
+/* font-size is explicit, not inherited: web's `@layer base` sets `p` to
+ * 1.3rem, and a direct match beats inheritance from the container. */
 .note-typography p {
   margin-block: 0;
+  font-size: inherit;
   line-height: 1.5;
 }
 
