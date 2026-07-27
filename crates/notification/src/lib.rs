@@ -218,6 +218,14 @@ where
         });
     }
 
+    #[cfg(all(feature = "legacy", target_os = "linux"))]
+    {
+        let f = f.clone();
+        hypr_notification_linux::setup_notification_option_selected_handler(move |key, index| {
+            f(get_context(&key), index);
+        });
+    }
+
     let _ = f;
 }
 
@@ -231,6 +239,14 @@ where
     {
         let f = f.clone();
         hypr_notification_macos::setup_footer_action_handler(move |key, _tag| {
+            f(get_context(&key));
+        });
+    }
+
+    #[cfg(all(feature = "legacy", target_os = "linux"))]
+    {
+        let f = f.clone();
+        hypr_notification_linux::setup_notification_footer_action_handler(move |key| {
             f(get_context(&key));
         });
     }
