@@ -13,9 +13,9 @@ if [[ "$(uname -m)" != "x86_64" ]]; then
 fi
 
 case "${MSYSTEM:-}" in
-  MINGW64 | UCRT64) ;;
+  UCRT64) ;;
   *)
-    echo "Run this script from an x86_64 MSYS2 MinGW shell" >&2
+    echo "Run this script from an x86_64 MSYS2 UCRT64 shell" >&2
     exit 1
     ;;
 esac
