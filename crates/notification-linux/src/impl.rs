@@ -250,16 +250,9 @@ impl NotificationManager {
         let content_event_box = EventBox::new();
         content_event_box.set_visible_window(false);
         content_event_box.add(&content_box);
-        let content_key = key.to_string();
-        let content_window = window.clone();
-        content_event_box.connect_button_press_event(move |_, _| {
-            callbacks::confirm(content_key.clone());
-            NotificationInstance::dismiss_window(&content_window, &content_key, false);
-            glib::Propagation::Stop
-        });
         main_box.pack_start(&content_event_box, true, true, 0);
 
-        match callbacks::primary_action(notification) {
+        let options_button = match callbacks::primary_action(notification) {
             callbacks::PrimaryAction::Options(options) => {
                 let menu = Menu::new();
                 for (index, option) in options.iter().enumerate() {
@@ -289,6 +282,7 @@ impl NotificationManager {
                 menu_button.style_context().add_class("action-button");
                 menu_button.set_popup(Some(&menu));
                 main_box.pack_start(&menu_button, false, false, 0);
+                Some(menu_button)
             }
             callbacks::PrimaryAction::Accept { label, destructive } => {
                 let action_button = Button::with_label(label);
@@ -306,8 +300,22 @@ impl NotificationManager {
                     NotificationInstance::dismiss_window(&action_window, &action_key, false);
                 });
                 main_box.pack_start(&action_button, false, false, 0);
+                None
             }
-        }
+        };
+
+        let content_key = key.to_string();
+        let content_window = window.clone();
+        content_event_box.connect_button_press_event(move |_, _| {
+            if let Some(options_button) = &options_button {
+                options_button.clicked();
+            } else {
+                callbacks::confirm(content_key.clone());
+                NotificationInstance::dismiss_window(&content_window, &content_key, false);
+            }
+
+            glib::Propagation::Stop
+        });
 
         let close_button = Button::new();
         close_button.set_label("×");
