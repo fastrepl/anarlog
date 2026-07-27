@@ -259,6 +259,10 @@ msgstr "Animals & Nature"
 msgid "API Key"
 msgstr "API Key"
 
+#: src/settings/ai/shared/provider-selection-prompt.ts
+msgid "API key saved"
+msgstr "API key saved"
+
 #: src/settings/general/index.tsx
 #: src/sidebar/settings.tsx
 msgid "App"
@@ -1903,6 +1907,14 @@ msgstr "Session note views"
 #: src/session/components/title-input.tsx
 msgid "Session title"
 msgstr "Session title"
+
+#: src/settings/ai/shared/provider-selection-prompt.ts
+msgid "Set {providerName} as the current provider?"
+msgstr "Set {providerName} as the current provider?"
+
+#: src/settings/ai/shared/provider-selection-prompt.ts
+msgid "Set as current"
+msgstr "Set as current"
 
 #: src/templates/auto-form.tsx
 #: src/templates/details.tsx

@@ -6,9 +6,11 @@ import { useSttSettings } from "./context";
 import { ProviderId, PROVIDERS } from "./shared";
 
 import { NonHyprProviderCard, StyledStreamdown } from "~/settings/ai/shared";
+import { useConfigValue } from "~/shared/config";
 
 export function ConfigureProviders() {
   const { accordionValue, setAccordionValue } = useSttSettings();
+  const currentProvider = useConfigValue("current_stt_provider");
 
   return (
     <div className="flex flex-col gap-3">
@@ -30,6 +32,7 @@ export function ConfigureProviders() {
               providerType="stt"
               providers={PROVIDERS}
               providerContext={<ProviderContext providerId={provider.id} />}
+              currentProvider={currentProvider}
             />
           ),
         )}

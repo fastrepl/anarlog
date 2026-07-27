@@ -31,13 +31,14 @@ import {
   type ProviderRequirement,
   requiresEntitlement,
 } from "./eligibility";
+import { useProviderSelectionPrompt } from "./provider-selection-prompt";
 
 import { useBillingAccess } from "~/auth/billing-context";
 import {
   isKeychainAccessError,
   repairKeychainAccess,
-  useAiProvider,
   useAiProviders,
+  useAiProvidersState,
   useSetAiProvider,
 } from "~/settings/providers";
 import { SettingsAlertToast } from "~/shared/ui/settings-alert";
@@ -169,15 +170,20 @@ export function NonHyprProviderCard({
   providerType,
   providers,
   providerContext,
+  currentProvider,
 }: {
   config: ProviderConfig;
   providerType: ProviderType;
   providers: readonly ProviderConfig[];
   providerContext?: ReactNode;
+  currentProvider?: string;
 }) {
   const { t } = useLingui();
   const billing = useBillingAccess();
-  const [provider, providerMutation] = useProvider(providerType, config.id);
+  const [provider, providerMutation, providerStateReady] = useProvider(
+    providerType,
+    config.id,
+  );
   const [hasUnresolvedKeychainError, setHasUnresolvedKeychainError] =
     useState(false);
   const [isKeychainRecoveryInProgress, setIsKeychainRecoveryInProgress] =
@@ -189,6 +195,14 @@ export function NonHyprProviderCard({
   const requiredFields = getRequiredConfigFields(config.requirements);
   const showApiKey = requiredFields.includes("api_key");
   const showBaseUrl = requiredFields.includes("base_url");
+  const notifyProviderSelection = useProviderSelectionPrompt({
+    providerType,
+    providerId: config.id,
+    providerName: config.displayName,
+    currentProvider,
+    providerStateReady,
+    storedApiKey: provider?.api_key,
+  });
 
   const form = useForm({
     onSubmit: async ({ value }) => {
@@ -202,6 +216,7 @@ export function NonHyprProviderCard({
       }
 
       setHasUnresolvedKeychainError(false);
+      notifyProviderSelection(value.api_key);
 
       void analyticsCommands.event({
         event: "ai_provider_configured",
@@ -486,11 +501,12 @@ export function StyledStreamdown({
 }
 
 function useProvider(providerType: ProviderType, id: string) {
-  const providerRow = useAiProvider(providerType, id);
+  const { providers, isReady } = useAiProvidersState(providerType);
+  const providerRow = providers[providerRowId(providerType, id)];
   const providerMutation = useSetAiProvider(providerType, id);
 
   const { data } = aiProviderSchema.safeParse(providerRow);
-  return [data, providerMutation] as const;
+  return [data, providerMutation, isReady] as const;
 }
 
 function FormField({

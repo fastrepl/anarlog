@@ -259,6 +259,10 @@ msgstr ""
 msgid "API Key"
 msgstr ""
 
+#: src/settings/ai/shared/provider-selection-prompt.ts
+msgid "API key saved"
+msgstr ""
+
 #: src/settings/general/index.tsx
 #: src/sidebar/settings.tsx
 msgid "App"
@@ -1902,6 +1906,14 @@ msgstr ""
 
 #: src/session/components/title-input.tsx
 msgid "Session title"
+msgstr ""
+
+#: src/settings/ai/shared/provider-selection-prompt.ts
+msgid "Set {providerName} as the current provider?"
+msgstr ""
+
+#: src/settings/ai/shared/provider-selection-prompt.ts
+msgid "Set as current"
 msgstr ""
 
 #: src/templates/auto-form.tsx
