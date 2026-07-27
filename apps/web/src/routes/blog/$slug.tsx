@@ -233,7 +233,7 @@ function BlogArticleCta() {
             Take notes without inviting a bot
           </p>
           <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
-            Try Anarlog for private, local-first meeting notes on your Mac.
+            Try Anarlog for private, local-first meeting notes on your desktop.
           </p>
         </div>
         <Link
