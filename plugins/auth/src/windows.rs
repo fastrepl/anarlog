@@ -238,6 +238,17 @@ mod tests {
         Ok(data.iter().map(|byte| byte ^ 0xa5).collect())
     }
 
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn dpapi_protects_and_round_trips_for_current_user() {
+        let plaintext = b"anarlog-windows-dpapi-round-trip";
+
+        let protected = protect(plaintext).unwrap();
+
+        assert_ne!(protected, plaintext);
+        assert_eq!(unprotect(&protected).unwrap(), plaintext);
+    }
+
     #[test]
     fn encrypted_auth_round_trips_sessions_larger_than_credential_manager_limit() {
         let temp = tempdir().unwrap();
