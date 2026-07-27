@@ -14,7 +14,7 @@ jobs:
       - name: Validate exported metadata
         run: |
           desktop-file-validate apps/desktop/flatpak/so.anarlog.Anarlog.desktop
-          appstreamcli validate --pedantic apps/desktop/flatpak/so.anarlog.Anarlog.metainfo.xml
+          appstreamcli validate --pedantic --no-net apps/desktop/flatpak/so.anarlog.Anarlog.metainfo.xml
 
       - name: Build Flatpak
         run: |
