@@ -5,11 +5,14 @@ function getStableDownloadUrl(platform: string) {
   return `${latestStableDownloadUrl}/${platform}?channel=stable`;
 }
 
+export type DesktopPlatform = "linux" | "macos" | "windows";
+
 export const appleSiliconDownloadUrl = getStableDownloadUrl("dmg-aarch64");
 export const appleIntelDownloadUrl = getStableDownloadUrl("dmg-x86_64");
 
 export const desktopDownloadSections = [
   {
+    platform: "macos",
     name: "macOS",
     description: "Choose the build that matches your Mac.",
     downloads: [
@@ -26,6 +29,7 @@ export const desktopDownloadSections = [
     ],
   },
   {
+    platform: "windows",
     name: "Windows",
     description:
       "Preview installer for 64-bit Windows PCs. Physical audio and AEC validation is pending.",
@@ -38,6 +42,7 @@ export const desktopDownloadSections = [
     ],
   },
   {
+    platform: "linux",
     name: "Linux",
     description:
       "Beta AppImage and Debian packages for x64 and ARM64. Physical audio and AEC validation is pending.",
@@ -65,3 +70,26 @@ export const desktopDownloadSections = [
     ],
   },
 ] as const;
+
+export function detectDesktopPlatform(userAgent: string): DesktopPlatform {
+  if (/Windows/i.test(userAgent)) return "windows";
+  if (/Macintosh|Mac OS X|iPhone|iPad|iPod/i.test(userAgent)) return "macos";
+  if (!/Android|CrOS/i.test(userAgent) && /Linux|X11/i.test(userAgent)) {
+    return "linux";
+  }
+
+  return "macos";
+}
+
+export function getOrderedDesktopDownloadSections(
+  preferredPlatform: DesktopPlatform,
+) {
+  return [
+    ...desktopDownloadSections.filter(
+      (section) => section.platform === preferredPlatform,
+    ),
+    ...desktopDownloadSections.filter(
+      (section) => section.platform !== preferredPlatform,
+    ),
+  ];
+}

@@ -2,12 +2,13 @@ import { Icon } from "@iconify-icon/react";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import {
   ArrowRight,
+  ChevronDown,
   Cloud,
   Cpu,
   KeyRound,
   type LucideIcon,
 } from "lucide-react";
-import { type CSSProperties, useState } from "react";
+import { type CSSProperties, useRef, useState } from "react";
 import { z } from "zod";
 
 import {
@@ -27,6 +28,11 @@ import {
 } from "@/functions/desktop-flow";
 import { getGitHubStats } from "@/functions/github";
 import { useMountEffect } from "@/hooks/useMountEffect";
+import {
+  type DesktopPlatform,
+  detectDesktopPlatform,
+  getOrderedDesktopDownloadSections,
+} from "@/lib/download";
 import {
   ANARLOG_SITE_URL,
   ROOT_DESCRIPTION,
@@ -1282,13 +1288,133 @@ function HeroWorkflowDemo() {
 }
 
 function DownloadButton() {
+  const [open, setOpen] = useState(false);
+  const [preferredPlatform, setPreferredPlatform] =
+    useState<DesktopPlatform>("macos");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const orderedSections = getOrderedDesktopDownloadSections(preferredPlatform);
+  const preferredSection = orderedSections[0];
+  const preferredDownload = preferredSection.downloads[0];
+  const preferredLabel =
+    preferredSection.platform === "macos"
+      ? `Download for ${preferredDownload.name}`
+      : `Download for ${preferredSection.name}`;
+
+  useMountEffect(() => {
+    setPreferredPlatform(detectDesktopPlatform(navigator.userAgent));
+
+    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  });
+
   return (
-    <Link
-      to="/download/"
-      className="inline-flex items-center gap-2 rounded-full bg-[#181613] px-5 py-3 text-sm font-medium text-white"
+    <div
+      ref={containerRef}
+      className="relative inline-flex text-sm font-medium"
     >
-      <span>Download Anarlog</span>
-      <ArrowRight size={16} strokeWidth={2.2} aria-hidden="true" />
-    </Link>
+      <a
+        href={preferredDownload.url}
+        className="inline-flex items-center gap-1.5 rounded-l-full bg-[#181613] py-3 pr-2 pl-4 text-[13px] text-white sm:pl-5 sm:text-sm"
+      >
+        <Icon
+          icon={getPlatformIcon(preferredSection.platform)}
+          width={16}
+          height={16}
+          className="shrink-0"
+          aria-hidden="true"
+        />
+        <span>{preferredLabel}</span>
+      </a>
+      <button
+        type="button"
+        aria-label="Choose download platform"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen((previous) => !previous)}
+        className="inline-flex h-full cursor-pointer items-center rounded-r-full bg-[#181613] py-3 pr-3 pl-2 text-white"
+      >
+        <ChevronDown size={17} strokeWidth={2.2} aria-hidden="true" />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="surface border-color-brand absolute top-[calc(100%+0.5rem)] left-0 z-10 w-72 max-w-[calc(100vw-2.5rem)] rounded-2xl border p-2 text-left shadow-[0_14px_40px_rgba(24,22,19,0.12)]"
+        >
+          {orderedSections.map((section) =>
+            section.downloads.map((download) => {
+              if (download.url === preferredDownload.url) return null;
+
+              return (
+                <a
+                  key={download.url}
+                  href={download.url}
+                  role="menuitem"
+                  onClick={() => setOpen(false)}
+                  className="text-color hover:surface-subtle flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors"
+                >
+                  <Icon
+                    icon={getPlatformIcon(section.platform)}
+                    width={20}
+                    height={20}
+                    className="shrink-0"
+                    aria-hidden="true"
+                  />
+                  <span className="min-w-0">
+                    <span className="block">
+                      {getDownloadOptionLabel(section.platform, download.name)}
+                    </span>
+                    <span className="text-color-muted block truncate text-xs font-normal">
+                      {download.detail}
+                    </span>
+                  </span>
+                </a>
+              );
+            }),
+          )}
+          <Link
+            to="/download/"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="text-color-muted hover:surface-subtle mt-1 flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors"
+          >
+            <span>View all downloads</span>
+            <ArrowRight size={15} strokeWidth={2.2} aria-hidden="true" />
+          </Link>
+        </div>
+      )}
+    </div>
   );
+}
+
+function getPlatformIcon(platform: DesktopPlatform) {
+  if (platform === "windows") return "simple-icons:windows11";
+  if (platform === "linux") return "simple-icons:linux";
+  return "simple-icons:apple";
+}
+
+function getDownloadOptionLabel(
+  platform: DesktopPlatform,
+  downloadName: string,
+) {
+  if (platform === "macos" && downloadName === "Intel") return "Apple Intel";
+  if (platform === "linux") return `Linux ${downloadName}`;
+  return downloadName;
 }
