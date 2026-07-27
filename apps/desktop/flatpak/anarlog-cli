@@ -4,4 +4,13 @@ if [ "${FLATPAK_ID:-}" = "so.anarlog.Anarlog" ]; then
   exec /app/libexec/anarlog-cli "$@"
 fi
 
-exec flatpak run --command=/app/libexec/anarlog-cli so.anarlog.Anarlog "$@"
+# A sandbox neither inherits the caller's working directory nor can read it, so
+# relative paths passed to commands like `meetings export --output` would resolve
+# inside the sandbox instead of where the user ran the command.
+caller_dir=$(pwd)
+
+exec flatpak run \
+  --filesystem="$caller_dir" \
+  --cwd="$caller_dir" \
+  --command=/app/libexec/anarlog-cli \
+  so.anarlog.Anarlog "$@"

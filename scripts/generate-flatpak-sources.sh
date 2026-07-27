@@ -55,3 +55,8 @@ run_generator \
 
 install -m 0644 "$GENERATOR_DIR/pnpm-sources.json" "$OUTPUT_DIR/pnpm-sources.json"
 install -m 0644 "$GENERATOR_DIR/cargo-sources.json" "$OUTPUT_DIR/cargo-sources.json"
+
+# The generators emit 4-space JSON, which the repo's fmt check rejects.
+pnpm exec dprint fmt \
+  "$OUTPUT_DIR/pnpm-sources.json" \
+  "$OUTPUT_DIR/cargo-sources.json"
