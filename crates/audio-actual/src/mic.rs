@@ -146,7 +146,7 @@ impl MicInput {
         let alive_for_thread = alive.clone();
         let dropped_for_thread = dropped_samples.clone();
 
-        std::thread::spawn(move || {
+        let capture_thread = std::thread::spawn(move || {
             fn build_stream<S: ToSample<f32> + SizedSample>(
                 device: &cpal::Device,
                 config: &cpal::SupportedStreamConfig,
@@ -267,16 +267,24 @@ impl MicInput {
 
         match init_rx.recv_timeout(std::time::Duration::from_secs(5)) {
             Ok(Ok(())) => {}
+            // The thread returns right after reporting a failure, so joining here is
+            // immediate and guarantees the cpal stream is dropped before we return.
             Ok(Err(error)) => {
+                let _ = capture_thread.join();
                 return Err(crate::Error::MicStreamInitializationFailed(error));
             }
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                // Deliberately not joined: a timeout means the thread is still inside
+                // build_input_stream, and waiting on it would reintroduce exactly the
+                // block this timeout exists to avoid. The drop signal is queued, so it
+                // tears down as soon as the driver returns.
                 let _ = drop_tx.send(());
                 return Err(crate::Error::MicStreamInitializationFailed(
                     "timed out while starting the microphone stream".to_string(),
                 ));
             }
             Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                let _ = capture_thread.join();
                 return Err(crate::Error::MicStreamInitializationFailed(
                     "microphone capture stopped during initialization".to_string(),
                 ));
