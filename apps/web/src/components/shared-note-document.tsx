@@ -165,7 +165,7 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
       const checked =
         node.attrs?.checked === true || node.attrs?.status === "done";
       return (
-        <li key={key}>
+        <li key={key} data-checked={checked ? "true" : "false"}>
           <label className="task-checkbox-label">
             <input
               type="checkbox"
