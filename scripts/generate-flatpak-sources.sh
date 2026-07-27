@@ -53,10 +53,14 @@ run_generator \
   --git-tarballs \
   --output "$GENERATOR_DIR/cargo-sources.json"
 
-install -m 0644 "$GENERATOR_DIR/pnpm-sources.json" "$OUTPUT_DIR/pnpm-sources.json"
-install -m 0644 "$GENERATOR_DIR/cargo-sources.json" "$OUTPUT_DIR/cargo-sources.json"
-
-# The generators emit 4-space JSON, which the repo's fmt check rejects.
-pnpm exec dprint fmt \
-  "$OUTPUT_DIR/pnpm-sources.json" \
-  "$OUTPUT_DIR/cargo-sources.json"
+# The generators emit 4-space JSON, which the repo's fmt check rejects. Python
+# is already required above and matches dprint's JSON output byte for byte,
+# whereas the Flatpak CI job has no Node or pnpm to run dprint with.
+for sources in pnpm-sources cargo-sources; do
+  python3 -m json.tool --indent 2 \
+    "$GENERATOR_DIR/$sources.json" \
+    "$GENERATOR_DIR/$sources.formatted.json"
+  install -m 0644 \
+    "$GENERATOR_DIR/$sources.formatted.json" \
+    "$OUTPUT_DIR/$sources.json"
+done
