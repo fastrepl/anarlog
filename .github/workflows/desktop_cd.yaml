@@ -305,7 +305,10 @@ jobs:
           bundles=("$appimage_dir"/* "$deb_dir"/*)
           for bundle in "${bundles[@]}"; do
             [[ -f "$bundle" && "$bundle" != *.sha256 ]] || continue
-            sha256sum "$bundle" > "$bundle.sha256"
+            # Record the basename, like the CI job does, so `sha256sum -c` works
+            # against the uploaded artifact instead of a CI-only path.
+            name=$(basename "$bundle")
+            (cd "$(dirname "$bundle")" && sha256sum "$name" > "$name.sha256")
           done
       - run: |
           deb=$(find "apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/deb" -maxdepth 1 -name '*.deb' -type f -print -quit)
