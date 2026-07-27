@@ -347,10 +347,7 @@ jobs:
               $cleanupProcess = Start-Process $cleanupUninstaller `
                 -ArgumentList @("/S", "_?=$cleanupDir") `
                 -PassThru
-              if (-not $cleanupProcess.WaitForExit(120000)) {
-                Stop-ProcessTree $cleanupProcess
-                Write-Warning "Timed out cleaning up the smoke-test installation"
-              }
+              Wait-ForSuccessfulExit $cleanupProcess 120 "NSIS cleanup uninstallation"
             }
           }
       - if: github.event_name == 'workflow_dispatch'
