@@ -132,16 +132,23 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
           {children}
         </ul>
       );
-    case "orderedList":
+    case "orderedList": {
+      const start = getIntegerAttr(node, "start", 1, 1_000_000, 1);
       return (
         <ol
           key={key}
           className="list-decimal pl-6"
-          start={getIntegerAttr(node, "start", 1, 1_000_000, 1)}
+          start={start}
+          style={
+            start === 1
+              ? undefined
+              : { counterReset: `ol-counter ${start - 1}` }
+          }
         >
           {children}
         </ol>
       );
+    }
     case "listItem":
       return <li key={key}>{children}</li>;
     case "taskList":

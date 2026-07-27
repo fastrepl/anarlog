@@ -137,9 +137,18 @@ const nodes: Record<string, NodeSpec> = {
       },
     ],
     toDOM(node) {
+      // Markers are drawn from a CSS counter, which cannot read `start`; seed
+      // it inline so a non-1 start is visible and not just serialized.
       return node.attrs.start === 1
         ? ["ol", 0]
-        : ["ol", { start: node.attrs.start }, 0];
+        : [
+            "ol",
+            {
+              start: node.attrs.start,
+              style: `counter-reset: ol-counter ${node.attrs.start - 1}`,
+            },
+            0,
+          ];
     },
   },
 

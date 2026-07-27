@@ -197,9 +197,6 @@
     }
   }
 }
-.note-typography li ol > li::before {
-  content: counter(ol-counter, lower-alpha) ".";
-}
 .note-typography.prosemirror-editor ol > li::before {
   left: 0.75em;
 }
