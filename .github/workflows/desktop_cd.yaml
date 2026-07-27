@@ -10,9 +10,9 @@ on:
           - staging
           - stable
       publish:
-        description: "Publish to Crabnebula and create GitHub release (ignored for staging)"
+        description: "Legacy compatibility input; stable publication must use desktop_publish"
         type: boolean
-        default: true
+        default: false
       version:
         description: "Explicit semantic version required for stable releases"
         required: false
@@ -23,7 +23,6 @@ concurrency:
   group: ${{ inputs.channel == 'stable' && 'desktop-stable-release' || format('{0}-{1}-{2}', github.workflow, github.ref, inputs.channel) }}
   cancel-in-progress: ${{ inputs.channel != 'stable' }}
 env:
-  CN_ACTION_REF: "crabnebula-dev/cloud-release@1a8803698ba41de6b23e42abc5dcc3721308233c"
   CN_APPLICATION: "fastrepl/hyprnote2"
   RELEASE_CHANNEL: ${{ inputs.channel }}
   TAURI_CONF_PATH: ./src-tauri/tauri.conf.${{ inputs.channel }}.json
@@ -45,6 +44,11 @@ jobs:
           git fetch --tags --force
       - if: ${{ inputs.channel == 'stable' }}
         run: |
+          if [[ "${{ inputs.publish }}" == "true" ]]; then
+            echo "::error::desktop_cd only builds stable candidates; publish through desktop_publish after QA"
+            exit 1
+          fi
+
           git fetch origin main --no-tags
 
           TARGET=$(git rev-parse HEAD)
@@ -158,9 +162,6 @@ jobs:
         working-directory: ./apps/desktop
       - run: |
           BUILD_ARGS=(--target "${{ matrix.target }}" --config "${{ env.TAURI_CONF_PATH }}" --verbose)
-          if [[ "${{ inputs.channel }}" == "stable" ]]; then
-            BUILD_ARGS+=(--config ./src-tauri/tauri.conf.stable-macos.json)
-          fi
           if [[ "${{ matrix.target }}" == "x86_64-apple-darwin" ]]; then
             BUILD_ARGS+=(--config ./src-tauri/tauri.conf.macos-intel.json)
           fi
@@ -614,11 +615,8 @@ jobs:
           }
 
           $hash = (Get-FileHash -Algorithm SHA256 $installers[0].FullName).Hash.ToLowerInvariant()
-          [System.IO.File]::WriteAllText(
-            "$($installers[0].FullName).sha256",
-            "$hash  $($installers[0].Name)`n",
-            [System.Text.Encoding]::ASCII
-          )
+          "$hash  $($installers[0].Name)" |
+            Out-File "$($installers[0].FullName).sha256" -Encoding ascii
       - if: ${{ inputs.channel == 'stable' }}
         name: Verify Windows updater signature
         shell: bash
@@ -720,16 +718,16 @@ jobs:
             echo "::error::CrabNebula release $EXPECTED_VERSION has missing, duplicate, unsigned, or empty updater assets: ${INVALID_UPDATE_PLATFORMS[*]}"
             exit 1
           fi
-      - if: ${{ !inputs.publish }}
-        name: Record release provenance
+      - name: Record release provenance
         env:
-          CN_ACTION_REF: ${{ env.CN_ACTION_REF }}
+          CN_ASSET_ID: ${{ steps.release.outputs.cli-asset-id }}
+          CN_SHA256: ${{ steps.release.outputs.cli-sha256 }}
+          CN_VERSION: ${{ steps.release.outputs.cli-version }}
           RELEASE: ${{ steps.release.outputs.raw }}
           VERSION: ${{ needs.compute-version.outputs.version }}
         run: |
           mkdir -p release-provenance
           printf '%s' "$RELEASE" > "$RUNNER_TEMP/crabnebula-release.json"
-          CN_VERSION=$("$GITHUB_WORKSPACE/cn" --version)
           node scripts/desktop-release-provenance.mjs create \
             --release "$RUNNER_TEMP/crabnebula-release.json" \
             --output release-provenance/manifest.json \
@@ -737,217 +735,11 @@ jobs:
             --candidate-sha "$GITHUB_SHA" \
             --run-id "$GITHUB_RUN_ID" \
             --cn-version "$CN_VERSION" \
-            --cn-action-ref "$CN_ACTION_REF"
-      - if: ${{ !inputs.publish }}
-        uses: actions/upload-artifact@v4
+            --cn-asset-id "$CN_ASSET_ID" \
+            --cn-sha256 "$CN_SHA256"
+      - uses: actions/upload-artifact@v4
         with:
           name: desktop-release-provenance-${{ needs.compute-version.outputs.version }}-${{ github.sha }}
           path: release-provenance/manifest.json
           if-no-files-found: error
           retention-days: 30
-
-  create-tag:
-    if: ${{ inputs.channel != 'staging' && inputs.publish && !cancelled() && needs.verify-cn-release.result == 'success' }}
-    needs: [compute-version, verify-cn-release]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-      - run: |
-          git fetch origin main --no-tags
-          git fetch --tags --force
-
-          TAG="desktop_v${{ needs.compute-version.outputs.version }}"
-          TARGET=$(git rev-parse HEAD)
-          MAIN=$(git rev-parse origin/main)
-          EXISTING=$(git rev-parse -q --verify "refs/tags/$TAG" || true)
-
-          if [[ "$TARGET" != "$MAIN" ]]; then
-            echo "::error::Candidate moved before tagging (candidate=$TARGET, main=$MAIN)"
-            exit 1
-          fi
-
-          if [[ -n "$EXISTING" ]]; then
-            if [[ "$EXISTING" != "$TARGET" ]]; then
-              echo "::error::Tag $TAG points to $EXISTING instead of candidate $TARGET"
-              exit 1
-            fi
-
-            echo "Tag $TAG already points to candidate $TARGET"
-          else
-            git tag "$TAG" "$TARGET"
-            git push origin "refs/tags/$TAG"
-          fi
-
-  cn-publish:
-    if: ${{ inputs.channel != 'staging' && inputs.publish && !cancelled() && needs.verify-cn-release.result == 'success' && needs.create-tag.result == 'success' }}
-    needs: [compute-version, verify-cn-release, create-tag]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-      - run: ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "${{ needs.compute-version.outputs.version }}"
-      - name: Verify candidate before publication
-        run: |
-          git fetch origin main --no-tags
-          git fetch --tags --force
-
-          TARGET=$(git rev-parse HEAD)
-          MAIN=$(git rev-parse origin/main)
-          TAG="desktop_v${{ needs.compute-version.outputs.version }}"
-          TAG_TARGET=$(git rev-parse "$TAG^{commit}")
-
-          if [[ "$TARGET" != "$MAIN" || "$TAG_TARGET" != "$TARGET" ]]; then
-            echo "::error::Candidate moved before publication (candidate=$TARGET, main=$MAIN, tag=$TAG_TARGET)"
-            exit 1
-          fi
-      - uses: ./.github/actions/cn_release
-        with:
-          cmd: publish
-          app: ${{ env.CN_APPLICATION }}
-          key: ${{ secrets.CN_API_KEY }}
-          channel: ${{ env.RELEASE_CHANNEL }}
-          framework: tauri
-          working-directory: ./apps/desktop
-
-  release:
-    if: ${{ inputs.channel != 'staging' && inputs.publish && !cancelled() && needs.cn-publish.result == 'success' && needs.build-macos.result == 'success' && needs.build-windows.result == 'success' && needs.build-linux.result == 'success' }}
-    needs: [
-      compute-version,
-      build-macos,
-      build-windows,
-      build-linux,
-      cn-publish,
-    ]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-      - run: git fetch --tags --force
-      - if: ${{ needs.build-macos.result == 'success' }}
-        uses: ./.github/actions/cn_download
-        with:
-          app: ${{ env.CN_APPLICATION }}
-          version: ${{ needs.compute-version.outputs.version }}
-          channel: ${{ env.RELEASE_CHANNEL }}
-          platform: dmg-aarch64
-          output: hyprnote-macos-aarch64.dmg
-          key: ${{ secrets.CN_API_KEY }}
-      - if: ${{ needs.build-macos.result == 'success' }}
-        uses: ./.github/actions/cn_download
-        with:
-          app: ${{ env.CN_APPLICATION }}
-          version: ${{ needs.compute-version.outputs.version }}
-          channel: ${{ env.RELEASE_CHANNEL }}
-          platform: dmg-x86_64
-          output: hyprnote-macos-x86_64.dmg
-          key: ${{ secrets.CN_API_KEY }}
-      - if: ${{ needs.build-linux.result == 'success' }}
-        uses: ./.github/actions/cn_download
-        with:
-          app: ${{ env.CN_APPLICATION }}
-          version: ${{ needs.compute-version.outputs.version }}
-          channel: ${{ env.RELEASE_CHANNEL }}
-          platform: appimage-x86_64
-          output: anarlog-linux-x86_64.AppImage
-          key: ${{ secrets.CN_API_KEY }}
-      - if: ${{ needs.build-linux.result == 'success' }}
-        uses: ./.github/actions/cn_download
-        with:
-          app: ${{ env.CN_APPLICATION }}
-          version: ${{ needs.compute-version.outputs.version }}
-          channel: ${{ env.RELEASE_CHANNEL }}
-          platform: deb-x86_64
-          output: anarlog-linux-x86_64.deb
-          key: ${{ secrets.CN_API_KEY }}
-      - if: ${{ needs.build-linux.result == 'success' }}
-        uses: ./.github/actions/cn_download
-        with:
-          app: ${{ env.CN_APPLICATION }}
-          version: ${{ needs.compute-version.outputs.version }}
-          channel: ${{ env.RELEASE_CHANNEL }}
-          platform: appimage-aarch64
-          output: anarlog-linux-aarch64.AppImage
-          key: ${{ secrets.CN_API_KEY }}
-      - if: ${{ needs.build-linux.result == 'success' }}
-        uses: ./.github/actions/cn_download
-        with:
-          app: ${{ env.CN_APPLICATION }}
-          version: ${{ needs.compute-version.outputs.version }}
-          channel: ${{ env.RELEASE_CHANNEL }}
-          platform: deb-aarch64
-          output: anarlog-linux-aarch64.deb
-          key: ${{ secrets.CN_API_KEY }}
-      - if: ${{ needs.build-windows.result == 'success' }}
-        uses: ./.github/actions/cn_download
-        with:
-          app: ${{ env.CN_APPLICATION }}
-          version: ${{ needs.compute-version.outputs.version }}
-          channel: ${{ env.RELEASE_CHANNEL }}
-          platform: nsis-x86_64
-          output: anarlog-windows-x86_64-setup.exe
-          key: ${{ secrets.CN_API_KEY }}
-      - id: checksums
-        uses: ./.github/actions/generate_checksums
-        with:
-          files: |
-            ${{ needs.build-macos.result == 'success' && 'hyprnote-macos-aarch64.dmg' || '' }}
-            ${{ needs.build-macos.result == 'success' && 'hyprnote-macos-x86_64.dmg' || '' }}
-            ${{ needs.build-linux.result == 'success' && 'anarlog-linux-x86_64.AppImage' || '' }}
-            ${{ needs.build-linux.result == 'success' && 'anarlog-linux-x86_64.deb' || '' }}
-            ${{ needs.build-linux.result == 'success' && 'anarlog-linux-aarch64.AppImage' || '' }}
-            ${{ needs.build-linux.result == 'success' && 'anarlog-linux-aarch64.deb' || '' }}
-            ${{ needs.build-windows.result == 'success' && 'anarlog-windows-x86_64-setup.exe' || '' }}
-      - id: artifacts
-        run: |
-          ARTIFACTS=""
-          if [[ "${{ needs.build-macos.result }}" == "success" ]]; then
-            ARTIFACTS="hyprnote-macos-aarch64.dmg,hyprnote-macos-x86_64.dmg"
-          fi
-          if [[ "${{ needs.build-linux.result }}" == "success" ]]; then
-            LINUX_ARTIFACTS="anarlog-linux-x86_64.AppImage,anarlog-linux-x86_64.deb,anarlog-linux-aarch64.AppImage,anarlog-linux-aarch64.deb"
-            if [[ -n "$ARTIFACTS" ]]; then
-              ARTIFACTS="$ARTIFACTS,$LINUX_ARTIFACTS"
-            else
-              ARTIFACTS="$LINUX_ARTIFACTS"
-            fi
-          fi
-          if [[ "${{ needs.build-windows.result }}" == "success" ]]; then
-            WINDOWS_ARTIFACT="anarlog-windows-x86_64-setup.exe"
-            if [[ -n "$ARTIFACTS" ]]; then
-              ARTIFACTS="$ARTIFACTS,$WINDOWS_ARTIFACT"
-            else
-              ARTIFACTS="$WINDOWS_ARTIFACT"
-            fi
-          fi
-          if [[ -z "$ARTIFACTS" ]]; then
-            echo "No artifacts to release" >&2
-            exit 1
-          fi
-          if [[ -n "${{ steps.checksums.outputs.checksum_files }}" ]]; then
-            ARTIFACTS="$ARTIFACTS,${{ steps.checksums.outputs.checksum_files }}"
-          fi
-          echo "list=$ARTIFACTS" >> $GITHUB_OUTPUT
-      - id: release-body
-        run: |
-          echo "value=https://anarlog.so/changelog/${{ needs.compute-version.outputs.version }}" >> "$GITHUB_OUTPUT"
-      - uses: ncipollo/release-action@v1
-        with:
-          tag: desktop_v${{ needs.compute-version.outputs.version }}
-          name: desktop_v${{ needs.compute-version.outputs.version }}
-          body: ${{ steps.release-body.outputs.value }}
-          prerelease: false
-          makeLatest: true
-          artifacts: ${{ steps.artifacts.outputs.list }}
-          allowUpdates: true
-          replacesArtifacts: true

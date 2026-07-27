@@ -143,6 +143,10 @@ gh run watch <run-id>
 The run's `headSha` must equal the Dev/staging candidate SHA. A mismatch blocks
 acceptance even if the workflow succeeds.
 
+Do not use GitHub's rerun button for a failed stable candidate or Linux audio
+gate. Dispatch a fresh run instead; publication only accepts first-attempt run
+IDs so evidence cannot be mixed across attempts.
+
 The dry-run workflow must:
 
 - use the exact explicit stable version
@@ -150,23 +154,41 @@ The dry-run workflow must:
 - build the signed Windows and Linux artifacts for the same version and commit
 - upload a draft CrabNebula release without publishing it
 - upload `desktop-release-provenance-<version>-<sha>`, including the exact
-  artifact hashes and CrabNebula tool versions
+  artifact hashes and pinned CrabNebula CLI version, asset ID, and SHA-256
 
-After the exact dry-run artifacts pass the required platform QA gates and
-`main` still points to the candidate SHA, publish only through the provenance
-workflow:
+Run the Linux virtual-audio gate against that exact dry-run candidate:
+
+```bash
+gh workflow run desktop_linux_audio_qa.yaml \
+  --ref main \
+  -f version=<version> \
+  -f candidate_sha=<40-character-main-sha> \
+  -f dry_run_id=<dry-run-id>
+```
+
+Watch the run and verify its head SHA is still the candidate SHA. It must
+produce passing `linux-audio-qa-<version>-x64` and
+`linux-audio-qa-<version>-arm64` evidence artifacts. This gate proves virtual
+microphone/system routing, capture, separation, and persistence with
+`NO_AEC=1`; it does not waive physical-device or AEC validation.
+
+After the exact dry-run artifacts and Linux audio QA run pass the required
+platform gates and `main` still points to the candidate SHA, publish only
+through the provenance workflow:
 
 ```bash
 gh workflow run desktop_publish.yaml \
   --ref main \
   -f version=<version> \
   -f candidate_sha=<40-character-main-sha> \
-  -f dry_run_id=<run-id>
+  -f dry_run_id=<dry-run-id> \
+  -f audio_qa_run_id=<linux-audio-qa-run-id>
 ```
 
 Watch that workflow to completion. It must verify the dry-run run identity,
-artifact hashes, CrabNebula tool versions, current `main`, and the immutable
-tag before publishing.
+artifact hashes, both Linux audio evidence artifacts, CrabNebula tool
+identity and hash, current `main`, and the immutable tag before publishing. It
+must also verify every file mirrored to GitHub against the provenance manifest.
 
 ## Final Checks
 
@@ -174,6 +196,7 @@ Before reporting success, capture:
 
 - computed stable version
 - dry-run workflow URL and head SHA
+- Linux audio QA workflow URL, head SHA, and x64/ARM64 evidence artifacts
 - publish workflow URL and head SHA
 - `desktop_v<version>` tag
 - GitHub release URL

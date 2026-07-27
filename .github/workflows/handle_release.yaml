@@ -7,7 +7,7 @@ on:
       publish:
         required: false
         type: boolean
-        default: true
+        default: false
       version:
         required: true
         type: string
@@ -76,7 +76,6 @@ jobs:
           version: ${{ inputs.version }}
           token: ${{ secrets.GITHUB_TOKEN }}
           repo: ${{ github.repository }}
-          max_attempts: "10"
       - id: result
         run: |
           CHANNEL="${{ inputs.channel }}"

@@ -152,15 +152,22 @@ jobs:
         run: |
           run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")
           if ! jq -e \
+            --arg repo "$GITHUB_REPOSITORY" \
             --arg sha "$EXPECTED_SHA" \
             --arg workflow ".github/workflows/desktop_cd.yaml" \
+            --argjson run_id "$RUN_ID" \
             '
-              (.head_sha | ascii_downcase) == $sha
-              and .event == "workflow_dispatch"
+              .id == $run_id
+              and .status == "completed"
               and .conclusion == "success"
+              and .run_attempt == 1
+              and .event == "workflow_dispatch"
+              and (.head_sha | ascii_downcase) == $sha
+              and .repository.full_name == $repo
+              and .head_repository.full_name == $repo
               and (.path | split("@")[0]) == $workflow
             ' <<< "$run" > /dev/null; then
-            echo "::error::Run $RUN_ID is not a successful desktop CD dry run for candidate $EXPECTED_SHA"
+            echo "::error::Run $RUN_ID is not an unrerun, successful desktop CD dry run for candidate $EXPECTED_SHA"
             exit 1
           fi
 
@@ -367,7 +374,7 @@ jobs:
           path: |
             qa-artifacts/linux-${{ matrix.artifact_arch }}/
             e2e/blackbox/videos/
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
       - if: steps.audio-qa.outcome == 'failure'
         run: exit 1

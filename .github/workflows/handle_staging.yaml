@@ -69,7 +69,6 @@ jobs:
           channel: staging
           token: ${{ secrets.GITHUB_TOKEN }}
           repo: ${{ github.repository }}
-          max_attempts: "6"
       - id: result
         run: |
           BRANCH="${{ steps.resolve.outputs.branch }}"

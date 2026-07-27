@@ -26,7 +26,6 @@ jobs:
     if: needs.check-permission.outputs.allowed == 'true' && contains(github.event.comment.body, '/stable')
     runs-on: ubuntu-latest
     outputs:
-      publish: ${{ steps.parse.outputs.publish }}
       version: ${{ steps.parse.outputs.version }}
     steps:
       - id: parse
@@ -34,16 +33,11 @@ jobs:
           COMMENT: ${{ github.event.comment.body }}
         run: |
           if [[ ! "$COMMENT" =~ /stable[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+)($|[[:space:]]) ]]; then
-            echo "::error::Use /stable <version> [--no-publish], for example /stable 1.4.0"
+            echo "::error::Use /stable <version>, for example /stable 1.4.0"
             exit 1
           fi
 
           VERSION="${BASH_REMATCH[1]}"
-          PUBLISH="true"
-          if [[ "$COMMENT" =~ --no-publish ]]; then
-            PUBLISH="false"
-          fi
-          echo "publish=$PUBLISH" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
   handle-stable:
@@ -52,7 +46,7 @@ jobs:
     uses: ./.github/workflows/handle_release.yaml
     with:
       channel: stable
-      publish: ${{ needs.parse-stable-options.outputs.publish == 'true' }}
+      publish: false
       version: ${{ needs.parse-stable-options.outputs.version }}
       issue_number: ${{ github.event.issue.number }}
       comment_id: ${{ github.event.comment.id }}

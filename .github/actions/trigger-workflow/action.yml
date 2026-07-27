@@ -1,5 +1,5 @@
 name: Trigger Workflow
-description: Trigger a workflow and poll for run ID
+description: Trigger a workflow and return its exact run ID
 
 inputs:
   workflow:
@@ -12,9 +12,9 @@ inputs:
     description: Channel input for the workflow
     required: true
   publish:
-    description: Publish to Crabnebula and create GitHub release
+    description: Legacy desktop CD compatibility input
     required: false
-    default: "true"
+    default: "false"
   version:
     description: "Explicit stable version"
     required: false
@@ -25,11 +25,6 @@ inputs:
   repo:
     description: Repository (owner/repo)
     required: true
-  max_attempts:
-    description: Max polling attempts
-    required: false
-    default: "10"
-
 outputs:
   run_id:
     description: The triggered workflow run ID
@@ -49,14 +44,19 @@ runs:
         VERSION: ${{ inputs.version }}
         WORKFLOW: ${{ inputs.workflow }}
       run: |
-        ARGS=(workflow run "$WORKFLOW" --repo "$REPO" --ref "$REF" -f "channel=$CHANNEL" -f "publish=$PUBLISH")
+        ARGS=(
+          --method POST
+          -H "X-GitHub-Api-Version: 2026-03-10"
+          "repos/$REPO/actions/workflows/$WORKFLOW/dispatches"
+          -f "ref=$REF"
+          -f "inputs[channel]=$CHANNEL"
+          -F "inputs[publish]=$PUBLISH"
+        )
         if [[ -n "$VERSION" ]]; then
-          ARGS+=(-f "version=$VERSION")
+          ARGS+=(-f "inputs[version]=$VERSION")
         fi
-        gh "${ARGS[@]}"
-        for i in $(seq 1 ${{ inputs.max_attempts }}); do
-          sleep 5
-          RUN_ID=$(gh run list --workflow="$WORKFLOW" --repo "$REPO" --branch="$REF" --json databaseId,createdAt --jq 'sort_by(.createdAt) | reverse | .[0].databaseId // empty')
-          [ -n "$RUN_ID" ] && break
-        done
+        RESPONSE=$(gh api "${ARGS[@]}")
+        RUN_ID=$(jq -er \
+          '.workflow_run_id | numbers | select(. > 0)' \
+          <<< "$RESPONSE")
         echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT

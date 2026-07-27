@@ -13,13 +13,16 @@ on:
         description: "Successful publish=false desktop CD run that built the candidate"
         required: true
         type: string
+      audio_qa_run_id:
+        description: "Successful desktop Linux virtual-audio QA run for the candidate"
+        required: true
+        type: string
 
 concurrency:
   group: desktop-stable-release
   cancel-in-progress: false
 
 env:
-  CN_ACTION_REF: "crabnebula-dev/cloud-release@1a8803698ba41de6b23e42abc5dcc3721308233c"
   CN_APPLICATION: "fastrepl/hyprnote2"
 
 jobs:
@@ -30,9 +33,11 @@ jobs:
       channel: ${{ steps.parse.outputs.channel }}
       candidate_sha: ${{ steps.parse.outputs.candidate_sha }}
       dry_run_id: ${{ steps.parse.outputs.dry_run_id }}
+      audio_qa_run_id: ${{ steps.parse.outputs.audio_qa_run_id }}
     steps:
       - id: parse
         env:
+          INPUT_AUDIO_QA_RUN_ID: ${{ inputs.audio_qa_run_id }}
           INPUT_CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           INPUT_DRY_RUN_ID: ${{ inputs.dry_run_id }}
           INPUT_VERSION: ${{ inputs.version }}
@@ -50,6 +55,10 @@ jobs:
             echo "::error::Dry-run workflow ID must be a positive integer"
             exit 1
           fi
+          if [[ ! "$INPUT_AUDIO_QA_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::Linux audio QA workflow ID must be a positive integer"
+            exit 1
+          fi
 
           VERSION="$INPUT_VERSION"
           CANDIDATE_SHA="${INPUT_CANDIDATE_SHA,,}"
@@ -57,6 +66,7 @@ jobs:
           echo "channel=stable" >> $GITHUB_OUTPUT
           echo "candidate_sha=$CANDIDATE_SHA" >> $GITHUB_OUTPUT
           echo "dry_run_id=$INPUT_DRY_RUN_ID" >> $GITHUB_OUTPUT
+          echo "audio_qa_run_id=$INPUT_AUDIO_QA_RUN_ID" >> $GITHUB_OUTPUT
 
   verify-candidate:
     needs: parse
@@ -174,15 +184,22 @@ jobs:
         run: |
           RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")
           if ! echo "$RUN" | jq -e \
+            --arg repo "$GITHUB_REPOSITORY" \
             --arg sha "$EXPECTED_SHA" \
             --arg workflow ".github/workflows/desktop_cd.yaml" \
+            --argjson run_id "$RUN_ID" \
             '
-              (.head_sha | ascii_downcase) == $sha
-              and .event == "workflow_dispatch"
+              .id == $run_id
+              and .status == "completed"
               and .conclusion == "success"
+              and .run_attempt == 1
+              and .event == "workflow_dispatch"
+              and (.head_sha | ascii_downcase) == $sha
+              and .repository.full_name == $repo
+              and .head_repository.full_name == $repo
               and (.path | split("@")[0]) == $workflow
             ' > /dev/null; then
-            echo "::error::Run $RUN_ID is not a successful desktop CD run for candidate $EXPECTED_SHA"
+            echo "::error::Run $RUN_ID is not an unrerun, successful desktop CD run for candidate $EXPECTED_SHA"
             exit 1
           fi
 
@@ -190,6 +207,48 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --name "desktop-release-provenance-$VERSION-$EXPECTED_SHA" \
             --dir release-provenance
+      - name: Verify Linux virtual-audio QA evidence
+        env:
+          AUDIO_QA_RUN_ID: ${{ needs.parse.outputs.audio_qa_run_id }}
+          DRY_RUN_ID: ${{ needs.parse.outputs.dry_run_id }}
+          EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$AUDIO_QA_RUN_ID")
+          ARTIFACTS=$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$AUDIO_QA_RUN_ID/artifacts?per_page=100")
+          printf '%s' "$RUN" > "$RUNNER_TEMP/linux-audio-qa-run.json"
+          printf '%s' "$ARTIFACTS" > "$RUNNER_TEMP/linux-audio-qa-artifacts.json"
+          node scripts/verify-linux-audio-qa-run.mjs \
+            --run "$RUNNER_TEMP/linux-audio-qa-run.json" \
+            --artifacts "$RUNNER_TEMP/linux-audio-qa-artifacts.json" \
+            --repository "$GITHUB_REPOSITORY" \
+            --version "$VERSION" \
+            --candidate-sha "$EXPECTED_SHA" \
+            --run-id "$AUDIO_QA_RUN_ID" \
+            --output "$RUNNER_TEMP/linux-audio-qa-downloads.json"
+
+          for arch in x64 arm64; do
+            NAME="linux-audio-qa-$VERSION-$arch"
+            ARTIFACT_ID=$(jq -er \
+              --arg arch "$arch" \
+              '.[] | select(.architecture == $arch) | .id' \
+              "$RUNNER_TEMP/linux-audio-qa-downloads.json")
+            mkdir -p "linux-audio-qa/$arch"
+            gh api \
+              "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" \
+              > "$RUNNER_TEMP/$NAME.zip"
+            unzip -q "$RUNNER_TEMP/$NAME.zip" -d "linux-audio-qa/$arch"
+          done
+
+          node scripts/verify-linux-audio-qa-evidence.mjs \
+            --evidence-dir linux-audio-qa \
+            --manifest release-provenance/manifest.json \
+            --version "$VERSION" \
+            --candidate-sha "$EXPECTED_SHA" \
+            --dry-run-id "$DRY_RUN_ID" \
+            --audio-qa-run-id "$AUDIO_QA_RUN_ID"
       - id: release
         uses: ./.github/actions/cn_release
         with:
@@ -269,14 +328,15 @@ jobs:
           esac
       - name: Verify candidate provenance
         env:
-          CN_ACTION_REF: ${{ env.CN_ACTION_REF }}
+          CN_ASSET_ID: ${{ steps.release.outputs.cli-asset-id }}
+          CN_SHA256: ${{ steps.release.outputs.cli-sha256 }}
+          CN_VERSION: ${{ steps.release.outputs.cli-version }}
           EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
           RELEASE: ${{ steps.release.outputs.raw }}
           RUN_ID: ${{ needs.parse.outputs.dry_run_id }}
           VERSION: ${{ needs.parse.outputs.version }}
         run: |
           printf '%s' "$RELEASE" > "$RUNNER_TEMP/crabnebula-release.json"
-          CN_VERSION=$("$GITHUB_WORKSPACE/cn" --version)
           node scripts/desktop-release-provenance.mjs verify \
             --release "$RUNNER_TEMP/crabnebula-release.json" \
             --manifest release-provenance/manifest.json \
@@ -284,7 +344,8 @@ jobs:
             --candidate-sha "$EXPECTED_SHA" \
             --run-id "$RUN_ID" \
             --cn-version "$CN_VERSION" \
-            --cn-action-ref "$CN_ACTION_REF"
+            --cn-asset-id "$CN_ASSET_ID" \
+            --cn-sha256 "$CN_SHA256"
       - name: Create immutable release tag
         env:
           EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
@@ -344,6 +405,7 @@ jobs:
     needs: [parse, cn-publish]
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: write
     steps:
       - uses: actions/checkout@v4
@@ -363,6 +425,17 @@ jobs:
             echo "::error::Tag $TAG points to $TAG_TARGET instead of candidate $EXPECTED_SHA"
             exit 1
           fi
+      - name: Download candidate provenance
+        env:
+          EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ needs.parse.outputs.dry_run_id }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          gh run download "$RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "desktop-release-provenance-$VERSION-$EXPECTED_SHA" \
+            --dir release-provenance
       - id: download-macos-aarch64
         uses: ./.github/actions/cn_download
         with:
@@ -426,6 +499,56 @@ jobs:
           platform: nsis-x86_64
           output: anarlog-windows-x86_64-setup.exe
           key: ${{ secrets.CN_API_KEY }}
+      - name: Verify GitHub release assets against provenance
+        env:
+          CN_ASSET_ID: ${{ steps.download-macos-aarch64.outputs.cli-asset-id }}
+          CN_SHA256: ${{ steps.download-macos-aarch64.outputs.cli-sha256 }}
+          CN_VERSION: ${{ steps.download-macos-aarch64.outputs.cli-version }}
+          EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
+          LINUX_ARM64_APPIMAGE_ID: ${{ steps.download-linux-aarch64-appimage.outputs.asset_id }}
+          LINUX_ARM64_DEB_ID: ${{ steps.download-linux-aarch64-deb.outputs.asset_id }}
+          LINUX_X64_APPIMAGE_ID: ${{ steps.download-linux-x86_64-appimage.outputs.asset_id }}
+          LINUX_X64_DEB_ID: ${{ steps.download-linux-x86_64-deb.outputs.asset_id }}
+          MACOS_ARM64_ID: ${{ steps.download-macos-aarch64.outputs.asset_id }}
+          MACOS_X64_ID: ${{ steps.download-macos-x86_64.outputs.asset_id }}
+          RUN_ID: ${{ needs.parse.outputs.dry_run_id }}
+          VERSION: ${{ needs.parse.outputs.version }}
+          WINDOWS_X64_ID: ${{ steps.download-windows-x86_64.outputs.asset_id }}
+        run: |
+          ASSET_DIR="$RUNNER_TEMP/gh-release-assets"
+          mkdir -p "$ASSET_DIR"
+
+          copy_asset() {
+            local asset_id="$1"
+            local source="$2"
+            if [[ ! "$asset_id" =~ ^[A-Za-z0-9_-]+$ ]]; then
+              echo "::error::Invalid CrabNebula asset ID for $source"
+              exit 1
+            fi
+            if [[ -e "$ASSET_DIR/$asset_id" ]]; then
+              echo "::error::Duplicate CrabNebula asset ID $asset_id"
+              exit 1
+            fi
+            cp "$source" "$ASSET_DIR/$asset_id"
+          }
+
+          copy_asset "$MACOS_ARM64_ID" "hyprnote-macos-aarch64.dmg"
+          copy_asset "$MACOS_X64_ID" "hyprnote-macos-x86_64.dmg"
+          copy_asset "$LINUX_X64_APPIMAGE_ID" "anarlog-linux-x86_64.AppImage"
+          copy_asset "$LINUX_X64_DEB_ID" "anarlog-linux-x86_64.deb"
+          copy_asset "$LINUX_ARM64_APPIMAGE_ID" "anarlog-linux-aarch64.AppImage"
+          copy_asset "$LINUX_ARM64_DEB_ID" "anarlog-linux-aarch64.deb"
+          copy_asset "$WINDOWS_X64_ID" "anarlog-windows-x86_64-setup.exe"
+
+          node scripts/desktop-release-provenance.mjs verify-assets \
+            --manifest release-provenance/manifest.json \
+            --asset-dir "$ASSET_DIR" \
+            --version "$VERSION" \
+            --candidate-sha "$EXPECTED_SHA" \
+            --run-id "$RUN_ID" \
+            --cn-version "$CN_VERSION" \
+            --cn-asset-id "$CN_ASSET_ID" \
+            --cn-sha256 "$CN_SHA256"
       - id: checksums
         uses: ./.github/actions/generate_checksums
         with:

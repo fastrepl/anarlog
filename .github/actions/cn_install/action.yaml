@@ -1,0 +1,106 @@
+name: Install CrabNebula CLI
+description: Install the project-pinned CrabNebula CLI after verifying its size and SHA-256
+
+outputs:
+  path:
+    description: Absolute path to the verified CrabNebula CLI
+    value: ${{ steps.install.outputs.path }}
+  version:
+    description: Verified CrabNebula CLI version
+    value: ${{ steps.install.outputs.version }}
+  asset-id:
+    description: Immutable CrabNebula CDN asset ID
+    value: ${{ steps.install.outputs.asset-id }}
+  sha256:
+    description: Verified CrabNebula CLI SHA-256
+    value: ${{ steps.install.outputs.sha256 }}
+
+runs:
+  using: composite
+  steps:
+    - id: install
+      shell: bash
+      env:
+        RUNNER_ARCHITECTURE: ${{ runner.arch }}
+        RUNNER_OPERATING_SYSTEM: ${{ runner.os }}
+      run: |
+        # CrabNebula does not publish checksums, so these project-maintained
+        # pins are verified against its immutable asset-ID URLs before use.
+        case "$RUNNER_OPERATING_SYSTEM/$RUNNER_ARCHITECTURE" in
+          Linux/X64)
+            ASSET_ID="01KVDB8KPSKMQ5X3SJ0ANF6943"
+            EXPECTED_SIZE="5731704"
+            EXPECTED_SHA256="760b11d1ab9326dc78068ac8ef450685ea116e329903b14d94a5133641a54128"
+            EXECUTABLE="cn"
+            ;;
+          Linux/ARM64)
+            ASSET_ID="01KVDB8P8EA4FM154BZ58Q8M2T"
+            EXPECTED_SIZE="5035936"
+            EXPECTED_SHA256="d37aa11eee8694cc431c06f221d7dd10ad9c843a4dfd5dc62117fd979954f6da"
+            EXECUTABLE="cn"
+            ;;
+          macOS/X64|macOS/ARM64)
+            ASSET_ID="01KVDB8RX4NMKPZY5JG93MCDA3"
+            EXPECTED_SIZE="10949552"
+            EXPECTED_SHA256="cad269fc9fb56c43bb9e03277261ebdeeb0a3345539b5e799adf2222441dde81"
+            EXECUTABLE="cn"
+            ;;
+          Windows/X64)
+            ASSET_ID="01KVDB8VNES8V1M6PQJEN5D2MQ"
+            EXPECTED_SIZE="5623160"
+            EXPECTED_SHA256="30d5dfc5fdf64a8364fe1b847d39341c453844f16a8bced586488ba454b6c840"
+            EXECUTABLE="cn.exe"
+            ;;
+          *)
+            echo "::error::Unsupported CrabNebula CLI runner: $RUNNER_OPERATING_SYSTEM/$RUNNER_ARCHITECTURE"
+            exit 1
+            ;;
+        esac
+
+        INSTALL_DIR="$RUNNER_TEMP/anarlog-cn-cli-0.13.2-$ASSET_ID"
+        CLI_PATH="$INSTALL_DIR/$EXECUTABLE"
+        mkdir -p "$INSTALL_DIR"
+
+        verify_binary() {
+          local file="$1"
+          local metadata
+          metadata=$(node -e '
+            const crypto = require("node:crypto");
+            const fs = require("node:fs");
+            const file = process.argv[1];
+            const bytes = fs.readFileSync(file);
+            process.stdout.write(`${bytes.length} ${crypto.createHash("sha256").update(bytes).digest("hex")}`);
+          ' "$file")
+          [[ "$metadata" == "$EXPECTED_SIZE $EXPECTED_SHA256" ]]
+        }
+
+        if [[ ! -f "$CLI_PATH" ]] || ! verify_binary "$CLI_PATH"; then
+          DOWNLOAD_PATH="$CLI_PATH.download"
+          curl \
+            --fail \
+            --location \
+            --proto "=https" \
+            --proto-redir "=https" \
+            --show-error \
+            --silent \
+            --tlsv1.2 \
+            "https://cdn.crabnebula.app/asset/$ASSET_ID" \
+            --output "$DOWNLOAD_PATH"
+          if ! verify_binary "$DOWNLOAD_PATH"; then
+            echo "::error::CrabNebula CLI size or SHA-256 did not match the project pin"
+            exit 1
+          fi
+          mv -f "$DOWNLOAD_PATH" "$CLI_PATH"
+        fi
+
+        chmod +x "$CLI_PATH"
+        ACTUAL_VERSION=$("$CLI_PATH" --version | tr -d '\r')
+        if [[ "$ACTUAL_VERSION" != "cn 0.13.2" ]]; then
+          echo "::error::Expected CrabNebula CLI cn 0.13.2, got $ACTUAL_VERSION"
+          exit 1
+        fi
+
+        echo "path=$CLI_PATH" >> "$GITHUB_OUTPUT"
+        echo "version=$ACTUAL_VERSION" >> "$GITHUB_OUTPUT"
+        echo "asset-id=$ASSET_ID" >> "$GITHUB_OUTPUT"
+        echo "sha256=$EXPECTED_SHA256" >> "$GITHUB_OUTPUT"

@@ -1,3 +1,6 @@
+name: Download CrabNebula release asset
+description: Resolve and download one exact public-platform release asset
+
 inputs:
   app:
     description: "Fully qualified application slug (e.g., fastrepl/hyprnote2)"
@@ -22,30 +25,50 @@ outputs:
   success:
     description: "Whether the download succeeded"
     value: ${{ steps.download.outputs.success }}
+  asset_id:
+    description: "Exact downloaded CrabNebula asset ID"
+    value: ${{ steps.download.outputs.asset_id }}
+  cli-version:
+    description: "Verified CrabNebula CLI version"
+    value: ${{ steps.get-assets.outputs.cli-version }}
+  cli-asset-id:
+    description: "Immutable CrabNebula CLI asset ID"
+    value: ${{ steps.get-assets.outputs.cli-asset-id }}
+  cli-sha256:
+    description: "Verified CrabNebula CLI SHA-256"
+    value: ${{ steps.get-assets.outputs.cli-sha256 }}
 
 runs:
   using: "composite"
   steps:
     - id: get-assets
-      uses: crabnebula-dev/cloud-release@1a8803698ba41de6b23e42abc5dcc3721308233c # v0.2.6
+      uses: ./.github/actions/cn_release
       with:
-        command: release show ${{ inputs.app }} ${{ inputs.version }} --channel ${{ inputs.channel }}
-        api-key: ${{ inputs.key }}
+        raw: >-
+          release show ${{ inputs.app }} ${{ inputs.version }}
+          --channel ${{ inputs.channel }}
+        key: ${{ inputs.key }}
     - id: download
       shell: bash
       env:
-        ASSETS: ${{ steps.get-assets.outputs.stdout }}
+        ASSETS: ${{ steps.get-assets.outputs.raw }}
         PLATFORM: ${{ inputs.platform }}
         OUTPUT: ${{ inputs.output }}
       run: |
-        ASSET_ID=$(echo "$ASSETS" | jq -r --arg platform "$PLATFORM" '.assets[] | select(.publicPlatform == $platform) | .id')
-        if [[ -z "$ASSET_ID" || "$ASSET_ID" == "null" ]]; then
-          echo "::error::Asset not found for platform $PLATFORM"
+        ASSET=$(echo "$ASSETS" | jq -cer \
+          --arg platform "$PLATFORM" \
+          '[.assets[] | select(.publicPlatform == $platform and ((.size // 0) | tonumber) > 0)] | if length == 1 then .[0] else error("expected exactly one nonempty asset for " + $platform) end')
+        ASSET_ID=$(echo "$ASSET" | jq -r '.id')
+        if [[ ! "$ASSET_ID" =~ ^[A-Za-z0-9_-]+$ ]]; then
+          echo "::error::Invalid asset ID for platform $PLATFORM"
           echo "success=false" >> $GITHUB_OUTPUT
           exit 1
         fi
         echo "Downloading asset $ASSET_ID to $OUTPUT"
         curl --fail --show-error --location \
+          --proto "=https" \
+          --proto-redir "=https" \
           "https://cdn.crabnebula.app/asset/$ASSET_ID" \
           --output "$OUTPUT"
         echo "success=true" >> $GITHUB_OUTPUT
+        echo "asset_id=$ASSET_ID" >> $GITHUB_OUTPUT
