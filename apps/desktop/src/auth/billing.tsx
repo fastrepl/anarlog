@@ -235,7 +235,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   ]);
 
   useEffect(() => {
-    if (auth?.session && !isReady) {
+    if (auth.session === undefined || (auth.session !== null && !isReady)) {
       return;
     }
 
@@ -254,7 +254,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       current_stt_model: repair.model,
     });
   }, [
-    auth?.session?.user.id,
+    auth.session,
     billing.isPaid,
     currentSttModel,
     currentSttProvider,
