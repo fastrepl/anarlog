@@ -10,6 +10,9 @@ description = ""
 [build-dependencies]
 tauri-plugin = { workspace = true, features = ["build"] }
 
+[target.'cfg(target_os = "macos")'.build-dependencies]
+swift-rs = { workspace = true, features = ["build"] }
+
 [dev-dependencies]
 dirs = { workspace = true }
 reqwest = { workspace = true, features = ["json", "stream"] }
@@ -31,5 +34,9 @@ tracing = { workspace = true }
 
 dirs = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 specta = { workspace = true }
 tokio = { workspace = true, features = ["rt", "macros"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+swift-rs = { workspace = true }

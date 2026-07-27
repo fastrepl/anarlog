@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-foundation-model-generate"
+description = "Enables the foundation_model_generate command without any pre-configured scope."
+commands.allow = ["foundation_model_generate"]
+
+[[permission]]
+identifier = "deny-foundation-model-generate"
+description = "Denies the foundation_model_generate command without any pre-configured scope."
+commands.deny = ["foundation_model_generate"]

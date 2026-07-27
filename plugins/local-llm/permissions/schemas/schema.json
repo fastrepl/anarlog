@@ -331,6 +331,30 @@
           "markdownDescription": "Denies the download_model command without any pre-configured scope."
         },
         {
+          "description": "Enables the foundation_model_availability command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-foundation-model-availability",
+          "markdownDescription": "Enables the foundation_model_availability command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the foundation_model_availability command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-foundation-model-availability",
+          "markdownDescription": "Denies the foundation_model_availability command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the foundation_model_generate command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-foundation-model-generate",
+          "markdownDescription": "Enables the foundation_model_generate command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the foundation_model_generate command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-foundation-model-generate",
+          "markdownDescription": "Denies the foundation_model_generate command without any pre-configured scope."
+        },
+        {
           "description": "Enables the is_model_downloaded command without any pre-configured scope.",
           "type": "string",
           "const": "allow-is-model-downloaded",
@@ -415,10 +439,10 @@
           "markdownDescription": "Denies the server_url command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-models-dir`\n- `allow-is-model-downloading`\n- `allow-is-model-downloaded`\n- `allow-download-model`\n- `allow-cancel-download`\n- `allow-delete-model`\n- `allow-list-downloaded-model`\n- `allow-list-supported-model`\n- `allow-list-custom-models`\n- `allow-server-url`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-models-dir`\n- `allow-is-model-downloading`\n- `allow-is-model-downloaded`\n- `allow-download-model`\n- `allow-cancel-download`\n- `allow-delete-model`\n- `allow-list-downloaded-model`\n- `allow-list-supported-model`\n- `allow-list-custom-models`\n- `allow-server-url`\n- `allow-foundation-model-availability`\n- `allow-foundation-model-generate`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-models-dir`\n- `allow-is-model-downloading`\n- `allow-is-model-downloaded`\n- `allow-download-model`\n- `allow-cancel-download`\n- `allow-delete-model`\n- `allow-list-downloaded-model`\n- `allow-list-supported-model`\n- `allow-list-custom-models`\n- `allow-server-url`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-models-dir`\n- `allow-is-model-downloading`\n- `allow-is-model-downloaded`\n- `allow-download-model`\n- `allow-cancel-download`\n- `allow-delete-model`\n- `allow-list-downloaded-model`\n- `allow-list-supported-model`\n- `allow-list-custom-models`\n- `allow-server-url`\n- `allow-foundation-model-availability`\n- `allow-foundation-model-generate`"
         }
       ]
     }

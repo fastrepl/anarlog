@@ -14,6 +14,8 @@ Default permissions for the plugin
 - `allow-list-supported-model`
 - `allow-list-custom-models`
 - `allow-server-url`
+- `allow-foundation-model-availability`
+- `allow-foundation-model-generate`
 
 ## Permission Table
 
@@ -98,6 +100,58 @@ Enables the download_model command without any pre-configured scope.
 <td>
 
 Denies the download_model command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-llm:allow-foundation-model-availability`
+
+</td>
+<td>
+
+Enables the foundation_model_availability command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-llm:deny-foundation-model-availability`
+
+</td>
+<td>
+
+Denies the foundation_model_availability command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-llm:allow-foundation-model-generate`
+
+</td>
+<td>
+
+Enables the foundation_model_generate command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-llm:deny-foundation-model-generate`
+
+</td>
+<td>
+
+Denies the foundation_model_generate command without any pre-configured scope.
 
 </td>
 </tr>

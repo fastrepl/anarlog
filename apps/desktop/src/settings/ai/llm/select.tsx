@@ -29,6 +29,7 @@ import {
   requiresEntitlement,
 } from "~/settings/ai/shared/eligibility";
 import { listAnthropicModels } from "~/settings/ai/shared/list-anthropic";
+import { listAppleFoundationModels } from "~/settings/ai/shared/list-apple-foundation";
 import { listAzureAIModels } from "~/settings/ai/shared/list-azure-ai";
 import { listAzureOpenAIModels } from "~/settings/ai/shared/list-azure-openai";
 import { listCloudflareWorkersAIModels } from "~/settings/ai/shared/list-cloudflare-workers-ai";
@@ -499,6 +500,9 @@ export function getLlmProviderStatus({
       break;
     case "ollama":
       listModelsFunc = () => listOllamaModels(baseUrl, apiKey);
+      break;
+    case "apple_foundation":
+      listModelsFunc = listAppleFoundationModels;
       break;
     case "lmstudio":
       listModelsFunc = () => listLMStudioModels(baseUrl, apiKey);

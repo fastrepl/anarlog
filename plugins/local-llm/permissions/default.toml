@@ -11,4 +11,6 @@ permissions = [
     "allow-list-supported-model",
     "allow-list-custom-models",
     "allow-server-url",
+    "allow-foundation-model-availability",
+    "allow-foundation-model-generate",
 ]

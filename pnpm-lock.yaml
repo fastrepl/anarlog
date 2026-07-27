@@ -135,6 +135,9 @@ importers:
       '@hypr/plugin-importer':
         specifier: workspace:*
         version: link:../../plugins/importer
+      '@hypr/plugin-local-llm':
+        specifier: workspace:*
+        version: link:../../plugins/local-llm
       '@hypr/plugin-local-stt':
         specifier: workspace:*
         version: link:../../plugins/local-stt

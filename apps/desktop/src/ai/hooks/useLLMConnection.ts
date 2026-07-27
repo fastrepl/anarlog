@@ -11,6 +11,7 @@ import { useMemo, useRef } from "react";
 import type { CharTask } from "@hypr/api-client";
 import type { AIProviderStorage } from "@hypr/store";
 
+import { createAppleFoundationModel } from "../apple-foundation-model";
 import { createAuthFetch } from "../auth-fetch";
 import { createTracedFetch, tracedFetch } from "../traced-fetch";
 
@@ -321,6 +322,9 @@ const createLanguageModel = (
       });
       return wrapWithThinkingMiddleware(provider.chatModel(conn.modelId));
     }
+
+    case "apple_foundation":
+      return createAppleFoundationModel(conn.modelId);
 
     default: {
       const config: Parameters<typeof createOpenAICompatible>[0] = {

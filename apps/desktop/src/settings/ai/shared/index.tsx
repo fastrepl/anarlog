@@ -56,6 +56,7 @@ type ProviderConfig = {
   disabled?: boolean;
   requirements: ProviderRequirement[];
   checkAvailability?: (baseUrl: string, apiKey: string) => Promise<boolean>;
+  hideAdvanced?: boolean;
   links?: {
     download?: { label: string; url: string };
     models?: { label: string; url: string };
@@ -347,32 +348,35 @@ export function NonHyprProviderCard({
               )}
             </div>
           )}
-          {((!showBaseUrl && config.baseUrl) || !showApiKey) && (
-            <details className="flex flex-col gap-4 pt-2">
-              <summary className="text-muted-foreground hover:text-foreground cursor-pointer text-xs hover:underline">
-                <Trans>Advanced</Trans>
-              </summary>
-              <div className="mt-4 flex flex-col gap-4">
-                {!showBaseUrl && config.baseUrl && (
-                  <form.Field name="base_url">
-                    {(field) => <FormField field={field} label={t`Base URL`} />}
-                  </form.Field>
-                )}
-                {!showApiKey && (
-                  <form.Field name="api_key">
-                    {(field) => (
-                      <FormField
-                        field={field}
-                        label={t`API Key`}
-                        placeholder={t`Enter your API key (optional)`}
-                        type="password"
-                      />
-                    )}
-                  </form.Field>
-                )}
-              </div>
-            </details>
-          )}
+          {!config.hideAdvanced &&
+            ((!showBaseUrl && config.baseUrl) || !showApiKey) && (
+              <details className="flex flex-col gap-4 pt-2">
+                <summary className="text-muted-foreground hover:text-foreground cursor-pointer text-xs hover:underline">
+                  <Trans>Advanced</Trans>
+                </summary>
+                <div className="mt-4 flex flex-col gap-4">
+                  {!showBaseUrl && config.baseUrl && (
+                    <form.Field name="base_url">
+                      {(field) => (
+                        <FormField field={field} label={t`Base URL`} />
+                      )}
+                    </form.Field>
+                  )}
+                  {!showApiKey && (
+                    <form.Field name="api_key">
+                      {(field) => (
+                        <FormField
+                          field={field}
+                          label={t`API Key`}
+                          placeholder={t`Enter your API key (optional)`}
+                          type="password"
+                        />
+                      )}
+                    </form.Field>
+                  )}
+                </div>
+              </details>
+            )}
           {providerMutation.error &&
             !isKeychainAccessError(providerMutation.error) && (
               <p className="text-destructive text-xs">

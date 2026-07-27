@@ -1,6 +1,7 @@
 import { Icon } from "@iconify-icon/react";
 import {
   Anthropic,
+  Apple,
   Azure,
   AzureAI,
   LmStudio,
@@ -14,6 +15,7 @@ import type { ReactNode } from "react";
 import { env } from "~/env";
 import { AnarlogProviderIcon } from "~/settings/ai/shared";
 import { type ProviderRequirement } from "~/settings/ai/shared/eligibility";
+import { checkAppleFoundationModelAvailability } from "~/settings/ai/shared/list-apple-foundation";
 import {
   checkLMStudioAvailability,
   checkOllamaAvailability,
@@ -28,6 +30,7 @@ export type Provider = {
   baseUrl?: string;
   requirements: ProviderRequirement[];
   checkAvailability?: (baseUrl: string, apiKey: string) => Promise<boolean>;
+  hideAdvanced?: boolean;
   links?: {
     download?: { label: string; url: string };
     models?: { label: string; url: string };
@@ -46,6 +49,16 @@ const _PROVIDERS = [
       { kind: "requires_auth" },
       { kind: "requires_entitlement", entitlement: "pro" },
     ],
+  },
+  {
+    id: "apple_foundation",
+    displayName: "Apple Intelligence",
+    badge: "Experimental",
+    icon: <Apple size={16} />,
+    baseUrl: undefined,
+    requirements: [],
+    checkAvailability: checkAppleFoundationModelAvailability,
+    hideAdvanced: true,
   },
   {
     id: "lmstudio",

@@ -10,10 +10,14 @@ use hypr_model_downloader::ModelDownloadManager;
 mod commands;
 mod error;
 mod ext;
+mod foundation_models;
 mod migrate;
 
 pub use error::*;
 pub use ext::*;
+pub use foundation_models::{
+    FoundationModelAvailability, FoundationModelRequest, FoundationModelResponse,
+};
 pub use hypr_local_llm_core::{
     CustomModelInfo, ModelIdentifier, ModelInfo, SUPPORTED_MODELS, SupportedModel,
 };
@@ -42,6 +46,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::list_downloaded_model::<Wry>,
             commands::list_custom_models::<Wry>,
             commands::server_url::<Wry>,
+            commands::foundation_model_availability,
+            commands::foundation_model_generate,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

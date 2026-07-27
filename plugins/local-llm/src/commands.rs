@@ -104,3 +104,17 @@ pub async fn server_url<R: tauri::Runtime>(
         .await
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+#[specta::specta]
+pub async fn foundation_model_availability() -> Result<crate::FoundationModelAvailability, String> {
+    crate::foundation_models::availability()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn foundation_model_generate(
+    request: crate::FoundationModelRequest,
+) -> Result<crate::FoundationModelResponse, String> {
+    crate::foundation_models::generate(request).await
+}
