@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { commands } from "~/types/tauri.gen";
 
 const mocks = vi.hoisted(() => ({
+  runtimePlatform: null as "windows" | "linux" | null,
   currentTab: {
     active: true,
     pinned: false,
@@ -57,6 +58,16 @@ const mocks = vi.hoisted(() => ({
     | ((
         status: null | { itemKey: string; label: string; title: string },
       ) => void),
+}));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  platform: () => {
+    if (mocks.runtimePlatform === null) {
+      throw new Error("Tauri runtime unavailable");
+    }
+
+    return mocks.runtimePlatform;
+  },
 }));
 
 vi.mock("@hypr/ui/components/ui/resizable", () => ({
@@ -259,6 +270,7 @@ function rectWithWidth(width: number) {
 describe("ClassicMainBody", () => {
   beforeEach(() => {
     cleanup();
+    mocks.runtimePlatform = null;
     Object.defineProperty(window, "innerWidth", {
       configurable: true,
       value: 1600,
@@ -423,6 +435,43 @@ describe("ClassicMainBody", () => {
       "12.5%",
     );
   });
+
+  it.each([
+    ["windows", "settings", { state: { tab: "app" } }],
+    ["windows", "calendar", {}],
+    ["windows", "contacts", { state: { selected: null } }],
+    [
+      "windows",
+      "templates",
+      { state: { selectedMineId: null, selectedWebIndex: null } },
+    ],
+    ["linux", "settings", { state: { tab: "app" } }],
+    ["linux", "calendar", {}],
+    ["linux", "contacts", { state: { selected: null } }],
+    [
+      "linux",
+      "templates",
+      { state: { selectedMineId: null, selectedWebIndex: null } },
+    ],
+  ] as const)(
+    "uses compact %s spacing for the %s back button",
+    (runtimePlatform, type, extraTabState) => {
+      mocks.runtimePlatform = runtimePlatform;
+      mocks.currentTab = {
+        active: true,
+        pinned: false,
+        slotId: `slot-${type}`,
+        type,
+        ...extraTabState,
+      };
+
+      render(<ClassicMainBody />);
+
+      const backButton = screen.getByRole("button", { name: "Go back" });
+      expect(backButton.parentElement?.className).toContain("pl-2");
+      expect(backButton.parentElement?.className).not.toContain("pl-[76px]");
+    },
+  );
 
   it("settles the startup left sidebar default against the rendered body width", async () => {
     let bodyWidth = 1000;
