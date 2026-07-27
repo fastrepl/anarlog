@@ -734,7 +734,7 @@ jobs:
           fi
 
   cn-publish:
-    if: ${{ inputs.channel != 'staging' && inputs.publish }}
+    if: ${{ inputs.channel != 'staging' && inputs.publish && !cancelled() && needs.verify-cn-release.result == 'success' && needs.create-tag.result == 'success' }}
     needs: [compute-version, verify-cn-release, create-tag]
     runs-on: ubuntu-latest
     steps:
