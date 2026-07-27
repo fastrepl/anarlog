@@ -2020,8 +2020,15 @@ mod tests {
         .execute(db.pool())
         .await
         .unwrap();
-        db.cloudsync_init("sessions", None, None).await.unwrap();
-        let held_connection = db.pool().acquire().await.unwrap();
+        db.cloudsync_init_enabled_tables(&[CloudsyncTableSpec {
+            table_name: "sessions".to_string(),
+            crdt_algo: None,
+            init_flags: None,
+            enabled: true,
+        }])
+        .await
+        .unwrap();
+        let mut held_connection = db.pool().acquire().await.unwrap();
 
         let started_at = std::time::Instant::now();
         let error = tokio::time::timeout(Duration::from_millis(1_500), db.cloudsync_suspend())
@@ -2031,7 +2038,7 @@ mod tests {
         assert!(matches!(error, CloudsyncRuntimeError::LocalStatusBusy));
         assert!(started_at.elapsed() < Duration::from_millis(1_500));
 
-        drop(held_connection);
+        held_connection.return_to_pool().await;
         tokio::time::timeout(
             Duration::from_millis(1_500),
             sqlx::query("INSERT INTO sessions (id, title) VALUES ('after-timeout', 'Note')")
@@ -2083,7 +2090,7 @@ mod tests {
         .execute(db.pool())
         .await
         .unwrap();
-        let held_connection = db.pool().acquire().await.unwrap();
+        let mut held_connection = db.pool().acquire().await.unwrap();
 
         let error = tokio::time::timeout(Duration::from_millis(1_500), db.cloudsync_suspend())
             .await
@@ -2091,7 +2098,7 @@ mod tests {
             .unwrap_err();
         assert!(matches!(error, CloudsyncRuntimeError::LocalStatusBusy));
 
-        drop(held_connection);
+        held_connection.return_to_pool().await;
         db.cloudsync_suspend().await.unwrap();
         tokio::time::timeout(
             Duration::from_millis(250),

@@ -178,7 +178,7 @@ jobs:
       - run: cargo check --locked -p desktop
       - run: cargo test --locked -p desktop --no-run
       - run: cargo test --locked -p cloudsync
-      - run: "cargo test --locked -p db-core 'cloudsync::'"
+      - run: "cargo test --locked -p db-core 'cloudsync::' -- --test-threads=1"
       - if: github.event_name == 'workflow_dispatch'
         uses: ./.github/actions/pnpm_install
       - if: github.event_name == 'workflow_dispatch'
