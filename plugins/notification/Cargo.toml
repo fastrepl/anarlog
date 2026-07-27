@@ -37,3 +37,6 @@ tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 apalis = { workspace = true }
 apalis-cron = { workspace = true }
 chrono = { workspace = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+notify-rust = { workspace = true }

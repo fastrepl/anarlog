@@ -192,6 +192,7 @@ legacy-db-user = { path = "legacy/db-user", package = "db-user" }
 posthog-rs = "0.5"
 progenitor-client = "0.13"
 
+notify-rust = "=4.11.7"
 openai-transcription = { path = "crates/openai-transcription", package = "openai-transcription" }
 owhisper-client = { path = "crates/owhisper-client", package = "owhisper-client" }
 owhisper-config = { path = "crates/owhisper-config", package = "owhisper-config" }

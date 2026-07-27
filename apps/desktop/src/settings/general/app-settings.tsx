@@ -55,7 +55,9 @@ export function AppSettingsView({
   audioRetention,
   microphoneDevice,
 }: AppSettingsViewProps) {
-  const isMacos = platform() === "macos";
+  const currentPlatform = platform();
+  const isMacos = currentPlatform === "macos";
+  const supportsMicDetection = currentPlatform !== "windows";
 
   return (
     <div className="flex flex-col gap-8">
@@ -131,17 +133,19 @@ export function AppSettingsView({
             onChange={autoJoinScheduledMeetings.onChange}
             disabled={!autoStartScheduledMeetings.value}
           />
-          <SettingRow
-            title={<Trans>Stop when meeting ends</Trans>}
-            description={
-              <Trans>
-                Automatically stop listening when the meeting app releases the
-                microphone.
-              </Trans>
-            }
-            checked={autoStopMeetings.value}
-            onChange={autoStopMeetings.onChange}
-          />
+          {supportsMicDetection && (
+            <SettingRow
+              title={<Trans>Stop when meeting ends</Trans>}
+              description={
+                <Trans>
+                  Automatically stop listening when the meeting app releases the
+                  microphone.
+                </Trans>
+              }
+              checked={autoStopMeetings.value}
+              onChange={autoStopMeetings.onChange}
+            />
+          )}
           {isMacos && (
             <>
               <SettingRow

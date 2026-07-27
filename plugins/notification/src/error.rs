@@ -1,7 +1,11 @@
 use serde::{Serialize, ser::Serializer};
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error {}
+pub enum Error {
+    #[cfg(target_os = "windows")]
+    #[error("failed to show Windows notification: {0}")]
+    WindowsNotification(#[from] notify_rust::error::Error),
+}
 
 impl Serialize for Error {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>

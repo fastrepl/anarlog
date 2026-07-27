@@ -87,6 +87,7 @@ describe("AppSettingsView", () => {
     ).toBeNull();
     expect(screen.queryByText("Capture meeting chat in Memos")).toBeNull();
     expect(screen.queryByText("Show floating bar")).toBeNull();
+    expect(screen.queryByText("Stop when meeting ends")).toBeNull();
     expect(screen.getByRole("switch", { name: "Show tray icon" })).toBeTruthy();
   });
 

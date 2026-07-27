@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   clearNotifications: vi.fn(),
+  currentPlatform: "macos",
   setSettingValues: vi.fn(),
   useConfigValues: vi.fn(),
   useQuery: vi.fn(),
@@ -19,6 +20,10 @@ vi.mock("@lingui/react/macro", () => ({
 
 vi.mock("@tanstack/react-query", () => ({
   useQuery: mocks.useQuery,
+}));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  platform: () => mocks.currentPlatform,
 }));
 
 vi.mock("@hypr/plugin-detect", () => ({
@@ -56,6 +61,7 @@ const baseConfig = {
 describe("NotificationSettingsView", () => {
   beforeEach(() => {
     mocks.clearNotifications.mockReset();
+    mocks.currentPlatform = "macos";
     mocks.setSettingValues.mockReset();
     mocks.useConfigValues.mockReset();
     mocks.useConfigValues.mockReturnValue(baseConfig);
@@ -87,5 +93,15 @@ describe("NotificationSettingsView", () => {
     await waitFor(() =>
       expect(screen.getByText("Ting Aqua Bridge")).toBeTruthy(),
     );
+  });
+
+  it("hides unsupported microphone detection and DND controls on Windows", () => {
+    mocks.currentPlatform = "windows";
+
+    render(<NotificationSettingsView />);
+
+    expect(screen.getByText("Event notifications")).toBeTruthy();
+    expect(screen.queryByText("Microphone detection")).toBeNull();
+    expect(screen.queryByText("Respect Do-Not-Disturb mode")).toBeNull();
   });
 });
