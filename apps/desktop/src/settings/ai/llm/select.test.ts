@@ -46,4 +46,24 @@ describe("getLlmProviderStatus", () => {
     expect(status.configured).toBe(true);
     expect(status.listModels).toBeTypeOf("function");
   });
+
+  test("only configures Apple Foundation Models when available", () => {
+    const unavailable = getLlmProviderStatus({
+      provider: provider("apple_foundation"),
+      isAuthenticated: false,
+      isPaid: false,
+      isAvailable: false,
+    });
+    const available = getLlmProviderStatus({
+      provider: provider("apple_foundation"),
+      isAuthenticated: false,
+      isPaid: false,
+      isAvailable: true,
+    });
+
+    expect(unavailable.configured).toBe(false);
+    expect(unavailable.listModels).toBeUndefined();
+    expect(available.configured).toBe(true);
+    expect(available.listModels).toBeTypeOf("function");
+  });
 });

@@ -119,7 +119,7 @@ export function providerRowId(providerType: ProviderType, providerId: string) {
   return `${providerType}:${providerId}`;
 }
 
-function useIsProviderReady(
+export function useIsProviderReady(
   providerId: string,
   providerType: ProviderType,
   providers: readonly ProviderConfig[],

@@ -23,7 +23,11 @@ import { type Provider, PROVIDERS } from "./shared";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
-import { providerRowId, ProviderIconSlot } from "~/settings/ai/shared";
+import {
+  providerRowId,
+  ProviderIconSlot,
+  useIsProviderReady,
+} from "~/settings/ai/shared";
 import {
   getProviderSelectionBlockers,
   requiresEntitlement,
@@ -438,11 +442,13 @@ export function getLlmProviderStatus({
   config,
   isAuthenticated,
   isPaid,
+  isAvailable,
 }: {
   provider: Provider;
   config?: ProviderConfig;
   isAuthenticated: boolean;
   isPaid: boolean;
+  isAvailable?: boolean;
 }): ProviderStatus {
   const baseUrl = String(config?.base_url || provider.baseUrl || "").trim();
   const apiKey = String(config?.api_key || "").trim();
@@ -455,6 +461,10 @@ export function getLlmProviderStatus({
     }).length === 0;
 
   if (!eligible) {
+    return { configured: false };
+  }
+
+  if (provider.id === "apple_foundation" && isAvailable !== true) {
     return { configured: false };
   }
 
@@ -526,6 +536,11 @@ function useConfiguredMapping(): {
 } {
   const auth = useAuth();
   const billing = useBillingAccess();
+  const appleFoundationAvailable = useIsProviderReady(
+    "apple_foundation",
+    "llm",
+    PROVIDERS,
+  );
   const { providers: configuredProviders, isReady } =
     useAiProvidersState("llm");
 
@@ -540,11 +555,15 @@ function useConfiguredMapping(): {
             config,
             isAuthenticated: !!auth?.session,
             isPaid: billing.isPaid,
+            isAvailable:
+              provider.id === "apple_foundation"
+                ? appleFoundationAvailable
+                : undefined,
           }),
         ];
       }),
     ) as Record<string, ProviderStatus>;
-  }, [configuredProviders, auth, billing]);
+  }, [configuredProviders, auth, billing, appleFoundationAvailable]);
 
   return { providers: mapping, isReady };
 }
