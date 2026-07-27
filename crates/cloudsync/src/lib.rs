@@ -124,7 +124,7 @@ mod tests {
         pool.close().await;
     }
 
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     #[tokio::test]
     async fn native_http_request_deadline_is_enforced() {
         const CHILD_ENV: &str = "ANARLOG_CLOUDSYNC_TIMEOUT_TEST_CHILD";
