@@ -660,7 +660,7 @@ pub(crate) async fn interruptible_cleanup(
 async fn rollback_cleanup_savepoint(
     connection: &mut SqliteConnection,
 ) -> Result<(), hypr_cloudsync::Error> {
-    sqlx::query("ROLLBACK TO cloudsync_cleanup; RELEASE cloudsync_cleanup")
+    sqlx::raw_sql("ROLLBACK TO cloudsync_cleanup; RELEASE cloudsync_cleanup")
         .execute(connection)
         .await?;
     Ok(())
