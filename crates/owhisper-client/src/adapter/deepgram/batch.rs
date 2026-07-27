@@ -280,6 +280,30 @@ mod tests {
         assert!(!query.contains("language=multi"));
     }
 
+    #[test]
+    fn batch_url_prefers_detect_language_over_multi_capable_pair() {
+        let params = ListenParams {
+            model: Some("nova-3".to_string()),
+            languages: vec![
+                hypr_language::ISO639::En.into(),
+                hypr_language::ISO639::De.into(),
+            ],
+            ..Default::default()
+        };
+
+        let url = build_batch_url(
+            "https://api.deepgram.com/v1",
+            &params,
+            &DeepgramLanguageStrategy,
+            &DeepgramKeywordStrategy,
+        );
+
+        let query = url.query().unwrap_or_default();
+        assert!(query.contains("detect_language=en"));
+        assert!(query.contains("detect_language=de"));
+        assert!(!query.contains("language=multi"));
+    }
+
     #[tokio::test]
     #[ignore]
     async fn test_deepgram_batch_transcription() {

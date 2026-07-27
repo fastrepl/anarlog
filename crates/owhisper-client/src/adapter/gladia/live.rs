@@ -111,7 +111,7 @@ impl RealtimeSttAdapter for GladiaAdapter {
                 None
             } else {
                 Some(LanguageConfig {
-                    code_switching: languages.len() > 1,
+                    code_switching: false,
                     languages,
                 })
             };
@@ -300,6 +300,10 @@ struct GladiaConfig<'a> {
     realtime_processing: Option<RealtimeProcessing>,
 }
 
+// `languages` is a candidate set Gladia detects within; `code_switching` additionally lets it
+// switch language mid-audio. Configured languages describe the user, not one meeting, so leave
+// switching off — otherwise a monolingual German meeting is decoded by the code-switching path
+// and loses accuracy against detecting German once and locking to it.
 #[derive(Serialize, Debug, PartialEq)]
 struct LanguageConfig {
     languages: Vec<String>,
@@ -319,7 +323,7 @@ impl GladiaAdapter {
             None
         } else {
             Some(LanguageConfig {
-                code_switching: languages.len() > 1,
+                code_switching: false,
                 languages,
             })
         }
@@ -578,8 +582,8 @@ mod tests {
 
         assert_eq!(config.languages, vec!["en", "es"]);
         assert!(
-            config.code_switching,
-            "Multi language should have code_switching=true"
+            !config.code_switching,
+            "Multi language should detect within the candidates, not code-switch"
         );
     }
 
@@ -598,8 +602,8 @@ mod tests {
 
         assert_eq!(config.languages, vec!["en", "ko", "ja"]);
         assert!(
-            config.code_switching,
-            "Three languages should have code_switching=true"
+            !config.code_switching,
+            "Three languages should detect within the candidates, not code-switch"
         );
     }
 
@@ -619,11 +623,11 @@ mod tests {
     fn test_build_language_config_serialization() {
         let config = LanguageConfig {
             languages: vec!["en".to_string(), "fr".to_string()],
-            code_switching: true,
+            code_switching: false,
         };
 
         let json = serde_json::to_string(&config).unwrap();
-        assert!(json.contains("\"code_switching\":true"));
+        assert!(json.contains("\"code_switching\":false"));
         assert!(json.contains("\"languages\":[\"en\",\"fr\"]"));
     }
 

@@ -57,10 +57,14 @@ impl LanguageQueryStrategy for DeepgramLanguageStrategy {
                 }
             }
             _ => {
-                if can_use_multi(model, &params.languages) {
-                    query_pairs.append_pair("language", "multi");
-                } else if mode == TranscriptionMode::Batch {
+                // Configured languages are the ones the user speaks, not the ones spoken in
+                // any single meeting. Most meetings are monolingual, so prefer detection over
+                // code-switching: `multi` decodes the whole file with a code-switching model
+                // and loses accuracy against the language-locked one.
+                if mode == TranscriptionMode::Batch {
                     append_detect_language_query(query_pairs, &params.languages);
+                } else if can_use_multi(model, &params.languages) {
+                    query_pairs.append_pair("language", "multi");
                 } else if let Some(language) = params.languages.first() {
                     let code = single_language_query_code(params, language);
                     query_pairs.append_pair("language", &code);

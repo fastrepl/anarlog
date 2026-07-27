@@ -221,7 +221,7 @@ impl GladiaAdapter {
 
         let language_config = (!languages.is_empty()).then(|| LanguageConfig {
             languages,
-            code_switching: (params.languages.len() > 1).then_some(true),
+            code_switching: Some(false),
         });
 
         let custom_vocabulary = (!params.keywords.is_empty()).then(|| params.keywords.clone());
