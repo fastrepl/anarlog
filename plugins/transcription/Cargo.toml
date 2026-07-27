@@ -18,6 +18,7 @@ hypr-audio = { workspace = true }
 hypr-language = { workspace = true }
 hypr-storage = { workspace = true }
 hypr-transcribe-soniqo = { workspace = true }
+hypr-transcribe-speechanalyzer = { workspace = true }
 hypr-transcript = { workspace = true }
 hypr-transcription-core = { workspace = true, features = ["specta", "tauri-event"] }
 

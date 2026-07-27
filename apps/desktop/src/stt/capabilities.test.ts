@@ -24,6 +24,7 @@ import {
   isDesktopLocalSttAvailable,
   isSupportedLanguagesBatch,
   isSupportedLanguagesLive,
+  isRealtimeLocalModel,
   isSupportedLocalSttModel,
 } from "./capabilities";
 
@@ -89,6 +90,7 @@ describe("getSttModelTranscriptionMode", () => {
 describe("isSupportedLocalSttModel", () => {
   test("accepts shipped local STT model families", () => {
     expect(isSupportedLocalSttModel("soniqo-parakeet-streaming")).toBe(true);
+    expect(isSupportedLocalSttModel("apple-speech")).toBe(true);
     expect(isSupportedLocalSttModel("am-parakeet-v3")).toBe(true);
     expect(isSupportedLocalSttModel("QuantizedSmallEn")).toBe(true);
   });
@@ -97,6 +99,47 @@ describe("isSupportedLocalSttModel", () => {
     expect(isSupportedLocalSttModel("cloud")).toBe(false);
     expect(isSupportedLocalSttModel("Llama3p2_3bQ4")).toBe(false);
     expect(isSupportedLocalSttModel("removed-local-model")).toBe(false);
+  });
+});
+
+describe("getOnDeviceTranscriptionConfig", () => {
+  test("keeps languages Apple Speech supports but Parakeet does not", () => {
+    expect(getOnDeviceTranscriptionConfig("apple-speech", ["ko"])).toEqual({
+      languages: ["ko"],
+      transcriptionMode: "live",
+    });
+    expect(getOnDeviceTranscriptionConfig("apple-speech", ["ja"])).toEqual({
+      languages: ["ja"],
+      transcriptionMode: "live",
+    });
+  });
+
+  test("still drops languages Apple Speech cannot transcribe", () => {
+    expect(getOnDeviceTranscriptionConfig("apple-speech", ["hi"])).toEqual({
+      languages: [],
+      transcriptionMode: "live",
+    });
+  });
+
+  test("leaves the Parakeet language set untouched", () => {
+    expect(
+      getOnDeviceTranscriptionConfig("soniqo-parakeet-streaming", ["ko"]),
+    ).toEqual({ languages: [], transcriptionMode: "live" });
+    expect(
+      getOnDeviceTranscriptionConfig("soniqo-parakeet-streaming", ["de"]),
+    ).toEqual({ languages: ["de"], transcriptionMode: "live" });
+  });
+});
+
+describe("isRealtimeLocalModel", () => {
+  test("accepts the streaming-capable local models", () => {
+    expect(isRealtimeLocalModel("soniqo-parakeet-streaming")).toBe(true);
+    expect(isRealtimeLocalModel("apple-speech")).toBe(true);
+  });
+
+  test("rejects batch-only local models", () => {
+    expect(isRealtimeLocalModel("soniqo-parakeet-batch")).toBe(false);
+    expect(isRealtimeLocalModel("am-parakeet-v3")).toBe(false);
   });
 });
 

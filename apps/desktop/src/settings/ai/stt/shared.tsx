@@ -119,6 +119,10 @@ export const displayModelId = (model: string) => {
     return "Avalon V1";
   }
 
+  if (model === "apple-speech") {
+    return "Apple Speech";
+  }
+
   if (model === "parakeet-tdt-0.6b-v3") {
     return "Parakeet TDT 0.6B V3";
   }
@@ -133,6 +137,7 @@ export const displayModelId = (model: string) => {
 function isOnDeviceModelId(model: string) {
   return (
     model.startsWith("soniqo-") ||
+    model === "apple-speech" ||
     model.startsWith("am-") ||
     model.startsWith("Quantized")
   );

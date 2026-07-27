@@ -45,6 +45,7 @@ hypr-local-model = { workspace = true }
 hypr-local-stt-core = { workspace = true, features = ["specta"] }
 hypr-model-downloader = { workspace = true, features = ["specta"] }
 hypr-transcribe-soniqo = { workspace = true }
+hypr-transcribe-speechanalyzer = { workspace = true }
 hypr-transcribe-whisper-local = { workspace = true, optional = true }
 hypr-whisper-local = { workspace = true, optional = true }
 hypr-whisper-local-model = { workspace = true }

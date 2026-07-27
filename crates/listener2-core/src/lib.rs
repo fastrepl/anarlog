@@ -36,11 +36,26 @@ pub fn is_supported_languages_live(
         return Ok(model.supports_live_on_current_platform() && model.supports_languages(languages));
     }
 
+    if provider == "apple-speech" {
+        let model = model
+            .ok_or_else(|| "missing_model: apple-speech".to_string())?
+            .parse::<hypr_transcribe_speechanalyzer::AppleSpeechModel>()
+            .map_err(|e| e.to_string())?;
+
+        return Ok(model.supports_live_on_current_platform() && model.supports_languages(languages));
+    }
+
     if provider == "hyprnote"
         && let Some(model) = model
         && model != "cloud"
     {
         if let Ok(model) = model.parse::<hypr_transcribe_soniqo::SoniqoModel>() {
+            return Ok(
+                model.supports_live_on_current_platform() && model.supports_languages(languages)
+            );
+        }
+
+        if let Ok(model) = model.parse::<hypr_transcribe_speechanalyzer::AppleSpeechModel>() {
             return Ok(
                 model.supports_live_on_current_platform() && model.supports_languages(languages)
             );
@@ -75,10 +90,27 @@ pub fn is_supported_languages_batch(
         return Ok(model.supports_languages(languages));
     }
 
+    if provider == "apple-speech" {
+        let model = model
+            .ok_or_else(|| "missing_model: apple-speech".to_string())?
+            .parse::<hypr_transcribe_speechanalyzer::AppleSpeechModel>()
+            .map_err(|e| e.to_string())?;
+
+        return Ok(model.supports_languages(languages));
+    }
+
     if provider == "hyprnote" {
         if let Some(model) =
             model.and_then(|model| model.parse::<hypr_transcribe_soniqo::SoniqoModel>().ok())
         {
+            return Ok(model.supports_languages(languages));
+        }
+
+        if let Some(model) = model.and_then(|model| {
+            model
+                .parse::<hypr_transcribe_speechanalyzer::AppleSpeechModel>()
+                .ok()
+        }) {
             return Ok(model.supports_languages(languages));
         }
 
@@ -166,6 +198,32 @@ mod tests {
         let languages = vec!["fr".parse().unwrap()];
 
         assert!(is_supported_languages_batch("hyprnote", Some("cloud"), &languages).unwrap());
+    }
+
+    #[test]
+    fn apple_speech_language_support_reflects_installed_framework() {
+        // Drives the settings warning that names unsupported spoken languages.
+        let available = hypr_transcribe_speechanalyzer::availability()
+            .is_ok_and(|value| value.status == "available");
+        if !available {
+            return;
+        }
+
+        let korean = vec!["ko".parse().unwrap()];
+        let hindi = vec!["hi".parse().unwrap()];
+
+        assert!(
+            is_supported_languages_live("apple-speech", Some("apple-speech"), &korean).unwrap()
+        );
+        assert!(
+            !is_supported_languages_live("apple-speech", Some("apple-speech"), &hindi).unwrap()
+        );
+
+        // Local models are surfaced under the Anarlog provider in settings.
+        assert!(is_supported_languages_live("hyprnote", Some("apple-speech"), &korean).unwrap());
+        assert!(!is_supported_languages_live("hyprnote", Some("apple-speech"), &hindi).unwrap());
+        assert!(is_supported_languages_batch("hyprnote", Some("apple-speech"), &korean).unwrap());
+        assert!(!is_supported_languages_batch("hyprnote", Some("apple-speech"), &hindi).unwrap());
     }
 
     #[test]

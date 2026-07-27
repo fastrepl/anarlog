@@ -10707,6 +10707,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "transcribe-soniqo",
+ "transcribe-speechanalyzer",
  "transcript",
  "uuid",
  "vad-masking",
@@ -10743,6 +10744,7 @@ dependencies = [
  "tracing",
  "transcribe-core",
  "transcribe-soniqo",
+ "transcribe-speechanalyzer",
 ]
 
 [[package]]
@@ -10839,6 +10841,7 @@ dependencies = [
  "serde",
  "specta",
  "transcribe-soniqo",
+ "transcribe-speechanalyzer",
  "whisper-local-model",
 ]
 
@@ -12868,6 +12871,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "transcribe-soniqo",
+ "transcribe-speechanalyzer",
  "url",
  "ws-client",
 ]
@@ -18748,6 +18752,7 @@ dependencies = [
  "tower-http 0.6.8",
  "tracing",
  "transcribe-soniqo",
+ "transcribe-speechanalyzer",
  "transcribe-whisper-local",
  "whisper-local",
  "whisper-local-model",
@@ -19293,6 +19298,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "transcribe-soniqo",
+ "transcribe-speechanalyzer",
  "transcript",
  "transcription-core",
 ]
@@ -20598,6 +20604,20 @@ dependencies = [
 
 [[package]]
 name = "transcribe-soniqo"
+version = "0.1.0"
+dependencies = [
+ "language",
+ "owhisper-interface",
+ "serde",
+ "serde_json",
+ "specta",
+ "swift-rs 1.0.7 (git+https://github.com/yujonglee/swift-rs?rev=41a1605)",
+ "thiserror 2.0.18",
+ "tracing",
+]
+
+[[package]]
+name = "transcribe-speechanalyzer"
 version = "0.1.0"
 dependencies = [
  "language",

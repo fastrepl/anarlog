@@ -74,6 +74,7 @@ import { useConfigValues } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { SettingsAlertToast } from "~/shared/ui/settings-alert";
 import {
+  canAppleSpeechTranscribe,
   isConfiguredSttModel,
   getSttModelTranscriptionMode,
   isHyprnoteLocalSttModel,
@@ -370,10 +371,21 @@ function TranscriptionLanguageWarningToast() {
   const unsupportedLanguages = warning.unsupportedLanguages.map((language) =>
     getBaseLanguageDisplayName(language, i18n.locale),
   );
+  // Apple Speech is limited to languages added in System Settings, so a language it
+  // supports needs a different fix than one it cannot transcribe at all.
+  const needsSystemSettings =
+    warning.model === "apple-speech"
+      ? warning.unsupportedLanguages
+          .filter((language) => canAppleSpeechTranscribe(language))
+          .map((language) => getBaseLanguageDisplayName(language, i18n.locale))
+      : [];
+
   const description =
-    unsupportedLanguages.length > 0
-      ? t`${model} can't transcribe ${formatLanguageList(unsupportedLanguages)}. Try another model or change your spoken languages.`
-      : t`${model} can't transcribe all selected languages together. Try another model or use fewer spoken languages.`;
+    needsSystemSettings.length > 0
+      ? t`Add ${formatLanguageList(needsSystemSettings)} in System Settings > General > Language & Region to transcribe with ${model}, or choose another model.`
+      : unsupportedLanguages.length > 0
+        ? t`${model} can't transcribe ${formatLanguageList(unsupportedLanguages)}. Try another model or change your spoken languages.`
+        : t`${model} can't transcribe all selected languages together. Try another model or use fewer spoken languages.`;
 
   return (
     <TranscriptionLanguageWarningToastLifecycle
@@ -566,9 +578,19 @@ function useConfiguredMapping(): {
 
   const localModels = supportedModels.data ?? [];
   const soniqoModels = localModels.filter((m) => m.model_type === "soniqo");
+  // Listed only when the backend reports macOS 26 with Apple Speech available.
+  const appleSpeechModels = localModels.filter(
+    (m) => m.model_type === "appleSpeech",
+  );
 
   const soniqoDownloaded = useQueries({
     queries: [...soniqoModels.map((m) => sttModelQueries.isDownloaded(m.key))],
+  });
+
+  const appleSpeechDownloaded = useQueries({
+    queries: [
+      ...appleSpeechModels.map((m) => sttModelQueries.isDownloaded(m.key)),
+    ],
   });
 
   const providers = Object.fromEntries(
@@ -609,6 +631,17 @@ function useConfiguredMapping(): {
             });
           });
         }
+
+        appleSpeechModels.forEach((model, i) => {
+          models.push({
+            id: model.key,
+            isDownloaded: appleSpeechDownloaded[i]?.data ?? false,
+            displayName: model.display_name,
+            sizeBytes: model.size_bytes,
+            mode: "realtime",
+            category: "latest",
+          });
+        });
 
         return [provider.id, { configured: true, models }];
       }

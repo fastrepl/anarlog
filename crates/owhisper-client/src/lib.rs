@@ -5,6 +5,8 @@ mod error_detection;
 mod http_client;
 mod live;
 #[cfg(feature = "local")]
+mod local_apple_speech_live;
+#[cfg(feature = "local")]
 mod local_soniqo_live;
 pub(crate) mod polling;
 mod providers;
@@ -36,6 +38,11 @@ pub use hypr_ws_client;
 pub use live::{
     DualHandle, FinalizeHandle, ListenClient, ListenClientBuilder, ListenClientDual,
     ListenClientDualInput, ListenClientInput,
+};
+#[cfg(feature = "local")]
+pub use local_apple_speech_live::{
+    LocalAppleSpeechLiveClient, LocalAppleSpeechLiveError, LocalAppleSpeechLiveHandle,
+    LocalAppleSpeechLiveStream,
 };
 #[cfg(feature = "local")]
 pub use local_soniqo_live::{

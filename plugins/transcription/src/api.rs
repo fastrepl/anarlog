@@ -70,6 +70,22 @@ impl CaptureParams {
             return listener::TranscriptionMode::Batch;
         }
 
+        if let Some(model) =
+            hypr_transcribe_speechanalyzer::local_model_from_request(&self.base_url, &self.model)
+        {
+            return if model.supports_live_on_current_platform()
+                && model.supports_languages(&self.languages)
+            {
+                listener::TranscriptionMode::Live
+            } else {
+                listener::TranscriptionMode::Batch
+            };
+        }
+
+        if hypr_transcribe_speechanalyzer::is_local_base_url(&self.base_url) {
+            return listener::TranscriptionMode::Batch;
+        }
+
         let adapter_kind =
             AdapterKind::from_url_and_languages(&self.base_url, &self.languages, Some(&self.model));
 

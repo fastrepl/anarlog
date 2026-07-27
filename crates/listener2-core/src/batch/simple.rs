@@ -155,6 +155,109 @@ fn direct_batch_timeout_for_audio(audio_duration: Option<Duration>) -> Duration 
         .min(DIRECT_BATCH_TIMEOUT_CEILING)
 }
 
+pub(super) async fn run_apple_speech_batch(
+    runtime: Arc<dyn BatchRuntime>,
+    params: BatchParams,
+    listen_params: owhisper_interface::ListenParams,
+) -> crate::Result<BatchRunOutput> {
+    let span = session_span(&params.session_id);
+
+    async {
+        let locale = hypr_transcribe_speechanalyzer::resolve_session_locale(
+            &listen_params.languages,
+        )
+        .ok_or_else(|| crate::BatchFailure::DirectRequestFailed {
+            provider: "apple-speech".to_string(),
+            message:
+                "Add this language in System Settings > General > Language & Region to transcribe it with Apple Speech."
+                    .to_string(),
+        })?;
+        let file_path = params.file_path.clone();
+        let started_at = Instant::now();
+
+        tracing::info!(
+            hyprnote.stt.provider.name = "apple-speech",
+            hyprnote.stt.language = %locale,
+            "apple_speech_batch_start"
+        );
+
+        let session_id = params.session_id.clone();
+        let progress_runtime = runtime.clone();
+        let transcribed = tokio::task::spawn_blocking(move || {
+            let progress = SoniqoProgressReporter {
+                runtime: progress_runtime,
+                session_id,
+            };
+            transcribe_apple_speech_file(&file_path, &locale, Some(&progress))
+        })
+        .await
+        .map_err(|e| crate::BatchFailure::DirectRequestFailed {
+            provider: "apple-speech".to_string(),
+            message: format!("Apple Speech transcription task failed: {e}"),
+        })?
+        .map_err(|e| {
+            let message = format_user_friendly_error(&e);
+            tracing::error!(
+                hyprnote.stt.provider.name = "apple-speech",
+                error = %e,
+                hyprnote.error.user_message = %message,
+                "apple_speech_batch_failed"
+            );
+            crate::BatchFailure::DirectRequestFailed {
+                provider: "apple-speech".to_string(),
+                message,
+            }
+        })?;
+
+        tracing::info!(
+            hyprnote.stt.provider.name = "apple-speech",
+            elapsed_ms = started_at.elapsed().as_millis() as u64,
+            transcript.channel_count = transcribed.len(),
+            "apple_speech_batch_completed"
+        );
+
+        Ok(BatchRunOutput {
+            session_id: params.session_id,
+            mode: BatchRunMode::Direct,
+            response: hypr_transcribe_speechanalyzer::batch_response_from_transcripts(transcribed),
+        })
+    }
+    .instrument(span)
+    .await
+}
+
+/// Transcribes each recorded channel separately so mic and system audio stay attributable.
+fn transcribe_apple_speech_file(
+    file_path: &str,
+    locale: &str,
+    progress: Option<&SoniqoProgressReporter>,
+) -> std::result::Result<Vec<hypr_transcribe_speechanalyzer::FileTranscript>, String> {
+    let source = hypr_audio_utils::source_from_path(file_path).map_err(|e| e.to_string())?;
+    let channel_count = u16::from(source.channels()).max(1) as usize;
+    let samples =
+        hypr_audio_utils::resample_audio(source, TARGET_SAMPLE_RATE).map_err(|e| e.to_string())?;
+    let channels = collapse_identical_channels(split_resampled_channels(&samples, channel_count));
+
+    if let Some(progress) = progress {
+        progress.emit(SONIQO_PROGRESS_PLANNED);
+    }
+
+    let total = channels.len().max(1);
+    let mut transcripts = Vec::with_capacity(channels.len());
+
+    for (index, channel) in channels.into_iter().enumerate() {
+        let transcript = hypr_transcribe_speechanalyzer::transcribe_samples(&channel, locale)
+            .map_err(|e| e.to_string())?;
+        transcripts.push(transcript);
+
+        if let Some(progress) = progress {
+            progress.emit(soniqo_batch_progress(index + 1, total));
+        }
+    }
+
+    Ok(transcripts)
+}
+
 pub(super) async fn run_soniqo_batch(
     runtime: Arc<dyn BatchRuntime>,
     params: BatchParams,

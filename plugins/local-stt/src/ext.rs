@@ -11,7 +11,7 @@ use hypr_model_downloader::{DownloadStatus, ModelDownloadManager, ModelDownloade
 #[cfg(feature = "whisper-cpp")]
 use crate::server::internal;
 use crate::{
-    model::LocalModel,
+    model::{APPLE_SPEECH_DEFAULT_LOCALE, LocalModel},
     server::{ServerInfo, ServerStatus, ServerType, external, supervisor},
     types::DownloadProgressPayload,
 };
@@ -57,7 +57,10 @@ pub struct LocalStt<'a, R: Runtime, M: Manager<R>> {
 impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
     fn ensure_stt_model(model: &LocalModel) -> Result<(), crate::Error> {
         match model {
-            LocalModel::Soniqo(_) | LocalModel::Am(_) | LocalModel::Whisper(_) => {
+            LocalModel::Soniqo(_)
+            | LocalModel::AppleSpeech(_)
+            | LocalModel::Am(_)
+            | LocalModel::Whisper(_) => {
                 if model.is_available_on_current_platform() {
                     Ok(())
                 } else {
@@ -112,6 +115,10 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
             return Ok(soniqo_download_state(*model).await?.status == "ready");
         }
 
+        if matches!(model, LocalModel::AppleSpeech(_)) {
+            return Ok(apple_speech_download_state().await?.status == "ready");
+        }
+
         let downloader = {
             let state = self.manager.state::<crate::SharedState>();
             let guard = state.lock().await;
@@ -137,10 +144,25 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
             return Ok(hypr_transcribe_soniqo::LOCAL_BASE_URL.to_string());
         }
 
+        // Apple Speech runs in a system daemon, so there is no server to spawn — only
+        // the locale reservation macOS requires before a session can start.
+        if matches!(model, LocalModel::AppleSpeech(_)) {
+            if apple_speech_download_state().await?.status != "ready" {
+                return Err(crate::Error::ModelNotDownloaded);
+            }
+
+            let supervisor = self.get_supervisor().await?;
+            supervisor::stop_all_stt_servers(&supervisor)
+                .await
+                .map_err(|e| crate::Error::ServerStopFailed(e.to_string()))?;
+
+            return Ok(hypr_transcribe_speechanalyzer::LOCAL_BASE_URL.to_string());
+        }
+
         let server_type = match &model {
             LocalModel::Am(_) => ServerType::External,
             LocalModel::Whisper(_) => ServerType::Internal,
-            LocalModel::Soniqo(_) | LocalModel::GgufLlm(_) => {
+            LocalModel::Soniqo(_) | LocalModel::AppleSpeech(_) | LocalModel::GgufLlm(_) => {
                 return Err(crate::Error::UnsupportedModelType);
             }
         };
@@ -246,10 +268,27 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
             }));
         }
 
+        if matches!(model, LocalModel::AppleSpeech(_)) {
+            let state = apple_speech_download_state().await?;
+            let ready = state.status == "ready";
+
+            return Ok(Some(ServerInfo {
+                url: ready.then(|| hypr_transcribe_speechanalyzer::LOCAL_BASE_URL.to_string()),
+                status: if ready {
+                    ServerStatus::Ready
+                } else if state.status == "downloading" {
+                    ServerStatus::Loading
+                } else {
+                    ServerStatus::Unreachable
+                },
+                model: Some(model.clone()),
+            }));
+        }
+
         let server_type = match model {
             LocalModel::Am(_) => ServerType::External,
             LocalModel::Whisper(_) => ServerType::Internal,
-            LocalModel::Soniqo(_) | LocalModel::GgufLlm(_) => {
+            LocalModel::Soniqo(_) | LocalModel::AppleSpeech(_) | LocalModel::GgufLlm(_) => {
                 return Err(crate::Error::UnsupportedModelType);
             }
         };
@@ -309,6 +348,21 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
             return Ok(());
         }
 
+        if matches!(model, LocalModel::AppleSpeech(_)) {
+            run_apple_speech_blocking(
+                move || {
+                    hypr_transcribe_speechanalyzer::start_model_download(
+                        APPLE_SPEECH_DEFAULT_LOCALE,
+                    )
+                },
+                crate::Error::ServerStartFailed,
+            )
+            .await?;
+
+            spawn_apple_speech_progress_poller(self.manager.app_handle().clone(), model);
+            return Ok(());
+        }
+
         let downloader = {
             let state = self.manager.state::<crate::SharedState>();
             let guard = state.lock().await;
@@ -322,7 +376,7 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
     pub async fn cancel_download(&self, model: LocalModel) -> Result<bool, crate::Error> {
         Self::ensure_stt_model(&model)?;
 
-        if matches!(model, LocalModel::Soniqo(_)) {
+        if matches!(model, LocalModel::Soniqo(_) | LocalModel::AppleSpeech(_)) {
             return Ok(false);
         }
 
@@ -342,6 +396,10 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
             return Ok(soniqo_download_state(*model).await?.status == "downloading");
         }
 
+        if matches!(model, LocalModel::AppleSpeech(_)) {
+            return Ok(apple_speech_download_state().await?.status == "downloading");
+        }
+
         let downloader = {
             let state = self.manager.state::<crate::SharedState>();
             let guard = state.lock().await;
@@ -358,6 +416,14 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
             let model = *model;
             return run_soniqo_blocking(
                 move || hypr_transcribe_soniqo::delete_model(model),
+                crate::Error::ServerStopFailed,
+            )
+            .await;
+        }
+
+        if matches!(model, LocalModel::AppleSpeech(_)) {
+            return run_apple_speech_blocking(
+                move || hypr_transcribe_speechanalyzer::release_locale(APPLE_SPEECH_DEFAULT_LOCALE),
                 crate::Error::ServerStopFailed,
             )
             .await;
@@ -394,6 +460,82 @@ async fn soniqo_download_state(
         crate::Error::ServerStartFailed,
     )
     .await
+}
+
+async fn run_apple_speech_blocking<T>(
+    task: impl FnOnce() -> hypr_transcribe_speechanalyzer::Result<T> + Send + 'static,
+    map_error: fn(String) -> crate::Error,
+) -> Result<T, crate::Error>
+where
+    T: Send + 'static,
+{
+    tokio::task::spawn_blocking(task)
+        .await
+        .map_err(|e| map_error(e.to_string()))?
+        .map_err(|e| map_error(e.to_string()))
+}
+
+async fn apple_speech_download_state()
+-> Result<hypr_transcribe_speechanalyzer::ModelDownloadState, crate::Error> {
+    run_apple_speech_blocking(
+        move || hypr_transcribe_speechanalyzer::model_download_state(APPLE_SPEECH_DEFAULT_LOCALE),
+        crate::Error::ServerStartFailed,
+    )
+    .await
+}
+
+fn spawn_apple_speech_progress_poller<R: Runtime>(
+    app_handle: tauri::AppHandle<R>,
+    model: LocalModel,
+) {
+    tokio::spawn(async move {
+        for _ in 0..7200 {
+            let status = tokio::task::spawn_blocking(move || {
+                hypr_transcribe_speechanalyzer::model_download_state(APPLE_SPEECH_DEFAULT_LOCALE)
+            })
+            .await;
+
+            let download_status = match status {
+                Ok(Ok(state)) => match state.status.as_str() {
+                    "ready" => DownloadStatus::Completed,
+                    "error" => DownloadStatus::Failed(
+                        state
+                            .error
+                            .unwrap_or_else(|| "Apple Speech asset install failed".to_string()),
+                    ),
+                    _ => DownloadStatus::Downloading(state.progress_percent.unwrap_or(0)),
+                },
+                Ok(Err(error)) => DownloadStatus::Failed(error.to_string()),
+                Err(error) => DownloadStatus::Failed(error.to_string()),
+            };
+
+            let should_stop = matches!(
+                download_status,
+                DownloadStatus::Completed | DownloadStatus::Failed(_)
+            );
+            if let DownloadStatus::Failed(error) = &download_status {
+                tracing::error!(error, "apple_speech_asset_install_failed");
+            }
+            let _ = DownloadProgressPayload {
+                model: model.clone(),
+                status: download_status,
+            }
+            .emit(&app_handle);
+
+            if should_stop {
+                return;
+            }
+
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        }
+
+        tracing::error!("apple_speech_asset_install_timed_out");
+        let _ = DownloadProgressPayload {
+            model,
+            status: DownloadStatus::Failed("Apple Speech asset install timed out".to_string()),
+        }
+        .emit(&app_handle);
+    });
 }
 
 fn spawn_soniqo_progress_poller<R: Runtime>(

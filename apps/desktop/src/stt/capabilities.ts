@@ -38,12 +38,40 @@ const SONIQO_PARAKEET_BATCH_LANGUAGE_CODES = new Set([
 ]);
 const SONIQO_STREAMING_LANGUAGE_CODES = SONIQO_PARAKEET_BATCH_LANGUAGE_CODES;
 
+// Base codes of SpeechTranscriber.supportedLocales on macOS 26 (30 regional
+// variants across these 10 languages).
+const APPLE_SPEECH_LANGUAGE_CODES = new Set([
+  "de",
+  "en",
+  "es",
+  "fr",
+  "it",
+  "ja",
+  "ko",
+  "pt",
+  "yue",
+  "zh",
+]);
+
+/// Whether Apple Speech can transcribe the language at all. A language it supports but
+/// the user has not added in System Settings is a different problem with a different fix.
+export function canAppleSpeechTranscribe(language: string) {
+  return APPLE_SPEECH_LANGUAGE_CODES.has(baseLanguageCode(language));
+}
+
+function liveLanguageCodesForModel(model: string | null | undefined) {
+  return model === "apple-speech"
+    ? APPLE_SPEECH_LANGUAGE_CODES
+    : SONIQO_STREAMING_LANGUAGE_CODES;
+}
+
 export function isSupportedLocalSttModel(
   model?: string | null,
 ): model is LocalModel {
   return (
     typeof model === "string" &&
     (model.startsWith("soniqo-") ||
+      model === "apple-speech" ||
       model.startsWith("am-") ||
       model.startsWith("Quantized"))
   );
@@ -105,7 +133,7 @@ export function isConfiguredSttModel(
 }
 
 export function isRealtimeLocalModel(model?: string | null) {
-  return model === "soniqo-parakeet-streaming";
+  return model === "soniqo-parakeet-streaming" || model === "apple-speech";
 }
 
 export function getSttModelTranscriptionMode(
@@ -217,8 +245,9 @@ export function getOnDeviceTranscriptionConfig(
     };
   }
 
+  const liveLanguageCodes = liveLanguageCodesForModel(model);
   const supportedLiveLanguages = languages.filter((language) =>
-    SONIQO_STREAMING_LANGUAGE_CODES.has(baseLanguageCode(language)),
+    liveLanguageCodes.has(baseLanguageCode(language)),
   );
 
   if (languages.length > 0 && supportedLiveLanguages.length === 0) {

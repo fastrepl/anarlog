@@ -448,6 +448,7 @@ async fn retry_listener(myself: ActorRef<SessionMsg>, state: &mut SessionState) 
 
 fn should_stop_on_listener_failure(state: &SessionState) -> bool {
     state.ctx.params.uses_local_soniqo_live_model()
+        || state.ctx.params.uses_local_apple_speech_live_model()
         || matches!(
             AdapterKind::from_url_and_languages(
                 &state.ctx.params.base_url,

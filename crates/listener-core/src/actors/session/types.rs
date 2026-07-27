@@ -65,11 +65,32 @@ impl SessionParams {
             return TranscriptionMode::Batch;
         }
 
+        if let Some(model) =
+            hypr_transcribe_speechanalyzer::local_model_from_request(&self.base_url, &self.model)
+        {
+            return if model.supports_live_on_current_platform()
+                && model.supports_languages(&self.languages)
+            {
+                TranscriptionMode::Live
+            } else {
+                TranscriptionMode::Batch
+            };
+        }
+
+        if hypr_transcribe_speechanalyzer::is_local_base_url(&self.base_url) {
+            return TranscriptionMode::Batch;
+        }
+
         TranscriptionMode::Live
     }
 
     pub fn uses_local_soniqo_live_model(&self) -> bool {
         hypr_transcribe_soniqo::local_model_from_request(&self.base_url, &self.model)
+            .is_some_and(|model| model.supports_live())
+    }
+
+    pub fn uses_local_apple_speech_live_model(&self) -> bool {
+        hypr_transcribe_speechanalyzer::local_model_from_request(&self.base_url, &self.model)
             .is_some_and(|model| model.supports_live())
     }
 }

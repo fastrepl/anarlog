@@ -120,16 +120,21 @@ downloadProgressPayload: "plugin:local-stt:download-progress-payload"
 /** user-defined types **/
 
 export type AmModel = "am-parakeet-v2" | "am-parakeet-v3" | "am-whisper-large-v3"
+/**
+ * Apple's Speech framework exposes a single on-device transcriber whose behavior is
+ * selected by locale rather than by model, so this carries one variant.
+ */
+export type AppleSpeechModel = "apple-speech"
 export type DownloadProgressPayload = { model: LocalModel; status: DownloadStatus }
 export type DownloadStatus = { downloading: number } | "completed" | { failed: string }
 export type GgufLlmModel = "Llama3p2_3bQ4" | "Gemma3_4bQ4" | "HyprLLM"
-export type LocalModel = SoniqoModel | WhisperModel | AmModel | GgufLlmModel
+export type LocalModel = SoniqoModel | AppleSpeechModel | WhisperModel | AmModel | GgufLlmModel
 export type ServerInfo = { url: string | null; status: ServerStatus; model: LocalModel | null }
 export type ServerStatus = "unreachable" | "loading" | "ready"
 export type ServerType = "internal" | "external"
 export type SoniqoModel = "soniqo-parakeet-streaming" | "soniqo-parakeet-batch" | "soniqo-omnilingual" | "soniqo-qwen3-small" | "soniqo-qwen3-large"
 export type SttModelInfo = { key: LocalModel; display_name: string; description: string; size_bytes: number | null; model_type: SttModelType }
-export type SttModelType = "soniqo" | "whispercpp" | "argmax"
+export type SttModelType = "soniqo" | "appleSpeech" | "whispercpp" | "argmax"
 export type WhisperModel = "QuantizedTiny" | "QuantizedTinyEn" | "QuantizedBase" | "QuantizedBaseEn" | "QuantizedSmall" | "QuantizedSmallEn" | "QuantizedLargeTurbo"
 
 /** tauri-specta globals **/

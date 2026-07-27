@@ -16,6 +16,13 @@ describe("STT model display labels", () => {
     );
   });
 
+  test("treats apple speech as an on-device model", () => {
+    expect(displayModelLabel("apple-speech", "Apple Speech")).toBe("On device");
+    expect(displayModelTitle("apple-speech", "Apple Speech")).toBe(
+      "Apple Speech",
+    );
+  });
+
   test("collapses local model names to on-device labels", () => {
     expect(
       displayModelLabel(

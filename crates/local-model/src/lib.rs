@@ -3,7 +3,10 @@ use std::path::{Path, PathBuf};
 pub use hypr_am::AmModel;
 use hypr_model_downloader::{DownloadableModel, Error};
 pub use hypr_transcribe_soniqo::SoniqoModel;
+pub use hypr_transcribe_speechanalyzer::AppleSpeechModel;
 pub use hypr_whisper_local_model::WhisperModel;
+
+pub const APPLE_SPEECH_DEFAULT_LOCALE: &str = "en-US";
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, Eq, Hash, PartialEq)]
 pub enum GgufLlmModel {
@@ -79,6 +82,7 @@ pub enum LocalModelKind {
 #[serde(untagged)]
 pub enum LocalModel {
     Soniqo(SoniqoModel),
+    AppleSpeech(AppleSpeechModel),
     Whisper(WhisperModel),
     Am(AmModel),
     GgufLlm(GgufLlmModel),
@@ -88,6 +92,7 @@ impl std::fmt::Display for LocalModel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LocalModel::Soniqo(model) => write!(f, "{model}"),
+            LocalModel::AppleSpeech(model) => write!(f, "{model}"),
             LocalModel::Whisper(model) => write!(f, "whisper-{model}"),
             LocalModel::Am(model) => write!(f, "am-{model}"),
             LocalModel::GgufLlm(model) => write!(f, "llm-{model:?}"),
@@ -102,6 +107,13 @@ impl LocalModel {
             .copied()
             .map(LocalModel::Soniqo)
             .collect::<Vec<_>>();
+
+        models.extend(
+            AppleSpeechModel::all()
+                .iter()
+                .copied()
+                .map(LocalModel::AppleSpeech),
+        );
 
         models.extend([
             LocalModel::Whisper(WhisperModel::QuantizedTiny),
@@ -128,6 +140,7 @@ impl LocalModel {
     pub fn kind(&self) -> &'static str {
         match self {
             LocalModel::Soniqo(_) => "stt-soniqo",
+            LocalModel::AppleSpeech(_) => "stt-apple-speech",
             LocalModel::Whisper(_) => "stt-whisper",
             LocalModel::Am(_) => "stt-am",
             LocalModel::GgufLlm(_) => "llm",
@@ -136,9 +149,10 @@ impl LocalModel {
 
     pub fn model_kind(&self) -> LocalModelKind {
         match self {
-            LocalModel::Soniqo(_) | LocalModel::Whisper(_) | LocalModel::Am(_) => {
-                LocalModelKind::Stt
-            }
+            LocalModel::Soniqo(_)
+            | LocalModel::AppleSpeech(_)
+            | LocalModel::Whisper(_)
+            | LocalModel::Am(_) => LocalModelKind::Stt,
             LocalModel::GgufLlm(_) => LocalModelKind::Llm,
         }
     }
@@ -146,6 +160,7 @@ impl LocalModel {
     pub fn cli_name(&self) -> &'static str {
         match self {
             LocalModel::Soniqo(model) => model.as_str(),
+            LocalModel::AppleSpeech(model) => model.as_str(),
             LocalModel::Whisper(WhisperModel::QuantizedTiny) => "whisper-tiny",
             LocalModel::Whisper(WhisperModel::QuantizedTinyEn) => "whisper-tiny-en",
             LocalModel::Whisper(WhisperModel::QuantizedBase) => "whisper-base",
@@ -165,6 +180,7 @@ impl LocalModel {
     pub fn install_path(&self, models_base: &Path) -> PathBuf {
         match self {
             LocalModel::Soniqo(model) => models_base.join("soniqo").join(model.as_str()),
+            LocalModel::AppleSpeech(model) => models_base.join("apple-speech").join(model.as_str()),
             LocalModel::Whisper(model) => models_base.join("stt").join(model.file_name()),
             LocalModel::Am(model) => models_base.join("stt").join(model.model_dir()),
             LocalModel::GgufLlm(model) => models_base.join("llm").join(model.file_name()),
@@ -174,6 +190,7 @@ impl LocalModel {
     pub fn display_name(&self) -> String {
         match self {
             LocalModel::Soniqo(model) => model.display_name().to_string(),
+            LocalModel::AppleSpeech(model) => model.display_name().to_string(),
             LocalModel::Whisper(model) => model.display_name().to_string(),
             LocalModel::Am(model) => model.display_name().to_string(),
             LocalModel::GgufLlm(model) => model.display_name().to_string(),
@@ -183,6 +200,7 @@ impl LocalModel {
     pub fn description(&self) -> String {
         match self {
             LocalModel::Soniqo(model) => model.description().to_string(),
+            LocalModel::AppleSpeech(model) => model.description().to_string(),
             LocalModel::Whisper(model) => model.description(),
             LocalModel::Am(model) => model.description().to_string(),
             LocalModel::GgufLlm(model) => model.description(),
@@ -194,6 +212,7 @@ impl LocalModel {
 
         match self {
             LocalModel::Soniqo(model) => model.is_available_on_current_platform(),
+            LocalModel::AppleSpeech(model) => model.is_available_on_current_platform(),
             LocalModel::Whisper(_) => is_apple_silicon,
             LocalModel::Am(_) => is_apple_silicon,
             LocalModel::GgufLlm(_) => cfg!(target_arch = "aarch64"),
@@ -246,6 +265,7 @@ impl DownloadableModel for LocalModel {
     fn download_key(&self) -> String {
         match self {
             LocalModel::Soniqo(model) => format!("soniqo:{}", model.as_str()),
+            LocalModel::AppleSpeech(model) => format!("apple-speech:{}", model.as_str()),
             LocalModel::Whisper(model) => format!("whisper:{}", model.file_name()),
             LocalModel::Am(model) => format!("am:{}", model.model_dir()),
             LocalModel::GgufLlm(model) => model.download_key(),
@@ -254,7 +274,7 @@ impl DownloadableModel for LocalModel {
 
     fn download_url(&self) -> Option<String> {
         match self {
-            LocalModel::Soniqo(_) => None,
+            LocalModel::Soniqo(_) | LocalModel::AppleSpeech(_) => None,
             LocalModel::Whisper(model) => Some(model.model_url().to_string()),
             LocalModel::Am(model) => Some(model.tar_url().to_string()),
             LocalModel::GgufLlm(model) => model.download_url(),
@@ -263,7 +283,7 @@ impl DownloadableModel for LocalModel {
 
     fn download_checksum(&self) -> Option<u32> {
         match self {
-            LocalModel::Soniqo(_) => None,
+            LocalModel::Soniqo(_) | LocalModel::AppleSpeech(_) => None,
             LocalModel::Whisper(model) => Some(model.checksum()),
             LocalModel::Am(model) => Some(model.tar_checksum()),
             LocalModel::GgufLlm(model) => model.download_checksum(),
@@ -273,6 +293,7 @@ impl DownloadableModel for LocalModel {
     fn download_destination(&self, models_base: &Path) -> PathBuf {
         match self {
             LocalModel::Soniqo(model) => models_base.join("soniqo").join(model.as_str()),
+            LocalModel::AppleSpeech(model) => models_base.join("apple-speech").join(model.as_str()),
             LocalModel::Whisper(model) => models_base.join("stt").join(model.file_name()),
             LocalModel::Am(model) => models_base
                 .join("stt")
@@ -285,6 +306,10 @@ impl DownloadableModel for LocalModel {
         match self {
             LocalModel::Soniqo(model) => hypr_transcribe_soniqo::is_model_downloaded(*model)
                 .map_err(|e| Error::OperationFailed(e.to_string())),
+            LocalModel::AppleSpeech(_) => {
+                { hypr_transcribe_speechanalyzer::is_model_downloaded(APPLE_SPEECH_DEFAULT_LOCALE) }
+                    .map_err(|e| Error::OperationFailed(e.to_string()))
+            }
             LocalModel::Whisper(model) => {
                 Ok(models_base.join("stt").join(model.file_name()).exists())
             }
@@ -299,6 +324,9 @@ impl DownloadableModel for LocalModel {
         match self {
             LocalModel::Soniqo(_) => Err(Error::FinalizeFailed(
                 "Soniqo models are downloaded through the Soniqo bridge".to_string(),
+            )),
+            LocalModel::AppleSpeech(_) => Err(Error::FinalizeFailed(
+                "Apple Speech assets are installed by macOS".to_string(),
             )),
             LocalModel::Whisper(_) => Ok(()),
             LocalModel::Am(model) => {
@@ -315,6 +343,11 @@ impl DownloadableModel for LocalModel {
         match self {
             LocalModel::Soniqo(model) => hypr_transcribe_soniqo::delete_model(*model)
                 .map_err(|e| Error::DeleteFailed(e.to_string())),
+            // Only the reservation is ours to give back; macOS owns the asset files.
+            LocalModel::AppleSpeech(_) => {
+                hypr_transcribe_speechanalyzer::release_locale(APPLE_SPEECH_DEFAULT_LOCALE)
+                    .map_err(|e| Error::DeleteFailed(e.to_string()))
+            }
             LocalModel::Whisper(model) => {
                 let model_path = models_base.join("stt").join(model.file_name());
                 if model_path.exists() {

@@ -102,6 +102,11 @@ msgstr ""
 msgid "Add {0} account"
 msgstr ""
 
+#. placeholder {0}: formatLanguageList(needsSystemSettings)
+#: src/settings/ai/stt/select.tsx
+msgid "Add {0} in System Settings > General > Language & Region to transcribe with {model}, or choose another model."
+msgstr ""
+
 #: src/onboarding/calendar.tsx
 msgid "Add another account"
 msgstr ""

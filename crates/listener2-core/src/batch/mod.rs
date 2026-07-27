@@ -9,7 +9,7 @@ use owhisper_client::{AdapterKind, OpenAIAdapter};
 use crate::{BatchEvent, BatchRuntime};
 
 use progressive::run_progressive_batch_session;
-use simple::{run_direct_batch_for_adapter_kind, run_soniqo_batch};
+use simple::{run_apple_speech_batch, run_direct_batch_for_adapter_kind, run_soniqo_batch};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, strum::Display, strum::EnumString)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -33,6 +33,7 @@ pub enum BatchProvider {
     Hyprnote,
     Am,
     Soniqo,
+    AppleSpeech,
     AquaVoice,
     Cartesia,
 }
@@ -53,7 +54,9 @@ impl BatchProvider {
             Self::Hyprnote => Some(AdapterKind::Hyprnote),
             Self::AquaVoice => Some(AdapterKind::AquaVoice),
             Self::Cartesia => Some(AdapterKind::Cartesia),
-            Self::Am | Self::WhisperLocal | Self::Soniqo | Self::DashScope => None,
+            Self::Am | Self::WhisperLocal | Self::Soniqo | Self::AppleSpeech | Self::DashScope => {
+                None
+            }
         }
     }
 }
@@ -204,6 +207,7 @@ async fn run_batch_inner(
             run_progressive_batch_session(runtime, params, listen_params).await
         }
         BatchProvider::Soniqo => run_soniqo_batch(runtime, params, listen_params).await,
+        BatchProvider::AppleSpeech => run_apple_speech_batch(runtime, params, listen_params).await,
         BatchProvider::OpenAI => {
             if OpenAIAdapter::supports_progressive_batch_model(listen_params.model.as_deref()) {
                 run_progressive_batch_session(runtime, params, listen_params).await

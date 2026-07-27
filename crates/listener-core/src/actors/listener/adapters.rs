@@ -61,6 +61,17 @@ pub(super) async fn spawn_rx_task(
         return Ok((result.0, result.1, result.2, "soniqo".to_string()));
     }
 
+    if let Some(model) = apple_speech_model_for_args(&args)? {
+        if !model.is_available_on_current_platform() {
+            return Err(actor_error(
+                "unsupported_platform: Apple Speech realtime transcription requires macOS 26",
+            ));
+        }
+
+        let result = spawn_apple_speech_rx_task(args, myself).await?;
+        return Ok((result.0, result.1, result.2, "apple-speech".to_string()));
+    }
+
     let adapter_kind =
         AdapterKind::from_url_and_languages(&args.base_url, &args.languages, Some(&args.model));
     let is_dual = matches!(args.mode, crate::actors::ChannelMode::MicAndSpeaker);
@@ -199,6 +210,138 @@ async fn spawn_soniqo_rx_task(
                         error: format!("soniqo_live_start_failed: {error}"),
                     });
                     return Err(actor_error(format!("soniqo_live_start_failed: {error}")));
+                }
+            };
+
+        let rx_task = tokio::spawn(async move {
+            futures_util::pin_mut!(listen_stream);
+            process_stream(
+                listen_stream,
+                handle,
+                myself,
+                shutdown_rx,
+                session_offset_secs,
+                extra,
+            )
+            .await;
+        });
+
+        Ok((ChannelSender::Single(tx), rx_task, shutdown_tx))
+    }
+}
+
+fn apple_speech_model_for_args(
+    args: &ListenerArgs,
+) -> Result<Option<hypr_transcribe_speechanalyzer::AppleSpeechModel>, ActorProcessingErr> {
+    if let Some(model) =
+        hypr_transcribe_speechanalyzer::local_model_from_request(&args.base_url, &args.model)
+    {
+        return Ok(Some(model));
+    }
+
+    if hypr_transcribe_speechanalyzer::is_local_base_url(&args.base_url) {
+        return hypr_transcribe_speechanalyzer::AppleSpeechModel::from_str(&args.model)
+            .map(Some)
+            .map_err(|e| actor_error(format!("apple_speech_model_invalid: {e}")));
+    }
+
+    Ok(None)
+}
+
+async fn spawn_apple_speech_rx_task(
+    args: ListenerArgs,
+    myself: ActorRef<ListenerMsg>,
+) -> Result<
+    (
+        ChannelSender,
+        tokio::task::JoinHandle<()>,
+        tokio::sync::oneshot::Sender<()>,
+    ),
+    ActorProcessingErr,
+> {
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+    let (session_offset_secs, extra) = build_extra(&args);
+    let Some(locale) = hypr_transcribe_speechanalyzer::resolve_session_locale(&args.languages)
+    else {
+        let message = format!(
+            "apple_speech_language_not_enabled: add {} in System Settings > General > Language & Region to transcribe it with Apple Speech",
+            format_languages(&args.languages)
+        );
+        tracing::error!(
+            hyprnote.session.id = %args.session_id,
+            error.message = %message,
+            "apple_speech_live_start_failed"
+        );
+        args.runtime.emit_error(SessionErrorEvent::ConnectionError {
+            session_id: args.session_id.clone(),
+            error: message.clone(),
+        });
+        return Err(actor_error(message));
+    };
+
+    if matches!(args.mode, crate::actors::ChannelMode::MicAndSpeaker) {
+        let (tx, rx) =
+            tokio::sync::mpsc::channel::<MixedMessage<(Bytes, Bytes), ControlMessage>>(32);
+        let outbound = tokio_stream::wrappers::ReceiverStream::new(rx);
+        let client = owhisper_client::LocalAppleSpeechLiveClient::new(locale);
+        let (listen_stream, handle) = match client.from_realtime_audio_dual(outbound).await {
+            Ok(result) => result,
+            Err(error) => {
+                tracing::error!(
+                    hyprnote.session.id = %args.session_id,
+                    error.message = ?error,
+                    "apple_speech_live_start_failed(dual)"
+                );
+                args.runtime.emit_error(SessionErrorEvent::ConnectionError {
+                    session_id: args.session_id.clone(),
+                    error: format!("apple_speech_live_start_failed: {error}"),
+                });
+                return Err(actor_error(format!(
+                    "apple_speech_live_start_failed: {error}"
+                )));
+            }
+        };
+
+        let rx_task = tokio::spawn(async move {
+            futures_util::pin_mut!(listen_stream);
+            process_stream(
+                listen_stream,
+                handle,
+                myself,
+                shutdown_rx,
+                session_offset_secs,
+                extra,
+            )
+            .await;
+        });
+
+        Ok((ChannelSender::Dual(tx), rx_task, shutdown_tx))
+    } else {
+        let source = if matches!(args.mode, crate::actors::ChannelMode::SpeakerOnly) {
+            hypr_transcribe_speechanalyzer::TranscriptSource::System
+        } else {
+            hypr_transcribe_speechanalyzer::TranscriptSource::Microphone
+        };
+
+        let (tx, rx) = tokio::sync::mpsc::channel::<MixedMessage<Bytes, ControlMessage>>(32);
+        let outbound = tokio_stream::wrappers::ReceiverStream::new(rx);
+        let client = owhisper_client::LocalAppleSpeechLiveClient::new(locale);
+        let (listen_stream, handle) =
+            match client.from_realtime_audio_single(outbound, source).await {
+                Ok(result) => result,
+                Err(error) => {
+                    tracing::error!(
+                        hyprnote.session.id = %args.session_id,
+                        error.message = ?error,
+                        "apple_speech_live_start_failed(single)"
+                    );
+                    args.runtime.emit_error(SessionErrorEvent::ConnectionError {
+                        session_id: args.session_id.clone(),
+                        error: format!("apple_speech_live_start_failed: {error}"),
+                    });
+                    return Err(actor_error(format!(
+                        "apple_speech_live_start_failed: {error}"
+                    )));
                 }
             };
 

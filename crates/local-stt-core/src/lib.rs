@@ -1,8 +1,9 @@
-pub use hypr_local_model::{AmModel, LocalModel, SoniqoModel, WhisperModel};
+pub use hypr_local_model::{AmModel, AppleSpeechModel, LocalModel, SoniqoModel, WhisperModel};
 
 pub static SUPPORTED_MODELS: &[LocalModel] = &[
     LocalModel::Soniqo(SoniqoModel::ParakeetStreaming),
     LocalModel::Soniqo(SoniqoModel::ParakeetBatch),
+    LocalModel::AppleSpeech(AppleSpeechModel::Default),
     LocalModel::Am(AmModel::ParakeetV2),
     LocalModel::Am(AmModel::ParakeetV3),
     LocalModel::Am(AmModel::WhisperLargeV3),
@@ -13,6 +14,7 @@ pub static SUPPORTED_MODELS: &[LocalModel] = &[
 #[serde(rename_all = "camelCase")]
 pub enum SttModelType {
     Soniqo,
+    AppleSpeech,
     Whispercpp,
     Argmax,
 }
@@ -35,6 +37,14 @@ pub fn stt_model_info(model: &LocalModel) -> SttModelInfo {
             description: value.description().to_string(),
             size_bytes: Some(value.size_bytes()),
             model_type: SttModelType::Soniqo,
+        },
+        LocalModel::AppleSpeech(value) => SttModelInfo {
+            key: model.clone(),
+            display_name: value.display_name().to_string(),
+            description: value.description().to_string(),
+            // macOS installs and shares the assets, so there is nothing for us to download.
+            size_bytes: None,
+            model_type: SttModelType::AppleSpeech,
         },
         LocalModel::Whisper(value) => SttModelInfo {
             key: model.clone(),

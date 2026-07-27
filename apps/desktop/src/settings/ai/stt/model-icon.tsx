@@ -24,6 +24,14 @@ export function getLocalModelIcon(model: string): ModelIconSpec | null {
     };
   }
 
+  if (value === "apple-speech") {
+    return {
+      label: "",
+      title: "Apple Speech",
+      className: "border-border bg-card text-foreground",
+    };
+  }
+
   if (value.includes("qwen")) {
     return {
       label: "Q",
@@ -92,6 +100,10 @@ export function getLocalModelBackendBadge(model: string): ModelIconSpec | null {
       title: "NVIDIA",
       className: "border-green-200 bg-green-50 text-green-700",
     };
+  }
+
+  if (value === "apple-speech") {
+    return null;
   }
 
   if (value.includes("apple") || value.includes("npu")) {
