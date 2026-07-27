@@ -65,8 +65,10 @@ different artifact hash.
 The x86_64 and ARM64 physical cells may be completed by trusted community testers, but
 both must exist before **HARDWARE-VALIDATED BETA SHIP**. A VM result must remain labeled
 as VM evidence.
-Building release artifacts on Debian 12 or Ubuntu 22.04 for an older glibc baseline is a
-CI policy; it is not a substitute for the Ubuntu 24.04 runtime cells above.
+Release artifacts are built on Ubuntu 24.04 runners. An older glibc build baseline such as
+Debian 12 or Ubuntu 22.04 is currently not available: the pipewire 0.9.2 crate needs
+PipeWire 0.3.65 or newer headers, and Ubuntu 22.04 ships 0.3.48. A green build is not a
+substitute for the Ubuntu 24.04 runtime cells above.
 
 ### Development setup
 
@@ -82,7 +84,7 @@ pnpm -F ui build
 pnpm -F @hypr/desktop tauri:dev
 ~~~
 
-Release packages still use the older Debian 12 or Ubuntu 22.04 build baseline. Run the
+Release packages are built on Ubuntu 24.04, so glibc 2.39 is the effective floor. Run the
 beta itself on the Ubuntu 24.04 environments listed above.
 
 ### Package matrix
