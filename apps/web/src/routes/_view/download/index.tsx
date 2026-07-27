@@ -1,9 +1,16 @@
+import { Icon } from "@iconify-icon/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Download } from "lucide-react";
 
 import { SiteFooter } from "@/components/site-footer";
 import { desktopDownloadSections } from "@/lib/download";
 import { ANARLOG_SITE_URL } from "@/lib/seo";
+
+const platformIcons = {
+  macOS: "simple-icons:apple",
+  Windows: "simple-icons:windows",
+  Linux: "simple-icons:linux",
+} as const;
 
 export const Route = createFileRoute("/_view/download/")({
   component: Component,
@@ -51,8 +58,13 @@ function Component() {
                 <div className="mb-5">
                   <h2
                     id={headingId}
-                    className="font-mono text-2xl font-semibold"
+                    className="font-hand flex items-center gap-2.5 text-3xl leading-none font-semibold tracking-normal"
                   >
+                    <Icon
+                      icon={platformIcons[section.name]}
+                      className="text-2xl"
+                      aria-hidden="true"
+                    />
                     {section.name}
                   </h2>
                   <p className="text-color-secondary mt-2 leading-7">
