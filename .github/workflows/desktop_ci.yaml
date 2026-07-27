@@ -217,6 +217,143 @@ jobs:
           "$hash  $($installer.Name)" |
             Out-File "$($installer.FullName).sha256" -Encoding ascii
       - if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        timeout-minutes: 10
+        run: |
+          $ErrorActionPreference = "Stop"
+          $bundleDir = "apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis"
+          $installers = @(Get-ChildItem $bundleDir -Filter "*.exe" -File)
+          if ($installers.Count -ne 1) {
+            throw "Expected one NSIS installer in $bundleDir, found $($installers.Count)"
+          }
+
+          $installer = $installers[0]
+          $uninstallKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Anarlog Staging"
+          $expectedInstallDir = Join-Path $env:LOCALAPPDATA "Anarlog Staging"
+          $installDir = $null
+          $binary = $null
+          $uninstaller = $null
+          $stdoutLog = Join-Path $env:RUNNER_TEMP "anarlog-windows-smoke.stdout.log"
+          $stderrLog = Join-Path $env:RUNNER_TEMP "anarlog-windows-smoke.stderr.log"
+          $startedAt = Get-Date
+          $appProcess = $null
+          $uninstallCompleted = $false
+
+          function Stop-ProcessTree {
+            param([System.Diagnostics.Process] $Process)
+
+            if ($null -ne $Process -and -not $Process.HasExited) {
+              & taskkill.exe /PID $Process.Id /T /F 2>&1 | Out-Host
+              $Process.WaitForExit(10000) | Out-Null
+            }
+          }
+
+          function Wait-ForSuccessfulExit {
+            param(
+              [System.Diagnostics.Process] $Process,
+              [int] $TimeoutSeconds,
+              [string] $Description
+            )
+
+            if (-not $Process.WaitForExit($TimeoutSeconds * 1000)) {
+              Stop-ProcessTree $Process
+              throw "$Description timed out after $TimeoutSeconds seconds"
+            }
+            $Process.WaitForExit()
+            if ($Process.ExitCode -ne 0) {
+              throw "$Description exited with status $($Process.ExitCode)"
+            }
+          }
+
+          if ((Test-Path $uninstallKey) -or (Test-Path $expectedInstallDir)) {
+            throw "Refusing to smoke-test over an existing Anarlog Staging installation"
+          }
+
+          try {
+            $installerHash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
+            Write-Host "Installing $($installer.FullName) (sha256: $installerHash)"
+            $installerProcess = Start-Process $installer.FullName -ArgumentList "/S" -PassThru
+            Wait-ForSuccessfulExit $installerProcess 180 "NSIS installation"
+
+            if (-not (Test-Path $uninstallKey)) {
+              throw "NSIS installation did not register $uninstallKey"
+            }
+            $installProperties = Get-ItemProperty $uninstallKey
+            $installDir = $installProperties.InstallLocation.Trim('"')
+            $binary = Join-Path $installDir "anarlog-staging.exe"
+            $uninstaller = Join-Path $installDir "uninstall.exe"
+            Write-Host "Installed version: $($installProperties.DisplayVersion)"
+            Write-Host "Install location: $installDir"
+
+            if (-not (Test-Path $binary -PathType Leaf)) {
+              Get-ChildItem $installDir -Recurse -ErrorAction SilentlyContinue |
+                Select-Object FullName, Length, LastWriteTime |
+                Format-Table -AutoSize |
+                Out-Host
+              throw "NSIS installation did not create $binary"
+            }
+
+            Get-Item $binary |
+              Select-Object FullName, Length, LastWriteTime |
+              Format-List |
+              Out-Host
+            $appProcess = Start-Process $binary `
+              -ArgumentList @("--onboarding", "0") `
+              -PassThru `
+              -RedirectStandardOutput $stdoutLog `
+              -RedirectStandardError $stderrLog
+            if ($appProcess.WaitForExit(20000)) {
+              $appProcess.WaitForExit()
+              throw "Installed Anarlog exited before the 20-second smoke window with status $($appProcess.ExitCode)"
+            }
+            Write-Host "Installed Anarlog remained running for the 20-second smoke window"
+            Stop-ProcessTree $appProcess
+
+            $uninstallProcess = Start-Process $uninstaller `
+              -ArgumentList @("/S", "_?=$installDir") `
+              -PassThru
+            Wait-ForSuccessfulExit $uninstallProcess 120 "NSIS uninstallation"
+            if ((Test-Path $binary) -or (Test-Path $uninstallKey)) {
+              throw "NSIS uninstallation left the application binary or uninstall registry key behind"
+            }
+            $uninstallCompleted = $true
+          } finally {
+            Stop-ProcessTree $appProcess
+
+            foreach ($log in @($stdoutLog, $stderrLog)) {
+              Write-Host "----- $log -----"
+              if (Test-Path $log) {
+                Get-Content $log -ErrorAction SilentlyContinue | Out-Host
+              } else {
+                Write-Host "<not created>"
+              }
+            }
+
+            Get-WinEvent `
+              -FilterHashtable @{ LogName = "Application"; StartTime = $startedAt; Level = 1, 2, 3 } `
+              -MaxEvents 25 `
+              -ErrorAction SilentlyContinue |
+              Select-Object TimeCreated, ProviderName, Id, LevelDisplayName, Message |
+              Format-List |
+              Out-Host
+
+            $cleanupUninstaller = if ($null -ne $uninstaller) {
+              $uninstaller
+            } else {
+              Join-Path $expectedInstallDir "uninstall.exe"
+            }
+            if (-not $uninstallCompleted -and (Test-Path $cleanupUninstaller)) {
+              $cleanupDir = Split-Path $cleanupUninstaller -Parent
+              $cleanupProcess = Start-Process $cleanupUninstaller `
+                -ArgumentList @("/S", "_?=$cleanupDir") `
+                -PassThru
+              if (-not $cleanupProcess.WaitForExit(120000)) {
+                Stop-ProcessTree $cleanupProcess
+                Write-Warning "Timed out cleaning up the smoke-test installation"
+              }
+            }
+          }
+      - if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: anarlog-windows-x64-nsis-${{ github.sha }}
@@ -327,6 +464,73 @@ jobs:
             name=$(basename "$bundle")
             (cd "$(dirname "$bundle")" && sha256sum "$name" > "$name.sha256")
           done
+      - if: github.event_name == 'workflow_dispatch'
+        timeout-minutes: 10
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dbus-x11 xvfb
+
+          shopt -s nullglob
+          appimage_dir="apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/appimage"
+          appimages=("$appimage_dir"/*.AppImage)
+          if [[ ${#appimages[@]} -ne 1 ]]; then
+            echo "Expected one AppImage for ${{ matrix.target }}, found ${#appimages[@]}"
+            exit 1
+          fi
+
+          appimage="${appimages[0]}"
+          log="$RUNNER_TEMP/anarlog-linux-appimage-smoke.log"
+          smoke_home="$RUNNER_TEMP/anarlog-linux-appimage-home-${{ matrix.artifact_name }}"
+          runtime_dir="$RUNNER_TEMP/anarlog-linux-appimage-runtime-${{ matrix.artifact_name }}"
+          mkdir -p "$smoke_home" "$runtime_dir"
+          chmod 700 "$runtime_dir"
+          chmod +x "$appimage"
+          file "$appimage"
+          sha256sum "$appimage"
+
+          set +e
+          APPIMAGE_EXTRACT_AND_RUN=1 \
+            HOME="$smoke_home" \
+            NO_AT_BRIDGE=1 \
+            XDG_RUNTIME_DIR="$runtime_dir" \
+            timeout --signal=TERM --kill-after=5s 30s \
+            xvfb-run -a dbus-run-session -- "$appimage" --onboarding 0 >"$log" 2>&1 &
+          smoke_pid=$!
+          set -e
+
+          app_pid=""
+          for _ in {1..10}; do
+            app_pid=$(pgrep -n -x anarlog-staging || true)
+            if [[ -n "$app_pid" ]] || ! kill -0 "$smoke_pid" 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          if [[ -n "$app_pid" ]]; then
+            ps -p "$app_pid" -o pid,ppid,etime,stat,comm,args || true
+          fi
+
+          set +e
+          wait "$smoke_pid"
+          smoke_status=$?
+          set -e
+
+          cat "$log"
+          if [[ -z "$app_pid" ]]; then
+            echo "AppImage did not start the anarlog-staging process within 10 seconds"
+            exit 1
+          fi
+          case "$smoke_status" in
+            124 | 137)
+              echo "AppImage started and remained running through the 30-second smoke window"
+              ;;
+            *)
+              echo "AppImage exited before the smoke timeout with status $smoke_status"
+              ps -ef | grep -E '[a]narlog|[X]vfb|[d]bus' || true
+              exit 1
+              ;;
+          esac
       - if: github.event_name == 'workflow_dispatch'
         run: |
           deb=$(find "apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/deb" -maxdepth 1 -name '*.deb' -type f -print -quit)
