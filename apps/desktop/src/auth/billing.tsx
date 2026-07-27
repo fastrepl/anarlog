@@ -35,7 +35,7 @@ async function getClaimsFromToken(
 ): Promise<SupabaseJwtPayload | null> {
   const result = await authCommands.decodeClaims(accessToken);
   if (result.status === "error") {
-    return null;
+    throw new Error(result.error);
   }
   return {
     sub: result.data.sub,
