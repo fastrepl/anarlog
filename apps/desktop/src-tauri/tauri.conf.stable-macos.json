@@ -1,0 +1,9 @@
+{
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://desktop2.hyprnote.com/update/{{target}}-{{arch}}/{{current_version}}?channel=stable"
+      ]
+    }
+  }
+}

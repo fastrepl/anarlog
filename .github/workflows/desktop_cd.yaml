@@ -146,6 +146,9 @@ jobs:
         working-directory: ./apps/desktop
       - run: |
           BUILD_ARGS=(--target "${{ matrix.target }}" --config "${{ env.TAURI_CONF_PATH }}" --verbose)
+          if [[ "${{ inputs.channel }}" == "stable" ]]; then
+            BUILD_ARGS+=(--config ./src-tauri/tauri.conf.stable-macos.json)
+          fi
           if [[ "${{ matrix.target }}" == "x86_64-apple-darwin" ]]; then
             BUILD_ARGS+=(--config ./src-tauri/tauri.conf.macos-intel.json)
           fi
