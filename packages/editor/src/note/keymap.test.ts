@@ -92,6 +92,55 @@ describe("buildInputRules", () => {
     });
   });
 
+  it("replaces a double dash after a word with an em dash", () => {
+    const doc = schema.node("doc", null, [
+      schema.node("paragraph", null, [schema.text("wait-")]),
+    ]);
+    const { handled, state } = runTextInput(doc, "-");
+
+    expect(handled).toBe(true);
+    expect(state.doc.toJSON()).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "wait—" }],
+        },
+      ],
+    });
+  });
+
+  it("leaves a third dash alone so --- can still become a horizontal rule", () => {
+    const doc = schema.node("doc", null, [
+      schema.node("paragraph", null, [schema.text("--")]),
+    ]);
+    const { handled, state } = runTextInput(doc, "-");
+
+    expect(handled).toBeFalsy();
+    expect(state.doc.toJSON()).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "--" }],
+        },
+      ],
+    });
+  });
+
+  it("turns --- followed by a space into a horizontal rule", () => {
+    const doc = schema.node("doc", null, [
+      schema.node("paragraph", null, [schema.text("---")]),
+    ]);
+    const { handled, state } = runTextInput(doc, " ");
+
+    expect(handled).toBe(true);
+    expect(state.doc.toJSON()).toEqual({
+      type: "doc",
+      content: [{ type: "horizontalRule" }, { type: "paragraph" }],
+    });
+  });
+
   it("replaces typed copyright shorthand with a copyright symbol", () => {
     const doc = schema.node("doc", null, [
       schema.node("paragraph", null, [schema.text("(c")]),

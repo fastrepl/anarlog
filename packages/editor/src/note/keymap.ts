@@ -417,8 +417,10 @@ function symbolReplacementRule() {
   );
 }
 
+// The preceding character must not be a dash, so a line-start `---` survives
+// long enough for horizontalRuleRule to claim it on the following space.
 function dashReplacementRule() {
-  return new InputRule(/(.)--$/, (state, match, start, end) => {
+  return new InputRule(/([^-])--$/, (state, match, start, end) => {
     if (isInCodeInputContext(state)) return null;
     const prefix = match[1] ?? "";
     return state.tr.insertText("—", start + prefix.length, end);
