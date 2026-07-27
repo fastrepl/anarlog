@@ -6,6 +6,9 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - if: ${{ runner.os == 'macOS' }}
+      shell: bash
+      run: xcodebuild -downloadComponent MetalToolchain
     - if: ${{ runner.os == 'Linux' }}
       shell: bash
       run: |
