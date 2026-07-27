@@ -28,6 +28,7 @@ const {
   markSessionAudioTranscriptionCompleteMock,
   createTranscriptMock,
   idMock,
+  archMock,
   platformMock,
 } = vi.hoisted(() => ({
   startTranscriptionMock: vi.fn(),
@@ -45,10 +46,12 @@ const {
   markSessionAudioTranscriptionCompleteMock: vi.fn(),
   createTranscriptMock: vi.fn(),
   idMock: vi.fn(),
+  archMock: vi.fn(),
   platformMock: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
+  arch: archMock,
   platform: platformMock,
 }));
 
@@ -137,6 +140,19 @@ vi.mock("~/stt/capabilities", () => {
 
       return languages;
     },
+    isDesktopLocalSttAvailable: (
+      currentPlatform: string,
+      currentArch: string,
+    ) => currentPlatform === "macos" && currentArch === "aarch64",
+    isHyprnoteLocalSttModel: (
+      provider: string | null | undefined,
+      model: string | null | undefined,
+    ) =>
+      provider === "hyprnote" &&
+      typeof model === "string" &&
+      (model.startsWith("soniqo-") ||
+        model.startsWith("am-") ||
+        model.startsWith("Quantized")),
     isSupportedLanguagesBatch: isSupportedLanguagesBatchMock,
   };
 });
@@ -193,6 +209,7 @@ describe("getBatchFallbackTarget", () => {
         accessToken: "token",
         apiBaseUrl: "https://api.test",
         currentPlatform: "windows",
+        currentArch: "x86_64",
       }),
     ).toEqual({
       provider: "hyprnote",
@@ -210,6 +227,7 @@ describe("getBatchFallbackTarget", () => {
         accessToken: null,
         apiBaseUrl: "https://api.test",
         currentPlatform: "macos",
+        currentArch: "aarch64",
       }),
     ).toEqual({
       provider: "soniqo",
@@ -229,15 +247,29 @@ describe("getBatchFallbackTarget", () => {
           accessToken: null,
           apiBaseUrl: "https://api.test",
           currentPlatform,
+          currentArch: "x86_64",
         }),
       ).toBeNull();
     },
   );
+
+  test("does not use local Soniqo on Intel macOS", () => {
+    expect(
+      getBatchFallbackTarget({
+        isPaid: false,
+        accessToken: null,
+        apiBaseUrl: "https://api.test",
+        currentPlatform: "macos",
+        currentArch: "x86_64",
+      }),
+    ).toBeNull();
+  });
 });
 
 describe("useRunBatch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    archMock.mockReturnValue("aarch64");
     platformMock.mockReturnValue("macos");
 
     let nextId = 0;
@@ -603,6 +635,60 @@ describe("useRunBatch", () => {
       expect(sonnerToastWarningMock).not.toHaveBeenCalled();
     },
   );
+
+  test("does not invoke Soniqo as a selected target or fallback on Intel macOS", async () => {
+    archMock.mockReturnValue("x86_64");
+    useSTTConnectionMock.mockReturnValue({
+      conn: {
+        provider: "hyprnote",
+        model: "soniqo-parakeet-batch",
+        baseUrl: "soniqo://local",
+        apiKey: "",
+      },
+    });
+
+    const { result } = renderHook(() => useRunBatch("session-1"));
+
+    await expect(
+      act(async () => {
+        await result.current("/tmp/session.wav");
+      }),
+    ).rejects.toThrow(
+      "soniqo-parakeet-batch is not available for batch transcription on this platform",
+    );
+
+    expect(startTranscriptionMock).not.toHaveBeenCalled();
+  });
+
+  test("falls back from local Soniqo to cloud for paid Intel Mac users", async () => {
+    archMock.mockReturnValue("x86_64");
+    useBillingAccessMock.mockReturnValue({ isPaid: true });
+    useSTTConnectionMock.mockReturnValue({
+      conn: {
+        provider: "hyprnote",
+        model: "soniqo-parakeet-batch",
+        baseUrl: "soniqo://local",
+        apiKey: "",
+      },
+    });
+    startTranscriptionMock.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useRunBatch("session-1"));
+
+    await act(async () => {
+      await result.current("/tmp/session.wav");
+    });
+
+    expect(startTranscriptionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "hyprnote",
+        model: "cloud",
+        base_url: "https://api.test/stt",
+        api_key: "paid-token",
+      }),
+      expect.any(Object),
+    );
+  });
 
   test("falls back to hosted cloud transcription for paid users", async () => {
     isSupportedLanguagesBatchMock.mockResolvedValue(false);

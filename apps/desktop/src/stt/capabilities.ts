@@ -63,14 +63,22 @@ export function isHyprnoteLocalSttModel(
   return provider === "hyprnote" && isSupportedLocalSttModel(model);
 }
 
+export function isDesktopLocalSttAvailable(
+  currentPlatform: string,
+  currentArch: string,
+) {
+  return currentPlatform === "macos" && currentArch === "aarch64";
+}
+
 export function getUnsupportedDesktopLocalSttRepair(
   currentPlatform: string,
+  currentArch: string,
   provider: string | undefined,
   model: string | undefined,
   canUseCloud: boolean,
 ) {
   if (
-    (currentPlatform !== "windows" && currentPlatform !== "linux") ||
+    isDesktopLocalSttAvailable(currentPlatform, currentArch) ||
     !isHyprnoteLocalSttModel(provider, model)
   ) {
     return null;

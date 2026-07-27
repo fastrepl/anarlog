@@ -21,6 +21,7 @@ import {
   getTranscriptionLanguages,
   getUnsupportedDesktopLocalSttRepair,
   isConfiguredSttModel,
+  isDesktopLocalSttAvailable,
   isSupportedLanguagesBatch,
   isSupportedLanguagesLive,
   isSupportedLocalSttModel,
@@ -112,12 +113,19 @@ describe("isConfiguredSttModel", () => {
 });
 
 describe("getUnsupportedDesktopLocalSttRepair", () => {
+  test("reports local STT only on Apple Silicon", () => {
+    expect(isDesktopLocalSttAvailable("macos", "aarch64")).toBe(true);
+    expect(isDesktopLocalSttAvailable("macos", "x86_64")).toBe(false);
+    expect(isDesktopLocalSttAvailable("windows", "aarch64")).toBe(false);
+  });
+
   test.each(["windows", "linux"])(
     "uses hosted transcription for entitled users on %s",
     (currentPlatform) => {
       expect(
         getUnsupportedDesktopLocalSttRepair(
           currentPlatform,
+          "x86_64",
           "hyprnote",
           "soniqo-parakeet-streaming",
           true,
@@ -132,6 +140,7 @@ describe("getUnsupportedDesktopLocalSttRepair", () => {
       expect(
         getUnsupportedDesktopLocalSttRepair(
           currentPlatform,
+          "x86_64",
           "hyprnote",
           "am-parakeet-v3",
           false,
@@ -140,10 +149,11 @@ describe("getUnsupportedDesktopLocalSttRepair", () => {
     },
   );
 
-  test("keeps supported Apple-local selections on macOS", () => {
+  test("keeps supported Apple-local selections on Apple Silicon", () => {
     expect(
       getUnsupportedDesktopLocalSttRepair(
         "macos",
+        "aarch64",
         "hyprnote",
         "soniqo-parakeet-streaming",
         false,
@@ -151,13 +161,38 @@ describe("getUnsupportedDesktopLocalSttRepair", () => {
     ).toBeNull();
   });
 
+  test.each([
+    [true, { provider: "hyprnote", model: "cloud" }],
+    [false, { provider: "", model: "" }],
+  ])(
+    "repairs unsupported Intel Mac local transcription when cloud access is %s",
+    (canUseCloud, expected) => {
+      expect(
+        getUnsupportedDesktopLocalSttRepair(
+          "macos",
+          "x86_64",
+          "hyprnote",
+          "soniqo-parakeet-streaming",
+          canUseCloud,
+        ),
+      ).toEqual(expected);
+    },
+  );
+
   test("does not rewrite cloud or BYOK selections", () => {
     expect(
-      getUnsupportedDesktopLocalSttRepair("windows", "hyprnote", "cloud", true),
+      getUnsupportedDesktopLocalSttRepair(
+        "windows",
+        "x86_64",
+        "hyprnote",
+        "cloud",
+        true,
+      ),
     ).toBeNull();
     expect(
       getUnsupportedDesktopLocalSttRepair(
         "linux",
+        "x86_64",
         "deepgram",
         "nova-3-general",
         false,

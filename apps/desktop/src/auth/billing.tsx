@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { platform } from "@tauri-apps/plugin-os";
+import { arch, platform } from "@tauri-apps/plugin-os";
 import {
   type ReactNode,
   useCallback,
@@ -90,6 +90,8 @@ export function BillingProvider({ children }: { children: ReactNode }) {
 
   const billing = deriveBillingInfo(claimsQuery.data ?? null);
   const isReady = !claimsQuery.isPending && !claimsQuery.isError;
+  const claimsAreCurrent =
+    !claimsQuery.isFetching && !claimsQuery.isPlaceholderData;
 
   // eslint-disable-next-line @tanstack/query/exhaustive-deps -- Auth supplies request headers; the user ID is the eligibility identity.
   const canTrialQuery = useQuery({
@@ -175,7 +177,12 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!auth?.session?.user.id || !isReady || billing.isPaid) {
+    if (
+      !auth?.session?.user.id ||
+      !isReady ||
+      !claimsAreCurrent ||
+      billing.isPaid
+    ) {
       return;
     }
 
@@ -187,15 +194,25 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       current_llm_provider: "",
       current_llm_model: "",
     });
-  }, [auth?.session?.user.id, billing.isPaid, currentLlmProvider, isReady]);
+  }, [
+    auth?.session?.user.id,
+    billing.isPaid,
+    claimsAreCurrent,
+    currentLlmProvider,
+    isReady,
+  ]);
 
   useEffect(() => {
-    if (auth.session === undefined || (auth.session !== null && !isReady)) {
+    if (
+      auth.session === undefined ||
+      (auth.session !== null && (!isReady || !claimsAreCurrent))
+    ) {
       return;
     }
 
     const repair = getUnsupportedDesktopLocalSttRepair(
       platform(),
+      arch(),
       currentSttProvider,
       currentSttModel,
       isReady && billing.isPaid && !!auth?.session,
@@ -211,6 +228,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   }, [
     auth.session,
     billing.isPaid,
+    claimsAreCurrent,
     currentSttModel,
     currentSttProvider,
     isReady,

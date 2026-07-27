@@ -1,4 +1,4 @@
-import { platform } from "@tauri-apps/plugin-os";
+import { arch, platform } from "@tauri-apps/plugin-os";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import {
@@ -12,6 +12,8 @@ import {
 
 import { TrialDialogIcon } from "./trial-dialog-icon";
 
+import { isDesktopLocalSttAvailable } from "~/stt/capabilities";
+
 interface TrialEndedDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -23,7 +25,10 @@ export function TrialEndedDialog({
   onOpenChange,
   onUpgrade,
 }: TrialEndedDialogProps) {
-  const supportsFreeLocalTranscription = platform() === "macos";
+  const supportsFreeLocalTranscription = isDesktopLocalSttAvailable(
+    platform(),
+    arch(),
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

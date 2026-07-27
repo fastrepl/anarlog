@@ -24,6 +24,7 @@ const authState = vi.hoisted(() => ({
     | undefined,
 }));
 const settingsState = vi.hoisted(() => ({
+  currentArch: "aarch64",
   currentPlatform: "macos",
   values: {
     current_llm_provider: undefined as string | undefined,
@@ -71,6 +72,7 @@ vi.mock("@hypr/plugin-windows", () => ({
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
+  arch: () => settingsState.currentArch,
   platform: () => settingsState.currentPlatform,
 }));
 
@@ -169,6 +171,20 @@ function paidClaims(userId: string) {
   };
 }
 
+function freeClaims(userId: string) {
+  return {
+    status: "ok" as const,
+    data: {
+      sub: userId,
+      email: `${userId}@example.com`,
+      entitlements: [],
+      subscription_status: null,
+      trial_end: null,
+      has_payment_method: null,
+    },
+  };
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((resolvePromise) => {
@@ -194,6 +210,7 @@ describe("BillingProvider", () => {
       user: { id: "user-1", email: "test@example.com" },
     };
     settingsState.currentPlatform = "macos";
+    settingsState.currentArch = "aarch64";
     settingsState.values.current_llm_provider = undefined;
     settingsState.values.current_stt_provider = undefined;
     settingsState.values.current_stt_model = undefined;
@@ -273,6 +290,91 @@ describe("BillingProvider", () => {
     ).toBe("true");
 
     refreshedClaims.resolve(paidClaims("user-1"));
+  });
+
+  it("defers paid-to-free transcription repair until refreshed claims arrive", async () => {
+    settingsState.currentPlatform = "windows";
+    const refreshedClaims =
+      deferred<Awaited<ReturnType<typeof authCommands.decodeClaims>>>();
+    vi.mocked(authCommands.decodeClaims)
+      .mockResolvedValueOnce(paidClaims("user-1"))
+      .mockReturnValueOnce(refreshedClaims.promise);
+    const { queryClient, view } = renderBillingProvider();
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("billing-access").getAttribute("data-is-paid"),
+      ).toBe("true");
+    });
+    settingsState.setSettingValues.mockClear();
+
+    settingsState.values.current_stt_provider = "hyprnote";
+    settingsState.values.current_stt_model = "soniqo-parakeet-streaming";
+    authState.session = {
+      ...authState.session!,
+      access_token: "free-token",
+    };
+    view.rerender(billingTree(queryClient));
+
+    await waitFor(() => {
+      expect(authCommands.decodeClaims).toHaveBeenCalledTimes(2);
+    });
+    expect(settingsState.setSettingValues).not.toHaveBeenCalled();
+
+    refreshedClaims.resolve(freeClaims("user-1"));
+
+    await waitFor(() => {
+      expect(settingsState.setSettingValues).toHaveBeenCalledWith({
+        current_stt_provider: "",
+        current_stt_model: "",
+      });
+    });
+    expect(settingsState.setSettingValues).not.toHaveBeenCalledWith({
+      current_stt_provider: "hyprnote",
+      current_stt_model: "cloud",
+    });
+  });
+
+  it("defers free-to-paid transcription repair until refreshed claims arrive", async () => {
+    settingsState.currentPlatform = "windows";
+    const refreshedClaims =
+      deferred<Awaited<ReturnType<typeof authCommands.decodeClaims>>>();
+    vi.mocked(authCommands.decodeClaims)
+      .mockResolvedValueOnce(freeClaims("user-1"))
+      .mockReturnValueOnce(refreshedClaims.promise);
+    const { queryClient, view } = renderBillingProvider();
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("billing-access").getAttribute("data-is-paid"),
+      ).toBe("false");
+    });
+
+    settingsState.values.current_stt_provider = "hyprnote";
+    settingsState.values.current_stt_model = "soniqo-parakeet-streaming";
+    authState.session = {
+      ...authState.session!,
+      access_token: "paid-token",
+    };
+    view.rerender(billingTree(queryClient));
+
+    await waitFor(() => {
+      expect(authCommands.decodeClaims).toHaveBeenCalledTimes(2);
+    });
+    expect(settingsState.setSettingValues).not.toHaveBeenCalled();
+
+    refreshedClaims.resolve(paidClaims("user-1"));
+
+    await waitFor(() => {
+      expect(settingsState.setSettingValues).toHaveBeenCalledWith({
+        current_stt_provider: "hyprnote",
+        current_stt_model: "cloud",
+      });
+    });
+    expect(settingsState.setSettingValues).not.toHaveBeenCalledWith({
+      current_stt_provider: "",
+      current_stt_model: "",
+    });
   });
 
   it("does not retain paid access across account switches", async () => {
@@ -380,6 +482,47 @@ describe("BillingProvider", () => {
       });
     },
   );
+
+  it.each([
+    [true, "hyprnote", "cloud"],
+    [false, "", ""],
+  ])(
+    "repairs Intel Mac local transcription when paid access is %s",
+    async (isPaid, expectedProvider, expectedModel) => {
+      settingsState.currentPlatform = "macos";
+      settingsState.currentArch = "x86_64";
+      settingsState.values.current_stt_provider = "hyprnote";
+      settingsState.values.current_stt_model = "soniqo-parakeet-streaming";
+      if (isPaid) {
+        vi.mocked(authCommands.decodeClaims).mockResolvedValue(
+          paidClaims("user-1"),
+        );
+      }
+
+      renderBillingProvider();
+
+      await waitFor(() => {
+        expect(settingsState.setSettingValues).toHaveBeenCalledWith({
+          current_stt_provider: expectedProvider,
+          current_stt_model: expectedModel,
+        });
+      });
+    },
+  );
+
+  it("preserves local transcription on Apple Silicon", async () => {
+    settingsState.currentPlatform = "macos";
+    settingsState.currentArch = "aarch64";
+    settingsState.values.current_stt_provider = "hyprnote";
+    settingsState.values.current_stt_model = "soniqo-parakeet-streaming";
+
+    renderBillingProvider();
+
+    await waitFor(() => {
+      expect(authCommands.decodeClaims).toHaveBeenCalled();
+    });
+    expect(settingsState.setSettingValues).not.toHaveBeenCalled();
+  });
 
   it.each(["windows", "linux"])(
     "requires provider selection for free users with Apple-local transcription on %s",

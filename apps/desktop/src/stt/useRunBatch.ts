@@ -1,4 +1,4 @@
-import { platform } from "@tauri-apps/plugin-os";
+import { arch, platform } from "@tauri-apps/plugin-os";
 import { useCallback } from "react";
 
 import type { TranscriptionParams } from "@hypr/plugin-transcription";
@@ -24,6 +24,8 @@ import { id } from "~/shared/utils";
 import type { BatchPersistCallback } from "~/store/zustand/listener/transcript";
 import {
   getTranscriptionLanguages,
+  isDesktopLocalSttAvailable,
+  isHyprnoteLocalSttModel,
   isSupportedLanguagesBatch,
 } from "~/stt/capabilities";
 import { createTranscript } from "~/stt/queries";
@@ -115,11 +117,13 @@ export function getBatchFallbackTarget({
   accessToken,
   apiBaseUrl,
   currentPlatform = platform(),
+  currentArch = arch(),
 }: {
   isPaid: boolean;
   accessToken?: string | null;
   apiBaseUrl: string;
   currentPlatform?: ReturnType<typeof platform>;
+  currentArch?: ReturnType<typeof arch>;
 }): BatchTarget | null {
   if (isPaid && accessToken) {
     return {
@@ -131,7 +135,9 @@ export function getBatchFallbackTarget({
     };
   }
 
-  return currentPlatform === "macos" ? LOCAL_SONIQO_BATCH_TARGET : null;
+  return isDesktopLocalSttAvailable(currentPlatform, currentArch)
+    ? LOCAL_SONIQO_BATCH_TARGET
+    : null;
 }
 
 async function canUseBatchTarget(
@@ -262,6 +268,7 @@ export const useRunBatch = (sessionId: string) => {
         options?.languages ??
         getTranscriptionLanguages(aiLanguage, spokenLanguages);
       const currentPlatform = platform();
+      const currentArch = arch();
       const selectedModel = options?.model ?? conn?.model;
       const selectedProvider =
         conn && selectedModel
@@ -279,7 +286,8 @@ export const useRunBatch = (sessionId: string) => {
           : null;
       const selectedTargetSupported =
         selectedTarget &&
-        (selectedTarget.provider !== "soniqo" || currentPlatform === "macos")
+        (!isHyprnoteLocalSttModel(conn?.provider, selectedModel) ||
+          isDesktopLocalSttAvailable(currentPlatform, currentArch))
           ? await canUseBatchTarget(
               selectedTarget.provider,
               selectedTarget.model,
@@ -291,6 +299,7 @@ export const useRunBatch = (sessionId: string) => {
         accessToken: auth?.session?.access_token,
         apiBaseUrl: env.VITE_API_URL,
         currentPlatform,
+        currentArch,
       });
       const shouldUseSelectedTarget =
         selectedTargetSupported ||
