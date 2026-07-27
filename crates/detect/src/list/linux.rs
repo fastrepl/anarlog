@@ -1,7 +1,16 @@
 use super::InstalledApp;
+use libpulse_binding as pulse;
+use libpulse_binding::context::{Context, FlagSet as ContextFlagSet};
+use libpulse_binding::mainloop::standard::{IterateResult, Mainloop};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use std::rc::Rc;
+use std::time::{Duration, Instant};
+
+const PULSE_OPERATION_TIMEOUT: Duration = Duration::from_secs(2);
+const PULSE_POLL_INTERVAL: Duration = Duration::from_millis(10);
 
 pub fn list_installed_apps() -> Vec<InstalledApp> {
     let desktop_dirs = get_desktop_file_dirs();
@@ -26,15 +35,7 @@ pub fn list_installed_apps() -> Vec<InstalledApp> {
 }
 
 pub fn list_mic_using_apps() -> Result<Vec<InstalledApp>, crate::Error> {
-    use libpulse_binding::context::{Context, FlagSet as ContextFlagSet};
-    use libpulse_binding::mainloop::standard::{IterateResult, Mainloop};
-    use std::cell::RefCell;
-    use std::rc::Rc;
-
-    let mut apps = Vec::new();
-
     let mut mainloop = Mainloop::new().ok_or(crate::Error::PulseMainloop)?;
-
     let mut context =
         Context::new(&mainloop, "hyprnote-detect").ok_or(crate::Error::PulseContext)?;
 
@@ -42,48 +43,158 @@ pub fn list_mic_using_apps() -> Result<Vec<InstalledApp>, crate::Error> {
         .connect(None, ContextFlagSet::NOFLAGS, None)
         .map_err(|_| crate::Error::PulseConnect)?;
 
-    let apps_rc: Rc<RefCell<Vec<InstalledApp>>> = Rc::new(RefCell::new(Vec::new()));
-    let apps_clone = apps_rc.clone();
-
-    let introspect = context.introspect();
-    introspect.get_source_output_info_list(move |result| {
-        use libpulse_binding::callbacks::ListResult;
-
-        if let ListResult::Item(info) = result {
-            let props = &info.proplist;
-            let app_name = props
-                .get_str("application.name")
-                .or_else(|| props.get_str("application.process.binary"))
-                .unwrap_or_default();
-
-            let app_id = props
-                .get_str("application.process.binary")
-                .or_else(|| props.get_str("application.name"))
-                .unwrap_or_default();
-
-            if !app_name.is_empty() && !app_id.is_empty() {
-                apps_clone.borrow_mut().push(InstalledApp {
-                    id: app_id,
-                    name: app_name,
-                });
-            }
-        }
-    });
-
-    for _ in 0..100 {
-        match mainloop.iterate(false) {
-            IterateResult::Quit(_) | IterateResult::Err(_) => break,
-            IterateResult::Success(_) => {}
-        }
+    if let Err(error) = wait_for_context_ready(&mut mainloop, &context) {
+        context.disconnect();
+        return Err(error);
     }
 
-    context.disconnect();
+    let query = Rc::new(RefCell::new(SourceOutputQuery::default()));
+    let query_for_callback = query.clone();
+    let mut operation =
+        context
+            .introspect()
+            .get_source_output_info_list(move |result| match result {
+                pulse::callbacks::ListResult::Item(info) => {
+                    if info.corked {
+                        return;
+                    }
 
-    apps = apps_rc.borrow().clone();
+                    let props = &info.proplist;
+                    let name = props
+                        .get_str("application.name")
+                        .or_else(|| props.get_str("application.process.binary"))
+                        .unwrap_or_default();
+                    let id = props
+                        .get_str("application.process.binary")
+                        .or_else(|| props.get_str("application.name"))
+                        .unwrap_or_default();
+
+                    if !name.is_empty() && !id.is_empty() {
+                        query_for_callback
+                            .borrow_mut()
+                            .apps
+                            .push(InstalledApp { id, name });
+                    }
+                }
+                pulse::callbacks::ListResult::End => {
+                    query_for_callback.borrow_mut().completed = true;
+                }
+                pulse::callbacks::ListResult::Error => {
+                    let mut query = query_for_callback.borrow_mut();
+                    query.failed = true;
+                    query.completed = true;
+                }
+            });
+
+    let query_result = wait_for_source_output_query(&mut mainloop, &query);
+    if query_result.is_err() && !query.borrow().completed {
+        operation.cancel();
+    }
+    drop(operation);
+    context.disconnect();
+    query_result?;
+
+    let mut apps = query.borrow().apps.clone();
     apps.sort_by(|a, b| a.id.cmp(&b.id));
     apps.dedup_by(|a, b| a.id == b.id);
     apps.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(apps)
+}
+
+#[derive(Default)]
+struct SourceOutputQuery {
+    apps: Vec<InstalledApp>,
+    completed: bool,
+    failed: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ContextReadiness {
+    Pending,
+    Ready,
+    Failed,
+}
+
+fn context_readiness(state: pulse::context::State) -> ContextReadiness {
+    match state {
+        pulse::context::State::Ready => ContextReadiness::Ready,
+        pulse::context::State::Failed | pulse::context::State::Terminated => {
+            ContextReadiness::Failed
+        }
+        _ => ContextReadiness::Pending,
+    }
+}
+
+fn wait_for_context_ready(mainloop: &mut Mainloop, context: &Context) -> Result<(), crate::Error> {
+    let deadline = Instant::now() + PULSE_OPERATION_TIMEOUT;
+
+    loop {
+        match context_readiness(context.get_state()) {
+            ContextReadiness::Ready => return Ok(()),
+            ContextReadiness::Failed => {
+                return Err(crate::Error::PulseOperation(
+                    "context failed before becoming ready".to_string(),
+                ));
+            }
+            ContextReadiness::Pending => {}
+        }
+
+        if Instant::now() >= deadline {
+            return Err(crate::Error::PulseOperation(
+                "timed out waiting for context readiness".to_string(),
+            ));
+        }
+
+        iterate_mainloop(mainloop, "waiting for context readiness")?;
+    }
+}
+
+fn wait_for_source_output_query(
+    mainloop: &mut Mainloop,
+    query: &Rc<RefCell<SourceOutputQuery>>,
+) -> Result<(), crate::Error> {
+    let deadline = Instant::now() + PULSE_OPERATION_TIMEOUT;
+
+    loop {
+        let query = query.borrow();
+        if query.completed {
+            return if query.failed {
+                Err(crate::Error::PulseOperation(
+                    "source-output introspection failed".to_string(),
+                ))
+            } else {
+                Ok(())
+            };
+        }
+        drop(query);
+
+        if Instant::now() >= deadline {
+            return Err(crate::Error::PulseOperation(
+                "timed out waiting for source-output introspection".to_string(),
+            ));
+        }
+
+        iterate_mainloop(mainloop, "enumerating source outputs")?;
+    }
+}
+
+fn iterate_mainloop(mainloop: &mut Mainloop, operation: &str) -> Result<(), crate::Error> {
+    match mainloop.iterate(false) {
+        IterateResult::Success(0) => std::thread::sleep(PULSE_POLL_INTERVAL),
+        IterateResult::Success(_) => {}
+        IterateResult::Quit(retval) => {
+            return Err(crate::Error::PulseOperation(format!(
+                "mainloop quit while {operation}: {retval:?}"
+            )));
+        }
+        IterateResult::Err(error) => {
+            return Err(crate::Error::PulseOperation(format!(
+                "mainloop failed while {operation}: {error:?}"
+            )));
+        }
+    }
+
+    Ok(())
 }
 
 fn get_desktop_file_dirs() -> Vec<PathBuf> {
@@ -172,6 +283,26 @@ fn parse_desktop_file(path: &std::path::Path) -> Option<InstalledApp> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn context_readiness_requires_ready_state() {
+        use pulse::context::State;
+
+        for state in [
+            State::Unconnected,
+            State::Connecting,
+            State::Authorizing,
+            State::SettingName,
+        ] {
+            assert_eq!(context_readiness(state), ContextReadiness::Pending);
+        }
+        assert_eq!(context_readiness(State::Ready), ContextReadiness::Ready);
+        assert_eq!(context_readiness(State::Failed), ContextReadiness::Failed);
+        assert_eq!(
+            context_readiness(State::Terminated),
+            ContextReadiness::Failed
+        );
+    }
 
     #[test]
     #[ignore]

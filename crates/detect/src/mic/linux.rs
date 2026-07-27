@@ -1,15 +1,16 @@
 use libpulse_binding as pulse;
 use libpulse_binding::context::{Context, FlagSet as ContextFlagSet};
 use libpulse_binding::mainloop::threaded::Mainloop;
+use std::collections::HashSet;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
     mpsc::{Receiver, SyncSender, sync_channel},
 };
 use std::thread::JoinHandle;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use crate::DetectEvent;
+use crate::{DetectEvent, InstalledApp};
 
 #[derive(Default)]
 pub struct Detector {
@@ -24,21 +25,40 @@ struct Worker {
 
 #[derive(Default)]
 struct DetectorState {
-    last_state: bool,
+    active_apps: Vec<InstalledApp>,
 }
 
 impl DetectorState {
-    fn seed(&mut self, state: bool) {
-        self.last_state = state;
+    fn seed(&mut self, apps: Vec<InstalledApp>) {
+        self.active_apps = apps;
     }
 
-    fn transition(&mut self, new_state: bool) -> Option<bool> {
-        if new_state == self.last_state {
-            return None;
-        }
+    fn reconcile(&mut self, current_apps: Vec<InstalledApp>) -> Vec<DetectEvent> {
+        let previous_ids: HashSet<_> = self.active_apps.iter().map(|app| &app.id).collect();
+        let current_ids: HashSet<_> = current_apps.iter().map(|app| &app.id).collect();
 
-        self.last_state = new_state;
-        Some(new_state)
+        let started = current_apps
+            .iter()
+            .filter(|app| !previous_ids.contains(&app.id))
+            .cloned()
+            .collect::<Vec<_>>();
+        let stopped = self
+            .active_apps
+            .iter()
+            .filter(|app| !current_ids.contains(&app.id))
+            .cloned()
+            .collect::<Vec<_>>();
+
+        self.active_apps = current_apps;
+
+        let mut events = Vec::with_capacity(2);
+        if !started.is_empty() {
+            events.push(DetectEvent::MicStarted(started));
+        }
+        if !stopped.is_empty() {
+            events.push(DetectEvent::MicStopped(stopped));
+        }
+        events
     }
 }
 
@@ -173,8 +193,9 @@ fn run_detector(
     mainloop.unlock();
 
     let mut detector_state = DetectorState::default();
-    if let Some(initial_state) = check_mic_in_use(&mut mainloop, &context, &shutdown) {
-        detector_state.seed(initial_state);
+    match crate::list_mic_using_apps() {
+        Ok(active_apps) => detector_state.seed(active_apps),
+        Err(error) => tracing::warn!(?error, "failed_to_seed_linux_mic_apps"),
     }
 
     while !shutdown.load(Ordering::SeqCst) {
@@ -182,10 +203,16 @@ fn run_detector(
             break;
         }
 
-        if let Some(mic_in_use) = check_mic_in_use(&mut mainloop, &context, &shutdown)
-            && let Some(new_state) = detector_state.transition(mic_in_use)
-        {
-            emit_transition(&callback, new_state);
+        match crate::list_mic_using_apps() {
+            Ok(current_apps) => {
+                for event in detector_state.reconcile(current_apps) {
+                    tracing::info!(event = ?event, "detected");
+                    callback(event);
+                }
+            }
+            Err(error) => {
+                tracing::warn!(?error, "failed_to_refresh_linux_mic_apps");
+            }
         }
     }
 
@@ -241,83 +268,6 @@ fn is_source_output_event(
     )
 }
 
-fn check_mic_in_use(
-    mainloop: &mut Mainloop,
-    context: &Context,
-    shutdown: &AtomicBool,
-) -> Option<bool> {
-    let result = Arc::new(AtomicBool::new(false));
-    let query_done = Arc::new(AtomicBool::new(false));
-    let query_failed = Arc::new(AtomicBool::new(false));
-
-    let result_for_callback = result.clone();
-    let done_for_callback = query_done.clone();
-    let failed_for_callback = query_failed.clone();
-
-    mainloop.lock();
-    let mut operation = context
-        .introspect()
-        .get_source_output_info_list(move |list_result| match list_result {
-            pulse::callbacks::ListResult::Item(info) => {
-                if !info.corked {
-                    result_for_callback.store(true, Ordering::SeqCst);
-                }
-            }
-            pulse::callbacks::ListResult::End => {
-                done_for_callback.store(true, Ordering::SeqCst);
-            }
-            pulse::callbacks::ListResult::Error => {
-                failed_for_callback.store(true, Ordering::SeqCst);
-                done_for_callback.store(true, Ordering::SeqCst);
-            }
-        });
-    mainloop.unlock();
-
-    let deadline = Instant::now() + Duration::from_secs(1);
-    while !query_done.load(Ordering::SeqCst)
-        && !shutdown.load(Ordering::SeqCst)
-        && Instant::now() < deadline
-    {
-        std::thread::sleep(Duration::from_millis(10));
-    }
-
-    mainloop.lock();
-    let completed = query_done.load(Ordering::SeqCst);
-    let failed = query_failed.load(Ordering::SeqCst);
-    if !completed {
-        operation.cancel();
-    }
-    drop(operation);
-    mainloop.unlock();
-
-    if !completed {
-        if !shutdown.load(Ordering::SeqCst) {
-            tracing::warn!("pulseaudio_source_output_query_timed_out");
-        }
-        return None;
-    }
-
-    if failed {
-        tracing::warn!("pulseaudio_source_output_query_failed");
-        return None;
-    }
-
-    Some(result.load(Ordering::SeqCst))
-}
-
-fn emit_transition(callback: &crate::DetectCallback, mic_in_use: bool) {
-    let event = if mic_in_use {
-        let apps = crate::list_mic_using_apps().unwrap_or_default();
-        tracing::info!("mic_started_detected: {:?}", apps);
-        DetectEvent::MicStarted(apps)
-    } else {
-        DetectEvent::MicStopped(vec![])
-    };
-
-    tracing::info!(event = ?event, "detected");
-    callback(event);
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -347,18 +297,57 @@ mod tests {
         assert!(!is_source_output_event(Some(Facility::SourceOutput), None));
     }
 
+    fn app(id: &str, name: &str) -> InstalledApp {
+        InstalledApp {
+            id: id.to_string(),
+            name: name.to_string(),
+        }
+    }
+
     #[test]
-    fn detector_state_emits_only_real_transitions() {
+    fn detector_state_emits_only_per_app_changes() {
         let mut state = DetectorState::default();
+        let zoom = app("us.zoom.xos", "Zoom");
+        let slack = app("com.tinyspeck.slackmacgap", "Slack");
 
-        assert_eq!(state.transition(false), None);
-        assert_eq!(state.transition(true), Some(true));
-        assert_eq!(state.transition(true), None);
-        assert_eq!(state.transition(false), Some(false));
+        assert!(state.reconcile(vec![]).is_empty());
 
-        state.seed(true);
-        assert_eq!(state.transition(true), None);
-        assert_eq!(state.transition(false), Some(false));
+        let events = state.reconcile(vec![zoom.clone()]);
+        assert!(matches!(
+            events.as_slice(),
+            [DetectEvent::MicStarted(apps)]
+                if apps.len() == 1 && apps[0].id.as_str() == zoom.id.as_str()
+        ));
+        assert!(state.reconcile(vec![zoom.clone()]).is_empty());
+
+        let events = state.reconcile(vec![zoom.clone(), slack.clone()]);
+        assert!(matches!(
+            events.as_slice(),
+            [DetectEvent::MicStarted(apps)]
+                if apps.len() == 1 && apps[0].id.as_str() == slack.id.as_str()
+        ));
+
+        let events = state.reconcile(vec![slack]);
+        assert!(matches!(
+            events.as_slice(),
+            [DetectEvent::MicStopped(apps)]
+                if apps.len() == 1 && apps[0].id.as_str() == zoom.id.as_str()
+        ));
+    }
+
+    #[test]
+    fn detector_state_retains_identity_for_final_stop() {
+        let mut state = DetectorState::default();
+        let zoom = app("us.zoom.xos", "Zoom");
+
+        state.seed(vec![zoom.clone()]);
+
+        let events = state.reconcile(vec![]);
+        assert!(matches!(
+            events.as_slice(),
+            [DetectEvent::MicStopped(apps)]
+                if apps.len() == 1 && apps[0].id.as_str() == zoom.id.as_str()
+        ));
     }
 
     #[test]

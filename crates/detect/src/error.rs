@@ -13,4 +13,7 @@ pub enum Error {
     #[cfg(target_os = "linux")]
     #[error("failed to connect to pulseaudio")]
     PulseConnect,
+    #[cfg(target_os = "linux")]
+    #[error("pulseaudio operation failed: {0}")]
+    PulseOperation(String),
 }
