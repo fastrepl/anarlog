@@ -1492,6 +1492,7 @@ describe("General Listener Slice", () => {
       ).toBeUndefined();
       expect(store.getState().live.captureGenerationCounter).toBe(1);
       expect(store.getState().live.lastError).toBe("capture unavailable");
+      expect(store.getState().live.lastErrorIsAudioRelated).toBe(true);
 
       await expect(store.getState().start(params)).resolves.toBe(true);
       expect(
@@ -1522,6 +1523,34 @@ describe("General Listener Slice", () => {
       ).resolves.toBe(false);
 
       expect(store.getState().live.lastError).toBe("audio backend unavailable");
+      expect(store.getState().live.lastErrorIsAudioRelated).toBe(true);
+      consoleError.mockRestore();
+    });
+
+    test("does not classify pre-capture startup failures as audio errors", async () => {
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      vaultBaseMock.mockResolvedValueOnce({
+        status: "error",
+        error: "storage unavailable",
+      });
+
+      await expect(
+        store.getState().start({
+          session_id: "session-a",
+          languages: [],
+          onboarding: false,
+          model: "test-model",
+          base_url: "http://localhost",
+          api_key: "test-key",
+          keywords: [],
+        }),
+      ).resolves.toBe(false);
+
+      expect(startCaptureMock).not.toHaveBeenCalled();
+      expect(store.getState().live.lastError).toBe("storage unavailable");
+      expect(store.getState().live.lastErrorIsAudioRelated).toBe(false);
       consoleError.mockRestore();
     });
 

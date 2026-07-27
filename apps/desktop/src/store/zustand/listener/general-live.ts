@@ -354,6 +354,7 @@ export const startLiveSession = <T extends LiveStore>(
 
   const handlers = createSessionEventHandlers(set, get, targetSessionId);
 
+  let captureStartAttempted = false;
   const program = Effect.gen(function* () {
     const unlisteners = yield* listenToAllSessionEvents(handlers);
 
@@ -407,6 +408,7 @@ export const startLiveSession = <T extends LiveStore>(
       },
     });
 
+    captureStartAttempted = true;
     yield* startSessionEffect(params);
 
     setLiveState(set, (live) => {
@@ -426,7 +428,7 @@ export const startLiveSession = <T extends LiveStore>(
         );
         setLiveState(set, (live) => {
           delete live.eventUnlistenersBySession[targetSessionId];
-          markLiveStartFailed(live, error);
+          markLiveStartFailed(live, error, captureStartAttempted);
         });
         return false;
       },
