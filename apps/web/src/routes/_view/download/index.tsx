@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_view/download/")({
       {
         name: "description",
         content:
-          "Download the latest stable Anarlog desktop app for macOS, Windows, or Linux.",
+          "Download Anarlog for macOS, Windows, or Linux. Every desktop build uses the same release version.",
       },
       { property: "og:title", content: "Download Anarlog" },
       { property: "og:url", content: `${ANARLOG_SITE_URL}/download` },
@@ -37,8 +37,8 @@ function Component() {
             Download Anarlog
           </h1>
           <p className="text-color-secondary mt-6 max-w-2xl text-xl leading-9">
-            Get the latest stable desktop release. macOS, Windows, and Linux
-            ship together with the same version.
+            macOS, Windows Preview, and Linux Beta ship together with the same
+            desktop version.
           </p>
         </section>
 

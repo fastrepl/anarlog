@@ -27,7 +27,8 @@ export const desktopDownloadSections = [
   },
   {
     name: "Windows",
-    description: "Installer for 64-bit Windows PCs.",
+    description:
+      "Preview installer for 64-bit Windows PCs. Physical audio and AEC validation is pending.",
     downloads: [
       {
         name: "Windows x64",
@@ -38,7 +39,8 @@ export const desktopDownloadSections = [
   },
   {
     name: "Linux",
-    description: "Portable AppImage and Debian packages for x64 and ARM64.",
+    description:
+      "Beta AppImage and Debian packages for x64 and ARM64. Physical audio and AEC validation is pending.",
     downloads: [
       {
         name: "AppImage x64",
