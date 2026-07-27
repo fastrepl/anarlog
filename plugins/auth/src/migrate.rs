@@ -29,12 +29,28 @@ pub(crate) fn load_linux_auth<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
 ) -> crate::Result<HashMap<String, String>> {
     let auth_path = auth_path(app)?;
-    let secure_data = tauri_plugin_store2::read_secret_blocking(app, AUTH_SCOPE, AUTH_KEY)
-        .map_err(crate::Error::Storage)?;
+
+    // A locked or unavailable keyring must not abort plugin setup, otherwise the app
+    // cannot start and the plaintext session can never be migrated.
+    let secure_data = match tauri_plugin_store2::read_secret_blocking(app, AUTH_SCOPE, AUTH_KEY) {
+        Ok(data) => data,
+        Err(error) => {
+            tracing::warn!(%error, "failed_to_read_auth_from_secret_service");
+            None
+        }
+    };
 
     if let Some(data) = secure_data {
-        remove_plaintext_auth(&auth_path)?;
-        return serde_json::from_str(&data).map_err(Into::into);
+        match serde_json::from_str::<HashMap<String, String>>(&data) {
+            // Only drop the plaintext copy once the secure payload is known to be usable.
+            Ok(auth) => {
+                discard_plaintext_auth(&auth_path);
+                return Ok(auth);
+            }
+            Err(error) => {
+                tracing::warn!(%error, "ignoring_unreadable_secret_service_auth");
+            }
+        }
     }
 
     if !auth_path.is_file() {
@@ -43,8 +59,12 @@ pub(crate) fn load_linux_auth<R: tauri::Runtime>(
 
     let data = std::fs::read_to_string(&auth_path)?;
     let auth: HashMap<String, String> = serde_json::from_str(&data)?;
-    persist_linux_auth(app, &auth)?;
-    remove_plaintext_auth(&auth_path)?;
+
+    match persist_linux_auth(app, &auth) {
+        Ok(()) => discard_plaintext_auth(&auth_path),
+        Err(error) => tracing::warn!(%error, "failed_to_migrate_auth_to_secret_service"),
+    }
+
     Ok(auth)
 }
 
@@ -66,6 +86,19 @@ pub(crate) fn persist_linux_auth<R: tauri::Runtime>(
 pub(crate) fn clear_linux_auth<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> crate::Result<()> {
     tauri_plugin_store2::delete_secret_blocking(app, AUTH_SCOPE, AUTH_KEY)
         .map_err(crate::Error::Storage)
+}
+
+// A leftover auth.json is less harmful than refusing a session the keyring already
+// holds, so cleanup failures are reported rather than propagated.
+#[cfg(all(target_os = "linux", not(test)))]
+fn discard_plaintext_auth(path: &Path) {
+    if let Err(error) = remove_plaintext_auth(path) {
+        tracing::warn!(
+            path = %path.display(),
+            %error,
+            "failed_to_remove_plaintext_auth"
+        );
+    }
 }
 
 #[cfg(all(target_os = "linux", not(test)))]
