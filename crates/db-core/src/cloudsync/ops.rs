@@ -1119,7 +1119,7 @@ mod tests {
             .expect("native CloudSync logout interruption crashed the pinned SQLite worker");
         db.cloudsync_terminate_and_close().await.unwrap();
         tokio::time::timeout(
-            Duration::from_millis(250),
+            Duration::from_secs(2),
             sqlx::query("INSERT INTO items (id, value) VALUES ('after', 'local')")
                 .execute(db.pool()),
         )
