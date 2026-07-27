@@ -159,9 +159,26 @@ jobs:
       - uses: ./.github/actions/rust_install
         with:
           platform: windows
+      - if: github.event_name == 'workflow_dispatch'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: git make mingw-w64-x86_64-gcc
+          update: true
+      - if: github.event_name == 'workflow_dispatch'
+        shell: "msys2 {0}"
+        run: crates/cloudsync/scripts/rebuild-windows.sh
+      - if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudsync-windows-x86_64-${{ github.sha }}
+          path: crates/cloudsync/vendor/cloudsync/windows/x86_64/cloudsync.dll
+          if-no-files-found: error
+          retention-days: 7
       - run: cargo check --locked -p desktop
       - run: cargo test --locked -p desktop --no-run
-      - run: cargo test --locked -p cloudsync loads_bundled_cloudsync
+      - run: cargo test --locked -p cloudsync
+      - run: "cargo test --locked -p db-core cloudsync::"
       - if: github.event_name == 'workflow_dispatch'
         uses: ./.github/actions/pnpm_install
       - if: github.event_name == 'workflow_dispatch'
@@ -246,7 +263,8 @@ jobs:
           platform: ${{ matrix.rust_platform }}
       - run: cargo check --locked --target ${{ matrix.target }} -p desktop
       - run: cargo test --locked --target ${{ matrix.target }} -p desktop embedded_cli --lib
-      - run: cargo test --locked --target ${{ matrix.target }} -p cloudsync loads_bundled_cloudsync
+      - run: cargo test --locked --target ${{ matrix.target }} -p cloudsync
+      - run: "cargo test --locked --target ${{ matrix.target }} -p db-core cloudsync::"
       - if: github.event_name == 'workflow_dispatch'
         uses: ./.github/actions/pnpm_install
       - if: github.event_name == 'workflow_dispatch'

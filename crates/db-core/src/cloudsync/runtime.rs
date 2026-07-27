@@ -750,7 +750,7 @@ fn embedded_sync_error(result: &CloudsyncNetworkResult) -> Option<String> {
 mod tests {
     use super::*;
 
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     async fn assert_interrupts_stalled_native_request_once() {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let endpoint = format!("http://{}", listener.local_addr().unwrap());
@@ -838,7 +838,7 @@ mod tests {
         db.cloudsync_close_connection().await.unwrap();
     }
 
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     #[tokio::test]
     async fn native_cloudsync_interrupt_drains_blackhole_http_and_reuses_connection() {
         for _ in 0..3 {
@@ -1410,7 +1410,7 @@ mod tests {
         assert_eq!(runtime.last_error.as_deref(), Some("previous error"));
     }
 
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     #[tokio::test]
     async fn activity_pause_during_pending_preflight_defers_and_drains_before_local_write() {
         let db = Arc::new(Db::connect_memory().await.unwrap());
