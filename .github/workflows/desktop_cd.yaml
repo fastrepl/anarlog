@@ -73,6 +73,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "${{ needs.compute-version.outputs.version }}"
+      - name: Verify stable signing credentials
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          missing=()
+          [[ -n "$WINDOWS_CERTIFICATE" ]] || missing+=("WINDOWS_CERTIFICATE")
+          [[ -n "$WINDOWS_CERTIFICATE_PASSWORD" ]] || missing+=("WINDOWS_CERTIFICATE_PASSWORD")
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            echo "::error::Stable Windows release signing is missing: ${missing[*]}"
+            exit 1
+          fi
       - uses: ./.github/actions/cn_release
         with:
           cmd: draft
@@ -163,6 +175,27 @@ jobs:
           VITE_API_URL: "https://api.anarlog.so"
           VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
           VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
+      - if: ${{ inputs.channel == 'stable' }}
+        name: Verify macOS updater signature
+        run: |
+          shopt -s nullglob
+          updater_dir="apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos"
+          apps=("$updater_dir"/*.app)
+          artifacts=("$updater_dir"/*.app.tar.gz)
+          signatures=("$updater_dir"/*.app.tar.gz.sig)
+          if [[ ${#apps[@]} -ne 1 || ${#artifacts[@]} -ne 1 || ${#signatures[@]} -ne 1 ]]; then
+            echo "Expected one macOS app, updater artifact, and signature for ${{ matrix.target }}"
+            exit 1
+          fi
+          app_version=$(plutil -extract CFBundleShortVersionString raw -o - "${apps[0]}/Contents/Info.plist")
+          if [[ "$app_version" != "${{ needs.compute-version.outputs.version }}" ]]; then
+            echo "Expected macOS app version ${{ needs.compute-version.outputs.version }}, got $app_version"
+            exit 1
+          fi
+          cargo run --locked -p updater-core --bin verify-updater-signature -- \
+            "${artifacts[0]}" \
+            "${signatures[0]}" \
+            apps/desktop/src-tauri/tauri.conf.json
       - id: find-dmg
         shell: bash
         run: |
@@ -307,10 +340,29 @@ jobs:
             echo "Expected Debian architecture ${{ matrix.debian_arch }}, got $package_arch"
             exit 1
           fi
+          package_version=$(dpkg-deb --field "${debs[0]}" Version)
+          if [[ "$package_version" != "${{ needs.compute-version.outputs.version }}" ]]; then
+            echo "Expected Debian version ${{ needs.compute-version.outputs.version }}, got $package_version"
+            exit 1
+          fi
+          if [[ "$(basename "${appimages[0]}")" != *"${{ needs.compute-version.outputs.version }}"* ]]; then
+            echo "AppImage filename does not contain version ${{ needs.compute-version.outputs.version }}"
+            exit 1
+          fi
           if ! file "${appimages[0]}" | grep -Fq "${{ matrix.file_arch }}"; then
             file "${appimages[0]}"
             echo "AppImage architecture does not match ${{ matrix.target }}"
             exit 1
+          fi
+          if [[ "${{ inputs.channel }}" == "stable" ]]; then
+            cargo run --locked -p updater-core --bin verify-updater-signature -- \
+              "${appimages[0]}" \
+              "${appimage_signatures[0]}" \
+              apps/desktop/src-tauri/tauri.conf.json
+            cargo run --locked -p updater-core --bin verify-updater-signature -- \
+              "${debs[0]}" \
+              "${deb_signatures[0]}" \
+              apps/desktop/src-tauri/tauri.conf.json
           fi
 
           bundles=("$appimage_dir"/* "$deb_dir"/*)
@@ -468,6 +520,8 @@ jobs:
 
           "WINDOWS_SIGNING_CONFIG=$($signingConfigPath.Replace('\', '/'))" |
             Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "WINDOWS_SIGNING_THUMBPRINT=$($certificate.Thumbprint)" |
+            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - shell: bash
         run: |
           BUILD_ARGS=(
@@ -532,12 +586,32 @@ jobs:
               if ($signature.Status -ne "Valid") {
                 throw "Invalid Authenticode signature for $signedFile`: $($signature.Status)"
               }
+              if (
+                -not $signature.SignerCertificate -or
+                $signature.SignerCertificate.Thumbprint -ne $env:WINDOWS_SIGNING_THUMBPRINT
+              ) {
+                throw "Authenticode signer does not match the imported release certificate for $signedFile"
+              }
+              if (-not $signature.TimeStamperCertificate) {
+                throw "Authenticode signature is missing a trusted timestamp for $signedFile"
+              }
             }
           }
 
           $hash = (Get-FileHash -Algorithm SHA256 $installers[0].FullName).Hash.ToLowerInvariant()
           "$hash  $($installers[0].Name)" |
             Out-File "$($installers[0].FullName).sha256" -Encoding ascii
+      - if: ${{ inputs.channel == 'stable' }}
+        name: Verify Windows updater signature
+        shell: bash
+        run: |
+          shopt -s nullglob
+          bundle_dir="apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis"
+          installers=("$bundle_dir"/*.exe)
+          cargo run --locked -p updater-core --bin verify-updater-signature -- \
+            "${installers[0]}" \
+            "${installers[0]}.sig" \
+            apps/desktop/src-tauri/tauri.conf.json
       - shell: pwsh
         run: |
           $source = "apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis"

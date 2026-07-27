@@ -339,7 +339,7 @@ fn replace_url_tokens(
     Ok(replaced.parse()?)
 }
 
-fn verify_signature(data: &[u8], release_signature: &str, pubkey: &str) -> Result<()> {
+pub fn verify_signature(data: &[u8], release_signature: &str, pubkey: &str) -> Result<()> {
     let pubkey_decoded = base64_to_utf8(pubkey)?;
     let public_key = PublicKey::decode(&pubkey_decoded)?;
     let signature_decoded = base64_to_utf8(release_signature)?;
