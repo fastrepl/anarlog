@@ -78,6 +78,9 @@ pub struct AudioInput {
     source: AudioSource,
     mic: Option<MicInput>,
     speaker: Option<SpeakerInput>,
+    // `SpeakerInput::stream` consumes the input, so the rate is cached up front to keep
+    // `sample_rate` answerable once the speaker has been handed off.
+    speaker_sample_rate: u32,
     data: Option<Vec<u8>>,
 }
 
@@ -94,7 +97,7 @@ impl AudioInput {
     pub fn sample_rate(&self) -> u32 {
         match &self.source {
             AudioSource::RealtimeMic => self.mic.as_ref().unwrap().sample_rate(),
-            AudioSource::RealtimeSpeaker => self.speaker.as_ref().unwrap().sample_rate(),
+            AudioSource::RealtimeSpeaker => self.speaker_sample_rate,
             AudioSource::Recorded => 16000,
         }
     }
@@ -140,17 +143,23 @@ impl AudioInput {
             source: AudioSource::RealtimeMic,
             mic: Some(mic),
             speaker: None,
+            speaker_sample_rate: 0,
             data: None,
         })
     }
 
-    pub fn from_speaker() -> Self {
-        Self {
+    pub fn from_speaker() -> Result<Self, Error> {
+        let speaker = SpeakerInput::new()
+            .map_err(|error| Error::SpeakerStreamInitializationFailed(error.to_string()))?;
+        let speaker_sample_rate = speaker.sample_rate();
+
+        Ok(Self {
             source: AudioSource::RealtimeSpeaker,
             mic: None,
-            speaker: Some(SpeakerInput::new().unwrap()),
+            speaker: Some(speaker),
+            speaker_sample_rate,
             data: None,
-        }
+        })
     }
 
     pub fn device_name(&self) -> String {
@@ -167,11 +176,14 @@ impl AudioInput {
                 mic: self.mic.as_ref().unwrap().stream()?,
             },
             AudioSource::RealtimeSpeaker => {
-                AudioStream::RealtimeSpeaker {
-                    speaker: self.speaker.take().unwrap().stream().map_err(|error| {
-                        Error::SpeakerStreamInitializationFailed(error.to_string())
-                    })?,
-                }
+                let speaker = self
+                    .speaker
+                    .take()
+                    .ok_or(Error::SpeakerStreamSetupFailed)?
+                    .stream()
+                    .map_err(|error| Error::SpeakerStreamInitializationFailed(error.to_string()))?;
+
+                AudioStream::RealtimeSpeaker { speaker }
             }
             AudioSource::Recorded => AudioStream::Recorded {
                 data: self.data.as_ref().unwrap().clone(),
