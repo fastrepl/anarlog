@@ -8,6 +8,9 @@ on:
         required: false
         type: boolean
         default: true
+      version:
+        required: true
+        type: string
       issue_number:
         required: true
         type: number
@@ -70,6 +73,7 @@ jobs:
           ref: ${{ steps.resolve.outputs.branch }}
           channel: ${{ inputs.channel }}
           publish: ${{ inputs.publish }}
+          version: ${{ inputs.version }}
           token: ${{ secrets.GITHUB_TOKEN }}
           repo: ${{ github.repository }}
           max_attempts: "10"

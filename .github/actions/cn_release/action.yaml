@@ -35,13 +35,13 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - uses: crabnebula-dev/cloud-release@v0
+    - uses: crabnebula-dev/cloud-release@1a8803698ba41de6b23e42abc5dcc3721308233c # v0.2.6
       id: raw
       if: inputs.raw != ''
       with:
         command: ${{ inputs.raw }}
         api-key: ${{ inputs.key }}
-    - uses: crabnebula-dev/cloud-release@v0
+    - uses: crabnebula-dev/cloud-release@1a8803698ba41de6b23e42abc5dcc3721308233c # v0.2.6
       if: inputs.raw == '' && inputs.framework == 'tauri'
       with:
         command: >-
@@ -49,7 +49,7 @@ runs:
           --framework tauri${{ inputs.channel != '' && format(' --channel {0}', inputs.channel) || '' }}
         api-key: ${{ inputs.key }}
         working-directory: ${{ inputs.working-directory }}
-    - uses: crabnebula-dev/cloud-release@v0
+    - uses: crabnebula-dev/cloud-release@1a8803698ba41de6b23e42abc5dcc3721308233c # v0.2.6
       if: inputs.raw == '' && inputs.framework != 'tauri'
       with:
         command: >-

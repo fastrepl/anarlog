@@ -15,6 +15,10 @@ inputs:
     description: Publish to Crabnebula and create GitHub release
     required: false
     default: "true"
+  version:
+    description: "Explicit stable version"
+    required: false
+    default: ""
   token:
     description: GitHub token
     required: true
@@ -37,12 +41,22 @@ runs:
     - id: trigger
       shell: bash
       env:
+        CHANNEL: ${{ inputs.channel }}
         GH_TOKEN: ${{ inputs.token }}
+        PUBLISH: ${{ inputs.publish }}
+        REF: ${{ inputs.ref }}
+        REPO: ${{ inputs.repo }}
+        VERSION: ${{ inputs.version }}
+        WORKFLOW: ${{ inputs.workflow }}
       run: |
-        gh workflow run ${{ inputs.workflow }} --repo ${{ inputs.repo }} --ref "${{ inputs.ref }}" -f channel=${{ inputs.channel }} -f publish=${{ inputs.publish }}
+        ARGS=(workflow run "$WORKFLOW" --repo "$REPO" --ref "$REF" -f "channel=$CHANNEL" -f "publish=$PUBLISH")
+        if [[ -n "$VERSION" ]]; then
+          ARGS+=(-f "version=$VERSION")
+        fi
+        gh "${ARGS[@]}"
         for i in $(seq 1 ${{ inputs.max_attempts }}); do
           sleep 5
-          RUN_ID=$(gh run list --workflow=${{ inputs.workflow }} --repo ${{ inputs.repo }} --branch="${{ inputs.ref }}" --json databaseId,createdAt --jq 'sort_by(.createdAt) | reverse | .[0].databaseId // empty')
+          RUN_ID=$(gh run list --workflow="$WORKFLOW" --repo "$REPO" --branch="$REF" --json databaseId,createdAt --jq 'sort_by(.createdAt) | reverse | .[0].databaseId // empty')
           [ -n "$RUN_ID" ] && break
         done
         echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT

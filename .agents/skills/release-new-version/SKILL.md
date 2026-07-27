@@ -47,14 +47,16 @@ macOS artifacts or Rust-only tests as cross-platform approval.
 sed -n '1,280p' .github/workflows/desktop_cd.yaml
 ```
 
-2. Check the version inputs that the workflow will use:
+2. Validate the explicit stable version requested by the user:
 
 ```bash
-doxxer --config doxxer.desktop.toml current
-doxxer --config doxxer.desktop.toml next patch
+VERSION=<version>
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+test -f "packages/changelog/content/$VERSION.md"
 ```
 
-Stable desktop releases use `next patch` unless the user explicitly asks for an override version.
+Stable desktop releases never infer a version. The workflow requires the exact
+stable semantic version and a matching changelog file.
 
 3. Identify the latest stable desktop tag and the commits that will ship:
 
@@ -71,7 +73,7 @@ Use read-only `git` commands for inspection. If the workspace is on `gitbutler/w
 The changelog is the release gate. Before releasing:
 
 1. Open `packages/changelog/content/AGENTS.md` and follow its instructions.
-2. Confirm `packages/changelog/content/<next-patch-version>.md` exists.
+2. Confirm `packages/changelog/content/<version>.md` exists.
 3. Compare the file against the desktop user-facing changes since the latest `desktop_v*` tag.
 4. If the changelog is missing or incomplete, update it before release.
 
@@ -120,17 +122,17 @@ Use actual IDs from `but diff` / `but status -fv`; do not invent IDs.
 ## Trigger Stable Release
 
 After the changelog merge and QA Gate pass on the same `main` SHA, verify
-`main` has not moved, then trigger the stable desktop workflow from `main`:
+`main` has not moved, then build the stable candidate without publishing:
 
 ```bash
 gh workflow run desktop_cd.yaml \
   --ref main \
   -f channel=stable \
-  -f publish=true \
-  -f version=
+  -f publish=false \
+  -f version=<version>
 ```
 
-Then watch the run:
+Watch the dry-run build:
 
 ```bash
 gh run list --workflow desktop_cd.yaml --branch main --limit 5
@@ -141,21 +143,38 @@ gh run watch <run-id>
 The run's `headSha` must equal the Dev/staging candidate SHA. A mismatch blocks
 acceptance even if the workflow succeeds.
 
-The stable workflow should:
+The dry-run workflow must:
 
-- compute the version from `doxxer --config doxxer.desktop.toml next patch` when no explicit version is supplied
+- use the exact explicit stable version
 - build both Apple Silicon and Intel macOS artifacts
-- draft, upload, and publish the CrabNebula release when `publish=true`
-- create or update `desktop_v<version>`
-- create the GitHub release pointing to `https://anarlog.so/changelog/<version>`
+- build the signed Windows and Linux artifacts for the same version and commit
+- upload a draft CrabNebula release without publishing it
+- upload `desktop-release-provenance-<version>-<sha>`, including the exact
+  artifact hashes and CrabNebula tool versions
+
+After the exact dry-run artifacts pass the required platform QA gates and
+`main` still points to the candidate SHA, publish only through the provenance
+workflow:
+
+```bash
+gh workflow run desktop_publish.yaml \
+  --ref main \
+  -f version=<version> \
+  -f candidate_sha=<40-character-main-sha> \
+  -f dry_run_id=<run-id>
+```
+
+Watch that workflow to completion. It must verify the dry-run run identity,
+artifact hashes, CrabNebula tool versions, current `main`, and the immutable
+tag before publishing.
 
 ## Final Checks
 
 Before reporting success, capture:
 
 - computed stable version
-- workflow run URL
-- workflow head SHA
+- dry-run workflow URL and head SHA
+- publish workflow URL and head SHA
 - `desktop_v<version>` tag
 - GitHub release URL
 - whether CrabNebula publish completed

@@ -27,7 +27,7 @@ runs:
   using: "composite"
   steps:
     - id: get-assets
-      uses: crabnebula-dev/cloud-release@v0
+      uses: crabnebula-dev/cloud-release@1a8803698ba41de6b23e42abc5dcc3721308233c # v0.2.6
       with:
         command: release show ${{ inputs.app }} ${{ inputs.version }} --channel ${{ inputs.channel }}
         api-key: ${{ inputs.key }}
