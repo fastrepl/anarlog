@@ -44,6 +44,7 @@ export type GeneralState = {
     sessionId: string | null;
     muted: boolean;
     lastError: string | null;
+    lastErrorIsAudioRelated: boolean;
     device: string | null;
     degraded: DegradedError | null;
     requestedLiveTranscription: boolean | null;
@@ -75,6 +76,7 @@ const initialLiveState: LiveState = {
   sessionId: null,
   muted: false,
   lastError: null,
+  lastErrorIsAudioRelated: false,
   device: null,
   degraded: null,
   requestedLiveTranscription: null,
@@ -172,6 +174,7 @@ export const markLiveStartRequested = (live: LiveState, sessionId: string) => {
   live.status = "inactive";
   live.sessionId = sessionId;
   live.lastError = null;
+  live.lastErrorIsAudioRelated = false;
   live.requestedLiveTranscription = null;
   live.liveTranscriptionActive = null;
   live.needsBatchRepair = false;
@@ -225,6 +228,8 @@ export const markLiveFinalizing = (live: LiveState, sessionId: string) => {
 };
 
 export const markLiveInactive = (live: LiveState, error: string | null) => {
+  live.lastErrorIsAudioRelated =
+    error !== null && live.lastErrorIsAudioRelated && error === live.lastError;
   live.status = "inactive";
   live.loading = false;
   live.loadingPhase = "idle";
@@ -256,6 +261,7 @@ export const markLiveStartFailed = (live: LiveState, error: string) => {
   live.sessionId = null;
   live.muted = initialLiveState.muted;
   live.lastError = error;
+  live.lastErrorIsAudioRelated = true;
   live.device = null;
   live.degraded = null;
   live.requestedLiveTranscription = null;
@@ -327,6 +333,7 @@ export const updateLiveProgress = (
     case "audio_initializing":
       live.loadingPhase = "audio_initializing";
       live.lastError = null;
+      live.lastErrorIsAudioRelated = false;
       return;
     case "audio_ready":
       live.loadingPhase = "audio_ready";
@@ -340,12 +347,14 @@ export const updateLiveProgress = (
       return;
     case "audio_error":
       live.lastError = payload.error;
+      live.lastErrorIsAudioRelated = true;
       if (payload.is_fatal) {
         live.loading = false;
       }
       return;
     case "connection_error":
       live.lastError = payload.error;
+      live.lastErrorIsAudioRelated = false;
       return;
   }
 };

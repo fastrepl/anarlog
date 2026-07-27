@@ -618,7 +618,7 @@ const SessionItem = memo(
         },
         {
           id: "show",
-          text: platform() === "macos" ? t`Show in Finder` : "Show in folder",
+          text: platform() === "macos" ? t`Show in Finder` : t`Show in folder`,
           action: handleShowInFolder,
         },
         { separator: true as const },

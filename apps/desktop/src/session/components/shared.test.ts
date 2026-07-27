@@ -21,6 +21,7 @@ const hoisted = vi.hoisted(() => ({
   enhancedContent: "",
   liveSegments: [] as unknown[],
   liveLastError: null as string | null,
+  liveLastErrorIsAudioRelated: false,
   liveSessionId: null as string | null,
   sessionMode: "inactive",
 }));
@@ -31,6 +32,7 @@ vi.mock("~/stt/contexts", () => ({
       batch: Record<string, { error: string | null } | undefined>;
       live: {
         lastError: string | null;
+        lastErrorIsAudioRelated: boolean;
         sessionId: string | null;
         finalizingBySession: Record<string, unknown>;
       };
@@ -42,6 +44,7 @@ vi.mock("~/stt/contexts", () => ({
       batch: { "session-1": { error: hoisted.batchError } },
       live: {
         lastError: hoisted.liveLastError,
+        lastErrorIsAudioRelated: hoisted.liveLastErrorIsAudioRelated,
         sessionId: hoisted.liveSessionId,
         finalizingBySession: hoisted.finalizingBySession,
       },
@@ -73,6 +76,7 @@ describe("useCurrentNoteTab", () => {
     hoisted.enhancedContent = "";
     hoisted.liveSegments = [];
     hoisted.liveLastError = null;
+    hoisted.liveLastErrorIsAudioRelated = false;
     hoisted.liveSessionId = null;
     hoisted.sessionMode = "inactive";
   });
@@ -115,11 +119,13 @@ describe("useCurrentNoteTab", () => {
 describe("useListenButtonState", () => {
   beforeEach(() => {
     hoisted.liveLastError = null;
+    hoisted.liveLastErrorIsAudioRelated = false;
     hoisted.sessionMode = "inactive";
   });
 
   it("routes capture failures to audio capability settings", () => {
     hoisted.liveLastError = "microphone unavailable";
+    hoisted.liveLastErrorIsAudioRelated = true;
 
     const { result } = renderHook(() => useListenButtonState("session-1"));
 
@@ -128,6 +134,19 @@ describe("useListenButtonState", () => {
       isDisabled: false,
       warningMessage: "Session failed: microphone unavailable",
       recoverySettingsTab: "permissions",
+    });
+  });
+
+  it("does not route transcription failures to audio settings", () => {
+    hoisted.liveLastError = "transcription connection closed";
+
+    const { result } = renderHook(() => useListenButtonState("session-1"));
+
+    expect(result.current).toEqual({
+      shouldRender: true,
+      isDisabled: false,
+      warningMessage: "Session failed: transcription connection closed",
+      recoverySettingsTab: null,
     });
   });
 

@@ -2015,6 +2015,10 @@ msgstr ""
 msgid "Show in Finder"
 msgstr ""
 
+#: src/sidebar/timeline/item.tsx
+msgid "Show in folder"
+msgstr ""
+
 #: src/settings/general/app-settings.tsx
 msgid "Show the compact floating control while listening."
 msgstr "Nuna ƙaramin iko mai iyo yayin sauraro."
