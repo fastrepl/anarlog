@@ -44,6 +44,7 @@ export type GeneralState = {
     sessionId: string | null;
     muted: boolean;
     lastError: string | null;
+    lastErrorSessionId: string | null;
     lastErrorIsAudioRelated: boolean;
     device: string | null;
     degraded: DegradedError | null;
@@ -76,6 +77,7 @@ const initialLiveState: LiveState = {
   sessionId: null,
   muted: false,
   lastError: null,
+  lastErrorSessionId: null,
   lastErrorIsAudioRelated: false,
   device: null,
   degraded: null,
@@ -174,6 +176,7 @@ export const markLiveStartRequested = (live: LiveState, sessionId: string) => {
   live.status = "inactive";
   live.sessionId = sessionId;
   live.lastError = null;
+  live.lastErrorSessionId = null;
   live.lastErrorIsAudioRelated = false;
   live.requestedLiveTranscription = null;
   live.liveTranscriptionActive = null;
@@ -227,15 +230,25 @@ export const markLiveFinalizing = (live: LiveState, sessionId: string) => {
   };
 };
 
-export const markLiveInactive = (live: LiveState, error: string | null) => {
-  live.lastErrorIsAudioRelated =
-    error !== null && live.lastErrorIsAudioRelated && error === live.lastError;
+export const markLiveInactive = (
+  live: LiveState,
+  sessionId: string,
+  error: string | null,
+) => {
+  const isAudioRelated =
+    error !== null &&
+    live.sessionId === sessionId &&
+    live.lastErrorSessionId === sessionId &&
+    live.lastErrorIsAudioRelated;
+  const audioError = isAudioRelated ? live.lastError : null;
   live.status = "inactive";
   live.loading = false;
   live.loadingPhase = "idle";
   live.sessionId = null;
   live.intervalId = undefined;
-  live.lastError = error;
+  live.lastError = audioError ?? error;
+  live.lastErrorSessionId = error === null ? null : sessionId;
+  live.lastErrorIsAudioRelated = isAudioRelated;
   live.device = null;
   live.degraded = null;
   live.requestedLiveTranscription = null;
@@ -250,12 +263,16 @@ export const markLiveInactive = (live: LiveState, error: string | null) => {
 
 export const markLiveStartFailed = (
   live: LiveState,
+  sessionId: string,
   error: string,
-  isAudioRelated: boolean,
 ) => {
-  if (live.sessionId) {
-    releaseLiveCaptureGeneration(live, live.sessionId);
-  }
+  const audioError =
+    live.sessionId === sessionId &&
+    live.lastErrorSessionId === sessionId &&
+    live.lastErrorIsAudioRelated
+      ? live.lastError
+      : null;
+  releaseLiveCaptureGeneration(live, sessionId);
   live.intervalId = undefined;
   live.loading = false;
   live.loadingPhase = "idle";
@@ -264,8 +281,9 @@ export const markLiveStartFailed = (
   live.seconds = 0;
   live.sessionId = null;
   live.muted = initialLiveState.muted;
-  live.lastError = error;
-  live.lastErrorIsAudioRelated = isAudioRelated;
+  live.lastError = audioError ?? error;
+  live.lastErrorSessionId = sessionId;
+  live.lastErrorIsAudioRelated = audioError !== null;
   live.device = null;
   live.degraded = null;
   live.requestedLiveTranscription = null;
@@ -337,6 +355,7 @@ export const updateLiveProgress = (
     case "audio_initializing":
       live.loadingPhase = "audio_initializing";
       live.lastError = null;
+      live.lastErrorSessionId = null;
       live.lastErrorIsAudioRelated = false;
       return;
     case "audio_ready":
@@ -351,6 +370,7 @@ export const updateLiveProgress = (
       return;
     case "audio_error":
       live.lastError = payload.error;
+      live.lastErrorSessionId = payload.session_id;
       live.lastErrorIsAudioRelated = true;
       if (payload.is_fatal) {
         live.loading = false;
@@ -358,6 +378,7 @@ export const updateLiveProgress = (
       return;
     case "connection_error":
       live.lastError = payload.error;
+      live.lastErrorSessionId = payload.session_id;
       live.lastErrorIsAudioRelated = false;
       return;
   }

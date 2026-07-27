@@ -82,6 +82,7 @@ import { createListenerStore } from ".";
 import {
   getLiveCaptureUiMode,
   markLiveActive,
+  markLiveInactive,
   markLiveStartRequested,
   updateLiveProgress,
 } from "./general-shared";
@@ -201,6 +202,7 @@ describe("General Listener Slice", () => {
 
       expect(store.getState().live.status).toBe("active");
       expect(store.getState().live.lastError).toBe("socket closed");
+      expect(store.getState().live.lastErrorSessionId).toBe("session-1");
     });
 
     test("markLiveActive preserves the need for batch repair after recovery", () => {
@@ -217,6 +219,50 @@ describe("General Listener Slice", () => {
 
       clearInterval(intervalId);
       expect(store.getState().live.needsBatchRepair).toBe(true);
+    });
+
+    test("keeps same-session audio recovery after a terminal stop error", () => {
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          markLiveStartRequested(draft.live, "session-a");
+          updateLiveProgress(draft.live, {
+            type: "audio_error",
+            session_id: "session-a",
+            error: "microphone unavailable",
+            device: null,
+            is_fatal: true,
+          });
+          markLiveInactive(
+            draft.live,
+            "session-a",
+            "capture restart limit exceeded",
+          );
+        }),
+      );
+
+      expect(store.getState().live.lastError).toBe("microphone unavailable");
+      expect(store.getState().live.lastErrorSessionId).toBe("session-a");
+      expect(store.getState().live.lastErrorIsAudioRelated).toBe(true);
+    });
+
+    test("clears scoped recovery after a normal stop", () => {
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          markLiveStartRequested(draft.live, "session-a");
+          updateLiveProgress(draft.live, {
+            type: "audio_error",
+            session_id: "session-a",
+            error: "microphone unavailable",
+            device: null,
+            is_fatal: true,
+          });
+          markLiveInactive(draft.live, "session-a", null);
+        }),
+      );
+
+      expect(store.getState().live.lastError).toBeNull();
+      expect(store.getState().live.lastErrorSessionId).toBeNull();
+      expect(store.getState().live.lastErrorIsAudioRelated).toBe(false);
     });
   });
 
@@ -1492,13 +1538,15 @@ describe("General Listener Slice", () => {
       ).toBeUndefined();
       expect(store.getState().live.captureGenerationCounter).toBe(1);
       expect(store.getState().live.lastError).toBe("capture unavailable");
-      expect(store.getState().live.lastErrorIsAudioRelated).toBe(true);
+      expect(store.getState().live.lastErrorSessionId).toBe("session-a");
+      expect(store.getState().live.lastErrorIsAudioRelated).toBe(false);
 
       await expect(store.getState().start(params)).resolves.toBe(true);
       expect(
         store.getState().live.captureGenerationBySession["session-a"],
       ).toBe(2);
       expect(store.getState().live.lastError).toBeNull();
+      expect(store.getState().live.lastErrorSessionId).toBeNull();
       consoleError.mockRestore();
     });
 
@@ -1523,7 +1571,8 @@ describe("General Listener Slice", () => {
       ).resolves.toBe(false);
 
       expect(store.getState().live.lastError).toBe("audio backend unavailable");
-      expect(store.getState().live.lastErrorIsAudioRelated).toBe(true);
+      expect(store.getState().live.lastErrorSessionId).toBe("session-a");
+      expect(store.getState().live.lastErrorIsAudioRelated).toBe(false);
       consoleError.mockRestore();
     });
 
@@ -1550,6 +1599,96 @@ describe("General Listener Slice", () => {
 
       expect(startCaptureMock).not.toHaveBeenCalled();
       expect(store.getState().live.lastError).toBe("storage unavailable");
+      expect(store.getState().live.lastErrorSessionId).toBe("session-a");
+      expect(store.getState().live.lastErrorIsAudioRelated).toBe(false);
+      consoleError.mockRestore();
+    });
+
+    test("preserves explicit audio errors when capture startup fails", async () => {
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      let resolveStart:
+        | ((value: { status: "error"; error: string }) => void)
+        | undefined;
+      startCaptureMock.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveStart = resolve;
+        }),
+      );
+
+      const start = store.getState().start({
+        session_id: "session-a",
+        languages: [],
+        onboarding: false,
+        model: "test-model",
+        base_url: "http://localhost",
+        api_key: "test-key",
+        keywords: [],
+      });
+
+      await vi.waitFor(() => expect(startCaptureMock).toHaveBeenCalled());
+      const progressHandler =
+        listenCaptureStatusMock.mock.calls[
+          listenCaptureStatusMock.mock.calls.length - 1
+        ]?.[0];
+      progressHandler?.({
+        payload: {
+          type: "audio_error",
+          session_id: "session-a",
+          error: "microphone unavailable",
+          is_fatal: true,
+        },
+      });
+      resolveStart?.({ status: "error", error: "start session failed" });
+
+      await expect(start).resolves.toBe(false);
+      expect(store.getState().live.lastError).toBe("microphone unavailable");
+      expect(store.getState().live.lastErrorSessionId).toBe("session-a");
+      expect(store.getState().live.lastErrorIsAudioRelated).toBe(true);
+      consoleError.mockRestore();
+    });
+
+    test("does not classify connection errors as audio startup failures", async () => {
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      let resolveStart:
+        | ((value: { status: "error"; error: string }) => void)
+        | undefined;
+      startCaptureMock.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveStart = resolve;
+        }),
+      );
+
+      const start = store.getState().start({
+        session_id: "session-a",
+        languages: [],
+        onboarding: false,
+        model: "test-model",
+        base_url: "http://localhost",
+        api_key: "test-key",
+        keywords: [],
+      });
+
+      await vi.waitFor(() => expect(startCaptureMock).toHaveBeenCalled());
+      const progressHandler =
+        listenCaptureStatusMock.mock.calls[
+          listenCaptureStatusMock.mock.calls.length - 1
+        ]?.[0];
+      progressHandler?.({
+        payload: {
+          type: "connection_error",
+          session_id: "session-a",
+          error: "transcription connection closed",
+        },
+      });
+      resolveStart?.({ status: "error", error: "start session failed" });
+
+      await expect(start).resolves.toBe(false);
+      expect(store.getState().live.lastError).toBe("start session failed");
+      expect(store.getState().live.lastErrorSessionId).toBe("session-a");
       expect(store.getState().live.lastErrorIsAudioRelated).toBe(false);
       consoleError.mockRestore();
     });

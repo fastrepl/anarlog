@@ -125,6 +125,9 @@ export function RecordingIcon() {
 export function useListenButtonState(sessionId: string) {
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const lastError = useListener((state) => state.live.lastError);
+  const lastErrorSessionId = useListener(
+    (state) => state.live.lastErrorSessionId,
+  );
   const lastErrorIsAudioRelated = useListener(
     (state) => state.live.lastErrorIsAudioRelated,
   );
@@ -136,7 +139,7 @@ export function useListenButtonState(sessionId: string) {
 
   let warningMessage = "";
   let recoverySettingsTab: "permissions" | null = null;
-  if (lastError) {
+  if (lastError && lastErrorSessionId === sessionId) {
     warningMessage = `Session failed: ${lastError}`;
     recoverySettingsTab = lastErrorIsAudioRelated ? "permissions" : null;
   } else if (batching) {
