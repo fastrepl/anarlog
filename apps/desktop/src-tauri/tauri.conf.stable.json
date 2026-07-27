@@ -3,6 +3,15 @@
   "productName": "Anarlog",
   "mainBinaryName": "anarlog",
   "identifier": "com.hyprnote.stable",
+  "bundle": {
+    "linux": {
+      "deb": {
+        "provides": ["char"],
+        "conflicts": ["char"],
+        "replaces": ["char"]
+      }
+    }
+  },
   "plugins": {
     "deep-link": {
       "desktop": { "schemes": ["anarlog", "hyprnote"] }
@@ -10,8 +19,7 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://desktop2.hyprnote.com/update/{{target}}-{{arch}}-{{bundle_type}}/{{current_version}}?channel=stable",
-        "https://desktop2.hyprnote.com/update/{{target}}-{{arch}}/{{current_version}}?channel=stable"
+        "https://desktop2.hyprnote.com/update/{{target}}-{{arch}}-{{bundle_type}}/{{current_version}}?channel=stable"
       ]
     }
   }
