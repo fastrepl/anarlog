@@ -116,6 +116,14 @@ export const RawEditor = forwardRef<
 
     const mentionConfig = useMentionConfig();
     const commentAnchors = useSessionCommentAnchors(sessionId);
+    // Stable identity: NoteEditor keys whole-document memos off this.
+    const taskSource = useMemo(
+      () =>
+        syncTasks
+          ? ({ type: "session_raw_note", id: sessionId } as const)
+          : undefined,
+      [syncTasks, sessionId],
+    );
     return (
       <AudioDropTarget
         targetProps={audioDropTargetProps}
@@ -135,11 +143,7 @@ export const RawEditor = forwardRef<
             onNavigateToTitle={onNavigateToTitle}
             onLinkOpen={openEditorLink}
             fileHandlerConfig={fileHandlerConfig}
-            taskSource={
-              syncTasks
-                ? { type: "session_raw_note", id: sessionId }
-                : undefined
-            }
+            taskSource={taskSource}
             extraNodeViews={extraNodeViews}
             showFormatToolbar={showFormatToolbar}
             commentAnchorsEnabled

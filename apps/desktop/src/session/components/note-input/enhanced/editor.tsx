@@ -132,6 +132,14 @@ const EnhancedEditorInner = forwardRef<
 
     const mentionConfig = useMentionConfig();
     const comments = useOwnedSessionComments(sessionId);
+    // Stable identity: NoteEditor keys whole-document memos off this.
+    const taskSource = useMemo(
+      () =>
+        persistChanges
+          ? ({ type: "enhanced_note", id: enhancedNoteId } as const)
+          : undefined,
+      [persistChanges, enhancedNoteId],
+    );
 
     return (
       <AudioDropTarget
@@ -153,11 +161,7 @@ const EnhancedEditorInner = forwardRef<
             onNavigateToTitle={onNavigateToTitle}
             onLinkOpen={openEditorLink}
             fileHandlerConfig={fileHandlerConfig}
-            taskSource={
-              persistChanges
-                ? { type: "enhanced_note", id: enhancedNoteId }
-                : undefined
-            }
+            taskSource={taskSource}
             extraNodeViews={extraNodeViews}
             commentAnchorsEnabled
             onCommentAnchorsEvent={comments.onCommentAnchorsEvent}

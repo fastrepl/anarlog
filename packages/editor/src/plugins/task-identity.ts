@@ -1,18 +1,30 @@
 import type { Node as PMNode } from "prosemirror-model";
-import { Plugin } from "prosemirror-state";
+import { Plugin, PluginKey } from "prosemirror-state";
 
 import { createTaskId, createTaskItemId } from "../tasks";
 import { hasChangedNodeOfType } from "./changed-ranges";
 
+const taskIdentityPluginKey = new PluginKey<boolean>("taskIdentity");
+
 export function taskIdentityPlugin() {
-  return new Plugin({
-    appendTransaction(transactions, _oldState, newState) {
+  return new Plugin<boolean>({
+    key: taskIdentityPluginKey,
+    // Documents arrive from storage, paste and import, so the whole doc has to
+    // be swept once for missing/duplicate ids. Editing can only introduce them
+    // inside a changed range, so the sweep runs on the first edit after a state
+    // is created and never again -- otherwise every keystroke walks every node.
+    state: {
+      init: () => false,
+      apply: (transaction, swept) => swept || transaction.docChanged,
+    },
+    appendTransaction(transactions, oldState, newState) {
       if (!transactions.some((transaction) => transaction.docChanged)) {
         return null;
       }
       if (
         !hasChangedNodeOfType(newState.doc, transactions, "taskItem") &&
-        !hasInvalidTaskIdentity(newState.doc)
+        (taskIdentityPluginKey.getState(oldState) === true ||
+          !hasInvalidTaskIdentity(newState.doc))
       ) {
         return null;
       }
