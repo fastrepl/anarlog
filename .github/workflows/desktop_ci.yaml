@@ -177,6 +177,7 @@ jobs:
           retention-days: 7
       - run: cargo check --locked -p desktop
       - run: cargo test --locked -p desktop --no-run
+      - run: cargo test --locked -p tauri-plugin-auth
       - run: cargo test --locked -p cloudsync
       - run: "cargo test --locked -p db-core cloudsync::"
       - if: github.event_name == 'workflow_dispatch'
