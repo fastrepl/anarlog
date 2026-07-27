@@ -235,10 +235,19 @@ jobs:
               --arg arch "$arch" \
               '.[] | select(.architecture == $arch) | .id' \
               "$RUNNER_TEMP/linux-audio-qa-downloads.json")
+            ARTIFACT_DIGEST=$(jq -er \
+              --arg arch "$arch" \
+              '.[] | select(.architecture == $arch) | .digest' \
+              "$RUNNER_TEMP/linux-audio-qa-downloads.json")
             mkdir -p "linux-audio-qa/$arch"
             gh api \
               "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" \
               > "$RUNNER_TEMP/$NAME.zip"
+            ACTUAL_DIGEST="sha256:$(sha256sum "$RUNNER_TEMP/$NAME.zip" | cut -d ' ' -f 1)"
+            if [[ "$ACTUAL_DIGEST" != "$ARTIFACT_DIGEST" ]]; then
+              echo "::error::$NAME digest mismatch: expected $ARTIFACT_DIGEST, got $ACTUAL_DIGEST"
+              exit 1
+            fi
             unzip -q "$RUNNER_TEMP/$NAME.zip" -d "linux-audio-qa/$arch"
           done
 
