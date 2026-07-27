@@ -13,6 +13,7 @@
     "./note": "./src/note/index.tsx",
     "./plugins": "./src/plugins/index.ts",
     "./prompt": "./src/prompt/index.tsx",
+    "./styles.css": "./src/styles/prosemirror.css",
     "./task-storage": "./src/task-storage.tsx",
     "./tasks": "./src/tasks.ts",
     "./widgets": "./src/widgets/index.ts"
