@@ -16,9 +16,16 @@ function unwrap<T>(result: Result<T, string>): T {
   return result.data;
 }
 
+// macOS keeps reporting the old value for a moment after a grant, so an optimistic
+// status bridges that gap. It must expire, otherwise one lucky probe would pin the
+// row to authorized and disable the retry button forever.
+const OPTIMISTIC_GRACE_MS = 1000;
+
 export function usePermission(type: Permission) {
-  const [optimisticStatus, setOptimisticStatus] =
-    useState<PermissionStatus | null>(null);
+  const [optimistic, setOptimistic] = useState<{
+    status: PermissionStatus;
+    since: number;
+  } | null>(null);
   const statusQuery = useQuery({
     queryKey: [`${type}Permission`],
     queryFn: () => permissionsCommands.checkPermission(type),
@@ -31,20 +38,27 @@ export function usePermission(type: Permission) {
         ? "denied"
         : undefined;
 
+  const optimisticStatus =
+    optimistic &&
+    statusQuery.dataUpdatedAt <= optimistic.since + OPTIMISTIC_GRACE_MS
+      ? optimistic.status
+      : null;
+  const effectiveStatus = optimisticStatus ?? status;
+
   const requestMutation = useMutation({
     mutationFn: async () =>
       unwrap(await permissionsCommands.requestPermission(type)),
     onSuccess: async () => {
       if (type === "systemAudio" || type === "screenRecording") {
-        setOptimisticStatus("authorized");
+        setOptimistic({ status: "authorized", since: Date.now() });
         setTimeout(() => void statusQuery.refetch(), 1000);
         return;
       }
-      setOptimisticStatus(null);
+      setOptimistic(null);
       setTimeout(() => statusQuery.refetch(), 1000);
     },
     onError: () => {
-      setOptimisticStatus(null);
+      setOptimistic(null);
     },
   });
 
@@ -52,7 +66,7 @@ export function usePermission(type: Permission) {
     mutationFn: async () =>
       unwrap(await permissionsCommands.resetPermission(type)),
     onSuccess: () => {
-      setOptimisticStatus(null);
+      setOptimistic(null);
       setTimeout(() => statusQuery.refetch(), 1000);
     },
   });
@@ -72,15 +86,19 @@ export function usePermission(type: Permission) {
   };
 
   return {
-    status: optimisticStatus ?? status,
+    status: effectiveStatus,
     isPending,
+    // A recovered capability must not keep rendering the diagnostics of an older
+    // failed request.
     error:
-      requestMutation.error?.message ??
-      (statusQuery.data?.status === "error"
-        ? statusQuery.data.error
-        : statusQuery.error instanceof Error
-          ? statusQuery.error.message
-          : null),
+      effectiveStatus === "authorized"
+        ? null
+        : (requestMutation.error?.message ??
+          (statusQuery.data?.status === "error"
+            ? statusQuery.data.error
+            : statusQuery.error instanceof Error
+              ? statusQuery.error.message
+              : null)),
     open,
     request,
     reset,
