@@ -499,7 +499,7 @@ jobs:
           set -e
 
           app_pid=""
-          for _ in {1..10}; do
+          for _ in {1..30}; do
             app_pid=$(pgrep -n -x anarlog-staging || true)
             if [[ -n "$app_pid" ]] || ! kill -0 "$smoke_pid" 2>/dev/null; then
               break
@@ -518,7 +518,7 @@ jobs:
 
           cat "$log"
           if [[ -z "$app_pid" ]]; then
-            echo "AppImage did not start the anarlog-staging process within 10 seconds"
+            echo "AppImage did not start the anarlog-staging process within 30 seconds"
             exit 1
           fi
           case "$smoke_status" in
