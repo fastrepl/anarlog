@@ -15,10 +15,13 @@ const authState = vi.hoisted(() => ({
   session: {
     access_token: "stale-token",
     user: { id: "user-1", email: "test@example.com" },
-  } as {
-    access_token: string;
-    user: { id: string; email: string };
-  } | null,
+  } as
+    | {
+        access_token: string;
+        user: { id: string; email: string };
+      }
+    | null
+    | undefined,
 }));
 const settingsState = vi.hoisted(() => ({
   currentPlatform: "macos",
@@ -396,13 +399,47 @@ describe("BillingProvider", () => {
     },
   );
 
-  it("requires provider selection for signed-out Windows users with Apple-local transcription", async () => {
-    authState.session = null;
+  it("preserves Apple-local transcription until paid auth finishes loading", async () => {
+    authState.session = undefined;
     settingsState.currentPlatform = "windows";
     settingsState.values.current_stt_provider = "hyprnote";
     settingsState.values.current_stt_model = "soniqo-parakeet-streaming";
+    vi.mocked(authCommands.decodeClaims).mockResolvedValue(
+      paidClaims("user-1"),
+    );
+    const { queryClient, view } = renderBillingProvider();
 
-    renderBillingProvider();
+    expect(settingsState.setSettingValues).not.toHaveBeenCalled();
+
+    authState.session = {
+      access_token: "paid-token",
+      user: { id: "user-1", email: "test@example.com" },
+    };
+    view.rerender(billingTree(queryClient));
+
+    await waitFor(() => {
+      expect(settingsState.setSettingValues).toHaveBeenCalledWith({
+        current_stt_provider: "hyprnote",
+        current_stt_model: "cloud",
+      });
+    });
+    expect(settingsState.setSettingValues).not.toHaveBeenCalledWith({
+      current_stt_provider: "",
+      current_stt_model: "",
+    });
+  });
+
+  it("requires provider selection for signed-out Windows users with Apple-local transcription", async () => {
+    authState.session = undefined;
+    settingsState.currentPlatform = "windows";
+    settingsState.values.current_stt_provider = "hyprnote";
+    settingsState.values.current_stt_model = "soniqo-parakeet-streaming";
+    const { queryClient, view } = renderBillingProvider();
+
+    expect(settingsState.setSettingValues).not.toHaveBeenCalled();
+
+    authState.session = null;
+    view.rerender(billingTree(queryClient));
 
     await waitFor(() => {
       expect(settingsState.setSettingValues).toHaveBeenCalledWith({
@@ -410,6 +447,7 @@ describe("BillingProvider", () => {
         current_stt_model: "",
       });
     });
+    expect(settingsState.setSettingValues).toHaveBeenCalledTimes(1);
   });
 
   it("defers Windows transcription repair when authenticated billing claims fail", async () => {
