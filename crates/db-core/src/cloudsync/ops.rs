@@ -871,7 +871,7 @@ async fn return_pool_connections(mut connections: Vec<PoolConnection<Sqlite>>) {
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::Duration;
 
@@ -913,7 +913,7 @@ mod tests {
         ));
     }
 
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     #[derive(Clone, Copy, Debug)]
     enum StalledNetworkOperation {
         ManualSend,
@@ -921,7 +921,7 @@ mod tests {
         LegacySync,
     }
 
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     async fn assert_stalled_operation_drains_before_local_write(
         operation: StalledNetworkOperation,
     ) {
@@ -1035,7 +1035,7 @@ mod tests {
         db.cloudsync_close_connection().await.unwrap();
     }
 
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     #[tokio::test]
     async fn manual_and_legacy_network_calls_drain_before_local_writes() {
         for _ in 0..3 {
@@ -1050,7 +1050,7 @@ mod tests {
             .await;
     }
 
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     #[tokio::test]
     async fn native_logout_cleanup_interrupt_drains_before_local_write() {
         let directory = tempfile::tempdir().unwrap();
@@ -1128,7 +1128,7 @@ mod tests {
         .unwrap();
     }
 
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     #[tokio::test]
     async fn tracked_table_cleanup_interrupt_drains_before_local_write() {
         let db = Arc::new(Db::connect_memory().await.unwrap());
@@ -1196,7 +1196,7 @@ mod tests {
         .unwrap();
     }
 
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     #[tokio::test]
     async fn populated_table_init_interrupt_drains_before_local_write() {
         let db = Arc::new(Db::connect_memory().await.unwrap());
@@ -1274,7 +1274,7 @@ mod tests {
         .unwrap();
     }
 
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     #[tokio::test]
     async fn pending_payload_interrupt_drains_before_local_write() {
         let db = Arc::new(Db::connect_memory().await.unwrap());
