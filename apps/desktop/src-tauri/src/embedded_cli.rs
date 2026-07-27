@@ -36,7 +36,14 @@ pub struct EmbeddedCliStatus {
 pub fn check<R: tauri::Runtime, T: tauri::Manager<R>>(manager: &T) -> EmbeddedCliStatus {
     let command_name = command_name_from_identifier(manager.config().identifier.as_ref());
     let Some(install_path) = install_path_for_command(command_name) else {
-        return unavailable_status(command_name, "Anarlog could not find your home directory.");
+        // Windows resolves the install path from local app data, not the home
+        // directory, so the two platforms cannot share one message.
+        #[cfg(target_os = "windows")]
+        let missing_dir = "Anarlog could not find your local application data directory.";
+        #[cfg(not(target_os = "windows"))]
+        let missing_dir = "Anarlog could not find your home directory.";
+
+        return unavailable_status(command_name, missing_dir);
     };
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
@@ -250,17 +257,25 @@ fn bundled_binary_name() -> Option<&'static str> {
 #[cfg(target_os = "windows")]
 fn classify_windows_status(command_name: &str, install_path: PathBuf) -> EmbeddedCliStatus {
     let state = match std::fs::symlink_metadata(&install_path) {
-        Ok(metadata) if metadata.is_file() => install_path
-            .parent()
-            .ok_or_else(|| "The CLI install directory is invalid.".to_string())
-            .and_then(windows_path_contains)
-            .map(|on_path| {
-                if on_path {
-                    EmbeddedCliState::Installed
-                } else {
-                    EmbeddedCliState::Missing
-                }
-            }),
+        Ok(metadata) if metadata.is_file() => {
+            // Reporting Conflict here would disable Install/Reinstall in settings,
+            // even though re-running the install is what repairs a missing or
+            // unreadable PATH entry.
+            let on_path = install_path
+                .parent()
+                .ok_or_else(|| "The CLI install directory is invalid.".to_string())
+                .and_then(windows_path_contains)
+                .unwrap_or_else(|error| {
+                    tracing::warn!(%error, "failed_to_check_windows_cli_path");
+                    false
+                });
+
+            Ok(if on_path {
+                EmbeddedCliState::Installed
+            } else {
+                EmbeddedCliState::Missing
+            })
+        }
         Ok(_) => Ok(EmbeddedCliState::Conflict),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(EmbeddedCliState::Missing),
         Err(error) => Err(format!(
