@@ -51,6 +51,7 @@ runs:
           -f "ref=$REF"
           -f "inputs[channel]=$CHANNEL"
           -F "inputs[publish]=$PUBLISH"
+          -F "return_run_details=true"
         )
         if [[ -n "$VERSION" ]]; then
           ARGS+=(-f "inputs[version]=$VERSION")
