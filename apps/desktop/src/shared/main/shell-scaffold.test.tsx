@@ -3,6 +3,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   currentTab: { type: "empty" } as { type: string } | null,
+  platform: "macos" as "linux" | "macos" | "windows",
+}));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  platform: () => mocks.platform,
 }));
 
 vi.mock("~/calendar/components/context", () => ({
@@ -23,6 +28,7 @@ describe("MainShellScaffold", () => {
   afterEach(() => {
     cleanup();
     mocks.currentTab = { type: "empty" };
+    mocks.platform = "macos";
   });
 
   it("keeps the top border for regular top chrome", () => {
@@ -56,4 +62,26 @@ describe("MainShellScaffold", () => {
     );
     expect(shell.className).not.toContain("pl-1");
   });
+
+  it.each([
+    ["windows", "left", "rounded-l-xl"],
+    ["windows", "top", "rounded-t-xl"],
+    ["linux", "left", "rounded-l-xl"],
+    ["linux", "top", "rounded-t-xl"],
+  ] as const)(
+    "does not add %s main surface rounding for %s chrome",
+    (currentPlatform, mainSurfaceChrome, roundedClass) => {
+      mocks.platform = currentPlatform;
+
+      render(
+        <MainShellScaffold mainSurfaceChrome={mainSurfaceChrome}>
+          <div data-chat-floating-anchor data-testid="main-surface" />
+        </MainShellScaffold>,
+      );
+
+      expect(screen.getByTestId("main-app-shell").className).not.toContain(
+        roundedClass,
+      );
+    },
+  );
 });

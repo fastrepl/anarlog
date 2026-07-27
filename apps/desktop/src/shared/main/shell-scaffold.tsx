@@ -1,3 +1,4 @@
+import { platform } from "@tauri-apps/plugin-os";
 import { Fragment } from "react";
 
 import { cn } from "@hypr/utils";
@@ -18,6 +19,7 @@ export function MainShellScaffold({
 }) {
   const currentTab = useTabs((state) => state.currentTab);
   const isCalendarMode = currentTab?.type === "calendar";
+  const isMacos = platform() === "macos";
   const SyncWrapper = isCalendarMode ? SyncProvider : Fragment;
   const resolvedMainSurfaceChrome =
     mainSurfaceChrome ?? (edgeToEdge ? "top" : "default");
@@ -32,7 +34,7 @@ export function MainShellScaffold({
           "bg-background flex h-full gap-1 overflow-hidden",
           !hasTopMainSurfaceChrome && "pl-1",
           hasTopMainSurfaceChrome && [
-            "[&_[data-chat-floating-anchor]]:rounded-t-xl",
+            isMacos && "[&_[data-chat-floating-anchor]]:rounded-t-xl",
             "[&_[data-chat-floating-anchor]]:rounded-b-none",
             "[&_[data-chat-floating-anchor]]:border-x-0",
             resolvedMainSurfaceChrome === "top"
@@ -41,7 +43,7 @@ export function MainShellScaffold({
             "[&_[data-chat-floating-anchor]]:border-b-0",
           ],
           resolvedMainSurfaceChrome === "left" && [
-            "[&_[data-chat-floating-anchor]]:rounded-l-xl",
+            isMacos && "[&_[data-chat-floating-anchor]]:rounded-l-xl",
             "[&_[data-chat-floating-anchor]]:rounded-r-none",
             "[&_[data-chat-floating-anchor]]:border-y-0",
             "[&_[data-chat-floating-anchor]]:border-r-0",

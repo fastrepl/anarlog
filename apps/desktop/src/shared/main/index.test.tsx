@@ -2,6 +2,14 @@ import { cleanup, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const mocks = vi.hoisted(() => ({
+  platform: "macos" as "linux" | "macos" | "windows",
+}));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  platform: () => mocks.platform,
+}));
+
 vi.mock("@hypr/ui/components/ui/resizable", () => {
   return {
     ResizablePanelGroup: ({
@@ -45,6 +53,7 @@ import { StandardContentWrapper } from "./index";
 describe("StandardContentWrapper", () => {
   beforeEach(() => {
     cleanup();
+    mocks.platform = "macos";
   });
 
   it("renders a single full-height main panel", () => {
@@ -65,6 +74,23 @@ describe("StandardContentWrapper", () => {
       document.querySelector("[data-chat-floating-anchor]")?.className,
     ).toContain("rounded-xl");
   });
+
+  it.each(["windows", "linux"] as const)(
+    "uses square main panel corners on %s",
+    (currentPlatform) => {
+      mocks.platform = currentPlatform;
+
+      render(
+        <StandardContentWrapper>
+          <div data-testid="main-area" />
+        </StandardContentWrapper>,
+      );
+
+      expect(
+        document.querySelector("[data-chat-floating-anchor]")?.className,
+      ).not.toContain("rounded-xl");
+    },
+  );
 
   it("renders the floating button inside the main surface", () => {
     render(
