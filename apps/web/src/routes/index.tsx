@@ -1393,13 +1393,8 @@ function DownloadButton() {
                     className="shrink-0"
                     aria-hidden="true"
                   />
-                  <span className="min-w-0">
-                    <span className="block">
-                      {getDownloadOptionLabel(section.platform, download.name)}
-                    </span>
-                    <span className="text-color-muted block truncate text-xs font-normal">
-                      {download.detail}
-                    </span>
+                  <span>
+                    {getDownloadOptionLabel(section.platform, download.name)}
                   </span>
                 </a>
               );
@@ -1431,6 +1426,7 @@ function getDownloadOptionLabel(
   downloadName: string,
 ) {
   if (platform === "macos" && downloadName === "Intel") return "Apple Intel";
-  if (platform === "linux") return `Linux ${downloadName}`;
-  return downloadName;
+  const label = downloadName.replace(/ x64$/, "");
+  if (platform === "linux") return `Linux ${label}`;
+  return label;
 }

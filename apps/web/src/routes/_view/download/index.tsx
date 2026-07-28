@@ -46,10 +46,6 @@ function Component() {
           <h1 className="font-hand text-color text-6xl leading-[0.98] font-semibold tracking-normal text-balance md:text-8xl">
             Download Anarlog
           </h1>
-          <p className="text-color-secondary mt-6 max-w-2xl text-xl leading-9">
-            macOS, Windows Preview, and Linux Beta ship together with the same
-            desktop version.
-          </p>
         </section>
 
         <div className="grid gap-14 pb-12">
@@ -58,22 +54,17 @@ function Component() {
 
             return (
               <section key={section.name} aria-labelledby={headingId}>
-                <div className="mb-5">
-                  <h2
-                    id={headingId}
-                    className="font-hand flex items-center gap-2.5 text-3xl leading-none font-semibold tracking-normal"
-                  >
-                    <Icon
-                      icon={platformIcons[section.name]}
-                      className="text-2xl"
-                      aria-hidden="true"
-                    />
-                    {section.name}
-                  </h2>
-                  <p className="text-color-secondary mt-2 leading-7">
-                    {section.description}
-                  </p>
-                </div>
+                <h2
+                  id={headingId}
+                  className="font-hand mb-5 flex items-center gap-2.5 text-3xl leading-none font-semibold tracking-normal"
+                >
+                  <Icon
+                    icon={platformIcons[section.name]}
+                    className="text-2xl"
+                    aria-hidden="true"
+                  />
+                  {section.name}
+                </h2>
 
                 <ul className="border-color-subtle divide-y divide-[var(--color-border-subtle)] border-y">
                   {section.downloads.map((download) => (
@@ -89,15 +80,8 @@ function Component() {
                         }
                         className="hover:bg-surface-subtle flex items-center justify-between gap-6 px-1 py-5 transition-colors"
                       >
-                        <span className="min-w-0">
-                          <span className="block font-medium">
-                            {download.name}
-                          </span>
-                          <span className="text-color-secondary mt-1 block text-sm">
-                            {download.detail}
-                          </span>
-                        </span>
-                        <span className="inline-flex shrink-0 items-center gap-2 font-mono text-sm font-medium">
+                        <span className="font-medium">{download.name}</span>
+                        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#181613] px-4 py-3 text-[13px] font-medium text-white sm:px-5 sm:text-sm">
                           Download
                           <Download
                             size={16}
