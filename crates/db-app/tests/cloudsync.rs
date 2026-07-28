@@ -12,6 +12,7 @@ const SYNC_TIMEOUT: Duration = Duration::from_secs(90);
 const SYNC_ATTEMPTS: usize = 3;
 const POLICY_SYNC_TIMEOUT: Duration = Duration::from_secs(30);
 const REPLICA_VISIBILITY_TIMEOUT: Duration = Duration::from_secs(90);
+const REPLICA_VISIBILITY_ATTEMPTS: usize = 3;
 const REPLICA_VISIBILITY_POLL_INTERVAL: Duration = Duration::from_secs(2);
 
 fn cloudsync_config(auth: CloudsyncAuth, wait_ms: i64, max_retries: i64) -> CloudsyncRuntimeConfig {
@@ -140,11 +141,26 @@ async fn sync_full_snapshot(db: &Db, label: &str) {
 }
 
 async fn assert_pending_change(db: &Db, operation: &str) {
-    assert_eq!(
-        db.cloudsync_status().await.unwrap().has_unsent_changes,
-        Some(true),
-        "{operation} was not tracked as a pending CloudSync change"
-    );
+    wait_for_unsent_changes(db, true, operation).await;
+}
+
+async fn wait_for_unsent_changes(db: &Db, expected: bool, operation: &str) {
+    tokio::time::timeout(REPLICA_VISIBILITY_TIMEOUT, async {
+        loop {
+            if db.cloudsync_status().await.unwrap().has_unsent_changes == Some(expected) {
+                break;
+            }
+
+            tokio::time::sleep(REPLICA_VISIBILITY_POLL_INTERVAL).await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| {
+        panic!(
+            "{operation} did not report has_unsent_changes={expected} within {} seconds",
+            REPLICA_VISIBILITY_TIMEOUT.as_secs()
+        )
+    });
 }
 
 struct EncryptedNote {
@@ -246,33 +262,63 @@ async fn cleanup_verification_workspace(token: &str, workspace_id: &str, label: 
     stop_db(&db, label).await;
 }
 
+async fn wait_for_e2ee_record(
+    db: &Db,
+    record_id: &str,
+    expected_workspace_id: &str,
+    expected_payload: &str,
+    operation: &str,
+) -> Option<(String, String)> {
+    let mut latest_record = None;
+    for attempt in 1..=REPLICA_VISIBILITY_ATTEMPTS {
+        sync_full_snapshot(db, operation).await;
+        let record: Option<(String, String)> =
+            sqlx::query_as("SELECT workspace_id, payload FROM e2ee_records WHERE id = ?")
+                .bind(record_id)
+                .fetch_optional(db.pool())
+                .await
+                .unwrap();
+        if record.as_ref().is_some_and(|(workspace_id, payload)| {
+            workspace_id == expected_workspace_id && payload == expected_payload
+        }) {
+            return record;
+        }
+        latest_record = record;
+
+        if attempt < REPLICA_VISIBILITY_ATTEMPTS {
+            tokio::time::sleep(REPLICA_VISIBILITY_POLL_INTERVAL).await;
+        }
+    }
+
+    latest_record
+}
+
 async fn setup_stale_record_client(
     owner_token: &str,
     attacker_token: &str,
     owner_workspace_id: &str,
     record_id: &str,
+    expected_payload: &str,
     operation: &str,
 ) -> Db {
     let db = setup_db(owner_token, owner_workspace_id).await;
-    sync_full_snapshot(&db, &format!("{operation} owner snapshot")).await;
-    let record_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_records WHERE id = ?")
-        .bind(record_id)
-        .fetch_one(db.pool())
-        .await
-        .unwrap();
     assert_eq!(
-        record_count, 1,
-        "{operation} owner record was not downloaded"
+        wait_for_e2ee_record(
+            &db,
+            record_id,
+            owner_workspace_id,
+            expected_payload,
+            &format!("{operation} owner snapshot"),
+        )
+        .await,
+        Some((owner_workspace_id.to_owned(), expected_payload.to_owned())),
+        "{operation} did not download the expected encrypted record"
     );
 
     db.cloudsync_network_set_token(attacker_token)
         .await
         .unwrap_or_else(|error| panic!("{operation} attacker reauthentication failed: {error}"));
-    assert_eq!(
-        db.cloudsync_status().await.unwrap().has_unsent_changes,
-        Some(false),
-        "{operation} reauthentication introduced pending changes"
-    );
+    wait_for_unsent_changes(&db, false, &format!("{operation} reauthentication")).await;
     db
 }
 
@@ -498,18 +544,27 @@ async fn personal_workspace_tokens_block_foreign_encrypted_writes() {
     sync_ok(&owner, "workspace B encrypted note update").await;
 
     let owner_round_trip = setup_db(&token_b, &workspace_b).await;
-    sync_full_snapshot(&owner_round_trip, "workspace B update round trip").await;
-    let round_trip_stats = apply_e2ee_replica_changes(owner_round_trip.pool(), &keys_b)
-        .await
-        .unwrap();
-    assert!(round_trip_stats.applied_fields > 0);
-    let round_trip_title: Option<String> =
-        sqlx::query_scalar("SELECT title FROM sessions WHERE id = ? AND workspace_id = ?")
-            .bind(&note.session_id)
-            .bind(&workspace_b)
-            .fetch_optional(owner_round_trip.pool())
+    let mut round_trip_title: Option<String> = None;
+    for attempt in 1..=REPLICA_VISIBILITY_ATTEMPTS {
+        sync_full_snapshot(&owner_round_trip, "workspace B update round trip").await;
+        apply_e2ee_replica_changes(owner_round_trip.pool(), &keys_b)
             .await
             .unwrap();
+        round_trip_title =
+            sqlx::query_scalar("SELECT title FROM sessions WHERE id = ? AND workspace_id = ?")
+                .bind(&note.session_id)
+                .bind(&workspace_b)
+                .fetch_optional(owner_round_trip.pool())
+                .await
+                .unwrap();
+        if round_trip_title.as_deref() == Some(updated_title.as_str()) {
+            break;
+        }
+
+        if attempt < REPLICA_VISIBILITY_ATTEMPTS {
+            tokio::time::sleep(REPLICA_VISIBILITY_POLL_INTERVAL).await;
+        }
+    }
     stop_db(&owner_round_trip, "workspace B update round-trip client").await;
 
     let insert_attacker = setup_policy_db(&token_a, &workspace_a).await;
@@ -569,6 +624,7 @@ async fn personal_workspace_tokens_block_foreign_encrypted_writes() {
         &token_a,
         &workspace_b,
         &owner_record_id,
+        &owner_payload,
         "foreign UPDATE",
     )
     .await;
@@ -590,6 +646,7 @@ async fn personal_workspace_tokens_block_foreign_encrypted_writes() {
         &token_a,
         &workspace_b,
         &owner_record_id,
+        &owner_payload,
         "foreign DELETE",
     )
     .await;
@@ -606,13 +663,14 @@ async fn personal_workspace_tokens_block_foreign_encrypted_writes() {
     stop_db(&delete_attacker, "foreign DELETE attacker").await;
 
     let verifier = setup_db(&token_b, &workspace_b).await;
-    sync_full_snapshot(&verifier, "workspace B policy verification").await;
-    let verified_payload: Option<String> =
-        sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
-            .bind(&owner_record_id)
-            .fetch_optional(verifier.pool())
-            .await
-            .unwrap();
+    let verified_record = wait_for_e2ee_record(
+        &verifier,
+        &owner_record_id,
+        &workspace_b,
+        &owner_payload,
+        "workspace B policy verification",
+    )
+    .await;
     let foreign_insert_count: i64 =
         sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_records WHERE id = ?")
             .bind(&foreign_insert_id)
@@ -638,25 +696,20 @@ async fn personal_workspace_tokens_block_foreign_encrypted_writes() {
     }
 
     let workspace_a_verifier = setup_db(&token_a, &workspace_a).await;
-    sync_full_snapshot(
+    let reassignment_owner_row = wait_for_e2ee_record(
         &workspace_a_verifier,
+        &reassignment_id,
+        &workspace_a,
+        &reassignment_payload,
         "workspace A reassignment verification",
     )
     .await;
-    let reassignment_owner_row: Option<(String, String)> =
-        sqlx::query_as("SELECT workspace_id, payload FROM e2ee_records WHERE id = ?")
-            .bind(&reassignment_id)
-            .fetch_optional(workspace_a_verifier.pool())
-            .await
-            .unwrap();
-    if reassignment_owner_row.is_some() {
-        cleanup_encrypted_records(
-            &workspace_a_verifier,
-            std::slice::from_ref(&reassignment_id),
-            "workspace A reassignment fixture cleanup",
-        )
-        .await;
-    }
+    cleanup_encrypted_records(
+        &workspace_a_verifier,
+        std::slice::from_ref(&reassignment_id),
+        "workspace A reassignment fixture cleanup",
+    )
+    .await;
 
     cleanup_encrypted_records(
         &owner,
@@ -691,8 +744,8 @@ async fn personal_workspace_tokens_block_foreign_encrypted_writes() {
         reassignment_result.err()
     );
     assert_eq!(
-        verified_payload.as_deref(),
-        Some(owner_payload.as_str()),
+        verified_record,
+        Some((workspace_b, owner_payload)),
         "workspace A updated or deleted workspace B's encrypted record"
     );
     assert_eq!(
