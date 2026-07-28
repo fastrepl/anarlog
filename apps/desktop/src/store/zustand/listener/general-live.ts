@@ -719,6 +719,7 @@ export const stopLiveSession = <T extends GeneralState>(
           return;
         }
 
+
         void Promise.all([
           settingsCommands.vaultBase().then((r) => {
             if (r.status === "error") throw new Error(r.error);
