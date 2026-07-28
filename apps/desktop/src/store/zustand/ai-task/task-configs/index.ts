@@ -8,13 +8,14 @@ import type {
 } from "@hypr/plugin-template";
 
 import type { EnhanceImageContext } from "./enhance-images";
-import { enhanceSuccess } from "./enhance-success";
+import { enhanceSuccess, runEnhanceSuccess } from "./enhance-success";
 import { enhanceTransform } from "./enhance-transform";
 import { enhanceWorkflow } from "./enhance-workflow";
 import { titleSuccess } from "./title-success";
 import { titleTransform } from "./title-transform";
 import { titleWorkflow } from "./title-workflow";
 
+import { trackMeetingNoteCompletion } from "~/onboarding/meeting-note-analytics";
 import type { SettingValues } from "~/settings/schema";
 import { StreamTransform } from "~/store/zustand/ai-task/shared/transform_infra";
 import type { TaskState, TaskStepInfo } from "~/store/zustand/ai-task/tasks";
@@ -94,11 +95,28 @@ type TaskConfigMap = {
   [K in TaskType]: TaskConfig<K>;
 };
 
+const onEnhanceSuccess: NonNullable<
+  TaskConfig<"enhance">["onSuccess"]
+> = async (params) => {
+  await runEnhanceSuccess({
+    ...params,
+    onPersisted: () => {
+      void trackMeetingNoteCompletion(params.args.sessionId).catch((error) => {
+        console.error(
+          "[analytics] failed to record meeting note completion",
+          error,
+        );
+      });
+    },
+  });
+};
+
 export const TASK_CONFIGS: TaskConfigMap = {
   enhance: {
     ...enhanceWorkflow,
     ...enhanceTransform,
     ...enhanceSuccess,
+    onSuccess: onEnhanceSuccess,
   },
   title: {
     ...titleWorkflow,

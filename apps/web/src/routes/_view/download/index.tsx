@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Download } from "lucide-react";
 
 import { SiteFooter } from "@/components/site-footer";
+import { useAnalytics } from "@/hooks/use-posthog";
 import { desktopDownloadSections } from "@/lib/download";
 import { ANARLOG_SITE_URL } from "@/lib/seo";
 
@@ -30,6 +31,8 @@ export const Route = createFileRoute("/_view/download/")({
 });
 
 function Component() {
+  const { track } = useAnalytics();
+
   return (
     <main className="surface text-color min-h-screen">
       <div className="mx-auto w-full max-w-[700px] px-5 py-8 md:px-8 md:py-12">
@@ -77,6 +80,13 @@ function Component() {
                     <li key={download.name}>
                       <a
                         href={download.url}
+                        onClick={() =>
+                          track("download_clicked", {
+                            platform: section.platform,
+                            spec: download.name,
+                            source: "download_page",
+                          })
+                        }
                         className="hover:bg-surface-subtle flex items-center justify-between gap-6 px-1 py-5 transition-colors"
                       >
                         <span className="min-w-0">

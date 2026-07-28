@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { json2md } from "@hypr/editor/markdown";
 
 import type { TaskConfig } from ".";
-import { enhanceSuccess } from "./enhance-success";
+import { enhanceSuccess, runEnhanceSuccess } from "./enhance-success";
 
 import { MIN_SUMMARY_CHARACTERS } from "~/services/enhancer/summary-length";
 import { useLiveTitle } from "~/store/zustand/live-title";
@@ -170,6 +170,33 @@ describe("enhanceSuccess.onSuccess", () => {
       "enhance",
       cloudsyncLeaseKey,
     );
+  });
+
+  it("reports persistence only after generated content is saved", async () => {
+    const onPersisted = vi.fn();
+
+    await runEnhanceSuccess({
+      ...createParams(),
+      onPersisted,
+    });
+
+    expect(mocks.persistGeneratedEnhancedNote).toHaveBeenCalledOnce();
+    expect(onPersisted).toHaveBeenCalledOnce();
+    expect(mocks.persistGeneratedEnhancedNote).toHaveBeenCalledBefore(
+      onPersisted,
+    );
+  });
+
+  it("does not report persistence for empty generated content", async () => {
+    const onPersisted = vi.fn();
+
+    await runEnhanceSuccess({
+      ...createParams({ text: "" }),
+      onPersisted,
+    });
+
+    expect(mocks.persistGeneratedEnhancedNote).not.toHaveBeenCalled();
+    expect(onPersisted).not.toHaveBeenCalled();
   });
 
   it("uses the durable auto-enhance baseline instead of a later user edit", async () => {
@@ -446,16 +473,19 @@ describe("enhanceSuccess.onSuccess", () => {
 
   it("does not save after cancellation during title generation", async () => {
     const abortController = new AbortController();
+    const onPersisted = vi.fn();
     const startTask = vi.fn().mockImplementation(async (_taskId, config) => {
       abortController.abort();
       config.onComplete?.("Generated title");
     });
 
-    await enhanceSuccess.onSuccess?.(
-      createParams({ signal: abortController.signal, startTask }),
-    );
+    await runEnhanceSuccess({
+      ...createParams({ signal: abortController.signal, startTask }),
+      onPersisted,
+    });
 
     expect(mocks.persistGeneratedEnhancedNote).not.toHaveBeenCalled();
+    expect(onPersisted).not.toHaveBeenCalled();
   });
 
   it("rejects persistence when the target summary disappeared", async () => {

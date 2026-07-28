@@ -1,29 +1,39 @@
 import Stripe from "stripe";
 
-import { getCustomerId, getStripeCustomer } from "./billing-bridge";
+import {
+  getCustomerId,
+  getStripeCustomer,
+  getUserIdFromCustomer,
+} from "./billing-bridge";
 import { env } from "./env";
 import { buildTrialEndingEmail } from "./trial-email-payload";
 
 const LOOPS_TRANSACTIONAL_URL = "https://app.loops.so/api/v1/transactional";
 
+export type TrialEndingEmailReceipt = {
+  transactionalId: string;
+  trialEnd: number;
+  userId: string | null;
+};
+
 export async function sendTrialEndingEmail(event: Stripe.Event) {
   if (event.type !== "customer.subscription.trial_will_end") {
-    return;
+    return null;
   }
 
   if (!env.LOOPS_API_KEY || !env.LOOPS_TRIAL_ENDING_TRANSACTIONAL_ID) {
-    return;
+    return null;
   }
 
   const subscription = event.data.object as Stripe.Subscription;
   const customerId = getCustomerId(subscription);
   if (!customerId) {
-    return;
+    return null;
   }
 
   const customer = await getStripeCustomer(customerId);
   if (!customer) {
-    return;
+    return null;
   }
 
   const payload = buildTrialEndingEmail({
@@ -32,7 +42,7 @@ export async function sendTrialEndingEmail(event: Stripe.Event) {
     now: Date.now(),
   });
   if (!payload) {
-    return;
+    return null;
   }
 
   const response = await fetch(LOOPS_TRANSACTIONAL_URL, {
@@ -56,4 +66,10 @@ export async function sendTrialEndingEmail(event: Stripe.Event) {
       `Loops transactional send failed (${response.status}): ${await response.text()}`,
     );
   }
+
+  return {
+    transactionalId: env.LOOPS_TRIAL_ENDING_TRANSACTIONAL_ID,
+    trialEnd: subscription.trial_end!,
+    userId: getUserIdFromCustomer(customer),
+  } satisfies TrialEndingEmailReceipt;
 }

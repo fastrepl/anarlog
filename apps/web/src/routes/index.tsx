@@ -27,6 +27,7 @@ import {
   desktopSchemeSchema,
 } from "@/functions/desktop-flow";
 import { getGitHubStats } from "@/functions/github";
+import { useAnalytics } from "@/hooks/use-posthog";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import {
   type DesktopPlatform,
@@ -1288,6 +1289,7 @@ function HeroWorkflowDemo() {
 }
 
 function DownloadButton() {
+  const { track } = useAnalytics();
   const [open, setOpen] = useState(false);
   const [preferredPlatform, setPreferredPlatform] =
     useState<DesktopPlatform>("macos");
@@ -1332,6 +1334,13 @@ function DownloadButton() {
     >
       <a
         href={preferredDownload.url}
+        onClick={() =>
+          track("download_clicked", {
+            platform: preferredSection.platform,
+            spec: preferredDownload.name,
+            source: "homepage",
+          })
+        }
         className="inline-flex items-center gap-1.5 rounded-l-full bg-[#181613] py-3 pr-2 pl-4 text-[13px] text-white sm:pl-5 sm:text-sm"
       >
         <Icon
@@ -1367,7 +1376,14 @@ function DownloadButton() {
                   key={download.url}
                   href={download.url}
                   role="menuitem"
-                  onClick={() => setOpen(false)}
+                  onClick={() => {
+                    track("download_clicked", {
+                      platform: section.platform,
+                      spec: download.name,
+                      source: "homepage_menu",
+                    });
+                    setOpen(false);
+                  }}
                   className="text-color hover:surface-subtle flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors"
                 >
                   <Icon

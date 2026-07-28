@@ -58,3 +58,41 @@ export async function captureBillingEvent(event: Stripe.Event) {
   });
   await posthog.flush();
 }
+
+export async function captureTrialEndingEmailSent({
+  eventCreated,
+  eventId,
+  transactionalId,
+  trialEnd,
+  userId,
+}: {
+  eventCreated: number;
+  eventId: string;
+  transactionalId: string;
+  trialEnd: number;
+  userId: string | null;
+}) {
+  if (!posthog || !userId) {
+    return;
+  }
+
+  posthog.capture({
+    distinctId: userId,
+    event: "trial_ending_email_sent",
+    groups: {
+      account: userId,
+    },
+    timestamp: new Date(eventCreated * 1000),
+    properties: {
+      $insert_id: `stripe-event:${eventId}:trial-ending-email-sent`,
+      source: "loops",
+      transactional_id: transactionalId,
+      trial_end: trialEnd,
+      days_until_trial_end: Math.max(
+        0,
+        Math.ceil((trialEnd - eventCreated) / 86_400),
+      ),
+    },
+  });
+  await posthog.flush();
+}

@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/bun";
 import { Hono } from "hono";
 
-import { captureBillingEvent } from "../analytics";
+import { captureBillingEvent, captureTrialEndingEmailSent } from "../analytics";
 import { syncBillingBridge } from "../billing-bridge";
 import { env } from "../env";
 import type { AppBindings } from "../hono-bindings";
@@ -75,7 +75,24 @@ webhook.post("/stripe", async (c) => {
   }
 
   try {
-    await sendTrialEndingEmail(stripeEvent);
+    const receipt = await sendTrialEndingEmail(stripeEvent);
+    if (receipt) {
+      try {
+        await captureTrialEndingEmailSent({
+          eventCreated: stripeEvent.created,
+          eventId: stripeEvent.id,
+          ...receipt,
+        });
+      } catch (error) {
+        Sentry.captureException(error, {
+          tags: {
+            webhook: "stripe",
+            step: "posthog_loops",
+            event_type: stripeEvent.type,
+          },
+        });
+      }
+    }
   } catch (error) {
     Sentry.captureException(error, {
       tags: {

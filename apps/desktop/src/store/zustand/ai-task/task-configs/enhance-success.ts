@@ -24,7 +24,13 @@ import { ensureMarkdownFirstLineTitle } from "~/session/title-content";
 import { id } from "~/shared/utils";
 import { hasLiveSessionTitleDraft } from "~/store/zustand/live-title";
 
-const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = async ({
+type EnhanceSuccessParams = Parameters<
+  NonNullable<TaskConfig<"enhance">["onSuccess"]>
+>[0] & {
+  onPersisted?: () => void;
+};
+
+export const runEnhanceSuccess = async ({
   text,
   taskId,
   args,
@@ -33,7 +39,8 @@ const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = async ({
   startTask,
   getTaskState,
   signal,
-}) => {
+  onPersisted,
+}: EnhanceSuccessParams) => {
   const lengthPolicy = getSummaryLengthPolicy(transformedArgs.transcripts);
   const constrainedText = constrainSummaryLength(text, lengthPolicy);
   if (!constrainedText) {
@@ -149,7 +156,7 @@ const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = async ({
         ...(args.pendingAutoEnhance
           ? { pendingAutoEnhance: args.pendingAutoEnhance }
           : {}),
-      });
+      }).then(onPersisted);
     });
 
     if (shouldPersistGeneratedTitle && !signal.aborted) {
@@ -164,5 +171,5 @@ const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = async ({
 };
 
 export const enhanceSuccess: Pick<TaskConfig<"enhance">, "onSuccess"> = {
-  onSuccess,
+  onSuccess: runEnhanceSuccess,
 };
