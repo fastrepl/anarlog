@@ -4,8 +4,8 @@
 
 set -euo pipefail
 
-sudo apt update
-sudo apt-get install -y \
+sudo apt-get -o Acquire::Retries=5 update
+sudo apt-get -o Acquire::Retries=5 install -y \
   libwebkit2gtk-4.1-dev \
   build-essential \
   curl \

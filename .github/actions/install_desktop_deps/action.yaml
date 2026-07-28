@@ -16,5 +16,10 @@ runs:
     - if: ${{ runner.os == 'Linux' }}
       shell: bash
       run: |
+        if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
+          sudo sed -i \
+            's|http://us-east-1.ec2.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' \
+            /etc/apt/sources.list.d/ubuntu.sources
+        fi
         bash ${{ github.workspace }}/scripts/setup-linux-tauri.sh
         bash ${{ github.workspace }}/scripts/setup-linux-others.sh
