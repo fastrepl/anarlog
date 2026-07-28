@@ -467,7 +467,7 @@ jobs:
           version: ${{ needs.parse.outputs.version }}
           channel: ${{ needs.parse.outputs.channel }}
           platform: dmg-aarch64
-          output: hyprnote-macos-aarch64.dmg
+          output: anarlog-macos-aarch64.dmg
           key: ${{ secrets.CN_API_KEY }}
       - id: download-macos-x86_64
         uses: ./.github/actions/cn_download
@@ -476,7 +476,7 @@ jobs:
           version: ${{ needs.parse.outputs.version }}
           channel: ${{ needs.parse.outputs.channel }}
           platform: dmg-x86_64
-          output: hyprnote-macos-x86_64.dmg
+          output: anarlog-macos-x86_64.dmg
           key: ${{ secrets.CN_API_KEY }}
       - id: download-linux-x86_64-appimage
         uses: ./.github/actions/cn_download
@@ -556,8 +556,8 @@ jobs:
             cp "$source" "$ASSET_DIR/$asset_id"
           }
 
-          copy_asset "$MACOS_ARM64_ID" "hyprnote-macos-aarch64.dmg"
-          copy_asset "$MACOS_X64_ID" "hyprnote-macos-x86_64.dmg"
+          copy_asset "$MACOS_ARM64_ID" "anarlog-macos-aarch64.dmg"
+          copy_asset "$MACOS_X64_ID" "anarlog-macos-x86_64.dmg"
           copy_asset "$LINUX_X64_APPIMAGE_ID" "anarlog-linux-x86_64.AppImage"
           copy_asset "$LINUX_X64_DEB_ID" "anarlog-linux-x86_64.deb"
           copy_asset "$LINUX_ARM64_APPIMAGE_ID" "anarlog-linux-aarch64.AppImage"
@@ -596,8 +596,8 @@ jobs:
         uses: ./.github/actions/generate_checksums
         with:
           files: |
-            hyprnote-macos-aarch64.dmg
-            hyprnote-macos-x86_64.dmg
+            anarlog-macos-aarch64.dmg
+            anarlog-macos-x86_64.dmg
             anarlog-linux-x86_64.AppImage
             anarlog-linux-x86_64.deb
             anarlog-linux-aarch64.AppImage
@@ -612,7 +612,7 @@ jobs:
           name: desktop_v${{ needs.parse.outputs.version }}
           body: ${{ steps.release-body.outputs.value }}
           prerelease: false
-          artifacts: hyprnote-macos-aarch64.dmg,hyprnote-macos-x86_64.dmg,anarlog-linux-x86_64.AppImage,anarlog-linux-x86_64.deb,anarlog-linux-aarch64.AppImage,anarlog-linux-aarch64.deb,anarlog-windows-x86_64-setup.exe,${{ steps.checksums.outputs.checksum_files }}
+          artifacts: anarlog-macos-aarch64.dmg,anarlog-macos-x86_64.dmg,anarlog-linux-x86_64.AppImage,anarlog-linux-x86_64.deb,anarlog-linux-aarch64.AppImage,anarlog-linux-aarch64.deb,anarlog-windows-x86_64-setup.exe,${{ steps.checksums.outputs.checksum_files }}
           allowUpdates: true
           makeLatest: true
           replacesArtifacts: true
