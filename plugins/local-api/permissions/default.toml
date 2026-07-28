@@ -1,0 +1,14 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = [
+  "allow-get-status",
+  "allow-set-enabled",
+  "allow-list-api-keys",
+  "allow-create-api-key",
+  "allow-revoke-api-key",
+  "allow-list-webhooks",
+  "allow-create-webhook",
+  "allow-delete-webhook",
+  "allow-test-webhook",
+  "allow-dispatch-event",
+]

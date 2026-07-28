@@ -1,0 +1,35 @@
+[package]
+name = "tauri-plugin-local-api"
+version = "0.1.0"
+edition = "2024"
+exclude = ["/js", "/node_modules"]
+links = "tauri-plugin-local-api"
+description = "Local HTTP API for Pro users: API-key-authenticated meeting endpoints and outbound webhooks"
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+hypr-db-core = { workspace = true }
+specta-typescript = { workspace = true }
+
+[dependencies]
+hypr-agent-access = { workspace = true }
+hypr-db-app = { workspace = true }
+tauri-plugin-db = { workspace = true }
+
+axum = { workspace = true }
+chrono = { workspace = true }
+hmac = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+specta = { workspace = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
+tauri = { workspace = true, features = ["test", "macos-private-api"] }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["macros", "net", "sync", "rt", "time"] }
+tracing = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }

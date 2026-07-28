@@ -1,5 +1,6 @@
 import { md2json } from "@hypr/editor/markdown";
 import { beginCloudsyncActivity } from "@hypr/plugin-db";
+import { commands as localApiCommands } from "@hypr/plugin-local-api";
 
 import { createTaskId, type TaskConfig } from ".";
 import {
@@ -186,6 +187,10 @@ export const runEnhanceSuccess = async ({
         text: generatedTitle,
         args: { sessionId: args.sessionId },
       });
+    }
+
+    if (!signal.aborted) {
+      void localApiCommands.dispatchEvent("note.enhanced", args.sessionId);
     }
   } finally {
     await releaseCloudsyncActivityEventually("enhance", cloudsyncLeaseKey);

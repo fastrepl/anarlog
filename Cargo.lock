@@ -4925,6 +4925,7 @@ dependencies = [
  "tauri-plugin-icon",
  "tauri-plugin-importer",
  "tauri-plugin-js",
+ "tauri-plugin-local-api",
  "tauri-plugin-local-llm",
  "tauri-plugin-local-stt",
  "tauri-plugin-mcp",
@@ -18678,6 +18679,33 @@ dependencies = [
  "tauri-specta",
  "thiserror 2.0.18",
  "tokio",
+]
+
+[[package]]
+name = "tauri-plugin-local-api"
+version = "0.1.0"
+dependencies = [
+ "agent-access",
+ "axum 0.8.9",
+ "chrono",
+ "db-app",
+ "db-core",
+ "hmac 0.13.0",
+ "reqwest 0.13.2",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "specta",
+ "specta-typescript",
+ "sqlx",
+ "tauri",
+ "tauri-plugin",
+ "tauri-plugin-db",
+ "tauri-specta",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

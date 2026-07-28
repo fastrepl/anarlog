@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-list-api-keys"
+description = "Enables the list_api_keys command without any pre-configured scope."
+commands.allow = ["list_api_keys"]
+
+[[permission]]
+identifier = "deny-list-api-keys"
+description = "Denies the list_api_keys command without any pre-configured scope."
+commands.deny = ["list_api_keys"]

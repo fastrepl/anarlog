@@ -1,5 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -7,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   installEmbeddedCli: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
+  getCloudApiSettings: vi.fn(),
+  createApiKey: vi.fn(),
 }));
 
 vi.mock("~/types/tauri.gen", () => ({
@@ -18,6 +27,27 @@ vi.mock("~/types/tauri.gen", () => ({
 
 vi.mock("@hypr/plugin-opener2", () => ({
   commands: { openUrl: vi.fn() },
+}));
+
+vi.mock("@hypr/plugin-local-api", () => ({
+  commands: {
+    getStatus: vi.fn().mockResolvedValue({
+      status: "ok",
+      data: { enabled: false, port: 33443, running: false },
+    }),
+    listApiKeys: vi.fn().mockResolvedValue({ status: "ok", data: [] }),
+    listWebhooks: vi.fn().mockResolvedValue({ status: "ok", data: [] }),
+    createApiKey: mocks.createApiKey,
+  },
+}));
+
+vi.mock("~/cloud-api/client", () => ({
+  getCloudApiSettings: mocks.getCloudApiSettings,
+  setCloudApiEnabled: vi.fn(),
+  backfillCloudApiSnapshots: vi.fn(),
+  listCloudApiKeys: vi.fn().mockResolvedValue([]),
+  createCloudApiKey: vi.fn(),
+  revokeCloudApiKey: vi.fn(),
 }));
 
 vi.mock("@hypr/ui/components/ui/toast", () => ({
@@ -85,6 +115,11 @@ describe("SettingsDevelopers", () => {
     mocks.installEmbeddedCli.mockReset();
     mocks.toastError.mockReset();
     mocks.toastSuccess.mockReset();
+    mocks.createApiKey.mockReset();
+    mocks.getCloudApiSettings.mockResolvedValue({
+      enabled: false,
+      updated_at: null,
+    });
   });
 
   afterEach(() => {
@@ -145,5 +180,64 @@ describe("SettingsDevelopers", () => {
     expect(
       screen.queryByText(/\/Users\/test\/\.local\/bin\/anarlog-dev/),
     ).toBeNull();
+  });
+
+  it("keeps a one-time API key visible when clipboard access fails", async () => {
+    mocks.checkEmbeddedCli.mockResolvedValue({
+      status: "ok",
+      data: {
+        supported: false,
+        commandName: "anarlog",
+        installPath: "/Users/test/.local/bin/anarlog",
+        state: "unsupported",
+        details: "Unavailable.",
+      },
+    });
+    mocks.createApiKey.mockResolvedValue({
+      status: "ok",
+      data: {
+        id: "key-1",
+        name: "Zapier",
+        key_prefix: "anl_test",
+        key: "anl_test_secret",
+        created_at: "2026-07-28T00:00:00Z",
+        last_used_at: null,
+      },
+    });
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: vi.fn().mockRejectedValue(new Error("Clipboard denied")),
+      },
+    });
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SettingsDevelopers />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.change(
+      await screen.findByPlaceholderText("Key name (e.g. Zapier)"),
+      {
+        target: { value: "Zapier" },
+      },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Create key" }));
+
+    const secret = await screen.findByText("anl_test_secret");
+    fireEvent.click(
+      within(secret.parentElement as HTMLElement).getByRole("button", {
+        name: "Copy",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(mocks.toastError).toHaveBeenCalledWith("Clipboard denied"),
+    );
+    expect(screen.getByText("anl_test_secret")).toBeTruthy();
   });
 });

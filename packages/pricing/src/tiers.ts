@@ -56,6 +56,12 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
       { label: "Templates", included: true },
       { label: "CLI", included: true },
       { label: "MCP", included: true },
+      {
+        label: "Local API & Webhooks",
+        included: true,
+        tooltip:
+          "Local REST API with API keys, plus signed webhooks when meetings finish and summaries are generated.",
+      },
       { label: "Transcript Editor", included: "partial" },
       { label: "Shortcuts", included: "partial" },
       { label: "Cloud Transcription", included: false },
@@ -79,9 +85,10 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
       { label: "Cloud LLM", included: true },
       { label: "Local-cloud Sync", included: true },
       {
-        label: "API (Coming soon)",
+        label: "Cloud API & Connectors (Coming soon)",
         included: true,
-        tooltip: "Paid API access will be available soon.",
+        tooltip:
+          "Hosted API and MCP connectors for Claude, ChatGPT, and other agents — no desktop app required.",
       },
       { label: "Speaker Identification", included: "partial" },
       { label: "Connect to Google Calendar", included: true },

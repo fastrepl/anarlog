@@ -5,6 +5,7 @@ import type { StoreApi } from "zustand";
 import { commands as detectCommands } from "@hypr/plugin-detect";
 import { commands as hooksCommands } from "@hypr/plugin-hooks";
 import { commands as iconCommands } from "@hypr/plugin-icon";
+import { commands as localApiCommands } from "@hypr/plugin-local-api";
 import { commands as settingsCommands } from "@hypr/plugin-settings";
 import {
   commands as listenerCommands,
@@ -240,11 +241,16 @@ const createSessionEventHandlers = <T extends LiveStore>(
       get().resetTranscript();
     }
 
+    const dispatchMeetingCompleted = () => {
+      void localApiCommands.dispatchEvent("meeting.completed", targetSessionId);
+    };
+
     if (onStopped) {
       const finishPostStopProcessing = () => {
         setLiveState(set, (live) => {
           delete live.postStopProcessingBySession[targetSessionId];
         });
+        dispatchMeetingCompleted();
       };
       try {
         const stopped = onStopped(targetSessionId, {
@@ -265,6 +271,8 @@ const createSessionEventHandlers = <T extends LiveStore>(
         finishPostStopProcessing();
         console.error("[listener] post-stop processing failed", error);
       }
+    } else {
+      dispatchMeetingCompleted();
     }
   },
   progress: (payload) => {

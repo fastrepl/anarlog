@@ -2,6 +2,7 @@ import { create as mutate } from "mutative";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const {
+  dispatchEventMock,
   getIdentifierMock,
   getCaptureSnapshotMock,
   listenCaptureDataMock,
@@ -14,6 +15,7 @@ const {
   stopCaptureMock,
   vaultBaseMock,
 } = vi.hoisted(() => ({
+  dispatchEventMock: vi.fn(),
   getIdentifierMock: vi.fn(),
   getCaptureSnapshotMock: vi.fn(),
   listenCaptureDataMock: vi.fn(),
@@ -46,6 +48,12 @@ vi.mock("@hypr/plugin-hooks", () => ({
 vi.mock("@hypr/plugin-icon", () => ({
   commands: {
     setRecordingIndicator: setRecordingIndicatorMock,
+  },
+}));
+
+vi.mock("@hypr/plugin-local-api", () => ({
+  commands: {
+    dispatchEvent: dispatchEventMock,
   },
 }));
 
@@ -114,6 +122,7 @@ describe("General Listener Slice", () => {
     setRecordingIndicatorMock.mockResolvedValue({ status: "ok", data: null });
     startCaptureMock.mockResolvedValue({ status: "ok", data: null });
     stopCaptureMock.mockResolvedValue({ status: "ok", data: null });
+    dispatchEventMock.mockResolvedValue({ status: "ok", data: 1 });
     vaultBaseMock.mockResolvedValue({ status: "ok", data: "/tmp/anarlog" });
   });
 
@@ -719,6 +728,66 @@ describe("General Listener Slice", () => {
         seconds: 42,
         needsBatchRepair: false,
       });
+    });
+
+    test("dispatches completion after post-stop processing settles", async () => {
+      let lifecycleHandler:
+        | ((event: { payload: Record<string, unknown> }) => void)
+        | undefined;
+      let finishPostStopProcessing: (() => void) | undefined;
+      const intervalId = setInterval(() => {}, 1000);
+
+      listenCaptureLifecycleMock.mockImplementationOnce((handler) => {
+        lifecycleHandler = handler;
+        return Promise.resolve(() => {});
+      });
+      getCaptureSnapshotMock.mockResolvedValueOnce({
+        status: "ok",
+        data: {
+          activeSessionId: "session-a",
+          finalizingSessionIds: [],
+          liveTranscriptionActive: true,
+          requestedLiveTranscription: true,
+          state: "active",
+        },
+      });
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          markLiveActive(draft.live, "session-a", intervalId, true, true, null);
+        }),
+      );
+      store.getState().setOnStopped(
+        "session-a",
+        () =>
+          new Promise<void>((resolve) => {
+            finishPostStopProcessing = resolve;
+          }),
+      );
+
+      await store.getState().attachLiveSession("session-a");
+      store.getState().stop();
+      await vi.waitFor(() => expect(stopCaptureMock).toHaveBeenCalledOnce());
+      expect(dispatchEventMock).not.toHaveBeenCalled();
+
+      lifecycleHandler?.({
+        payload: {
+          type: "stopped",
+          session_id: "session-a",
+          audio_path: "/tmp/session.wav",
+          requested_live_transcription: true,
+          live_transcription_active: true,
+          error: null,
+        },
+      });
+      expect(dispatchEventMock).not.toHaveBeenCalled();
+
+      finishPostStopProcessing?.();
+      await vi.waitFor(() =>
+        expect(dispatchEventMock).toHaveBeenCalledWith(
+          "meeting.completed",
+          "session-a",
+        ),
+      );
     });
   });
 

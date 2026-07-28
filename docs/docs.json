@@ -55,6 +55,7 @@
         "pages": [
           "reference/cli",
           "reference/mcp",
+          "reference/api",
           "reference/errors"
         ]
       },

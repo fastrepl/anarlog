@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+mod api_ops;
+mod api_types;
 mod calendar_ops;
 mod calendar_types;
 mod cloudsync;
@@ -12,6 +14,8 @@ mod session_types;
 mod template_ops;
 mod template_types;
 
+pub use api_ops::*;
+pub use api_types::*;
 pub use calendar_ops::*;
 pub use calendar_types::*;
 pub use cloudsync::*;
@@ -259,6 +263,11 @@ pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
         id: "20260725020000_cloudsync_projection_indexes",
         scope: hypr_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260725020000_cloudsync_projection_indexes.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260728090000_local_api",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260728090000_local_api.sql"),
     },
 ];
 
@@ -973,6 +982,7 @@ ON shared_session_cache(workspace_id);
             vec![
                 "_sqlx_migrations",
                 "action_items",
+                "api_keys",
                 "app_settings",
                 "attachment_local_state",
                 "attachment_transfer_jobs",
@@ -1011,6 +1021,7 @@ ON shared_session_cache(workspace_id);
                 "tags",
                 "templates",
                 "transcripts",
+                "webhook_endpoints",
                 "workspace_memberships",
                 "workspaces",
             ]

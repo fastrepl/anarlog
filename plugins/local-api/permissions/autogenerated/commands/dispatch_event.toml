@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-dispatch-event"
+description = "Enables the dispatch_event command without any pre-configured scope."
+commands.allow = ["dispatch_event"]
+
+[[permission]]
+identifier = "deny-dispatch-event"
+description = "Denies the dispatch_event command without any pre-configured scope."
+commands.deny = ["dispatch_event"]

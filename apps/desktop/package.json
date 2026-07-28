@@ -46,6 +46,7 @@
     "@hypr/plugin-hooks": "workspace:*",
     "@hypr/plugin-icon": "workspace:*",
     "@hypr/plugin-importer": "workspace:*",
+    "@hypr/plugin-local-api": "workspace:*",
     "@hypr/plugin-local-llm": "workspace:*",
     "@hypr/plugin-local-stt": "workspace:*",
     "@hypr/plugin-misc": "workspace:*",
