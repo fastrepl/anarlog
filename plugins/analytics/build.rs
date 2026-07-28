@@ -5,6 +5,7 @@ const COMMANDS: &[&str] = &[
     "set_disabled",
     "is_disabled",
     "identify",
+    "clear_groups",
 ];
 
 fn main() {

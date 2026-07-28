@@ -16,6 +16,9 @@ import * as authProviderModule from "./context";
 const { AuthProvider } = authProviderModule;
 
 const mocks = vi.hoisted(() => ({
+  analyticsClearGroups: vi.fn(),
+  analyticsEvent: vi.fn(),
+  analyticsIdentify: vi.fn(),
   authCallback: null as
     | ((event: AuthChangeEvent, session: Session | null) => void)
     | null,
@@ -79,8 +82,9 @@ vi.mock("./errors", () => ({
 
 vi.mock("@hypr/plugin-analytics", () => ({
   commands: {
-    event: vi.fn(),
-    identify: vi.fn(),
+    clearGroups: mocks.analyticsClearGroups,
+    event: mocks.analyticsEvent,
+    identify: mocks.analyticsIdentify,
   },
 }));
 
@@ -222,6 +226,9 @@ describe("AuthProvider", () => {
   });
 
   beforeEach(() => {
+    mocks.analyticsClearGroups.mockReset();
+    mocks.analyticsEvent.mockReset();
+    mocks.analyticsIdentify.mockReset();
     mocks.authCallback = null;
     mocks.bindCloudsyncAccountForAuth.mockReset();
     mocks.clearAuthStorage.mockReset();
@@ -259,6 +266,120 @@ describe("AuthProvider", () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  it("associates signed-in analytics with the account group", async () => {
+    const currentSession = makeSession("account-id");
+    currentSession.user.email = "person@example.com";
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+    });
+
+    await waitFor(() => {
+      expect(mocks.analyticsIdentify).toHaveBeenCalledWith(
+        "account-id",
+        expect.objectContaining({
+          group: {
+            type: "account",
+            key: "account-id",
+            properties: {
+              name: "person@example.com",
+              email: "person@example.com",
+              created_at: "2026-01-01T00:00:00.000Z",
+              plan: "free",
+              trial_end_date: null,
+            },
+          },
+        }),
+      );
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_OUT", null);
+    });
+
+    await waitFor(() => {
+      expect(mocks.analyticsClearGroups).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("clears account groups after an in-flight identify settles", async () => {
+    const identify = deferred();
+    mocks.analyticsIdentify.mockReturnValueOnce(identify.promise);
+    const currentSession = makeSession("account-id");
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+    });
+
+    await waitFor(() => {
+      expect(mocks.analyticsIdentify).toHaveBeenCalledTimes(1);
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_OUT", null);
+    });
+
+    await waitFor(() => {
+      expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.analyticsClearGroups).not.toHaveBeenCalled();
+
+    identify.resolve();
+
+    await waitFor(() => {
+      expect(mocks.analyticsClearGroups).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("clears account groups after the sign-in event settles", async () => {
+    const signInEvent = deferred();
+    mocks.analyticsEvent.mockReturnValueOnce(signInEvent.promise);
+    const currentSession = makeSession("event-account-id");
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", currentSession);
+    });
+
+    await waitFor(() => {
+      expect(mocks.analyticsEvent).toHaveBeenCalledWith({
+        event: "user_signed_in",
+      });
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_OUT", null);
+    });
+
+    await waitFor(() => {
+      expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.analyticsClearGroups).not.toHaveBeenCalled();
+
+    signInEvent.resolve();
+
+    await waitFor(() => {
+      expect(mocks.analyticsClearGroups).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("refreshes cloudsync when the main window regains focus", async () => {
@@ -640,6 +761,7 @@ describe("AuthProvider", () => {
     await waitFor(() => {
       expect(mocks.eventCallbacks.has("hypr:auth-sign-out-result")).toBe(false);
     });
+    expect(mocks.analyticsClearGroups).not.toHaveBeenCalled();
     expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
     expect(screen.getByTestId("session").textContent).toBe("none");
 

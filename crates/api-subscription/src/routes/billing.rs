@@ -211,6 +211,10 @@ where
     if let Some(analytics) = analytics {
         let mut payload = outcome.to_analytics_payload();
         payload.props.insert("source".to_string(), source.into());
+        payload
+            .groups
+            .get_or_insert_default()
+            .insert("account".to_string(), user_id.to_string());
         if distinct_id != user_id {
             payload.props.insert("user_id".to_string(), user_id.into());
         }

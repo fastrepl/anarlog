@@ -121,6 +121,11 @@ impl AnalyticsClient {
             for (key, value) in &payload.props {
                 let _ = event.insert_prop(key, value);
             }
+            if let Some(groups) = &payload.groups {
+                for (group_type, group_key) in groups {
+                    event.add_group(group_type, group_key);
+                }
+            }
             state.client.capture(event).await?;
         } else {
             tracing::info!("event: {:?}", payload);
@@ -252,6 +257,9 @@ impl AnalyticsClient {
             let state = lazy.get().await;
             let mut event = Event::new("$identify", &user_id);
             let _ = event.insert_prop("$anon_distinct_id", &anon_distinct_id);
+            if let Some(group) = &payload.group {
+                event.add_group(&group.r#type, &group.key);
+            }
 
             let mut set_props = payload.set.clone();
             if let Some(ref email) = payload.email {
@@ -264,6 +272,14 @@ impl AnalyticsClient {
                 let _ = event.insert_prop("$set_once", &payload.set_once);
             }
             state.client.capture(event).await?;
+
+            if let Some(group) = payload.group {
+                let mut event = Event::new("$groupidentify", &user_id);
+                let _ = event.insert_prop("$group_type", &group.r#type);
+                let _ = event.insert_prop("$group_key", &group.key);
+                let _ = event.insert_prop("$group_set", &group.properties);
+                state.client.capture(event).await?;
+            }
         } else {
             tracing::info!(
                 "identify: user_id={}, anon_distinct_id={}, payload={:?}",
@@ -288,11 +304,21 @@ pub trait ToAnalyticsPayload {
 #[derive(Debug, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct AnalyticsPayload {
     pub event: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub groups: Option<HashMap<String, String>>,
     #[serde(flatten)]
     pub props: HashMap<String, serde_json::Value>,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize, specta::Type)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+pub struct AnalyticsGroup {
+    pub r#type: String,
+    pub key: String,
+    #[serde(default)]
+    pub properties: HashMap<String, serde_json::Value>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct PropertiesPayload {
     #[serde(default)]
     pub set: HashMap<String, serde_json::Value>,
@@ -302,6 +328,8 @@ pub struct PropertiesPayload {
     pub email: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group: Option<AnalyticsGroup>,
 }
 
 #[derive(Default)]
@@ -333,6 +361,7 @@ impl PropertiesPayloadBuilder {
             set_once: self.set_once,
             email: None,
             user_id: None,
+            group: None,
         }
     }
 }
@@ -340,6 +369,7 @@ impl PropertiesPayloadBuilder {
 #[derive(Clone)]
 pub struct AnalyticsPayloadBuilder {
     event: Option<String>,
+    groups: HashMap<String, String>,
     props: HashMap<String, serde_json::Value>,
 }
 
@@ -347,12 +377,18 @@ impl AnalyticsPayload {
     pub fn builder(event: impl Into<String>) -> AnalyticsPayloadBuilder {
         AnalyticsPayloadBuilder {
             event: Some(event.into()),
+            groups: HashMap::new(),
             props: HashMap::new(),
         }
     }
 }
 
 impl AnalyticsPayloadBuilder {
+    pub fn group(mut self, group_type: impl Into<String>, group_key: impl Into<String>) -> Self {
+        self.groups.insert(group_type.into(), group_key.into());
+        self
+    }
+
     pub fn with(mut self, key: impl Into<String>, value: impl Into<serde_json::Value>) -> Self {
         self.props.insert(key.into(), value.into());
         self
@@ -365,6 +401,7 @@ impl AnalyticsPayloadBuilder {
 
         AnalyticsPayload {
             event: self.event.unwrap(),
+            groups: (!self.groups.is_empty()).then_some(self.groups),
             props: self.props,
         }
     }
@@ -373,6 +410,18 @@ impl AnalyticsPayloadBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn analytics_payload_builder_attaches_groups() {
+        let payload = AnalyticsPayload::builder("test_event")
+            .group("account", "account_123")
+            .build();
+
+        assert_eq!(
+            payload.groups.unwrap().get("account"),
+            Some(&"account_123".to_string())
+        );
+    }
 
     #[ignore]
     #[tokio::test]

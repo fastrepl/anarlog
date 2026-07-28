@@ -45,7 +45,9 @@ impl AnalyticsReporter for AnalyticsClient {
             };
 
             let payload = if let Some(user_id) = &event.user_id {
-                payload.with("user_id", user_id.clone())
+                payload
+                    .group("account", user_id.clone())
+                    .with("user_id", user_id.clone())
             } else {
                 payload
             };

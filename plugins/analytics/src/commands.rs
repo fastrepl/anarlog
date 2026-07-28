@@ -64,3 +64,9 @@ pub(crate) async fn identify<R: tauri::Runtime>(
         .await
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) fn clear_groups<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
+    app.analytics().clear_groups();
+}

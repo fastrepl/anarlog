@@ -73,6 +73,9 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async clearGroups(): Promise<void> {
+    await TAURI_INVOKE("plugin:analytics|clear_groups");
+  },
 };
 
 /** user-defined events **/
@@ -81,6 +84,11 @@ export const commands = {
 
 /** user-defined types **/
 
+export type AnalyticsGroup = {
+  type: string;
+  key: string;
+  properties?: Partial<{ [key in string]: JsonValue }>;
+};
 export type AnalyticsPayload = Partial<{
   [key in string]:
     | null
@@ -89,7 +97,7 @@ export type AnalyticsPayload = Partial<{
     | string
     | JsonValue[]
     | Partial<{ [key in string]: JsonValue }>;
-}> & { event: string };
+}> & { event: string; groups?: Partial<{ [key in string]: string }> | null };
 export type JsonValue =
   | null
   | boolean
@@ -102,6 +110,7 @@ export type PropertiesPayload = {
   set_once?: Partial<{ [key in string]: JsonValue }>;
   email?: string | null;
   user_id?: string | null;
+  group?: AnalyticsGroup | null;
 };
 
 /** tauri-specta globals **/

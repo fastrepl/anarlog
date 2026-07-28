@@ -128,7 +128,7 @@ async function trackAuthEvent(
     if (identifySignature !== trackedIdentifySignature) {
       trackedIdentifySignature = identifySignature;
 
-      void analyticsCommands.identify(session.user.id, {
+      await analyticsCommands.identify(session.user.id, {
         email: session.user.email,
         set: {
           account_created_date: session.user.created_at,
@@ -139,18 +139,24 @@ async function trackAuthEvent(
           plan: billing.plan,
           trial_end_date: billing.trialEndDate,
         },
+        group: {
+          type: "account",
+          key: session.user.id,
+          properties: {
+            name: session.user.email ?? session.user.id,
+            email: session.user.email ?? null,
+            created_at: session.user.created_at,
+            plan: billing.plan,
+            trial_end_date: billing.trialEndDate,
+          },
+        },
       });
     }
 
     if (event === "SIGNED_IN" && trackedSignedInUserId !== session.user.id) {
       trackedSignedInUserId = session.user.id;
-      void analyticsCommands.event({ event: "user_signed_in" });
+      await analyticsCommands.event({ event: "user_signed_in" });
     }
-  }
-
-  if (event === "SIGNED_OUT") {
-    trackedIdentifySignature = null;
-    trackedSignedInUserId = null;
   }
 }
 
@@ -248,8 +254,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const authTransitionEventRef = useRef<AuthChangeEvent | null>(null);
   const nonInitialAuthTransitionRef = useRef(0);
   const authTransitionQueueRef = useRef(Promise.resolve());
+  const authAnalyticsQueueRef = useRef(Promise.resolve());
   const authStorageRevisionRef = useRef(0);
   const coordinatedMainSignOutRef = useRef<Promise<boolean> | null>(null);
+
+  const enqueueAuthAnalytics = useCallback((task: () => Promise<void>) => {
+    const queued = authAnalyticsQueueRef.current.then(task, task);
+    authAnalyticsQueueRef.current = queued.catch(() => {});
+    return queued;
+  }, []);
 
   const coordinateMainSignOut = useCallback(() => {
     const existing = coordinatedMainSignOutRef.current;
@@ -379,12 +392,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       trackedIdentifySignature = null;
       trackedSignedInUserId = null;
+      await enqueueAuthAnalytics(() => analyticsCommands.clearGroups());
       setSession(null);
       if (managesCloudsync) {
         await handleCloudsyncAuthChange("SIGNED_OUT", null);
       }
     },
-    [coordinateMainSignOut, managesCloudsync],
+    [coordinateMainSignOut, enqueueAuthAnalytics, managesCloudsync],
   );
 
   const applyAuthChange = useCallback(
@@ -481,7 +495,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setSession(nextSession);
-      void trackAuthEvent(event, nextSession);
+      void enqueueAuthAnalytics(() => trackAuthEvent(event, nextSession));
 
       if (!managesCloudsync) {
         return;
@@ -502,7 +516,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       await rejectAccountMismatch();
     },
-    [coordinateMainSignOut, managesCloudsync, rejectAuthChange],
+    [
+      coordinateMainSignOut,
+      enqueueAuthAnalytics,
+      managesCloudsync,
+      rejectAuthChange,
+    ],
   );
 
   const enqueueAuthChange = useCallback(

@@ -45,6 +45,9 @@ export async function captureBillingEvent(event: Stripe.Event) {
   posthog.capture({
     distinctId: userId,
     event: payload.event,
+    groups: {
+      account: userId,
+    },
     timestamp: new Date(event.created * 1000),
     properties: {
       ...payload.properties,

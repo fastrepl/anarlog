@@ -54,11 +54,49 @@ test("sends stable distinct and insert IDs with original timestamps", async () =
   assert.equal(body.historical_migration, true);
   assert.equal(body.batch[0].event, "account_confirmed");
   assert.equal(body.batch[0].properties.distinct_id, "user-historical");
+  assert.deepEqual(body.batch[0].properties.$groups, {
+    account: "user-historical",
+  });
   assert.equal(
     body.batch[0].properties.$insert_id,
     "account_confirmed:user-historical",
   );
   assert.equal(body.batch[0].timestamp, "2025-07-25T03:00:00.000Z");
+});
+
+test("identifies new account groups before capturing signup events", async () => {
+  let request: { init?: RequestInit } | undefined;
+
+  await sendPostHogBatch({
+    events: [events[0]],
+    projectToken: "project-token",
+    host: "https://us.i.posthog.com",
+    fetcher: async (_url, init) => {
+      request = { init };
+      return Response.json({ status: "Ok" });
+    },
+  });
+
+  const body = JSON.parse(String(request?.init?.body));
+  assert.equal(body.batch.length, 2);
+  assert.deepEqual(body.batch[0], {
+    event: "$groupidentify",
+    properties: {
+      distinct_id: "user-live",
+      $group_type: "account",
+      $group_key: "user-live",
+      $group_set: {
+        name: "user-live",
+        email: null,
+        created_at: "2026-07-25T03:00:00.000Z",
+      },
+      $insert_id: "account-group:user-live",
+    },
+    timestamp: "2026-07-25T03:00:00.000Z",
+  });
+  assert.deepEqual(body.batch[1].properties.$groups, {
+    account: "user-live",
+  });
 });
 
 test("surfaces PostHog ingestion errors", async () => {

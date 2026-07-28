@@ -15,6 +15,7 @@ pub use hypr_analytics::*;
 
 pub struct ManagedState {
     client: hypr_analytics::AnalyticsClient,
+    groups: std::sync::Mutex<std::collections::HashMap<String, String>>,
     session: std::sync::Mutex<SessionTracker>,
 }
 
@@ -22,6 +23,7 @@ impl ManagedState {
     fn new(client: hypr_analytics::AnalyticsClient) -> Self {
         Self {
             client,
+            groups: std::sync::Mutex::new(std::collections::HashMap::new()),
             session: std::sync::Mutex::new(SessionTracker::new(std::time::SystemTime::now())),
         }
     }
@@ -39,6 +41,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::set_disabled::<tauri::Wry>,
             commands::is_disabled::<tauri::Wry>,
             commands::identify::<tauri::Wry>,
+            commands::clear_groups::<tauri::Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

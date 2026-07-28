@@ -60,10 +60,26 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
         let git_hash = manager.misc().get_git_hash();
         let bundle_id = manager.config().identifier.clone();
         let session_id = Self::session_id(manager);
+        let groups = {
+            let state = manager.state::<crate::ManagedState>();
+            state
+                .groups
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .clone()
+        };
 
         payload
             .props
             .insert("$session_id".into(), session_id.into());
+
+        for (group_type, group_key) in groups {
+            payload
+                .groups
+                .get_or_insert_default()
+                .entry(group_type)
+                .or_insert(group_key);
+        }
 
         payload
             .props
@@ -134,6 +150,13 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
             let user_id = user_id.into();
 
             let state = self.manager.state::<crate::ManagedState>();
+            if let Some(group) = &payload.group {
+                state
+                    .groups
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .insert(group.r#type.clone(), group.key.clone());
+            }
             state
                 .client
                 .identify(user_id, machine_id, payload)
@@ -142,6 +165,15 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
         }
 
         Ok(())
+    }
+
+    pub fn clear_groups(&self) {
+        self.manager
+            .state::<crate::ManagedState>()
+            .groups
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clear();
     }
 }
 

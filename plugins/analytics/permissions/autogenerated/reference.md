@@ -10,6 +10,7 @@ Default permissions for the plugin
 - `allow-set-disabled`
 - `allow-is-disabled`
 - `allow-identify`
+- `allow-clear-groups`
 
 ## Permission Table
 
@@ -19,6 +20,32 @@ Default permissions for the plugin
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`analytics:allow-clear-groups`
+
+</td>
+<td>
+
+Enables the clear_groups command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`analytics:deny-clear-groups`
+
+</td>
+<td>
+
+Denies the clear_groups command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>

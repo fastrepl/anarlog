@@ -7,6 +7,8 @@ export type AccountAnalyticsEvent = {
   historical: boolean;
 };
 
+const ACCOUNT_GROUP_TYPE = "account";
+
 export function groupAccountAnalyticsEvents(events: AccountAnalyticsEvent[]) {
   return [
     events.filter((event) => !event.historical),
@@ -37,15 +39,55 @@ export async function sendPostHogBatch({
     body: JSON.stringify({
       api_key: projectToken,
       historical_migration: events.every((event) => event.historical),
-      batch: events.map((event) => ({
-        event: event.event_name,
-        properties: {
-          ...event.properties,
-          distinct_id: event.user_id,
-          $insert_id: `${event.event_name}:${event.user_id}`,
-        },
-        timestamp: event.occurred_at,
-      })),
+      batch: events.flatMap((event) => {
+        const capturedEvent = {
+          event: event.event_name,
+          properties: {
+            ...event.properties,
+            distinct_id: event.user_id,
+            $groups: {
+              [ACCOUNT_GROUP_TYPE]: event.user_id,
+            },
+            $insert_id: `${event.event_name}:${event.user_id}`,
+          },
+          timestamp: event.occurred_at,
+        };
+
+        if (event.event_name !== "account_created") {
+          return [capturedEvent];
+        }
+
+        const setProperties =
+          event.properties["$set"] &&
+          typeof event.properties["$set"] === "object" &&
+          !Array.isArray(event.properties["$set"])
+            ? (event.properties["$set"] as Record<string, unknown>)
+            : {};
+        const email =
+          typeof setProperties["email"] === "string"
+            ? setProperties["email"]
+            : null;
+
+        return [
+          {
+            event: "$groupidentify",
+            properties: {
+              distinct_id: event.user_id,
+              $group_type: ACCOUNT_GROUP_TYPE,
+              $group_key: event.user_id,
+              $group_set: {
+                name: email ?? event.user_id,
+                email,
+                created_at:
+                  setProperties["account_created_at"] ?? event.occurred_at,
+              },
+              $insert_id: `account-group:${event.user_id}`,
+            },
+            timestamp: event.occurred_at,
+          },
+          capturedEvent,
+        ];
+      }),
     }),
   });
 
