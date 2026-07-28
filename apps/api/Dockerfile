@@ -15,7 +15,7 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 FROM rust:${RUST_VERSION}-bookworm AS build
 ARG APP_VERSION
-RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev libclang-dev ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN cargo install cargo-chef --locked
 ENV APP_VERSION=${APP_VERSION}
 WORKDIR /app
