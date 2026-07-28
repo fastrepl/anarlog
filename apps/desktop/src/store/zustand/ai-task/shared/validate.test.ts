@@ -261,6 +261,59 @@ describe("withEarlyValidationRetry", () => {
     expect(results).toEqual(chunks);
   });
 
+  it("emits reasoning while visible text is still buffered", async () => {
+    let releaseText!: () => void;
+    const textReady = new Promise<void>((resolve) => {
+      releaseText = resolve;
+    });
+
+    async function* executeStream() {
+      yield { type: "reasoning-start", id: "reasoning-1" } as const;
+      yield {
+        type: "reasoning-delta",
+        id: "reasoning-1",
+        text: "Working",
+      } as const;
+      await textReady;
+      yield { type: "reasoning-end", id: "reasoning-1" } as const;
+      yield {
+        type: "text-delta",
+        id: "text-1",
+        text: "Valid summary",
+      } as const;
+    }
+
+    const iterator = withEarlyValidationRetry(
+      executeStream,
+      () => ({ valid: true }),
+      { minChar: 5 },
+    )[Symbol.asyncIterator]();
+
+    await expect(iterator.next()).resolves.toEqual({
+      done: false,
+      value: { type: "reasoning-start", id: "reasoning-1" },
+    });
+    await expect(iterator.next()).resolves.toEqual({
+      done: false,
+      value: {
+        type: "reasoning-delta",
+        id: "reasoning-1",
+        text: "Working",
+      },
+    });
+
+    releaseText();
+
+    await expect(iterator.next()).resolves.toEqual({
+      done: false,
+      value: { type: "reasoning-end", id: "reasoning-1" },
+    });
+    await expect(iterator.next()).resolves.toEqual({
+      done: false,
+      value: { type: "text-delta", id: "text-1", text: "Valid summary" },
+    });
+  });
+
   it("should trim text when checking minChar threshold", async () => {
     const chunks: TextStreamPart<ToolSet>[] = [
       { type: "text-delta", text: "   ", id: "1" },

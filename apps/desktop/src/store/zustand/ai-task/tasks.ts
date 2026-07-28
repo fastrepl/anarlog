@@ -81,11 +81,29 @@ const initialState: TasksState = {
 
 export const TASK_STREAM_IDLE_TIMEOUT_MS = 15_000;
 export const TASK_STREAM_START_TIMEOUT_MS = 60_000;
+export const TASK_STREAM_LOCAL_START_TIMEOUT_MS = 5 * 60_000;
 
 const DATABASE_LOCK_RETRY_DELAYS_MS = [
   250, 500, 1_000, 2_000, 4_000, 8_000, 16_000, 30_000,
 ];
 const STREAM_TIMEOUT = Symbol("stream-timeout");
+const LOCAL_MODEL_PROVIDERS = new Set([
+  "apple_foundation",
+  "lmstudio",
+  "ollama",
+]);
+
+export function getTaskStreamStartTimeoutMs(model: LanguageModel) {
+  const provider =
+    typeof model !== "string" && typeof model.provider === "string"
+      ? model.provider
+      : "";
+  const providerId = provider.split(".", 1)[0];
+
+  return LOCAL_MODEL_PROVIDERS.has(providerId)
+    ? TASK_STREAM_LOCAL_START_TIMEOUT_MS
+    : TASK_STREAM_START_TIMEOUT_MS;
+}
 
 function createAbortError() {
   const error = new Error("Aborted");
@@ -346,7 +364,7 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
             iterator,
             fullText.trim()
               ? TASK_STREAM_IDLE_TIMEOUT_MS
-              : TASK_STREAM_START_TIMEOUT_MS,
+              : getTaskStreamStartTimeoutMs(config.model),
           );
           checkAbort();
 

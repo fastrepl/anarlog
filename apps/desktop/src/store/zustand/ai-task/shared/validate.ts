@@ -55,6 +55,15 @@ export async function* withEarlyValidationRetry<
 
       for await (const chunk of stream) {
         if (!validationComplete) {
+          if (
+            chunk.type === "reasoning-start" ||
+            chunk.type === "reasoning-delta" ||
+            chunk.type === "reasoning-end"
+          ) {
+            yield chunk;
+            continue;
+          }
+
           buffer.push(chunk);
 
           if (chunk.type === "text-delta") {
