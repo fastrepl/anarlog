@@ -13,6 +13,7 @@ import {
 } from "tinytick/ui-react";
 
 import "@hypr/ui/globals.css";
+import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import {
   getCurrentWebviewWindowLabel,
   init as initWindowsPlugin,
@@ -118,6 +119,7 @@ initWindowsPlugin();
 const isMainWindow = getCurrentWebviewWindowLabel() === "main";
 
 if (isMainWindow) {
+  void analyticsCommands.eventFireAndForget({ event: "app_started" });
   void initializeAppExitFlush().catch((error) => {
     console.error("Failed to initialize the exit flush listener", error);
   });

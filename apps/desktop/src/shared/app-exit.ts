@@ -1,5 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 
+import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as store2Commands } from "@hypr/plugin-store2";
 
 import { flushDatabaseWritesWithin } from "~/db/write-queue";
@@ -29,6 +30,7 @@ async function flushApplicationStateWithin(timeoutMs: number): Promise<void> {
   try {
     const results = await Promise.race([
       Promise.allSettled([
+        analyticsCommands.event({ event: "app_exit_requested" }),
         flushDatabaseWritesWithin(timeoutMs),
         store2Commands.save(),
       ]),

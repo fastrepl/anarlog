@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  analyticsEvent: vi.fn().mockResolvedValue({ status: "ok", data: null }),
   completeAppExit: vi.fn().mockResolvedValue(undefined),
   flushDatabaseWritesWithin: vi.fn().mockResolvedValue(undefined),
   listener: null as (() => void) | null,
@@ -12,6 +13,10 @@ vi.mock("@tauri-apps/api/event", () => ({
     mocks.listener = listener;
     return vi.fn();
   }),
+}));
+
+vi.mock("@hypr/plugin-analytics", () => ({
+  commands: { event: mocks.analyticsEvent },
 }));
 
 vi.mock("@hypr/plugin-store2", () => ({
@@ -31,6 +36,7 @@ describe("initializeAppExitFlush", () => {
     vi.resetModules();
     vi.clearAllMocks();
     mocks.listener = null;
+    mocks.analyticsEvent.mockResolvedValue({ status: "ok", data: null });
     mocks.completeAppExit.mockResolvedValue(undefined);
     mocks.flushDatabaseWritesWithin.mockResolvedValue(undefined);
     mocks.save.mockResolvedValue(undefined);
@@ -45,6 +51,9 @@ describe("initializeAppExitFlush", () => {
     await vi.waitFor(() =>
       expect(mocks.completeAppExit).toHaveBeenCalledOnce(),
     );
+    expect(mocks.analyticsEvent).toHaveBeenCalledWith({
+      event: "app_exit_requested",
+    });
     expect(mocks.flushDatabaseWritesWithin).toHaveBeenCalledWith(5000);
     expect(mocks.save).toHaveBeenCalledOnce();
     expect(

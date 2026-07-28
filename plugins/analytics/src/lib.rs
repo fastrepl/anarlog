@@ -3,15 +3,29 @@ use tauri::Manager;
 mod commands;
 mod error;
 mod ext;
+mod session;
 mod store;
 
 pub use error::{Error, Result};
 pub use ext::*;
+use session::*;
 use store::*;
 
 pub use hypr_analytics::*;
 
-pub type ManagedState = hypr_analytics::AnalyticsClient;
+pub struct ManagedState {
+    client: hypr_analytics::AnalyticsClient,
+    session: std::sync::Mutex<SessionTracker>,
+}
+
+impl ManagedState {
+    fn new(client: hypr_analytics::AnalyticsClient) -> Self {
+        Self {
+            client,
+            session: std::sync::Mutex::new(SessionTracker::new(std::time::SystemTime::now())),
+        }
+    }
+}
 
 const PLUGIN_NAME: &str = "analytics";
 
@@ -58,7 +72,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
                 builder.build()
             };
 
-            assert!(app.manage(client));
+            assert!(app.manage(ManagedState::new(client)));
             Ok(())
         })
         .build()

@@ -1,3 +1,5 @@
+use std::time::SystemTime;
+
 use tauri_plugin_misc::MiscPluginExt;
 use tauri_plugin_store2::Store2PluginExt;
 
@@ -11,15 +13,16 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
         &self,
         mut payload: hypr_analytics::AnalyticsPayload,
     ) -> Result<(), crate::Error> {
-        Self::enrich_payload(self.manager, &mut payload);
-
         if self.is_disabled().unwrap_or(true) {
             return Ok(());
         }
 
+        Self::enrich_payload(self.manager, &mut payload);
+
         let machine_id = hypr_host::fingerprint();
-        let client = self.manager.state::<crate::ManagedState>();
-        client
+        let state = self.manager.state::<crate::ManagedState>();
+        state
+            .client
             .event(machine_id, payload)
             .await
             .map_err(crate::Error::HyprAnalytics)?;
@@ -28,18 +31,27 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
     }
 
     pub fn event_fire_and_forget(&self, mut payload: hypr_analytics::AnalyticsPayload) {
-        Self::enrich_payload(self.manager, &mut payload);
-
         if self.is_disabled().unwrap_or(true) {
             return;
         }
 
+        Self::enrich_payload(self.manager, &mut payload);
+
         let machine_id = hypr_host::fingerprint();
-        let client = self.manager.state::<crate::ManagedState>().inner().clone();
+        let client = self.manager.state::<crate::ManagedState>().client.clone();
 
         tauri::async_runtime::spawn(async move {
             let _ = client.event(machine_id, payload).await;
         });
+    }
+
+    fn session_id(manager: &M) -> String {
+        let state = manager.state::<crate::ManagedState>();
+        let mut session = state
+            .session
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        session.session_id(SystemTime::now())
     }
 
     fn enrich_payload(manager: &M, payload: &mut hypr_analytics::AnalyticsPayload) {
@@ -47,6 +59,11 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
         let app_identifier = manager.config().identifier.clone();
         let git_hash = manager.misc().get_git_hash();
         let bundle_id = manager.config().identifier.clone();
+        let session_id = Self::session_id(manager);
+
+        payload
+            .props
+            .insert("$session_id".into(), session_id.into());
 
         payload
             .props
@@ -96,8 +113,9 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
         if !self.is_disabled()? {
             let machine_id = hypr_host::fingerprint();
 
-            let client = self.manager.state::<crate::ManagedState>();
-            client
+            let state = self.manager.state::<crate::ManagedState>();
+            state
+                .client
                 .set_properties(machine_id, payload)
                 .await
                 .map_err(crate::Error::HyprAnalytics)?;
@@ -115,8 +133,9 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
             let machine_id = hypr_host::fingerprint();
             let user_id = user_id.into();
 
-            let client = self.manager.state::<crate::ManagedState>();
-            client
+            let state = self.manager.state::<crate::ManagedState>();
+            state
+                .client
                 .identify(user_id, machine_id, payload)
                 .await
                 .map_err(crate::Error::HyprAnalytics)?;
