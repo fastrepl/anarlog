@@ -186,9 +186,9 @@ export function prepareFoundationModelRequest(options: CallOptions) {
     instructions: systemMessages.join("\n\n"),
     prompt: `${prompt}${jsonGuidance}`,
     maximumResponseTokens:
-      requestedTokens && requestedTokens <= MAX_SUPPORTED_RESPONSE_TOKENS
-        ? requestedTokens
-        : null,
+      requestedTokens == null
+        ? null
+        : Math.min(requestedTokens, MAX_SUPPORTED_RESPONSE_TOKENS),
     temperature: options.temperature ?? null,
     useGreedySampling: options.temperature === 0,
   };
@@ -215,7 +215,7 @@ function getWarnings(options: CallOptions): Warning[] {
     warnings.push({
       type: "unsupported",
       feature: "maxOutputTokens",
-      details: "Values above 4096 are left to the system model default.",
+      details: "Values above 4096 are capped at 4096.",
     });
   }
   if (options.responseFormat?.type === "json") {

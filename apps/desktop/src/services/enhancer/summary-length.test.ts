@@ -101,11 +101,11 @@ describe("summary length policy", () => {
   it("keeps no more than two sections or the transcript character count", () => {
     const markdown = `# First
 
-- ${"a".repeat(100)}
+- ${"a".repeat(40)}
 
 # Second
 
-- ${"b".repeat(100)}
+- ${"b".repeat(40)}
 
 # Third
 
@@ -120,5 +120,39 @@ describe("summary length policy", () => {
     expect(result).toContain("# Second");
     expect(result).not.toContain("# Third");
     expect(countNormalizedCharacters(result)).toBeLessThanOrEqual(160);
+  });
+
+  it("never truncates a summary in the middle of a sentence", () => {
+    const result = constrainSummaryLength(
+      `# Decision
+
+- The team approved the launch. This additional explanation does not fit within the summary limit.
+
+# Follow-up`,
+      {
+        transcriptCharacters: 60,
+        maxCharacters: 60,
+        maxSections: null,
+      },
+    );
+
+    expect(result).toBe("# Decision\n\n- The team approved the launch.");
+    expect(countNormalizedCharacters(result)).toBeLessThanOrEqual(60);
+  });
+
+  it("keeps period-less bullets at a word boundary", () => {
+    const result = constrainSummaryLength(
+      `# Decision
+
+- alpha beta gamma delta epsilon zeta`,
+      {
+        transcriptCharacters: 30,
+        maxCharacters: 30,
+        maxSections: null,
+      },
+    );
+
+    expect(result).toBe("# Decision\n\n- alpha beta");
+    expect(countNormalizedCharacters(result)).toBeLessThanOrEqual(30);
   });
 });

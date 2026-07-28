@@ -75,7 +75,7 @@ describe("prepareFoundationModelRequest", () => {
     );
   });
 
-  it("adds JSON schema guidance and leaves oversized limits to the model", () => {
+  it("adds JSON schema guidance and caps oversized output limits", () => {
     const result = prepareFoundationModelRequest({
       prompt: [
         {
@@ -93,7 +93,7 @@ describe("prepareFoundationModelRequest", () => {
       },
     });
 
-    expect(result.maximumResponseTokens).toBeNull();
+    expect(result.maximumResponseTokens).toBe(4096);
     expect(result.prompt).toContain("Return only valid JSON");
     expect(result.prompt).toContain('"facts"');
   });

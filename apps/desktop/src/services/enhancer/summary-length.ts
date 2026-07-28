@@ -121,7 +121,7 @@ export function constrainSummaryLength(
       continue;
     }
 
-    const truncatedLine = truncateLineToFit(
+    const truncatedLine = truncateLineToSafeBoundary(
       keptLines,
       line,
       policy.maxCharacters,
@@ -132,7 +132,7 @@ export function constrainSummaryLength(
     break;
   }
 
-  return keptLines.join("\n").trim();
+  return removeTrailingEmptyHeading(keptLines).join("\n").trim();
 }
 
 function limitSections(markdown: string, maxSections: number | null): string {
@@ -155,7 +155,7 @@ function limitSections(markdown: string, maxSections: number | null): string {
   return keptLines.join("\n").trim();
 }
 
-function truncateLineToFit(
+function truncateLineToSafeBoundary(
   keptLines: string[],
   line: string,
   maxCharacters: number,
@@ -176,11 +176,28 @@ function truncateLineToFit(
     }
   }
 
-  let truncated = characters.slice(0, low).join("").trimEnd();
-  const lastSpace = truncated.lastIndexOf(" ");
-  if (lastSpace >= Math.floor(truncated.length * 0.6)) {
-    truncated = truncated.slice(0, lastSpace);
+  const truncated = characters.slice(0, low).join("").trimEnd();
+  const sentenceEndings = [...truncated.matchAll(/[.!?](?=\s|$)/gu)];
+  const lastSentenceEnding = sentenceEndings[sentenceEndings.length - 1];
+  if (!lastSentenceEnding?.index) {
+    return truncated.match(/^(.+\S)\s+\S*$/u)?.[1] ?? truncated;
   }
 
-  return truncated.replace(/[,:;\-–—]+$/u, "").trimEnd();
+  return truncated.slice(
+    0,
+    lastSentenceEnding.index + lastSentenceEnding[0].length,
+  );
+}
+
+function removeTrailingEmptyHeading(lines: string[]): string[] {
+  let lastContentIndex = lines.length - 1;
+  while (lastContentIndex >= 0 && !lines[lastContentIndex].trim()) {
+    lastContentIndex -= 1;
+  }
+
+  if (/^#{1,6}\s+\S/u.test(lines[lastContentIndex] ?? "")) {
+    return lines.slice(0, lastContentIndex);
+  }
+
+  return lines;
 }
