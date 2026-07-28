@@ -50,8 +50,13 @@ runs:
         components: ${{ steps.toolchain.outputs.components }}
     - if: inputs.platform == 'linux'
       run: |
-        sudo apt-get update
-        sudo apt-get install -y libasound2-dev
+        if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
+          sudo sed -i \
+            's|http://us-east-1.ec2.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' \
+            /etc/apt/sources.list.d/ubuntu.sources
+        fi
+        sudo apt-get -o Acquire::Retries=5 update
+        sudo apt-get -o Acquire::Retries=5 install -y libasound2-dev
       shell: bash
     - if: inputs.platform == 'linux-x86_64'
       uses: dtolnay/rust-toolchain@master
