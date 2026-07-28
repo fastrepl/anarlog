@@ -20,6 +20,7 @@ import { createSession, deleteSession } from "@/data/session";
 import { useTimelineSessions, type TimelineSession } from "@/data/timeline";
 import { captureAnalytics } from "@/lib/analytics";
 import { confirmDestructive } from "@/lib/confirm";
+import { captureOperationalError } from "@/lib/error-reporting";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -49,7 +50,15 @@ export default function HomeScreen() {
       `Delete "${session.title || "Untitled"}"?`,
       "Delete",
     );
-    if (confirmed) void deleteSession(session.id);
+    if (!confirmed) return;
+    try {
+      await deleteSession(session.id);
+    } catch (error) {
+      captureOperationalError(error, {
+        operation: "session_delete",
+        tags: { entry_point: "mobile_home" },
+      });
+    }
   };
 
   const createAndOpen = async (query = "") => {
@@ -60,6 +69,15 @@ export default function HomeScreen() {
         entryPoint: query.includes("listen=1") ? "start_listening" : "new_note",
       });
       router.push(`/note/${sessionId}${query}`);
+    } catch (error) {
+      captureOperationalError(error, {
+        operation: "session_create",
+        tags: {
+          entry_point: query.includes("listen=1")
+            ? "start_listening"
+            : "new_note",
+        },
+      });
     } finally {
       busyRef.current = false;
     }
@@ -74,6 +92,10 @@ export default function HomeScreen() {
       if (sessionIds.length === 1) {
         router.push(`/note/${sessionIds[0]}`);
       }
+    } catch (error) {
+      captureOperationalError(error, {
+        operation: "voice_memo_picker",
+      });
     } finally {
       busyRef.current = false;
       setImporting(false);

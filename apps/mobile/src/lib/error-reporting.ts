@@ -1,85 +1,38 @@
 import * as Sentry from "@sentry/react-native";
-import type { ErrorEvent, SeverityLevel } from "@sentry/react-native";
+import type {
+  Breadcrumb,
+  ErrorEvent,
+  SeverityLevel,
+} from "@sentry/react-native";
 import Constants from "expo-constants";
+import { Platform } from "react-native";
 
 import { env } from "@/lib/env";
+import {
+  normalizeOperationalError,
+  operationalErrorMetadata,
+  sanitizeBreadcrumb,
+  sanitizeMobileErrorEvent,
+  type MobileErrorEvent,
+} from "@/lib/error-sanitization";
 
 type ErrorContextValue = null | boolean | number | string;
-
-function normalizeOperationalError(error: unknown, operation: string): Error {
-  if (error instanceof Error) return error;
-
-  if (
-    typeof error === "string" ||
-    typeof error === "number" ||
-    typeof error === "boolean"
-  ) {
-    return new Error(`${operation} failed: ${String(error).slice(0, 256)}`);
-  }
-
-  if (error && typeof error === "object") {
-    const record = error as Record<string, unknown>;
-    const details = ["status", "statusCode", "code", "message"]
-      .flatMap((key) => {
-        const value = record[key];
-        return typeof value === "string" ||
-          typeof value === "number" ||
-          typeof value === "boolean"
-          ? [`${key}=${String(value).slice(0, 256)}`]
-          : [];
-      })
-      .join(", ");
-
-    if (details) {
-      return new Error(`${operation} failed (${details})`);
-    }
-  }
-
-  return new Error(`${operation} failed`);
-}
-
-function sanitizeUrl(value: string | undefined) {
-  if (!value) return value;
-
-  try {
-    const url = new URL(value);
-    url.search = "";
-    url.hash = "";
-    return url.toString();
-  } catch {
-    return value.split(/[?#]/, 1)[0];
-  }
-}
+const capturedErrors = new WeakSet<object>();
 
 export function sanitizeErrorEvent(event: ErrorEvent): ErrorEvent {
-  if (event.user) {
-    event.user = event.user.id ? { id: event.user.id } : undefined;
-  }
+  return sanitizeMobileErrorEvent(
+    event as unknown as MobileErrorEvent,
+  ) as unknown as ErrorEvent;
+}
 
-  if (event.request) {
-    event.request = {
-      method: event.request.method,
-      url: sanitizeUrl(event.request.url),
-    };
-  }
-
-  delete event.extra;
-  event.breadcrumbs = event.breadcrumbs?.map((breadcrumb) => ({
-    category: breadcrumb.category,
-    level: breadcrumb.level,
-    timestamp: breadcrumb.timestamp,
-    type: breadcrumb.type,
-    ...(breadcrumb.category === "navigation"
-      ? {
-          data: {
-            from: sanitizeUrl(String(breadcrumb.data?.from ?? "")),
-            to: sanitizeUrl(String(breadcrumb.data?.to ?? "")),
-          },
-        }
-      : {}),
-  }));
-
-  return event;
+function appDist(): string | undefined {
+  const build =
+    Platform.OS === "ios"
+      ? (Constants.platform?.ios?.buildNumber ??
+        Constants.expoConfig?.ios?.buildNumber)
+      : (Constants.platform?.android?.versionCode ??
+        Constants.expoConfig?.android?.versionCode);
+  return build === undefined ? undefined : String(build);
 }
 
 export function initializeErrorReporting() {
@@ -88,14 +41,27 @@ export function initializeErrorReporting() {
     enabled: Boolean(env.sentryDsn) && !__DEV__,
     environment: __DEV__ ? "development" : "production",
     release: `anarlog-mobile@${Constants.expoConfig?.version ?? "unknown"}`,
+    dist: appDist(),
     sendDefaultPii: false,
     attachStacktrace: true,
     beforeSend: sanitizeErrorEvent,
+    beforeBreadcrumb: (breadcrumb) =>
+      sanitizeBreadcrumb(breadcrumb as Breadcrumb),
+    enableAutoSessionTracking: true,
+    sessionTrackingIntervalMillis: 30_000,
+    enableTombstone: true,
+    enableAppHangTracking: true,
+    appHangTimeoutInterval: 5,
+    enableWatchdogTerminationTracking: true,
+    attachScreenshot: false,
+    attachViewHierarchy: false,
     initialScope: {
       tags: {
         "service.name": "mobile",
         "service.namespace": "hyprnote",
-        surface: "mobile",
+        "hyprnote.mobile.execution_environment": Constants.executionEnvironment,
+        "hyprnote.mobile.os": Platform.OS,
+        "hyprnote.surface": "mobile",
       },
     },
   });
@@ -115,20 +81,54 @@ export function captureOperationalError(
     context?: Record<string, ErrorContextValue>;
   },
 ) {
+  if (error && typeof error === "object") {
+    if (capturedErrors.has(error)) return;
+    capturedErrors.add(error);
+  }
+
+  const metadata = operationalErrorMetadata(error);
   const exception = normalizeOperationalError(error, operation);
 
   return Sentry.withScope((scope) => {
     scope.setLevel(level);
-    scope.setTag("operation", operation);
+    scope.setTag("hyprnote.operation", operation);
+    scope.setTag("error.type", metadata.type);
+    if (metadata.code) scope.setTag("error.code", metadata.code);
+    if (metadata.stage) {
+      scope.setTag("hyprnote.error.stage", metadata.stage);
+    }
+    if (metadata.status) {
+      scope.setTag("http.response.status_code", metadata.status);
+    }
     for (const [key, value] of Object.entries(tags ?? {})) {
       if (value !== null) {
-        scope.setTag(key, value);
+        scope.setTag(`hyprnote.${key}`, value);
       }
     }
     if (context) {
-      scope.setContext("operation", context);
+      scope.setContext("hyprnote.operation", context);
     }
     return Sentry.captureException(exception);
+  });
+}
+
+export function addOperationalBreadcrumb(
+  operation: string,
+  data?: Record<string, ErrorContextValue>,
+) {
+  Sentry.addBreadcrumb({
+    category: "hyprnote.operation",
+    level: "info",
+    message: operation,
+    data,
+  });
+}
+
+export function addNavigationBreadcrumb(from: string | null, to: string) {
+  Sentry.addBreadcrumb({
+    category: "navigation",
+    level: "info",
+    data: { from: from ?? "", to },
   });
 }
 

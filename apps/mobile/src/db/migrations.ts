@@ -3,6 +3,8 @@
 // disposable — cloud sync repopulates it.
 import type { SQLiteDatabase } from "expo-sqlite";
 
+import { captureOperationalError } from "@/lib/error-reporting";
+
 const CANONICAL_TABLES = [
   `CREATE TABLE IF NOT EXISTS sessions (
   id                   TEXT PRIMARY KEY NOT NULL,
@@ -383,7 +385,12 @@ export async function migrate(db: SQLiteDatabase): Promise<void> {
     } catch (error) {
       try {
         await db.execAsync("ROLLBACK");
-      } catch {}
+      } catch (rollbackError) {
+        captureOperationalError(rollbackError, {
+          operation: "database_migration_rollback",
+          level: "warning",
+        });
+      }
       throw error;
     }
     current = migration.version;

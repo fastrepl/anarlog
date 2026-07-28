@@ -102,12 +102,38 @@ async function openDb(): Promise<SQLiteDatabase> {
   });
   try {
     await db.execAsync("PRAGMA journal_mode = WAL");
-  } catch {}
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "database_pragma",
+      level: "warning",
+      tags: { pragma: "journal_mode_wal" },
+    });
+  }
   try {
     await db.execAsync("PRAGMA foreign_keys = ON");
-  } catch {}
-  await migrate(db);
-  await ensureWorkspaceBinding(db);
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "database_pragma",
+      level: "warning",
+      tags: { pragma: "foreign_keys_on" },
+    });
+  }
+  try {
+    await migrate(db);
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "database_migrate",
+    });
+    throw error;
+  }
+  try {
+    await ensureWorkspaceBinding(db);
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "database_workspace_binding",
+    });
+    throw error;
+  }
   try {
     addDatabaseChangeListener((event) => {
       if (event.tableName) {
@@ -220,7 +246,12 @@ async function runTransaction(
   } catch (error) {
     try {
       await db.execAsync("ROLLBACK");
-    } catch {}
+    } catch (rollbackError) {
+      captureOperationalError(rollbackError, {
+        operation: "database_transaction_rollback",
+        level: "warning",
+      });
+    }
     throw error;
   } finally {
     // Also after ROLLBACK: hook events consumed mid-transaction must not

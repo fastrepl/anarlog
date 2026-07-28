@@ -1,26 +1,55 @@
 import * as Sentry from "@sentry/react-native";
-import { Stack, usePathname } from "expo-router";
+import { type ErrorBoundaryProps, Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import { AuthProvider, useAuth } from "@/auth/context";
 import { PaywallScreen, SignInScreen } from "@/auth/screens";
 import { Colors } from "@/constants/theme";
 import { initializeAnalytics, screenAnalytics } from "@/lib/analytics";
-import { initializeErrorReporting } from "@/lib/error-reporting";
+import {
+  addNavigationBreadcrumb,
+  captureOperationalError,
+  initializeErrorReporting,
+} from "@/lib/error-reporting";
+import { useMountEffect } from "@/lib/use-mount-effect";
 
 initializeErrorReporting();
 
+const routeErrorKeys = new WeakMap<Error, number>();
+let nextRouteErrorKey = 0;
+
+function getRouteErrorKey(error: Error) {
+  const existing = routeErrorKeys.get(error);
+  if (existing !== undefined) {
+    return existing;
+  }
+
+  nextRouteErrorKey += 1;
+  routeErrorKeys.set(error, nextRouteErrorKey);
+  return nextRouteErrorKey;
+}
+
 function AnalyticsLifecycle() {
   const pathname = usePathname();
+  const previousPathRef = useRef<string | null>(null);
 
   useEffect(() => {
     void initializeAnalytics();
   }, []);
 
   useEffect(() => {
-    screenAnalytics(pathname.replace(/^\/note\/[^/]+/, "/note/:id"));
+    const normalizedPathname = pathname.replace(/^\/note\/[^/]+/, "/note/:id");
+    screenAnalytics(normalizedPathname);
+    addNavigationBreadcrumb(previousPathRef.current, normalizedPathname);
+    previousPathRef.current = normalizedPathname;
   }, [pathname]);
 
   return null;
@@ -41,6 +70,17 @@ function Gate() {
   const auth = useAuth();
   const [signingIn, setSigningIn] = useState(false);
 
+  const handleSignIn = async () => {
+    setSigningIn(true);
+    try {
+      await auth.signIn();
+    } catch {
+      // AuthProvider reports the actionable failure before rejecting.
+    } finally {
+      setSigningIn(false);
+    }
+  };
+
   if (auth.bypass) return <Screens />;
 
   if (
@@ -56,13 +96,7 @@ function Gate() {
 
   if (auth.status === "signed_out") {
     return (
-      <SignInScreen
-        busy={signingIn}
-        onSignIn={() => {
-          setSigningIn(true);
-          auth.signIn().finally(() => setSigningIn(false));
-        }}
-      />
+      <SignInScreen busy={signingIn} onSignIn={() => void handleSignIn()} />
     );
   }
 
@@ -77,6 +111,54 @@ function Gate() {
   }
 
   return <Screens />;
+}
+
+function RouteError({
+  error,
+  retry,
+}: {
+  error: Error;
+  retry: () => Promise<void>;
+}) {
+  useMountEffect(() => {
+    captureOperationalError(error, {
+      operation: "route_render",
+    });
+  });
+
+  const handleRetry = async () => {
+    try {
+      await retry();
+    } catch (retryError) {
+      captureOperationalError(retryError, {
+        operation: "route_retry",
+      });
+    }
+  };
+
+  return (
+    <View style={styles.routeError}>
+      <Text style={styles.routeErrorTitle}>Something went wrong</Text>
+      <Text style={styles.routeErrorBody}>
+        Your notes are still stored on this device.
+      </Text>
+      <Pressable
+        onPress={() => void handleRetry()}
+        style={({ pressed }) => [
+          styles.routeErrorButton,
+          pressed && styles.routeErrorButtonPressed,
+        ]}
+      >
+        <Text style={styles.routeErrorButtonLabel}>Try again</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  return (
+    <RouteError key={getRouteErrorKey(error)} error={error} retry={retry} />
+  );
 }
 
 function RootLayout() {
@@ -97,5 +179,39 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: Colors.paper,
+  },
+  routeError: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    paddingHorizontal: 32,
+    backgroundColor: Colors.paper,
+  },
+  routeErrorTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: Colors.ink,
+  },
+  routeErrorBody: {
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: "center",
+    color: Colors.muted,
+  },
+  routeErrorButton: {
+    marginTop: 8,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: Colors.ink,
+  },
+  routeErrorButtonPressed: {
+    opacity: 0.7,
+  },
+  routeErrorButtonLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.inkInverse,
   },
 });

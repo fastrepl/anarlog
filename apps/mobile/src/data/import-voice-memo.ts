@@ -87,7 +87,12 @@ async function importAsset(asset: DocumentPickerAsset): Promise<string> {
   } catch (error) {
     // The session exists before the audio does, so a failed copy or catalog
     // would otherwise strand an empty session on the timeline.
-    await deleteSession(sessionId).catch(() => {});
+    await deleteSession(sessionId).catch((cleanupError) => {
+      captureOperationalError(cleanupError, {
+        operation: "voice_memo_import_cleanup",
+        level: "warning",
+      });
+    });
     throw error;
   }
 
@@ -115,7 +120,6 @@ export async function importVoiceMemos(): Promise<string[]> {
           content_type: asset.mimeType ?? "unknown",
         },
       });
-      console.warn("voice memo import failed", error);
     }
   }
   return created;

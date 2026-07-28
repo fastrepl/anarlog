@@ -1,5 +1,4 @@
 import * as WebBrowser from "expo-web-browser";
-import { useEffect } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -13,6 +12,8 @@ import type { BillingInfo } from "@/auth/billing";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { captureAnalytics } from "@/lib/analytics";
 import { env } from "@/lib/env";
+import { captureOperationalError } from "@/lib/error-reporting";
+import { useMountEffect } from "@/lib/use-mount-effect";
 
 export function SignInScreen({
   onSignIn,
@@ -62,12 +63,25 @@ export function PaywallScreen({
   email: string;
   onSignOut: () => void;
 }) {
-  useEffect(() => {
+  useMountEffect(() => {
     captureAnalytics("paywall_viewed", {
       entry_point: "mobile_gate",
       feature: "mobile_access",
     });
-  }, []);
+  });
+
+  const handleOpenPlans = async () => {
+    try {
+      await WebBrowser.openBrowserAsync(
+        `${env.appUrl}/app/checkout?source=mobile`,
+      );
+    } catch (error) {
+      captureOperationalError(error, {
+        operation: "billing_checkout_open",
+        tags: { entry_point: "mobile_gate" },
+      });
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -88,11 +102,7 @@ export function PaywallScreen({
       </View>
 
       <Pressable
-        onPress={() => {
-          void WebBrowser.openBrowserAsync(
-            `${env.appUrl}/app/checkout?source=mobile`,
-          );
-        }}
+        onPress={() => void handleOpenPlans()}
         style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
       >
         <Text style={styles.ctaLabel}>View plans</Text>

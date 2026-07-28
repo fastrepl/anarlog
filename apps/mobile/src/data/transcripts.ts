@@ -1,4 +1,5 @@
 import { useLiveQuery } from "@/db";
+import { captureOperationalError } from "@/lib/error-reporting";
 
 type TranscriptRow = {
   id: string;
@@ -9,6 +10,8 @@ export type TranscriptSegment = {
   id: string;
   text: string;
 };
+
+const reportedInvalidRows = new Set<string>();
 
 function mapTranscriptRows(rows: TranscriptRow[]): TranscriptSegment[] {
   return rows
@@ -21,7 +24,15 @@ function mapTranscriptRows(rows: TranscriptRow[]): TranscriptSegment[] {
           .join(" ")
           .replace(/\s+/g, " ")
           .trim();
-      } catch {}
+      } catch (error) {
+        if (!reportedInvalidRows.has(row.id)) {
+          reportedInvalidRows.add(row.id);
+          captureOperationalError(error, {
+            operation: "transcript_words_parse",
+            level: "warning",
+          });
+        }
+      }
       return { id: row.id, text };
     })
     .filter((segment) => segment.text !== "");

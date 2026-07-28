@@ -196,6 +196,46 @@ const REQUEST_TIMEOUT_MAX_MS = 900_000;
 // the synchronous response comes back.
 const UPLOAD_MS_PER_KIB = 8;
 const PROCESSING_MS_PER_KIB = 8;
+type TranscriptionStage =
+  | "auth"
+  | "load_audio"
+  | "persist"
+  | "request"
+  | "response";
+
+function transcriptionFailure(
+  message: string,
+  stage: TranscriptionStage,
+  details?: { code?: string; status?: number },
+) {
+  return Object.assign(new Error(message), { stage, ...details });
+}
+
+function withTranscriptionStage(
+  error: unknown,
+  stage: TranscriptionStage,
+): unknown {
+  if (error && typeof error === "object") {
+    try {
+      Object.defineProperty(error, "stage", {
+        configurable: true,
+        value: stage,
+      });
+      return error;
+    } catch {}
+  }
+  return transcriptionFailure("Transcription failed", stage);
+}
+
+function transcriptionStage(error: unknown): TranscriptionStage | "unknown" {
+  if (!error || typeof error !== "object") return "unknown";
+  const stage = (error as { stage?: unknown }).stage;
+  return ["auth", "load_audio", "persist", "request", "response"].includes(
+    String(stage),
+  )
+    ? (stage as TranscriptionStage)
+    : "unknown";
+}
 
 function requestTimeoutMs(sizeBytes: number): number {
   // The abort covers the whole /stt/listen round trip, not just the upload, so
@@ -261,10 +301,15 @@ async function runTranscription(sessionId: string): Promise<void> {
 
   const file = new File(Paths.document, "sessions", sessionId, audio.filename);
   if (!file.exists) {
-    throw new Error(`audio file missing: ${audio.filename}`);
+    throw transcriptionFailure("Audio file missing", "load_audio", {
+      code: "audio_missing",
+    });
   }
 
   const auth = await supabase?.auth.getSession();
+  if (auth?.error) {
+    throw withTranscriptionStage(auth.error, "auth");
+  }
   const token = auth?.data.session?.access_token;
   const startedAtMs = Date.now();
 
@@ -273,18 +318,29 @@ async function runTranscription(sessionId: string): Promise<void> {
     audio.content_type || "application/octet-stream",
     token,
     requestTimeoutMs(audio.size_bytes),
-  );
+  ).catch((error) => {
+    throw withTranscriptionStage(error, "request");
+  });
   if (response.status < 200 || response.status >= 300) {
-    throw new Error(
-      `stt request failed: ${response.status} ${response.body.slice(0, 256)}`,
-    );
+    throw transcriptionFailure("STT request failed", "response", {
+      code: "stt_http_error",
+      status: response.status,
+    });
   }
 
-  const { words, hints } = mapBatchResponse(JSON.parse(response.body));
+  let payload: unknown;
+  try {
+    payload = JSON.parse(response.body);
+  } catch (error) {
+    throw withTranscriptionStage(error, "response");
+  }
+  const { words, hints } = mapBatchResponse(payload);
   if (words.length === 0) {
     // Never mark complete on an empty result — transcript_status stays
     // 'processing' so the tap-to-retry affordance remains reachable.
-    throw new Error("stt returned no words");
+    throw transcriptionFailure("STT returned no words", "response", {
+      code: "stt_empty_result",
+    });
   }
   const now = nowIso();
   const attachmentId = `session-audio:${sessionId}`;
@@ -310,7 +366,9 @@ async function runTranscription(sessionId: string): Promise<void> {
       sql: MARK_COMPLETE_SQL,
       params: [now, attachmentId, sessionId] as unknown[],
     },
-  ]);
+  ]).catch((error) => {
+    throw withTranscriptionStage(error, "persist");
+  });
 }
 
 export function transcribeSession(sessionId: string): Promise<void> {
@@ -329,9 +387,11 @@ export function transcribeSession(sessionId: string): Promise<void> {
     .catch((error: unknown) => {
       captureOperationalError(error, {
         operation: "transcription_batch",
-        tags: { mode: "batch" },
+        tags: {
+          mode: "batch",
+          stage: transcriptionStage(error),
+        },
       });
-      console.warn("[transcribe] failed", error);
       captureAnalytics("transcription_failed", {
         mode: "batch",
         entry_point: "mobile_audio",

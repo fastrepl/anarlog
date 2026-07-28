@@ -3,6 +3,8 @@ import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { Pressable, StyleSheet, Text } from "react-native";
 
 import { Colors, Radius, Spacing } from "@/constants/theme";
+import { captureOperationalError } from "@/lib/error-reporting";
+import { useMountEffect } from "@/lib/use-mount-effect";
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -27,15 +29,48 @@ export function AudioChip({
   const player = useAudioPlayer(uri);
   const status = useAudioPlayerStatus(player);
 
-  const toggle = () => {
-    if (status.playing) {
-      player.pause();
-      return;
+  useMountEffect(() => {
+    let lastError: string | null = null;
+    const subscription = player.addListener(
+      "playbackStatusUpdate",
+      (nextStatus) => {
+        const errorKey = nextStatus.error
+          ? nextStatus.error
+          : nextStatus.mediaServicesDidReset
+            ? "media_services_reset"
+            : null;
+        if (!errorKey || errorKey === lastError) return;
+
+        lastError = errorKey;
+        captureOperationalError(
+          new Error(nextStatus.error ?? "Audio media services reset"),
+          {
+            operation: nextStatus.mediaServicesDidReset
+              ? "audio_playback_media_services_reset"
+              : "audio_playback",
+            level: nextStatus.mediaServicesDidReset ? "warning" : "error",
+          },
+        );
+      },
+    );
+    return () => subscription.remove();
+  });
+
+  const toggle = async () => {
+    try {
+      if (status.playing) {
+        player.pause();
+        return;
+      }
+      if (status.duration > 0 && status.currentTime >= status.duration - 0.05) {
+        await player.seekTo(0);
+      }
+      player.play();
+    } catch (error) {
+      captureOperationalError(error, {
+        operation: "audio_playback_control",
+      });
     }
-    if (status.duration > 0 && status.currentTime >= status.duration - 0.05) {
-      void player.seekTo(0);
-    }
-    player.play();
   };
 
   const detail =
@@ -45,7 +80,7 @@ export function AudioChip({
 
   return (
     <Pressable
-      onPress={toggle}
+      onPress={() => void toggle()}
       style={({ pressed }) => [styles.chip, pressed && styles.pressed]}
     >
       <Ionicons

@@ -26,6 +26,7 @@ import {
 import { transcribeSession, useTranscriptionState } from "@/data/transcribe";
 import { useSessionTranscripts } from "@/data/transcripts";
 import { confirmDestructive } from "@/lib/confirm";
+import { captureOperationalError } from "@/lib/error-reporting";
 
 export default function NoteScreen() {
   const router = useRouter();
@@ -68,10 +69,23 @@ export default function NoteScreen() {
         title,
         bodyText: draft.body,
         bodyFormat: current.bodyFormat,
+      }).catch((error) => {
+        captureOperationalError(error, {
+          operation: "session_note_save",
+          tags: {
+            body_format: current.bodyFormat,
+            edit_type: "body",
+          },
+        });
       });
     } else if (draft.title !== undefined) {
       savedTitleRef.current = draft.title;
-      void saveSessionTitle(id, draft.title);
+      void saveSessionTitle(id, draft.title).catch((error) => {
+        captureOperationalError(error, {
+          operation: "session_note_save",
+          tags: { edit_type: "title" },
+        });
+      });
     }
   };
 
@@ -114,9 +128,16 @@ export default function NoteScreen() {
       await recorder.stop();
     }
     draftRef.current = {};
-    await deleteSession(id);
-    if (router.canGoBack()) router.back();
-    else router.replace("/");
+    try {
+      await deleteSession(id);
+      if (router.canGoBack()) router.back();
+      else router.replace("/");
+    } catch (error) {
+      captureOperationalError(error, {
+        operation: "session_delete",
+        tags: { entry_point: "mobile_note" },
+      });
+    }
   };
 
   return (
@@ -141,7 +162,7 @@ export default function NoteScreen() {
           />
           {audio.data && (
             <AudioChip
-              key={audio.data.filename}
+              key={`${audio.data.filename}:${audio.data.createdAt}`}
               uri={
                 new File(Paths.document, "sessions", id, audio.data.filename)
                   .uri
