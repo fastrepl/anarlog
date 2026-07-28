@@ -252,6 +252,7 @@ impl RenderedSegmentState {
 #[derive(Default)]
 enum TranscriptNormalizer {
     Soniqo(SoniqoTranscriptNormalizer),
+    AppleSpeech,
     #[default]
     Passthrough,
 }
@@ -260,6 +261,7 @@ impl TranscriptNormalizer {
     fn for_provider(provider_name: &str) -> Self {
         match provider_name {
             "soniqo" => Self::Soniqo(SoniqoTranscriptNormalizer::default()),
+            "apple-speech" => Self::AppleSpeech,
             _ => Self::Passthrough,
         }
     }
@@ -267,16 +269,16 @@ impl TranscriptNormalizer {
     fn normalize(&mut self, response: &mut StreamResponse) {
         match self {
             Self::Soniqo(normalizer) => normalizer.normalize(response),
-            Self::Passthrough => {}
+            Self::AppleSpeech | Self::Passthrough => {}
         }
     }
 
     fn finalize_partials(&self) -> bool {
-        !matches!(self, Self::Soniqo(_))
+        matches!(self, Self::Passthrough)
     }
 
     fn flush_partials(&self) -> bool {
-        true
+        !matches!(self, Self::AppleSpeech)
     }
 }
 
@@ -1267,6 +1269,60 @@ mod tests {
             .collect::<String>();
 
         assert_eq!(final_text.trim(), "hello world");
+        assert!(flush_update.transcript_delta.partials.is_empty());
+    }
+
+    #[test]
+    fn apple_speech_engine_does_not_commit_volatile_hypotheses() {
+        let mut engine = LiveTranscriptEngine::new("apple-speech", &[], None);
+        let partial = transcript_response_at(
+            "what do you think",
+            words_from_text("what do you think", 0.0, 4.0),
+            false,
+            1,
+            0.0,
+            4.0,
+        );
+        engine.process(&partial).expect("partial update");
+
+        let final_response = transcript_response_at(
+            "what do you think about open source",
+            words_from_text("what do you think about open source", 4.0, 4.0),
+            true,
+            1,
+            4.0,
+            4.0,
+        );
+        let final_update = engine.process(&final_response).expect("final update");
+        let flush_update = engine.flush().expect("flush update");
+        let final_text = final_update
+            .transcript_delta
+            .new_words
+            .iter()
+            .chain(flush_update.transcript_delta.new_words.iter())
+            .map(|word| word.text.as_str())
+            .collect::<String>();
+
+        assert_eq!(final_text.trim(), "what do you think about open source");
+        assert!(flush_update.transcript_delta.partials.is_empty());
+    }
+
+    #[test]
+    fn apple_speech_engine_drops_unfinalized_hypothesis_on_flush() {
+        let mut engine = LiveTranscriptEngine::new("apple-speech", &[], None);
+        let response = transcript_response_at(
+            "volatile tail",
+            words_from_text("volatile tail", 10.0, 1.0),
+            false,
+            1,
+            10.0,
+            1.0,
+        );
+
+        engine.process(&response).expect("partial update");
+        let flush_update = engine.flush().expect("flush update");
+
+        assert!(flush_update.transcript_delta.new_words.is_empty());
         assert!(flush_update.transcript_delta.partials.is_empty());
     }
 
