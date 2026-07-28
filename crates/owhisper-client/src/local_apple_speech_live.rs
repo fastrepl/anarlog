@@ -6,7 +6,10 @@ use owhisper_interface::stream::StreamResponse;
 use owhisper_interface::{ControlMessage, MixedMessage};
 use tokio_stream::wrappers::ReceiverStream;
 
-use crate::{FinalizeHandle, ListenClientDualInput, ListenClientInput};
+use crate::{
+    FinalizeHandle, ListenClientDualInput, ListenClientInput,
+    local_soniqo_live::suppress_echo_dominant_mic,
+};
 
 const FLUSH_INTERVAL: Duration = Duration::from_millis(250);
 
@@ -184,8 +187,13 @@ async fn run_dual(
 
                 match msg {
                     MixedMessage::Audio((mic, spk)) => {
-                        mic_buffer.extend(i16_bytes_to_f32(&mic));
-                        spk_buffer.extend(i16_bytes_to_f32(&spk));
+                        let mut mic_samples = i16_bytes_to_f32(&mic);
+                        let spk_samples = i16_bytes_to_f32(&spk);
+                        if suppress_echo_dominant_mic(&mut mic_samples, &spk_samples) {
+                            tracing::debug!("apple_speech_echo_dominant_mic_chunk_suppressed");
+                        }
+                        mic_buffer.extend(mic_samples);
+                        spk_buffer.extend(spk_samples);
                     }
                     MixedMessage::Control(ControlMessage::CloseStream | ControlMessage::Finalize) => {
                         let result = finalize_dual(session, &mut mic_buffer, &mut spk_buffer, &response_tx).await;
@@ -321,4 +329,53 @@ fn i16_bytes_to_f32(bytes: &Bytes) -> Vec<f32> {
         .chunks_exact(2)
         .map(|chunk| i16::from_le_bytes([chunk[0], chunk[1]]) as f32 / i16::MAX as f32)
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_signal(len: usize, seed: u32) -> Vec<f32> {
+        let mut state = seed;
+        (0..len)
+            .map(|_| {
+                state ^= state << 13;
+                state ^= state >> 17;
+                state ^= state << 5;
+                state as f32 / u32::MAX as f32 * 2.0 - 1.0
+            })
+            .collect()
+    }
+
+    #[test]
+    fn suppresses_aec_residual_when_speaker_dominates() {
+        let speaker = test_signal(1920, 0x1234_5678);
+        let mut mic: Vec<f32> = speaker.iter().map(|sample| sample * 0.2).collect();
+
+        assert!(suppress_echo_dominant_mic(&mut mic, &speaker));
+        assert!(mic.iter().all(|sample| *sample == 0.0));
+    }
+
+    #[test]
+    fn keeps_quiet_uncorrelated_near_end_speech() {
+        let speaker = test_signal(1920, 0x1234_5678);
+        let mut mic: Vec<f32> = test_signal(1920, 0x8765_4321)
+            .into_iter()
+            .map(|sample| sample * 0.2)
+            .collect();
+        let original = mic.clone();
+
+        assert!(!suppress_echo_dominant_mic(&mut mic, &speaker));
+        assert_eq!(mic, original);
+    }
+
+    #[test]
+    fn keeps_mic_when_speaker_is_quiet() {
+        let speaker = vec![0.001; 1920];
+        let mut mic = test_signal(1920, 0x1234_5678);
+        let original = mic.clone();
+
+        assert!(!suppress_echo_dominant_mic(&mut mic, &speaker));
+        assert_eq!(mic, original);
+    }
 }

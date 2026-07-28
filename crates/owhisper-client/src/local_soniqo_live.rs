@@ -424,7 +424,7 @@ fn i16_bytes_to_f32(bytes: &Bytes) -> Vec<f32> {
         .collect()
 }
 
-fn suppress_echo_dominant_mic(mic: &mut [f32], speaker: &[f32]) -> bool {
+pub(crate) fn suppress_echo_dominant_mic(mic: &mut [f32], speaker: &[f32]) -> bool {
     let Some(score) = best_echo_score(mic, speaker) else {
         return false;
     };
