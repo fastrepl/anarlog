@@ -1,0 +1,108 @@
+---
+title: "Cloud API and connectors"
+description: "Opt in to hosted REST and remote MCP access for your Anarlog meetings."
+---
+
+The Cloud API lets remote agents read your Anarlog meetings while the desktop app is closed. It is available with Anarlog Pro and is off by default.
+
+<Warning>
+  Enabling Cloud API & Connectors uploads a separate server-readable copy of
+  your meeting titles, notes, summaries, participants, action items, and
+  transcripts. Your normal cloud sync data stays end-to-end encrypted. Turning
+  the feature off deletes the server-readable copies.
+</Warning>
+
+## Enable cloud access
+
+1. Open **Settings → Developers → Cloud API & Connectors**.
+2. Review the disclosure and turn the feature on.
+3. Wait for Anarlog to upload your existing meetings.
+4. Create a cloud API key and copy it. The key is shown once.
+
+Keys start with `anl_` and are stored hashed. Revoke a key from the same settings page when you no longer use it.
+
+## REST API
+
+The base URL is `https://api.anarlog.so/v1`. Send your cloud key as a bearer token:
+
+```bash
+curl \
+  -H "Authorization: Bearer anl_..." \
+  https://api.anarlog.so/v1/meetings
+```
+
+The hosted API mirrors the read endpoints in the [local API](/reference/api):
+
+- `GET /v1/meetings`
+- `GET /v1/meetings/{meeting_id}`
+- `GET /v1/meetings/{meeting_id}/transcript`
+- `GET /v1/meetings/{meeting_id}/history`
+- `GET /v1/meetings/{meeting_id}/export?format=json|markdown`
+
+List limits, transcript pagination, response fields, and error envelopes match the local API. The hosted API can also return:
+
+- `403 subscription_required` when the account does not have an active Pro subscription.
+- `403 cloud_api_not_enabled` when the account has opted out.
+- `429` with `retry-after` when you exceed the hosted request limit.
+
+## Remote MCP
+
+The Streamable HTTP endpoint is:
+
+```text
+https://api.anarlog.so/mcp
+```
+
+It exposes the same four read-only tools as the local MCP server:
+
+- `list_meetings`
+- `get_meeting`
+- `get_meeting_transcript`
+- `get_recurring_meeting_history`
+
+### Claude Code
+
+Add the server with the cloud key in the authorization header:
+
+```bash
+claude mcp add --transport http anarlog https://api.anarlog.so/mcp \
+  --header "Authorization: Bearer anl_..."
+```
+
+### OpenAI Responses API
+
+Pass the remote MCP URL and authorization header in the tool definition:
+
+```js
+const response = await client.responses.create({
+  model: "gpt-5",
+  input: "Summarize my latest Anarlog meeting.",
+  tools: [
+    {
+      type: "mcp",
+      server_label: "anarlog",
+      server_url: "https://api.anarlog.so/mcp",
+      headers: {
+        Authorization: "Bearer anl_...",
+      },
+      require_approval: "never",
+    },
+  ],
+});
+```
+
+### Other MCP clients
+
+Choose Streamable HTTP, use `https://api.anarlog.so/mcp` as the server URL, and add:
+
+```text
+Authorization: Bearer anl_...
+```
+
+Web connector setup in claude.ai and ChatGPT depends on the authentication methods those products allow. Anarlog's current endpoint supports static bearer headers. OAuth-based account connection is forthcoming.
+
+## Disable cloud access
+
+Turn off **Cloud API & Connectors** under **Settings → Developers**. Anarlog immediately deletes all server-readable meeting snapshots. Your local meetings and end-to-end encrypted cloud sync data are unchanged.
+
+Revoked keys cannot read snapshots. If your Pro subscription ends, existing cloud keys return `subscription_required`.

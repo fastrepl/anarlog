@@ -244,6 +244,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tiptap",
  "tokio",
+ "utoipa",
 ]
 
 [[package]]
@@ -551,6 +552,7 @@ dependencies = [
  "analytics",
  "api-auth",
  "api-calendar",
+ "api-cloud",
  "api-env",
  "api-mail",
  "api-nango",
@@ -674,6 +676,28 @@ dependencies = [
  "serde",
  "serde_json",
  "ticket-interface",
+]
+
+[[package]]
+name = "api-cloud"
+version = "0.1.0"
+dependencies = [
+ "agent-access",
+ "api-auth",
+ "axum 0.8.9",
+ "mcp",
+ "reqwest 0.13.2",
+ "rmcp",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "thiserror 2.0.18",
+ "tokio",
+ "tower 0.5.3",
+ "tracing",
+ "utoipa",
+ "uuid",
+ "wiremock",
 ]
 
 [[package]]

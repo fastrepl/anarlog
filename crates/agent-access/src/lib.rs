@@ -25,7 +25,9 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Type)]
+#[derive(
+    Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Type, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub struct ListMeetingsInput {
     #[schemars(description = "Case-insensitive title or meeting id substring")]
@@ -39,14 +41,18 @@ pub struct ListMeetingsInput {
     pub offset: Option<u32>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Type)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Type, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub struct GetMeetingInput {
     #[schemars(description = "Anarlog meeting id")]
     pub meeting_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Type)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Type, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub struct GetMeetingTranscriptInput {
     #[schemars(description = "Anarlog meeting id")]
@@ -58,7 +64,9 @@ pub struct GetMeetingTranscriptInput {
     pub limit: Option<u32>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Type)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Type, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub struct GetRecurringMeetingHistoryInput {
     #[schemars(description = "A meeting id used to resolve its recurring series")]
@@ -70,7 +78,7 @@ pub struct GetRecurringMeetingHistoryInput {
     pub offset: Option<u32>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct Pagination {
     pub offset: u32,
@@ -80,7 +88,7 @@ pub struct Pagination {
     pub next_offset: Option<u32>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct MeetingListItem {
     pub id: String,
@@ -94,14 +102,14 @@ pub struct MeetingListItem {
     pub series_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct MeetingPage {
     pub meetings: Vec<MeetingListItem>,
     pub pagination: Pagination,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct TranscriptPage {
     pub meeting_id: String,
@@ -110,7 +118,7 @@ pub struct TranscriptPage {
     pub pagination: Pagination,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct Document {
     pub id: String,
@@ -123,7 +131,7 @@ pub struct Document {
     pub updated_at: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct Participant {
     pub human_id: String,
@@ -135,7 +143,7 @@ pub struct Participant {
     pub organization_name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct ActionItem {
     pub id: String,
@@ -146,7 +154,7 @@ pub struct ActionItem {
     pub completed_at: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct Meeting {
     pub id: String,
@@ -166,7 +174,7 @@ pub struct Meeting {
     pub action_items: Vec<ActionItem>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct Transcript {
     pub id: String,
@@ -182,7 +190,7 @@ pub struct Transcript {
     pub speaker_hints: Vec<Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct MeetingExport {
     #[serde(flatten)]
@@ -280,7 +288,7 @@ pub async fn get_meeting_transcript(
     }
 
     let transcripts = load_transcripts(pool, &input.meeting_id).await?;
-    Ok(transcript_page(
+    Ok(paginate_transcripts(
         &input.meeting_id,
         &transcripts,
         input.offset.unwrap_or(0),
@@ -435,6 +443,22 @@ impl From<hypr_db_app::SessionListItem> for MeetingListItem {
     }
 }
 
+impl From<&Meeting> for MeetingListItem {
+    fn from(value: &Meeting) -> Self {
+        Self {
+            id: value.id.clone(),
+            title: value.title.clone(),
+            kind: value.kind.clone(),
+            status: value.status.clone(),
+            created_at: value.created_at.clone(),
+            updated_at: value.updated_at.clone(),
+            started_at: value.started_at.clone(),
+            ended_at: value.ended_at.clone(),
+            series_id: value.series_id.clone(),
+        }
+    }
+}
+
 impl From<hypr_db_app::SessionDocumentRow> for Document {
     fn from(value: hypr_db_app::SessionDocumentRow) -> Self {
         Self {
@@ -507,12 +531,13 @@ async fn load_transcripts(pool: &SqlitePool, meeting_id: &str) -> Result<Vec<Tra
         })
 }
 
-fn transcript_page(
+pub fn paginate_transcripts(
     meeting_id: &str,
     transcripts: &[Transcript],
     offset: u32,
     limit: u32,
 ) -> TranscriptPage {
+    let limit = limit.clamp(1, MAX_TRANSCRIPT_LIMIT);
     let mut words = Vec::new();
     for transcript in transcripts {
         for word in &transcript.words {
@@ -535,7 +560,11 @@ fn transcript_page(
         .skip(offset_usize)
         .take(limit as usize)
         .collect::<Vec<_>>();
-    let text = transcript_page_text(&words);
+    let text = if total_words == 0 && offset_usize == 0 {
+        render_transcripts(transcripts)
+    } else {
+        transcript_page_text(&words)
+    };
     let has_more = offset_usize.saturating_add(words.len()) < total_words;
 
     TranscriptPage {
@@ -676,6 +705,45 @@ mod tests {
             transcript_page_text(words.as_array().unwrap()),
             "First segment continues.\n\nSecond segment."
         );
+    }
+
+    #[test]
+    fn transcript_page_uses_stored_text_without_word_payloads() {
+        let transcripts = [
+            Transcript {
+                id: "transcript-1".to_string(),
+                source: String::new(),
+                provider: String::new(),
+                model: String::new(),
+                language: "en".to_string(),
+                started_at_ms: 0,
+                ended_at_ms: None,
+                memo: String::new(),
+                text: "First transcript.".to_string(),
+                words: Vec::new(),
+                speaker_hints: Vec::new(),
+            },
+            Transcript {
+                id: "transcript-2".to_string(),
+                source: String::new(),
+                provider: String::new(),
+                model: String::new(),
+                language: "en".to_string(),
+                started_at_ms: 0,
+                ended_at_ms: None,
+                memo: String::new(),
+                text: "Second transcript.".to_string(),
+                words: Vec::new(),
+                speaker_hints: Vec::new(),
+            },
+        ];
+
+        let page = paginate_transcripts("meeting-1", &transcripts, 0, 100);
+
+        assert_eq!(page.text, "First transcript.\n\nSecond transcript.");
+        assert!(page.words.is_empty());
+        assert_eq!(page.pagination.total, Some(0));
+        assert_eq!(page.pagination.next_offset, None);
     }
 
     #[tokio::test]

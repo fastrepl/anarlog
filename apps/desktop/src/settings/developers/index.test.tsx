@@ -15,6 +15,8 @@ const mocks = vi.hoisted(() => ({
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
   getCloudApiSettings: vi.fn(),
+  setCloudApiEnabled: vi.fn(),
+  backfillCloudApiSnapshots: vi.fn(),
   createApiKey: vi.fn(),
 }));
 
@@ -43,8 +45,9 @@ vi.mock("@hypr/plugin-local-api", () => ({
 
 vi.mock("~/cloud-api/client", () => ({
   getCloudApiSettings: mocks.getCloudApiSettings,
-  setCloudApiEnabled: vi.fn(),
-  backfillCloudApiSnapshots: vi.fn(),
+  setCloudApiEnabled: mocks.setCloudApiEnabled,
+  backfillCloudApiSnapshots: mocks.backfillCloudApiSnapshots,
+  scheduleCloudApiBackfillRetry: vi.fn(),
   listCloudApiKeys: vi.fn().mockResolvedValue([]),
   createCloudApiKey: vi.fn(),
   revokeCloudApiKey: vi.fn(),
@@ -120,6 +123,8 @@ describe("SettingsDevelopers", () => {
       enabled: false,
       updated_at: null,
     });
+    mocks.setCloudApiEnabled.mockReset();
+    mocks.backfillCloudApiSnapshots.mockReset();
   });
 
   afterEach(() => {
@@ -239,5 +244,54 @@ describe("SettingsDevelopers", () => {
       expect(mocks.toastError).toHaveBeenCalledWith("Clipboard denied"),
     );
     expect(screen.getByText("anl_test_secret")).toBeTruthy();
+  });
+
+  it("requires explicit cloud opt-in and backfills existing meetings", async () => {
+    mocks.checkEmbeddedCli.mockResolvedValue({
+      status: "ok",
+      data: {
+        supported: false,
+        commandName: "anarlog",
+        installPath: "/Users/test/.local/bin/anarlog",
+        state: "unsupported",
+        details: "Unavailable.",
+      },
+    });
+    mocks.setCloudApiEnabled.mockResolvedValue({
+      enabled: true,
+      updated_at: "2026-07-28T00:00:00Z",
+    });
+    mocks.backfillCloudApiSnapshots.mockResolvedValue(2);
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SettingsDevelopers />
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByText(/separate server-readable copy/),
+    ).toBeTruthy();
+    const toggle = await screen.findByRole("switch", {
+      name: "Enable Cloud API & Connectors",
+    });
+    await waitFor(() => expect(toggle.hasAttribute("disabled")).toBe(false));
+    expect(toggle.getAttribute("data-state")).toBe("unchecked");
+    expect(screen.queryByText("REST API")).toBeNull();
+
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(mocks.setCloudApiEnabled).toHaveBeenCalledWith(true);
+      expect(mocks.backfillCloudApiSnapshots).toHaveBeenCalledOnce();
+      expect(mocks.toastSuccess).toHaveBeenCalledWith(
+        "Cloud API enabled — 2 meetings uploaded",
+      );
+    });
+    expect(screen.getByText("REST API")).toBeTruthy();
+    expect(screen.getByText("Remote MCP")).toBeTruthy();
   });
 });

@@ -12,6 +12,7 @@ import {
   persistGeneratedTitle,
 } from "./title-success";
 
+import { syncCloudApiSnapshotBestEffort } from "~/cloud-api/client";
 import { releaseCloudsyncActivityEventually } from "~/db/cloudsync-activity";
 import { retryDatabaseLock } from "~/db/retry";
 import { inferAutomaticSpeakerAssignments } from "~/services/enhancer/speaker-attribution";
@@ -191,6 +192,7 @@ export const runEnhanceSuccess = async ({
 
     if (!signal.aborted) {
       void localApiCommands.dispatchEvent("note.enhanced", args.sessionId);
+      syncCloudApiSnapshotBestEffort(args.sessionId);
     }
   } finally {
     await releaseCloudsyncActivityEventually("enhance", cloudsyncLeaseKey);

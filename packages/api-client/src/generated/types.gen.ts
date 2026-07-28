@@ -6,9 +6,51 @@ export type ClientOptions = {
 
 export type AccessRole = 'freeBusyReader' | 'reader' | 'writer' | 'owner' | 'unknown';
 
+export type ActionItem = {
+    assignee_human_id: string;
+    completed_at?: string | null;
+    due_at: string;
+    id: string;
+    status: string;
+    text: string;
+};
+
+export type ApiKeyInfo = {
+    created_at: string;
+    id: string;
+    key_prefix: string;
+    last_used_at?: string | null;
+    name: string;
+};
+
 export type Attachment = {
     data?: string | null;
     size?: number | null;
+};
+
+export type AttachmentBackupDownload = {
+    ciphertextSha256: string;
+    ciphertextSizeBytes: number;
+    expiresAt: string;
+    formatVersion: number;
+    objectId: string;
+    objectKey: string;
+    signedUrl: string;
+};
+
+export type AttachmentBackupObjectRequest = {
+    objectKey: string;
+};
+
+export type AttachmentBackupUploadGrant = {
+    ciphertextSha256: string;
+    ciphertextSizeBytes: number;
+    formatVersion: number;
+    objectId: string;
+    objectKey: string;
+    objectState: string;
+    uploadExpiresAt?: string | null;
+    uploadToken?: string | null;
 };
 
 export type AttendeeResponseStatus = 'needsAction' | 'declined' | 'tentative' | 'accepted' | 'unknown';
@@ -143,9 +185,60 @@ export type CanStartTrialResponse = {
     reason?: null | CanStartTrialReason;
 };
 
+export type CanceledAttachmentBackupDeletion = {
+    attachmentRef: string;
+    deleteRequestId: string;
+    objectKey: string;
+    versionRef: string;
+};
+
+export type CasSessionShareSnapshotRequest = {
+    attachmentIds: Array<string>;
+    baseRevision: number;
+    body: unknown;
+    mutationId: string;
+    title: string;
+};
+
 export type CharTask = 'chat' | 'enhance' | 'title';
 
 export type ChatStatus = 'available' | 'doNotDisturb' | 'unknown';
+
+export type ClaimE2EeIdentityRequest = {
+    keyId: string;
+};
+
+export type CloudApiSettings = {
+    enabled: boolean;
+    updated_at?: string | null;
+};
+
+export type CloudsyncCredentialResponse = LegacyCloudsyncCredentials | CloudsyncCredentials;
+
+export type CloudsyncCredentials = {
+    accountUserId: string;
+    databaseId: string;
+    encryptionKeyId: string;
+    encryptionVersion: number;
+    expiresAt: string;
+    personalWorkspaceId: string;
+    token: string;
+    workspaceId: string;
+    workspaces: Array<CloudsyncWorkspace>;
+};
+
+export type CloudsyncWorkspace = {
+    createdAt: string;
+    id: string;
+    kind: string;
+    membershipCreatedAt: string;
+    membershipId: string;
+    membershipUpdatedAt: string;
+    name: string;
+    ownerUserId: string;
+    role: string;
+    updatedAt: string;
+};
 
 export type CollectionPage = {
     items: Array<CollectionRef>;
@@ -228,6 +321,10 @@ export type ConversationSummary = {
     inboxId?: string | null;
 };
 
+export type CreateApiKeyBody = {
+    name: string;
+};
+
 export type CreateContactRequest = {
     customAttributes?: unknown;
     email?: string | null;
@@ -260,6 +357,18 @@ export type CreateSessionRequest = {
     mode?: SessionMode;
 };
 
+export type CreatedApiKey = ApiKeyInfo & {
+    key: string;
+};
+
+export type CurrentAttachmentBackup = {
+    ciphertextSha256: string;
+    ciphertextSizeBytes: number;
+    formatVersion: number;
+    objectKey: string;
+    versionRef: string;
+};
+
 export type CustomLocation = {
     label?: string | null;
 };
@@ -274,6 +383,14 @@ export type DayOfWeek = 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursda
 export type DeleteAccountResponse = {
     deleted: boolean;
     error?: string | null;
+    pending: boolean;
+};
+
+export type DeleteAttachmentBackupRequest = {
+    attachmentRef: string;
+    deleteRequestId: string;
+    objectKey: string;
+    versionRef: string;
 };
 
 export type DeleteConnectionRequest = {
@@ -375,6 +492,43 @@ export type DiarizeRequest = {
 
 export type DiarizeRequestModel = 'precision-2' | 'community-1';
 
+export type Document = {
+    created_at: string;
+    id: string;
+    kind: string;
+    markdown: string;
+    sort_order: number;
+    template_id: string;
+    title: string;
+    updated_at: string;
+};
+
+export type E2EeIdentity = {
+    keyId: string;
+};
+
+export type E2EeWitnessEvent = {
+    payload: string;
+    payloadHash: string;
+    recordId: string;
+};
+
+export type E2EeWitnessPage = {
+    events: Array<E2EeWitnessPageEvent>;
+    headSequence: number;
+    initialized: boolean;
+    initializedAt?: string | null;
+    nextAfterSequence: number;
+    throughSequence: number;
+};
+
+export type E2EeWitnessPageEvent = {
+    payload: string;
+    payloadHash: string;
+    recordId: string;
+    sequence: number;
+};
+
 export type EmailAddress = {
     address?: string | null;
     name?: string | null;
@@ -392,6 +546,15 @@ export type EntryPoint = {
 };
 
 export type EntryPointType = 'video' | 'phone' | 'sip' | 'more' | 'unknown';
+
+export type ErrorBody = {
+    code: string;
+    message: string;
+};
+
+export type ErrorEnvelope = {
+    error: ErrorBody;
+};
 
 export type EventAttachment = {
     fileId?: string | null;
@@ -448,6 +611,19 @@ export type FeedbackResponse = {
 };
 
 export type FeedbackType = 'bug' | 'feature';
+
+export type FinalizedAttachmentBackup = {
+    objectKey: string;
+    objectState: string;
+    wasFinalized: boolean;
+};
+
+export type FinalizedSharedAttachment = {
+    attachmentId: string;
+    objectKey: string;
+    objectState: string;
+    wasFinalized: boolean;
+};
 
 export type FocusTimeProperties = {
     autoDeclineMode?: null | AutoDeclineMode;
@@ -584,6 +760,16 @@ export type GoogleListThreadsRequest = {
     max_results?: number | null;
     page_token?: string | null;
     q?: string | null;
+};
+
+export type GrantAttachmentBackupUploadRequest = {
+    ciphertextSha256: string;
+    objectKey: string;
+};
+
+export type GrantSharedAttachmentUploadRequest = {
+    objectKey: string;
+    sha256: string;
 };
 
 export type History = {
@@ -781,6 +967,19 @@ export type LabelRef = {
 
 export type LabelType = 'system' | 'user' | 'unknown';
 
+export type LegacyCloudsyncCredentials = {
+    databaseId: string;
+    expiresAt: string;
+    token: string;
+    workspaceId: string;
+};
+
+export type LegacySessionShareSnapshotRequest = {
+    attachmentIds?: Array<string> | null;
+    body: unknown;
+    title: string;
+};
+
 export type LinearListTeamsRequest = {
     connection_id: string;
     cursor?: string | null;
@@ -895,6 +1094,45 @@ export type MediaResponse = {
     url: string;
 };
 
+export type Meeting = {
+    action_items: Array<ActionItem>;
+    created_at: string;
+    ended_at: string;
+    id: string;
+    kind: string;
+    language: string;
+    note?: null | Document;
+    participants: Array<Participant>;
+    series_id: string;
+    started_at: string;
+    status: string;
+    summaries: Array<Document>;
+    timezone: string;
+    title: string;
+    updated_at: string;
+};
+
+export type MeetingExport = Meeting & {
+    transcripts: Array<Transcript>;
+};
+
+export type MeetingListItem = {
+    created_at: string;
+    ended_at: string;
+    id: string;
+    kind: string;
+    series_id: string;
+    started_at: string;
+    status: string;
+    title: string;
+    updated_at: string;
+};
+
+export type MeetingPage = {
+    meetings: Array<MeetingListItem>;
+    pagination: Pagination;
+};
+
 export type Message = {
     historyId?: string | null;
     id: string;
@@ -995,6 +1233,24 @@ export type OutlookListEventsRequest = {
     time_min?: string | null;
 };
 
+export type Pagination = {
+    limit: number;
+    next_offset?: number | null;
+    offset: number;
+    returned: number;
+    total?: number | null;
+};
+
+export type Participant = {
+    display_name: string;
+    email: string;
+    human_id: string;
+    job_title: string;
+    organization_id: string;
+    organization_name: string;
+    role: string;
+};
+
 export type PatternedRecurrence = {
     pattern?: null | RecurrencePattern;
     range?: null | RecurrenceRange;
@@ -1022,6 +1278,43 @@ export type Profile = {
     historyId?: string | null;
     messagesTotal?: number | null;
     threadsTotal?: number | null;
+};
+
+export type PromoteAttachmentBackupRequest = {
+    expectedCurrentObjectKey?: string | null;
+    objectKey: string;
+};
+
+export type PromotedAttachmentBackup = {
+    currentCiphertextSha256: string;
+    currentObjectKey: string;
+    currentVersionRef: string;
+    displacedObjectKey?: string | null;
+    wasPromoted: boolean;
+};
+
+export type PublishE2EeWitnessRequest = {
+    events: Array<E2EeWitnessEvent>;
+    initialize: boolean;
+};
+
+export type PublishE2EeWitnessResponse = {
+    headSequence: number;
+    initializedAt: string;
+};
+
+export type PublishSessionShareSnapshotRequest = CasSessionShareSnapshotRequest | LegacySessionShareSnapshotRequest;
+
+export type PublishedSessionShareSnapshot = {
+    accessVersion: number;
+    attachments: Array<SharedNoteAttachment>;
+    body: unknown;
+    contentRevision: number;
+    publishedAt: string;
+    schemaVersion: number;
+    shareId: string;
+    title: string;
+    webEditable: boolean;
 };
 
 export type PullRequestDetail = {
@@ -1071,12 +1364,60 @@ export type Reminders = {
     useDefault?: boolean | null;
 };
 
+export type ReserveAttachmentBackupRequest = {
+    attachmentRef: string;
+    ciphertextSizeBytes: number;
+    formatVersion: number;
+    versionRef: string;
+};
+
+export type ReserveSharedAttachmentRequest = {
+    attachmentRef: string;
+    contentType: string;
+    filename: string;
+    sizeBytes: number;
+    versionRef: string;
+};
+
+export type ReservedAttachmentBackup = {
+    ciphertextSha256?: string | null;
+    ciphertextSizeBytes: number;
+    formatVersion: number;
+    objectId: string;
+    objectKey: string;
+    objectState: string;
+    reservationExpiresAt: string;
+    wasCreated: boolean;
+};
+
+export type ReservedSharedAttachment = {
+    attachmentId: string;
+    contentType: string;
+    filename: string;
+    objectKey: string;
+    objectState: string;
+    reservationExpiresAt: string;
+    sha256?: string | null;
+    sizeBytes: number;
+    wasCreated: boolean;
+};
+
 export type ResponseStatus = {
     response?: null | ResponseType;
     time?: string | null;
 };
 
 export type ResponseType = 'none' | 'organizer' | 'tentativelyAccepted' | 'accepted' | 'declined' | 'notResponded' | 'unknown';
+
+export type ScheduledAttachmentBackupDeletion = {
+    attachmentRef: string;
+    deleteFenceId: string;
+    deleteGeneration: number;
+    deleteNotBefore: string;
+    deleteRequestId: string;
+    objectKey: string;
+    versionRef: string;
+};
 
 export type SendMessageRequest = {
     content: string;
@@ -1093,6 +1434,81 @@ export type SessionResponse = {
     expires_at: string;
     mode: string;
     token: string;
+};
+
+export type SharedAttachmentDownload = {
+    contentType: string;
+    expiresAt: string;
+    filename: string;
+    id: string;
+    sha256: string;
+    signedUrl: string;
+    sizeBytes: number;
+};
+
+export type SharedAttachmentObjectRequest = {
+    objectKey: string;
+};
+
+export type SharedAttachmentUploadGrant = {
+    attachmentId: string;
+    contentType: string;
+    filename: string;
+    objectKey: string;
+    objectState: string;
+    sha256: string;
+    sizeBytes: number;
+    uploadExpiresAt?: string | null;
+    uploadToken?: string | null;
+};
+
+export type SharedNoteAttachment = {
+    contentType: string;
+    filename: string;
+    id: string;
+    sha256: string;
+    sizeBytes: number;
+};
+
+export type SharedNoteHandoff = {
+    expiresAt: string;
+    requestId: string;
+};
+
+export type SharedNoteHandoffAttachmentRequest = {
+    leaseId: string;
+};
+
+export type SharedNoteHandoffClaimRequest = {
+    leaseId: string;
+    requestId: string;
+};
+
+export type SharedNoteInvitationEmailRequest = {
+    inviteToken: string;
+    noteTitle: string;
+    shareId: string;
+};
+
+export type SharedNoteLinkRequest = {
+    token: string;
+};
+
+export type SharedNoteSnapshot = {
+    attachments: Array<SharedNoteAttachment>;
+    body: unknown;
+    contentRevision: number;
+    leaseExpiresAt?: string | null;
+    publishedAt: string;
+    schemaVersion: number;
+    shareId: string;
+    title: string;
+};
+
+export type SnapshotReceipt = {
+    published_at: string;
+    revision: number;
+    session_id: string;
 };
 
 export type StartTrialReason = 'started' | 'not_eligible';
@@ -1257,6 +1673,27 @@ export type TicketSummary = {
     url: string;
 };
 
+export type Transcript = {
+    ended_at_ms?: number | null;
+    id: string;
+    language: string;
+    memo: string;
+    model: string;
+    provider: string;
+    source: string;
+    speaker_hints: Array<unknown>;
+    started_at_ms: number;
+    text: string;
+    words: Array<unknown>;
+};
+
+export type TranscriptPage = {
+    meeting_id: string;
+    pagination: Pagination;
+    text: string;
+    words: Array<unknown>;
+};
+
 export type TranscriptionConfiguration = {
     model: TranscriptionConfigurationModel;
 };
@@ -1283,6 +1720,10 @@ export type TranscriptionSegment = {
 };
 
 export type Transparency = 'opaque' | 'transparent' | 'unknown';
+
+export type UpdateSettingsBody = {
+    enabled: boolean;
+};
 
 export type Visibility = 'default' | 'public' | 'private' | 'confidential' | 'unknown';
 
@@ -2161,6 +2602,353 @@ export type VoiceprintResponses = {
 
 export type VoiceprintResponse = VoiceprintResponses[keyof VoiceprintResponses];
 
+export type DownloadAccessSharedAttachmentData = {
+    body?: never;
+    path: {
+        /**
+         * Session share ID
+         */
+        share_id: string;
+        /**
+         * Published attachment ID
+         */
+        attachment_id: string;
+    };
+    query?: never;
+    url: '/shared-notes/access/{share_id}/attachments/{attachment_id}/download';
+};
+
+export type DownloadAccessSharedAttachmentErrors = {
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Shared attachment unavailable
+     */
+    404: unknown;
+    /**
+     * Shared attachment service unavailable
+     */
+    502: unknown;
+};
+
+export type DownloadAccessSharedAttachmentResponses = {
+    /**
+     * Short-lived authorized attachment download
+     */
+    200: SharedAttachmentDownload;
+};
+
+export type DownloadAccessSharedAttachmentResponse = DownloadAccessSharedAttachmentResponses[keyof DownloadAccessSharedAttachmentResponses];
+
+export type DownloadHandoffSharedAttachmentData = {
+    body: SharedNoteHandoffAttachmentRequest;
+    path: {
+        /**
+         * Published attachment ID
+         */
+        attachment_id: string;
+    };
+    query?: never;
+    url: '/shared-notes/handoffs/attachments/{attachment_id}/download';
+};
+
+export type DownloadHandoffSharedAttachmentErrors = {
+    /**
+     * Shared attachment unavailable
+     */
+    404: unknown;
+    /**
+     * Shared attachment service unavailable
+     */
+    502: unknown;
+};
+
+export type DownloadHandoffSharedAttachmentResponses = {
+    /**
+     * Short-lived leased attachment download
+     */
+    200: SharedAttachmentDownload;
+};
+
+export type DownloadHandoffSharedAttachmentResponse = DownloadHandoffSharedAttachmentResponses[keyof DownloadHandoffSharedAttachmentResponses];
+
+export type ClaimSharedNoteHandoffData = {
+    body: SharedNoteHandoffClaimRequest;
+    path?: never;
+    query?: never;
+    url: '/shared-notes/handoffs/claim';
+};
+
+export type ClaimSharedNoteHandoffErrors = {
+    /**
+     * Shared note unavailable
+     */
+    404: unknown;
+    /**
+     * Shared note service unavailable
+     */
+    502: unknown;
+};
+
+export type ClaimSharedNoteHandoffResponses = {
+    /**
+     * Claimed shared note with a retryable attachment lease
+     */
+    200: SharedNoteSnapshot;
+};
+
+export type ClaimSharedNoteHandoffResponse = ClaimSharedNoteHandoffResponses[keyof ClaimSharedNoteHandoffResponses];
+
+export type SendSharedNoteInvitationEmailData = {
+    body: SharedNoteInvitationEmailRequest;
+    path: {
+        /**
+         * Session access invitation ID
+         */
+        invitation_id: string;
+    };
+    query?: never;
+    url: '/shared-notes/invitations/{invitation_id}/email';
+};
+
+export type SendSharedNoteInvitationEmailErrors = {
+    /**
+     * Invalid invitation email request
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Invitation unavailable
+     */
+    404: unknown;
+    /**
+     * Invitation email service unavailable
+     */
+    502: unknown;
+};
+
+export type SendSharedNoteInvitationEmailResponses = {
+    /**
+     * Invitation email sent
+     */
+    204: void;
+};
+
+export type SendSharedNoteInvitationEmailResponse = SendSharedNoteInvitationEmailResponses[keyof SendSharedNoteInvitationEmailResponses];
+
+export type ReadLinkSharedNoteData = {
+    body: SharedNoteLinkRequest;
+    path: {
+        /**
+         * Session share ID
+         */
+        share_id: string;
+    };
+    query?: never;
+    url: '/shared-notes/link/{share_id}';
+};
+
+export type ReadLinkSharedNoteErrors = {
+    /**
+     * Shared note unavailable
+     */
+    404: unknown;
+    /**
+     * Request too large
+     */
+    413: unknown;
+    /**
+     * Shared note service unavailable
+     */
+    502: unknown;
+};
+
+export type ReadLinkSharedNoteResponses = {
+    /**
+     * Bearer-link shared note
+     */
+    200: SharedNoteSnapshot;
+};
+
+export type ReadLinkSharedNoteResponse = ReadLinkSharedNoteResponses[keyof ReadLinkSharedNoteResponses];
+
+export type DownloadLinkSharedAttachmentData = {
+    body: SharedNoteLinkRequest;
+    path: {
+        /**
+         * Session share ID
+         */
+        share_id: string;
+        /**
+         * Published attachment ID
+         */
+        attachment_id: string;
+    };
+    query?: never;
+    url: '/shared-notes/link/{share_id}/attachments/{attachment_id}/download';
+};
+
+export type DownloadLinkSharedAttachmentErrors = {
+    /**
+     * Shared attachment unavailable
+     */
+    404: unknown;
+    /**
+     * Shared attachment service unavailable
+     */
+    502: unknown;
+};
+
+export type DownloadLinkSharedAttachmentResponses = {
+    /**
+     * Short-lived bearer-link attachment download
+     */
+    200: SharedAttachmentDownload;
+};
+
+export type DownloadLinkSharedAttachmentResponse = DownloadLinkSharedAttachmentResponses[keyof DownloadLinkSharedAttachmentResponses];
+
+export type CreateLinkSharedNoteHandoffData = {
+    body: SharedNoteLinkRequest;
+    path: {
+        /**
+         * Session share ID
+         */
+        share_id: string;
+    };
+    query?: never;
+    url: '/shared-notes/link/{share_id}/handoff';
+};
+
+export type CreateLinkSharedNoteHandoffErrors = {
+    /**
+     * Shared note unavailable
+     */
+    404: unknown;
+    /**
+     * Request too large
+     */
+    413: unknown;
+    /**
+     * Shared note service unavailable
+     */
+    502: unknown;
+};
+
+export type CreateLinkSharedNoteHandoffResponses = {
+    /**
+     * One-time desktop handoff
+     */
+    200: SharedNoteHandoff;
+};
+
+export type CreateLinkSharedNoteHandoffResponse = CreateLinkSharedNoteHandoffResponses[keyof CreateLinkSharedNoteHandoffResponses];
+
+export type ReadPublicSharedNoteData = {
+    body?: never;
+    path: {
+        /**
+         * Public share slug
+         */
+        slug: string;
+    };
+    query?: never;
+    url: '/shared-notes/public/{slug}';
+};
+
+export type ReadPublicSharedNoteErrors = {
+    /**
+     * Shared note unavailable
+     */
+    404: unknown;
+    /**
+     * Shared note service unavailable
+     */
+    502: unknown;
+};
+
+export type ReadPublicSharedNoteResponses = {
+    /**
+     * Public shared note
+     */
+    200: SharedNoteSnapshot;
+};
+
+export type ReadPublicSharedNoteResponse = ReadPublicSharedNoteResponses[keyof ReadPublicSharedNoteResponses];
+
+export type DownloadPublicSharedAttachmentData = {
+    body?: never;
+    path: {
+        /**
+         * Public share slug
+         */
+        slug: string;
+        /**
+         * Published attachment ID
+         */
+        attachment_id: string;
+    };
+    query?: never;
+    url: '/shared-notes/public/{slug}/attachments/{attachment_id}/download';
+};
+
+export type DownloadPublicSharedAttachmentErrors = {
+    /**
+     * Shared attachment unavailable
+     */
+    404: unknown;
+    /**
+     * Shared attachment service unavailable
+     */
+    502: unknown;
+};
+
+export type DownloadPublicSharedAttachmentResponses = {
+    /**
+     * Short-lived public attachment download
+     */
+    200: SharedAttachmentDownload;
+};
+
+export type DownloadPublicSharedAttachmentResponse = DownloadPublicSharedAttachmentResponses[keyof DownloadPublicSharedAttachmentResponses];
+
+export type CreatePublicSharedNoteHandoffData = {
+    body?: never;
+    path: {
+        /**
+         * Public share slug
+         */
+        slug: string;
+    };
+    query?: never;
+    url: '/shared-notes/public/{slug}/handoff';
+};
+
+export type CreatePublicSharedNoteHandoffErrors = {
+    /**
+     * Shared note unavailable
+     */
+    404: unknown;
+    /**
+     * Shared note service unavailable
+     */
+    502: unknown;
+};
+
+export type CreatePublicSharedNoteHandoffResponses = {
+    /**
+     * One-time desktop handoff
+     */
+    200: SharedNoteHandoff;
+};
+
+export type CreatePublicSharedNoteHandoffResponse = CreatePublicSharedNoteHandoffResponses[keyof CreatePublicSharedNoteHandoffResponses];
+
 export type SttListenStreamData = {
     body?: never;
     path?: never;
@@ -2182,6 +2970,18 @@ export type SttListenStreamData = {
          * Keyword boosting. Comma-separated or repeated query params
          */
         keywords?: string;
+        /**
+         * Expected exact number of speakers, when supported by the selected provider
+         */
+        num_speakers?: number;
+        /**
+         * Minimum expected number of speakers, when supported by the selected provider
+         */
+        min_speakers?: number;
+        /**
+         * Maximum expected number of speakers, when supported by the selected provider
+         */
+        max_speakers?: number;
         /**
          * Audio sample rate in Hz (default: 16000)
          */
@@ -2233,6 +3033,18 @@ export type SttListenBatchData = {
          * Keyword boosting. Comma-separated or repeated query params
          */
         keywords?: string;
+        /**
+         * Expected exact number of speakers, when supported by the selected provider
+         */
+        num_speakers?: number;
+        /**
+         * Minimum expected number of speakers, when supported by the selected provider
+         */
+        min_speakers?: number;
+        /**
+         * Maximum expected number of speakers, when supported by the selected provider
+         */
+        max_speakers?: number;
         /**
          * When set, enables async callback mode. Body should be JSON with a `url` field instead of raw audio
          */
@@ -2340,13 +3152,17 @@ export type DeleteAccountErrors = {
      * Internal server error
      */
     500: unknown;
+    /**
+     * Durable account cleanup unavailable
+     */
+    503: unknown;
 };
 
 export type DeleteAccountResponses = {
     /**
-     * Account deleted successfully
+     * Account deletion durably accepted
      */
-    200: DeleteAccountResponse;
+    202: DeleteAccountResponse;
 };
 
 export type DeleteAccountResponse2 = DeleteAccountResponses[keyof DeleteAccountResponses];
@@ -2515,6 +3331,768 @@ export type SendMessageResponses = {
 
 export type SendMessageResponse = SendMessageResponses[keyof SendMessageResponses];
 
+export type DeleteAttachmentBackupData = {
+    body: DeleteAttachmentBackupRequest;
+    path?: never;
+    query?: never;
+    url: '/sync/attachment-backups/delete';
+};
+
+export type DeleteAttachmentBackupErrors = {
+    /**
+     * Invalid deletion identity
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Anarlog Pro subscription or backup access required
+     */
+    403: unknown;
+    /**
+     * Backup unavailable
+     */
+    404: unknown;
+    /**
+     * Backup changed, deletion was canceled, or a dependency appeared
+     */
+    409: unknown;
+    /**
+     * Backup service unavailable
+     */
+    502: unknown;
+};
+
+export type DeleteAttachmentBackupResponses = {
+    /**
+     * Backup deletion scheduled behind a dependency fence
+     */
+    200: ScheduledAttachmentBackupDeletion;
+};
+
+export type DeleteAttachmentBackupResponse = DeleteAttachmentBackupResponses[keyof DeleteAttachmentBackupResponses];
+
+export type CancelAttachmentBackupDeletionData = {
+    body: DeleteAttachmentBackupRequest;
+    path?: never;
+    query?: never;
+    url: '/sync/attachment-backups/delete/cancel';
+};
+
+export type CancelAttachmentBackupDeletionErrors = {
+    /**
+     * Invalid deletion identity
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Anarlog Pro subscription or backup access required
+     */
+    403: unknown;
+    /**
+     * Backup changed or deletion is already being collected
+     */
+    409: unknown;
+    /**
+     * Backup service unavailable
+     */
+    502: unknown;
+};
+
+export type CancelAttachmentBackupDeletionResponses = {
+    /**
+     * Exact deletion request canceled or durably prevented
+     */
+    200: CanceledAttachmentBackupDeletion;
+};
+
+export type CancelAttachmentBackupDeletionResponse = CancelAttachmentBackupDeletionResponses[keyof CancelAttachmentBackupDeletionResponses];
+
+export type DownloadAttachmentBackupData = {
+    body: AttachmentBackupObjectRequest;
+    path?: never;
+    query?: never;
+    url: '/sync/attachment-backups/download';
+};
+
+export type DownloadAttachmentBackupErrors = {
+    /**
+     * Invalid object key
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Anarlog Pro subscription or backup access required
+     */
+    403: unknown;
+    /**
+     * Current backup unavailable
+     */
+    404: unknown;
+    /**
+     * Backup is no longer current
+     */
+    409: unknown;
+    /**
+     * Backup service unavailable
+     */
+    502: unknown;
+};
+
+export type DownloadAttachmentBackupResponses = {
+    /**
+     * Short-lived download for the server-current backup
+     */
+    200: AttachmentBackupDownload;
+};
+
+export type DownloadAttachmentBackupResponse = DownloadAttachmentBackupResponses[keyof DownloadAttachmentBackupResponses];
+
+export type FinalizeAttachmentBackupData = {
+    body: AttachmentBackupObjectRequest;
+    path?: never;
+    query?: never;
+    url: '/sync/attachment-backups/finalize';
+};
+
+export type FinalizeAttachmentBackupErrors = {
+    /**
+     * Invalid object key
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Anarlog Pro subscription or backup access required
+     */
+    403: unknown;
+    /**
+     * Backup unavailable
+     */
+    404: unknown;
+    /**
+     * Uploaded object does not match its reservation
+     */
+    409: unknown;
+    /**
+     * Backup service unavailable
+     */
+    502: unknown;
+    /**
+     * Backup verification capacity is busy
+     */
+    503: unknown;
+};
+
+export type FinalizeAttachmentBackupResponses = {
+    /**
+     * Uploaded backup verified and finalized
+     */
+    200: FinalizedAttachmentBackup;
+};
+
+export type FinalizeAttachmentBackupResponse = FinalizeAttachmentBackupResponses[keyof FinalizeAttachmentBackupResponses];
+
+export type PromoteAttachmentBackupData = {
+    body: PromoteAttachmentBackupRequest;
+    path?: never;
+    query?: never;
+    url: '/sync/attachment-backups/head';
+};
+
+export type PromoteAttachmentBackupErrors = {
+    /**
+     * Invalid object key
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Anarlog Pro subscription or backup access required
+     */
+    403: unknown;
+    /**
+     * Backup unavailable
+     */
+    404: unknown;
+    /**
+     * Current backup changed
+     */
+    409: unknown;
+    /**
+     * Backup service unavailable
+     */
+    502: unknown;
+};
+
+export type PromoteAttachmentBackupResponses = {
+    /**
+     * Backup promoted with compare-and-swap semantics
+     */
+    200: PromotedAttachmentBackup;
+};
+
+export type PromoteAttachmentBackupResponse = PromoteAttachmentBackupResponses[keyof PromoteAttachmentBackupResponses];
+
+export type ReadCurrentAttachmentBackupData = {
+    body?: never;
+    path: {
+        /**
+         * Blind attachment reference
+         */
+        attachment_ref: string;
+    };
+    query?: never;
+    url: '/sync/attachment-backups/head/{attachment_ref}';
+};
+
+export type ReadCurrentAttachmentBackupErrors = {
+    /**
+     * Invalid attachment reference
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Anarlog Pro subscription or backup access required
+     */
+    403: unknown;
+    /**
+     * Current backup unavailable
+     */
+    404: unknown;
+    /**
+     * Backup service unavailable
+     */
+    502: unknown;
+};
+
+export type ReadCurrentAttachmentBackupResponses = {
+    /**
+     * Current backup head
+     */
+    200: CurrentAttachmentBackup;
+};
+
+export type ReadCurrentAttachmentBackupResponse = ReadCurrentAttachmentBackupResponses[keyof ReadCurrentAttachmentBackupResponses];
+
+export type ReserveAttachmentBackupData = {
+    body: ReserveAttachmentBackupRequest;
+    path?: never;
+    query?: never;
+    url: '/sync/attachment-backups/reserve';
+};
+
+export type ReserveAttachmentBackupErrors = {
+    /**
+     * Invalid backup metadata
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Anarlog Pro subscription or backup access required
+     */
+    403: unknown;
+    /**
+     * Backup reservation conflict
+     */
+    409: unknown;
+    /**
+     * Backup service unavailable
+     */
+    502: unknown;
+    /**
+     * Backup quota exhausted
+     */
+    507: unknown;
+};
+
+export type ReserveAttachmentBackupResponses = {
+    /**
+     * Reserved immutable backup identity
+     */
+    200: ReservedAttachmentBackup;
+};
+
+export type ReserveAttachmentBackupResponse = ReserveAttachmentBackupResponses[keyof ReserveAttachmentBackupResponses];
+
+export type GrantAttachmentBackupUploadData = {
+    body: GrantAttachmentBackupUploadRequest;
+    path?: never;
+    query?: never;
+    url: '/sync/attachment-backups/upload-grant';
+};
+
+export type GrantAttachmentBackupUploadErrors = {
+    /**
+     * Invalid object key or ciphertext hash
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Anarlog Pro subscription or backup access required
+     */
+    403: unknown;
+    /**
+     * Backup reservation unavailable
+     */
+    404: unknown;
+    /**
+     * Backup state or ciphertext hash conflict
+     */
+    409: unknown;
+    /**
+     * Backup service unavailable
+     */
+    502: unknown;
+};
+
+export type GrantAttachmentBackupUploadResponses = {
+    /**
+     * Time-limited grant for an immutable backup upload
+     */
+    200: AttachmentBackupUploadGrant;
+};
+
+export type GrantAttachmentBackupUploadResponse = GrantAttachmentBackupUploadResponses[keyof GrantAttachmentBackupUploadResponses];
+
+export type ClaimE2EeIdentityData = {
+    body: ClaimE2EeIdentityRequest;
+    path?: never;
+    query?: never;
+    url: '/sync/e2ee/identity';
+};
+
+export type ClaimE2EeIdentityErrors = {
+    /**
+     * Invalid E2EE key identity
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Anarlog Pro subscription required
+     */
+    403: unknown;
+    /**
+     * Account already uses a different recovery key
+     */
+    409: unknown;
+    /**
+     * E2EE identity service unavailable
+     */
+    502: unknown;
+};
+
+export type ClaimE2EeIdentityResponses = {
+    /**
+     * E2EE recovery-key identity claimed
+     */
+    200: E2EeIdentity;
+};
+
+export type ClaimE2EeIdentityResponse = ClaimE2EeIdentityResponses[keyof ClaimE2EeIdentityResponses];
+
+export type ReadE2EeWitnessData = {
+    body?: never;
+    path: {
+        /**
+         * Personal workspace ID
+         */
+        workspace_id: string;
+    };
+    query?: {
+        /**
+         * Last applied witness sequence
+         */
+        afterSequence?: number;
+        /**
+         * Stable witness page boundary
+         */
+        throughSequence?: number;
+    };
+    url: '/sync/e2ee/witness/{workspace_id}';
+};
+
+export type ReadE2EeWitnessErrors = {
+    /**
+     * Invalid witness cursor
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Witness workspace access denied
+     */
+    403: unknown;
+    /**
+     * Witness service unavailable
+     */
+    502: unknown;
+};
+
+export type ReadE2EeWitnessResponses = {
+    /**
+     * Append-only E2EE witness page
+     */
+    200: E2EeWitnessPage;
+};
+
+export type ReadE2EeWitnessResponse = ReadE2EeWitnessResponses[keyof ReadE2EeWitnessResponses];
+
+export type PublishE2EeWitnessData = {
+    body: PublishE2EeWitnessRequest;
+    path: {
+        /**
+         * Personal workspace ID
+         */
+        workspace_id: string;
+    };
+    query?: never;
+    url: '/sync/e2ee/witness/{workspace_id}';
+};
+
+export type PublishE2EeWitnessErrors = {
+    /**
+     * Invalid witness event
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Witness workspace access denied
+     */
+    403: unknown;
+    /**
+     * Legacy witness requires an established device
+     */
+    409: unknown;
+    /**
+     * Witness service unavailable
+     */
+    502: unknown;
+};
+
+export type PublishE2EeWitnessResponses = {
+    /**
+     * Ciphertext events appended
+     */
+    200: PublishE2EeWitnessResponse;
+};
+
+export type PublishE2EeWitnessResponse2 = PublishE2EeWitnessResponses[keyof PublishE2EeWitnessResponses];
+
+export type FinalizeSharedAttachmentData = {
+    body: SharedAttachmentObjectRequest;
+    path: {
+        /**
+         * Session share ID
+         */
+        share_id: string;
+    };
+    query?: never;
+    url: '/sync/shares/{share_id}/attachments/finalize';
+};
+
+export type FinalizeSharedAttachmentErrors = {
+    /**
+     * Invalid object key
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Pro or share-manager access required
+     */
+    403: unknown;
+    /**
+     * Attachment unavailable
+     */
+    404: unknown;
+    /**
+     * Uploaded object does not match the reservation
+     */
+    409: unknown;
+    /**
+     * Shared attachment service unavailable
+     */
+    502: unknown;
+    /**
+     * Shared attachment verification capacity is busy
+     */
+    503: unknown;
+};
+
+export type FinalizeSharedAttachmentResponses = {
+    /**
+     * Verified shared attachment
+     */
+    200: FinalizedSharedAttachment;
+};
+
+export type FinalizeSharedAttachmentResponse = FinalizeSharedAttachmentResponses[keyof FinalizeSharedAttachmentResponses];
+
+export type ReserveSharedAttachmentData = {
+    body: ReserveSharedAttachmentRequest;
+    path: {
+        /**
+         * Session share ID
+         */
+        share_id: string;
+    };
+    query?: never;
+    url: '/sync/shares/{share_id}/attachments/reserve';
+};
+
+export type ReserveSharedAttachmentErrors = {
+    /**
+     * Invalid attachment metadata
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Pro or share-manager access required
+     */
+    403: unknown;
+    /**
+     * Attachment reservation conflict
+     */
+    409: unknown;
+    /**
+     * Shared attachment service unavailable
+     */
+    502: unknown;
+    /**
+     * Shared attachment quota exhausted
+     */
+    507: unknown;
+};
+
+export type ReserveSharedAttachmentResponses = {
+    /**
+     * Reserved immutable shared attachment
+     */
+    200: ReservedSharedAttachment;
+};
+
+export type ReserveSharedAttachmentResponse = ReserveSharedAttachmentResponses[keyof ReserveSharedAttachmentResponses];
+
+export type GrantSharedAttachmentUploadData = {
+    body: GrantSharedAttachmentUploadRequest;
+    path: {
+        /**
+         * Session share ID
+         */
+        share_id: string;
+    };
+    query?: never;
+    url: '/sync/shares/{share_id}/attachments/upload-grant';
+};
+
+export type GrantSharedAttachmentUploadErrors = {
+    /**
+     * Invalid object key or checksum
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Pro or share-manager access required
+     */
+    403: unknown;
+    /**
+     * Attachment reservation unavailable
+     */
+    404: unknown;
+    /**
+     * Attachment state conflict
+     */
+    409: unknown;
+    /**
+     * Shared attachment service unavailable
+     */
+    502: unknown;
+};
+
+export type GrantSharedAttachmentUploadResponses = {
+    /**
+     * Time-limited immutable upload grant
+     */
+    200: SharedAttachmentUploadGrant;
+};
+
+export type GrantSharedAttachmentUploadResponse = GrantSharedAttachmentUploadResponses[keyof GrantSharedAttachmentUploadResponses];
+
+export type PublishSessionShareSnapshotData = {
+    body: PublishSessionShareSnapshotRequest;
+    path: {
+        /**
+         * Session share ID
+         */
+        share_id: string;
+    };
+    query?: never;
+    url: '/sync/shares/{share_id}/snapshot';
+};
+
+export type PublishSessionShareSnapshotErrors = {
+    /**
+     * Invalid shared-note snapshot
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Anarlog Pro or share-manager access required
+     */
+    403: unknown;
+    /**
+     * Shared note changed since the supplied base revision
+     */
+    409: unknown;
+    /**
+     * Shared-note snapshot is too large
+     */
+    413: unknown;
+    /**
+     * Shared-note service unavailable
+     */
+    502: unknown;
+};
+
+export type PublishSessionShareSnapshotResponses = {
+    /**
+     * Sanitized shared-note snapshot published
+     */
+    200: PublishedSessionShareSnapshot;
+};
+
+export type PublishSessionShareSnapshotResponse = PublishSessionShareSnapshotResponses[keyof PublishSessionShareSnapshotResponses];
+
+export type EditSessionShareSnapshotData = {
+    body: PublishSessionShareSnapshotRequest;
+    path: {
+        /**
+         * Session share ID
+         */
+        share_id: string;
+    };
+    query?: never;
+    url: '/sync/shares/{share_id}/web-edit';
+};
+
+export type EditSessionShareSnapshotErrors = {
+    /**
+     * Invalid or unsupported shared-note edit
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Explicit Editor access required
+     */
+    403: unknown;
+    /**
+     * Shared note changed since the supplied base revision
+     */
+    409: unknown;
+    /**
+     * Shared-note edit is too large
+     */
+    413: unknown;
+    /**
+     * Shared-note service unavailable
+     */
+    502: unknown;
+};
+
+export type EditSessionShareSnapshotResponses = {
+    /**
+     * Shared-note edit saved
+     */
+    200: PublishedSessionShareSnapshot;
+};
+
+export type EditSessionShareSnapshotResponse = EditSessionShareSnapshotResponses[keyof EditSessionShareSnapshotResponses];
+
+export type CreateCredentialsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Local recovery-key identity
+         */
+        'x-anarlog-e2ee-key-id'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/sync/token';
+};
+
+export type CreateCredentialsErrors = {
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Anarlog Pro subscription required
+     */
+    403: unknown;
+    /**
+     * Desktop upgrade required
+     */
+    426: unknown;
+    /**
+     * Credential issuer unavailable
+     */
+    502: unknown;
+};
+
+export type CreateCredentialsResponses = {
+    /**
+     * Short-lived CloudSync credentials
+     */
+    200: CloudsyncCredentialResponse;
+};
+
+export type CreateCredentialsResponse = CreateCredentialsResponses[keyof CreateCredentialsResponses];
+
 export type GithubListReposData = {
     body: GitHubListReposRequest;
     path?: never;
@@ -2622,3 +4200,269 @@ export type LinearListTicketsResponses = {
 };
 
 export type LinearListTicketsResponse = LinearListTicketsResponses[keyof LinearListTicketsResponses];
+
+export type ListKeysData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/v1/cloud-api/keys';
+};
+
+export type ListKeysErrors = {
+    403: ErrorEnvelope;
+};
+
+export type ListKeysError = ListKeysErrors[keyof ListKeysErrors];
+
+export type ListKeysResponses = {
+    200: Array<ApiKeyInfo>;
+};
+
+export type ListKeysResponse = ListKeysResponses[keyof ListKeysResponses];
+
+export type CreateKeyData = {
+    body: CreateApiKeyBody;
+    path?: never;
+    query?: never;
+    url: '/v1/cloud-api/keys';
+};
+
+export type CreateKeyErrors = {
+    400: ErrorEnvelope;
+    403: ErrorEnvelope;
+};
+
+export type CreateKeyError = CreateKeyErrors[keyof CreateKeyErrors];
+
+export type CreateKeyResponses = {
+    201: CreatedApiKey;
+};
+
+export type CreateKeyResponse = CreateKeyResponses[keyof CreateKeyResponses];
+
+export type RevokeKeyData = {
+    body?: never;
+    path: {
+        /**
+         * Cloud API key id
+         */
+        key_id: string;
+    };
+    query?: never;
+    url: '/v1/cloud-api/keys/{key_id}';
+};
+
+export type RevokeKeyErrors = {
+    404: ErrorEnvelope;
+};
+
+export type RevokeKeyError = RevokeKeyErrors[keyof RevokeKeyErrors];
+
+export type RevokeKeyResponses = {
+    204: void;
+};
+
+export type RevokeKeyResponse = RevokeKeyResponses[keyof RevokeKeyResponses];
+
+export type GetSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/v1/cloud-api/settings';
+};
+
+export type GetSettingsErrors = {
+    403: ErrorEnvelope;
+};
+
+export type GetSettingsError = GetSettingsErrors[keyof GetSettingsErrors];
+
+export type GetSettingsResponses = {
+    200: CloudApiSettings;
+};
+
+export type GetSettingsResponse = GetSettingsResponses[keyof GetSettingsResponses];
+
+export type UpdateSettingsData = {
+    body: UpdateSettingsBody;
+    path?: never;
+    query?: never;
+    url: '/v1/cloud-api/settings';
+};
+
+export type UpdateSettingsErrors = {
+    403: ErrorEnvelope;
+};
+
+export type UpdateSettingsError = UpdateSettingsErrors[keyof UpdateSettingsErrors];
+
+export type UpdateSettingsResponses = {
+    200: CloudApiSettings;
+};
+
+export type UpdateSettingsResponse = UpdateSettingsResponses[keyof UpdateSettingsResponses];
+
+export type ListMeetingsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        query?: string;
+        series_id?: string;
+        limit?: number;
+        offset?: number;
+    };
+    url: '/v1/meetings';
+};
+
+export type ListMeetingsErrors = {
+    401: ErrorEnvelope;
+    403: ErrorEnvelope;
+};
+
+export type ListMeetingsError = ListMeetingsErrors[keyof ListMeetingsErrors];
+
+export type ListMeetingsResponses = {
+    200: MeetingPage;
+};
+
+export type ListMeetingsResponse = ListMeetingsResponses[keyof ListMeetingsResponses];
+
+export type GetMeetingData = {
+    body?: never;
+    path: {
+        meeting_id: string;
+    };
+    query?: never;
+    url: '/v1/meetings/{meeting_id}';
+};
+
+export type GetMeetingErrors = {
+    404: ErrorEnvelope;
+};
+
+export type GetMeetingError = GetMeetingErrors[keyof GetMeetingErrors];
+
+export type GetMeetingResponses = {
+    200: Meeting;
+};
+
+export type GetMeetingResponse = GetMeetingResponses[keyof GetMeetingResponses];
+
+export type ExportMeetingData = {
+    body?: never;
+    path: {
+        meeting_id: string;
+    };
+    query?: {
+        /**
+         * json or markdown
+         */
+        format?: string;
+    };
+    url: '/v1/meetings/{meeting_id}/export';
+};
+
+export type ExportMeetingErrors = {
+    400: ErrorEnvelope;
+    404: ErrorEnvelope;
+};
+
+export type ExportMeetingError = ExportMeetingErrors[keyof ExportMeetingErrors];
+
+export type ExportMeetingResponses = {
+    /**
+     * Meeting export
+     */
+    200: unknown;
+};
+
+export type GetHistoryData = {
+    body?: never;
+    path: {
+        meeting_id: string;
+    };
+    query?: {
+        limit?: number;
+        offset?: number;
+    };
+    url: '/v1/meetings/{meeting_id}/history';
+};
+
+export type GetHistoryErrors = {
+    404: ErrorEnvelope;
+};
+
+export type GetHistoryError = GetHistoryErrors[keyof GetHistoryErrors];
+
+export type GetHistoryResponses = {
+    200: MeetingPage;
+};
+
+export type GetHistoryResponse = GetHistoryResponses[keyof GetHistoryResponses];
+
+export type GetTranscriptData = {
+    body?: never;
+    path: {
+        meeting_id: string;
+    };
+    query?: {
+        offset?: number;
+        limit?: number;
+    };
+    url: '/v1/meetings/{meeting_id}/transcript';
+};
+
+export type GetTranscriptErrors = {
+    404: ErrorEnvelope;
+};
+
+export type GetTranscriptError = GetTranscriptErrors[keyof GetTranscriptErrors];
+
+export type GetTranscriptResponses = {
+    200: TranscriptPage;
+};
+
+export type GetTranscriptResponse = GetTranscriptResponses[keyof GetTranscriptResponses];
+
+export type DeleteSnapshotData = {
+    body?: never;
+    path: {
+        /**
+         * Anarlog meeting id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/v1/sync-snapshots/{session_id}';
+};
+
+export type DeleteSnapshotResponses = {
+    204: void;
+};
+
+export type DeleteSnapshotResponse = DeleteSnapshotResponses[keyof DeleteSnapshotResponses];
+
+export type PublishSnapshotData = {
+    body: MeetingExport;
+    path: {
+        /**
+         * Anarlog meeting id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/v1/sync-snapshots/{session_id}';
+};
+
+export type PublishSnapshotErrors = {
+    400: ErrorEnvelope;
+    403: ErrorEnvelope;
+};
+
+export type PublishSnapshotError = PublishSnapshotErrors[keyof PublishSnapshotErrors];
+
+export type PublishSnapshotResponses = {
+    200: SnapshotReceipt;
+};
+
+export type PublishSnapshotResponse = PublishSnapshotResponses[keyof PublishSnapshotResponses];

@@ -1,8 +1,8 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Char AI API",
-    "description": "AI services API for speech-to-text transcription, LLM chat completions, and subscription management",
+    "title": "Anarlog API",
+    "description": "Anarlog cloud services and opt-in hosted meeting access",
     "license": {
       "name": ""
     },
@@ -3088,6 +3088,622 @@
           }
         ]
       }
+    },
+    "/v1/cloud-api/keys": {
+      "get": {
+        "tags": [
+          "cloud-api"
+        ],
+        "operationId": "list_keys",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ApiKeyInfo"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "cloud-api"
+        ],
+        "operationId": "create_key",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApiKeyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedApiKey"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/v1/cloud-api/keys/{key_id}": {
+      "delete": {
+        "tags": [
+          "cloud-api"
+        ],
+        "operationId": "revoke_key",
+        "parameters": [
+          {
+            "name": "key_id",
+            "in": "path",
+            "description": "Cloud API key id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/v1/cloud-api/settings": {
+      "get": {
+        "tags": [
+          "cloud-api"
+        ],
+        "operationId": "get_settings",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudApiSettings"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "cloud-api"
+        ],
+        "operationId": "update_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettingsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudApiSettings"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/v1/meetings": {
+      "get": {
+        "tags": [
+          "cloud-api"
+        ],
+        "operationId": "list_meetings",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "series_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cloud_api_key": []
+          }
+        ]
+      }
+    },
+    "/v1/meetings/{meeting_id}": {
+      "get": {
+        "tags": [
+          "cloud-api"
+        ],
+        "operationId": "get_meeting",
+        "parameters": [
+          {
+            "name": "meeting_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Meeting"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cloud_api_key": []
+          }
+        ]
+      }
+    },
+    "/v1/meetings/{meeting_id}/export": {
+      "get": {
+        "tags": [
+          "cloud-api"
+        ],
+        "operationId": "export_meeting",
+        "parameters": [
+          {
+            "name": "meeting_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "json or markdown",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Meeting export"
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cloud_api_key": []
+          }
+        ]
+      }
+    },
+    "/v1/meetings/{meeting_id}/history": {
+      "get": {
+        "tags": [
+          "cloud-api"
+        ],
+        "operationId": "get_history",
+        "parameters": [
+          {
+            "name": "meeting_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingPage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cloud_api_key": []
+          }
+        ]
+      }
+    },
+    "/v1/meetings/{meeting_id}/transcript": {
+      "get": {
+        "tags": [
+          "cloud-api"
+        ],
+        "operationId": "get_transcript",
+        "parameters": [
+          {
+            "name": "meeting_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptPage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cloud_api_key": []
+          }
+        ]
+      }
+    },
+    "/v1/sync-snapshots/{session_id}": {
+      "put": {
+        "tags": [
+          "cloud-api"
+        ],
+        "operationId": "publish_snapshot",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Anarlog meeting id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeetingExport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "cloud-api"
+        ],
+        "operationId": "delete_snapshot",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Anarlog meeting id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -3101,6 +3717,68 @@
           "owner",
           "unknown"
         ]
+      },
+      "ActionItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "assignee_human_id",
+          "status",
+          "text",
+          "due_at"
+        ],
+        "properties": {
+          "assignee_human_id": {
+            "type": "string"
+          },
+          "completed_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "due_at": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiKeyInfo": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "key_prefix",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "key_prefix": {
+            "type": "string"
+          },
+          "last_used_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          }
+        }
       },
       "Attachment": {
         "type": "object",
@@ -3950,6 +4628,23 @@
         },
         "additionalProperties": false
       },
+      "CloudApiSettings": {
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "updated_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "CloudsyncCredentialResponse": {
         "oneOf": [
           {
@@ -4365,6 +5060,17 @@
           }
         }
       },
+      "CreateApiKeyBody": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "CreateContactRequest": {
         "type": "object",
         "required": [
@@ -4462,6 +5168,24 @@
             "$ref": "#/components/schemas/SessionMode"
           }
         }
+      },
+      "CreatedApiKey": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiKeyInfo"
+          },
+          {
+            "type": "object",
+            "required": [
+              "key"
+            ],
+            "properties": {
+              "key": {
+                "type": "string"
+              }
+            }
+          }
+        ]
       },
       "CurrentAttachmentBackup": {
         "type": "object",
@@ -4839,6 +5563,46 @@
           "community-1"
         ]
       },
+      "Document": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "template_id",
+          "title",
+          "markdown",
+          "sort_order",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "markdown": {
+            "type": "string"
+          },
+          "sort_order": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "template_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
       "E2eeIdentity": {
         "type": "object",
         "required": [
@@ -5014,6 +5778,32 @@
           "more",
           "unknown"
         ]
+      },
+      "ErrorBody": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorBody"
+          }
+        }
       },
       "EventAttachment": {
         "type": "object",
@@ -7006,6 +7796,170 @@
           }
         }
       },
+      "Meeting": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "kind",
+          "status",
+          "created_at",
+          "updated_at",
+          "started_at",
+          "ended_at",
+          "timezone",
+          "language",
+          "series_id",
+          "summaries",
+          "participants",
+          "action_items"
+        ],
+        "properties": {
+          "action_items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActionItem"
+            }
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "ended_at": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "note": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Document"
+              }
+            ]
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Participant"
+            }
+          },
+          "series_id": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "summaries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Document"
+            }
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
+      "MeetingExport": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Meeting"
+          },
+          {
+            "type": "object",
+            "required": [
+              "transcripts"
+            ],
+            "properties": {
+              "transcripts": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Transcript"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "MeetingListItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "kind",
+          "status",
+          "created_at",
+          "updated_at",
+          "started_at",
+          "ended_at",
+          "series_id"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "ended_at": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "series_id": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
+      "MeetingPage": {
+        "type": "object",
+        "required": [
+          "meetings",
+          "pagination"
+        ],
+        "properties": {
+          "meetings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingListItem"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        }
+      },
       "Message": {
         "type": "object",
         "required": [
@@ -7440,6 +8394,80 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "required": [
+          "offset",
+          "limit",
+          "returned"
+        ],
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "next_offset": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "returned": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "total": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        }
+      },
+      "Participant": {
+        "type": "object",
+        "required": [
+          "human_id",
+          "display_name",
+          "email",
+          "role",
+          "job_title",
+          "organization_id",
+          "organization_name"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "human_id": {
+            "type": "string"
+          },
+          "job_title": {
+            "type": "string"
+          },
+          "organization_id": {
+            "type": "string"
+          },
+          "organization_name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
           }
         }
       },
@@ -8469,6 +9497,26 @@
           }
         }
       },
+      "SnapshotReceipt": {
+        "type": "object",
+        "required": [
+          "session_id",
+          "revision",
+          "published_at"
+        ],
+        "properties": {
+          "published_at": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "session_id": {
+            "type": "string"
+          }
+        }
+      },
       "StartTrialReason": {
         "type": "string",
         "enum": [
@@ -9077,6 +10125,87 @@
           }
         }
       },
+      "Transcript": {
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "provider",
+          "model",
+          "language",
+          "started_at_ms",
+          "memo",
+          "text",
+          "words",
+          "speaker_hints"
+        ],
+        "properties": {
+          "ended_at_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "id": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "memo": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "speaker_hints": {
+            "type": "array",
+            "items": {}
+          },
+          "started_at_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "text": {
+            "type": "string"
+          },
+          "words": {
+            "type": "array",
+            "items": {}
+          }
+        }
+      },
+      "TranscriptPage": {
+        "type": "object",
+        "required": [
+          "meeting_id",
+          "text",
+          "words",
+          "pagination"
+        ],
+        "properties": {
+          "meeting_id": {
+            "type": "string"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          },
+          "text": {
+            "type": "string"
+          },
+          "words": {
+            "type": "array",
+            "items": {}
+          }
+        }
+      },
       "TranscriptionConfiguration": {
         "type": "object",
         "required": [
@@ -9129,6 +10258,17 @@
           "transparent",
           "unknown"
         ]
+      },
+      "UpdateSettingsBody": {
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        }
       },
       "Visibility": {
         "type": "string",
@@ -10579,6 +11719,12 @@
         "scheme": "bearer",
         "bearerFormat": "JWT",
         "description": "Supabase JWT token"
+      },
+      "cloud_api_key": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "anl_...",
+        "description": "Anarlog cloud API key"
       }
     }
   },
@@ -10618,6 +11764,10 @@
     {
       "name": "shared-notes",
       "description": "Public shared-note delivery"
+    },
+    {
+      "name": "cloud-api",
+      "description": "Opt-in hosted access to Anarlog meeting data"
     },
     {
       "name": "subscription",

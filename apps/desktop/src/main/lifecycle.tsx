@@ -7,6 +7,7 @@ import { useAuth } from "~/auth";
 import { searchCalendarEvents } from "~/calendar/queries";
 import { useSessionTab } from "~/chat/components/use-session-tab";
 import { buildChatTools } from "~/chat/tools";
+import { CloudApiBackfillLifecycle } from "~/cloud-api/lifecycle";
 import { searchContacts } from "~/contacts/queries";
 import { useRegisterTools } from "~/contexts/tool";
 import { takePendingWelcomeSession } from "~/onboarding/welcome-note";
@@ -47,6 +48,7 @@ export function ClassicMainServices() {
   return (
     <>
       <AttachmentTransferLifecycle />
+      <CloudApiBackfillLifecycle />
       <DurableSharedNoteCacheSync />
       <SharedAttachmentCacheLifecycle />
       <OwnedSharedNotePublisher />

@@ -7,9 +7,9 @@ use utoipa::{Modify, OpenApi};
 #[derive(OpenApi)]
 #[openapi(
     info(
-        title = "Char AI API",
+        title = "Anarlog API",
         version = "1.0.0",
-        description = "AI services API for speech-to-text transcription, LLM chat completions, and subscription management"
+        description = "Anarlog cloud services and opt-in hosted meeting access"
     ),
     tags(
         (name = "stt", description = "Speech-to-text transcription endpoints"),
@@ -21,6 +21,7 @@ use utoipa::{Modify, OpenApi};
         (name = "nango", description = "Integration management via Nango"),
         (name = "sync", description = "CloudSync credential management"),
         (name = "shared-notes", description = "Public shared-note delivery"),
+        (name = "cloud-api", description = "Opt-in hosted access to Anarlog meeting data"),
         (name = "subscription", description = "Subscription and trial management")
     ),
     modifiers(&SecurityAddon)
@@ -41,6 +42,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     let support_doc = hypr_api_support::openapi();
     let sync_doc = with_path_prefix(hypr_api_sync::openapi(), "/sync");
     let shared_notes_doc = hypr_api_sync::shared_notes_openapi();
+    let cloud_api_doc = hypr_api_cloud::openapi();
 
     doc.merge(stt_doc);
     doc.merge(llm_doc);
@@ -53,6 +55,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     doc.merge(support_doc);
     doc.merge(sync_doc);
     doc.merge(shared_notes_doc);
+    doc.merge(cloud_api_doc);
 
     apply_bearer_auth_to_protected_paths(&mut doc);
 
@@ -81,6 +84,16 @@ impl Modify for SecurityAddon {
                         .scheme(HttpAuthScheme::Bearer)
                         .bearer_format("JWT")
                         .description(Some("Supabase JWT token"))
+                        .build(),
+                ),
+            );
+            components.add_security_scheme(
+                "cloud_api_key",
+                SecurityScheme::Http(
+                    Http::builder()
+                        .scheme(HttpAuthScheme::Bearer)
+                        .bearer_format("anl_...")
+                        .description(Some("Anarlog cloud API key"))
                         .build(),
                 ),
             );
@@ -121,10 +134,25 @@ fn apply_bearer_auth_to_protected_paths(doc: &mut utoipa::openapi::OpenApi) {
             || path.starts_with("/nango")
             || path.starts_with("/pyannote")
             || path.starts_with("/sync")
+            || path.starts_with("/v1/cloud-api")
+            || path.starts_with("/v1/sync-snapshots")
         {
             set_operation_security(item);
+        } else if path.starts_with("/v1/meetings") {
+            set_cloud_api_key_security(item);
         }
     }
+}
+
+fn set_cloud_api_key_security(item: &mut PathItem) {
+    let security = Some(vec![SecurityRequirement::new(
+        "cloud_api_key",
+        Vec::<String>::new(),
+    )]);
+
+    with_each_operation(item, |op| {
+        op.security = security.clone();
+    });
 }
 
 fn set_operation_security(item: &mut PathItem) {
@@ -173,10 +201,16 @@ fn with_each_operation(item: &mut PathItem, mut f: impl FnMut(&mut Operation)) {
 
 #[cfg(test)]
 mod tests {
-    fn assert_bearer(path: &utoipa::openapi::path::PathItem, method: &str) {
+    fn assert_security(
+        path: &utoipa::openapi::path::PathItem,
+        method: &str,
+        security_scheme: &str,
+    ) {
         let operation = match method {
             "get" => path.get.as_ref().unwrap(),
+            "put" => path.put.as_ref().unwrap(),
             "post" => path.post.as_ref().unwrap(),
+            "delete" => path.delete.as_ref().unwrap(),
             _ => unreachable!("unsupported method"),
         };
         let security = operation.security.as_ref().unwrap();
@@ -184,9 +218,13 @@ mod tests {
         assert!(security.iter().any(|item| {
             serde_json::to_value(item)
                 .unwrap()
-                .get("bearer_auth")
+                .get(security_scheme)
                 .is_some()
         }));
+    }
+
+    fn assert_bearer(path: &utoipa::openapi::path::PathItem, method: &str) {
+        assert_security(path, method, "bearer_auth");
     }
 
     fn assert_public(path: &utoipa::openapi::path::PathItem, method: &str) {
@@ -231,6 +269,32 @@ mod tests {
         ] {
             assert_public(doc.paths.paths.get(path).unwrap(), method);
             assert!(!doc.paths.paths.contains_key(&format!("/sync{path}")));
+        }
+    }
+
+    #[test]
+    fn cloud_api_documents_management_and_connector_auth_separately() {
+        let doc = super::openapi();
+
+        let settings = doc.paths.paths.get("/v1/cloud-api/settings").unwrap();
+        assert_bearer(settings, "get");
+        assert_bearer(settings, "put");
+        assert_bearer(
+            doc.paths
+                .paths
+                .get("/v1/sync-snapshots/{session_id}")
+                .unwrap(),
+            "put",
+        );
+
+        for path in [
+            "/v1/meetings",
+            "/v1/meetings/{meeting_id}",
+            "/v1/meetings/{meeting_id}/transcript",
+            "/v1/meetings/{meeting_id}/history",
+            "/v1/meetings/{meeting_id}/export",
+        ] {
+            assert_security(doc.paths.paths.get(path).unwrap(), "get", "cloud_api_key");
         }
     }
 

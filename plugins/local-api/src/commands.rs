@@ -5,6 +5,8 @@ use crate::{
     WebhookInfo, dispatch, server, settings,
 };
 
+const MAX_CLOUD_SNAPSHOT_BYTES: usize = 2 * 1024 * 1024;
+
 fn pool<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<sqlx::SqlitePool, String> {
     app.try_state::<tauri_plugin_db::ManagedState>()
         .map(|state| state.pool().clone())
@@ -203,4 +205,65 @@ pub async fn dispatch_event<R: tauri::Runtime>(
     let pool = pool(&app)?;
     let targeted = dispatch::dispatch_event(&pool, &event, &meeting_id).await?;
     Ok(targeted as u32)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_cloud_snapshot<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    meeting_id: String,
+) -> Result<serde_json::Value, String> {
+    let pool = pool(&app)?;
+    let export = hypr_agent_access::get_meeting_export(&pool, meeting_id)
+        .await
+        .map_err(|error| error.to_string())?;
+    prepare_cloud_snapshot(export)
+}
+
+pub(crate) fn prepare_cloud_snapshot(
+    mut export: hypr_agent_access::MeetingExport,
+) -> Result<serde_json::Value, String> {
+    let serialized = serde_json::to_vec(&export).map_err(|error| error.to_string())?;
+    if serialized.len() > MAX_CLOUD_SNAPSHOT_BYTES {
+        for transcript in &mut export.transcripts {
+            transcript.words.clear();
+            transcript.speaker_hints.clear();
+        }
+    }
+    let serialized = serde_json::to_vec(&export).map_err(|error| error.to_string())?;
+    if serialized.len() > MAX_CLOUD_SNAPSHOT_BYTES {
+        return Err(format!(
+            "meeting snapshot exceeds the {MAX_CLOUD_SNAPSHOT_BYTES}-byte limit"
+        ));
+    }
+    serde_json::to_value(export).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn list_cloud_snapshot_ids<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<Vec<String>, String> {
+    let pool = pool(&app)?;
+    let mut offset = 0;
+    let mut ids = Vec::new();
+    loop {
+        let page = hypr_agent_access::list_meetings(
+            &pool,
+            hypr_agent_access::ListMeetingsInput {
+                query: None,
+                series_id: None,
+                limit: Some(hypr_agent_access::MAX_LIST_LIMIT),
+                offset: Some(offset),
+            },
+        )
+        .await
+        .map_err(|error| error.to_string())?;
+        ids.extend(page.meetings.into_iter().map(|meeting| meeting.id));
+        let Some(next_offset) = page.pagination.next_offset else {
+            break;
+        };
+        offset = next_offset;
+    }
+    Ok(ids)
 }

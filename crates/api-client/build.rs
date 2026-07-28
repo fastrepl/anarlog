@@ -7,6 +7,9 @@ const ALLOWED_PATH_PREFIXES: &[&str] = &[
     "/subscription",
     "/support",
     "/ticket",
+    "/v1/cloud-api",
+    "/v1/meetings",
+    "/v1/sync-snapshots",
 ];
 
 const TYPE_REPLACEMENTS: &[(&str, &str)] = &[

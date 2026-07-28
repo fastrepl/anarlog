@@ -7,6 +7,7 @@ import { sonnerToast } from "@hypr/ui/components/ui/toast";
 
 import { supabase } from "~/auth/client";
 import { useIgnoredEvents } from "~/calendar/ignored-events";
+import { deleteCloudApiSnapshotBestEffort } from "~/cloud-api/client";
 import {
   deleteSessionShareBySession,
   ShareManagementError,
@@ -190,6 +191,7 @@ export function useDeleteSession() {
               if (!deletedData) return;
               await finalizeSessionDeletion(sessionId);
               await revokeManagedShareBestEffort(sessionId);
+              deleteCloudApiSnapshotBestEffort(sessionId);
             })
             .catch(() => undefined);
         addDeletion(
@@ -239,6 +241,7 @@ export function useDeleteSession() {
             // undo window beats leaving the shared link live forever.
             void finalizeSessionDeletion(sessionId);
             void revokeManagedShareBestEffort(sessionId);
+            deleteCloudApiSnapshotBestEffort(sessionId);
           }
         } finally {
           if (didDelete) {
@@ -279,6 +282,7 @@ export function useRemoteSessionDeletionUndoListener(active: boolean) {
       addDeletion(payload.data, async () => {
         await finalizeSessionDeletion(payload.sessionId);
         await revokeManagedShareBestEffort(payload.sessionId);
+        deleteCloudApiSnapshotBestEffort(payload.sessionId);
       });
       void closeSessionNoteWindows(payload.sessionId);
     }).then((fn) => {

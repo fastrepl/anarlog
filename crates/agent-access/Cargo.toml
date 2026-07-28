@@ -14,6 +14,7 @@ specta = { workspace = true, features = ["derive", "serde_json"] }
 sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
+utoipa = { workspace = true }
 
 [dev-dependencies]
 hypr-db-core = { workspace = true }

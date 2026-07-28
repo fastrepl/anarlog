@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CanStartTrialData, CanStartTrialErrors, CanStartTrialResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateConversationData, CreateConversationErrors, CreateConversationResponses, CreateSessionData, CreateSessionErrors, CreateSessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteConnectionData, DeleteConnectionErrors, DeleteConnectionResponses, DiarizeData, DiarizeErrors, DiarizeResponses, GetMessagesData, GetMessagesErrors, GetMessagesResponses, GithubListReposData, GithubListReposErrors, GithubListReposResponses, GithubListTicketsData, GithubListTicketsErrors, GithubListTicketsResponses, GoogleGetAttachmentData, GoogleGetAttachmentErrors, GoogleGetAttachmentResponses, GoogleGetMessageData, GoogleGetMessageErrors, GoogleGetMessageResponses, GoogleGetProfileData, GoogleGetProfileErrors, GoogleGetProfileResponses, GoogleGetThreadData, GoogleGetThreadErrors, GoogleGetThreadResponses, GoogleListCalendarsData, GoogleListCalendarsErrors, GoogleListCalendarsResponses, GoogleListEventsData, GoogleListEventsErrors, GoogleListEventsResponses, GoogleListHistoryData, GoogleListHistoryErrors, GoogleListHistoryResponses, GoogleListLabelsData, GoogleListLabelsErrors, GoogleListLabelsResponses, GoogleListMessagesData, GoogleListMessagesErrors, GoogleListMessagesResponses, GoogleListThreadsData, GoogleListThreadsErrors, GoogleListThreadsResponses, IdentifyData, IdentifyErrors, IdentifyResponses, LinearListTeamsData, LinearListTeamsErrors, LinearListTeamsResponses, LinearListTicketsData, LinearListTicketsErrors, LinearListTicketsResponses, ListConnectionsData, ListConnectionsErrors, ListConnectionsResponses, ListConversationsData, ListConversationsErrors, ListConversationsResponses, LlmChatCompletionsData, LlmChatCompletionsErrors, LlmChatCompletionsResponses, NangoWebhookData, NangoWebhookErrors, NangoWebhookResponses, OutlookListCalendarsData, OutlookListCalendarsErrors, OutlookListCalendarsResponses, OutlookListEventsData, OutlookListEventsErrors, OutlookListEventsResponses, SendMessageData, SendMessageErrors, SendMessageResponses, StartTrialData, StartTrialErrors, StartTrialResponses, SttListenBatchData, SttListenBatchErrors, SttListenBatchResponses, SttListenStreamData, SttListenStreamErrors, SttStatusData, SttStatusErrors, SttStatusResponses, SubmitData, SubmitErrors, SubmitResponses, VoiceprintData, VoiceprintErrors, VoiceprintResponses, WhoamiData, WhoamiErrors, WhoamiResponses } from './types.gen';
+import type { CancelAttachmentBackupDeletionData, CancelAttachmentBackupDeletionErrors, CancelAttachmentBackupDeletionResponses, CanStartTrialData, CanStartTrialErrors, CanStartTrialResponses, ClaimE2EeIdentityData, ClaimE2EeIdentityErrors, ClaimE2EeIdentityResponses, ClaimSharedNoteHandoffData, ClaimSharedNoteHandoffErrors, ClaimSharedNoteHandoffResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateConversationData, CreateConversationErrors, CreateConversationResponses, CreateCredentialsData, CreateCredentialsErrors, CreateCredentialsResponses, CreateKeyData, CreateKeyErrors, CreateKeyResponses, CreateLinkSharedNoteHandoffData, CreateLinkSharedNoteHandoffErrors, CreateLinkSharedNoteHandoffResponses, CreatePublicSharedNoteHandoffData, CreatePublicSharedNoteHandoffErrors, CreatePublicSharedNoteHandoffResponses, CreateSessionData, CreateSessionErrors, CreateSessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteAttachmentBackupData, DeleteAttachmentBackupErrors, DeleteAttachmentBackupResponses, DeleteConnectionData, DeleteConnectionErrors, DeleteConnectionResponses, DeleteSnapshotData, DeleteSnapshotResponses, DiarizeData, DiarizeErrors, DiarizeResponses, DownloadAccessSharedAttachmentData, DownloadAccessSharedAttachmentErrors, DownloadAccessSharedAttachmentResponses, DownloadAttachmentBackupData, DownloadAttachmentBackupErrors, DownloadAttachmentBackupResponses, DownloadHandoffSharedAttachmentData, DownloadHandoffSharedAttachmentErrors, DownloadHandoffSharedAttachmentResponses, DownloadLinkSharedAttachmentData, DownloadLinkSharedAttachmentErrors, DownloadLinkSharedAttachmentResponses, DownloadPublicSharedAttachmentData, DownloadPublicSharedAttachmentErrors, DownloadPublicSharedAttachmentResponses, EditSessionShareSnapshotData, EditSessionShareSnapshotErrors, EditSessionShareSnapshotResponses, ExportMeetingData, ExportMeetingErrors, ExportMeetingResponses, FinalizeAttachmentBackupData, FinalizeAttachmentBackupErrors, FinalizeAttachmentBackupResponses, FinalizeSharedAttachmentData, FinalizeSharedAttachmentErrors, FinalizeSharedAttachmentResponses, GetHistoryData, GetHistoryErrors, GetHistoryResponses, GetMeetingData, GetMeetingErrors, GetMeetingResponses, GetMessagesData, GetMessagesErrors, GetMessagesResponses, GetSettingsData, GetSettingsErrors, GetSettingsResponses, GetTranscriptData, GetTranscriptErrors, GetTranscriptResponses, GithubListReposData, GithubListReposErrors, GithubListReposResponses, GithubListTicketsData, GithubListTicketsErrors, GithubListTicketsResponses, GoogleGetAttachmentData, GoogleGetAttachmentErrors, GoogleGetAttachmentResponses, GoogleGetMessageData, GoogleGetMessageErrors, GoogleGetMessageResponses, GoogleGetProfileData, GoogleGetProfileErrors, GoogleGetProfileResponses, GoogleGetThreadData, GoogleGetThreadErrors, GoogleGetThreadResponses, GoogleListCalendarsData, GoogleListCalendarsErrors, GoogleListCalendarsResponses, GoogleListEventsData, GoogleListEventsErrors, GoogleListEventsResponses, GoogleListHistoryData, GoogleListHistoryErrors, GoogleListHistoryResponses, GoogleListLabelsData, GoogleListLabelsErrors, GoogleListLabelsResponses, GoogleListMessagesData, GoogleListMessagesErrors, GoogleListMessagesResponses, GoogleListThreadsData, GoogleListThreadsErrors, GoogleListThreadsResponses, GrantAttachmentBackupUploadData, GrantAttachmentBackupUploadErrors, GrantAttachmentBackupUploadResponses, GrantSharedAttachmentUploadData, GrantSharedAttachmentUploadErrors, GrantSharedAttachmentUploadResponses, IdentifyData, IdentifyErrors, IdentifyResponses, LinearListTeamsData, LinearListTeamsErrors, LinearListTeamsResponses, LinearListTicketsData, LinearListTicketsErrors, LinearListTicketsResponses, ListConnectionsData, ListConnectionsErrors, ListConnectionsResponses, ListConversationsData, ListConversationsErrors, ListConversationsResponses, ListKeysData, ListKeysErrors, ListKeysResponses, ListMeetingsData, ListMeetingsErrors, ListMeetingsResponses, LlmChatCompletionsData, LlmChatCompletionsErrors, LlmChatCompletionsResponses, NangoWebhookData, NangoWebhookErrors, NangoWebhookResponses, OutlookListCalendarsData, OutlookListCalendarsErrors, OutlookListCalendarsResponses, OutlookListEventsData, OutlookListEventsErrors, OutlookListEventsResponses, PromoteAttachmentBackupData, PromoteAttachmentBackupErrors, PromoteAttachmentBackupResponses, PublishE2EeWitnessData, PublishE2EeWitnessErrors, PublishE2EeWitnessResponses, PublishSessionShareSnapshotData, PublishSessionShareSnapshotErrors, PublishSessionShareSnapshotResponses, PublishSnapshotData, PublishSnapshotErrors, PublishSnapshotResponses, ReadCurrentAttachmentBackupData, ReadCurrentAttachmentBackupErrors, ReadCurrentAttachmentBackupResponses, ReadE2EeWitnessData, ReadE2EeWitnessErrors, ReadE2EeWitnessResponses, ReadLinkSharedNoteData, ReadLinkSharedNoteErrors, ReadLinkSharedNoteResponses, ReadPublicSharedNoteData, ReadPublicSharedNoteErrors, ReadPublicSharedNoteResponses, ReserveAttachmentBackupData, ReserveAttachmentBackupErrors, ReserveAttachmentBackupResponses, ReserveSharedAttachmentData, ReserveSharedAttachmentErrors, ReserveSharedAttachmentResponses, RevokeKeyData, RevokeKeyErrors, RevokeKeyResponses, SendMessageData, SendMessageErrors, SendMessageResponses, SendSharedNoteInvitationEmailData, SendSharedNoteInvitationEmailErrors, SendSharedNoteInvitationEmailResponses, StartTrialData, StartTrialErrors, StartTrialResponses, SttListenBatchData, SttListenBatchErrors, SttListenBatchResponses, SttListenStreamData, SttListenStreamErrors, SttStatusData, SttStatusErrors, SttStatusResponses, SubmitData, SubmitErrors, SubmitResponses, UpdateSettingsData, UpdateSettingsErrors, UpdateSettingsResponses, VoiceprintData, VoiceprintErrors, VoiceprintResponses, WhoamiData, WhoamiErrors, WhoamiResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -222,6 +222,68 @@ export const voiceprint = <ThrowOnError extends boolean = false>(options: Option
     }
 });
 
+export const downloadAccessSharedAttachment = <ThrowOnError extends boolean = false>(options: Options<DownloadAccessSharedAttachmentData, ThrowOnError>) => (options.client ?? client).post<DownloadAccessSharedAttachmentResponses, DownloadAccessSharedAttachmentErrors, ThrowOnError>({ url: '/shared-notes/access/{share_id}/attachments/{attachment_id}/download', ...options });
+
+export const downloadHandoffSharedAttachment = <ThrowOnError extends boolean = false>(options: Options<DownloadHandoffSharedAttachmentData, ThrowOnError>) => (options.client ?? client).post<DownloadHandoffSharedAttachmentResponses, DownloadHandoffSharedAttachmentErrors, ThrowOnError>({
+    url: '/shared-notes/handoffs/attachments/{attachment_id}/download',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const claimSharedNoteHandoff = <ThrowOnError extends boolean = false>(options: Options<ClaimSharedNoteHandoffData, ThrowOnError>) => (options.client ?? client).post<ClaimSharedNoteHandoffResponses, ClaimSharedNoteHandoffErrors, ThrowOnError>({
+    url: '/shared-notes/handoffs/claim',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const sendSharedNoteInvitationEmail = <ThrowOnError extends boolean = false>(options: Options<SendSharedNoteInvitationEmailData, ThrowOnError>) => (options.client ?? client).post<SendSharedNoteInvitationEmailResponses, SendSharedNoteInvitationEmailErrors, ThrowOnError>({
+    url: '/shared-notes/invitations/{invitation_id}/email',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const readLinkSharedNote = <ThrowOnError extends boolean = false>(options: Options<ReadLinkSharedNoteData, ThrowOnError>) => (options.client ?? client).post<ReadLinkSharedNoteResponses, ReadLinkSharedNoteErrors, ThrowOnError>({
+    url: '/shared-notes/link/{share_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const downloadLinkSharedAttachment = <ThrowOnError extends boolean = false>(options: Options<DownloadLinkSharedAttachmentData, ThrowOnError>) => (options.client ?? client).post<DownloadLinkSharedAttachmentResponses, DownloadLinkSharedAttachmentErrors, ThrowOnError>({
+    url: '/shared-notes/link/{share_id}/attachments/{attachment_id}/download',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const createLinkSharedNoteHandoff = <ThrowOnError extends boolean = false>(options: Options<CreateLinkSharedNoteHandoffData, ThrowOnError>) => (options.client ?? client).post<CreateLinkSharedNoteHandoffResponses, CreateLinkSharedNoteHandoffErrors, ThrowOnError>({
+    url: '/shared-notes/link/{share_id}/handoff',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const readPublicSharedNote = <ThrowOnError extends boolean = false>(options: Options<ReadPublicSharedNoteData, ThrowOnError>) => (options.client ?? client).get<ReadPublicSharedNoteResponses, ReadPublicSharedNoteErrors, ThrowOnError>({ url: '/shared-notes/public/{slug}', ...options });
+
+export const downloadPublicSharedAttachment = <ThrowOnError extends boolean = false>(options: Options<DownloadPublicSharedAttachmentData, ThrowOnError>) => (options.client ?? client).post<DownloadPublicSharedAttachmentResponses, DownloadPublicSharedAttachmentErrors, ThrowOnError>({ url: '/shared-notes/public/{slug}/attachments/{attachment_id}/download', ...options });
+
+export const createPublicSharedNoteHandoff = <ThrowOnError extends boolean = false>(options: Options<CreatePublicSharedNoteHandoffData, ThrowOnError>) => (options.client ?? client).post<CreatePublicSharedNoteHandoffResponses, CreatePublicSharedNoteHandoffErrors, ThrowOnError>({ url: '/shared-notes/public/{slug}/handoff', ...options });
+
 export const sttListenStream = <ThrowOnError extends boolean = false>(options?: Options<SttListenStreamData, ThrowOnError>) => (options?.client ?? client).get<unknown, SttListenStreamErrors, ThrowOnError>({ url: '/stt/listen', ...options });
 
 export const sttListenBatch = <ThrowOnError extends boolean = false>(options: Options<SttListenBatchData, ThrowOnError>) => (options.client ?? client).post<SttListenBatchResponses, SttListenBatchErrors, ThrowOnError>({
@@ -284,6 +346,164 @@ export const sendMessage = <ThrowOnError extends boolean = false>(options: Optio
     }
 });
 
+export const deleteAttachmentBackup = <ThrowOnError extends boolean = false>(options: Options<DeleteAttachmentBackupData, ThrowOnError>) => (options.client ?? client).post<DeleteAttachmentBackupResponses, DeleteAttachmentBackupErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/sync/attachment-backups/delete',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const cancelAttachmentBackupDeletion = <ThrowOnError extends boolean = false>(options: Options<CancelAttachmentBackupDeletionData, ThrowOnError>) => (options.client ?? client).post<CancelAttachmentBackupDeletionResponses, CancelAttachmentBackupDeletionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/sync/attachment-backups/delete/cancel',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const downloadAttachmentBackup = <ThrowOnError extends boolean = false>(options: Options<DownloadAttachmentBackupData, ThrowOnError>) => (options.client ?? client).post<DownloadAttachmentBackupResponses, DownloadAttachmentBackupErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/sync/attachment-backups/download',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const finalizeAttachmentBackup = <ThrowOnError extends boolean = false>(options: Options<FinalizeAttachmentBackupData, ThrowOnError>) => (options.client ?? client).post<FinalizeAttachmentBackupResponses, FinalizeAttachmentBackupErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/sync/attachment-backups/finalize',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const promoteAttachmentBackup = <ThrowOnError extends boolean = false>(options: Options<PromoteAttachmentBackupData, ThrowOnError>) => (options.client ?? client).put<PromoteAttachmentBackupResponses, PromoteAttachmentBackupErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/sync/attachment-backups/head',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const readCurrentAttachmentBackup = <ThrowOnError extends boolean = false>(options: Options<ReadCurrentAttachmentBackupData, ThrowOnError>) => (options.client ?? client).get<ReadCurrentAttachmentBackupResponses, ReadCurrentAttachmentBackupErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/sync/attachment-backups/head/{attachment_ref}',
+    ...options
+});
+
+export const reserveAttachmentBackup = <ThrowOnError extends boolean = false>(options: Options<ReserveAttachmentBackupData, ThrowOnError>) => (options.client ?? client).post<ReserveAttachmentBackupResponses, ReserveAttachmentBackupErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/sync/attachment-backups/reserve',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const grantAttachmentBackupUpload = <ThrowOnError extends boolean = false>(options: Options<GrantAttachmentBackupUploadData, ThrowOnError>) => (options.client ?? client).post<GrantAttachmentBackupUploadResponses, GrantAttachmentBackupUploadErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/sync/attachment-backups/upload-grant',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const claimE2EeIdentity = <ThrowOnError extends boolean = false>(options: Options<ClaimE2EeIdentityData, ThrowOnError>) => (options.client ?? client).put<ClaimE2EeIdentityResponses, ClaimE2EeIdentityErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/sync/e2ee/identity',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const readE2EeWitness = <ThrowOnError extends boolean = false>(options: Options<ReadE2EeWitnessData, ThrowOnError>) => (options.client ?? client).get<ReadE2EeWitnessResponses, ReadE2EeWitnessErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/sync/e2ee/witness/{workspace_id}',
+    ...options
+});
+
+export const publishE2EeWitness = <ThrowOnError extends boolean = false>(options: Options<PublishE2EeWitnessData, ThrowOnError>) => (options.client ?? client).post<PublishE2EeWitnessResponses, PublishE2EeWitnessErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/sync/e2ee/witness/{workspace_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const finalizeSharedAttachment = <ThrowOnError extends boolean = false>(options: Options<FinalizeSharedAttachmentData, ThrowOnError>) => (options.client ?? client).post<FinalizeSharedAttachmentResponses, FinalizeSharedAttachmentErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/sync/shares/{share_id}/attachments/finalize',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const reserveSharedAttachment = <ThrowOnError extends boolean = false>(options: Options<ReserveSharedAttachmentData, ThrowOnError>) => (options.client ?? client).post<ReserveSharedAttachmentResponses, ReserveSharedAttachmentErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/sync/shares/{share_id}/attachments/reserve',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const grantSharedAttachmentUpload = <ThrowOnError extends boolean = false>(options: Options<GrantSharedAttachmentUploadData, ThrowOnError>) => (options.client ?? client).post<GrantSharedAttachmentUploadResponses, GrantSharedAttachmentUploadErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/sync/shares/{share_id}/attachments/upload-grant',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const publishSessionShareSnapshot = <ThrowOnError extends boolean = false>(options: Options<PublishSessionShareSnapshotData, ThrowOnError>) => (options.client ?? client).put<PublishSessionShareSnapshotResponses, PublishSessionShareSnapshotErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/sync/shares/{share_id}/snapshot',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const editSessionShareSnapshot = <ThrowOnError extends boolean = false>(options: Options<EditSessionShareSnapshotData, ThrowOnError>) => (options.client ?? client).put<EditSessionShareSnapshotResponses, EditSessionShareSnapshotErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/sync/shares/{share_id}/web-edit',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const createCredentials = <ThrowOnError extends boolean = false>(options?: Options<CreateCredentialsData, ThrowOnError>) => (options?.client ?? client).post<CreateCredentialsResponses, CreateCredentialsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/sync/token',
+    ...options
+});
+
 export const githubListRepos = <ThrowOnError extends boolean = false>(options: Options<GithubListReposData, ThrowOnError>) => (options.client ?? client).post<GithubListReposResponses, GithubListReposErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/ticket/github/list-repos',
@@ -317,6 +537,90 @@ export const linearListTeams = <ThrowOnError extends boolean = false>(options: O
 export const linearListTickets = <ThrowOnError extends boolean = false>(options: Options<LinearListTicketsData, ThrowOnError>) => (options.client ?? client).post<LinearListTicketsResponses, LinearListTicketsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/ticket/linear/list-tickets',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const listKeys = <ThrowOnError extends boolean = false>(options?: Options<ListKeysData, ThrowOnError>) => (options?.client ?? client).get<ListKeysResponses, ListKeysErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/cloud-api/keys',
+    ...options
+});
+
+export const createKey = <ThrowOnError extends boolean = false>(options: Options<CreateKeyData, ThrowOnError>) => (options.client ?? client).post<CreateKeyResponses, CreateKeyErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/cloud-api/keys',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const revokeKey = <ThrowOnError extends boolean = false>(options: Options<RevokeKeyData, ThrowOnError>) => (options.client ?? client).delete<RevokeKeyResponses, RevokeKeyErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/cloud-api/keys/{key_id}',
+    ...options
+});
+
+export const getSettings = <ThrowOnError extends boolean = false>(options?: Options<GetSettingsData, ThrowOnError>) => (options?.client ?? client).get<GetSettingsResponses, GetSettingsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/cloud-api/settings',
+    ...options
+});
+
+export const updateSettings = <ThrowOnError extends boolean = false>(options: Options<UpdateSettingsData, ThrowOnError>) => (options.client ?? client).put<UpdateSettingsResponses, UpdateSettingsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/cloud-api/settings',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const listMeetings = <ThrowOnError extends boolean = false>(options?: Options<ListMeetingsData, ThrowOnError>) => (options?.client ?? client).get<ListMeetingsResponses, ListMeetingsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/meetings',
+    ...options
+});
+
+export const getMeeting = <ThrowOnError extends boolean = false>(options: Options<GetMeetingData, ThrowOnError>) => (options.client ?? client).get<GetMeetingResponses, GetMeetingErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/meetings/{meeting_id}',
+    ...options
+});
+
+export const exportMeeting = <ThrowOnError extends boolean = false>(options: Options<ExportMeetingData, ThrowOnError>) => (options.client ?? client).get<ExportMeetingResponses, ExportMeetingErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/meetings/{meeting_id}/export',
+    ...options
+});
+
+export const getHistory = <ThrowOnError extends boolean = false>(options: Options<GetHistoryData, ThrowOnError>) => (options.client ?? client).get<GetHistoryResponses, GetHistoryErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/meetings/{meeting_id}/history',
+    ...options
+});
+
+export const getTranscript = <ThrowOnError extends boolean = false>(options: Options<GetTranscriptData, ThrowOnError>) => (options.client ?? client).get<GetTranscriptResponses, GetTranscriptErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/meetings/{meeting_id}/transcript',
+    ...options
+});
+
+export const deleteSnapshot = <ThrowOnError extends boolean = false>(options: Options<DeleteSnapshotData, ThrowOnError>) => (options.client ?? client).delete<DeleteSnapshotResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/sync-snapshots/{session_id}',
+    ...options
+});
+
+export const publishSnapshot = <ThrowOnError extends boolean = false>(options: Options<PublishSnapshotData, ThrowOnError>) => (options.client ?? client).put<PublishSnapshotResponses, PublishSnapshotErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/sync-snapshots/{session_id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',

@@ -85,6 +85,22 @@ async dispatchEvent(event: string, meetingId: string) : Promise<Result<number, s
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async getCloudSnapshot(meetingId: string) : Promise<Result<JsonValue, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:local-api|get_cloud_snapshot", { meetingId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async listCloudSnapshotIds() : Promise<Result<string[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:local-api|list_cloud_snapshot_ids") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -101,6 +117,7 @@ async dispatchEvent(event: string, meetingId: string) : Promise<Result<number, s
 export type ApiKeyInfo = { id: string; name: string; key_prefix: string; created_at: string; last_used_at: string | null }
 export type CreatedApiKey = ({ id: string; name: string; key_prefix: string; created_at: string; last_used_at: string | null }) & { key: string }
 export type CreatedWebhook = ({ id: string; url: string; events: string[]; active: boolean; created_at: string; last_delivery_at: string | null; last_delivery_status: string }) & { secret: string }
+export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
 export type LocalApiStatus = { enabled: boolean; port: number; running: boolean }
 export type WebhookDelivery = { delivered: boolean; status: string }
 export type WebhookInfo = { id: string; url: string; events: string[]; active: boolean; created_at: string; last_delivery_at: string | null; last_delivery_status: string }

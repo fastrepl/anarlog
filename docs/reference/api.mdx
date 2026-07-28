@@ -3,9 +3,11 @@ title: "API reference"
 description: "Endpoints, authentication, and webhooks exposed by the Anarlog local API."
 ---
 
-The Anarlog API is a local REST server built into the desktop app, available on every plan. Enable it under **Settings → Developers → API**. It serves the same read-only meeting data as the CLI and MCP server, plus outbound webhooks — and because Anarlog is local-first with end-to-end encrypted sync, your notes are served from this device only and never pass through our servers.
+The Anarlog API is a local REST server built into the desktop app, available on every plan. Enable it under **Settings → Developers → Local API**. It serves the same read-only meeting data as the CLI and MCP server, plus outbound webhooks — and because Anarlog is local-first with end-to-end encrypted sync, your notes are served from this device only and never pass through our servers.
 
-The server listens on `http://127.0.0.1:33443` while the desktop app is running. All endpoints except `/health` require an API key created in **Settings → Developers → API**.
+For hosted access that works while the desktop app is closed, see [Cloud API and connectors](/reference/api-cloud).
+
+The server listens on `http://127.0.0.1:33443` while the desktop app is running. All endpoints except `/health` require an API key created in **Settings → Developers → Local API**.
 
 ```bash
 curl -H "Authorization: Bearer anl_..." http://127.0.0.1:33443/v1/meetings

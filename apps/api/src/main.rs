@@ -196,6 +196,18 @@ async fn app() -> Router {
             .unwrap()
             .allow_burst(NonZeroU32::new(30).unwrap()),
     );
+    let cloud_api_rate_limit = rate_limit::RateLimitState::builder()
+        .pro(
+            governor::Quota::with_period(Duration::from_millis(200))
+                .unwrap()
+                .allow_burst(NonZeroU32::new(10).unwrap()),
+        )
+        .free(
+            governor::Quota::with_period(Duration::from_millis(200))
+                .unwrap()
+                .allow_burst(NonZeroU32::new(10).unwrap()),
+        )
+        .build();
 
     let auth_state = AuthState::new(&env.supabase.supabase_url);
     let auth_state_paid = auth_state.clone().with_required_entitlements(
@@ -244,6 +256,13 @@ async fn app() -> Router {
     )
     .and_then(|config| config.with_invitation_email(&env.loops.loops_key))
     .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
+    let cloud_api_state = hypr_api_cloud::AppState::new(
+        hypr_api_cloud::CloudApiConfig::new(
+            &env.supabase.supabase_url,
+            &env.supabase.supabase_service_role_key,
+        )
+        .unwrap_or_else(|error| panic!("Failed to load environment: {error}")),
+    );
 
     use hypr_api_nango::NangoIntegrationId;
 
@@ -301,6 +320,22 @@ async fn app() -> Router {
                 auth_state.clone(),
                 auth::require_auth,
             ));
+    let cloud_api_management_routes = hypr_api_cloud::management_router(cloud_api_state.clone())
+        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
+        .route_layer(middleware::from_fn_with_state(
+            auth_state.clone(),
+            auth::require_auth,
+        ));
+    let cloud_api_connector_routes = hypr_api_cloud::connector_router(cloud_api_state.clone())
+        .route_layer(middleware::from_fn_with_state(
+            cloud_api_rate_limit,
+            rate_limit::rate_limit,
+        ))
+        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
+        .route_layer(middleware::from_fn_with_state(
+            cloud_api_state,
+            hypr_api_cloud::require_cloud_api_key,
+        ));
 
     let integration_routes = Router::new()
         .nest("/calendar", hypr_api_calendar::router())
@@ -372,6 +407,8 @@ async fn app() -> Router {
         .merge(paid_routes)
         .merge(shared_notes_routes)
         .merge(authenticated_shared_notes_routes)
+        .merge(cloud_api_management_routes)
+        .merge(cloud_api_connector_routes)
         .nest("/sync", sync_routes)
         .merge(integration_routes)
         .merge(integration_management_routes)

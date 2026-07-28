@@ -33,6 +33,8 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::delete_webhook::<tauri::Wry>,
             commands::test_webhook::<tauri::Wry>,
             commands::dispatch_event::<tauri::Wry>,
+            commands::get_cloud_snapshot::<tauri::Wry>,
+            commands::list_cloud_snapshot_ids::<tauri::Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
@@ -160,6 +162,28 @@ mod test {
             request = request.json(&body);
         }
         request.send().await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn oversized_cloud_snapshot_keeps_text_and_drops_word_payloads() {
+        let pool = seeded_pool().await;
+        let mut export = hypr_agent_access::get_meeting_export(&pool, "meeting-1".to_string())
+            .await
+            .unwrap();
+        export.transcripts[0].words =
+            vec![serde_json::json!({ "text": "x".repeat(2 * 1024 * 1024) })];
+        export.transcripts[0].speaker_hints = vec![serde_json::json!({ "name": "x".repeat(1024) })];
+
+        let snapshot = commands::prepare_cloud_snapshot(export).unwrap();
+
+        assert_eq!(snapshot["id"], "meeting-1");
+        assert!(snapshot.get("meeting").is_none());
+        assert_eq!(snapshot["transcripts"][0]["text"], "hello world");
+        assert_eq!(snapshot["transcripts"][0]["words"], serde_json::json!([]));
+        assert_eq!(
+            snapshot["transcripts"][0]["speaker_hints"],
+            serde_json::json!([])
+        );
     }
 
     #[tokio::test]

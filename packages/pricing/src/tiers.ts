@@ -85,7 +85,7 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
       { label: "Cloud LLM", included: true },
       { label: "Local-cloud Sync", included: true },
       {
-        label: "Cloud API & Connectors (Coming soon)",
+        label: "Cloud API & Connectors",
         included: true,
         tooltip:
           "Hosted API and MCP connectors for Claude, ChatGPT, and other agents — no desktop app required.",
