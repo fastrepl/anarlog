@@ -217,6 +217,11 @@ describe("buildRenderTranscriptRequestFromRows", () => {
               value: { human_id: "third" },
             },
             {
+              word_id: "word-2",
+              type: "automatic_speaker_assignment",
+              value: { human_id: "automatic" },
+            },
+            {
               word_id: "word-3",
               type: "provider_speaker_index",
               value: JSON.stringify({ speaker_index: 1 }),
@@ -224,7 +229,59 @@ describe("buildRenderTranscriptRequestFromRows", () => {
           ],
         },
       ]),
-    ).toEqual(["remote", "third"]);
+    ).toEqual(["remote", "third", "automatic"]);
+  });
+
+  it("orders automatic assignments before explicit user assignments", () => {
+    const request = buildRenderTranscriptRequestFromRows([
+      {
+        words: [
+          {
+            id: "word-1",
+            text: " hello",
+            start_ms: 0,
+            end_ms: 100,
+            channel: 1,
+          },
+        ],
+        speaker_hints: [
+          {
+            word_id: "word-1",
+            type: "user_speaker_assignment",
+            value: { human_id: "explicit" },
+          },
+          {
+            word_id: "word-1",
+            type: "provider_speaker_index",
+            value: { channel: 1, speaker_index: 2 },
+          },
+          {
+            word_id: "word-1",
+            type: "automatic_speaker_assignment",
+            value: { human_id: "automatic" },
+          },
+        ],
+      },
+    ]);
+
+    expect(request?.transcripts[0]?.assignments).toEqual([
+      {
+        human_id: "automatic",
+        scope: {
+          kind: "channel_speaker",
+          channel: "RemoteParty",
+          speaker_index: 2,
+        },
+      },
+      {
+        human_id: "explicit",
+        scope: {
+          kind: "channel_speaker",
+          channel: "RemoteParty",
+          speaker_index: 2,
+        },
+      },
+    ]);
   });
 
   it("rounds fractional millisecond timings before invoking Rust", async () => {

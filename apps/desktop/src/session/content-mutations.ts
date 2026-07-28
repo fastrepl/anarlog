@@ -26,6 +26,14 @@ export type SessionDocumentContentUpdate = {
   nextContent: string;
 };
 
+export type TranscriptSpeakerHintsUpdate = {
+  id: string;
+  currentWordsJson: string;
+  currentSpeakerHintsJson: string;
+  nextSpeakerHintsJson: string;
+  expectedParticipantHumanIdsJson: string;
+};
+
 export function applySessionContentCorrections({
   sessionId,
   summaries,
@@ -103,12 +111,14 @@ export function persistGeneratedEnhancedNote({
   ownerUserId,
   note,
   tagNames,
+  transcriptSpeakerHints,
   pendingAutoEnhance,
 }: {
   sessionId: string;
   ownerUserId: string;
   note: SessionDocumentContentUpdate;
   tagNames: string[];
+  transcriptSpeakerHints?: TranscriptSpeakerHintsUpdate[];
   pendingAutoEnhance?: {
     generation: string;
     expectedBody: string;
@@ -222,6 +232,72 @@ export function persistGeneratedEnhancedNote({
       },
     ];
 
+    const transcriptStatements = (transcriptSpeakerHints ?? []).map(
+      (transcript) => ({
+        sql: `
+          UPDATE transcripts
+          SET speaker_hints_json = ?, updated_at = ?
+          WHERE id = ?
+            AND session_id = ?
+            AND words_json = ?
+            AND speaker_hints_json = ?
+            AND deleted_at IS NULL
+            AND (
+              SELECT COUNT(DISTINCT participant.human_id)
+              FROM session_participants AS participant
+              LEFT JOIN humans AS human
+                ON human.id = participant.human_id
+                AND human.deleted_at IS NULL
+              WHERE participant.session_id = ?
+                AND participant.human_id <> ''
+                AND participant.human_id <> ?
+                AND participant.source <> 'excluded'
+                AND participant.deleted_at IS NULL
+                AND trim(COALESCE(
+                  NULLIF(human.name, ''),
+                  participant.display_name
+                )) <> ''
+            ) = json_array_length(?)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM json_each(?) AS expected
+              WHERE NOT EXISTS (
+                SELECT 1
+                FROM session_participants AS participant
+                LEFT JOIN humans AS human
+                  ON human.id = participant.human_id
+                  AND human.deleted_at IS NULL
+                WHERE participant.session_id = ?
+                  AND participant.human_id = expected.value
+                  AND participant.human_id <> ''
+                  AND participant.human_id <> ?
+                  AND participant.source <> 'excluded'
+                  AND participant.deleted_at IS NULL
+                  AND trim(COALESCE(
+                    NULLIF(human.name, ''),
+                    participant.display_name
+                  )) <> ''
+              )
+            )
+        `,
+        params: [
+          transcript.nextSpeakerHintsJson,
+          now,
+          transcript.id,
+          sessionId,
+          transcript.currentWordsJson,
+          transcript.currentSpeakerHintsJson,
+          sessionId,
+          ownerUserId,
+          transcript.expectedParticipantHumanIdsJson,
+          transcript.expectedParticipantHumanIdsJson,
+          sessionId,
+          ownerUserId,
+        ],
+        expectedRowsAffected: 1,
+      }),
+    );
+
     for (const tagName of normalizedTagNames) {
       statements.push(
         {
@@ -265,6 +341,16 @@ export function persistGeneratedEnhancedNote({
     }
 
     await executeTransaction(statements);
+    if (transcriptStatements.length > 0) {
+      try {
+        await executeTransaction(transcriptStatements);
+      } catch (error) {
+        console.warn(
+          "[enhance] automatic speaker assignments were not persisted",
+          error,
+        );
+      }
+    }
   });
 }
 

@@ -373,7 +373,8 @@ export async function removeHumanSpeakerAssignments(
         const hints = parseTranscriptHints(store, transcript.id);
         const filtered = hints.filter(
           (hint) =>
-            hint.type !== "user_speaker_assignment" ||
+            (hint.type !== "automatic_speaker_assignment" &&
+              hint.type !== "user_speaker_assignment") ||
             parseAssignedHumanId(hint.value) !== humanId,
         );
         if (filtered.length !== hints.length) {

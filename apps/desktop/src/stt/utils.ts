@@ -281,7 +281,10 @@ export function upsertSpeakerAssignment(
   };
 
   const nextHints = hints.filter((hint) => {
-    if (hint.type !== "user_speaker_assignment") {
+    if (
+      hint.type !== "automatic_speaker_assignment" &&
+      hint.type !== "user_speaker_assignment"
+    ) {
       return true;
     }
 

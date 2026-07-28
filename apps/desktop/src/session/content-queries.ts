@@ -68,6 +68,7 @@ export type SessionContentSnapshot = {
     ended_at: number | null;
     memo: string;
     wordsJson: string;
+    speakerHintsJson: string;
     words: WordWithId[];
     speaker_hints: SpeakerHintWithId[];
   }>;
@@ -209,6 +210,7 @@ function mapSessionContentRow(
         transcript.ended_at_ms == null ? null : Number(transcript.ended_at_ms),
       memo: transcript.memo,
       wordsJson: transcript.words_json,
+      speakerHintsJson: transcript.speaker_hints_json,
       words: parseJsonArray<WordWithId>(transcript.words_json),
       speaker_hints: parseJsonArray<SpeakerHintWithId>(
         transcript.speaker_hints_json,

@@ -102,6 +102,7 @@ describe("session content SQLite snapshots", () => {
           id: "transcript-1",
           started_at: 100,
           ended_at: 200,
+          speakerHintsJson: "[]",
           words: [expect.objectContaining({ id: "word-1", text: "Hello" })],
         },
       ],

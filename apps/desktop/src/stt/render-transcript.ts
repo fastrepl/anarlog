@@ -154,7 +154,10 @@ export function collectAssignedHumanIdsFromTranscriptRows(
 
   for (const transcript of transcripts) {
     for (const hint of transcript.speaker_hints ?? []) {
-      if (hint.type !== "user_speaker_assignment") {
+      if (
+        hint.type !== "automatic_speaker_assignment" &&
+        hint.type !== "user_speaker_assignment"
+      ) {
         continue;
       }
 
@@ -224,13 +227,20 @@ function buildRenderTranscriptRequest(
     }
 
     for (const hint of transcript.speaker_hints ?? []) {
-      if (hint.type === "provider_speaker_index") {
-        continue;
+      if (hint.type === "automatic_speaker_assignment") {
+        const normalized = normalizeSpeakerHint(hint, words, wordIndexById);
+        if (normalized) {
+          assignments.push(normalized);
+        }
       }
+    }
 
-      const normalized = normalizeSpeakerHint(hint, words, wordIndexById);
-      if (normalized) {
-        assignments.push(normalized);
+    for (const hint of transcript.speaker_hints ?? []) {
+      if (hint.type === "user_speaker_assignment") {
+        const normalized = normalizeSpeakerHint(hint, words, wordIndexById);
+        if (normalized) {
+          assignments.push(normalized);
+        }
       }
     }
 
@@ -298,7 +308,8 @@ function normalizeSpeakerHint(
   }
 
   if (
-    hint.type === "user_speaker_assignment" &&
+    (hint.type === "automatic_speaker_assignment" ||
+      hint.type === "user_speaker_assignment") &&
     typeof (value as { human_id?: unknown }).human_id === "string"
   ) {
     const humanId = (value as { human_id: string }).human_id;
