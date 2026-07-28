@@ -68,6 +68,60 @@ describe("getBillingAnalyticsPayload", () => {
     expect(payload?.event).toBe("subscription_activated");
   });
 
+  it("tracks cancellation scheduling", () => {
+    const payload = getBillingAnalyticsPayload(
+      event(
+        "customer.subscription.updated",
+        {
+          status: "active",
+          metadata: {},
+          cancel_at_period_end: true,
+          trial_end: null,
+          items: { data: [] },
+        },
+        { cancel_at_period_end: false },
+      ),
+    );
+
+    expect(payload?.event).toBe("subscription_cancel_scheduled");
+  });
+
+  it("tracks subscription resumes", () => {
+    const payload = getBillingAnalyticsPayload(
+      event(
+        "customer.subscription.updated",
+        {
+          status: "active",
+          metadata: {},
+          cancel_at_period_end: false,
+          trial_end: null,
+          items: { data: [] },
+        },
+        { cancel_at_period_end: true },
+      ),
+    );
+
+    expect(payload?.event).toBe("subscription_resumed");
+  });
+
+  it("tracks plan changes", () => {
+    const payload = getBillingAnalyticsPayload(
+      event(
+        "customer.subscription.updated",
+        {
+          status: "active",
+          metadata: {},
+          cancel_at_period_end: false,
+          trial_end: null,
+          items: { data: [] },
+        },
+        { items: { data: [] } },
+      ),
+    );
+
+    expect(payload?.event).toBe("subscription_plan_changed");
+  });
+
   it("ignores zero-dollar trial invoices", () => {
     expect(
       getBillingAnalyticsPayload(

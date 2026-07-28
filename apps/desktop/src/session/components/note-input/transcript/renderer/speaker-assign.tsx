@@ -12,6 +12,7 @@ import {
 } from "@hypr/ui/components/ui/popover";
 import { cn } from "@hypr/utils";
 
+import { trackAnalyticsEvent } from "~/analytics";
 import { useSessionEventParticipants } from "~/calendar/queries";
 import { createHuman, useHumans } from "~/contacts/queries";
 import {
@@ -61,6 +62,10 @@ export function SpeakerAssignPopover({
         wordIds: getAssignmentWordIds(segment),
       })
         .then(() => {
+          trackAnalyticsEvent("participant_assigned", {
+            assignment_scope: assignmentMode,
+            word_count: segment.words.length,
+          });
           onAssigned?.(humanId);
           handleOpenChange(false);
         })
@@ -408,6 +413,7 @@ function ParticipantList({
         ownerUserId: session.user_id,
         name: option.name,
         email: option.email,
+        entryPoint: "speaker_assignment",
       });
     },
     [contacts, session?.user_id],

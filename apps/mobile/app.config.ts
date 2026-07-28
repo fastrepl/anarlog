@@ -14,5 +14,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       "",
     apiUrl: process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3001",
     appUrl: process.env.EXPO_PUBLIC_APP_URL ?? "http://localhost:3000",
+    posthogApiKey:
+      process.env.EXPO_PUBLIC_POSTHOG_API_KEY ??
+      process.env.POSTHOG_API_KEY ??
+      "",
+    posthogHost:
+      process.env.EXPO_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com",
   },
 });

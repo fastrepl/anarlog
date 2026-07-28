@@ -42,12 +42,34 @@ export function getBillingAnalyticsPayload(
     }
     case "customer.subscription.updated": {
       const subscription = event.data.object as Stripe.Subscription;
-      const previousStatus = (
-        event.data.previous_attributes as { status?: string } | undefined
-      )?.status;
+      const previous = event.data.previous_attributes as
+        | {
+            status?: string;
+            cancel_at_period_end?: boolean;
+            items?: unknown;
+          }
+        | undefined;
 
-      if (subscription.status === "active" && previousStatus === "trialing") {
+      if (subscription.status === "active" && previous?.status === "trialing") {
         return subscriptionPayload("subscription_activated", subscription);
+      }
+      if (
+        previous?.cancel_at_period_end === false &&
+        subscription.cancel_at_period_end
+      ) {
+        return subscriptionPayload(
+          "subscription_cancel_scheduled",
+          subscription,
+        );
+      }
+      if (
+        previous?.cancel_at_period_end === true &&
+        !subscription.cancel_at_period_end
+      ) {
+        return subscriptionPayload("subscription_resumed", subscription);
+      }
+      if (previous?.items !== undefined) {
+        return subscriptionPayload("subscription_plan_changed", subscription);
       }
 
       return null;

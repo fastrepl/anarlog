@@ -12,6 +12,8 @@ export const env = {
   supabaseAnonKey: read("supabaseAnonKey"),
   apiUrl: read("apiUrl", "http://localhost:3001"),
   appUrl: read("appUrl", "http://localhost:3000"),
+  posthogApiKey: read("posthogApiKey"),
+  posthogHost: read("posthogHost", "https://us.i.posthog.com"),
 };
 
 export const hasSupabaseEnv = Boolean(env.supabaseUrl && env.supabaseAnonKey);

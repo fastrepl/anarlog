@@ -23,6 +23,11 @@ import {
   type BillingInfo,
 } from "@/auth/billing";
 import { authStorageKey, supabase } from "@/auth/client";
+import {
+  captureAnalytics,
+  identifyAnalytics,
+  resetAnalytics,
+} from "@/lib/analytics";
 import { env, hasSupabaseEnv } from "@/lib/env";
 
 export type AuthState = {
@@ -115,6 +120,10 @@ function acceptAuthTokens(accessToken: string, refreshToken: string): void {
         inFlightTokens.delete(key);
         if (error) {
           console.error("[auth] setSession failed", error);
+          captureAnalytics("auth_failed", {
+            method: "browser_handoff",
+            failure_stage: "set_session",
+          });
         } else {
           recentTokens.set(key, Date.now());
         }
@@ -122,6 +131,10 @@ function acceptAuthTokens(accessToken: string, refreshToken: string): void {
       (error) => {
         inFlightTokens.delete(key);
         console.error("[auth] setSession failed", error);
+        captureAnalytics("auth_failed", {
+          method: "browser_handoff",
+          failure_stage: "set_session",
+        });
       },
     );
 }
@@ -201,12 +214,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       setSession(nextSession);
+      if (event === "SIGNED_IN" && nextSession) {
+        identifyAnalytics(nextSession.user.id);
+        captureAnalytics("user_signed_in", {
+          method: "browser_handoff",
+        });
+      } else if (event === "SIGNED_OUT") {
+        resetAnalytics();
+      }
     });
 
     return () => {
       subscription.unsubscribe();
     };
   }, [setSession]);
+
+  useEffect(() => {
+    if (session?.user.id) {
+      identifyAnalytics(session.user.id);
+    }
+  }, [session?.user.id]);
 
   useEffect(() => {
     if (!supabase) {
@@ -232,12 +259,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const result = await WebBrowser.openAuthSessionAsync(
-      `${env.appUrl}/auth?flow=desktop&scheme=anarlog`,
-      "anarlog://auth/callback",
-    );
-    if (result.type === "success") {
-      handleAuthCallbackUrl(result.url);
+    captureAnalytics("auth_started", {
+      method: "browser_handoff",
+      entry_point: "mobile_sign_in",
+    });
+    try {
+      const result = await WebBrowser.openAuthSessionAsync(
+        `${env.appUrl}/auth?flow=desktop&scheme=anarlog`,
+        "anarlog://auth/callback",
+      );
+      if (result.type === "success") {
+        handleAuthCallbackUrl(result.url);
+      } else {
+        captureAnalytics("auth_failed", {
+          method: "browser_handoff",
+          failure_stage: "cancelled",
+        });
+      }
+    } catch (error) {
+      captureAnalytics("auth_failed", {
+        method: "browser_handoff",
+        failure_stage: "open_browser",
+      });
+      throw error;
     }
   }, []);
 
@@ -246,6 +290,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    captureAnalytics("user_signed_out");
     const { error } = await supabase.auth
       .signOut({ scope: "local" })
       .catch((error: unknown) => ({ error }));
@@ -256,6 +301,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await AsyncStorage.removeItem(authStorageKey).catch(() => {});
     }
     setSession(null);
+    resetAnalytics();
   }, [setSession]);
 
   const accessToken = session?.access_token ?? null;

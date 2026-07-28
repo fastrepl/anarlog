@@ -11,6 +11,7 @@ import {
 } from "@hypr/ui/components/ui/input-group";
 import { cn } from "@hypr/utils";
 
+import { trackAnalyticsEvent } from "~/analytics";
 import { SettingsPageTitle } from "~/settings/page-title";
 import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
@@ -49,12 +50,23 @@ export function DictionarySettings({
       }
 
       onSave(JSON.stringify(nextTerms));
+      trackAnalyticsEvent("dictionary_updated", {
+        operation: "added",
+        term_count: nextTerms.length,
+        added_count: nextTerms.length - normalizedTerms.length,
+      });
       form.setFieldValue("term", "");
     },
   });
 
   const removeTerm = (term: string) => {
-    onSave(JSON.stringify(normalizedTerms.filter((value) => value !== term)));
+    const nextTerms = normalizedTerms.filter((value) => value !== term);
+    onSave(JSON.stringify(nextTerms));
+    trackAnalyticsEvent("dictionary_updated", {
+      operation: "removed",
+      term_count: nextTerms.length,
+      removed_count: normalizedTerms.length - nextTerms.length,
+    });
   };
 
   return (

@@ -10,6 +10,7 @@ import {
   deleteSharedNoteComment,
   listSharedNoteComments,
 } from "@/functions/shared-notes";
+import { capturePrivateRouteEvent } from "@/lib/private-route-analytics";
 import type {
   SharedNoteComment,
   SharedNoteCommentAnchor,
@@ -108,6 +109,12 @@ export function useCreateSharedNoteComment({
           context.previous,
         );
       }
+    },
+    onSuccess: (_comment, variables) => {
+      capturePrivateRouteEvent("share_collaboration_performed", {
+        action: "comment_created",
+        anchor_type: variables.anchor ? "selection" : "note",
+      });
     },
     onSettled: async () => {
       await queryClient.invalidateQueries({

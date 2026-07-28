@@ -9,7 +9,7 @@ import {
   ShieldCheckIcon,
   ShieldIcon,
 } from "lucide-react";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import {
   getCloudsyncStatus,
@@ -25,6 +25,7 @@ import { cn, formatDistanceToNow } from "@hypr/utils";
 import { E2eeSetupDialog } from "../general/e2ee-setup";
 import { detectCloudStorageService } from "../general/storage/path-utils";
 
+import { trackAnalyticsEvent } from "~/analytics";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import {
@@ -50,6 +51,13 @@ export function SettingsSync() {
   const openNew = useTabs((state) => state.openNew);
   const queryClient = useQueryClient();
   const [e2eeSetupOpen, setE2eeSetupOpen] = useState(false);
+  const lastTrackedSyncAtRef = useRef<number | null>(null);
+  const lastTrackedFailureCountRef = useRef<number | null>(null);
+  const manualSyncBaselineRef = useRef<number | null>(null);
+  const manualFailureBaselineRef = useRef<number | null>(null);
+  const manualSyncInFlightRef = useRef(false);
+  const manualSyncResultAtRef = useRef<number | null>(null);
+  const manualFailureResultRef = useRef<number | null>(null);
   const settingsQuery = useStoredSettingValuesQuery();
   const session = auth.session;
   const credentialBlock = useSyncExternalStore(
@@ -91,6 +99,28 @@ export function SettingsSync() {
       if (result === "account_mismatch") {
         await auth.signOut();
       }
+      return result;
+    },
+    onSuccess: (result, enabled) => {
+      if (result === "account_mismatch") {
+        trackAnalyticsEvent("cloud_sync_failed", {
+          trigger: enabled ? "enable" : "disable",
+          failure_stage: "preference",
+        });
+        return;
+      }
+      trackAnalyticsEvent(
+        enabled ? "cloud_sync_enabled" : "cloud_sync_disabled",
+        {
+          entry_point: "settings",
+        },
+      );
+    },
+    onError: (_, enabled) => {
+      trackAnalyticsEvent("cloud_sync_failed", {
+        trigger: enabled ? "enable" : "disable",
+        failure_stage: "preference",
+      });
     },
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: statusQueryKey });
@@ -124,10 +154,87 @@ export function SettingsSync() {
   });
   const syncNowMutation = useMutation({
     mutationFn: syncCloudsyncNow,
-    onSettled: async () => {
+    onMutate: () => {
+      manualSyncInFlightRef.current = true;
+      manualSyncBaselineRef.current = lastTrackedSyncAtRef.current;
+      manualFailureBaselineRef.current = lastTrackedFailureCountRef.current;
+    },
+    onSuccess: () => {
+      trackAnalyticsEvent("cloud_sync_completed", {
+        trigger: "manual",
+      });
+    },
+    onError: () => {
+      trackAnalyticsEvent("cloud_sync_failed", {
+        trigger: "manual",
+        failure_stage: "sync",
+      });
+    },
+    onSettled: async (_data, error) => {
       await queryClient.invalidateQueries({ queryKey: statusQueryKey });
+      const refreshedStatus =
+        queryClient.getQueryData<
+          Awaited<ReturnType<typeof getCloudsyncStatus>>
+        >(statusQueryKey);
+      if (error) {
+        manualFailureResultRef.current =
+          refreshedStatus?.consecutive_failures ?? null;
+      } else {
+        manualSyncResultAtRef.current =
+          refreshedStatus?.last_sync_at_ms ?? null;
+      }
+      manualSyncInFlightRef.current = false;
+      manualSyncBaselineRef.current = null;
+      manualFailureBaselineRef.current = null;
     },
   });
+  const status = statusQuery.data;
+
+  useEffect(() => {
+    if (!status) return;
+
+    if (
+      status.last_sync_at_ms !== null &&
+      status.last_sync_at_ms !== lastTrackedSyncAtRef.current
+    ) {
+      if (lastTrackedSyncAtRef.current !== null) {
+        if (
+          (manualSyncInFlightRef.current &&
+            manualSyncBaselineRef.current === lastTrackedSyncAtRef.current) ||
+          manualSyncResultAtRef.current === status.last_sync_at_ms
+        ) {
+          manualSyncBaselineRef.current = null;
+          manualSyncResultAtRef.current = null;
+        } else {
+          trackAnalyticsEvent("cloud_sync_completed", {
+            trigger: "background",
+          });
+        }
+      }
+      lastTrackedSyncAtRef.current = status.last_sync_at_ms;
+    }
+
+    if (
+      lastTrackedFailureCountRef.current !== null &&
+      status.consecutive_failures > lastTrackedFailureCountRef.current
+    ) {
+      if (
+        (manualSyncInFlightRef.current &&
+          manualFailureBaselineRef.current ===
+            lastTrackedFailureCountRef.current) ||
+        manualFailureResultRef.current === status.consecutive_failures
+      ) {
+        manualFailureBaselineRef.current = null;
+        manualFailureResultRef.current = null;
+      } else {
+        trackAnalyticsEvent("cloud_sync_failed", {
+          trigger: "background",
+          failure_kind: status.last_error_kind ?? "unknown",
+        });
+      }
+    }
+    lastTrackedFailureCountRef.current = status.consecutive_failures;
+  }, [status]);
 
   if (settingsQuery.error) {
     throw settingsQuery.error;
@@ -180,7 +287,6 @@ export function SettingsSync() {
     );
   }
 
-  const status = statusQuery.data;
   const statusView = (() => {
     if (!syncEnabled) {
       return {

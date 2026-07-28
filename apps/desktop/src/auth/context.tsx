@@ -30,6 +30,7 @@ import {
 } from "./cloudsync";
 import { clearAuthStorage, isFatalSessionError } from "./errors";
 
+import { trackAnalyticsEvent } from "~/analytics";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
@@ -702,10 +703,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [managesCloudsync, rejectAuthChange]);
 
   const signIn = useCallback(async () => {
-    const url = await buildWebAppUrl("/auth");
-    await openUrlWithInstruction(url, "sign-in", (u) =>
-      openerCommands.openUrl(u, null),
-    );
+    trackAnalyticsEvent("auth_started", {
+      entry_point: "desktop_sign_in",
+      method: "browser_handoff",
+    });
+    try {
+      const url = await buildWebAppUrl("/auth");
+      await openUrlWithInstruction(url, "sign-in", (u) =>
+        openerCommands.openUrl(u, null),
+      );
+    } catch (error) {
+      trackAnalyticsEvent("auth_failed", {
+        entry_point: "desktop_sign_in",
+        method: "browser_handoff",
+        failure_stage: "open_browser",
+      });
+      throw error;
+    }
   }, []);
 
   const signOutFromMain = useCallback(async (): Promise<boolean> => {

@@ -16,6 +16,8 @@ import {
 } from "./native";
 import { type AttachmentTransferJob, attachmentTransferStore } from "./store";
 
+import { trackAnalyticsEvent } from "~/analytics";
+
 const MAX_JOBS_PER_PASS = 4;
 const PASS_INTERVAL_MS = 20_000;
 const MAX_RETRY_DELAY_MS = 15 * 60 * 1000;
@@ -58,6 +60,15 @@ export async function runAttachmentTransferPass(
     try {
       await runAttachmentTransferJob(dependencies, job, signal);
     } catch (error) {
+      if (
+        error instanceof AttachmentBackupGatewayError &&
+        error.status === 409
+      ) {
+        trackAnalyticsEvent("cloud_sync_conflict", {
+          resource_type: "attachment",
+          operation: job.direction,
+        });
+      }
       await persistTransferFailure(store, job, error, signal?.aborted ?? false);
     } finally {
       releaseProcessLocalAttempt();

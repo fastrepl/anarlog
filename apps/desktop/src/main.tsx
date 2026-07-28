@@ -21,6 +21,7 @@ import {
 import { Toaster } from "@hypr/ui/components/ui/toast";
 
 import { AITaskWindowSyncBridge } from "./ai/task-window-sync";
+import { trackAnalyticsEvent } from "./analytics";
 import { createToolRegistry } from "./contexts/tool-registry/core";
 import { env } from "./env";
 import { AppI18nProvider } from "./i18n/provider";
@@ -120,6 +121,15 @@ const isMainWindow = getCurrentWebviewWindowLabel() === "main";
 
 if (isMainWindow) {
   void analyticsCommands.eventFireAndForget({ event: "app_started" });
+  try {
+    const firstOpenKey = "anarlog:analytics:first-opened";
+    if (localStorage.getItem(firstOpenKey) === null) {
+      localStorage.setItem(firstOpenKey, "1");
+      trackAnalyticsEvent("app_first_opened", {
+        first_open_marker: "local_install",
+      });
+    }
+  } catch {}
   void initializeAppExitFlush().catch((error) => {
     console.error("Failed to initialize the exit flush listener", error);
   });

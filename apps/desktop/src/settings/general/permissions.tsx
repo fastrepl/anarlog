@@ -6,6 +6,10 @@ import type { PermissionStatus } from "@hypr/plugin-permissions";
 import { Button } from "@hypr/ui/components/ui/button";
 import { cn } from "@hypr/utils";
 
+import {
+  trackPermissionRequested,
+  usePermissionAnalytics,
+} from "~/shared/hooks/usePermissionAnalytics";
 import { usePermission } from "~/shared/hooks/usePermissions";
 
 function PermissionRow({
@@ -14,6 +18,7 @@ function PermissionRow({
   status,
   isPending,
   error,
+  permission,
   onRequest,
   onOpen,
   runtimeCapability = false,
@@ -23,6 +28,7 @@ function PermissionRow({
   status: PermissionStatus | undefined;
   isPending: boolean;
   error?: string | null;
+  permission: string;
   onRequest: () => void;
   onOpen: () => void;
   runtimeCapability?: boolean;
@@ -33,13 +39,18 @@ function PermissionRow({
 
   const handleButtonClick = () => {
     if (runtimeCapability) {
-      if (!isAuthorized) onRequest();
+      if (!isAuthorized) {
+        trackPermissionRequested(permission, status, "settings", "request");
+        onRequest();
+      }
       return;
     }
 
     if (isAuthorized || isDenied) {
+      trackPermissionRequested(permission, status, "settings", "open_settings");
       onOpen();
     } else {
+      trackPermissionRequested(permission, status, "settings", "request");
       onRequest();
     }
   };
@@ -130,10 +141,17 @@ function AudioPermissions({
   const { t } = useLingui();
   const mic = usePermission("microphone");
   const systemAudio = usePermission("systemAudio");
+  usePermissionAnalytics("microphone", mic.confirmedStatus, "settings");
+  usePermissionAnalytics(
+    "system_audio",
+    systemAudio.confirmedStatus,
+    "settings",
+  );
 
   return (
     <PermissionGroup title={<Trans>Audio</Trans>}>
       <PermissionRow
+        permission="microphone"
         title={t`Microphone`}
         description={t`Required to record your voice during meetings and calls`}
         status={mic.status}
@@ -144,6 +162,7 @@ function AudioPermissions({
         runtimeCapability={runtimeCapabilities}
       />
       <PermissionRow
+        permission="system_audio"
         title={t`System audio`}
         description={t`Required to capture other participants' voices in meetings`}
         status={systemAudio.status}
@@ -161,12 +180,19 @@ function MacOSPermissions() {
   const { t } = useLingui();
   const calendar = usePermission("calendar");
   const accessibility = usePermission("accessibility");
+  usePermissionAnalytics("calendar", calendar.confirmedStatus, "settings");
+  usePermissionAnalytics(
+    "accessibility",
+    accessibility.confirmedStatus,
+    "settings",
+  );
 
   return (
     <div className="flex flex-col gap-8">
       <AudioPermissions />
 
       <PermissionRow
+        permission="accessibility"
         title={t`Accessibility`}
         description={t`Required to read meeting controls, visible chat, and participant status`}
         status={accessibility.status}
@@ -177,6 +203,7 @@ function MacOSPermissions() {
 
       <PermissionGroup title={<Trans>Others</Trans>}>
         <PermissionRow
+          permission="calendar"
           title={t`Calendar`}
           description={t`Required to sync Apple Calendar events into Anarlog`}
           status={calendar.status}

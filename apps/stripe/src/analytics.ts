@@ -53,6 +53,8 @@ export async function captureBillingEvent(event: Stripe.Event) {
       ...payload.properties,
       $insert_id: `stripe-event:${event.id}`,
       source: "stripe",
+      surface: "stripe",
+      analytics_schema_version: 1,
       stripe_event_id: event.id,
     },
   });
@@ -86,6 +88,8 @@ export async function captureTrialEndingEmailSent({
     properties: {
       $insert_id: `stripe-event:${eventId}:trial-ending-email-sent`,
       source: "loops",
+      surface: "stripe",
+      analytics_schema_version: 1,
       transactional_id: transactionalId,
       trial_end: trialEnd,
       days_until_trial_end: Math.max(

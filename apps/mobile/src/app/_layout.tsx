@@ -1,11 +1,26 @@
-import { Stack } from "expo-router";
+import { Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 import { AuthProvider, useAuth } from "@/auth/context";
 import { PaywallScreen, SignInScreen } from "@/auth/screens";
 import { Colors } from "@/constants/theme";
+import { initializeAnalytics, screenAnalytics } from "@/lib/analytics";
+
+function AnalyticsLifecycle() {
+  const pathname = usePathname();
+
+  useEffect(() => {
+    void initializeAnalytics();
+  }, []);
+
+  useEffect(() => {
+    screenAnalytics(pathname.replace(/^\/note\/[^/]+/, "/note/:id"));
+  }, [pathname]);
+
+  return null;
+}
 
 function Screens() {
   return (
@@ -63,6 +78,7 @@ function Gate() {
 export default function RootLayout() {
   return (
     <AuthProvider>
+      <AnalyticsLifecycle />
       <Gate />
       <StatusBar style="dark" />
     </AuthProvider>

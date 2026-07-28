@@ -6,6 +6,7 @@ import { createClient } from "@hypr/api-client/client";
 
 import { env } from "@/env";
 import { getAccessToken } from "@/functions/access-token";
+import { useAnalytics } from "@/hooks/use-posthog";
 import { useMountEffect } from "@/hooks/useMountEffect";
 
 import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
@@ -14,6 +15,7 @@ import { getIntegrationDisplay, Route } from "./integration";
 export function DisconnectFlow() {
   const search = Route.useSearch();
   const navigate = useNavigate();
+  const { track } = useAnalytics();
   const [status, setStatus] = useState<
     "idle" | "loading" | "success" | "error"
   >("loading");
@@ -23,6 +25,12 @@ export function DisconnectFlow() {
   const handleDisconnect = async () => {
     if (!search.connection_id) {
       setStatus("error");
+      track("integration_connection_failed", {
+        integration: search.integration_id,
+        mode: "disconnect",
+        flow: search.flow,
+        failure_stage: "validation",
+      });
       return;
     }
 
@@ -44,14 +52,30 @@ export function DisconnectFlow() {
 
       if (error || !data) {
         setStatus("error");
+        track("integration_connection_failed", {
+          integration: search.integration_id,
+          mode: "disconnect",
+          flow: search.flow,
+          failure_stage: "disconnect",
+        });
         return;
       }
     } catch {
       setStatus("error");
+      track("integration_connection_failed", {
+        integration: search.integration_id,
+        mode: "disconnect",
+        flow: search.flow,
+        failure_stage: "disconnect",
+      });
       return;
     }
 
     setStatus("success");
+    track("integration_disconnected", {
+      integration: search.integration_id,
+      flow: search.flow,
+    });
     const callbackSearch =
       search.flow === "desktop"
         ? {

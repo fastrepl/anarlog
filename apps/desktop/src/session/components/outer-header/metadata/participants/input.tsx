@@ -296,6 +296,7 @@ function useParticipantMutations(
           humanId = await createHuman({
             ownerUserId: session.user_id,
             name: option.name,
+            entryPoint: "session_participants",
           });
           // Backfill the id so the pending chip disappears as soon as the
           // real participant row shows up, instead of lingering until the

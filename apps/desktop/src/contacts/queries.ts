@@ -1,3 +1,4 @@
+import { trackAnalyticsEvent } from "~/analytics";
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import { DEFAULT_USER_ID, id } from "~/shared/utils";
@@ -258,10 +259,12 @@ export function createHuman({
   ownerUserId = DEFAULT_USER_ID,
   name,
   email = "",
+  entryPoint = "contacts",
 }: {
   ownerUserId?: string;
   name: string;
   email?: string;
+  entryPoint?: "contacts" | "session_participants" | "speaker_assignment";
 }): Promise<string> {
   const humanId = id();
   const now = new Date().toISOString();
@@ -293,6 +296,10 @@ export function createHuman({
         params: [humanId, ownerUserId, name, email, now, now],
       },
     ]);
+    trackAnalyticsEvent("contact_created", {
+      entry_point: entryPoint,
+      has_email: Boolean(email),
+    });
     return humanId;
   });
 }
@@ -561,6 +568,9 @@ export function mergeHumans(
         params: [now, now, duplicateId],
       },
     ]);
+    trackAnalyticsEvent("contact_merged", {
+      entry_point: "contact_details",
+    });
   });
 }
 

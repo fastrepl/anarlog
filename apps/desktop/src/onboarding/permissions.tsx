@@ -14,6 +14,10 @@ import { type PermissionStatus } from "@hypr/plugin-permissions";
 import { cn } from "@hypr/utils";
 
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
+import {
+  trackPermissionRequested,
+  usePermissionAnalytics,
+} from "~/shared/hooks/usePermissionAnalytics";
 import { usePermission } from "~/shared/hooks/usePermissions";
 
 function PermissionBlock({
@@ -126,6 +130,17 @@ function PermissionsSectionContent({
   const mic = usePermission("microphone");
   const systemAudio = usePermission("systemAudio");
   const hasContinuedRef = useRef(false);
+  usePermissionAnalytics("microphone", mic.confirmedStatus, "onboarding");
+  usePermissionAnalytics(
+    "system_audio",
+    systemAudio.confirmedStatus,
+    "onboarding",
+  );
+  usePermissionAnalytics(
+    "accessibility",
+    accessibility?.confirmedStatus,
+    "onboarding",
+  );
 
   const isComplete =
     mic.status === "authorized" &&
@@ -133,12 +148,25 @@ function PermissionsSectionContent({
     (!accessibility || accessibility.status === "authorized");
 
   const handleAction = (
+    permission: string,
     perm: ReturnType<typeof usePermission>,
     opensSettingsWhenDenied: boolean,
   ) => {
     if (opensSettingsWhenDenied && perm.status === "denied") {
+      trackPermissionRequested(
+        permission,
+        perm.status,
+        "onboarding",
+        "open_settings",
+      );
       perm.open();
     } else {
+      trackPermissionRequested(
+        permission,
+        perm.status,
+        "onboarding",
+        "request",
+      );
       perm.request();
     }
   };
@@ -162,7 +190,7 @@ function PermissionsSectionContent({
           permissionName={t`Microphone`}
           status={mic.status}
           isPending={mic.isPending}
-          onAction={() => handleAction(mic, !runtimeCapabilities)}
+          onAction={() => handleAction("microphone", mic, !runtimeCapabilities)}
           actionLabel={
             runtimeCapabilities && mic.status === "denied"
               ? `${t`Try again`}: ${t`Microphone`}`
@@ -182,7 +210,9 @@ function PermissionsSectionContent({
           permissionName={t`System audio`}
           status={systemAudio.status}
           isPending={systemAudio.isPending}
-          onAction={() => handleAction(systemAudio, !runtimeCapabilities)}
+          onAction={() =>
+            handleAction("system_audio", systemAudio, !runtimeCapabilities)
+          }
           actionLabel={
             runtimeCapabilities && systemAudio.status === "denied"
               ? `${t`Try again`}: ${t`System audio`}`
@@ -201,7 +231,7 @@ function PermissionsSectionContent({
             permissionName={t`Accessibility`}
             status={accessibility.status}
             isPending={accessibility.isPending}
-            onAction={accessibility.request}
+            onAction={() => handleAction("accessibility", accessibility, false)}
             opensSettingsWhenDenied={false}
           />
         )}

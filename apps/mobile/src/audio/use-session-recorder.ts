@@ -1,4 +1,5 @@
 import {
+  getRecordingPermissionsAsync,
   RecordingPresets,
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
@@ -11,6 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { WAVEFORM_BAR_COUNT } from "@/components/waveform";
 import { catalogSessionAudio } from "@/data/audio-catalog";
 import { transcribeSession } from "@/data/transcribe";
+import { captureAnalytics } from "@/lib/analytics";
 
 const METERING_FLOOR_DB = -50;
 
@@ -59,9 +61,25 @@ export function useSessionRecorder(
     setPhase("starting");
     startRef.current = (async () => {
       try {
-        const permission = await requestRecordingPermissionsAsync();
+        let permission = await getRecordingPermissionsAsync();
+        if (!permission.granted) {
+          captureAnalytics("permission_requested", {
+            permission: "microphone",
+            entry_point: "start_listening",
+            action: "request",
+          });
+          permission = await requestRecordingPermissionsAsync();
+          captureAnalytics("permission_resolved", {
+            permission: "microphone",
+            entry_point: "start_listening",
+            status: permission.granted ? "authorized" : "denied",
+          });
+        }
         if (!active) return;
         if (!permission.granted) {
+          captureAnalytics("session_start_failed", {
+            failure_stage: "microphone_permission",
+          });
           setPhase("unavailable");
           return;
         }
@@ -74,9 +92,16 @@ export function useSessionRecorder(
         await recorder.prepareToRecordAsync();
         if (!active) return;
         recorder.record();
+        captureAnalytics("session_started", {
+          entry_point: "mobile_recorder",
+          transcription_mode: "post_capture",
+        });
         setPhase("recording");
       } catch (error) {
         console.warn("[recorder] failed to start", error);
+        captureAnalytics("session_start_failed", {
+          failure_stage: "capture_start",
+        });
         if (active) setPhase("unavailable");
       }
     })();
@@ -124,6 +149,13 @@ export function useSessionRecorder(
         filename: `audio.${extension}`,
         contentType: CONTENT_TYPES[extension] ?? "application/octet-stream",
         sizeBytes: destination.size ?? 0,
+      });
+      captureAnalytics("session_completed", {
+        duration_seconds: Math.round(
+          (recorderState.durationMillis ?? 0) / 1000,
+        ),
+        completion_reason: "user_stopped",
+        transcription_requested: true,
       });
       void transcribeSession(sessionId);
       setPhase("saved");

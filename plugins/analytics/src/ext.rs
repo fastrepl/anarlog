@@ -88,6 +88,16 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
 
         payload
             .props
+            .entry("surface".into())
+            .or_insert("desktop".into());
+
+        payload
+            .props
+            .entry("analytics_schema_version".into())
+            .or_insert(1.into());
+
+        payload
+            .props
             .entry("app_identifier".into())
             .or_insert(app_identifier.into());
 

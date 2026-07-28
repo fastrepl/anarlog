@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   openUrl: vi.fn(),
   openNew: vi.fn(),
   signOut: vi.fn(),
+  trackAnalyticsEvent: vi.fn(),
   billing: { isPro: true, isReady: true },
   syncEnabled: true,
   session: {
@@ -47,6 +48,10 @@ vi.mock("~/auth/cloudsync", () => ({
   applyCloudsyncPreference: mocks.applyCloudsyncPreference,
   getCloudsyncCredentialBlock: () => null,
   subscribeCloudsyncCredentialBlock: () => () => {},
+}));
+
+vi.mock("~/analytics", () => ({
+  trackAnalyticsEvent: mocks.trackAnalyticsEvent,
 }));
 
 vi.mock("~/settings/queries", () => ({
@@ -107,11 +112,14 @@ function renderSettings() {
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
 
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <SettingsSync />
-    </QueryClientProvider>,
-  );
+  return {
+    ...render(
+      <QueryClientProvider client={queryClient}>
+        <SettingsSync />
+      </QueryClientProvider>,
+    ),
+    queryClient,
+  };
 }
 
 describe("SettingsSync", () => {
@@ -184,7 +192,37 @@ describe("SettingsSync", () => {
     expect(mocks.applyCloudsyncPreference).toHaveBeenCalledWith(mocks.session);
   });
 
+  it("records an account mismatch as a failed preference change", async () => {
+    mocks.applyCloudsyncPreference.mockResolvedValue("account_mismatch");
+    renderSettings();
+
+    const syncSwitch = await screen.findByRole("switch", {
+      name: "Cloud sync",
+    });
+    await vi.waitFor(() =>
+      expect(syncSwitch.hasAttribute("disabled")).toBe(false),
+    );
+    fireEvent.click(syncSwitch);
+
+    await vi.waitFor(() => expect(mocks.signOut).toHaveBeenCalledOnce());
+    expect(mocks.trackAnalyticsEvent).not.toHaveBeenCalledWith(
+      "cloud_sync_disabled",
+      expect.anything(),
+    );
+    expect(mocks.trackAnalyticsEvent).toHaveBeenCalledWith(
+      "cloud_sync_failed",
+      {
+        trigger: "disable",
+        failure_stage: "preference",
+      },
+    );
+    expect(screen.queryByText("Cloud sync account mismatch.")).toBeNull();
+  });
+
   it("runs an on-demand sync", async () => {
+    mocks.getCloudsyncStatus
+      .mockResolvedValueOnce({ ...syncedStatus(), last_sync_at_ms: 1 })
+      .mockResolvedValue({ ...syncedStatus(), last_sync_at_ms: 2 });
     renderSettings();
 
     const syncNow = await screen.findByRole("button", { name: "Sync now" });
@@ -196,6 +234,88 @@ describe("SettingsSync", () => {
     await vi.waitFor(() => {
       expect(mocks.syncCloudsyncNow).toHaveBeenCalledTimes(1);
     });
+    await vi.waitFor(() => {
+      expect(mocks.getCloudsyncStatus).toHaveBeenCalledTimes(2);
+    });
+    expect(
+      mocks.trackAnalyticsEvent.mock.calls.filter(
+        ([event]) => event === "cloud_sync_completed",
+      ),
+    ).toEqual([["cloud_sync_completed", { trigger: "manual" }]]);
+  });
+
+  it("does not count a status poll during manual sync as background", async () => {
+    let finishSync: (() => void) | undefined;
+    mocks.getCloudsyncStatus
+      .mockResolvedValueOnce({ ...syncedStatus(), last_sync_at_ms: 1 })
+      .mockResolvedValue({ ...syncedStatus(), last_sync_at_ms: 2 });
+    mocks.syncCloudsyncNow.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishSync = resolve;
+      }),
+    );
+    const { queryClient } = renderSettings();
+
+    const syncNow = await screen.findByRole("button", { name: "Sync now" });
+    await vi.waitFor(() =>
+      expect(syncNow.hasAttribute("disabled")).toBe(false),
+    );
+    fireEvent.click(syncNow);
+    await vi.waitFor(() =>
+      expect(mocks.syncCloudsyncNow).toHaveBeenCalledOnce(),
+    );
+
+    await queryClient.refetchQueries({
+      queryKey: ["cloudsync-status-settings", "user-1"],
+    });
+    expect(
+      mocks.trackAnalyticsEvent.mock.calls.filter(
+        ([event]) => event === "cloud_sync_completed",
+      ),
+    ).toEqual([]);
+
+    finishSync?.();
+    await vi.waitFor(() =>
+      expect(
+        mocks.trackAnalyticsEvent.mock.calls.filter(
+          ([event]) => event === "cloud_sync_completed",
+        ),
+      ).toEqual([["cloud_sync_completed", { trigger: "manual" }]]),
+    );
+  });
+
+  it("does not count a failed on-demand sync again as background", async () => {
+    mocks.getCloudsyncStatus
+      .mockResolvedValueOnce({
+        ...syncedStatus(),
+        last_sync_at_ms: 1,
+        consecutive_failures: 0,
+      })
+      .mockResolvedValue({
+        ...syncedStatus(),
+        last_sync_at_ms: 1,
+        consecutive_failures: 1,
+        last_error_kind: "network",
+      });
+    mocks.syncCloudsyncNow.mockRejectedValueOnce(new Error("offline"));
+    renderSettings();
+
+    const syncNow = await screen.findByRole("button", { name: "Sync now" });
+    await vi.waitFor(() =>
+      expect(syncNow.hasAttribute("disabled")).toBe(false),
+    );
+    fireEvent.click(syncNow);
+
+    await vi.waitFor(() => {
+      expect(mocks.getCloudsyncStatus).toHaveBeenCalledTimes(2);
+    });
+    expect(
+      mocks.trackAnalyticsEvent.mock.calls.filter(
+        ([event]) => event === "cloud_sync_failed",
+      ),
+    ).toEqual([
+      ["cloud_sync_failed", { trigger: "manual", failure_stage: "sync" }],
+    ]);
   });
 
   it("routes free users to account plans", () => {

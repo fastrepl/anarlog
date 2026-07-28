@@ -1,45 +1,44 @@
 import { usePostHog } from "@posthog/react";
 import { useCallback } from "react";
 
-import { usePostHogReady } from "@/providers/posthog";
+import { env } from "@/env";
+import { usePostHogOperation, usePostHogReady } from "@/providers/posthog";
 
 export { usePostHog };
 
 /**
  * Hook for type-safe PostHog event tracking.
- * All callbacks are stable references that update when PostHog initializes,
- * so mount-time useEffects depending on them will re-run after init.
+ * All callbacks are stable references that use the latest readiness state.
  */
 export function useAnalytics() {
   const posthog = usePostHog();
   const analyticsReady = usePostHogReady();
+  const runOrQueue = usePostHogOperation();
 
   const track = useCallback(
     (eventName: string, properties?: Record<string, any>) => {
-      if (!analyticsReady || !posthog) {
-        return;
-      }
-      posthog.capture(eventName, properties);
+      runOrQueue((client) => {
+        client.capture(eventName, {
+          ...properties,
+          surface: "web",
+          analytics_schema_version: 1,
+          app_version: env.VITE_APP_VERSION ?? "unknown",
+        });
+      });
     },
-    [posthog, analyticsReady],
+    [runOrQueue],
   );
 
   const identify = useCallback(
     (userId: string, properties?: Record<string, any>) => {
-      if (!analyticsReady || !posthog) {
-        return;
-      }
-      posthog.identify(userId, properties);
+      runOrQueue((client) => client.identify(userId, properties));
     },
-    [posthog, analyticsReady],
+    [runOrQueue],
   );
 
   const reset = useCallback(() => {
-    if (!analyticsReady || !posthog) {
-      return;
-    }
-    posthog.reset();
-  }, [posthog, analyticsReady]);
+    runOrQueue((client) => client.reset());
+  }, [runOrQueue]);
 
   return {
     track,

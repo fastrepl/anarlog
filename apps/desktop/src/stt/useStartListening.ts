@@ -18,6 +18,7 @@ import {
 import { useSTTConnection } from "./useSTTConnection";
 
 import { requestMainAutoEnhance } from "~/ai/task-window-sync";
+import { trackAnalyticsEvent } from "~/analytics";
 import { useShell } from "~/contexts/shell";
 import { releaseCloudsyncActivityEventually } from "~/db/cloudsync-activity";
 import {
@@ -383,6 +384,7 @@ function useCaptureLifecycle(sessionId: string) {
       const model = recoveredMarker?.model ?? conn?.model;
       const cloudsyncLeaseKey = `${sessionId}:${transcriptId}`;
       let pendingSummaryMode = recoveredMarker?.summaryMode;
+      let completionTracked = false;
       let capturePhase =
         recoveredMarker?.phase ??
         (recoveredMarker?.summaryMode ? "finalizing" : "capturing");
@@ -576,6 +578,10 @@ function useCaptureLifecycle(sessionId: string) {
               reasons: repairReasons,
               error,
             });
+            trackAnalyticsEvent("transcription_failed", {
+              mode: "post_capture",
+              failure_stage: "batch_repair",
+            });
             if (transcriptWriteError || !details.liveTranscriptionActive) {
               sonnerToast.error(
                 "Anarlog could not finish saving the transcript. The recording was kept so you can try again.",
@@ -619,6 +625,10 @@ function useCaptureLifecycle(sessionId: string) {
           postCaptureAction === "enhance_only" ||
           emptyFreshCapture;
         if (!transcriptIsComplete) {
+          trackAnalyticsEvent("transcription_failed", {
+            mode: "live",
+            failure_stage: "persist",
+          });
           await requestRecovery();
           return;
         }
@@ -710,6 +720,11 @@ function useCaptureLifecycle(sessionId: string) {
           await clearCaptureLifecycleMarker(sessionId, transcriptId);
           recoveryPending = false;
           recoveryStateCleared = true;
+          if (hasTranscriptEvidence && !batchCompleted) {
+            trackAnalyticsEvent("transcription_completed", {
+              mode: "live",
+            });
+          }
         } catch (error) {
           await requestRecovery();
           throw error;
@@ -749,12 +764,35 @@ function useCaptureLifecycle(sessionId: string) {
           }
         }
       };
+      const trackSessionCompletion = (
+        details: Parameters<OnStoppedCallback>[1],
+        completionReason: "capture_stopped" | "recovered_capture_stopped",
+      ) => {
+        if (!completionTracked) {
+          completionTracked = true;
+          trackAnalyticsEvent("session_completed", {
+            duration_seconds: Math.max(
+              0,
+              Math.round((Date.now() - startedAt) / 1_000),
+            ),
+            transcription_requested:
+              details.liveTranscriptionActive || canRunBatchRef.current,
+            completion_reason: completionReason,
+          });
+        }
+      };
       const onStopped: OnStoppedCallback = (_sessionId, details) => {
+        trackSessionCompletion(
+          details,
+          recoveredMarker ? "recovered_capture_stopped" : "capture_stopped",
+        );
         recoveryPending = false;
         return finalizeStopped(details, true);
       };
-      const recoverStopped: OnStoppedCallback = (_sessionId, details) =>
-        finalizeStopped(details, false);
+      const recoverStopped: OnStoppedCallback = (_sessionId, details) => {
+        trackSessionCompletion(details, "recovered_capture_stopped");
+        return finalizeStopped(details, false);
+      };
 
       const handlePersist: LiveTranscriptPersistCallback = (delta) => {
         if (delta.new_words.length === 0 && delta.replaced_ids.length === 0) {
@@ -1090,6 +1128,9 @@ export function useStartListening(sessionId: string) {
       await lifecycle.acquireCloudsyncLease();
     } catch (error) {
       console.error("[listener] failed to defer CloudSync for capture", error);
+      trackAnalyticsEvent("session_start_failed", {
+        failure_stage: "cloud_sync_deferral",
+      });
       try {
         await lifecycle.releaseCloudsyncLease();
       } catch (cleanupError) {
@@ -1112,6 +1153,9 @@ export function useStartListening(sessionId: string) {
         "[listener] failed to prepare durable capture state",
         error,
       );
+      trackAnalyticsEvent("session_start_failed", {
+        failure_stage: "recovery_marker",
+      });
       try {
         await lifecycle.cleanupFailedStart();
       } catch (cleanupError) {
@@ -1158,6 +1202,9 @@ export function useStartListening(sessionId: string) {
       );
     } catch (error) {
       console.error("[listener] failed to start recording", error);
+      trackAnalyticsEvent("session_start_failed", {
+        failure_stage: "capture_start",
+      });
       try {
         await lifecycle.cleanupFailedStart();
       } catch (cleanupError) {
@@ -1176,6 +1223,9 @@ export function useStartListening(sessionId: string) {
     }
 
     if (!started) {
+      trackAnalyticsEvent("session_start_failed", {
+        failure_stage: "capture_rejected",
+      });
       await stopMeetingChatTasks();
       try {
         await lifecycle.cleanupFailedStart();

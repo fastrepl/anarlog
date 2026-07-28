@@ -5,7 +5,6 @@ import { Volume2Icon, VolumeXIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as sfxCommands } from "@hypr/plugin-sfx";
 import { cn } from "@hypr/utils";
 
@@ -22,6 +21,7 @@ import { FolderLocationSection } from "./folder-location";
 import { PermissionsSection } from "./permissions";
 import { OnboardingSection } from "./shared";
 
+import { trackAnalyticsEvent } from "~/analytics";
 import { useAuth } from "~/auth";
 import { StandaloneWindowShell } from "~/shared/window-shell";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
@@ -91,9 +91,22 @@ function OnboardingScreenContent({
   const currentPlatform = platform();
 
   const goNext = useCallback(() => {
+    trackAnalyticsEvent("onboarding_step_completed", {
+      step: currentStep,
+      platform: currentPlatform,
+    });
     const next = getNextStep(currentStep);
     if (next) setCurrentStep(next);
-  }, [currentStep]);
+  }, [currentPlatform, currentStep]);
+
+  const skipCurrentStep = useCallback(() => {
+    trackAnalyticsEvent("onboarding_step_skipped", {
+      step: currentStep,
+      platform: currentPlatform,
+    });
+    const next = getNextStep(currentStep);
+    if (next) setCurrentStep(next);
+  }, [currentPlatform, currentStep]);
 
   const goBack = useCallback(() => {
     const prev = getPrevStep(currentStep);
@@ -106,8 +119,7 @@ function OnboardingScreenContent({
   }, [auth]);
 
   useEffect(() => {
-    void analyticsCommands.event({
-      event: "onboarding_step_viewed",
+    trackAnalyticsEvent("onboarding_step_viewed", {
       step: currentStep,
       platform: currentPlatform,
     });
@@ -135,10 +147,14 @@ function OnboardingScreenContent({
 
   const handleFinish = useCallback(
     (sessionId: string) => {
+      trackAnalyticsEvent("onboarding_step_completed", {
+        step: "final",
+        platform: currentPlatform,
+      });
       void queryClient.invalidateQueries({ queryKey: ["onboarding-needed"] });
       onFinish(sessionId);
     },
-    [onFinish, queryClient],
+    [currentPlatform, onFinish, queryClient],
   );
 
   return (
@@ -254,9 +270,13 @@ function OnboardingScreenContent({
             onNext={goNext}
             onSkip={() => {
               setDidSkipLogin(true);
-              void analyticsCommands.event({
-                event: "onboarding_login_skipped",
+              trackAnalyticsEvent("onboarding_login_skipped");
+              trackAnalyticsEvent("onboarding_step_skipped", {
+                step: "login",
+                platform: currentPlatform,
               });
+              const next = getNextStep("login");
+              if (next) setCurrentStep(next);
             }}
           >
             <LoginSection
@@ -276,6 +296,7 @@ function OnboardingScreenContent({
             status={getStepStatus("calendar", currentStep)}
             onBack={goBack}
             onNext={goNext}
+            onSkip={skipCurrentStep}
           >
             <CalendarSection
               onContinue={goNext}
@@ -292,6 +313,7 @@ function OnboardingScreenContent({
             status={getStepStatus("folder-location", currentStep)}
             onBack={goBack}
             onNext={goNext}
+            onSkip={skipCurrentStep}
           >
             <FolderLocationSection onContinue={goNext} />
           </OnboardingSection>

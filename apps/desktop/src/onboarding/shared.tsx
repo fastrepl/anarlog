@@ -97,8 +97,11 @@ export function OnboardingSection({
                   (skippable ? (
                     <button
                       onClick={() => {
-                        onSkip?.();
-                        onNext?.();
+                        if (onSkip) {
+                          onSkip();
+                        } else {
+                          onNext?.();
+                        }
                       }}
                       className="text-muted-foreground hover:text-muted-foreground flex items-center gap-1 text-sm transition-colors"
                     >

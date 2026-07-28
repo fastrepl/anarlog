@@ -1,10 +1,34 @@
 import { Link } from "@tanstack/react-router";
 
+import { useAnalytics } from "@/hooks/use-posthog";
+import { useMountEffect } from "@/hooks/useMountEffect";
+
 import {
   IntegrationPageLayout,
   integrationButtonClassName,
 } from "./-integration-ui";
 import { getIntegrationDisplay } from "./integration";
+
+function PaywallViewedAnalytics({
+  integrationId,
+  flow,
+}: {
+  integrationId: string;
+  flow: string;
+}) {
+  const { track } = useAnalytics();
+
+  useMountEffect(() => {
+    track("paywall_viewed", {
+      entry_point: "integration_connect",
+      feature: "integrations",
+      integration: integrationId,
+      flow,
+    });
+  });
+
+  return null;
+}
 
 export function UpgradePrompt({
   integrationId,
@@ -16,9 +40,17 @@ export function UpgradePrompt({
   scheme: string;
 }) {
   const display = getIntegrationDisplay(integrationId);
+  const { analyticsReady } = useAnalytics();
 
   return (
     <IntegrationPageLayout>
+      {analyticsReady && (
+        <PaywallViewedAnalytics
+          key={`${integrationId}:${flow}`}
+          integrationId={integrationId}
+          flow={flow}
+        />
+      )}
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-center gap-2">
           <h1 className="font-sans text-3xl tracking-tight text-stone-700">

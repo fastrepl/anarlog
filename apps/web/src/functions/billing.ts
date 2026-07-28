@@ -21,6 +21,7 @@ import {
   sanitizeInternalReturnPath,
   toAbsoluteInternalReturnUrl,
 } from "@/lib/auth-redirect";
+import { captureServerAnalytics } from "@/lib/server-analytics";
 import {
   getStripeCustomerIdentityMetadata,
   getStripeCustomerOwnership,
@@ -335,6 +336,20 @@ async function createCheckoutUrl({
     }
     throw error;
   }
+
+  void captureServerAnalytics({
+    event: "checkout_started",
+    userId: user.id,
+    insertId: `checkout-started:${checkout.id}`,
+    properties: {
+      plan: "pro",
+      period,
+      checkout_type: checkoutType,
+      entry_point: source,
+    },
+  }).catch((error) => {
+    console.error("[analytics] failed to record checkout start", error);
+  });
 
   return { url: checkout.url, stripeCustomerId };
 }

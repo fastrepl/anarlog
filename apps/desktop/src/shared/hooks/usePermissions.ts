@@ -87,6 +87,7 @@ export function usePermission(type: Permission) {
 
   return {
     status: effectiveStatus,
+    confirmedStatus: status,
     isPending,
     // A recovered capability must not keep rendering the diagnostics of an older
     // failed request.

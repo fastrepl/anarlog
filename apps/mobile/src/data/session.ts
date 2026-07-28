@@ -7,6 +7,7 @@ import {
   stripMarkdownTitle,
 } from "@/data/note-doc";
 import { execute, executeTransaction, useLiveQuery } from "@/db";
+import { captureAnalytics } from "@/lib/analytics";
 import { DEFAULT_USER_ID, id, nowIso } from "@/lib/ids";
 
 const SESSION_INSERT_SQL = `
@@ -58,6 +59,8 @@ FROM sessions AS session WHERE session.id = ? AND session.deleted_at IS NULL
 export async function createSession(options?: {
   title?: string;
   createdAt?: string;
+  entryPoint?: "new_note" | "start_listening" | "voice_memo_import";
+  trackCreated?: boolean;
 }): Promise<string> {
   const sessionId = id();
   const participantId = id();
@@ -78,6 +81,12 @@ export async function createSession(options?: {
     },
   ]);
 
+  if (options?.trackCreated !== false) {
+    captureAnalytics("note_created", {
+      entry_point: options?.entryPoint ?? "new_note",
+      has_initial_title: Boolean(options?.title),
+    });
+  }
   return sessionId;
 }
 
@@ -162,6 +171,30 @@ ON CONFLICT(id) DO UPDATE SET
 
 const SESSION_TITLE_UPDATE_SQL =
   "UPDATE sessions SET title = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL";
+const NOTE_EDIT_ANALYTICS_SESSION_MS = 30 * 60 * 1_000;
+const lastTrackedNoteEditAt = new Map<string, number>();
+
+function captureNoteEditOnce(
+  sessionId: string,
+  editType: "body" | "title",
+  bodyFormat?: "prosemirror_json" | "markdown",
+) {
+  const key = `${sessionId}:${editType}`;
+  const now = Date.now();
+  const lastTrackedAt = lastTrackedNoteEditAt.get(key);
+  if (
+    lastTrackedAt !== undefined &&
+    now - lastTrackedAt < NOTE_EDIT_ANALYTICS_SESSION_MS
+  ) {
+    return;
+  }
+
+  lastTrackedNoteEditAt.set(key, now);
+  captureAnalytics("note_edited", {
+    edit_type: editType,
+    ...(bodyFormat ? { body_format: bodyFormat } : {}),
+  });
+}
 
 export async function saveSessionNote(
   sessionId: string,
@@ -187,6 +220,7 @@ export async function saveSessionNote(
       params: [sessionId, input.bodyFormat, body, now, now, sessionId],
     },
   ]);
+  captureNoteEditOnce(sessionId, "body", input.bodyFormat);
 }
 
 // Mirrors desktop buildSessionTombstoneStatements: one transaction, the same
@@ -244,4 +278,5 @@ export async function saveSessionTitle(
     }
   }
   await executeTransaction(statements);
+  captureNoteEditOnce(sessionId, "title");
 }

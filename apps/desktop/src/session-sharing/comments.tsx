@@ -41,6 +41,7 @@ import {
   sessionShareCommentsQueryKey,
 } from "./comment-anchors";
 
+import { trackAnalyticsEvent } from "~/analytics";
 import { useAuth } from "~/auth";
 import { loadManagedSharedNoteForSession } from "~/shared-notes/cache";
 
@@ -196,6 +197,11 @@ function useSessionComments({
     },
     onSuccess: (comment) => {
       if (!shareId) return;
+      trackAnalyticsEvent("share_collaboration_performed", {
+        action: "comment_created",
+        actor_role: manageAccess ? "owner" : "recipient",
+        anchor_type: comment.anchor ? "selection" : "note",
+      });
       queryClient.setQueryData<SessionShareCommentPage>(
         sessionShareCommentsQueryKey(shareId),
         (current) => ({

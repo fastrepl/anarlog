@@ -1,7 +1,5 @@
 import type { LanguageModel } from "ai";
 
-import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-
 import { type EnhanceEligibilitySkipCode, getEligibility } from "./eligibility";
 import {
   type EnhancerNote,
@@ -13,6 +11,7 @@ import {
   updateSummaryDocumentTitleIfCurrent,
 } from "./storage";
 
+import { trackAnalyticsEvent } from "~/analytics";
 import { retryDatabaseLock } from "~/db/retry";
 import {
   loadSessionContentSnapshot,
@@ -501,37 +500,51 @@ export class EnhancerService {
     }
 
     const llmConn = getLLMConn();
-    void analyticsCommands
-      .event({
-        event: "note_enhanced",
-        is_auto: opts?.isAuto ?? false,
-        llm_provider: llmConn?.providerId,
-        llm_model: llmConn?.modelId,
-        template_id: templateId,
+    void aiTaskStore
+      .getState()
+      .generate(enhanceTaskId, {
+        model,
+        taskType: "enhance",
+        args: {
+          sessionId,
+          enhancedNoteId: note.id,
+          templateId,
+          ...(opts?.pendingAutoEnhance
+            ? {
+                pendingAutoEnhance: {
+                  generation: opts.pendingAutoEnhance.generation,
+                  expectedBody: opts.pendingAutoEnhance.expectedBody,
+                  expectedContentFormat:
+                    opts.pendingAutoEnhance.expectedContentFormat,
+                },
+              }
+            : {}),
+        },
+        onComplete: () => {
+          trackAnalyticsEvent("note_enhanced", {
+            is_auto: opts?.isAuto ?? false,
+            llm_provider: llmConn?.providerId ?? "unknown",
+            llm_model: llmConn?.modelId ?? "unknown",
+            used_template: Boolean(templateId),
+          });
+          if (templateId) {
+            trackAnalyticsEvent("template_applied", {
+              entry_point: opts?.isAuto ? "auto_enhance" : "enhance",
+            });
+          }
+        },
       })
-      .catch((error: unknown) => {
-        console.error("[enhancer] failed to record analytics", error);
+      .then(() => {
+        if (
+          aiTaskStore.getState().getState(enhanceTaskId)?.status === "error"
+        ) {
+          trackAnalyticsEvent("enhancement_failed", {
+            is_auto: opts?.isAuto ?? false,
+            llm_provider: llmConn?.providerId ?? "unknown",
+            failure_stage: "generation",
+          });
+        }
       });
-
-    void aiTaskStore.getState().generate(enhanceTaskId, {
-      model,
-      taskType: "enhance",
-      args: {
-        sessionId,
-        enhancedNoteId: note.id,
-        templateId,
-        ...(opts?.pendingAutoEnhance
-          ? {
-              pendingAutoEnhance: {
-                generation: opts.pendingAutoEnhance.generation,
-                expectedBody: opts.pendingAutoEnhance.expectedBody,
-                expectedContentFormat:
-                  opts.pendingAutoEnhance.expectedContentFormat,
-              },
-            }
-          : {}),
-      },
-    });
 
     return { type: "started", noteId: note.id };
   }

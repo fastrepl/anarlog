@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => {
   const createPermission = () => ({
     status: "denied" as "authorized" | "denied" | "neverRequested",
+    confirmedStatus: "denied" as "authorized" | "denied" | "neverRequested",
     isPending: false,
     open: vi.fn(),
     request: vi.fn(),

@@ -12,6 +12,7 @@ import { NoteEditor } from "@hypr/editor/note";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { Button } from "@hypr/ui/components/ui/button";
 
+import { trackAnalyticsEvent } from "~/analytics";
 import { useAuth } from "~/auth";
 import { openEditorLink } from "~/editor-bridge/open-editor-link";
 import {
@@ -26,6 +27,7 @@ import {
 } from "~/shared-notes/cache";
 import { useSharedNotePreview } from "~/shared-notes/preview";
 import { useSharedAttachmentResolver } from "~/shared-notes/use-shared-attachment-resolver";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import type { Tab } from "~/store/zustand/tabs";
 
 export function TabContentSharedNote({
@@ -235,6 +237,17 @@ function SharedNoteDocument({
     currentRevision: comments?.currentRevision ?? -1,
     manageAccess: comments?.manageAccess ?? false,
     shareId: comments?.shareId ?? null,
+  });
+  useMountEffect(() => {
+    trackAnalyticsEvent("shared_note_opened", {
+      access_mode: comments
+        ? comments.manageAccess
+          ? "owner"
+          : comments.canCompose
+            ? "collaborator"
+            : "viewer"
+        : "public_preview",
+    });
   });
 
   const content = ensureFirstLineTitle(

@@ -32,6 +32,7 @@ import {
   buildPostAuthDestination,
   sanitizeInternalReturnPath,
 } from "@/lib/auth-redirect";
+import { capturePrivateRouteEvent } from "@/lib/private-route-analytics";
 
 const commonSearch = {
   redirect: z.string().optional(),
@@ -181,7 +182,13 @@ function DesktopReauthView({
   scheme: DesktopScheme;
 }) {
   const retryMutation = useMutation({
-    mutationFn: () => createDesktopSession(),
+    mutationFn: () => {
+      capturePrivateRouteEvent("auth_started", {
+        method: "desktop_reauth",
+        flow: "desktop",
+      });
+      return createDesktopSession();
+    },
     onSuccess: (result) => {
       if (result) {
         const params = new URLSearchParams();
@@ -191,6 +198,13 @@ function DesktopReauthView({
         params.set("refresh_token", result.refresh_token);
         window.location.href = `/callback/auth?${params.toString()}`;
       }
+    },
+    onError: () => {
+      capturePrivateRouteEvent("auth_failed", {
+        method: "desktop_reauth",
+        flow: "desktop",
+        failure_stage: "session_handoff",
+      });
     },
   });
 
@@ -332,12 +346,24 @@ function PasswordForm({
   const [submitted, setSubmitted] = useState(false);
 
   const signInMutation = useMutation({
-    mutationFn: () =>
-      doPasswordSignIn({
+    mutationFn: () => {
+      capturePrivateRouteEvent("auth_started", {
+        method: "password",
+        action: "sign_in",
+        flow,
+      });
+      return doPasswordSignIn({
         data: { email, password, flow, scheme, redirect },
-      }),
+      });
+    },
     onSuccess: (result) => {
       if (result && "error" in result && result.error) {
+        capturePrivateRouteEvent("auth_failed", {
+          method: "password",
+          action: "sign_in",
+          flow,
+          failure_stage: "provider",
+        });
         setErrorMessage(
           (result as { error: boolean; message: string }).message,
         );
@@ -359,15 +385,35 @@ function PasswordForm({
         );
       }
     },
+    onError: () => {
+      capturePrivateRouteEvent("auth_failed", {
+        method: "password",
+        action: "sign_in",
+        flow,
+        failure_stage: "request",
+      });
+    },
   });
 
   const signUpMutation = useMutation({
-    mutationFn: () =>
-      doPasswordSignUp({
+    mutationFn: () => {
+      capturePrivateRouteEvent("auth_started", {
+        method: "password",
+        action: "sign_up",
+        flow,
+      });
+      return doPasswordSignUp({
         data: { name, email, password, flow, scheme, redirect },
-      }),
+      });
+    },
     onSuccess: (result) => {
       if (result && "error" in result && result.error) {
+        capturePrivateRouteEvent("auth_failed", {
+          method: "password",
+          action: "sign_up",
+          flow,
+          failure_stage: "provider",
+        });
         setErrorMessage(
           (result as { error: boolean; message: string }).message,
         );
@@ -390,6 +436,14 @@ function PasswordForm({
         }
       }
     },
+    onError: () => {
+      capturePrivateRouteEvent("auth_failed", {
+        method: "password",
+        action: "sign_up",
+        flow,
+        failure_stage: "request",
+      });
+    },
   });
 
   const isPending = signInMutation.isPending || signUpMutation.isPending;
@@ -400,10 +454,22 @@ function PasswordForm({
 
     if (isSignUp) {
       if (password !== confirmPassword) {
+        capturePrivateRouteEvent("auth_failed", {
+          method: "password",
+          action: "sign_up",
+          flow,
+          failure_stage: "validation",
+        });
         setErrorMessage("Passwords do not match");
         return;
       }
       if (password.length < 6) {
+        capturePrivateRouteEvent("auth_failed", {
+          method: "password",
+          action: "sign_up",
+          flow,
+          failure_stage: "validation",
+        });
         setErrorMessage("Password must be at least 6 characters");
         return;
       }
@@ -543,19 +609,37 @@ function MagicLinkForm({
   const [submitted, setSubmitted] = useState(false);
 
   const magicLinkMutation = useMutation({
-    mutationFn: (email: string) =>
-      doMagicLinkAuth({
+    mutationFn: (email: string) => {
+      capturePrivateRouteEvent("auth_started", {
+        method: "magic_link",
+        flow,
+      });
+      return doMagicLinkAuth({
         data: {
           email,
           flow,
           scheme,
           redirect,
         },
-      }),
+      });
+    },
     onSuccess: (result) => {
       if (result && !("error" in result)) {
         setSubmitted(true);
+      } else {
+        capturePrivateRouteEvent("auth_failed", {
+          method: "magic_link",
+          flow,
+          failure_stage: "provider",
+        });
       }
+    },
+    onError: () => {
+      capturePrivateRouteEvent("auth_failed", {
+        method: "magic_link",
+        flow,
+        failure_stage: "request",
+      });
     },
   });
 
@@ -620,8 +704,13 @@ function OAuthButton({
   autoStart?: boolean;
 }) {
   const oauthMutation = useMutation({
-    mutationFn: (provider: "google" | "github") =>
-      doAuth({
+    mutationFn: (provider: "google" | "github") => {
+      capturePrivateRouteEvent("auth_started", {
+        method: "oauth",
+        provider,
+        flow,
+      });
+      return doAuth({
         data: {
           provider,
           flow,
@@ -629,11 +718,27 @@ function OAuthButton({
           redirect,
           rra,
         },
-      }),
+      });
+    },
     onSuccess: (result) => {
       if (result?.url) {
         window.location.href = result.url;
+      } else {
+        capturePrivateRouteEvent("auth_failed", {
+          method: "oauth",
+          provider,
+          flow,
+          failure_stage: "provider",
+        });
       }
+    },
+    onError: () => {
+      capturePrivateRouteEvent("auth_failed", {
+        method: "oauth",
+        provider,
+        flow,
+        failure_stage: "request",
+      });
     },
   });
   const { mutate, isPending } = oauthMutation;

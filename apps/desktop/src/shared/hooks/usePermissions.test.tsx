@@ -74,6 +74,7 @@ describe("usePermission", () => {
     act(() => result.current.request());
 
     await waitFor(() => expect(result.current.status).toBe("authorized"));
+    expect(result.current.confirmedStatus).toBe("denied");
 
     await waitFor(() => expect(result.current.status).toBe("denied"), {
       timeout: 5000,

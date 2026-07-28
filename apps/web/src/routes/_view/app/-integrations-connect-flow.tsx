@@ -7,6 +7,7 @@ import { createClient } from "@hypr/api-client/client";
 
 import { env } from "@/env";
 import { getAccessToken } from "@/functions/access-token";
+import { useAnalytics } from "@/hooks/use-posthog";
 
 import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
 import { getIntegrationDisplay, Route } from "./integration";
@@ -14,6 +15,7 @@ import { getIntegrationDisplay, Route } from "./integration";
 export function ConnectFlow() {
   const search = Route.useSearch();
   const navigate = useNavigate();
+  const { track } = useAnalytics();
   const isGoogleCalendar = search.integration_id === "google-calendar";
   const isOutlookCalendar = search.integration_id === "outlook";
   const isConnectedCalendar = isGoogleCalendar || isOutlookCalendar;
@@ -39,6 +41,11 @@ export function ConnectFlow() {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     updateStatus("loading");
+    track("integration_connection_started", {
+      integration: search.integration_id,
+      mode: search.action,
+      flow: search.flow,
+    });
 
     let sessionToken: string;
 
@@ -60,12 +67,24 @@ export function ConnectFlow() {
       if (error || !data) {
         inFlightRef.current = false;
         updateStatus("error");
+        track("integration_connection_failed", {
+          integration: search.integration_id,
+          mode: search.action,
+          flow: search.flow,
+          failure_stage: "session",
+        });
         return;
       }
       sessionToken = data.token;
     } catch {
       inFlightRef.current = false;
       updateStatus("error");
+      track("integration_connection_failed", {
+        integration: search.integration_id,
+        mode: search.action,
+        flow: search.flow,
+        failure_stage: "session",
+      });
       return;
     }
 
@@ -80,10 +99,21 @@ export function ConnectFlow() {
           ) {
             inFlightRef.current = false;
             updateStatus("idle");
+            track("integration_connection_failed", {
+              integration: search.integration_id,
+              mode: search.action,
+              flow: search.flow,
+              failure_stage: "cancelled",
+            });
           }
         } else if (event.type === "connect") {
           inFlightRef.current = false;
           updateStatus("success");
+          track("integration_connection_succeeded", {
+            integration: search.integration_id,
+            mode: search.action,
+            flow: search.flow,
+          });
           const callbackSearch =
             search.flow === "desktop"
               ? {

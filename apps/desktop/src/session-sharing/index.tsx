@@ -81,6 +81,7 @@ import {
   type ShareDesktopScheme,
 } from "./urls";
 
+import { trackAnalyticsEvent } from "~/analytics";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { useHumans } from "~/contacts/queries";
@@ -100,6 +101,7 @@ import { getScheme } from "~/shared/utils";
 type SharePanelData = {
   management: SessionShareManagement;
   access: SessionShareAccessEntry[];
+  wasCreated?: boolean;
 };
 
 type SharePreparationIdentity = {
@@ -353,6 +355,11 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           workspaceId: source.workspaceId,
           sessionId: source.sessionId,
         });
+        if (share.wasCreated) {
+          trackAnalyticsEvent("share_created", {
+            entry_point: "session_header",
+          });
+        }
         context = requireActivePrepareContext(identity, signal);
         const management = await getSessionShareManagement(
           context,
@@ -430,7 +437,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
         requireActivePrepareContext(identity, signal);
         return {
           identity: { ...identity, shareId: share.shareId },
-          data: { management, access },
+          data: { management, access, wasCreated: share.wasCreated },
         };
       }),
     onSuccess: ({ identity, data }) => {
@@ -758,6 +765,13 @@ function SessionSharePreparationContent({
 }
 
 function SessionShareUpgradeContent({ onUpgrade }: { onUpgrade: () => void }) {
+  useMountEffect(() => {
+    trackAnalyticsEvent("paywall_viewed", {
+      entry_point: "session_sharing",
+      feature: "sharing",
+    });
+  });
+
   return (
     <PopoverContent
       variant="app"
@@ -1125,7 +1139,11 @@ function SessionSharePopoverContent({
         requireActiveContext(signal);
         return { deliveredBy: "email" as const };
       }),
-    onSuccess: ({ deliveredBy }) => {
+    onSuccess: ({ deliveredBy }, input) => {
+      trackAnalyticsEvent("share_invitation_sent", {
+        delivery_method: deliveredBy,
+        capability: input.capability,
+      });
       inviteForm.reset();
       sonnerToast.success(
         deliveredBy === "email"
@@ -1429,6 +1447,9 @@ function SessionSharePopoverContent({
         requireActiveContext(signal);
       }),
     onSuccess: () => {
+      trackAnalyticsEvent("share_link_copied", {
+        entry_point: "share_panel",
+      });
       sonnerToast.success("Share link copied.");
     },
     onError: (error) => {

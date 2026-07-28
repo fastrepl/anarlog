@@ -14,6 +14,8 @@ import {
   type SharedAttachmentResolver,
   SharedNoteDocument,
 } from "@/components/shared-note-document";
+import { useMountEffect } from "@/hooks/useMountEffect";
+import { capturePrivateRouteEvent } from "@/lib/private-route-analytics";
 import {
   findFeaturedSharedNoteAudio,
   formatSharedNotePublishedAt,
@@ -57,6 +59,12 @@ export function SharedNoteViewer({
 }) {
   const body = withoutDuplicateLeadingTitle(snapshot.body, snapshot.title);
   const featuredAudio = findFeaturedSharedNoteAudio(snapshot.attachments);
+  useMountEffect(() => {
+    capturePrivateRouteEvent("shared_note_opened", {
+      has_audio: Boolean(featuredAudio),
+      has_collaboration_actions: Boolean(actions),
+    });
+  });
 
   return (
     <SharedNoteShell

@@ -5,6 +5,7 @@ import { Platform } from "react-native";
 
 import { supabase } from "@/auth/client";
 import { execute, executeTransaction } from "@/db";
+import { captureAnalytics } from "@/lib/analytics";
 import { env } from "@/lib/env";
 import { id, nowIso } from "@/lib/ids";
 
@@ -317,9 +318,20 @@ export function transcribeSession(sessionId: string): Promise<void> {
 
   setState(sessionId, "running");
   const task = runTranscription(sessionId)
-    .then(() => clearStateSilently(sessionId))
+    .then(() => {
+      captureAnalytics("transcription_completed", {
+        mode: "batch",
+        entry_point: "mobile_audio",
+      });
+      clearStateSilently(sessionId);
+    })
     .catch((error: unknown) => {
       console.warn("[transcribe] failed", error);
+      captureAnalytics("transcription_failed", {
+        mode: "batch",
+        entry_point: "mobile_audio",
+        failure_stage: "transcription",
+      });
       setState(sessionId, "failed");
     })
     .finally(() => {

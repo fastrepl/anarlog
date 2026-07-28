@@ -1,4 +1,5 @@
 import { arch, platform } from "@tauri-apps/plugin-os";
+import { useEffect } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import {
@@ -12,6 +13,7 @@ import {
 
 import { TrialDialogIcon } from "./trial-dialog-icon";
 
+import { trackAnalyticsEvent } from "~/analytics";
 import { isDesktopLocalSttAvailable } from "~/stt/capabilities";
 
 interface TrialEndedDialogProps {
@@ -29,6 +31,13 @@ export function TrialEndedDialog({
     platform(),
     arch(),
   );
+  useEffect(() => {
+    if (!open) return;
+    trackAnalyticsEvent("paywall_viewed", {
+      entry_point: "trial_ended_dialog",
+      feature: "pro_plan",
+    });
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

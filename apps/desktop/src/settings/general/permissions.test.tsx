@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
     Permission,
     {
       status: PermissionStatus;
+      confirmedStatus: PermissionStatus;
       isPending: boolean;
       open: ReturnType<typeof vi.fn>;
       request: ReturnType<typeof vi.fn>;
@@ -35,6 +36,7 @@ import { Permissions } from "./permissions";
 function permission(status: PermissionStatus) {
   return {
     status,
+    confirmedStatus: status,
     isPending: false,
     open: vi.fn(),
     request: vi.fn(),

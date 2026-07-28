@@ -222,15 +222,19 @@ describe("EnhancerService", () => {
       undefined,
     );
     expect(mocks.ensureSummaryDocument).toHaveBeenCalledBefore(ai.generate);
-    expect(ai.generate).toHaveBeenCalledWith("note-1-enhance", {
-      model: expect.any(Object),
-      taskType: "enhance",
-      args: {
-        sessionId: "session-1",
-        enhancedNoteId: "note-1",
-        templateId: undefined,
-      },
-    });
+    expect(ai.generate).toHaveBeenCalledWith(
+      "note-1-enhance",
+      expect.objectContaining({
+        model: expect.any(Object),
+        taskType: "enhance",
+        args: {
+          sessionId: "session-1",
+          enhancedNoteId: "note-1",
+          templateId: undefined,
+        },
+        onComplete: expect.any(Function),
+      }),
+    );
   });
 
   it("reuses a matching summary and its stored auto-enhance template", async () => {

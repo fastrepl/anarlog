@@ -32,6 +32,23 @@ pub struct Args {
     pub command: Command,
 }
 
+impl Args {
+    pub fn analytics_command_name(&self) -> &'static str {
+        match &self.command {
+            Command::Doctor => "doctor",
+            Command::Meetings { command } => match command {
+                MeetingCommand::List { .. } => "meetings_list",
+                MeetingCommand::Get { .. } => "meetings_get",
+                MeetingCommand::Note { .. } => "meetings_note",
+                MeetingCommand::Transcript { .. } => "meetings_transcript",
+                MeetingCommand::History { .. } => "meetings_history",
+                MeetingCommand::Export { .. } => "meetings_export",
+            },
+            Command::Mcp => "mcp",
+        }
+    }
+}
+
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Check the local CLI and database connection without changing data

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -18,6 +18,7 @@ import { importVoiceMemos } from "@/data/import-voice-memo";
 import { useSessionSearch } from "@/data/search";
 import { createSession, deleteSession } from "@/data/session";
 import { useTimelineSessions, type TimelineSession } from "@/data/timeline";
+import { captureAnalytics } from "@/lib/analytics";
 import { confirmDestructive } from "@/lib/confirm";
 
 export default function HomeScreen() {
@@ -31,6 +32,18 @@ export default function HomeScreen() {
   // Ref, not state: two taps in the same frame both pass a state check.
   const busyRef = useRef(false);
 
+  useEffect(() => {
+    if (!searching || !query?.trim() || search.isLoading) return;
+    const timeout = setTimeout(() => {
+      captureAnalytics("search_performed", {
+        entry_point: "mobile_home",
+        result_count: search.results.length,
+        entity_types: ["note"],
+      });
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [query, search.isLoading, search.results.length, searching]);
+
   const handleDelete = async (session: TimelineSession) => {
     const confirmed = await confirmDestructive(
       `Delete "${session.title || "Untitled"}"?`,
@@ -43,7 +56,9 @@ export default function HomeScreen() {
     if (busyRef.current) return;
     busyRef.current = true;
     try {
-      const sessionId = await createSession();
+      const sessionId = await createSession({
+        entryPoint: query.includes("listen=1") ? "start_listening" : "new_note",
+      });
       router.push(`/note/${sessionId}${query}`);
     } finally {
       busyRef.current = false;
@@ -112,7 +127,13 @@ export default function HomeScreen() {
               <SessionCard
                 key={session.id}
                 session={session}
-                onPress={() => router.push(`/note/${session.id}`)}
+                onPress={() => {
+                  captureAnalytics("search_result_opened", {
+                    entry_point: "mobile_home",
+                    result_type: "session",
+                  });
+                  router.push(`/note/${session.id}`);
+                }}
                 onDelete={() => void handleDelete(session)}
               />
             ))}

@@ -7,6 +7,7 @@ import { Directory, File, Paths } from "expo-file-system";
 import { catalogSessionAudio } from "@/data/audio-catalog";
 import { createSession, deleteSession } from "@/data/session";
 import { transcribeSession } from "@/data/transcribe";
+import { captureAnalytics } from "@/lib/analytics";
 import { nowIso } from "@/lib/ids";
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -46,7 +47,12 @@ async function importAsset(asset: DocumentPickerAsset): Promise<string> {
       ? new Date(asset.lastModified).toISOString()
       : nowIso();
 
-  const sessionId = await createSession({ title, createdAt });
+  const sessionId = await createSession({
+    title,
+    createdAt,
+    entryPoint: "voice_memo_import",
+    trackCreated: false,
+  });
 
   try {
     const directory = new Directory(Paths.document, "sessions", sessionId);
@@ -63,6 +69,19 @@ async function importAsset(asset: DocumentPickerAsset): Promise<string> {
         CONTENT_TYPES[extension] ??
         "application/octet-stream",
       sizeBytes: asset.size ?? destination.size ?? 0,
+    });
+    captureAnalytics("file_uploaded", {
+      entry_point: "voice_memo_import",
+      file_type: "audio",
+      content_type:
+        asset.mimeType ??
+        CONTENT_TYPES[extension] ??
+        "application/octet-stream",
+      size_bytes: asset.size ?? destination.size ?? 0,
+    });
+    captureAnalytics("note_created", {
+      entry_point: "voice_memo_import",
+      has_initial_title: Boolean(title),
     });
   } catch (error) {
     // The session exists before the audio does, so a failed copy or catalog

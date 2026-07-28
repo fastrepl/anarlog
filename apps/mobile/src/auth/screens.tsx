@@ -1,4 +1,5 @@
 import * as WebBrowser from "expo-web-browser";
+import { useEffect } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -10,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { BillingInfo } from "@/auth/billing";
 import { Colors, Radius, Spacing } from "@/constants/theme";
+import { captureAnalytics } from "@/lib/analytics";
 import { env } from "@/lib/env";
 
 export function SignInScreen({
@@ -60,6 +62,13 @@ export function PaywallScreen({
   email: string;
   onSignOut: () => void;
 }) {
+  useEffect(() => {
+    captureAnalytics("paywall_viewed", {
+      entry_point: "mobile_gate",
+      feature: "mobile_access",
+    });
+  }, []);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.body}>

@@ -5,6 +5,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -13,6 +14,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 
 import { cn } from "@hypr/utils";
 
+import { trackAnalyticsEvent } from "~/analytics";
 import { useAuth } from "~/auth";
 import { useSessionSummaries } from "~/session/queries";
 import { useDurableSharedNotes } from "~/shared-notes/cache";
@@ -173,6 +175,24 @@ export function OpenNoteDialog({
   const hasAnyResults =
     filteredRecentSessions.length > 0 || filteredOtherNotes.length > 0;
 
+  useEffect(() => {
+    if (!open || !query.trim()) return;
+    const timeout = setTimeout(() => {
+      trackAnalyticsEvent("search_performed", {
+        entry_point: "open_note_dialog",
+        result_count: filteredRecentSessions.length + filteredOtherNotes.length,
+        entity_types: [
+          ...new Set(
+            [...filteredRecentSessions, ...filteredOtherNotes].map(
+              (note) => note.resourceType,
+            ),
+          ),
+        ].sort(),
+      });
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [filteredOtherNotes.length, filteredRecentSessions.length, open, query]);
+
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
       if (!nextOpen) {
@@ -189,6 +209,11 @@ export function OpenNoteDialog({
 
   const handleSelect = useCallback(
     (note: NoteResult) => {
+      trackAnalyticsEvent("search_result_opened", {
+        entry_point: "open_note_dialog",
+        result_type: note.resourceType,
+        had_query: Boolean(query.trim()),
+      });
       handleOpenChange(false);
       openCurrent(
         note.resourceType === "shared_session"
@@ -196,7 +221,7 @@ export function OpenNoteDialog({
           : { type: "sessions", id: note.id },
       );
     },
-    [handleOpenChange, openCurrent],
+    [handleOpenChange, openCurrent, query],
   );
 
   if (!open) return null;
