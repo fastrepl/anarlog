@@ -105,7 +105,7 @@ jobs:
           platform: linux
       - uses: ./.github/actions/infisical_install
       - run: |
-          infisical run --token="$INFISICAL_TOKEN" --env=dev --projectId="$INFISICAL_PROJECT_ID" --path="/stt" -- bash -lc '
+          infisical run --token="$INFISICAL_TOKEN" --env=dev --projectId="$INFISICAL_PROJECT_ID" --path="/anarlog/stt" -- bash -lc '
             set -euo pipefail
 
             provider="${PROVIDER}"
@@ -161,7 +161,7 @@ jobs:
           platform: linux
       - uses: ./.github/actions/infisical_install
       - run: |
-          infisical run --token="$INFISICAL_TOKEN" --env=dev --projectId="$INFISICAL_PROJECT_ID" --path="/stt" -- bash -lc '
+          infisical run --token="$INFISICAL_TOKEN" --env=dev --projectId="$INFISICAL_PROJECT_ID" --path="/anarlog/stt" -- bash -lc '
             set -euo pipefail
 
             provider="${PROVIDER}"
