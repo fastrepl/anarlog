@@ -15,6 +15,7 @@
     "@hypr/db-react": "workspace:*",
     "@hypr/db-runtime": "workspace:*",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@sentry/react-native": "^8.20.0",
     "@supabase/supabase-js": "^2.103.0",
     "expo": "~57.0.8",
     "expo-audio": "~57.0.3",

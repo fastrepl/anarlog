@@ -1,6 +1,6 @@
-const { getDefaultConfig } = require("expo/metro-config");
+const { getSentryExpoConfig } = require("@sentry/react-native/metro");
 
-const config = getDefaultConfig(__dirname);
+const config = getSentryExpoConfig(__dirname);
 
 // expo-sqlite web support: bundle the wa-sqlite wasm binary and serve with the
 // cross-origin isolation headers SharedArrayBuffer requires.

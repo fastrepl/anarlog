@@ -1,7 +1,6 @@
 import "./styles/globals.css";
 import "./styles/cursor.css";
 
-import * as Sentry from "@sentry/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode, useMemo } from "react";
@@ -23,7 +22,10 @@ import { Toaster } from "@hypr/ui/components/ui/toast";
 import { AITaskWindowSyncBridge } from "./ai/task-window-sync";
 import { trackAnalyticsEvent } from "./analytics";
 import { createToolRegistry } from "./contexts/tool-registry/core";
-import { env } from "./env";
+import {
+  captureOperationalError,
+  initializeErrorReporting,
+} from "./error-reporting";
 import { AppI18nProvider } from "./i18n/provider";
 import { FloatingMeetingWindowHost } from "./meeting-float/host";
 import { routeTree } from "./routeTree.gen";
@@ -80,19 +82,7 @@ function App() {
   );
 }
 
-if (env.VITE_SENTRY_DSN) {
-  Sentry.init({
-    dsn: env.VITE_SENTRY_DSN,
-    release: env.VITE_APP_VERSION
-      ? `hyprnote-desktop@${env.VITE_APP_VERSION}`
-      : undefined,
-    environment: import.meta.env.MODE,
-    tracePropagationTargets: [],
-    integrations: [Sentry.replayIntegration()],
-    replaysSessionSampleRate: 0.1,
-    replaysOnErrorSampleRate: 1.0,
-  });
-}
+initializeErrorReporting();
 
 function AppRoot() {
   const manager = useCreateManager(() => {
@@ -131,7 +121,9 @@ if (isMainWindow) {
     }
   } catch {}
   void initializeAppExitFlush().catch((error) => {
-    console.error("Failed to initialize the exit flush listener", error);
+    captureOperationalError(error, {
+      operation: "app_exit_flush_initialize",
+    });
   });
 }
 
@@ -155,13 +147,19 @@ async function enableReactScanInDev() {
 async function renderApp() {
   if (isMainWindow) {
     await refreshLegacySettingsSnapshots().catch((error) => {
-      console.error("Failed to refresh legacy settings snapshots", error);
+      captureOperationalError(error, {
+        operation: "legacy_settings_refresh",
+      });
     });
     await initializeApplicationSettings().catch((error) => {
-      console.error("Failed to initialize application settings", error);
+      captureOperationalError(error, {
+        operation: "application_settings_initialize",
+      });
     });
     await migratePlaintextAiProviderApiKeys().catch((error) => {
-      console.error("Failed to migrate AI provider credentials", error);
+      captureOperationalError(error, {
+        operation: "ai_credentials_migrate",
+      });
     });
   }
   await Promise.all([bootstrapThemeFromSettings(), enableReactScanInDev()]);

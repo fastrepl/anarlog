@@ -20,5 +20,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       "",
     posthogHost:
       process.env.EXPO_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com",
+    sentryDsn:
+      process.env.EXPO_PUBLIC_SENTRY_DSN ?? process.env.SENTRY_DSN ?? "",
   },
 });

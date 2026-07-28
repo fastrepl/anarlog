@@ -29,6 +29,10 @@ import {
   resetAnalytics,
 } from "@/lib/analytics";
 import { env, hasSupabaseEnv } from "@/lib/env";
+import {
+  captureOperationalError,
+  setErrorReportingUser,
+} from "@/lib/error-reporting";
 
 export type AuthState = {
   status: "loading" | "signed_out" | "signed_in";
@@ -119,7 +123,10 @@ function acceptAuthTokens(accessToken: string, refreshToken: string): void {
       ({ error }) => {
         inFlightTokens.delete(key);
         if (error) {
-          console.error("[auth] setSession failed", error);
+          captureOperationalError(error, {
+            operation: "auth_session_set",
+            tags: { method: "browser_handoff" },
+          });
           captureAnalytics("auth_failed", {
             method: "browser_handoff",
             failure_stage: "set_session",
@@ -130,7 +137,10 @@ function acceptAuthTokens(accessToken: string, refreshToken: string): void {
       },
       (error) => {
         inFlightTokens.delete(key);
-        console.error("[auth] setSession failed", error);
+        captureOperationalError(error, {
+          operation: "auth_session_set",
+          tags: { method: "browser_handoff" },
+        });
         captureAnalytics("auth_failed", {
           method: "browser_handoff",
           failure_stage: "set_session",
@@ -165,12 +175,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     bypass ? null : undefined,
   );
   const sessionRef = useRef<Session | null | undefined>(session);
+  const identifiedUserIdRef = useRef<string | null>(null);
   // Prevents double init in React StrictMode (refresh token races)
   const initStartedRef = useRef(false);
 
   const setSession = useCallback((next: Session | null) => {
     sessionRef.current = next;
     setSessionState(next);
+    const userId = next?.user.id ?? null;
+    setErrorReportingUser(userId);
+    if (userId && userId !== identifiedUserIdRef.current) {
+      identifiedUserIdRef.current = userId;
+      identifyAnalytics(userId);
+    } else if (!userId) {
+      identifiedUserIdRef.current = null;
+    }
   }, []);
 
   useEffect(() => {
@@ -215,7 +234,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setSession(nextSession);
       if (event === "SIGNED_IN" && nextSession) {
-        identifyAnalytics(nextSession.user.id);
         captureAnalytics("user_signed_in", {
           method: "browser_handoff",
         });
@@ -228,12 +246,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
     };
   }, [setSession]);
-
-  useEffect(() => {
-    if (session?.user.id) {
-      identifyAnalytics(session.user.id);
-    }
-  }, [session?.user.id]);
 
   useEffect(() => {
     if (!supabase) {
@@ -277,6 +289,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       }
     } catch (error) {
+      captureOperationalError(error, {
+        operation: "auth_browser_open",
+        tags: { method: "browser_handoff" },
+      });
       captureAnalytics("auth_failed", {
         method: "browser_handoff",
         failure_stage: "open_browser",
@@ -295,12 +311,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .signOut({ scope: "local" })
       .catch((error: unknown) => ({ error }));
     if (error) {
+      captureOperationalError(error, {
+        operation: "auth_sign_out",
+        level: "warning",
+      });
       // auth-js can early-return without clearing storage; force local cleanup
       // so the session cannot silently resurrect on next launch.
       supabase.auth.stopAutoRefresh();
       await AsyncStorage.removeItem(authStorageKey).catch(() => {});
     }
     setSession(null);
+    setErrorReportingUser(null);
     resetAnalytics();
   }, [setSession]);
 

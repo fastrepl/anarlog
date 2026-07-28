@@ -1,9 +1,9 @@
-import * as Sentry from "@sentry/bun";
 import { Hono } from "hono";
 
 import { captureBillingEvent, captureTrialEndingEmailSent } from "../analytics";
 import { syncBillingBridge } from "../billing-bridge";
 import { env } from "../env";
+import { captureOperationalError } from "../error-reporting";
 import type { AppBindings } from "../hono-bindings";
 import { stripeSync } from "../integration/stripe-sync";
 import { sendTrialEndingEmail } from "../trial-emails";
@@ -25,26 +25,22 @@ webhook.post("/stripe", async (c) => {
         error instanceof Error &&
         error.message === "Unhandled webhook event"
       ) {
-        Sentry.captureMessage(
-          `Unhandled Stripe webhook event: ${stripeEvent.type}`,
-          {
-            level: "warning",
-            tags: {
-              webhook: "stripe",
-              event_type: stripeEvent.type,
-            },
-            extra: {
-              api_version: stripeEvent.api_version,
-            },
-          },
-        );
-      } else {
-        Sentry.captureException(error, {
+        captureOperationalError(error, {
+          operation: "stripe_webhook_unhandled_event",
+          level: "warning",
           tags: {
             webhook: "stripe",
             event_type: stripeEvent.type,
+            api_version: stripeEvent.api_version ?? "unknown",
           },
-          extra: {
+        });
+      } else {
+        captureOperationalError(error, {
+          operation: "stripe_webhook_process",
+          tags: {
+            event_type: stripeEvent.type,
+          },
+          context: {
             api_version: stripeEvent.api_version,
           },
         });
@@ -56,8 +52,9 @@ webhook.post("/stripe", async (c) => {
   try {
     await syncBillingBridge(stripeEvent);
   } catch (error) {
-    Sentry.captureException(error, {
-      tags: { webhook: "stripe", event_type: stripeEvent.type },
+    captureOperationalError(error, {
+      operation: "billing_bridge_sync",
+      tags: { event_type: stripeEvent.type },
     });
     return c.json({ error: "billing_bridge_sync_failed" }, 500);
   }
@@ -65,10 +62,10 @@ webhook.post("/stripe", async (c) => {
   try {
     await captureBillingEvent(stripeEvent);
   } catch (error) {
-    Sentry.captureException(error, {
+    captureOperationalError(error, {
+      operation: "billing_analytics_capture",
+      level: "warning",
       tags: {
-        webhook: "stripe",
-        step: "posthog",
         event_type: stripeEvent.type,
       },
     });
@@ -84,20 +81,19 @@ webhook.post("/stripe", async (c) => {
           ...receipt,
         });
       } catch (error) {
-        Sentry.captureException(error, {
+        captureOperationalError(error, {
+          operation: "trial_email_analytics_capture",
+          level: "warning",
           tags: {
-            webhook: "stripe",
-            step: "posthog_loops",
             event_type: stripeEvent.type,
           },
         });
       }
     }
   } catch (error) {
-    Sentry.captureException(error, {
+    captureOperationalError(error, {
+      operation: "trial_email_send",
       tags: {
-        webhook: "stripe",
-        step: "loops",
         event_type: stripeEvent.type,
       },
     });

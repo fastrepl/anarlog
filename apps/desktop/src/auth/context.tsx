@@ -31,6 +31,7 @@ import {
 import { clearAuthStorage, isFatalSessionError } from "./errors";
 
 import { trackAnalyticsEvent } from "~/analytics";
+import { setErrorReportingUser } from "~/error-reporting";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
@@ -116,6 +117,7 @@ async function trackAuthEvent(
       event === "TOKEN_REFRESHED") &&
     session
   ) {
+    setErrorReportingUser(session.user.id);
     const appVersion = await getVersion();
     const billing = await getBillingAnalytics(session.access_token);
     const identifySignature = JSON.stringify({
@@ -393,6 +395,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       trackedIdentifySignature = null;
       trackedSignedInUserId = null;
+      setErrorReportingUser(null);
       await enqueueAuthAnalytics(() => analyticsCommands.clearGroups());
       setSession(null);
       if (managesCloudsync) {
@@ -419,6 +422,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (event === "SIGNED_OUT" && !managesCloudsync) {
           trackedIdentifySignature = null;
           trackedSignedInUserId = null;
+          setErrorReportingUser(null);
           setSession(null);
 
           try {

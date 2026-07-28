@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react-native";
 import { Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -7,6 +8,9 @@ import { AuthProvider, useAuth } from "@/auth/context";
 import { PaywallScreen, SignInScreen } from "@/auth/screens";
 import { Colors } from "@/constants/theme";
 import { initializeAnalytics, screenAnalytics } from "@/lib/analytics";
+import { initializeErrorReporting } from "@/lib/error-reporting";
+
+initializeErrorReporting();
 
 function AnalyticsLifecycle() {
   const pathname = usePathname();
@@ -75,7 +79,7 @@ function Gate() {
   return <Screens />;
 }
 
-export default function RootLayout() {
+function RootLayout() {
   return (
     <AuthProvider>
       <AnalyticsLifecycle />
@@ -84,6 +88,8 @@ export default function RootLayout() {
     </AuthProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);
 
 const styles = StyleSheet.create({
   loading: {

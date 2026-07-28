@@ -7,6 +7,7 @@ import { supabase } from "@/auth/client";
 import { execute, executeTransaction } from "@/db";
 import { captureAnalytics } from "@/lib/analytics";
 import { env } from "@/lib/env";
+import { captureOperationalError } from "@/lib/error-reporting";
 import { id, nowIso } from "@/lib/ids";
 
 // Client-driven batch STT, mirroring desktop's useRunBatch: POST the audio to
@@ -326,6 +327,10 @@ export function transcribeSession(sessionId: string): Promise<void> {
       clearStateSilently(sessionId);
     })
     .catch((error: unknown) => {
+      captureOperationalError(error, {
+        operation: "transcription_batch",
+        tags: { mode: "batch" },
+      });
       console.warn("[transcribe] failed", error);
       captureAnalytics("transcription_failed", {
         mode: "batch",

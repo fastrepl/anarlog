@@ -3,8 +3,10 @@ import { QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 
+import { ErrorPage } from "./components/error-page";
 import { env } from "./env";
 import { isTelemetryPrivateLocation } from "./lib/auth-route-privacy";
+import { sanitizeErrorEvent } from "./lib/error-reporting";
 import { prepareShareRoutePrivacy } from "./lib/share-route-privacy";
 import { routeTree } from "./routeTree.gen";
 
@@ -15,6 +17,7 @@ export function getRouter() {
     routeTree,
     context: { queryClient },
     defaultPreload: "intent",
+    defaultErrorComponent: ErrorPage,
     scrollRestoration: true,
     trailingSlash: "always",
   });
@@ -27,7 +30,7 @@ export function getRouter() {
       release: env.VITE_APP_VERSION
         ? `anarlog-web@${env.VITE_APP_VERSION}`
         : undefined,
-      sendDefaultPii: true,
+      sendDefaultPii: false,
       tracePropagationTargets: [],
       beforeSend: (event) =>
         isTelemetryPrivateLocation(
@@ -35,7 +38,7 @@ export function getRouter() {
           window.location.search,
         )
           ? null
-          : event,
+          : sanitizeErrorEvent(event),
       beforeSendTransaction: (event) =>
         isTelemetryPrivateLocation(
           window.location.pathname,
@@ -43,6 +46,13 @@ export function getRouter() {
         )
           ? null
           : event,
+      initialScope: {
+        tags: {
+          "service.name": "web",
+          "service.namespace": "hyprnote",
+          "hyprnote.surface": "web",
+        },
+      },
     });
   }
 

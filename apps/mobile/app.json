@@ -42,7 +42,8 @@
           "enableBackgroundRecording": true
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      "@sentry/react-native/expo"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -19,8 +19,6 @@ pub async fn sentry_and_analytics(mut request: Request, next: Next) -> Response 
         sentry::configure_scope(|scope| {
             scope.set_user(Some(sentry::User {
                 id: Some(auth.claims.sub.clone()),
-                email: auth.claims.email.clone(),
-                username: Some(auth.claims.sub.clone()),
                 ..Default::default()
             }));
             scope.set_tag("enduser.id", &auth.claims.sub);

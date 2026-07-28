@@ -16,6 +16,7 @@ import {
   getSupabaseServerClient,
 } from "@/functions/supabase";
 import { sanitizeInternalReturnPath } from "@/lib/auth-redirect";
+import { captureOperationalError } from "@/lib/error-reporting";
 
 const shared = z.object({
   flow: z.enum(["desktop", "web"]).default("desktop"),
@@ -151,9 +152,11 @@ async function mintDesktopSessionFromEmail(email: string) {
       });
 
     if (linkError || !linkData.properties?.hashed_token) {
-      console.error(
-        "[mintDesktopSessionFromEmail] generateLink failed:",
-        linkError?.message ?? "no hashed_token",
+      captureOperationalError(
+        new Error("Desktop auth link generation failed"),
+        {
+          operation: "desktop_auth_link_generate",
+        },
       );
       return null;
     }
@@ -165,10 +168,9 @@ async function mintDesktopSessionFromEmail(email: string) {
     });
 
     if (error || !authData.session) {
-      console.error(
-        "[mintDesktopSessionFromEmail] verifyOtp failed:",
-        error?.message ?? "no session",
-      );
+      captureOperationalError(new Error("Desktop auth verification failed"), {
+        operation: "desktop_auth_otp_verify",
+      });
       return null;
     }
 
@@ -176,8 +178,10 @@ async function mintDesktopSessionFromEmail(email: string) {
       access_token: authData.session.access_token,
       refresh_token: authData.session.refresh_token,
     };
-  } catch (e) {
-    console.error("[mintDesktopSessionFromEmail] unexpected error:", e);
+  } catch {
+    captureOperationalError(new Error("Desktop auth session mint failed"), {
+      operation: "desktop_auth_session_mint",
+    });
     return null;
   }
 }

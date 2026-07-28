@@ -573,7 +573,7 @@ fn main() -> std::io::Result<()> {
         ),
         traces_sample_rate: 1.0,
         sample_rate: 1.0,
-        send_default_pii: true,
+        send_default_pii: false,
         auto_session_tracking: true,
         session_mode: sentry::SessionMode::Request,
         attach_stacktrace: true,

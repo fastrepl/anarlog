@@ -17,11 +17,20 @@ use tracing_subscriber::{
 use utils::{cleanup_legacy_logs, make_file_writer_if_enabled};
 
 const PLUGIN_NAME: &str = "tracing";
+const WEBVIEW_CONSOLE_TARGET: &str = "hyprnote.webview.console";
 
 fn sentry_event_filter(metadata: &tracing::Metadata<'_>) -> EventFilter {
-    match *metadata.level() {
-        tracing::Level::ERROR | tracing::Level::WARN => EventFilter::Event,
-        tracing::Level::INFO => EventFilter::Breadcrumb,
+    sentry_event_filter_for(metadata.level(), metadata.target())
+}
+
+fn sentry_event_filter_for(level: &tracing::Level, target: &str) -> EventFilter {
+    if target == WEBVIEW_CONSOLE_TARGET {
+        return EventFilter::Ignore;
+    }
+
+    match *level {
+        tracing::Level::ERROR => EventFilter::Event,
+        tracing::Level::WARN | tracing::Level::INFO => EventFilter::Breadcrumb,
         tracing::Level::DEBUG | tracing::Level::TRACE => EventFilter::Ignore,
     }
 }
@@ -144,5 +153,21 @@ mod test {
         let app = create_mock_app();
         let result = app.tracing().log_content();
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn sentry_filter_keeps_only_native_errors_as_events() {
+        assert_eq!(
+            sentry_event_filter_for(&tracing::Level::ERROR, "native").bits(),
+            EventFilter::Event.bits()
+        );
+        assert_eq!(
+            sentry_event_filter_for(&tracing::Level::WARN, "native").bits(),
+            EventFilter::Breadcrumb.bits()
+        );
+        assert_eq!(
+            sentry_event_filter_for(&tracing::Level::ERROR, WEBVIEW_CONSOLE_TARGET).bits(),
+            EventFilter::Ignore.bits()
+        );
     }
 }

@@ -13,6 +13,7 @@ import { WAVEFORM_BAR_COUNT } from "@/components/waveform";
 import { catalogSessionAudio } from "@/data/audio-catalog";
 import { transcribeSession } from "@/data/transcribe";
 import { captureAnalytics } from "@/lib/analytics";
+import { captureOperationalError } from "@/lib/error-reporting";
 
 const METERING_FLOOR_DB = -50;
 
@@ -98,6 +99,9 @@ export function useSessionRecorder(
         });
         setPhase("recording");
       } catch (error) {
+        captureOperationalError(error, {
+          operation: "recording_start",
+        });
         console.warn("[recorder] failed to start", error);
         captureAnalytics("session_start_failed", {
           failure_stage: "capture_start",
@@ -161,6 +165,9 @@ export function useSessionRecorder(
       setPhase("saved");
       return "saved";
     } catch (error) {
+      captureOperationalError(error, {
+        operation: "recording_save",
+      });
       console.warn("[recorder] failed to save recording", error);
       setPhase("error");
       return "failed";

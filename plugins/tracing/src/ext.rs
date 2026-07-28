@@ -20,19 +20,19 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tracing<'a, R, M> {
     pub fn do_log(&self, level: Level, data: Vec<serde_json::Value>) -> Result<(), crate::Error> {
         match level {
             Level::Trace => {
-                tracing::trace!("{:?}", data);
+                tracing::trace!(target: super::WEBVIEW_CONSOLE_TARGET, "{:?}", data);
             }
             Level::Debug => {
-                tracing::debug!("{:?}", data);
+                tracing::debug!(target: super::WEBVIEW_CONSOLE_TARGET, "{:?}", data);
             }
             Level::Info => {
-                tracing::info!("{:?}", data);
+                tracing::info!(target: super::WEBVIEW_CONSOLE_TARGET, "{:?}", data);
             }
             Level::Warn => {
-                tracing::warn!("{:?}", data);
+                tracing::warn!(target: super::WEBVIEW_CONSOLE_TARGET, "{:?}", data);
             }
             Level::Error => {
-                tracing::error!("{:?}", data);
+                tracing::error!(target: super::WEBVIEW_CONSOLE_TARGET, "{:?}", data);
             }
         }
         Ok(())

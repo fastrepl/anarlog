@@ -1,6 +1,8 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
 import { fetchUser } from "@/functions/auth";
+import { useMountEffect } from "@/hooks/useMountEffect";
+import { setErrorReportingUser } from "@/lib/error-reporting";
 
 export const Route = createFileRoute("/_view/app")({
   head: () => ({
@@ -23,4 +25,30 @@ export const Route = createFileRoute("/_view/app")({
     }
     return { user };
   },
+  component: AppRoute,
 });
+
+function AppRoute() {
+  const { user } = Route.useRouteContext();
+
+  return (
+    <ErrorReportingIdentity key={user.id} userId={user.id}>
+      <Outlet />
+    </ErrorReportingIdentity>
+  );
+}
+
+function ErrorReportingIdentity({
+  children,
+  userId,
+}: {
+  children: React.ReactNode;
+  userId: string;
+}) {
+  useMountEffect(() => {
+    setErrorReportingUser(userId);
+    return () => setErrorReportingUser(null);
+  });
+
+  return children;
+}

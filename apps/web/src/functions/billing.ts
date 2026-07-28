@@ -21,6 +21,7 @@ import {
   sanitizeInternalReturnPath,
   toAbsoluteInternalReturnUrl,
 } from "@/lib/auth-redirect";
+import { captureOperationalError } from "@/lib/error-reporting";
 import { captureServerAnalytics } from "@/lib/server-analytics";
 import {
   getStripeCustomerIdentityMetadata,
@@ -348,7 +349,10 @@ async function createCheckoutUrl({
       entry_point: source,
     },
   }).catch((error) => {
-    console.error("[analytics] failed to record checkout start", error);
+    captureOperationalError(error, {
+      operation: "checkout_analytics_capture",
+      level: "warning",
+    });
   });
 
   return { url: checkout.url, stripeCustomerId };
@@ -442,7 +446,9 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       if (reservationId && !(error instanceof TrialCheckoutCreationError)) {
         await releaseTrialReservation(user.id, reservationId).catch(
           (releaseError) => {
-            console.error("release_pro_trial_reservation error:", releaseError);
+            captureOperationalError(releaseError, {
+              operation: "trial_reservation_release",
+            });
           },
         );
       }
@@ -654,7 +660,9 @@ export const canStartTrial = createServerFn({ method: "POST" }).handler(
     const { data, error } = await canStartTrialApi({ client });
 
     if (error) {
-      console.error("can_start_trial error:", error);
+      captureOperationalError(error, {
+        operation: "trial_eligibility_check",
+      });
       return false;
     }
 

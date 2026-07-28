@@ -1,4 +1,3 @@
-import * as Sentry from "@sentry/react";
 import {
   type ErrorRouteComponent,
   NotFoundRouteComponent,
@@ -7,20 +6,44 @@ import {
 import { relaunch } from "@tauri-apps/plugin-process";
 import { AlertTriangle, Home, RotateCw, Search } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 
-export const ErrorComponent: ErrorRouteComponent = ({ error }) => {
-  useEffect(() => {
-    Sentry.captureException(error);
-  }, [error]);
+import { captureOperationalError } from "~/error-reporting";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
+
+const routeErrorKeys = new WeakMap<object, number>();
+let nextRouteErrorKey = 0;
+
+function getRouteErrorKey(error: unknown) {
+  if (typeof error !== "object" || error === null) {
+    return String(error);
+  }
+
+  const existing = routeErrorKeys.get(error);
+  if (existing !== undefined) {
+    return existing;
+  }
+
+  nextRouteErrorKey += 1;
+  routeErrorKeys.set(error, nextRouteErrorKey);
+  return nextRouteErrorKey;
+}
+
+const ReportedErrorComponent = ({ error }: { error: Error }) => {
+  useMountEffect(() => {
+    captureOperationalError(error, {
+      operation: "route_render",
+    });
+  });
 
   const handleRestart = async () => {
     try {
       await relaunch();
     } catch (err) {
-      console.error("Failed to restart app:", err);
+      captureOperationalError(err, {
+        operation: "app_restart",
+      });
     }
   };
 
@@ -75,6 +98,10 @@ export const ErrorComponent: ErrorRouteComponent = ({ error }) => {
     </div>
   );
 };
+
+export const ErrorComponent: ErrorRouteComponent = ({ error }) => (
+  <ReportedErrorComponent key={getRouteErrorKey(error)} error={error} />
+);
 
 export const NotFoundComponent: NotFoundRouteComponent = () => {
   const navigate = useNavigate();

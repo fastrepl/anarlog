@@ -7,6 +7,7 @@ import {
   addInternalReturnPathSearch,
   sanitizeInternalReturnPath,
 } from "@/lib/auth-redirect";
+import { captureOperationalError } from "@/lib/error-reporting";
 
 const validateSearch = z.object({
   period: z.enum(["monthly", "yearly"]).catch("monthly"),
@@ -39,7 +40,14 @@ export const Route = createFileRoute("/_view/app/checkout")({
         },
       }));
     } catch (e) {
-      console.error("Checkout error:", e);
+      captureOperationalError(e, {
+        operation: "checkout_session_create",
+        context: {
+          checkout_type: search.trial ? "trial" : "paid",
+          period: search.period,
+          source: search.source,
+        },
+      });
     }
 
     if (url) {

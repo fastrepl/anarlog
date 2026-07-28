@@ -8,6 +8,7 @@ import { createClient } from "@hypr/api-client/client";
 import { env } from "@/env";
 import { getAccessToken } from "@/functions/access-token";
 import { useAnalytics } from "@/hooks/use-posthog";
+import { captureOperationalError } from "@/lib/error-reporting";
 
 import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
 import { getIntegrationDisplay, Route } from "./integration";
@@ -65,6 +66,16 @@ export function ConnectFlow() {
         },
       });
       if (error || !data) {
+        captureOperationalError(
+          error ?? new Error("Integration session was not created"),
+          {
+            operation: "integration_connection_session",
+            tags: {
+              integration: search.integration_id,
+              mode: search.action,
+            },
+          },
+        );
         inFlightRef.current = false;
         updateStatus("error");
         track("integration_connection_failed", {
@@ -76,7 +87,14 @@ export function ConnectFlow() {
         return;
       }
       sessionToken = data.token;
-    } catch {
+    } catch (error) {
+      captureOperationalError(error, {
+        operation: "integration_connection_session",
+        tags: {
+          integration: search.integration_id,
+          mode: search.action,
+        },
+      });
       inFlightRef.current = false;
       updateStatus("error");
       track("integration_connection_failed", {

@@ -8,6 +8,7 @@ import { env } from "@/env";
 import { getAccessToken } from "@/functions/access-token";
 import { useAnalytics } from "@/hooks/use-posthog";
 import { useMountEffect } from "@/hooks/useMountEffect";
+import { captureOperationalError } from "@/lib/error-reporting";
 
 import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
 import { getIntegrationDisplay, Route } from "./integration";
@@ -51,6 +52,13 @@ export function DisconnectFlow() {
       });
 
       if (error || !data) {
+        captureOperationalError(
+          error ?? new Error("Integration was not disconnected"),
+          {
+            operation: "integration_disconnect",
+            tags: { integration: search.integration_id },
+          },
+        );
         setStatus("error");
         track("integration_connection_failed", {
           integration: search.integration_id,
@@ -60,7 +68,11 @@ export function DisconnectFlow() {
         });
         return;
       }
-    } catch {
+    } catch (error) {
+      captureOperationalError(error, {
+        operation: "integration_disconnect",
+        tags: { integration: search.integration_id },
+      });
       setStatus("error");
       track("integration_connection_failed", {
         integration: search.integration_id,

@@ -396,6 +396,7 @@ dependencies = [
  "dirs 6.0.0",
  "insta",
  "rmcp",
+ "sentry",
  "serde",
  "serde_json",
  "sqlx",

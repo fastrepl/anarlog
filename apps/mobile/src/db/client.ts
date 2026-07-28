@@ -14,6 +14,7 @@ import type {
 } from "@hypr/db-runtime";
 
 import { migrate } from "@/db/migrations";
+import { captureOperationalError } from "@/lib/error-reporting";
 import { id } from "@/lib/ids";
 
 const READ_TABLE_RE = /\b(?:from|join)\s+([^\s(,;]+)/gi;
@@ -69,6 +70,7 @@ type Subscription = {
   params: SQLiteBindValue[];
   tables: Set<string>;
   active: boolean;
+  reportedError?: string;
   onData: (rows: Row[]) => void;
   onError?: (error: string) => void;
 };
@@ -169,11 +171,19 @@ async function refresh(subscription: Subscription): Promise<void> {
       db.getAllAsync<Row>(subscription.sql, subscription.params),
     );
     if (subscription.active) {
+      subscription.reportedError = undefined;
       subscription.onData(rows);
     }
   } catch (error) {
+    const message = errorMessage(error);
+    if (subscription.reportedError !== message) {
+      subscription.reportedError = message;
+      captureOperationalError(error, {
+        operation: "database_live_query_refresh",
+      });
+    }
     if (subscription.active) {
-      subscription.onError?.(errorMessage(error));
+      subscription.onError?.(message);
     }
   }
 }
@@ -241,17 +251,23 @@ async function subscribe<T = Row>(
       `[mobile-db] live query subscription is non-reactive for SQL "${sql}": query has no reactive dependencies`,
     );
   }
+  let reportedError: string | undefined;
   try {
     const rows = await enqueue(() => db.getAllAsync<T>(sql, boundParams));
     options.onData(rows);
   } catch (error) {
-    options.onError?.(errorMessage(error));
+    reportedError = errorMessage(error);
+    captureOperationalError(error, {
+      operation: "database_live_query_subscribe",
+    });
+    options.onError?.(reportedError);
   }
   const subscription: Subscription = {
     sql,
     params: boundParams,
     tables,
     active: true,
+    reportedError,
     onData: options.onData as (rows: Row[]) => void,
     onError: options.onError,
   };

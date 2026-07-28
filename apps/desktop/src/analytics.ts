@@ -16,9 +16,9 @@ export function trackAnalyticsEvent(
       ...properties,
     });
     void pending.catch((error: unknown) => {
-      console.error(`[analytics] failed to record ${event}`, error);
+      console.warn(`[analytics] failed to record ${event}`, error);
     });
   } catch (error) {
-    console.error(`[analytics] failed to record ${event}`, error);
+    console.warn(`[analytics] failed to record ${event}`, error);
   }
 }

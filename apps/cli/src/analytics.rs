@@ -6,7 +6,7 @@ use std::process::{Command, Stdio};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub fn capture_command_completed(command: &str, outcome: &str, duration: Duration) {
-    if !analytics_enabled() {
+    if !telemetry_enabled() {
         return;
     }
 
@@ -65,7 +65,7 @@ pub fn capture_command_completed(command: &str, outcome: &str, duration: Duratio
     let _ = child.wait();
 }
 
-fn analytics_enabled() -> bool {
+pub fn telemetry_enabled() -> bool {
     std::env::var("ANARLOG_ANALYTICS")
         .map(|value| matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "yes"))
         .unwrap_or(false)

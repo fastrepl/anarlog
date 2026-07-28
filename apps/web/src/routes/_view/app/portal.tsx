@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { createPortalSession } from "@/functions/billing";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
+import { captureOperationalError } from "@/lib/error-reporting";
 
 const validateSearch = z.object({
   scheme: desktopSchemeSchema.optional(),
@@ -17,7 +18,9 @@ export const Route = createFileRoute("/_view/app/portal")({
         data: { scheme: search.scheme },
       }));
     } catch (e) {
-      console.error("Portal error:", e);
+      captureOperationalError(e, {
+        operation: "billing_portal_session_create",
+      });
     }
 
     if (url) {

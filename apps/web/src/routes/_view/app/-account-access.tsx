@@ -11,6 +11,7 @@ import {
 
 import { signOutFn } from "@/functions/auth";
 import { deleteAccount } from "@/functions/billing";
+import { captureOperationalError } from "@/lib/error-reporting";
 
 export function AccountAccessSection() {
   const navigate = useNavigate();
@@ -29,7 +30,9 @@ export function AccountAccessSection() {
       navigate({ to: "/" });
     },
     onError: (error) => {
-      console.error(error);
+      captureOperationalError(error, {
+        operation: "account_sign_out",
+      });
       navigate({ to: "/" });
     },
   });
@@ -38,6 +41,11 @@ export function AccountAccessSection() {
     mutationFn: () => deleteAccount(),
     onSuccess: () => {
       navigate({ to: "/" });
+    },
+    onError: (error) => {
+      captureOperationalError(error, {
+        operation: "account_delete",
+      });
     },
   });
 

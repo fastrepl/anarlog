@@ -5,6 +5,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
 import { env } from "./env";
+import { captureOperationalError, sanitizeErrorEvent } from "./error-reporting";
 import type { AppBindings } from "./hono-bindings";
 import { verifyStripeWebhook } from "./middleware";
 import { routes } from "./routes";
@@ -13,6 +14,18 @@ Sentry.init({
   dsn: Bun.env.SENTRY_DSN,
   environment: env.NODE_ENV,
   enabled: env.NODE_ENV === "production",
+  release: Bun.env.APP_VERSION
+    ? `anarlog-billing@${Bun.env.APP_VERSION}`
+    : undefined,
+  sendDefaultPii: false,
+  beforeSend: sanitizeErrorEvent,
+  initialScope: {
+    tags: {
+      "service.name": "billing",
+      "service.namespace": "hyprnote",
+      "hyprnote.surface": "billing",
+    },
+  },
 });
 
 const app = new Hono<AppBindings>();
@@ -33,8 +46,9 @@ app.use("/webhook/stripe", verifyStripeWebhook);
 app.route("/", routes);
 
 app.onError((err, c) => {
-  Sentry.captureException(err, {
-    extra: { path: c.req.path, method: c.req.method },
+  captureOperationalError(err, {
+    operation: "http_request",
+    context: { method: c.req.method },
   });
   return c.json({ error: "internal_server_error" }, 500);
 });

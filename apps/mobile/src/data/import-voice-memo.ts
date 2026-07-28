@@ -8,6 +8,7 @@ import { catalogSessionAudio } from "@/data/audio-catalog";
 import { createSession, deleteSession } from "@/data/session";
 import { transcribeSession } from "@/data/transcribe";
 import { captureAnalytics } from "@/lib/analytics";
+import { captureOperationalError } from "@/lib/error-reporting";
 import { nowIso } from "@/lib/ids";
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -108,7 +109,13 @@ export async function importVoiceMemos(): Promise<string[]> {
     try {
       created.push(await importAsset(asset));
     } catch (error) {
-      console.warn(`voice memo import failed for ${asset.name}`, error);
+      captureOperationalError(error, {
+        operation: "voice_memo_import",
+        context: {
+          content_type: asset.mimeType ?? "unknown",
+        },
+      });
+      console.warn("voice memo import failed", error);
     }
   }
   return created;

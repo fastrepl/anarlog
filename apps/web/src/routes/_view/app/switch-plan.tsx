@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { createPlanSwitchSession } from "@/functions/billing";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
+import { captureOperationalError } from "@/lib/error-reporting";
 
 const validateSearch = z.object({
   targetPlan: z.enum(["pro"]).catch("pro").optional(),
@@ -23,7 +24,10 @@ export const Route = createFileRoute("/_view/app/switch-plan")({
         },
       }));
     } catch (e) {
-      console.error("Plan switch error:", e);
+      captureOperationalError(e, {
+        operation: "subscription_plan_switch",
+        context: { target_period: search.targetPeriod },
+      });
     }
 
     if (url) {

@@ -33,6 +33,7 @@ import {
   getCloudsyncCredentialBlock,
   subscribeCloudsyncCredentialBlock,
 } from "~/auth/cloudsync";
+import { captureOperationalError } from "~/error-reporting";
 import { SettingsPageTitle } from "~/settings/page-title";
 import {
   setSettingValue,
@@ -116,7 +117,11 @@ export function SettingsSync() {
         },
       );
     },
-    onError: (_, enabled) => {
+    onError: (error, enabled) => {
+      captureOperationalError(error, {
+        operation: "cloud_sync_preference_update",
+        context: { enabled },
+      });
       trackAnalyticsEvent("cloud_sync_failed", {
         trigger: enabled ? "enable" : "disable",
         failure_stage: "preference",
@@ -164,7 +169,10 @@ export function SettingsSync() {
         trigger: "manual",
       });
     },
-    onError: () => {
+    onError: (error) => {
+      captureOperationalError(error, {
+        operation: "cloud_sync_manual",
+      });
       trackAnalyticsEvent("cloud_sync_failed", {
         trigger: "manual",
         failure_stage: "sync",
