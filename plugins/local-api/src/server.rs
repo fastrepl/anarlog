@@ -1,6 +1,6 @@
 use axum::{
     Json, Router,
-    extract::{Path, Query, Request, State},
+    extract::{Path, Query, Request, State, rejection::QueryRejection},
     http::{StatusCode, header},
     middleware::{self, Next},
     response::{IntoResponse, Response},
@@ -122,6 +122,12 @@ impl IntoResponse for ApiError {
     }
 }
 
+fn parse_query<T>(query: Result<Query<T>, QueryRejection>) -> Result<T, ApiError> {
+    query
+        .map(|Query(value)| value)
+        .map_err(|error| ApiError::BadRequest(error.body_text()))
+}
+
 async fn require_api_key(
     State(pool): State<SqlitePool>,
     request: Request,
@@ -164,8 +170,9 @@ struct ListMeetingsQuery {
 
 async fn list_meetings(
     State(pool): State<SqlitePool>,
-    Query(params): Query<ListMeetingsQuery>,
+    params: Result<Query<ListMeetingsQuery>, QueryRejection>,
 ) -> Result<Response, ApiError> {
+    let params = parse_query(params)?;
     let page = anlg_agent_access::list_meetings(
         &pool,
         anlg_agent_access::ListMeetingsInput {
@@ -198,8 +205,9 @@ struct TranscriptQuery {
 async fn get_transcript(
     State(pool): State<SqlitePool>,
     Path(meeting_id): Path<String>,
-    Query(params): Query<TranscriptQuery>,
+    params: Result<Query<TranscriptQuery>, QueryRejection>,
 ) -> Result<Response, ApiError> {
+    let params = parse_query(params)?;
     let page = anlg_agent_access::get_meeting_transcript(
         &pool,
         anlg_agent_access::GetMeetingTranscriptInput {
@@ -221,8 +229,9 @@ struct HistoryQuery {
 async fn get_history(
     State(pool): State<SqlitePool>,
     Path(meeting_id): Path<String>,
-    Query(params): Query<HistoryQuery>,
+    params: Result<Query<HistoryQuery>, QueryRejection>,
 ) -> Result<Response, ApiError> {
+    let params = parse_query(params)?;
     let page = anlg_agent_access::get_recurring_meeting_history(
         &pool,
         anlg_agent_access::GetRecurringMeetingHistoryInput {
@@ -243,8 +252,9 @@ struct ExportQuery {
 async fn export_meeting(
     State(pool): State<SqlitePool>,
     Path(meeting_id): Path<String>,
-    Query(params): Query<ExportQuery>,
+    params: Result<Query<ExportQuery>, QueryRejection>,
 ) -> Result<Response, ApiError> {
+    let params = parse_query(params)?;
     let format = params.format.as_deref().unwrap_or("json");
     let export = anlg_agent_access::get_meeting_export(&pool, meeting_id).await?;
     match format {

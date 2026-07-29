@@ -254,6 +254,18 @@ mod test {
         assert_eq!(transcript["text"], "hello");
         assert_eq!(transcript["pagination"]["total"], 2);
 
+        let invalid_query = request(
+            port,
+            reqwest::Method::GET,
+            "/v1/meetings?limit=invalid",
+            Some(&generated.key),
+            None,
+        )
+        .await;
+        assert_eq!(invalid_query.status(), 400);
+        let invalid_query: serde_json::Value = invalid_query.json().await.unwrap();
+        assert_eq!(invalid_query["error"]["code"], "invalid_request");
+
         let markdown = request(
             port,
             reqwest::Method::GET,
