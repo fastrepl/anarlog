@@ -628,7 +628,7 @@ jobs:
 
           $hash = (Get-FileHash -Algorithm SHA256 $installers[0].FullName).Hash.ToLowerInvariant()
           "$hash  $($installers[0].Name)" |
-            Out-File "$($installers[0].FullName).sha256" -Encoding ascii
+            Out-File "$($installers[0].FullName).sha256" -Encoding ascii -NoNewline
       - if: ${{ inputs.channel == 'stable' }}
         name: Verify Windows updater signature
         shell: bash

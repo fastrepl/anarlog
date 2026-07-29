@@ -216,7 +216,7 @@ jobs:
 
           $hash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
           "$hash  $($installer.Name)" |
-            Out-File "$($installer.FullName).sha256" -Encoding ascii
+            Out-File "$($installer.FullName).sha256" -Encoding ascii -NoNewline
       - if: github.event_name == 'workflow_dispatch'
         shell: pwsh
         timeout-minutes: 10
