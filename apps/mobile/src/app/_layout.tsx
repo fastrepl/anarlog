@@ -20,8 +20,10 @@ import {
   initializeErrorReporting,
 } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
+import { initializeWatchConnectivity } from "@/watch-connectivity";
 
 initializeErrorReporting();
+initializeWatchConnectivity();
 
 const routeErrorKeys = new WeakMap<Error, number>();
 let nextRouteErrorKey = 0;

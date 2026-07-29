@@ -59,7 +59,11 @@ FROM sessions AS session WHERE session.id = ? AND session.deleted_at IS NULL
 export async function createSession(options?: {
   title?: string;
   createdAt?: string;
-  entryPoint?: "new_note" | "start_listening" | "voice_memo_import";
+  entryPoint?:
+    | "new_note"
+    | "start_listening"
+    | "voice_memo_import"
+    | "watch_recording";
   trackCreated?: boolean;
 }): Promise<string> {
   const sessionId = id();

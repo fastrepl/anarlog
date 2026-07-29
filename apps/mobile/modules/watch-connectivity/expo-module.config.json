@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple"],
+  "apple": {
+    "modules": ["AnarlogWatchConnectivityModule"],
+    "appDelegateSubscribers": [
+      "AnarlogWatchConnectivityAppDelegateSubscriber"
+    ]
+  }
+}

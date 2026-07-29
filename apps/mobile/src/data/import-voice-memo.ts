@@ -1,7 +1,4 @@
-import {
-  type DocumentPickerAsset,
-  getDocumentAsync,
-} from "expo-document-picker";
+import { getDocumentAsync } from "expo-document-picker";
 import { Directory, File, Paths } from "expo-file-system";
 
 import { catalogSessionAudio } from "@/data/audio-catalog";
@@ -16,6 +13,14 @@ const CONTENT_TYPES: Record<string, string> = {
   mp3: "audio/mpeg",
   wav: "audio/wav",
   ogg: "audio/ogg",
+};
+
+type AudioImportAsset = {
+  uri: string;
+  name: string;
+  mimeType?: string | null;
+  size?: number;
+  lastModified?: number;
 };
 
 export function sessionAudioDirectory(sessionId: string): string {
@@ -41,7 +46,10 @@ function splitName(name: string): { title: string; extension: string } {
   };
 }
 
-async function importAsset(asset: DocumentPickerAsset): Promise<string> {
+async function importAsset(
+  asset: AudioImportAsset,
+  entryPoint: "voice_memo_import" | "watch_recording",
+): Promise<string> {
   const { title, extension } = splitName(asset.name);
   const createdAt =
     typeof asset.lastModified === "number" && asset.lastModified > 0
@@ -51,7 +59,7 @@ async function importAsset(asset: DocumentPickerAsset): Promise<string> {
   const sessionId = await createSession({
     title,
     createdAt,
-    entryPoint: "voice_memo_import",
+    entryPoint,
     trackCreated: false,
   });
 
@@ -72,7 +80,7 @@ async function importAsset(asset: DocumentPickerAsset): Promise<string> {
       sizeBytes: asset.size ?? destination.size ?? 0,
     });
     captureAnalytics("file_uploaded", {
-      entry_point: "voice_memo_import",
+      entry_point: entryPoint,
       file_type: "audio",
       content_type:
         asset.mimeType ??
@@ -81,7 +89,7 @@ async function importAsset(asset: DocumentPickerAsset): Promise<string> {
       size_bytes: asset.size ?? destination.size ?? 0,
     });
     captureAnalytics("note_created", {
-      entry_point: "voice_memo_import",
+      entry_point: entryPoint,
       has_initial_title: Boolean(title),
     });
   } catch (error) {
@@ -112,7 +120,7 @@ export async function importVoiceMemos(): Promise<string[]> {
   const created: string[] = [];
   for (const asset of result.assets) {
     try {
-      created.push(await importAsset(asset));
+      created.push(await importAsset(asset, "voice_memo_import"));
     } catch (error) {
       captureOperationalError(error, {
         operation: "voice_memo_import",
@@ -123,4 +131,19 @@ export async function importVoiceMemos(): Promise<string[]> {
     }
   }
   return created;
+}
+
+export async function importWatchRecording(recording: {
+  uri: string;
+  recordedAt: string;
+}): Promise<string> {
+  return importAsset(
+    {
+      uri: recording.uri,
+      name: "Watch recording.m4a",
+      mimeType: "audio/mp4",
+      lastModified: Date.parse(recording.recordedAt),
+    },
+    "watch_recording",
+  );
 }

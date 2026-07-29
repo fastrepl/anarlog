@@ -35,6 +35,7 @@ import {
   captureOperationalError,
   setErrorReportingUser,
 } from "@/lib/error-reporting";
+import { updateWatchAccount } from "@/watch-connectivity";
 
 export type AuthState = {
   status: "loading" | "signed_out" | "signed_in";
@@ -207,6 +208,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSessionState(next);
     const userId = next?.user.id ?? null;
     setErrorReportingUser(userId);
+    updateWatchAccount(
+      next
+        ? {
+            userId: next.user.id,
+            email: next.user.email ?? null,
+          }
+        : null,
+    );
     if (
       next &&
       !decodeJwtPayload(next.access_token) &&
