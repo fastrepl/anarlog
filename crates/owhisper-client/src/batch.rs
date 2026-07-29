@@ -142,7 +142,7 @@ mod tests {
             .api_key("test")
             .build();
 
-        assert!(client.api_base.contains("provider=anarlog"));
+        assert!(client.api_base.contains("provider=hyprnote"));
     }
 
     #[test]

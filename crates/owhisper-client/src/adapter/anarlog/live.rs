@@ -2,12 +2,12 @@ use anlg_ws_client::client::Message;
 use owhisper_interface::ListenParams;
 use owhisper_interface::stream::StreamResponse;
 
-use super::AnarlogAdapter;
+use super::{AnarlogAdapter, STT_PROXY_PROVIDER_NAME};
 use crate::adapter::{RealtimeSttAdapter, append_path_if_missing, set_scheme_from_host};
 
 impl RealtimeSttAdapter for AnarlogAdapter {
     fn provider_name(&self) -> &'static str {
-        "anarlog"
+        STT_PROXY_PROVIDER_NAME
     }
 
     fn is_supported_languages(
@@ -105,6 +105,14 @@ mod tests {
     use crate::test_utils::{UrlTestCase, run_url_test_cases};
 
     const API_BASE: &str = "https://api.anarlog.so/stt";
+
+    #[test]
+    fn test_proxy_provider_name() {
+        assert_eq!(
+            RealtimeSttAdapter::provider_name(&AnarlogAdapter),
+            "hyprnote"
+        );
+    }
 
     #[test]
     fn test_url_structure() {

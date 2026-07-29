@@ -3,6 +3,9 @@ mod live;
 
 use super::{LanguageQuality, LanguageSupport};
 
+// Keep the wire identifier compatible with proxy deployments that predate the Anarlog rename.
+const STT_PROXY_PROVIDER_NAME: &str = "hyprnote";
+
 #[derive(Clone, Default)]
 pub struct AnarlogAdapter;
 

@@ -3,14 +3,14 @@ use std::path::{Path, PathBuf};
 use owhisper_interface::ListenParams;
 use owhisper_interface::batch::Response as BatchResponse;
 
-use super::AnarlogAdapter;
+use super::{AnarlogAdapter, STT_PROXY_PROVIDER_NAME};
 use crate::adapter::http::mime_type_from_extension;
 use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware, append_path_if_missing};
 use crate::error::Error;
 
 impl BatchSttAdapter for AnarlogAdapter {
     fn provider_name(&self) -> &'static str {
-        "anarlog"
+        STT_PROXY_PROVIDER_NAME
     }
 
     fn is_supported_languages(
