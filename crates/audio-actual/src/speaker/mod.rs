@@ -55,7 +55,7 @@ impl SpeakerInput {
 
     #[cfg(all(target_os = "macos", not(test)))]
     pub fn stream(self) -> Result<SpeakerStream> {
-        Ok(self.inner.stream())
+        self.inner.stream()
     }
 
     #[cfg(all(not(target_os = "macos"), not(test)))]
