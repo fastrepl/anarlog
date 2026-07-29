@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use axum::{extract::Request, middleware::Next, response::Response};
 
 use hypr_api_auth::AuthContext;
-pub use hypr_api_auth::{AuthState, optional_auth, require_auth};
+pub use hypr_api_auth::{AuthState, require_auth};
 
 const DEVICE_FINGERPRINT_HEADER: &str = "x-device-fingerprint";
 

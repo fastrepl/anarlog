@@ -559,7 +559,6 @@ dependencies = [
  "api-pyannote",
  "api-research",
  "api-subscription",
- "api-support",
  "api-sync",
  "api-ticket",
  "axum 0.8.9",
@@ -857,35 +856,6 @@ dependencies = [
  "utoipa",
  "uuid",
  "wiremock",
-]
-
-[[package]]
-name = "api-support"
-version = "0.1.0"
-dependencies = [
- "api-auth",
- "api-env",
- "async-stripe",
- "async-stripe-billing",
- "axum 0.8.9",
- "jsonwebtoken",
- "llm-proxy",
- "mcp",
- "octocrab",
- "openrouter",
- "regex",
- "reqwest 0.13.2",
- "rmcp",
- "sentry",
- "serde",
- "serde_json",
- "sqlx",
- "template-support",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "urlencoding",
- "utoipa",
 ]
 
 [[package]]
@@ -3094,37 +3064,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "cargo-platform"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87a0c0e6148f11f01f32650a2ea02d532b2ad4e81d8bd41e6e565b5adc5e6082"
-dependencies = [
- "serde",
- "serde_core",
-]
-
-[[package]]
 name = "cargo_metadata"
 version = "0.19.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd5eb614ed4c27c5d706420e4320fbe3216ab31fa1c33cd8246ac36dae4479ba"
 dependencies = [
  "camino",
- "cargo-platform 0.1.9",
- "semver",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "cargo_metadata"
-version = "0.23.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef987d17b0a113becdd19d3d0022d04d7ef41f9efe4f3fb63ac44ba61df3ade9"
-dependencies = [
- "camino",
- "cargo-platform 0.3.2",
+ "cargo-platform",
  "semver",
  "serde",
  "serde_json",
@@ -9122,7 +9068,6 @@ dependencies = [
  "http 1.4.0",
  "hyper 1.9.0",
  "hyper-util",
- "log",
  "rustls 0.23.38",
  "rustls-native-certs 0.8.3",
  "tokio",
@@ -12437,48 +12382,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "octocrab"
-version = "0.49.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63f6687a23731011d0117f9f4c3cdabaa7b5e42ca671f42b5cc0657c492540e3"
-dependencies = [
- "arc-swap",
- "async-trait",
- "base64 0.22.1",
- "bytes",
- "cargo_metadata 0.23.1",
- "cfg-if",
- "chrono",
- "either",
- "futures",
- "futures-util",
- "getrandom 0.2.17",
- "http 1.4.0",
- "http-body 1.0.1",
- "http-body-util",
- "hyper 1.9.0",
- "hyper-rustls 0.27.9",
- "hyper-timeout 0.5.2",
- "hyper-util",
- "jsonwebtoken",
- "once_cell",
- "percent-encoding",
- "pin-project",
- "secrecy",
- "serde",
- "serde_json",
- "serde_path_to_error",
- "serde_urlencoded",
- "snafu",
- "tokio",
- "tower 0.5.3",
- "tower-http 0.6.8",
- "tracing",
- "url",
- "web-time",
-]
-
-[[package]]
 name = "ogg_next_sys"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -14981,7 +14884,6 @@ dependencies = [
  "tokio-util",
  "tower-service",
  "tracing",
- "url",
  "uuid",
 ]
 
@@ -15299,7 +15201,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69f9466fb2c14ea04357e91413efb882e2a6d4a406e625449bc0a5d360d53a21"
 dependencies = [
  "aws-lc-rs",
- "log",
  "once_cell",
  "ring",
  "rustls-pki-types",
@@ -16553,27 +16454,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "snafu"
-version = "0.8.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e84b3f4eacbf3a1ce05eac6763b4d629d60cbc94d632e4092c54ade71f1e1a2"
-dependencies = [
- "snafu-derive",
-]
-
-[[package]]
-name = "snafu-derive"
-version = "0.8.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1c97747dbf44bb1ca44a561ece23508e99cb592e862f22222dcf42f51d1e451"
-dependencies = [
- "heck 0.5.0",
- "proc-macro2",
- "quote",
- "syn 2.0.117",
-]
-
-[[package]]
 name = "socket2"
 version = "0.5.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -16783,7 +16663,6 @@ dependencies = [
  "log",
  "memchr",
  "percent-encoding",
- "rustls 0.23.38",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -16793,7 +16672,6 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "url",
- "webpki-roots 0.26.11",
 ]
 
 [[package]]
@@ -16826,8 +16704,6 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "sqlx-core",
- "sqlx-mysql",
- "sqlx-postgres",
  "sqlx-sqlite",
  "syn 2.0.117",
  "thiserror 2.0.18",
@@ -16865,7 +16741,6 @@ dependencies = [
  "percent-encoding",
  "rand 0.8.6",
  "rsa",
- "serde",
  "sha1",
  "sha2 0.10.9",
  "smallvec 1.15.1",
@@ -18220,7 +18095,6 @@ dependencies = [
  "tauri-plugin-store2",
  "tauri-specta",
  "tempfile",
- "template-support",
  "thiserror 2.0.18",
  "tracing",
  "windows 0.62.2",
@@ -18829,13 +18703,13 @@ version = "0.1.0"
 dependencies = [
  "buffer",
  "host",
+ "serde",
  "specta",
  "specta-typescript",
  "sysinfo",
  "tauri",
  "tauri-plugin",
  "tauri-specta",
- "template-support",
  "vergen-gix",
 ]
 
@@ -19260,7 +19134,6 @@ dependencies = [
  "tauri-specta",
  "template-app",
  "template-app-legacy",
- "template-support",
  "tracing",
 ]
 
@@ -19547,7 +19420,7 @@ checksum = "219a1f983a2af3653f75b5747f76733b0da7ff03069c7a41901a5eb3ace4557d"
 dependencies = [
  "anyhow",
  "brotli",
- "cargo_metadata 0.19.2",
+ "cargo_metadata",
  "ctor",
  "dunce",
  "glob",
@@ -19685,16 +19558,6 @@ dependencies = [
  "specta",
  "thiserror 2.0.18",
  "tokio",
-]
-
-[[package]]
-name = "template-support"
-version = "0.1.0"
-dependencies = [
- "askama 0.15.6",
- "serde",
- "specta",
- "utoipa",
 ]
 
 [[package]]
@@ -21473,7 +21336,7 @@ checksum = "3291800a6b06569f7d3e15bdb6dc235e0f0c8bd3eb07177f430057feb076415f"
 dependencies = [
  "anyhow",
  "camino",
- "cargo_metadata 0.19.2",
+ "cargo_metadata",
  "clap",
  "uniffi_bindgen 0.29.5",
  "uniffi_core 0.29.5",
@@ -21488,7 +21351,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc5f2297ee5b893405bed1a6929faec4713a061df158ecf5198089f23910d470"
 dependencies = [
  "anyhow",
- "cargo_metadata 0.19.2",
+ "cargo_metadata",
  "uniffi_bindgen 0.31.1",
  "uniffi_core 0.31.1",
  "uniffi_macros 0.31.1",
@@ -21511,7 +21374,7 @@ dependencies = [
  "anyhow",
  "askama 0.13.1",
  "camino",
- "cargo_metadata 0.19.2",
+ "cargo_metadata",
  "fs-err",
  "glob",
  "goblin",
@@ -21537,7 +21400,7 @@ dependencies = [
  "anyhow",
  "askama 0.14.0",
  "camino",
- "cargo_metadata 0.19.2",
+ "cargo_metadata",
  "fs-err",
  "glob",
  "goblin",
@@ -22411,7 +22274,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a6580f308b1fad9207618087a65c04e7a10bc77e02c8e84e9b00dd4b12fa0bb"
 dependencies = [
  "js-sys",
- "serde",
  "wasm-bindgen",
 ]
 

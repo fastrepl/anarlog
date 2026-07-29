@@ -711,37 +711,6 @@
         ],
         "type": "object"
       },
-      "DeviceInfo": {
-        "properties": {
-          "appVersion": {
-            "type": "string"
-          },
-          "arch": {
-            "type": "string"
-          },
-          "buildHash": {
-            "nullable": true,
-            "type": "string"
-          },
-          "locale": {
-            "nullable": true,
-            "type": "string"
-          },
-          "osVersion": {
-            "type": "string"
-          },
-          "platform": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "platform",
-          "arch",
-          "osVersion",
-          "appVersion"
-        ],
-        "type": "object"
-      },
       "Document": {
         "properties": {
           "created_at": {
@@ -969,54 +938,6 @@
           }
         },
         "type": "object"
-      },
-      "FeedbackRequest": {
-        "properties": {
-          "description": {
-            "type": "string"
-          },
-          "deviceInfo": {
-            "$ref": "#/components/schemas/DeviceInfo"
-          },
-          "logs": {
-            "nullable": true,
-            "type": "string"
-          },
-          "type": {
-            "$ref": "#/components/schemas/FeedbackType"
-          }
-        },
-        "required": [
-          "description",
-          "deviceInfo"
-        ],
-        "type": "object"
-      },
-      "FeedbackResponse": {
-        "properties": {
-          "error": {
-            "nullable": true,
-            "type": "string"
-          },
-          "issueUrl": {
-            "nullable": true,
-            "type": "string"
-          },
-          "success": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "success"
-        ],
-        "type": "object"
-      },
-      "FeedbackType": {
-        "enum": [
-          "bug",
-          "feature"
-        ],
-        "type": "string"
       },
       "FocusTimeProperties": {
         "properties": {
@@ -3273,42 +3194,6 @@
         ]
       }
     },
-    "/feedback/submit": {
-      "post": {
-        "operationId": "submit",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FeedbackRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FeedbackResponse"
-                }
-              }
-            },
-            "description": "Feedback submitted successfully"
-          },
-          "400": {
-            "description": "Invalid request"
-          },
-          "500": {
-            "description": "Server error"
-          }
-        },
-        "tags": [
-          "feedback"
-        ]
-      }
-    },
     "/nango/connections": {
       "delete": {
         "operationId": "delete_connection",
@@ -4315,10 +4200,6 @@
     {
       "description": "LLM chat completions proxy",
       "name": "llm"
-    },
-    {
-      "description": "User feedback and support",
-      "name": "support"
     }
   ]
 }

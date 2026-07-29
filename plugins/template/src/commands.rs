@@ -21,15 +21,6 @@ pub async fn render_custom<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn render_support<R: tauri::Runtime>(
-    _app: tauri::AppHandle<R>,
-    tpl: hypr_template_support::SupportTemplate,
-) -> Result<String, String> {
-    hypr_template_support::render(tpl).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-#[specta::specta]
 pub async fn get_template_source<R: tauri::Runtime>(
     _app: tauri::AppHandle<R>,
     template: hypr_template_app::EditableTemplate,

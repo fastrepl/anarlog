@@ -19,7 +19,7 @@ pub async fn get_fingerprint<R: tauri::Runtime>(
 pub async fn get_device_info<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     locale: Option<String>,
-) -> Result<hypr_template_support::DeviceInfo, String> {
+) -> Result<crate::DeviceInfo, String> {
     Ok(app.misc().get_device_info(locale))
 }
 

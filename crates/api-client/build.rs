@@ -2,10 +2,8 @@ use progenitor_utils::OpenApiSpec;
 
 const ALLOWED_PATH_PREFIXES: &[&str] = &[
     "/calendar",
-    "/feedback",
     "/nango",
     "/subscription",
-    "/support",
     "/ticket",
     "/v1/cloud-api",
     "/v1/meetings",

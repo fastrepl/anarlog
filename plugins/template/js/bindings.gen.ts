@@ -22,14 +22,6 @@ async renderCustom(templateContent: string, ctx: Partial<{ [key in string]: Json
     else return { status: "error", error: e  as any };
 }
 },
-async renderSupport(tpl: SupportTemplate) : Promise<Result<string, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:template|render_support", { tpl }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 async getTemplateSource(template: EditableTemplate) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:template|get_template_source", { template }) };
@@ -50,10 +42,8 @@ async getTemplateSource(template: EditableTemplate) : Promise<Result<string, str
 
 /** user-defined types **/
 
-export type AccountInfo = { userId: string; email: string | null; fullName: string | null; avatarUrl: string | null; stripeCustomerId: string | null }
 export type ActivityCaptureSystem = { language: string | null }
 export type ActivityCaptureUser = { appName: string; windowTitle: string | null; reason: string; fingerprint: string }
-export type BugReport = { description: string; platform: string; arch: string; osVersion: string; appVersion: string; source: string }
 export type ChatSystem = { language: string | null }
 export type ContextBlock = { contexts: SessionContext[] }
 export type DailySummaryAnalysis = { time: string; appName: string; windowTitle: string | null; reason: string; summary: string }
@@ -61,7 +51,6 @@ export type DailySummaryAppStat = { appName: string; count: number }
 export type DailySummaryStats = { signalCount: number; screenshotCount: number; analysisCount: number; uniqueAppCount: number; firstSignal: string | null; lastSignal: string | null }
 export type DailySummarySystem = { language: string | null }
 export type DailySummaryUser = { date: string; timezone: string | null; stats: DailySummaryStats; topApps: DailySummaryAppStat[]; analyses: DailySummaryAnalysis[]; totalAnalysisCount: number; existingSummary: string | null }
-export type DeviceInfo = { platform: string; arch: string; osVersion: string; appVersion: string; buildHash?: string | null; locale?: string | null }
 export type EditableTemplate = "enhanceSystem" | "enhanceUser" | "titleUser"
 export type EnhanceSystem = { language: string | null; promptOverride: string }
 export type EnhanceTemplate = { title: string; description: string | null; sections: TemplateSection[] }
@@ -70,17 +59,12 @@ export type Event = { name: string }
 export type EventContactCandidate = { name: string | null; email: string | null; isCurrentUser: boolean; isOrganizer: boolean }
 export type EventContactSystem = Record<string, never>
 export type EventContactUser = { title: string | null; description: string | null; candidates: EventContactCandidate[] }
-export type FeatureRequest = { description: string; platform: string; arch: string; osVersion: string; appVersion: string; source: string }
 export type Grammar = { task: "enhance"; sections: string[] | null } | { task: "title" } | { task: "tags" } | { task: "email-to-name" }
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
-export type LogAnalysis = { summarySection: string; tail: string }
-export type ModelInfo = { llmProvider?: string | null; llmModel?: string | null; sttProvider?: string | null; sttModel?: string | null }
 export type Participant = { name: string; jobTitle: string | null }
 export type Segment = { text: string; speaker: string }
 export type Session = { title: string | null; startedAt: string | null; endedAt: string | null; event: Event | null }
 export type SessionContext = { title: string | null; date: string | null; rawContent: string | null; enhancedContent: string | null; meetingChat: string | null; transcript: Transcript | null; participants: Participant[]; event: Event | null }
-export type SupportContext = { account: AccountInfo | null; device: DeviceInfo; models?: ModelInfo | null }
-export type SupportTemplate = { supportContext: SupportContext } | { bugReport: BugReport } | { featureRequest: FeatureRequest } | { logAnalysis: LogAnalysis }
 export type Template = { activityCaptureSystem: ActivityCaptureSystem } | { activityCaptureUser: ActivityCaptureUser } | { dailySummarySystem: DailySummarySystem } | { dailySummaryUser: DailySummaryUser } | { enhanceSystem: EnhanceSystem } | { enhanceUser: EnhanceUser } | { eventContactSystem: EventContactSystem } | { eventContactUser: EventContactUser } | { titleSystem: TitleSystem } | { titleUser: TitleUser } | { chatSystem: ChatSystem } | { contextBlock: ContextBlock } | { toolSearchSessions: ToolSearchSessions } | { transcriptPatchSystem: TranscriptPatchSystem } | { transcriptPatchUser: TranscriptPatchUser }
 export type TemplateSection = { title: string; description: string | null }
 export type TitleSystem = { language: string | null }

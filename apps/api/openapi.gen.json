@@ -173,56 +173,6 @@
         ]
       }
     },
-    "/feedback/submit": {
-      "post": {
-        "tags": [
-          "feedback"
-        ],
-        "operationId": "submit",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FeedbackRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Feedback submitted successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FeedbackResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FeedbackResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FeedbackResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/llm/chat/completions": {
       "post": {
         "tags": [
@@ -5057,41 +5007,6 @@
           }
         }
       },
-      "DeviceInfo": {
-        "type": "object",
-        "required": [
-          "platform",
-          "arch",
-          "osVersion",
-          "appVersion"
-        ],
-        "properties": {
-          "appVersion": {
-            "type": "string"
-          },
-          "arch": {
-            "type": "string"
-          },
-          "buildHash": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "locale": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "osVersion": {
-            "type": "string"
-          },
-          "platform": {
-            "type": "string"
-          }
-        }
-      },
       "DiarizationJob": {
         "type": "object",
         "properties": {
@@ -5693,60 +5608,6 @@
             }
           }
         }
-      },
-      "FeedbackRequest": {
-        "type": "object",
-        "required": [
-          "description",
-          "deviceInfo"
-        ],
-        "properties": {
-          "description": {
-            "type": "string"
-          },
-          "deviceInfo": {
-            "$ref": "#/components/schemas/DeviceInfo"
-          },
-          "logs": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "type": {
-            "$ref": "#/components/schemas/FeedbackType"
-          }
-        }
-      },
-      "FeedbackResponse": {
-        "type": "object",
-        "required": [
-          "success"
-        ],
-        "properties": {
-          "error": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "issueUrl": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "success": {
-            "type": "boolean"
-          }
-        }
-      },
-      "FeedbackType": {
-        "type": "string",
-        "enum": [
-          "bug",
-          "feature"
-        ]
       },
       "FinalizedAttachmentBackup": {
         "type": "object",
@@ -11448,10 +11309,6 @@
     {
       "name": "llm",
       "description": "LLM chat completions proxy"
-    },
-    {
-      "name": "support",
-      "description": "User feedback and support"
     }
   ]
 }

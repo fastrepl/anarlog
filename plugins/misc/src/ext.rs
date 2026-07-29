@@ -1,4 +1,15 @@
-use hypr_template_support::DeviceInfo;
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceInfo {
+    pub platform: String,
+    pub arch: String,
+    pub os_version: String,
+    pub app_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub build_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locale: Option<String>,
+}
 
 pub struct Misc<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
     #[allow(dead_code)]

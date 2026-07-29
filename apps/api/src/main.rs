@@ -217,7 +217,6 @@ async fn app() -> Router {
             .collect(),
     );
     let auth_state_basic = auth_state.clone();
-    let auth_state_support = auth_state.clone();
 
     let nango_config = hypr_api_nango::NangoConfig::new(
         &env.nango,
@@ -229,14 +228,6 @@ async fn app() -> Router {
         hypr_api_subscription::SubscriptionConfig::new(&env.supabase, &env.stripe, &env.loops)
             .with_analytics(analytics.clone())
             .with_durable_cleanup_enabled(env.anarlog_attachment_backup_gc_enabled);
-    let support_config = hypr_api_support::SupportConfig::new(
-        &env.github_app,
-        &env.llm,
-        &env.support_database,
-        &env.stripe,
-        &env.supabase,
-        auth_state_support.clone(),
-    );
     let research_config = hypr_api_research::ResearchConfig {
         exa_api_key: env.exa_api_key.clone(),
         jina_api_key: env.jina_api_key.clone(),
@@ -391,17 +382,9 @@ async fn app() -> Router {
             auth::require_auth,
         ));
 
-    let support_routes = Router::new()
-        .merge(hypr_api_support::router(support_config).await)
-        .layer(middleware::from_fn_with_state(
-            auth_state_support.clone(),
-            auth::optional_auth,
-        ));
-
     Router::new()
         .route("/health", axum::routing::get(version))
         .route("/openapi.json", axum::routing::get(openapi_json))
-        .merge(support_routes)
         .merge(webhook_routes)
         .merge(paid_routes)
         .merge(shared_notes_routes)

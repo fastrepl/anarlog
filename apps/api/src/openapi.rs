@@ -39,7 +39,6 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     let ticket_doc = with_path_prefix(hypr_api_ticket::openapi(), "/ticket");
     let nango_doc = with_path_prefix(hypr_api_nango::openapi(), "/nango");
     let subscription_doc = with_path_prefix(hypr_api_subscription::openapi(), "/subscription");
-    let support_doc = hypr_api_support::openapi();
     let sync_doc = with_path_prefix(hypr_api_sync::openapi(), "/sync");
     let shared_notes_doc = hypr_api_sync::shared_notes_openapi();
     let cloud_api_doc = hypr_api_cloud::openapi();
@@ -52,7 +51,6 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     doc.merge(ticket_doc);
     doc.merge(nango_doc);
     doc.merge(subscription_doc);
-    doc.merge(support_doc);
     doc.merge(sync_doc);
     doc.merge(shared_notes_doc);
     doc.merge(cloud_api_doc);

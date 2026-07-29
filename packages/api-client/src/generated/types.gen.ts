@@ -376,15 +376,6 @@ export type DeleteConnectionResponse = {
     status: string;
 };
 
-export type DeviceInfo = {
-    appVersion: string;
-    arch: string;
-    buildHash?: string | null;
-    locale?: string | null;
-    osVersion: string;
-    platform: string;
-};
-
 export type DiarizationJob = {
     /**
      * Date and time the job was created
@@ -570,21 +561,6 @@ export type ExtendedProperties = {
         [key: string]: string;
     } | null;
 };
-
-export type FeedbackRequest = {
-    description: string;
-    deviceInfo: DeviceInfo;
-    logs?: string | null;
-    type?: FeedbackType;
-};
-
-export type FeedbackResponse = {
-    error?: string | null;
-    issueUrl?: string | null;
-    success: boolean;
-};
-
-export type FeedbackType = 'bug' | 'feature';
 
 export type FinalizedAttachmentBackup = {
     objectKey: string;
@@ -2051,35 +2027,6 @@ export type OutlookListEventsResponses = {
 };
 
 export type OutlookListEventsResponse2 = OutlookListEventsResponses[keyof OutlookListEventsResponses];
-
-export type SubmitData = {
-    body: FeedbackRequest;
-    path?: never;
-    query?: never;
-    url: '/feedback/submit';
-};
-
-export type SubmitErrors = {
-    /**
-     * Invalid request
-     */
-    400: FeedbackResponse;
-    /**
-     * Server error
-     */
-    500: FeedbackResponse;
-};
-
-export type SubmitError = SubmitErrors[keyof SubmitErrors];
-
-export type SubmitResponses = {
-    /**
-     * Feedback submitted successfully
-     */
-    200: FeedbackResponse;
-};
-
-export type SubmitResponse = SubmitResponses[keyof SubmitResponses];
 
 export type LlmChatCompletionsData = {
     body?: never;

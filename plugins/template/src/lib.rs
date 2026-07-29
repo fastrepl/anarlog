@@ -14,7 +14,6 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .commands(tauri_specta::collect_commands![
             commands::render::<Wry>,
             commands::render_custom::<Wry>,
-            commands::render_support::<Wry>,
             commands::get_template_source::<Wry>,
         ])
         .typ::<hypr_gbnf::Grammar>()

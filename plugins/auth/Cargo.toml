@@ -18,7 +18,6 @@ tempfile = { workspace = true }
 base64 = { workspace = true }
 hypr-storage = { workspace = true }
 hypr-supabase-auth = { workspace = true, features = ["client"] }
-hypr-template-support = { workspace = true }
 tauri-plugin-settings = { workspace = true }
 tauri-plugin-store2 = { workspace = true }
 
