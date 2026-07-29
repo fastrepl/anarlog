@@ -14,6 +14,8 @@ import WaveSurfer from "wavesurfer.js";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 
+import { configureCenteredPlayback } from "./playback";
+
 import { useBillingAccess } from "~/auth/billing-context";
 import { isSessionAudioIdle } from "~/services/audio-retention";
 import { deleteSessionAudio } from "~/session/attachments";
@@ -138,6 +140,7 @@ export function AudioPlayerProvider({
   const [playbackRate, setPlaybackRateState] = useState(1);
   const timeStoreRef = useRef(new TimeStore());
   const stopRequestedRef = useRef(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const { audioExists: audioExistsValue, audioExistsResolved } =
     useAudioExistence(sessionId);
 
@@ -154,11 +157,12 @@ export function AudioPlayerProvider({
     store.reset();
     stopRequestedRef.current = false;
 
-    const audio = new Audio(url);
     let lastReportedTime = 0;
 
     const ws = WaveSurfer.create({
       container,
+      url,
+      backend: "WebAudio",
       height: 24,
       waveColor: "#e5e5e5",
       progressColor: "#a8a8a8",
@@ -168,7 +172,6 @@ export function AudioPlayerProvider({
       barGap: 2,
       barRadius: 2,
       barHeight: 1,
-      media: audio,
       dragToSeek: true,
       normalize: true,
       splitChannels: [
@@ -176,6 +179,8 @@ export function AudioPlayerProvider({
         { waveColor: "#d5dde8", progressColor: "#a3b3c9", overlay: true },
       ],
     });
+    const audioContext = configureCenteredPlayback(ws.getMediaElement());
+    audioContextRef.current = audioContext;
 
     const syncCurrentTime = (currentTime: number, force = false) => {
       if (
@@ -252,29 +257,32 @@ export function AudioPlayerProvider({
 
     return () => {
       stopRequestedRef.current = false;
+      if (audioContextRef.current === audioContext) {
+        audioContextRef.current = null;
+      }
       ws.destroy();
       setWavesurfer(null);
-      audio.pause();
-      audio.src = "";
-      audio.load();
+      void audioContext?.close();
     };
   }, [container, url]);
 
-  const start = useCallback(() => {
-    if (wavesurfer) {
-      void wavesurfer.play();
+  const play = useCallback(() => {
+    if (!wavesurfer) {
+      return;
     }
+
+    const audioContext = audioContextRef.current;
+    if (audioContext?.state === "suspended") {
+      void audioContext.resume().then(() => wavesurfer.play());
+      return;
+    }
+
+    void wavesurfer.play();
   }, [wavesurfer]);
 
   const pause = useCallback(() => {
     if (wavesurfer) {
       wavesurfer.pause();
-    }
-  }, [wavesurfer]);
-
-  const resume = useCallback(() => {
-    if (wavesurfer) {
-      void wavesurfer.play();
     }
   }, [wavesurfer]);
 
@@ -352,9 +360,9 @@ export function AudioPlayerProvider({
       wavesurfer,
       state,
       timeStore: timeStoreRef.current,
-      start,
+      start: play,
       pause,
-      resume,
+      resume: play,
       stop,
       seek,
       audioExists: audioExistsValue,
@@ -368,9 +376,8 @@ export function AudioPlayerProvider({
       registerContainer,
       wavesurfer,
       state,
-      start,
+      play,
       pause,
-      resume,
       stop,
       seek,
       audioExistsValue,
