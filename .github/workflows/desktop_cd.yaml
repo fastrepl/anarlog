@@ -453,6 +453,7 @@ jobs:
           upload_dir=$(mktemp -d)
           for bundle_dir in appimage deb; do
             for file in apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/$bundle_dir/*; do
+              [[ -f "$file" ]] || continue
               cp "$file" "$upload_dir/${prefix}-$(basename "$file")"
             done
           done
