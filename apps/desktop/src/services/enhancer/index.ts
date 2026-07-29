@@ -2,6 +2,7 @@ import type { LanguageModel } from "ai";
 
 import { type EnhanceEligibilitySkipCode, getEligibility } from "./eligibility";
 import {
+  discardPendingAutoEnhanceJob,
   type EnhancerNote,
   type PendingAutoEnhanceJob,
   ensurePendingAutoEnhanceDocument,
@@ -18,7 +19,10 @@ import {
   type SessionContentSnapshot,
 } from "~/session/content-queries";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
-import type { TasksActions } from "~/store/zustand/ai-task/tasks";
+import {
+  isRetryableAIError,
+  type TasksActions,
+} from "~/store/zustand/ai-task/tasks";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { getTemplateById } from "~/templates/queries";
 
@@ -534,16 +538,30 @@ export class EnhancerService {
           }
         },
       })
-      .then(() => {
-        if (
-          aiTaskStore.getState().getState(enhanceTaskId)?.status === "error"
-        ) {
+      .then(async () => {
+        const taskState = aiTaskStore.getState().getState(enhanceTaskId);
+        if (taskState?.status === "error") {
           trackAnalyticsEvent("enhancement_failed", {
             is_auto: opts?.isAuto ?? false,
             llm_provider: llmConn?.providerId ?? "unknown",
             failure_stage: "generation",
           });
+          if (
+            opts?.pendingAutoEnhance &&
+            taskState.error &&
+            !isRetryableAIError(taskState.error)
+          ) {
+            await retryDatabaseLock(() =>
+              discardPendingAutoEnhanceJob(opts.pendingAutoEnhance!),
+            );
+          }
         }
+      })
+      .catch((error) => {
+        console.error(
+          "[enhancer] failed to finalize auto-enhance task state",
+          error,
+        );
       });
 
     return { type: "started", noteId: note.id };

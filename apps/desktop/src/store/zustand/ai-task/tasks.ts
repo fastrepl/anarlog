@@ -536,7 +536,7 @@ const TRANSIENT_AI_ERROR_PATTERNS = [
 ];
 
 function normalizeTaskError(error: Error): Error {
-  if (!isTransientAIError(error)) {
+  if (!isRetryableAIError(error)) {
     return error;
   }
 
@@ -545,7 +545,7 @@ function normalizeTaskError(error: Error): Error {
   return normalized;
 }
 
-function isTransientAIError(error: Error): boolean {
+export function isRetryableAIError(error: Error): boolean {
   if (APICallError.isInstance(error)) {
     if (error.statusCode === 409) {
       return false;

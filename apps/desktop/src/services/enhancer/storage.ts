@@ -137,6 +137,33 @@ export async function loadPendingAutoEnhanceJobs(): Promise<
   }));
 }
 
+export function discardPendingAutoEnhanceJob(
+  job: PendingAutoEnhanceJob,
+): Promise<void> {
+  return enqueueDatabaseWrite(`session:${job.sessionId}`, async () => {
+    await executeTransaction([
+      {
+        sql: `
+          DELETE FROM app_settings
+          WHERE id = ?
+            AND json_valid(value_json)
+            AND json_extract(value_json, '$.noteId') = ?
+            AND json_extract(value_json, '$.generation') = ?
+            AND json_extract(value_json, '$.body') = ?
+            AND json_extract(value_json, '$.bodyFormat') = ?
+        `,
+        params: [
+          `${PENDING_AUTO_ENHANCE_SETTING_PREFIX}${job.sessionId}`,
+          job.noteId,
+          job.generation,
+          job.expectedBody,
+          job.expectedContentFormat,
+        ],
+      },
+    ]);
+  });
+}
+
 function ensureSummaryDocumentWithMetadata(
   sessionId: string,
   templateId: string | undefined,

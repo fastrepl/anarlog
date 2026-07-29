@@ -27,6 +27,7 @@ vi.mock("~/shared/utils", () => ({
 }));
 
 import {
+  discardPendingAutoEnhanceJob,
   ensurePendingAutoEnhanceDocument,
   ensureSummaryDocument,
   loadPendingAutoEnhanceJobs,
@@ -116,6 +117,32 @@ describe("enhancer SQLite storage", () => {
       expect.any(String),
     ]);
     expect(statement.expectedRowsAffected).toBe(1);
+  });
+
+  it("discards only the exact failed auto-enhance generation", async () => {
+    await discardPendingAutoEnhanceJob({
+      sessionId: "session-1",
+      noteId: "existing-note",
+      templateId: "template-1",
+      expectedBody: "",
+      expectedContentFormat: "prosemirror_json",
+      generation: "generation-1",
+    });
+
+    expect(mocks.enqueueDatabaseWrite).toHaveBeenCalledWith(
+      "session:session-1",
+      expect.any(Function),
+    );
+    const statement = mocks.executeTransaction.mock.calls[0][0][0];
+    expect(statement.sql).toContain("DELETE FROM app_settings");
+    expect(statement.sql).toContain("$.generation");
+    expect(statement.params).toEqual([
+      "auto_enhance_pending:session-1",
+      "existing-note",
+      "generation-1",
+      "",
+      "prosemirror_json",
+    ]);
   });
 
   it("persists the auto-enhance marker with a new empty summary", async () => {

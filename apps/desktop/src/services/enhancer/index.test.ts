@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   analyticsEvent: vi.fn().mockResolvedValue(undefined),
   loadSessionContentSnapshot: vi.fn(),
   loadPendingAutoEnhanceJobs: vi.fn(),
+  discardPendingAutoEnhanceJob: vi.fn(),
   ensurePendingAutoEnhanceDocument: vi.fn(),
   ensureSummaryDocument: vi.fn(),
   replaceSummaryDocumentTemplate: vi.fn().mockResolvedValue(undefined),
@@ -25,6 +26,7 @@ vi.mock("~/session/content-queries", () => ({
 }));
 
 vi.mock("./storage", () => ({
+  discardPendingAutoEnhanceJob: mocks.discardPendingAutoEnhanceJob,
   ensurePendingAutoEnhanceDocument: mocks.ensurePendingAutoEnhanceDocument,
   ensureSummaryDocument: mocks.ensureSummaryDocument,
   loadPendingAutoEnhanceJobs: mocks.loadPendingAutoEnhanceJobs,
@@ -628,6 +630,32 @@ describe("EnhancerService", () => {
       }),
     );
     expect(mocks.listenerSubscribe).toHaveBeenCalledOnce();
+    service.dispose();
+  });
+
+  it("retires a durable job after a permanent generation failure", async () => {
+    snapshot = createSnapshot({
+      notes: [createNote()],
+      wordCount: 40,
+    });
+    const pendingJob = createPendingJob();
+    mocks.loadPendingAutoEnhanceJobs.mockResolvedValue([pendingJob]);
+    const permanentError = new Error(
+      "temperature must be omitted for this model",
+    );
+    const ai = createMockAITaskStore(() => ({
+      status: "error",
+      error: permanentError,
+    }));
+    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
+
+    service.start();
+
+    await vi.waitFor(() => {
+      expect(mocks.discardPendingAutoEnhanceJob).toHaveBeenCalledWith(
+        pendingJob,
+      );
+    });
     service.dispose();
   });
 
