@@ -12,7 +12,10 @@ use db::{cloudsync_runtime_config_from_env, open_desktop_db};
 use ext::*;
 use store::*;
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 use tauri::Emitter;
 use tauri_plugin_permissions::{Permission, PermissionsPluginExt};
@@ -90,6 +93,9 @@ pub async fn main() {
                     release,
                     traces_sample_rate: 1.0,
                     auto_session_tracking: false,
+                    before_send: Some(Arc::new(
+                        tauri_plugin_tracing::redaction::sanitize_sentry_event,
+                    )),
                     ..Default::default()
                 },
             ));

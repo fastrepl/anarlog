@@ -2,6 +2,7 @@ use std::io::{self, Write};
 use std::sync::LazyLock;
 
 use regex::Regex;
+use sentry::protocol::{Context, Event, Stacktrace, User};
 
 static EMAIL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").expect("Invalid regex")
@@ -9,6 +10,139 @@ static EMAIL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 
 static IP_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\b(?:\d{1,3}\.){3}\d{1,3}\b").expect("Invalid regex"));
+
+fn redact_sensitive_text(value: &str, home_dir: Option<&str>) -> String {
+    let mut redacted = value.to_string();
+    if let Some(home) = home_dir {
+        redacted = redacted.replace(home, "[HOME]");
+    }
+    redacted = EMAIL_REGEX
+        .replace_all(&redacted, "[EMAIL_REDACTED]")
+        .into_owned();
+    IP_REGEX
+        .replace_all(&redacted, "[IP_REDACTED]")
+        .into_owned()
+}
+
+fn sanitize_stacktrace(stacktrace: &mut Stacktrace, home_dir: Option<&str>) {
+    for frame in &mut stacktrace.frames {
+        frame.filename = frame
+            .filename
+            .take()
+            .map(|path| redact_sensitive_text(&path, home_dir));
+        frame.abs_path = frame
+            .abs_path
+            .take()
+            .map(|path| redact_sensitive_text(&path, home_dir));
+        frame.pre_context.clear();
+        frame.context_line = None;
+        frame.post_context.clear();
+        frame.vars.clear();
+    }
+}
+
+fn sanitize_context(context: &mut Context) -> bool {
+    match context {
+        Context::Device(device) => {
+            device.name = None;
+            device.other.clear();
+        }
+        Context::Os(os) => os.other.clear(),
+        Context::Runtime(runtime) => runtime.other.clear(),
+        Context::App(app) => {
+            app.device_app_hash = None;
+            app.other.clear();
+        }
+        Context::Browser(browser) => browser.other.clear(),
+        Context::Trace(trace) => {
+            trace.description = None;
+            trace.data.clear();
+        }
+        Context::Gpu(gpu) => gpu.other.clear(),
+        _ => return false,
+    }
+    true
+}
+
+fn sanitize_sentry_event_with_home(
+    mut event: Event<'static>,
+    home_dir: Option<&str>,
+) -> Event<'static> {
+    event.fingerprint = Event::default().fingerprint;
+    event.culprit = None;
+    event.transaction = None;
+    event.message = None;
+    event.logentry = None;
+    event.server_name = None;
+    event.request = None;
+    event.extra.clear();
+
+    if let Some(user) = event.user.take() {
+        event.user = user.id.map(|id| User {
+            id: Some(id),
+            ..Default::default()
+        });
+    }
+
+    for breadcrumb in &mut event.breadcrumbs {
+        breadcrumb.message = None;
+        breadcrumb.data.clear();
+    }
+    for exception in &mut event.exception {
+        exception.value = Some(format!("{} captured", exception.ty));
+        if let Some(mechanism) = &mut exception.mechanism {
+            mechanism.description = None;
+            mechanism.help_link = None;
+            mechanism.data.clear();
+        }
+        if let Some(stacktrace) = &mut exception.stacktrace {
+            sanitize_stacktrace(stacktrace, home_dir);
+        }
+        if let Some(stacktrace) = &mut exception.raw_stacktrace {
+            sanitize_stacktrace(stacktrace, home_dir);
+        }
+    }
+    if let Some(stacktrace) = &mut event.stacktrace {
+        sanitize_stacktrace(stacktrace, home_dir);
+    }
+    for thread in &mut event.threads {
+        if let Some(stacktrace) = &mut thread.stacktrace {
+            sanitize_stacktrace(stacktrace, home_dir);
+        }
+        if let Some(stacktrace) = &mut thread.raw_stacktrace {
+            sanitize_stacktrace(stacktrace, home_dir);
+        }
+    }
+    if let Some(template) = &mut event.template {
+        template.filename = template
+            .filename
+            .take()
+            .map(|path| redact_sensitive_text(&path, home_dir));
+        template.abs_path = template
+            .abs_path
+            .take()
+            .map(|path| redact_sensitive_text(&path, home_dir));
+        template.pre_context.clear();
+        template.context_line = None;
+        template.post_context.clear();
+    }
+    event
+        .contexts
+        .retain(|_, context| sanitize_context(context));
+    event.tags.retain(|key, _| {
+        matches!(
+            key.as_str(),
+            "service.name" | "service.namespace" | "enduser.pseudo.id"
+        )
+    });
+
+    event
+}
+
+pub fn sanitize_sentry_event(event: Event<'static>) -> Option<Event<'static>> {
+    let home_dir = dirs::home_dir().map(|path| path.to_string_lossy().into_owned());
+    Some(sanitize_sentry_event_with_home(event, home_dir.as_deref()))
+}
 
 pub struct RedactingWriter<W: Write> {
     inner: W,
@@ -35,17 +169,7 @@ impl<W: Write> RedactingWriter<W> {
     }
 
     fn redact_line(&self, line: &str) -> String {
-        let mut redacted = line.to_string();
-        if let Some(home) = &self.home_dir {
-            redacted = redacted.replace(home, "[HOME]");
-        }
-        redacted = EMAIL_REGEX
-            .replace_all(&redacted, "[EMAIL_REDACTED]")
-            .into_owned();
-        redacted = IP_REGEX
-            .replace_all(&redacted, "[IP_REDACTED]")
-            .into_owned();
-        redacted
+        redact_sensitive_text(line, self.home_dir.as_deref())
     }
 
     fn flush_buffer(&mut self) -> io::Result<()> {
@@ -96,6 +220,8 @@ impl<W: Write> Drop for RedactingWriter<W> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sentry::protocol::{Breadcrumb, Exception, Frame, LogEntry, OsContext, Request};
+    use serde_json::json;
     use std::io::Write;
 
     fn assert_redaction(home: Option<&str>, input: &str, expected: &str) {
@@ -200,5 +326,119 @@ mod tests {
         assert!(!content.contains("/home/testuser"));
         assert!(!content.contains("user@example.com"));
         assert!(!content.contains("192.168.1.100"));
+    }
+
+    #[test]
+    fn sentry_event_removes_payloads_and_redacts_paths() {
+        let mut event = Event {
+            message: Some(
+                "failed to read /Users/alice/private.wav for alice@example.com".to_string(),
+            ),
+            logentry: Some(LogEntry {
+                message: "private note title".to_string(),
+                params: vec![json!("private transcript")],
+            }),
+            request: Some(Request {
+                data: Some("private transcript".to_string()),
+                ..Default::default()
+            }),
+            user: Some(User {
+                id: Some("pseudonymous-id".to_string()),
+                email: Some("alice@example.com".to_string()),
+                username: Some("alice".to_string()),
+                ..Default::default()
+            }),
+            breadcrumbs: vec![Breadcrumb {
+                message: Some("private note".to_string()),
+                data: [("requestBody".to_string(), json!("private transcript"))]
+                    .into_iter()
+                    .collect(),
+                ..Default::default()
+            }]
+            .into(),
+            exception: vec![Exception {
+                ty: "IoError".to_string(),
+                value: Some("/Users/alice/private.wav".to_string()),
+                stacktrace: Some(Stacktrace {
+                    frames: vec![Frame {
+                        abs_path: Some("/Users/alice/private.wav".to_string()),
+                        vars: [("note".to_string(), json!("private transcript"))]
+                            .into_iter()
+                            .collect(),
+                        ..Default::default()
+                    }],
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }]
+            .into(),
+            tags: [
+                ("service.name".to_string(), "desktop".to_string()),
+                ("private-note".to_string(), "meeting plans".to_string()),
+            ]
+            .into_iter()
+            .collect(),
+            contexts: [
+                (
+                    "os".to_string(),
+                    OsContext {
+                        name: Some("macOS".to_string()),
+                        other: [("private-note".to_string(), json!("meeting plans"))]
+                            .into_iter()
+                            .collect(),
+                        ..Default::default()
+                    }
+                    .into(),
+                ),
+                (
+                    "custom".to_string(),
+                    Context::Other(
+                        [("transcript".to_string(), json!("private transcript"))]
+                            .into_iter()
+                            .collect(),
+                    ),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+            ..Default::default()
+        };
+        event
+            .extra
+            .insert("requestBody".to_string(), json!("private transcript"));
+
+        let event = sanitize_sentry_event_with_home(event, Some("/Users/alice"));
+
+        assert!(event.message.is_none());
+        assert!(event.logentry.is_none());
+        assert!(event.request.is_none());
+        assert!(event.extra.is_empty());
+        assert_eq!(
+            event.user,
+            Some(User {
+                id: Some("pseudonymous-id".to_string()),
+                ..Default::default()
+            })
+        );
+        assert!(event.breadcrumbs[0].message.is_none());
+        assert!(event.breadcrumbs[0].data.is_empty());
+        assert_eq!(
+            event.exception[0].value.as_deref(),
+            Some("IoError captured")
+        );
+        let frame = &event.exception[0].stacktrace.as_ref().unwrap().frames[0];
+        assert_eq!(frame.abs_path.as_deref(), Some("[HOME]/private.wav"));
+        assert!(frame.vars.is_empty());
+        assert_eq!(
+            event.tags,
+            [("service.name".to_string(), "desktop".to_string())]
+                .into_iter()
+                .collect()
+        );
+        assert_eq!(event.contexts.len(), 1);
+        let Context::Os(os) = &event.contexts["os"] else {
+            panic!("expected os context");
+        };
+        assert!(os.other.is_empty());
     }
 }
