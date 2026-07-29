@@ -14,9 +14,9 @@ use store::*;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 use tauri_plugin_permissions::{Permission, PermissionsPluginExt};
-use tauri_plugin_windows::{AppWindow, WindowsPluginExt};
+use tauri_plugin_windows::AppWindow;
 
 #[cfg(any(feature = "dev", feature = "devtools"))]
 const STAGING_BUNDLE_ID: &str = "com.hyprnote.staging";
@@ -140,7 +140,10 @@ pub async fn main() {
     // should always be the first plugin
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            app.windows().show(AppWindow::Main).unwrap();
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
         }));
     }
 
