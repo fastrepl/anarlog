@@ -9,6 +9,7 @@ import {
   getBatchFallbackTarget,
   getBatchProvider,
   getSessionSpeakerCount,
+  isTerminalTranscriptionError,
 } from "./useRunBatch";
 import { useRunBatch } from "./useRunBatch";
 
@@ -196,6 +197,28 @@ describe("canRunBatchTranscription", () => {
         model: "realtime-only",
       }),
     ).toBe(true);
+  });
+});
+
+describe("isTerminalTranscriptionError", () => {
+  test.each([
+    "Bad Request: failed to process audio: corrupt or unsupported data",
+    "No speech detected",
+    "Authentication failed: 401 Unauthorized",
+    EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE,
+  ])("classifies permanent failures: %s", (message) => {
+    expect(isTerminalTranscriptionError(new Error(message))).toBe(true);
+  });
+
+  test.each([
+    "request timed out",
+    "429 Too Many Requests",
+    "503 Service Unavailable",
+    "database is locked",
+    "nova-3 is not available for batch transcription",
+    "STT connection is not available",
+  ])("leaves transient failures retryable: %s", (message) => {
+    expect(isTerminalTranscriptionError(new Error(message))).toBe(false);
   });
 });
 

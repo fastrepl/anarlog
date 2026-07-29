@@ -226,6 +226,18 @@ export function isTranscriptionAuthenticationError(error: unknown) {
   );
 }
 
+export function isTerminalTranscriptionError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message === EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE ||
+    isTranscriptionAuthenticationError(error) ||
+    /corrupt or unsupported|unsupported (?:audio|data)|invalid audio|no speech|empty transcript/i.test(
+      message,
+    ) ||
+    /\b(?:400|403|404|413|415|422)\b|bad request|invalid api key/i.test(message)
+  );
+}
+
 export function getSessionSpeakerCount(
   participantHumanIds: Iterable<string>,
   selfHumanId?: string | null,

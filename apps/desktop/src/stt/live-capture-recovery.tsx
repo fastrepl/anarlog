@@ -6,7 +6,8 @@ import { loadCaptureLifecycleMarkers } from "./capture-lifecycle-storage";
 import { listenCaptureRecoveryRequests } from "./capture-recovery-requests";
 import { useResumeListeningLifecycle } from "./useStartListening";
 
-const CAPTURE_RECOVERY_RETRY_MS = 2_000;
+const CAPTURE_RECOVERY_BASE_RETRY_MS = 2_000;
+const CAPTURE_RECOVERY_MAX_ATTEMPTS = 5;
 
 export function LiveCaptureRecovery() {
   const [recoveryTokens, setRecoveryTokens] = useState<Record<string, number>>(
@@ -129,10 +130,12 @@ function LiveCaptureSessionRecovery({
     let active = true;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
-    const recover = async () => {
+    const recover = async (attempt: number) => {
       let result: "attached" | "inactive" | "error";
       try {
-        result = await resumeListeningLifecycle();
+        result = await resumeListeningLifecycle({
+          abandonOnFailure: attempt >= CAPTURE_RECOVERY_MAX_ATTEMPTS,
+        });
       } catch (error) {
         console.error("[listener] capture recovery attempt failed", error);
         result = "error";
@@ -141,15 +144,25 @@ function LiveCaptureSessionRecovery({
         return;
       }
       if (result === "error") {
-        retryTimer = setTimeout(() => {
-          void recover();
-        }, CAPTURE_RECOVERY_RETRY_MS);
+        if (attempt >= CAPTURE_RECOVERY_MAX_ATTEMPTS) {
+          console.warn("[listener] capture recovery retry budget exhausted", {
+            sessionId,
+          });
+          onComplete(sessionId, recoveryToken);
+          return;
+        }
+        retryTimer = setTimeout(
+          () => {
+            void recover(attempt + 1);
+          },
+          CAPTURE_RECOVERY_BASE_RETRY_MS * 2 ** (attempt - 1),
+        );
         return;
       }
       onComplete(sessionId, recoveryToken);
     };
 
-    void recover();
+    void recover(1);
 
     return () => {
       active = false;

@@ -214,6 +214,51 @@ test("retries durable capture recovery when the native snapshot is unavailable",
   vi.useRealTimers();
 });
 
+test("stops automatic recovery after the bounded retry budget", async () => {
+  vi.useFakeTimers();
+  const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  mocks.getCaptureSnapshot.mockResolvedValue({
+    status: "ok",
+    data: {
+      activeSessionId: null,
+      finalizingSessionIds: [],
+      liveTranscriptionActive: null,
+      requestedLiveTranscription: null,
+      state: "inactive",
+    },
+  });
+  mocks.loadCaptureLifecycleMarkers.mockResolvedValue([
+    { sessionId: "session-terminal" },
+  ]);
+  const resume = vi.fn().mockResolvedValue("error");
+  mocks.resumeBySession.set("session-terminal", resume);
+
+  render(<LiveCaptureRecovery />);
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(60_000);
+  });
+  expect(resume).toHaveBeenCalledTimes(5);
+  expect(resume).toHaveBeenNthCalledWith(5, {
+    abandonOnFailure: true,
+  });
+
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(60_000);
+  });
+  expect(resume).toHaveBeenCalledTimes(5);
+  expect(consoleWarn).toHaveBeenCalledWith(
+    "[listener] capture recovery retry budget exhausted",
+    { sessionId: "session-terminal" },
+  );
+  consoleWarn.mockRestore();
+  vi.useRealTimers();
+});
+
 test("recovers durable markers when the native snapshot command rejects", async () => {
   const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
   mocks.getCaptureSnapshot.mockRejectedValue(
