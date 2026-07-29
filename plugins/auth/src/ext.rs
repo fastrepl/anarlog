@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use hypr_supabase_auth::{client::store::AuthStore, session::find_session};
-use hypr_template_support::AccountInfo;
+
+use crate::AccountInfo;
 
 #[cfg(all(any(target_os = "linux", target_os = "windows"), not(test)))]
 static SECURE_AUTH_WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

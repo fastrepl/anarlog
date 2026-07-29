@@ -16,6 +16,16 @@ pub use error::{Error, Result};
 pub use ext::*;
 use tauri::Manager;
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountInfo {
+    pub user_id: String,
+    pub email: Option<String>,
+    pub full_name: Option<String>,
+    pub avatar_url: Option<String>,
+    pub stripe_customer_id: Option<String>,
+}
+
 const PLUGIN_NAME: &str = "auth";
 
 fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {

@@ -10,7 +10,7 @@ pub(crate) fn decode_claims(token: String) -> Result<hypr_supabase_auth::Claims,
 #[specta::specta]
 pub(crate) fn get_account_info<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
-) -> Result<Option<hypr_template_support::AccountInfo>, String> {
+) -> Result<Option<crate::AccountInfo>, String> {
     app.get_account_info().map_err(|e| e.to_string())
 }
 
