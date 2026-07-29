@@ -1046,7 +1046,7 @@ export function useResumeListeningLifecycle(sessionId: string) {
             "[listener] failed to prepare capture recovery state",
             error,
           );
-          return failRecovery();
+          return options?.abandonOnFailure ? result : ("error" as const);
         }
         return result;
       }

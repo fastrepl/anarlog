@@ -1538,6 +1538,30 @@ describe("useStartListening", () => {
     consoleError.mockRestore();
   });
 
+  test("keeps an attached capture leased when its marker retry budget is exhausted", async () => {
+    saveCaptureLifecycleMarkerMock.mockRejectedValue(
+      new Error("marker write failed"),
+    );
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const { result } = renderHook(() =>
+      useResumeListeningLifecycle("session-1"),
+    );
+
+    await act(async () => {
+      await expect(result.current({ abandonOnFailure: true })).resolves.toBe(
+        "attached",
+      );
+    });
+
+    expect(attachLiveSessionMock).toHaveBeenCalledOnce();
+    expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
+    expect(beginCloudsyncActivityMock).toHaveBeenCalledOnce();
+    expect(endCloudsyncActivityMock).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
   test("finalizes a durable capture when stop happens before listeners reattach", async () => {
     attachLiveSessionMock.mockResolvedValue("inactive");
     loadCaptureLifecycleMarkerMock
