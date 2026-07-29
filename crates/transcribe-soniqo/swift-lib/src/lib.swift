@@ -51,7 +51,7 @@ private enum SpeechModelKind: String, CaseIterable {
     case .parakeetStreaming:
       return "aufklarer/Parakeet-EOU-120M-CoreML-INT8"
     case .parakeetBatch:
-      return "aufklarer/Parakeet-TDT-v3-CoreML-INT8"
+      return "aufklarer/Parakeet-TDT-v3-CoreML-INT8-30s"
     case .omnilingual:
       return "aufklarer/Omnilingual-ASR-CTC-300M-CoreML-INT8-10s"
     case .qwen3Small:
