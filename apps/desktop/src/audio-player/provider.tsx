@@ -17,8 +17,12 @@ import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 import { configureCenteredPlayback } from "./playback";
 
 import { useBillingAccess } from "~/auth/billing-context";
-import { isSessionAudioIdle } from "~/services/audio-retention";
+import {
+  isSessionAudioIdle,
+  subscribeToSessionAudioRetention,
+} from "~/services/audio-retention";
 import { deleteSessionAudio } from "~/session/attachments";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const TIME_UPDATE_STEP_SECONDS = 0.1;
 
@@ -305,6 +309,41 @@ export function AudioPlayerProvider({
     }
   }, [wavesurfer]);
 
+  const markAudioDeleted = useCallback(() => {
+    timeStoreRef.current.reset();
+    queryClient.setQueryData(["audio", sessionId, "exist"], {
+      status: "ok",
+      data: false,
+    });
+    queryClient.setQueryData(["audio", sessionId, "url"], {
+      status: "error",
+      error: "audio_path_not_found",
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["audio", sessionId, "exist"],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["audio", sessionId, "url"],
+    });
+  }, [queryClient, sessionId]);
+  const retentionHandlerRef = useRef(
+    (_event: { phase: "deleting" | "deleted"; sessionId: string }) => {},
+  );
+  retentionHandlerRef.current = (event) => {
+    if (event.sessionId !== sessionId) {
+      return;
+    }
+    stop();
+    if (event.phase === "deleted") {
+      markAudioDeleted();
+    }
+  };
+  useMountEffect(() =>
+    subscribeToSessionAudioRetention((event) =>
+      retentionHandlerRef.current(event),
+    ),
+  );
+
   const seek = useCallback(
     (timeInSeconds: number) => {
       if (wavesurfer) {
@@ -342,6 +381,7 @@ export function AudioPlayerProvider({
 
   const deleteRecordingMutation = useMutation({
     mutationFn: async () => {
+      stop();
       const deleted = await deleteSessionAudio(sessionId, () =>
         isSessionAudioIdle(sessionId),
       );
@@ -349,16 +389,7 @@ export function AudioPlayerProvider({
         throw new Error("audio_session_busy");
       }
     },
-    onSuccess: () => {
-      stop();
-      timeStoreRef.current.reset();
-      void queryClient.invalidateQueries({
-        queryKey: ["audio", sessionId, "exist"],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ["audio", sessionId, "url"],
-      });
-    },
+    onSuccess: markAudioDeleted,
   });
 
   const value = useMemo<AudioPlayerContextValue>(

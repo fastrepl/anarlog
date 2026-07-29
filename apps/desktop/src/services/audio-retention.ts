@@ -13,6 +13,38 @@ import { listenerStore } from "~/store/zustand/listener/instance";
 export const AUDIO_RETENTION_TASK_ID = "audio-retention-cleanup";
 export const AUDIO_RETENTION_INTERVAL = 60 * 1000;
 
+type SessionAudioRetentionEvent = {
+  phase: "deleting" | "deleted";
+  sessionId: string;
+};
+
+const sessionAudioRetentionListeners = new Set<
+  (event: SessionAudioRetentionEvent) => void
+>();
+
+export function subscribeToSessionAudioRetention(
+  listener: (event: SessionAudioRetentionEvent) => void,
+) {
+  sessionAudioRetentionListeners.add(listener);
+  return () => sessionAudioRetentionListeners.delete(listener);
+}
+
+function emitSessionAudioRetention(event: SessionAudioRetentionEvent) {
+  sessionAudioRetentionListeners.forEach((listener) => listener(event));
+}
+
+async function deleteWithRetentionLifecycle(
+  sessionId: string,
+  deleteAudio: () => Promise<boolean>,
+) {
+  emitSessionAudioRetention({ phase: "deleting", sessionId });
+  const deleted = await deleteAudio();
+  if (deleted) {
+    emitSessionAudioRetention({ phase: "deleted", sessionId });
+  }
+  return deleted;
+}
+
 export {
   normalizeAudioRetention,
   type AudioRetentionPolicy,
@@ -99,8 +131,8 @@ export async function deleteProcessedAudioForRetention(
   }
 
   try {
-    return await deleteLocalSessionAudio(sessionId, () =>
-      isSessionAudioIdle(sessionId),
+    return await deleteWithRetentionLifecycle(sessionId, () =>
+      deleteLocalSessionAudio(sessionId, () => isSessionAudioIdle(sessionId)),
     );
   } catch (error) {
     console.error("[audio-retention] failed to delete audio", {
@@ -171,7 +203,11 @@ export async function cleanupExpiredAudio(
     }
 
     deletes.push(
-      deleteLocalSessionAudio(session.id, () => isSessionAudioIdle(session.id))
+      deleteWithRetentionLifecycle(session.id, () =>
+        deleteLocalSessionAudio(session.id, () =>
+          isSessionAudioIdle(session.id),
+        ),
+      )
         .then((deleted) => {
           if (deleted) {
             deletedSessionIds.push(session.id);
@@ -213,8 +249,10 @@ async function cleanupLogicallyDeletedAudio() {
 
       try {
         if (
-          await cleanupDeletedSessionAudio(sessionId, () =>
-            isSessionAudioIdle(sessionId),
+          await deleteWithRetentionLifecycle(sessionId, () =>
+            cleanupDeletedSessionAudio(sessionId, () =>
+              isSessionAudioIdle(sessionId),
+            ),
           )
         ) {
           deletedSessionIds.push(sessionId);

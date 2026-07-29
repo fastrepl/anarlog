@@ -31,6 +31,7 @@ import {
   deleteProcessedAudioForRetention,
   normalizeAudioRetention,
   sessionAudioExpired,
+  subscribeToSessionAudioRetention,
 } from "./audio-retention";
 
 function mockCleanupRows(
@@ -164,6 +165,8 @@ describe("audio retention", () => {
 
   test("deletes processed audio immediately when retention is none", async () => {
     mocks.execute.mockResolvedValueOnce([{ has_words: 1 }]);
+    const listener = vi.fn();
+    const unsubscribe = subscribeToSessionAudioRetention(listener);
 
     await expect(
       deleteProcessedAudioForRetention("none", "processed"),
@@ -172,6 +175,15 @@ describe("audio retention", () => {
       "processed",
       expect.any(Function),
     );
+    expect(listener).toHaveBeenNthCalledWith(1, {
+      phase: "deleting",
+      sessionId: "processed",
+    });
+    expect(listener).toHaveBeenNthCalledWith(2, {
+      phase: "deleted",
+      sessionId: "processed",
+    });
+    unsubscribe();
   });
 
   test("keeps unprocessed audio when retention is none", async () => {
