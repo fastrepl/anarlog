@@ -8,10 +8,7 @@ import type {
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import type { RenderLabelContext, SegmentKey } from "~/stt/live-segment";
-import {
-  collectAssignedHumanIdsFromTranscriptRows,
-  type TranscriptRow,
-} from "~/stt/render-transcript";
+import { collectAssignedHumanIdsFromTranscriptRows } from "~/stt/render-transcript";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 import {
   applyLiveTranscriptDelta,
@@ -62,8 +59,8 @@ export type TranscriptRecord = {
   sessionId: string;
   startedAt: number;
   endedAt?: number;
-  words: NonNullable<TranscriptRow["words"]>;
-  speakerHints: NonNullable<TranscriptRow["speaker_hints"]>;
+  words: WordWithId[];
+  speakerHints: SpeakerHintWithId[];
 };
 
 const EMPTY_TRANSCRIPTS: TranscriptRecord[] = [];
@@ -114,6 +111,26 @@ export function useTranscript(transcriptId: string): TranscriptRecord | null {
     mapRows: (rows) => (rows[0] ? mapTranscriptRow(rows[0]) : null),
   });
   return transcriptId ? data : null;
+}
+
+export async function getTranscriptRecord(
+  transcriptId: string,
+): Promise<TranscriptRecord | null> {
+  if (!transcriptId) {
+    return null;
+  }
+
+  const rows = await liveQueryClient.execute<TranscriptSqlRow>(
+    `
+      SELECT ${TRANSCRIPT_COLUMNS}
+      FROM transcripts
+      WHERE id = ? AND deleted_at IS NULL
+      LIMIT 1
+    `,
+    [transcriptId],
+  );
+
+  return rows[0] ? mapTranscriptRow(rows[0]) : null;
 }
 
 export function useSessionParticipantHumanIds(sessionId: string): string[] {

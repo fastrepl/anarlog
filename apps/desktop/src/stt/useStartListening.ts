@@ -293,12 +293,14 @@ type PostCaptureDetails = {
   audioPath: string | null;
   liveTranscriptionActive: boolean;
   needsBatchRepair: boolean;
+  refineSpeakerDiarization?: boolean;
   transcriptWriteFailed?: boolean;
 };
 
 export type PostCaptureRepairReason =
   | "live_transcription_unavailable"
   | "live_stream_incomplete"
+  | "settled_speaker_diarization"
   | "transcript_persistence_failed";
 
 export function getPostCaptureRepairReasons(
@@ -311,6 +313,9 @@ export function getPostCaptureRepairReasons(
   if (details.needsBatchRepair) {
     reasons.push("live_stream_incomplete");
   }
+  if (details.refineSpeakerDiarization) {
+    reasons.push("settled_speaker_diarization");
+  }
   if (details.transcriptWriteFailed) {
     reasons.push("transcript_persistence_failed");
   }
@@ -321,16 +326,21 @@ export function getPostCaptureAction(
   details: PostCaptureDetails,
   canRunBatch: boolean,
 ) {
-  if (
+  const liveTranscriptComplete =
     details.liveTranscriptionActive &&
     !details.needsBatchRepair &&
-    !details.transcriptWriteFailed
-  ) {
+    !details.transcriptWriteFailed;
+
+  if (liveTranscriptComplete && !details.refineSpeakerDiarization) {
     return "enhance_only" as const;
   }
 
   if (!!details.audioPath && canRunBatch) {
     return "batch_then_enhance" as const;
+  }
+
+  if (liveTranscriptComplete) {
+    return "enhance_only" as const;
   }
 
   return "none" as const;
@@ -339,6 +349,7 @@ export function getPostCaptureAction(
 function useCaptureLifecycle(sessionId: string) {
   const session = useSession(sessionId);
   const transcriptExistence = useSessionTranscriptExistence(sessionId);
+  const participantHumanIds = useSessionParticipantHumanIds(sessionId);
   const audioRetention = normalizeAudioRetention(
     useConfigValue("audio_retention"),
   );
@@ -383,6 +394,14 @@ function useCaptureLifecycle(sessionId: string) {
         recoveredMarker?.ownerUserId ?? session?.user_id ?? "";
       const provider = recoveredMarker?.provider ?? conn?.provider;
       const model = recoveredMarker?.model ?? conn?.model;
+      const refineSpeakerDiarization =
+        provider === "anarlog" &&
+        model === "cloud" &&
+        new Set(
+          participantHumanIds.filter(
+            (humanId) => humanId && humanId !== ownerUserId,
+          ),
+        ).size > 1;
       const cloudsyncLeaseKey = `${sessionId}:${transcriptId}`;
       let pendingSummaryMode = recoveredMarker?.summaryMode;
       let completionTracked = false;
@@ -523,6 +542,7 @@ function useCaptureLifecycle(sessionId: string) {
           : getPostCaptureAction(
               {
                 ...details,
+                refineSpeakerDiarization,
                 transcriptWriteFailed: Boolean(transcriptWriteError),
               },
               canRunBatchRef.current,
@@ -531,6 +551,7 @@ function useCaptureLifecycle(sessionId: string) {
           ? []
           : getPostCaptureRepairReasons({
               ...details,
+              refineSpeakerDiarization,
               transcriptWriteFailed: Boolean(transcriptWriteError),
             });
 
@@ -553,16 +574,17 @@ function useCaptureLifecycle(sessionId: string) {
                 : 0;
             await runBatchRef.current(details.audioPath!, {
               deferAudioFinalization: true,
-              promotion: preserveExistingTranscript
-                ? {
-                    scope: "current_capture",
-                    audioOffsetMs,
-                    ...(transcriptCreated
-                      ? { replaceTranscriptId: transcriptId }
-                      : {}),
-                    startedAt,
-                  }
-                : { scope: "whole_session" },
+              promotion:
+                preserveExistingTranscript || transcriptCreated
+                  ? {
+                      scope: "current_capture",
+                      audioOffsetMs,
+                      ...(transcriptCreated
+                        ? { replaceTranscriptId: transcriptId }
+                        : {}),
+                      startedAt,
+                    }
+                  : { scope: "whole_session" },
             });
             batchCompleted = true;
             console.info("[listener] completed post-stop transcript repair", {
@@ -865,6 +887,7 @@ function useCaptureLifecycle(sessionId: string) {
       audioRetention,
       conn?.model,
       conn?.provider,
+      participantHumanIds,
       session?.raw_md,
       session?.user_id,
       sessionId,

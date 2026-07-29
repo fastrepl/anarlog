@@ -279,6 +279,17 @@ describe("getPostCaptureAction", () => {
     ).toEqual([]);
   });
 
+  test("reports settled diarization refinement for a multi-speaker cloud transcript", () => {
+    expect(
+      getPostCaptureRepairReasons({
+        audioPath: "/tmp/session.wav",
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+        refineSpeakerDiarization: true,
+      }),
+    ).toEqual(["settled_speaker_diarization"]);
+  });
+
   test("runs batch then enhance after record-only capture finishes when audio is available", () => {
     expect(
       getPostCaptureAction(
@@ -301,6 +312,34 @@ describe("getPostCaptureAction", () => {
           needsBatchRepair: false,
         },
         true,
+      ),
+    ).toBe("enhance_only");
+  });
+
+  test("refines a complete live transcript when settled diarization is required", () => {
+    expect(
+      getPostCaptureAction(
+        {
+          audioPath: "/tmp/session.wav",
+          liveTranscriptionActive: true,
+          needsBatchRepair: false,
+          refineSpeakerDiarization: true,
+        },
+        true,
+      ),
+    ).toBe("batch_then_enhance");
+  });
+
+  test("keeps a complete live transcript when settled diarization cannot run", () => {
+    expect(
+      getPostCaptureAction(
+        {
+          audioPath: "/tmp/session.wav",
+          liveTranscriptionActive: true,
+          needsBatchRepair: false,
+          refineSpeakerDiarization: true,
+        },
+        false,
       ),
     ).toBe("enhance_only");
   });
@@ -820,6 +859,64 @@ describe("useStartListening", () => {
       clearCaptureLifecycleMarkerMock.mock.invocationCallOrder[0]!,
     ).toBeLessThan(
       deleteProcessedAudioForRetentionMock.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  test("refines complete multi-speaker Pro transcripts after stop", async () => {
+    useSTTConnectionMock.mockReturnValue({
+      conn: {
+        provider: "anarlog",
+        model: "cloud",
+        baseUrl: "https://api.test/stt",
+        apiKey: "token",
+      },
+    });
+    useSessionParticipantHumanIdsMock.mockReturnValue([
+      "user-1",
+      "lex",
+      "george",
+    ]);
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const callbacks = startMock.mock.calls[0]?.[1];
+    callbacks?.handlePersist?.({
+      new_words: [
+        {
+          id: "live-word",
+          text: "hello",
+          start_ms: 0,
+          end_ms: 500,
+          channel: 1,
+        },
+      ],
+      replaced_ids: [],
+      partials: [],
+    });
+    await act(async () => {
+      await callbacks?.onStopped?.("session-1", {
+        durationSeconds: 42,
+        audioPath: "/tmp/session.wav",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+      });
+    });
+
+    expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav", {
+      deferAudioFinalization: true,
+      promotion: {
+        scope: "current_capture",
+        audioOffsetMs: 0,
+        replaceTranscriptId: "generated-id",
+        startedAt: expect.any(Number),
+      },
+    });
+    expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledWith(
+      "session-1",
     );
   });
 
