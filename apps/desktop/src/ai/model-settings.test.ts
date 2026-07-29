@@ -44,6 +44,19 @@ describe("deterministicGenerationSettings", () => {
     ).toEqual({});
   });
 
+  it("omits temperature for GPT-5.6 Terra models", () => {
+    expect(
+      deterministicGenerationSettings(
+        model("openai.responses", "gpt-5.6-terra"),
+      ),
+    ).toEqual({});
+    expect(
+      deterministicGenerationSettings(
+        model("anarlog", "openai/gpt-5.6-terra-2026-07-28"),
+      ),
+    ).toEqual({});
+  });
+
   it("keeps deterministic temperature for other models", () => {
     expect(
       deterministicGenerationSettings(model("anthropic", "claude-opus-4-5")),
