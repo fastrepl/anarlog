@@ -1,7 +1,7 @@
 import {
   commands as analyticsCommands,
   type JsonValue,
-} from "@hypr/plugin-analytics";
+} from "@anlg/plugin-analytics";
 
 export function trackAnalyticsEvent(
   event: string,

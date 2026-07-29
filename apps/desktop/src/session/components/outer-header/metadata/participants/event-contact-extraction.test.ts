@@ -15,7 +15,7 @@ vi.mock("ai", () => ({
   generateText: vi.fn(),
 }));
 
-vi.mock("@hypr/plugin-template", () => ({
+vi.mock("@anlg/plugin-template", () => ({
   commands: { render: mocks.renderTemplate },
 }));
 

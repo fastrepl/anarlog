@@ -5,7 +5,7 @@ use tauri::{
 use tauri_plugin_windows::{AppWindow, OpenTab, TabInput, WindowsPluginExt};
 use tauri_specta::Event;
 
-const ID_PREFIX: &str = "hypr_tray_agenda_";
+const ID_PREFIX: &str = "anlg_tray_agenda_";
 
 pub fn build_agenda_item(
     app: &AppHandle<tauri::Wry>,

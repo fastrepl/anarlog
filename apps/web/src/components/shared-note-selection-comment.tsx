@@ -9,7 +9,7 @@ import { MessageSquarePlusIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 export type SelectionRect = {
   left: number;

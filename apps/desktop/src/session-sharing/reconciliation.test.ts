@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { JSONContent } from "@hypr/editor/note";
+import type { JSONContent } from "@anlg/editor/note";
 
 const mocks = vi.hoisted(() => ({
   enqueueDatabaseWrite: vi.fn((_key: string, write: () => Promise<unknown>) =>

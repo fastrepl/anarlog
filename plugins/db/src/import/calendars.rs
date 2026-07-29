@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use hypr_db_app::{LegacyCalendar as ImportedCalendar, LegacyImportBatch, LegacyImportRow};
+use anlg_db_app::{LegacyCalendar as ImportedCalendar, LegacyImportBatch, LegacyImportRow};
 
 pub(super) fn parse_legacy_calendars(content: &str) -> Result<LegacyImportBatch, String> {
     let table = serde_json::from_str::<HashMap<String, serde_json::Value>>(content)

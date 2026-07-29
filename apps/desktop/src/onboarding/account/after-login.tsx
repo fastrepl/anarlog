@@ -1,7 +1,7 @@
 import { Trans } from "@lingui/react/macro";
 import { CheckCircle2Icon } from "lucide-react";
 
-import { PRO_TRIAL_DAYS } from "@hypr/pricing";
+import { PRO_TRIAL_DAYS } from "@anlg/pricing";
 
 import { StepRow } from "../shared";
 import { type TrialPhase, useTrialFlow } from "./trial";

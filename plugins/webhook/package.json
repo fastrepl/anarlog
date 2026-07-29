@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/plugin-webhook",
+  "name": "@anlg/plugin-webhook",
   "private": true,
   "main": "./js/index.ts",
   "scripts": {

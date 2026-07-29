@@ -19,7 +19,7 @@
 - Migration scope is explicit. If DDL touches an enabled CloudSync table, declare `CloudsyncAlter`; never rely on SQL text inspection.
 - If a table may ever be synced, make the original DDL CloudSync-safe: one `TEXT NOT NULL` primary key and defaults on every non-PK `NOT NULL` column.
 - `cloudsync_table_registry()` is policy, not discovery. Adding or enabling a table here is a deliberate product/runtime decision.
-- Desktop and mobile both run `hypr_db_app::schema()`. Schema drift must be fixed here, not in transport layers.
+- Desktop and mobile both run `anlg_db_app::schema()`. Schema drift must be fixed here, not in transport layers.
 - JSON-shaped fields stay as opaque `TEXT`. Parsing and legacy-shape normalization belong in adapters/importers, not this crate.
 - `events.calendar_id` is intentionally not a foreign key today. Adding FK or cascade behavior changes import, delete, and sync semantics; audit all three first.
 - Keep helper behavior stable: upserts preserve `created_at`, bump `updated_at`, and list queries stay deterministic unless you intentionally want downstream churn.

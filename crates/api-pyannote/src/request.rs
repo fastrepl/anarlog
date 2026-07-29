@@ -1,4 +1,4 @@
-use hypr_pyannote_cloud::types;
+use anlg_pyannote_cloud::types;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 

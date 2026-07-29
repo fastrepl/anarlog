@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/plugin-git",
+  "name": "@anlg/plugin-git",
   "private": true,
   "main": "./js/index.ts",
   "scripts": {

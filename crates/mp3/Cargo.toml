@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anlg-audio-utils = { workspace = true }
 hound = { workspace = true }
-hypr-audio-utils = { workspace = true }
 mp3lame-encoder = { workspace = true }
 thiserror = { workspace = true }
 

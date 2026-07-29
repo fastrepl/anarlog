@@ -1,17 +1,17 @@
 use std::io::Write;
 use std::path::Path;
 
+use anlg_model_manager::ModelManager;
+use anlg_transcribe_core::{
+    ProgressTracker, batch_sse_response, channel_duration_sec, chunk_channel_audio,
+    initial_resolved_until, json_error_response, next_resolved_until, split_resampled_channels,
+};
 use axum::{
     Json,
     http::StatusCode,
     response::{IntoResponse, Response},
 };
 use bytes::Bytes;
-use hypr_model_manager::ModelManager;
-use hypr_transcribe_core::{
-    ProgressTracker, batch_sse_response, channel_duration_sec, chunk_channel_audio,
-    initial_resolved_until, json_error_response, next_resolved_until, split_resampled_channels,
-};
 use owhisper_interface::ListenParams;
 use owhisper_interface::batch;
 use owhisper_interface::batch_sse::BatchSseMessage;
@@ -25,7 +25,7 @@ pub(super) async fn handle_batch(
     body: Bytes,
     content_type: &str,
     params: &ListenParams,
-    manager: &ModelManager<hypr_whisper_local::LoadedWhisper>,
+    manager: &ModelManager<anlg_whisper_local::LoadedWhisper>,
     model_path: &Path,
 ) -> Response {
     let model = match manager.get(None).await {
@@ -80,7 +80,7 @@ pub(super) async fn handle_batch_sse(
     body: Bytes,
     content_type: &str,
     params: &ListenParams,
-    manager: &ModelManager<hypr_whisper_local::LoadedWhisper>,
+    manager: &ModelManager<anlg_whisper_local::LoadedWhisper>,
     model_path: &Path,
 ) -> Response {
     let model = match manager.get(None).await {
@@ -133,11 +133,11 @@ fn transcribe_batch(
     audio_data: &[u8],
     content_type: &str,
     params: &ListenParams,
-    loaded_model: &hypr_whisper_local::LoadedWhisper,
+    loaded_model: &anlg_whisper_local::LoadedWhisper,
     model_path: &Path,
     event_tx: Option<mpsc::UnboundedSender<BatchSseMessage>>,
 ) -> Result<batch::Response, crate::Error> {
-    let extension = hypr_audio_utils::content_type_to_extension(content_type);
+    let extension = anlg_audio_utils::content_type_to_extension(content_type);
     let mut temp_file = tempfile::Builder::new()
         .prefix("whisper_local_batch_")
         .suffix(&format!(".{}", extension))
@@ -146,16 +146,16 @@ fn transcribe_batch(
     temp_file.write_all(audio_data)?;
     temp_file.flush()?;
 
-    let source = hypr_audio_utils::source_from_path(temp_file.path())?;
+    let source = anlg_audio_utils::source_from_path(temp_file.path())?;
     transcribe_source(source, params, loaded_model, model_path, event_tx)
 }
 
 pub(super) fn transcribe_recorded_file(
-    loaded_model: &hypr_whisper_local::LoadedWhisper,
+    loaded_model: &anlg_whisper_local::LoadedWhisper,
     model_path: &Path,
     audio_path: &Path,
 ) -> Result<Vec<owhisper_interface::Word2>, crate::Error> {
-    let source = hypr_audio_utils::source_from_path(audio_path)?;
+    let source = anlg_audio_utils::source_from_path(audio_path)?;
     let response = transcribe_source(
         source,
         &ListenParams::default(),
@@ -187,7 +187,7 @@ pub(super) fn transcribe_recorded_file(
 fn transcribe_source<S>(
     source: S,
     params: &ListenParams,
-    loaded_model: &hypr_whisper_local::LoadedWhisper,
+    loaded_model: &anlg_whisper_local::LoadedWhisper,
     model_path: &Path,
     event_tx: Option<mpsc::UnboundedSender<BatchSseMessage>>,
 ) -> Result<batch::Response, crate::Error>
@@ -195,7 +195,7 @@ where
     S: Source<Item = f32>,
 {
     let channel_count = u16::from(source.channels()).max(1) as usize;
-    let resampled = hypr_audio_utils::resample_audio(source, TARGET_SAMPLE_RATE)?;
+    let resampled = anlg_audio_utils::resample_audio(source, TARGET_SAMPLE_RATE)?;
     let channel_samples = split_resampled_channels(&resampled, channel_count);
     let total_duration = channel_samples
         .iter()
@@ -263,9 +263,9 @@ where
 
 fn transcribe_chunks(
     channel_idx: usize,
-    chunks: &[hypr_audio_chunking::AudioChunk],
+    chunks: &[anlg_audio_chunking::AudioChunk],
     channel_duration: f64,
-    model: &mut hypr_whisper_local::Whisper,
+    model: &mut anlg_whisper_local::Whisper,
     progress: &mut ProgressTracker,
     metadata: &owhisper_interface::stream::Metadata,
     channel_index: &[i32],

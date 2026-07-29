@@ -15,7 +15,7 @@ const CLOUDSYNC_POOL_DRAIN_TIMEOUT: Duration = Duration::from_secs(1);
 impl Db {
     async fn lock_cloudsync_connection(
         &self,
-    ) -> Result<MutexGuard<'_, Option<PoolConnection<Sqlite>>>, hypr_cloudsync::Error> {
+    ) -> Result<MutexGuard<'_, Option<PoolConnection<Sqlite>>>, anlg_cloudsync::Error> {
         let mut connection = self.cloudsync_connection.lock().await;
         if connection.is_none() {
             *connection = Some(self.pool.acquire().await?);
@@ -44,9 +44,9 @@ impl Db {
         self.cloudsync_path.as_deref()
     }
 
-    pub async fn cloudsync_version(&self) -> Result<String, hypr_cloudsync::Error> {
+    pub async fn cloudsync_version(&self) -> Result<String, anlg_cloudsync::Error> {
         let mut connection = self.lock_cloudsync_connection().await?;
-        let result = hypr_cloudsync::version(&mut **connection.as_mut().unwrap()).await;
+        let result = anlg_cloudsync::version(&mut **connection.as_mut().unwrap()).await;
         self.release_single_pool_connection(&mut connection);
         result
     }
@@ -56,7 +56,7 @@ impl Db {
         table_name: &str,
         crdt_algo: Option<&str>,
         init_flags: Option<i64>,
-    ) -> Result<(), hypr_cloudsync::Error> {
+    ) -> Result<(), anlg_cloudsync::Error> {
         let mut connection = self.lock_cloudsync_connection().await?;
         let result = interruptible_init(
             connection.as_mut().unwrap(),
@@ -74,9 +74,9 @@ impl Db {
         &self,
         table_name: &str,
         filter_expression: &str,
-    ) -> Result<(), hypr_cloudsync::Error> {
+    ) -> Result<(), anlg_cloudsync::Error> {
         let mut connection = self.lock_cloudsync_connection().await?;
-        let result = hypr_cloudsync::set_filter(
+        let result = anlg_cloudsync::set_filter(
             &mut **connection.as_mut().unwrap(),
             table_name,
             filter_expression,
@@ -104,7 +104,7 @@ impl Db {
                 tokio::time::timeout_at(acquisition_deadline, self.pool.acquire())
                     .await
                     .map_err(|_| CloudsyncRuntimeError::LocalStatusBusy)?
-                    .map_err(hypr_cloudsync::Error::from)?,
+                    .map_err(anlg_cloudsync::Error::from)?,
             );
         }
 
@@ -115,7 +115,7 @@ impl Db {
                 Ok(Err(error)) => {
                     return_pool_connections(connections).await;
                     self.release_single_pool_connection(&mut pinned);
-                    return Err(hypr_cloudsync::Error::from(error).into());
+                    return Err(anlg_cloudsync::Error::from(error).into());
                 }
                 Err(_) => {
                     return_pool_connections(connections).await;
@@ -125,7 +125,7 @@ impl Db {
             }
         }
 
-        let result: Result<(), hypr_cloudsync::Error> = async {
+        let result: Result<(), anlg_cloudsync::Error> = async {
             init_enabled_tables(pinned.as_mut().unwrap(), tables, &self.cloudsync_interrupt)
                 .await?;
             for connection in &mut connections {
@@ -163,10 +163,10 @@ impl Db {
     pub async fn cloudsync_network_init(
         &self,
         connection_string: &str,
-    ) -> Result<(), hypr_cloudsync::Error> {
+    ) -> Result<(), anlg_cloudsync::Error> {
         let mut connection = self.lock_cloudsync_connection().await?;
         let result =
-            hypr_cloudsync::network_init(&mut **connection.as_mut().unwrap(), connection_string)
+            anlg_cloudsync::network_init(&mut **connection.as_mut().unwrap(), connection_string)
                 .await;
         self.release_single_pool_connection(&mut connection);
         result
@@ -175,10 +175,10 @@ impl Db {
     pub async fn cloudsync_network_set_apikey(
         &self,
         api_key: &str,
-    ) -> Result<(), hypr_cloudsync::Error> {
+    ) -> Result<(), anlg_cloudsync::Error> {
         let mut connection = self.lock_cloudsync_connection().await?;
         let result =
-            hypr_cloudsync::network_set_apikey(&mut **connection.as_mut().unwrap(), api_key).await;
+            anlg_cloudsync::network_set_apikey(&mut **connection.as_mut().unwrap(), api_key).await;
         self.release_single_pool_connection(&mut connection);
         result
     }
@@ -186,10 +186,10 @@ impl Db {
     pub async fn cloudsync_network_set_token(
         &self,
         token: &str,
-    ) -> Result<(), hypr_cloudsync::Error> {
+    ) -> Result<(), anlg_cloudsync::Error> {
         let mut connection = self.lock_cloudsync_connection().await?;
         let result =
-            hypr_cloudsync::network_set_token(&mut **connection.as_mut().unwrap(), token).await;
+            anlg_cloudsync::network_set_token(&mut **connection.as_mut().unwrap(), token).await;
         self.release_single_pool_connection(&mut connection);
         result
     }
@@ -197,7 +197,7 @@ impl Db {
     pub async fn cloudsync_begin_alter(
         &self,
         table_name: &str,
-    ) -> Result<(), hypr_cloudsync::Error> {
+    ) -> Result<(), anlg_cloudsync::Error> {
         let mut connection = self.lock_cloudsync_connection().await?;
         let result =
             cloudsync_begin_alter_on(&mut **connection.as_mut().unwrap(), table_name).await;
@@ -208,7 +208,7 @@ impl Db {
     pub async fn cloudsync_commit_alter(
         &self,
         table_name: &str,
-    ) -> Result<(), hypr_cloudsync::Error> {
+    ) -> Result<(), anlg_cloudsync::Error> {
         let mut connection = self.lock_cloudsync_connection().await?;
         let result =
             cloudsync_commit_alter_on(&mut **connection.as_mut().unwrap(), table_name).await;
@@ -216,7 +216,7 @@ impl Db {
         result
     }
 
-    pub async fn cloudsync_cleanup(&self, table_name: &str) -> Result<(), hypr_cloudsync::Error> {
+    pub async fn cloudsync_cleanup(&self, table_name: &str) -> Result<(), anlg_cloudsync::Error> {
         let mut connection = self.lock_cloudsync_connection().await?;
         let result = interruptible_cleanup(
             connection.as_mut().unwrap(),
@@ -228,9 +228,9 @@ impl Db {
         result
     }
 
-    pub async fn cloudsync_terminate(&self) -> Result<(), hypr_cloudsync::Error> {
+    pub async fn cloudsync_terminate(&self) -> Result<(), anlg_cloudsync::Error> {
         let mut connection = self.lock_cloudsync_connection().await?;
-        let result = hypr_cloudsync::terminate(&mut **connection.as_mut().unwrap()).await;
+        let result = anlg_cloudsync::terminate(&mut **connection.as_mut().unwrap()).await;
         self.release_single_pool_connection(&mut connection);
         result
     }
@@ -247,7 +247,7 @@ impl Db {
                 tokio::time::timeout_at(acquisition_deadline, self.pool.acquire())
                     .await
                     .map_err(|_| CloudsyncRuntimeError::LocalStatusBusy)?
-                    .map_err(hypr_cloudsync::Error::from)?,
+                    .map_err(anlg_cloudsync::Error::from)?,
             );
         }
 
@@ -261,7 +261,7 @@ impl Db {
                     if let Err(close_error) = close_pool_connections(connections).await {
                         tracing::warn!(%close_error, "failed to close cloudsync connections after pool acquisition failure");
                     }
-                    return Err(hypr_cloudsync::Error::from(error).into());
+                    return Err(anlg_cloudsync::Error::from(error).into());
                 }
                 Err(_) => {
                     connections.push(pinned.take().unwrap());
@@ -275,11 +275,11 @@ impl Db {
         }
 
         let mut terminate_error = None;
-        if let Err(error) = hypr_cloudsync::terminate(&mut **pinned.as_mut().unwrap()).await {
+        if let Err(error) = anlg_cloudsync::terminate(&mut **pinned.as_mut().unwrap()).await {
             terminate_error = Some(error);
         }
         for connection in &mut connections {
-            if let Err(error) = hypr_cloudsync::terminate(&mut **connection).await
+            if let Err(error) = anlg_cloudsync::terminate(&mut **connection).await
                 && terminate_error.is_none()
             {
                 terminate_error = Some(error);
@@ -296,37 +296,37 @@ impl Db {
         close_result.map_err(Into::into)
     }
 
-    pub(crate) async fn cloudsync_close_connection(&self) -> Result<(), hypr_cloudsync::Error> {
+    pub(crate) async fn cloudsync_close_connection(&self) -> Result<(), anlg_cloudsync::Error> {
         let connection = self.cloudsync_connection.lock().await.take();
         match connection {
             Some(connection) => connection
                 .close()
                 .await
-                .map_err(hypr_cloudsync::Error::from),
+                .map_err(anlg_cloudsync::Error::from),
             None => Ok(()),
         }
     }
 
-    pub async fn cloudsync_network_cleanup(&self) -> Result<(), hypr_cloudsync::Error> {
+    pub async fn cloudsync_network_cleanup(&self) -> Result<(), anlg_cloudsync::Error> {
         let mut connection = self.lock_cloudsync_connection().await?;
-        let result = hypr_cloudsync::network_cleanup(&mut **connection.as_mut().unwrap()).await;
+        let result = anlg_cloudsync::network_cleanup(&mut **connection.as_mut().unwrap()).await;
         self.release_single_pool_connection(&mut connection);
         result
     }
 
     pub async fn cloudsync_network_has_unsent_changes(
         &self,
-    ) -> Result<bool, hypr_cloudsync::Error> {
+    ) -> Result<bool, anlg_cloudsync::Error> {
         let mut connection = self.lock_cloudsync_connection().await?;
         let result =
-            hypr_cloudsync::network_has_unsent_changes(&mut **connection.as_mut().unwrap()).await;
+            anlg_cloudsync::network_has_unsent_changes(&mut **connection.as_mut().unwrap()).await;
         self.release_single_pool_connection(&mut connection);
         result
     }
 
     pub async fn cloudsync_pending_payload_batch(
         &self,
-    ) -> Result<hypr_cloudsync::PendingPayloadBatch, hypr_cloudsync::Error> {
+    ) -> Result<anlg_cloudsync::PendingPayloadBatch, anlg_cloudsync::Error> {
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
         let mut connection = self.lock_cloudsync_connection().await?;
         let result = interruptible_pending_payload_batch(
@@ -340,7 +340,7 @@ impl Db {
 
     pub async fn cloudsync_network_status(
         &self,
-    ) -> Result<hypr_cloudsync::NetworkStatus, hypr_cloudsync::Error> {
+    ) -> Result<anlg_cloudsync::NetworkStatus, anlg_cloudsync::Error> {
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
         let mut connection = self.lock_cloudsync_connection().await?;
         let result = interruptible_network_status(
@@ -354,12 +354,12 @@ impl Db {
 
     pub async fn cloudsync_reconcile_confirmed_pending_payload(
         &self,
-        batch: hypr_cloudsync::PendingPayloadBatch,
-        status: &hypr_cloudsync::NetworkStatus,
-    ) -> Result<bool, hypr_cloudsync::Error> {
+        batch: anlg_cloudsync::PendingPayloadBatch,
+        status: &anlg_cloudsync::NetworkStatus,
+    ) -> Result<bool, anlg_cloudsync::Error> {
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
         let mut connection = self.lock_cloudsync_connection().await?;
-        let result = hypr_cloudsync::reconcile_confirmed_pending_payload(
+        let result = anlg_cloudsync::reconcile_confirmed_pending_payload(
             connection.as_mut().unwrap(),
             batch,
             status,
@@ -371,7 +371,7 @@ impl Db {
 
     pub async fn cloudsync_network_send_changes(
         &self,
-    ) -> Result<hypr_cloudsync::NetworkResult, hypr_cloudsync::Error> {
+    ) -> Result<anlg_cloudsync::NetworkResult, anlg_cloudsync::Error> {
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
         let mut connection = self.lock_cloudsync_connection().await?;
         let result = guarded_interruptible_network_send_changes(
@@ -387,7 +387,7 @@ impl Db {
     pub async fn cloudsync_network_receive_changes(
         &self,
         max_chunks: Option<i64>,
-    ) -> Result<hypr_cloudsync::NetworkResult, hypr_cloudsync::Error> {
+    ) -> Result<anlg_cloudsync::NetworkResult, anlg_cloudsync::Error> {
         // Keep the argument for mobile ABI compatibility while preventing callers
         // from bypassing the one-chunk production receive bound.
         let _ = max_chunks;
@@ -405,15 +405,15 @@ impl Db {
     pub async fn cloudsync_network_check_changes(
         &self,
         max_chunks: Option<i64>,
-    ) -> Result<hypr_cloudsync::NetworkResult, hypr_cloudsync::Error> {
+    ) -> Result<anlg_cloudsync::NetworkResult, anlg_cloudsync::Error> {
         self.cloudsync_network_receive_changes(max_chunks).await
     }
 
-    pub async fn cloudsync_network_reset_sync_version(&self) -> Result<(), hypr_cloudsync::Error> {
+    pub async fn cloudsync_network_reset_sync_version(&self) -> Result<(), anlg_cloudsync::Error> {
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
         let mut connection = self.lock_cloudsync_connection().await?;
         let result =
-            hypr_cloudsync::network_reset_sync_version(&mut **connection.as_mut().unwrap()).await;
+            anlg_cloudsync::network_reset_sync_version(&mut **connection.as_mut().unwrap()).await;
         self.release_single_pool_connection(&mut connection);
         if result.is_ok() {
             let mut runtime = self.cloudsync_runtime.lock().unwrap();
@@ -425,11 +425,11 @@ impl Db {
 
     pub async fn cloudsync_network_reset_receive_version(
         &self,
-    ) -> Result<(), hypr_cloudsync::Error> {
+    ) -> Result<(), anlg_cloudsync::Error> {
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
         let mut connection = self.lock_cloudsync_connection().await?;
         let result =
-            hypr_cloudsync::network_reset_receive_version(connection.as_mut().unwrap()).await;
+            anlg_cloudsync::network_reset_receive_version(connection.as_mut().unwrap()).await;
         self.release_single_pool_connection(&mut connection);
         if result.is_ok() {
             let mut runtime = self.cloudsync_runtime.lock().unwrap();
@@ -439,7 +439,7 @@ impl Db {
         result
     }
 
-    pub async fn cloudsync_network_logout(&self) -> Result<(), hypr_cloudsync::Error> {
+    pub async fn cloudsync_network_logout(&self) -> Result<(), anlg_cloudsync::Error> {
         let mut connection = self.lock_cloudsync_connection().await?;
         let result =
             interruptible_network_logout(connection.as_mut().unwrap(), &self.cloudsync_interrupt)
@@ -452,7 +452,7 @@ impl Db {
         &self,
         wait_ms: Option<i64>,
         max_retries: Option<i64>,
-    ) -> Result<hypr_cloudsync::NetworkResult, hypr_cloudsync::Error> {
+    ) -> Result<anlg_cloudsync::NetworkResult, anlg_cloudsync::Error> {
         // These legacy arguments remain in the mobile ABI; retries now belong to
         // the runtime so every call performs exactly one bounded transport step.
         let _ = (wait_ms, max_retries);
@@ -479,7 +479,7 @@ impl Db {
     pub async fn cloudsync_manual_send_only(
         &self,
         cancelled: &AtomicBool,
-    ) -> Result<hypr_cloudsync::NetworkResult, CloudsyncRuntimeError> {
+    ) -> Result<anlg_cloudsync::NetworkResult, CloudsyncRuntimeError> {
         let _lifecycle = self.cloudsync_lifecycle.lock().await;
         self.ensure_manual_transport_ready()?;
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
@@ -499,7 +499,7 @@ impl Db {
 
     pub async fn cloudsync_manual_pending_payload_batch(
         &self,
-    ) -> Result<hypr_cloudsync::PendingPayloadBatch, CloudsyncRuntimeError> {
+    ) -> Result<anlg_cloudsync::PendingPayloadBatch, CloudsyncRuntimeError> {
         let _lifecycle = self.cloudsync_lifecycle.lock().await;
         self.ensure_manual_transport_ready()?;
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
@@ -515,7 +515,7 @@ impl Db {
 
     pub async fn cloudsync_manual_network_status(
         &self,
-    ) -> Result<hypr_cloudsync::NetworkStatus, CloudsyncRuntimeError> {
+    ) -> Result<anlg_cloudsync::NetworkStatus, CloudsyncRuntimeError> {
         let _lifecycle = self.cloudsync_lifecycle.lock().await;
         self.ensure_manual_transport_ready()?;
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
@@ -531,14 +531,14 @@ impl Db {
 
     pub async fn cloudsync_manual_reconcile_confirmed_pending_payload(
         &self,
-        batch: hypr_cloudsync::PendingPayloadBatch,
-        status: &hypr_cloudsync::NetworkStatus,
+        batch: anlg_cloudsync::PendingPayloadBatch,
+        status: &anlg_cloudsync::NetworkStatus,
     ) -> Result<bool, CloudsyncRuntimeError> {
         let _lifecycle = self.cloudsync_lifecycle.lock().await;
         self.ensure_manual_transport_ready()?;
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
         let mut connection = self.lock_cloudsync_connection().await?;
-        let result = hypr_cloudsync::reconcile_confirmed_pending_payload(
+        let result = anlg_cloudsync::reconcile_confirmed_pending_payload(
             connection.as_mut().unwrap(),
             batch,
             status,
@@ -550,7 +550,7 @@ impl Db {
 
     pub async fn cloudsync_manual_receive_one(
         &self,
-    ) -> Result<hypr_cloudsync::NetworkResult, CloudsyncRuntimeError> {
+    ) -> Result<anlg_cloudsync::NetworkResult, CloudsyncRuntimeError> {
         let _lifecycle = self.cloudsync_lifecycle.lock().await;
         self.ensure_manual_transport_ready()?;
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
@@ -567,7 +567,7 @@ impl Db {
     pub(crate) async fn apply_cloudsync_auth(
         &self,
         auth: &CloudsyncAuth,
-    ) -> Result<(), hypr_cloudsync::Error> {
+    ) -> Result<(), anlg_cloudsync::Error> {
         match auth {
             CloudsyncAuth::None => Ok(()),
             CloudsyncAuth::ApiKey { api_key } => self.cloudsync_network_set_apikey(api_key).await,
@@ -591,7 +591,7 @@ pub(crate) async fn guarded_interruptible_network_send_changes<F>(
     connection: &mut SqliteConnection,
     interrupt: &super::CloudsyncInterruptHandle,
     cancelled: F,
-) -> Result<hypr_cloudsync::NetworkResult, hypr_cloudsync::Error>
+) -> Result<anlg_cloudsync::NetworkResult, anlg_cloudsync::Error>
 where
     F: Fn() -> bool + Sync,
 {
@@ -601,9 +601,9 @@ where
 pub(crate) async fn interruptible_network_receive_changes(
     connection: &mut SqliteConnection,
     interrupt: &super::CloudsyncInterruptHandle,
-) -> Result<hypr_cloudsync::NetworkResult, hypr_cloudsync::Error> {
+) -> Result<anlg_cloudsync::NetworkResult, anlg_cloudsync::Error> {
     let registration = interrupt.register(connection).await?;
-    let result = hypr_cloudsync::network_receive_changes(&mut *connection, Some(1)).await;
+    let result = anlg_cloudsync::network_receive_changes(&mut *connection, Some(1)).await;
     registration.finish(connection).await?;
     result
 }
@@ -611,9 +611,9 @@ pub(crate) async fn interruptible_network_receive_changes(
 pub(crate) async fn interruptible_network_logout(
     connection: &mut SqliteConnection,
     interrupt: &super::CloudsyncInterruptHandle,
-) -> Result<(), hypr_cloudsync::Error> {
+) -> Result<(), anlg_cloudsync::Error> {
     let registration = interrupt.register(connection).await?;
-    let result = hypr_cloudsync::network_logout(&mut *connection).await;
+    let result = anlg_cloudsync::network_logout(&mut *connection).await;
     registration.finish(connection).await?;
     result
 }
@@ -622,7 +622,7 @@ pub(crate) async fn interruptible_cleanup(
     connection: &mut SqliteConnection,
     table_name: &str,
     interrupt: &super::CloudsyncInterruptHandle,
-) -> Result<(), hypr_cloudsync::Error> {
+) -> Result<(), anlg_cloudsync::Error> {
     sqlx::query("SAVEPOINT cloudsync_cleanup")
         .execute(&mut *connection)
         .await?;
@@ -633,7 +633,7 @@ pub(crate) async fn interruptible_cleanup(
             return Err(error.into());
         }
     };
-    let result = hypr_cloudsync::cleanup(&mut *connection, table_name).await;
+    let result = anlg_cloudsync::cleanup(&mut *connection, table_name).await;
     if let Err(error) = registration.finish(connection).await {
         rollback_cleanup_savepoint(connection).await?;
         return Err(error.into());
@@ -659,7 +659,7 @@ pub(crate) async fn interruptible_cleanup(
 
 async fn rollback_cleanup_savepoint(
     connection: &mut SqliteConnection,
-) -> Result<(), hypr_cloudsync::Error> {
+) -> Result<(), anlg_cloudsync::Error> {
     sqlx::raw_sql("ROLLBACK TO cloudsync_cleanup; RELEASE cloudsync_cleanup")
         .execute(connection)
         .await?;
@@ -672,9 +672,9 @@ pub(crate) async fn interruptible_init(
     crdt_algo: Option<&str>,
     init_flags: Option<i64>,
     interrupt: &super::CloudsyncInterruptHandle,
-) -> Result<(), hypr_cloudsync::Error> {
+) -> Result<(), anlg_cloudsync::Error> {
     let registration = interrupt.register(connection).await?;
-    let result = hypr_cloudsync::init(&mut *connection, table_name, crdt_algo, init_flags).await;
+    let result = anlg_cloudsync::init(&mut *connection, table_name, crdt_algo, init_flags).await;
     registration.finish(connection).await?;
     result
 }
@@ -683,7 +683,7 @@ async fn guarded_network_send_changes_with_interrupt(
     connection: &mut SqliteConnection,
     interrupt: &super::CloudsyncInterruptHandle,
     cancelled: &(dyn Fn() -> bool + Sync),
-) -> Result<hypr_cloudsync::NetworkResult, hypr_cloudsync::Error> {
+) -> Result<anlg_cloudsync::NetworkResult, anlg_cloudsync::Error> {
     let batch = ensure_pending_payload_fits(connection, interrupt).await?;
     match interruptible_network_send_changes(connection, Some(interrupt)).await {
         Ok(result) => Ok(result),
@@ -692,7 +692,7 @@ async fn guarded_network_send_changes_with_interrupt(
                 Ok(status) => status,
                 Err(_) => return Err(send_error),
             };
-            match hypr_cloudsync::reconcile_confirmed_pending_payload(connection, batch, &status)
+            match anlg_cloudsync::reconcile_confirmed_pending_payload(connection, batch, &status)
                 .await
             {
                 Ok(true) => Ok(reconciled_send_result(batch, &status)),
@@ -705,22 +705,22 @@ async fn guarded_network_send_changes_with_interrupt(
 }
 
 fn should_reconcile_send_failure(
-    batch: hypr_cloudsync::PendingPayloadBatch,
-    error: &hypr_cloudsync::Error,
+    batch: anlg_cloudsync::PendingPayloadBatch,
+    error: &anlg_cloudsync::Error,
     cancelled: bool,
 ) -> bool {
-    !cancelled && batch.chunks > 0 && error.kind() == hypr_cloudsync::ErrorKind::Transient
+    !cancelled && batch.chunks > 0 && error.kind() == anlg_cloudsync::ErrorKind::Transient
 }
 
 async fn interruptible_network_send_changes(
     connection: &mut SqliteConnection,
     interrupt: Option<&super::CloudsyncInterruptHandle>,
-) -> Result<hypr_cloudsync::NetworkResult, hypr_cloudsync::Error> {
+) -> Result<anlg_cloudsync::NetworkResult, anlg_cloudsync::Error> {
     let Some(interrupt) = interrupt else {
-        return hypr_cloudsync::network_send_changes(connection).await;
+        return anlg_cloudsync::network_send_changes(connection).await;
     };
     let registration = interrupt.register(connection).await?;
-    let result = hypr_cloudsync::network_send_changes(&mut *connection).await;
+    let result = anlg_cloudsync::network_send_changes(&mut *connection).await;
     registration.finish(connection).await?;
     result
 }
@@ -728,22 +728,22 @@ async fn interruptible_network_send_changes(
 async fn interruptible_network_status(
     connection: &mut SqliteConnection,
     interrupt: Option<&super::CloudsyncInterruptHandle>,
-) -> Result<hypr_cloudsync::NetworkStatus, hypr_cloudsync::Error> {
+) -> Result<anlg_cloudsync::NetworkStatus, anlg_cloudsync::Error> {
     let Some(interrupt) = interrupt else {
-        return hypr_cloudsync::network_status(connection).await;
+        return anlg_cloudsync::network_status(connection).await;
     };
     let registration = interrupt.register(connection).await?;
-    let result = hypr_cloudsync::network_status(&mut *connection).await;
+    let result = anlg_cloudsync::network_status(&mut *connection).await;
     registration.finish(connection).await?;
     result
 }
 
 fn reconciled_send_result(
-    batch: hypr_cloudsync::PendingPayloadBatch,
-    status: &hypr_cloudsync::NetworkStatus,
-) -> hypr_cloudsync::NetworkResult {
-    hypr_cloudsync::NetworkResult {
-        send: Some(hypr_cloudsync::NetworkSendResult {
+    batch: anlg_cloudsync::PendingPayloadBatch,
+    status: &anlg_cloudsync::NetworkStatus,
+) -> anlg_cloudsync::NetworkResult {
+    anlg_cloudsync::NetworkResult {
+        send: Some(anlg_cloudsync::NetworkSendResult {
             status: "synced".to_string(),
             local_version: batch.watermark_db_version.unwrap_or(batch.start_db_version),
             server_version: status.last_confirmed_version,
@@ -756,10 +756,10 @@ fn reconciled_send_result(
 }
 
 fn merge_bounded_sync_results(
-    send: hypr_cloudsync::NetworkResult,
-    receive: hypr_cloudsync::NetworkResult,
-) -> hypr_cloudsync::NetworkResult {
-    hypr_cloudsync::NetworkResult {
+    send: anlg_cloudsync::NetworkResult,
+    receive: anlg_cloudsync::NetworkResult,
+) -> anlg_cloudsync::NetworkResult {
+    anlg_cloudsync::NetworkResult {
         send: send.send.or(receive.send),
         receive: receive.receive.or(send.receive),
     }
@@ -768,10 +768,10 @@ fn merge_bounded_sync_results(
 pub(crate) async fn ensure_pending_payload_fits(
     connection: &mut SqliteConnection,
     interrupt: &super::CloudsyncInterruptHandle,
-) -> Result<hypr_cloudsync::PendingPayloadBatch, hypr_cloudsync::Error> {
+) -> Result<anlg_cloudsync::PendingPayloadBatch, anlg_cloudsync::Error> {
     let batch = interruptible_pending_payload_batch(connection, interrupt).await?;
     if !batch.fits {
-        return Err(hypr_cloudsync::Error::OutboundPayloadTooLarge {
+        return Err(anlg_cloudsync::Error::OutboundPayloadTooLarge {
             chunks: batch.chunks,
             rows: batch.rows,
             bytes: batch.bytes,
@@ -786,7 +786,7 @@ pub(crate) async fn ensure_pending_payload_fits(
 async fn interruptible_pending_payload_batch(
     connection: &mut SqliteConnection,
     interrupt: &super::CloudsyncInterruptHandle,
-) -> Result<hypr_cloudsync::PendingPayloadBatch, hypr_cloudsync::Error> {
+) -> Result<anlg_cloudsync::PendingPayloadBatch, anlg_cloudsync::Error> {
     let registration = interrupt.register(connection).await?;
     let result = pending_payload_batch_on(connection).await;
     registration.finish(connection).await?;
@@ -795,8 +795,8 @@ async fn interruptible_pending_payload_batch(
 
 async fn pending_payload_batch_on(
     connection: &mut SqliteConnection,
-) -> Result<hypr_cloudsync::PendingPayloadBatch, hypr_cloudsync::Error> {
-    hypr_cloudsync::pending_payload_batch(
+) -> Result<anlg_cloudsync::PendingPayloadBatch, anlg_cloudsync::Error> {
+    anlg_cloudsync::pending_payload_batch(
         connection,
         CLOUDSYNC_MAX_OUTBOUND_CHUNKS,
         CLOUDSYNC_MAX_OUTBOUND_ROWS,
@@ -809,7 +809,7 @@ async fn init_enabled_tables(
     connection: &mut SqliteConnection,
     tables: &[CloudsyncTableSpec],
     interrupt: &super::CloudsyncInterruptHandle,
-) -> Result<(), hypr_cloudsync::Error> {
+) -> Result<(), anlg_cloudsync::Error> {
     for table in tables.iter().filter(|table| table.enabled) {
         interruptible_init(
             &mut *connection,
@@ -827,26 +827,26 @@ async fn init_enabled_tables(
 pub async fn cloudsync_begin_alter_on<'e, E>(
     executor: E,
     table_name: &str,
-) -> Result<(), hypr_cloudsync::Error>
+) -> Result<(), anlg_cloudsync::Error>
 where
     E: Executor<'e, Database = Sqlite>,
 {
-    hypr_cloudsync::begin_alter(executor, table_name).await
+    anlg_cloudsync::begin_alter(executor, table_name).await
 }
 
 pub async fn cloudsync_is_enabled_on<'e, E>(
     executor: E,
     table_name: &str,
-) -> Result<bool, hypr_cloudsync::Error>
+) -> Result<bool, anlg_cloudsync::Error>
 where
     E: Executor<'e, Database = Sqlite>,
 {
-    hypr_cloudsync::is_enabled(executor, table_name).await
+    anlg_cloudsync::is_enabled(executor, table_name).await
 }
 
 pub(crate) async fn cloudsync_has_local_unsent_changes_on<'e, E>(
     executor: E,
-) -> Result<bool, hypr_cloudsync::Error>
+) -> Result<bool, anlg_cloudsync::Error>
 where
     E: Executor<'e, Database = Sqlite>,
 {
@@ -877,16 +877,16 @@ where
 pub async fn cloudsync_commit_alter_on<'e, E>(
     executor: E,
     table_name: &str,
-) -> Result<(), hypr_cloudsync::Error>
+) -> Result<(), anlg_cloudsync::Error>
 where
     E: Executor<'e, Database = Sqlite>,
 {
-    hypr_cloudsync::commit_alter(executor, table_name).await
+    anlg_cloudsync::commit_alter(executor, table_name).await
 }
 
 async fn close_pool_connections(
     connections: Vec<PoolConnection<Sqlite>>,
-) -> Result<(), hypr_cloudsync::Error> {
+) -> Result<(), anlg_cloudsync::Error> {
     let mut first_error = None;
     for connection in connections {
         if let Err(error) = connection.close().await
@@ -939,10 +939,10 @@ mod tests {
         db
     }
 
-    fn assert_outbound_payload_too_large(error: hypr_cloudsync::Error) {
+    fn assert_outbound_payload_too_large(error: anlg_cloudsync::Error) {
         assert!(matches!(
             error,
-            hypr_cloudsync::Error::OutboundPayloadTooLarge {
+            anlg_cloudsync::Error::OutboundPayloadTooLarge {
                 chunks,
                 max_chunks: CLOUDSYNC_MAX_OUTBOUND_CHUNKS,
                 ..
@@ -1434,7 +1434,7 @@ mod tests {
 
     #[test]
     fn reconciled_send_reports_the_exact_preflighted_batch() {
-        let batch = hypr_cloudsync::PendingPayloadBatch {
+        let batch = anlg_cloudsync::PendingPayloadBatch {
             start_db_version: 4,
             watermark_db_version: Some(9),
             chunks: 2,
@@ -1443,11 +1443,11 @@ mod tests {
             complete: true,
             fits: true,
         };
-        let status = hypr_cloudsync::NetworkStatus {
+        let status = anlg_cloudsync::NetworkStatus {
             last_optimistic_version: 12,
             last_confirmed_version: 12,
             gaps: Vec::new(),
-            failures: hypr_cloudsync::NetworkStatusFailures::default(),
+            failures: anlg_cloudsync::NetworkStatusFailures::default(),
         };
 
         let result = reconciled_send_result(batch, &status);
@@ -1462,7 +1462,7 @@ mod tests {
 
     #[test]
     fn cancelled_send_never_starts_status_reconciliation() {
-        let batch = hypr_cloudsync::PendingPayloadBatch {
+        let batch = anlg_cloudsync::PendingPayloadBatch {
             start_db_version: 4,
             watermark_db_version: Some(9),
             chunks: 2,
@@ -1471,7 +1471,7 @@ mod tests {
             complete: true,
             fits: true,
         };
-        let error = hypr_cloudsync::Error::Io(std::io::Error::new(
+        let error = anlg_cloudsync::Error::Io(std::io::Error::new(
             std::io::ErrorKind::TimedOut,
             "interrupted upload",
         ));
@@ -1482,8 +1482,8 @@ mod tests {
 
     #[test]
     fn bounded_sync_preserves_the_send_and_single_receive_results() {
-        let send = hypr_cloudsync::NetworkResult {
-            send: Some(hypr_cloudsync::NetworkSendResult {
+        let send = anlg_cloudsync::NetworkResult {
+            send: Some(anlg_cloudsync::NetworkSendResult {
                 status: "synced".to_string(),
                 local_version: 9,
                 server_version: 9,
@@ -1493,9 +1493,9 @@ mod tests {
             }),
             receive: None,
         };
-        let receive = hypr_cloudsync::NetworkResult {
+        let receive = anlg_cloudsync::NetworkResult {
             send: None,
-            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+            receive: Some(anlg_cloudsync::NetworkReceiveResult {
                 rows: 3,
                 tables: vec!["items".to_string()],
                 chunks: 1,

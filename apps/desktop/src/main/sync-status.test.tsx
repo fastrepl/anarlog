@@ -26,7 +26,7 @@ const mocks = vi.hoisted(() => ({
   credentialBlock: null as string | null,
 }));
 
-vi.mock("@hypr/plugin-db", () => ({
+vi.mock("@anlg/plugin-db", () => ({
   getCloudsyncStatus: mocks.getCloudsyncStatus,
   syncCloudsyncNow: mocks.syncCloudsyncNow,
 }));

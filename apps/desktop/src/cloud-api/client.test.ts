@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@tauri-apps/plugin-http", () => ({ fetch: mocks.fetch }));
-vi.mock("@hypr/plugin-local-api", () => ({
+vi.mock("@anlg/plugin-local-api", () => ({
   commands: {
     getCloudSnapshot: mocks.getCloudSnapshot,
     listCloudSnapshotIds: mocks.listCloudSnapshotIds,

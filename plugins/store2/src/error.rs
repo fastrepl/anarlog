@@ -13,7 +13,7 @@ pub enum Error {
     #[error(transparent)]
     SettingsError(#[from] tauri_plugin_settings::Error),
     #[error(transparent)]
-    StorageError(#[from] hypr_storage::Error),
+    StorageError(#[from] anlg_storage::Error),
 }
 
 impl Serialize for Error {

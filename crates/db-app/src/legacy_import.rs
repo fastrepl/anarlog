@@ -1808,7 +1808,7 @@ async fn row_matches_existing(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hypr_db_core::Db;
+    use anlg_db_core::Db;
 
     async fn test_db() -> Db {
         let db = Db::connect_memory_plain().await.unwrap();

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anlg-hid-interface = { workspace = true }
 hidapi = { workspace = true }
-hypr-hid-interface = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }

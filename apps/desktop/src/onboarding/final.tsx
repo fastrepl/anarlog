@@ -4,9 +4,9 @@ import { Trans } from "@lingui/react/macro";
 import { Loader2Icon } from "lucide-react";
 import { useRef, useState } from "react";
 
-import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { commands as sfxCommands } from "@hypr/plugin-sfx";
+import { commands as analyticsCommands } from "@anlg/plugin-analytics";
+import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { commands as sfxCommands } from "@anlg/plugin-sfx";
 
 import { OnboardingButton } from "./shared";
 import {

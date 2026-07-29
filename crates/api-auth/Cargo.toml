@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-supabase-auth = { workspace = true, features = ["server"] }
+anlg-supabase-auth = { workspace = true, features = ["server"] }
 
 axum = { workspace = true }
 

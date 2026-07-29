@@ -4,6 +4,7 @@ mod sync;
 use std::io::{self, Write};
 use std::path::Path;
 
+use anlg_api_auth::AuthContext;
 use axum::{
     Json,
     body::{Body, Bytes},
@@ -12,14 +13,13 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use futures_util::StreamExt;
-use hypr_api_auth::AuthContext;
 use owhisper_client::normalize_listen_params;
 use owhisper_interface::ListenParams;
 use tokio::io::AsyncWriteExt;
 
-use hypr_audio_mime::content_type_to_extension;
+use anlg_audio_mime::content_type_to_extension;
 
-use crate::hyprnote_routing::should_use_hyprnote_routing;
+use crate::anarlog_routing::should_use_anarlog_routing;
 use crate::query_params::QueryParams;
 
 use super::{AppState, MAX_BATCH_AUDIO_BODY_BYTES};
@@ -62,10 +62,10 @@ pub async fn handler(
     }
 
     let provider_param = params.get_first("provider").map(|s| s.to_string());
-    let use_hyprnote_routing = should_use_hyprnote_routing(provider_param.as_deref());
+    let use_anarlog_routing = should_use_anarlog_routing(provider_param.as_deref());
 
-    if use_hyprnote_routing {
-        return sync::handle_hyprnote_batch(
+    if use_anarlog_routing {
+        return sync::handle_anarlog_batch(
             &state,
             &params,
             listen_params,
@@ -82,9 +82,9 @@ pub async fn handler(
     };
 
     tracing::info!(
-        hyprnote.stt.provider.name = ?selected.provider(),
-        hyprnote.file.mime_type = %content_type,
-        hyprnote.payload.size_bytes = %audio.len(),
+        anarlog.stt.provider.name = ?selected.provider(),
+        anarlog.file.mime_type = %content_type,
+        anarlog.payload.size_bytes = %audio.len(),
         "batch_transcription_request_received"
     );
 
@@ -99,7 +99,7 @@ pub async fn handler(
         Err((e, _retries)) => {
             tracing::error!(
                 error = %e,
-                hyprnote.stt.provider.name = ?selected.provider(),
+                anarlog.stt.provider.name = ?selected.provider(),
                 "batch_transcription_failed"
             );
             (
@@ -250,7 +250,7 @@ async fn write_body_to_temp_file(
 mod tests {
     use super::*;
     use crate::query_params::QueryValue;
-    use hypr_language::ISO639;
+    use anlg_language::ISO639;
 
     #[test]
     fn test_build_listen_params_normalizes_duplicate_base_languages() {

@@ -16,7 +16,7 @@ describe("getDefaultSttModel", () => {
 
   test("does not invent a model for custom or Anarlog providers", () => {
     expect(getDefaultSttModel("custom")).toBeUndefined();
-    expect(getDefaultSttModel("hyprnote")).toBeUndefined();
+    expect(getDefaultSttModel("anarlog")).toBeUndefined();
   });
 });
 
@@ -143,8 +143,8 @@ describe("getDefaultSttSelection", () => {
 
   test("skips configured providers that have no available model", () => {
     expect(
-      getDefaultSttSelection(["hyprnote", "deepgram"], {
-        hyprnote: {
+      getDefaultSttSelection(["anarlog", "deepgram"], {
+        anarlog: {
           configured: true,
           models: [{ id: "cloud", isDownloaded: false }],
         },
@@ -158,8 +158,8 @@ describe("getDefaultSttSelection", () => {
 
   test("returns no selection when nothing is available", () => {
     expect(
-      getDefaultSttSelection(["hyprnote"], {
-        hyprnote: {
+      getDefaultSttSelection(["anarlog"], {
+        anarlog: {
           configured: true,
           models: [{ id: "cloud", isDownloaded: false }],
         },

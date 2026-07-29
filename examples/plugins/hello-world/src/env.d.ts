@@ -1,6 +1,6 @@
 import type * as React from "react";
 
-import type { PluginEventRef, PluginModule } from "@hypr/plugin-sdk";
+import type { PluginEventRef, PluginModule } from "@anlg/plugin-sdk";
 
 type SessionLifecyclePayload = {
   type: string;

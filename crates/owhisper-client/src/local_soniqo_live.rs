@@ -36,18 +36,18 @@ pub enum LocalSoniqoLiveError {
 }
 
 pub struct LocalSoniqoLiveClient {
-    model: hypr_transcribe_soniqo::SoniqoModel,
+    model: anlg_transcribe_soniqo::SoniqoModel,
 }
 
 impl LocalSoniqoLiveClient {
-    pub fn new(model: hypr_transcribe_soniqo::SoniqoModel) -> Self {
+    pub fn new(model: anlg_transcribe_soniqo::SoniqoModel) -> Self {
         Self { model }
     }
 
     pub async fn from_realtime_audio_single(
         self,
         stream: impl Stream<Item = ListenClientInput> + Send + Unpin + 'static,
-        source: hypr_transcribe_soniqo::TranscriptSource,
+        source: anlg_transcribe_soniqo::TranscriptSource,
     ) -> Result<(LocalSoniqoLiveStream, LocalSoniqoLiveHandle), LocalSoniqoLiveError> {
         let session = start_session(self.model).await?;
         let (response_tx, response_rx) = tokio::sync::mpsc::channel(32);
@@ -113,9 +113,9 @@ impl FinalizeHandle for LocalSoniqoLiveHandle {
 }
 
 async fn run_single(
-    session: hypr_transcribe_soniqo::LiveTranscriptionSession,
-    model: hypr_transcribe_soniqo::SoniqoModel,
-    source: hypr_transcribe_soniqo::TranscriptSource,
+    session: anlg_transcribe_soniqo::LiveTranscriptionSession,
+    model: anlg_transcribe_soniqo::SoniqoModel,
+    source: anlg_transcribe_soniqo::TranscriptSource,
     mut stream: impl Stream<Item = ListenClientInput> + Send + Unpin + 'static,
     response_tx: tokio::sync::mpsc::Sender<Result<StreamResponse, LocalSoniqoLiveError>>,
     mut finalize_rx: tokio::sync::mpsc::Receiver<()>,
@@ -165,8 +165,8 @@ async fn run_single(
 }
 
 async fn run_dual(
-    session: hypr_transcribe_soniqo::LiveTranscriptionSession,
-    model: hypr_transcribe_soniqo::SoniqoModel,
+    session: anlg_transcribe_soniqo::LiveTranscriptionSession,
+    model: anlg_transcribe_soniqo::SoniqoModel,
     mut stream: impl Stream<Item = ListenClientDualInput> + Send + Unpin + 'static,
     response_tx: tokio::sync::mpsc::Sender<Result<StreamResponse, LocalSoniqoLiveError>>,
     mut finalize_rx: tokio::sync::mpsc::Receiver<()>,
@@ -214,7 +214,7 @@ async fn run_dual(
                 match flush_buffer(
                     session,
                     model,
-                    hypr_transcribe_soniqo::TranscriptSource::Microphone,
+                    anlg_transcribe_soniqo::TranscriptSource::Microphone,
                     &mut mic_buffer,
                     &mut mic_cursor,
                     &response_tx,
@@ -231,7 +231,7 @@ async fn run_dual(
                 match flush_buffer(
                     session,
                     model,
-                    hypr_transcribe_soniqo::TranscriptSource::System,
+                    anlg_transcribe_soniqo::TranscriptSource::System,
                     &mut spk_buffer,
                     &mut spk_cursor,
                     &response_tx,
@@ -250,30 +250,30 @@ async fn run_dual(
 }
 
 async fn finalize_single(
-    session: hypr_transcribe_soniqo::LiveTranscriptionSession,
-    model: hypr_transcribe_soniqo::SoniqoModel,
-    source: hypr_transcribe_soniqo::TranscriptSource,
+    session: anlg_transcribe_soniqo::LiveTranscriptionSession,
+    model: anlg_transcribe_soniqo::SoniqoModel,
+    source: anlg_transcribe_soniqo::TranscriptSource,
     buffer: &mut Vec<f32>,
     cursor: &mut f64,
     response_tx: &tokio::sync::mpsc::Sender<Result<StreamResponse, LocalSoniqoLiveError>>,
-) -> Result<hypr_transcribe_soniqo::LiveTranscriptionSession, LocalSoniqoLiveError> {
+) -> Result<anlg_transcribe_soniqo::LiveTranscriptionSession, LocalSoniqoLiveError> {
     let session = flush_buffer(session, model, source, buffer, cursor, response_tx).await?;
     finalize_source(session, model, source, *cursor, response_tx).await
 }
 
 async fn finalize_dual(
-    session: hypr_transcribe_soniqo::LiveTranscriptionSession,
-    model: hypr_transcribe_soniqo::SoniqoModel,
+    session: anlg_transcribe_soniqo::LiveTranscriptionSession,
+    model: anlg_transcribe_soniqo::SoniqoModel,
     mic_buffer: &mut Vec<f32>,
     spk_buffer: &mut Vec<f32>,
     mic_cursor: &mut f64,
     spk_cursor: &mut f64,
     response_tx: &tokio::sync::mpsc::Sender<Result<StreamResponse, LocalSoniqoLiveError>>,
-) -> Result<hypr_transcribe_soniqo::LiveTranscriptionSession, LocalSoniqoLiveError> {
+) -> Result<anlg_transcribe_soniqo::LiveTranscriptionSession, LocalSoniqoLiveError> {
     let session = flush_buffer(
         session,
         model,
-        hypr_transcribe_soniqo::TranscriptSource::Microphone,
+        anlg_transcribe_soniqo::TranscriptSource::Microphone,
         mic_buffer,
         mic_cursor,
         response_tx,
@@ -282,7 +282,7 @@ async fn finalize_dual(
     let session = flush_buffer(
         session,
         model,
-        hypr_transcribe_soniqo::TranscriptSource::System,
+        anlg_transcribe_soniqo::TranscriptSource::System,
         spk_buffer,
         spk_cursor,
         response_tx,
@@ -291,7 +291,7 @@ async fn finalize_dual(
     let session = finalize_source(
         session,
         model,
-        hypr_transcribe_soniqo::TranscriptSource::Microphone,
+        anlg_transcribe_soniqo::TranscriptSource::Microphone,
         *mic_cursor,
         response_tx,
     )
@@ -299,7 +299,7 @@ async fn finalize_dual(
     finalize_source(
         session,
         model,
-        hypr_transcribe_soniqo::TranscriptSource::System,
+        anlg_transcribe_soniqo::TranscriptSource::System,
         *spk_cursor,
         response_tx,
     )
@@ -307,7 +307,7 @@ async fn finalize_dual(
 }
 
 async fn stop_after_finalize(
-    result: Result<hypr_transcribe_soniqo::LiveTranscriptionSession, LocalSoniqoLiveError>,
+    result: Result<anlg_transcribe_soniqo::LiveTranscriptionSession, LocalSoniqoLiveError>,
 ) {
     match result {
         Ok(session) => stop_session(session).await,
@@ -316,28 +316,28 @@ async fn stop_after_finalize(
 }
 
 async fn start_session(
-    model: hypr_transcribe_soniqo::SoniqoModel,
-) -> Result<hypr_transcribe_soniqo::LiveTranscriptionSession, LocalSoniqoLiveError> {
+    model: anlg_transcribe_soniqo::SoniqoModel,
+) -> Result<anlg_transcribe_soniqo::LiveTranscriptionSession, LocalSoniqoLiveError> {
     tokio::task::spawn_blocking(move || {
-        hypr_transcribe_soniqo::LiveTranscriptionSession::start(model)
+        anlg_transcribe_soniqo::LiveTranscriptionSession::start(model)
     })
     .await
     .map_err(|error| LocalSoniqoLiveError::StartJoin(error.to_string()))?
     .map_err(|error| LocalSoniqoLiveError::Start(error.to_string()))
 }
 
-async fn stop_session(session: hypr_transcribe_soniqo::LiveTranscriptionSession) {
+async fn stop_session(session: anlg_transcribe_soniqo::LiveTranscriptionSession) {
     let _ = tokio::task::spawn_blocking(move || session.stop()).await;
 }
 
 async fn flush_buffer(
-    session: hypr_transcribe_soniqo::LiveTranscriptionSession,
-    model: hypr_transcribe_soniqo::SoniqoModel,
-    source: hypr_transcribe_soniqo::TranscriptSource,
+    session: anlg_transcribe_soniqo::LiveTranscriptionSession,
+    model: anlg_transcribe_soniqo::SoniqoModel,
+    source: anlg_transcribe_soniqo::TranscriptSource,
     buffer: &mut Vec<f32>,
     cursor: &mut f64,
     response_tx: &tokio::sync::mpsc::Sender<Result<StreamResponse, LocalSoniqoLiveError>>,
-) -> Result<hypr_transcribe_soniqo::LiveTranscriptionSession, LocalSoniqoLiveError> {
+) -> Result<anlg_transcribe_soniqo::LiveTranscriptionSession, LocalSoniqoLiveError> {
     if buffer.is_empty() {
         return Ok(session);
     }
@@ -360,14 +360,14 @@ async fn flush_buffer(
 }
 
 async fn append_source(
-    session: hypr_transcribe_soniqo::LiveTranscriptionSession,
-    model: hypr_transcribe_soniqo::SoniqoModel,
-    source: hypr_transcribe_soniqo::TranscriptSource,
+    session: anlg_transcribe_soniqo::LiveTranscriptionSession,
+    model: anlg_transcribe_soniqo::SoniqoModel,
+    source: anlg_transcribe_soniqo::TranscriptSource,
     samples: Vec<f32>,
     start: f64,
     duration: f64,
     response_tx: &tokio::sync::mpsc::Sender<Result<StreamResponse, LocalSoniqoLiveError>>,
-) -> Result<hypr_transcribe_soniqo::LiveTranscriptionSession, LocalSoniqoLiveError> {
+) -> Result<anlg_transcribe_soniqo::LiveTranscriptionSession, LocalSoniqoLiveError> {
     let joined = tokio::task::spawn_blocking(move || {
         let mut session = session;
         let result = session.append(source, &samples);
@@ -390,12 +390,12 @@ async fn append_source(
 }
 
 async fn finalize_source(
-    session: hypr_transcribe_soniqo::LiveTranscriptionSession,
-    model: hypr_transcribe_soniqo::SoniqoModel,
-    source: hypr_transcribe_soniqo::TranscriptSource,
+    session: anlg_transcribe_soniqo::LiveTranscriptionSession,
+    model: anlg_transcribe_soniqo::SoniqoModel,
+    source: anlg_transcribe_soniqo::TranscriptSource,
     start: f64,
     response_tx: &tokio::sync::mpsc::Sender<Result<StreamResponse, LocalSoniqoLiveError>>,
-) -> Result<hypr_transcribe_soniqo::LiveTranscriptionSession, LocalSoniqoLiveError> {
+) -> Result<anlg_transcribe_soniqo::LiveTranscriptionSession, LocalSoniqoLiveError> {
     let joined = tokio::task::spawn_blocking(move || {
         let mut session = session;
         let result = session.finalize(source);

@@ -1,4 +1,4 @@
-import type { SessionEvent } from "@hypr/store";
+import type { SessionEvent } from "@anlg/store";
 
 import { executeTransaction, liveQueryClient } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";

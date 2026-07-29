@@ -71,8 +71,8 @@ pub(crate) async fn get_or_create_customer(
         .map_err(|e: stripe::StripeError| SubscriptionError::Stripe(e.to_string()))?;
     tracing::info!(
         service.peer.name = "stripe",
-        hyprnote.stripe.operation = "create_customer",
-        hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+        anarlog.stripe.operation = "create_customer",
+        anarlog.duration_ms = start.elapsed().as_millis() as u64,
         "stripe_request_finished"
     );
 
@@ -125,7 +125,7 @@ async fn delete_unassigned_customer(stripe: &stripe::Client, customer_id: &str) 
         Err(error) => {
             tracing::error!(
                 error = %error,
-                hyprnote.billing.customer.id = %customer_id,
+                anarlog.billing.customer.id = %customer_id,
                 "unassigned_stripe_customer_deletion_failed"
             );
         }
@@ -265,8 +265,8 @@ pub(crate) async fn create_trial_subscription(
         .map_err(|e: stripe::StripeError| SubscriptionError::Stripe(e.to_string()))?;
     tracing::info!(
         service.peer.name = "stripe",
-        hyprnote.stripe.operation = "create_trial_subscription",
-        hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+        anarlog.stripe.operation = "create_trial_subscription",
+        anarlog.duration_ms = start.elapsed().as_millis() as u64,
         "stripe_request_finished"
     );
 

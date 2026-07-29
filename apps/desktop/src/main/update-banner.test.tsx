@@ -65,7 +65,7 @@ const {
   },
 }));
 
-vi.mock("@hypr/plugin-updater2", () => ({
+vi.mock("@anlg/plugin-updater2", () => ({
   commands: {
     check: checkMock,
     download: downloadMock,

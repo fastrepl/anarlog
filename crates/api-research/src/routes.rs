@@ -54,13 +54,13 @@ async fn web_search(
 
     let response = state
         .exa
-        .search(hypr_exa::SearchRequest {
+        .search(anlg_exa::SearchRequest {
             query: query.clone(),
             additional_queries: None,
             stream: None,
             output_schema: None,
             system_prompt: None,
-            r#type: Some(hypr_exa::SearchType::Auto),
+            r#type: Some(anlg_exa::SearchType::Auto),
             category: None,
             user_location: None,
             num_results: Some(request.num_results.unwrap_or(5).clamp(1, 10)),
@@ -73,27 +73,27 @@ async fn web_search(
             include_text: None,
             exclude_text: None,
             moderation: Some(true),
-            contents: Some(hypr_exa::ContentsRequest {
-                text: Some(hypr_exa::TextRequest::Options(hypr_exa::TextOptions {
+            contents: Some(anlg_exa::ContentsRequest {
+                text: Some(anlg_exa::TextRequest::Options(anlg_exa::TextOptions {
                     max_characters: Some(1200),
                     include_html_tags: Some(false),
-                    verbosity: Some(hypr_exa::TextVerbosity::Compact),
+                    verbosity: Some(anlg_exa::TextVerbosity::Compact),
                     include_sections: None,
                     exclude_sections: None,
                 })),
-                highlights: Some(hypr_exa::HighlightsRequest::Options(
-                    hypr_exa::HighlightsOptions {
+                highlights: Some(anlg_exa::HighlightsRequest::Options(
+                    anlg_exa::HighlightsOptions {
                         max_characters: Some(400),
                         num_sentences: Some(2),
                         highlights_per_url: Some(1),
                         query: Some(query.clone()),
                     },
                 )),
-                summary: Some(hypr_exa::SummaryRequest {
+                summary: Some(anlg_exa::SummaryRequest {
                     query: Some(format!("Summarize the information relevant to: {query}")),
                     schema: None,
                 }),
-                livecrawl: Some(hypr_exa::Livecrawl::Preferred),
+                livecrawl: Some(anlg_exa::Livecrawl::Preferred),
                 livecrawl_timeout: None,
                 max_age_hours: None,
                 subpages: None,
@@ -128,7 +128,7 @@ fn normalize_domains(domains: Option<Vec<String>>) -> Option<Vec<String>> {
         .filter(|domains| !domains.is_empty())
 }
 
-fn normalize_search_result(result: hypr_exa::SearchResult) -> WebSearchResult {
+fn normalize_search_result(result: anlg_exa::SearchResult) -> WebSearchResult {
     let snippet = result
         .summary
         .as_deref()
@@ -189,7 +189,7 @@ mod tests {
 
     #[test]
     fn normalize_search_result_prefers_summary_over_highlights() {
-        let result = normalize_search_result(hypr_exa::SearchResult {
+        let result = normalize_search_result(anlg_exa::SearchResult {
             id: "result-1".to_string(),
             url: "https://char.com".to_string(),
             title: Some("Char".to_string()),

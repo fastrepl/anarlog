@@ -10,14 +10,14 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-import { Button } from "@hypr/ui/components/ui/button";
+import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from "@hypr/ui/components/ui/dropdown-menu";
-import { cn, formatDistanceToNow } from "@hypr/utils";
+} from "@anlg/ui/components/ui/dropdown-menu";
+import { cn, formatDistanceToNow } from "@anlg/utils";
 
 import {
   type ChatGroupRecord,

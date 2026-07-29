@@ -108,12 +108,12 @@ const {
   openNewMock: vi.fn(),
 }));
 
-vi.mock("@hypr/plugin-db", () => ({
+vi.mock("@anlg/plugin-db", () => ({
   beginCloudsyncActivity: beginCloudsyncActivityMock,
   endCloudsyncActivity: endCloudsyncActivityMock,
 }));
 
-vi.mock("@hypr/plugin-transcription", () => ({
+vi.mock("@anlg/plugin-transcription", () => ({
   commands: {
     isSupportedLanguagesLive: isSupportedLanguagesLiveMock,
   },
@@ -123,21 +123,21 @@ vi.mock("./contexts", () => ({
   useListener: useListenerMock,
 }));
 
-vi.mock("@hypr/plugin-detect", () => ({
+vi.mock("@anlg/plugin-detect", () => ({
   commands: {
     listMicUsingApplications: listMicUsingApplicationsMock,
     sendMeetingChatMessage: sendMeetingChatMessageMock,
   },
 }));
 
-vi.mock("@hypr/plugin-fs-sync", () => ({
+vi.mock("@anlg/plugin-fs-sync", () => ({
   commands: {
     audioPath: audioPathMock,
     audioSourceMetadata: audioSourceMetadataMock,
   },
 }));
 
-vi.mock("@hypr/ui/components/ui/toast", () => ({
+vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: {
     warning: sonnerToastWarningMock,
     error: sonnerToastErrorMock,
@@ -419,7 +419,7 @@ describe("useStartListening", () => {
     leftSidebarExpanded.value = true;
     useSTTConnectionMock.mockReturnValue({
       conn: {
-        provider: "hyprnote",
+        provider: "anarlog",
         model: "am-test",
         baseUrl: "http://localhost:8080",
         apiKey: "",
@@ -1284,7 +1284,7 @@ describe("useStartListening", () => {
       preserveExistingTranscript: true,
       ownerUserId: "user-1",
       memo: "Existing memo",
-      provider: "hyprnote",
+      provider: "anarlog",
       model: "am-test",
     });
     const { result } = renderHook(() =>
@@ -2709,7 +2709,7 @@ describe("useStartListening", () => {
   test("forces batch transcription for batch-only local models with realtime stored", async () => {
     useSTTConnectionMock.mockReturnValue({
       conn: {
-        provider: "hyprnote",
+        provider: "anarlog",
         model: "soniqo-qwen3-small",
         baseUrl: "http://localhost:8080",
         apiKey: "",
@@ -2730,7 +2730,7 @@ describe("useStartListening", () => {
   test("uses live transcription for realtime local models", async () => {
     useSTTConnectionMock.mockReturnValue({
       conn: {
-        provider: "hyprnote",
+        provider: "anarlog",
         model: "soniqo-parakeet-streaming",
         baseUrl: "http://localhost:8080",
         apiKey: "",
@@ -2780,7 +2780,7 @@ describe("useStartListening", () => {
     );
     useSTTConnectionMock.mockReturnValue({
       conn: {
-        provider: "hyprnote",
+        provider: "anarlog",
         model: "soniqo-parakeet-streaming",
         baseUrl: "http://localhost:8080",
         apiKey: "",
@@ -2809,7 +2809,7 @@ describe("useStartListening", () => {
     );
     useSTTConnectionMock.mockReturnValue({
       conn: {
-        provider: "hyprnote",
+        provider: "anarlog",
         model: "soniqo-parakeet-streaming",
         baseUrl: "http://localhost:8080",
         apiKey: "",
@@ -3008,7 +3008,7 @@ describe("useStartListening", () => {
     listMicUsingApplicationsMock.mockResolvedValue({
       status: "ok",
       data: [
-        { id: "com.hyprnote.dev", name: "Anarlog Dev" },
+        { id: "com.anarlog.dev", name: "Anarlog Dev" },
         { id: "com.tinyspeck.slackmacgap", name: "Slack" },
       ],
     });
@@ -3023,7 +3023,7 @@ describe("useStartListening", () => {
     await waitFor(() => {
       expect(sendMeetingChatMessageMock).toHaveBeenCalledWith(
         expect.stringContaining("https://anarlog.so"),
-        ["com.hyprnote.dev", "com.tinyspeck.slackmacgap"],
+        ["com.anarlog.dev", "com.tinyspeck.slackmacgap"],
       );
     });
   });

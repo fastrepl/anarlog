@@ -1,5 +1,5 @@
 use crate::common_derives;
-use hypr_askama_utils::filters;
+use anlg_askama_utils::filters;
 
 common_derives! {
     #[derive(askama::Template)]
@@ -23,7 +23,7 @@ common_derives! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hypr_askama_utils::tpl_snapshot;
+    use anlg_askama_utils::tpl_snapshot;
 
     tpl_snapshot!(
         test_activity_capture_system_formatting,

@@ -36,10 +36,10 @@ user_common_derives! {
         pub autostart: bool,
         #[specta(type = String)]
         #[schemars(with = "String", regex(pattern = "^[a-zA-Z]{2}$"))]
-        pub display_language: hypr_language::Language,
+        pub display_language: anlg_language::Language,
         #[specta(type = Vec<String>)]
         #[serde(default)]
-        pub spoken_languages: Vec<hypr_language::Language>,
+        pub spoken_languages: Vec<anlg_language::Language>,
         #[serde(default)]
         pub jargons: Vec<String>,
         pub telemetry_consent: bool,
@@ -48,7 +48,7 @@ user_common_derives! {
         #[specta(type = String)]
         #[schemars(with = "String", regex(pattern = "^[a-zA-Z]{2}$"))]
         #[serde(default)]
-        pub summary_language: hypr_language::Language,
+        pub summary_language: anlg_language::Language,
     }
 }
 
@@ -56,13 +56,13 @@ impl Default for ConfigGeneral {
     fn default() -> Self {
         Self {
             autostart: false,
-            display_language: hypr_language::ISO639::En.into(),
-            spoken_languages: vec![hypr_language::ISO639::En.into()],
+            display_language: anlg_language::ISO639::En.into(),
+            spoken_languages: vec![anlg_language::ISO639::En.into()],
             jargons: vec![],
             telemetry_consent: true,
             save_recordings: Some(false),
             selected_template_id: None,
-            summary_language: hypr_language::ISO639::En.into(),
+            summary_language: anlg_language::ISO639::En.into(),
         }
     }
 }

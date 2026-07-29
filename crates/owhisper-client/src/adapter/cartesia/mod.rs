@@ -10,9 +10,9 @@ pub(crate) const API_VERSION: &str = "2026-03-01";
 pub struct CartesiaAdapter;
 
 impl CartesiaAdapter {
-    pub fn language_support_live(languages: &[hypr_language::Language]) -> LanguageSupport {
+    pub fn language_support_live(languages: &[anlg_language::Language]) -> LanguageSupport {
         LanguageSupport::min(languages.iter().map(|language| {
-            if language.iso639() == hypr_language::ISO639::En {
+            if language.iso639() == anlg_language::ISO639::En {
                 LanguageSupport::Supported {
                     quality: LanguageQuality::NoData,
                 }
@@ -22,7 +22,7 @@ impl CartesiaAdapter {
         }))
     }
 
-    pub fn language_support_batch(languages: &[hypr_language::Language]) -> LanguageSupport {
+    pub fn language_support_batch(languages: &[anlg_language::Language]) -> LanguageSupport {
         LanguageSupport::min(languages.iter().map(|language| {
             if BATCH_LANGUAGE_CODES.contains(&language.iso639().code()) {
                 LanguageSupport::Supported {
@@ -34,11 +34,11 @@ impl CartesiaAdapter {
         }))
     }
 
-    pub fn is_supported_languages_batch(languages: &[hypr_language::Language]) -> bool {
+    pub fn is_supported_languages_batch(languages: &[anlg_language::Language]) -> bool {
         Self::language_support_batch(languages).is_supported()
     }
 
-    pub fn is_supported_languages_live(languages: &[hypr_language::Language]) -> bool {
+    pub fn is_supported_languages_live(languages: &[anlg_language::Language]) -> bool {
         Self::language_support_live(languages).is_supported()
     }
 

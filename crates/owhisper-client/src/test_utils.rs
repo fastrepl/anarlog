@@ -1,7 +1,7 @@
 use std::time::Duration;
 
+use anlg_audio_utils::AudioFormatExt;
 use futures_util::{Stream, StreamExt};
-use hypr_audio_utils::AudioFormatExt;
 use owhisper_interface::MixedMessage;
 use owhisper_interface::stream::StreamResponse;
 
@@ -100,7 +100,7 @@ pub fn test_audio_stream_single_with_rate(
     sample_rate: u32,
 ) -> impl Stream<Item = ListenClientInput> + Send + Unpin + 'static {
     let audio = rodio::Decoder::new(std::io::BufReader::new(
-        std::fs::File::open(hypr_data::english_1::AUDIO_PATH).unwrap(),
+        std::fs::File::open(anlg_data::english_1::AUDIO_PATH).unwrap(),
     ))
     .unwrap()
     .to_i16_le_chunks(sample_rate, chunk_samples());
@@ -115,7 +115,7 @@ pub fn test_audio_stream_dual_with_rate(
     sample_rate: u32,
 ) -> impl Stream<Item = ListenClientDualInput> + Send + Unpin + 'static {
     let audio = rodio::Decoder::new(std::io::BufReader::new(
-        std::fs::File::open(hypr_data::english_1::AUDIO_PATH).unwrap(),
+        std::fs::File::open(anlg_data::english_1::AUDIO_PATH).unwrap(),
     ))
     .unwrap()
     .to_i16_le_chunks(sample_rate, chunk_samples());
@@ -235,7 +235,7 @@ pub async fn run_dual_test_with_rate<A: RealtimeSttAdapter>(
 pub struct UrlTestCase {
     pub name: &'static str,
     pub model: Option<&'static str>,
-    pub languages: &'static [hypr_language::ISO639],
+    pub languages: &'static [anlg_language::ISO639],
     pub contains: &'static [&'static str],
     pub not_contains: &'static [&'static str],
 }

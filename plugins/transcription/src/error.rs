@@ -7,7 +7,7 @@ pub enum Error {
     #[error(transparent)]
     IoError(#[from] std::io::Error),
     #[error(transparent)]
-    HyprAudioError(#[from] hypr_audio::Error),
+    AnlgAudioError(#[from] anlg_audio::Error),
     #[error(transparent)]
     LocalSttError(#[from] tauri_plugin_local_stt::Error),
     #[error("no session")]

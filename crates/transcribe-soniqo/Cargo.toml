@@ -6,7 +6,7 @@ edition = "2024"
 [build-dependencies]
 
 [dependencies]
-hypr-language = { workspace = true }
+anlg-language = { workspace = true }
 owhisper-interface = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

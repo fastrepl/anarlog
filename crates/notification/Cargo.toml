@@ -5,16 +5,16 @@ edition = "2024"
 
 [features]
 default = ["legacy"]
-legacy = ["dep:hypr-notification-macos", "dep:hypr-notification-linux"]
+legacy = ["dep:anlg-notification-macos", "dep:anlg-notification-linux"]
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
 tracing = { workspace = true }
 
-hypr-notification-interface = { workspace = true }
+anlg-notification-interface = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-hypr-notification-macos = { path = "../notification-macos", package = "notification-macos", optional = true }
+anlg-notification-macos = { path = "../notification-macos", package = "notification-macos", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-hypr-notification-linux = { path = "../notification-linux", package = "notification-linux", optional = true }
+anlg-notification-linux = { path = "../notification-linux", package = "notification-linux", optional = true }

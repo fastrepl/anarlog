@@ -12,11 +12,11 @@ pub use speaker::*;
 pub use cpal;
 use cpal::traits::{DeviceTrait, HostTrait};
 
+pub use anlg_audio::{AudioProvider, CaptureConfig, CaptureFrame, CaptureStream, Error};
+pub use anlg_audio_interface::AsyncSource;
 use futures_util::Stream;
-pub use hypr_audio::{AudioProvider, CaptureConfig, CaptureFrame, CaptureStream, Error};
-pub use hypr_audio_interface::AsyncSource;
 
-pub const TAP_DEVICE_NAME: &str = "hypr-audio-tap";
+pub const TAP_DEVICE_NAME: &str = "anarlog-audio-tap";
 
 pub struct AudioOutput {}
 

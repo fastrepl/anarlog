@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use hypr_audio_device::{AudioDevice, AudioDirection};
+use anlg_audio_device::{AudioDevice, AudioDirection};
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct StoredDevice {
@@ -230,7 +230,7 @@ mod tests {
             id,
             name,
             direction,
-            hypr_audio_device::TransportType::Unknown,
+            anlg_audio_device::TransportType::Unknown,
         )
     }
 

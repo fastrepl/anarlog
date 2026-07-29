@@ -1,4 +1,4 @@
-import type { DeepLink } from "@hypr/plugin-deeplink2";
+import type { DeepLink } from "@anlg/plugin-deeplink2";
 
 type CommandResult<T> =
   | { status: "ok"; data: T }

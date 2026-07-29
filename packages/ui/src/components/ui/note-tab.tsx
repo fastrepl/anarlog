@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 export const NoteTab = React.forwardRef<
   HTMLButtonElement,

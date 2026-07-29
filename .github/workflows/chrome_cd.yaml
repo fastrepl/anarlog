@@ -9,7 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/pnpm_install
-      - run: pnpm -F @hypr/chrome zip
+      - run: pnpm -F @anlg/chrome zip
       - uses: actions/upload-artifact@v4
         with:
           name: chrome-extension-zip

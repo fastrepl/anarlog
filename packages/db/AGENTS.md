@@ -16,5 +16,5 @@
 
 ## Dependency Direction
 
-- May depend on `@hypr/db-runtime` for the proxy client contract.
+- May depend on `@anlg/db-runtime` for the proxy client contract.
 - Must not own Tauri/mobile transport details or database initialization.

@@ -8,8 +8,8 @@ links = "tauri-plugin-calendar"
 description = ""
 
 [dependencies]
-hypr-calendar = { workspace = true, features = ["specta"] }
-hypr-calendar-interface = { workspace = true }
+anlg-calendar = { workspace = true, features = ["specta"] }
+anlg-calendar-interface = { workspace = true }
 
 tauri = { workspace = true, features = ["test"] }
 tauri-plugin-auth = { workspace = true }

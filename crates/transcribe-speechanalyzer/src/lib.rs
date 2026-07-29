@@ -74,7 +74,7 @@ impl AppleSpeechModel {
 
     /// "Supported" means transcribable right now: Apple Speech has the language *and*
     /// the user added it in System Settings, which is what makes it installable.
-    pub fn supports_language(self, language: &hypr_language::Language) -> bool {
+    pub fn supports_language(self, language: &anlg_language::Language) -> bool {
         let requested = language.bcp47_code();
         let Ok(preferred) = preferred_locales() else {
             return false;
@@ -87,7 +87,7 @@ impl AppleSpeechModel {
 
     /// Whether Apple Speech can transcribe the language at all, ignoring System Settings.
     /// Distinguishes "add it in System Settings" from "pick another model".
-    pub fn can_transcribe_language(self, language: &hypr_language::Language) -> bool {
+    pub fn can_transcribe_language(self, language: &anlg_language::Language) -> bool {
         let requested = language.bcp47_code();
         let Ok(supported) = supported_locales() else {
             return false;
@@ -98,7 +98,7 @@ impl AppleSpeechModel {
             .any(|locale| locale_matches(locale, &requested))
     }
 
-    pub fn supports_languages(self, languages: &[hypr_language::Language]) -> bool {
+    pub fn supports_languages(self, languages: &[anlg_language::Language]) -> bool {
         languages
             .iter()
             .all(|language| self.supports_language(language))
@@ -320,7 +320,7 @@ pub fn preferred_locales() -> Result<Vec<String>> {
 /// Resolves the locale a session should run in: the first requested language the user
 /// has also added in System Settings. `None` means the language is unavailable until
 /// they add it there.
-pub fn resolve_session_locale(languages: &[hypr_language::Language]) -> Option<String> {
+pub fn resolve_session_locale(languages: &[anlg_language::Language]) -> Option<String> {
     let preferred = preferred_locales().ok()?;
 
     if languages.is_empty() {
@@ -384,8 +384,8 @@ pub fn transcribe_file(path: impl AsRef<Path>, locale: &str) -> Result<FileTrans
     let started_at = Instant::now();
 
     tracing::info!(
-        hyprnote.stt.provider.name = "apple-speech",
-        hyprnote.stt.language = %locale,
+        anarlog.stt.provider.name = "apple-speech",
+        anarlog.stt.language = %locale,
         "apple_speech_file_transcription_start"
     );
 
@@ -394,14 +394,14 @@ pub fn transcribe_file(path: impl AsRef<Path>, locale: &str) -> Result<FileTrans
 
     match &result {
         Ok(transcript) => tracing::info!(
-            hyprnote.stt.provider.name = "apple-speech",
+            anarlog.stt.provider.name = "apple-speech",
             elapsed_ms,
             transcript.duration_seconds = transcript.duration_seconds,
             transcript.text_chars = transcript.text.chars().count(),
             "apple_speech_file_transcription_completed"
         ),
         Err(error) => tracing::error!(
-            hyprnote.stt.provider.name = "apple-speech",
+            anarlog.stt.provider.name = "apple-speech",
             elapsed_ms,
             error = %error,
             "apple_speech_file_transcription_failed"
@@ -860,7 +860,7 @@ mod tests {
     fn session_locale_requires_a_system_settings_language() {
         // Off macOS there are no preferred locales, so nothing resolves.
         if !cfg!(target_os = "macos") {
-            let korean: hypr_language::Language = "ko".parse().unwrap();
+            let korean: anlg_language::Language = "ko".parse().unwrap();
             assert_eq!(resolve_session_locale(&[korean]), None);
             return;
         }
@@ -870,12 +870,12 @@ mod tests {
         };
 
         // A language the user has not added never resolves, whatever Apple supports.
-        let unsupported: hypr_language::Language = "hi".parse().unwrap();
+        let unsupported: anlg_language::Language = "hi".parse().unwrap();
         assert_eq!(resolve_session_locale(&[unsupported]), None);
 
         if let Some(first) = preferred.first() {
             let base = first.split('-').next().unwrap();
-            let language: hypr_language::Language = base.parse().unwrap();
+            let language: anlg_language::Language = base.parse().unwrap();
             assert_eq!(
                 resolve_session_locale(&[language]).as_deref(),
                 Some(first.as_str())

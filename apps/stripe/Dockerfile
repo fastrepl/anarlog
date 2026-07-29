@@ -11,13 +11,13 @@ FROM node-base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/stripe/package.json apps/stripe/package.json
 COPY packages/supabase/package.json packages/supabase/package.json
-RUN pnpm fetch --prod --filter @hypr/stripe
+RUN pnpm fetch --prod --filter @anlg/stripe
 
 FROM deps AS build
 COPY apps/stripe apps/stripe
 COPY packages/supabase packages/supabase
-RUN pnpm install --filter @hypr/stripe --frozen-lockfile
-RUN pnpm deploy --filter @hypr/stripe --prod --legacy /runtime
+RUN pnpm install --filter @anlg/stripe --frozen-lockfile
+RUN pnpm deploy --filter @anlg/stripe --prod --legacy /runtime
 
 FROM oven/bun:1 AS runtime
 WORKDIR /app

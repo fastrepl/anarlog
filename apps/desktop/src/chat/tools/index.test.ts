@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getMeeting } from "@hypr/plugin-db";
+import { getMeeting } from "@anlg/plugin-db";
 
 import { buildChatTools, type ToolDependencies } from "./index";
 

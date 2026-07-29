@@ -2,7 +2,7 @@ import { t } from "@lingui/core/macro";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { hostname } from "@tauri-apps/plugin-os";
 
-import type { CloudsyncWorkspaceProjection } from "@hypr/plugin-db";
+import type { CloudsyncWorkspaceProjection } from "@anlg/plugin-db";
 import {
   bindCloudsyncAccount,
   configureCloudsyncToken,
@@ -13,10 +13,10 @@ import {
   suspendCloudsync,
   suspendCloudsyncAfterAuthLoss,
   suspendCloudsyncForSignOut,
-} from "@hypr/plugin-db";
-import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
-import { commands as miscCommands } from "@hypr/plugin-misc";
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
+} from "@anlg/plugin-db";
+import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
+import { commands as miscCommands } from "@anlg/plugin-misc";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import {
   startCloudsyncInitialSyncProgress,

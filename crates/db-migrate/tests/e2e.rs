@@ -1,5 +1,5 @@
+use anlg_db_core::Db;
 use db_migrate::{DbSchema, MigrateError, MigrationScope, MigrationStep, migrate};
-use hypr_db_core::Db;
 
 const CREATE_WIDGETS_SQL: &str = r#"
 CREATE TABLE widgets (
@@ -266,7 +266,7 @@ async fn cloudsync_alter_scope_falls_back_to_plain_for_an_uninitialized_table() 
         .await
         .unwrap();
 
-    let enabled = hypr_db_core::cloudsync_is_enabled_on(db.pool(), "widgets")
+    let enabled = anlg_db_core::cloudsync_is_enabled_on(db.pool(), "widgets")
         .await
         .unwrap();
 
@@ -305,7 +305,7 @@ async fn cloudsync_alter_scope_preserves_an_initialized_cloudsync_table() {
 
     db.cloudsync_init("widgets", None, None).await.unwrap();
 
-    let enabled = hypr_db_core::cloudsync_is_enabled_on(db.pool(), "widgets")
+    let enabled = anlg_db_core::cloudsync_is_enabled_on(db.pool(), "widgets")
         .await
         .unwrap();
     assert!(enabled);
@@ -323,7 +323,7 @@ async fn cloudsync_alter_scope_preserves_an_initialized_cloudsync_table() {
         vec!["id".to_string(), "name".to_string(), "slug".to_string()]
     );
     assert!(
-        hypr_db_core::cloudsync_is_enabled_on(db.pool(), "widgets")
+        anlg_db_core::cloudsync_is_enabled_on(db.pool(), "widgets")
             .await
             .unwrap()
     );

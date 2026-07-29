@@ -8,8 +8,8 @@ vi.mock("@tauri-apps/api/path", () => ({
 
 describe("getSessionResourcePath", () => {
   test("builds the resource directory for a session", () => {
-    expect(getSessionResourcePath("/data/hyprnote", "session-123")).toBe(
-      "/data/hyprnote/sessions/session-123",
+    expect(getSessionResourcePath("/data/anarlog", "session-123")).toBe(
+      "/data/anarlog/sessions/session-123",
     );
   });
 });

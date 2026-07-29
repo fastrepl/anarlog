@@ -9,14 +9,14 @@ specta = ["dep:specta"]
 tauri-event = ["specta", "dep:tauri-specta"]
 
 [dependencies]
-hypr-audio-chunking = { workspace = true }
-hypr-audio-utils = { workspace = true }
-hypr-denoise = { workspace = true, features = ["onnx"] }
-hypr-host = { workspace = true }
-hypr-language = { workspace = true }
-hypr-transcribe-core = { workspace = true }
-hypr-transcribe-soniqo = { workspace = true }
-hypr-transcribe-speechanalyzer = { workspace = true }
+anlg-audio-chunking = { workspace = true }
+anlg-audio-utils = { workspace = true }
+anlg-denoise = { workspace = true, features = ["onnx"] }
+anlg-host = { workspace = true }
+anlg-language = { workspace = true }
+anlg-transcribe-core = { workspace = true }
+anlg-transcribe-soniqo = { workspace = true }
+anlg-transcribe-speechanalyzer = { workspace = true }
 
 bytes = { workspace = true }
 hound = { workspace = true }

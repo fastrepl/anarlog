@@ -27,6 +27,6 @@ describe("displayLlmModelId", () => {
   });
 
   test("keeps managed cloud label product-facing", () => {
-    expect(displayLlmModelId("hyprnote", "Auto")).toBe("Pro (Cloud)");
+    expect(displayLlmModelId("anarlog", "Auto")).toBe("Pro (Cloud)");
   });
 });

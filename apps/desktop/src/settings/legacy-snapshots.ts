@@ -1,4 +1,4 @@
-import { commands as settingsCommands } from "@hypr/plugin-settings";
+import { commands as settingsCommands } from "@anlg/plugin-settings";
 
 import { executeTransaction } from "~/db";
 import { commands as desktopCommands } from "~/types/tauri.gen";

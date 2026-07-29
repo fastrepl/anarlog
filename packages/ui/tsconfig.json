@@ -8,7 +8,7 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "paths": {
-      "@hypr/ui/*": ["./src/*"]
+      "@anlg/ui/*": ["./src/*"]
     }
   }
 }

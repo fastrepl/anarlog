@@ -1,4 +1,4 @@
-import { commands as windowsCommands } from "@hypr/plugin-windows";
+import { commands as windowsCommands } from "@anlg/plugin-windows";
 
 import {
   beginCanonicalSessionEditorActivation,

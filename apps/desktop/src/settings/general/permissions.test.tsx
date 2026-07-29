@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { Permission, PermissionStatus } from "@hypr/plugin-permissions";
+import type { Permission, PermissionStatus } from "@anlg/plugin-permissions";
 
 const mocks = vi.hoisted(() => ({
   currentPlatform: "macos",

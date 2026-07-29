@@ -80,7 +80,7 @@ vi.mock("./errors", () => ({
   isFatalSessionError: mocks.isFatalSessionError,
 }));
 
-vi.mock("@hypr/plugin-analytics", () => ({
+vi.mock("@anlg/plugin-analytics", () => ({
   commands: {
     clearGroups: mocks.analyticsClearGroups,
     event: mocks.analyticsEvent,
@@ -88,13 +88,13 @@ vi.mock("@hypr/plugin-analytics", () => ({
   },
 }));
 
-vi.mock("@hypr/plugin-auth", () => ({
+vi.mock("@anlg/plugin-auth", () => ({
   commands: {
     decodeClaims: vi.fn().mockResolvedValue({ status: "error" }),
   },
 }));
 
-vi.mock("@hypr/plugin-misc", () => ({
+vi.mock("@anlg/plugin-misc", () => ({
   commands: {
     getFingerprint: vi
       .fn()
@@ -102,17 +102,17 @@ vi.mock("@hypr/plugin-misc", () => ({
   },
 }));
 
-vi.mock("@hypr/plugin-opener2", () => ({
+vi.mock("@anlg/plugin-opener2", () => ({
   commands: {
     openUrl: vi.fn(),
   },
 }));
 
-vi.mock("@hypr/plugin-windows", () => ({
+vi.mock("@anlg/plugin-windows", () => ({
   openUrlWithInstruction: vi.fn(),
 }));
 
-vi.mock("@hypr/supabase", () => ({
+vi.mock("@anlg/supabase", () => ({
   deriveBillingInfo: vi.fn(() => ({ plan: "free", trialEnd: null })),
 }));
 
@@ -549,7 +549,7 @@ describe("AuthProvider", () => {
     await waitFor(() => {
       expect(mocks.emitTo).toHaveBeenCalledWith(
         "main",
-        "hypr:auth-sign-out-request",
+        "anlg:auth-sign-out-request",
         {
           requestId: "request-id",
           sourceLabel: "note-session-id",
@@ -559,7 +559,7 @@ describe("AuthProvider", () => {
     expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
 
     act(() => {
-      mocks.eventCallbacks.get("hypr:auth-sign-out-result")?.({
+      mocks.eventCallbacks.get("anlg:auth-sign-out-result")?.({
         payload: { requestId: "request-id", completed: true, error: null },
       });
     });
@@ -590,19 +590,19 @@ describe("AuthProvider", () => {
     await waitFor(() => {
       expect(mocks.emitTo).toHaveBeenCalledWith(
         "main",
-        "hypr:auth-sign-out-request",
+        "anlg:auth-sign-out-request",
         expect.objectContaining({ sourceLabel: "note-session-id" }),
       );
     });
 
     act(() => {
-      mocks.eventCallbacks.get("hypr:auth-sign-out-result")?.({
+      mocks.eventCallbacks.get("anlg:auth-sign-out-result")?.({
         payload: { requestId: "request-id", completed: false, error: null },
       });
     });
 
     await waitFor(() => {
-      expect(mocks.eventCallbacks.has("hypr:auth-sign-out-result")).toBe(false);
+      expect(mocks.eventCallbacks.has("anlg:auth-sign-out-result")).toBe(false);
     });
     expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
     expect(mocks.signOut).not.toHaveBeenCalled();
@@ -638,7 +638,7 @@ describe("AuthProvider", () => {
     await waitFor(() => {
       expect(mocks.emitTo).toHaveBeenCalledWith(
         "main",
-        "hypr:auth-sign-out-request",
+        "anlg:auth-sign-out-request",
         {
           requestId: "request-id",
           sourceLabel: "note-session-id",
@@ -650,13 +650,13 @@ describe("AuthProvider", () => {
     expect(mocks.signOut).not.toHaveBeenCalled();
 
     act(() => {
-      mocks.eventCallbacks.get("hypr:auth-sign-out-result")?.({
+      mocks.eventCallbacks.get("anlg:auth-sign-out-result")?.({
         payload: { requestId: "request-id", completed: true, error: null },
       });
     });
 
     await waitFor(() => {
-      expect(mocks.eventCallbacks.has("hypr:auth-sign-out-result")).toBe(false);
+      expect(mocks.eventCallbacks.has("anlg:auth-sign-out-result")).toBe(false);
       expect(screen.getByTestId("session").textContent).toBe("none");
     });
     expect(mocks.stopAutoRefresh).toHaveBeenCalled();
@@ -692,7 +692,7 @@ describe("AuthProvider", () => {
     await waitFor(() => {
       expect(mocks.emitTo).toHaveBeenCalledWith(
         "main",
-        "hypr:auth-sign-out-request",
+        "anlg:auth-sign-out-request",
         {
           requestId: "request-id",
           sourceLabel: "note-session-id",
@@ -704,7 +704,7 @@ describe("AuthProvider", () => {
 
     act(() => {
       mocks.authCallback?.("SIGNED_OUT", null);
-      mocks.eventCallbacks.get("hypr:auth-sign-out-result")?.({
+      mocks.eventCallbacks.get("anlg:auth-sign-out-result")?.({
         payload: { requestId: "request-id", completed: true, error: null },
       });
     });
@@ -753,13 +753,13 @@ describe("AuthProvider", () => {
     expect(mocks.signOut).not.toHaveBeenCalled();
 
     act(() => {
-      mocks.eventCallbacks.get("hypr:auth-sign-out-result")?.({
+      mocks.eventCallbacks.get("anlg:auth-sign-out-result")?.({
         payload: { requestId: "request-id", completed: false, error: null },
       });
     });
 
     await waitFor(() => {
-      expect(mocks.eventCallbacks.has("hypr:auth-sign-out-result")).toBe(false);
+      expect(mocks.eventCallbacks.has("anlg:auth-sign-out-result")).toBe(false);
     });
     expect(mocks.analyticsClearGroups).not.toHaveBeenCalled();
     expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
@@ -774,7 +774,7 @@ describe("AuthProvider", () => {
     });
 
     act(() => {
-      mocks.eventCallbacks.get("hypr:auth-sign-out-result")?.({
+      mocks.eventCallbacks.get("anlg:auth-sign-out-result")?.({
         payload: { requestId: "request-id", completed: true, error: null },
       });
     });
@@ -824,7 +824,7 @@ describe("AuthProvider", () => {
     expect(mocks.signOut).not.toHaveBeenCalled();
 
     act(() => {
-      mocks.eventCallbacks.get("hypr:auth-sign-out-result")?.({
+      mocks.eventCallbacks.get("anlg:auth-sign-out-result")?.({
         payload: {
           requestId: "request-id",
           completed: false,
@@ -834,7 +834,7 @@ describe("AuthProvider", () => {
     });
 
     await waitFor(() => {
-      expect(mocks.eventCallbacks.has("hypr:auth-sign-out-result")).toBe(false);
+      expect(mocks.eventCallbacks.has("anlg:auth-sign-out-result")).toBe(false);
     });
     expect(mocks.clearAuthStorage).not.toHaveBeenCalled();
     expect(screen.getByTestId("session").textContent).toBe("none");
@@ -879,7 +879,7 @@ describe("AuthProvider", () => {
     await waitFor(() => {
       expect(mocks.emitTo).toHaveBeenCalledWith(
         "main",
-        "hypr:auth-sign-out-request",
+        "anlg:auth-sign-out-request",
         {
           requestId: "request-id",
           sourceLabel: "note-session-id",
@@ -888,7 +888,7 @@ describe("AuthProvider", () => {
     });
 
     act(() => {
-      mocks.eventCallbacks.get("hypr:auth-sign-out-result")?.({
+      mocks.eventCallbacks.get("anlg:auth-sign-out-result")?.({
         payload: {
           requestId: "request-id",
           completed: false,
@@ -898,7 +898,7 @@ describe("AuthProvider", () => {
     });
 
     await waitFor(() => {
-      expect(mocks.eventCallbacks.has("hypr:auth-sign-out-result")).toBe(false);
+      expect(mocks.eventCallbacks.has("anlg:auth-sign-out-result")).toBe(false);
     });
     expect(screen.getByTestId("session").textContent).toBe(
       currentSession.user.id,
@@ -933,7 +933,7 @@ describe("AuthProvider", () => {
     await waitFor(() => {
       expect(mocks.emitTo).toHaveBeenCalledWith(
         "main",
-        "hypr:auth-sign-out-request",
+        "anlg:auth-sign-out-request",
         {
           requestId: "request-id",
           sourceLabel: "note-session-id",
@@ -942,13 +942,13 @@ describe("AuthProvider", () => {
     });
 
     act(() => {
-      mocks.eventCallbacks.get("hypr:auth-sign-out-result")?.({
+      mocks.eventCallbacks.get("anlg:auth-sign-out-result")?.({
         payload: { requestId: "request-id", completed: false, error: null },
       });
     });
 
     await waitFor(() => {
-      expect(mocks.eventCallbacks.has("hypr:auth-sign-out-result")).toBe(false);
+      expect(mocks.eventCallbacks.has("anlg:auth-sign-out-result")).toBe(false);
     });
     expect(screen.getByTestId("session").textContent).toBe(
       currentSession.user.id,
@@ -977,11 +977,11 @@ describe("AuthProvider", () => {
       expect(screen.getByTestId("session").textContent).toBe(
         currentSession.user.id,
       );
-      expect(mocks.eventCallbacks.has("hypr:auth-sign-out-request")).toBe(true);
+      expect(mocks.eventCallbacks.has("anlg:auth-sign-out-request")).toBe(true);
     });
 
     act(() => {
-      mocks.eventCallbacks.get("hypr:auth-sign-out-request")?.({
+      mocks.eventCallbacks.get("anlg:auth-sign-out-request")?.({
         payload: {
           requestId: "remote-request-id",
           sourceLabel: "note-session-id",
@@ -992,7 +992,7 @@ describe("AuthProvider", () => {
     await waitFor(() => {
       expect(mocks.emitTo).toHaveBeenCalledWith(
         "note-session-id",
-        "hypr:auth-sign-out-result",
+        "anlg:auth-sign-out-result",
         { requestId: "remote-request-id", completed: true, error: null },
       );
     });
@@ -1107,11 +1107,11 @@ describe("AuthProvider", () => {
         null,
         expect.any(Function),
       );
-      expect(mocks.eventCallbacks.has("hypr:auth-sign-out-request")).toBe(true);
+      expect(mocks.eventCallbacks.has("anlg:auth-sign-out-request")).toBe(true);
     });
 
     act(() => {
-      mocks.eventCallbacks.get("hypr:auth-sign-out-request")?.({
+      mocks.eventCallbacks.get("anlg:auth-sign-out-request")?.({
         payload: {
           requestId: "remote-request-id",
           sourceLabel: "note-session-id",
@@ -1122,7 +1122,7 @@ describe("AuthProvider", () => {
     await waitFor(() => {
       expect(mocks.emitTo).toHaveBeenCalledWith(
         "note-session-id",
-        "hypr:auth-sign-out-result",
+        "anlg:auth-sign-out-result",
         {
           requestId: "remote-request-id",
           completed: false,
@@ -1217,11 +1217,11 @@ describe("AuthProvider", () => {
       expect(screen.getByTestId("session").textContent).toBe(
         currentSession.user.id,
       );
-      expect(mocks.eventCallbacks.has("hypr:auth-sign-out-request")).toBe(true);
+      expect(mocks.eventCallbacks.has("anlg:auth-sign-out-request")).toBe(true);
     });
 
     act(() => {
-      mocks.eventCallbacks.get("hypr:auth-sign-out-request")?.({
+      mocks.eventCallbacks.get("anlg:auth-sign-out-request")?.({
         payload: {
           requestId: "remote-request-id",
           sourceLabel: "note-session-id",
@@ -1245,7 +1245,7 @@ describe("AuthProvider", () => {
     await waitFor(() => {
       expect(mocks.emitTo).toHaveBeenCalledWith(
         "note-session-id",
-        "hypr:auth-sign-out-result",
+        "anlg:auth-sign-out-result",
         { requestId: "remote-request-id", completed: false, error: null },
       );
       expect(screen.getByTestId("access-token").textContent).toBe(
@@ -1280,11 +1280,11 @@ describe("AuthProvider", () => {
       expect(screen.getByTestId("session").textContent).toBe(
         currentSession.user.id,
       );
-      expect(mocks.eventCallbacks.has("hypr:auth-sign-out-request")).toBe(true);
+      expect(mocks.eventCallbacks.has("anlg:auth-sign-out-request")).toBe(true);
     });
 
     act(() => {
-      mocks.eventCallbacks.get("hypr:auth-sign-out-request")?.({
+      mocks.eventCallbacks.get("anlg:auth-sign-out-request")?.({
         payload: {
           requestId: "remote-request-id",
           sourceLabel: "note-session-id",
@@ -1295,7 +1295,7 @@ describe("AuthProvider", () => {
     await waitFor(() => {
       expect(mocks.emitTo).toHaveBeenCalledWith(
         "note-session-id",
-        "hypr:auth-sign-out-result",
+        "anlg:auth-sign-out-result",
         {
           requestId: "remote-request-id",
           completed: false,

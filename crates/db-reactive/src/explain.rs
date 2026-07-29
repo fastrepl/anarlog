@@ -128,23 +128,23 @@ fn is_alias_stop_word(alias: &str) -> bool {
 mod tests {
     use super::*;
 
-    const LIVE_QUERY_TEST_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] =
-        &[hypr_db_migrate::MigrationStep {
+    const LIVE_QUERY_TEST_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] =
+        &[anlg_db_migrate::MigrationStep {
             id: "20260415000000_live_query_test_schema",
-            scope: hypr_db_migrate::MigrationScope::Plain,
+            scope: anlg_db_migrate::MigrationScope::Plain,
             sql: include_str!("../tests/common/live_query_test_schema.sql"),
         }];
 
-    fn live_query_test_schema() -> hypr_db_migrate::DbSchema {
-        hypr_db_migrate::DbSchema {
+    fn live_query_test_schema() -> anlg_db_migrate::DbSchema {
+        anlg_db_migrate::DbSchema {
             steps: LIVE_QUERY_TEST_MIGRATION_STEPS,
             validate_cloudsync_table: |_| false,
         }
     }
 
-    async fn test_db() -> hypr_db_core::Db {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-        hypr_db_migrate::migrate(&db, live_query_test_schema())
+    async fn test_db() -> anlg_db_core::Db {
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_migrate::migrate(&db, live_query_test_schema())
             .await
             .unwrap();
         db
@@ -256,7 +256,7 @@ mod tests {
 
     #[tokio::test]
     async fn view_query_resolves_to_base_table() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
         sqlx::query("CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT NOT NULL)")
             .execute(db.pool())
             .await
@@ -281,7 +281,7 @@ mod tests {
 
     #[tokio::test]
     async fn fts_match_query_resolves_to_virtual_table_target() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
         sqlx::query("CREATE VIRTUAL TABLE docs_fts USING fts5(title, body)")
             .execute(db.pool())
             .await
@@ -302,7 +302,7 @@ mod tests {
 
     #[tokio::test]
     async fn empty_dependency_set_is_non_reactive() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
         let error = extract_dependencies(db.pool(), "SELECT 1")
             .await
             .unwrap_err();
@@ -315,7 +315,7 @@ mod tests {
 
     #[tokio::test]
     async fn unsupported_virtual_tables_are_non_reactive() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
         sqlx::query("CREATE VIRTUAL TABLE docs_rtree USING rtree(id, min_x, max_x)")
             .execute(db.pool())
             .await

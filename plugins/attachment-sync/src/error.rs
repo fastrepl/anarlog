@@ -31,7 +31,7 @@ pub enum Error {
     #[error("attachment filesystem operation failed")]
     Io(#[source] std::io::Error),
     #[error("attachment encryption operation failed")]
-    E2ee(#[source] hypr_e2ee::AttachmentBlobError),
+    E2ee(#[source] anlg_e2ee::AttachmentBlobError),
     #[error("attachment vault is unavailable")]
     Vault,
 }
@@ -48,8 +48,8 @@ impl From<std::io::Error> for Error {
     }
 }
 
-impl From<hypr_e2ee::AttachmentBlobError> for Error {
-    fn from(error: hypr_e2ee::AttachmentBlobError) -> Self {
+impl From<anlg_e2ee::AttachmentBlobError> for Error {
+    fn from(error: anlg_e2ee::AttachmentBlobError) -> Self {
         Self::E2ee(error)
     }
 }

@@ -5,12 +5,12 @@ use tauri_plugin_analytics::{AnalyticsPayload, AnalyticsPluginExt};
 #[specta::specta]
 pub(crate) async fn show_notification<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
-    v: hypr_notification::Notification,
+    v: anlg_notification::Notification,
 ) -> Result<(), String> {
     let source = match &v.source {
-        Some(hypr_notification::NotificationSource::CalendarEvent { .. }) => "calendar_event",
-        Some(hypr_notification::NotificationSource::Session { .. }) => "session",
-        Some(hypr_notification::NotificationSource::MicDetected { .. }) => "mic_detected",
+        Some(anlg_notification::NotificationSource::CalendarEvent { .. }) => "calendar_event",
+        Some(anlg_notification::NotificationSource::Session { .. }) => "session",
+        Some(anlg_notification::NotificationSource::MicDetected { .. }) => "mic_detected",
         None => "unknown",
     };
     let is_persistent = v.is_persistent();

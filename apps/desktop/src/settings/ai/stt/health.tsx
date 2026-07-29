@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 
-import { Spinner } from "@hypr/ui/components/ui/spinner";
+import { Spinner } from "@anlg/ui/components/ui/spinner";
 
 import { useConfigValues } from "~/shared/config";
 import {
-  isHyprnoteCloudSttModel,
-  isHyprnoteLocalSttModel,
+  isAnarlogCloudSttModel,
+  isAnarlogLocalSttModel,
 } from "~/stt/capabilities";
 import { useSTTConnection } from "~/stt/useSTTConnection";
 
@@ -56,19 +56,19 @@ export function useConnectionHealth(): HealthStatus {
     "current_stt_model",
   ] as const);
 
-  const isLocalModel = isHyprnoteLocalSttModel(
+  const isLocalModel = isAnarlogLocalSttModel(
     current_stt_provider,
     current_stt_model,
   );
   const isCloud =
-    isHyprnoteCloudSttModel(current_stt_provider, current_stt_model) ||
-    current_stt_provider !== "hyprnote";
+    isAnarlogCloudSttModel(current_stt_provider, current_stt_model) ||
+    current_stt_provider !== "anarlog";
   const isDeepgram = current_stt_provider === "deepgram";
 
   const deepgramHealth = useDeepgramHealth(isDeepgram && !!conn, conn?.apiKey);
 
   if (
-    current_stt_provider === "hyprnote" &&
+    current_stt_provider === "anarlog" &&
     current_stt_model &&
     !isCloud &&
     !isLocalModel

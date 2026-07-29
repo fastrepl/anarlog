@@ -8,11 +8,11 @@ default = []
 tauri-event = ["dep:tauri-specta"]
 
 [dependencies]
-hypr-audio-norm = { workspace = true }
-hypr-audio-utils = { workspace = true }
-hypr-frontmatter = { workspace = true }
-hypr-fs-format = { workspace = true }
-hypr-tiptap = { workspace = true }
+anlg-audio-norm = { workspace = true }
+anlg-audio-utils = { workspace = true }
+anlg-frontmatter = { workspace = true }
+anlg-fs-format = { workspace = true }
+anlg-tiptap = { workspace = true }
 
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -30,9 +30,9 @@ tracing = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 
 [dev-dependencies]
+anlg-data = { workspace = true }
 assert_fs = "1"
 criterion = { workspace = true }
-hypr-data = { workspace = true }
 predicates = "3"
 tempfile = { workspace = true }
 

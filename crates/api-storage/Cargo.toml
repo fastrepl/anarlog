@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-api-error = { workspace = true }
-hypr-api-nango = { workspace = true }
-hypr-google-drive = { workspace = true }
-hypr-nango = { workspace = true }
+anlg-api-error = { workspace = true }
+anlg-api-nango = { workspace = true }
+anlg-google-drive = { workspace = true }
+anlg-nango = { workspace = true }
 
 utoipa = { workspace = true }
 

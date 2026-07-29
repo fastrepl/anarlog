@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 
-import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
+import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import { withCloudsyncActivity } from "~/db/cloudsync-activity";
 import { getEnhancerService } from "~/services/enhancer";

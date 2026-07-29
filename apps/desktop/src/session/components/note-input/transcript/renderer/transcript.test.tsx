@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   IdentityAssignment,
   RenderTranscriptRequest,
-} from "@hypr/plugin-transcription";
+} from "@anlg/plugin-transcription";
 
 import { RenderTranscript } from "./transcript";
 
@@ -34,7 +34,7 @@ vi.mock("./word-span", () => ({
   ),
 }));
 
-vi.mock("@hypr/ui/components/ui/popover", () => ({
+vi.mock("@anlg/ui/components/ui/popover", () => ({
   AppFloatingPanel: () => null,
   Popover: ({ children }: { children: ReactNode }) => <>{children}</>,
   PopoverContent: () => null,

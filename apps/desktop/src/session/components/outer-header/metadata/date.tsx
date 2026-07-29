@@ -3,10 +3,10 @@ import { useForm } from "@tanstack/react-form";
 import { CheckIcon, PencilIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 
-import { Button } from "@hypr/ui/components/ui/button";
-import { Input } from "@hypr/ui/components/ui/input";
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
-import { format, safeFormat, safeParseDate } from "@hypr/utils";
+import { Button } from "@anlg/ui/components/ui/button";
+import { Input } from "@anlg/ui/components/ui/input";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { format, safeFormat, safeParseDate } from "@anlg/utils";
 
 import { useSession, useUpdateSession } from "~/session/queries";
 

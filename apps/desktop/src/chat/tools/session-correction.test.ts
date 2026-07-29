@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { json2md, md2json, parseJsonContent } from "@hypr/editor/markdown";
+import { json2md, md2json, parseJsonContent } from "@anlg/editor/markdown";
 
 const mocks = vi.hoisted(() => ({
   applySessionContentCorrections: vi.fn(),

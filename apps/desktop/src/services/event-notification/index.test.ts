@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   showNotification: vi.fn(),
 }));
 
-vi.mock("@hypr/plugin-notification", () => ({
+vi.mock("@anlg/plugin-notification", () => ({
   commands: { showNotification: mocks.showNotification },
 }));
 

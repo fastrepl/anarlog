@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use hypr_db_app::{LegacyEvent as ImportedEvent, LegacyImportBatch, LegacyImportRow};
+use anlg_db_app::{LegacyEvent as ImportedEvent, LegacyImportBatch, LegacyImportRow};
 
 fn str_field(row: &serde_json::Value, key: &str) -> String {
     row.get(key)

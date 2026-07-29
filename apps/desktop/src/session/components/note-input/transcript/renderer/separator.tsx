@@ -1,4 +1,4 @@
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 export function TranscriptSeparator() {
   return (

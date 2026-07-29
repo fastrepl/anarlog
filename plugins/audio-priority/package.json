@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/plugin-audio-priority",
+  "name": "@anlg/plugin-audio-priority",
   "private": true,
   "main": "./js/index.ts",
   "scripts": {

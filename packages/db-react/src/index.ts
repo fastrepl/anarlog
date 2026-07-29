@@ -1,6 +1,6 @@
 import { useMemo, useRef, useSyncExternalStore } from "react";
 
-import type { LiveQueryClient, Unsubscribe } from "@hypr/db-runtime";
+import type { LiveQueryClient, Unsubscribe } from "@anlg/db-runtime";
 
 type UseLiveQueryOptions<TRow, TData> = {
   sql: string;

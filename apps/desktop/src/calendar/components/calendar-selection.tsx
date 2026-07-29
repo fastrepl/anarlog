@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { type MouseEvent, useRef, useState } from "react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import {
   type MenuItemDef,

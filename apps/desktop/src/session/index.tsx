@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import React, { useEffect, useRef } from "react";
 
-import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
+import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 
 import { FloatingActionButton } from "./components/floating";
 import {

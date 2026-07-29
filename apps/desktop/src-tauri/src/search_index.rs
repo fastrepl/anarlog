@@ -29,13 +29,13 @@ enum IndexAction {
     Skip,
 }
 
-pub fn spawn(app: AppHandle, db: Arc<hypr_db_core::Db>) {
+pub fn spawn(app: AppHandle, db: Arc<anlg_db_core::Db>) {
     tauri::async_runtime::spawn(async move {
         run(app, db).await;
     });
 }
 
-async fn run(app: AppHandle, db: Arc<hypr_db_core::Db>) {
+async fn run(app: AppHandle, db: Arc<anlg_db_core::Db>) {
     let mut changes = db.change_notifier().subscribe();
 
     wait_for_tantivy(&app).await;
@@ -633,8 +633,8 @@ mod tests {
 
     #[tokio::test]
     async fn acknowledgement_does_not_drop_a_concurrent_change() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
         sqlx::query("INSERT INTO sessions (id, title) VALUES ('session-1', 'Planning')")
             .execute(db.pool())
             .await

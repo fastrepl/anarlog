@@ -1,7 +1,7 @@
-use hypr_apple_todo::types::{
+use anlg_apple_todo::types::{
     CreateReminderInput, Reminder, ReminderFilter, ReminderIdentifierInput, ReminderList,
 };
-use hypr_ticket_interface::{CollectionPage, TicketPage};
+use anlg_ticket_interface::{CollectionPage, TicketPage};
 
 use tauri::Manager;
 use tauri_plugin_auth::AuthPluginExt;
@@ -14,7 +14,7 @@ use crate::read_path::{ReadPath, ReadPathResult};
 pub fn authorization_status() -> Result<String, Error> {
     #[cfg(target_os = "macos")]
     {
-        let status = hypr_apple_todo::Handle::authorization_status();
+        let status = anlg_apple_todo::Handle::authorization_status();
         Ok(format!("{:?}", status))
     }
 
@@ -29,7 +29,7 @@ pub fn authorization_status() -> Result<String, Error> {
 pub fn request_full_access() -> Result<bool, Error> {
     #[cfg(target_os = "macos")]
     {
-        Ok(hypr_apple_todo::Handle::request_full_access())
+        Ok(anlg_apple_todo::Handle::request_full_access())
     }
 
     #[cfg(not(target_os = "macos"))]
@@ -43,7 +43,7 @@ pub fn request_full_access() -> Result<bool, Error> {
 pub fn list_todo_lists() -> Result<Vec<ReminderList>, Error> {
     #[cfg(target_os = "macos")]
     {
-        let handle = hypr_apple_todo::Handle;
+        let handle = anlg_apple_todo::Handle;
         handle.list_reminder_lists().map_err(Into::into)
     }
 
@@ -58,7 +58,7 @@ pub fn list_todo_lists() -> Result<Vec<ReminderList>, Error> {
 pub fn fetch_todos(filter: ReminderFilter) -> Result<Vec<Reminder>, Error> {
     #[cfg(target_os = "macos")]
     {
-        let handle = hypr_apple_todo::Handle;
+        let handle = anlg_apple_todo::Handle;
         handle.fetch_reminders(filter).map_err(Into::into)
     }
 
@@ -81,12 +81,12 @@ pub async fn read_path<R: tauri::Runtime>(
         ReadPath::Apple(path) => {
             #[cfg(target_os = "macos")]
             {
-                let handle = hypr_apple_todo::Handle;
+                let handle = anlg_apple_todo::Handle;
                 match handle.read_path(path)? {
-                    hypr_apple_todo::ReadPathResult::Lists(items) => {
+                    anlg_apple_todo::ReadPathResult::Lists(items) => {
                         Ok(ReadPathResult::ReminderLists(items))
                     }
-                    hypr_apple_todo::ReadPathResult::Reminders(items) => {
+                    anlg_apple_todo::ReadPathResult::Reminders(items) => {
                         Ok(ReadPathResult::Reminders(items))
                     }
                 }
@@ -168,7 +168,7 @@ pub async fn read_path<R: tauri::Runtime>(
 pub fn create_todo(input: CreateReminderInput) -> Result<String, Error> {
     #[cfg(target_os = "macos")]
     {
-        let handle = hypr_apple_todo::Handle;
+        let handle = anlg_apple_todo::Handle;
         handle.create_reminder_identifier(input).map_err(Into::into)
     }
 
@@ -184,7 +184,7 @@ pub fn create_todo(input: CreateReminderInput) -> Result<String, Error> {
 pub fn complete_todo(target: ReminderIdentifierInput) -> Result<(), Error> {
     #[cfg(target_os = "macos")]
     {
-        let handle = hypr_apple_todo::Handle;
+        let handle = anlg_apple_todo::Handle;
         handle.complete_reminder(&target).map_err(Into::into)
     }
 
@@ -200,7 +200,7 @@ pub fn complete_todo(target: ReminderIdentifierInput) -> Result<(), Error> {
 pub fn delete_todo(target: ReminderIdentifierInput) -> Result<(), Error> {
     #[cfg(target_os = "macos")]
     {
-        let handle = hypr_apple_todo::Handle;
+        let handle = anlg_apple_todo::Handle;
         handle.delete_reminder(&target).map_err(Into::into)
     }
 
@@ -265,7 +265,7 @@ pub async fn github_issue_detail(
     owner: String,
     repo: String,
     number: u64,
-) -> Result<hypr_github_issues::Issue, Error> {
+) -> Result<anlg_github_issues::Issue, Error> {
     crate::github_state::fetch_issue_detail(&owner, &repo, number).await
 }
 
@@ -275,7 +275,7 @@ pub async fn github_issue_comments(
     owner: String,
     repo: String,
     number: u64,
-) -> Result<Vec<hypr_github_issues::IssueComment>, Error> {
+) -> Result<Vec<anlg_github_issues::IssueComment>, Error> {
     crate::github_state::fetch_issue_comments(&owner, &repo, number).await
 }
 

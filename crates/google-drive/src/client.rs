@@ -1,4 +1,4 @@
-use hypr_http::HttpClient;
+use anlg_http::HttpClient;
 
 use crate::error::Error;
 use crate::types::{

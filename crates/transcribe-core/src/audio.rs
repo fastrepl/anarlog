@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use hypr_audio_chunking::{AudioChunk, Chunker, SpeechChunker, SpeechChunkingConfig};
+use anlg_audio_chunking::{AudioChunk, Chunker, SpeechChunker, SpeechChunkingConfig};
 
 pub const TARGET_SAMPLE_RATE: u32 = 16_000;
 
@@ -9,7 +9,7 @@ const MAX_CHUNK_SAMPLES: usize = TARGET_SAMPLE_RATE as usize * 25;
 
 pub fn chunk_channel_audio<E>(samples: &[f32]) -> Result<Vec<AudioChunk>, E>
 where
-    E: From<hypr_audio_chunking::Error>,
+    E: From<anlg_audio_chunking::Error>,
 {
     let mut chunker =
         SpeechChunker::new(SpeechChunkingConfig::speech(DEFAULT_SPEECH_REDEMPTION_TIME))?;
@@ -60,7 +60,7 @@ pub fn split_resampled_channels(samples: &[f32], channel_count: usize) -> Vec<Ve
         return vec![samples.to_vec()];
     }
 
-    hypr_audio_utils::deinterleave(samples, channel_count)
+    anlg_audio_utils::deinterleave(samples, channel_count)
 }
 
 pub fn channel_duration_sec(samples: &[f32]) -> f64 {
@@ -69,7 +69,7 @@ pub fn channel_duration_sec(samples: &[f32]) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use hypr_audio_chunking::{AudioChunk, Chunker};
+    use anlg_audio_chunking::{AudioChunk, Chunker};
 
     use super::*;
     use crate::{initial_resolved_until, next_resolved_until};
@@ -92,7 +92,7 @@ mod tests {
 
     #[test]
     fn empty_audio_marks_channel_complete() {
-        let chunks = chunk_channel_audio::<hypr_audio_chunking::Error>(&[]).unwrap();
+        let chunks = chunk_channel_audio::<anlg_audio_chunking::Error>(&[]).unwrap();
 
         assert!(chunks.is_empty());
         assert_eq!(initial_resolved_until(&chunks, 40.0), 40.0);

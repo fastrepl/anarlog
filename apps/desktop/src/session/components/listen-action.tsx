@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 
-import { Spinner } from "@hypr/ui/components/ui/spinner";
+import { Spinner } from "@anlg/ui/components/ui/spinner";
 
 import { OptionsMenu } from "./floating/options-menu";
 import { ActionableTooltipContent, FloatingButton } from "./floating/shared";

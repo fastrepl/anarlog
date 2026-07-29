@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 owhisper-interface = { workspace = true }
 
-hypr-template-app = { workspace = true }
+anlg-template-app = { workspace = true }
 json-patch = "4.1"
 serde = { workspace = true }
 serde_json = { workspace = true }

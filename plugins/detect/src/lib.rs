@@ -34,7 +34,7 @@ pub use policy::*;
 
 const PLUGIN_NAME: &str = "detect";
 
-pub(crate) type DetectorState = Mutex<hypr_detect::Detector>;
+pub(crate) type DetectorState = Mutex<anlg_detect::Detector>;
 
 #[cfg(feature = "test-support")]
 pub type ProcessorState = Arc<Mutex<Processor>>;

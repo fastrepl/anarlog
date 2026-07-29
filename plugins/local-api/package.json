@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/plugin-local-api",
+  "name": "@anlg/plugin-local-api",
   "private": true,
   "main": "./js/index.ts",
   "scripts": {

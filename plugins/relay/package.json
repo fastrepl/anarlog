@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/plugin-relay",
+  "name": "@anlg/plugin-relay",
   "private": true,
   "type": "module",
   "exports": {

@@ -3,8 +3,8 @@ import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2Icon } from "lucide-react";
 
-import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { commands as listenerCommands } from "@hypr/plugin-transcription";
+import { commands as analyticsCommands } from "@anlg/plugin-analytics";
+import { commands as listenerCommands } from "@anlg/plugin-transcription";
 
 export { SettingsAccount } from "./account";
 import { AppSettingsView } from "./app-settings";

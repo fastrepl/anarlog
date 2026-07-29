@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
+use anlg_recall::{BotStatusCode, BotStatusWebhook, RecallClient, TranscriptWebhook};
 use axum::{Extension, Json};
-use hypr_recall::{BotStatusCode, BotStatusWebhook, RecallClient, TranscriptWebhook};
 
 use crate::error::Result;
 
@@ -13,19 +13,19 @@ pub async fn status_change(
     let code = &event.data.status.code;
 
     tracing::info!(
-        hyprnote.bot.id = %bot_id,
-        hyprnote.bot.status_code = ?code,
+        anarlog.bot.id = %bot_id,
+        anarlog.bot.status_code = ?code,
         "bot_status_change"
     );
 
     match code {
         BotStatusCode::CallEnded => {
-            tracing::info!(hyprnote.bot.id = %bot_id, "bot_call_ended");
+            tracing::info!(anarlog.bot.id = %bot_id, "bot_call_ended");
         }
         BotStatusCode::Fatal => {
             let message = event.data.status.message.as_deref().unwrap_or("unknown");
             tracing::error!(
-                hyprnote.bot.id = %bot_id,
+                anarlog.bot.id = %bot_id,
                 error = %message,
                 "bot_fatal"
             );
@@ -53,10 +53,10 @@ pub async fn transcript(Json(payload): Json<TranscriptWebhook>) -> Result<()> {
         .join(" ");
 
     tracing::info!(
-        hyprnote.bot.id = %payload.bot_id,
-        hyprnote.transcript.speaker = %payload.transcript.speaker,
-        hyprnote.transcript.is_final = payload.transcript.is_final,
-        hyprnote.transcript.char_count = text.chars().count() as u64,
+        anarlog.bot.id = %payload.bot_id,
+        anarlog.transcript.speaker = %payload.transcript.speaker,
+        anarlog.transcript.is_final = payload.transcript.is_final,
+        anarlog.transcript.char_count = text.chars().count() as u64,
         "transcript_received"
     );
 

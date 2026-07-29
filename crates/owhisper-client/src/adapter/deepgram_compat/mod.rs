@@ -41,23 +41,22 @@ mod tests {
 
     #[test]
     fn test_listen_endpoint_url_preserves_query_params() {
-        let (url, params) = listen_endpoint_url("https://api.hyprnote.com/v1?provider=deepgram");
-        assert_eq!(url.as_str(), "https://api.hyprnote.com/v1/listen");
+        let (url, params) = listen_endpoint_url("https://api.anarlog.so/v1?provider=deepgram");
+        assert_eq!(url.as_str(), "https://api.anarlog.so/v1/listen");
         assert_eq!(params, vec![("provider".into(), "deepgram".into())]);
     }
 
     #[test]
     fn test_listen_endpoint_url_no_double_listen() {
-        let (url, params) =
-            listen_endpoint_url("https://api.hyprnote.com/listen?provider=deepgram");
-        assert_eq!(url.as_str(), "https://api.hyprnote.com/listen");
+        let (url, params) = listen_endpoint_url("https://api.anarlog.so/listen?provider=deepgram");
+        assert_eq!(url.as_str(), "https://api.anarlog.so/listen");
         assert_eq!(params, vec![("provider".into(), "deepgram".into())]);
     }
 
     #[test]
     fn test_listen_endpoint_url_no_double_listen_with_trailing_slash() {
-        let (url, params) = listen_endpoint_url("https://api.hyprnote.com/listen/");
-        assert_eq!(url.as_str(), "https://api.hyprnote.com/listen/");
+        let (url, params) = listen_endpoint_url("https://api.anarlog.so/listen/");
+        assert_eq!(url.as_str(), "https://api.anarlog.so/listen/");
         assert!(params.is_empty());
     }
 

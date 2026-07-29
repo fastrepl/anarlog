@@ -11,12 +11,12 @@ import {
 import {
   type SessionContext,
   commands as templateCommands,
-} from "@hypr/plugin-template";
+} from "@anlg/plugin-template";
 
 import type { ContextRef } from "../context/entities";
 import { extractContextRefsFromMessages } from "../context/refs";
 import { CONTEXT_TEXT_FIELD } from "../tools/context-text";
-import type { HyprUIMessage } from "../types";
+import type { AnlgUIMessage } from "../types";
 import {
   getMeetingIdsFromSearchOutput,
   hasContextText,
@@ -34,7 +34,7 @@ export type ResolvedChatContext =
   | { kind: "session"; context: SessionContext }
   | { kind: "text"; text: string };
 
-export class CustomChatTransport implements ChatTransport<HyprUIMessage> {
+export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
   constructor(
     private model: LanguageModel,
     private tools: ToolSet,
@@ -171,7 +171,7 @@ export class CustomChatTransport implements ChatTransport<HyprUIMessage> {
     };
   }
 
-  sendMessages: ChatTransport<HyprUIMessage>["sendMessages"] = async (
+  sendMessages: ChatTransport<AnlgUIMessage>["sendMessages"] = async (
     options,
   ) => {
     const cache = new Map<string, string | null>();
@@ -206,7 +206,7 @@ export class CustomChatTransport implements ChatTransport<HyprUIMessage> {
       },
     });
 
-    const messagesWithContext: HyprUIMessage[] = [];
+    const messagesWithContext: AnlgUIMessage[] = [];
 
     for (const [index, msg] of options.messages.entries()) {
       if (msg.role === "user") {
@@ -241,7 +241,7 @@ export class CustomChatTransport implements ChatTransport<HyprUIMessage> {
         );
         messagesWithContext.push({
           ...msg,
-          parts: expandedParts as HyprUIMessage["parts"],
+          parts: expandedParts as AnlgUIMessage["parts"],
         });
       } else {
         messagesWithContext.push(msg);
@@ -284,7 +284,7 @@ export class CustomChatTransport implements ChatTransport<HyprUIMessage> {
     });
   };
 
-  reconnectToStream: ChatTransport<HyprUIMessage>["reconnectToStream"] =
+  reconnectToStream: ChatTransport<AnlgUIMessage>["reconnectToStream"] =
     async () => {
       return null;
     };

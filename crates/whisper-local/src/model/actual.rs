@@ -8,7 +8,7 @@ use whisper_rs::{
     WhisperTokenId,
 };
 
-use hypr_whisper::Language;
+use anlg_whisper::Language;
 
 use crate::Segment;
 
@@ -305,7 +305,7 @@ impl Whisper {
     }
 
     fn debug(&mut self, audio: &[f32]) {
-        if let Ok(v) = std::env::var("HYPR_WHISPER_DEBUG")
+        if let Ok(v) = std::env::var("ANLG_WHISPER_DEBUG")
             && v == "1"
         {
             let mut writer = hound::WavWriter::create(
@@ -339,7 +339,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let audio: Vec<f32> = hypr_data::english_1::AUDIO
+        let audio: Vec<f32> = anlg_data::english_1::AUDIO
             .chunks_exact(2)
             .map(|chunk| i16::from_le_bytes([chunk[0], chunk[1]]) as f32 / 32768.0)
             .collect();

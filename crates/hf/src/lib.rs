@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use anlg_download_interface::DownloadProgress;
 use hf_hub::api::tokio::{ApiBuilder, Progress};
-use hypr_download_interface::DownloadProgress;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

@@ -5,22 +5,22 @@ edition = "2024"
 
 [features]
 default = []
-onnx = ["dep:hypr-onnx", "dep:realfft"]
-coreml = ["onnx", "hypr-onnx/coreml"]
+onnx = ["dep:anlg-onnx", "dep:realfft"]
+coreml = ["onnx", "anlg-onnx/coreml"]
 
 [dependencies]
-hypr-onnx = { workspace = true, optional = true }
+anlg-onnx = { workspace = true, optional = true }
 realfft = { workspace = true, optional = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+anlg-audio-snapshot = { workspace = true }
+anlg-data = { workspace = true }
 approx = { workspace = true }
 criterion = { workspace = true }
 dasp = { workspace = true }
 hound = { workspace = true }
-hypr-audio-snapshot = { workspace = true }
-hypr-data = { workspace = true }
 rodio = { workspace = true }
 
 [[bench]]

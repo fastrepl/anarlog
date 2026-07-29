@@ -4,11 +4,11 @@ use tauri_specta::Event;
 
 use crate::events::NotificationEvent;
 
-fn source_kind(source: &Option<hypr_notification::NotificationSource>) -> &'static str {
+fn source_kind(source: &Option<anlg_notification::NotificationSource>) -> &'static str {
     match source {
-        Some(hypr_notification::NotificationSource::CalendarEvent { .. }) => "calendar_event",
-        Some(hypr_notification::NotificationSource::Session { .. }) => "session",
-        Some(hypr_notification::NotificationSource::MicDetected { .. }) => "mic_detected",
+        Some(anlg_notification::NotificationSource::CalendarEvent { .. }) => "calendar_event",
+        Some(anlg_notification::NotificationSource::Session { .. }) => "session",
+        Some(anlg_notification::NotificationSource::MicDetected { .. }) => "mic_detected",
         None => "unknown",
     }
 }
@@ -29,7 +29,7 @@ fn track_notification_event(
 pub fn init(app: tauri::AppHandle<tauri::Wry>) {
     {
         let app = app.clone();
-        hypr_notification::setup_collapsed_confirm_handler(move |ctx| {
+        anlg_notification::setup_collapsed_confirm_handler(move |ctx| {
             let source = source_kind(&ctx.source);
             if let Err(_e) = app.windows().show(tauri_plugin_windows::AppWindow::Main) {}
 
@@ -47,7 +47,7 @@ pub fn init(app: tauri::AppHandle<tauri::Wry>) {
 
     {
         let app = app.clone();
-        hypr_notification::setup_expanded_accept_handler(move |ctx| {
+        anlg_notification::setup_expanded_accept_handler(move |ctx| {
             let source = source_kind(&ctx.source);
             if let Err(_e) = app.windows().show(tauri_plugin_windows::AppWindow::Main) {}
 
@@ -65,7 +65,7 @@ pub fn init(app: tauri::AppHandle<tauri::Wry>) {
 
     {
         let app = app.clone();
-        hypr_notification::setup_dismiss_handler(move |ctx| {
+        anlg_notification::setup_dismiss_handler(move |ctx| {
             let source = source_kind(&ctx.source);
             let _ = NotificationEvent::Dismiss {
                 key: ctx.key,
@@ -81,7 +81,7 @@ pub fn init(app: tauri::AppHandle<tauri::Wry>) {
 
     {
         let app = app.clone();
-        hypr_notification::setup_collapsed_timeout_handler(move |ctx| {
+        anlg_notification::setup_collapsed_timeout_handler(move |ctx| {
             let source = source_kind(&ctx.source);
             let _ = NotificationEvent::Timeout {
                 key: ctx.key,
@@ -97,7 +97,7 @@ pub fn init(app: tauri::AppHandle<tauri::Wry>) {
 
     {
         let app = app.clone();
-        hypr_notification::setup_option_selected_handler(move |ctx, selected_index| {
+        anlg_notification::setup_option_selected_handler(move |ctx, selected_index| {
             let source = source_kind(&ctx.source);
             if let Err(_e) = app.windows().show(tauri_plugin_windows::AppWindow::Main) {}
 
@@ -122,7 +122,7 @@ pub fn init(app: tauri::AppHandle<tauri::Wry>) {
 
     {
         let app = app.clone();
-        hypr_notification::setup_footer_action_handler(move |ctx| {
+        anlg_notification::setup_footer_action_handler(move |ctx| {
             let source = source_kind(&ctx.source);
             let _ = NotificationEvent::FooterAction {
                 key: ctx.key,

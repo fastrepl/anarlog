@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use hypr_transcript::{
+use anlg_transcript::{
     FinalizedWord, IdentityAssignment, PartialWord, SegmentBuilderOptions, SegmentKey, SegmentWord,
     TranscriptDelta, TranscriptProcessor, build_segments, channel_assignments_for_participants,
     normalize_rendered_segment_words, segment_options_for_participants, stable_segment_id,
@@ -1363,7 +1363,7 @@ mod tests {
                 start_ms: 0,
                 end_ms: 100,
                 channel: 0,
-                state: hypr_transcript::WordState::Final,
+                state: anlg_transcript::WordState::Final,
                 speaker_index: Some(1),
             }],
             replaced_ids: vec!["replaced".to_string()],

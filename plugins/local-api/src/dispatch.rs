@@ -22,7 +22,7 @@ pub fn sign_payload(secret: &str, body: &str) -> String {
         .collect()
 }
 
-fn subscribes(endpoint: &hypr_db_app::WebhookEndpointRow, event: &str) -> bool {
+fn subscribes(endpoint: &anlg_db_app::WebhookEndpointRow, event: &str) -> bool {
     let events: Vec<String> = serde_json::from_str(&endpoint.events_json).unwrap_or_default();
     events.is_empty() || events.iter().any(|subscribed| subscribed == event)
 }
@@ -38,7 +38,7 @@ fn envelope(event: &str, data: serde_json::Value) -> String {
 }
 
 async fn meeting_payload(pool: &SqlitePool, meeting_id: &str) -> Result<serde_json::Value, String> {
-    let export = hypr_agent_access::get_meeting_export(pool, meeting_id.to_string())
+    let export = anlg_agent_access::get_meeting_export(pool, meeting_id.to_string())
         .await
         .map_err(|error| error.to_string())?;
     let transcript_text = export
@@ -69,7 +69,7 @@ pub async fn dispatch_event(
         return Ok(0);
     }
 
-    let endpoints = hypr_db_app::list_active_webhook_endpoints(pool)
+    let endpoints = anlg_db_app::list_active_webhook_endpoints(pool)
         .await
         .map_err(|error| error.to_string())?
         .into_iter()
@@ -94,7 +94,7 @@ pub async fn dispatch_event(
 
 pub async fn send_test(
     pool: &SqlitePool,
-    endpoint: &hypr_db_app::WebhookEndpointRow,
+    endpoint: &anlg_db_app::WebhookEndpointRow,
 ) -> crate::WebhookDelivery {
     let body = envelope(
         EVENT_TEST,
@@ -104,7 +104,7 @@ pub async fn send_test(
     let status = deliver_once(endpoint, EVENT_TEST, &body, &delivery_id).await;
     let delivered = status.delivered;
     let status_text = truncate_status(&status.status);
-    if let Err(error) = hypr_db_app::record_webhook_delivery(pool, &endpoint.id, &status_text).await
+    if let Err(error) = anlg_db_app::record_webhook_delivery(pool, &endpoint.id, &status_text).await
     {
         tracing::warn!("[local-api] failed to record webhook delivery: {error}");
     }
@@ -121,7 +121,7 @@ struct DeliveryOutcome {
 
 async fn deliver_with_retry(
     pool: &SqlitePool,
-    endpoint: &hypr_db_app::WebhookEndpointRow,
+    endpoint: &anlg_db_app::WebhookEndpointRow,
     event: &str,
     body: &str,
 ) {
@@ -148,14 +148,14 @@ async fn deliver_with_retry(
         );
     }
     let status_text = truncate_status(&outcome.status);
-    if let Err(error) = hypr_db_app::record_webhook_delivery(pool, &endpoint.id, &status_text).await
+    if let Err(error) = anlg_db_app::record_webhook_delivery(pool, &endpoint.id, &status_text).await
     {
         tracing::warn!("[local-api] failed to record webhook delivery: {error}");
     }
 }
 
 async fn deliver_once(
-    endpoint: &hypr_db_app::WebhookEndpointRow,
+    endpoint: &anlg_db_app::WebhookEndpointRow,
     event: &str,
     body: &str,
     delivery_id: &str,
@@ -221,7 +221,7 @@ mod tests {
 
     #[test]
     fn empty_event_list_subscribes_to_everything() {
-        let endpoint = hypr_db_app::WebhookEndpointRow {
+        let endpoint = anlg_db_app::WebhookEndpointRow {
             id: "webhook-1".to_string(),
             url: "https://example.com".to_string(),
             secret: "whsec_x".to_string(),
@@ -233,7 +233,7 @@ mod tests {
         };
         assert!(subscribes(&endpoint, EVENT_NOTE_ENHANCED));
 
-        let scoped = hypr_db_app::WebhookEndpointRow {
+        let scoped = anlg_db_app::WebhookEndpointRow {
             events_json: "[\"meeting.completed\"]".to_string(),
             ..endpoint
         };
@@ -243,9 +243,9 @@ mod tests {
 
     #[tokio::test]
     async fn disabled_api_skips_webhook_dispatch() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
-        hypr_db_app::insert_webhook_endpoint(
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
+        anlg_db_app::insert_webhook_endpoint(
             db.pool(),
             "webhook-1",
             "https://example.com",

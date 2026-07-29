@@ -23,8 +23,8 @@ pub fn init() -> Option<sentry::ClientInitGuard> {
     });
     sentry::configure_scope(|scope| {
         scope.set_tag("service.name", "cli");
-        scope.set_tag("service.namespace", "hyprnote");
-        scope.set_tag("hyprnote.surface", "cli");
+        scope.set_tag("service.namespace", "anarlog");
+        scope.set_tag("anarlog.surface", "cli");
     });
     Some(guard)
 }
@@ -32,8 +32,8 @@ pub fn init() -> Option<sentry::ClientInitGuard> {
 pub fn capture_command_error(command: &str, error_code: &str) {
     sentry::with_scope(
         |scope| {
-            scope.set_tag("hyprnote.operation", "cli_command");
-            scope.set_tag("hyprnote.command", command);
+            scope.set_tag("anarlog.operation", "cli_command");
+            scope.set_tag("anarlog.command", command);
             scope.set_tag("error.code", error_code);
         },
         || {

@@ -417,7 +417,7 @@ impl Provider {
         msg: &owhisper_interface::ControlMessage,
     ) -> Option<String> {
         use crate::adapter::RealtimeSttAdapter;
-        use hypr_ws_client::client::Message;
+        use anlg_ws_client::client::Message;
         use owhisper_interface::ControlMessage;
 
         fn extract_text(msg: Message) -> Option<String> {

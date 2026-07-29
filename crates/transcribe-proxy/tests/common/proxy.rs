@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use axum::{Json, Router, extract::RawQuery, response::IntoResponse, routing::post};
 use owhisper_client::Provider;
-use transcribe_proxy::{HyprnoteRoutingConfig, SttProxyConfig};
+use transcribe_proxy::{AnarlogRoutingConfig, SttProxyConfig};
 
 use super::MockServerHandle;
 
@@ -112,7 +112,7 @@ async fn start_proxy_with(
         env.stt.soniox_api_key = Some("test-key".to_string());
     }
 
-    let supabase_env = hypr_api_env::SupabaseEnv {
+    let supabase_env = anlg_api_env::SupabaseEnv {
         supabase_url: String::new(),
         supabase_anon_key: String::new(),
         supabase_service_role_key: String::new(),
@@ -120,7 +120,7 @@ async fn start_proxy_with(
 
     let mut config = SttProxyConfig::new(&env, &supabase_env)
         .with_default_provider(default_provider)
-        .with_hyprnote_routing(HyprnoteRoutingConfig::default());
+        .with_anarlog_routing(AnarlogRoutingConfig::default());
 
     if let Some(url) = deepgram_upstream {
         config = config.with_upstream_url(Provider::Deepgram, url);

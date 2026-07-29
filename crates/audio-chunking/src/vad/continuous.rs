@@ -4,9 +4,9 @@ use std::{
     task::{Context, Poll},
 };
 
+use anlg_audio_interface::AsyncSource;
+use anlg_vad::silero_onnx::CHUNK_SIZE_16KHZ;
 use futures_util::Stream;
-use hypr_audio_interface::AsyncSource;
-use hypr_vad::silero_onnx::CHUNK_SIZE_16KHZ;
 use pin_project::pin_project;
 
 use crate::AudioChunk;
@@ -171,14 +171,14 @@ mod tests {
     #[tokio::test]
     async fn test_no_audio_drops_for_continuous_vad() {
         let all_audio = rodio::Decoder::try_from(
-            std::fs::File::open(hypr_data::english_1::AUDIO_PATH).unwrap(),
+            std::fs::File::open(anlg_data::english_1::AUDIO_PATH).unwrap(),
         )
         .unwrap()
         .collect::<Vec<_>>();
 
         let vad = ContinuousVadStream::new(
             rodio::Decoder::new(std::io::BufReader::new(
-                std::fs::File::open(hypr_data::english_1::AUDIO_PATH).unwrap(),
+                std::fs::File::open(anlg_data::english_1::AUDIO_PATH).unwrap(),
             ))
             .unwrap(),
             VadChunkerConfig::default(),
@@ -204,7 +204,7 @@ mod tests {
     #[tokio::test]
     async fn test_no_speech_drops_for_vad_chunks() {
         let vad = rodio::Decoder::new(std::io::BufReader::new(
-            std::fs::File::open(hypr_data::english_1::AUDIO_PATH).unwrap(),
+            std::fs::File::open(anlg_data::english_1::AUDIO_PATH).unwrap(),
         ))
         .unwrap()
         .speech_chunks(crate::SpeechChunkingConfig::speech(
@@ -245,7 +245,7 @@ mod tests {
     #[tokio::test]
     async fn test_vad_chunks_are_monotonic_and_non_overlapping() {
         let chunks = rodio::Decoder::new(std::io::BufReader::new(
-            std::fs::File::open(hypr_data::english_1::AUDIO_PATH).unwrap(),
+            std::fs::File::open(anlg_data::english_1::AUDIO_PATH).unwrap(),
         ))
         .unwrap()
         .speech_chunks(crate::SpeechChunkingConfig::speech(

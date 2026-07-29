@@ -10,6 +10,6 @@ impl DockMenuItem for DockCheckUpdate {
     }
 
     fn handle(app: &tauri::AppHandle<tauri::Wry>) {
-        tauri_plugin_tray::HyprMenuItem::TrayCheckUpdate.handle(app);
+        tauri_plugin_tray::AnlgMenuItem::TrayCheckUpdate.handle(app);
     }
 }

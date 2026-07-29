@@ -40,7 +40,7 @@ export type Provider = {
 
 const _PROVIDERS = [
   {
-    id: "hyprnote",
+    id: "anarlog",
     displayName: "Anarlog",
     badge: "Recommended",
     icon: <AnarlogProviderIcon />,

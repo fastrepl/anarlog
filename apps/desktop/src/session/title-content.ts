@@ -1,4 +1,4 @@
-import type { JSONContent, PlaceholderFunction } from "@hypr/editor/note";
+import type { JSONContent, PlaceholderFunction } from "@anlg/editor/note";
 
 export const documentTitlePlaceholder: PlaceholderFunction = ({ node, pos }) =>
   pos === 0 && node.type.name === "heading" && node.attrs.level === 1

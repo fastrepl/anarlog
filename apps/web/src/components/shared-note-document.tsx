@@ -12,7 +12,7 @@ import {
 
 // The read surface that otherwise carries these styles is lazy-loaded, so the
 // static document would render unstyled during SSR and on the fallback paths.
-import "@hypr/editor/styles.css";
+import "@anlg/editor/styles.css";
 
 import {
   getSafeSharedNoteHref,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { LiveTranscriptSegment } from "@hypr/plugin-transcription";
+import type { LiveTranscriptSegment } from "@anlg/plugin-transcription";
 
 import {
   getCurrentFloatingBarColorScheme,
@@ -586,7 +586,7 @@ describe("shouldShowFloatingLiveCaptionToggle", () => {
   it("shows for active live transcription", () => {
     expect(
       shouldShowFloatingLiveCaptionToggle({
-        provider: "hyprnote",
+        provider: "anarlog",
         model: "cloud",
         liveTranscriptionActive: true,
       }),
@@ -596,7 +596,7 @@ describe("shouldShowFloatingLiveCaptionToggle", () => {
   it("shows for local realtime transcription", () => {
     expect(
       shouldShowFloatingLiveCaptionToggle({
-        provider: "hyprnote",
+        provider: "anarlog",
         model: "soniqo-parakeet-streaming",
         liveTranscriptionActive: true,
       }),
@@ -606,7 +606,7 @@ describe("shouldShowFloatingLiveCaptionToggle", () => {
   it("hides before live transcription is active", () => {
     expect(
       shouldShowFloatingLiveCaptionToggle({
-        provider: "hyprnote",
+        provider: "anarlog",
         model: "cloud",
         liveTranscriptionActive: false,
       }),

@@ -5,7 +5,7 @@ import { ArrowLeftIcon, MailIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import {
   AuthShell,

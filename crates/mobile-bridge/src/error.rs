@@ -33,13 +33,13 @@ pub(crate) fn parse_params_json(params_json: &str) -> Result<Vec<serde_json::Val
     }
 }
 
-pub(crate) fn execute_error(error: hypr_db_execute::Error) -> BridgeError {
+pub(crate) fn execute_error(error: anlg_db_execute::Error) -> BridgeError {
     BridgeError::QueryFailed {
         reason: error.to_string(),
     }
 }
 
-pub(crate) fn reactive_error(error: hypr_db_reactive::Error) -> BridgeError {
+pub(crate) fn reactive_error(error: anlg_db_reactive::Error) -> BridgeError {
     BridgeError::QueryFailed {
         reason: error.to_string(),
     }
@@ -51,7 +51,7 @@ pub(crate) fn cloudsync_error(error: impl std::fmt::Display) -> BridgeError {
     }
 }
 
-pub(crate) fn cloudsync_runtime_error(error: hypr_db_core::CloudsyncRuntimeError) -> BridgeError {
+pub(crate) fn cloudsync_runtime_error(error: anlg_db_core::CloudsyncRuntimeError) -> BridgeError {
     BridgeError::CloudsyncFailed {
         reason: error.to_string(),
     }
@@ -66,9 +66,9 @@ pub(crate) fn serialization_error(error: serde_json::Error) -> BridgeError {
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum OpenAppDbError {
     #[error(transparent)]
-    Open(#[from] hypr_db_core::DbOpenError),
+    Open(#[from] anlg_db_core::DbOpenError),
     #[error(transparent)]
-    Migrate(#[from] hypr_db_migrate::MigrateError),
+    Migrate(#[from] anlg_db_migrate::MigrateError),
     #[error(transparent)]
-    AppSchema(#[from] hypr_db_app::AppSchemaError),
+    AppSchema(#[from] anlg_db_app::AppSchemaError),
 }

@@ -2,10 +2,10 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use anlg_audacity::{Project, Track};
+use anlg_audio_utils::{audio_file_metadata, resample_audio, source_from_path};
 use clap::Parser;
 use hound::{SampleFormat, WavSpec, WavWriter};
-use hypr_audacity::{Project, Track};
-use hypr_audio_utils::{audio_file_metadata, resample_audio, source_from_path};
 use vad_masking::{StreamingVad, VadConfig};
 
 const TARGET_SAMPLE_RATE: u32 = 16_000;

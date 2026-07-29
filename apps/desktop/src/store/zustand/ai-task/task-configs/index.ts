@@ -5,7 +5,7 @@ import type {
   EnhanceUser,
   TitleSystem,
   TitleUser,
-} from "@hypr/plugin-template";
+} from "@anlg/plugin-template";
 
 import type { EnhanceImageContext } from "./enhance-images";
 import { enhanceSuccess, runEnhanceSuccess } from "./enhance-success";

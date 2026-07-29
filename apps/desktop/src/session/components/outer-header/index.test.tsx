@@ -82,13 +82,13 @@ vi.mock("../shared", () => ({
     mocks.hasTranscriptBySession[sessionId] ?? false,
 }));
 
-vi.mock("@hypr/plugin-opener2", () => ({
+vi.mock("@anlg/plugin-opener2", () => ({
   commands: {
     openUrl: mocks.openUrl,
   },
 }));
 
-vi.mock("@hypr/plugin-deeplink2", () => ({
+vi.mock("@anlg/plugin-deeplink2", () => ({
   commands: {
     startCallbackServer: mocks.startCallbackServer,
   },

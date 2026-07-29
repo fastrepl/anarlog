@@ -11,7 +11,7 @@ type PreferredProviderModelOptions = {
 const DEFAULT_EXTERNAL_STT_MODELS: Record<string, string> = {
   deepgram: "nova-3-general",
   assemblyai: "universal-3-pro",
-  openai: "gpt-4o-transcribe-diarize",
+  openai: "gpt-live-transcribe",
   cartesia: "ink-2",
   cloudflare_workers_ai: "nova-3",
   gladia: "solaria-1",

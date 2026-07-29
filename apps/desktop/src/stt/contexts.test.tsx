@@ -30,7 +30,7 @@ const {
   loadSessionEventMock: vi.fn(),
 }));
 
-vi.mock("@hypr/plugin-detect", () => ({
+vi.mock("@anlg/plugin-detect", () => ({
   commands: {
     listMicUsingApplications: listMicUsingApplicationsMock,
   },
@@ -41,7 +41,7 @@ vi.mock("@hypr/plugin-detect", () => ({
   },
 }));
 
-vi.mock("@hypr/plugin-notification", () => ({
+vi.mock("@anlg/plugin-notification", () => ({
   commands: {
     showNotification: showNotificationMock,
   },

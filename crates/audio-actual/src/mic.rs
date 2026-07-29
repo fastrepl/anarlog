@@ -109,7 +109,7 @@ impl MicInput {
             crate::Error::MicOpenFailed
         })?;
         tracing::info!(
-            hyprnote.audio.sample_rate_hz = ?config.sample_rate(),
+            anarlog.audio.sample_rate_hz = ?config.sample_rate(),
             device_name,
             "mic_input_initialized"
         );
@@ -384,8 +384,8 @@ mod tests {
     #[tokio::test]
     #[ignore = "requires audio hardware"]
     async fn test_mic_stream_with_resampling() {
-        use hypr_audio_utils::chunk_size_for_stt;
-        use hypr_resampler::ResampleExtDynamicNew;
+        use anlg_audio_utils::chunk_size_for_stt;
+        use anlg_resampler::ResampleExtDynamicNew;
 
         let mic = MicInput::new(None).unwrap();
         println!("mic device: {}", mic.device_name());

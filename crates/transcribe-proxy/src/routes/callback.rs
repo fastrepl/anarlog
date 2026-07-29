@@ -63,8 +63,8 @@ pub async fn handler(
     }
     .map_err(|e| {
         tracing::error!(
-            hyprnote.stt.job.id = %id,
-            hyprnote.stt.provider.name = %provider,
+            anarlog.stt.job.id = %id,
+            anarlog.stt.provider.name = %provider,
             error = %e,
             "callback processing failed"
         );
@@ -100,7 +100,7 @@ async fn cleanup_audio(supabase: &SupabaseClient, job_id: &str) {
         Ok(None) => return,
         Err(e) => {
             tracing::warn!(
-                hyprnote.stt.job.id = %job_id,
+                anarlog.stt.job.id = %job_id,
                 error = %e,
                 "failed to fetch job for cleanup"
             );
@@ -114,8 +114,8 @@ async fn cleanup_audio(supabase: &SupabaseClient, job_id: &str) {
         .await
     {
         tracing::warn!(
-            hyprnote.stt.job.id = %job_id,
-            hyprnote.file.id = %job.file_id,
+            anarlog.stt.job.id = %job_id,
+            anarlog.file.id = %job.file_id,
             error = %e,
             "failed to delete audio file"
         );

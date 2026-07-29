@@ -1,13 +1,13 @@
 import { disable, enable } from "@tauri-apps/plugin-autostart";
 import { useCallback } from "react";
 
-import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { commands as detectCommands } from "@hypr/plugin-detect";
-import { commands as localSttCommands } from "@hypr/plugin-local-stt";
-import { commands as templateCommands } from "@hypr/plugin-template";
-import { commands as trayCommands } from "@hypr/plugin-tray";
-import { commands as updaterCommands } from "@hypr/plugin-updater2";
-import { commands as windowsCommands } from "@hypr/plugin-windows";
+import { commands as analyticsCommands } from "@anlg/plugin-analytics";
+import { commands as detectCommands } from "@anlg/plugin-detect";
+import { commands as localSttCommands } from "@anlg/plugin-local-stt";
+import { commands as templateCommands } from "@anlg/plugin-template";
+import { commands as trayCommands } from "@anlg/plugin-tray";
+import { commands as updaterCommands } from "@anlg/plugin-updater2";
+import { commands as windowsCommands } from "@anlg/plugin-windows";
 
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
@@ -24,7 +24,7 @@ import {
 } from "~/settings/schema";
 import {
   isConfiguredSttModel,
-  isHyprnoteLocalSttModel,
+  isAnarlogLocalSttModel,
 } from "~/stt/capabilities";
 import {
   getDefaultSttModel,
@@ -455,7 +455,7 @@ async function syncLocalSttServer(): Promise<void> {
   let model = values.current_stt_model;
 
   if (
-    provider === "hyprnote" &&
+    provider === "anarlog" &&
     model &&
     !isConfiguredSttModel(provider, model)
   ) {
@@ -474,7 +474,7 @@ async function syncLocalSttServer(): Promise<void> {
     ]);
   }
 
-  if (isHyprnoteLocalSttModel(provider, model)) {
+  if (isAnarlogLocalSttModel(provider, model)) {
     await localSttCommands.startServer(model);
   } else {
     await localSttCommands.stopServer(null);

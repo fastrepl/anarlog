@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 
-import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
+import { commands as analyticsCommands } from "@anlg/plugin-analytics";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import { useAITaskTask } from "~/ai/hooks";
 import { useLanguageModel } from "~/ai/hooks";

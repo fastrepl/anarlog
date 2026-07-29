@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { TaskRecord, TaskSource } from "@hypr/editor/tasks";
+import type { TaskRecord, TaskSource } from "@anlg/editor/tasks";
 
 import {
   createSqliteTaskStorage,

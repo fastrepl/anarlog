@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use hypr_hooks::cli_flag;
+use anlg_hooks::cli_flag;
 use serde::{Deserialize, Serialize};
 
-use hypr_docs::{
+use anlg_docs::{
     Field, JsDocExtractor, Module, TsType, TsUnionOrIntersectionType, TypeDoc, collect_type_docs,
     first_property, is_false, parse_module, prop_name, property_by_name, type_lit_from,
     type_name_from,
@@ -101,7 +101,7 @@ fn hook_from_variant(type_ann: &TsType, type_docs: &HashMap<String, TypeDoc>) ->
 }
 
 fn hook_union(module: &Module) -> Option<&TsType> {
-    hypr_docs::exported_type_aliases(module)
+    anlg_docs::exported_type_aliases(module)
         .find(|(alias, _)| alias.id.sym.as_ref() == "HookEvent")
         .map(|(alias, _)| alias.type_ann.as_ref())
 }

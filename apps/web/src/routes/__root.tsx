@@ -8,7 +8,7 @@ import {
   useRouterState,
 } from "@tanstack/react-router";
 
-import { Toaster } from "@hypr/ui/components/ui/toast";
+import { Toaster } from "@anlg/ui/components/ui/toast";
 
 import { WebProviders } from "@/components/web-providers";
 import { isTelemetryPrivateLocation } from "@/lib/auth-route-privacy";

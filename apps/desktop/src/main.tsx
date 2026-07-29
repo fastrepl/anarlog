@@ -11,13 +11,13 @@ import {
   useCreateManager,
 } from "tinytick/ui-react";
 
-import "@hypr/ui/globals.css";
-import { commands as analyticsCommands } from "@hypr/plugin-analytics";
+import "@anlg/ui/globals.css";
+import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import {
   getCurrentWebviewWindowLabel,
   init as initWindowsPlugin,
-} from "@hypr/plugin-windows";
-import { Toaster } from "@hypr/ui/components/ui/toast";
+} from "@anlg/plugin-windows";
+import { Toaster } from "@anlg/ui/components/ui/toast";
 
 import { AITaskWindowSyncBridge } from "./ai/task-window-sync";
 import { trackAnalyticsEvent } from "./analytics";

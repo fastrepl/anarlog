@@ -1,14 +1,14 @@
 import { SearchIcon } from "lucide-react";
 import { useCallback, useMemo } from "react";
 
-import { Card, CardContent } from "@hypr/ui/components/ui/card";
+import { Card, CardContent } from "@anlg/ui/components/ui/card";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
-} from "@hypr/ui/components/ui/carousel";
+} from "@anlg/ui/components/ui/carousel";
 
 import { useToolState } from "./shared";
 

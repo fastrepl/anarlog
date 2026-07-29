@@ -1,4 +1,4 @@
-use hypr_onnx::{
+use anlg_onnx::{
     ndarray::{self, ArrayBase, Axis, IxDyn, ViewRepr},
     ort::{self, session::Session, value::TensorRef},
 };
@@ -59,7 +59,7 @@ impl Segmenter {
     }
 
     pub fn from_model_bytes(model_bytes: &[u8], sample_rate: u32) -> Result<Self> {
-        let session = hypr_onnx::load_model_from_bytes(model_bytes)?;
+        let session = anlg_onnx::load_model_from_bytes(model_bytes)?;
         Self::with_session(session, sample_rate)
     }
 
@@ -675,22 +675,22 @@ mod tests {
 
     #[test]
     fn snapshot_english_1() {
-        run_snapshot_test(hypr_data::english_1::AUDIO, "segmentation_english_1");
+        run_snapshot_test(anlg_data::english_1::AUDIO, "segmentation_english_1");
     }
 
     #[test]
     fn snapshot_english_2() {
-        run_snapshot_test(hypr_data::english_2::AUDIO, "segmentation_english_2");
+        run_snapshot_test(anlg_data::english_2::AUDIO, "segmentation_english_2");
     }
 
     #[test]
     fn snapshot_korean_1() {
-        run_snapshot_test(hypr_data::korean_1::AUDIO, "segmentation_korean_1");
+        run_snapshot_test(anlg_data::korean_1::AUDIO, "segmentation_korean_1");
     }
 
     #[test]
     fn aligns_with_pyannote_community1_on_english_1() {
-        let samples = pcm_bytes_to_i16(hypr_data::english_1::AUDIO);
+        let samples = pcm_bytes_to_i16(anlg_data::english_1::AUDIO);
         let sample_rate = 16000u32;
 
         let mut segmenter = Segmenter::new(sample_rate).unwrap();

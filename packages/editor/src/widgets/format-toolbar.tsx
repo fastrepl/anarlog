@@ -25,7 +25,7 @@ import type { EditorState } from "prosemirror-state";
 import { useRef } from "react";
 import { createPortal } from "react-dom";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import { schema } from "../note/schema";
 

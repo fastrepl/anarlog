@@ -1,4 +1,4 @@
-import { PRO_TRIAL_DAYS } from "@hypr/pricing/trial";
+import { PRO_TRIAL_DAYS } from "@anlg/pricing/trial";
 
 export const WEB_TRIAL_CHECKOUT_FIELDS = {
   payment_method_collection: "always",

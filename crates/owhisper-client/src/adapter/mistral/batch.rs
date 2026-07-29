@@ -21,7 +21,7 @@ impl BatchSttAdapter for MistralAdapter {
 
     fn is_supported_languages(
         &self,
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         _model: Option<&str>,
     ) -> bool {
         MistralAdapter::is_supported_languages_batch(languages)

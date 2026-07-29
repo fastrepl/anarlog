@@ -16,7 +16,7 @@ pub(crate) async fn wait_for_task_exit(
         _ = &mut warn_after_sleep => {
             tracing::warn!(
                 %context,
-                hyprnote.timeout_s = warn_after.as_secs(),
+                anarlog.timeout_s = warn_after.as_secs(),
                 "model_download_task_join_slow"
             );
             task.await

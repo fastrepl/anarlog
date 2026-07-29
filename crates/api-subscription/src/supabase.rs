@@ -41,11 +41,11 @@ impl SupabaseClient {
     }
 
     fn with_trace_context(&self, builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
-        hypr_observability::with_current_trace_context(builder)
+        anlg_observability::with_current_trace_context(builder)
     }
 
-    pub(crate) fn storage(&self) -> hypr_supabase_storage::SupabaseStorage {
-        hypr_supabase_storage::SupabaseStorage::new(
+    pub(crate) fn storage(&self) -> anlg_supabase_storage::SupabaseStorage {
+        anlg_supabase_storage::SupabaseStorage::new(
             self.http_client.clone(),
             &self.base_url,
             &self.service_role_key,
@@ -80,10 +80,10 @@ impl SupabaseClient {
         let status = response.status();
         tracing::info!(
             service.peer.name = "supabase",
-            hyprnote.supabase.operation = "admin_rpc",
-            hyprnote.supabase.function = %function_name,
+            anarlog.supabase.operation = "admin_rpc",
+            anarlog.supabase.function = %function_name,
             http.response.status_code = status.as_u16(),
-            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            anarlog.duration_ms = start.elapsed().as_millis() as u64,
             "supabase_request_finished"
         );
         if response
@@ -144,10 +144,10 @@ impl SupabaseClient {
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
         tracing::info!(
             service.peer.name = "supabase",
-            hyprnote.supabase.operation = "rpc",
-            hyprnote.supabase.function = %function_name,
+            anarlog.supabase.operation = "rpc",
+            anarlog.supabase.function = %function_name,
             http.response.status_code = response.status().as_u16(),
-            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            anarlog.duration_ms = start.elapsed().as_millis() as u64,
             "supabase_request_finished"
         );
 
@@ -199,10 +199,10 @@ impl SupabaseClient {
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
         tracing::info!(
             service.peer.name = "supabase",
-            hyprnote.supabase.operation = "select",
-            hyprnote.supabase.table = %table,
+            anarlog.supabase.operation = "select",
+            anarlog.supabase.table = %table,
             http.response.status_code = response.status().as_u16(),
-            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            anarlog.duration_ms = start.elapsed().as_millis() as u64,
             "supabase_request_finished"
         );
 
@@ -403,9 +403,9 @@ impl SupabaseClient {
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
         tracing::info!(
             service.peer.name = "supabase",
-            hyprnote.supabase.operation = "admin_delete_user",
+            anarlog.supabase.operation = "admin_delete_user",
             http.response.status_code = response.status().as_u16(),
-            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            anarlog.duration_ms = start.elapsed().as_millis() as u64,
             "supabase_request_finished"
         );
 

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-api-auth = { workspace = true }
+anlg-api-auth = { workspace = true }
 
 askama = { workspace = true }
 axum = { workspace = true }

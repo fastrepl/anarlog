@@ -6,7 +6,7 @@ import type {
   SessionsState,
   TabInput as WindowsTabInput,
   TemplatesState,
-} from "@hypr/plugin-windows";
+} from "@anlg/plugin-windows";
 
 export type {
   ChangelogState,

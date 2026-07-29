@@ -8,8 +8,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@hypr/ui/components/ui/select";
-import { cn } from "@hypr/utils";
+} from "@anlg/ui/components/ui/select";
+import { cn } from "@anlg/utils";
 
 import { useLlmSettings } from "./context";
 import { HealthStatusIndicator, useConnectionHealth } from "./health";
@@ -247,7 +247,7 @@ export function SelectProviderAndModel() {
       : undefined;
 
   const handleProviderChange = (provider: string) => {
-    if (provider === "hyprnote" && !billing.isPaid) {
+    if (provider === "anarlog" && !billing.isPaid) {
       billing.upgradeToPro();
       return;
     }
@@ -474,7 +474,7 @@ export function getLlmProviderStatus({
     }
   }
 
-  if (provider.id === "hyprnote") {
+  if (provider.id === "anarlog") {
     const result: ListModelsResult = {
       models: ["Auto"],
       ignored: [],

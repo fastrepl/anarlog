@@ -1,7 +1,7 @@
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
 
-export { env as coreEnv } from "@hypr/agent-core";
+export { env as coreEnv } from "@anlg/agent-core";
 
 export const env = createEnv({
   server: {

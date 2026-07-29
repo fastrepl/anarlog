@@ -1,5 +1,5 @@
-use hypr_onnx::ndarray::{Array3, ArrayView1};
-use hypr_onnx::ort::value::Tensor;
+use anlg_onnx::ndarray::{Array3, ArrayView1};
+use anlg_onnx::ort::value::Tensor;
 
 pub const CHUNK_SIZE_16KHZ: usize = 512;
 const CONTEXT_SIZE_16KHZ: usize = 64;
@@ -10,13 +10,13 @@ pub enum Error {
     #[error("invalid input: {0}")]
     InvalidInput(String),
     #[error("onnx error: {0}")]
-    Onnx(#[from] hypr_onnx::Error),
+    Onnx(#[from] anlg_onnx::Error),
     #[error("ort error: {0}")]
-    Ort(#[from] hypr_onnx::ort::Error),
+    Ort(#[from] anlg_onnx::ort::Error),
 }
 
 pub struct SileroVad {
-    session: hypr_onnx::ort::session::Session,
+    session: anlg_onnx::ort::session::Session,
     state: Array3<f32>,
     context: Vec<f32>,
 }
@@ -35,7 +35,7 @@ impl SileroVad {
     }
 
     pub fn new(model_path: impl AsRef<std::path::Path>) -> Result<Self, Error> {
-        let session = hypr_onnx::load_model_from_path(model_path)?;
+        let session = anlg_onnx::load_model_from_path(model_path)?;
         Ok(Self {
             session,
             state: Array3::zeros((2, 1, STATE_SIZE)),
@@ -44,7 +44,7 @@ impl SileroVad {
     }
 
     pub fn new_from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-        let session = hypr_onnx::load_model_from_bytes(bytes)?;
+        let session = anlg_onnx::load_model_from_bytes(bytes)?;
         Ok(Self {
             session,
             state: Array3::zeros((2, 1, STATE_SIZE)),
@@ -112,8 +112,8 @@ pub fn pcm_i16_to_f32(samples: &[i16]) -> Vec<f32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anlg_onnx::ndarray::ArrayView1;
     use approx::assert_abs_diff_eq;
-    use hypr_onnx::ndarray::ArrayView1;
     use serde::{Deserialize, Serialize};
     use std::path::Path;
 
@@ -211,26 +211,26 @@ mod tests {
 
     #[test]
     fn test_silero_v6_english_1() {
-        run_snapshot_test(hypr_data::english_1::AUDIO, "silero_v6_english_1");
+        run_snapshot_test(anlg_data::english_1::AUDIO, "silero_v6_english_1");
     }
 
     #[test]
     fn test_silero_v6_english_2() {
-        run_snapshot_test(hypr_data::english_2::AUDIO, "silero_v6_english_2");
+        run_snapshot_test(anlg_data::english_2::AUDIO, "silero_v6_english_2");
     }
 
     #[test]
     fn test_silero_v6_english_3() {
-        run_snapshot_test(hypr_data::english_3::AUDIO, "silero_v6_english_3");
+        run_snapshot_test(anlg_data::english_3::AUDIO, "silero_v6_english_3");
     }
 
     #[test]
     fn test_silero_v6_korean_1() {
-        run_snapshot_test(hypr_data::korean_1::AUDIO, "silero_v6_korean_1");
+        run_snapshot_test(anlg_data::korean_1::AUDIO, "silero_v6_korean_1");
     }
 
     #[test]
     fn test_silero_v6_korean_2() {
-        run_snapshot_test(hypr_data::korean_2::AUDIO, "silero_v6_korean_2");
+        run_snapshot_test(anlg_data::korean_2::AUDIO, "silero_v6_korean_2");
     }
 }

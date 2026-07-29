@@ -26,7 +26,7 @@ pub(super) const MODERATE_LANGS: &[&str] = &[
 
 pub(super) const NO_DATA_LANGS: &[&str] = &["ff", "ln", "ny"];
 
-pub(super) fn single_language_support(language: &hypr_language::Language) -> LanguageSupport {
+pub(super) fn single_language_support(language: &anlg_language::Language) -> LanguageSupport {
     let code = language.iso639().code();
     let quality = if EXCELLENT_LANGS.contains(&code) {
         LanguageQuality::Excellent

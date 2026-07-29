@@ -17,7 +17,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .commands(tauri_specta::collect_commands![
             commands::run_event_hooks::<tauri::Wry>,
         ])
-        .typ::<hypr_hooks::HooksConfig>()
+        .typ::<anlg_hooks::HooksConfig>()
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
 

@@ -10,7 +10,7 @@ import {
 test("removes user content while preserving safe diagnostics", () => {
   const event = sanitizeMobileErrorEvent({
     platform: "javascript",
-    tags: { "hyprnote.operation": "session_save" },
+    tags: { "anarlog.operation": "session_save" },
     user: {
       id: "user-1",
       email: "private@example.com",
@@ -36,7 +36,7 @@ test("removes user content while preserving safe diagnostics", () => {
     },
     breadcrumbs: [
       {
-        category: "hyprnote.operation",
+        category: "anarlog.operation",
         message: "auth_session_restore",
         data: {
           outcome: "persisted_fallback",
@@ -70,7 +70,7 @@ test("removes user content while preserving safe diagnostics", () => {
   assert.equal(event.exception?.values?.[0]?.mechanism?.data, undefined);
   assert.deepEqual(event.breadcrumbs, [
     {
-      category: "hyprnote.operation",
+      category: "anarlog.operation",
       level: undefined,
       message: "auth_session_restore",
       timestamp: undefined,

@@ -2,10 +2,10 @@ import * as Sentry from "@sentry/react";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 
-import { startTrial } from "@hypr/api-client";
-import type { StartTrialReason } from "@hypr/api-client";
-import { createClient } from "@hypr/api-client/client";
-import { commands as analyticsCommands } from "@hypr/plugin-analytics";
+import { startTrial } from "@anlg/api-client";
+import type { StartTrialReason } from "@anlg/api-client";
+import { createClient } from "@anlg/api-client/client";
+import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";

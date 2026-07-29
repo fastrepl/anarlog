@@ -1,9 +1,9 @@
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+use anlg_audio_interface::AsyncSource;
 use dasp::interpolate::Interpolator;
 use futures_util::{Stream, pin_mut};
-use hypr_audio_interface::AsyncSource;
 use pin_project::pin_project;
 
 #[pin_project]

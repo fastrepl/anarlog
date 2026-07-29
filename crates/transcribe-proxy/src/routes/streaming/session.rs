@@ -27,8 +27,8 @@ pub fn build_session_config(
     name = "stt.session.init",
     skip(state, selected, params),
     fields(
-        hyprnote.subsystem = "stt",
-        hyprnote.stt.provider.name = ?selected.provider()
+        anarlog.subsystem = "stt",
+        anarlog.stt.provider.name = ?selected.provider()
     )
 )]
 pub async fn init_session(
@@ -44,7 +44,7 @@ pub async fn init_session(
 
     let config = build_session_config(provider, params)?;
 
-    let resp = hypr_observability::with_current_trace_context(
+    let resp = anlg_observability::with_current_trace_context(
         state
             .client
             .post(init_url)
@@ -68,8 +68,8 @@ pub async fn init_session(
         .map_err(|e| format!("session init parse failed: {}", e))?;
 
     tracing::debug!(
-        hyprnote.stt.session.id = %init.id,
-        hyprnote.stt.provider.name = ?provider,
+        anarlog.stt.session.id = %init.id,
+        anarlog.stt.provider.name = ?provider,
         "session_initialized"
     );
 

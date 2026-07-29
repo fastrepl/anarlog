@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useMemo, useState } from "react";
 
-import { TZDate, format, safeParseDate } from "@hypr/utils";
+import { TZDate, format, safeParseDate } from "@anlg/utils";
 
 import type { TimelineEventsTable, TimelineSessionsTable } from "./utils";
 

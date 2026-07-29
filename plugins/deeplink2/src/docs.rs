@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use hypr_docs::{
+use anlg_docs::{
     Field, JsDocExtractor, Module, TsType, TsUnionOrIntersectionType, TypeDoc, collect_type_docs,
     extract_fields, is_false, parse_module, property_by_name, type_lit_from, type_name_from,
 };
@@ -127,14 +127,14 @@ fn deeplink_from_variant(
 }
 
 fn deeplink_union(module: &Module) -> Option<&TsType> {
-    hypr_docs::exported_type_aliases(module)
+    anlg_docs::exported_type_aliases(module)
         .find(|(alias, _)| alias.id.sym.as_ref() == "DeepLink")
         .map(|(alias, _)| alias.type_ann.as_ref())
 }
 
 fn extract_literal_string_value(type_ann: &TsType) -> Option<String> {
     if let TsType::TsLitType(lit_type) = type_ann {
-        if let hypr_docs::TsLit::Str(s) = &lit_type.lit {
+        if let anlg_docs::TsLit::Str(s) = &lit_type.lit {
             return s.value.as_str().map(|s| s.to_string());
         }
     }

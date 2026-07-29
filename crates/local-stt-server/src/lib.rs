@@ -38,7 +38,7 @@ impl LocalSttServer {
         tracing::info!(model_path = %model_path.display(), "starting local whisper server");
 
         let service = HandleError::new(
-            hypr_transcribe_whisper_local::TranscribeService::builder()
+            anlg_transcribe_whisper_local::TranscribeService::builder()
                 .model_path(model_path)
                 .build(),
             move |err: String| async move { (StatusCode::INTERNAL_SERVER_ERROR, err) },

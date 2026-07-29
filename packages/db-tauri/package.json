@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/db-tauri",
+  "name": "@anlg/db-tauri",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,8 +9,8 @@
   },
   "types": "./src/index.ts",
   "dependencies": {
-    "@hypr/db-runtime": "workspace:*",
-    "@hypr/plugin-db": "workspace:*"
+    "@anlg/db-runtime": "workspace:*",
+    "@anlg/plugin-db": "workspace:*"
   },
   "devDependencies": {
     "typescript": "~5.8.3",

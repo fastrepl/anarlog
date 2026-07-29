@@ -3,10 +3,12 @@ use std::sync::Arc;
 
 use owhisper_client::{
     AssemblyAIAdapter, Auth, CartesiaAdapter, DashScopeAdapter, DeepgramAdapter, ElevenLabsAdapter,
-    FireworksAdapter, GladiaAdapter, MistralAdapter, Provider, RealtimeSttAdapter, SonioxAdapter,
-    normalize_listen_params,
+    FireworksAdapter, GladiaAdapter, MistralAdapter, OpenAIAdapter, Provider, RealtimeSttAdapter,
+    SonioxAdapter, normalize_listen_params,
 };
 use owhisper_interface::ListenParams;
+
+const _: Option<OpenAIAdapter> = None;
 
 use crate::config::SttProxyConfig;
 use crate::provider_selector::SelectedProvider;
@@ -79,7 +81,7 @@ fn build_initial_message_with_adapter(
     };
 
     msg.and_then(|m| match m {
-        owhisper_client::hypr_ws_client::client::Message::Text(t) => Some(t.to_string()),
+        owhisper_client::anlg_ws_client::client::Message::Text(t) => Some(t.to_string()),
         _ => None,
     })
 }
@@ -110,9 +112,9 @@ fn build_response_transformer(
             let normalized = serde_json::to_string(&responses)
                 .unwrap_or_else(|error| format!("serialize_error:{error}"));
             tracing::info!(
-                hyprnote.stt.provider.name = ?provider,
-                hyprnote.payload.size_bytes = raw.len(),
-                hyprnote.normalized.response_count = responses.len(),
+                anarlog.stt.provider.name = ?provider,
+                anarlog.payload.size_bytes = raw.len(),
+                anarlog.normalized.response_count = responses.len(),
                 raw = %raw,
                 normalized = %normalized,
                 "proxy_normalized_upstream_text"
@@ -199,10 +201,7 @@ fn build_proxy_with_adapter(
 ) -> Result<StreamingProxy, crate::ProxyError> {
     let mut listen_params = build_listen_params(client_params);
     let channels: u8 = parse_param(client_params, "channels", 1);
-    if matches!(
-        provider,
-        Provider::AquaVoice | Provider::OpenAI | Provider::Pyannote
-    ) {
+    if matches!(provider, Provider::AquaVoice | Provider::Pyannote) {
         return Err(crate::ProxyError::InvalidRequest(format!(
             "{provider} only supports batch transcription"
         )));
@@ -297,7 +296,7 @@ pub async fn build_proxy(
 mod tests {
     use super::*;
     use crate::query_params::QueryValue;
-    use hypr_language::ISO639;
+    use anlg_language::ISO639;
 
     #[test]
     fn test_build_listen_params_basic() {
@@ -350,13 +349,13 @@ mod tests {
         let mut params = QueryParams::default();
         params.insert(
             "keyword".to_string(),
-            QueryValue::Multi(vec!["Hyprnote".to_string(), "transcription".to_string()]),
+            QueryValue::Multi(vec!["Anarlog".to_string(), "transcription".to_string()]),
         );
 
         let listen_params = build_listen_params(&params);
 
         assert_eq!(listen_params.keywords.len(), 2);
-        assert!(listen_params.keywords.contains(&"Hyprnote".to_string()));
+        assert!(listen_params.keywords.contains(&"Anarlog".to_string()));
         assert!(
             listen_params
                 .keywords

@@ -41,7 +41,7 @@ vi.mock("@tauri-apps/plugin-os", () => ({
   platform: mocks.platform,
 }));
 
-vi.mock("@hypr/plugin-windows", () => ({
+vi.mock("@anlg/plugin-windows", () => ({
   commands: {
     floatingBarShow: mocks.floatingBarShow,
     floatingBarHide: mocks.floatingBarHide,

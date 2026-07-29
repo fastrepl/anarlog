@@ -1,45 +1,45 @@
-use hypr_transcription_core::listener::ListenerRuntime;
+use anlg_transcription_core::listener::ListenerRuntime;
 use ractor::{ActorRef, call_t, registry};
 use tauri_plugin_settings::SettingsPluginExt;
 use tauri_specta::Event;
 
 use crate::{CaptureDataEvent, CaptureLifecycleEvent, CaptureStatusEvent, SessionStateCache};
-use hypr_transcription_core::listener::State as RootState;
-use hypr_transcription_core::listener::actors::{RootActor, RootMsg};
+use anlg_transcription_core::listener::State as RootState;
+use anlg_transcription_core::listener::actors::{RootActor, RootMsg};
 
 pub struct TauriRuntime {
     pub app: tauri::AppHandle,
     pub session_state_cache: SessionStateCache,
 }
 
-impl hypr_storage::StorageRuntime for TauriRuntime {
-    fn global_base(&self) -> Result<std::path::PathBuf, hypr_storage::Error> {
+impl anlg_storage::StorageRuntime for TauriRuntime {
+    fn global_base(&self) -> Result<std::path::PathBuf, anlg_storage::Error> {
         self.app
             .settings()
             .global_base()
             .map(|p| p.into_std_path_buf())
-            .map_err(|_| hypr_storage::Error::DataDirUnavailable)
+            .map_err(|_| anlg_storage::Error::DataDirUnavailable)
     }
 
-    fn vault_base(&self) -> Result<std::path::PathBuf, hypr_storage::Error> {
+    fn vault_base(&self) -> Result<std::path::PathBuf, anlg_storage::Error> {
         self.app
             .settings()
             .vault_base()
             .map(|p| p.into_std_path_buf())
-            .map_err(|_| hypr_storage::Error::DataDirUnavailable)
+            .map_err(|_| anlg_storage::Error::DataDirUnavailable)
     }
 }
 
 impl ListenerRuntime for TauriRuntime {
-    fn emit_lifecycle(&self, event: hypr_transcription_core::listener::SessionLifecycleEvent) {
+    fn emit_lifecycle(&self, event: anlg_transcription_core::listener::SessionLifecycleEvent) {
         use tauri_plugin_tray::TrayPluginExt;
         match &event {
-            hypr_transcription_core::listener::SessionLifecycleEvent::Active { error, .. } => {
+            anlg_transcription_core::listener::SessionLifecycleEvent::Active { error, .. } => {
                 let _ = self.app.tray().set_start_disabled(true);
                 let _ = self.app.tray().set_degraded(error.is_some());
                 let _ = self.app.tray().set_recording(true);
             }
-            hypr_transcription_core::listener::SessionLifecycleEvent::Inactive { .. } => {
+            anlg_transcription_core::listener::SessionLifecycleEvent::Inactive { .. } => {
                 let app = self.app.clone();
                 tauri::async_runtime::spawn(async move {
                     match current_root_state().await {
@@ -56,20 +56,20 @@ impl ListenerRuntime for TauriRuntime {
                     }
                 });
             }
-            hypr_transcription_core::listener::SessionLifecycleEvent::Finalizing { .. } => {}
+            anlg_transcription_core::listener::SessionLifecycleEvent::Finalizing { .. } => {}
         }
 
         let capture_event = match event {
-            hypr_transcription_core::listener::SessionLifecycleEvent::Active {
+            anlg_transcription_core::listener::SessionLifecycleEvent::Active {
                 session_id,
                 requested_transcription_mode,
                 current_transcription_mode,
                 error,
             } => {
                 let requested_live_transcription = requested_transcription_mode
-                    == hypr_transcription_core::listener::TranscriptionMode::Live;
+                    == anlg_transcription_core::listener::TranscriptionMode::Live;
                 let live_transcription_active = current_transcription_mode
-                    == hypr_transcription_core::listener::TranscriptionMode::Live;
+                    == anlg_transcription_core::listener::TranscriptionMode::Live;
                 if let Ok(mut cache) = self.session_state_cache.lock() {
                     cache.insert(
                         session_id.clone(),
@@ -83,10 +83,10 @@ impl ListenerRuntime for TauriRuntime {
                     degraded: error,
                 }
             }
-            hypr_transcription_core::listener::SessionLifecycleEvent::Finalizing { session_id } => {
+            anlg_transcription_core::listener::SessionLifecycleEvent::Finalizing { session_id } => {
                 CaptureLifecycleEvent::Finalizing { session_id }
             }
-            hypr_transcription_core::listener::SessionLifecycleEvent::Inactive {
+            anlg_transcription_core::listener::SessionLifecycleEvent::Inactive {
                 session_id,
                 audio_path,
                 error,
@@ -113,19 +113,19 @@ impl ListenerRuntime for TauriRuntime {
         }
     }
 
-    fn emit_progress(&self, event: hypr_transcription_core::listener::SessionProgressEvent) {
+    fn emit_progress(&self, event: anlg_transcription_core::listener::SessionProgressEvent) {
         if let Err(error) = CaptureStatusEvent::from(event).emit(&self.app) {
             tracing::error!(?error, "failed_to_emit_progress_event");
         }
     }
 
-    fn emit_error(&self, event: hypr_transcription_core::listener::SessionErrorEvent) {
+    fn emit_error(&self, event: anlg_transcription_core::listener::SessionErrorEvent) {
         if let Err(error) = CaptureStatusEvent::from(event).emit(&self.app) {
             tracing::error!(?error, "failed_to_emit_error_event");
         }
     }
 
-    fn emit_data(&self, event: hypr_transcription_core::listener::SessionDataEvent) {
+    fn emit_data(&self, event: anlg_transcription_core::listener::SessionDataEvent) {
         if let Err(error) = CaptureDataEvent::from(event).emit(&self.app) {
             tracing::error!(?error, "failed_to_emit_data_event");
         }

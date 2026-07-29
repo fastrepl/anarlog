@@ -81,7 +81,7 @@ bash scripts/setup-linux.sh
 exec "$SHELL" -l
 pnpm install --frozen-lockfile
 pnpm -F ui build
-pnpm -F @hypr/desktop tauri:dev
+turbo dev:desktop
 ~~~
 
 Release packages are built on Ubuntu 24.04, so glibc 2.39 is the effective floor. Run the

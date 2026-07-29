@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { beginCloudsyncActivity, endCloudsyncActivity } from "@hypr/plugin-db";
+import { beginCloudsyncActivity, endCloudsyncActivity } from "@anlg/plugin-db";
 
 import {
   canRunBatchTranscription,
@@ -68,7 +68,7 @@ vi.mock("./useSTTConnection", () => ({
   useSTTConnection: useSTTConnectionMock,
 }));
 
-vi.mock("@hypr/ui/components/ui/toast", () => ({
+vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: {
     warning: sonnerToastWarningMock,
   },
@@ -144,11 +144,11 @@ vi.mock("~/stt/capabilities", () => {
       currentPlatform: string,
       currentArch: string,
     ) => currentPlatform === "macos" && currentArch === "aarch64",
-    isHyprnoteLocalSttModel: (
+    isAnarlogLocalSttModel: (
       provider: string | null | undefined,
       model: string | null | undefined,
     ) =>
-      provider === "hyprnote" &&
+      provider === "anarlog" &&
       typeof model === "string" &&
       (model.startsWith("soniqo-") ||
         model.startsWith("am-") ||
@@ -183,9 +183,7 @@ describe("getBatchProvider", () => {
   });
 
   test("maps local soniqo models to soniqo batch provider", () => {
-    expect(getBatchProvider("hyprnote", "soniqo-parakeet-batch")).toBe(
-      "soniqo",
-    );
+    expect(getBatchProvider("anarlog", "soniqo-parakeet-batch")).toBe("soniqo");
   });
 });
 
@@ -212,7 +210,7 @@ describe("getBatchFallbackTarget", () => {
         currentArch: "x86_64",
       }),
     ).toEqual({
-      provider: "hyprnote",
+      provider: "anarlog",
       model: "cloud",
       baseUrl: "https://api.test/stt",
       apiKey: "token",
@@ -546,7 +544,7 @@ describe("useRunBatch", () => {
   test("passes selected transcription languages to batch transcription", async () => {
     useSTTConnectionMock.mockReturnValue({
       conn: {
-        provider: "hyprnote",
+        provider: "anarlog",
         model: "soniqo-parakeet-batch",
         baseUrl: "soniqo://local",
         apiKey: "",
@@ -640,7 +638,7 @@ describe("useRunBatch", () => {
     archMock.mockReturnValue("x86_64");
     useSTTConnectionMock.mockReturnValue({
       conn: {
-        provider: "hyprnote",
+        provider: "anarlog",
         model: "soniqo-parakeet-batch",
         baseUrl: "soniqo://local",
         apiKey: "",
@@ -665,7 +663,7 @@ describe("useRunBatch", () => {
     useBillingAccessMock.mockReturnValue({ isPaid: true });
     useSTTConnectionMock.mockReturnValue({
       conn: {
-        provider: "hyprnote",
+        provider: "anarlog",
         model: "soniqo-parakeet-batch",
         baseUrl: "soniqo://local",
         apiKey: "",
@@ -681,7 +679,7 @@ describe("useRunBatch", () => {
 
     expect(startTranscriptionMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        provider: "hyprnote",
+        provider: "anarlog",
         model: "cloud",
         base_url: "https://api.test/stt",
         api_key: "paid-token",
@@ -705,7 +703,7 @@ describe("useRunBatch", () => {
 
     expect(startTranscriptionMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        provider: "hyprnote",
+        provider: "anarlog",
         model: "cloud",
         base_url: "https://api.test/stt",
         api_key: "paid-token",
@@ -724,7 +722,7 @@ describe("useRunBatch", () => {
   test("refreshes an expired cloud token and retries transcription once", async () => {
     useSTTConnectionMock.mockReturnValue({
       conn: {
-        provider: "hyprnote",
+        provider: "anarlog",
         model: "cloud",
         baseUrl: "https://api.test/stt",
         apiKey: "stale-token",

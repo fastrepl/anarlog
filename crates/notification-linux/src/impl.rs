@@ -89,7 +89,7 @@ impl NotificationManager {
         }
     }
 
-    fn show(&mut self, notification: hypr_notification_interface::Notification) {
+    fn show(&mut self, notification: anlg_notification_interface::Notification) {
         if !self.ensure_gtk() {
             return;
         }
@@ -214,7 +214,7 @@ impl NotificationManager {
     fn create_notification_content(
         &self,
         window: &Window,
-        notification: &hypr_notification_interface::Notification,
+        notification: &anlg_notification_interface::Notification,
         key: &str,
     ) {
         let main_box = GtkBox::new(Orientation::Horizontal, 8);
@@ -411,7 +411,7 @@ impl NotificationManager {
     }
 }
 
-pub fn show(notification: &hypr_notification_interface::Notification) {
+pub fn show(notification: &anlg_notification_interface::Notification) {
     let notification = notification.clone();
 
     glib::MainContext::default().invoke(move || {

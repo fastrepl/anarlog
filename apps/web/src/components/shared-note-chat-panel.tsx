@@ -13,8 +13,8 @@ import {
   DialogContent,
   DialogTitle,
   DialogTrigger,
-} from "@hypr/ui/components/ui/dialog";
-import { cn } from "@hypr/utils";
+} from "@anlg/ui/components/ui/dialog";
+import { cn } from "@anlg/utils";
 
 import { sharedPrimaryButtonClassName } from "@/components/shared-note-viewer";
 import { useMountEffect } from "@/hooks/useMountEffect";

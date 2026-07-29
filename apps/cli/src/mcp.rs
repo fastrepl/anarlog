@@ -9,11 +9,11 @@ use rmcp::{
 use serde::Serialize;
 
 use crate::Error;
-use hypr_agent_access as access;
+use anlg_agent_access as access;
 
 #[derive(Clone)]
 struct AnarlogMcpServer {
-    db: Arc<hypr_db_core::Db>,
+    db: Arc<anlg_db_core::Db>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -32,7 +32,7 @@ enum ResourceRequest {
 }
 
 impl AnarlogMcpServer {
-    fn new(db: Arc<hypr_db_core::Db>) -> Self {
+    fn new(db: Arc<anlg_db_core::Db>) -> Self {
         Self { db }
     }
 }
@@ -282,7 +282,7 @@ impl ServerHandler for AnarlogMcpServer {
     }
 }
 
-pub async fn serve(db: Arc<hypr_db_core::Db>) -> crate::Result<()> {
+pub async fn serve(db: Arc<anlg_db_core::Db>) -> crate::Result<()> {
     let running = AnarlogMcpServer::new(db)
         .serve(rmcp::transport::stdio())
         .await
@@ -399,7 +399,7 @@ mod tests {
 
     #[tokio::test]
     async fn server_advertises_tools_and_resources() {
-        let db = Arc::new(hypr_db_core::Db::connect_memory_plain().await.unwrap());
+        let db = Arc::new(anlg_db_core::Db::connect_memory_plain().await.unwrap());
         let info = AnarlogMcpServer::new(db).get_info();
         assert!(info.capabilities.tools.is_some());
         assert!(info.capabilities.resources.is_some());
@@ -411,8 +411,8 @@ mod tests {
 
     #[tokio::test]
     async fn list_tool_returns_structured_meeting_data() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
         sqlx::query(
             "INSERT INTO sessions (id, title, started_at) VALUES ('meeting-1', 'Planning', '2026-07-13')",
         )
@@ -440,8 +440,8 @@ mod tests {
 
     #[tokio::test]
     async fn client_server_handshake_lists_tools_and_resources() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
         sqlx::query(
             "INSERT INTO sessions (id, title, started_at) VALUES ('meeting-1', 'Planning', '2026-07-13')",
         )

@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
 import { useManager, useScheduleTaskRun, useSetTask } from "tinytick/ui-react";
 
-import { events as appleCalendarEvents } from "@hypr/plugin-calendar";
+import { events as appleCalendarEvents } from "@anlg/plugin-calendar";
 
 import {
   AUDIO_RETENTION_INTERVAL,

@@ -1,15 +1,15 @@
 import { CalendarIcon, MapPinIcon, VideoIcon } from "lucide-react";
 import { forwardRef, type ReactElement, useState } from "react";
 
-import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { Button } from "@hypr/ui/components/ui/button";
+import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@hypr/ui/components/ui/popover";
-import { cn, safeFormat, safeParseDate, TZDate } from "@hypr/utils";
+} from "@anlg/ui/components/ui/popover";
+import { cn, safeFormat, safeParseDate, TZDate } from "@anlg/utils";
 
 import { DateEditor } from "./date";
 import { ParticipantsDisplay } from "./participants";

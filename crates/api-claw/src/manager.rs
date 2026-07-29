@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Utc};
-use hypr_exedev::{
+use anlg_exedev::{
     Exe0Token, ExedevClient, Permissions, ShareVisibility, Vm, VmAuth, VmHttpClient, VmNewArgs,
 };
+use chrono::{DateTime, Utc};
 use serde::{Serialize, de::DeserializeOwned};
 
 use crate::Error;
@@ -141,7 +141,7 @@ impl<K: UserKeyring> ClawManager<K> {
         // Poll once via vm_get; `new` returns once the VM is booked but we
         // still want a strongly-typed record.
         let vm = self.client.vm_get(&name).await?.ok_or_else(|| {
-            hypr_exedev::Error::NotFound(format!("vm {name} not found after new"))
+            anlg_exedev::Error::NotFound(format!("vm {name} not found after new"))
         })?;
 
         self.configure_proxy(&name).await?;
@@ -160,7 +160,7 @@ impl<K: UserKeyring> ClawManager<K> {
         match self.client.ssh_key_remove(&key.fingerprint).await {
             Ok(()) => Ok(()),
             // Ignore "not found" — already suspended is fine.
-            Err(hypr_exedev::Error::NotFound(_)) => Ok(()),
+            Err(anlg_exedev::Error::NotFound(_)) => Ok(()),
             Err(e) => Err(e.into()),
         }
     }

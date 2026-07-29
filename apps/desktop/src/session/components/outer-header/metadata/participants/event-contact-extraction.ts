@@ -4,8 +4,8 @@ import { z } from "zod";
 import {
   commands as templateCommands,
   type EventContactCandidate as TemplateEventContactCandidate,
-} from "@hypr/plugin-template";
-import type { EventParticipant, SessionEvent } from "@hypr/store";
+} from "@anlg/plugin-template";
+import type { EventParticipant, SessionEvent } from "@anlg/store";
 
 import { deterministicGenerationSettings } from "~/ai/model-settings";
 

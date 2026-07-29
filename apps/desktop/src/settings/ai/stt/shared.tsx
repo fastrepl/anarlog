@@ -9,7 +9,7 @@ import {
 } from "@lobehub/icons";
 import type { ReactNode } from "react";
 
-import type { LocalModel } from "@hypr/plugin-local-stt";
+import type { LocalModel } from "@anlg/plugin-local-stt";
 
 import { env } from "~/env";
 import { AnarlogProviderIcon, ProviderBrandImage } from "~/settings/ai/shared";
@@ -85,6 +85,14 @@ export const displayModelId = (model: string) => {
 
   if (model === "whisper-1") {
     return "Whisper 1";
+  }
+
+  if (model === "gpt-live-transcribe") {
+    return "GPT Live Transcribe";
+  }
+
+  if (model === "gpt-transcribe") {
+    return "GPT Transcribe";
   }
 
   if (model === "ink-whisper") {
@@ -174,7 +182,7 @@ export function formatModelSize(sizeBytes?: number | null) {
 const _PROVIDERS = [
   {
     disabled: false,
-    id: "hyprnote",
+    id: "anarlog",
     displayName: "Anarlog",
     badge: "Recommended",
     icon: <AnarlogProviderIcon />,
@@ -208,10 +216,12 @@ const _PROVIDERS = [
     disabled: false,
     id: "openai",
     displayName: "OpenAI",
-    badge: "Batch only",
+    badge: null,
     icon: <OpenAI size={14} />,
     baseUrl: "https://api.openai.com/v1",
     models: [
+      "gpt-live-transcribe",
+      "gpt-transcribe",
       "gpt-4o-transcribe-diarize",
       "gpt-4o-transcribe",
       "gpt-4o-mini-transcribe",

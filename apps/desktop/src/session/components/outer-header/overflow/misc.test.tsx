@@ -17,7 +17,7 @@ vi.mock("@tanstack/react-query", () => ({
   }),
 }));
 
-vi.mock("@hypr/ui/components/ui/dropdown-menu", () => ({
+vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
   DropdownMenuItem: ({ children, ...props }: ComponentProps<"button">) => (
     <button {...props}>{children}</button>
   ),

@@ -7,7 +7,7 @@ use axum::{Json, extract::State, http::HeaderMap};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use hypr_nango::{AuthOperation, NangoAuthWebhook, WebhookType};
+use anlg_nango::{AuthOperation, NangoAuthWebhook, WebhookType};
 
 use crate::error::{NangoError, Result};
 use crate::state::AppState;
@@ -56,7 +56,7 @@ pub async fn nango_webhook(
         .and_then(|h| h.to_str().ok())
         .ok_or_else(|| NangoError::Auth("Missing X-Nango-Hmac-Sha256 header".to_string()))?;
 
-    let valid = hypr_nango::verify_webhook_signature(
+    let valid = anlg_nango::verify_webhook_signature(
         &state.config.nango.nango_webhook_signing_key,
         body.as_bytes(),
         signature,
@@ -86,7 +86,7 @@ pub async fn nango_webhook(
 }
 
 fn handle_forward_webhook(state: &AppState, body: &str) -> Result<()> {
-    let forward: hypr_nango::NangoForwardWebhook =
+    let forward: anlg_nango::NangoForwardWebhook =
         serde_json::from_str(body).map_err(|e| NangoError::BadRequest(e.to_string()))?;
 
     tracing::info!(
@@ -146,8 +146,8 @@ pub(crate) async fn handle_auth_webhook(state: &AppState, payload: NangoAuthWebh
             })?;
 
         tracing::warn!(
-            hyprnote.connection.id = %payload.connection_id,
-            hyprnote.integration.id = %payload.provider_config_key,
+            anarlog.connection.id = %payload.connection_id,
+            anarlog.integration.id = %payload.provider_config_key,
             error.type = error_type,
             error = error_description,
             "nango token refresh failed"
@@ -167,8 +167,8 @@ pub(crate) async fn handle_auth_webhook(state: &AppState, payload: NangoAuthWebh
             })?;
 
         tracing::info!(
-            hyprnote.integration.id = %payload.provider_config_key,
-            hyprnote.connection.id = %payload.connection_id,
+            anarlog.integration.id = %payload.provider_config_key,
+            anarlog.connection.id = %payload.connection_id,
             "nango connection deleted locally from webhook"
         );
 
@@ -178,8 +178,8 @@ pub(crate) async fn handle_auth_webhook(state: &AppState, payload: NangoAuthWebh
     if payload.success && payload.operation != AuthOperation::Deletion {
         let Some(end_user_id) = payload.end_user_id() else {
             tracing::warn!(
-                hyprnote.connection.id = %payload.connection_id,
-                hyprnote.integration.id = %payload.provider_config_key,
+                anarlog.connection.id = %payload.connection_id,
+                anarlog.integration.id = %payload.provider_config_key,
                 "nango auth webhook missing end user id, skipping persistence"
             );
             return Ok(());
@@ -201,9 +201,9 @@ pub(crate) async fn handle_auth_webhook(state: &AppState, payload: NangoAuthWebh
 
         tracing::info!(
             enduser.id = end_user_id,
-            hyprnote.integration.id = %payload.provider_config_key,
-            hyprnote.connection.id = %payload.connection_id,
-            hyprnote.auth.operation = ?payload.operation,
+            anarlog.integration.id = %payload.provider_config_key,
+            anarlog.connection.id = %payload.connection_id,
+            anarlog.auth.operation = ?payload.operation,
             "nango connection upserted"
         );
 
@@ -223,7 +223,7 @@ pub(crate) async fn handle_auth_webhook(state: &AppState, payload: NangoAuthWebh
 }
 
 fn spawn_identity_task(
-    nango: hypr_nango::NangoClient,
+    nango: anlg_nango::NangoClient,
     integration_id: String,
     connection_id: String,
 ) {
@@ -238,8 +238,8 @@ fn spawn_identity_task(
                     Ok(connection) => connection.tags.unwrap_or_default(),
                     Err(e) => {
                         tracing::warn!(
-                            hyprnote.connection.id = %connection_id,
-                            hyprnote.integration.id = %integration_id,
+                            anarlog.connection.id = %connection_id,
+                            anarlog.integration.id = %integration_id,
                             error = %e,
                             "failed to fetch connection before patching account_identity tag"
                         );
@@ -248,7 +248,7 @@ fn spawn_identity_task(
                 };
                 tags.insert("account_identity".to_string(), identity.clone());
 
-                let req = hypr_nango::PatchConnectionRequest {
+                let req = anlg_nango::PatchConnectionRequest {
                     end_user: None,
                     tags: Some(tags),
                 };
@@ -259,16 +259,16 @@ fn spawn_identity_task(
                 {
                     Ok(()) => {
                         tracing::info!(
-                            hyprnote.connection.id = %connection_id,
-                            hyprnote.integration.id = %integration_id,
+                            anarlog.connection.id = %connection_id,
+                            anarlog.integration.id = %integration_id,
                             account_identity = %identity,
                             "account_identity tag set"
                         );
                     }
                     Err(e) => {
                         tracing::warn!(
-                            hyprnote.connection.id = %connection_id,
-                            hyprnote.integration.id = %integration_id,
+                            anarlog.connection.id = %connection_id,
+                            anarlog.integration.id = %integration_id,
                             error = %e,
                             "failed to patch account_identity tag"
                         );
@@ -277,8 +277,8 @@ fn spawn_identity_task(
             }
             Err(e) => {
                 tracing::warn!(
-                    hyprnote.connection.id = %connection_id,
-                    hyprnote.integration.id = %integration_id,
+                    anarlog.connection.id = %connection_id,
+                    anarlog.integration.id = %integration_id,
                     error = %e,
                     "failed to fetch identity for account_identity tag"
                 );
@@ -292,7 +292,7 @@ mod tests {
     use wiremock::matchers::{body_json, method, path, path_regex, query_param};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
-    use hypr_nango::{
+    use anlg_nango::{
         AuthOperation, NangoAuthWebhook, NangoWebhookEndUser, NangoWebhookError, WebhookType,
     };
 
@@ -363,7 +363,7 @@ mod tests {
     fn sign_body_produces_valid_signature() {
         let body = r#"{"type":"auth"}"#;
         let sig = sign_body(body);
-        assert!(hypr_nango::verify_webhook_signature(
+        assert!(anlg_nango::verify_webhook_signature(
             WEBHOOK_SIGNING_KEY,
             body.as_bytes(),
             &sig
@@ -373,7 +373,7 @@ mod tests {
     #[test]
     fn wrong_signature_is_invalid() {
         let body = r#"{"type":"auth"}"#;
-        assert!(!hypr_nango::verify_webhook_signature(
+        assert!(!anlg_nango::verify_webhook_signature(
             WEBHOOK_SIGNING_KEY,
             body.as_bytes(),
             "bad-sig"

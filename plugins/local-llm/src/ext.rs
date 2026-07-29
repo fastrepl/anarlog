@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tauri::{Manager, Runtime, ipc::Channel};
 
-use hypr_model_downloader::{DownloadableModel, ModelDownloadManager, ModelDownloaderRuntime};
+use anlg_model_downloader::{DownloadableModel, ModelDownloadManager, ModelDownloaderRuntime};
 
 struct TauriModelRuntime<R: Runtime> {
     app_handle: tauri::AppHandle<R>,
@@ -9,16 +9,16 @@ struct TauriModelRuntime<R: Runtime> {
 }
 
 impl<R: Runtime> ModelDownloaderRuntime<crate::SupportedModel> for TauriModelRuntime<R> {
-    fn models_base(&self) -> Result<PathBuf, hypr_model_downloader::Error> {
+    fn models_base(&self) -> Result<PathBuf, anlg_model_downloader::Error> {
         Ok(models_base(&self.app_handle))
     }
 
     fn emit_progress(
         &self,
         model: &crate::SupportedModel,
-        status: hypr_model_downloader::DownloadStatus,
+        status: anlg_model_downloader::DownloadStatus,
     ) {
-        use hypr_model_downloader::DownloadStatus;
+        use anlg_model_downloader::DownloadStatus;
 
         let progress: i8 = match &status {
             DownloadStatus::Downloading(p) => *p as i8,
@@ -79,7 +79,7 @@ pub struct LocalLlmExt<'a, R: Runtime, M: Manager<R>> {
 
 impl<'a, R: Runtime, M: Manager<R>> LocalLlmExt<'a, R, M> {
     pub fn models_dir(&self) -> PathBuf {
-        hypr_local_llm_core::llm_models_dir(&models_base(self.manager))
+        anlg_local_llm_core::llm_models_dir(&models_base(self.manager))
     }
 
     #[tracing::instrument(skip_all)]
@@ -159,14 +159,14 @@ impl<'a, R: Runtime, M: Manager<R>> LocalLlmExt<'a, R, M> {
 
     #[tracing::instrument(skip_all)]
     pub async fn list_downloaded_model(&self) -> Result<Vec<crate::SupportedModel>, crate::Error> {
-        Ok(hypr_local_llm_core::list_downloaded_models(
+        Ok(anlg_local_llm_core::list_downloaded_models(
             &self.models_dir(),
         )?)
     }
 
     #[tracing::instrument(skip_all)]
     pub async fn list_custom_models(&self) -> Result<Vec<crate::CustomModelInfo>, crate::Error> {
-        Ok(hypr_local_llm_core::list_custom_models()?)
+        Ok(anlg_local_llm_core::list_custom_models()?)
     }
 
     pub fn start_server(&self) {}

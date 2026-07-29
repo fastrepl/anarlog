@@ -1,5 +1,5 @@
 use super::{buffer::CircularBuffer, context::ProcessingContext, error::Error, model};
-use hypr_onnx::{
+use anlg_onnx::{
     ndarray::{Array3, Array4},
     ort::{session::Session, value::TensorRef},
 };
@@ -28,8 +28,8 @@ impl Denoiser {
         let fft = fft_planner.plan_fft_forward(block_len);
         let ifft = fft_planner.plan_fft_inverse(block_len);
 
-        let session_1 = hypr_onnx::load_model_from_bytes(model::BYTES_1)?;
-        let session_2 = hypr_onnx::load_model_from_bytes(model::BYTES_2)?;
+        let session_1 = anlg_onnx::load_model_from_bytes(model::BYTES_1)?;
+        let session_2 = anlg_onnx::load_model_from_bytes(model::BYTES_2)?;
 
         let state_size = model::STATE_SIZE;
 
@@ -142,8 +142,8 @@ impl Denoiser {
 
             // Overlap-add
             let out_slice = out_block.as_slice().ok_or_else(|| {
-                Error::ShapeError(hypr_onnx::ndarray::ShapeError::from_kind(
-                    hypr_onnx::ndarray::ErrorKind::IncompatibleLayout,
+                Error::ShapeError(anlg_onnx::ndarray::ShapeError::from_kind(
+                    anlg_onnx::ndarray::ErrorKind::IncompatibleLayout,
                 ))
             })?;
             self.out_buffer.shift_and_accumulate(out_slice);
@@ -163,7 +163,7 @@ impl Denoiser {
     }
 
     fn run_model_1(&mut self, in_mag: &Array3<f32>) -> Result<Array3<f32>, Error> {
-        let mut outputs = self.session_1.run(hypr_onnx::ort::inputs![
+        let mut outputs = self.session_1.run(anlg_onnx::ort::inputs![
             "input_2" => TensorRef::from_array_view(in_mag.view())?,
             "input_3" => TensorRef::from_array_view(self.states_1.view())?
         ])?;
@@ -188,7 +188,7 @@ impl Denoiser {
     }
 
     fn run_model_2(&mut self, estimated_block: &Array3<f32>) -> Result<Array3<f32>, Error> {
-        let mut outputs = self.session_2.run(hypr_onnx::ort::inputs![
+        let mut outputs = self.session_2.run(anlg_onnx::ort::inputs![
             "input_4" => TensorRef::from_array_view(estimated_block.view())?,
             "input_5" => TensorRef::from_array_view(self.states_2.view())?
         ])?;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import { getEnhancerService } from "~/services/enhancer";
 import { type Tab, useTabs } from "~/store/zustand/tabs";

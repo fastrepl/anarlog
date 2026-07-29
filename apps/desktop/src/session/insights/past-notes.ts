@@ -6,9 +6,9 @@ import { z } from "zod";
 import {
   commands as templateCommands,
   type JsonValue,
-} from "@hypr/plugin-template";
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
-import { format, safeParseDate } from "@hypr/utils";
+} from "@anlg/plugin-template";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { format, safeParseDate } from "@anlg/utils";
 
 import systemPromptTemplate from "./past-note-key-facts.system.md.jinja?raw";
 import userPromptTemplate from "./past-note-key-facts.user.md.jinja?raw";

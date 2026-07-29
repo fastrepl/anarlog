@@ -1,19 +1,19 @@
 import { emit, emitTo, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useEffect } from "react";
 
-import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
+import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
 
 import { type EnhancerService, getEnhancerService } from "~/services/enhancer";
 import { id } from "~/shared/utils";
 import type { AITaskStore } from "~/store/zustand/ai-task";
 import type { RemoteTaskState, TaskState } from "~/store/zustand/ai-task/tasks";
 
-const TASK_SYNC_EVENT = "hypr:ai-task-sync";
-const TASK_SYNC_REQUEST_EVENT = "hypr:ai-task-sync-request";
-const TASK_CANCEL_EVENT = "hypr:ai-task-cancel";
-const TASK_ENHANCE_EVENT = "hypr:ai-task-enhance";
-const TASK_AUTO_ENHANCE_REQUEST_EVENT = "hypr:ai-task-auto-enhance-request";
-const TASK_AUTO_ENHANCE_RESULT_EVENT = "hypr:ai-task-auto-enhance-result";
+const TASK_SYNC_EVENT = "anlg:ai-task-sync";
+const TASK_SYNC_REQUEST_EVENT = "anlg:ai-task-sync-request";
+const TASK_CANCEL_EVENT = "anlg:ai-task-cancel";
+const TASK_ENHANCE_EVENT = "anlg:ai-task-enhance";
+const TASK_AUTO_ENHANCE_REQUEST_EVENT = "anlg:ai-task-auto-enhance-request";
+const TASK_AUTO_ENHANCE_RESULT_EVENT = "anlg:ai-task-auto-enhance-result";
 export const MAIN_AUTO_ENHANCE_TIMEOUT_MS = 30_000;
 
 type TaskSyncPayload = {

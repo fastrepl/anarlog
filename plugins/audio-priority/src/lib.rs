@@ -12,7 +12,7 @@ pub use ext::*;
 pub use priority::*;
 pub use state::*;
 
-pub use hypr_audio_device::{
+pub use anlg_audio_device::{
     AudioDevice, AudioDeviceBackend, AudioDirection, DeviceId, TransportType, backend,
 };
 

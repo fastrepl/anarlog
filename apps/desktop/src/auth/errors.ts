@@ -1,6 +1,6 @@
 import { AuthApiError, AuthSessionMissingError } from "@supabase/supabase-js";
 
-import { commands as authCommands } from "@hypr/plugin-auth";
+import { commands as authCommands } from "@anlg/plugin-auth";
 
 export const isFatalSessionError = (error: unknown): boolean => {
   if (error instanceof AuthSessionMissingError) {

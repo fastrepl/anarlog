@@ -1,10 +1,10 @@
 import { useCallback, useRef } from "react";
 
-import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { beginCloudsyncActivity } from "@hypr/plugin-db";
-import { commands as detectCommands } from "@hypr/plugin-detect";
-import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
+import { commands as analyticsCommands } from "@anlg/plugin-analytics";
+import { beginCloudsyncActivity } from "@anlg/plugin-db";
+import { commands as detectCommands } from "@anlg/plugin-detect";
+import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import { useListener } from "./contexts";
 import { startMeetingChatCapture } from "./meeting-chat-capture";

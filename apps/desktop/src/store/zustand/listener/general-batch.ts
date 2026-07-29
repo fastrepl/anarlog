@@ -1,13 +1,13 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { StoreApi } from "zustand";
 
-import { commands as notificationCommands } from "@hypr/plugin-notification";
+import { commands as notificationCommands } from "@anlg/plugin-notification";
 import {
   type BatchErrorCode,
   type TranscriptionParams,
   commands as transcriptionCommands,
   events as transcriptionEvents,
-} from "@hypr/plugin-transcription";
+} from "@anlg/plugin-transcription";
 
 import {
   EMPTY_BATCH_TRANSCRIPT_ERROR,
@@ -25,6 +25,7 @@ const SYNTHETIC_BATCH_PROGRESS_MAX = 0.88;
 const SYNTHETIC_BATCH_PROGRESS_INTERVAL_MS = 800;
 const SYNTHETIC_BATCH_PROGRESS_TIME_CONSTANT_MS = 32_000;
 const OPENAI_PROGRESSIVE_BATCH_MODELS = new Set([
+  "gpt-transcribe",
   "gpt-4o-transcribe",
   "gpt-4o-mini-transcribe",
   "gpt-4o-mini-transcribe-2025-12-15",

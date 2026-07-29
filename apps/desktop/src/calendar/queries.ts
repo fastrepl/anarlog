@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import type { EventParticipant } from "@hypr/store";
+import type { EventParticipant } from "@anlg/store";
 
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";

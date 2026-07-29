@@ -7,11 +7,11 @@ edition = "2024"
 specta = ["dep:specta"]
 
 [dependencies]
-hypr-api-client = { workspace = true }
-hypr-apple-calendar = { workspace = true, features = ["specta"] }
-hypr-calendar-interface = { workspace = true }
-hypr-google-calendar = { workspace = true, features = ["specta"] }
-hypr-outlook-calendar = { workspace = true, features = ["specta"] }
+anlg-api-client = { workspace = true }
+anlg-apple-calendar = { workspace = true, features = ["specta"] }
+anlg-calendar-interface = { workspace = true }
+anlg-google-calendar = { workspace = true, features = ["specta"] }
+anlg-outlook-calendar = { workspace = true, features = ["specta"] }
 
 chrono = { workspace = true, features = ["serde"] }
 chrono-tz = { workspace = true }

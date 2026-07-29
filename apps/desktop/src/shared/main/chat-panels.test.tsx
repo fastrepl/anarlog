@@ -22,14 +22,14 @@ vi.mock("@tauri-apps/api/core", () => ({
   isTauri: () => true,
 }));
 
-vi.mock("@hypr/plugin-windows", () => ({
+vi.mock("@anlg/plugin-windows", () => ({
   commands: {
     windowExpandWidth: mocks.windowExpandWidth,
     windowRestoreWidth: mocks.windowRestoreWidth,
   },
 }));
 
-vi.mock("@hypr/ui/components/ui/resizable", () => ({
+vi.mock("@anlg/ui/components/ui/resizable", () => ({
   ResizablePanelGroup: ({
     autoSaveId,
     children,

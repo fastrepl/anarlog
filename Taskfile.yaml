@@ -25,7 +25,7 @@ tasks:
       - task: cli:ui
       - cp apps/cli-ui/.build/apple/Products/Release/char-cli-ui target/debug/
       - cargo run -p cli --features standalone-macos -- {{.CLI_ARGS}}
-  stat: btop -f hyprnote -u 500 --preset 1
+  stat: btop -f anarlog -u 500 --preset 1
 
   clean-plugins:
     cmds:

@@ -1,7 +1,7 @@
 import { getCurrentWindow, type Theme } from "@tauri-apps/api/window";
 import type { ReactNode } from "react";
 
-import { commands as iconCommands } from "@hypr/plugin-icon";
+import { commands as iconCommands } from "@anlg/plugin-icon";
 
 import { applyDocumentTheme, writeStoredThemePreference } from "./apply";
 import type { ThemePreference } from "./resolve";

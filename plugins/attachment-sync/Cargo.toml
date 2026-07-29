@@ -16,8 +16,8 @@ tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [dependencies]
-hypr-e2ee = { workspace = true }
-hypr-fs-sync-core = { workspace = true }
+anlg-e2ee = { workspace = true }
+anlg-fs-sync-core = { workspace = true }
 
 tauri = { workspace = true, features = ["test"] }
 tauri-plugin-db = { workspace = true }

@@ -1,6 +1,6 @@
-import { md2json } from "@hypr/editor/markdown";
-import { beginCloudsyncActivity } from "@hypr/plugin-db";
-import { commands as localApiCommands } from "@hypr/plugin-local-api";
+import { md2json } from "@anlg/editor/markdown";
+import { beginCloudsyncActivity } from "@anlg/plugin-db";
+import { commands as localApiCommands } from "@anlg/plugin-local-api";
 
 import { createTaskId, type TaskConfig } from ".";
 import {

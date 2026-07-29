@@ -1,6 +1,6 @@
 import type { ChatTransport, UIMessage } from "ai";
 
-import { beginCloudsyncActivity, endCloudsyncActivity } from "@hypr/plugin-db";
+import { beginCloudsyncActivity, endCloudsyncActivity } from "@anlg/plugin-db";
 
 export const CHAT_CLOUDSYNC_RELEASE_DELAY_MS = 750;
 export const CHAT_CLOUDSYNC_DISPOSE_DRAIN_TIMEOUT_MS = 5_000;

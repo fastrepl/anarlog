@@ -12,26 +12,26 @@ const mocks = vi.hoisted(() => ({
   ),
 }));
 
-vi.mock("@hypr/plugin-analytics", () => ({
+vi.mock("@anlg/plugin-analytics", () => ({
   commands: {
     setDisabled: vi.fn(async () => undefined),
     setProperties: mocks.setProperties,
   },
 }));
 
-vi.mock("@hypr/plugin-detect", () => ({
+vi.mock("@anlg/plugin-detect", () => ({
   commands: {
     getPreferredLanguages: mocks.getPreferredLanguages,
   },
 }));
 
-vi.mock("@hypr/plugin-template", () => ({
+vi.mock("@anlg/plugin-template", () => ({
   commands: {
     getTemplateSource: mocks.getTemplateSource,
   },
 }));
 
-vi.mock("@hypr/plugin-updater2", () => ({
+vi.mock("@anlg/plugin-updater2", () => ({
   commands: {
     setAutomaticUpdatesEnabled: mocks.setAutomaticUpdatesEnabled,
   },

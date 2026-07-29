@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/plugin-tracing",
+  "name": "@anlg/plugin-tracing",
   "private": true,
   "main": "./js/index.ts",
   "scripts": {

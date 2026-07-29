@@ -18,24 +18,24 @@ import { useRef, useState } from "react";
 import {
   commands as localSttCommands,
   type LocalModel,
-} from "@hypr/plugin-local-stt";
-import { commands as openerCommands } from "@hypr/plugin-opener2";
-import type { AIProviderStorage } from "@hypr/store";
-import { Input } from "@hypr/ui/components/ui/input";
+} from "@anlg/plugin-local-stt";
+import { commands as openerCommands } from "@anlg/plugin-opener2";
+import type { AIProviderStorage } from "@anlg/store";
+import { Input } from "@anlg/ui/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@hypr/ui/components/ui/select";
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
+} from "@anlg/ui/components/ui/select";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@hypr/ui/components/ui/tooltip";
-import { cn } from "@hypr/utils";
+} from "@anlg/ui/components/ui/tooltip";
+import { cn } from "@anlg/utils";
 
 import { useSttSettings } from "./context";
 import { HealthStatusIndicator, useConnectionHealth } from "./health";
@@ -77,7 +77,7 @@ import {
   canAppleSpeechTranscribe,
   isConfiguredSttModel,
   getSttModelTranscriptionMode,
-  isHyprnoteLocalSttModel,
+  isAnarlogLocalSttModel,
   isLiveTranscriptionSupported,
   isRealtimeLocalModel,
   isSupportedLanguagesBatch,
@@ -446,7 +446,7 @@ function useTranscriptionLanguageWarning() {
     ? current_stt_model
     : undefined;
   const isConfigured = !!(current_stt_provider && selectedSttModel);
-  const isOnDeviceModel = isHyprnoteLocalSttModel(
+  const isOnDeviceModel = isAnarlogLocalSttModel(
     current_stt_provider,
     selectedSttModel,
   );
@@ -612,7 +612,7 @@ function useConfiguredMapping(): {
         return [provider.id, { configured: false, models: [] }];
       }
 
-      if (provider.id === "hyprnote") {
+      if (provider.id === "anarlog") {
         const models: ModelEntry[] = [
           { id: "cloud", isDownloaded: billing.isPaid, category: "latest" },
         ];

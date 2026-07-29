@@ -1,10 +1,10 @@
 use crate::{Error, ISO639, Language};
 
-impl TryInto<hypr_whisper::Language> for Language {
+impl TryInto<anlg_whisper::Language> for Language {
     type Error = Error;
 
-    fn try_into(self) -> Result<hypr_whisper::Language, Self::Error> {
-        use hypr_whisper::Language as WL;
+    fn try_into(self) -> Result<anlg_whisper::Language, Self::Error> {
+        use anlg_whisper::Language as WL;
 
         match self.iso639 {
             ISO639::Af => Ok(WL::Af),
@@ -109,11 +109,11 @@ impl TryInto<hypr_whisper::Language> for Language {
     }
 }
 
-impl TryInto<Language> for hypr_whisper::Language {
+impl TryInto<Language> for anlg_whisper::Language {
     type Error = Error;
 
     fn try_into(self) -> Result<Language, Self::Error> {
-        use hypr_whisper::Language as WL;
+        use anlg_whisper::Language as WL;
 
         let iso639 = match self {
             WL::Af => ISO639::Af,

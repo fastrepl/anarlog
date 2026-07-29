@@ -4,13 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-analytics = { workspace = true }
-hypr-api-auth = { workspace = true }
-hypr-api-env = { workspace = true }
-hypr-api-error = { workspace = true }
-hypr-loops = { workspace = true }
-hypr-observability = { workspace = true }
-hypr-supabase-storage = { workspace = true }
+anlg-analytics = { workspace = true }
+anlg-api-auth = { workspace = true }
+anlg-api-env = { workspace = true }
+anlg-api-error = { workspace = true }
+anlg-loops = { workspace = true }
+anlg-observability = { workspace = true }
+anlg-supabase-storage = { workspace = true }
 
 utoipa = { workspace = true }
 

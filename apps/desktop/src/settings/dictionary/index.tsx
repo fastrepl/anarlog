@@ -2,14 +2,14 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { useForm } from "@tanstack/react-form";
 import { CircleMinusIcon, PlusIcon } from "lucide-react";
 
-import { Button } from "@hypr/ui/components/ui/button";
+import { Button } from "@anlg/ui/components/ui/button";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-} from "@hypr/ui/components/ui/input-group";
-import { cn } from "@hypr/utils";
+} from "@anlg/ui/components/ui/input-group";
+import { cn } from "@anlg/utils";
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { SettingsPageTitle } from "~/settings/page-title";

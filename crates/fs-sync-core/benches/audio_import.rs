@@ -8,7 +8,7 @@ use fs_sync_core::audio::import_audio;
 fn bench_input_path() -> PathBuf {
     std::env::var_os("FS_SYNC_AUDIO_BENCH_PATH")
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(hypr_data::english_1::AUDIO_M4A_PATH))
+        .unwrap_or_else(|| PathBuf::from(anlg_data::english_1::AUDIO_M4A_PATH))
 }
 
 fn bench_input_label(path: &Path) -> String {

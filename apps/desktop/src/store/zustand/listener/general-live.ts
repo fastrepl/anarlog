@@ -2,11 +2,11 @@ import { getIdentifier } from "@tauri-apps/api/app";
 import { Cause, Effect, Exit } from "effect";
 import type { StoreApi } from "zustand";
 
-import { commands as detectCommands } from "@hypr/plugin-detect";
-import { commands as hooksCommands } from "@hypr/plugin-hooks";
-import { commands as iconCommands } from "@hypr/plugin-icon";
-import { commands as localApiCommands } from "@hypr/plugin-local-api";
-import { commands as settingsCommands } from "@hypr/plugin-settings";
+import { commands as detectCommands } from "@anlg/plugin-detect";
+import { commands as hooksCommands } from "@anlg/plugin-hooks";
+import { commands as iconCommands } from "@anlg/plugin-icon";
+import { commands as localApiCommands } from "@anlg/plugin-local-api";
+import { commands as settingsCommands } from "@anlg/plugin-settings";
 import {
   commands as listenerCommands,
   events as listenerEvents,
@@ -18,8 +18,8 @@ import {
   type CaptureStatusEvent,
   type LiveTranscriptDelta,
   type LiveTranscriptSegmentDelta,
-} from "@hypr/plugin-transcription";
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
+} from "@anlg/plugin-transcription";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import {
   type GeneralState,
@@ -382,7 +382,7 @@ export const startLiveSession = <T extends LiveStore>(
             .then((r) =>
               r.status === "ok" ? r.data.map((app) => app.id) : null,
             ),
-          getIdentifier().catch(() => "com.hyprnote.stable"),
+          getIdentifier().catch(() => "com.anarlog.stable"),
         ]),
       catch: (error) => error,
     });
@@ -727,7 +727,7 @@ export const stopLiveSession = <T extends GeneralState>(
             if (r.status === "error") throw new Error(r.error);
             return r.data;
           }),
-          getIdentifier().catch(() => "com.hyprnote.stable"),
+          getIdentifier().catch(() => "com.anarlog.stable"),
         ])
           .then(([dataDirPath, bundleId]) => {
             const sessionPath = getSessionResourcePath(dataDirPath, sessionId);

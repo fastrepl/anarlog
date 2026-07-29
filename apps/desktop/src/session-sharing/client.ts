@@ -1,6 +1,6 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 
-import type { JSONContent } from "@hypr/editor/note";
+import type { JSONContent } from "@anlg/editor/note";
 
 import type { SharedNoteAttachment } from "~/shared-notes/cache";
 

@@ -84,7 +84,7 @@ export function sanitizeUrl(value: string | undefined) {
 }
 
 export function sanitizeBreadcrumb<T extends BreadcrumbLike>(breadcrumb: T): T {
-  if (breadcrumb.category === "hyprnote.operation") {
+  if (breadcrumb.category === "anarlog.operation") {
     return {
       category: breadcrumb.category,
       level: breadcrumb.level,
@@ -127,8 +127,8 @@ export function sanitizeMobileErrorEvent<T extends MobileErrorEvent>(event: T) {
   event.breadcrumbs = event.breadcrumbs?.map(sanitizeBreadcrumb);
 
   const operation =
-    typeof event.tags?.["hyprnote.operation"] === "string"
-      ? event.tags["hyprnote.operation"]
+    typeof event.tags?.["anarlog.operation"] === "string"
+      ? event.tags["anarlog.operation"]
       : undefined;
   if (event.platform === "javascript" || operation) {
     const value = operation

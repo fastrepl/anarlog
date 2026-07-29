@@ -6,7 +6,7 @@ edition = "2024"
 [features]
 default = []
 server = ["dep:reqwest", "dep:jsonwebtoken", "dep:tokio"]
-client = ["dep:hypr-storage"]
+client = ["dep:anlg-storage"]
 refresh = ["dep:reqwest", "dep:backon", "dep:tokio"]
 
 [dependencies]
@@ -25,7 +25,7 @@ reqwest = { workspace = true, features = ["json"], optional = true }
 tokio = { workspace = true, features = ["sync", "time"], optional = true }
 
 # client feature
-hypr-storage = { workspace = true, optional = true }
+anlg-storage = { workspace = true, optional = true }
 
 [dev-dependencies]
 axum = { workspace = true }

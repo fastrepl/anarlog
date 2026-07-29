@@ -27,7 +27,7 @@ impl BatchSttAdapter for PyannoteAdapter {
 
     fn is_supported_languages(
         &self,
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> bool {
         PyannoteAdapter::language_support_batch(languages, model).is_supported()
@@ -152,7 +152,7 @@ impl PyannoteAdapter {
 
         let job = Self::submit_job(client, &base_url, api_key, params, &media_url).await?;
         tracing::info!(
-            hyprnote.stt.job.id = %job.job_id,
+            anarlog.stt.job.id = %job.job_id,
             status = %job.status,
             warning = ?job.warning,
             "pyannote_job_created"

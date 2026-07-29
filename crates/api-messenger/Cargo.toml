@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-api-error = { workspace = true }
-hypr-http = { workspace = true }
-hypr-slack-web = { workspace = true }
-hypr-teems = { workspace = true }
+anlg-api-error = { workspace = true }
+anlg-http = { workspace = true }
+anlg-slack-web = { workspace = true }
+anlg-teems = { workspace = true }
 
 axum = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

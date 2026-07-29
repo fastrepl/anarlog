@@ -1,4 +1,4 @@
-import { processContent } from "@hypr/changelog";
+import { processContent } from "@anlg/changelog";
 
 import { getChangelogVersionFromPath } from "./changelog-path";
 

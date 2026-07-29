@@ -19,7 +19,7 @@ impl BatchSttAdapter for SmallestAIAdapter {
 
     fn is_supported_languages(
         &self,
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> bool {
         SmallestAIAdapter::is_supported_languages_batch(languages, model)

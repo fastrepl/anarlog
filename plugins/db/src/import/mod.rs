@@ -56,7 +56,7 @@ async fn legacy_import_attempt_required(pool: &SqlitePool) -> Result<bool, sqlx:
              )
          )",
     )
-    .bind(hypr_db_app::LEGACY_IMPORTER_VERSION)
+    .bind(anlg_db_app::LEGACY_IMPORTER_VERSION)
     .fetch_one(pool)
     .await?;
 
@@ -73,7 +73,7 @@ pub(crate) async fn legacy_migration_verified(pool: &SqlitePool) -> Result<bool,
              AND parity_verified = 1
          )",
     )
-    .bind(hypr_db_app::LEGACY_IMPORTER_VERSION)
+    .bind(anlg_db_app::LEGACY_IMPORTER_VERSION)
     .fetch_one(pool)
     .await
 }
@@ -170,11 +170,11 @@ fn resolve_startup_vault_base<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
 ) -> crate::Result<PathBuf> {
     let bundle_id: &str = app.config().identifier.as_ref();
-    let settings_base = hypr_storage::global::compute_default_base(bundle_id)
+    let settings_base = anlg_storage::global::compute_default_base(bundle_id)
         .ok_or(std::io::Error::other("settings base unavailable"))?;
     std::fs::create_dir_all(&settings_base)?;
 
-    Ok(hypr_storage::vault::resolve_base(
+    Ok(anlg_storage::vault::resolve_base(
         &settings_base,
         &settings_base,
     ))
@@ -191,7 +191,7 @@ mod tests {
         skipped_count: i64,
         conflict_count: i64,
     ) -> String {
-        hypr_db_app::begin_legacy_import_run(pool, run_id, "/vault", false)
+        anlg_db_app::begin_legacy_import_run(pool, run_id, "/vault", false)
             .await
             .unwrap();
         sqlx::query(
@@ -210,15 +210,15 @@ mod tests {
         .await
         .unwrap();
 
-        hypr_db_app::finish_legacy_import_run(pool, run_id)
+        anlg_db_app::finish_legacy_import_run(pool, run_id)
             .await
             .unwrap()
     }
 
     #[tokio::test]
     async fn migration_verification_uses_current_importer_version() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
 
         assert!(!legacy_migration_verified(db.pool()).await.unwrap());
 
@@ -227,7 +227,7 @@ mod tests {
              SET importer_version = ?, parity_verified = 1
              WHERE id = 'legacy_v1'",
         )
-        .bind(hypr_db_app::LEGACY_IMPORTER_VERSION)
+        .bind(anlg_db_app::LEGACY_IMPORTER_VERSION)
         .execute(db.pool())
         .await
         .unwrap();
@@ -248,8 +248,8 @@ mod tests {
 
     #[tokio::test]
     async fn completed_issue_run_is_not_repeated_automatically() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
 
         assert!(legacy_import_attempt_required(db.pool()).await.unwrap());
         assert_eq!(
@@ -264,13 +264,13 @@ mod tests {
 
     #[tokio::test]
     async fn failed_source_scan_is_left_for_explicit_retry() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
 
-        hypr_db_app::begin_legacy_import_run(db.pool(), "failed-run", "/vault", false)
+        anlg_db_app::begin_legacy_import_run(db.pool(), "failed-run", "/vault", false)
             .await
             .unwrap();
-        hypr_db_app::fail_legacy_import_run(db.pool(), "failed-run", "permission denied")
+        anlg_db_app::fail_legacy_import_run(db.pool(), "failed-run", "permission denied")
             .await
             .unwrap();
 
@@ -280,8 +280,8 @@ mod tests {
 
     #[tokio::test]
     async fn conflict_only_import_preserves_cleanup_guard() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
 
         assert_eq!(
             finish_issue_run(db.pool(), "conflict-run", "conflict", 0, 1).await,
@@ -306,8 +306,8 @@ mod tests {
 
     #[tokio::test]
     async fn legacy_completed_with_issues_conflicts_remain_unverified() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
         finish_issue_run(db.pool(), "legacy-conflict-run", "conflict", 0, 1).await;
         sqlx::query(
             "UPDATE migration_import_runs SET status = 'completed_with_issues' WHERE id = ?",
@@ -323,8 +323,8 @@ mod tests {
 
     #[tokio::test]
     async fn explicit_retry_normalizes_legacy_conflict_only_run() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
         let sqlite_document = r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"SQLite note"}]}]}"#;
         let sqlite_words =
             r#"[{"id":"sqlite-word","text":"SQLite words","start_ms":0,"end_ms":10,"channel":0}]"#;
@@ -485,8 +485,8 @@ mod tests {
         for (run_id, item_status, skipped_count) in
             [("skipped-run", "partial", 1), ("error-run", "error", 0)]
         {
-            let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-            hypr_db_app::prepare_schema(&db).await.unwrap();
+            let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+            anlg_db_app::prepare_schema(&db).await.unwrap();
 
             assert_eq!(
                 finish_issue_run(db.pool(), run_id, item_status, skipped_count, 0).await,
@@ -499,8 +499,8 @@ mod tests {
 
     #[tokio::test]
     async fn orphaned_session_children_remain_unverified_for_explicit_retry() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
         let vault = tempfile::tempdir().unwrap();
         let session_dir = vault.path().join("sessions/missing-session");
         std::fs::create_dir_all(&session_dir).unwrap();
@@ -538,8 +538,8 @@ mod tests {
 
     #[tokio::test]
     async fn document_and_transcript_conflicts_preserve_both_stores() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
         let sqlite_document = r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"SQLite note"}]}]}"#;
         let sqlite_words =
             r#"[{"id":"sqlite-word","text":"SQLite words","start_ms":0,"end_ms":10,"channel":0}]"#;
@@ -660,8 +660,8 @@ mod tests {
 
     #[tokio::test]
     async fn stale_snapshots_for_preexisting_sqlite_domains_do_not_block_cutover() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
         sqlx::query(
             "INSERT INTO calendars \
              (id, tracking_id_calendar, name, enabled, provider, source, color, connection_id) \
@@ -789,7 +789,7 @@ mod tests {
         assert_eq!(run_status, "completed");
         assert_eq!(state_before.0, run_id);
         assert!(state_before.1);
-        assert_eq!(state_before.2, hypr_db_app::LEGACY_IMPORTER_VERSION);
+        assert_eq!(state_before.2, anlg_db_app::LEGACY_IMPORTER_VERSION);
         assert!(legacy_migration_verified(db.pool()).await.unwrap());
         assert!(!legacy_import_attempt_required(db.pool()).await.unwrap());
 

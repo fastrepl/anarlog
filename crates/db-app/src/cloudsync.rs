@@ -1,6 +1,6 @@
 use std::sync::LazyLock;
 
-use hypr_db_core::CloudsyncTableSpec;
+use anlg_db_core::CloudsyncTableSpec;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{Executor, QueryBuilder, Sqlite, SqlitePool, Transaction};
@@ -711,7 +711,7 @@ pub async fn ensure_cloudsync_recovery_state(
     generation: &str,
     account_user_id: &str,
     workspace_id: &str,
-    key: &hypr_e2ee::WorkspaceKey,
+    key: &anlg_e2ee::WorkspaceKey,
 ) -> Result<CloudsyncRecoveryState, CloudsyncWorkspaceError> {
     let account_user_id = validated_account_user_id(account_user_id)?;
     if generation.trim().is_empty() || workspace_id.trim().is_empty() {
@@ -777,7 +777,7 @@ pub async fn ensure_cloudsync_recovery_state(
         key_id: key.key_id().to_string(),
         phase: CloudsyncRecoveryPhase::NeedFirstLogout,
         barrier_id: barrier.record_id,
-        barrier_payload_hash: hypr_e2ee::payload_hash(&barrier.payload),
+        barrier_payload_hash: anlg_e2ee::payload_hash(&barrier.payload),
         barrier_payload: barrier.payload,
     };
     let value_json =
@@ -865,7 +865,7 @@ pub async fn advance_cloudsync_recovery_phase(
 pub async fn insert_cloudsync_recovery_barrier(
     pool: &SqlitePool,
     state: &CloudsyncRecoveryState,
-    key: &hypr_e2ee::WorkspaceKey,
+    key: &anlg_e2ee::WorkspaceKey,
 ) -> Result<bool, CloudsyncWorkspaceError> {
     validate_cloudsync_recovery_barrier(state, key)?;
     let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
@@ -901,7 +901,7 @@ pub async fn insert_cloudsync_recovery_barrier(
 pub async fn cloudsync_recovery_barrier_is_exact(
     pool: &SqlitePool,
     state: &CloudsyncRecoveryState,
-    key: &hypr_e2ee::WorkspaceKey,
+    key: &anlg_e2ee::WorkspaceKey,
 ) -> Result<bool, CloudsyncWorkspaceError> {
     validate_cloudsync_recovery_barrier(state, key)?;
     let record: Option<(String, String)> = sqlx::query_as(
@@ -920,7 +920,7 @@ pub async fn cloudsync_recovery_barrier_is_exact(
 pub async fn delete_cloudsync_recovery_barrier(
     pool: &SqlitePool,
     state: &CloudsyncRecoveryState,
-    key: &hypr_e2ee::WorkspaceKey,
+    key: &anlg_e2ee::WorkspaceKey,
 ) -> Result<bool, CloudsyncWorkspaceError> {
     validate_cloudsync_recovery_barrier(state, key)?;
     let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
@@ -1880,7 +1880,7 @@ fn parse_cloudsync_recovery_state(
         || state.key_id.trim().is_empty()
         || state.barrier_id.trim().is_empty()
         || state.barrier_payload.trim().is_empty()
-        || hypr_e2ee::payload_hash(&state.barrier_payload) != state.barrier_payload_hash
+        || anlg_e2ee::payload_hash(&state.barrier_payload) != state.barrier_payload_hash
     {
         return Err(CloudsyncWorkspaceError::InvalidRecoveryState);
     }
@@ -1889,11 +1889,11 @@ fn parse_cloudsync_recovery_state(
 
 fn validate_cloudsync_recovery_barrier(
     state: &CloudsyncRecoveryState,
-    key: &hypr_e2ee::WorkspaceKey,
+    key: &anlg_e2ee::WorkspaceKey,
 ) -> Result<(), CloudsyncWorkspaceError> {
     if state.protocol_version != CLOUDSYNC_RECOVERY_PROTOCOL_VERSION
         || state.key_id != key.key_id()
-        || hypr_e2ee::payload_hash(&state.barrier_payload) != state.barrier_payload_hash
+        || anlg_e2ee::payload_hash(&state.barrier_payload) != state.barrier_payload_hash
     {
         return Err(CloudsyncWorkspaceError::InvalidRecoveryState);
     }
@@ -1950,14 +1950,14 @@ async fn save_binding(
 mod tests {
     use super::*;
 
-    async fn test_db() -> hypr_db_core::Db {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
+    async fn test_db() -> anlg_db_core::Db {
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
         crate::prepare_schema(&db).await.unwrap();
         db
     }
 
-    fn recovery_key(workspace_id: &str) -> hypr_e2ee::WorkspaceKey {
-        hypr_e2ee::RecoveryKey::parse("anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc")
+    fn recovery_key(workspace_id: &str) -> anlg_e2ee::WorkspaceKey {
+        anlg_e2ee::RecoveryKey::parse("anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc")
             .unwrap()
             .workspace_key(workspace_id)
             .unwrap()

@@ -25,7 +25,7 @@ vi.mock("@tauri-apps/api/window", () => ({
   }),
 }));
 
-vi.mock("@hypr/plugin-icon", () => ({
+vi.mock("@anlg/plugin-icon", () => ({
   commands: { setDockIcon },
 }));
 

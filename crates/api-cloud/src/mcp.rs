@@ -1,5 +1,5 @@
-use hypr_agent_access as access;
-use hypr_mcp::McpAuth;
+use anlg_agent_access as access;
+use anlg_mcp::McpAuth;
 use rmcp::{
     ErrorData as McpError, ServerHandler, handler::server::wrapper::Parameters, model::*, tool,
     tool_handler, tool_router,
@@ -148,14 +148,14 @@ pub(crate) fn mcp_service(
     CloudMcpServer,
     rmcp::transport::streamable_http_server::session::local::LocalSessionManager,
 > {
-    hypr_mcp::create_service(move || {
+    anlg_mcp::create_service(move || {
         Ok(CloudMcpServer {
             state: state.clone(),
         })
     })
 }
 
-fn user_id(auth: Option<hypr_api_auth::AuthContext>) -> Result<String, McpError> {
+fn user_id(auth: Option<anlg_api_auth::AuthContext>) -> Result<String, McpError> {
     auth.map(|auth| auth.claims.sub)
         .ok_or_else(|| McpError::invalid_request("Provide a valid Anarlog cloud API key", None))
 }

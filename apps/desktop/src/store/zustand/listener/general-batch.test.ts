@@ -31,13 +31,13 @@ vi.mock("@tauri-apps/api/window", () => ({
   }),
 }));
 
-vi.mock("@hypr/plugin-notification", () => ({
+vi.mock("@anlg/plugin-notification", () => ({
   commands: {
     showNotification: showNotificationMock,
   },
 }));
 
-vi.mock("@hypr/plugin-transcription", () => ({
+vi.mock("@anlg/plugin-transcription", () => ({
   events: {
     transcriptionEvent: {
       listen: listenMock,
@@ -60,7 +60,7 @@ describe("runBatchSession", () => {
     expect(
       shouldUseSyntheticBatchProgress({
         session_id: "session-1",
-        provider: "hyprnote",
+        provider: "anarlog",
         file_path: "/tmp/session.wav",
         base_url: "",
         api_key: "",
@@ -179,7 +179,7 @@ describe("runBatchSession", () => {
         "session-1",
         {
           session_id: "session-1",
-          provider: "hyprnote",
+          provider: "anarlog",
           file_path: "/tmp/session.wav",
           base_url: "",
           api_key: "",
@@ -280,7 +280,7 @@ describe("runBatchSession", () => {
         "session-1",
         {
           session_id: "session-1",
-          provider: "hyprnote",
+          provider: "anarlog",
           file_path: "/tmp/session.wav",
           base_url: "",
           api_key: "",
@@ -389,7 +389,7 @@ describe("runBatchSession", () => {
       "session-1",
       {
         session_id: "session-1",
-        provider: "hyprnote",
+        provider: "anarlog",
         file_path: "/tmp/session.wav",
         base_url: "",
         api_key: "",
@@ -480,7 +480,7 @@ describe("runBatchSession", () => {
       "session-1",
       {
         session_id: "session-1",
-        provider: "hyprnote",
+        provider: "anarlog",
         file_path: "/tmp/session.wav",
         base_url: "",
         api_key: "",
@@ -597,7 +597,7 @@ describe("runBatchSession", () => {
       "session-1",
       {
         session_id: "session-1",
-        provider: "hyprnote",
+        provider: "anarlog",
         file_path: "/tmp/session.wav",
         base_url: "",
         api_key: "",
@@ -684,7 +684,7 @@ describe("runBatchSession", () => {
         "session-1",
         {
           session_id: "session-1",
-          provider: "hyprnote",
+          provider: "anarlog",
           file_path: "/tmp/session.wav",
           base_url: "",
           api_key: "",
@@ -758,7 +758,7 @@ describe("runBatchSession", () => {
         "session-1",
         {
           session_id: "session-1",
-          provider: "hyprnote",
+          provider: "anarlog",
           file_path: "/tmp/session.wav",
           base_url: "",
           api_key: "",
@@ -836,7 +836,7 @@ describe("runBatchSession", () => {
         "session-1",
         {
           session_id: "session-1",
-          provider: "hyprnote",
+          provider: "anarlog",
           file_path: "/tmp/session.wav",
           base_url: "",
           api_key: "",

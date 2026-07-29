@@ -1,7 +1,7 @@
 use std::time::Duration;
 
+use anlg_audio_interface::AsyncSource;
 use futures_util::{Stream, StreamExt, future, stream};
-use hypr_audio_interface::AsyncSource;
 
 use crate::{AudioChunk, Chunker};
 

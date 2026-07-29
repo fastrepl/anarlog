@@ -61,7 +61,7 @@ pub fn load_session_content(session_id: &str, session_dir: &std::path::Path) -> 
             Err(_) => continue,
         };
 
-        let tiptap_json = match hypr_tiptap::md_to_tiptap_json(&parsed.content) {
+        let tiptap_json = match anlg_tiptap::md_to_tiptap_json(&parsed.content) {
             Ok(value) => value,
             Err(_) => continue,
         };

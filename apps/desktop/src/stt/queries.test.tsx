@@ -1,7 +1,7 @@
 import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { LiveTranscriptDelta } from "@hypr/plugin-transcription";
+import type { LiveTranscriptDelta } from "@anlg/plugin-transcription";
 
 const mocks = vi.hoisted(() => ({
   execute: vi.fn(),

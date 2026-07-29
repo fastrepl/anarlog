@@ -3,7 +3,7 @@ use std::str::FromStr;
 use owhisper_client::{AdapterKind, DeepgramModel, Provider, is_meta_model};
 use owhisper_interface::ListenParams;
 
-fn should_override_deepgram_model(model: &str, languages: &[hypr_language::Language]) -> bool {
+fn should_override_deepgram_model(model: &str, languages: &[anlg_language::Language]) -> bool {
     if let Ok(parsed_model) = DeepgramModel::from_str(model) {
         !languages
             .iter()

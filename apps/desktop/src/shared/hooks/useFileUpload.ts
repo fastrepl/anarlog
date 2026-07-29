@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import {
   type AttachmentSaveResult,
   commands as fsSyncCommands,
-} from "@hypr/plugin-fs-sync";
+} from "@anlg/plugin-fs-sync";
 
 import { catalogLocalNoteAttachment, sha256Hex } from "~/session/attachments";
 

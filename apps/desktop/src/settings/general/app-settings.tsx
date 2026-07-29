@@ -7,7 +7,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@hypr/ui/components/ui/select";
+} from "@anlg/ui/components/ui/select";
 
 import {
   SETTING_CONTROL_CLASS,

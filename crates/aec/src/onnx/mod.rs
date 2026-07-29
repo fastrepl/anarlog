@@ -1,7 +1,7 @@
 use realfft::{ComplexToReal, RealFftPlanner, RealToComplex, num_complex::Complex};
 use std::sync::Arc;
 
-use hypr_onnx::{
+use anlg_onnx::{
     ndarray::{Array3, Array4},
     ort::{session::Session, value::TensorRef},
 };
@@ -74,8 +74,8 @@ impl AEC {
         let fft = fft_planner.plan_fft_forward(block_len);
         let ifft = fft_planner.plan_fft_inverse(block_len);
 
-        let session_1 = hypr_onnx::load_model_from_bytes(model::BYTES_1)?;
-        let session_2 = hypr_onnx::load_model_from_bytes(model::BYTES_2)?;
+        let session_1 = anlg_onnx::load_model_from_bytes(model::BYTES_1)?;
+        let session_2 = anlg_onnx::load_model_from_bytes(model::BYTES_2)?;
 
         let state_size = model::STATE_SIZE;
 
@@ -125,7 +125,7 @@ impl AEC {
     }
 
     fn run_model_1(&mut self, ctx: &mut ProcessingContext) -> Result<(), crate::Error> {
-        let mut outputs = self.session_1.run(hypr_onnx::ort::inputs![
+        let mut outputs = self.session_1.run(anlg_onnx::ort::inputs![
             TensorRef::from_array_view(ctx.in_mag.view())?,
             TensorRef::from_array_view(self.states_1.view())?,
             TensorRef::from_array_view(ctx.lpb_mag.view())?
@@ -137,8 +137,8 @@ impl AEC {
         let out_mask_view = out_mask.try_extract_array::<f32>()?;
         ctx.out_mask
             .copy_from_slice(out_mask_view.view().as_slice().ok_or_else(|| {
-                crate::Error::ShapeError(hypr_onnx::ndarray::ShapeError::from_kind(
-                    hypr_onnx::ndarray::ErrorKind::IncompatibleLayout,
+                crate::Error::ShapeError(anlg_onnx::ndarray::ShapeError::from_kind(
+                    anlg_onnx::ndarray::ErrorKind::IncompatibleLayout,
                 ))
             })?);
 
@@ -149,13 +149,13 @@ impl AEC {
         self.states_1
             .as_slice_mut()
             .ok_or_else(|| {
-                crate::Error::ShapeError(hypr_onnx::ndarray::ShapeError::from_kind(
-                    hypr_onnx::ndarray::ErrorKind::IncompatibleLayout,
+                crate::Error::ShapeError(anlg_onnx::ndarray::ShapeError::from_kind(
+                    anlg_onnx::ndarray::ErrorKind::IncompatibleLayout,
                 ))
             })?
             .copy_from_slice(new_states_view.view().as_slice().ok_or_else(|| {
-                crate::Error::ShapeError(hypr_onnx::ndarray::ShapeError::from_kind(
-                    hypr_onnx::ndarray::ErrorKind::IncompatibleLayout,
+                crate::Error::ShapeError(anlg_onnx::ndarray::ShapeError::from_kind(
+                    anlg_onnx::ndarray::ErrorKind::IncompatibleLayout,
                 ))
             })?);
 
@@ -163,7 +163,7 @@ impl AEC {
     }
 
     fn run_model_2(&mut self, ctx: &mut ProcessingContext) -> Result<(), crate::Error> {
-        let mut outputs = self.session_2.run(hypr_onnx::ort::inputs![
+        let mut outputs = self.session_2.run(anlg_onnx::ort::inputs![
             TensorRef::from_array_view(ctx.estimated_block.view())?,
             TensorRef::from_array_view(self.states_2.view())?,
             TensorRef::from_array_view(ctx.in_lpb.view())?
@@ -175,8 +175,8 @@ impl AEC {
         let out_block_view = out_block.try_extract_array::<f32>()?;
         ctx.out_block
             .copy_from_slice(out_block_view.view().as_slice().ok_or_else(|| {
-                crate::Error::ShapeError(hypr_onnx::ndarray::ShapeError::from_kind(
-                    hypr_onnx::ndarray::ErrorKind::IncompatibleLayout,
+                crate::Error::ShapeError(anlg_onnx::ndarray::ShapeError::from_kind(
+                    anlg_onnx::ndarray::ErrorKind::IncompatibleLayout,
                 ))
             })?);
 
@@ -187,13 +187,13 @@ impl AEC {
         self.states_2
             .as_slice_mut()
             .ok_or_else(|| {
-                crate::Error::ShapeError(hypr_onnx::ndarray::ShapeError::from_kind(
-                    hypr_onnx::ndarray::ErrorKind::IncompatibleLayout,
+                crate::Error::ShapeError(anlg_onnx::ndarray::ShapeError::from_kind(
+                    anlg_onnx::ndarray::ErrorKind::IncompatibleLayout,
                 ))
             })?
             .copy_from_slice(new_states_view.view().as_slice().ok_or_else(|| {
-                crate::Error::ShapeError(hypr_onnx::ndarray::ShapeError::from_kind(
-                    hypr_onnx::ndarray::ErrorKind::IncompatibleLayout,
+                crate::Error::ShapeError(anlg_onnx::ndarray::ShapeError::from_kind(
+                    anlg_onnx::ndarray::ErrorKind::IncompatibleLayout,
                 ))
             })?);
 
@@ -358,9 +358,9 @@ impl AEC {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anlg_audio_snapshot::{SpectralConfig, Tolerances};
     use approx::assert_abs_diff_eq;
     use dasp::sample::Sample;
-    use hypr_audio_snapshot::{SpectralConfig, Tolerances};
     use model::{BLOCK_SHIFT, BLOCK_SIZE};
     use std::path::PathBuf;
 
@@ -370,8 +370,8 @@ mod tests {
         pub const DOUBLETALK_MIC: &[u8] =
             include_bytes!("../../data/inputs/doubletalk_mic_sample.wav");
 
-        pub const HYPRNOTE_LPB: &[u8] = include_bytes!("../../data/inputs/hyprnote_lpb.wav");
-        pub const HYPRNOTE_MIC: &[u8] = include_bytes!("../../data/inputs/hyprnote_mic.wav");
+        pub const ANARLOG_LPB: &[u8] = include_bytes!("../../data/inputs/anarlog_lpb.wav");
+        pub const ANARLOG_MIC: &[u8] = include_bytes!("../../data/inputs/anarlog_mic.wav");
 
         pub const THEO_LPB: &[u8] = include_bytes!("../../data/inputs/theo_lpb.wav");
         pub const THEO_MIC: &[u8] = include_bytes!("../../data/inputs/theo_mic.wav");
@@ -461,7 +461,7 @@ mod tests {
                     streaming_result
                 };
 
-                let batch_snap = hypr_audio_snapshot::assert_or_update(
+                let batch_snap = anlg_audio_snapshot::assert_or_update(
                     &batch_result,
                     &output_path($output_prefix, feature, "batch"),
                     &snapshot_path($output_prefix, feature, "batch"),
@@ -470,7 +470,7 @@ mod tests {
                     &tolerances,
                 );
 
-                let streaming_snap = hypr_audio_snapshot::assert_or_update(
+                let streaming_snap = anlg_audio_snapshot::assert_or_update(
                     &streaming_result,
                     &output_path($output_prefix, feature, "streaming"),
                     &snapshot_path($output_prefix, feature, "streaming"),
@@ -501,10 +501,10 @@ mod tests {
     );
 
     aec_test!(
-        test_aec_hyprnote,
-        data::HYPRNOTE_LPB,
-        data::HYPRNOTE_MIC,
-        "hyprnote"
+        test_aec_anarlog,
+        data::ANARLOG_LPB,
+        data::ANARLOG_MIC,
+        "anarlog"
     );
 
     aec_test!(test_aec_theo, data::THEO_LPB, data::THEO_MIC, "theo");

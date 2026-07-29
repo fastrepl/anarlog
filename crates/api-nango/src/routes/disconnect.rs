@@ -1,5 +1,5 @@
+use anlg_api_auth::AuthContext;
 use axum::{Extension, Json, extract::State};
-use hypr_api_auth::AuthContext;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -47,8 +47,8 @@ pub async fn delete_connection(
     if !owns {
         tracing::warn!(
             enduser.id = %auth.claims.sub,
-            hyprnote.connection.id = %body.connection_id,
-            hyprnote.integration.id = %body.integration_id,
+            anarlog.connection.id = %body.connection_id,
+            anarlog.integration.id = %body.integration_id,
             "disconnect denied: connection not owned by user"
         );
         return Err(crate::error::NangoError::Forbidden(
@@ -62,12 +62,12 @@ pub async fn delete_connection(
         .await
     {
         Ok(()) => {}
-        Err(hypr_nango::Error::Api(404, response_body)) => {
+        Err(anlg_nango::Error::Api(404, response_body)) => {
             tracing::warn!(
                 enduser.id = %auth.claims.sub,
-                hyprnote.connection.id = %body.connection_id,
-                hyprnote.integration.id = %body.integration_id,
-                hyprnote.http.response.body = %response_body,
+                anarlog.connection.id = %body.connection_id,
+                anarlog.integration.id = %body.integration_id,
+                anarlog.http.response.body = %response_body,
                 "nango connection already deleted, cleaning local row"
             );
         }

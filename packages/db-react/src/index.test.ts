@@ -1,11 +1,11 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { LiveQueryClient } from "@hypr/db-runtime";
+import type { LiveQueryClient } from "@anlg/db-runtime";
 
 import { createUseDrizzleLiveQuery, createUseLiveQuery } from "./index";
 
-describe("@hypr/db-react", () => {
+describe("@anlg/db-react", () => {
   const subscribeMock = vi.fn<LiveQueryClient["subscribe"]>();
   const client: LiveQueryClient = {
     execute: vi.fn(),

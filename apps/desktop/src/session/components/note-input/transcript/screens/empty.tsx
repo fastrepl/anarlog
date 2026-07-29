@@ -5,8 +5,8 @@ import {
   SquareIcon,
 } from "lucide-react";
 
-import { Button } from "@hypr/ui/components/ui/button";
-import { Spinner } from "@hypr/ui/components/ui/spinner";
+import { Button } from "@anlg/ui/components/ui/button";
+import { Spinner } from "@anlg/ui/components/ui/spinner";
 
 export function TranscriptEmptyState({
   isBatching,

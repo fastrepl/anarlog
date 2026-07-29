@@ -24,7 +24,7 @@ beforeEach(() => {
 test("broadcasts a recovery wakeup to the main window", async () => {
   await requestCaptureRecovery("session-1");
 
-  expect(mocks.emit).toHaveBeenCalledWith("hypr:capture-recovery-request", {
+  expect(mocks.emit).toHaveBeenCalledWith("anlg:capture-recovery-request", {
     sessionId: "session-1",
   });
 });

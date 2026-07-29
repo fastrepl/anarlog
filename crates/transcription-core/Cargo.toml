@@ -7,14 +7,14 @@ description = ""
 [features]
 default = []
 specta = [
-  "hypr-listener-core/specta",
-  "hypr-listener2-core/specta",
+  "anlg-listener-core/specta",
+  "anlg-listener2-core/specta",
 ]
 tauri-event = [
-  "hypr-listener-core/tauri-event",
-  "hypr-listener2-core/tauri-event",
+  "anlg-listener-core/tauri-event",
+  "anlg-listener2-core/tauri-event",
 ]
 
 [dependencies]
-hypr-listener-core = { workspace = true }
-hypr-listener2-core = { workspace = true }
+anlg-listener-core = { workspace = true }
+anlg-listener2-core = { workspace = true }

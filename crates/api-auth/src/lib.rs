@@ -1,12 +1,12 @@
+use anlg_supabase_auth::server::{Error as SupabaseAuthError, SupabaseAuth};
 use axum::{
     extract::{Request, State},
     http::StatusCode,
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use hypr_supabase_auth::server::{Error as SupabaseAuthError, SupabaseAuth};
 
-pub use hypr_supabase_auth::Claims;
+pub use anlg_supabase_auth::Claims;
 
 #[derive(Clone)]
 pub struct AuthContext {

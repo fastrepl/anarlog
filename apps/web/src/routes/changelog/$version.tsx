@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 
-import { ChangelogContent } from "@hypr/changelog";
+import { ChangelogContent } from "@anlg/changelog";
 
 import { SiteFooter } from "@/components/site-footer";
 import { formatChangelogDate, getChangelogEntry } from "@/lib/changelog";

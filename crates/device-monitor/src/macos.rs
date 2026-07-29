@@ -2,7 +2,7 @@ use cidre::{core_audio as ca, ns, os};
 use std::sync::mpsc;
 
 use crate::{DeviceEvent, DeviceSwitch, DeviceUpdate};
-use hypr_audio_device::macos::is_headphone_from_default_output_device;
+use anlg_audio_device::macos::is_headphone_from_default_output_device;
 
 type ListenerFn = extern "C-unwind" fn(ca::Obj, u32, *const ca::PropAddr, *mut ()) -> os::Status;
 

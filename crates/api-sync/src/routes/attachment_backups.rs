@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use anlg_api_auth::AuthContext;
 use axum::{
     Extension, Json, Router,
     extract::{DefaultBodyLimit, Path, Request, State},
@@ -9,7 +10,6 @@ use axum::{
     routing::{get, post, put},
 };
 use chrono::{SecondsFormat, TimeDelta, Utc};
-use hypr_api_auth::AuthContext;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use utoipa::OpenApi;
@@ -1420,11 +1420,11 @@ fn invalid_upstream_response(operation: &str) -> SyncError {
 
 #[cfg(test)]
 mod tests {
+    use anlg_api_auth::{AuthContext, Claims};
     use axum::{
         body::{Body, to_bytes},
         http::{Method, Request, StatusCode, header},
     };
-    use hypr_api_auth::{AuthContext, Claims};
     use serde_json::{Value, json};
     use tower::ServiceExt;
     use wiremock::{

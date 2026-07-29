@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-api-error = { workspace = true }
-hypr-recall = { workspace = true }
+anlg-api-error = { workspace = true }
+anlg-recall = { workspace = true }
 
 utoipa = { workspace = true }
 

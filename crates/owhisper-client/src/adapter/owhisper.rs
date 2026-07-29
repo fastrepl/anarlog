@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use anlg_audio_utils::AudioFormatExt;
     use futures_util::StreamExt;
-    use hypr_audio_utils::AudioFormatExt;
 
     use crate::ListenClient;
     use crate::live::ListenClientInput;
@@ -10,7 +10,7 @@ mod tests {
     #[ignore]
     async fn test_owhisper_with_owhisper() {
         let audio = rodio::Decoder::new(std::io::BufReader::new(
-            std::fs::File::open(hypr_data::english_1::AUDIO_PATH).unwrap(),
+            std::fs::File::open(anlg_data::english_1::AUDIO_PATH).unwrap(),
         ))
         .unwrap()
         .to_i16_le_chunks(16000, 512);
@@ -21,7 +21,7 @@ mod tests {
             .api_key("".to_string())
             .params(owhisper_interface::ListenParams {
                 model: Some("whisper-cpp-small-q8".to_string()),
-                languages: vec![hypr_language::ISO639::En.into()],
+                languages: vec![anlg_language::ISO639::En.into()],
                 ..Default::default()
             })
             .build_single()
@@ -39,7 +39,7 @@ mod tests {
     #[ignore]
     async fn test_owhisper_with_deepgram() {
         let audio = rodio::Decoder::new(std::io::BufReader::new(
-            std::fs::File::open(hypr_data::english_1::AUDIO_PATH).unwrap(),
+            std::fs::File::open(anlg_data::english_1::AUDIO_PATH).unwrap(),
         ))
         .unwrap()
         .to_i16_le_chunks(16000, 512)

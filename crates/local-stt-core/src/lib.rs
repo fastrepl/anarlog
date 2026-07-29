@@ -1,4 +1,4 @@
-pub use hypr_local_model::{AmModel, AppleSpeechModel, LocalModel, SoniqoModel, WhisperModel};
+pub use anlg_local_model::{AmModel, AppleSpeechModel, LocalModel, SoniqoModel, WhisperModel};
 
 pub static SUPPORTED_MODELS: &[LocalModel] = &[
     LocalModel::Soniqo(SoniqoModel::ParakeetStreaming),

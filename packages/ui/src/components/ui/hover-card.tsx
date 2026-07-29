@@ -2,7 +2,7 @@ import * as HoverCardPrimitive from "@radix-ui/react-hover-card";
 import { motion, type MotionStyle } from "motion/react";
 import * as React from "react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import {
   appFloatingContentClassName,

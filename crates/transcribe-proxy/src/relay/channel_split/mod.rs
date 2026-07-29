@@ -99,7 +99,7 @@ impl ChannelSplitProxy {
             .clone()
             .into_client_request()
             .map_err(|error| crate::ProxyError::InvalidRequest(error.to_string()))?;
-        hypr_observability::inject_current_trace_context(req.headers_mut());
+        anlg_observability::inject_current_trace_context(req.headers_mut());
 
         let result = tokio::time::timeout(timeout, connect_async(req)).await;
         match result {
@@ -144,7 +144,7 @@ impl ChannelSplitProxy {
         }
 
         tracing::info!(
-            hyprnote.duration_ms = %(duration.as_millis() as u64),
+            anarlog.duration_ms = %(duration.as_millis() as u64),
             "channel_split_proxy_closed"
         );
 
@@ -242,7 +242,7 @@ impl ChannelSplitProxy {
                                     passthrough_text.as_deref().unwrap_or("<none>");
 
                                 tracing::info!(
-                                    hyprnote.stream.channel = channel,
+                                    anarlog.stream.channel = channel,
                                     raw = %raw_log.as_deref().unwrap_or("<none>"),
                                     transformed = %transformed_log.as_deref().unwrap_or("<none>"),
                                     rewritten = %rewritten_log,

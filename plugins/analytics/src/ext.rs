@@ -11,7 +11,7 @@ pub struct Analytics<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
 impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
     pub async fn event(
         &self,
-        mut payload: hypr_analytics::AnalyticsPayload,
+        mut payload: anlg_analytics::AnalyticsPayload,
     ) -> Result<(), crate::Error> {
         if self.is_disabled().unwrap_or(true) {
             return Ok(());
@@ -19,25 +19,25 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
 
         Self::enrich_payload(self.manager, &mut payload);
 
-        let machine_id = hypr_host::fingerprint();
+        let machine_id = anlg_host::fingerprint();
         let state = self.manager.state::<crate::ManagedState>();
         state
             .client
             .event(machine_id, payload)
             .await
-            .map_err(crate::Error::HyprAnalytics)?;
+            .map_err(crate::Error::AnlgAnalytics)?;
 
         Ok(())
     }
 
-    pub fn event_fire_and_forget(&self, mut payload: hypr_analytics::AnalyticsPayload) {
+    pub fn event_fire_and_forget(&self, mut payload: anlg_analytics::AnalyticsPayload) {
         if self.is_disabled().unwrap_or(true) {
             return;
         }
 
         Self::enrich_payload(self.manager, &mut payload);
 
-        let machine_id = hypr_host::fingerprint();
+        let machine_id = anlg_host::fingerprint();
         let client = self.manager.state::<crate::ManagedState>().client.clone();
 
         tauri::async_runtime::spawn(async move {
@@ -54,7 +54,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
         session.session_id(SystemTime::now())
     }
 
-    fn enrich_payload(manager: &M, payload: &mut hypr_analytics::AnalyticsPayload) {
+    fn enrich_payload(manager: &M, payload: &mut anlg_analytics::AnalyticsPayload) {
         let app_version = env!("APP_VERSION");
         let app_identifier = manager.config().identifier.clone();
         let git_hash = manager.misc().get_git_hash();
@@ -134,17 +134,17 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
 
     pub async fn set_properties(
         &self,
-        payload: hypr_analytics::PropertiesPayload,
+        payload: anlg_analytics::PropertiesPayload,
     ) -> Result<(), crate::Error> {
         if !self.is_disabled()? {
-            let machine_id = hypr_host::fingerprint();
+            let machine_id = anlg_host::fingerprint();
 
             let state = self.manager.state::<crate::ManagedState>();
             state
                 .client
                 .set_properties(machine_id, payload)
                 .await
-                .map_err(crate::Error::HyprAnalytics)?;
+                .map_err(crate::Error::AnlgAnalytics)?;
         }
 
         Ok(())
@@ -153,10 +153,10 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
     pub async fn identify(
         &self,
         user_id: impl Into<String>,
-        payload: hypr_analytics::PropertiesPayload,
+        payload: anlg_analytics::PropertiesPayload,
     ) -> Result<(), crate::Error> {
         if !self.is_disabled()? {
-            let machine_id = hypr_host::fingerprint();
+            let machine_id = anlg_host::fingerprint();
             let user_id = user_id.into();
 
             let state = self.manager.state::<crate::ManagedState>();
@@ -171,7 +171,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
                 .client
                 .identify(user_id, machine_id, payload)
                 .await
-                .map_err(crate::Error::HyprAnalytics)?;
+                .map_err(crate::Error::AnlgAnalytics)?;
         }
 
         Ok(())

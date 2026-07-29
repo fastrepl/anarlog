@@ -15,14 +15,14 @@ fn e2ee_recovery_key_name(account_user_id: &str) -> Result<String, String> {
 async fn load_e2ee_recovery_key<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     account_user_id: &str,
-) -> Result<Option<hypr_e2ee::RecoveryKey>, String> {
+) -> Result<Option<anlg_e2ee::RecoveryKey>, String> {
     let key = e2ee_recovery_key_name(account_user_id)?;
     read_e2ee_secret_with_timeout(
         E2EE_SECRET_READ_TIMEOUT,
         tauri_plugin_store2::read_secret(app, E2EE_SECRET_SCOPE.to_string(), key),
     )
     .await?
-    .map(|value| hypr_e2ee::RecoveryKey::parse(&value).map_err(|error| error.to_string()))
+    .map(|value| anlg_e2ee::RecoveryKey::parse(&value).map_err(|error| error.to_string()))
     .transpose()
 }
 
@@ -39,9 +39,9 @@ async fn read_e2ee_secret_with_timeout(
 #[specta::specta]
 pub(crate) async fn list_meetings(
     state: tauri::State<'_, ManagedState>,
-    input: hypr_agent_access::ListMeetingsInput,
-) -> Result<hypr_agent_access::MeetingPage, String> {
-    hypr_agent_access::list_meetings(state.pool(), input)
+    input: anlg_agent_access::ListMeetingsInput,
+) -> Result<anlg_agent_access::MeetingPage, String> {
+    anlg_agent_access::list_meetings(state.pool(), input)
         .await
         .map_err(|error| error.to_string())
 }
@@ -50,9 +50,9 @@ pub(crate) async fn list_meetings(
 #[specta::specta]
 pub(crate) async fn get_meeting(
     state: tauri::State<'_, ManagedState>,
-    input: hypr_agent_access::GetMeetingInput,
-) -> Result<hypr_agent_access::Meeting, String> {
-    hypr_agent_access::get_meeting(state.pool(), input)
+    input: anlg_agent_access::GetMeetingInput,
+) -> Result<anlg_agent_access::Meeting, String> {
+    anlg_agent_access::get_meeting(state.pool(), input)
         .await
         .map_err(|error| error.to_string())
 }
@@ -61,9 +61,9 @@ pub(crate) async fn get_meeting(
 #[specta::specta]
 pub(crate) async fn get_meeting_transcript(
     state: tauri::State<'_, ManagedState>,
-    input: hypr_agent_access::GetMeetingTranscriptInput,
-) -> Result<hypr_agent_access::TranscriptPage, String> {
-    hypr_agent_access::get_meeting_transcript(state.pool(), input)
+    input: anlg_agent_access::GetMeetingTranscriptInput,
+) -> Result<anlg_agent_access::TranscriptPage, String> {
+    anlg_agent_access::get_meeting_transcript(state.pool(), input)
         .await
         .map_err(|error| error.to_string())
 }
@@ -72,9 +72,9 @@ pub(crate) async fn get_meeting_transcript(
 #[specta::specta]
 pub(crate) async fn get_recurring_meeting_history(
     state: tauri::State<'_, ManagedState>,
-    input: hypr_agent_access::GetRecurringMeetingHistoryInput,
-) -> Result<hypr_agent_access::MeetingPage, String> {
-    hypr_agent_access::get_recurring_meeting_history(state.pool(), input)
+    input: anlg_agent_access::GetRecurringMeetingHistoryInput,
+) -> Result<anlg_agent_access::MeetingPage, String> {
+    anlg_agent_access::get_recurring_meeting_history(state.pool(), input)
         .await
         .map_err(|error| error.to_string())
 }
@@ -113,7 +113,7 @@ pub(crate) async fn execute_proxy(
     method: String,
 ) -> Result<ExecuteProxyResult, String> {
     let method = method
-        .parse::<hypr_db_execute::ProxyQueryMethod>()
+        .parse::<anlg_db_execute::ProxyQueryMethod>()
         .map_err(|error| error.to_string())?;
     state
         .execute_proxy(sql, params, method)
@@ -184,7 +184,7 @@ pub(crate) fn inspect_e2ee_recovery_key(
     recovery_key: String,
 ) -> Result<crate::E2eeRecoveryKeyIdentity, String> {
     let recovery_key =
-        hypr_e2ee::RecoveryKey::parse(&recovery_key).map_err(|error| error.to_string())?;
+        anlg_e2ee::RecoveryKey::parse(&recovery_key).map_err(|error| error.to_string())?;
     Ok(crate::E2eeRecoveryKeyIdentity {
         key_id: recovery_key.key_id(),
     })
@@ -204,7 +204,7 @@ pub(crate) async fn create_e2ee_identity<R: tauri::Runtime>(
         return Err("E2EE recovery key is already configured".to_string());
     }
 
-    let recovery_key = hypr_e2ee::RecoveryKey::generate().map_err(|error| error.to_string())?;
+    let recovery_key = anlg_e2ee::RecoveryKey::generate().map_err(|error| error.to_string())?;
     let recovery_code = recovery_key.expose_code();
     Ok(recovery_code.to_string())
 }
@@ -225,7 +225,7 @@ pub(crate) async fn import_e2ee_identity<R: tauri::Runtime>(
     }
 
     let recovery_key =
-        hypr_e2ee::RecoveryKey::parse(&recovery_key).map_err(|error| error.to_string())?;
+        anlg_e2ee::RecoveryKey::parse(&recovery_key).map_err(|error| error.to_string())?;
     tauri_plugin_store2::write_secret(
         app,
         E2EE_SECRET_SCOPE.to_string(),
@@ -242,7 +242,7 @@ pub(crate) async fn subscribe(
     sql: String,
     params: Vec<serde_json::Value>,
     on_event: Channel<QueryEvent>,
-) -> Result<hypr_db_reactive::SubscriptionRegistration, String> {
+) -> Result<anlg_db_reactive::SubscriptionRegistration, String> {
     state
         .subscribe(
             sql,

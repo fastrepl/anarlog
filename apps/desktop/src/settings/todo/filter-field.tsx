@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 
-import { Input } from "@hypr/ui/components/ui/input";
+import { Input } from "@anlg/ui/components/ui/input";
 
 import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";

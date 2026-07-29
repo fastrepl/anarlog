@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/plugin-calendar",
+  "name": "@anlg/plugin-calendar",
   "private": true,
   "main": "./js/index.ts",
   "scripts": {

@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/utils",
+  "name": "@anlg/utils",
   "exports": {
     ".": "./src/index.ts"
   },

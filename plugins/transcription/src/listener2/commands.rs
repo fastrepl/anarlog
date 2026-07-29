@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use hypr_transcription_core::listener2 as core;
+use anlg_transcription_core::listener2 as core;
 
 use crate::TranscriptionParams;
 use crate::listener2::Listener2PluginExt;
@@ -68,7 +68,7 @@ pub async fn is_supported_languages_batch<R: tauri::Runtime>(
 ) -> Result<bool, String> {
     let languages_parsed = languages
         .iter()
-        .map(|s| hypr_language::Language::from_str(s))
+        .map(|s| anlg_language::Language::from_str(s))
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| format!("unknown_language: {}", e))?;
 
@@ -83,7 +83,7 @@ pub async fn suggest_providers_for_languages_batch<R: tauri::Runtime>(
 ) -> Result<Vec<String>, String> {
     let languages_parsed = languages
         .iter()
-        .map(|s| hypr_language::Language::from_str(s))
+        .map(|s| anlg_language::Language::from_str(s))
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| format!("unknown_language: {}", e))?;
 

@@ -78,133 +78,133 @@ importers:
       '@handlewithcare/react-prosemirror':
         specifier: ^3.2.6
         version: 3.2.6(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(react-dom@19.2.5(react@19.2.5))(react-reconciler@0.33.0(react@19.2.5))(react@19.2.5)
-      '@hypr/api-client':
+      '@anlg/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
-      '@hypr/changelog':
+      '@anlg/changelog':
         specifier: workspace:^
         version: link:../../packages/changelog
-      '@hypr/db':
+      '@anlg/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@hypr/db-react':
+      '@anlg/db-react':
         specifier: workspace:*
         version: link:../../packages/db-react
-      '@hypr/db-tauri':
+      '@anlg/db-tauri':
         specifier: workspace:*
         version: link:../../packages/db-tauri
-      '@hypr/editor':
+      '@anlg/editor':
         specifier: workspace:^
         version: link:../../packages/editor
-      '@hypr/plugin-analytics':
+      '@anlg/plugin-analytics':
         specifier: workspace:*
         version: link:../../plugins/analytics
-      '@hypr/plugin-attachment-sync':
+      '@anlg/plugin-attachment-sync':
         specifier: workspace:*
         version: link:../../plugins/attachment-sync
-      '@hypr/plugin-auth':
+      '@anlg/plugin-auth':
         specifier: workspace:*
         version: link:../../plugins/auth
-      '@hypr/plugin-calendar':
+      '@anlg/plugin-calendar':
         specifier: workspace:*
         version: link:../../plugins/calendar
-      '@hypr/plugin-db':
+      '@anlg/plugin-db':
         specifier: workspace:*
         version: link:../../plugins/db
-      '@hypr/plugin-deeplink2':
+      '@anlg/plugin-deeplink2':
         specifier: workspace:*
         version: link:../../plugins/deeplink2
-      '@hypr/plugin-detect':
+      '@anlg/plugin-detect':
         specifier: workspace:*
         version: link:../../plugins/detect
-      '@hypr/plugin-export':
+      '@anlg/plugin-export':
         specifier: workspace:*
         version: link:../../plugins/export
-      '@hypr/plugin-fs-sync':
+      '@anlg/plugin-fs-sync':
         specifier: workspace:*
         version: link:../../plugins/fs-sync
-      '@hypr/plugin-fs2':
+      '@anlg/plugin-fs2':
         specifier: workspace:*
         version: link:../../plugins/fs2
-      '@hypr/plugin-hooks':
+      '@anlg/plugin-hooks':
         specifier: workspace:*
         version: link:../../plugins/hooks
-      '@hypr/plugin-icon':
+      '@anlg/plugin-icon':
         specifier: workspace:*
         version: link:../../plugins/icon
-      '@hypr/plugin-importer':
+      '@anlg/plugin-importer':
         specifier: workspace:*
         version: link:../../plugins/importer
-      '@hypr/plugin-local-api':
+      '@anlg/plugin-local-api':
         specifier: workspace:*
         version: link:../../plugins/local-api
-      '@hypr/plugin-local-llm':
+      '@anlg/plugin-local-llm':
         specifier: workspace:*
         version: link:../../plugins/local-llm
-      '@hypr/plugin-local-stt':
+      '@anlg/plugin-local-stt':
         specifier: workspace:*
         version: link:../../plugins/local-stt
-      '@hypr/plugin-misc':
+      '@anlg/plugin-misc':
         specifier: workspace:*
         version: link:../../plugins/misc
-      '@hypr/plugin-notification':
+      '@anlg/plugin-notification':
         specifier: workspace:*
         version: link:../../plugins/notification
-      '@hypr/plugin-notify':
+      '@anlg/plugin-notify':
         specifier: workspace:*
         version: link:../../plugins/notify
-      '@hypr/plugin-opener2':
+      '@anlg/plugin-opener2':
         specifier: workspace:*
         version: link:../../plugins/opener2
-      '@hypr/plugin-permissions':
+      '@anlg/plugin-permissions':
         specifier: workspace:*
         version: link:../../plugins/permissions
-      '@hypr/plugin-relay':
+      '@anlg/plugin-relay':
         specifier: workspace:*
         version: link:../../plugins/relay
-      '@hypr/plugin-settings':
+      '@anlg/plugin-settings':
         specifier: workspace:*
         version: link:../../plugins/settings
-      '@hypr/plugin-sfx':
+      '@anlg/plugin-sfx':
         specifier: workspace:*
         version: link:../../plugins/sfx
-      '@hypr/plugin-store2':
+      '@anlg/plugin-store2':
         specifier: workspace:*
         version: link:../../plugins/store2
-      '@hypr/plugin-tantivy':
+      '@anlg/plugin-tantivy':
         specifier: workspace:*
         version: link:../../plugins/tantivy
-      '@hypr/plugin-template':
+      '@anlg/plugin-template':
         specifier: workspace:*
         version: link:../../plugins/template
-      '@hypr/plugin-todo':
+      '@anlg/plugin-todo':
         specifier: workspace:*
         version: link:../../plugins/todo
-      '@hypr/plugin-transcription':
+      '@anlg/plugin-transcription':
         specifier: workspace:*
         version: link:../../plugins/transcription
-      '@hypr/plugin-tray':
+      '@anlg/plugin-tray':
         specifier: workspace:*
         version: link:../../plugins/tray
-      '@hypr/plugin-updater2':
+      '@anlg/plugin-updater2':
         specifier: workspace:*
         version: link:../../plugins/updater2
-      '@hypr/plugin-windows':
+      '@anlg/plugin-windows':
         specifier: workspace:*
         version: link:../../plugins/windows
-      '@hypr/pricing':
+      '@anlg/pricing':
         specifier: workspace:^
         version: link:../../packages/pricing
-      '@hypr/store':
+      '@anlg/store':
         specifier: workspace:*
         version: link:../../packages/store
-      '@hypr/supabase':
+      '@anlg/supabase':
         specifier: workspace:*
         version: link:../../packages/supabase
-      '@hypr/ui':
+      '@anlg/ui':
         specifier: workspace:^
         version: link:../../packages/ui
-      '@hypr/utils':
+      '@anlg/utils':
         specifier: workspace:^
         version: link:../../packages/utils
       '@iconify-icon/react':
@@ -439,10 +439,10 @@ importers:
       '@expo/vector-icons':
         specifier: ^15.1.1
         version: 15.1.1(expo-font@57.0.1)(react-native@0.86.0(@babel/core@7.29.0)(@react-native/metro-config@0.86.0(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
-      '@hypr/db-react':
+      '@anlg/db-react':
         specifier: workspace:*
         version: link:../../packages/db-react
-      '@hypr/db-runtime':
+      '@anlg/db-runtime':
         specifier: workspace:*
         version: link:../../packages/db-runtime
       '@react-native-async-storage/async-storage':
@@ -548,7 +548,7 @@ importers:
 
   apps/stripe:
     dependencies:
-      '@hypr/supabase':
+      '@anlg/supabase':
         specifier: workspace:*
         version: link:../../packages/supabase
       '@sentry/bun':
@@ -609,25 +609,25 @@ importers:
       '@honeycombio/opentelemetry-web':
         specifier: ^1.3.0
         version: 1.3.0(@opentelemetry/auto-instrumentations-web@0.49.1(@opentelemetry/api@1.9.1)(zone.js@0.15.1))
-      '@hypr/api-client':
+      '@anlg/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
-      '@hypr/changelog':
+      '@anlg/changelog':
         specifier: workspace:^
         version: link:../../packages/changelog
-      '@hypr/editor':
+      '@anlg/editor':
         specifier: workspace:*
         version: link:../../packages/editor
-      '@hypr/pricing':
+      '@anlg/pricing':
         specifier: workspace:^
         version: link:../../packages/pricing
-      '@hypr/supabase':
+      '@anlg/supabase':
         specifier: workspace:*
         version: link:../../packages/supabase
-      '@hypr/ui':
+      '@anlg/ui':
         specifier: workspace:*
         version: link:../../packages/ui
-      '@hypr/utils':
+      '@anlg/utils':
         specifier: workspace:*
         version: link:../../packages/utils
       '@iconify-icon/react':
@@ -832,10 +832,10 @@ importers:
       '@dotenvx/dotenvx':
         specifier: ^1.61.0
         version: 1.61.0
-      '@hypr/plugin-auth':
+      '@anlg/plugin-auth':
         specifier: workspace:*
         version: link:../../plugins/auth
-      '@hypr/plugin-deeplink2':
+      '@anlg/plugin-deeplink2':
         specifier: workspace:*
         version: link:../../plugins/deeplink2
       '@tailwindcss/typography':
@@ -922,7 +922,7 @@ importers:
 
   examples/plugins/hello-world:
     devDependencies:
-      '@hypr/plugin-sdk':
+      '@anlg/plugin-sdk':
         specifier: workspace:*
         version: link:../../../packages/plugin-sdk
       '@types/react':
@@ -977,7 +977,7 @@ importers:
 
   packages/agent-designer:
     dependencies:
-      '@hypr/agent-core':
+      '@anlg/agent-core':
         specifier: workspace:^
         version: link:../agent-core
       '@langchain/core':
@@ -1023,7 +1023,7 @@ importers:
 
   packages/agent-support:
     dependencies:
-      '@hypr/agent-core':
+      '@anlg/agent-core':
         specifier: workspace:^
         version: link:../agent-core
       '@langchain/core':
@@ -1087,7 +1087,7 @@ importers:
 
   packages/changelog:
     dependencies:
-      '@hypr/utils':
+      '@anlg/utils':
         specifier: workspace:^
         version: link:../utils
       react:
@@ -1143,7 +1143,7 @@ importers:
 
   packages/db:
     dependencies:
-      '@hypr/db-runtime':
+      '@anlg/db-runtime':
         specifier: workspace:*
         version: link:../db-runtime
       drizzle-orm:
@@ -1162,7 +1162,7 @@ importers:
 
   packages/db-react:
     dependencies:
-      '@hypr/db-runtime':
+      '@anlg/db-runtime':
         specifier: workspace:*
         version: link:../db-runtime
       react:
@@ -1193,10 +1193,10 @@ importers:
 
   packages/db-tauri:
     dependencies:
-      '@hypr/db-runtime':
+      '@anlg/db-runtime':
         specifier: workspace:*
         version: link:../db-runtime
-      '@hypr/plugin-db':
+      '@anlg/plugin-db':
         specifier: workspace:*
         version: link:../../plugins/db
     devDependencies:
@@ -1215,13 +1215,13 @@ importers:
       '@handlewithcare/react-prosemirror':
         specifier: ^3.2.6
         version: 3.2.6(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(react-dom@19.2.5(react@19.2.5))(react-reconciler@0.33.0(react@19.2.5))(react@19.2.5)
-      '@hypr/plugin-opener2':
+      '@anlg/plugin-opener2':
         specifier: workspace:*
         version: link:../../plugins/opener2
-      '@hypr/store':
+      '@anlg/store':
         specifier: workspace:*
         version: link:../store
-      '@hypr/utils':
+      '@anlg/utils':
         specifier: workspace:^
         version: link:../utils
       facehash:
@@ -1322,10 +1322,10 @@ importers:
 
   packages/pricing:
     dependencies:
-      '@hypr/ui':
+      '@anlg/ui':
         specifier: workspace:^
         version: link:../ui
-      '@hypr/utils':
+      '@anlg/utils':
         specifier: workspace:^
         version: link:../utils
       lucide-react:
@@ -1373,7 +1373,7 @@ importers:
 
   packages/ui:
     dependencies:
-      '@hypr/utils':
+      '@anlg/utils':
         specifier: workspace:^
         version: link:../utils
       '@radix-ui/react-accordion':

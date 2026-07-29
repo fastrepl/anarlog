@@ -16,8 +16,8 @@ tauri-plugin-store = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 
 [dependencies]
-hypr-analytics = { workspace = true }
-hypr-host = { workspace = true }
+anlg-analytics = { workspace = true }
+anlg-host = { workspace = true }
 
 tauri-plugin-misc = { workspace = true }
 tauri-plugin-store2 = { workspace = true }

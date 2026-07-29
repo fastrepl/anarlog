@@ -4,7 +4,7 @@ use std::path::Path;
 use serde::Serialize;
 
 use crate::{Error, Result};
-use hypr_agent_access::Pagination;
+use anlg_agent_access::Pagination;
 
 pub const JSON_SCHEMA_VERSION: &str = "1";
 

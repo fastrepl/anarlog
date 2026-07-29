@@ -4,7 +4,7 @@ import type {
   BatchErrorCode,
   BatchResponse,
   BatchStreamEvent,
-} from "@hypr/plugin-transcription";
+} from "@anlg/plugin-transcription";
 
 import type { BatchPersistCallback } from "./transcript";
 import { transformWordEntries, type WordEntry } from "./utils";

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import {
   createDevtoolsToastPreview,
@@ -21,7 +21,7 @@ import { useTabs } from "~/store/zustand/tabs";
 import { useToastAction } from "~/store/zustand/toast-action";
 import {
   isConfiguredSttModel,
-  isHyprnoteCloudSttModel,
+  isAnarlogCloudSttModel,
 } from "~/stt/capabilities";
 import { useListener } from "~/stt/contexts";
 
@@ -56,11 +56,11 @@ export function ToastNotifications() {
     current_stt_provider,
     current_stt_model,
   );
-  const hasProSttConfigured = isHyprnoteCloudSttModel(
+  const hasProSttConfigured = isAnarlogCloudSttModel(
     current_stt_provider,
     current_stt_model,
   );
-  const hasProLlmConfigured = current_llm_provider === "hyprnote";
+  const hasProLlmConfigured = current_llm_provider === "anarlog";
 
   const currentTab = useTabs((state) => state.currentTab);
   const devtoolsPreview = useDevtoolsToastPreview((state) => state.preview);

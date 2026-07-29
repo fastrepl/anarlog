@@ -41,7 +41,7 @@ async fn process(
 
     if let Err(e) = soniox::delete_transcription(client, &callback.id, api_key).await {
         tracing::warn!(
-            hyprnote.stt.job.id = %callback.id,
+            anarlog.stt.job.id = %callback.id,
             error = %e,
             "failed_to_delete_soniox_transcription"
         );

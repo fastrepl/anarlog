@@ -4,7 +4,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@hypr/ui/components/ui/tooltip";
+} from "@anlg/ui/components/ui/tooltip";
 
 export function ReconnectRequiredIndicator() {
   return (

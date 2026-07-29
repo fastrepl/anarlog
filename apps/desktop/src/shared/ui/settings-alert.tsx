@@ -1,6 +1,6 @@
 import type { MouseEvent } from "react";
 
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 

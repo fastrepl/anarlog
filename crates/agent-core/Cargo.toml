@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-claude = { workspace = true }
-hypr-codex = { workspace = true }
-hypr-opencode = { workspace = true }
+anlg-claude = { workspace = true }
+anlg-codex = { workspace = true }
+anlg-opencode = { workspace = true }
 serde = { workspace = true }
 specta = { workspace = true, optional = true }
 

@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-audio = { workspace = true }
-hypr-data = { workspace = true }
+anlg-audio = { workspace = true }
+anlg-data = { workspace = true }
 
 futures-util = { workspace = true }
 rodio = { workspace = true, features = ["symphonia-all"] }

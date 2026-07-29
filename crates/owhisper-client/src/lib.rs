@@ -22,19 +22,19 @@ pub use providers::{Auth, Provider, is_meta_model};
 pub use adapter::StreamingBatchConfig;
 pub use adapter::deepgram::DeepgramModel;
 pub use adapter::{
-    AdapterKind, AquaVoiceAdapter, ArgmaxAdapter, AssemblyAIAdapter, BatchSttAdapter,
-    CallbackResult, CallbackSttAdapter, CartesiaAdapter, DashScopeAdapter, DeepgramAdapter,
-    ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, HyprnoteAdapter, LanguageQuality,
+    AdapterKind, AnarlogAdapter, AquaVoiceAdapter, ArgmaxAdapter, AssemblyAIAdapter,
+    BatchSttAdapter, CallbackResult, CallbackSttAdapter, CartesiaAdapter, DashScopeAdapter,
+    DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, LanguageQuality,
     LanguageSupport, MistralAdapter, OpenAIAdapter, PyannoteAdapter, RealtimeSttAdapter,
     SmallestAIAdapter, SonioxAdapter, WhisperCppAdapter, append_provider_param,
-    documented_language_codes_batch, documented_language_codes_live, is_hyprnote_proxy,
+    documented_language_codes_batch, documented_language_codes_live, is_anarlog_proxy,
     is_local_host, normalize_languages,
 };
 pub use adapter::{StreamingBatchEvent, StreamingBatchStream};
 
+pub use anlg_ws_client;
 pub use batch::{BatchClient, BatchClientBuilder};
 pub use error::Error;
-pub use hypr_ws_client;
 pub use live::{
     DualHandle, FinalizeHandle, ListenClient, ListenClientBuilder, ListenClientDual,
     ListenClientDualInput, ListenClientInput,

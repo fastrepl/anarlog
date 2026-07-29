@@ -27,11 +27,11 @@ vi.mock("~/types/tauri.gen", () => ({
   },
 }));
 
-vi.mock("@hypr/plugin-opener2", () => ({
+vi.mock("@anlg/plugin-opener2", () => ({
   commands: { openUrl: vi.fn() },
 }));
 
-vi.mock("@hypr/plugin-local-api", () => ({
+vi.mock("@anlg/plugin-local-api", () => ({
   commands: {
     getStatus: vi.fn().mockResolvedValue({
       status: "ok",
@@ -53,7 +53,7 @@ vi.mock("~/cloud-api/client", () => ({
   revokeCloudApiKey: vi.fn(),
 }));
 
-vi.mock("@hypr/ui/components/ui/toast", () => ({
+vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: { error: mocks.toastError, success: mocks.toastSuccess },
 }));
 

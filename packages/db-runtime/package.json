@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/db-runtime",
+  "name": "@anlg/db-runtime",
   "version": "0.1.0",
   "private": true,
   "type": "module",

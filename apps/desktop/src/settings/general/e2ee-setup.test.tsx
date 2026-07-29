@@ -21,7 +21,7 @@ const mocks = vi.hoisted(() => ({
   writeClipboard: vi.fn(),
 }));
 
-vi.mock("@hypr/plugin-db", () => ({
+vi.mock("@anlg/plugin-db", () => ({
   createE2eeIdentity: mocks.create,
   importE2eeIdentity: mocks.import,
   inspectE2eeRecoveryKey: mocks.inspect,
@@ -32,11 +32,11 @@ vi.mock("@tauri-apps/api/path", () => ({
   join: mocks.join,
 }));
 
-vi.mock("@hypr/plugin-fs2", () => ({
+vi.mock("@anlg/plugin-fs2", () => ({
   commands: { writeTextFile: mocks.writeTextFile },
 }));
 
-vi.mock("@hypr/plugin-opener2", () => ({
+vi.mock("@anlg/plugin-opener2", () => ({
   commands: { revealItemInDir: mocks.revealItemInDir },
 }));
 

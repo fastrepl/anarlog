@@ -41,14 +41,14 @@ fn start_exit_hard_fallback() {
 fn should_force_quit() -> bool {
     #[cfg(target_os = "macos")]
     {
-        return hypr_intercept::should_force_quit();
+        return anlg_intercept::should_force_quit();
     }
 
     #[cfg(not(target_os = "macos"))]
     false
 }
 
-fn create_audio_provider(_bundle_id: &str) -> std::sync::Arc<dyn hypr_audio_actual::AudioProvider> {
+fn create_audio_provider(_bundle_id: &str) -> std::sync::Arc<dyn anlg_audio_actual::AudioProvider> {
     #[cfg(any(feature = "dev", feature = "devtools"))]
     {
         let bundle_id = _bundle_id;
@@ -60,10 +60,10 @@ fn create_audio_provider(_bundle_id: &str) -> std::sync::Arc<dyn hypr_audio_actu
         let mock_audio_allowed = cfg!(feature = "dev") || bundle_id == STAGING_BUNDLE_ID;
 
         if mock_audio_allowed && selection > 0 {
-            return std::sync::Arc::new(hypr_audio_mock::MockAudio::new(selection));
+            return std::sync::Arc::new(anlg_audio_mock::MockAudio::new(selection));
         }
     }
-    std::sync::Arc::new(hypr_audio_actual::ActualAudio)
+    std::sync::Arc::new(anlg_audio_actual::ActualAudio)
 }
 
 #[tokio::main]
@@ -82,7 +82,7 @@ pub async fn main() {
 
         if let Some(dsn) = dsn {
             let release =
-                option_env!("APP_VERSION").map(|v| format!("hyprnote-desktop@{}", v).into());
+                option_env!("APP_VERSION").map(|v| format!("anarlog-desktop@{}", v).into());
 
             let client = sentry::init((
                 dsn,
@@ -95,11 +95,11 @@ pub async fn main() {
             ));
 
             sentry::configure_scope(|scope| {
-                scope.set_tag("service.namespace", "hyprnote");
+                scope.set_tag("service.namespace", "anarlog");
                 scope.set_tag("service.name", "desktop");
-                scope.set_tag("enduser.pseudo.id", hypr_host::fingerprint());
+                scope.set_tag("enduser.pseudo.id", anlg_host::fingerprint());
                 scope.set_user(Some(sentry::User {
-                    id: Some(hypr_host::fingerprint()),
+                    id: Some(anlg_host::fingerprint()),
                     ..Default::default()
                 }));
             });
@@ -114,7 +114,7 @@ pub async fn main() {
         .as_ref()
         .map(|client| tauri_plugin_sentry::minidump::init(client));
 
-    let audio: std::sync::Arc<dyn hypr_audio_actual::AudioProvider> =
+    let audio: std::sync::Arc<dyn anlg_audio_actual::AudioProvider> =
         create_audio_provider(&context.config().identifier);
 
     let db = open_desktop_db(&context.config().identifier).await;
@@ -274,9 +274,9 @@ pub async fn main() {
             }
 
             {
-                use tauri_plugin_tray::HyprMenuItem;
+                use tauri_plugin_tray::AnlgMenuItem;
                 app_handle.on_menu_event(|app, event| {
-                    if let Ok(item) = HyprMenuItem::try_from(event.id().clone()) {
+                    if let Ok(item) = AnlgMenuItem::try_from(event.id().clone()) {
                         item.handle(app);
                     } else {
                         tauri_plugin_tray::handle_agenda_menu_event(app, event.id());
@@ -347,7 +347,7 @@ pub async fn main() {
     }
 
     #[cfg(target_os = "macos")]
-    hypr_intercept::setup_force_quit_handler();
+    anlg_intercept::setup_force_quit_handler();
 
     #[allow(unused_variables)]
     app.run(move |app, event| match event {
@@ -391,7 +391,7 @@ pub async fn main() {
                 ctx.stop();
             }
 
-            hypr_host::kill_processes_by_matcher(hypr_host::ProcessMatcher::Sidecar);
+            anlg_host::kill_processes_by_matcher(anlg_host::ProcessMatcher::Sidecar);
         }
         _ => {}
     });

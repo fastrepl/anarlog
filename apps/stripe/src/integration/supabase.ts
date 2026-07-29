@@ -1,4 +1,4 @@
-import { createClient } from "@hypr/supabase";
+import { createClient } from "@anlg/supabase";
 
 import { env } from "../env";
 

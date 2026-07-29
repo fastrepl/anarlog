@@ -15,12 +15,12 @@ import {
   getCloudsyncStatus,
   getE2eeIdentityStatus,
   syncCloudsyncNow,
-} from "@hypr/plugin-db";
-import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { commands as settingsCommands } from "@hypr/plugin-settings";
-import { Button } from "@hypr/ui/components/ui/button";
-import { Switch } from "@hypr/ui/components/ui/switch";
-import { cn, formatDistanceToNow } from "@hypr/utils";
+} from "@anlg/plugin-db";
+import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { commands as settingsCommands } from "@anlg/plugin-settings";
+import { Button } from "@anlg/ui/components/ui/button";
+import { Switch } from "@anlg/ui/components/ui/switch";
+import { cn, formatDistanceToNow } from "@anlg/utils";
 
 import { E2eeSetupDialog } from "../general/e2ee-setup";
 import { detectCloudStorageService } from "../general/storage/path-utils";

@@ -11,7 +11,7 @@ const ATTACHMENT_VERIFICATION_CONCURRENCY: usize = 1;
 pub struct AppState {
     pub config: SyncConfig,
     pub client: reqwest::Client,
-    pub storage: hypr_supabase_storage::SupabaseStorage,
+    pub storage: anlg_supabase_storage::SupabaseStorage,
     pub attachment_verification_slots: Arc<Semaphore>,
 }
 
@@ -22,7 +22,7 @@ impl AppState {
             .redirect(reqwest::redirect::Policy::none())
             .build()
             .expect("CloudSync HTTP client must build");
-        let storage = hypr_supabase_storage::SupabaseStorage::new(
+        let storage = anlg_supabase_storage::SupabaseStorage::new(
             client.clone(),
             &config.supabase_url,
             &config.supabase_service_role_key,

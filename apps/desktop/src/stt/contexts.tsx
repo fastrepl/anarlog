@@ -6,11 +6,11 @@ import { useShallow } from "zustand/shallow";
 import {
   commands as detectCommands,
   events as detectEvents,
-} from "@hypr/plugin-detect";
+} from "@anlg/plugin-detect";
 import {
   commands as notificationCommands,
   type NotificationIcon,
-} from "@hypr/plugin-notification";
+} from "@anlg/plugin-notification";
 
 import {
   AUTO_STOP_CONFIRM_TIMEOUT_SECONDS,

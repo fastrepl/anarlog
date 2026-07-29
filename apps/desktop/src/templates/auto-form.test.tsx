@@ -39,7 +39,7 @@ vi.mock("@lingui/react/macro", () => ({
   }),
 }));
 
-vi.mock("@hypr/editor/prompt", async () => {
+vi.mock("@anlg/editor/prompt", async () => {
   const React = await import("react");
 
   return {
@@ -83,7 +83,7 @@ vi.mock("@hypr/editor/prompt", async () => {
   };
 });
 
-vi.mock("@hypr/plugin-template", () => ({
+vi.mock("@anlg/plugin-template", () => ({
   commands: {
     getTemplateSource: mocks.getTemplateSource,
     render: mocks.renderTemplate,

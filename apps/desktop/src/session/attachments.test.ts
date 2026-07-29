@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   ),
 }));
 
-vi.mock("@hypr/plugin-fs-sync", () => ({
+vi.mock("@anlg/plugin-fs-sync", () => ({
   commands: {
     audioDelete: mocks.audioDelete,
     audioMetadata: mocks.audioMetadata,

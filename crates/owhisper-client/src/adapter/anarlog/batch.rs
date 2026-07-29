@@ -3,22 +3,22 @@ use std::path::{Path, PathBuf};
 use owhisper_interface::ListenParams;
 use owhisper_interface::batch::Response as BatchResponse;
 
-use super::HyprnoteAdapter;
+use super::AnarlogAdapter;
 use crate::adapter::http::mime_type_from_extension;
 use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware, append_path_if_missing};
 use crate::error::Error;
 
-impl BatchSttAdapter for HyprnoteAdapter {
+impl BatchSttAdapter for AnarlogAdapter {
     fn provider_name(&self) -> &'static str {
-        "hyprnote"
+        "anarlog"
     }
 
     fn is_supported_languages(
         &self,
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> bool {
-        HyprnoteAdapter::is_supported_languages_batch(languages, model)
+        AnarlogAdapter::is_supported_languages_batch(languages, model)
     }
 
     fn transcribe_file<'a, P: AsRef<Path> + Send + 'a>(

@@ -7,9 +7,9 @@ import {
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 
-import { commands as deeplinkCommands } from "@hypr/plugin-deeplink2";
-import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { cn, safeParseDate } from "@hypr/utils";
+import { commands as deeplinkCommands } from "@anlg/plugin-deeplink2";
+import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { cn, safeParseDate } from "@anlg/utils";
 
 import { RecordingIcon, useHasTranscript } from "../shared";
 import { MetadataButton } from "./metadata";

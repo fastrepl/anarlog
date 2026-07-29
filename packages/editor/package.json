@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/editor",
+  "name": "@anlg/editor",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -25,9 +25,9 @@
   "dependencies": {
     "@floating-ui/dom": "^1.7.6",
     "@handlewithcare/react-prosemirror": "^3.2.6",
-    "@hypr/plugin-opener2": "workspace:*",
-    "@hypr/store": "workspace:*",
-    "@hypr/utils": "workspace:^",
+    "@anlg/plugin-opener2": "workspace:*",
+    "@anlg/store": "workspace:*",
+    "@anlg/utils": "workspace:^",
     "facehash": "^0.0.7",
     "lucide-react": "^0.544.0",
     "markdown-it": "^14.1.1",

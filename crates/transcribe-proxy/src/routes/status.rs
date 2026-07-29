@@ -40,7 +40,7 @@ pub async fn handler(
         .await
         .map_err(|e| {
             tracing::error!(
-                hyprnote.stt.job.id = %pipeline_id,
+                anarlog.stt.job.id = %pipeline_id,
                 error = %e,
                 "failed_to_query_job"
             );

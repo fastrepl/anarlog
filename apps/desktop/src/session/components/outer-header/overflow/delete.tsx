@@ -2,9 +2,9 @@ import { Trans } from "@lingui/react/macro";
 import { Loader2Icon, TrashIcon } from "lucide-react";
 import { useCallback } from "react";
 
-import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { DropdownMenuItem } from "@hypr/ui/components/ui/dropdown-menu";
-import { cn } from "@hypr/utils";
+import { commands as analyticsCommands } from "@anlg/plugin-analytics";
+import { DropdownMenuItem } from "@anlg/ui/components/ui/dropdown-menu";
+import { cn } from "@anlg/utils";
 
 import { useAudioPlayer } from "~/audio-player";
 import { useDeleteSession } from "~/session/hooks/useDeleteSession";

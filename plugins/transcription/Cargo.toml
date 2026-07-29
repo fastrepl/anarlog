@@ -14,13 +14,13 @@ tauri-plugin = { workspace = true, features = ["build"] }
 specta-typescript = { workspace = true }
 
 [dependencies]
-hypr-audio = { workspace = true }
-hypr-language = { workspace = true }
-hypr-storage = { workspace = true }
-hypr-transcribe-soniqo = { workspace = true }
-hypr-transcribe-speechanalyzer = { workspace = true }
-hypr-transcript = { workspace = true }
-hypr-transcription-core = { workspace = true, features = ["specta", "tauri-event"] }
+anlg-audio = { workspace = true }
+anlg-language = { workspace = true }
+anlg-storage = { workspace = true }
+anlg-transcribe-soniqo = { workspace = true }
+anlg-transcribe-speechanalyzer = { workspace = true }
+anlg-transcript = { workspace = true }
+anlg-transcription-core = { workspace = true, features = ["specta", "tauri-event"] }
 
 owhisper-client = { workspace = true }
 owhisper-interface = { workspace = true }

@@ -23,7 +23,7 @@ import {
   type NoteEditorRef,
   schema,
   setCommentAnchors,
-} from "@hypr/editor/note";
+} from "@anlg/editor/note";
 
 import {
   collectSharedNoteComments,

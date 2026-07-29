@@ -11,8 +11,8 @@ import {
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import type { NoteEditorRef } from "@hypr/editor/note";
-import { cn } from "@hypr/utils";
+import type { NoteEditorRef } from "@anlg/editor/note";
+import { cn } from "@anlg/utils";
 
 import { Enhanced } from "./enhanced";
 import { Header, useEditorTabs } from "./header";

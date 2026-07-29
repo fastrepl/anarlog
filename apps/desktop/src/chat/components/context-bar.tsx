@@ -1,7 +1,7 @@
 import { ChevronUpIcon, XCircleIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import { type ContextChipProps, renderChip } from "~/chat/context/registry";
 import type { DisplayEntity } from "~/chat/context/use-chat-context-pipeline";

@@ -1,6 +1,6 @@
 import { CheckCircle2, Construction, XCircle } from "lucide-react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import type { PlanFeature } from "./tiers";
 

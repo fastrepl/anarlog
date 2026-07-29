@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 
-import type { ContactsSelection } from "@hypr/plugin-windows";
+import type { ContactsSelection } from "@anlg/plugin-windows";
 
 import { DetailsColumn } from "./details";
 import { OrganizationDetailsColumn } from "./organization-details";

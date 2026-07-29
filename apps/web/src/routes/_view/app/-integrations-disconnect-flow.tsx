@@ -1,8 +1,8 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { deleteConnection } from "@hypr/api-client";
-import { createClient } from "@hypr/api-client/client";
+import { deleteConnection } from "@anlg/api-client";
+import { createClient } from "@anlg/api-client/client";
 
 import { env } from "@/env";
 import { getAccessToken } from "@/functions/access-token";

@@ -15,7 +15,7 @@ specta-typescript = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 
 [dependencies]
-hypr-audio = { workspace = true }
+anlg-audio = { workspace = true }
 
 tauri = { workspace = true, features = ["specta", "test"] }
 tauri-plugin-shell = { workspace = true }
@@ -30,8 +30,8 @@ futures-util = { workspace = true }
 tracing = { workspace = true }
 
 [target."cfg(target_os = \"macos\")".dependencies]
-hypr-bundle = { workspace = true }
-hypr-tcc = { workspace = true }
+anlg-bundle = { workspace = true }
+anlg-tcc = { workspace = true }
 block2 = { workspace = true }
 objc2 = { workspace = true }
 objc2-av-foundation = { workspace = true }

@@ -1,7 +1,7 @@
 import type { LanguageModel, ToolSet } from "ai";
 import { useEffect, useMemo, useState } from "react";
 
-import { commands as templateCommands } from "@hypr/plugin-template";
+import { commands as templateCommands } from "@anlg/plugin-template";
 
 import { CustomChatTransport } from "./index";
 import type { ResolvedChatContext } from "./index";

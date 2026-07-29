@@ -16,7 +16,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Flag<'a, R, M> {
 
     async fn get_posthog_flag(&self, flag_key: &str) -> bool {
         let client = self.manager.state::<ManagedState>();
-        let distinct_id = hypr_host::fingerprint();
+        let distinct_id = anlg_host::fingerprint();
         client
             .is_feature_enabled(flag_key, &distinct_id)
             .await

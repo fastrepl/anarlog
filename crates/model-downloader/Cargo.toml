@@ -7,8 +7,8 @@ edition = "2024"
 specta = ["dep:specta"]
 
 [dependencies]
-hypr-download-interface = { workspace = true }
-hypr-file = { workspace = true }
+anlg-download-interface = { workspace = true }
+anlg-file = { workspace = true }
 
 serde = { workspace = true }
 specta = { workspace = true, optional = true }

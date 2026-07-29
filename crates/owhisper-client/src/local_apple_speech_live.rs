@@ -46,7 +46,7 @@ impl LocalAppleSpeechLiveClient {
     pub async fn from_realtime_audio_single(
         self,
         stream: impl Stream<Item = ListenClientInput> + Send + Unpin + 'static,
-        source: hypr_transcribe_speechanalyzer::TranscriptSource,
+        source: anlg_transcribe_speechanalyzer::TranscriptSource,
     ) -> Result<(LocalAppleSpeechLiveStream, LocalAppleSpeechLiveHandle), LocalAppleSpeechLiveError>
     {
         let session = start_session(self.locale).await?;
@@ -106,8 +106,8 @@ impl FinalizeHandle for LocalAppleSpeechLiveHandle {
     }
 }
 
-type Session = hypr_transcribe_speechanalyzer::LiveTranscriptionSession;
-type Source = hypr_transcribe_speechanalyzer::TranscriptSource;
+type Session = anlg_transcribe_speechanalyzer::LiveTranscriptionSession;
+type Source = anlg_transcribe_speechanalyzer::TranscriptSource;
 type ResponseSender = tokio::sync::mpsc::Sender<Result<StreamResponse, LocalAppleSpeechLiveError>>;
 
 async fn run_single(
@@ -310,7 +310,7 @@ async fn finalize_source(
 
 /// Results carry their own timeline from the analyzer, so no cursor bookkeeping is needed.
 async fn send_partials(
-    partials: Vec<hypr_transcribe_speechanalyzer::LivePartial>,
+    partials: Vec<anlg_transcribe_speechanalyzer::LivePartial>,
     response_tx: &ResponseSender,
 ) {
     for partial in partials {

@@ -1,4 +1,4 @@
-use hypr_hooks::{HookEvent, HookResult};
+use anlg_hooks::{HookEvent, HookResult};
 
 use crate::HooksPluginExt;
 

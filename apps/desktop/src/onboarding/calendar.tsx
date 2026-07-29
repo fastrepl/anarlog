@@ -4,8 +4,8 @@ import { Loader2Icon } from "lucide-react";
 import { motion } from "motion/react";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 
-import type { ConnectionItem } from "@hypr/api-client";
-import { commands as openerCommands } from "@hypr/plugin-opener2";
+import type { ConnectionItem } from "@anlg/api-client";
+import { commands as openerCommands } from "@anlg/plugin-opener2";
 
 import { OnboardingButton } from "./shared";
 

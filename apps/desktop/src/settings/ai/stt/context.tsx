@@ -10,8 +10,8 @@ import {
 import {
   commands as localSttCommands,
   type LocalModel,
-} from "@hypr/plugin-local-stt";
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
+} from "@anlg/plugin-local-stt";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import { useBillingAccess } from "~/auth/billing-context";
 import { useToastAction } from "~/store/zustand/toast-action";

@@ -23,7 +23,7 @@ impl BatchSttAdapter for DeepgramAdapter {
 
     fn is_supported_languages(
         &self,
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> bool {
         DeepgramAdapter::is_supported_languages_batch(languages, model)
@@ -260,8 +260,8 @@ mod tests {
     fn batch_url_restricts_detect_language_for_unsupported_multi_language() {
         let params = ListenParams {
             languages: vec![
-                hypr_language::ISO639::En.into(),
-                hypr_language::ISO639::Pl.into(),
+                anlg_language::ISO639::En.into(),
+                anlg_language::ISO639::Pl.into(),
             ],
             ..Default::default()
         };
@@ -285,8 +285,8 @@ mod tests {
         let params = ListenParams {
             model: Some("nova-3".to_string()),
             languages: vec![
-                hypr_language::ISO639::En.into(),
-                hypr_language::ISO639::De.into(),
+                anlg_language::ISO639::En.into(),
+                anlg_language::ISO639::De.into(),
             ],
             ..Default::default()
         };
@@ -315,7 +315,7 @@ mod tests {
             ..Default::default()
         };
 
-        let audio_path = std::path::PathBuf::from(hypr_data::english_1::AUDIO_PATH);
+        let audio_path = std::path::PathBuf::from(anlg_data::english_1::AUDIO_PATH);
 
         let result = adapter
             .transcribe_file(

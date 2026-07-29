@@ -34,7 +34,7 @@ const marker: CaptureLifecycleMarker = {
   preserveExistingTranscript: true,
   ownerUserId: "user-1",
   memo: "memo",
-  provider: "hyprnote",
+  provider: "anarlog",
   model: "am",
 };
 

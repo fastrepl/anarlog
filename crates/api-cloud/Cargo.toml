@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-agent-access = { workspace = true }
-hypr-api-auth = { workspace = true }
-hypr-mcp = { workspace = true }
+anlg-agent-access = { workspace = true }
+anlg-api-auth = { workspace = true }
+anlg-mcp = { workspace = true }
 
 axum = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }

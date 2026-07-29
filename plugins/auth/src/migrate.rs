@@ -274,8 +274,8 @@ fn migrate_from_store_json(store_json_path: &Path, auth_path: &Path) -> std::io:
 
     let _: HashMap<String, String> = serde_json::from_str(&auth_str).map_err(invalid_data)?;
 
-    hypr_storage::fs::atomic_write(auth_path, &auth_str)?;
-    hypr_storage::fs::atomic_write(
+    anlg_storage::fs::atomic_write(auth_path, &auth_str)?;
+    anlg_storage::fs::atomic_write(
         store_json_path,
         &serde_json::to_string(&store).map_err(invalid_data)?,
     )?;
@@ -296,7 +296,7 @@ fn remove_auth_from_store_json(store_json_path: &Path) -> std::io::Result<()> {
         Err(_) => {
             // The legacy store is already unreadable. Replace it so a partial
             // auth payload cannot survive after the encrypted store is authoritative.
-            return hypr_storage::fs::atomic_write(store_json_path, "{}");
+            return anlg_storage::fs::atomic_write(store_json_path, "{}");
         }
     };
 
@@ -304,7 +304,7 @@ fn remove_auth_from_store_json(store_json_path: &Path) -> std::io::Result<()> {
         return Ok(());
     }
 
-    hypr_storage::fs::atomic_write(
+    anlg_storage::fs::atomic_write(
         store_json_path,
         &serde_json::to_string(&store).map_err(invalid_data)?,
     )

@@ -1,7 +1,7 @@
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
-    Auth(#[from] hypr_supabase_auth::client::Error),
+    Auth(#[from] anlg_supabase_auth::client::Error),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]

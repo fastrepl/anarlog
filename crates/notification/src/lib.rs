@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
-pub use hypr_notification_interface::*;
+pub use anlg_notification_interface::*;
 
 type NotificationContextMap = Mutex<HashMap<String, (Option<NotificationSource>, Instant)>>;
 
@@ -13,8 +13,8 @@ const DEDUPE_WINDOW: Duration = Duration::from_mins(1);
 const CONTEXT_TTL: Duration = Duration::from_mins(10);
 
 fn resolve_default_icon(
-    notification: &hypr_notification_interface::Notification,
-) -> hypr_notification_interface::Notification {
+    notification: &anlg_notification_interface::Notification,
+) -> anlg_notification_interface::Notification {
     let mut resolved = notification.clone();
 
     if resolved.icon.is_none() {
@@ -55,15 +55,15 @@ fn get_context(key: &str) -> NotificationContext {
     }
 }
 
-fn show_inner(notification: &hypr_notification_interface::Notification) {
+fn show_inner(notification: &anlg_notification_interface::Notification) {
     #[cfg(all(feature = "legacy", target_os = "macos"))]
-    hypr_notification_macos::show(notification);
+    anlg_notification_macos::show(notification);
 
     #[cfg(all(feature = "legacy", target_os = "linux"))]
-    hypr_notification_linux::show(notification);
+    anlg_notification_linux::show(notification);
 }
 
-pub fn show(notification: &hypr_notification_interface::Notification) {
+pub fn show(notification: &anlg_notification_interface::Notification) {
     let resolved_notification = resolve_default_icon(notification);
 
     let Some(key) = &notification.key else {
@@ -98,10 +98,10 @@ pub fn show(notification: &hypr_notification_interface::Notification) {
 
 pub fn clear() {
     #[cfg(all(feature = "legacy", target_os = "macos"))]
-    hypr_notification_macos::dismiss_all();
+    anlg_notification_macos::dismiss_all();
 
     #[cfg(all(feature = "legacy", target_os = "linux"))]
-    hypr_notification_linux::dismiss_all();
+    anlg_notification_linux::dismiss_all();
 }
 
 pub fn setup_dismiss_handler<F>(f: F)
@@ -113,7 +113,7 @@ where
     #[cfg(all(feature = "legacy", target_os = "macos"))]
     {
         let f = f.clone();
-        hypr_notification_macos::setup_dismiss_handler(move |key, _tag| {
+        anlg_notification_macos::setup_dismiss_handler(move |key, _tag| {
             f(get_context(&key));
         });
     }
@@ -121,7 +121,7 @@ where
     #[cfg(all(feature = "legacy", target_os = "linux"))]
     {
         let f = f.clone();
-        hypr_notification_linux::setup_notification_dismiss_handler(move |key| {
+        anlg_notification_linux::setup_notification_dismiss_handler(move |key| {
             f(get_context(&key));
         });
     }
@@ -138,7 +138,7 @@ where
     #[cfg(all(feature = "legacy", target_os = "macos"))]
     {
         let f = f.clone();
-        hypr_notification_macos::setup_collapsed_confirm_handler(move |key, _tag| {
+        anlg_notification_macos::setup_collapsed_confirm_handler(move |key, _tag| {
             f(get_context(&key));
         });
     }
@@ -146,7 +146,7 @@ where
     #[cfg(all(feature = "legacy", target_os = "linux"))]
     {
         let f = f.clone();
-        hypr_notification_linux::setup_notification_confirm_handler(move |key| {
+        anlg_notification_linux::setup_notification_confirm_handler(move |key| {
             f(get_context(&key));
         });
     }
@@ -163,7 +163,7 @@ where
     #[cfg(all(feature = "legacy", target_os = "macos"))]
     {
         let f = f.clone();
-        hypr_notification_macos::setup_expanded_accept_handler(move |key, _tag| {
+        anlg_notification_macos::setup_expanded_accept_handler(move |key, _tag| {
             f(get_context(&key));
         });
     }
@@ -171,7 +171,7 @@ where
     #[cfg(all(feature = "legacy", target_os = "linux"))]
     {
         let f = f.clone();
-        hypr_notification_linux::setup_notification_accept_handler(move |key| {
+        anlg_notification_linux::setup_notification_accept_handler(move |key| {
             f(get_context(&key));
         });
     }
@@ -188,7 +188,7 @@ where
     #[cfg(all(feature = "legacy", target_os = "macos"))]
     {
         let f = f.clone();
-        hypr_notification_macos::setup_collapsed_timeout_handler(move |key, _tag| {
+        anlg_notification_macos::setup_collapsed_timeout_handler(move |key, _tag| {
             f(get_context(&key));
         });
     }
@@ -196,7 +196,7 @@ where
     #[cfg(all(feature = "legacy", target_os = "linux"))]
     {
         let f = f.clone();
-        hypr_notification_linux::setup_notification_timeout_handler(move |key| {
+        anlg_notification_linux::setup_notification_timeout_handler(move |key| {
             f(get_context(&key));
         });
     }
@@ -213,7 +213,7 @@ where
     #[cfg(all(feature = "legacy", target_os = "macos"))]
     {
         let f = f.clone();
-        hypr_notification_macos::setup_option_selected_handler(move |key, tag| {
+        anlg_notification_macos::setup_option_selected_handler(move |key, tag| {
             f(get_context(&key), tag);
         });
     }
@@ -221,7 +221,7 @@ where
     #[cfg(all(feature = "legacy", target_os = "linux"))]
     {
         let f = f.clone();
-        hypr_notification_linux::setup_notification_option_selected_handler(move |key, index| {
+        anlg_notification_linux::setup_notification_option_selected_handler(move |key, index| {
             f(get_context(&key), index);
         });
     }
@@ -238,7 +238,7 @@ where
     #[cfg(all(feature = "legacy", target_os = "macos"))]
     {
         let f = f.clone();
-        hypr_notification_macos::setup_footer_action_handler(move |key, _tag| {
+        anlg_notification_macos::setup_footer_action_handler(move |key, _tag| {
             f(get_context(&key));
         });
     }
@@ -246,7 +246,7 @@ where
     #[cfg(all(feature = "legacy", target_os = "linux"))]
     {
         let f = f.clone();
-        hypr_notification_linux::setup_notification_footer_action_handler(move |key| {
+        anlg_notification_linux::setup_notification_footer_action_handler(move |key| {
             f(get_context(&key));
         });
     }

@@ -18,13 +18,13 @@ import {
   commands as localApiCommands,
   type ApiKeyInfo,
   type WebhookInfo,
-} from "@hypr/plugin-local-api";
-import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { Button } from "@hypr/ui/components/ui/button";
-import { Input } from "@hypr/ui/components/ui/input";
-import { Switch } from "@hypr/ui/components/ui/switch";
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
-import { cn } from "@hypr/utils";
+} from "@anlg/plugin-local-api";
+import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { Button } from "@anlg/ui/components/ui/button";
+import { Input } from "@anlg/ui/components/ui/input";
+import { Switch } from "@anlg/ui/components/ui/switch";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { cn } from "@anlg/utils";
 
 import {
   backfillCloudApiSnapshots,

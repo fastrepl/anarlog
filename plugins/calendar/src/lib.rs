@@ -3,9 +3,9 @@ mod error;
 mod events;
 mod runtime;
 
+pub use anlg_calendar::ProviderConnectionIds;
 pub use error::Error;
 pub use events::*;
-pub use hypr_calendar::ProviderConnectionIds;
 
 pub(crate) struct PluginConfig {
     pub api_base_url: String,
@@ -39,7 +39,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .setup(move |app, _api| {
             specta_builder.mount_events(app);
 
-            hypr_calendar::start(runtime::TauriCalendarRuntime(app.app_handle().clone()));
+            anlg_calendar::start(runtime::TauriCalendarRuntime(app.app_handle().clone()));
 
             use tauri::Manager;
             app.manage(PluginConfig { api_base_url });

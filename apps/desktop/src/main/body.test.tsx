@@ -70,7 +70,7 @@ vi.mock("@tauri-apps/plugin-os", () => ({
   },
 }));
 
-vi.mock("@hypr/ui/components/ui/resizable", () => ({
+vi.mock("@anlg/ui/components/ui/resizable", () => ({
   ResizablePanelGroup: ({
     autoSaveId,
     children,
@@ -176,7 +176,7 @@ vi.mock("~/contexts/shell", () => ({
   }),
 }));
 
-vi.mock("@hypr/plugin-windows", () => ({
+vi.mock("@anlg/plugin-windows", () => ({
   commands: mocks.windowsCommands,
   events: {
     devtoolsPanelAction: {

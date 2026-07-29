@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import type { SharedAttachmentResolver } from "@/components/shared-note-document";
 import {

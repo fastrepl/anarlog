@@ -92,7 +92,7 @@ fn load_data(path: &Path) -> HashMap<String, String> {
 
 fn atomic_save(path: &Path, data: &HashMap<String, String>) -> super::Result<()> {
     let content = serde_json::to_string(data)?;
-    hypr_storage::fs::atomic_write(path, &content)?;
+    anlg_storage::fs::atomic_write(path, &content)?;
     Ok(())
 }
 

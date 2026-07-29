@@ -1,12 +1,12 @@
-import type { TranscriptSpeakerHint } from "@hypr/plugin-fs-sync";
-import { commands as listenerCommands } from "@hypr/plugin-transcription";
+import type { TranscriptSpeakerHint } from "@anlg/plugin-fs-sync";
+import { commands as listenerCommands } from "@anlg/plugin-transcription";
 import type {
   IdentityAssignment,
   RenderTranscriptHuman,
   RenderTranscriptInput,
   RenderTranscriptRequest,
   RenderedTranscriptSegment,
-} from "@hypr/plugin-transcription";
+} from "@anlg/plugin-transcription";
 
 import type { SegmentWord } from "~/stt/live-segment";
 import type { TranscriptWordMetadata } from "~/stt/timing";

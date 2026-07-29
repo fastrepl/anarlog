@@ -7,7 +7,7 @@ mod schema;
 pub use error::MigrateError;
 pub use schema::{DbSchema, MigrationScope, MigrationStep};
 
-use hypr_db_core::Db;
+use anlg_db_core::Db;
 
 pub async fn migrate(db: &Db, schema: DbSchema) -> Result<(), MigrateError> {
     migrate::run_migrations(db, schema).await
@@ -16,7 +16,7 @@ pub async fn migrate(db: &Db, schema: DbSchema) -> Result<(), MigrateError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hypr_db_core::{DbOpenOptions, DbStorage};
+    use anlg_db_core::{DbOpenOptions, DbStorage};
 
     fn empty_schema() -> DbSchema {
         DbSchema {

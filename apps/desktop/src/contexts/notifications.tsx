@@ -13,15 +13,15 @@ import {
   events as localSttEvents,
   type ServerStatus,
   type LocalModel,
-} from "@hypr/plugin-local-stt";
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
+} from "@anlg/plugin-local-stt";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import { useConfigValues } from "~/shared/config";
 import type { DownloadProgress } from "~/sidebar/toast/types";
 import { useTabs } from "~/store/zustand/tabs";
 import {
   isConfiguredSttModel,
-  isHyprnoteLocalSttModel,
+  isAnarlogLocalSttModel,
 } from "~/stt/capabilities";
 
 interface NotificationState {
@@ -66,7 +66,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     !current_llm_provider ||
     !current_llm_model;
 
-  const sttModel = isHyprnoteLocalSttModel(
+  const sttModel = isAnarlogLocalSttModel(
     current_stt_provider,
     current_stt_model,
   )

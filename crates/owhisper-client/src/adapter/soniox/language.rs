@@ -24,7 +24,7 @@ const MODERATE_LANGS: &[&str] = &[
     "et", "ta", "cs", "ms", "pa", "lv", "fi", "eu", "ca", "ml", "tl", "kn", "fa", "gl",
 ];
 
-pub(super) fn single_language_support(language: &hypr_language::Language) -> LanguageSupport {
+pub(super) fn single_language_support(language: &anlg_language::Language) -> LanguageSupport {
     let code = language.iso639().code();
     let quality = if EXCELLENT_LANGS.contains(&code) {
         LanguageQuality::Excellent

@@ -21,7 +21,7 @@ mod keyring;
 mod manager;
 mod naming;
 
-pub use hypr_exedev as exedev;
+pub use anlg_exedev as exedev;
 
 pub use keyring::{InMemoryKeyring, UserKeyring};
 pub use manager::{
@@ -32,7 +32,7 @@ pub use naming::{UserId, VM_NAME_PREFIX, vm_name};
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
-    Exedev(#[from] hypr_exedev::Error),
+    Exedev(#[from] anlg_exedev::Error),
     #[error("keyring backend: {0}")]
     Keyring(String),
     #[error("ssh key pem generation: {0}")]

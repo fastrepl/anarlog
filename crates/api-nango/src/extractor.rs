@@ -1,12 +1,12 @@
 use std::marker::PhantomData;
 
+use anlg_api_auth::AuthContext;
+use anlg_nango::{NangoClient, OwnedNangoHttpClient, OwnedNangoProxy};
 use axum::{
     extract::FromRequestParts,
     http::{StatusCode, request::Parts},
     response::{IntoResponse, Response},
 };
-use hypr_api_auth::AuthContext;
-use hypr_nango::{NangoClient, OwnedNangoHttpClient, OwnedNangoProxy};
 
 use crate::integrations::NangoIntegrationId;
 
@@ -212,7 +212,7 @@ impl IntoResponse for NangoConnectionError {
             ),
         };
 
-        hypr_api_error::error_response(status, code, &message)
+        anlg_api_error::error_response(status, code, &message)
     }
 }
 

@@ -12,7 +12,7 @@ import {
 import { createPortal } from "react-dom";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { useAuth } from "~/auth";

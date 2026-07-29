@@ -2,7 +2,7 @@ import { Loader2Icon, XCircleIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Streamdown } from "streamdown";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import { extractMcpOutputText } from "~/chat/mcp/mcp-output-parser";
 

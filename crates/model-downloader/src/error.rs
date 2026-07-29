@@ -3,7 +3,7 @@ pub enum Error {
     #[error("model not downloaded: {0}")]
     ModelNotDownloaded(String),
     #[error("download failed: {0}")]
-    DownloadFailed(#[from] hypr_file::Error),
+    DownloadFailed(#[from] anlg_file::Error),
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
     #[error("zip error: {0}")]

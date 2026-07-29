@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { PRO_TRIAL_DAYS } from "@hypr/pricing";
+import { PRO_TRIAL_DAYS } from "@anlg/pricing";
 
 import { TrialStartedDialog } from "./trial-started-dialog";
 

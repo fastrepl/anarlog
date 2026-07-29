@@ -1,4 +1,4 @@
-use hypr_supervisor::{RestartBudget, RetryStrategy, spawn_with_retry};
+use anlg_supervisor::{RestartBudget, RetryStrategy, spawn_with_retry};
 use ractor::concurrency::Duration;
 use ractor::{Actor, ActorCell, ActorRef};
 

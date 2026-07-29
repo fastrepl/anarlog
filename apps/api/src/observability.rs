@@ -12,33 +12,33 @@ use tracing_subscriber::prelude::*;
 
 #[derive(Deserialize)]
 pub struct Env {
-    #[serde(default, deserialize_with = "hypr_api_env::filter_empty")]
+    #[serde(default, deserialize_with = "anlg_api_env::filter_empty")]
     pub otel_service_name: Option<String>,
     #[serde(flatten)]
     direct: DirectHoneycombEnv,
     #[serde(flatten)]
     collector: OtelCollectorEnv,
-    #[serde(default, deserialize_with = "hypr_api_env::filter_empty")]
+    #[serde(default, deserialize_with = "anlg_api_env::filter_empty")]
     pub honeycomb_ui_base_url: Option<String>,
-    #[serde(default, deserialize_with = "hypr_api_env::filter_empty")]
+    #[serde(default, deserialize_with = "anlg_api_env::filter_empty")]
     pub honeycomb_ui_team: Option<String>,
-    #[serde(default, deserialize_with = "hypr_api_env::filter_empty")]
+    #[serde(default, deserialize_with = "anlg_api_env::filter_empty")]
     pub honeycomb_ui_environment: Option<String>,
 }
 
 #[derive(Deserialize)]
 struct DirectHoneycombEnv {
-    #[serde(default, deserialize_with = "hypr_api_env::filter_empty")]
+    #[serde(default, deserialize_with = "anlg_api_env::filter_empty")]
     honeycomb_api_key: Option<String>,
-    #[serde(default, deserialize_with = "hypr_api_env::filter_empty")]
+    #[serde(default, deserialize_with = "anlg_api_env::filter_empty")]
     honeycomb_api_endpoint: Option<String>,
-    #[serde(default, deserialize_with = "hypr_api_env::filter_empty")]
+    #[serde(default, deserialize_with = "anlg_api_env::filter_empty")]
     honeycomb_dataset: Option<String>,
 }
 
 #[derive(Deserialize)]
 struct OtelCollectorEnv {
-    #[serde(default, deserialize_with = "hypr_api_env::filter_empty")]
+    #[serde(default, deserialize_with = "anlg_api_env::filter_empty")]
     otel_exporter_otlp_endpoint: Option<String>,
 }
 
@@ -47,7 +47,7 @@ pub struct ObservabilityGuard {
 }
 
 pub fn init(service_name: &str, env: &Env) -> ObservabilityGuard {
-    hypr_observability::install_trace_context_propagator();
+    anlg_observability::install_trace_context_propagator();
     let otel_provider = init_otel_tracer_provider(service_name, env);
     let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| "info,tower_http=debug".into());
@@ -103,7 +103,7 @@ fn init_otel_tracer_provider(service_name: &str, env: &Env) -> Option<SdkTracerP
 
     let resource = Resource::builder_empty()
         .with_attributes([
-            KeyValue::new("service.namespace", "hyprnote"),
+            KeyValue::new("service.namespace", "anarlog"),
             KeyValue::new("service.name", configured_service_name),
             KeyValue::new("service.version", version.to_string()),
             KeyValue::new("deployment.environment", environment),

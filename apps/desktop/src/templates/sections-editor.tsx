@@ -7,17 +7,17 @@ import {
 import { Reorder, useDragControls } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { TemplateSection } from "@hypr/store";
-import { Button } from "@hypr/ui/components/ui/button";
+import type { TemplateSection } from "@anlg/store";
+import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@hypr/ui/components/ui/dropdown-menu";
-import { Input } from "@hypr/ui/components/ui/input";
-import { cn } from "@hypr/utils";
+} from "@anlg/ui/components/ui/dropdown-menu";
+import { Input } from "@anlg/ui/components/ui/input";
+import { cn } from "@anlg/utils";
 
 type SectionDraft = TemplateSection & { key: string };
 

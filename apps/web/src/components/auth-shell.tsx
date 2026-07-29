@@ -1,4 +1,4 @@
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 export const authInputClassName = cn([
   "h-12 w-full rounded-xl border border-[#d9d1c5] bg-white px-4",

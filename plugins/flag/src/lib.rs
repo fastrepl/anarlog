@@ -7,7 +7,7 @@ pub use error::*;
 pub use ext::*;
 pub use feature::*;
 
-pub type ManagedState = hypr_analytics::AnalyticsClient;
+pub type ManagedState = anlg_analytics::AnalyticsClient;
 
 const PLUGIN_NAME: &str = "flag";
 
@@ -58,7 +58,7 @@ mod test {
         builder
             .plugin(init())
             .setup(|app| {
-                let client = hypr_analytics::AnalyticsClientBuilder::default().build();
+                let client = anlg_analytics::AnalyticsClientBuilder::default().build();
                 app.manage(client);
                 Ok(())
             })

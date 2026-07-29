@@ -21,7 +21,7 @@ async fn submit(
         .append_pair("smart_format", "true")
         .append_pair("utterances", "true");
 
-    let response = hypr_observability::with_current_trace_context(
+    let response = anlg_observability::with_current_trace_context(
         client
             .post(url)
             .header("Authorization", format!("Token {api_key}"))

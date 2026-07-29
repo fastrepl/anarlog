@@ -1,4 +1,4 @@
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 const ANARLOG_ICON_SRC = "/assets/anarlog-icon.png";
 

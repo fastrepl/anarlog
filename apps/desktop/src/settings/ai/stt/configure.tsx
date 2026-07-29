@@ -1,11 +1,11 @@
 import { Trans } from "@lingui/react/macro";
 
-import { Accordion } from "@hypr/ui/components/ui/accordion";
+import { Accordion } from "@anlg/ui/components/ui/accordion";
 
 import { useSttSettings } from "./context";
 import { ProviderId, PROVIDERS } from "./shared";
 
-import { NonHyprProviderCard, StyledStreamdown } from "~/settings/ai/shared";
+import { NonAnarlogProviderCard, StyledStreamdown } from "~/settings/ai/shared";
 import { useConfigValue } from "~/shared/config";
 
 export function ConfigureProviders() {
@@ -24,9 +24,9 @@ export function ConfigureProviders() {
         value={accordionValue}
         onValueChange={setAccordionValue}
       >
-        {PROVIDERS.filter((provider) => provider.id !== "hyprnote").map(
+        {PROVIDERS.filter((provider) => provider.id !== "anarlog").map(
           (provider) => (
-            <NonHyprProviderCard
+            <NonAnarlogProviderCard
               key={provider.id}
               config={provider}
               providerType="stt"
@@ -43,7 +43,7 @@ export function ConfigureProviders() {
 
 function ProviderContext({ providerId }: { providerId: ProviderId }) {
   const content =
-    providerId === "hyprnote"
+    providerId === "anarlog"
       ? "**Anarlog Cloud** routes request to the **best available model** for highest accuracy and performance."
       : providerId === "deepgram"
         ? `Use [Deepgram](https://deepgram.com) for transcriptions. \

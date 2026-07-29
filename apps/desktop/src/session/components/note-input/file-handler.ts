@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 
-import type { FileHandlerConfig } from "@hypr/editor/note";
+import type { FileHandlerConfig } from "@anlg/editor/note";
 
 import { useFileUpload } from "~/shared/hooks/useFileUpload";
 import { isAudioUploadFile, useUploadFile } from "~/stt/useUploadFile";

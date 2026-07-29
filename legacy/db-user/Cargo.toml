@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-buffer = { workspace = true }
-hypr-language = { workspace = true }
+anlg-buffer = { workspace = true }
+anlg-language = { workspace = true }
 legacy-db-core = { workspace = true }
 owhisper-interface = { workspace = true }
 

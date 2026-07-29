@@ -120,8 +120,8 @@ mod test {
     }
 
     async fn seeded_pool() -> sqlx::SqlitePool {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
         sqlx::query(
             "INSERT INTO sessions (id, title, started_at, series_id) \
              VALUES ('meeting-1', 'Planning', '2026-07-13', 'series-1')",
@@ -167,7 +167,7 @@ mod test {
     #[tokio::test]
     async fn oversized_cloud_snapshot_keeps_text_and_drops_word_payloads() {
         let pool = seeded_pool().await;
-        let mut export = hypr_agent_access::get_meeting_export(&pool, "meeting-1".to_string())
+        let mut export = anlg_agent_access::get_meeting_export(&pool, "meeting-1".to_string())
             .await
             .unwrap();
         export.transcripts[0].words =
@@ -189,8 +189,8 @@ mod test {
     #[tokio::test]
     async fn server_serves_meetings_and_webhooks_behind_api_key_auth() {
         let pool = seeded_pool().await;
-        let generated = hypr_db_app::generate_api_key();
-        hypr_db_app::insert_api_key(
+        let generated = anlg_db_app::generate_api_key();
+        anlg_db_app::insert_api_key(
             &pool,
             "key-1",
             "test",
@@ -328,7 +328,7 @@ mod test {
         .await;
         assert_eq!(deleted.status(), 204);
 
-        let key_rows = hypr_db_app::list_api_keys(&pool).await.unwrap();
+        let key_rows = anlg_db_app::list_api_keys(&pool).await.unwrap();
         assert!(key_rows[0].last_used_at.is_some());
 
         handle.shutdown().await;

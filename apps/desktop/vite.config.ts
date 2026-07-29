@@ -6,7 +6,7 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type UserConfig } from "vite";
 
-import { relayShim } from "@hypr/plugin-relay/vite";
+import { relayShim } from "@anlg/plugin-relay/vite";
 
 import { changelog } from "./plugins/changelog";
 

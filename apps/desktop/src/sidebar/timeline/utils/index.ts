@@ -6,7 +6,7 @@ import {
   startOfDay,
   startOfMonth,
   TZDate,
-} from "@hypr/utils";
+} from "@anlg/utils";
 
 import { getSessionEvent } from "~/session/utils";
 

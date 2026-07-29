@@ -25,7 +25,7 @@ fn main() {
         println!("[option_selected] key={key} idx={idx}");
     });
 
-    let notification = hypr_notification_interface::Notification::builder()
+    let notification = anlg_notification_interface::Notification::builder()
         .key("test-1")
         .title("Hello from notification-macos2")
         .message("This is a test notification")

@@ -37,8 +37,8 @@ pub fn render_enhance_system(input: &EnhanceSystem) -> Result<String, Error> {
     }
 
     Ok(template.render(context! {
-        current_date => hypr_askama_utils::current_date_value(),
-        language => hypr_askama_utils::language_name(input.language.as_deref()),
+        current_date => anlg_askama_utils::current_date_value(),
+        language => anlg_askama_utils::language_name(input.language.as_deref()),
     })?)
 }
 
@@ -59,7 +59,7 @@ common_derives! {
 mod tests {
     use super::*;
     use crate::{Segment, TemplateSection};
-    use hypr_askama_utils::tpl_snapshot;
+    use anlg_askama_utils::tpl_snapshot;
 
     #[test]
     fn test_language_as_specified() {
@@ -75,13 +75,13 @@ mod tests {
 
     #[test]
     fn test_enhance_system_formatting() {
-        hypr_askama_utils::set_current_date_override(Some("2025-01-01".to_string()));
+        anlg_askama_utils::set_current_date_override(Some("2025-01-01".to_string()));
         let rendered = render_enhance_system(&EnhanceSystem {
             language: None,
             prompt_override: String::new(),
         })
         .unwrap();
-        hypr_askama_utils::set_current_date_override(None);
+        anlg_askama_utils::set_current_date_override(None);
 
         insta::assert_snapshot!(rendered, @r#"
     # General Instructions

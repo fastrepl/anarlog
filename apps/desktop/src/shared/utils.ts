@@ -13,9 +13,9 @@ export type DesktopScheme = "anarlog" | "anarlog-staging" | "anarlog-dev";
 export const getScheme = async (): Promise<DesktopScheme> => {
   const id = await getIdentifier();
   const schemes: Record<string, DesktopScheme> = {
-    "com.hyprnote.stable": "anarlog",
-    "com.hyprnote.staging": "anarlog-staging",
-    "com.hyprnote.dev": "anarlog-dev",
+    "com.anarlog.stable": "anarlog",
+    "com.anarlog.staging": "anarlog-staging",
+    "com.anarlog.dev": "anarlog-dev",
   };
   return schemes[id] ?? "anarlog-dev";
 };

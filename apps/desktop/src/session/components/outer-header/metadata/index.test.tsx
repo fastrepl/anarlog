@@ -31,7 +31,7 @@ vi.mock("@lingui/react/macro", () => ({
   }),
 }));
 
-vi.mock("@hypr/plugin-opener2", () => ({
+vi.mock("@anlg/plugin-opener2", () => ({
   commands: {
     openUrl: vi.fn(),
   },

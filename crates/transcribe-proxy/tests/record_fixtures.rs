@@ -32,7 +32,7 @@ async fn record_live_fixture<A: RealtimeSttAdapter>(
         .api_base(format!("http://{}", addr))
         .params(owhisper_interface::ListenParams {
             model: Some(provider.default_live_model().to_string()),
-            languages: vec![hypr_language::ISO639::En.into()],
+            languages: vec![anlg_language::ISO639::En.into()],
             sample_rate,
             ..Default::default()
         })

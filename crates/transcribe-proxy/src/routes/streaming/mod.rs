@@ -1,4 +1,4 @@
-mod hyprnote;
+mod anarlog;
 mod passthrough;
 mod session;
 
@@ -14,13 +14,13 @@ use axum::{
 };
 use owhisper_client::Provider;
 
-use crate::hyprnote_routing::should_use_hyprnote_routing;
+use crate::anarlog_routing::should_use_anarlog_routing;
 use crate::query_params::{QueryParams, QueryValue};
 use crate::relay::OnCloseCallback;
 
 use super::AppState;
 
-use hypr_analytics::{AuthenticatedUserId, DeviceFingerprint};
+use anlg_analytics::{AuthenticatedUserId, DeviceFingerprint};
 
 pub enum ProxyBuildError {
     SessionInitFailed(String),
@@ -99,14 +99,14 @@ where
     name = "stt.ws.upgrade",
     skip(state, analytics_ctx, ws, params),
     fields(
-        hyprnote.subsystem = "stt",
+        anarlog.subsystem = "stt",
         http.response.status_code = tracing::field::Empty,
-        hyprnote.stt.provider.name = tracing::field::Empty,
-        hyprnote.stt.routing_strategy = tracing::field::Empty,
-        hyprnote.stt.model = tracing::field::Empty,
-        hyprnote.stt.language_codes = tracing::field::Empty,
-        hyprnote.audio.sample_rate_hz = tracing::field::Empty,
-        hyprnote.audio.channel_count = tracing::field::Empty,
+        anarlog.stt.provider.name = tracing::field::Empty,
+        anarlog.stt.routing_strategy = tracing::field::Empty,
+        anarlog.stt.model = tracing::field::Empty,
+        anarlog.stt.language_codes = tracing::field::Empty,
+        anarlog.audio.sample_rate_hz = tracing::field::Empty,
+        anarlog.audio.channel_count = tracing::field::Empty,
         enduser.id = tracing::field::Empty,
         enduser.pseudo.id = tracing::field::Empty,
         error.type = tracing::field::Empty,
@@ -120,15 +120,15 @@ pub async fn handler(
     mut params: QueryParams,
 ) -> Response {
     let span = tracing::Span::current();
-    span.record("hyprnote.subsystem", "stt");
+    span.record("anarlog.subsystem", "stt");
 
-    let is_hyprnote_routing = should_use_hyprnote_routing(params.get_first("provider"));
+    let is_anarlog_routing = should_use_anarlog_routing(params.get_first("provider"));
 
     let selected = match state.resolve_provider(&mut params) {
         Ok(v) => v,
         Err(resp) => {
             span.record("http.response.status_code", resp.status().as_u16() as i64);
-            hypr_observability::mark_span_as_error(&span, "provider_selection_failed");
+            anlg_observability::mark_span_as_error(&span, "provider_selection_failed");
             tracing::warn!(
                 parent: &span,
                 error.type = "provider_selection_failed",
@@ -150,18 +150,18 @@ pub async fn handler(
         .collect::<Vec<_>>()
         .join(",");
 
-    span.record("hyprnote.stt.provider.name", provider_name.as_str());
+    span.record("anarlog.stt.provider.name", provider_name.as_str());
     span.record(
-        "hyprnote.stt.routing_strategy",
-        if is_hyprnote_routing {
-            "hyprnote"
+        "anarlog.stt.routing_strategy",
+        if is_anarlog_routing {
+            "anarlog"
         } else {
             "direct"
         },
     );
-    span.record("hyprnote.stt.model", model);
-    span.record("hyprnote.audio.sample_rate_hz", sample_rate);
-    span.record("hyprnote.audio.channel_count", channels as i64);
+    span.record("anarlog.stt.model", model);
+    span.record("anarlog.audio.sample_rate_hz", sample_rate);
+    span.record("anarlog.audio.channel_count", channels as i64);
     if let Some(user_id) = analytics_ctx.user_id.as_deref() {
         span.record("enduser.id", user_id);
     }
@@ -169,34 +169,34 @@ pub async fn handler(
         span.record("enduser.pseudo.id", fingerprint);
     }
     if !languages_str.is_empty() {
-        span.record("hyprnote.stt.language_codes", languages_str.as_str());
+        span.record("anarlog.stt.language_codes", languages_str.as_str());
     }
 
     tracing::info!(
         parent: &span,
-        hyprnote.stt.provider.name = %provider_name,
-        hyprnote.stt.routing_strategy = %(if is_hyprnote_routing { "hyprnote" } else { "direct" }),
-        hyprnote.stt.model = %model,
-        hyprnote.audio.sample_rate_hz = sample_rate,
-        hyprnote.audio.channel_count = channels,
+        anarlog.stt.provider.name = %provider_name,
+        anarlog.stt.routing_strategy = %(if is_anarlog_routing { "anarlog" } else { "direct" }),
+        anarlog.stt.model = %model,
+        anarlog.audio.sample_rate_hz = sample_rate,
+        anarlog.audio.channel_count = channels,
         "stt_ws_session_started"
     );
 
     sentry::configure_scope(|scope| {
-        scope.set_tag("hyprnote.stt.provider.name", &provider_name);
+        scope.set_tag("anarlog.stt.provider.name", &provider_name);
         scope.set_tag(
-            "hyprnote.stt.routing_strategy",
-            if is_hyprnote_routing {
-                "hyprnote"
+            "anarlog.stt.routing_strategy",
+            if is_anarlog_routing {
+                "anarlog"
             } else {
                 "direct"
             },
         );
 
-        scope.set_tag("hyprnote.stt.model", model);
+        scope.set_tag("anarlog.stt.model", model);
         let languages: Vec<_> = languages.iter().map(|l| l.iso639().to_string()).collect();
         if !languages.is_empty() {
-            scope.set_tag("hyprnote.stt.language_codes", languages.join(","));
+            scope.set_tag("anarlog.stt.language_codes", languages.join(","));
         }
 
         let keywords = params
@@ -209,18 +209,15 @@ pub async fn handler(
             .unwrap_or(0);
 
         let mut ctx = BTreeMap::new();
-        ctx.insert("hyprnote.audio.sample_rate_hz".into(), sample_rate.into());
-        ctx.insert("hyprnote.audio.channel_count".into(), channels.into());
-        ctx.insert("hyprnote.stt.keyword_count".into(), keywords.into());
-        ctx.insert("hyprnote.stt.language_count".into(), languages.len().into());
-        scope.set_context(
-            "hyprnote.stt.request",
-            sentry::protocol::Context::Other(ctx),
-        );
+        ctx.insert("anarlog.audio.sample_rate_hz".into(), sample_rate.into());
+        ctx.insert("anarlog.audio.channel_count".into(), channels.into());
+        ctx.insert("anarlog.stt.keyword_count".into(), keywords.into());
+        ctx.insert("anarlog.stt.language_count".into(), languages.len().into());
+        scope.set_context("anarlog.stt.request", sentry::protocol::Context::Other(ctx));
     });
 
-    let proxy_result = if is_hyprnote_routing {
-        hyprnote::build_proxy(&state, &selected, &params, analytics_ctx).await
+    let proxy_result = if is_anarlog_routing {
+        anarlog::build_proxy(&state, &selected, &params, analytics_ctx).await
     } else {
         passthrough::build_proxy(&state, &selected, &params, analytics_ctx)
             .await
@@ -234,12 +231,12 @@ pub async fn handler(
                 "http.response.status_code",
                 StatusCode::BAD_GATEWAY.as_u16() as i64,
             );
-            hypr_observability::mark_span_as_error(&span, "session_init_failed");
+            anlg_observability::mark_span_as_error(&span, "session_init_failed");
             tracing::error!(
                 parent: &span,
                 error.type = "session_init_failed",
                 error = %e,
-                hyprnote.stt.provider.name = ?selected.provider(),
+                anarlog.stt.provider.name = ?selected.provider(),
                 "session_init_failed"
             );
             sentry::configure_scope(|scope| {
@@ -252,12 +249,12 @@ pub async fn handler(
                 "http.response.status_code",
                 StatusCode::BAD_REQUEST.as_u16() as i64,
             );
-            hypr_observability::mark_span_as_error(&span, "proxy_build_failed");
+            anlg_observability::mark_span_as_error(&span, "proxy_build_failed");
             tracing::error!(
                 parent: &span,
                 error.type = "proxy_build_failed",
                 error = %e,
-                hyprnote.stt.provider.name = ?provider,
+                anarlog.stt.provider.name = ?provider,
                 "proxy_build_failed"
             );
             sentry::configure_scope(|scope| {

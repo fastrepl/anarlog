@@ -4,7 +4,7 @@ import { ErrorMessage } from "~/chat/components/message/error";
 import { LoadingMessage } from "~/chat/components/message/loading";
 import { NormalMessage } from "~/chat/components/message/normal";
 import { hasRenderableContent } from "~/chat/components/shared";
-import type { HyprUIMessage } from "~/chat/types";
+import type { AnlgUIMessage } from "~/chat/types";
 
 export function ChatBodyNonEmpty({
   messages,
@@ -12,7 +12,7 @@ export function ChatBodyNonEmpty({
   error,
   onReload,
 }: {
-  messages: HyprUIMessage[];
+  messages: AnlgUIMessage[];
   status: ChatStatus;
   error?: Error;
   onReload?: () => void;

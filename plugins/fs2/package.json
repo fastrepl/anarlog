@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/plugin-fs2",
+  "name": "@anlg/plugin-fs2",
   "private": true,
   "main": "./js/index.ts",
   "scripts": {

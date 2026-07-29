@@ -8,7 +8,7 @@ import {
 } from "./entities";
 import { extractContextRefsFromMessages } from "./refs";
 
-import type { HyprUIMessage } from "~/chat/types";
+import type { AnlgUIMessage } from "~/chat/types";
 import { useHumans, useOrganizations } from "~/contacts/queries";
 import { useSessionSummaries } from "~/session/queries";
 
@@ -87,7 +87,7 @@ function toDisplayEntity(
 }
 
 type UseChatContextPipelineParams = {
-  messages: HyprUIMessage[];
+  messages: AnlgUIMessage[];
   currentSessionId?: string;
   pendingManualRefs: ContextRef[];
 };

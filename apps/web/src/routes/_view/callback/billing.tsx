@@ -3,7 +3,7 @@ import { CheckIcon, CopyIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import {
   DEFAULT_DESKTOP_SCHEME,

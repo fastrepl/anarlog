@@ -99,7 +99,7 @@ fn transform_mentions_in_markdown(markdown: &str) -> String {
         let app_url = format!("/app/{}/{}", mention_type, id);
 
         format!(
-            r#"<a class="mention" data-mention="true" data-id="{}" data-type="{}" data-label="{}" href="javascript:void(0)" onclick="event.preventDefault(); if (window.__HYPR_NAVIGATE__) window.__HYPR_NAVIGATE__('{}');">@{}</a>"#,
+            r#"<a class="mention" data-mention="true" data-id="{}" data-type="{}" data-label="{}" href="javascript:void(0)" onclick="event.preventDefault(); if (window.__ANARLOG_NAVIGATE__) window.__ANARLOG_NAVIGATE__('{}');">@{}</a>"#,
             id, mention_type, label, app_url, label
         )
     }).to_string()
@@ -304,7 +304,7 @@ mod tests {
     fn test_md_to_md_3() {
         let input = r#"
 # Enhanced Meeting Notes
-## What Hyprnote Does
+## What Anarlog Does
 - A smart notepad for people with back-to-back meetings.
 - Listens to the meeting so you don't have to write everything down.
 - Merges your notes and the transcript into a clean, context-aware summary.
@@ -320,8 +320,8 @@ mod tests {
 - Offers powerful extensions—like real-time transcripts and CRM uploads (e.g. Twenty).
 
 ## Stay Connected
-- Follow updates on [X](https://hyprnote.com/x).
-- Join the community and chat on [Discord](https://hyprnote.com/discord). 
+- Follow updates on [X](https://anarlog.so/x).
+- Join the community and chat on [Discord](https://anarlog.so/discord). 
 
 # Participants:
 
@@ -333,7 +333,7 @@ mod tests {
 "#;
 
         insta::assert_snapshot!(md_to_md(input).unwrap().to_string(), @"
-        # What Hyprnote Does
+        # What Anarlog Does
 
         - A smart notepad for people with back-to-back meetings.
         - Listens to the meeting so you don't have to write everything down.
@@ -359,8 +359,8 @@ mod tests {
 
         # Stay Connected
 
-        - Follow updates on [X](https://hyprnote.com/x).
-        - Join the community and chat on [Discord](https://hyprnote.com/discord).
+        - Follow updates on [X](https://anarlog.so/x).
+        - Join the community and chat on [Discord](https://anarlog.so/discord).
 
          
 
@@ -381,12 +381,12 @@ mod tests {
     #[test]
     fn test_md_to_md_4() {
         let input = r#"
-# Hyprnote: Enhanced Meeting Notes
+# Anarlog: Enhanced Meeting Notes
 
-# Objective: Introduce Hyprnote as a smart notepad for enhanced meeting productivity.
+# Objective: Introduce Anarlog as a smart notepad for enhanced meeting productivity.
 # Privacy & Performance: Built locally, prioritizing user data security and seamless experience.
 # Flexible & Extendable: Supports various use cases beyond sales, offering a simple and powerful solution.
-# Stay Connected: Promote Hyprnote through X and Discord.
+# Stay Connected: Promote Anarlog through X and Discord.
 
 # Key Features:
 # - Offline transcription and note-taking.
@@ -396,17 +396,17 @@ mod tests {
 
 # Benefits: Streamlines meetings, improves productivity, and enhances data capture.
 
-# Further Information: Follow updates on [X](https://hyprnote.com/x) and [Discord](https://hyprnote.com/discord).
+# Further Information: Follow updates on [X](https://anarlog.so/x) and [Discord](https://anarlog.so/discord).
         "#;
 
-        insta::assert_snapshot!(md_to_md(input).unwrap().to_string(), @"# Further Information: Follow updates on [X](https://hyprnote.com/x) and [Discord](https://hyprnote.com/discord).");
+        insta::assert_snapshot!(md_to_md(input).unwrap().to_string(), @"# Further Information: Follow updates on [X](https://anarlog.so/x) and [Discord](https://anarlog.so/discord).");
     }
 
     #[test]
     fn test_opinionated_md_to_html() {
         let input = r#"
 # Enhanced Meeting Notes
-## What Hyprnote Does
+## What Anarlog Does
 - A smart notepad for people with back-to-back meetings.
 - Listens to the meeting so you don't have to write everything down.
 - Merges your notes and the transcript into a clean, context-aware summary.
@@ -422,12 +422,12 @@ mod tests {
 - Offers powerful extensions—like real-time transcripts and CRM uploads (e.g. Twenty).
 
 ## Stay Connected
-- Follow updates on [X](https://hyprnote.com/x).
-- Join the community and chat on [Discord](https://hyprnote.com/discord).
+- Follow updates on [X](https://anarlog.so/x).
+- Join the community and chat on [Discord](https://anarlog.so/discord).
 "#;
 
         insta::assert_snapshot!(opinionated_md_to_html(input).unwrap().to_string(), @r#"
-        <h1>What Hyprnote Does</h1>
+        <h1>What Anarlog Does</h1>
         <ul>
         <li>A smart notepad for people with back-to-back meetings.</li>
         <li>Listens to the meeting so you don't have to write everything down.</li>
@@ -450,8 +450,8 @@ mod tests {
         <p> </p>
         <h1>Stay Connected</h1>
         <ul>
-        <li>Follow updates on <a href="https://hyprnote.com/x">X</a>.</li>
-        <li>Join the community and chat on <a href="https://hyprnote.com/discord">Discord</a>.</li>
+        <li>Follow updates on <a href="https://anarlog.so/x">X</a>.</li>
+        <li>Join the community and chat on <a href="https://anarlog.so/discord">Discord</a>.</li>
         </ul>
         "#);
     }

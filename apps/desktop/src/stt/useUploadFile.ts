@@ -4,12 +4,12 @@ import { open as selectFile } from "@tauri-apps/plugin-dialog";
 import { Effect, pipe } from "effect";
 import { useCallback } from "react";
 
-import { commands as analyticsCommands } from "@hypr/plugin-analytics";
+import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import {
   commands as fsSyncCommands,
   events as fsSyncEvents,
-} from "@hypr/plugin-fs-sync";
-import { commands as listener2Commands } from "@hypr/plugin-transcription";
+} from "@anlg/plugin-fs-sync";
+import { commands as listener2Commands } from "@anlg/plugin-transcription";
 
 import { estimateUploadedAudioSessionCreatedAt } from "./audio-note-date";
 import { useListener } from "./contexts";

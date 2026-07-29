@@ -5,9 +5,9 @@ mod error;
 mod ext;
 mod state;
 
+pub use anlg_storage::ObsidianVault;
 pub use error::{Error, Result};
 pub use ext::*;
-pub use hypr_storage::ObsidianVault;
 pub use state::*;
 
 const PLUGIN_NAME: &str = "settings";

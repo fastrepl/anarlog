@@ -1,8 +1,8 @@
-import type { LocalModel } from "@hypr/plugin-local-stt";
+import type { LocalModel } from "@anlg/plugin-local-stt";
 import {
   commands as listenerCommands,
   type TranscriptionMode,
-} from "@hypr/plugin-transcription";
+} from "@anlg/plugin-transcription";
 
 type LiveTranscriptionConfig = {
   languages: string[];
@@ -77,18 +77,18 @@ export function isSupportedLocalSttModel(
   );
 }
 
-export function isHyprnoteCloudSttModel(
+export function isAnarlogCloudSttModel(
   provider?: string | null,
   model?: string | null,
 ) {
-  return provider === "hyprnote" && model === "cloud";
+  return provider === "anarlog" && model === "cloud";
 }
 
-export function isHyprnoteLocalSttModel(
+export function isAnarlogLocalSttModel(
   provider?: string | null,
   model?: string | null,
 ): model is LocalModel {
-  return provider === "hyprnote" && isSupportedLocalSttModel(model);
+  return provider === "anarlog" && isSupportedLocalSttModel(model);
 }
 
 export function isDesktopLocalSttAvailable(
@@ -107,13 +107,13 @@ export function getUnsupportedDesktopLocalSttRepair(
 ) {
   if (
     isDesktopLocalSttAvailable(currentPlatform, currentArch) ||
-    !isHyprnoteLocalSttModel(provider, model)
+    !isAnarlogLocalSttModel(provider, model)
   ) {
     return null;
   }
 
   return canUseCloud
-    ? { provider: "hyprnote", model: "cloud" }
+    ? { provider: "anarlog", model: "cloud" }
     : { provider: "", model: "" };
 }
 
@@ -125,7 +125,7 @@ export function isConfiguredSttModel(
     return false;
   }
 
-  if (provider === "hyprnote") {
+  if (provider === "anarlog") {
     return model === "cloud" || isSupportedLocalSttModel(model);
   }
 
@@ -140,6 +140,19 @@ export function getSttModelTranscriptionMode(
   provider?: string | null,
   model?: string | null,
 ): TranscriptionMode | undefined {
+  if (provider === "openai") {
+    if (model === "gpt-live-transcribe") return "live";
+    if (
+      model === "gpt-transcribe" ||
+      model === "gpt-4o-transcribe-diarize" ||
+      model === "gpt-4o-transcribe" ||
+      model === "gpt-4o-mini-transcribe" ||
+      model === "whisper-1"
+    ) {
+      return "batch";
+    }
+  }
+
   if (provider === "assemblyai") {
     if (model === "universal-3-pro") return "batch";
     if (model === "u3-rt-pro") return "live";
@@ -282,7 +295,7 @@ export async function getLiveTranscriptionConfig({
   model?: string | null;
   languages: readonly string[];
 }): Promise<LiveTranscriptionConfig> {
-  if (isHyprnoteLocalSttModel(provider, model)) {
+  if (isAnarlogLocalSttModel(provider, model)) {
     return getOnDeviceTranscriptionConfig(model, languages);
   }
 

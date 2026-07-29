@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback } from "react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import { ChatBody } from "./body";
 import { ChatContent } from "./content";

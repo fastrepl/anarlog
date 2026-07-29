@@ -9,11 +9,11 @@ use super::LanguageSupport;
 pub struct AssemblyAIAdapter;
 
 impl AssemblyAIAdapter {
-    pub fn language_support_live(languages: &[hypr_language::Language]) -> LanguageSupport {
+    pub fn language_support_live(languages: &[anlg_language::Language]) -> LanguageSupport {
         LanguageSupport::min(languages.iter().map(language::single_language_support_live))
     }
 
-    pub fn language_support_batch(languages: &[hypr_language::Language]) -> LanguageSupport {
+    pub fn language_support_batch(languages: &[anlg_language::Language]) -> LanguageSupport {
         LanguageSupport::min(
             languages
                 .iter()
@@ -21,11 +21,11 @@ impl AssemblyAIAdapter {
         )
     }
 
-    pub fn is_supported_languages_live(languages: &[hypr_language::Language]) -> bool {
+    pub fn is_supported_languages_live(languages: &[anlg_language::Language]) -> bool {
         Self::language_support_live(languages).is_supported()
     }
 
-    pub fn is_supported_languages_batch(languages: &[hypr_language::Language]) -> bool {
+    pub fn is_supported_languages_batch(languages: &[anlg_language::Language]) -> bool {
         Self::language_support_batch(languages).is_supported()
     }
 }
@@ -71,9 +71,11 @@ impl AssemblyAIAdapter {
 
         if url.host_str() == Some("api.assemblyai.com") {
             let _ = url.set_host(Some("streaming.assemblyai.com"));
+            url.set_path(Provider::AssemblyAI.ws_path());
+        } else {
+            super::append_path_if_missing(&mut url, Provider::AssemblyAI.ws_path());
         }
 
-        super::append_path_if_missing(&mut url, Provider::AssemblyAI.ws_path());
         super::set_scheme_from_host(&mut url);
 
         (url, existing_params)
@@ -99,10 +101,19 @@ impl AssemblyAIAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Provider;
 
     #[test]
     fn test_streaming_ws_url_appends_v3_ws() {
         let (url, params) = AssemblyAIAdapter::streaming_ws_url("https://api.assemblyai.com");
+        assert_eq!(url.as_str(), "wss://streaming.assemblyai.com/v3/ws");
+        assert!(params.is_empty());
+    }
+
+    #[test]
+    fn test_streaming_ws_url_replaces_batch_api_path() {
+        let (url, params) =
+            AssemblyAIAdapter::streaming_ws_url(Provider::AssemblyAI.default_api_base());
         assert_eq!(url.as_str(), "wss://streaming.assemblyai.com/v3/ws");
         assert!(params.is_empty());
     }
@@ -117,8 +128,8 @@ mod tests {
     #[test]
     fn test_streaming_ws_url_proxy() {
         let (url, params) =
-            AssemblyAIAdapter::streaming_ws_url("https://api.hyprnote.com?provider=assemblyai");
-        assert_eq!(url.as_str(), "wss://api.hyprnote.com/listen");
+            AssemblyAIAdapter::streaming_ws_url("https://api.anarlog.so?provider=assemblyai");
+        assert_eq!(url.as_str(), "wss://api.anarlog.so/listen");
         assert_eq!(params, vec![("provider".into(), "assemblyai".into())]);
     }
 

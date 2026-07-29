@@ -1,10 +1,10 @@
-use hypr_ticket_interface::{
+use anlg_ticket_interface::{
     CollectionRef, LabelRef, PersonRef, PullRequestDetail, TicketKind, TicketPriority,
     TicketProviderType, TicketState, TicketSummary,
 };
 
 pub fn github_issue_to_ticket(
-    issue: &hypr_github_issues::Issue,
+    issue: &anlg_github_issues::Issue,
     collection: &CollectionRef,
 ) -> TicketSummary {
     let is_pr = issue.is_pull_request();
@@ -66,7 +66,7 @@ pub fn github_issue_to_ticket(
     }
 }
 
-fn github_state(issue: &hypr_github_issues::Issue) -> (TicketState, Option<String>) {
+fn github_state(issue: &anlg_github_issues::Issue) -> (TicketState, Option<String>) {
     match issue.state.as_str() {
         "open" => (TicketState::Open, Some("open".to_string())),
         "closed" => {
@@ -85,7 +85,7 @@ fn github_state(issue: &hypr_github_issues::Issue) -> (TicketState, Option<Strin
     }
 }
 
-fn github_user_to_person(user: &hypr_github_issues::User) -> PersonRef {
+fn github_user_to_person(user: &anlg_github_issues::User) -> PersonRef {
     PersonRef {
         id: Some(user.id.to_string()),
         name: Some(user.login.clone()),
@@ -94,7 +94,7 @@ fn github_user_to_person(user: &hypr_github_issues::User) -> PersonRef {
     }
 }
 
-fn github_label_to_ref(label: &hypr_github_issues::Label) -> LabelRef {
+fn github_label_to_ref(label: &anlg_github_issues::Label) -> LabelRef {
     LabelRef {
         id: label.id.to_string(),
         name: label.name.clone(),
@@ -103,7 +103,7 @@ fn github_label_to_ref(label: &hypr_github_issues::Label) -> LabelRef {
 }
 
 pub fn linear_issue_to_ticket(
-    issue: &hypr_linear::Issue,
+    issue: &anlg_linear::Issue,
     collection: &CollectionRef,
 ) -> TicketSummary {
     let (state, state_detail) = linear_state(issue);
@@ -148,7 +148,7 @@ pub fn linear_issue_to_ticket(
     }
 }
 
-fn linear_state(issue: &hypr_linear::Issue) -> (TicketState, Option<String>) {
+fn linear_state(issue: &anlg_linear::Issue) -> (TicketState, Option<String>) {
     let state_name = issue.state.name.clone();
     let normalized = match issue.state.state_type.as_str() {
         "backlog" => TicketState::Backlog,
@@ -161,7 +161,7 @@ fn linear_state(issue: &hypr_linear::Issue) -> (TicketState, Option<String>) {
     (normalized, Some(state_name))
 }
 
-fn linear_priority(issue: &hypr_linear::Issue) -> Option<TicketPriority> {
+fn linear_priority(issue: &anlg_linear::Issue) -> Option<TicketPriority> {
     issue.priority.map(|p| match p as u32 {
         0 => TicketPriority::None,
         1 => TicketPriority::Urgent,
@@ -172,7 +172,7 @@ fn linear_priority(issue: &hypr_linear::Issue) -> Option<TicketPriority> {
     })
 }
 
-fn linear_user_to_person(user: &hypr_linear::LinearUser) -> PersonRef {
+fn linear_user_to_person(user: &anlg_linear::LinearUser) -> PersonRef {
     PersonRef {
         id: Some(user.id.clone()),
         name: Some(user.name.clone()),
@@ -181,7 +181,7 @@ fn linear_user_to_person(user: &hypr_linear::LinearUser) -> PersonRef {
     }
 }
 
-fn linear_label_to_ref(label: &hypr_linear::LinearLabel) -> LabelRef {
+fn linear_label_to_ref(label: &anlg_linear::LinearLabel) -> LabelRef {
     LabelRef {
         id: label.id.clone(),
         name: label.name.clone(),
@@ -204,7 +204,7 @@ mod tests {
 
     #[test]
     fn github_open_issue_maps_to_open() {
-        let issue = hypr_github_issues::Issue {
+        let issue = anlg_github_issues::Issue {
             id: 1,
             number: 42,
             title: "Test issue".to_string(),
@@ -234,7 +234,7 @@ mod tests {
 
     #[test]
     fn github_merged_pr_maps_to_done() {
-        let issue = hypr_github_issues::Issue {
+        let issue = anlg_github_issues::Issue {
             id: 2,
             number: 43,
             title: "Test PR".to_string(),
@@ -247,7 +247,7 @@ mod tests {
             assignees: None,
             labels: None,
             milestone: None,
-            pull_request: Some(hypr_github_issues::IssuePullRequest {
+            pull_request: Some(anlg_github_issues::IssuePullRequest {
                 url: None,
                 html_url: None,
                 diff_url: None,
@@ -271,7 +271,7 @@ mod tests {
 
     #[test]
     fn github_closed_not_planned_maps_to_closed() {
-        let issue = hypr_github_issues::Issue {
+        let issue = anlg_github_issues::Issue {
             id: 3,
             number: 44,
             title: "Won't fix".to_string(),
@@ -299,7 +299,7 @@ mod tests {
 
     #[test]
     fn linear_started_maps_to_in_progress() {
-        let issue = hypr_linear::Issue {
+        let issue = anlg_linear::Issue {
             id: "abc".to_string(),
             identifier: "ENG-123".to_string(),
             number: 123.0,
@@ -308,14 +308,14 @@ mod tests {
             url: "https://linear.app/team/issue/ENG-123".to_string(),
             priority: Some(2.0),
             priority_label: Some("High".to_string()),
-            state: hypr_linear::WorkflowState {
+            state: anlg_linear::WorkflowState {
                 id: "state-1".to_string(),
                 name: "In Progress".to_string(),
                 state_type: "started".to_string(),
             },
             assignee: None,
             creator: None,
-            team: hypr_linear::TeamRef {
+            team: anlg_linear::TeamRef {
                 id: "team-1".to_string(),
                 name: "Engineering".to_string(),
                 key: "ENG".to_string(),

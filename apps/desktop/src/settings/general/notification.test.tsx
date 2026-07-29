@@ -26,14 +26,14 @@ vi.mock("@tauri-apps/plugin-os", () => ({
   platform: () => mocks.currentPlatform,
 }));
 
-vi.mock("@hypr/plugin-detect", () => ({
+vi.mock("@anlg/plugin-detect", () => ({
   commands: {
     listDefaultIgnoredBundleIds: vi.fn(),
     listInstalledApplications: vi.fn(),
   },
 }));
 
-vi.mock("@hypr/plugin-notification", () => ({
+vi.mock("@anlg/plugin-notification", () => ({
   commands: {
     clearNotifications: mocks.clearNotifications,
   },

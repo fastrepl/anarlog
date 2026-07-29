@@ -21,7 +21,7 @@ async fn e2e_deepgram_with_mock_analytics() {
     let events = mock_analytics.events.clone();
 
     let env = env_with_provider(Provider::Deepgram, api_key);
-    let supabase = hypr_api_env::SupabaseEnv {
+    let supabase = anlg_api_env::SupabaseEnv {
         supabase_url: String::new(),
         supabase_anon_key: String::new(),
         supabase_service_role_key: String::new(),
@@ -37,7 +37,7 @@ async fn e2e_deepgram_with_mock_analytics() {
         .api_base(format!("http://{}", addr))
         .params(owhisper_interface::ListenParams {
             model: Some("nova-3".to_string()),
-            languages: vec![hypr_language::ISO639::En.into()],
+            languages: vec![anlg_language::ISO639::En.into()],
             ..Default::default()
         })
         .build_single()

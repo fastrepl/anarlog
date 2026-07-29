@@ -29,11 +29,11 @@ struct TemplateOutput {
 pub async fn run(args: Args) -> Result<()> {
     let db_path = resolve_db_path(args.base.as_deref(), args.db_path.as_deref());
 
-    let db = hypr_db_core::Db::connect_local_plain(&db_path)
+    let db = anlg_db_core::Db::connect_local_plain(&db_path)
         .await
         .map_err(|e| Error::operation_failed("open database", e.to_string()))?;
 
-    hypr_db_app::prepare_schema(&db)
+    anlg_db_app::prepare_schema(&db)
         .await
         .map_err(|e| Error::operation_failed("migrate database", e.to_string()))?;
 
@@ -61,14 +61,14 @@ fn resolve_db_path(base: Option<&Path>, db_path: Option<&Path>) -> PathBuf {
 async fn run_templates(pool: &sqlx::SqlitePool, command: TemplateCommand) -> Result<()> {
     match command {
         TemplateCommand::List => {
-            let rows = hypr_db_app::list_templates(pool)
+            let rows = anlg_db_app::list_templates(pool)
                 .await
                 .map_err(|e| Error::operation_failed("list templates", e.to_string()))?;
             let rows: Vec<_> = rows.into_iter().map(TemplateOutput::from).collect();
             print_json(&rows)
         }
         TemplateCommand::Get { id } => {
-            let row = hypr_db_app::get_template(pool, &id)
+            let row = anlg_db_app::get_template(pool, &id)
                 .await
                 .map_err(|e| Error::operation_failed("get template", e.to_string()))?
                 .ok_or_else(|| Error::not_found(format!("template '{id}'")))?;
@@ -76,7 +76,7 @@ async fn run_templates(pool: &sqlx::SqlitePool, command: TemplateCommand) -> Res
         }
         TemplateCommand::Upsert(args) => upsert_template(pool, args).await,
         TemplateCommand::Delete { id } => {
-            hypr_db_app::delete_template(pool, &id)
+            anlg_db_app::delete_template(pool, &id)
                 .await
                 .map_err(|e| Error::operation_failed("delete template", e.to_string()))?;
             print_json(&Status {
@@ -87,8 +87,8 @@ async fn run_templates(pool: &sqlx::SqlitePool, command: TemplateCommand) -> Res
     }
 }
 
-impl From<hypr_db_app::TemplateRow> for TemplateOutput {
-    fn from(value: hypr_db_app::TemplateRow) -> Self {
+impl From<anlg_db_app::TemplateRow> for TemplateOutput {
+    fn from(value: anlg_db_app::TemplateRow) -> Self {
         Self {
             id: value.id,
             title: value.title,
@@ -107,9 +107,9 @@ impl From<hypr_db_app::TemplateRow> for TemplateOutput {
 async fn upsert_template(pool: &sqlx::SqlitePool, args: UpsertTemplateArgs) -> Result<()> {
     let id = args.id;
 
-    hypr_db_app::upsert_template(
+    anlg_db_app::upsert_template(
         pool,
-        hypr_db_app::UpsertTemplate {
+        anlg_db_app::UpsertTemplate {
             id: &id,
             title: &args.title,
             description: &args.description,
@@ -175,10 +175,10 @@ mod tests {
         .await
         .unwrap();
 
-        let db = hypr_db_core::Db::connect_local_plain(&db_path)
+        let db = anlg_db_core::Db::connect_local_plain(&db_path)
             .await
             .unwrap();
-        let row = hypr_db_app::get_template(db.pool(), "template-1")
+        let row = anlg_db_app::get_template(db.pool(), "template-1")
             .await
             .unwrap()
             .unwrap();
@@ -211,13 +211,13 @@ mod tests {
     async fn run_deletes_templates() {
         let dir = tempdir().unwrap();
         let db_path = dir.path().join("templates.db");
-        let db = hypr_db_core::Db::connect_local_plain(&db_path)
+        let db = anlg_db_core::Db::connect_local_plain(&db_path)
             .await
             .unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
-        hypr_db_app::upsert_template(
+        anlg_db_app::prepare_schema(&db).await.unwrap();
+        anlg_db_app::upsert_template(
             db.pool(),
-            hypr_db_app::UpsertTemplate {
+            anlg_db_app::UpsertTemplate {
                 id: "template-1",
                 title: "Standup",
                 description: "",
@@ -244,10 +244,10 @@ mod tests {
         .await
         .unwrap();
 
-        let db = hypr_db_core::Db::connect_local_plain(&db_path)
+        let db = anlg_db_core::Db::connect_local_plain(&db_path)
             .await
             .unwrap();
-        let row = hypr_db_app::get_template(db.pool(), "template-1")
+        let row = anlg_db_app::get_template(db.pool(), "template-1")
             .await
             .unwrap();
         assert!(row.is_none());

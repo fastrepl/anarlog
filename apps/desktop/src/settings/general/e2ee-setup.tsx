@@ -14,10 +14,10 @@ import {
   createE2eeIdentity,
   importE2eeIdentity,
   inspectE2eeRecoveryKey,
-} from "@hypr/plugin-db";
-import { commands as fs2Commands } from "@hypr/plugin-fs2";
-import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { Button } from "@hypr/ui/components/ui/button";
+} from "@anlg/plugin-db";
+import { commands as fs2Commands } from "@anlg/plugin-fs2";
+import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { Button } from "@anlg/ui/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -25,8 +25,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@hypr/ui/components/ui/dialog";
-import { Input } from "@hypr/ui/components/ui/input";
+} from "@anlg/ui/components/ui/dialog";
+import { Input } from "@anlg/ui/components/ui/input";
 
 import { env } from "~/env";
 

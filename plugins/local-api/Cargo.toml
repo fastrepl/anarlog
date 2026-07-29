@@ -10,12 +10,12 @@ description = "Local HTTP API for Pro users: API-key-authenticated meeting endpo
 tauri-plugin = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
-hypr-db-core = { workspace = true }
+anlg-db-core = { workspace = true }
 specta-typescript = { workspace = true }
 
 [dependencies]
-hypr-agent-access = { workspace = true }
-hypr-db-app = { workspace = true }
+anlg-agent-access = { workspace = true }
+anlg-db-app = { workspace = true }
 tauri-plugin-db = { workspace = true }
 
 axum = { workspace = true }

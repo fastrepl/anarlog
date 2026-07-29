@@ -36,7 +36,7 @@ vi.mock("~/auth", () => ({
   }),
 }));
 
-vi.mock("@hypr/editor/comments", () => ({
+vi.mock("@anlg/editor/comments", () => ({
   captureCommentAnchor: mocks.captureCommentAnchor,
   resolveCommentAnchors: (
     _doc: unknown,
@@ -44,7 +44,7 @@ vi.mock("@hypr/editor/comments", () => ({
   ) => comments.map((comment) => ({ ...comment, range: { from: 2, to: 15 } })),
 }));
 
-vi.mock("@hypr/editor/note", () => ({
+vi.mock("@anlg/editor/note", () => ({
   getCommentAnchorRanges: mocks.getCommentAnchorRanges,
   setActiveCommentAnchor: mocks.setActiveCommentAnchor,
   setCommentAnchors: mocks.setCommentAnchors,

@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import type {
   LiveTranscriptDelta,
   RenderTranscriptHuman,
-} from "@hypr/plugin-transcription";
+} from "@anlg/plugin-transcription";
 
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";

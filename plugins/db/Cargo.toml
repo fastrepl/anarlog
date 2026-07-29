@@ -8,16 +8,16 @@ links = "tauri-plugin-db"
 description = ""
 
 [dependencies]
-hypr-agent-access = { workspace = true }
-hypr-db-app = { workspace = true }
-hypr-db-core = { workspace = true }
-hypr-db-execute = { workspace = true }
-hypr-db-migrate = { workspace = true }
-hypr-db-reactive = { workspace = true, features = ["specta"] }
-hypr-e2ee = { workspace = true }
-hypr-fs-sync-core = { workspace = true }
-hypr-storage = { workspace = true }
-hypr-tauri-utils = { workspace = true }
+anlg-agent-access = { workspace = true }
+anlg-db-app = { workspace = true }
+anlg-db-core = { workspace = true }
+anlg-db-execute = { workspace = true }
+anlg-db-migrate = { workspace = true }
+anlg-db-reactive = { workspace = true, features = ["specta"] }
+anlg-e2ee = { workspace = true }
+anlg-fs-sync-core = { workspace = true }
+anlg-storage = { workspace = true }
+anlg-tauri-utils = { workspace = true }
 
 futures-util = { workspace = true }
 reqwest = { workspace = true, features = ["json", "query", "stream"] }
@@ -36,8 +36,8 @@ tracing = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 
 [dev-dependencies]
+anlg-db-core = { workspace = true, features = ["test-utils"] }
 anyhow = { workspace = true }
-hypr-db-core = { workspace = true, features = ["test-utils"] }
 serde_json = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }

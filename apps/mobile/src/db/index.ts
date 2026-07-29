@@ -1,4 +1,4 @@
-import { createUseLiveQuery } from "@hypr/db-react";
+import { createUseLiveQuery } from "@anlg/db-react";
 
 import { mobileLiveQueryClient, mobileTransactionClient } from "@/db/client";
 

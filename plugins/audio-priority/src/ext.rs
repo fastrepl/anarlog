@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use tauri_plugin_settings::SettingsPluginExt;
 
 use crate::{PriorityState, StoredDevice};
-use hypr_audio_device::{AudioDevice, AudioDeviceBackend, AudioDirection, DeviceId, backend};
+use anlg_audio_device::{AudioDevice, AudioDeviceBackend, AudioDirection, DeviceId, backend};
 
 pub const FILENAME: &str = "audio.json";
 

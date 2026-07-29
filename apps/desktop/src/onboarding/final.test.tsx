@@ -17,15 +17,15 @@ const mocks = vi.hoisted(() => ({
   stopSfx: vi.fn(),
 }));
 
-vi.mock("@hypr/plugin-analytics", () => ({
+vi.mock("@anlg/plugin-analytics", () => ({
   commands: { event: mocks.analyticsEvent },
 }));
 
-vi.mock("@hypr/plugin-opener2", () => ({
+vi.mock("@anlg/plugin-opener2", () => ({
   commands: { openUrl: vi.fn() },
 }));
 
-vi.mock("@hypr/plugin-sfx", () => ({
+vi.mock("@anlg/plugin-sfx", () => ({
   commands: { stop: mocks.stopSfx },
 }));
 

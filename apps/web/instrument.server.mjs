@@ -57,8 +57,8 @@ Sentry.init({
   initialScope: {
     tags: {
       "service.name": "web",
-      "service.namespace": "hyprnote",
-      "hyprnote.surface": "web_server",
+      "service.namespace": "anarlog",
+      "anarlog.surface": "web_server",
     },
   },
 });

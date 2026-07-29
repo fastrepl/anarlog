@@ -16,10 +16,10 @@ import {
   PRO_TRIAL_DAYS,
   type MarketingPlanData,
   PlanFeatureList,
-} from "@hypr/pricing";
-import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
-import { Spinner } from "@hypr/ui/components/ui/spinner";
-import { cn } from "@hypr/utils";
+} from "@anlg/pricing";
+import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
+import { Spinner } from "@anlg/ui/components/ui/spinner";
+import { cn } from "@anlg/utils";
 
 import { SiteFooter } from "@/components/site-footer";
 import {

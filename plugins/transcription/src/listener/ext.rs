@@ -1,13 +1,13 @@
 use ractor::{ActorRef, call_t, registry};
 
 use crate::{CaptureConfigUpdate, CaptureParams, CaptureSnapshot, CaptureState, SessionStateCache};
-use hypr_transcription_core::listener::{
+use anlg_transcription_core::listener::{
     StartSessionError,
     actors::{RootActor, RootMsg, SessionParams, SourceActor, SourceMsg},
 };
 
 fn capture_snapshot_from_result<E: std::fmt::Debug>(
-    result: Result<hypr_transcription_core::listener::Snapshot, E>,
+    result: Result<anlg_transcription_core::listener::Snapshot, E>,
 ) -> crate::Result<CaptureSnapshot> {
     result.map(CaptureSnapshot::from).map_err(|error| {
         tracing::warn!(?error, "capture_snapshot_unavailable");
@@ -26,7 +26,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
     pub async fn list_microphone_devices(&self) -> Result<Vec<String>, crate::Error> {
         let audio = self
             .manager
-            .state::<std::sync::Arc<dyn hypr_audio::AudioProvider>>();
+            .state::<std::sync::Arc<dyn anlg_audio::AudioProvider>>();
         Ok(audio.list_mic_devices())
     }
 

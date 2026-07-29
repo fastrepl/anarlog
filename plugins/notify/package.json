@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/plugin-notify",
+  "name": "@anlg/plugin-notify",
   "private": true,
   "main": "./js/index.ts",
   "scripts": {

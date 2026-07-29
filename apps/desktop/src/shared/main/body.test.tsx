@@ -86,7 +86,7 @@ vi.mock("@tauri-apps/plugin-os", () => ({
   platform: () => mocks.platform,
 }));
 
-vi.mock("@hypr/plugin-windows", () => ({
+vi.mock("@anlg/plugin-windows", () => ({
   commands: mocks.windowsCommands,
   events: {
     devtoolsPanelAction: {

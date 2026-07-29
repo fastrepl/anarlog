@@ -1,7 +1,7 @@
 import { Building2, Pin } from "lucide-react";
 import React, { useCallback } from "react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import { type OrganizationRecord, toggleContactPin } from "~/contacts/queries";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";

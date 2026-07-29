@@ -1,7 +1,7 @@
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 
-import type { CharTask } from "@hypr/api-client";
-import { commands as miscCommands } from "@hypr/plugin-misc";
+import type { CharTask } from "@anlg/api-client";
+import { commands as miscCommands } from "@anlg/plugin-misc";
 
 import {
   CHAR_TASK_HEADER,

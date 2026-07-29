@@ -54,10 +54,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("app.db");
         let output_path = dir.path().join("meeting.md");
-        let db = hypr_db_core::Db::connect_local_plain(&db_path)
+        let db = anlg_db_core::Db::connect_local_plain(&db_path)
             .await
             .unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
         sqlx::query(
             "INSERT INTO sessions (id, title, started_at) VALUES ('meeting-1', 'Planning', '2026-07-13')",
         )

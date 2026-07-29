@@ -9,7 +9,7 @@ use futures_util::{Stream, StreamExt, stream::SplitStream};
 use pin_project::pin_project;
 use tokio::sync::mpsc::{Receiver, Sender, channel};
 
-use hypr_audio_utils::{bytes_to_f32_samples, deinterleave_stereo_bytes, mix_audio_f32};
+use anlg_audio_utils::{bytes_to_f32_samples, deinterleave_stereo_bytes, mix_audio_f32};
 use owhisper_interface::{ControlMessage, ListenInputChunk};
 
 pub enum ParsedWsMessage {
@@ -128,7 +128,7 @@ impl Stream for WebSocketAudioSource {
     }
 }
 
-impl hypr_audio_interface::AsyncSource for WebSocketAudioSource {
+impl anlg_audio_interface::AsyncSource for WebSocketAudioSource {
     fn as_stream(&mut self) -> impl Stream<Item = f32> + '_ {
         self
     }
@@ -194,7 +194,7 @@ impl Stream for ChannelAudioSource {
     }
 }
 
-impl hypr_audio_interface::AsyncSource for ChannelAudioSource {
+impl anlg_audio_interface::AsyncSource for ChannelAudioSource {
     fn as_stream(&mut self) -> impl Stream<Item = f32> + '_ {
         self
     }

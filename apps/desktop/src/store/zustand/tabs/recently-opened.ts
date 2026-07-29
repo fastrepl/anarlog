@@ -1,6 +1,6 @@
 import type { StateCreator, StoreApi, StoreMutatorIdentifier } from "zustand";
 
-import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
+import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
 
 import { commands } from "~/types/tauri.gen";
 

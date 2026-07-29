@@ -1,5 +1,5 @@
-import { commands as calendarCommands } from "@hypr/plugin-calendar";
-import type { CalendarEvent } from "@hypr/plugin-calendar";
+import { commands as calendarCommands } from "@anlg/plugin-calendar";
+import type { CalendarEvent } from "@anlg/plugin-calendar";
 
 import type { Ctx } from "../ctx";
 import type {

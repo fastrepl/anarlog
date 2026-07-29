@@ -8,6 +8,6 @@ impl DockMenuItem for DockOpen {
     }
 
     fn handle(app: &tauri::AppHandle<tauri::Wry>) {
-        tauri_plugin_tray::HyprMenuItem::TrayOpen.handle(app);
+        tauri_plugin_tray::AnlgMenuItem::TrayOpen.handle(app);
     }
 }

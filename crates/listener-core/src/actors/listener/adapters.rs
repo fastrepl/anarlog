@@ -5,9 +5,9 @@ use bytes::Bytes;
 use ractor::{ActorProcessingErr, ActorRef};
 
 use owhisper_client::{
-    AdapterKind, ArgmaxAdapter, AssemblyAIAdapter, CartesiaAdapter, DashScopeAdapter,
-    DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, HyprnoteAdapter,
-    MistralAdapter, RealtimeSttAdapter, SonioxAdapter, hypr_ws_client,
+    AdapterKind, AnarlogAdapter, ArgmaxAdapter, AssemblyAIAdapter, CartesiaAdapter,
+    DashScopeAdapter, DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter,
+    MistralAdapter, RealtimeSttAdapter, SonioxAdapter, anlg_ws_client,
 };
 use owhisper_interface::stream::Extra;
 use owhisper_interface::{ControlMessage, MixedMessage};
@@ -112,7 +112,7 @@ pub(super) async fn spawn_rx_task(
         ElevenLabs => ElevenLabsAdapter,
         DashScope => DashScopeAdapter,
         Mistral => MistralAdapter,
-        Hyprnote => HyprnoteAdapter,
+        Anarlog => AnarlogAdapter,
     }, batch_only: [OpenAI, AquaVoice, Pyannote])?;
 
     Ok((result.0, result.1, result.2, adapter_kind.to_string()))
@@ -120,15 +120,15 @@ pub(super) async fn spawn_rx_task(
 
 fn soniqo_model_for_args(
     args: &ListenerArgs,
-) -> Result<Option<hypr_transcribe_soniqo::SoniqoModel>, ActorProcessingErr> {
+) -> Result<Option<anlg_transcribe_soniqo::SoniqoModel>, ActorProcessingErr> {
     if let Some(model) =
-        hypr_transcribe_soniqo::local_model_from_request(&args.base_url, &args.model)
+        anlg_transcribe_soniqo::local_model_from_request(&args.base_url, &args.model)
     {
         return Ok(Some(model));
     }
 
-    if hypr_transcribe_soniqo::is_local_base_url(&args.base_url) {
-        return hypr_transcribe_soniqo::SoniqoModel::from_str(&args.model)
+    if anlg_transcribe_soniqo::is_local_base_url(&args.base_url) {
+        return anlg_transcribe_soniqo::SoniqoModel::from_str(&args.model)
             .map(Some)
             .map_err(|e| actor_error(format!("soniqo_model_invalid: {e}")));
     }
@@ -137,7 +137,7 @@ fn soniqo_model_for_args(
 }
 
 async fn spawn_soniqo_rx_task(
-    model: hypr_transcribe_soniqo::SoniqoModel,
+    model: anlg_transcribe_soniqo::SoniqoModel,
     args: ListenerArgs,
     myself: ActorRef<ListenerMsg>,
 ) -> Result<
@@ -160,7 +160,7 @@ async fn spawn_soniqo_rx_task(
             Ok(result) => result,
             Err(error) => {
                 tracing::error!(
-                    hyprnote.session.id = %args.session_id,
+                    anarlog.session.id = %args.session_id,
                     error.message = ?error,
                     "soniqo_live_start_failed(dual)"
                 );
@@ -188,9 +188,9 @@ async fn spawn_soniqo_rx_task(
         Ok((ChannelSender::Dual(tx), rx_task, shutdown_tx))
     } else {
         let source = if matches!(args.mode, crate::actors::ChannelMode::SpeakerOnly) {
-            hypr_transcribe_soniqo::TranscriptSource::System
+            anlg_transcribe_soniqo::TranscriptSource::System
         } else {
-            hypr_transcribe_soniqo::TranscriptSource::Microphone
+            anlg_transcribe_soniqo::TranscriptSource::Microphone
         };
 
         let (tx, rx) = tokio::sync::mpsc::channel::<MixedMessage<Bytes, ControlMessage>>(32);
@@ -201,7 +201,7 @@ async fn spawn_soniqo_rx_task(
                 Ok(result) => result,
                 Err(error) => {
                     tracing::error!(
-                        hyprnote.session.id = %args.session_id,
+                        anarlog.session.id = %args.session_id,
                         error.message = ?error,
                         "soniqo_live_start_failed(single)"
                     );
@@ -232,15 +232,15 @@ async fn spawn_soniqo_rx_task(
 
 fn apple_speech_model_for_args(
     args: &ListenerArgs,
-) -> Result<Option<hypr_transcribe_speechanalyzer::AppleSpeechModel>, ActorProcessingErr> {
+) -> Result<Option<anlg_transcribe_speechanalyzer::AppleSpeechModel>, ActorProcessingErr> {
     if let Some(model) =
-        hypr_transcribe_speechanalyzer::local_model_from_request(&args.base_url, &args.model)
+        anlg_transcribe_speechanalyzer::local_model_from_request(&args.base_url, &args.model)
     {
         return Ok(Some(model));
     }
 
-    if hypr_transcribe_speechanalyzer::is_local_base_url(&args.base_url) {
-        return hypr_transcribe_speechanalyzer::AppleSpeechModel::from_str(&args.model)
+    if anlg_transcribe_speechanalyzer::is_local_base_url(&args.base_url) {
+        return anlg_transcribe_speechanalyzer::AppleSpeechModel::from_str(&args.model)
             .map(Some)
             .map_err(|e| actor_error(format!("apple_speech_model_invalid: {e}")));
     }
@@ -261,14 +261,14 @@ async fn spawn_apple_speech_rx_task(
 > {
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     let (session_offset_secs, extra) = build_extra(&args);
-    let Some(locale) = hypr_transcribe_speechanalyzer::resolve_session_locale(&args.languages)
+    let Some(locale) = anlg_transcribe_speechanalyzer::resolve_session_locale(&args.languages)
     else {
         let message = format!(
             "apple_speech_language_not_enabled: add {} in System Settings > General > Language & Region to transcribe it with Apple Speech",
             format_languages(&args.languages)
         );
         tracing::error!(
-            hyprnote.session.id = %args.session_id,
+            anarlog.session.id = %args.session_id,
             error.message = %message,
             "apple_speech_live_start_failed"
         );
@@ -288,7 +288,7 @@ async fn spawn_apple_speech_rx_task(
             Ok(result) => result,
             Err(error) => {
                 tracing::error!(
-                    hyprnote.session.id = %args.session_id,
+                    anarlog.session.id = %args.session_id,
                     error.message = ?error,
                     "apple_speech_live_start_failed(dual)"
                 );
@@ -318,9 +318,9 @@ async fn spawn_apple_speech_rx_task(
         Ok((ChannelSender::Dual(tx), rx_task, shutdown_tx))
     } else {
         let source = if matches!(args.mode, crate::actors::ChannelMode::SpeakerOnly) {
-            hypr_transcribe_speechanalyzer::TranscriptSource::System
+            anlg_transcribe_speechanalyzer::TranscriptSource::System
         } else {
-            hypr_transcribe_speechanalyzer::TranscriptSource::Microphone
+            anlg_transcribe_speechanalyzer::TranscriptSource::Microphone
         };
 
         let (tx, rx) = tokio::sync::mpsc::channel::<MixedMessage<Bytes, ControlMessage>>(32);
@@ -331,7 +331,7 @@ async fn spawn_apple_speech_rx_task(
                 Ok(result) => result,
                 Err(error) => {
                     tracing::error!(
-                        hyprnote.session.id = %args.session_id,
+                        anarlog.session.id = %args.session_id,
                         error.message = ?error,
                         "apple_speech_live_start_failed(single)"
                     );
@@ -397,14 +397,14 @@ fn expected_speakers(args: &ListenerArgs) -> Option<u32> {
     (participants.len() > 1).then_some(participants.len() as u32)
 }
 
-fn format_languages(languages: &[hypr_language::Language]) -> String {
+fn format_languages(languages: &[anlg_language::Language]) -> String {
     if languages.is_empty() {
         return "none".to_string();
     }
 
     languages
         .iter()
-        .map(hypr_language::Language::bcp47_code)
+        .map(anlg_language::Language::bcp47_code)
         .collect::<Vec<_>>()
         .join(", ")
 }
@@ -427,8 +427,8 @@ fn build_extra(args: &ListenerArgs) -> (f64, Extra) {
     (session_offset_secs, extra)
 }
 
-fn desktop_connect_policy() -> hypr_ws_client::client::WebSocketConnectPolicy {
-    hypr_ws_client::client::WebSocketConnectPolicy {
+fn desktop_connect_policy() -> anlg_ws_client::client::WebSocketConnectPolicy {
+    anlg_ws_client::client::WebSocketConnectPolicy {
         connect_timeout: Duration::from_secs(4),
         max_attempts: 2,
         retry_delay: Duration::from_secs(1),
@@ -457,7 +457,7 @@ async fn spawn_rx_task_single_with_adapter<A: RealtimeSttAdapter>(
         .api_key(args.api_key.clone())
         .params(build_listen_params(&args))
         .connect_policy(desktop_connect_policy())
-        .extra_header(DEVICE_FINGERPRINT_HEADER, hypr_host::fingerprint())
+        .extra_header(DEVICE_FINGERPRINT_HEADER, anlg_host::fingerprint())
         .build_single()
         .await;
 
@@ -466,7 +466,7 @@ async fn spawn_rx_task_single_with_adapter<A: RealtimeSttAdapter>(
     let (listen_stream, handle) = match client.from_realtime_audio(outbound).await {
         Err(e) => {
             tracing::error!(
-                hyprnote.session.id = %args.session_id,
+                anarlog.session.id = %args.session_id,
                 error.message = ?e,
                 "listen_ws_connect_failed(single)"
             );
@@ -517,7 +517,7 @@ async fn spawn_rx_task_dual_with_adapter<A: RealtimeSttAdapter>(
         .api_key(args.api_key.clone())
         .params(build_listen_params(&args))
         .connect_policy(desktop_connect_policy())
-        .extra_header(DEVICE_FINGERPRINT_HEADER, hypr_host::fingerprint())
+        .extra_header(DEVICE_FINGERPRINT_HEADER, anlg_host::fingerprint())
         .build_dual()
         .await;
 
@@ -526,7 +526,7 @@ async fn spawn_rx_task_dual_with_adapter<A: RealtimeSttAdapter>(
     let (listen_stream, handle) = match client.from_realtime_audio(outbound).await {
         Err(e) => {
             tracing::error!(
-                hyprnote.session.id = %args.session_id,
+                anarlog.session.id = %args.session_id,
                 error.message = ?e,
                 "listen_ws_connect_failed(dual)"
             );
@@ -564,12 +564,12 @@ mod tests {
 
     struct NoopRuntime;
 
-    impl hypr_storage::StorageRuntime for NoopRuntime {
-        fn global_base(&self) -> Result<std::path::PathBuf, hypr_storage::Error> {
+    impl anlg_storage::StorageRuntime for NoopRuntime {
+        fn global_base(&self) -> Result<std::path::PathBuf, anlg_storage::Error> {
             Ok(std::path::PathBuf::from("/tmp"))
         }
 
-        fn vault_base(&self) -> Result<std::path::PathBuf, hypr_storage::Error> {
+        fn vault_base(&self) -> Result<std::path::PathBuf, anlg_storage::Error> {
             Ok(std::path::PathBuf::from("/tmp"))
         }
     }
@@ -587,7 +587,7 @@ mod tests {
     fn listener_args(base_url: &str, model: &str) -> ListenerArgs {
         ListenerArgs {
             runtime: Arc::new(NoopRuntime),
-            languages: vec![hypr_language::ISO639::En.into()],
+            languages: vec![anlg_language::ISO639::En.into()],
             onboarding: false,
             model: model.to_string(),
             base_url: base_url.to_string(),
@@ -659,7 +659,7 @@ mod tests {
 
         assert_eq!(
             soniqo_model_for_args(&args).unwrap(),
-            Some(hypr_transcribe_soniqo::SoniqoModel::ParakeetStreaming)
+            Some(anlg_transcribe_soniqo::SoniqoModel::ParakeetStreaming)
         );
     }
 
@@ -672,7 +672,7 @@ mod tests {
 
     #[test]
     fn format_languages_uses_bcp47_codes() {
-        let languages = vec!["en-US".parse().unwrap(), hypr_language::ISO639::Fr.into()];
+        let languages = vec!["en-US".parse().unwrap(), anlg_language::ISO639::Fr.into()];
 
         assert_eq!(format_languages(&languages), "en-US, fr");
     }

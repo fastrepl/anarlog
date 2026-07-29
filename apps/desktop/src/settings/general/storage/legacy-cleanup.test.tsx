@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
   runLegacyImport: vi.fn(),
 }));
 
-vi.mock("@hypr/plugin-db", () => ({
+vi.mock("@anlg/plugin-db", () => ({
   cleanupLegacyFiles: mocks.cleanupLegacyFiles,
   getLegacyCleanupStatus: mocks.getLegacyCleanupStatus,
   getLegacyImportReport: mocks.getLegacyImportReport,

@@ -3,8 +3,8 @@ use ractor::{ActorProcessingErr, ActorRef};
 use tokio_util::sync::CancellationToken;
 
 use crate::{SessionProgressEvent, actors::ChannelMode};
-use hypr_audio::{AudioProvider, CaptureConfig, CaptureFrame, CaptureStream};
-use hypr_audio_utils::chunk_size_for_stt;
+use anlg_audio::{AudioProvider, CaptureConfig, CaptureFrame, CaptureStream};
+use anlg_audio_utils::chunk_size_for_stt;
 
 use super::{SourceFrame, SourceMsg, SourceState};
 
@@ -133,7 +133,7 @@ async fn run_stream_loop(ctx: StreamContext, mode: ChannelMode) {
 
 fn handle_capture_item(
     ctx: &StreamContext,
-    item: Option<Result<CaptureFrame, hypr_audio::Error>>,
+    item: Option<Result<CaptureFrame, anlg_audio::Error>>,
 ) -> StreamResult {
     match item {
         Some(Ok(frame)) => {

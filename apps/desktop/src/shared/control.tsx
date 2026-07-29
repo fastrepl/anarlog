@@ -7,7 +7,7 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { AlertTriangle, Home, RotateCw, Search } from "lucide-react";
 import { motion } from "motion/react";
 
-import { Button } from "@hypr/ui/components/ui/button";
+import { Button } from "@anlg/ui/components/ui/button";
 
 import { captureOperationalError } from "~/error-reporting";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";

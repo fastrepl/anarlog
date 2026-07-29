@@ -76,7 +76,7 @@ where
         Err(_first_err) => {
             #[cfg(target_os = "macos")]
             {
-                let wav_path = hypr_afconvert::to_wav(source_path)
+                let wav_path = anlg_afconvert::to_wav(source_path)
                     .map_err(|e| Error::AfconvertFailed(e.to_string()))?;
                 let result = try_fn(
                     &wav_path,
@@ -106,8 +106,8 @@ fn decode_with_rodio<W: Write>(
 
 #[cfg(test)]
 mod tests {
+    use anlg_audio_utils::Source;
     use assert_fs::TempDir;
-    use hypr_audio_utils::Source;
 
     use super::*;
 
@@ -138,20 +138,20 @@ mod tests {
     }
 
     test_normalize_audio! {
-        test_import_wav: hypr_data::english_1::AUDIO_PATH,
-        test_import_mp3: hypr_data::english_1::AUDIO_MP3_PATH,
-        test_import_mp4: hypr_data::english_1::AUDIO_MP4_PATH,
-        test_import_m4a: hypr_data::english_1::AUDIO_M4A_PATH,
-        test_import_ogg: hypr_data::english_1::AUDIO_OGG_PATH,
-        test_import_flac: hypr_data::english_1::AUDIO_FLAC_PATH,
-        test_import_aac: hypr_data::english_1::AUDIO_AAC_PATH,
-        test_import_aiff: hypr_data::english_1::AUDIO_AIFF_PATH,
-        test_import_caf: hypr_data::english_1::AUDIO_CAF_PATH,
+        test_import_wav: anlg_data::english_1::AUDIO_PATH,
+        test_import_mp3: anlg_data::english_1::AUDIO_MP3_PATH,
+        test_import_mp4: anlg_data::english_1::AUDIO_MP4_PATH,
+        test_import_m4a: anlg_data::english_1::AUDIO_M4A_PATH,
+        test_import_ogg: anlg_data::english_1::AUDIO_OGG_PATH,
+        test_import_flac: anlg_data::english_1::AUDIO_FLAC_PATH,
+        test_import_aac: anlg_data::english_1::AUDIO_AAC_PATH,
+        test_import_aiff: anlg_data::english_1::AUDIO_AIFF_PATH,
+        test_import_caf: anlg_data::english_1::AUDIO_CAF_PATH,
     }
 
     #[test]
     fn test_import_stereo_mp3() {
-        let source_path = std::path::Path::new(hypr_data::english_10::AUDIO_MP3_PATH);
+        let source_path = std::path::Path::new(anlg_data::english_10::AUDIO_MP3_PATH);
         let temp = TempDir::new().unwrap();
         let tmp_path = temp.path().join("tmp.mp3");
         let target_path = temp.path().join("target.mp3");

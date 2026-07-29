@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/plugin-overlay",
+  "name": "@anlg/plugin-overlay",
   "private": true,
   "main": "./js/index.ts",
   "scripts": {

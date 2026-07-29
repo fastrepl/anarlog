@@ -45,7 +45,7 @@ fn main() {
         ];
 
         let event_details = EventDetails {
-            what: "Discovery call - Apple <> Hyprnote".to_string(),
+            what: "Discovery call - Apple <> Anarlog".to_string(),
             timezone: Some("America/Cupertino".to_string()),
             location: Some("https://zoom.us/j/123456789".to_string()),
         };

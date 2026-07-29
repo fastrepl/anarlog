@@ -3,13 +3,13 @@ use std::path::{Path, PathBuf};
 
 use crate::{Args, Error, Result};
 
-pub async fn open(args: &Args) -> Result<hypr_db_core::Db> {
+pub async fn open(args: &Args) -> Result<anlg_db_core::Db> {
     let path = resolve_path(args)?;
     if !path.is_file() {
         return Err(Error::DatabaseNotFound(path));
     }
 
-    hypr_db_core::Db::connect_local_read_only(&path)
+    anlg_db_core::Db::connect_local_read_only(&path)
         .await
         .map_err(|error| Error::operation("open database", error.to_string()))
 }

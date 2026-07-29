@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/plugin-mcp",
+  "name": "@anlg/plugin-mcp",
   "private": true,
   "main": "./js/index.ts",
   "scripts": {

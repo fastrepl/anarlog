@@ -1,7 +1,7 @@
 import { Pause, Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import { useAudioPlayer, useAudioTime } from "./provider";
 import { TimelineMeta, TimelineShell } from "./timeline-shell";

@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { deriveBillingInfo } from "@hypr/supabase/billing";
+import { deriveBillingInfo } from "@anlg/supabase/billing";
 
 const secondsFromNow = (seconds: number) =>
   Math.floor(Date.now() / 1000) + seconds;

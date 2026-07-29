@@ -26,13 +26,13 @@ async fn run_direct_batch_e2e<A: BatchSttAdapter>(provider: Provider) {
         .api_key(api_key)
         .params(ListenParams {
             model: Some(provider.default_batch_model().to_string()),
-            languages: vec![hypr_language::ISO639::En.into()],
+            languages: vec![anlg_language::ISO639::En.into()],
             ..Default::default()
         })
         .build();
 
     let response = client
-        .transcribe_file(PathBuf::from(hypr_data::english_1::AUDIO_PATH))
+        .transcribe_file(PathBuf::from(anlg_data::english_1::AUDIO_PATH))
         .await
         .unwrap_or_else(|error| panic!("[{provider}] batch transcription failed: {error}"));
     let transcript = batch_transcript(&response);

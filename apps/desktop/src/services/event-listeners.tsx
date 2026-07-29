@@ -1,11 +1,11 @@
 import { type UnlistenFn } from "@tauri-apps/api/event";
 
-import { events as notificationEvents } from "@hypr/plugin-notification";
+import { events as notificationEvents } from "@anlg/plugin-notification";
 import {
   commands as updaterCommands,
   events as updaterEvents,
-} from "@hypr/plugin-updater2";
-import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
+} from "@anlg/plugin-updater2";
+import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
 
 import { getCalendarEventStartedAt } from "~/calendar/queries";
 import { liveQueryClient } from "~/db";

@@ -1,10 +1,10 @@
 [package]
-name = "tauri-plugin-hypr-tray"
+name = "tauri-plugin-anlg-tray"
 version = "0.1.0"
 authors = ["You"]
 edition = "2024"
 exclude = ["/js", "/node_modules"]
-links = "tauri-plugin-hypr-tray"
+links = "tauri-plugin-anlg-tray"
 description = ""
 
 [lib]
@@ -17,7 +17,7 @@ tauri-plugin = { workspace = true, features = ["build"] }
 specta-typescript = { workspace = true }
 
 [dependencies]
-hypr-host = { workspace = true }
+anlg-host = { workspace = true }
 
 tauri = { workspace = true, features = ["tray-icon", "image-png"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
@@ -37,4 +37,4 @@ tokio = { workspace = true, features = ["time"] }
 tracing = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-hypr-intercept = { workspace = true }
+anlg-intercept = { workspace = true }

@@ -1,6 +1,6 @@
-import { createDb } from "@hypr/db";
-import { createUseDrizzleLiveQuery, createUseLiveQuery } from "@hypr/db-react";
-import { tauriLiveQueryClient, tauriTransactionClient } from "@hypr/db-tauri";
+import { createDb } from "@anlg/db";
+import { createUseDrizzleLiveQuery, createUseLiveQuery } from "@anlg/db-react";
+import { tauriLiveQueryClient, tauriTransactionClient } from "@anlg/db-tauri";
 
 export const liveQueryClient = tauriLiveQueryClient;
 export const db = createDb(liveQueryClient);

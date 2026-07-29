@@ -2,12 +2,12 @@ use std::io::Write;
 use std::num::NonZeroU8;
 use std::time::Duration;
 
-use audioadapter_buffers::direct::SequentialSliceOfVecs;
-use hypr_audio_utils::{Source, f32_to_i16, mono_frames};
-use hypr_resampler::{
+use anlg_audio_utils::{Source, f32_to_i16, mono_frames};
+use anlg_resampler::{
     Async, FixedAsync, Indexing, Resampler, SincInterpolationParameters, SincInterpolationType,
     WindowFunction,
 };
+use audioadapter_buffers::direct::SequentialSliceOfVecs;
 
 use crate::Error;
 
@@ -56,7 +56,7 @@ where
 
     if channel_count == 2 {
         let mut encoder =
-            hypr_mp3::StereoStreamEncoder::new(TARGET_SAMPLE_RATE_HZ).map_err(mp3_err)?;
+            anlg_mp3::StereoStreamEncoder::new(TARGET_SAMPLE_RATE_HZ).map_err(mp3_err)?;
         let mut output = Mp3Output::new(
             output,
             estimated_mp3_capacity(effective_duration, TARGET_MP3_BYTES_PER_SECOND_STEREO),
@@ -213,7 +213,7 @@ where
         Ok(output.bytes_written())
     } else {
         let mut encoder =
-            hypr_mp3::MonoStreamEncoder::new(TARGET_SAMPLE_RATE_HZ).map_err(mp3_err)?;
+            anlg_mp3::MonoStreamEncoder::new(TARGET_SAMPLE_RATE_HZ).map_err(mp3_err)?;
         let mut output = Mp3Output::new(
             output,
             estimated_mp3_capacity(effective_duration, TARGET_MP3_BYTES_PER_SECOND_MONO),
@@ -307,7 +307,7 @@ where
     }
 }
 
-fn mp3_err(e: hypr_mp3::Error) -> Error {
+fn mp3_err(e: anlg_mp3::Error) -> Error {
     Error::Mp3Encode(e.to_string())
 }
 
@@ -352,7 +352,7 @@ fn create_mono_resampler(source_rate: u32) -> Result<Async<f32>, Error> {
         1,
         FixedAsync::Input,
     )
-    .map_err(hypr_resampler::Error::from)?)
+    .map_err(anlg_resampler::Error::from)?)
 }
 
 struct ResamplerState {
@@ -400,7 +400,7 @@ impl ResamplerState {
         let (_, produced_frames) = self
             .resampler
             .process_into_buffer(&input_adapter, &mut output_adapter, indexing.as_ref())
-            .map_err(hypr_resampler::Error::from)?;
+            .map_err(anlg_resampler::Error::from)?;
         self.input_buf[0].clear();
 
         if produced_frames == 0 {
@@ -417,7 +417,7 @@ impl ResamplerState {
 
     fn encode_chunk(
         &mut self,
-        encoder: &mut hypr_mp3::MonoStreamEncoder,
+        encoder: &mut anlg_mp3::MonoStreamEncoder,
         output: &mut Mp3Output<impl Write>,
         partial_len: Option<usize>,
     ) -> Result<(), Error> {
@@ -430,7 +430,7 @@ impl ResamplerState {
 }
 
 fn encode_mono_chunk<W: Write>(
-    encoder: &mut hypr_mp3::MonoStreamEncoder,
+    encoder: &mut anlg_mp3::MonoStreamEncoder,
     samples: &[f32],
     mono_pcm: &mut Vec<i16>,
     output: &mut Mp3Output<W>,
@@ -448,7 +448,7 @@ fn encode_mono_chunk<W: Write>(
 }
 
 fn encode_stereo_chunk<W: Write>(
-    encoder: &mut hypr_mp3::StereoStreamEncoder,
+    encoder: &mut anlg_mp3::StereoStreamEncoder,
     left: &[f32],
     right: &[f32],
     left_pcm: &mut Vec<i16>,

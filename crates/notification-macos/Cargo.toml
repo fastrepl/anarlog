@@ -22,7 +22,7 @@ required-features = ["examples"]
 swift-rs = { workspace = true, features = ["build"] }
 
 [dependencies]
-hypr-notification-interface = { workspace = true }
+anlg-notification-interface = { workspace = true }
 swift-rs = { workspace = true }
 
 serde = { workspace = true, features = ["derive"] }

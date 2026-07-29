@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useCallback } from "react";
 
-import type { AttachmentResolver } from "@hypr/editor/node-views";
-import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
+import type { AttachmentResolver } from "@anlg/editor/node-views";
+import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 
 export function sessionAttachmentPathsQueryKey(sessionId: string) {
   return ["session", sessionId, "attachment-paths"] as const;

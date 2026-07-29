@@ -2,7 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { UsersRoundIcon } from "lucide-react";
 import { useMemo } from "react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import { useAuth } from "~/auth";
 import { useSessionSummaries } from "~/session/queries";

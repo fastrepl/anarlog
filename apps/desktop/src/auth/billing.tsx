@@ -9,13 +9,13 @@ import {
   useState,
 } from "react";
 
-import { canStartTrial as canStartTrialApi } from "@hypr/api-client";
-import { createClient } from "@hypr/api-client/client";
-import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { commands as authCommands } from "@hypr/plugin-auth";
-import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { openUrlWithInstruction } from "@hypr/plugin-windows";
-import { deriveBillingInfo, type SupabaseJwtPayload } from "@hypr/supabase";
+import { canStartTrial as canStartTrialApi } from "@anlg/api-client";
+import { createClient } from "@anlg/api-client/client";
+import { commands as analyticsCommands } from "@anlg/plugin-analytics";
+import { commands as authCommands } from "@anlg/plugin-auth";
+import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { openUrlWithInstruction } from "@anlg/plugin-windows";
+import { deriveBillingInfo, type SupabaseJwtPayload } from "@anlg/supabase";
 
 import { TrialEndedDialog } from "../billing/trial-ended-dialog";
 import { TrialPaymentReminderDialog } from "../billing/trial-payment-reminder-dialog";
@@ -186,7 +186,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (currentLlmProvider !== "hyprnote") {
+    if (currentLlmProvider !== "anarlog") {
       return;
     }
 

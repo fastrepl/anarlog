@@ -1,10 +1,10 @@
+use anlg_api_auth::AuthContext;
 use axum::{
     Extension, Json, Router,
     extract::{DefaultBodyLimit, Path, Query, State},
     http::{HeaderValue, header},
     routing::get,
 };
-use hypr_api_auth::AuthContext;
 use reqwest::StatusCode as HttpStatusCode;
 use serde::{Deserialize, Serialize};
 use utoipa::OpenApi;
@@ -519,11 +519,11 @@ fn is_blinded_id(value: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use anlg_api_auth::Claims;
     use axum::{
         body::{Body, to_bytes},
         http::{Method, Request, StatusCode},
     };
-    use hypr_api_auth::Claims;
     use serde_json::{Value, json};
     use tower::ServiceExt;
     use wiremock::{

@@ -2,8 +2,8 @@ import { Trans } from "@lingui/react/macro";
 import { platform } from "@tauri-apps/plugin-os";
 import { useCallback } from "react";
 
-import { Kbd } from "@hypr/ui/components/ui/kbd";
-import { cn } from "@hypr/utils";
+import { Kbd } from "@anlg/ui/components/ui/kbd";
+import { cn } from "@anlg/utils";
 
 import { FloatingChatCTA } from "~/shared/chat-cta";
 import { StandardContentWrapper } from "~/shared/main";

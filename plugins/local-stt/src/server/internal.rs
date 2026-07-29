@@ -9,7 +9,7 @@ use reqwest::StatusCode;
 use tower_http::cors::{self, CorsLayer};
 
 use super::{ServerInfo, ServerStatus};
-use hypr_whisper_local_model::WhisperModel;
+use anlg_whisper_local_model::WhisperModel;
 
 pub enum InternalSTTMessage {
     GetHealth(RpcReplyPort<ServerInfo>),
@@ -56,7 +56,7 @@ impl Actor for InternalSTTActor {
         let model_path = model_cache_dir.join(model_type.file_name());
 
         let whisper_service = HandleError::new(
-            hypr_transcribe_whisper_local::TranscribeService::builder()
+            anlg_transcribe_whisper_local::TranscribeService::builder()
                 .model_path(model_path)
                 .build(),
             move |err: String| async move {

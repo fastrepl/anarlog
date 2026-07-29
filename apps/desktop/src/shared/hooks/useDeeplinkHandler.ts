@@ -7,8 +7,8 @@ import {
   type DeepLink,
   commands as deeplink2Commands,
   events as deeplink2Events,
-} from "@hypr/plugin-deeplink2";
-import { dismissInstruction } from "@hypr/plugin-windows";
+} from "@anlg/plugin-deeplink2";
+import { dismissInstruction } from "@anlg/plugin-windows";
 
 import { useAuth } from "~/auth";
 import { createAuthCallbackHandler } from "~/auth/deeplink";

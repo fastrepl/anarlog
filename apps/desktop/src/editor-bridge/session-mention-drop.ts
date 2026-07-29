@@ -1,4 +1,4 @@
-import type { SessionMentionDropConfig } from "@hypr/editor/note";
+import type { SessionMentionDropConfig } from "@anlg/editor/note";
 
 import {
   hasSessionContextDragData,

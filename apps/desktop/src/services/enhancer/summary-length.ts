@@ -1,4 +1,4 @@
-import type { Transcript } from "@hypr/plugin-template";
+import type { Transcript } from "@anlg/plugin-template";
 
 export const MIN_TRANSCRIPT_CHARACTERS_FOR_SUMMARY = 160;
 export const SHORT_TRANSCRIPT_CHARACTER_LIMIT = 1_200;

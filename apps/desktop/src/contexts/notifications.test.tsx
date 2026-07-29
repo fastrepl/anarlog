@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({
   toastError: vi.fn(),
 }));
 
-vi.mock("@hypr/plugin-local-stt", () => ({
+vi.mock("@anlg/plugin-local-stt", () => ({
   commands: { getServerForModel: vi.fn() },
   events: {
     downloadProgressPayload: {
@@ -24,15 +24,15 @@ vi.mock("@hypr/plugin-local-stt", () => ({
   },
 }));
 
-vi.mock("@hypr/ui/components/ui/toast", () => ({
+vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: { error: mocks.toastError },
 }));
 
 vi.mock("~/shared/config", () => ({
   useConfigValues: () => ({
-    current_stt_provider: "hyprnote",
+    current_stt_provider: "anarlog",
     current_stt_model: "cloud",
-    current_llm_provider: "hyprnote",
+    current_llm_provider: "anarlog",
     current_llm_model: "default",
   }),
 }));
@@ -44,7 +44,7 @@ vi.mock("~/store/zustand/tabs", () => ({
 
 vi.mock("~/stt/capabilities", () => ({
   isConfiguredSttModel: () => true,
-  isHyprnoteLocalSttModel: () => false,
+  isAnarlogLocalSttModel: () => false,
 }));
 
 import { NotificationProvider } from "./notifications";

@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/changelog",
+  "name": "@anlg/changelog",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,7 +7,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@hypr/utils": "workspace:^",
+    "@anlg/utils": "workspace:^",
     "streamdown": "^2.5.0"
   },
   "devDependencies": {

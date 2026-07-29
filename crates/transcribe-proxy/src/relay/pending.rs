@@ -59,7 +59,7 @@ impl PendingState {
                     Err(e) => {
                         tracing::warn!(
                             error = ?e,
-                            hyprnote.payload.invalid_bytes_len = %e.as_bytes().len(),
+                            anarlog.payload.invalid_bytes_len = %e.as_bytes().len(),
                             "invalid_utf8_in_text_message"
                         );
                         // Reset state since we failed

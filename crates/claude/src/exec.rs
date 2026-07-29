@@ -9,7 +9,7 @@ use tokio::task::JoinHandle;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::sync::CancellationToken;
 
-use hypr_cli_process::spawn_with_retry;
+use anlg_cli_process::spawn_with_retry;
 
 use crate::error::Error;
 use crate::events::{ClaudeEvent, EventStream};

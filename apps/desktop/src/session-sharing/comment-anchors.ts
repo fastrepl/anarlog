@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import type { EditorView } from "prosemirror-view";
 import { useCallback, useEffect, useState } from "react";
 
-import { resolveCommentAnchors } from "@hypr/editor/comments";
-import { setCommentAnchors } from "@hypr/editor/note";
+import { resolveCommentAnchors } from "@anlg/editor/comments";
+import { setCommentAnchors } from "@anlg/editor/note";
 
 import {
   listSessionShareComments,

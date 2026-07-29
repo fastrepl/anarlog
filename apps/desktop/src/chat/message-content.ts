@@ -1,4 +1,4 @@
-import type { HyprUIMessage } from "~/chat/types";
+import type { AnlgUIMessage } from "~/chat/types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -26,6 +26,6 @@ export function hasRenderableParts(parts: unknown): boolean {
   });
 }
 
-export function hasRenderableContent(message: HyprUIMessage) {
+export function hasRenderableContent(message: AnlgUIMessage) {
   return hasRenderableParts(message.parts);
 }

@@ -9,10 +9,10 @@ import {
 import { useEffect, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { ChatEditor, type ChatEditorHandle } from "@hypr/editor/chat";
-import type { PlaceholderFunction } from "@hypr/editor/plugins";
-import { commands as windowsCommands } from "@hypr/plugin-windows";
-import { cn } from "@hypr/utils";
+import { ChatEditor, type ChatEditorHandle } from "@anlg/editor/chat";
+import type { PlaceholderFunction } from "@anlg/editor/plugins";
+import { commands as windowsCommands } from "@anlg/plugin-windows";
+import { cn } from "@anlg/utils";
 
 import { useLanguageModel } from "~/ai/hooks";
 import {

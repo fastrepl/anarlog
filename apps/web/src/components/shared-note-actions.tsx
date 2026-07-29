@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import { sharedPrimaryButtonClassName } from "@/components/shared-note-viewer";
 import { getShareRouteToken } from "@/lib/share-route-privacy";

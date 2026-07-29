@@ -1,4 +1,4 @@
-use hypr_template_eval::{EvalCase, EvalMessage, Expectation, Failed, PromptFragment};
+use anlg_template_eval::{EvalCase, EvalMessage, Expectation, Failed, PromptFragment};
 use template_app::{
     EnhanceSystem, EnhanceTemplate, EnhanceUser, Participant, Segment, Session, Template,
     TemplateSection, Transcript, render,

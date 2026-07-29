@@ -33,37 +33,37 @@ vi.mock("@tauri-apps/api/app", () => ({
   getIdentifier: getIdentifierMock,
 }));
 
-vi.mock("@hypr/plugin-detect", () => ({
+vi.mock("@anlg/plugin-detect", () => ({
   commands: {
     listMicUsingApplications: listMicUsingApplicationsMock,
   },
 }));
 
-vi.mock("@hypr/plugin-hooks", () => ({
+vi.mock("@anlg/plugin-hooks", () => ({
   commands: {
     runEventHooks: runEventHooksMock,
   },
 }));
 
-vi.mock("@hypr/plugin-icon", () => ({
+vi.mock("@anlg/plugin-icon", () => ({
   commands: {
     setRecordingIndicator: setRecordingIndicatorMock,
   },
 }));
 
-vi.mock("@hypr/plugin-local-api", () => ({
+vi.mock("@anlg/plugin-local-api", () => ({
   commands: {
     dispatchEvent: dispatchEventMock,
   },
 }));
 
-vi.mock("@hypr/plugin-settings", () => ({
+vi.mock("@anlg/plugin-settings", () => ({
   commands: {
     vaultBase: vaultBaseMock,
   },
 }));
 
-vi.mock("@hypr/plugin-transcription", () => ({
+vi.mock("@anlg/plugin-transcription", () => ({
   commands: {
     getCaptureSnapshot: getCaptureSnapshotMock,
     setMicMuted: vi.fn(),
@@ -107,7 +107,7 @@ describe("General Listener Slice", () => {
   beforeEach(() => {
     store = createListenerStore();
     vi.clearAllMocks();
-    getIdentifierMock.mockResolvedValue("com.hyprnote.stable");
+    getIdentifierMock.mockResolvedValue("com.anarlog.stable");
     getCaptureSnapshotMock.mockResolvedValue({
       status: "ok",
       data: {
@@ -1908,7 +1908,7 @@ describe("General Listener Slice", () => {
       await expect(
         store.getState().startTranscription({
           session_id: sessionId,
-          provider: "hyprnote",
+          provider: "anarlog",
           file_path: "/tmp/session.wav",
           base_url: "",
           api_key: "",

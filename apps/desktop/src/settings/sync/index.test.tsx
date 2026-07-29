@@ -22,17 +22,17 @@ const mocks = vi.hoisted(() => ({
   } as { user: { id: string }; access_token: string } | null,
 }));
 
-vi.mock("@hypr/plugin-db", () => ({
+vi.mock("@anlg/plugin-db", () => ({
   getCloudsyncStatus: mocks.getCloudsyncStatus,
   getE2eeIdentityStatus: mocks.getE2eeIdentityStatus,
   syncCloudsyncNow: mocks.syncCloudsyncNow,
 }));
 
-vi.mock("@hypr/plugin-settings", () => ({
+vi.mock("@anlg/plugin-settings", () => ({
   commands: { vaultBase: mocks.vaultBase },
 }));
 
-vi.mock("@hypr/plugin-opener2", () => ({
+vi.mock("@anlg/plugin-opener2", () => ({
   commands: { openUrl: mocks.openUrl },
 }));
 

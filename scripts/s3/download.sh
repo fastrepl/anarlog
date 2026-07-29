@@ -3,7 +3,7 @@ ENDPOINT_URL="https://3db5267cdeb5f79263ede3ec58090fe0.r2.cloudflarestorage.com"
 BUCKET="hyprnote-cache2"
 
 FROM_PATH="s3://$BUCKET/v0/*"
-TO_PATH="/Users/yujonglee/dev/hyprnote/.cache/"
+TO_PATH="/Users/yujonglee/dev/anarlog/.cache/"
 
 AWS_REGION=auto s5cmd \
     --log trace \

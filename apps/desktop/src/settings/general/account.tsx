@@ -9,19 +9,19 @@ import {
   useState,
 } from "react";
 
-import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { openUrlWithInstruction } from "@hypr/plugin-windows";
+import { commands as analyticsCommands } from "@anlg/plugin-analytics";
+import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { openUrlWithInstruction } from "@anlg/plugin-windows";
 import {
   getActionForTier,
   PlanFeatureList,
   PLAN_TIERS,
   type PlanTier,
   type TierAction,
-} from "@hypr/pricing";
-import { Button } from "@hypr/ui/components/ui/button";
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
-import { cn } from "@hypr/utils";
+} from "@anlg/pricing";
+import { Button } from "@anlg/ui/components/ui/button";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { cn } from "@anlg/utils";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";

@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/db-react",
+  "name": "@anlg/db-react",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
   },
   "types": "./src/index.ts",
   "dependencies": {
-    "@hypr/db-runtime": "workspace:*"
+    "@anlg/db-runtime": "workspace:*"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.2",

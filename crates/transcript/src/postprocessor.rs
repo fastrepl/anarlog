@@ -1,6 +1,6 @@
 use std::{error::Error as StdError, future::Future};
 
-use hypr_template_app::{
+use anlg_template_app::{
     Template, TranscriptPatchSystem, TranscriptPatchUser, render as render_template,
 };
 use json_patch::{Patch, patch as apply_json_patch};
@@ -30,7 +30,7 @@ pub struct TranscriptPostprocessorResult {
 #[derive(Debug, thiserror::Error)]
 pub enum TranscriptPostprocessorError {
     #[error(transparent)]
-    Template(#[from] hypr_template_app::Error),
+    Template(#[from] anlg_template_app::Error),
     #[error("transcript patch runner failed")]
     Runner(#[source] Box<dyn StdError + Send + Sync>),
     #[error("failed to parse json patch response: {0}")]

@@ -5,8 +5,8 @@ import { z } from "zod";
 import {
   canStartTrial as canStartTrialApi,
   deleteAccount as deleteAccountApi,
-} from "@hypr/api-client";
-import { createClient } from "@hypr/api-client/client";
+} from "@anlg/api-client";
+import { createClient } from "@anlg/api-client/client";
 
 import { env, requireEnv } from "@/env";
 import { getRequestAppOrigin } from "@/functions/app-origin";

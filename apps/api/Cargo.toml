@@ -4,22 +4,22 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-analytics = { workspace = true }
-hypr-api-auth = { workspace = true }
-hypr-api-calendar = { workspace = true }
-hypr-api-cloud = { workspace = true }
-hypr-api-env = { workspace = true }
-hypr-api-mail = { workspace = true }
-hypr-api-nango = { workspace = true }
-hypr-api-pyannote = { workspace = true }
-hypr-api-research = { workspace = true }
-hypr-api-subscription = { workspace = true }
-hypr-api-sync = { workspace = true }
-hypr-api-ticket = { workspace = true }
-hypr-linear = { workspace = true }
-hypr-llm-proxy = { workspace = true }
-hypr-observability = { workspace = true }
-hypr-transcribe-proxy = { workspace = true }
+anlg-analytics = { workspace = true }
+anlg-api-auth = { workspace = true }
+anlg-api-calendar = { workspace = true }
+anlg-api-cloud = { workspace = true }
+anlg-api-env = { workspace = true }
+anlg-api-mail = { workspace = true }
+anlg-api-nango = { workspace = true }
+anlg-api-pyannote = { workspace = true }
+anlg-api-research = { workspace = true }
+anlg-api-subscription = { workspace = true }
+anlg-api-sync = { workspace = true }
+anlg-api-ticket = { workspace = true }
+anlg-linear = { workspace = true }
+anlg-llm-proxy = { workspace = true }
+anlg-observability = { workspace = true }
+anlg-transcribe-proxy = { workspace = true }
 owhisper-client = { workspace = true }
 
 axum = { workspace = true, features = ["ws"] }

@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/plugin-bedrock",
+  "name": "@anlg/plugin-bedrock",
   "private": true,
   "main": "./js/index.ts",
   "scripts": {

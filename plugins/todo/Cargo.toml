@@ -8,11 +8,11 @@ links = "tauri-plugin-todo"
 description = ""
 
 [dependencies]
-hypr-api-client = { workspace = true }
-hypr-apple-todo = { workspace = true, features = ["specta"] }
-hypr-github-issues = { workspace = true, features = ["specta"] }
-hypr-http = { workspace = true }
-hypr-ticket-interface = { workspace = true }
+anlg-api-client = { workspace = true }
+anlg-apple-todo = { workspace = true, features = ["specta"] }
+anlg-github-issues = { workspace = true, features = ["specta"] }
+anlg-http = { workspace = true }
+anlg-ticket-interface = { workspace = true }
 
 tauri = { workspace = true, features = ["test"] }
 tauri-plugin-auth = { workspace = true }

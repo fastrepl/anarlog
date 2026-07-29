@@ -1,7 +1,7 @@
 use super::denoiser::Denoiser;
 use super::model::{BLOCK_SHIFT, BLOCK_SIZE};
+use anlg_audio_snapshot::{SpectralConfig, Tolerances};
 use approx::assert_abs_diff_eq;
-use hypr_audio_snapshot::{SpectralConfig, Tolerances};
 use std::path::PathBuf;
 
 fn pcm_bytes_to_f32(bytes: &[u8]) -> Vec<f32> {
@@ -34,7 +34,7 @@ fn test_denoise_english_1() {
     };
     let tolerances = Tolerances::default();
 
-    let samples = pcm_bytes_to_f32(hypr_data::english_1::AUDIO);
+    let samples = pcm_bytes_to_f32(anlg_data::english_1::AUDIO);
 
     let batch_result = {
         let mut denoiser = Denoiser::new().unwrap();
@@ -64,7 +64,7 @@ fn test_denoise_english_1() {
         streaming_result
     };
 
-    let batch_snap = hypr_audio_snapshot::assert_or_update(
+    let batch_snap = anlg_audio_snapshot::assert_or_update(
         &batch_result,
         &output_path("english_1", "batch"),
         &snapshot_path("english_1", "batch"),
@@ -73,7 +73,7 @@ fn test_denoise_english_1() {
         &tolerances,
     );
 
-    let streaming_snap = hypr_audio_snapshot::assert_or_update(
+    let streaming_snap = anlg_audio_snapshot::assert_or_update(
         &streaming_result,
         &output_path("english_1", "streaming"),
         &snapshot_path("english_1", "streaming"),

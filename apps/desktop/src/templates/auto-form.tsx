@@ -8,11 +8,11 @@ import {
   PromptEditor,
   type PromptEditorHandle,
   type PromptTokenDefinition,
-} from "@hypr/editor/prompt";
-import { commands as templateCommands } from "@hypr/plugin-template";
-import { Badge } from "@hypr/ui/components/ui/badge";
-import { Button } from "@hypr/ui/components/ui/button";
-import { cn } from "@hypr/utils";
+} from "@anlg/editor/prompt";
+import { commands as templateCommands } from "@anlg/plugin-template";
+import { Badge } from "@anlg/ui/components/ui/badge";
+import { Button } from "@anlg/ui/components/ui/button";
+import { cn } from "@anlg/utils";
 
 import { setSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";

@@ -17,8 +17,8 @@ import {
   useState,
 } from "react";
 
-import { Button } from "@hypr/ui/components/ui/button";
-import { cn } from "@hypr/utils";
+import { Button } from "@anlg/ui/components/ui/button";
+import { cn } from "@anlg/utils";
 
 import { useAnchor, useAutoScrollToAnchor } from "./anchor";
 import { ManagedSharedSessionIdsContext, TimelineItemComponent } from "./item";

@@ -1,4 +1,4 @@
-import type { SessionContext, Transcript } from "@hypr/plugin-template";
+import type { SessionContext, Transcript } from "@anlg/plugin-template";
 
 import { loadHumansByIds } from "~/contacts/queries";
 import {

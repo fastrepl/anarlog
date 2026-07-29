@@ -1,4 +1,4 @@
-import type { AudioSourceMetadata } from "@hypr/plugin-fs-sync";
+import type { AudioSourceMetadata } from "@anlg/plugin-fs-sync";
 
 export function estimateUploadedAudioSessionCreatedAt(
   metadata: Pick<

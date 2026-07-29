@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use hypr_db_core::{Db, DbOpenOptions, DbStorage};
+use anlg_db_core::{Db, DbOpenOptions, DbStorage};
 
 use crate::error::OpenAppDbError;
 
@@ -17,7 +17,7 @@ pub(crate) async fn open_app_db(
     })
     .await?;
 
-    hypr_db_app::prepare_schema(&db).await?;
+    anlg_db_app::prepare_schema(&db).await?;
 
     Ok(db)
 }

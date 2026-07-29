@@ -14,7 +14,7 @@ required-features = ["linux-examples"]
 tokio = { workspace = true }
 
 [dependencies]
-hypr-notification-interface = { workspace = true }
+anlg-notification-interface = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gdk = "0.18"

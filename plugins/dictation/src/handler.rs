@@ -10,7 +10,7 @@ pub use self::stub::Handler;
 mod macos {
     use std::sync::Mutex;
 
-    use hypr_dictation_ui_macos as ui;
+    use anlg_dictation_ui_macos as ui;
 
     use super::{Error, Phase};
 

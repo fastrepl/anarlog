@@ -1,12 +1,12 @@
 use crate::cli::{DocumentKind, ExportFormat, MeetingCommand};
 use crate::{Result, output};
-use hypr_agent_access::{
+use anlg_agent_access::{
     Document, GetMeetingInput, GetMeetingTranscriptInput, GetRecurringMeetingHistoryInput,
     ListMeetingsInput, MeetingListItem, get_meeting, get_meeting_export, get_meeting_transcript,
     get_recurring_meeting_history, list_meetings,
 };
 
-pub async fn run(db: &hypr_db_core::Db, command: MeetingCommand, json: bool) -> Result<()> {
+pub async fn run(db: &anlg_db_core::Db, command: MeetingCommand, json: bool) -> Result<()> {
     match command {
         MeetingCommand::List {
             query,

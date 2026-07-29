@@ -1,4 +1,4 @@
-import type { ShareOpenRequest } from "@hypr/plugin-deeplink2";
+import type { ShareOpenRequest } from "@anlg/plugin-deeplink2";
 
 import {
   parseDurableSharedNoteSnapshots,

@@ -11,7 +11,7 @@ description = "Anarlog Desktop App"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "hyprnote_desktop_lib"
+name = "anarlog_desktop_lib"
 # Note: cdylib removed because V8 (used by deno_core) has TLS relocations incompatible
 # with shared libraries on Linux. Mobile support is not needed (macOS/Linux/Windows only).
 crate-type = ["staticlib", "rlib"]
@@ -86,13 +86,13 @@ tauri-plugin-updater2 = { workspace = true }
 tauri-plugin-window-state = { workspace = true }
 tauri-plugin-windows = { workspace = true }
 
-hypr-audio-actual = { workspace = true }
-hypr-audio-mock = { workspace = true, optional = true }
-hypr-db-app = { workspace = true }
-hypr-db-core = { workspace = true }
-hypr-host = { workspace = true }
-hypr-storage = { workspace = true }
-hypr-supervisor = { workspace = true }
+anlg-audio-actual = { workspace = true }
+anlg-audio-mock = { workspace = true, optional = true }
+anlg-db-app = { workspace = true }
+anlg-db-core = { workspace = true }
+anlg-host = { workspace = true }
+anlg-storage = { workspace = true }
+anlg-supervisor = { workspace = true }
 
 chrono = { workspace = true }
 dirs = { workspace = true }
@@ -111,13 +111,13 @@ tracing = { workspace = true }
 
 [features]
 default = []
-dev = ["dep:hypr-audio-mock"]
-devtools = ["tauri/devtools", "dep:hypr-audio-mock"]
+dev = ["dep:anlg-audio-mock"]
+devtools = ["tauri/devtools", "dep:anlg-audio-mock"]
 automation = ["tauri-plugin-automation"]
 
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-plugin-automation = { version = "0.1", optional = true }
-hypr-intercept = { workspace = true }
+anlg-intercept = { workspace = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { workspace = true, features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }

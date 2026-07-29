@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { listConnections } from "@hypr/api-client";
-import { createClient } from "@hypr/api-client/client";
+import { listConnections } from "@anlg/api-client";
+import { createClient } from "@anlg/api-client/client";
 
 import { useAuth } from "./auth-context";
 

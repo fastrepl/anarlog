@@ -1,4 +1,4 @@
-use hypr_api_env::PyannoteEnv;
+use anlg_api_env::PyannoteEnv;
 
 #[derive(Clone)]
 pub struct PyannoteConfig {
@@ -16,8 +16,8 @@ impl PyannoteConfig {
 
     pub fn client(
         &self,
-    ) -> Result<hypr_pyannote_cloud::Client, Box<dyn std::error::Error + Send + Sync>> {
-        hypr_pyannote_cloud::Client::builder(&self.api_key)
+    ) -> Result<anlg_pyannote_cloud::Client, Box<dyn std::error::Error + Send + Sync>> {
+        anlg_pyannote_cloud::Client::builder(&self.api_key)
             .base_url(&self.api_base)
             .build()
     }

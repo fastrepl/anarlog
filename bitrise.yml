@@ -125,10 +125,10 @@ meta:
 
 app:
   envs:
-    - BITRISE_PROJECT_PATH: apps/mobile/ios/HyprMobile/HyprMobile.xcodeproj
+    - BITRISE_PROJECT_PATH: apps/mobile/ios/Anarlog/Anarlog.xcodeproj
       opts:
         is_expand: false
-    - BITRISE_SCHEME: HyprMobile
+    - BITRISE_SCHEME: Anarlog
       opts:
         is_expand: false
     - BITRISE_DISTRIBUTION_METHOD: ad-hoc

@@ -337,7 +337,7 @@ tests alone is not cross-platform evidence.
 | --- | --- |
 | On-device | Settings → AI: select local STT model and local LLM; sign-out state is also worth one pass |
 | API keys | Settings → AI: configure a custom provider with an API key for both STT (if supported) and LLM |
-| Pro plan | Settings → AI: select Anarlog cloud (`hyprnote` provider) with a Pro/trialing account |
+| Pro plan | Settings → AI: select Anarlog cloud (`anarlog` provider) with a Pro/trialing account |
 
 - PASS when: steps 3–6 behave identically in outcome under each config
   (transcript + chat + automated summary), with provider-appropriate quality.

@@ -8,6 +8,6 @@ impl DockMenuItem for DockNewNote {
     }
 
     fn handle(app: &tauri::AppHandle<tauri::Wry>) {
-        tauri_plugin_tray::HyprMenuItem::AppNew.handle(app);
+        tauri_plugin_tray::AnlgMenuItem::AppNew.handle(app);
     }
 }

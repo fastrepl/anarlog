@@ -87,7 +87,7 @@ mod tests {
         let container = minio::MinIO::default().start().await.unwrap();
         let port = container.get_host_port_ipv4(9000).await.unwrap();
 
-        let admin_s3 = hypr_s3::Client::builder()
+        let admin_s3 = anlg_s3::Client::builder()
             .endpoint_url(format!("http://127.0.0.1:{}", port))
             .bucket("test")
             .credentials("minioadmin", "minioadmin")

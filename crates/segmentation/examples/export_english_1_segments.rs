@@ -31,7 +31,7 @@ fn pcm_bytes_to_i16(bytes: &[u8]) -> Vec<i16> {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sample_rate = 16_000u32;
-    let samples = pcm_bytes_to_i16(hypr_data::english_1::AUDIO);
+    let samples = pcm_bytes_to_i16(anlg_data::english_1::AUDIO);
 
     let mut segmenter = Segmenter::new(sample_rate)?;
     let segments = segmenter.process(&samples, sample_rate)?;

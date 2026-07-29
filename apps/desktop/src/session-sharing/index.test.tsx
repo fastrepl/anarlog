@@ -79,7 +79,7 @@ vi.mock("~/contacts/shared", () => ({
   ContactFacehash: ({ name }: { name: string }) => <span>{name[0]}</span>,
 }));
 
-vi.mock("@hypr/plugin-opener2", () => ({
+vi.mock("@anlg/plugin-opener2", () => ({
   commands: { openUrl: mocks.openUrl },
 }));
 
@@ -164,7 +164,7 @@ vi.mock("./client", async (importOriginal) => {
   };
 });
 
-vi.mock("@hypr/ui/components/ui/popover", () => ({
+vi.mock("@anlg/ui/components/ui/popover", () => ({
   AppFloatingPanel: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -200,7 +200,7 @@ vi.mock("@hypr/ui/components/ui/popover", () => ({
   ),
 }));
 
-vi.mock("@hypr/ui/components/ui/select", async () => {
+vi.mock("@anlg/ui/components/ui/select", async () => {
   const React = await import("react");
   const SelectContext = React.createContext<(value: string) => void>(() => {});
   return {
@@ -236,7 +236,7 @@ vi.mock("@hypr/ui/components/ui/select", async () => {
   };
 });
 
-vi.mock("@hypr/ui/components/ui/toast", () => ({
+vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: {
     success: mocks.toastSuccess,
     error: mocks.toastError,

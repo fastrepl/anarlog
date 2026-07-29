@@ -140,7 +140,7 @@ mod tests {
             product_id: 0x5678,
             serial_number: Some("abc123".to_string()),
             release_number: 0x0100,
-            manufacturer_string: Some("Hypr".to_string()),
+            manufacturer_string: Some("Anlg".to_string()),
             product_string: Some("Dongle".to_string()),
             usage_page: 0xff00,
             usage: 0x0001,

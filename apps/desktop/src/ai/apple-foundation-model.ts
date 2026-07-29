@@ -1,6 +1,6 @@
 import { wrapLanguageModel } from "ai";
 
-import { commands as localLlmCommands } from "@hypr/plugin-local-llm";
+import { commands as localLlmCommands } from "@anlg/plugin-local-llm";
 
 type LanguageModelV3 = Parameters<typeof wrapLanguageModel>[0]["model"];
 type CallOptions = Parameters<LanguageModelV3["doGenerate"]>[0];

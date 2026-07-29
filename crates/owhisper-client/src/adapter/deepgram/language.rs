@@ -13,7 +13,7 @@ const LANGUAGE_DETECTION_LANGS: &[&str] = &[
     "zh",
 ];
 
-pub fn can_use_multi(model: &str, languages: &[hypr_language::Language]) -> bool {
+pub fn can_use_multi(model: &str, languages: &[anlg_language::Language]) -> bool {
     if languages.len() < 2 {
         return false;
     }
@@ -74,7 +74,7 @@ impl LanguageQueryStrategy for DeepgramLanguageStrategy {
     }
 }
 
-fn single_language_query_code(params: &ListenParams, language: &hypr_language::Language) -> String {
+fn single_language_query_code(params: &ListenParams, language: &anlg_language::Language) -> String {
     let Some(region) = language.region() else {
         return language.iso639().code().to_string();
     };
@@ -93,7 +93,7 @@ fn single_language_query_code(params: &ListenParams, language: &hypr_language::L
 
 fn append_detect_language_query<'a>(
     query_pairs: &mut Serializer<'a, UrlQuery>,
-    languages: &[hypr_language::Language],
+    languages: &[anlg_language::Language],
 ) {
     if languages.iter().all(supports_language_detection) {
         for language in languages {
@@ -104,7 +104,7 @@ fn append_detect_language_query<'a>(
     }
 }
 
-pub(super) fn supports_language_detection(language: &hypr_language::Language) -> bool {
+pub(super) fn supports_language_detection(language: &anlg_language::Language) -> bool {
     LANGUAGE_DETECTION_LANGS.contains(&language.iso639().code())
 }
 

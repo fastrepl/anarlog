@@ -1,4 +1,4 @@
-use hypr_ws_client::client::Message;
+use anlg_ws_client::client::Message;
 use owhisper_interface::ListenParams;
 use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse};
 use serde::Deserialize;
@@ -16,7 +16,7 @@ impl RealtimeSttAdapter for FireworksAdapter {
 
     fn is_supported_languages(
         &self,
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         _model: Option<&str>,
     ) -> bool {
         FireworksAdapter::is_supported_languages_live(languages)
@@ -65,7 +65,7 @@ impl RealtimeSttAdapter for FireworksAdapter {
             Err(e) => {
                 tracing::warn!(
                     error = ?e,
-                    hyprnote.payload.size_bytes = raw.len() as u64,
+                    anarlog.payload.size_bytes = raw.len() as u64,
                     "fireworks_json_parse_failed"
                 );
                 return vec![];
@@ -245,7 +245,7 @@ struct FireworksWord {
 
 #[cfg(test)]
 mod tests {
-    use hypr_language::ISO639;
+    use anlg_language::ISO639;
 
     use super::FireworksAdapter;
     use crate::ListenClient;
@@ -311,7 +311,7 @@ mod tests {
             .api_base("https://api.fireworks.ai")
             .api_key(std::env::var("FIREWORKS_API_KEY").expect("FIREWORKS_API_KEY not set"))
             .params(owhisper_interface::ListenParams {
-                languages: vec![hypr_language::ISO639::En.into()],
+                languages: vec![anlg_language::ISO639::En.into()],
                 ..Default::default()
             })
             .build_single()
@@ -328,7 +328,7 @@ mod tests {
             .api_base("https://api.fireworks.ai")
             .api_key(std::env::var("FIREWORKS_API_KEY").expect("FIREWORKS_API_KEY not set"))
             .params(owhisper_interface::ListenParams {
-                languages: vec![hypr_language::ISO639::En.into()],
+                languages: vec![anlg_language::ISO639::En.into()],
                 ..Default::default()
             })
             .build_dual()

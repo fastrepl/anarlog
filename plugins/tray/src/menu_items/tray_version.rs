@@ -23,7 +23,7 @@ impl TrayVersion {
 }
 
 impl MenuItemHandler for TrayVersion {
-    const ID: &'static str = "hypr_tray_version";
+    const ID: &'static str = "anlg_tray_version";
 
     fn build(app: &AppHandle<tauri::Wry>) -> Result<MenuItemKind<tauri::Wry>> {
         let identifier = &app.config().identifier;

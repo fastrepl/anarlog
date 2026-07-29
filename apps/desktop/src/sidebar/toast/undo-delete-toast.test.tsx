@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   restoreDeletedSession: vi.fn(),
 }));
 
-vi.mock("@hypr/ui/components/ui/toast", () => ({
+vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: {
     message: mocks.message,
     error: mocks.error,

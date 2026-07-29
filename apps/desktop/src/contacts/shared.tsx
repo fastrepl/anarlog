@@ -2,8 +2,8 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowDownUp, Plus, Search, X } from "lucide-react";
 import type { KeyboardEvent, RefObject } from "react";
 
-import { Avatar } from "@hypr/ui/components/avatar";
-import { Button } from "@hypr/ui/components/ui/button";
+import { Avatar } from "@anlg/ui/components/avatar";
+import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
   DropdownMenu,
@@ -11,7 +11,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@hypr/ui/components/ui/dropdown-menu";
+} from "@anlg/ui/components/ui/dropdown-menu";
 
 import { CustomSidebarHeader } from "~/sidebar/custom-sidebar-header";
 

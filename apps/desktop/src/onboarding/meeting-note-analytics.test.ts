@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   loadSessionContentSnapshot: vi.fn(),
 }));
 
-vi.mock("@hypr/plugin-analytics", () => ({
+vi.mock("@anlg/plugin-analytics", () => ({
   commands: {
     eventFireAndForget: mocks.eventFireAndForget,
   },

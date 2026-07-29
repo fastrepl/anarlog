@@ -2,15 +2,15 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { SearchIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
-import type { EventParticipant } from "@hypr/store";
-import { Checkbox } from "@hypr/ui/components/ui/checkbox";
+import type { EventParticipant } from "@anlg/store";
+import { Checkbox } from "@anlg/ui/components/ui/checkbox";
 import {
   AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@hypr/ui/components/ui/popover";
-import { cn } from "@hypr/utils";
+} from "@anlg/ui/components/ui/popover";
+import { cn } from "@anlg/utils";
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { useSessionEventParticipants } from "~/calendar/queries";

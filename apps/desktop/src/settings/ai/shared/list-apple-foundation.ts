@@ -1,4 +1,4 @@
-import { commands as localLlmCommands } from "@hypr/plugin-local-llm";
+import { commands as localLlmCommands } from "@anlg/plugin-local-llm";
 
 import type { ListModelsResult } from "./list-common";
 

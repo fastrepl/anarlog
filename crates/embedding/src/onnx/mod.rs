@@ -1,4 +1,4 @@
-use hypr_onnx::{
+use anlg_onnx::{
     ndarray::{self, Array2, Array3, Axis},
     ort::{self, session::Session, value::TensorRef},
 };
@@ -36,7 +36,7 @@ impl EmbeddingExtractor {
     }
 
     pub fn from_model_bytes(model_bytes: &[u8]) -> Result<Self> {
-        let session = hypr_onnx::load_model_from_bytes(model_bytes)?;
+        let session = anlg_onnx::load_model_from_bytes(model_bytes)?;
         Ok(Self {
             session,
             config: EmbeddingConfig::default(),
@@ -351,16 +351,16 @@ Run with UPDATE_SNAPSHOTS=1 to generate baselines.",
 
     #[test]
     fn snapshot_english_1() {
-        run_snapshot_test(hypr_data::english_1::AUDIO, "embedding_english_1");
+        run_snapshot_test(anlg_data::english_1::AUDIO, "embedding_english_1");
     }
 
     #[test]
     fn snapshot_english_2() {
-        run_snapshot_test(hypr_data::english_2::AUDIO, "embedding_english_2");
+        run_snapshot_test(anlg_data::english_2::AUDIO, "embedding_english_2");
     }
 
     #[test]
     fn snapshot_korean_1() {
-        run_snapshot_test(hypr_data::korean_1::AUDIO, "embedding_korean_1");
+        run_snapshot_test(anlg_data::korean_1::AUDIO, "embedding_korean_1");
     }
 }

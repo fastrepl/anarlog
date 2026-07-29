@@ -18,10 +18,14 @@ use std::str::FromStr;
 
 use owhisper_client::AdapterKind;
 
+fn is_anarlog_provider(provider: &str) -> bool {
+    matches!(provider, "anarlog" | "hyprnote")
+}
+
 pub fn is_supported_languages_live(
     provider: &str,
     model: Option<&str>,
-    languages: &[hypr_language::Language],
+    languages: &[anlg_language::Language],
 ) -> std::result::Result<bool, String> {
     if provider == "custom" {
         return Ok(true);
@@ -30,7 +34,7 @@ pub fn is_supported_languages_live(
     if provider == "soniqo" {
         let model = model
             .ok_or_else(|| "missing_model: soniqo".to_string())?
-            .parse::<hypr_transcribe_soniqo::SoniqoModel>()
+            .parse::<anlg_transcribe_soniqo::SoniqoModel>()
             .map_err(|e| e.to_string())?;
 
         return Ok(model.supports_live_on_current_platform() && model.supports_languages(languages));
@@ -39,23 +43,23 @@ pub fn is_supported_languages_live(
     if provider == "apple-speech" {
         let model = model
             .ok_or_else(|| "missing_model: apple-speech".to_string())?
-            .parse::<hypr_transcribe_speechanalyzer::AppleSpeechModel>()
+            .parse::<anlg_transcribe_speechanalyzer::AppleSpeechModel>()
             .map_err(|e| e.to_string())?;
 
         return Ok(model.supports_live_on_current_platform() && model.supports_languages(languages));
     }
 
-    if provider == "hyprnote"
+    if is_anarlog_provider(provider)
         && let Some(model) = model
         && model != "cloud"
     {
-        if let Ok(model) = model.parse::<hypr_transcribe_soniqo::SoniqoModel>() {
+        if let Ok(model) = model.parse::<anlg_transcribe_soniqo::SoniqoModel>() {
             return Ok(
                 model.supports_live_on_current_platform() && model.supports_languages(languages)
             );
         }
 
-        if let Ok(model) = model.parse::<hypr_transcribe_speechanalyzer::AppleSpeechModel>() {
+        if let Ok(model) = model.parse::<anlg_transcribe_speechanalyzer::AppleSpeechModel>() {
             return Ok(
                 model.supports_live_on_current_platform() && model.supports_languages(languages)
             );
@@ -66,8 +70,13 @@ pub fn is_supported_languages_live(
         }
     }
 
-    let adapter_kind =
-        AdapterKind::from_str(provider).map_err(|_| format!("unknown_provider: {}", provider))?;
+    let adapter_provider = if is_anarlog_provider(provider) {
+        "anarlog"
+    } else {
+        provider
+    };
+    let adapter_kind = AdapterKind::from_str(adapter_provider)
+        .map_err(|_| format!("unknown_provider: {}", provider))?;
 
     Ok(adapter_kind.is_supported_languages_live(languages, model))
 }
@@ -75,7 +84,7 @@ pub fn is_supported_languages_live(
 pub fn is_supported_languages_batch(
     provider: &str,
     model: Option<&str>,
-    languages: &[hypr_language::Language],
+    languages: &[anlg_language::Language],
 ) -> std::result::Result<bool, String> {
     if provider == "custom" {
         return Ok(true);
@@ -84,7 +93,7 @@ pub fn is_supported_languages_batch(
     if provider == "soniqo" {
         let model = model
             .ok_or_else(|| "missing_model: soniqo".to_string())?
-            .parse::<hypr_transcribe_soniqo::SoniqoModel>()
+            .parse::<anlg_transcribe_soniqo::SoniqoModel>()
             .map_err(|e| e.to_string())?;
 
         return Ok(model.supports_languages(languages));
@@ -93,22 +102,22 @@ pub fn is_supported_languages_batch(
     if provider == "apple-speech" {
         let model = model
             .ok_or_else(|| "missing_model: apple-speech".to_string())?
-            .parse::<hypr_transcribe_speechanalyzer::AppleSpeechModel>()
+            .parse::<anlg_transcribe_speechanalyzer::AppleSpeechModel>()
             .map_err(|e| e.to_string())?;
 
         return Ok(model.supports_languages(languages));
     }
 
-    if provider == "hyprnote" {
+    if is_anarlog_provider(provider) {
         if let Some(model) =
-            model.and_then(|model| model.parse::<hypr_transcribe_soniqo::SoniqoModel>().ok())
+            model.and_then(|model| model.parse::<anlg_transcribe_soniqo::SoniqoModel>().ok())
         {
             return Ok(model.supports_languages(languages));
         }
 
         if let Some(model) = model.and_then(|model| {
             model
-                .parse::<hypr_transcribe_speechanalyzer::AppleSpeechModel>()
+                .parse::<anlg_transcribe_speechanalyzer::AppleSpeechModel>()
                 .ok()
         }) {
             return Ok(model.supports_languages(languages));
@@ -123,7 +132,7 @@ pub fn is_supported_languages_batch(
     Ok(adapter_kind.is_supported_languages_batch(languages, model))
 }
 
-pub fn suggest_providers_for_languages_batch(languages: &[hypr_language::Language]) -> Vec<String> {
+pub fn suggest_providers_for_languages_batch(languages: &[anlg_language::Language]) -> Vec<String> {
     let all_providers = [
         AdapterKind::Argmax,
         AdapterKind::Soniox,
@@ -174,11 +183,11 @@ mod tests {
     }
 
     #[test]
-    fn hyprnote_soniqo_batch_rejects_unsupported_parakeet_languages() {
+    fn anarlog_soniqo_batch_rejects_unsupported_parakeet_languages() {
         let languages = vec!["ko".parse().unwrap()];
 
         assert_eq!(
-            is_supported_languages_batch("hyprnote", Some("soniqo-parakeet-batch"), &languages)
+            is_supported_languages_batch("anarlog", Some("soniqo-parakeet-batch"), &languages)
                 .unwrap(),
             false
         );
@@ -194,16 +203,16 @@ mod tests {
     }
 
     #[test]
-    fn hyprnote_non_soniqo_batch_keeps_existing_language_support() {
+    fn anarlog_non_soniqo_batch_keeps_existing_language_support() {
         let languages = vec!["fr".parse().unwrap()];
 
-        assert!(is_supported_languages_batch("hyprnote", Some("cloud"), &languages).unwrap());
+        assert!(is_supported_languages_batch("anarlog", Some("cloud"), &languages).unwrap());
     }
 
     #[test]
     fn apple_speech_language_support_reflects_installed_framework() {
         // Drives the settings warning that names unsupported spoken languages.
-        let available = hypr_transcribe_speechanalyzer::availability()
+        let available = anlg_transcribe_speechanalyzer::availability()
             .is_ok_and(|value| value.status == "available");
         if !available {
             return;
@@ -220,39 +229,47 @@ mod tests {
         );
 
         // Local models are surfaced under the Anarlog provider in settings.
-        assert!(is_supported_languages_live("hyprnote", Some("apple-speech"), &korean).unwrap());
-        assert!(!is_supported_languages_live("hyprnote", Some("apple-speech"), &hindi).unwrap());
-        assert!(is_supported_languages_batch("hyprnote", Some("apple-speech"), &korean).unwrap());
-        assert!(!is_supported_languages_batch("hyprnote", Some("apple-speech"), &hindi).unwrap());
+        assert!(is_supported_languages_live("anarlog", Some("apple-speech"), &korean).unwrap());
+        assert!(!is_supported_languages_live("anarlog", Some("apple-speech"), &hindi).unwrap());
+        assert!(is_supported_languages_batch("anarlog", Some("apple-speech"), &korean).unwrap());
+        assert!(!is_supported_languages_batch("anarlog", Some("apple-speech"), &hindi).unwrap());
     }
 
     #[test]
-    fn hyprnote_soniqo_live_rejects_unsupported_parakeet_languages() {
+    fn anarlog_soniqo_live_rejects_unsupported_parakeet_languages() {
         let languages = vec!["ko".parse().unwrap()];
 
         assert_eq!(
-            is_supported_languages_live("hyprnote", Some("soniqo-parakeet-streaming"), &languages)
+            is_supported_languages_live("anarlog", Some("soniqo-parakeet-streaming"), &languages)
                 .unwrap(),
             false
         );
     }
 
     #[test]
-    fn hyprnote_soniqo_live_respects_platform_support() {
+    fn anarlog_soniqo_live_respects_platform_support() {
         let languages = vec!["fr".parse().unwrap()];
         let expected = cfg!(all(target_os = "macos", target_arch = "aarch64"));
 
         assert_eq!(
-            is_supported_languages_live("hyprnote", Some("soniqo-parakeet-streaming"), &languages)
+            is_supported_languages_live("anarlog", Some("soniqo-parakeet-streaming"), &languages)
                 .unwrap(),
             expected
         );
     }
 
     #[test]
-    fn hyprnote_cloud_live_keeps_existing_language_support() {
+    fn anarlog_cloud_live_keeps_existing_language_support() {
+        let languages = vec!["ko".parse().unwrap()];
+
+        assert!(is_supported_languages_live("anarlog", Some("cloud"), &languages).unwrap());
+    }
+
+    #[test]
+    fn legacy_anarlog_provider_name_remains_supported() {
         let languages = vec!["ko".parse().unwrap()];
 
         assert!(is_supported_languages_live("hyprnote", Some("cloud"), &languages).unwrap());
+        assert!(is_supported_languages_batch("hyprnote", Some("cloud"), &languages).unwrap());
     }
 }

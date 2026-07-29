@@ -18,8 +18,8 @@ pub struct ApiKeyInfo {
     pub last_used_at: Option<String>,
 }
 
-impl From<hypr_db_app::ApiKeyRow> for ApiKeyInfo {
-    fn from(row: hypr_db_app::ApiKeyRow) -> Self {
+impl From<anlg_db_app::ApiKeyRow> for ApiKeyInfo {
+    fn from(row: anlg_db_app::ApiKeyRow) -> Self {
         Self {
             id: row.id,
             name: row.name,
@@ -50,8 +50,8 @@ pub struct WebhookInfo {
     pub last_delivery_status: String,
 }
 
-impl From<hypr_db_app::WebhookEndpointRow> for WebhookInfo {
-    fn from(row: hypr_db_app::WebhookEndpointRow) -> Self {
+impl From<anlg_db_app::WebhookEndpointRow> for WebhookInfo {
+    fn from(row: anlg_db_app::WebhookEndpointRow) -> Self {
         Self {
             id: row.id,
             url: row.url,

@@ -10,7 +10,7 @@ pub use streaming::*;
 use std::path::Path;
 use std::time::Duration;
 
-use hypr_transcribe_core::TARGET_SAMPLE_RATE;
+use anlg_transcribe_core::TARGET_SAMPLE_RATE;
 use owhisper_interface::ListenParams;
 use owhisper_interface::stream::{Extra, Metadata, ModelInfo};
 
@@ -58,9 +58,9 @@ pub(crate) fn redemption_time(params: &ListenParams) -> Duration {
 }
 
 pub(crate) fn build_model(
-    loaded_model: &hypr_whisper_local::LoadedWhisper,
+    loaded_model: &anlg_whisper_local::LoadedWhisper,
     params: &ListenParams,
-) -> Result<hypr_whisper_local::Whisper, crate::Error> {
+) -> Result<anlg_whisper_local::Whisper, crate::Error> {
     build_model_with_languages(
         loaded_model,
         params
@@ -73,22 +73,22 @@ pub(crate) fn build_model(
 
 pub(crate) fn load_model(
     model_path: &Path,
-) -> Result<hypr_whisper_local::LoadedWhisper, crate::Error> {
-    hypr_whisper_local::LoadedWhisper::builder()
+) -> Result<anlg_whisper_local::LoadedWhisper, crate::Error> {
+    anlg_whisper_local::LoadedWhisper::builder()
         .model_path(model_path.to_string_lossy().into_owned())
         .build()
         .map_err(crate::Error::from)
 }
 
 pub(crate) fn build_model_with_languages(
-    loaded_model: &hypr_whisper_local::LoadedWhisper,
-    languages: Vec<hypr_whisper::Language>,
-) -> Result<hypr_whisper_local::Whisper, crate::Error> {
+    loaded_model: &anlg_whisper_local::LoadedWhisper,
+    languages: Vec<anlg_whisper::Language>,
+) -> Result<anlg_whisper_local::Whisper, crate::Error> {
     loaded_model.session(languages).map_err(crate::Error::from)
 }
 
 pub(crate) fn transcribe_chunk(
-    model: &mut hypr_whisper_local::Whisper,
+    model: &mut anlg_whisper_local::Whisper,
     samples: &[f32],
     chunk_start_sec: f64,
 ) -> Result<Vec<Segment>, crate::Error> {
@@ -103,7 +103,7 @@ pub(crate) fn transcribe_chunk(
 }
 
 fn build_chunk_segments(
-    raw_segments: Vec<hypr_whisper_local::Segment>,
+    raw_segments: Vec<anlg_whisper_local::Segment>,
     chunk_start_sec: f64,
     chunk_duration_sec: f64,
 ) -> Vec<Segment> {
@@ -276,7 +276,7 @@ mod tests {
     fn preserves_multiple_segments_with_normalized_timings() {
         let segments = build_chunk_segments(
             vec![
-                hypr_whisper_local::Segment {
+                anlg_whisper_local::Segment {
                     text: "hello".to_string(),
                     language: Some("en".to_string()),
                     start: 0.0,
@@ -284,7 +284,7 @@ mod tests {
                     confidence: 0.8,
                     ..Default::default()
                 },
-                hypr_whisper_local::Segment {
+                anlg_whisper_local::Segment {
                     text: "again".to_string(),
                     language: Some("en".to_string()),
                     start: 1.5,
@@ -315,7 +315,7 @@ mod tests {
     fn falls_back_to_synthetic_timings_when_raw_timings_are_invalid() {
         let segments = build_chunk_segments(
             vec![
-                hypr_whisper_local::Segment {
+                anlg_whisper_local::Segment {
                     text: "hello world".to_string(),
                     language: Some("en".to_string()),
                     start: 0.0,
@@ -323,7 +323,7 @@ mod tests {
                     confidence: 0.8,
                     ..Default::default()
                 },
-                hypr_whisper_local::Segment {
+                anlg_whisper_local::Segment {
                     text: "again".to_string(),
                     language: Some("en".to_string()),
                     start: 0.0,

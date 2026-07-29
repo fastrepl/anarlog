@@ -1,7 +1,7 @@
-import type { AccountInfo } from "@hypr/plugin-auth";
-import type { DeviceInfo } from "@hypr/plugin-misc";
+import type { AccountInfo } from "@anlg/plugin-auth";
+import type { DeviceInfo } from "@anlg/plugin-misc";
 
-import type { HyprUIMessage } from "../types";
+import type { AnlgUIMessage } from "../types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -139,7 +139,7 @@ const toolEntityExtractors: Record<
 };
 
 export function extractToolContextEntities(
-  messages: Array<Pick<HyprUIMessage, "parts">>,
+  messages: Array<Pick<AnlgUIMessage, "parts">>,
 ): ContextEntity[] {
   const seen = new Set<string>();
   const entities: ContextEntity[] = [];

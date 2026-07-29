@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/plugin-todo",
+  "name": "@anlg/plugin-todo",
   "private": true,
   "main": "./js/index.ts",
   "scripts": {

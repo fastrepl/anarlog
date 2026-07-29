@@ -1,7 +1,7 @@
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
-    AppleTodo(#[from] hypr_apple_todo::Error),
+    AppleTodo(#[from] anlg_apple_todo::Error),
     #[error("unsupported platform")]
     UnsupportedPlatform,
     #[error("invalid read path: {0}")]

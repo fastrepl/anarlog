@@ -1,6 +1,6 @@
 import type { StateCreator, StoreMutatorIdentifier } from "zustand";
 
-import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
+import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
 
 import {
   getDefaultState,

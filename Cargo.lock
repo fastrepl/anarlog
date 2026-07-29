@@ -423,6 +423,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b46cbb362ab8752921c97e041f5e366ee6297bd428a31275b9fcf1e380f7299"
 
 [[package]]
+name = "anlg-http-utils"
+version = "0.1.0"
+
+[[package]]
 name = "annotate-snippets"
 version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -736,9 +740,9 @@ dependencies = [
 name = "api-messenger"
 version = "0.1.0"
 dependencies = [
+ "anlg-http-utils",
  "api-error",
  "axum 0.8.9",
- "hypr-http-utils",
  "serde",
  "serde_json",
  "slack-web",
@@ -4852,6 +4856,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-agent",
  "tauri-plugin-analytics",
+ "tauri-plugin-anlg-tray",
  "tauri-plugin-attachment-sync",
  "tauri-plugin-audio-priority",
  "tauri-plugin-auth",
@@ -4874,7 +4879,6 @@ dependencies = [
  "tauri-plugin-git",
  "tauri-plugin-hooks",
  "tauri-plugin-http",
- "tauri-plugin-hypr-tray",
  "tauri-plugin-icon",
  "tauri-plugin-importer",
  "tauri-plugin-js",
@@ -6628,7 +6632,7 @@ dependencies = [
 name = "github-issues"
 version = "0.1.0"
 dependencies = [
- "hypr-http-utils",
+ "anlg-http-utils",
  "serde",
  "serde_json",
  "specta",
@@ -8271,8 +8275,8 @@ dependencies = [
 name = "google-calendar"
 version = "0.1.0"
 dependencies = [
+ "anlg-http-utils",
  "chrono",
- "hypr-http-utils",
  "serde",
  "serde_json",
  "specta",
@@ -8286,7 +8290,7 @@ dependencies = [
 name = "google-drive"
 version = "0.1.0"
 dependencies = [
- "hypr-http-utils",
+ "anlg-http-utils",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -8298,7 +8302,7 @@ dependencies = [
 name = "google-mail"
 version = "0.1.0"
 dependencies = [
- "hypr-http-utils",
+ "anlg-http-utils",
  "serde",
  "serde_json",
  "specta",
@@ -9171,10 +9175,6 @@ name = "hypher"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef68590049bab63a464eee1a1158ac04c6f6613a546d8d90f78636b8b94f171"
-
-[[package]]
-name = "hypr-http-utils"
-version = "0.1.0"
 
 [[package]]
 name = "iana-time-zone"
@@ -10584,7 +10584,7 @@ dependencies = [
 name = "linear"
 version = "0.1.0"
 dependencies = [
- "hypr-http-utils",
+ "anlg-http-utils",
  "serde",
  "serde_json",
  "specta",
@@ -10792,6 +10792,7 @@ dependencies = [
  "file",
  "model-downloader",
  "serde",
+ "serde_json",
  "specta",
  "transcribe-soniqo",
  "transcribe-speechanalyzer",
@@ -11460,9 +11461,9 @@ checksum = "13d2233c9842d08cfe13f9eac96e207ca6a2ea10b80259ebe8ad0268be27d2af"
 name = "nango"
 version = "0.1.0"
 dependencies = [
+ "anlg-http-utils",
  "hex",
  "hmac 0.13.0",
- "hypr-http-utils",
  "reqwest 0.13.2",
  "schemars 1.2.1",
  "serde",
@@ -12735,8 +12736,8 @@ dependencies = [
 name = "outlook-calendar"
 version = "0.1.0"
 dependencies = [
+ "anlg-http-utils",
  "chrono",
- "hypr-http-utils",
  "serde",
  "serde_json",
  "specta",
@@ -16375,7 +16376,7 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 name = "slack-web"
 version = "0.1.0"
 dependencies = [
- "hypr-http-utils",
+ "anlg-http-utils",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -18034,6 +18035,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-anlg-tray"
+version = "0.1.0"
+dependencies = [
+ "host",
+ "intercept",
+ "open",
+ "serde",
+ "serde_json",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-plugin",
+ "tauri-plugin-clipboard-manager",
+ "tauri-plugin-dialog",
+ "tauri-plugin-misc",
+ "tauri-plugin-store2",
+ "tauri-plugin-updater2",
+ "tauri-plugin-windows",
+ "tauri-specta",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "tauri-plugin-attachment-sync"
 version = "0.1.0"
 dependencies = [
@@ -18326,7 +18351,7 @@ dependencies = [
  "objc2-foundation",
  "tauri",
  "tauri-plugin",
- "tauri-plugin-hypr-tray",
+ "tauri-plugin-anlg-tray",
  "tauri-plugin-windows",
 ]
 
@@ -18481,30 +18506,6 @@ dependencies = [
  "tokio",
  "url",
  "urlpattern",
-]
-
-[[package]]
-name = "tauri-plugin-hypr-tray"
-version = "0.1.0"
-dependencies = [
- "host",
- "intercept",
- "open",
- "serde",
- "serde_json",
- "specta",
- "specta-typescript",
- "tauri",
- "tauri-plugin",
- "tauri-plugin-clipboard-manager",
- "tauri-plugin-dialog",
- "tauri-plugin-misc",
- "tauri-plugin-store2",
- "tauri-plugin-updater2",
- "tauri-plugin-windows",
- "tauri-specta",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -19141,10 +19142,10 @@ dependencies = [
 name = "tauri-plugin-todo"
 version = "0.1.0"
 dependencies = [
+ "anlg-http-utils",
  "api-client",
  "apple-todo",
  "github-issues",
- "hypr-http-utils",
  "reqwest 0.13.2",
  "serde",
  "specta",
@@ -19197,8 +19198,8 @@ dependencies = [
  "storage",
  "tauri",
  "tauri-plugin",
+ "tauri-plugin-anlg-tray",
  "tauri-plugin-hooks",
- "tauri-plugin-hypr-tray",
  "tauri-plugin-local-stt",
  "tauri-plugin-settings",
  "tauri-specta",
@@ -19483,7 +19484,7 @@ dependencies = [
 name = "teems"
 version = "0.1.0"
 dependencies = [
- "hypr-http-utils",
+ "anlg-http-utils",
  "serde",
  "serde_json",
  "thiserror 2.0.18",

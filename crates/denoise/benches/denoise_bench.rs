@@ -17,7 +17,7 @@ fn bench_denoise_initialization(c: &mut Criterion) {
 }
 
 fn bench_denoise_process(c: &mut Criterion) {
-    let samples = pcm_bytes_to_f32(hypr_data::english_1::AUDIO);
+    let samples = pcm_bytes_to_f32(anlg_data::english_1::AUDIO);
     let mut denoiser = Denoiser::new().unwrap();
 
     c.bench_function("denoise_process_full", |b| {
@@ -26,7 +26,7 @@ fn bench_denoise_process(c: &mut Criterion) {
 }
 
 fn bench_denoise_process_chunks(c: &mut Criterion) {
-    let samples = pcm_bytes_to_f32(hypr_data::english_1::AUDIO);
+    let samples = pcm_bytes_to_f32(anlg_data::english_1::AUDIO);
     let mut denoiser = Denoiser::new().unwrap();
 
     let chunk_sizes = [1024, 4096, 16384];
@@ -41,7 +41,7 @@ fn bench_denoise_process_chunks(c: &mut Criterion) {
 }
 
 fn bench_denoise_throughput(c: &mut Criterion) {
-    let samples = pcm_bytes_to_f32(hypr_data::english_1::AUDIO);
+    let samples = pcm_bytes_to_f32(anlg_data::english_1::AUDIO);
     let mut denoiser = Denoiser::new().unwrap();
 
     let mut group = c.benchmark_group("denoise_throughput");

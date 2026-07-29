@@ -12,20 +12,20 @@ import { useCallback, useRef, useState } from "react";
 import {
   captureCommentAnchor,
   type CommentAnchor,
-} from "@hypr/editor/comments";
+} from "@anlg/editor/comments";
 import {
   type CommentAnchorsEvent,
   getCommentAnchorRanges,
   setActiveCommentAnchor,
-} from "@hypr/editor/note";
-import { Avatar } from "@hypr/ui/components/avatar";
-import { Button } from "@hypr/ui/components/ui/button";
+} from "@anlg/editor/note";
+import { Avatar } from "@anlg/ui/components/avatar";
+import { Button } from "@anlg/ui/components/ui/button";
 import {
   Popover,
   PopoverAnchor,
   PopoverContent,
-} from "@hypr/ui/components/ui/popover";
-import { Textarea } from "@hypr/ui/components/ui/textarea";
+} from "@anlg/ui/components/ui/popover";
+import { Textarea } from "@anlg/ui/components/ui/textarea";
 
 import {
   createSessionShareComment,

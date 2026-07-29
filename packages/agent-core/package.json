@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/agent-core",
+  "name": "@anlg/agent-core",
   "private": true,
   "type": "module",
   "exports": {

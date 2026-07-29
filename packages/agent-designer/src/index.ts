@@ -1,5 +1,5 @@
 // Re-export everything from agent-core for backwards compatibility
-export * from "@hypr/agent-core";
+export * from "@anlg/agent-core";
 
 // Main agent exports
 export { agent } from "./agent";

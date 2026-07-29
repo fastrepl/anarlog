@@ -11,7 +11,7 @@ pub(super) const SUPPORTED_LANGUAGES: &[&str] = &[
     "wo", "yi", "yo",
 ];
 
-pub(super) fn single_language_support(language: &hypr_language::Language) -> LanguageSupport {
+pub(super) fn single_language_support(language: &anlg_language::Language) -> LanguageSupport {
     let code = language.iso639().code();
     if SUPPORTED_LANGUAGES.contains(&code) {
         LanguageSupport::Supported {

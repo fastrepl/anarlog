@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/plugin-sidecar2",
+  "name": "@anlg/plugin-sidecar2",
   "private": true,
   "main": "./js/index.ts",
   "scripts": {

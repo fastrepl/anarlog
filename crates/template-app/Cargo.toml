@@ -4,15 +4,15 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anlg-askama-utils = { workspace = true }
 askama = { workspace = true }
-hypr-askama-utils = { workspace = true }
 minijinja = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 specta = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-hypr-template-eval = { workspace = true }
+anlg-template-eval = { workspace = true }
 insta = { workspace = true }
 
 [[test]]

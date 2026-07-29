@@ -20,7 +20,7 @@ import {
   loadPrompt,
   type PromptConfig,
   type SpecialistConfig,
-} from "@hypr/agent-core";
+} from "@anlg/agent-core";
 
 import { executeCodeTool } from "../../tools/execute-code";
 

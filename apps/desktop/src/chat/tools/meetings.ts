@@ -6,7 +6,7 @@ import {
   getMeetingTranscript,
   getRecurringMeetingHistory,
   listMeetings,
-} from "@hypr/plugin-db";
+} from "@anlg/plugin-db";
 
 const listLimitSchema = z
   .number()

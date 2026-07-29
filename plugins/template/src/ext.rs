@@ -11,7 +11,7 @@ impl<R: tauri::Runtime, M: tauri::Manager<R>> Template<'_, R, M> {
         template_content: &str,
         ctx: serde_json::Map<String, serde_json::Value>,
     ) -> Result<String, String> {
-        hypr_template_app_legacy::render_custom(template_content, &ctx)
+        anlg_template_app_legacy::render_custom(template_content, &ctx)
             .map(|s| s.trim().to_string())
             .map_err(|e| e.to_string())
     }

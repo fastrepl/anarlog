@@ -21,7 +21,7 @@ import {
   useRef,
 } from "react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import { EditorErrorBoundary } from "../editor-error-boundary";
 import { docChangeListenerPlugin, placeholderPlugin } from "../plugins";

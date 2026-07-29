@@ -7,7 +7,7 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@hypr/ui/components/ui/accordion";
+} from "@anlg/ui/components/ui/accordion";
 
 import { signOutFn } from "@/functions/auth";
 import { deleteAccount } from "@/functions/billing";

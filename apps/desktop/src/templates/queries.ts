@@ -1,8 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
 import { useCallback } from "react";
 
-import { eq, max, ne, sql, templates } from "@hypr/db";
-import type { TemplateSection } from "@hypr/store";
+import { eq, max, ne, sql, templates } from "@anlg/db";
+import type { TemplateSection } from "@anlg/store";
 
 import {
   assertCanonicalTemplateSections,

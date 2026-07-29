@@ -4,15 +4,15 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::{panic::AssertUnwindSafe, panic::catch_unwind};
 
+use anlg_aec::AEC;
+use anlg_audio_sync::{SyncProbe, SyncProbeConfig, SyncProbeEvent, SyncProbeState};
+use anlg_resampler::ResampleExtDynamicNew;
 use futures_util::{Stream, StreamExt};
-use hypr_aec::AEC;
-use hypr_audio_sync::{SyncProbe, SyncProbeConfig, SyncProbeEvent, SyncProbeState};
-use hypr_resampler::ResampleExtDynamicNew;
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::sync::CancellationToken;
 
-use hypr_audio::{CaptureFrame, CaptureStream, Error};
+use anlg_audio::{CaptureFrame, CaptureStream, Error};
 
 use crate::mic::MicInput;
 use crate::speaker::SpeakerInput;
@@ -20,7 +20,7 @@ use crate::speaker::SpeakerInput;
 use super::joiner::Joiner;
 
 pub(crate) type ChunkStream =
-    Pin<Box<dyn Stream<Item = Result<Vec<f32>, hypr_resampler::Error>> + Send>>;
+    Pin<Box<dyn Stream<Item = Result<Vec<f32>, anlg_resampler::Error>> + Send>>;
 
 const AUDIO_SYNC_PROBE_ENV: &str = "AUDIO_SYNC_PROBE";
 const AEC_MAX_REFERENCE_LAG_MS: u32 = 600;
@@ -496,7 +496,7 @@ async fn run_single_loop(
 }
 
 fn handle_stream_item(
-    item: Option<Result<Vec<f32>, hypr_resampler::Error>>,
+    item: Option<Result<Vec<f32>, anlg_resampler::Error>>,
     side: CaptureSide,
     joiner: &mut Joiner,
 ) -> StreamResult {

@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import { SharedNoteAudioPlayer } from "@/components/shared-note-audio-player";
 import {

@@ -17,7 +17,7 @@ pub(crate) enum PrimaryAction<'a> {
 }
 
 pub(crate) fn primary_action(
-    notification: &hypr_notification_interface::Notification,
+    notification: &anlg_notification_interface::Notification,
 ) -> PrimaryAction<'_> {
     if let Some(options) = notification
         .options
@@ -34,7 +34,7 @@ pub(crate) fn primary_action(
             .unwrap_or("Open Anarlog"),
         destructive: matches!(
             notification.action_variant,
-            Some(hypr_notification_interface::NotificationActionVariant::Destructive)
+            Some(anlg_notification_interface::NotificationActionVariant::Destructive)
         ),
     }
 }
@@ -125,7 +125,7 @@ mod tests {
 
     #[test]
     fn resolves_linux_primary_actions_from_the_shared_notification_contract() {
-        let default_action = hypr_notification_interface::Notification::builder()
+        let default_action = anlg_notification_interface::Notification::builder()
             .title("Upcoming event")
             .message("Starting soon")
             .build();
@@ -137,11 +137,11 @@ mod tests {
             }
         );
 
-        let destructive_action = hypr_notification_interface::Notification::builder()
+        let destructive_action = anlg_notification_interface::Notification::builder()
             .title("Did your meeting end?")
             .message("Anarlog will stop listening soon.")
             .action_label("Stop")
-            .action_variant(hypr_notification_interface::NotificationActionVariant::Destructive)
+            .action_variant(anlg_notification_interface::NotificationActionVariant::Destructive)
             .build();
         assert_eq!(
             primary_action(&destructive_action),
@@ -151,7 +151,7 @@ mod tests {
             }
         );
 
-        let options_action = hypr_notification_interface::Notification::builder()
+        let options_action = anlg_notification_interface::Notification::builder()
             .title("Choose a meeting")
             .message("")
             .action_label("Ignored when options are present")

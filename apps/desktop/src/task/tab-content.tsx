@@ -1,7 +1,7 @@
 import { Trans } from "@lingui/react/macro";
 import { useCallback, useRef, useState } from "react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import { ResourceView } from "./resource-view";
 

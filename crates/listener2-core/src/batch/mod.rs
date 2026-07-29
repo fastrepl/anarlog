@@ -30,7 +30,8 @@ pub enum BatchProvider {
     Pyannote,
     DashScope,
     Mistral,
-    Hyprnote,
+    #[serde(alias = "hyprnote")]
+    Anarlog,
     Am,
     Soniqo,
     AppleSpeech,
@@ -51,7 +52,7 @@ impl BatchProvider {
             Self::ElevenLabs => Some(AdapterKind::ElevenLabs),
             Self::Pyannote => Some(AdapterKind::Pyannote),
             Self::Mistral => Some(AdapterKind::Mistral),
-            Self::Hyprnote => Some(AdapterKind::Hyprnote),
+            Self::Anarlog => Some(AdapterKind::Anarlog),
             Self::AquaVoice => Some(AdapterKind::AquaVoice),
             Self::Cartesia => Some(AdapterKind::Cartesia),
             Self::Am | Self::WhisperLocal | Self::Soniqo | Self::AppleSpeech | Self::DashScope => {
@@ -72,7 +73,7 @@ pub struct BatchParams {
     pub base_url: String,
     pub api_key: String,
     #[serde(default)]
-    pub languages: Vec<hypr_language::Language>,
+    pub languages: Vec<anlg_language::Language>,
     #[serde(default)]
     pub keywords: Vec<String>,
     #[serde(default)]
@@ -165,7 +166,7 @@ async fn run_batch_inner(
 ) -> crate::Result<BatchRunOutput> {
     let metadata_joined = tokio::task::spawn_blocking({
         let path = params.file_path.clone();
-        move || hypr_audio_utils::audio_file_metadata(path)
+        move || anlg_audio_utils::audio_file_metadata(path)
     })
     .await;
 
@@ -185,7 +186,7 @@ async fn run_batch_inner(
             let message = format_user_friendly_error(&raw_error);
             tracing::error!(
                 error = %raw_error,
-                hyprnote.error.user_message = %message,
+                anarlog.error.user_message = %message,
                 "failed_to_read_audio_metadata"
             );
             return Err(crate::BatchFailure::AudioMetadataReadFailed { message }.into());
@@ -270,7 +271,7 @@ pub(super) fn batch_provider_label(provider: BatchProvider) -> String {
 }
 
 pub(super) fn session_span(session_id: &str) -> tracing::Span {
-    tracing::info_span!("session", hyprnote.session.id = %session_id)
+    tracing::info_span!("session", anarlog.session.id = %session_id)
 }
 
 pub(super) fn format_user_friendly_error(error: &str) -> String {
@@ -316,7 +317,7 @@ mod tests {
     fn listen_params(model: Option<&str>) -> owhisper_interface::ListenParams {
         owhisper_interface::ListenParams {
             model: model.map(ToOwned::to_owned),
-            languages: vec![hypr_language::ISO639::En.into()],
+            languages: vec![anlg_language::ISO639::En.into()],
             ..Default::default()
         }
     }
@@ -329,7 +330,7 @@ mod tests {
             model: None,
             base_url: base_url.to_string(),
             api_key: "key".to_string(),
-            languages: vec![hypr_language::ISO639::En.into()],
+            languages: vec![anlg_language::ISO639::En.into()],
             keywords: vec![],
             num_speakers: None,
             min_speakers: None,
@@ -415,8 +416,8 @@ mod tests {
     }
 
     #[test]
-    fn cloud_hyprnote_batch_is_not_progressive() {
-        let params = batch_params(BatchProvider::Hyprnote, "https://api.char.com/stt");
+    fn cloud_anarlog_batch_is_not_progressive() {
+        let params = batch_params(BatchProvider::Anarlog, "https://api.char.com/stt");
 
         assert!(!expects_progressive_batch(&params));
     }

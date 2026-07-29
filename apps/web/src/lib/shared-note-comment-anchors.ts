@@ -2,7 +2,7 @@ import {
   type CommentAnchor,
   type ResolvedAnchorRange,
   resolveCommentAnchors,
-} from "@hypr/editor/comments";
+} from "@anlg/editor/comments";
 
 import type {
   SharedNoteComment,

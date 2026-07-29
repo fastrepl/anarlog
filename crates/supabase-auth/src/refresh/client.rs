@@ -15,7 +15,7 @@ use super::{Error, Result};
 const AUTH_V1: &str = "/auth/v1";
 const AUTO_REFRESH_TICK_DURATION_MS: u64 = 30_000;
 const API_VERSION: &str = "2024-01-01";
-const CLIENT_INFO: &str = concat!("hypr-supabase-auth/", env!("CARGO_PKG_VERSION"));
+const CLIENT_INFO: &str = concat!("anarlog-supabase-auth/", env!("CARGO_PKG_VERSION"));
 const API_VERSION_HEADER: &str = "x-supabase-api-version";
 
 #[derive(Clone)]

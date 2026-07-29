@@ -8,11 +8,11 @@ const mocks = vi.hoisted(() => ({
   upgradeToPro: vi.fn(),
 }));
 
-vi.mock("@hypr/plugin-local-stt", () => ({
+vi.mock("@anlg/plugin-local-stt", () => ({
   commands: { downloadModel: mocks.downloadModel },
 }));
 
-vi.mock("@hypr/ui/components/ui/toast", () => ({
+vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: { error: mocks.toastError },
 }));
 

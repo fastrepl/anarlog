@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use hypr_hid_interface::{DEFAULT_REPORT_ID, DEFAULT_REPORT_LEN, Packet, PacketType};
+use anlg_hid_interface::{DEFAULT_REPORT_ID, DEFAULT_REPORT_LEN, Packet, PacketType};
 
 use crate::error::{Error, Result};
 use crate::info::HidDeviceInfo;

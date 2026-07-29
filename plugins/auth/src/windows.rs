@@ -94,14 +94,14 @@ fn persist_auth_file(
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
         Err(error) => return Err(error.into()),
     };
-    hypr_storage::fs::atomic_write(path, &encoded)?;
+    anlg_storage::fs::atomic_write(path, &encoded)?;
 
     let verified = load_auth_file(path, unprotect)
         .map(|persisted| persisted == *auth)
         .unwrap_or(false);
     if !verified {
         match previous {
-            Some(previous) => hypr_storage::fs::atomic_write(path, &previous)?,
+            Some(previous) => anlg_storage::fs::atomic_write(path, &previous)?,
             None => match std::fs::remove_file(path) {
                 Ok(()) => {}
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}

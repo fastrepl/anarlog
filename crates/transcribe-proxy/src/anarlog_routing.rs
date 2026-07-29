@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use hypr_language::Language;
+use anlg_language::Language;
 use owhisper_client::{AdapterKind, LanguageSupport, Provider};
 
 const DEFAULT_NUM_RETRIES: usize = 2;
@@ -22,12 +22,12 @@ impl Default for RetryConfig {
 }
 
 #[derive(Debug, Clone)]
-pub struct HyprnoteRoutingConfig {
+pub struct AnarlogRoutingConfig {
     pub priorities: Vec<Provider>,
     pub retry_config: RetryConfig,
 }
 
-impl Default for HyprnoteRoutingConfig {
+impl Default for AnarlogRoutingConfig {
     fn default() -> Self {
         Self {
             priorities: vec![
@@ -46,7 +46,7 @@ impl Default for HyprnoteRoutingConfig {
     }
 }
 
-pub struct HyprnoteRouter {
+pub struct AnarlogRouter {
     priorities: Vec<Provider>,
     retry_config: RetryConfig,
 }
@@ -57,8 +57,8 @@ pub enum RoutingMode {
     Batch,
 }
 
-impl HyprnoteRouter {
-    pub fn new(config: HyprnoteRoutingConfig) -> Self {
+impl AnarlogRouter {
+    pub fn new(config: AnarlogRoutingConfig) -> Self {
         Self {
             priorities: config.priorities,
             retry_config: config.retry_config,
@@ -169,9 +169,9 @@ impl HyprnoteRouter {
     }
 }
 
-impl Default for HyprnoteRouter {
+impl Default for AnarlogRouter {
     fn default() -> Self {
-        Self::new(HyprnoteRoutingConfig::default())
+        Self::new(AnarlogRoutingConfig::default())
     }
 }
 
@@ -200,14 +200,14 @@ pub fn is_retryable_error(error: &str) -> bool {
         || error_lower.contains("too many requests")
 }
 
-pub fn should_use_hyprnote_routing(provider_param: Option<&str>) -> bool {
-    provider_param == Some("hyprnote")
+pub fn should_use_anarlog_routing(provider_param: Option<&str>) -> bool {
+    matches!(provider_param, Some("anarlog" | "hyprnote"))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hypr_language::ISO639;
+    use anlg_language::ISO639;
 
     fn langs(codes: &[ISO639]) -> Vec<Language> {
         codes.iter().map(|&c| Language::new(c)).collect()
@@ -224,21 +224,22 @@ mod tests {
 
     #[test]
     fn select_provider_none_when_no_available() {
-        let router = HyprnoteRouter::default();
+        let router = AnarlogRouter::default();
         let selected = router.select_provider(&langs(&[ISO639::En]), &HashSet::new());
         assert_eq!(selected, None);
     }
 
     #[test]
-    fn should_use_hyprnote_routing() {
-        assert!(super::should_use_hyprnote_routing(Some("hyprnote")));
+    fn should_use_anarlog_routing() {
+        assert!(super::should_use_anarlog_routing(Some("anarlog")));
+        assert!(super::should_use_anarlog_routing(Some("hyprnote")));
 
-        assert!(!super::should_use_hyprnote_routing(None));
-        assert!(!super::should_use_hyprnote_routing(Some("deepgram")));
-        assert!(!super::should_use_hyprnote_routing(Some("soniox")));
-        assert!(!super::should_use_hyprnote_routing(Some("assemblyai")));
-        assert!(!super::should_use_hyprnote_routing(Some("")));
-        assert!(!super::should_use_hyprnote_routing(Some("auto")));
+        assert!(!super::should_use_anarlog_routing(None));
+        assert!(!super::should_use_anarlog_routing(Some("deepgram")));
+        assert!(!super::should_use_anarlog_routing(Some("soniox")));
+        assert!(!super::should_use_anarlog_routing(Some("assemblyai")));
+        assert!(!super::should_use_anarlog_routing(Some("")));
+        assert!(!super::should_use_anarlog_routing(Some("auto")));
     }
 
     const SNAPSHOT_LANGS: &[ISO639] = &[
@@ -259,7 +260,7 @@ mod tests {
     fn routing_table() {
         use itertools::Itertools;
 
-        let router = HyprnoteRouter::default();
+        let router = AnarlogRouter::default();
         let available = default_available();
 
         let mut table = String::new();
@@ -525,7 +526,7 @@ mod tests {
 
     #[quickcheck_macros::quickcheck]
     fn prop_select_is_first_of_chain(combo: LangCombo) -> bool {
-        let router = HyprnoteRouter::default();
+        let router = AnarlogRouter::default();
         let available = default_available();
         router.select_provider(&combo.0, &available)
             == router
@@ -536,7 +537,7 @@ mod tests {
 
     #[quickcheck_macros::quickcheck]
     fn prop_chain_no_duplicates(combo: LangCombo) -> bool {
-        let router = HyprnoteRouter::default();
+        let router = AnarlogRouter::default();
         let available = default_available();
         let chain = router.select_provider_chain(&combo.0, &available);
         let unique: HashSet<_> = chain.iter().collect();
@@ -545,7 +546,7 @@ mod tests {
 
     #[quickcheck_macros::quickcheck]
     fn prop_chain_subset_of_available(combo: LangCombo) -> bool {
-        let router = HyprnoteRouter::default();
+        let router = AnarlogRouter::default();
         let available = default_available();
         router
             .select_provider_chain(&combo.0, &available)
@@ -555,7 +556,7 @@ mod tests {
 
     #[quickcheck_macros::quickcheck]
     fn prop_language_order_independent(combo: LangCombo) -> bool {
-        let router = HyprnoteRouter::default();
+        let router = AnarlogRouter::default();
         let available = default_available();
         let mut reversed = combo.0.clone();
         reversed.reverse();
@@ -565,7 +566,7 @@ mod tests {
 
     #[quickcheck_macros::quickcheck]
     fn prop_supported_always_returns_some(combo: LangCombo) -> quickcheck::TestResult {
-        let router = HyprnoteRouter::default();
+        let router = AnarlogRouter::default();
         let available = default_available();
         let chain = router.select_provider_chain(&combo.0, &available);
         if chain.is_empty() {
@@ -576,7 +577,7 @@ mod tests {
 
     #[quickcheck_macros::quickcheck]
     fn prop_soniox_always_in_chain_when_supported(combo: LangCombo) -> quickcheck::TestResult {
-        let router = HyprnoteRouter::default();
+        let router = AnarlogRouter::default();
         let available = default_available();
         let chain = router.select_provider_chain(&combo.0, &available);
         if chain.is_empty() {
@@ -587,7 +588,7 @@ mod tests {
 
     #[test]
     fn batch_routing_uses_batch_language_support() {
-        let router = HyprnoteRouter::default();
+        let router = AnarlogRouter::default();
         let languages = langs(&[ISO639::En]);
         let available: HashSet<Provider> = [Provider::OpenAI].into_iter().collect();
 
@@ -603,7 +604,7 @@ mod tests {
 
     #[test]
     fn batch_routing_prefers_soniox_when_available() {
-        let router = HyprnoteRouter::default();
+        let router = AnarlogRouter::default();
         let languages = langs(&[ISO639::En]);
         let available = default_available();
 
@@ -615,7 +616,7 @@ mod tests {
 
     #[test]
     fn default_priorities_include_newer_live_providers() {
-        let config = HyprnoteRoutingConfig::default();
+        let config = AnarlogRoutingConfig::default();
 
         assert!(config.priorities.contains(&Provider::Mistral));
         assert!(config.priorities.contains(&Provider::DashScope));

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-pub use hypr_fs_format::{
+pub use anlg_fs_format::{
     TranscriptJson, TranscriptSpeakerHint, TranscriptWithData, TranscriptWord,
 };
 use serde::{Deserialize, Serialize};

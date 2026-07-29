@@ -1,7 +1,7 @@
 import { platform } from "@tauri-apps/plugin-os";
 import { Fragment } from "react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import { SyncProvider } from "~/calendar/components/context";
 import { useTabs } from "~/store/zustand/tabs";

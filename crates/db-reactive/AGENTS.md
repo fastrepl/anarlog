@@ -2,7 +2,7 @@
 
 ## Use This Crate For
 
-- Transport-agnostic live queries over `hypr_db_core::Db`.
+- Transport-agnostic live queries over `anlg_db_core::Db`.
 - Conservative dependency analysis, subscription lifecycle, rerun targeting, and sink delivery.
 
 ## Put Changes Elsewhere When

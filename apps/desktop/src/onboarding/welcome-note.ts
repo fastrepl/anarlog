@@ -1,5 +1,5 @@
-import { md2json } from "@hypr/editor/markdown";
-import type { SessionEvent } from "@hypr/store";
+import { md2json } from "@anlg/editor/markdown";
+import type { SessionEvent } from "@anlg/store";
 
 import { liveQueryClient } from "~/db";
 import {

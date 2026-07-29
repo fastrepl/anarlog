@@ -23,14 +23,14 @@ import {
 import {
   commands as windowsCommands,
   events as windowsEvents,
-} from "@hypr/plugin-windows";
+} from "@anlg/plugin-windows";
 import {
   type ImperativePanelHandle,
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from "@hypr/ui/components/ui/resizable";
-import { cn } from "@hypr/utils";
+} from "@anlg/ui/components/ui/resizable";
+import { cn } from "@anlg/utils";
 
 import { ClassicMainSidebar } from "./shell-sidebar";
 import { ClassicMainTabContent } from "./tab-content";

@@ -3,7 +3,7 @@ import {
   createToolRegistry,
   readUrlTool,
   toolsRequiringApproval,
-} from "@hypr/agent-core";
+} from "@anlg/agent-core";
 
 import { executeCodeTool } from "./execute-code";
 import { loopsTool } from "./loops";

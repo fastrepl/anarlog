@@ -1,6 +1,6 @@
 import { emit, listen } from "@tauri-apps/api/event";
 
-const CAPTURE_RECOVERY_REQUEST_EVENT = "hypr:capture-recovery-request";
+const CAPTURE_RECOVERY_REQUEST_EVENT = "anlg:capture-recovery-request";
 
 export function requestCaptureRecovery(sessionId: string): Promise<void> {
   return emit(CAPTURE_RECOVERY_REQUEST_EVENT, { sessionId });

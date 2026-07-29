@@ -1,8 +1,8 @@
 import { arch, platform } from "@tauri-apps/plugin-os";
 import { useCallback } from "react";
 
-import type { TranscriptionParams } from "@hypr/plugin-transcription";
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
+import type { TranscriptionParams } from "@anlg/plugin-transcription";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import { useListener } from "./contexts";
 import { persistTranscriptWrite } from "./persist-retry";
@@ -25,7 +25,7 @@ import type { BatchPersistCallback } from "~/store/zustand/listener/transcript";
 import {
   getTranscriptionLanguages,
   isDesktopLocalSttAvailable,
-  isHyprnoteLocalSttModel,
+  isAnarlogLocalSttModel,
   isSupportedLanguagesBatch,
 } from "~/stt/capabilities";
 import { createTranscript } from "~/stt/queries";
@@ -94,10 +94,10 @@ export function getBatchProvider(
     return "deepgram";
   }
 
-  if (provider === "hyprnote") {
+  if (provider === "anarlog") {
     if (model.startsWith("soniqo-")) return "soniqo";
     if (model.startsWith("am-")) return "am";
-    return "hyprnote";
+    return "anarlog";
   }
   if (DIRECT_BATCH_PROVIDERS.has(provider as TranscriptionParams["provider"])) {
     return provider as TranscriptionParams["provider"];
@@ -127,7 +127,7 @@ export function getBatchFallbackTarget({
 }): BatchTarget | null {
   if (isPaid && accessToken) {
     return {
-      provider: "hyprnote",
+      provider: "anarlog",
       model: "cloud",
       baseUrl: new URL("/stt", apiBaseUrl).toString(),
       apiKey: accessToken,
@@ -286,7 +286,7 @@ export const useRunBatch = (sessionId: string) => {
           : null;
       const selectedTargetSupported =
         selectedTarget &&
-        (!isHyprnoteLocalSttModel(conn?.provider, selectedModel) ||
+        (!isAnarlogLocalSttModel(conn?.provider, selectedModel) ||
           isDesktopLocalSttAvailable(currentPlatform, currentArch))
           ? await canUseBatchTarget(
               selectedTarget.provider,
@@ -441,7 +441,7 @@ export const useRunBatch = (sessionId: string) => {
             await startTranscription(params, { handlePersist: persist });
           } catch (error) {
             if (
-              target.provider !== "hyprnote" ||
+              target.provider !== "anarlog" ||
               target.model !== "cloud" ||
               !isTranscriptionAuthenticationError(error)
             ) {

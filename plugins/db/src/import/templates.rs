@@ -1,4 +1,4 @@
-use hypr_db_app::{LegacyImportBatch, LegacyImportRow, LegacyTemplate as ImportedTemplate};
+use anlg_db_app::{LegacyImportBatch, LegacyImportRow, LegacyTemplate as ImportedTemplate};
 
 fn parse_template_file(content: &str) -> Vec<ParsedTemplate> {
     let Ok(value) = serde_json::from_str::<serde_json::Value>(content) else {

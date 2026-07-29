@@ -27,7 +27,7 @@ const hoisted = vi.hoisted(() => ({
     | undefined,
   llmStatus: {
     status: "success",
-    providerId: "hyprnote",
+    providerId: "anarlog",
     isHosted: true,
   } as LLMConnectionStatus,
   content: "",
@@ -36,7 +36,7 @@ const hoisted = vi.hoisted(() => ({
   enhancedEditorMountCount: 0,
 }));
 
-vi.mock("@hypr/ui/components/ui/spinner", () => ({
+vi.mock("@anlg/ui/components/ui/spinner", () => ({
   Spinner: () => <span data-testid="spinner" />,
 }));
 
@@ -137,7 +137,7 @@ describe("Enhanced", () => {
     hoisted.titleTask = undefined;
     hoisted.llmStatus = {
       status: "success",
-      providerId: "hyprnote",
+      providerId: "anarlog",
       isHosted: true,
     };
     hoisted.content = "";
@@ -349,7 +349,7 @@ describe("Enhanced", () => {
     hoisted.llmStatus = {
       status: "error",
       reason: "not_pro",
-      providerId: "hyprnote",
+      providerId: "anarlog",
     };
 
     render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
@@ -362,7 +362,7 @@ describe("Enhanced", () => {
     hoisted.llmStatus = {
       status: "error",
       reason: "unauthenticated",
-      providerId: "hyprnote",
+      providerId: "anarlog",
     };
 
     render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);

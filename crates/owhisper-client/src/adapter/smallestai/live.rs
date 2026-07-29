@@ -1,4 +1,4 @@
-use hypr_ws_client::client::Message;
+use anlg_ws_client::client::Message;
 use owhisper_interface::ListenParams;
 use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse};
 use serde::Deserialize;
@@ -14,7 +14,7 @@ impl RealtimeSttAdapter for SmallestAIAdapter {
 
     fn is_supported_languages(
         &self,
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> bool {
         SmallestAIAdapter::is_supported_languages_live(languages, model)
@@ -65,7 +65,7 @@ impl RealtimeSttAdapter for SmallestAIAdapter {
             Err(error) => {
                 tracing::warn!(
                     error = ?error,
-                    hyprnote.payload.size_bytes = raw.len() as u64,
+                    anarlog.payload.size_bytes = raw.len() as u64,
                     "smallestai_json_parse_failed"
                 );
                 return vec![];
@@ -285,7 +285,7 @@ impl SmallestMessageError {
 
 #[cfg(test)]
 mod tests {
-    use hypr_language::ISO639;
+    use anlg_language::ISO639;
 
     use super::*;
 

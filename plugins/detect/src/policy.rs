@@ -1,6 +1,6 @@
 use std::collections::{BTreeSet, HashSet};
 
-use hypr_notification_interface::NotificationKey;
+use anlg_notification_interface::NotificationKey;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MicEventType {
@@ -18,7 +18,7 @@ pub enum SkipReason {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppCategory {
-    Hyprnote,
+    Anarlog,
     Dictation,
     IDE,
     ScreenRecording,
@@ -29,7 +29,7 @@ pub enum AppCategory {
 impl AppCategory {
     pub fn bundle_ids(&self) -> &'static [&'static str] {
         match self {
-            Self::Hyprnote => &[
+            Self::Anarlog => &[
                 "com.hyprnote.dev",
                 "com.hyprnote.stable",
                 "com.hyprnote.nightly",
@@ -84,7 +84,7 @@ impl AppCategory {
 
     pub fn all() -> &'static [AppCategory] {
         &[
-            Self::Hyprnote,
+            Self::Anarlog,
             Self::Dictation,
             Self::IDE,
             Self::ScreenRecording,
@@ -111,14 +111,14 @@ pub fn default_ignored_bundle_ids() -> Vec<String> {
 }
 
 pub struct PolicyContext<'a> {
-    pub apps: &'a [hypr_detect::InstalledApp],
+    pub apps: &'a [anlg_detect::InstalledApp],
     pub is_dnd: bool,
     pub event_type: MicEventType,
 }
 
 #[derive(Debug)]
 pub struct PolicyResult {
-    pub filtered_apps: Vec<hypr_detect::InstalledApp>,
+    pub filtered_apps: Vec<anlg_detect::InstalledApp>,
     pub dedup_key: String,
 }
 
@@ -141,9 +141,9 @@ impl MicNotificationPolicy {
 
     fn filter_apps(
         &self,
-        apps: &[hypr_detect::InstalledApp],
+        apps: &[anlg_detect::InstalledApp],
         is_dnd: bool,
-    ) -> Result<Vec<hypr_detect::InstalledApp>, SkipReason> {
+    ) -> Result<Vec<anlg_detect::InstalledApp>, SkipReason> {
         if self.respect_dnd && is_dnd {
             return Err(SkipReason::DoNotDisturb);
         }
@@ -208,8 +208,8 @@ impl Default for MicNotificationPolicy {
 mod tests {
     use super::*;
 
-    fn app(id: &str) -> hypr_detect::InstalledApp {
-        hypr_detect::InstalledApp {
+    fn app(id: &str) -> anlg_detect::InstalledApp {
+        anlg_detect::InstalledApp {
             id: id.to_string(),
             name: id.to_string(),
         }
@@ -221,7 +221,7 @@ mod tests {
     fn test_app_category_find() {
         assert_eq!(
             AppCategory::find_category("com.hyprnote.dev"),
-            Some(AppCategory::Hyprnote)
+            Some(AppCategory::Anarlog)
         );
         assert_eq!(AppCategory::find_category("com.zoom.us"), None);
     }
@@ -261,7 +261,7 @@ mod tests {
     #[test]
     fn test_app_category_all_returns_every_variant() {
         let all = AppCategory::all();
-        assert!(all.contains(&AppCategory::Hyprnote));
+        assert!(all.contains(&AppCategory::Anarlog));
         assert!(all.contains(&AppCategory::Dictation));
         assert!(all.contains(&AppCategory::IDE));
         assert!(all.contains(&AppCategory::ScreenRecording));
@@ -490,7 +490,7 @@ mod tests {
     #[test]
     fn test_evaluate_empty_apps_list() {
         let policy = MicNotificationPolicy::default();
-        let apps: Vec<hypr_detect::InstalledApp> = vec![];
+        let apps: Vec<anlg_detect::InstalledApp> = vec![];
         let ctx = PolicyContext {
             apps: &apps,
             is_dnd: false,

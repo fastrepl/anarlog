@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use hypr_openrouter::Client as OpenRouterClient;
+use anlg_openrouter::Client as OpenRouterClient;
 use tokio::runtime::Builder as RuntimeBuilder;
 
 use crate::eval::artifacts::write_artifact;

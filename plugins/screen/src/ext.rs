@@ -102,7 +102,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Screen<'a, R, M> {
         options: WindowContextCaptureOptions,
     ) -> Result<WindowContextCapture, crate::Error> {
         let _ = self.manager;
-        let capture = hypr_screen_core::capture_frontmost_window_context(map_options(options))?;
+        let capture = anlg_screen_core::capture_frontmost_window_context(map_options(options))?;
 
         Ok(map_capture(capture))
     }
@@ -113,8 +113,8 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Screen<'a, R, M> {
         options: WindowContextCaptureOptions,
     ) -> Result<WindowContextCapture, crate::Error> {
         let _ = self.manager;
-        let capture = hypr_screen_core::capture_target_window_context(
-            &hypr_screen_core::WindowCaptureTarget {
+        let capture = anlg_screen_core::capture_target_window_context(
+            &anlg_screen_core::WindowCaptureTarget {
                 window_id: target.window_id,
                 pid: target.pid,
                 app_name: target.app_name,
@@ -129,11 +129,11 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Screen<'a, R, M> {
 
 fn map_options(
     options: WindowContextCaptureOptions,
-) -> hypr_screen_core::WindowContextCaptureOptions {
-    let default_policy = hypr_screen_core::WindowContextImagePolicy::default();
+) -> anlg_screen_core::WindowContextCaptureOptions {
+    let default_policy = anlg_screen_core::WindowContextImagePolicy::default();
     let image_policy = options.image_policy.unwrap_or_default();
-    hypr_screen_core::WindowContextCaptureOptions {
-        image_policy: hypr_screen_core::WindowContextImagePolicy {
+    anlg_screen_core::WindowContextCaptureOptions {
+        image_policy: anlg_screen_core::WindowContextImagePolicy {
             max_long_side: image_policy
                 .max_long_side
                 .unwrap_or(default_policy.max_long_side),
@@ -141,7 +141,7 @@ fn map_options(
     }
 }
 
-fn map_capture(capture: hypr_screen_core::WindowContextImage) -> WindowContextCapture {
+fn map_capture(capture: anlg_screen_core::WindowContextImage) -> WindowContextCapture {
     WindowContextCapture {
         mime_type: capture.mime_type,
         data_base64: STANDARD.encode(capture.image_bytes),
@@ -149,11 +149,11 @@ fn map_capture(capture: hypr_screen_core::WindowContextImage) -> WindowContextCa
         width: capture.width,
         height: capture.height,
         strategy: match capture.strategy {
-            hypr_screen_core::CaptureStrategy::WindowOnly => CaptureStrategy::WindowOnly,
-            hypr_screen_core::CaptureStrategy::WindowWithContext => {
+            anlg_screen_core::CaptureStrategy::WindowOnly => CaptureStrategy::WindowOnly,
+            anlg_screen_core::CaptureStrategy::WindowWithContext => {
                 CaptureStrategy::WindowWithContext
             }
-            hypr_screen_core::CaptureStrategy::Display => CaptureStrategy::Display,
+            anlg_screen_core::CaptureStrategy::Display => CaptureStrategy::Display,
         },
         crop: CaptureRect {
             x: capture.crop.x,
@@ -162,7 +162,7 @@ fn map_capture(capture: hypr_screen_core::WindowContextImage) -> WindowContextCa
             height: capture.crop.height,
         },
         subject: match capture.subject {
-            hypr_screen_core::CaptureSubject::Window(window) => CaptureSubject::Window {
+            anlg_screen_core::CaptureSubject::Window(window) => CaptureSubject::Window {
                 window: WindowContextMetadata {
                     id: window.id,
                     pid: window.pid,
@@ -176,7 +176,7 @@ fn map_capture(capture: hypr_screen_core::WindowContextImage) -> WindowContextCa
                     },
                 },
             },
-            hypr_screen_core::CaptureSubject::Display(display) => CaptureSubject::Display {
+            anlg_screen_core::CaptureSubject::Display(display) => CaptureSubject::Display {
                 display: DisplayContextMetadata {
                     id: display.id,
                     name: display.name,
@@ -215,8 +215,8 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> ScreenPluginExt<R> for T {
 mod tests {
     use super::*;
 
-    fn rect() -> hypr_screen_core::CaptureRect {
-        hypr_screen_core::CaptureRect {
+    fn rect() -> anlg_screen_core::CaptureRect {
+        anlg_screen_core::CaptureRect {
             x: 1,
             y: 2,
             width: 300,
@@ -226,15 +226,15 @@ mod tests {
 
     #[test]
     fn maps_window_subject_capture() {
-        let capture = map_capture(hypr_screen_core::WindowContextImage {
+        let capture = map_capture(anlg_screen_core::WindowContextImage {
             image_bytes: vec![1, 2, 3],
             mime_type: "image/png".to_string(),
             captured_at_ms: 10,
             width: 300,
             height: 200,
-            strategy: hypr_screen_core::CaptureStrategy::WindowWithContext,
+            strategy: anlg_screen_core::CaptureStrategy::WindowWithContext,
             crop: rect(),
-            subject: hypr_screen_core::CaptureSubject::Window(hypr_screen_core::WindowMetadata {
+            subject: anlg_screen_core::CaptureSubject::Window(anlg_screen_core::WindowMetadata {
                 id: 7,
                 pid: 42,
                 app_name: "Ghostty".to_string(),
@@ -256,15 +256,15 @@ mod tests {
 
     #[test]
     fn maps_display_subject_capture() {
-        let capture = map_capture(hypr_screen_core::WindowContextImage {
+        let capture = map_capture(anlg_screen_core::WindowContextImage {
             image_bytes: vec![1, 2, 3],
             mime_type: "image/png".to_string(),
             captured_at_ms: 10,
             width: 400,
             height: 300,
-            strategy: hypr_screen_core::CaptureStrategy::Display,
+            strategy: anlg_screen_core::CaptureStrategy::Display,
             crop: rect(),
-            subject: hypr_screen_core::CaptureSubject::Display(hypr_screen_core::DisplayMetadata {
+            subject: anlg_screen_core::CaptureSubject::Display(anlg_screen_core::DisplayMetadata {
                 id: 3,
                 name: "Built-in Retina Display".to_string(),
                 rect: rect(),

@@ -7,6 +7,11 @@ use std::{
     task::{Context, Poll},
 };
 
+use anlg_audio_chunking::{SpeechChunkExt, SpeechChunkingConfig};
+use anlg_audio_interface::AsyncSource;
+use anlg_model_manager::{ModelManager, ModelManagerBuilder};
+use anlg_transcribe_core::TARGET_SAMPLE_RATE;
+use anlg_ws_utils::ConnectionManager;
 use axum::{
     body::Body,
     extract::{FromRequestParts, ws::WebSocketUpgrade},
@@ -14,11 +19,6 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use futures_util::{SinkExt, Stream, StreamExt, stream::poll_fn};
-use hypr_audio_chunking::{SpeechChunkExt, SpeechChunkingConfig};
-use hypr_audio_interface::AsyncSource;
-use hypr_model_manager::{ModelManager, ModelManagerBuilder};
-use hypr_transcribe_core::TARGET_SAMPLE_RATE;
-use hypr_ws_utils::ConnectionManager;
 use owhisper_interface::stream::StreamResponse;
 use owhisper_interface::{ControlMessage, ListenParams};
 use tokio::sync::mpsc;
@@ -40,7 +40,7 @@ pub const HEALTH_PATH: &str = "/health";
 #[derive(Clone)]
 pub struct TranscribeService {
     model_path: PathBuf,
-    manager: ModelManager<hypr_whisper_local::LoadedWhisper>,
+    manager: ModelManager<anlg_whisper_local::LoadedWhisper>,
     connection_manager: ConnectionManager,
 }
 
@@ -211,14 +211,14 @@ async fn handle_websocket(
     socket: axum::extract::ws::WebSocket,
     params: ListenParams,
     metadata: owhisper_interface::stream::Metadata,
-    guard: hypr_ws_utils::ConnectionGuard,
-    model: Arc<hypr_whisper_local::LoadedWhisper>,
-    manager: ModelManager<hypr_whisper_local::LoadedWhisper>,
+    guard: anlg_ws_utils::ConnectionGuard,
+    model: Arc<anlg_whisper_local::LoadedWhisper>,
+    manager: ModelManager<anlg_whisper_local::LoadedWhisper>,
 ) {
     let (mut ws_sender, mut ws_receiver) = socket.split();
     let total_channels = (params.channels as usize).max(1);
     let redemption_time = redemption_time(&params);
-    let languages: Vec<hypr_whisper::Language> = params
+    let languages: Vec<anlg_whisper::Language> = params
         .languages
         .iter()
         .filter_map(|lang| lang.clone().try_into().ok())
@@ -348,7 +348,7 @@ async fn handle_websocket(
                                         break;
                                     }
                                 } else {
-                                    let mixed = hypr_audio_utils::mix_audio_f32(&ch0, &ch1);
+                                    let mixed = anlg_audio_utils::mix_audio_f32(&ch0, &ch1);
                                     channel_audio_durations[0] += mixed.len() as f64 / TARGET_SAMPLE_RATE as f64;
                                     if !mixed.is_empty() && audio_txs[0].send(mixed).await.is_err() {
                                         send_ws_best_effort(
@@ -435,8 +435,8 @@ type TranscriptionStream =
 #[allow(clippy::type_complexity)]
 fn build_transcription_streams(
     total_channels: usize,
-    loaded_model: &hypr_whisper_local::LoadedWhisper,
-    languages: &[hypr_whisper::Language],
+    loaded_model: &anlg_whisper_local::LoadedWhisper,
+    languages: &[anlg_whisper::Language],
     redemption_time: std::time::Duration,
 ) -> Result<
     (
@@ -508,12 +508,12 @@ impl AsyncSource for ChannelAudioSource {
 struct TranscribeChannelStream<S> {
     channel_idx: usize,
     chunk_stream: S,
-    model: hypr_whisper_local::Whisper,
+    model: anlg_whisper_local::Whisper,
     pending: VecDeque<crate::service::Segment>,
 }
 
 impl<S> TranscribeChannelStream<S> {
-    fn new(channel_idx: usize, chunk_stream: S, model: hypr_whisper_local::Whisper) -> Self {
+    fn new(channel_idx: usize, chunk_stream: S, model: anlg_whisper_local::Whisper) -> Self {
         Self {
             channel_idx,
             chunk_stream,
@@ -525,7 +525,7 @@ impl<S> TranscribeChannelStream<S> {
 
 impl<S> Stream for TranscribeChannelStream<S>
 where
-    S: Stream<Item = Result<hypr_audio_chunking::AudioChunk, hypr_audio_chunking::Error>> + Unpin,
+    S: Stream<Item = Result<anlg_audio_chunking::AudioChunk, anlg_audio_chunking::Error>> + Unpin,
 {
     type Item = Result<(usize, crate::service::Segment), crate::Error>;
 

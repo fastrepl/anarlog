@@ -4,11 +4,11 @@ import { ChevronLeft, ExternalLink, Github } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
-import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { OutlookIcon } from "@hypr/ui/components/icons/outlook";
-import { Button } from "@hypr/ui/components/ui/button";
-import { Input } from "@hypr/ui/components/ui/input";
-import { cn } from "@hypr/utils";
+import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { OutlookIcon } from "@anlg/ui/components/icons/outlook";
+import { Button } from "@anlg/ui/components/ui/button";
+import { Input } from "@anlg/ui/components/ui/input";
+import { cn } from "@anlg/utils";
 
 import { useAuth } from "~/auth";
 

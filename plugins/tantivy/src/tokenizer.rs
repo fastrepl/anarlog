@@ -1,11 +1,11 @@
-use hypr_language::ISO639;
+use anlg_language::ISO639;
 use tantivy::Index;
 use tantivy::tokenizer::{
     AsciiFoldingFilter, Language, LowerCaser, NgramTokenizer, RemoveLongFilter, Stemmer,
     TextAnalyzer,
 };
 
-fn to_tantivy_language(lang: &hypr_language::Language) -> Option<Language> {
+fn to_tantivy_language(lang: &anlg_language::Language) -> Option<Language> {
     match lang.iso639() {
         ISO639::Ar => Some(Language::Arabic),
         ISO639::Da => Some(Language::Danish),
@@ -29,7 +29,7 @@ fn to_tantivy_language(lang: &hypr_language::Language) -> Option<Language> {
     }
 }
 
-pub fn get_tokenizer_name_for_language(lang: &hypr_language::Language) -> &'static str {
+pub fn get_tokenizer_name_for_language(lang: &anlg_language::Language) -> &'static str {
     match to_tantivy_language(lang) {
         Some(Language::Arabic) => "lang_ar",
         Some(Language::Danish) => "lang_da",
@@ -124,7 +124,7 @@ mod tests {
         ];
 
         for (iso639, expected_tokenizer) in test_cases {
-            let lang = hypr_language::Language::from(iso639);
+            let lang = anlg_language::Language::from(iso639);
             let tokenizer_name = get_tokenizer_name_for_language(&lang);
             assert_eq!(
                 tokenizer_name, expected_tokenizer,
@@ -139,7 +139,7 @@ mod tests {
         let unsupported = [ISO639::Zh, ISO639::Ja, ISO639::Ko, ISO639::Hi, ISO639::Vi];
 
         for iso639 in unsupported {
-            let lang = hypr_language::Language::from(iso639);
+            let lang = anlg_language::Language::from(iso639);
             let tokenizer_name = get_tokenizer_name_for_language(&lang);
             assert_eq!(
                 tokenizer_name, "multilang",

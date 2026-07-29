@@ -10,7 +10,7 @@ openapi = ["dep:utoipa"]
 deepgram = { workspace = true, default-features = false, features = ["listen"] }
 
 [dependencies]
-hypr-language = { workspace = true }
+anlg-language = { workspace = true }
 
 serde = { workspace = true, features = ["derive"] }
 serde_bytes = { workspace = true }

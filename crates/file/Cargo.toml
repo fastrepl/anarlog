@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-download-interface = { workspace = true }
+anlg-download-interface = { workspace = true }
 
 base64 = { workspace = true }
 crc32fast = "1.4.2"
@@ -17,8 +17,8 @@ tokio-util = "0.7"
 tracing = { workspace = true }
 
 [dev-dependencies]
+anlg-s3 = { workspace = true }
 dirs = { workspace = true }
-hypr-s3 = { workspace = true }
 tempfile = { workspace = true }
 testcontainers-modules = { workspace = true, features = ["minio"] }
 wiremock = { workspace = true }

@@ -31,7 +31,7 @@ impl ResearchMcpServer {
     )]
     async fn search(
         &self,
-        Parameters(params): Parameters<hypr_exa::SearchRequest>,
+        Parameters(params): Parameters<anlg_exa::SearchRequest>,
     ) -> Result<CallToolResult, McpError> {
         tools::search(&self.state, params).await
     }
@@ -46,7 +46,7 @@ impl ResearchMcpServer {
     )]
     async fn get_contents(
         &self,
-        Parameters(params): Parameters<hypr_exa::GetContentsRequest>,
+        Parameters(params): Parameters<anlg_exa::GetContentsRequest>,
     ) -> Result<CallToolResult, McpError> {
         tools::get_contents(&self.state, params).await
     }
@@ -61,7 +61,7 @@ impl ResearchMcpServer {
     )]
     async fn read_url(
         &self,
-        Parameters(params): Parameters<hypr_jina::ReadUrlRequest>,
+        Parameters(params): Parameters<anlg_jina::ReadUrlRequest>,
     ) -> Result<CallToolResult, McpError> {
         tools::read_url(&self.state, params).await
     }
@@ -78,7 +78,7 @@ impl ServerHandler for ResearchMcpServer {
         )
         .with_protocol_version(ProtocolVersion::V_2024_11_05)
         .with_server_info(Implementation::new(
-            "hyprnote-research",
+            "anarlog-research",
             env!("CARGO_PKG_VERSION"),
         ))
         .with_instructions(

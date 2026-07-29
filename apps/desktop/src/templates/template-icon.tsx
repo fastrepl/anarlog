@@ -80,7 +80,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 export type TemplateIcon =
   | { type: "icon"; value: string; color: string }

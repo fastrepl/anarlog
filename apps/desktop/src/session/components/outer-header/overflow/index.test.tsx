@@ -46,7 +46,7 @@ vi.mock("@tauri-apps/plugin-os", () => ({
   platform: platformMock,
 }));
 
-vi.mock("@hypr/ui/components/ui/button", () => ({
+vi.mock("@anlg/ui/components/ui/button", () => ({
   Button: ({
     children,
     ...props
@@ -55,7 +55,7 @@ vi.mock("@hypr/ui/components/ui/button", () => ({
   ),
 }));
 
-vi.mock("@hypr/ui/components/ui/dropdown-menu", () => ({
+vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
   AppFloatingPanel: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -114,7 +114,7 @@ vi.mock("~/session/components/note-input/transcript/actions", () => ({
   useRegenerateTranscript: () => regenerateTranscriptMock,
 }));
 
-vi.mock("@hypr/plugin-windows", () => ({
+vi.mock("@anlg/plugin-windows", () => ({
   commands: {
     windowShow: windowShowMock,
   },

@@ -15,8 +15,8 @@ dirs = { workspace = true }
 specta-typescript = { workspace = true }
 
 [dependencies]
-hypr-granola = { workspace = true }
-hypr-importer-core = { workspace = true }
+anlg-granola = { workspace = true }
+anlg-importer-core = { workspace = true }
 legacy-db-parser = { workspace = true }
 
 tauri-plugin-settings = { workspace = true }

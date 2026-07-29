@@ -23,7 +23,7 @@ const mocks = vi.hoisted(() => ({
   ),
 }));
 
-vi.mock("@hypr/plugin-store2", () => ({
+vi.mock("@anlg/plugin-store2", () => ({
   commands: {
     getSecret: mocks.getSecret,
     setSecret: mocks.setSecret,

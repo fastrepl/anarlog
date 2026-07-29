@@ -19,7 +19,7 @@ This repo has multiple binaries and runtime surfaces, but the same conventions a
 - `apps/api` is one OTEL service
 - `apps/desktop` is one Sentry/desktop service
 - internal route groups or modules are not separate OTEL services
-- internal logical breakdowns use `hyprnote.subsystem`
+- internal logical breakdowns use `anarlog.subsystem`
 
 Current canonical subsystem values include:
 
@@ -51,7 +51,7 @@ We use three separate concepts:
 
 Every process should set:
 
-- `service.namespace = "hyprnote"`
+- `service.namespace = "anarlog"`
 - `service.name = <logical process name>`
 - `service.version`
 - `deployment.environment`
@@ -78,13 +78,13 @@ For example, `edge`, `llm`, `stt`, and `subscription` inside `apps/api` are not 
 
 Use:
 
-- `hyprnote.subsystem`
+- `anarlog.subsystem`
 
 Examples:
 
-- API ingress span: `hyprnote.subsystem = "edge"`
-- LLM handler span: `hyprnote.subsystem = "llm"`
-- STT websocket/session spans: `hyprnote.subsystem = "stt"`
+- API ingress span: `anarlog.subsystem = "edge"`
+- LLM handler span: `anarlog.subsystem = "llm"`
+- STT websocket/session spans: `anarlog.subsystem = "stt"`
 
 Do not use a bare `service` span field for this.
 
@@ -161,7 +161,7 @@ It is not:
 
 - generate it once at ingress if missing
 - forward it unchanged when useful
-- record it as `hyprnote.request.id`
+- record it as `anarlog.request.id`
 - keep it semantically separate from OTEL trace context
 
 Never do this:
@@ -208,11 +208,11 @@ Examples:
 - `gen_ai.usage.input_tokens`
 - `gen_ai.usage.output_tokens`
 
-### Rule 2: Custom fields must use `hyprnote.*`
+### Rule 2: Custom fields must use `anarlog.*`
 
 If OTEL does not define a field, use:
 
-- `hyprnote.*`
+- `anarlog.*`
 
 Do not use:
 
@@ -246,11 +246,11 @@ Use:
 
 ### Request and duration
 
-- `hyprnote.request.id`
-- `hyprnote.duration_ms`
-- `hyprnote.retry.delay_ms`
-- `hyprnote.timeout_s`
-- `hyprnote.timeout.elapsed`
+- `anarlog.request.id`
+- `anarlog.duration_ms`
+- `anarlog.retry.delay_ms`
+- `anarlog.timeout_s`
+- `anarlog.timeout.elapsed`
 
 ### HTTP and routing
 
@@ -276,45 +276,45 @@ Use OTEL GenAI fields where available:
 - `gen_ai.usage.input_tokens`
 - `gen_ai.usage.output_tokens`
 
-Use `hyprnote.*` for Hyprnote-specific request metadata:
+Use `anarlog.*` for Anarlog-specific request metadata:
 
-- `hyprnote.gen_ai.request.streaming`
-- `hyprnote.gen_ai.request.message_count`
-- `hyprnote.gen_ai.request.model_candidate_count`
-- `hyprnote.gen_ai.request.tool_calling`
-- `hyprnote.task.name`
+- `anarlog.gen_ai.request.streaming`
+- `anarlog.gen_ai.request.message_count`
+- `anarlog.gen_ai.request.model_candidate_count`
+- `anarlog.gen_ai.request.tool_calling`
+- `anarlog.task.name`
 
 ### STT and audio
 
 Use:
 
-- `hyprnote.stt.provider.name`
-- `hyprnote.stt.routing_strategy`
-- `hyprnote.stt.model`
-- `hyprnote.stt.language_codes`
-- `hyprnote.stt.language_code`
-- `hyprnote.stt.session.id`
-- `hyprnote.stt.job.id`
-- `hyprnote.stt.provider_session.id`
-- `hyprnote.stt.provider_session.duration_s`
-- `hyprnote.stt.provider_session.expires_at`
-- `hyprnote.stt.provider.error_code`
-- `hyprnote.audio.sample_rate_hz`
-- `hyprnote.audio.channel_count`
-- `hyprnote.audio.channel_index`
-- `hyprnote.audio.size_bytes`
-- `hyprnote.audio.duration_s`
-- `hyprnote.audio.device`
+- `anarlog.stt.provider.name`
+- `anarlog.stt.routing_strategy`
+- `anarlog.stt.model`
+- `anarlog.stt.language_codes`
+- `anarlog.stt.language_code`
+- `anarlog.stt.session.id`
+- `anarlog.stt.job.id`
+- `anarlog.stt.provider_session.id`
+- `anarlog.stt.provider_session.duration_s`
+- `anarlog.stt.provider_session.expires_at`
+- `anarlog.stt.provider.error_code`
+- `anarlog.audio.sample_rate_hz`
+- `anarlog.audio.channel_count`
+- `anarlog.audio.channel_index`
+- `anarlog.audio.size_bytes`
+- `anarlog.audio.duration_s`
+- `anarlog.audio.device`
 
 ### Vendor-specific fields
 
 Keep vendor-specific fields namespaced:
 
-- `hyprnote.supabase.*`
-- `hyprnote.stripe.*`
-- `hyprnote.connection.*`
-- `hyprnote.integration.*`
-- `hyprnote.bot.*`
+- `anarlog.supabase.*`
+- `anarlog.stripe.*`
+- `anarlog.connection.*`
+- `anarlog.integration.*`
+- `anarlog.bot.*`
 
 Always prefer `service.peer.name` for the downstream system name.
 
@@ -322,9 +322,9 @@ Always prefer `service.peer.name` for the downstream system name.
 
 If raw payload capture is necessary for debug logs, use:
 
-- `hyprnote.payload.raw`
-- `hyprnote.http.response.body`
-- `hyprnote.http.body_preview`
+- `anarlog.payload.raw`
+- `anarlog.http.response.body`
+- `anarlog.http.body_preview`
 
 Do not put large raw payloads on high-volume spans by default.
 
@@ -339,7 +339,7 @@ Honeycomb service views come from OTEL resource attributes, especially:
 Because of that:
 
 - `apps/api` must stay one Honeycomb service: `api`
-- internal analysis should use `hyprnote.subsystem`
+- internal analysis should use `anarlog.subsystem`
 
 ### High cardinality
 
@@ -347,11 +347,11 @@ Honeycomb handles high-cardinality fields well. IDs are allowed when they help d
 
 Good high-cardinality examples:
 
-- `hyprnote.request.id`
+- `anarlog.request.id`
 - `enduser.id`
 - `enduser.pseudo.id`
 - `gen_ai.response.id`
-- `hyprnote.stt.job.id`
+- `anarlog.stt.job.id`
 - provider session IDs
 
 Do not avoid useful IDs just because they are high cardinality.
@@ -402,11 +402,11 @@ Canonical Sentry tags include:
 - `error.type`
 - `gen_ai.provider.name`
 - `gen_ai.request.model`
-- `hyprnote.gen_ai.request.streaming`
-- `hyprnote.stt.provider.name`
-- `hyprnote.stt.routing_strategy`
-- `hyprnote.stt.model`
-- `hyprnote.stt.language_codes`
+- `anarlog.gen_ai.request.streaming`
+- `anarlog.stt.provider.name`
+- `anarlog.stt.routing_strategy`
+- `anarlog.stt.model`
+- `anarlog.stt.language_codes`
 
 ### Context naming
 
@@ -416,9 +416,9 @@ Canonical context names include:
 
 - `gen_ai.request`
 - `gen_ai.response`
-- `hyprnote.stt.request`
-- `hyprnote.enduser.claims`
-- `hyprnote.session`
+- `anarlog.stt.request`
+- `anarlog.enduser.claims`
+- `anarlog.session`
 
 ### Sentry user
 
@@ -492,7 +492,7 @@ Meaning:
 
 1. Decide whether the concept already has an OTEL semantic convention.
 2. If yes, use the OTEL field name.
-3. If no, add a `hyprnote.*` field.
+3. If no, add a `anarlog.*` field.
 4. If the field will be recorded later on a span, declare it at span creation.
 5. If the code crosses a network boundary, extract or inject W3C trace context.
 6. If request correlation is needed, keep `x-request-id` separate from trace propagation.

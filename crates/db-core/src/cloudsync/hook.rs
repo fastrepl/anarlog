@@ -20,10 +20,10 @@ pub struct CloudsyncHookOutcome {
 }
 
 pub type CloudsyncBeforeHookFuture<'a> = Pin<
-    Box<dyn Future<Output = Result<CloudsyncSyncDirective, hypr_cloudsync::Error>> + Send + 'a>,
+    Box<dyn Future<Output = Result<CloudsyncSyncDirective, anlg_cloudsync::Error>> + Send + 'a>,
 >;
 pub type CloudsyncHookFuture<'a> =
-    Pin<Box<dyn Future<Output = Result<CloudsyncHookOutcome, hypr_cloudsync::Error>> + Send + 'a>>;
+    Pin<Box<dyn Future<Output = Result<CloudsyncHookOutcome, anlg_cloudsync::Error>> + Send + 'a>>;
 
 pub trait CloudsyncSyncHook: Send + Sync + 'static {
     fn activity_paused(&self) -> bool {

@@ -2,9 +2,9 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { platform } from "@tauri-apps/plugin-os";
 import { AlertCircleIcon, ArrowRightIcon, CheckIcon } from "lucide-react";
 
-import type { PermissionStatus } from "@hypr/plugin-permissions";
-import { Button } from "@hypr/ui/components/ui/button";
-import { cn } from "@hypr/utils";
+import type { PermissionStatus } from "@anlg/plugin-permissions";
+import { Button } from "@anlg/ui/components/ui/button";
+import { cn } from "@anlg/utils";
 
 import {
   trackPermissionRequested,

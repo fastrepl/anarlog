@@ -1,4 +1,4 @@
-use hypr_analytics::{AnalyticsClient, AnalyticsPayload};
+use anlg_analytics::{AnalyticsClient, AnalyticsPayload};
 
 #[derive(Debug, Clone)]
 pub struct GenerationEvent {

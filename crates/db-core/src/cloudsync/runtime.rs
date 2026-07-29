@@ -614,7 +614,7 @@ impl Db {
 
     async fn try_cloudsync_has_local_unsent_changes(
         &self,
-    ) -> Result<Option<bool>, hypr_cloudsync::Error> {
+    ) -> Result<Option<bool>, anlg_cloudsync::Error> {
         let Some(mut connection) = self.pool.try_acquire() else {
             return Ok(None);
         };
@@ -629,12 +629,12 @@ impl Db {
 async fn authenticate_cloudsync_network<A, AF, C, CF>(
     authenticate: A,
     cleanup: C,
-) -> Result<(), hypr_cloudsync::Error>
+) -> Result<(), anlg_cloudsync::Error>
 where
     A: FnOnce() -> AF,
-    AF: Future<Output = Result<(), hypr_cloudsync::Error>>,
+    AF: Future<Output = Result<(), anlg_cloudsync::Error>>,
     C: FnOnce() -> CF,
-    CF: Future<Output = Result<(), hypr_cloudsync::Error>>,
+    CF: Future<Output = Result<(), anlg_cloudsync::Error>>,
 {
     if let Err(auth_error) = authenticate().await {
         if let Err(cleanup_error) = cleanup().await {
@@ -663,7 +663,7 @@ fn record_sync_result(
         runtime.last_error_kind = runtime
             .last_error
             .as_deref()
-            .map(|error| hypr_cloudsync::Error::Io(std::io::Error::other(error)).kind());
+            .map(|error| anlg_cloudsync::Error::Io(std::io::Error::other(error)).kind());
         return;
     }
 
@@ -910,7 +910,7 @@ mod tests {
         let runtime = Mutex::new(CloudsyncRuntimeState::default());
         runtime.lock().unwrap().last_sync_at_ms = Some(42);
         let result = CloudsyncNetworkResult {
-            send: Some(hypr_cloudsync::NetworkSendResult {
+            send: Some(anlg_cloudsync::NetworkSendResult {
                 status: "failed".to_string(),
                 local_version: 4,
                 server_version: 3,
@@ -918,7 +918,7 @@ mod tests {
                 bytes: 1024,
                 last_failure: None,
             }),
-            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+            receive: Some(anlg_cloudsync::NetworkReceiveResult {
                 rows: 0,
                 tables: Vec::new(),
                 chunks: 0,
@@ -937,7 +937,7 @@ mod tests {
         assert_eq!(runtime.consecutive_failures, 1);
         assert_eq!(
             runtime.last_error_kind,
-            Some(hypr_cloudsync::ErrorKind::Fatal)
+            Some(anlg_cloudsync::ErrorKind::Fatal)
         );
         assert!(
             runtime
@@ -953,7 +953,7 @@ mod tests {
         let runtime = Mutex::new(CloudsyncRuntimeState::default());
         let result = CloudsyncNetworkResult {
             send: None,
-            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+            receive: Some(anlg_cloudsync::NetworkReceiveResult {
                 rows: 0,
                 tables: Vec::new(),
                 chunks: 0,
@@ -969,7 +969,7 @@ mod tests {
         let runtime = runtime.lock().unwrap();
         assert_eq!(
             runtime.last_error_kind,
-            Some(hypr_cloudsync::ErrorKind::Transient)
+            Some(anlg_cloudsync::ErrorKind::Transient)
         );
         assert_eq!(runtime.consecutive_failures, 1);
     }
@@ -979,7 +979,7 @@ mod tests {
         let runtime = Mutex::new(CloudsyncRuntimeState::default());
         runtime.lock().unwrap().last_sync_at_ms = Some(42);
         let result = CloudsyncNetworkResult {
-            send: Some(hypr_cloudsync::NetworkSendResult {
+            send: Some(anlg_cloudsync::NetworkSendResult {
                 status: "syncing".to_string(),
                 local_version: 4,
                 server_version: 3,
@@ -987,7 +987,7 @@ mod tests {
                 bytes: 1024,
                 last_failure: None,
             }),
-            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+            receive: Some(anlg_cloudsync::NetworkReceiveResult {
                 rows: 3,
                 tables: vec!["sessions".to_string()],
                 chunks: 1,
@@ -1011,7 +1011,7 @@ mod tests {
         let runtime = Mutex::new(CloudsyncRuntimeState::default());
         let result = CloudsyncNetworkResult {
             send: None,
-            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+            receive: Some(anlg_cloudsync::NetworkReceiveResult {
                 rows: 3,
                 tables: vec!["sessions".to_string()],
                 chunks: 1,
@@ -1034,7 +1034,7 @@ mod tests {
         let runtime = Mutex::new(CloudsyncRuntimeState::default());
         let result = CloudsyncNetworkResult {
             send: None,
-            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+            receive: Some(anlg_cloudsync::NetworkReceiveResult {
                 rows: 0,
                 tables: Vec::new(),
                 chunks: 0,
@@ -1057,7 +1057,7 @@ mod tests {
             ..Default::default()
         });
         let result = CloudsyncNetworkResult {
-            send: Some(hypr_cloudsync::NetworkSendResult {
+            send: Some(anlg_cloudsync::NetworkSendResult {
                 status: "synced".to_string(),
                 local_version: 2,
                 server_version: 2,
@@ -1065,7 +1065,7 @@ mod tests {
                 bytes: 1024,
                 last_failure: None,
             }),
-            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+            receive: Some(anlg_cloudsync::NetworkReceiveResult {
                 rows: 0,
                 tables: Vec::new(),
                 chunks: 0,
@@ -1084,7 +1084,7 @@ mod tests {
     #[test]
     fn bounded_sync_combines_send_and_receive_results() {
         let send = CloudsyncNetworkResult {
-            send: Some(hypr_cloudsync::NetworkSendResult {
+            send: Some(anlg_cloudsync::NetworkSendResult {
                 status: "synced".to_string(),
                 local_version: 4,
                 server_version: 4,
@@ -1096,7 +1096,7 @@ mod tests {
         };
         let receive = CloudsyncNetworkResult {
             send: None,
-            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+            receive: Some(anlg_cloudsync::NetworkReceiveResult {
                 rows: 3,
                 tables: vec!["sessions".to_string()],
                 chunks: 1,
@@ -1119,7 +1119,7 @@ mod tests {
         let interval = Duration::from_secs(30);
         let incomplete = CloudsyncNetworkResult {
             send: None,
-            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+            receive: Some(anlg_cloudsync::NetworkReceiveResult {
                 rows: 1,
                 tables: vec!["e2ee_records".to_string()],
                 chunks: 1,
@@ -1137,7 +1137,7 @@ mod tests {
         );
 
         let send_in_progress = CloudsyncNetworkResult {
-            send: Some(hypr_cloudsync::NetworkSendResult {
+            send: Some(anlg_cloudsync::NetworkSendResult {
                 status: "syncing".to_string(),
                 local_version: 3,
                 server_version: 2,
@@ -1145,7 +1145,7 @@ mod tests {
                 bytes: 1024,
                 last_failure: None,
             }),
-            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+            receive: Some(anlg_cloudsync::NetworkReceiveResult {
                 rows: 0,
                 tables: Vec::new(),
                 chunks: 0,
@@ -1161,7 +1161,7 @@ mod tests {
         );
 
         let settled = CloudsyncNetworkResult {
-            send: Some(hypr_cloudsync::NetworkSendResult {
+            send: Some(anlg_cloudsync::NetworkSendResult {
                 status: "synced".to_string(),
                 local_version: 3,
                 server_version: 3,
@@ -1169,7 +1169,7 @@ mod tests {
                 bytes: 0,
                 last_failure: None,
             }),
-            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+            receive: Some(anlg_cloudsync::NetworkReceiveResult {
                 rows: 0,
                 tables: Vec::new(),
                 chunks: 0,
@@ -1185,7 +1185,7 @@ mod tests {
         );
 
         let uploaded = CloudsyncNetworkResult {
-            send: Some(hypr_cloudsync::NetworkSendResult {
+            send: Some(anlg_cloudsync::NetworkSendResult {
                 status: "synced".to_string(),
                 local_version: 4,
                 server_version: 4,
@@ -1364,7 +1364,7 @@ mod tests {
         let hook: Arc<dyn crate::CloudsyncSyncHook> = recording_hook.clone();
         let hook = Mutex::new(Some(hook));
         let last_sync = CloudsyncNetworkResult {
-            send: Some(hypr_cloudsync::NetworkSendResult {
+            send: Some(anlg_cloudsync::NetworkSendResult {
                 status: "synced".to_string(),
                 local_version: 4,
                 server_version: 4,
@@ -1512,7 +1512,7 @@ mod tests {
             .unwrap();
         let last_sync = CloudsyncNetworkResult {
             send: None,
-            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+            receive: Some(anlg_cloudsync::NetworkReceiveResult {
                 rows: 3,
                 tables: vec!["sessions".to_string()],
                 chunks: 1,
@@ -1646,7 +1646,7 @@ mod tests {
     async fn after_sync_hook_receives_the_bounded_network_result() {
         let db = Db::connect_memory_plain().await.unwrap();
         let expected = CloudsyncNetworkResult {
-            send: Some(hypr_cloudsync::NetworkSendResult {
+            send: Some(anlg_cloudsync::NetworkSendResult {
                 status: "synced".to_string(),
                 local_version: 4,
                 server_version: 4,
@@ -1654,7 +1654,7 @@ mod tests {
                 bytes: 1024,
                 last_failure: None,
             }),
-            receive: Some(hypr_cloudsync::NetworkReceiveResult {
+            receive: Some(anlg_cloudsync::NetworkReceiveResult {
                 rows: 3,
                 tables: vec!["sessions".to_string()],
                 chunks: 1,
@@ -1766,13 +1766,13 @@ mod tests {
 
         let error = authenticate_cloudsync_network(
             || async {
-                Err::<(), _>(hypr_cloudsync::Error::from(std::io::Error::other(
+                Err::<(), _>(anlg_cloudsync::Error::from(std::io::Error::other(
                     "authentication rejected",
                 )))
             },
             || async {
                 cleanup_called.store(true, Ordering::SeqCst);
-                Ok::<(), hypr_cloudsync::Error>(())
+                Ok::<(), anlg_cloudsync::Error>(())
             },
         )
         .await
@@ -1850,7 +1850,7 @@ mod tests {
         {
             let mut runtime = db.cloudsync_runtime.lock().unwrap();
             runtime.last_error = Some("stale recovery error".to_string());
-            runtime.last_error_kind = Some(hypr_cloudsync::ErrorKind::Transient);
+            runtime.last_error_kind = Some(anlg_cloudsync::ErrorKind::Transient);
             runtime.consecutive_failures = 3;
             runtime.outbound_work_state = Some(true);
         }
@@ -2260,7 +2260,7 @@ mod tests {
             let mut runtime = db.cloudsync_runtime.lock().unwrap();
             runtime.running = false;
             runtime.last_error = Some("fatal sync failure".to_string());
-            runtime.last_error_kind = Some(hypr_cloudsync::ErrorKind::Fatal);
+            runtime.last_error_kind = Some(anlg_cloudsync::ErrorKind::Fatal);
             runtime.task = Some(CloudsyncBackgroundTask {
                 shutdown_tx: Some(stale_shutdown_tx),
                 join_handle,
@@ -2417,7 +2417,7 @@ mod tests {
     }
 }
 
-fn record_sync_error(runtime: &Mutex<CloudsyncRuntimeState>, error: &hypr_cloudsync::Error) {
+fn record_sync_error(runtime: &Mutex<CloudsyncRuntimeState>, error: &anlg_cloudsync::Error) {
     let mut runtime = runtime.lock().unwrap();
     runtime.consecutive_failures = runtime.consecutive_failures.saturating_add(1);
     runtime.last_error = Some(error.to_string());
@@ -2527,7 +2527,7 @@ async fn cloudsync_background_loop(
 async fn sync_cloudsync_with_retry(
     context: &CloudsyncLoopContext,
     shutdown_rx: &mut oneshot::Receiver<()>,
-) -> Option<Result<CloudsyncStepOutcome, hypr_cloudsync::Error>> {
+) -> Option<Result<CloudsyncStepOutcome, anlg_cloudsync::Error>> {
     let mut backoff = ExponentialBuilder::default()
         .with_min_delay(context.config.interval)
         .with_max_delay(Duration::from_secs(MAX_BACKOFF_SECS))
@@ -2538,7 +2538,7 @@ async fn sync_cloudsync_with_retry(
         let result = run_sync_or_shutdown(context, shutdown_rx).await?;
 
         match result {
-            Err(error) if error.kind() == hypr_cloudsync::ErrorKind::Transient => {
+            Err(error) if error.kind() == anlg_cloudsync::ErrorKind::Transient => {
                 let Some(retry_after) = backoff.next() else {
                     return Some(Err(error));
                 };
@@ -2575,7 +2575,7 @@ async fn sync_cloudsync_with_retry(
 async fn run_sync_or_shutdown(
     context: &CloudsyncLoopContext,
     shutdown_rx: &mut oneshot::Receiver<()>,
-) -> Option<Result<CloudsyncStepOutcome, hypr_cloudsync::Error>> {
+) -> Option<Result<CloudsyncStepOutcome, anlg_cloudsync::Error>> {
     let sync = sync_cloudsync_connection(
         &context.pool,
         &context.connection,
@@ -2638,7 +2638,7 @@ async fn sync_cloudsync_connection(
     sync_operation: &tokio::sync::Mutex<()>,
     runtime_state: &Mutex<CloudsyncRuntimeState>,
     sync_hook: &Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>,
-) -> Result<CloudsyncStepOutcome, hypr_cloudsync::Error> {
+) -> Result<CloudsyncStepOutcome, anlg_cloudsync::Error> {
     let _sync_operation = sync_operation.lock().await;
     if cloudsync_activity_paused(sync_hook) {
         tracing::debug!("cloudsync deferred while local activity is active");
@@ -2791,7 +2791,7 @@ fn merge_bounded_sync_results(
 async fn run_before_sync_hook(
     hook: &Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>,
     pool: &SqlitePool,
-) -> Result<super::CloudsyncSyncDirective, hypr_cloudsync::Error> {
+) -> Result<super::CloudsyncSyncDirective, anlg_cloudsync::Error> {
     let hook = hook.lock().unwrap().clone();
     match hook {
         Some(hook) => hook.before_sync(pool).await,
@@ -2803,7 +2803,7 @@ async fn run_after_sync_hook(
     hook: &Mutex<Option<Arc<dyn super::CloudsyncSyncHook>>>,
     pool: &SqlitePool,
     result: &CloudsyncNetworkResult,
-) -> Result<super::CloudsyncHookOutcome, hypr_cloudsync::Error> {
+) -> Result<super::CloudsyncHookOutcome, anlg_cloudsync::Error> {
     let hook = hook.lock().unwrap().clone();
     match hook {
         Some(hook) => hook.after_sync(pool, result).await,

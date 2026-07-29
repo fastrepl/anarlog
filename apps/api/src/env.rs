@@ -12,39 +12,39 @@ fn default_port() -> u16 {
 pub struct Env {
     #[serde(default = "default_port")]
     pub port: u16,
-    #[serde(default, deserialize_with = "hypr_api_env::filter_empty")]
+    #[serde(default, deserialize_with = "anlg_api_env::filter_empty")]
     pub sentry_dsn: Option<String>,
-    #[serde(default, deserialize_with = "hypr_api_env::filter_empty")]
+    #[serde(default, deserialize_with = "anlg_api_env::filter_empty")]
     pub posthog_api_key: Option<String>,
     #[serde(default)]
     pub anarlog_attachment_backup_gc_enabled: bool,
-    #[serde(default, deserialize_with = "hypr_api_env::filter_empty")]
+    #[serde(default, deserialize_with = "anlg_api_env::filter_empty")]
     pub sqlitecloud_cloudsync_management_api_key: Option<String>,
 
     #[serde(flatten)]
     pub observability: crate::observability::Env,
 
     #[serde(flatten)]
-    pub supabase: hypr_api_env::SupabaseEnv,
+    pub supabase: anlg_api_env::SupabaseEnv,
     #[serde(flatten)]
-    pub sync: hypr_api_sync::SyncEnv,
+    pub sync: anlg_api_sync::SyncEnv,
     #[serde(flatten)]
-    pub nango: hypr_api_env::NangoEnv,
+    pub nango: anlg_api_env::NangoEnv,
     #[serde(flatten)]
-    pub stripe: hypr_api_env::StripeEnv,
+    pub stripe: anlg_api_env::StripeEnv,
     #[serde(flatten)]
-    pub pyannote: hypr_api_env::PyannoteEnv,
+    pub pyannote: anlg_api_env::PyannoteEnv,
 
     pub exa_api_key: String,
     pub jina_api_key: String,
 
     #[serde(flatten)]
-    pub loops: hypr_api_env::LoopsEnv,
+    pub loops: anlg_api_env::LoopsEnv,
 
     #[serde(flatten)]
-    pub llm: hypr_llm_proxy::Env,
+    pub llm: anlg_llm_proxy::Env,
     #[serde(flatten)]
-    pub stt: hypr_transcribe_proxy::Env,
+    pub stt: anlg_transcribe_proxy::Env,
 }
 
 static ENV: OnceLock<Env> = OnceLock::new();
@@ -100,7 +100,7 @@ mod tests {
     #[derive(Deserialize)]
     struct SyncOnlyEnv {
         #[serde(flatten)]
-        sync: hypr_api_sync::SyncEnv,
+        sync: anlg_api_sync::SyncEnv,
     }
 
     #[test]

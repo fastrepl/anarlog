@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/plugin-shortcut",
+  "name": "@anlg/plugin-shortcut",
   "private": true,
   "main": "./js/index.ts",
   "scripts": {

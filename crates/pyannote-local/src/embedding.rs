@@ -1,6 +1,6 @@
 use dasp::sample::ToSample;
 
-use hypr_onnx::{
+use anlg_onnx::{
     ndarray::{self, Array2},
     ort::{self, session::Session, value::TensorRef},
 };
@@ -19,7 +19,7 @@ impl Default for EmbeddingExtractor {
 
 impl EmbeddingExtractor {
     pub fn new() -> Self {
-        let session = hypr_onnx::load_model_from_bytes(EMBEDDING_ONNX).unwrap();
+        let session = anlg_onnx::load_model_from_bytes(EMBEDDING_ONNX).unwrap();
         Self { session }
     }
 

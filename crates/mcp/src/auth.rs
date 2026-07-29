@@ -1,4 +1,4 @@
-use hypr_api_auth::AuthContext;
+use anlg_api_auth::AuthContext;
 use rmcp::{
     ErrorData as McpError,
     handler::server::{common::FromContextPart, tool::ToolCallContext},

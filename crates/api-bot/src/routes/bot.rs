@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use axum::{Extension, Json, extract::Path, response::Html};
-use hypr_recall::{
+use anlg_recall::{
     AutomaticLeaveConfig, BotStatusCode, BotVariant, CreateBotRequest, EveryoneLeftConfig,
     OutputMedia, OutputMediaConfig, OutputMediaKind, OutputMediaWebpageConfig,
     RealTimeTranscriptionConfig, RecallClient, RecordingConfig, SilenceDetectionConfig,
     StartRecordingOn, TranscriptionOptions, TranscriptionProvider, VariantKind,
 };
+use axum::{Extension, Json, extract::Path, response::Html};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -45,7 +45,7 @@ pub async fn send_bot(
     let bot = client
         .create_bot(CreateBotRequest {
             meeting_url: req.meeting_url,
-            bot_name: req.bot_name.unwrap_or_else(|| "Hyprnote".into()),
+            bot_name: req.bot_name.unwrap_or_else(|| "Anarlog".into()),
             transcription_options: Some(TranscriptionOptions {
                 provider: TranscriptionProvider::MeetingCaptions,
             }),
@@ -100,7 +100,7 @@ pub async fn start_demo(
     let bot = client
         .create_bot(CreateBotRequest {
             meeting_url: req.meeting_url.clone(),
-            bot_name: "Hyprnote Demo".into(),
+            bot_name: "Anarlog Demo".into(),
             transcription_options: None,
             real_time_transcription: None,
             output_media: Some(OutputMedia {

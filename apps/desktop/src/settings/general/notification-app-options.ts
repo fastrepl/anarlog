@@ -1,4 +1,4 @@
-import type { InstalledApp } from "@hypr/plugin-detect";
+import type { InstalledApp } from "@anlg/plugin-detect";
 
 function isAppIgnored({
   bundleId,

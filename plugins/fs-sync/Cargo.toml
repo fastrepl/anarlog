@@ -15,7 +15,7 @@ specta-typescript = { workspace = true }
 tempfile = { workspace = true }
 
 [dependencies]
-hypr-fs-sync-core = { workspace = true, features = ["tauri-event"] }
+anlg-fs-sync-core = { workspace = true, features = ["tauri-event"] }
 
 tauri = { workspace = true, features = ["test"] }
 tauri-plugin-notify = { workspace = true }

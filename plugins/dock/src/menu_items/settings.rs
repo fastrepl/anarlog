@@ -8,6 +8,6 @@ impl DockMenuItem for DockSettings {
     }
 
     fn handle(app: &tauri::AppHandle<tauri::Wry>) {
-        tauri_plugin_tray::HyprMenuItem::TraySettings.handle(app);
+        tauri_plugin_tray::AnlgMenuItem::TraySettings.handle(app);
     }
 }

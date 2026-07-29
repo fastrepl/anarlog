@@ -1,13 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useRef, useState } from "react";
 
-import { commands as notificationCommands } from "@hypr/plugin-notification";
+import { commands as notificationCommands } from "@anlg/plugin-notification";
 import {
   commands as windowsCommands,
   events as windowsEvents,
   getCurrentWebviewWindowLabel,
   openUrlWithInstruction,
-} from "@hypr/plugin-windows";
+} from "@anlg/plugin-windows";
 
 import { useBillingAccess } from "~/auth/billing-context";
 import { TrialEndedDialog } from "~/billing/trial-ended-dialog";

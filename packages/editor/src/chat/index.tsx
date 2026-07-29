@@ -26,7 +26,7 @@ import { EditorState, Plugin, PluginKey } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import { EditorErrorBoundary } from "../editor-error-boundary";
 import {

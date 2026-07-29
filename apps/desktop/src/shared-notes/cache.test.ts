@@ -22,7 +22,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("~/db", async () => {
   const { createDb } =
-    await vi.importActual<typeof import("@hypr/db")>("@hypr/db");
+    await vi.importActual<typeof import("@anlg/db")>("@anlg/db");
   return {
     db: createDb({ executeProxy: vi.fn() }),
     executeTransaction: mocks.executeTransaction,

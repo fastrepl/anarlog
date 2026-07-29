@@ -1,7 +1,7 @@
 import type { Session } from "@supabase/supabase-js";
 
-import type { JSONContent } from "@hypr/editor/note";
-import { uploadSharedAttachment } from "@hypr/supabase/storage";
+import type { JSONContent } from "@anlg/editor/note";
+import { uploadSharedAttachment } from "@anlg/supabase/storage";
 
 import { attachmentTransferNative } from "~/attachment-sync/native";
 import { liveQueryClient, useLiveQuery } from "~/db";

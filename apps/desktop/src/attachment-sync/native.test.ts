@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   downloadSharedAttachment: vi.fn(),
 }));
 
-vi.mock("@hypr/plugin-attachment-sync", () => ({
+vi.mock("@anlg/plugin-attachment-sync", () => ({
   commands: mocks,
 }));
 

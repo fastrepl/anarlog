@@ -1,7 +1,7 @@
 import {
   commands as attachmentSyncCommands,
   type SharedAttachmentCacheResult,
-} from "@hypr/plugin-attachment-sync";
+} from "@anlg/plugin-attachment-sync";
 
 export type { SharedAttachmentCacheResult };
 

@@ -4,36 +4,36 @@ use tauri_plugin_detect::env::test_support::TestEnv;
 use tauri_plugin_detect::handler::handle_detect_event;
 use tauri_plugin_detect::{DetectEvent, ProcessorState};
 
-fn zoom() -> hypr_detect::InstalledApp {
-    hypr_detect::InstalledApp {
+fn zoom() -> anlg_detect::InstalledApp {
+    anlg_detect::InstalledApp {
         id: "us.zoom.xos".to_string(),
         name: "zoom.us".to_string(),
     }
 }
 
-fn aqua_voice() -> hypr_detect::InstalledApp {
-    hypr_detect::InstalledApp {
+fn aqua_voice() -> anlg_detect::InstalledApp {
+    anlg_detect::InstalledApp {
         id: "com.electron.aqua-voice".to_string(),
         name: "Aqua Voice".to_string(),
     }
 }
 
-fn screen_studio() -> hypr_detect::InstalledApp {
-    hypr_detect::InstalledApp {
+fn screen_studio() -> anlg_detect::InstalledApp {
+    anlg_detect::InstalledApp {
         id: "com.timpler.screenstudio".to_string(),
         name: "Screen Studio".to_string(),
     }
 }
 
-fn snagit_2024() -> hypr_detect::InstalledApp {
-    hypr_detect::InstalledApp {
+fn snagit_2024() -> anlg_detect::InstalledApp {
+    anlg_detect::InstalledApp {
         id: "com.TechSmith.Snagit2024".to_string(),
         name: "Snagit 2024".to_string(),
     }
 }
 
-fn slack() -> hypr_detect::InstalledApp {
-    hypr_detect::InstalledApp {
+fn slack() -> anlg_detect::InstalledApp {
+    anlg_detect::InstalledApp {
         id: "com.tinyspeck.slackmacgap".to_string(),
         name: "Slack".to_string(),
     }
@@ -52,19 +52,19 @@ impl Harness {
         }
     }
 
-    fn mic_started(&self, app: hypr_detect::InstalledApp) {
+    fn mic_started(&self, app: anlg_detect::InstalledApp) {
         handle_detect_event(
             &self.env,
             &self.state,
-            hypr_detect::DetectEvent::MicStarted(vec![app]),
+            anlg_detect::DetectEvent::MicStarted(vec![app]),
         );
     }
 
-    fn mic_stopped(&self, app: hypr_detect::InstalledApp) {
+    fn mic_stopped(&self, app: anlg_detect::InstalledApp) {
         handle_detect_event(
             &self.env,
             &self.state,
-            hypr_detect::DetectEvent::MicStopped(vec![app]),
+            anlg_detect::DetectEvent::MicStopped(vec![app]),
         );
     }
 
@@ -494,7 +494,7 @@ async fn test_multiple_apps_start_simultaneously() {
     handle_detect_event(
         &h.env,
         &h.state,
-        hypr_detect::DetectEvent::MicStarted(vec![zoom(), slack()]),
+        anlg_detect::DetectEvent::MicStarted(vec![zoom(), slack()]),
     );
 
     h.advance_secs(15).await;
@@ -568,7 +568,7 @@ async fn test_stop_all_apps_simultaneously() {
     handle_detect_event(
         &h.env,
         &h.state,
-        hypr_detect::DetectEvent::MicStopped(vec![zoom(), slack()]),
+        anlg_detect::DetectEvent::MicStopped(vec![zoom(), slack()]),
     );
     h.take_events();
 

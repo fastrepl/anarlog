@@ -14,9 +14,9 @@ tauri-plugin = { workspace = true, features = ["build"] }
 specta-typescript = { workspace = true }
 
 [dependencies]
-hypr-gbnf = { workspace = true }
-hypr-template-app = { workspace = true }
-hypr-template-app-legacy = { workspace = true }
+anlg-gbnf = { workspace = true }
+anlg-template-app = { workspace = true }
+anlg-template-app-legacy = { workspace = true }
 
 serde_json = { workspace = true }
 tracing = { workspace = true }

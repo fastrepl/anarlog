@@ -11,16 +11,16 @@ pub use ext::*;
 use session::*;
 use store::*;
 
-pub use hypr_analytics::*;
+pub use anlg_analytics::*;
 
 pub struct ManagedState {
-    client: hypr_analytics::AnalyticsClient,
+    client: anlg_analytics::AnalyticsClient,
     groups: std::sync::Mutex<std::collections::HashMap<String, String>>,
     session: std::sync::Mutex<SessionTracker>,
 }
 
 impl ManagedState {
-    fn new(client: hypr_analytics::AnalyticsClient) -> Self {
+    fn new(client: anlg_analytics::AnalyticsClient) -> Self {
         Self {
             client,
             groups: std::sync::Mutex::new(std::collections::HashMap::new()),
@@ -67,7 +67,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             };
 
             let client = {
-                let mut builder = hypr_analytics::AnalyticsClientBuilder::default();
+                let mut builder = anlg_analytics::AnalyticsClientBuilder::default();
                 if let Some(key) = posthog_key {
                     builder = builder.with_posthog(key);
                 }
@@ -121,7 +121,7 @@ mod test {
         let app = create_app(tauri::test::mock_builder());
         let result = app
             .analytics()
-            .event(hypr_analytics::AnalyticsPayload::builder("test_event").build())
+            .event(anlg_analytics::AnalyticsPayload::builder("test_event").build())
             .await;
         assert!(result.is_ok());
 

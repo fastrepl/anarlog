@@ -9,8 +9,8 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@hypr/ui/components/ui/popover";
-import { cn } from "@hypr/utils";
+} from "@anlg/ui/components/ui/popover";
+import { cn } from "@anlg/utils";
 
 import {
   DEFAULT_TEMPLATE_ICON,

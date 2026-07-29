@@ -1,5 +1,5 @@
+use anlg_vad_masking::{StreamingVad, VadConfig};
 use dagc::MonoAgc;
-use hypr_vad_masking::{StreamingVad, VadConfig};
 
 pub struct VadAgc {
     agc: MonoAgc,
@@ -67,7 +67,7 @@ mod tests {
     #[test]
     fn test_agc() {
         let input_audio = rodio::Decoder::try_from(
-            std::fs::File::open(hypr_data::english_1::AUDIO_PATH).unwrap(),
+            std::fs::File::open(anlg_data::english_1::AUDIO_PATH).unwrap(),
         )
         .unwrap();
         let original_samples: Vec<f32> = input_audio.collect();
@@ -101,7 +101,7 @@ mod tests {
     #[test]
     fn test_cross_call_framing() {
         let input_audio = rodio::Decoder::try_from(
-            std::fs::File::open(hypr_data::english_1::AUDIO_PATH).unwrap(),
+            std::fs::File::open(anlg_data::english_1::AUDIO_PATH).unwrap(),
         )
         .unwrap();
         let original_samples: Vec<f32> = input_audio.collect();

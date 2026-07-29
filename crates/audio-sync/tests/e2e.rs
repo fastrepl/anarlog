@@ -276,9 +276,9 @@ const PAIRS: &[AudioPair] = &[
         lpb: include_bytes!("../../aec/data/inputs/doubletalk_lpb_sample.wav"),
     },
     AudioPair {
-        name: "hyprnote",
-        mic: include_bytes!("../../aec/data/inputs/hyprnote_mic.wav"),
-        lpb: include_bytes!("../../aec/data/inputs/hyprnote_lpb.wav"),
+        name: "anarlog",
+        mic: include_bytes!("../../aec/data/inputs/anarlog_mic.wav"),
+        lpb: include_bytes!("../../aec/data/inputs/anarlog_lpb.wav"),
     },
     AudioPair {
         name: "theo",
@@ -310,7 +310,7 @@ fn natural_lag_measurement() {
                 assert!(result.skipped_low_confidence > 0);
                 assert_eq!(result.locked_measurements, 0);
             }
-            "hyprnote" => {
+            "anarlog" => {
                 assert!(result.measurements.is_empty());
                 assert!(result.skipped_low_energy > 0);
                 assert_eq!(result.locked_measurements, 0);
@@ -359,7 +359,7 @@ fn artificial_delay_detection() {
                     assert!(result.skipped_low_confidence > 0);
                     assert_eq!(result.locked_measurements, 0);
                 }
-                "hyprnote" => {
+                "anarlog" => {
                     assert!(result.measurements.is_empty());
                     assert!(result.skipped_low_energy > 0);
                     assert_eq!(result.locked_measurements, 0);

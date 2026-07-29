@@ -14,7 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
   "customer success": HandshakeIcon,

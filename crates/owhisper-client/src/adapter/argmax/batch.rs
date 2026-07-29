@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use anlg_audio_utils::{Source, f32_to_i16_bytes, resample_audio, source_from_path};
 use futures_util::StreamExt;
-use hypr_audio_utils::{Source, f32_to_i16_bytes, resample_audio, source_from_path};
 use owhisper_interface::batch::Response as BatchResponse;
 use owhisper_interface::batch_stream::BatchStreamEvent;
 use owhisper_interface::stream::StreamResponse;
@@ -23,7 +23,7 @@ impl BatchSttAdapter for ArgmaxAdapter {
 
     fn is_supported_languages(
         &self,
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> bool {
         ArgmaxAdapter::is_supported_languages_batch(languages, model)
@@ -170,7 +170,7 @@ impl ArgmaxAdapter {
 
         let chunked_audio = tokio::task::spawn_blocking({
             let chunk_ms = config.chunk_ms;
-            move || hypr_audio_utils::chunk_audio_file(path, chunk_ms)
+            move || anlg_audio_utils::chunk_audio_file(path, chunk_ms)
         })
         .await
         .map_err(|e| Error::AudioProcessing(format!("chunk task panicked: {:?}", e)))?
@@ -303,7 +303,7 @@ mod tests {
         let adapter = ArgmaxAdapter::default();
         let params = ListenParams::default();
 
-        let audio_path = std::path::PathBuf::from(hypr_data::english_1::AUDIO_PATH);
+        let audio_path = std::path::PathBuf::from(anlg_data::english_1::AUDIO_PATH);
 
         let result = adapter
             .transcribe_file(

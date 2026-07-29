@@ -16,7 +16,7 @@ pub struct ArgmaxAdapter;
 
 impl ArgmaxAdapter {
     pub fn language_support_live(
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> LanguageSupport {
         let model = model.unwrap_or("");
@@ -52,21 +52,21 @@ impl ArgmaxAdapter {
     }
 
     pub fn language_support_batch(
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> LanguageSupport {
         Self::language_support_live(languages, model)
     }
 
     pub fn is_supported_languages_live(
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> bool {
         Self::language_support_live(languages, model).is_supported()
     }
 
     pub fn is_supported_languages_batch(
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> bool {
         Self::language_support_batch(languages, model).is_supported()

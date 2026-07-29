@@ -3,14 +3,14 @@ use std::path::{Path, PathBuf};
 #[cfg(target_arch = "aarch64")]
 pub static SUPPORTED_MODELS: &[SupportedModel] = &[
     SupportedModel::Llama3p2_3bQ4,
-    SupportedModel::HyprLLM,
+    SupportedModel::AnarlogLLM,
     SupportedModel::Gemma3_4bQ4,
 ];
 
 #[cfg(not(target_arch = "aarch64"))]
 pub static SUPPORTED_MODELS: &[SupportedModel] = &[];
 
-pub use hypr_local_model::GgufLlmModel as SupportedModel;
+pub use anlg_local_model::GgufLlmModel as SupportedModel;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -34,7 +34,7 @@ pub fn llm_models_dir(models_base: &Path) -> PathBuf {
 
 pub fn list_supported_models() -> Vec<ModelInfo> {
     vec![
-        supported_model_info(&SupportedModel::HyprLLM),
+        supported_model_info(&SupportedModel::AnarlogLLM),
         supported_model_info(&SupportedModel::Gemma3_4bQ4),
         supported_model_info(&SupportedModel::Llama3p2_3bQ4),
     ]
@@ -42,7 +42,7 @@ pub fn list_supported_models() -> Vec<ModelInfo> {
 
 pub fn supported_model_info(model: &SupportedModel) -> ModelInfo {
     let description = match model {
-        SupportedModel::HyprLLM => "Experimental model trained by the Char team.",
+        SupportedModel::AnarlogLLM => "Experimental model trained by the Char team.",
         SupportedModel::Gemma3_4bQ4 | SupportedModel::Llama3p2_3bQ4 => {
             "Deprecated. Exists only for backward compatibility."
         }

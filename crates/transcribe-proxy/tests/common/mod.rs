@@ -1,24 +1,24 @@
 #![allow(dead_code)]
 
+pub mod anarlog;
 pub mod fixtures;
-pub mod hyprnote;
 pub mod mock_upstream;
 pub mod proxy;
 pub mod recording;
 pub mod ws;
 
 #[allow(unused_imports)]
-pub use fixtures::load_fixture;
-#[allow(unused_imports)]
-pub use hyprnote::{
+pub use anarlog::{
     ClientStreamResult, TranscriptEvent, batch_upstream_url, close_only_recording,
     collect_streaming_via_client, collect_streaming_via_client_result, english, sample_response,
-    send_batch, send_batch_via_deepgram_client, send_batch_via_hyprnote_client, send_streaming,
+    send_batch, send_batch_via_anarlog_client, send_batch_via_deepgram_client, send_streaming,
     send_streaming_via_client, single_response_recording, soniox_error_recording,
     soniox_finalize_message, soniox_finalize_recording, soniox_finalize_ws_message,
     soniox_partial_recording, soniox_partial_ws_message, split_test_audio_frame, start_mock_ws,
     start_split_mock_ws, stereo_listen_url, terminal_finalize_count, transcript_events,
 };
+#[allow(unused_imports)]
+pub use fixtures::load_fixture;
 #[allow(unused_imports)]
 pub use mock_upstream::{
     MockServerHandle, MockUpstreamConfig, start_mock_server_group_with_config,
@@ -44,11 +44,11 @@ use std::time::Duration;
 use futures_util::StreamExt;
 use owhisper_client::Provider;
 use transcribe_proxy::{
-    HyprnoteRoutingConfig, SttAnalyticsReporter, SttEvent, SttProxyConfig, router,
+    AnarlogRoutingConfig, SttAnalyticsReporter, SttEvent, SttProxyConfig, router,
 };
 
-fn test_supabase_env() -> hypr_api_env::SupabaseEnv {
-    hypr_api_env::SupabaseEnv {
+fn test_supabase_env() -> anlg_api_env::SupabaseEnv {
+    anlg_api_env::SupabaseEnv {
         supabase_url: String::new(),
         supabase_anon_key: String::new(),
         supabase_service_role_key: String::new(),
@@ -89,7 +89,7 @@ pub async fn start_server_with_provider(provider: Provider, api_key: String) -> 
     let env = env_with_provider(provider, api_key);
     let config = SttProxyConfig::new(&env, &test_supabase_env())
         .with_default_provider(provider)
-        .with_hyprnote_routing(HyprnoteRoutingConfig::default());
+        .with_anarlog_routing(AnarlogRoutingConfig::default());
     start_server(config).await
 }
 
@@ -135,13 +135,13 @@ pub fn test_audio_stream_with_rate(
 > + Send
 + Unpin
 + 'static {
-    use hypr_audio_utils::AudioFormatExt;
+    use anlg_audio_utils::AudioFormatExt;
 
     // chunk_samples should be proportional to sample_rate to maintain 100ms chunks
     let chunk_samples = (sample_rate / 10) as usize;
 
     let audio = rodio::Decoder::new(std::io::BufReader::new(
-        std::fs::File::open(hypr_data::english_1::AUDIO_PATH).unwrap(),
+        std::fs::File::open(anlg_data::english_1::AUDIO_PATH).unwrap(),
     ))
     .unwrap()
     .to_i16_le_chunks(sample_rate, chunk_samples);

@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/mobile",
+  "name": "@anlg/mobile",
   "main": "expo-router/entry",
   "version": "0.1.0",
   "private": true,
@@ -13,8 +13,8 @@
   "dependencies": {
     "@expo/ui": "~57.0.7",
     "@expo/vector-icons": "^15.1.1",
-    "@hypr/db-react": "workspace:*",
-    "@hypr/db-runtime": "workspace:*",
+    "@anlg/db-react": "workspace:*",
+    "@anlg/db-runtime": "workspace:*",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@sentry/react-native": "^8.20.0",
     "@supabase/supabase-js": "^2.103.0",

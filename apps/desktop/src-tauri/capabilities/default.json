@@ -34,7 +34,7 @@
     "windows:allow-devtools-panel-show",
     "windows:allow-devtools-panel-hide",
     "tracing:default",
-    "hypr-tray:default",
+    "anlg-tray:default",
     "analytics:default",
     "attachment-sync:default",
     "agent:default",

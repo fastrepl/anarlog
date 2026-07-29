@@ -1,7 +1,7 @@
 import { CornerDownLeft } from "lucide-react";
 import { type CSSProperties, useEffect, useRef } from "react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 type DropdownOption = {
   id: string;

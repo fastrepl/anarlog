@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use hypr_askama_utils::{TEMPLATE_FILTERS, TemplateUsage, extract};
+use anlg_askama_utils::{TEMPLATE_FILTERS, TemplateUsage, extract};
 
 use crate::Error;
 

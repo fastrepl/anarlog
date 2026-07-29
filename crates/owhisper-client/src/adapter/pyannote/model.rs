@@ -39,7 +39,7 @@ impl PyannoteTranscriptionModel {
         }
     }
 
-    pub fn supports_language(&self, lang: &hypr_language::Language) -> bool {
+    pub fn supports_language(&self, lang: &anlg_language::Language) -> bool {
         lang.matches_any_code(self.supported_languages())
     }
 }

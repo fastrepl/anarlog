@@ -1,4 +1,4 @@
-use hypr_github_issues::{GitHubIssuesClient, Issue, IssueComment};
+use anlg_github_issues::{GitHubIssuesClient, Issue, IssueComment};
 
 use crate::error::Error;
 
@@ -22,7 +22,7 @@ impl PublicGitHubHttpClient {
         );
         headers.insert(
             reqwest::header::USER_AGENT,
-            reqwest::header::HeaderValue::from_static("hypr-desktop"),
+            reqwest::header::HeaderValue::from_static("anarlog-desktop"),
         );
 
         let client = reqwest::Client::builder()
@@ -32,7 +32,7 @@ impl PublicGitHubHttpClient {
     }
 }
 
-fn unsupported_request(method: &str) -> Result<Vec<u8>, hypr_http::Error> {
+fn unsupported_request(method: &str) -> Result<Vec<u8>, anlg_http::Error> {
     Err(std::io::Error::new(
         std::io::ErrorKind::Unsupported,
         format!("public GitHub client does not support {method} requests"),
@@ -40,8 +40,8 @@ fn unsupported_request(method: &str) -> Result<Vec<u8>, hypr_http::Error> {
     .into())
 }
 
-impl hypr_http::HttpClient for PublicGitHubHttpClient {
-    async fn get(&self, path: &str) -> Result<Vec<u8>, hypr_http::Error> {
+impl anlg_http::HttpClient for PublicGitHubHttpClient {
+    async fn get(&self, path: &str) -> Result<Vec<u8>, anlg_http::Error> {
         let url = format!("https://api.github.com{path}");
         let resp = self.client.get(&url).send().await.map_err(Box::new)?;
         let status = resp.status();
@@ -57,19 +57,19 @@ impl hypr_http::HttpClient for PublicGitHubHttpClient {
         _path: &str,
         _body: Vec<u8>,
         _content_type: &str,
-    ) -> Result<Vec<u8>, hypr_http::Error> {
+    ) -> Result<Vec<u8>, anlg_http::Error> {
         unsupported_request("POST")
     }
 
-    async fn put(&self, _path: &str, _body: Vec<u8>) -> Result<Vec<u8>, hypr_http::Error> {
+    async fn put(&self, _path: &str, _body: Vec<u8>) -> Result<Vec<u8>, anlg_http::Error> {
         unsupported_request("PUT")
     }
 
-    async fn patch(&self, _path: &str, _body: Vec<u8>) -> Result<Vec<u8>, hypr_http::Error> {
+    async fn patch(&self, _path: &str, _body: Vec<u8>) -> Result<Vec<u8>, anlg_http::Error> {
         unsupported_request("PATCH")
     }
 
-    async fn delete(&self, _path: &str) -> Result<Vec<u8>, hypr_http::Error> {
+    async fn delete(&self, _path: &str) -> Result<Vec<u8>, anlg_http::Error> {
         unsupported_request("DELETE")
     }
 }

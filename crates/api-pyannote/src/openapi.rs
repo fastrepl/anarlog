@@ -20,7 +20,7 @@ use utoipa::openapi::{
 struct ApiDoc;
 
 pub fn openapi() -> OpenApiDoc {
-    let mut doc = hypr_pyannote_cloud::openapi();
+    let mut doc = anlg_pyannote_cloud::openapi();
     let custom = ApiDoc::openapi();
 
     doc.paths.paths.retain(|path, _| {

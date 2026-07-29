@@ -1,6 +1,6 @@
 import { type ReactNode, useId } from "react";
 
-import { Switch } from "@hypr/ui/components/ui/switch";
+import { Switch } from "@anlg/ui/components/ui/switch";
 
 export const SETTING_CONTROL_CLASS =
   "bg-card h-9 w-full shadow-none focus:ring-0";

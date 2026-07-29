@@ -14,7 +14,7 @@ tauri-plugin = { workspace = true, features = ["build"] }
 specta-typescript = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
-hypr-docs = { workspace = true }
+anlg-docs = { workspace = true }
 open = { workspace = true }
 serde_yaml = { workspace = true }
 

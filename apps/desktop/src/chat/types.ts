@@ -33,7 +33,7 @@ const messageMetadataSchema = z.object({
 });
 
 type MessageMetadata = z.infer<typeof messageMetadataSchema>;
-export type HyprUIMessage = UIMessage<
+export type AnlgUIMessage = UIMessage<
   MessageMetadata & { contextRefs?: ContextRef[] }
 >;
 
@@ -45,6 +45,6 @@ export type ChatSendOptions = {
 };
 
 export type ChatMessageSender = (
-  message: HyprUIMessage,
+  message: AnlgUIMessage,
   options?: ChatSendOptions,
 ) => void;

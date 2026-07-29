@@ -17,7 +17,7 @@ fn bench_segmenter_init(c: &mut Criterion) {
 }
 
 fn bench_segmenter_process_english_1(c: &mut Criterion) {
-    let samples = pcm_bytes_to_i16(hypr_data::english_1::AUDIO);
+    let samples = pcm_bytes_to_i16(anlg_data::english_1::AUDIO);
 
     c.bench_function("segmenter_process english_1", |b| {
         b.iter_batched(

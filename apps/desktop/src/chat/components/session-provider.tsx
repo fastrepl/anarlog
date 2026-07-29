@@ -42,7 +42,7 @@ import { useTransport } from "~/chat/transport/use-transport";
 import type {
   ChatMessageSender,
   ChatSendOptions,
-  HyprUIMessage,
+  AnlgUIMessage,
 } from "~/chat/types";
 import { flushDatabaseWritesByPrefix } from "~/db/write-queue";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -50,9 +50,9 @@ import { useOwnerUserId } from "~/shared/owner-user";
 
 export type ChatSessionRenderProps = {
   sessionId: string;
-  messages: HyprUIMessage[];
+  messages: AnlgUIMessage[];
   setMessages: (
-    msgs: HyprUIMessage[] | ((prev: HyprUIMessage[]) => HyprUIMessage[]),
+    msgs: AnlgUIMessage[] | ((prev: AnlgUIMessage[]) => AnlgUIMessage[]),
   ) => void;
   sendMessage: ChatMessageSender;
   regenerate: () => void;
@@ -80,7 +80,7 @@ interface ChatSessionProps {
   children: (props: ChatSessionRenderProps) => ReactNode;
 }
 
-function areMessagesEqual(a: HyprUIMessage[], b: HyprUIMessage[]) {
+function areMessagesEqual(a: AnlgUIMessage[], b: AnlgUIMessage[]) {
   if (a.length !== b.length) {
     return false;
   }
@@ -118,7 +118,7 @@ function ChatSessionLifecycle({
   const [pendingDraftRefs, setPendingDraftRefs] = useState<ContextRef[]>([]);
   const latestChatGroupIdRef = useRef(chatGroupId);
   const latestUserIdRef = useRef(ownerUserId);
-  const initialMessagesRef = useRef<HyprUIMessage[]>([]);
+  const initialMessagesRef = useRef<AnlgUIMessage[]>([]);
   const submittedChatGroupIdsRef = useRef(new Map<string, string>());
   const pendingTransportPreflightsRef = useRef(
     new Map<string, GuardedChatPreflight[]>(),
@@ -204,7 +204,7 @@ function ChatSessionLifecycle({
 
   const chat = useMemo(
     () =>
-      new Chat<HyprUIMessage>({
+      new Chat<AnlgUIMessage>({
         id: sessionId,
         messages: initialMessagesRef.current,
         transport: guardChatTransport(
@@ -217,7 +217,7 @@ function ChatSessionLifecycle({
           const messageIndex = messages.findIndex((m) => m.id === message.id);
           const lastMessageIndex =
             messageIndex === -1 ? messages.length - 1 : messageIndex - 1;
-          let submittedUserMessage: HyprUIMessage | undefined;
+          let submittedUserMessage: AnlgUIMessage | undefined;
           for (let i = lastMessageIndex; i >= 0; i--) {
             if (messages[i].role === "user") {
               submittedUserMessage = messages[i];
@@ -387,7 +387,7 @@ function ChatSessionLifecycle({
     status,
     error,
     setMessages: chatSetMessages,
-  } = useChat<HyprUIMessage>({ chat });
+  } = useChat<AnlgUIMessage>({ chat });
   const latestChatStopRef = useRef(chatStop);
   latestChatStopRef.current = chatStop;
 
@@ -454,7 +454,7 @@ function ChatSessionLifecycle({
   ]);
 
   const sendMessage = useCallback(
-    (message: HyprUIMessage, options?: ChatSendOptions) => {
+    (message: AnlgUIMessage, options?: ChatSendOptions) => {
       const targetChatGroupId =
         options?.chatGroupId ?? latestChatGroupIdRef.current;
       if (targetChatGroupId) {
@@ -467,7 +467,7 @@ function ChatSessionLifecycle({
         queue.push({ run: preflight, persistOnCancel: true });
         pendingTransportPreflightsRef.current.set(message.id, queue);
       }
-      // HyprUIMessage is structurally compatible with CreateUIMessage<HyprUIMessage>:
+      // AnlgUIMessage is structurally compatible with CreateUIMessage<AnlgUIMessage>:
       // no `text`/`files` so the SDK takes the `else` branch and uses message.id as the message id.
       let sending: Promise<void>;
       try {
@@ -614,7 +614,7 @@ function ChatSessionLifecycle({
   }, [chatStop]);
 
   const setMessages = useCallback(
-    (next: HyprUIMessage[] | ((prev: HyprUIMessage[]) => HyprUIMessage[])) => {
+    (next: AnlgUIMessage[] | ((prev: AnlgUIMessage[]) => AnlgUIMessage[])) => {
       chatSetMessages(next);
       if (!chatGroupId) return;
       const resolved = typeof next === "function" ? next(messages) : next;
@@ -673,7 +673,7 @@ function ChatSessionLifecycle({
   return <div className="flex min-h-0 flex-1 flex-col">{content}</div>;
 }
 
-const unavailableChatTransport: ChatTransport<HyprUIMessage> = {
+const unavailableChatTransport: ChatTransport<AnlgUIMessage> = {
   sendMessages: async () => {
     throw new Error("Chat model is not ready");
   },

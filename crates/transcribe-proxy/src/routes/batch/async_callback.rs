@@ -1,5 +1,5 @@
+use anlg_api_auth::AuthContext;
 use axum::{Json, body::Bytes};
-use hypr_api_auth::AuthContext;
 use owhisper_client::{CallbackSttAdapter, DeepgramAdapter, Provider, SonioxAdapter};
 use owhisper_interface::ListenParams;
 use serde::{Deserialize, Serialize};
@@ -66,7 +66,7 @@ pub(super) async fn handle_callback(
         .await
         .map_err(|e| {
             tracing::error!(
-                hyprnote.file.id = %file_id,
+                anarlog.file.id = %file_id,
                 error = %e,
                 "failed to create signed URL"
             );
@@ -110,7 +110,7 @@ pub(super) async fn handle_callback(
 
     supabase.insert_job(&job).await.map_err(|e| {
         tracing::error!(
-            hyprnote.stt.job.id = %id,
+            anarlog.stt.job.id = %id,
             error = %e,
             "failed to insert job"
         );
@@ -137,12 +137,12 @@ async fn handle_sync_fallback(
     RouteError,
 > {
     tracing::info!(
-        hyprnote.stt.provider.name = %provider_str,
+        anarlog.stt.provider.name = %provider_str,
         "local_url_detected, using sync transcription"
     );
 
     let download_response =
-        hypr_observability::with_current_trace_context(state.client.get(audio_url))
+        anlg_observability::with_current_trace_context(state.client.get(audio_url))
             .send()
             .await
             .map_err(|e| RouteError::Internal(format!("failed to download audio: {e}")))?;
@@ -157,8 +157,8 @@ async fn handle_sync_fallback(
         let redacted_audio_url = redact_url_for_telemetry(audio_url);
         tracing::error!(
             http.response.status_code = %download_status.as_u16(),
-            hyprnote.audio.size_bytes = audio_bytes.len(),
-            hyprnote.file.id = %file_id,
+            anarlog.audio.size_bytes = audio_bytes.len(),
+            anarlog.file.id = %file_id,
             url.full = %redacted_audio_url,
             "signed_url_download_failed"
         );
@@ -172,9 +172,9 @@ async fn handle_sync_fallback(
     let content_type = content_type_from_filename(file_id);
 
     tracing::info!(
-        hyprnote.file.mime_type = %content_type,
-        hyprnote.audio.size_bytes = audio_bytes.len(),
-        hyprnote.file.id = %file_id,
+        anarlog.file.mime_type = %content_type,
+        anarlog.audio.size_bytes = audio_bytes.len(),
+        anarlog.file.id = %file_id,
         "sync_fallback_audio_downloaded"
     );
 
@@ -197,7 +197,7 @@ async fn handle_sync_fallback(
         Err(e) => {
             tracing::error!(
                 error = %e,
-                hyprnote.stt.provider.name = %provider_str,
+                anarlog.stt.provider.name = %provider_str,
                 "sync transcription failed"
             );
             Ok((
@@ -259,7 +259,7 @@ async fn handle_remote_callback(
     .map_err(|e| {
         tracing::error!(
             error = %e,
-            hyprnote.stt.provider.name = %provider_str,
+            anarlog.stt.provider.name = %provider_str,
             "submission failed"
         );
         RouteError::BadGateway(format!("{provider_str} submission failed: {e}"))

@@ -100,7 +100,7 @@ After editing the changelog, run:
 
 ```bash
 pnpm exec dprint fmt
-pnpm -F @hypr/changelog typecheck
+pnpm -F @anlg/changelog typecheck
 ```
 
 ## Merge to Main

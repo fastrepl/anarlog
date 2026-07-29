@@ -6,7 +6,7 @@ import {
   type TextPart,
 } from "ai";
 
-import { commands as templateCommands } from "@hypr/plugin-template";
+import { commands as templateCommands } from "@anlg/plugin-template";
 
 import type { TaskArgsMapTransformed, TaskConfig } from ".";
 import type { EnhanceImageContext } from "./enhance-images";

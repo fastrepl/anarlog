@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 const BUTTON_BASE =
   "flex h-12 w-full items-center justify-center gap-2 rounded-full text-base font-medium transition-all";

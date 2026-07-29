@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-whisper-local = ["hypr-whisper-local"]
+whisper-local = ["anlg-whisper-local"]
 
 [dependencies]
-hypr-whisper-local = { workspace = true, optional = true }
+anlg-whisper-local = { workspace = true, optional = true }
 
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync", "time", "rt", "macros"] }

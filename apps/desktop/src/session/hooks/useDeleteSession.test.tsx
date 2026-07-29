@@ -59,11 +59,11 @@ vi.mock("@tauri-apps/api/webviewWindow", () => ({
   getAllWebviewWindows: mocks.getAllWebviewWindows,
 }));
 
-vi.mock("@hypr/plugin-windows", () => ({
+vi.mock("@anlg/plugin-windows", () => ({
   getCurrentWebviewWindowLabel: mocks.getCurrentWebviewWindowLabel,
 }));
 
-vi.mock("@hypr/ui/components/ui/toast", () => ({
+vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: { error: mocks.toastError, warning: mocks.toastWarning },
 }));
 
@@ -470,7 +470,7 @@ describe("useDeleteSession", () => {
     await waitFor(() => {
       expect(mocks.emitTo).toHaveBeenCalledWith(
         "main",
-        "hypr://session-deleted-for-undo",
+        "anlg://session-deleted-for-undo",
         {
           sessionId: "session-1",
           data: mocks.deletedSessionData,
@@ -531,7 +531,7 @@ describe("useDeleteSession", () => {
 
     await waitFor(() => {
       expect(mocks.listen).toHaveBeenCalledWith(
-        "hypr://session-deleted-for-undo",
+        "anlg://session-deleted-for-undo",
         expect.any(Function),
       );
     });

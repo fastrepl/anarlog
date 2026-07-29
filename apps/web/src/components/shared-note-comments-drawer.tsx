@@ -1,14 +1,14 @@
 import { MessageSquareIcon } from "lucide-react";
 
-import { Avatar } from "@hypr/ui/components/avatar";
+import { Avatar } from "@anlg/ui/components/avatar";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogTitle,
   DialogTrigger,
-} from "@hypr/ui/components/ui/dialog";
-import { cn } from "@hypr/utils";
+} from "@anlg/ui/components/ui/dialog";
+import { cn } from "@anlg/utils";
 
 import { truncateSharedNoteCommentQuote } from "@/lib/shared-note-collaboration";
 import { formatSharedNoteRelativeTime } from "@/lib/shared-note-presentation";

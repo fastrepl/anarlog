@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-download-interface = { workspace = true }
+anlg-download-interface = { workspace = true }
 
 hf-hub = { workspace = true }
 thiserror = { workspace = true }

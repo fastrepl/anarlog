@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/agent-designer",
+  "name": "@anlg/agent-designer",
   "private": true,
   "type": "module",
   "exports": {
@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@hypr/agent-core": "workspace:^",
+    "@anlg/agent-core": "workspace:^",
     "@langchain/core": "^1.1.39",
     "@langchain/langgraph": "^1.2.8",
     "@langchain/langgraph-checkpoint-postgres": "^1.0.1",

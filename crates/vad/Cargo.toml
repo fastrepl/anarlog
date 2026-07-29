@@ -5,18 +5,18 @@ edition = "2024"
 
 [features]
 earshot = ["dep:earshot"]
-silero-onnx = ["dep:hypr-onnx"]
+silero-onnx = ["dep:anlg-onnx"]
 
 [dependencies]
+anlg-onnx = { workspace = true, optional = true }
 earshot = { workspace = true, optional = true }
-hypr-onnx = { workspace = true, optional = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+anlg-data = { workspace = true }
+anlg-onnx = { workspace = true }
 approx = { workspace = true }
 criterion = { workspace = true }
-hypr-data = { workspace = true }
-hypr-onnx = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 

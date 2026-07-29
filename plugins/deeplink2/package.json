@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/plugin-deeplink2",
+  "name": "@anlg/plugin-deeplink2",
   "private": true,
   "main": "./js/index.ts",
   "scripts": {

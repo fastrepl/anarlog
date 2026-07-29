@@ -134,7 +134,7 @@ export type CustomModelInfo = { path: string; name: string }
 export type FoundationModelAvailability = { status: string; reason: string | null }
 export type FoundationModelRequest = { requestId: string; instructions: string; prompt: string; maximumResponseTokens: number | null; temperature: number | null; useGreedySampling: boolean }
 export type FoundationModelResponse = { text: string }
-export type GgufLlmModel = "Llama3p2_3bQ4" | "Gemma3_4bQ4" | "HyprLLM"
+export type GgufLlmModel = "Llama3p2_3bQ4" | "Gemma3_4bQ4" | "AnarlogLLM"
 export type ModelInfo = { key: GgufLlmModel; name: string; description: string; size_bytes: number }
 export type TAURI_CHANNEL<TSend> = null
 

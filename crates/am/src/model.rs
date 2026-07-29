@@ -1,4 +1,4 @@
-pub use hypr_language::PARAKEET_TDT_V3_LANGUAGE_CODES as PARAKEET_V3_LANGS;
+pub use anlg_language::PARAKEET_TDT_V3_LANGUAGE_CODES as PARAKEET_V3_LANGS;
 
 #[derive(
     Debug,
@@ -56,13 +56,13 @@ impl AmModel {
         }
     }
 
-    pub fn supported_languages(&self) -> Vec<hypr_language::Language> {
-        use hypr_language::ISO639;
+    pub fn supported_languages(&self) -> Vec<anlg_language::Language> {
+        use anlg_language::ISO639;
 
         match self {
             AmModel::ParakeetV2 => vec![ISO639::En.into()],
-            AmModel::ParakeetV3 => hypr_language::parakeet_tdt_v3_languages(),
-            AmModel::WhisperLargeV3 => hypr_language::whisper_multilingual(),
+            AmModel::ParakeetV3 => anlg_language::parakeet_tdt_v3_languages(),
+            AmModel::WhisperLargeV3 => anlg_language::whisper_multilingual(),
         }
     }
 
@@ -130,12 +130,12 @@ impl AmModel {
         Ok(())
     }
 
-    pub async fn download<F: Fn(hypr_download_interface::DownloadProgress) + Send + Sync>(
+    pub async fn download<F: Fn(anlg_download_interface::DownloadProgress) + Send + Sync>(
         &self,
         output_path: impl AsRef<std::path::Path>,
         progress_callback: F,
     ) -> Result<(), crate::Error> {
-        hypr_file::download_file_parallel(self.tar_url(), output_path, progress_callback).await?;
+        anlg_file::download_file_parallel(self.tar_url(), output_path, progress_callback).await?;
         Ok(())
     }
 }

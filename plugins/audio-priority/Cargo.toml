@@ -15,7 +15,7 @@ specta-typescript = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 
 [dependencies]
-hypr-audio-device = { workspace = true }
+anlg-audio-device = { workspace = true }
 tauri-plugin-settings = { workspace = true }
 
 tauri = { workspace = true, features = ["test"] }

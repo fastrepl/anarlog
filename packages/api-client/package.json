@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/api-client",
+  "name": "@anlg/api-client",
   "exports": {
     ".": "./src/generated/index.ts",
     "./client": "./src/generated/client/index.ts"

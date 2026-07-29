@@ -13,12 +13,12 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { version as osVersion, platform } from "@tauri-apps/plugin-os";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { commands as authPluginCommands } from "@hypr/plugin-auth";
-import { commands as miscCommands } from "@hypr/plugin-misc";
-import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { openUrlWithInstruction } from "@hypr/plugin-windows";
-import { deriveBillingInfo } from "@hypr/supabase";
+import { commands as analyticsCommands } from "@anlg/plugin-analytics";
+import { commands as authPluginCommands } from "@anlg/plugin-auth";
+import { commands as miscCommands } from "@anlg/plugin-misc";
+import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { openUrlWithInstruction } from "@anlg/plugin-windows";
+import { deriveBillingInfo } from "@anlg/supabase";
 
 import { AuthContext } from "./auth-context";
 import { persistAuthSession, supabase } from "./client";
@@ -41,8 +41,8 @@ import {
   id,
 } from "~/shared/utils";
 
-const AUTH_SIGN_OUT_REQUEST_EVENT = "hypr:auth-sign-out-request";
-const AUTH_SIGN_OUT_RESULT_EVENT = "hypr:auth-sign-out-result";
+const AUTH_SIGN_OUT_REQUEST_EVENT = "anlg:auth-sign-out-request";
+const AUTH_SIGN_OUT_RESULT_EVENT = "anlg:auth-sign-out-result";
 const AUTH_SIGN_OUT_TIMEOUT_MS = 10_000;
 
 type AuthSignOutRequestPayload = {

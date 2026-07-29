@@ -17,7 +17,7 @@ use tracing_subscriber::{
 use utils::{cleanup_legacy_logs, make_file_writer_if_enabled};
 
 const PLUGIN_NAME: &str = "tracing";
-const WEBVIEW_CONSOLE_TARGET: &str = "hyprnote.webview.console";
+const WEBVIEW_CONSOLE_TARGET: &str = "anarlog.webview.console";
 
 fn sentry_event_filter(metadata: &tracing::Metadata<'_>) -> EventFilter {
     sentry_event_filter_for(metadata.level(), metadata.target())

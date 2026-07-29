@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 
-import { getCloudsyncStatus } from "@hypr/plugin-db";
-import { commands as notificationCommands } from "@hypr/plugin-notification";
+import { getCloudsyncStatus } from "@anlg/plugin-db";
+import { commands as notificationCommands } from "@anlg/plugin-notification";
 
 const POLL_INTERVAL_MS = 2_000;
 const COMPLETED_KEY_PREFIX = "anarlog:cloudsync_initial_sync_completed:";

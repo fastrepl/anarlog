@@ -144,7 +144,7 @@ fn run_detector(
         }
     };
 
-    let mut context = match Context::new(&mainloop, "hyprnote-mic-detector") {
+    let mut context = match Context::new(&mainloop, "anarlog-mic-detector") {
         Some(c) => c,
         None => {
             tracing::error!("failed_to_create_pulseaudio_context");

@@ -11,8 +11,8 @@ import { useMutation } from "@tanstack/react-query";
 import { Loader2Icon } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
-import { Badge } from "@hypr/ui/components/ui/badge";
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
+import { Badge } from "@anlg/ui/components/ui/badge";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import { ParticipantChip } from "./chip";
 import { ParticipantDropdown } from "./dropdown";

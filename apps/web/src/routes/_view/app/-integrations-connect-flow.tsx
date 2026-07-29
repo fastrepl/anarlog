@@ -2,8 +2,8 @@ import Nango from "@nangohq/frontend";
 import { useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 
-import { createSession } from "@hypr/api-client";
-import { createClient } from "@hypr/api-client/client";
+import { createSession } from "@anlg/api-client";
+import { createClient } from "@anlg/api-client/client";
 
 import { env } from "@/env";
 import { getAccessToken } from "@/functions/access-token";

@@ -8,9 +8,9 @@ import {
   UsersRoundIcon,
 } from "lucide-react";
 
-import { NoteEditor } from "@hypr/editor/note";
-import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { Button } from "@hypr/ui/components/ui/button";
+import { NoteEditor } from "@anlg/editor/note";
+import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { Button } from "@anlg/ui/components/ui/button";
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { useAuth } from "~/auth";

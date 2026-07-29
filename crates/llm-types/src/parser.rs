@@ -247,9 +247,9 @@ something blabla2
         .trim();
 
         let summary = r###"
-# Hyprnote Overview
+# Anarlog Overview
 
-Hyprnote is an AI-powered notepad designed for private meetings with complete on-device processing. No data leaves your computer, with optional telemetry.
+Anarlog is an AI-powered notepad designed for private meetings with complete on-device processing. No data leaves your computer, with optional telemetry.
 
 # How It Works
 

@@ -1,4 +1,4 @@
-use hypr_template_eval::{
+use anlg_template_eval::{
     CaseResponseFormat, EvalCase, EvalMessage, Expectation, Failed, PromptFragment,
 };
 use template_app::{Template, TranscriptPatchSystem, TranscriptPatchUser, render};

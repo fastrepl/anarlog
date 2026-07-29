@@ -2,8 +2,8 @@ mod commands;
 mod ext;
 pub mod runtime;
 
+pub use anlg_fs_sync_core::*;
 pub use ext::*;
-pub use hypr_fs_sync_core::*;
 
 const PLUGIN_NAME: &str = "fs-sync";
 

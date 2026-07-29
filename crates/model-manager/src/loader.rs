@@ -9,11 +9,11 @@ pub trait ModelLoader: Send + Sync + 'static {
 }
 
 #[cfg(feature = "whisper-local")]
-impl ModelLoader for hypr_whisper_local::LoadedWhisper {
-    type Error = hypr_whisper_local::Error;
+impl ModelLoader for anlg_whisper_local::LoadedWhisper {
+    type Error = anlg_whisper_local::Error;
 
     fn load(path: &Path) -> Result<Self, Self::Error> {
-        hypr_whisper_local::LoadedWhisper::builder()
+        anlg_whisper_local::LoadedWhisper::builder()
             .model_path(path.to_string_lossy().into_owned())
             .build()
     }

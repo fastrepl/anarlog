@@ -95,7 +95,7 @@ pub async fn list_api_keys<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<Vec<ApiKeyInfo>, String> {
     let pool = pool(&app)?;
-    Ok(hypr_db_app::list_api_keys(&pool)
+    Ok(anlg_db_app::list_api_keys(&pool)
         .await
         .map_err(|e| e.to_string())?
         .into_iter()
@@ -110,8 +110,8 @@ pub async fn create_api_key<R: tauri::Runtime>(
     name: String,
 ) -> Result<CreatedApiKey, String> {
     let pool = pool(&app)?;
-    let generated = hypr_db_app::generate_api_key();
-    let row = hypr_db_app::insert_api_key(
+    let generated = anlg_db_app::generate_api_key();
+    let row = anlg_db_app::insert_api_key(
         &pool,
         &uuid::Uuid::new_v4().to_string(),
         name.trim(),
@@ -133,7 +133,7 @@ pub async fn revoke_api_key<R: tauri::Runtime>(
     id: String,
 ) -> Result<bool, String> {
     let pool = pool(&app)?;
-    hypr_db_app::revoke_api_key(&pool, &id)
+    anlg_db_app::revoke_api_key(&pool, &id)
         .await
         .map_err(|e| e.to_string())
 }
@@ -144,7 +144,7 @@ pub async fn list_webhooks<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<Vec<WebhookInfo>, String> {
     let pool = pool(&app)?;
-    Ok(hypr_db_app::list_webhook_endpoints(&pool)
+    Ok(anlg_db_app::list_webhook_endpoints(&pool)
         .await
         .map_err(|e| e.to_string())?
         .into_iter()
@@ -170,7 +170,7 @@ pub async fn delete_webhook<R: tauri::Runtime>(
     id: String,
 ) -> Result<bool, String> {
     let pool = pool(&app)?;
-    hypr_db_app::delete_webhook_endpoint(&pool, &id)
+    anlg_db_app::delete_webhook_endpoint(&pool, &id)
         .await
         .map_err(|e| e.to_string())
 }
@@ -182,7 +182,7 @@ pub async fn test_webhook<R: tauri::Runtime>(
     id: String,
 ) -> Result<WebhookDelivery, String> {
     let pool = pool(&app)?;
-    let endpoint = hypr_db_app::get_webhook_endpoint(&pool, &id)
+    let endpoint = anlg_db_app::get_webhook_endpoint(&pool, &id)
         .await
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("webhook '{id}' not found"))?;
@@ -214,14 +214,14 @@ pub async fn get_cloud_snapshot<R: tauri::Runtime>(
     meeting_id: String,
 ) -> Result<serde_json::Value, String> {
     let pool = pool(&app)?;
-    let export = hypr_agent_access::get_meeting_export(&pool, meeting_id)
+    let export = anlg_agent_access::get_meeting_export(&pool, meeting_id)
         .await
         .map_err(|error| error.to_string())?;
     prepare_cloud_snapshot(export)
 }
 
 pub(crate) fn prepare_cloud_snapshot(
-    mut export: hypr_agent_access::MeetingExport,
+    mut export: anlg_agent_access::MeetingExport,
 ) -> Result<serde_json::Value, String> {
     let serialized = serde_json::to_vec(&export).map_err(|error| error.to_string())?;
     if serialized.len() > MAX_CLOUD_SNAPSHOT_BYTES {
@@ -248,12 +248,12 @@ pub async fn list_cloud_snapshot_ids<R: tauri::Runtime>(
     let mut offset = 0;
     let mut ids = Vec::new();
     loop {
-        let page = hypr_agent_access::list_meetings(
+        let page = anlg_agent_access::list_meetings(
             &pool,
-            hypr_agent_access::ListMeetingsInput {
+            anlg_agent_access::ListMeetingsInput {
                 query: None,
                 series_id: None,
-                limit: Some(hypr_agent_access::MAX_LIST_LIMIT),
+                limit: Some(anlg_agent_access::MAX_LIST_LIMIT),
                 offset: Some(offset),
             },
         )

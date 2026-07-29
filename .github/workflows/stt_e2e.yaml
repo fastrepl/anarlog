@@ -196,7 +196,7 @@ jobs:
 
             echo "Running transcribe-proxy provider e2e tests for $provider"
 
-            for suite in passthrough::live passthrough::batch hyprnote::live hyprnote::batch; do
+            for suite in passthrough::live passthrough::batch anarlog::live anarlog::batch; do
               cargo test -p transcribe-proxy --test proxy_provider_e2e "${suite}::${provider}" -- --ignored --nocapture
             done
           '

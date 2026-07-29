@@ -587,7 +587,7 @@ async fn sends_reference_headers() {
             .headers
             .get("x-client-info")
             .and_then(|value| value.to_str().ok())
-            .is_some_and(|value| value.starts_with("hypr-supabase-auth/"))
+            .is_some_and(|value| value.starts_with("anarlog-supabase-auth/"))
     );
 }
 

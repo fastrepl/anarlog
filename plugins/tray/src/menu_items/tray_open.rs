@@ -8,7 +8,7 @@ use super::MenuItemHandler;
 pub struct TrayOpen;
 
 impl MenuItemHandler for TrayOpen {
-    const ID: &'static str = "hypr_tray_open";
+    const ID: &'static str = "anlg_tray_open";
 
     fn build(app: &AppHandle<tauri::Wry>) -> Result<MenuItemKind<tauri::Wry>> {
         let item = MenuItem::with_id(

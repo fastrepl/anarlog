@@ -7,8 +7,8 @@ edition = "2024"
 test-utils = []
 
 [dependencies]
-hypr-cloudsync = { workspace = true }
-hypr-db-change = { workspace = true }
+anlg-cloudsync = { workspace = true }
+anlg-db-change = { workspace = true }
 
 backon = { workspace = true }
 libsqlite3-sys = "0.35"

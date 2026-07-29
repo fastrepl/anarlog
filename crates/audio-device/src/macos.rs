@@ -113,7 +113,7 @@ impl MacOSBackend {
     }
 }
 
-const TAP_DEVICE_NAME: &str = "hypr-audio-tap";
+const TAP_DEVICE_NAME: &str = "anarlog-audio-tap";
 
 impl AudioDeviceBackend for MacOSBackend {
     fn list_devices(&self) -> Result<Vec<AudioDevice>, Error> {

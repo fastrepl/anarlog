@@ -25,8 +25,8 @@ pub enum NangoError {
     Internal(String),
 }
 
-impl From<hypr_nango::Error> for NangoError {
-    fn from(err: hypr_nango::Error) -> Self {
+impl From<anlg_nango::Error> for NangoError {
+    fn from(err: anlg_nango::Error) -> Self {
         Self::Nango(err.to_string())
     }
 }
@@ -45,6 +45,6 @@ impl IntoResponse for NangoError {
             ),
         };
 
-        hypr_api_error::error_response(status, code, &message)
+        anlg_api_error::error_response(status, code, &message)
     }
 }

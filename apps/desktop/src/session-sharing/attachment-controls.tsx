@@ -7,15 +7,15 @@ import {
   RefreshCwIcon,
 } from "lucide-react";
 
-import { Button } from "@hypr/ui/components/ui/button";
+import { Button } from "@anlg/ui/components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@hypr/ui/components/ui/select";
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
+} from "@anlg/ui/components/ui/select";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import {
   isAttachmentShareable,

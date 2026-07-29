@@ -2,7 +2,7 @@ use crate::api::{Document, GranolaClient};
 use crate::cache::{CacheData, CacheDocument, TranscriptSegment, read_cache};
 use crate::error::Result;
 use crate::prosemirror::convert_to_plain_text;
-use hypr_importer_core::ir::{Collection, Session, Tag, TagMapping, Transcript, Word};
+use anlg_importer_core::ir::{Collection, Session, Tag, TagMapping, Transcript, Word};
 use std::collections::HashMap;
 use std::path::Path;
 use std::time::Duration;

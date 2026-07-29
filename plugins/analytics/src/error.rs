@@ -5,7 +5,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
-    HyprAnalytics(#[from] hypr_analytics::Error),
+    AnlgAnalytics(#[from] anlg_analytics::Error),
     #[error(transparent)]
     Store2(#[from] tauri_plugin_store2::Error),
 }

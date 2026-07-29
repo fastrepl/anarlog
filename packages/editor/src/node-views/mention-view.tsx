@@ -4,7 +4,7 @@ import { Building2Icon, StickyNoteIcon, UserIcon } from "lucide-react";
 import type { NodeSpec } from "prosemirror-model";
 import { forwardRef, useCallback } from "react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 export const mentionNodeSpec: NodeSpec = {
   group: "inline",
@@ -44,7 +44,7 @@ export const mentionNodeSpec: NodeSpec = {
   },
 };
 
-const GLOBAL_NAVIGATE_FUNCTION = "__HYPR_NAVIGATE__";
+const GLOBAL_NAVIGATE_FUNCTION = "__ANARLOG_NAVIGATE__";
 
 const FACEHASH_BG_CLASSES = [
   "bg-amber-50 dark:bg-amber-950",

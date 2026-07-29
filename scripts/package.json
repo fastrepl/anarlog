@@ -1,7 +1,7 @@
 {
-  "name": "hyprnote-changelog-generator",
+  "name": "anarlog-changelog-generator",
   "version": "1.0.0",
-  "description": "Local AI changelog generator for hyprnote",
+  "description": "Local AI changelog generator for Anarlog",
   "keywords": [
     "ai",
     "automation",
@@ -9,7 +9,7 @@
     "github",
     "openrouter"
   ],
-  "author": "hyprnote",
+  "author": "anarlog",
   "license": "MIT",
   "main": "generate-changelog-local.js",
   "scripts": {

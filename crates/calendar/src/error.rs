@@ -1,4 +1,4 @@
-use hypr_calendar_interface::CalendarProviderType;
+use anlg_calendar_interface::CalendarProviderType;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

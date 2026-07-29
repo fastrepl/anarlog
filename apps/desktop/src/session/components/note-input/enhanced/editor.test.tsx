@@ -33,14 +33,14 @@ vi.mock("@tauri-apps/api/window", () => ({
   }),
 }));
 
-vi.mock("@hypr/editor/markdown", () => ({
+vi.mock("@anlg/editor/markdown", () => ({
   parseJsonContent: (value: string) =>
     value
       ? JSON.parse(value)
       : { type: "doc", content: [{ type: "paragraph" }] },
 }));
 
-vi.mock("@hypr/editor/note", () => ({
+vi.mock("@anlg/editor/note", () => ({
   normalizePortableAttachmentUrls: (value: unknown) => value,
   NoteEditor: (props: Record<string, unknown>) => {
     hoisted.noteEditorProps.push(props);

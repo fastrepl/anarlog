@@ -3,11 +3,11 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Component, Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
-use futures_util::StreamExt;
-use hypr_e2ee::{
+use anlg_e2ee::{
     AttachmentBlobCiphertextMetadata, AttachmentBlobContext, AttachmentBlobMetadata,
     AttachmentBlobPlaintextMetadata, WorkspaceKey,
 };
+use futures_util::StreamExt;
 use sha2::{Digest, Sha256};
 use sqlx::FromRow;
 use tauri::{Manager, Runtime};
@@ -24,7 +24,7 @@ use crate::models::{
 
 const FORMAT_VERSION: i16 = 1;
 const MAX_RANGE_BYTES: u64 = 6 * 1024 * 1024;
-const MAX_PLAINTEXT_BYTES: u64 = hypr_e2ee::ATTACHMENT_BLOB_MAX_PLAINTEXT_BYTES;
+const MAX_PLAINTEXT_BYTES: u64 = anlg_e2ee::ATTACHMENT_BLOB_MAX_PLAINTEXT_BYTES;
 const MAX_CIPHERTEXT_BYTES: u64 = 545_259_520;
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 const DELETE_GUARD_ORPHAN_GRACE: Duration = Duration::from_secs(15 * 60);
@@ -1761,7 +1761,7 @@ fn delete_source_changed(error: &Error) -> bool {
     match error {
         Error::LocalAttachmentUnavailable
         | Error::ChecksumMismatch
-        | Error::E2ee(hypr_e2ee::AttachmentBlobError::SourceMismatch) => true,
+        | Error::E2ee(anlg_e2ee::AttachmentBlobError::SourceMismatch) => true,
         Error::Io(source) => source.kind() == std::io::ErrorKind::NotFound,
         _ => false,
     }
@@ -1969,12 +1969,12 @@ fn attachment_paths<R: Runtime>(
         .vault_base()
         .map_err(|_| Error::Vault)?
         .into_std_path_buf();
-    let session_candidate = hypr_fs_sync_core::FsSyncCore::new(vault_base.clone())
+    let session_candidate = anlg_fs_sync_core::FsSyncCore::new(vault_base.clone())
         .resolve_session_dir(&attachment.session_id)
         .map_err(|_| Error::LocalAttachmentUnavailable)?;
-    let session_dir = hypr_fs_sync_core::resolve_path_inside_base(&vault_base, &session_candidate)
+    let session_dir = anlg_fs_sync_core::resolve_path_inside_base(&vault_base, &session_candidate)
         .map_err(|_| Error::LocalAttachmentUnavailable)?;
-    let path = hypr_fs_sync_core::resolve_path_inside_base(
+    let path = anlg_fs_sync_core::resolve_path_inside_base(
         &session_dir,
         Path::new(&attachment.relative_path),
     )
@@ -2253,7 +2253,7 @@ fn seal_delete_guard(
     let metadata = match key.seal_attachment_blob(context, &mut source, &mut destination, expected)
     {
         Ok(metadata) => metadata,
-        Err(hypr_e2ee::AttachmentBlobError::Io(error))
+        Err(anlg_e2ee::AttachmentBlobError::Io(error))
             if error.kind() == std::io::ErrorKind::ConnectionAborted =>
         {
             return Err(Error::Cancelled);
@@ -2916,7 +2916,7 @@ fn stage_delete_guard_restore(
     let mut temp = tempfile::NamedTempFile::new_in(destination_parent)?;
     match key.open_attachment_blob(context, &mut source, &mut temp, expected) {
         Ok(_) => {}
-        Err(hypr_e2ee::AttachmentBlobError::Io(error))
+        Err(anlg_e2ee::AttachmentBlobError::Io(error))
             if error.kind() == std::io::ErrorKind::ConnectionAborted =>
         {
             return Err(Error::Cancelled);
@@ -3060,7 +3060,7 @@ mod tests {
 
     #[test]
     fn delete_backup_refs_are_stable_for_persisted_job_metadata() {
-        let key = hypr_e2ee::RecoveryKey::generate()
+        let key = anlg_e2ee::RecoveryKey::generate()
             .unwrap()
             .workspace_key("workspace-1")
             .unwrap();
@@ -3322,7 +3322,7 @@ mod tests {
         std::fs::write(&source_path, plaintext).unwrap();
         std::fs::write(&destination_path, b"old bytes").unwrap();
 
-        let key = hypr_e2ee::RecoveryKey::generate()
+        let key = anlg_e2ee::RecoveryKey::generate()
             .unwrap()
             .workspace_key("workspace-a")
             .unwrap();
@@ -3364,7 +3364,7 @@ mod tests {
         let local_edit = b"different local attachment";
         std::fs::write(&source_path, canonical).unwrap();
 
-        let key = hypr_e2ee::RecoveryKey::generate()
+        let key = anlg_e2ee::RecoveryKey::generate()
             .unwrap()
             .workspace_key("workspace-a")
             .unwrap();
@@ -3449,7 +3449,7 @@ mod tests {
         let destination_path = directory.path().join("missing.bin");
         let canonical = b"attachment recovered after remote delete";
         std::fs::write(&source_path, canonical).unwrap();
-        let key = hypr_e2ee::RecoveryKey::generate()
+        let key = anlg_e2ee::RecoveryKey::generate()
             .unwrap()
             .workspace_key("workspace-a")
             .unwrap();
@@ -3548,7 +3548,7 @@ mod tests {
         let guard_path = directory.path().join(format!("{}.anb1", Uuid::new_v4()));
         let canonical = b"attachment whose delete was cancelled";
         std::fs::write(&source_path, canonical).unwrap();
-        let key = hypr_e2ee::RecoveryKey::generate()
+        let key = anlg_e2ee::RecoveryKey::generate()
             .unwrap()
             .workspace_key("workspace-a")
             .unwrap();
@@ -3584,7 +3584,7 @@ mod tests {
         let guard_path = directory.path().join(format!("{}.anb1", Uuid::new_v4()));
         let canonical = b"attachment whose restore was cancelled";
         std::fs::write(&source_path, canonical).unwrap();
-        let key = hypr_e2ee::RecoveryKey::generate()
+        let key = anlg_e2ee::RecoveryKey::generate()
             .unwrap()
             .workspace_key("workspace-a")
             .unwrap();

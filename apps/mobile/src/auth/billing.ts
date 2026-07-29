@@ -1,4 +1,4 @@
-// Ported from packages/supabase/src/jwt.ts + billing.ts — @hypr/supabase pulls
+// Ported from packages/supabase/src/jwt.ts + billing.ts — @anlg/supabase pulls
 // in jose, which does not run on Hermes. Keep semantics in sync.
 
 export type SubscriptionStatus =

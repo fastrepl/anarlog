@@ -10,7 +10,7 @@ import {
   type ChatMessageSqlRow,
 } from "./persisted-messages";
 
-import type { HyprUIMessage } from "~/chat/types";
+import type { AnlgUIMessage } from "~/chat/types";
 
 function chatMessageRow(
   overrides: Partial<ChatMessageSqlRow> = {},
@@ -36,7 +36,7 @@ describe("persisted chat messages", () => {
   });
 
   test("builds a canonical SQLite record from a UI message", () => {
-    const message: HyprUIMessage = {
+    const message: AnlgUIMessage = {
       id: "assistant-1",
       role: "assistant",
       parts: [{ type: "text", text: "Hello" }],

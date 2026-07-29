@@ -1,4 +1,4 @@
-module hyprnote
+module anarlog
 
 go 1.25.5
 

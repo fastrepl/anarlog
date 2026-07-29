@@ -74,15 +74,15 @@ async fn fail_task<M: DownloadableModel>(params: &DownloadTaskParams<M>, reason:
     cleanup_for_failure(params).await;
 }
 
-fn log_download_error(error: &hypr_file::Error) -> Option<String> {
-    if matches!(error, hypr_file::Error::Cancelled) {
+fn log_download_error(error: &anlg_file::Error) -> Option<String> {
+    if matches!(error, anlg_file::Error::Cancelled) {
         return None;
     }
 
     tracing::error!(error = %error, "model_download_error");
 
     let reason = match error {
-        hypr_file::Error::ReqwestError(e) => {
+        anlg_file::Error::ReqwestError(e) => {
             if e.is_timeout() {
                 "Download timed out. Please check your internet connection and try again."
                     .to_string()
@@ -93,11 +93,11 @@ fn log_download_error(error: &hypr_file::Error) -> Option<String> {
                 format!("Network error: {}", e)
             }
         }
-        hypr_file::Error::FileIOError(e) => {
+        anlg_file::Error::FileIOError(e) => {
             format!("File system error: {}", e)
         }
-        hypr_file::Error::Cancelled => unreachable!(),
-        hypr_file::Error::OtherError(msg) => msg.clone(),
+        anlg_file::Error::Cancelled => unreachable!(),
+        anlg_file::Error::OtherError(msg) => msg.clone(),
     };
     Some(reason)
 }

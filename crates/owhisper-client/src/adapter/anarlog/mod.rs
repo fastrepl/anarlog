@@ -4,11 +4,11 @@ mod live;
 use super::{LanguageQuality, LanguageSupport};
 
 #[derive(Clone, Default)]
-pub struct HyprnoteAdapter;
+pub struct AnarlogAdapter;
 
-impl HyprnoteAdapter {
+impl AnarlogAdapter {
     pub fn language_support_live(
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> LanguageSupport {
         match soniqo_language_support(languages, model, true) {
@@ -20,14 +20,14 @@ impl HyprnoteAdapter {
     }
 
     pub fn is_supported_languages_live(
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> bool {
         Self::language_support_live(languages, model).is_supported()
     }
 
     pub fn language_support_batch(
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> LanguageSupport {
         match soniqo_language_support(languages, model, false) {
@@ -39,7 +39,7 @@ impl HyprnoteAdapter {
     }
 
     pub fn is_supported_languages_batch(
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> bool {
         Self::language_support_batch(languages, model).is_supported()
@@ -47,7 +47,7 @@ impl HyprnoteAdapter {
 }
 
 fn soniqo_language_support(
-    languages: &[hypr_language::Language],
+    languages: &[anlg_language::Language],
     model: Option<&str>,
     live: bool,
 ) -> Option<LanguageSupport> {
@@ -71,10 +71,10 @@ fn soniqo_language_support(
     }
 }
 
-fn parakeet_language_support(languages: &[hypr_language::Language]) -> LanguageSupport {
+fn parakeet_language_support(languages: &[anlg_language::Language]) -> LanguageSupport {
     if languages
         .iter()
-        .all(hypr_language::is_parakeet_tdt_v3_language)
+        .all(anlg_language::is_parakeet_tdt_v3_language)
     {
         LanguageSupport::Supported {
             quality: LanguageQuality::NoData,

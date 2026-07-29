@@ -16,12 +16,12 @@ use crate::{
     actors::session::session_span,
     actors::{ChannelMode, ListenerMsg, RecMsg},
 };
-use hypr_audio::{AudioProvider, CaptureFrame};
+use anlg_audio::{AudioProvider, CaptureFrame};
 
 use pipeline::Pipeline;
 use stream::start_source_loop;
 
-use hypr_device_monitor::{DeviceMonitorHandle, DeviceSwitch, DeviceSwitchMonitor};
+use anlg_device_monitor::{DeviceMonitorHandle, DeviceSwitch, DeviceSwitchMonitor};
 
 pub enum SourceMsg {
     SetMicMute(bool),
@@ -265,18 +265,18 @@ mod tests {
         SessionDataEvent, SessionLifecycleEvent, SessionProgressEvent,
         actors::source::ListenerRouting,
     };
-    use hypr_audio::{CaptureConfig, CaptureStream, Error};
+    use anlg_audio::{CaptureConfig, CaptureStream, Error};
 
     struct TestRuntime {
         progress_tx: mpsc::UnboundedSender<SessionProgressEvent>,
     }
 
-    impl hypr_storage::StorageRuntime for TestRuntime {
-        fn global_base(&self) -> Result<PathBuf, hypr_storage::Error> {
+    impl anlg_storage::StorageRuntime for TestRuntime {
+        fn global_base(&self) -> Result<PathBuf, anlg_storage::Error> {
             Ok(std::env::temp_dir())
         }
 
-        fn vault_base(&self) -> Result<PathBuf, hypr_storage::Error> {
+        fn vault_base(&self) -> Result<PathBuf, anlg_storage::Error> {
             Ok(std::env::temp_dir())
         }
     }

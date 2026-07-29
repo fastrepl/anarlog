@@ -2,4 +2,4 @@
 package_name = "com.hypr.mobilebridge"
 
 [bindings.swift]
-module_name = "HyprMobileBridge"
+module_name = "AnarlogMobileBridge"

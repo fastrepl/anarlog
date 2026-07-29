@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, MutexGuard};
 use std::time::{Duration, Instant};
 
-use hypr_transcription_core::listener2 as core;
+use anlg_transcription_core::listener2 as core;
 use tauri_specta::Event;
 use tokio::task::JoinHandle;
 
@@ -482,7 +482,7 @@ mod tests {
             model: model.map(ToOwned::to_owned),
             base_url: base_url.to_string(),
             api_key: "key".to_string(),
-            languages: vec![hypr_language::ISO639::En.into()],
+            languages: vec![anlg_language::ISO639::En.into()],
             keywords: vec![],
             num_speakers: None,
             min_speakers: None,
@@ -607,7 +607,7 @@ mod tests {
     #[test]
     fn batch_idle_timeout_skips_direct_cloud_batch() {
         let params = transcription_params(
-            core::BatchProvider::Hyprnote,
+            core::BatchProvider::Anarlog,
             "https://api.char.com/stt",
             None,
         );

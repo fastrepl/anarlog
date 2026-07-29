@@ -28,7 +28,7 @@ impl BatchSttAdapter for AssemblyAIAdapter {
 
     fn is_supported_languages(
         &self,
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         _model: Option<&str>,
     ) -> bool {
         let primary_lang = languages.first().map(|l| l.iso639().code()).unwrap_or("en");
@@ -560,7 +560,7 @@ mod tests {
         let adapter = AssemblyAIAdapter::default();
         let params = ListenParams::default();
 
-        let audio_path = std::path::PathBuf::from(hypr_data::english_1::AUDIO_PATH);
+        let audio_path = std::path::PathBuf::from(anlg_data::english_1::AUDIO_PATH);
 
         let result = adapter
             .transcribe_file(&client, "", &api_key, &params, &audio_path)

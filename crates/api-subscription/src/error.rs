@@ -38,6 +38,6 @@ impl IntoResponse for SubscriptionError {
             ),
         };
 
-        hypr_api_error::error_response(status, code, &message)
+        anlg_api_error::error_response(status, code, &message)
     }
 }

@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use hypr_analytics::AnalyticsClient;
+use anlg_analytics::AnalyticsClient;
 
 use crate::StripeEnv;
-use hypr_api_env::{LoopsEnv, SupabaseEnv};
+use anlg_api_env::{LoopsEnv, SupabaseEnv};
 
 #[derive(Clone)]
 pub struct SubscriptionConfig {

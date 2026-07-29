@@ -43,7 +43,7 @@ jobs:
             --prod \
             --context production \
             --site "$NETLIFY_SITE_ID" \
-            --filter @hypr/web \
+            --filter @anlg/web \
             --message "web v${{ needs.compute-version.outputs.version }} ($GITHUB_SHA)"
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}

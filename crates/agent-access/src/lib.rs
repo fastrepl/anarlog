@@ -204,9 +204,9 @@ pub async fn list_meetings(pool: &SqlitePool, input: ListMeetingsInput) -> Resul
         .unwrap_or(DEFAULT_LIST_LIMIT)
         .clamp(1, MAX_LIST_LIMIT);
     let offset = input.offset.unwrap_or(0);
-    let mut meetings = hypr_db_app::list_sessions(
+    let mut meetings = anlg_db_app::list_sessions(
         pool,
-        hypr_db_app::ListSessions {
+        anlg_db_app::ListSessions {
             query: input.query.as_deref(),
             series_id: input.series_id.as_deref(),
             limit: limit + 1,
@@ -235,11 +235,11 @@ pub async fn list_meetings(pool: &SqlitePool, input: ListMeetingsInput) -> Resul
 pub async fn get_meeting(pool: &SqlitePool, input: GetMeetingInput) -> Result<Meeting> {
     let meeting_id = input.meeting_id;
     let (session, note, documents, participants, action_items) = tokio::try_join!(
-        hypr_db_app::get_session(pool, &meeting_id),
-        hypr_db_app::get_session_note(pool, &meeting_id),
-        hypr_db_app::list_session_documents(pool, &meeting_id),
-        hypr_db_app::list_session_participants(pool, &meeting_id),
-        hypr_db_app::list_session_action_items(pool, &meeting_id),
+        anlg_db_app::get_session(pool, &meeting_id),
+        anlg_db_app::get_session_note(pool, &meeting_id),
+        anlg_db_app::list_session_documents(pool, &meeting_id),
+        anlg_db_app::list_session_participants(pool, &meeting_id),
+        anlg_db_app::list_session_action_items(pool, &meeting_id),
     )
     .map_err(|source| Error::Database {
         action: "load meeting",
@@ -276,7 +276,7 @@ pub async fn get_meeting_transcript(
     pool: &SqlitePool,
     input: GetMeetingTranscriptInput,
 ) -> Result<TranscriptPage> {
-    let exists = hypr_db_app::get_session(pool, &input.meeting_id)
+    let exists = anlg_db_app::get_session(pool, &input.meeting_id)
         .await
         .map_err(|source| Error::Database {
             action: "load meeting",
@@ -303,7 +303,7 @@ pub async fn get_recurring_meeting_history(
     pool: &SqlitePool,
     input: GetRecurringMeetingHistoryInput,
 ) -> Result<MeetingPage> {
-    let meeting = hypr_db_app::get_session(pool, &input.meeting_id)
+    let meeting = anlg_db_app::get_session(pool, &input.meeting_id)
         .await
         .map_err(|source| Error::Database {
             action: "load meeting",
@@ -427,8 +427,8 @@ impl MeetingExport {
     }
 }
 
-impl From<hypr_db_app::SessionListItem> for MeetingListItem {
-    fn from(value: hypr_db_app::SessionListItem) -> Self {
+impl From<anlg_db_app::SessionListItem> for MeetingListItem {
+    fn from(value: anlg_db_app::SessionListItem) -> Self {
         Self {
             id: value.id,
             title: value.title,
@@ -459,8 +459,8 @@ impl From<&Meeting> for MeetingListItem {
     }
 }
 
-impl From<hypr_db_app::SessionDocumentRow> for Document {
-    fn from(value: hypr_db_app::SessionDocumentRow) -> Self {
+impl From<anlg_db_app::SessionDocumentRow> for Document {
+    fn from(value: anlg_db_app::SessionDocumentRow) -> Self {
         Self {
             id: value.id,
             kind: value.kind,
@@ -474,8 +474,8 @@ impl From<hypr_db_app::SessionDocumentRow> for Document {
     }
 }
 
-impl From<hypr_db_app::SessionParticipantRow> for Participant {
-    fn from(value: hypr_db_app::SessionParticipantRow) -> Self {
+impl From<anlg_db_app::SessionParticipantRow> for Participant {
+    fn from(value: anlg_db_app::SessionParticipantRow) -> Self {
         Self {
             human_id: value.human_id,
             display_name: value.display_name,
@@ -488,8 +488,8 @@ impl From<hypr_db_app::SessionParticipantRow> for Participant {
     }
 }
 
-impl From<hypr_db_app::SessionActionItemRow> for ActionItem {
-    fn from(value: hypr_db_app::SessionActionItemRow) -> Self {
+impl From<anlg_db_app::SessionActionItemRow> for ActionItem {
+    fn from(value: anlg_db_app::SessionActionItemRow) -> Self {
         Self {
             id: value.id,
             assignee_human_id: value.assignee_human_id,
@@ -501,8 +501,8 @@ impl From<hypr_db_app::SessionActionItemRow> for ActionItem {
     }
 }
 
-impl From<hypr_db_app::SessionTranscriptRow> for Transcript {
-    fn from(value: hypr_db_app::SessionTranscriptRow) -> Self {
+impl From<anlg_db_app::SessionTranscriptRow> for Transcript {
+    fn from(value: anlg_db_app::SessionTranscriptRow) -> Self {
         let words = json_array(&value.words_json);
         let text = transcript_text(&words);
         Self {
@@ -522,7 +522,7 @@ impl From<hypr_db_app::SessionTranscriptRow> for Transcript {
 }
 
 async fn load_transcripts(pool: &SqlitePool, meeting_id: &str) -> Result<Vec<Transcript>> {
-    hypr_db_app::list_session_transcripts(pool, meeting_id)
+    anlg_db_app::list_session_transcripts(pool, meeting_id)
         .await
         .map(|rows| rows.into_iter().map(Transcript::from).collect())
         .map_err(|source| Error::Database {
@@ -590,7 +590,7 @@ fn body_to_markdown(body: &str, format: &str) -> String {
     }
     serde_json::from_str(body)
         .ok()
-        .and_then(|value| hypr_tiptap::tiptap_json_to_md(&value).ok())
+        .and_then(|value| anlg_tiptap::tiptap_json_to_md(&value).ok())
         .map(|markdown| markdown.trim_end().to_string())
         .unwrap_or_else(|| body.to_string())
 }
@@ -663,9 +663,9 @@ fn pagination(
 mod tests {
     use super::*;
 
-    async fn test_db() -> hypr_db_core::Db {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+    async fn test_db() -> anlg_db_core::Db {
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
         db
     }
 

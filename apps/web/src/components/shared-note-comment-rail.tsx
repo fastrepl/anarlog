@@ -5,8 +5,8 @@ import {
 } from "lucide-react";
 import { useRef, useState } from "react";
 
-import { Avatar } from "@hypr/ui/components/avatar";
-import { cn } from "@hypr/utils";
+import { Avatar } from "@anlg/ui/components/avatar";
+import { cn } from "@anlg/utils";
 
 import {
   MAX_SHARED_NOTE_COMMENT_BYTES,

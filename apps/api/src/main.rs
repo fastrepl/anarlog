@@ -78,13 +78,13 @@ fn request_client_address(request: &Request<Body>) -> Option<String> {
 }
 
 fn build_sync_routes(
-    state: hypr_api_sync::AppState,
+    state: anlg_api_sync::AppState,
     cloudsync_rate_limit_state: rate_limit::RateLimitState,
     session_share_rate_limit_state: rate_limit::RateLimitState,
     witness_rate_limit_state: rate_limit::RateLimitState,
     auth_state: AuthState,
 ) -> Router {
-    let cloudsync_routes = hypr_api_sync::cloudsync_router(state.clone())
+    let cloudsync_routes = anlg_api_sync::cloudsync_router(state.clone())
         .route_layer(middleware::from_fn_with_state(
             cloudsync_rate_limit_state,
             rate_limit::rate_limit,
@@ -94,7 +94,7 @@ fn build_sync_routes(
             auth_state.clone().with_required_entitlement("hyprnote_pro"),
             auth::require_auth,
         ));
-    let session_share_routes = hypr_api_sync::session_share_router(state.clone())
+    let session_share_routes = anlg_api_sync::session_share_router(state.clone())
         .route_layer(middleware::from_fn_with_state(
             session_share_rate_limit_state.clone(),
             rate_limit::rate_limit,
@@ -104,7 +104,7 @@ fn build_sync_routes(
             auth_state.clone().with_required_entitlement("hyprnote_pro"),
             auth::require_auth,
         ));
-    let witness_routes = hypr_api_sync::e2ee_witness_router(state.clone())
+    let witness_routes = anlg_api_sync::e2ee_witness_router(state.clone())
         .route_layer(middleware::from_fn_with_state(
             witness_rate_limit_state,
             rate_limit::wait_for_rate_limit,
@@ -114,7 +114,7 @@ fn build_sync_routes(
             auth_state.clone().with_required_entitlement("hyprnote_pro"),
             auth::require_auth,
         ));
-    let web_edit_routes = hypr_api_sync::web_edit_router(state)
+    let web_edit_routes = anlg_api_sync::web_edit_router(state)
         .route_layer(middleware::from_fn_with_state(
             session_share_rate_limit_state,
             rate_limit::rate_limit,
@@ -137,9 +137,9 @@ async fn app() -> Router {
     let analytics = build_analytics_client(env);
 
     let llm_config =
-        hypr_llm_proxy::LlmProxyConfig::new(&env.llm).with_analytics(analytics.clone());
-    let stt_config = hypr_transcribe_proxy::SttProxyConfig::new(&env.stt, &env.supabase)
-        .with_hyprnote_routing(hypr_transcribe_proxy::HyprnoteRoutingConfig::default())
+        anlg_llm_proxy::LlmProxyConfig::new(&env.llm).with_analytics(analytics.clone());
+    let stt_config = anlg_transcribe_proxy::SttProxyConfig::new(&env.stt, &env.supabase)
+        .with_anarlog_routing(anlg_transcribe_proxy::AnarlogRoutingConfig::default())
         .with_analytics(analytics.clone());
 
     let stt_rate_limit = rate_limit::RateLimitState::builder()
@@ -218,65 +218,65 @@ async fn app() -> Router {
     );
     let auth_state_basic = auth_state.clone();
 
-    let nango_config = hypr_api_nango::NangoConfig::new(
+    let nango_config = anlg_api_nango::NangoConfig::new(
         &env.nango,
         &env.supabase,
         Some(env.supabase.supabase_service_role_key.clone()),
     );
-    let nango_connection_state = hypr_api_nango::NangoConnectionState::from_config(&nango_config);
+    let nango_connection_state = anlg_api_nango::NangoConnectionState::from_config(&nango_config);
     let subscription_config =
-        hypr_api_subscription::SubscriptionConfig::new(&env.supabase, &env.stripe, &env.loops)
+        anlg_api_subscription::SubscriptionConfig::new(&env.supabase, &env.stripe, &env.loops)
             .with_analytics(analytics.clone())
             .with_durable_cleanup_enabled(env.anarlog_attachment_backup_gc_enabled);
-    let research_config = hypr_api_research::ResearchConfig {
+    let research_config = anlg_api_research::ResearchConfig {
         exa_api_key: env.exa_api_key.clone(),
         jina_api_key: env.jina_api_key.clone(),
     };
-    let pyannote_config = hypr_api_pyannote::PyannoteConfig::new(&env.pyannote);
-    let sync_config = hypr_api_sync::SyncConfig::from_env(
+    let pyannote_config = anlg_api_pyannote::PyannoteConfig::new(&env.pyannote);
+    let sync_config = anlg_api_sync::SyncConfig::from_env(
         &env.sync,
         &env.supabase.supabase_url,
         &env.supabase.supabase_anon_key,
         &env.supabase.supabase_service_role_key,
     )
     .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
-    let shared_notes_config = hypr_api_sync::SharedNotesConfig::new(
+    let shared_notes_config = anlg_api_sync::SharedNotesConfig::new(
         &env.supabase.supabase_url,
         &env.supabase.supabase_service_role_key,
     )
     .and_then(|config| config.with_invitation_email(&env.loops.loops_key))
     .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
-    let cloud_api_state = hypr_api_cloud::AppState::new(
-        hypr_api_cloud::CloudApiConfig::new(
+    let cloud_api_state = anlg_api_cloud::AppState::new(
+        anlg_api_cloud::CloudApiConfig::new(
             &env.supabase.supabase_url,
             &env.supabase.supabase_service_role_key,
         )
         .unwrap_or_else(|error| panic!("Failed to load environment: {error}")),
     );
 
-    use hypr_api_nango::NangoIntegrationId;
+    use anlg_api_nango::NangoIntegrationId;
 
-    let mut forward_handlers = hypr_api_nango::ForwardHandlerRegistry::new();
+    let mut forward_handlers = anlg_api_nango::ForwardHandlerRegistry::new();
     forward_handlers.insert(
-        hypr_api_nango::Linear::ID.to_string(),
-        hypr_api_nango::forward_handler(hypr_linear::webhook::handle),
+        anlg_api_nango::Linear::ID.to_string(),
+        anlg_api_nango::forward_handler(anlg_linear::webhook::handle),
     );
 
     let webhook_routes = Router::new()
         .nest(
             "/nango",
-            hypr_api_nango::webhook_router(nango_config.clone(), forward_handlers),
+            anlg_api_nango::webhook_router(nango_config.clone(), forward_handlers),
         )
         .nest(
             "/stt",
-            hypr_transcribe_proxy::callback_router(stt_config.clone()),
+            anlg_transcribe_proxy::callback_router(stt_config.clone()),
         );
 
     let auth_state_integration = auth_state_paid.clone();
 
     let paid_routes = Router::new()
-        .merge(hypr_api_research::router(research_config))
-        .nest("/pyannote", hypr_api_pyannote::router(pyannote_config))
+        .merge(anlg_api_research::router(research_config))
+        .nest("/pyannote", anlg_api_pyannote::router(pyannote_config))
         .route_layer(middleware::from_fn(auth::sentry_and_analytics))
         .route_layer(middleware::from_fn_with_state(
             auth_state_paid,
@@ -285,7 +285,7 @@ async fn app() -> Router {
 
     let sync_routes = match sync_config {
         Some(config) => build_sync_routes(
-            hypr_api_sync::AppState::new(config),
+            anlg_api_sync::AppState::new(config),
             cloudsync_rate_limit,
             session_share_rate_limit,
             e2ee_witness_rate_limit,
@@ -293,14 +293,14 @@ async fn app() -> Router {
         ),
         None => Router::new(),
     };
-    let shared_notes_state = hypr_api_sync::SharedNotesState::new(shared_notes_config);
-    let shared_notes_routes = hypr_api_sync::shared_notes_router(shared_notes_state.clone())
+    let shared_notes_state = anlg_api_sync::SharedNotesState::new(shared_notes_config);
+    let shared_notes_routes = anlg_api_sync::shared_notes_router(shared_notes_state.clone())
         .route_layer(middleware::from_fn_with_state(
             shared_notes_rate_limit.clone(),
             rate_limit::rate_limit_by_ip,
         ));
     let authenticated_shared_notes_routes =
-        hypr_api_sync::authenticated_shared_notes_router(shared_notes_state)
+        anlg_api_sync::authenticated_shared_notes_router(shared_notes_state)
             .route_layer(middleware::from_fn_with_state(
                 shared_notes_rate_limit,
                 rate_limit::rate_limit_by_ip,
@@ -310,13 +310,13 @@ async fn app() -> Router {
                 auth_state.clone(),
                 auth::require_auth,
             ));
-    let cloud_api_management_routes = hypr_api_cloud::management_router(cloud_api_state.clone())
+    let cloud_api_management_routes = anlg_api_cloud::management_router(cloud_api_state.clone())
         .route_layer(middleware::from_fn(auth::sentry_and_analytics))
         .route_layer(middleware::from_fn_with_state(
             auth_state.clone(),
             auth::require_auth,
         ));
-    let cloud_api_connector_routes = hypr_api_cloud::connector_router(cloud_api_state.clone())
+    let cloud_api_connector_routes = anlg_api_cloud::connector_router(cloud_api_state.clone())
         .route_layer(middleware::from_fn_with_state(
             cloud_api_rate_limit,
             rate_limit::rate_limit,
@@ -324,16 +324,16 @@ async fn app() -> Router {
         .route_layer(middleware::from_fn(auth::sentry_and_analytics))
         .route_layer(middleware::from_fn_with_state(
             cloud_api_state,
-            hypr_api_cloud::require_cloud_api_key,
+            anlg_api_cloud::require_cloud_api_key,
         ));
 
     let integration_routes = Router::new()
-        .nest("/calendar", hypr_api_calendar::router())
-        .nest("/mail", hypr_api_mail::router())
-        .nest("/ticket", hypr_api_ticket::router())
+        .nest("/calendar", anlg_api_calendar::router())
+        .nest("/mail", anlg_api_mail::router())
+        .nest("/ticket", anlg_api_ticket::router())
         .nest(
             "/nango",
-            hypr_api_nango::session_router(nango_config.clone()),
+            anlg_api_nango::session_router(nango_config.clone()),
         )
         .layer(axum::Extension(nango_connection_state))
         .route_layer(middleware::from_fn(auth::sentry_and_analytics))
@@ -345,7 +345,7 @@ async fn app() -> Router {
     let integration_management_routes = Router::new()
         .nest(
             "/nango",
-            hypr_api_nango::management_router(nango_config.clone()),
+            anlg_api_nango::management_router(nango_config.clone()),
         )
         .route_layer(middleware::from_fn(auth::sentry_and_analytics))
         .route_layer(middleware::from_fn_with_state(
@@ -354,22 +354,22 @@ async fn app() -> Router {
         ));
 
     let stt_routes = Router::new()
-        .merge(hypr_transcribe_proxy::listen_router(stt_config.clone()))
-        .nest("/stt", hypr_transcribe_proxy::router(stt_config))
+        .merge(anlg_transcribe_proxy::listen_router(stt_config.clone()))
+        .nest("/stt", anlg_transcribe_proxy::router(stt_config))
         .route_layer(middleware::from_fn_with_state(
             stt_rate_limit,
             rate_limit::rate_limit,
         ));
 
     let llm_routes = Router::new()
-        .merge(hypr_llm_proxy::chat_completions_router(llm_config.clone()))
-        .nest("/llm", hypr_llm_proxy::router(llm_config))
+        .merge(anlg_llm_proxy::chat_completions_router(llm_config.clone()))
+        .nest("/llm", anlg_llm_proxy::router(llm_config))
         .route_layer(middleware::from_fn_with_state(
             llm_rate_limit,
             rate_limit::rate_limit,
         ));
 
-    let subscription_router = hypr_api_subscription::router(subscription_config);
+    let subscription_router = anlg_api_subscription::router(subscription_config);
     let auth_routes = Router::new()
         .merge(stt_routes)
         .merge(llm_routes)
@@ -451,19 +451,19 @@ async fn app() -> Router {
                                 server.address = tracing::field::Empty,
                                 server.port = tracing::field::Empty,
                                 client.address = tracing::field::Empty,
-                                hyprnote.subsystem = "edge",
+                                anarlog.subsystem = "edge",
                                 enduser.id = tracing::field::Empty,
                                 enduser.pseudo.id = tracing::field::Empty,
-                                hyprnote.stt.provider.name = tracing::field::Empty,
-                                hyprnote.stt.routing_strategy = tracing::field::Empty,
-                                hyprnote.stt.model = tracing::field::Empty,
-                                hyprnote.stt.language_codes = tracing::field::Empty,
-                                hyprnote.audio.sample_rate_hz = tracing::field::Empty,
-                                hyprnote.audio.channel_count = tracing::field::Empty,
+                                anarlog.stt.provider.name = tracing::field::Empty,
+                                anarlog.stt.routing_strategy = tracing::field::Empty,
+                                anarlog.stt.model = tracing::field::Empty,
+                                anarlog.stt.language_codes = tracing::field::Empty,
+                                anarlog.audio.sample_rate_hz = tracing::field::Empty,
+                                anarlog.audio.channel_count = tracing::field::Empty,
                                 gen_ai.provider.name = tracing::field::Empty,
-                                hyprnote.gen_ai.request.streaming = tracing::field::Empty,
-                                hyprnote.gen_ai.request.message_count = tracing::field::Empty,
-                                hyprnote.request.id = tracing::field::Empty,
+                                anarlog.gen_ai.request.streaming = tracing::field::Empty,
+                                anarlog.gen_ai.request.message_count = tracing::field::Empty,
+                                anarlog.request.id = tracing::field::Empty,
                                 error.type = tracing::field::Empty,
                                 otel.status_code = tracing::field::Empty,
                                 otel.kind = "server",
@@ -479,7 +479,7 @@ async fn app() -> Router {
                             if let Some(client_address) = client_address.as_deref() {
                                 span.record("client.address", client_address);
                             }
-                            hypr_observability::set_remote_parent(&span, request.headers());
+                            anlg_observability::set_remote_parent(&span, request.headers());
                             span
                         })
                         .on_request(|request: &Request<Body>, span: &tracing::Span| {
@@ -492,7 +492,7 @@ async fn app() -> Router {
                                 .get(REQUEST_ID_HEADER)
                                 .and_then(|v| v.to_str().ok())
                             {
-                                span.record("hyprnote.request.id", request_id);
+                                span.record("anarlog.request.id", request_id);
                             }
                             configure_sentry_trace_scope(span, env, SystemTime::now());
                             tracing::info!(
@@ -514,7 +514,7 @@ async fn app() -> Router {
                                     response.status().as_u16() as i64,
                                 );
                                 if response.status().is_server_error() {
-                                    hypr_observability::mark_span_as_error(
+                                    anlg_observability::mark_span_as_error(
                                         span,
                                         &response.status().as_u16().to_string(),
                                     );
@@ -522,7 +522,7 @@ async fn app() -> Router {
                                 tracing::info!(
                                     parent: span,
                                     http.response.status_code = %response.status().as_u16(),
-                                    hyprnote.duration_ms = %latency.as_millis(),
+                                    anarlog.duration_ms = %latency.as_millis(),
                                     "http_request_finished"
                                 );
                             },
@@ -542,12 +542,12 @@ async fn app() -> Router {
                                         "http_server_failure".to_string()
                                     }
                                 };
-                                hypr_observability::mark_span_as_error(span, error_type.as_str());
+                                anlg_observability::mark_span_as_error(span, error_type.as_str());
                                 tracing::error!(
                                     parent: span,
                                     error.type = %error_type,
                                     error = %failure_class,
-                                    hyprnote.duration_ms = %latency.as_millis(),
+                                    anarlog.duration_ms = %latency.as_millis(),
                                     "http_request_failed"
                                 );
                             },
@@ -556,8 +556,8 @@ async fn app() -> Router {
         )
 }
 
-fn build_analytics_client(env: &Env) -> Arc<hypr_analytics::AnalyticsClient> {
-    let mut builder = hypr_analytics::AnalyticsClientBuilder::default();
+fn build_analytics_client(env: &Env) -> Arc<anlg_analytics::AnalyticsClient> {
+    let mut builder = anlg_analytics::AnalyticsClientBuilder::default();
     if cfg!(debug_assertions) {
         tracing::info!("analytics: dev mode, printing events as tracing");
     } else {
@@ -581,7 +581,7 @@ fn main() -> std::io::Result<()> {
 
     let _guard = sentry::init(sentry::ClientOptions {
         dsn: env.sentry_dsn.as_ref().and_then(|s| s.parse().ok()),
-        release: option_env!("APP_VERSION").map(|v| format!("hyprnote-api@{}", v).into()),
+        release: option_env!("APP_VERSION").map(|v| format!("anarlog-api@{}", v).into()),
         environment: Some(
             if cfg!(debug_assertions) {
                 "development"
@@ -601,13 +601,13 @@ fn main() -> std::io::Result<()> {
     });
 
     sentry::configure_scope(|scope| {
-        scope.set_tag("service.namespace", "hyprnote");
+        scope.set_tag("service.namespace", "anarlog");
         scope.set_tag("service.name", "api");
     });
 
     let observability = observability::init("api", &env.observability);
 
-    hypr_transcribe_proxy::ApiKeys::from(&env.stt.stt).log_configured_providers();
+    anlg_transcribe_proxy::ApiKeys::from(&env.stt.stt).log_configured_providers();
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -618,7 +618,7 @@ fn main() -> std::io::Result<()> {
             let app = app().await;
             let cancellation = CancellationToken::new();
             let worker_task = env.anarlog_attachment_backup_gc_enabled.then(|| {
-                let cloudsync_cleanup = hypr_api_subscription::CloudsyncCleanupConfig::new(
+                let cloudsync_cleanup = anlg_api_subscription::CloudsyncCleanupConfig::new(
                     env.sync
                         .sqlitecloud_project_url
                         .as_deref()
@@ -636,13 +636,13 @@ fn main() -> std::io::Result<()> {
                         .unwrap_or_default(),
                 )
                 .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
-                let config = hypr_api_subscription::SubscriptionConfig::new(
+                let config = anlg_api_subscription::SubscriptionConfig::new(
                     &env.supabase,
                     &env.stripe,
                     &env.loops,
                 )
                 .with_cloudsync_cleanup(cloudsync_cleanup);
-                let worker = hypr_api_subscription::CleanupWorker::new(&config);
+                let worker = anlg_api_subscription::CleanupWorker::new(&config);
                 let worker_cancellation = cancellation.clone();
                 tokio::spawn(worker.run(worker_cancellation))
             });
@@ -712,22 +712,22 @@ async fn version() -> &'static str {
 }
 
 fn configure_sentry_trace_scope(span: &tracing::Span, env: &Env, request_started_at: SystemTime) {
-    let Some(trace_identifiers) = hypr_observability::span_identifiers(span) else {
+    let Some(trace_identifiers) = anlg_observability::span_identifiers(span) else {
         return;
     };
 
     let trace_url = build_honeycomb_trace_url(env, &trace_identifiers, request_started_at);
     sentry::configure_scope(|scope| {
         scope.set_tag(
-            "hyprnote.honeycomb.trace_id",
+            "anarlog.honeycomb.trace_id",
             trace_identifiers.trace_id.as_str(),
         );
         scope.set_tag(
-            "hyprnote.honeycomb.span_id",
+            "anarlog.honeycomb.span_id",
             trace_identifiers.span_id.as_str(),
         );
         if let Some(trace_url) = trace_url.as_deref() {
-            scope.set_tag("hyprnote.honeycomb.trace_url", trace_url);
+            scope.set_tag("anarlog.honeycomb.trace_url", trace_url);
         }
 
         let mut context = std::collections::BTreeMap::new();
@@ -736,13 +736,13 @@ fn configure_sentry_trace_scope(span: &tracing::Span, env: &Env, request_started
         if let Some(trace_url) = trace_url {
             context.insert("trace_url".into(), Value::String(trace_url));
         }
-        scope.set_context("hyprnote.honeycomb", Context::Other(context));
+        scope.set_context("anarlog.honeycomb", Context::Other(context));
     });
 }
 
 fn build_honeycomb_trace_url(
     env: &Env,
-    trace_identifiers: &hypr_observability::TraceIdentifiers,
+    trace_identifiers: &anlg_observability::TraceIdentifiers,
     request_started_at: SystemTime,
 ) -> Option<String> {
     let team = env.observability.honeycomb_ui_team.as_deref()?;
@@ -833,8 +833,8 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
             .build()
     }
 
-    fn test_sync_state(server: &MockServer) -> hypr_api_sync::AppState {
-        let config = hypr_api_sync::SyncConfig::new(
+    fn test_sync_state(server: &MockServer) -> anlg_api_sync::AppState {
+        let config = anlg_api_sync::SyncConfig::new(
             "https://test.sqlite.cloud",
             "issuer-key",
             "database-id",
@@ -845,7 +845,7 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
         .unwrap()
         .with_token_ttl_seconds(60)
         .unwrap();
-        hypr_api_sync::AppState::new(config)
+        anlg_api_sync::AppState::new(config)
     }
 
     async fn response_bytes(response: axum::response::Response) -> Vec<u8> {

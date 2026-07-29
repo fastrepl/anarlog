@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-api-auth = { workspace = true }
-hypr-api-error = { workspace = true }
-hypr-api-nango = { workspace = true }
-hypr-google-mail = { workspace = true, features = ["utoipa"] }
-hypr-nango = { workspace = true }
+anlg-api-auth = { workspace = true }
+anlg-api-error = { workspace = true }
+anlg-api-nango = { workspace = true }
+anlg-google-mail = { workspace = true, features = ["utoipa"] }
+anlg-nango = { workspace = true }
 
 axum = { workspace = true }
 utoipa = { workspace = true }

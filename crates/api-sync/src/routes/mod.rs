@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use anlg_api_auth::AuthContext;
 use axum::{
     Extension, Json, Router,
     extract::{DefaultBodyLimit, Path, State},
@@ -8,7 +9,6 @@ use axum::{
     routing::{post, put},
 };
 use chrono::{SecondsFormat, TimeDelta, Utc};
-use hypr_api_auth::AuthContext;
 use reqwest::StatusCode as HttpStatusCode;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -1285,8 +1285,8 @@ fn encode_workspace_token_attributes(workspaces: &[CloudsyncWorkspace]) -> Resul
 
 #[cfg(test)]
 mod tests {
+    use anlg_api_auth::{AuthContext, Claims};
     use axum::{Extension, body::Body, body::to_bytes, http::Request, http::StatusCode};
-    use hypr_api_auth::{AuthContext, Claims};
     use serde_json::{Value, json};
     use tower::ServiceExt;
     use wiremock::{

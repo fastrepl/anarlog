@@ -20,12 +20,12 @@ impl SmallestAIAdapter {
         }
     }
 
-    fn is_language_supported(language: &hypr_language::Language) -> bool {
+    fn is_language_supported(language: &anlg_language::Language) -> bool {
         language.matches_any_code(language::SUPPORTED_LANGUAGES)
     }
 
     fn language_support_impl(
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> LanguageSupport {
         if !Self::supports_model(model) {
@@ -42,34 +42,34 @@ impl SmallestAIAdapter {
     }
 
     pub fn language_support_live(
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> LanguageSupport {
         Self::language_support_impl(languages, model)
     }
 
     pub fn language_support_batch(
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> LanguageSupport {
         Self::language_support_impl(languages, model)
     }
 
     pub fn is_supported_languages_live(
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> bool {
         Self::language_support_live(languages, model).is_supported()
     }
 
     pub fn is_supported_languages_batch(
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> bool {
         Self::language_support_batch(languages, model).is_supported()
     }
 
-    pub(crate) fn language_query_value(languages: &[hypr_language::Language]) -> String {
+    pub(crate) fn language_query_value(languages: &[anlg_language::Language]) -> String {
         match languages {
             [language] => language.iso639().code().to_string(),
             _ => "multi".to_string(),
@@ -161,9 +161,9 @@ mod tests {
     #[test]
     fn test_build_ws_url_from_base_proxy() {
         let (url, params) = SmallestAIAdapter::build_ws_url_from_base(
-            "https://api.hyprnote.com/stt?provider=smallestai",
+            "https://api.anarlog.so/stt?provider=smallestai",
         );
-        assert_eq!(url.as_str(), "wss://api.hyprnote.com/stt/listen");
+        assert_eq!(url.as_str(), "wss://api.anarlog.so/stt/listen");
         assert_eq!(
             params,
             vec![("provider".to_string(), "smallestai".to_string())]
@@ -205,7 +205,7 @@ mod tests {
 
     #[test]
     fn test_language_query_value() {
-        use hypr_language::ISO639;
+        use anlg_language::ISO639;
 
         assert_eq!(
             SmallestAIAdapter::language_query_value(&[ISO639::En.into()]),
@@ -220,7 +220,7 @@ mod tests {
 
     #[test]
     fn test_language_support_rejects_unsupported_model() {
-        use hypr_language::ISO639;
+        use anlg_language::ISO639;
 
         assert_eq!(
             SmallestAIAdapter::language_support_live(&[ISO639::En.into()], Some("other-model")),
@@ -230,7 +230,7 @@ mod tests {
 
     #[test]
     fn test_language_support_uses_documented_languages() {
-        use hypr_language::ISO639;
+        use anlg_language::ISO639;
 
         assert!(SmallestAIAdapter::is_supported_languages_live(
             &[ISO639::En.into(), ISO639::Fr.into()],

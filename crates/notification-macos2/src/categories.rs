@@ -14,10 +14,10 @@ static REGISTERED: Mutex<Option<HashMap<String, Vec<String>>>> = Mutex::new(None
 pub(crate) fn register_default(center: &UNUserNotificationCenter) {
     let mut reg = REGISTERED.lock().unwrap();
     let map = reg.get_or_insert_with(HashMap::new);
-    if map.contains_key("HYPR_DEFAULT") {
+    if map.contains_key("ANLG_DEFAULT") {
         return;
     }
-    map.insert("HYPR_DEFAULT".into(), vec![]);
+    map.insert("ANLG_DEFAULT".into(), vec![]);
     apply_all(center, map);
 }
 
@@ -27,7 +27,7 @@ pub(crate) fn ensure_options_category_with_labels(
 ) -> String {
     let mut hasher = DefaultHasher::new();
     options.hash(&mut hasher);
-    let cat_id = format!("HYPR_OPTS_{:x}", hasher.finish());
+    let cat_id = format!("ANLG_OPTS_{:x}", hasher.finish());
 
     let mut reg = REGISTERED.lock().unwrap();
     let map = reg.get_or_insert_with(HashMap::new);
@@ -43,7 +43,7 @@ fn apply_all(center: &UNUserNotificationCenter, map: &HashMap<String, Vec<String
     let cats: Vec<_> = map
         .iter()
         .map(|(id, labels)| {
-            if id == "HYPR_DEFAULT" {
+            if id == "ANLG_DEFAULT" {
                 build_default_category()
             } else {
                 build_options_category(id, labels)
@@ -62,7 +62,7 @@ fn build_default_category() -> objc2::rc::Retained<UNNotificationCategory> {
         UNNotificationActionOptions::empty(),
     );
     UNNotificationCategory::categoryWithIdentifier_actions_intentIdentifiers_options(
-        ns_string!("HYPR_DEFAULT"),
+        ns_string!("ANLG_DEFAULT"),
         &NSArray::from_retained_slice(&[accept]),
         &NSArray::from_slice(&[]),
         UNNotificationCategoryOptions::CustomDismissAction,

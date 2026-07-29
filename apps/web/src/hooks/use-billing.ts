@@ -6,7 +6,7 @@ import {
   type BillingInfo,
   deriveBillingInfo,
   type SupabaseJwtPayload,
-} from "@hypr/supabase";
+} from "@anlg/supabase";
 
 import { getSupabaseBrowserClient } from "@/functions/supabase";
 

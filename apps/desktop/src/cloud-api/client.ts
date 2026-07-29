@@ -1,6 +1,6 @@
 import { fetch } from "@tauri-apps/plugin-http";
 
-import { commands as localApiCommands } from "@hypr/plugin-local-api";
+import { commands as localApiCommands } from "@anlg/plugin-local-api";
 
 import { supabase } from "~/auth/client";
 import { env } from "~/env";

@@ -71,7 +71,7 @@ pub struct Notification<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
 
 impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Notification<'a, R, M> {
     #[tracing::instrument(skip(self))]
-    pub fn show(&self, v: hypr_notification::Notification) -> Result<(), Error> {
+    pub fn show(&self, v: anlg_notification::Notification) -> Result<(), Error> {
         #[cfg(target_os = "windows")]
         if should_show_windows_notification(v.key.as_deref()) {
             show_windows_notification(self.manager, &v)?;
@@ -79,7 +79,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Notification<'a, R, M> {
         }
 
         #[cfg(not(target_os = "windows"))]
-        hypr_notification::show(&v);
+        anlg_notification::show(&v);
 
         Ok(())
     }
@@ -95,7 +95,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Notification<'a, R, M> {
         }
 
         #[cfg(not(target_os = "windows"))]
-        hypr_notification::clear();
+        anlg_notification::clear();
 
         Ok(())
     }
@@ -129,7 +129,7 @@ fn windows_notification_timeouts() -> &'static Mutex<WindowsNotificationTimeouts
 #[cfg(target_os = "windows")]
 fn schedule_windows_notification_timeout<R: tauri::Runtime, M: tauri::Manager<R>>(
     manager: &M,
-    notification: &hypr_notification::Notification,
+    notification: &anlg_notification::Notification,
 ) {
     use tauri_specta::Event;
 
@@ -213,7 +213,7 @@ fn windows_app_id<'a>(
 #[cfg(target_os = "windows")]
 fn show_windows_notification<R: tauri::Runtime, M: tauri::Manager<R>>(
     manager: &M,
-    notification: &hypr_notification::Notification,
+    notification: &anlg_notification::Notification,
 ) -> Result<(), Error> {
     let mut toast = notify_rust::Notification::new();
     toast

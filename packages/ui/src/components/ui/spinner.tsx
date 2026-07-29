@@ -1,6 +1,6 @@
 import React from "react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 interface SpinnerProps extends React.HTMLAttributes<HTMLDivElement> {
   size?: number;

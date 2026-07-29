@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/supabase",
+  "name": "@anlg/supabase",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",

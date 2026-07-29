@@ -1,14 +1,14 @@
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
+import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
 
 import { useListener } from "./contexts";
 import { useStartListening } from "./useStartListening";
 
 import { listenerStore } from "~/store/zustand/listener/instance";
 
-const LISTENER_CONTROL_EVENT = "hypr:listener-control";
+const LISTENER_CONTROL_EVENT = "anlg:listener-control";
 
 type ListenerControlAction = "start" | "stop";
 

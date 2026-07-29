@@ -1,7 +1,7 @@
 import { arch, platform } from "@tauri-apps/plugin-os";
 import { useEffect } from "react";
 
-import { Button } from "@hypr/ui/components/ui/button";
+import { Button } from "@anlg/ui/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,7 +9,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@hypr/ui/components/ui/dialog";
+} from "@anlg/ui/components/ui/dialog";
 
 import { TrialDialogIcon } from "./trial-dialog-icon";
 

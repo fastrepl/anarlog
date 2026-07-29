@@ -8,6 +8,6 @@ default = []
 specta = ["dep:specta"]
 
 [dependencies]
-hypr-local-model = { workspace = true }
+anlg-local-model = { workspace = true }
 serde = { workspace = true }
 specta = { workspace = true, optional = true }

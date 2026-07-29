@@ -8,7 +8,7 @@ use super::MenuItemHandler;
 pub struct AppNew;
 
 impl MenuItemHandler for AppNew {
-    const ID: &'static str = "hypr_app_new";
+    const ID: &'static str = "anlg_app_new";
 
     fn build(app: &AppHandle<tauri::Wry>) -> Result<MenuItemKind<tauri::Wry>> {
         let item = MenuItem::with_id(app, Self::ID, "New Note", true, Some("CmdOrCtrl+N"))?;

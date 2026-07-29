@@ -20,7 +20,7 @@ pub enum TicketError {
     Internal(String),
 
     #[error(transparent)]
-    NangoConnection(#[from] hypr_api_nango::NangoConnectionError),
+    NangoConnection(#[from] anlg_api_nango::NangoConnectionError),
 }
 
 impl IntoResponse for TicketError {
@@ -36,6 +36,6 @@ impl IntoResponse for TicketError {
             Self::NangoConnection(err) => return err.into_response(),
         };
 
-        hypr_api_error::error_response(status, code, &message)
+        anlg_api_error::error_response(status, code, &message)
     }
 }

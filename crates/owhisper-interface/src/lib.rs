@@ -143,7 +143,7 @@ common_derives! {
         // https://docs.rs/axum-extra/0.10.1/axum_extra/extract/struct.Query.html#example-1
         #[serde(default, alias = "language")]
         #[cfg_attr(feature = "openapi", schema(value_type = Vec<String>))]
-        pub languages: Vec<hypr_language::Language>,
+        pub languages: Vec<anlg_language::Language>,
         #[serde(default)]
         pub keywords: Vec<String>,
         #[serde(default)]

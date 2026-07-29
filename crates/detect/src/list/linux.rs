@@ -37,7 +37,7 @@ pub fn list_installed_apps() -> Vec<InstalledApp> {
 pub fn list_mic_using_apps() -> Result<Vec<InstalledApp>, crate::Error> {
     let mut mainloop = Mainloop::new().ok_or(crate::Error::PulseMainloop)?;
     let mut context =
-        Context::new(&mainloop, "hyprnote-detect").ok_or(crate::Error::PulseContext)?;
+        Context::new(&mainloop, "anarlog-detect").ok_or(crate::Error::PulseContext)?;
 
     context
         .connect(None, ContextFlagSet::NOFLAGS, None)

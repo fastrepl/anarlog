@@ -93,7 +93,7 @@ mod test {
             }
 
             let mut paths = vec![primary.clone()];
-            if let Some(default_base) = hypr_storage::global::compute_default_base(&identifier) {
+            if let Some(default_base) = anlg_storage::global::compute_default_base(&identifier) {
                 paths.push(default_base);
             }
 

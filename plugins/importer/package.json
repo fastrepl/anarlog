@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/plugin-importer",
+  "name": "@anlg/plugin-importer",
   "private": true,
   "main": "./js/index.ts",
   "scripts": {

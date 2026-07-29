@@ -11,7 +11,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Export<'a, R, M> {
         path: impl AsRef<Path>,
         input: impl Into<crate::ExportInput>,
     ) -> Result<(), crate::Error> {
-        hypr_export_core::export_pdf(path, input)
+        anlg_export_core::export_pdf(path, input)
     }
 }
 

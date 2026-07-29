@@ -49,8 +49,8 @@ export function getRouter() {
       initialScope: {
         tags: {
           "service.name": "web",
-          "service.namespace": "hyprnote",
-          "hyprnote.surface": "web",
+          "service.namespace": "anarlog",
+          "anarlog.surface": "web",
         },
       },
     });

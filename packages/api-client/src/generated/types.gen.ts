@@ -2858,7 +2858,7 @@ export type SttListenStreamData = {
     path?: never;
     query?: {
         /**
-         * STT provider. Use 'hyprnote' for automatic routing (default), or specify:
+         * STT provider. Use 'anarlog' for automatic routing (default), or specify:
          * deepgram, soniox, assemblyai, gladia, elevenlabs, fireworks, openai, dashscope, mistral
          */
         provider?: string;
@@ -2921,7 +2921,7 @@ export type SttListenBatchData = {
     path?: never;
     query?: {
         /**
-         * STT provider. Use 'hyprnote' for automatic routing (default), or specify:
+         * STT provider. Use 'anarlog' for automatic routing (default), or specify:
          * deepgram, soniox, assemblyai, gladia, elevenlabs, fireworks, openai, dashscope, mistral
          */
         provider?: string;

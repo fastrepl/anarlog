@@ -23,11 +23,11 @@ impl Default for MistralAdapter {
 }
 
 impl MistralAdapter {
-    fn is_language_supported(lang: &hypr_language::Language) -> bool {
+    fn is_language_supported(lang: &anlg_language::Language) -> bool {
         lang.matches_any_code(SUPPORTED_LANGUAGES)
     }
 
-    fn language_support_impl(languages: &[hypr_language::Language]) -> LanguageSupport {
+    fn language_support_impl(languages: &[anlg_language::Language]) -> LanguageSupport {
         if languages.is_empty() {
             return LanguageSupport::Supported {
                 quality: LanguageQuality::NoData,
@@ -43,19 +43,19 @@ impl MistralAdapter {
         }
     }
 
-    pub fn language_support_live(languages: &[hypr_language::Language]) -> LanguageSupport {
+    pub fn language_support_live(languages: &[anlg_language::Language]) -> LanguageSupport {
         Self::language_support_impl(languages)
     }
 
-    pub fn language_support_batch(languages: &[hypr_language::Language]) -> LanguageSupport {
+    pub fn language_support_batch(languages: &[anlg_language::Language]) -> LanguageSupport {
         Self::language_support_impl(languages)
     }
 
-    pub fn is_supported_languages_live(languages: &[hypr_language::Language]) -> bool {
+    pub fn is_supported_languages_live(languages: &[anlg_language::Language]) -> bool {
         Self::language_support_live(languages).is_supported()
     }
 
-    pub fn is_supported_languages_batch(languages: &[hypr_language::Language]) -> bool {
+    pub fn is_supported_languages_batch(languages: &[anlg_language::Language]) -> bool {
         Self::language_support_batch(languages).is_supported()
     }
 
@@ -90,8 +90,8 @@ mod tests {
     #[test]
     fn test_build_ws_url_from_base_proxy() {
         let (url, params) =
-            MistralAdapter::build_ws_url_from_base("https://api.hyprnote.com?provider=mistral");
-        assert_eq!(url.as_str(), "wss://api.hyprnote.com/listen");
+            MistralAdapter::build_ws_url_from_base("https://api.anarlog.so?provider=mistral");
+        assert_eq!(url.as_str(), "wss://api.anarlog.so/listen");
         assert_eq!(
             params,
             vec![("provider".to_string(), "mistral".to_string())]

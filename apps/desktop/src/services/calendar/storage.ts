@@ -1,7 +1,7 @@
 import type {
   CalendarListItem,
   CalendarProviderType,
-} from "@hypr/plugin-calendar";
+} from "@anlg/plugin-calendar";
 
 import type { Ctx } from "./ctx";
 import type { ExistingEvent, IncomingParticipants } from "./fetch/types";

@@ -1,5 +1,5 @@
 use crate::common_derives;
-use hypr_askama_utils::filters;
+use anlg_askama_utils::filters;
 
 common_derives! {
     pub struct DailySummaryStats {
@@ -54,7 +54,7 @@ common_derives! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hypr_askama_utils::{tpl_assert, tpl_snapshot};
+    use anlg_askama_utils::{tpl_assert, tpl_snapshot};
 
     tpl_assert!(
         test_language_as_specified,

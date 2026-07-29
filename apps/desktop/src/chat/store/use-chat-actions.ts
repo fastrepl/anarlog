@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import { createFallbackChatTitle, generateChatTitle } from "./chat-title";
 import {
@@ -17,7 +17,7 @@ import {
 
 import { useLanguageModel } from "~/ai/hooks";
 import type { ContextRef } from "~/chat/context/entities";
-import type { ChatMessageSender, HyprUIMessage } from "~/chat/types";
+import type { ChatMessageSender, AnlgUIMessage } from "~/chat/types";
 import { useOwnerUserId } from "~/shared/owner-user";
 import { id } from "~/shared/utils";
 
@@ -91,7 +91,7 @@ export function useChatActions({
   const handleSendMessage = useCallback(
     (
       content: string,
-      parts: HyprUIMessage["parts"],
+      parts: AnlgUIMessage["parts"],
       sendMessage: ChatMessageSender,
       contextRefs?: ContextRef[],
     ) => {
@@ -105,7 +105,7 @@ export function useChatActions({
         createdAt: Date.now(),
         ...(contextRefs && contextRefs.length > 0 ? { contextRefs } : {}),
       };
-      const uiMessage: HyprUIMessage = {
+      const uiMessage: AnlgUIMessage = {
         id: messageId,
         role: "user",
         parts,

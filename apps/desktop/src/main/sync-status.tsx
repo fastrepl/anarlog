@@ -13,15 +13,15 @@ import {
 } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
-import { getCloudsyncStatus, syncCloudsyncNow } from "@hypr/plugin-db";
+import { getCloudsyncStatus, syncCloudsyncNow } from "@anlg/plugin-db";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@hypr/ui/components/ui/dropdown-menu";
-import { cn, formatDistanceToNow } from "@hypr/utils";
+} from "@anlg/ui/components/ui/dropdown-menu";
+import { cn, formatDistanceToNow } from "@anlg/utils";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";

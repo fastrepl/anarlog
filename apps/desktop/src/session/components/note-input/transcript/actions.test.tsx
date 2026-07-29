@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { beginCloudsyncActivity, endCloudsyncActivity } from "@hypr/plugin-db";
+import { beginCloudsyncActivity, endCloudsyncActivity } from "@anlg/plugin-db";
 
 const mocks = vi.hoisted(() => ({
   audioPath: vi.fn(),
@@ -11,11 +11,11 @@ const mocks = vi.hoisted(() => ({
   toastError: vi.fn(),
 }));
 
-vi.mock("@hypr/plugin-fs-sync", () => ({
+vi.mock("@anlg/plugin-fs-sync", () => ({
   commands: { audioPath: mocks.audioPath },
 }));
 
-vi.mock("@hypr/ui/components/ui/toast", () => ({
+vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: { error: mocks.toastError },
 }));
 

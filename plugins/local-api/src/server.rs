@@ -80,11 +80,11 @@ enum ApiError {
     Internal(String),
 }
 
-impl From<hypr_agent_access::Error> for ApiError {
-    fn from(error: hypr_agent_access::Error) -> Self {
+impl From<anlg_agent_access::Error> for ApiError {
+    fn from(error: anlg_agent_access::Error) -> Self {
         match error {
-            hypr_agent_access::Error::NotFound(what) => Self::NotFound(format!("{what} not found")),
-            hypr_agent_access::Error::Database { .. } => Self::Internal(error.to_string()),
+            anlg_agent_access::Error::NotFound(what) => Self::NotFound(format!("{what} not found")),
+            anlg_agent_access::Error::Database { .. } => Self::Internal(error.to_string()),
         }
     }
 }
@@ -136,11 +136,11 @@ async fn require_api_key(
         .filter(|token| !token.is_empty())
         .ok_or(ApiError::Unauthorized)?;
 
-    let key_hash = hypr_db_app::hash_api_key(token);
-    let key = hypr_db_app::find_active_api_key_by_hash(&pool, &key_hash)
+    let key_hash = anlg_db_app::hash_api_key(token);
+    let key = anlg_db_app::find_active_api_key_by_hash(&pool, &key_hash)
         .await?
         .ok_or(ApiError::Unauthorized)?;
-    if let Err(error) = hypr_db_app::touch_api_key(&pool, &key.id).await {
+    if let Err(error) = anlg_db_app::touch_api_key(&pool, &key.id).await {
         tracing::warn!("[local-api] failed to update key usage: {error}");
     }
 
@@ -166,9 +166,9 @@ async fn list_meetings(
     State(pool): State<SqlitePool>,
     Query(params): Query<ListMeetingsQuery>,
 ) -> Result<Response, ApiError> {
-    let page = hypr_agent_access::list_meetings(
+    let page = anlg_agent_access::list_meetings(
         &pool,
-        hypr_agent_access::ListMeetingsInput {
+        anlg_agent_access::ListMeetingsInput {
             query: params.query,
             series_id: params.series_id,
             limit: params.limit,
@@ -184,7 +184,7 @@ async fn get_meeting(
     Path(meeting_id): Path<String>,
 ) -> Result<Response, ApiError> {
     let meeting =
-        hypr_agent_access::get_meeting(&pool, hypr_agent_access::GetMeetingInput { meeting_id })
+        anlg_agent_access::get_meeting(&pool, anlg_agent_access::GetMeetingInput { meeting_id })
             .await?;
     Ok(Json(meeting).into_response())
 }
@@ -200,9 +200,9 @@ async fn get_transcript(
     Path(meeting_id): Path<String>,
     Query(params): Query<TranscriptQuery>,
 ) -> Result<Response, ApiError> {
-    let page = hypr_agent_access::get_meeting_transcript(
+    let page = anlg_agent_access::get_meeting_transcript(
         &pool,
-        hypr_agent_access::GetMeetingTranscriptInput {
+        anlg_agent_access::GetMeetingTranscriptInput {
             meeting_id,
             offset: params.offset,
             limit: params.limit,
@@ -223,9 +223,9 @@ async fn get_history(
     Path(meeting_id): Path<String>,
     Query(params): Query<HistoryQuery>,
 ) -> Result<Response, ApiError> {
-    let page = hypr_agent_access::get_recurring_meeting_history(
+    let page = anlg_agent_access::get_recurring_meeting_history(
         &pool,
-        hypr_agent_access::GetRecurringMeetingHistoryInput {
+        anlg_agent_access::GetRecurringMeetingHistoryInput {
             meeting_id,
             limit: params.limit,
             offset: params.offset,
@@ -246,7 +246,7 @@ async fn export_meeting(
     Query(params): Query<ExportQuery>,
 ) -> Result<Response, ApiError> {
     let format = params.format.as_deref().unwrap_or("json");
-    let export = hypr_agent_access::get_meeting_export(&pool, meeting_id).await?;
+    let export = anlg_agent_access::get_meeting_export(&pool, meeting_id).await?;
     match format {
         "json" => Ok(Json(export).into_response()),
         "markdown" => Ok((
@@ -261,7 +261,7 @@ async fn export_meeting(
 }
 
 async fn list_webhooks(State(pool): State<SqlitePool>) -> Result<Response, ApiError> {
-    let webhooks = hypr_db_app::list_webhook_endpoints(&pool)
+    let webhooks = anlg_db_app::list_webhook_endpoints(&pool)
         .await?
         .into_iter()
         .map(WebhookInfo::from)
@@ -296,8 +296,8 @@ pub(crate) async fn create_endpoint(
     }
 
     let events_json = serde_json::to_string(events).map_err(|error| error.to_string())?;
-    let secret = hypr_db_app::generate_webhook_secret();
-    let row = hypr_db_app::insert_webhook_endpoint(
+    let secret = anlg_db_app::generate_webhook_secret();
+    let row = anlg_db_app::insert_webhook_endpoint(
         pool,
         &uuid::Uuid::new_v4().to_string(),
         url,
@@ -327,7 +327,7 @@ async fn delete_webhook(
     State(pool): State<SqlitePool>,
     Path(webhook_id): Path<String>,
 ) -> Result<Response, ApiError> {
-    if hypr_db_app::delete_webhook_endpoint(&pool, &webhook_id).await? {
+    if anlg_db_app::delete_webhook_endpoint(&pool, &webhook_id).await? {
         Ok(StatusCode::NO_CONTENT.into_response())
     } else {
         Err(ApiError::NotFound(format!(
@@ -340,7 +340,7 @@ async fn test_webhook(
     State(pool): State<SqlitePool>,
     Path(webhook_id): Path<String>,
 ) -> Result<Response, ApiError> {
-    let endpoint = hypr_db_app::get_webhook_endpoint(&pool, &webhook_id)
+    let endpoint = anlg_db_app::get_webhook_endpoint(&pool, &webhook_id)
         .await?
         .ok_or_else(|| ApiError::NotFound(format!("webhook '{webhook_id}' not found")))?;
     let delivery = dispatch::send_test(&pool, &endpoint).await;

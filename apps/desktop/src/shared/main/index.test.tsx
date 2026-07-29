@@ -10,7 +10,7 @@ vi.mock("@tauri-apps/plugin-os", () => ({
   platform: () => mocks.platform,
 }));
 
-vi.mock("@hypr/ui/components/ui/resizable", () => {
+vi.mock("@anlg/ui/components/ui/resizable", () => {
   return {
     ResizablePanelGroup: ({
       children,

@@ -15,11 +15,11 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-impl From<hypr_agent_access::Error> for Error {
-    fn from(error: hypr_agent_access::Error) -> Self {
+impl From<anlg_agent_access::Error> for Error {
+    fn from(error: anlg_agent_access::Error) -> Self {
         match error {
-            hypr_agent_access::Error::NotFound(what) => Self::NotFound(what),
-            hypr_agent_access::Error::Database { action, source } => {
+            anlg_agent_access::Error::NotFound(what) => Self::NotFound(what),
+            anlg_agent_access::Error::Database { action, source } => {
                 Self::operation(action, source.to_string())
             }
         }

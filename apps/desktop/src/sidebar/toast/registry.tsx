@@ -1,4 +1,4 @@
-import type { ServerStatus } from "@hypr/plugin-local-stt";
+import type { ServerStatus } from "@anlg/plugin-local-stt";
 
 import type { DownloadProgress, ToastCondition, ToastType } from "./types";
 

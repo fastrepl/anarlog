@@ -22,8 +22,8 @@ Sentry.init({
   initialScope: {
     tags: {
       "service.name": "billing",
-      "service.namespace": "hyprnote",
-      "hyprnote.surface": "billing",
+      "service.namespace": "anarlog",
+      "anarlog.surface": "billing",
     },
   },
 });

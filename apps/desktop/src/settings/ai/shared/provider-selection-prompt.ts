@@ -1,7 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import { useRef } from "react";
 
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import { setSettingValues } from "~/settings/queries";
 

@@ -4,13 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-api-auth = { workspace = true }
-hypr-api-error = { workspace = true }
-hypr-api-nango = { workspace = true }
-hypr-github-issues = { workspace = true, features = ["utoipa"] }
-hypr-linear = { workspace = true }
-hypr-nango = { workspace = true }
-hypr-ticket-interface = { workspace = true, features = ["utoipa"] }
+anlg-api-auth = { workspace = true }
+anlg-api-error = { workspace = true }
+anlg-api-nango = { workspace = true }
+anlg-github-issues = { workspace = true, features = ["utoipa"] }
+anlg-linear = { workspace = true }
+anlg-nango = { workspace = true }
+anlg-ticket-interface = { workspace = true, features = ["utoipa"] }
 
 axum = { workspace = true }
 utoipa = { workspace = true }

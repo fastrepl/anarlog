@@ -766,14 +766,14 @@ describe("fileAttachment round-trip", () => {
           type: "fileAttachment",
           attrs: {
             name: "CE2 The devil wears Prada script.pdf",
-            src: "asset://localhost/%2FUsers%2Fsungbin%2FLibrary%2FApplication%20Support%2Fcom.hyprnote.dev%2Fsessions%2Ff515cc6f%2Fattachments%2FCE2%20The%20devil%20wears%20Prada%20script%202.pdf",
+            src: "asset://localhost/%2FUsers%2Fsungbin%2FLibrary%2FApplication%20Support%2Fcom.anarlog.dev%2Fsessions%2Ff515cc6f%2Fattachments%2FCE2%20The%20devil%20wears%20Prada%20script%202.pdf",
           },
         },
         {
           type: "fileAttachment",
           attrs: {
             name: "2021-13630 조성빈 물리학 1 HW2.pdf",
-            src: "asset://localhost/%2FUsers%2Fsungbin%2FLibrary%2FApplication%20Support%2Fcom.hyprnote.dev%2Fsessions%2Ff515cc6f%2Fattachments%2F2021-13630%20%E1%84%8C%E1%85%A9%E1%84%89%E1%85%A5%E1%86%BC%E1%84%87%E1%85%B5%E1%86%AB%20%E1%84%86%E1%85%AE%E1%86%AF%E1%84%85%E1%85%B5%E1%84%92%E1%85%A1%E1%86%A8%201%20HW2.pdf",
+            src: "asset://localhost/%2FUsers%2Fsungbin%2FLibrary%2FApplication%20Support%2Fcom.anarlog.dev%2Fsessions%2Ff515cc6f%2Fattachments%2F2021-13630%20%E1%84%8C%E1%85%A9%E1%84%89%E1%85%A5%E1%86%BC%E1%84%87%E1%85%B5%E1%86%AB%20%E1%84%86%E1%85%AE%E1%86%AF%E1%84%85%E1%85%B5%E1%84%92%E1%85%A1%E1%86%A8%201%20HW2.pdf",
           },
         },
       ],

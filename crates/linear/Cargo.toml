@@ -9,7 +9,7 @@ specta = ["dep:specta"]
 utoipa = ["dep:utoipa"]
 
 [dependencies]
-hypr-http = { workspace = true }
+anlg-http = { workspace = true }
 
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

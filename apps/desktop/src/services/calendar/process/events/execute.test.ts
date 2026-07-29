@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { SessionEvent } from "@hypr/store";
+import type { SessionEvent } from "@anlg/store";
 
 import type { Ctx } from "../../ctx";
 import type { IncomingEvent } from "../../fetch/types";

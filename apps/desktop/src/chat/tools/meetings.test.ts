@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   getRecurringMeetingHistory: vi.fn(),
 }));
 
-vi.mock("@hypr/plugin-db", () => mocks);
+vi.mock("@anlg/plugin-db", () => mocks);
 
 import {
   buildGetMeetingTool,

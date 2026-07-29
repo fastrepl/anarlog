@@ -1,8 +1,8 @@
 use std::time::Duration;
 
-use hypr_calendar_interface::EventFilter;
-use hypr_google_calendar::{CalendarListEntry as GoogleCalendar, Event as GoogleEvent};
-use hypr_outlook_calendar::{Calendar as OutlookCalendar, Event as OutlookEvent};
+use anlg_calendar_interface::EventFilter;
+use anlg_google_calendar::{CalendarListEntry as GoogleCalendar, Event as GoogleEvent};
+use anlg_outlook_calendar::{Calendar as OutlookCalendar, Event as OutlookEvent};
 
 use crate::error::Error;
 
@@ -31,7 +31,7 @@ pub async fn list_all_connection_ids(
     Ok(map.into_iter().collect())
 }
 
-fn make_client(api_base_url: &str, access_token: &str) -> Result<hypr_api_client::Client, Error> {
+fn make_client(api_base_url: &str, access_token: &str) -> Result<anlg_api_client::Client, Error> {
     let auth_value = format!("Bearer {access_token}").parse()?;
     let mut headers = reqwest::header::HeaderMap::new();
     headers.insert(reqwest::header::AUTHORIZATION, auth_value);
@@ -40,7 +40,7 @@ fn make_client(api_base_url: &str, access_token: &str) -> Result<hypr_api_client
         .connect_timeout(CONNECT_TIMEOUT)
         .timeout(REQUEST_TIMEOUT)
         .build()?;
-    Ok(hypr_api_client::Client::new_with_client(api_base_url, http))
+    Ok(anlg_api_client::Client::new_with_client(api_base_url, http))
 }
 
 pub async fn list_google_calendars(
@@ -50,7 +50,7 @@ pub async fn list_google_calendars(
 ) -> Result<Vec<GoogleCalendar>, Error> {
     let client = make_client(api_base_url, access_token)?;
 
-    let body = hypr_api_client::types::GoogleListCalendarsRequest {
+    let body = anlg_api_client::types::GoogleListCalendarsRequest {
         connection_id: connection_id.to_string(),
     };
 
@@ -70,7 +70,7 @@ pub async fn list_google_events(
 ) -> Result<Vec<GoogleEvent>, Error> {
     let client = make_client(api_base_url, access_token)?;
 
-    let body = hypr_api_client::types::GoogleListEventsRequest {
+    let body = anlg_api_client::types::GoogleListEventsRequest {
         connection_id: connection_id.to_string(),
         calendar_id: filter.calendar_tracking_id,
         time_min: Some(filter.from.to_rfc3339()),
@@ -96,7 +96,7 @@ pub async fn list_outlook_calendars(
 ) -> Result<Vec<OutlookCalendar>, Error> {
     let client = make_client(api_base_url, access_token)?;
 
-    let body = hypr_api_client::types::OutlookListCalendarsRequest {
+    let body = anlg_api_client::types::OutlookListCalendarsRequest {
         connection_id: connection_id.to_string(),
     };
 
@@ -116,7 +116,7 @@ pub async fn list_outlook_events(
 ) -> Result<Vec<OutlookEvent>, Error> {
     let client = make_client(api_base_url, access_token)?;
 
-    let body = hypr_api_client::types::OutlookListEventsRequest {
+    let body = anlg_api_client::types::OutlookListEventsRequest {
         connection_id: connection_id.to_string(),
         calendar_id: filter.calendar_tracking_id,
         time_min: Some(filter.from.to_rfc3339()),

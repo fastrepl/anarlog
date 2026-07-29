@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-db-app = { workspace = true }
-hypr-db-core = { workspace = true }
-hypr-db-migrate = { workspace = true }
+anlg-db-app = { workspace = true }
+anlg-db-core = { workspace = true }
+anlg-db-migrate = { workspace = true }
 
 clap = { workspace = true, features = ["derive", "env"] }
 dirs = { workspace = true }

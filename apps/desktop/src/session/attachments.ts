@@ -1,4 +1,4 @@
-import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
+import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 
 import { enqueueSessionAudioOperation } from "./audio-operations";
 

@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/plugin-opener2",
+  "name": "@anlg/plugin-opener2",
   "private": true,
   "main": "./js/index.ts",
   "scripts": {

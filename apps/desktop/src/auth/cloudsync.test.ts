@@ -11,10 +11,10 @@ import {
   suspendCloudsync,
   suspendCloudsyncAfterAuthLoss,
   suspendCloudsyncForSignOut,
-} from "@hypr/plugin-db";
-import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
-import { commands as miscCommands } from "@hypr/plugin-misc";
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
+} from "@anlg/plugin-db";
+import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
+import { commands as miscCommands } from "@anlg/plugin-misc";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import {
   applyCloudsyncPreference,
@@ -36,7 +36,7 @@ vi.mock("./cloudsync-progress", () => ({
   stopCloudsyncInitialSyncProgress: vi.fn(),
 }));
 
-vi.mock("@hypr/plugin-fs-sync", () => ({
+vi.mock("@anlg/plugin-fs-sync", () => ({
   commands: {
     deleteSessionFolder: vi.fn(() =>
       Promise.resolve({ status: "ok", data: null }),
@@ -54,7 +54,7 @@ vi.mock("~/settings/queries", () => ({
   getStoredSettingValues: vi.fn(),
 }));
 
-vi.mock("@hypr/plugin-misc", () => ({
+vi.mock("@anlg/plugin-misc", () => ({
   commands: {
     getFingerprint: vi.fn(() =>
       Promise.resolve({ status: "error", error: "unavailable" }),
@@ -66,7 +66,7 @@ vi.mock("@tauri-apps/plugin-os", () => ({
   hostname: vi.fn(() => Promise.resolve(null)),
 }));
 
-vi.mock("@hypr/ui/components/ui/toast", () => ({
+vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: { error: vi.fn() },
 }));
 

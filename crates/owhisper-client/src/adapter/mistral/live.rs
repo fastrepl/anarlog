@@ -1,6 +1,6 @@
 use std::sync::atomic::Ordering;
 
-use hypr_ws_client::client::Message;
+use anlg_ws_client::client::Message;
 use owhisper_interface::ListenParams;
 use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse};
 use serde::{Deserialize, Serialize};
@@ -16,7 +16,7 @@ impl RealtimeSttAdapter for MistralAdapter {
 
     fn is_supported_languages(
         &self,
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         _model: Option<&str>,
     ) -> bool {
         MistralAdapter::is_supported_languages_live(languages)
@@ -87,7 +87,7 @@ impl RealtimeSttAdapter for MistralAdapter {
 
         let json = serde_json::to_string(&session_update).ok()?;
         tracing::debug!(
-            hyprnote.payload.size_bytes = json.len() as u64,
+            anarlog.payload.size_bytes = json.len() as u64,
             "mistral_session_update_payload"
         );
         Some(Message::Text(json.into()))
@@ -106,7 +106,7 @@ impl RealtimeSttAdapter for MistralAdapter {
             Err(e) => {
                 tracing::warn!(
                     error = ?e,
-                    hyprnote.payload.size_bytes = raw.len() as u64,
+                    anarlog.payload.size_bytes = raw.len() as u64,
                     "mistral_json_parse_failed"
                 );
                 return vec![];
@@ -125,14 +125,14 @@ impl RealtimeSttAdapter for MistralAdapter {
             }
             MistralEvent::TranscriptionLanguage { audio_language } => {
                 tracing::debug!(
-                    hyprnote.stt.language_code = %audio_language,
+                    anarlog.stt.language_code = %audio_language,
                     "mistral_transcription_language"
                 );
                 vec![]
             }
             MistralEvent::TranscriptionTextDelta { text } => {
                 tracing::debug!(
-                    hyprnote.transcript.char_count = text.chars().count() as u64,
+                    anarlog.transcript.char_count = text.chars().count() as u64,
                     "mistral_transcription_text_delta"
                 );
                 self.build_delta_response(&text)
@@ -141,9 +141,9 @@ impl RealtimeSttAdapter for MistralAdapter {
                 text, start, end, ..
             } => {
                 tracing::debug!(
-                    hyprnote.transcript.char_count = text.chars().count() as u64,
-                    hyprnote.segment.start_s = start,
-                    hyprnote.segment.end_s = end,
+                    anarlog.transcript.char_count = text.chars().count() as u64,
+                    anarlog.segment.start_s = start,
+                    anarlog.segment.end_s = end,
                     "mistral_transcription_segment"
                 );
                 Self::build_segment_response(&text, start, end)
@@ -166,7 +166,7 @@ impl RealtimeSttAdapter for MistralAdapter {
             }
             MistralEvent::Unknown => {
                 tracing::debug!(
-                    hyprnote.payload.size_bytes = raw.len() as u64,
+                    anarlog.payload.size_bytes = raw.len() as u64,
                     "mistral_unknown_event"
                 );
                 vec![]
@@ -342,7 +342,7 @@ impl MistralAdapter {
 
 #[cfg(test)]
 mod tests {
-    use hypr_language::ISO639;
+    use anlg_language::ISO639;
 
     use super::MistralAdapter;
     use crate::ListenClient;
@@ -378,7 +378,7 @@ mod tests {
             .api_base("wss://api.mistral.ai")
             .api_key(std::env::var("MISTRAL_API_KEY").expect("MISTRAL_API_KEY not set"))
             .params(owhisper_interface::ListenParams {
-                languages: vec![hypr_language::ISO639::En.into()],
+                languages: vec![anlg_language::ISO639::En.into()],
                 sample_rate: MISTRAL_SAMPLE_RATE,
                 ..Default::default()
             })
@@ -396,7 +396,7 @@ mod tests {
             .api_base("wss://api.mistral.ai")
             .api_key(std::env::var("MISTRAL_API_KEY").expect("MISTRAL_API_KEY not set"))
             .params(owhisper_interface::ListenParams {
-                languages: vec![hypr_language::ISO639::En.into()],
+                languages: vec![anlg_language::ISO639::En.into()],
                 sample_rate: MISTRAL_SAMPLE_RATE,
                 ..Default::default()
             })

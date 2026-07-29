@@ -1,6 +1,6 @@
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
-export function HyprProviderRow({ children }: { children: React.ReactNode }) {
+export function AnlgProviderRow({ children }: { children: React.ReactNode }) {
   return (
     <div
       className={cn([
@@ -13,7 +13,7 @@ export function HyprProviderRow({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function HyprCloudCTAButton({
+export function AnlgCloudCTAButton({
   isPaid,
   canStartTrial,
   highlight,

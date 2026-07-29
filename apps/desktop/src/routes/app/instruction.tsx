@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback } from "react";
 
-import { dismissInstruction } from "@hypr/plugin-windows";
+import { dismissInstruction } from "@anlg/plugin-windows";
 
 import { useAuth } from "~/auth";
 import { InstructionScreen, type InstructionType } from "~/instruction";

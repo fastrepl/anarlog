@@ -8,21 +8,21 @@ use super::{LanguageQuality, LanguageSupport};
 pub struct DashScopeAdapter;
 
 impl DashScopeAdapter {
-    pub fn language_support_live(_languages: &[hypr_language::Language]) -> LanguageSupport {
+    pub fn language_support_live(_languages: &[anlg_language::Language]) -> LanguageSupport {
         LanguageSupport::Supported {
             quality: LanguageQuality::NoData,
         }
     }
 
-    pub fn language_support_batch(_languages: &[hypr_language::Language]) -> LanguageSupport {
+    pub fn language_support_batch(_languages: &[anlg_language::Language]) -> LanguageSupport {
         LanguageSupport::NotSupported
     }
 
-    pub fn is_supported_languages_live(languages: &[hypr_language::Language]) -> bool {
+    pub fn is_supported_languages_live(languages: &[anlg_language::Language]) -> bool {
         Self::language_support_live(languages).is_supported()
     }
 
-    pub fn is_supported_languages_batch(languages: &[hypr_language::Language]) -> bool {
+    pub fn is_supported_languages_batch(languages: &[anlg_language::Language]) -> bool {
         Self::language_support_batch(languages).is_supported()
     }
 
@@ -79,8 +79,8 @@ mod tests {
     #[test]
     fn test_build_ws_url_from_base_proxy() {
         let (url, params) =
-            DashScopeAdapter::build_ws_url_from_base("https://api.hyprnote.com?provider=dashscope");
-        assert_eq!(url.as_str(), "wss://api.hyprnote.com/listen");
+            DashScopeAdapter::build_ws_url_from_base("https://api.anarlog.so?provider=dashscope");
+        assert_eq!(url.as_str(), "wss://api.anarlog.so/listen");
         assert_eq!(
             params,
             vec![("provider".to_string(), "dashscope".to_string())]

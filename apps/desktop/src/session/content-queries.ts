@@ -1,4 +1,4 @@
-import { json2md } from "@hypr/editor/markdown";
+import { json2md } from "@anlg/editor/markdown";
 
 import { liveQueryClient } from "~/db";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";

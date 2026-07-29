@@ -13,7 +13,7 @@ pub fn setup<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::E
     };
     let processor = app.state::<ProcessorState>().inner().clone();
 
-    let callback = hypr_detect::new_callback(move |event| {
+    let callback = anlg_detect::new_callback(move |event| {
         let env = env.clone();
         let processor = processor.clone();
         tauri::async_runtime::spawn(async move {
@@ -32,24 +32,24 @@ pub fn setup<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::E
 pub fn handle_detect_event<E: Env>(
     env: &E,
     state: &ProcessorState,
-    event: hypr_detect::DetectEvent,
+    event: anlg_detect::DetectEvent,
 ) {
     match event {
-        hypr_detect::DetectEvent::MicStarted(apps) => {
+        anlg_detect::DetectEvent::MicStarted(apps) => {
             if !env.is_detect_enabled() {
                 return;
             }
             handle_mic_started(env, state, apps);
         }
-        hypr_detect::DetectEvent::MicStopped(apps) => {
+        anlg_detect::DetectEvent::MicStopped(apps) => {
             handle_mic_stopped(env, state, apps);
         }
         #[cfg(all(target_os = "macos", feature = "zoom"))]
-        hypr_detect::DetectEvent::ZoomMuteStateChanged { value } => {
+        anlg_detect::DetectEvent::ZoomMuteStateChanged { value } => {
             env.emit(DetectEvent::MicMuteStateChanged { value });
         }
         #[cfg(all(target_os = "macos", feature = "sleep"))]
-        hypr_detect::DetectEvent::SleepStateChanged { value } => {
+        anlg_detect::DetectEvent::SleepStateChanged { value } => {
             env.emit(DetectEvent::SleepStateChanged { value });
         }
     }
@@ -58,7 +58,7 @@ pub fn handle_detect_event<E: Env>(
 fn handle_mic_started<E: Env>(
     env: &E,
     state: &ProcessorState,
-    apps: Vec<hypr_detect::InstalledApp>,
+    apps: Vec<anlg_detect::InstalledApp>,
 ) {
     let mut guard = state.lock().unwrap_or_else(|e| e.into_inner());
 
@@ -93,7 +93,7 @@ fn handle_mic_started<E: Env>(
 fn handle_mic_stopped<E: Env>(
     env: &E,
     state: &ProcessorState,
-    apps: Vec<hypr_detect::InstalledApp>,
+    apps: Vec<anlg_detect::InstalledApp>,
 ) {
     {
         let mut guard = state.lock().unwrap_or_else(|e| e.into_inner());

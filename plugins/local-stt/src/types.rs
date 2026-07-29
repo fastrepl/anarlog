@@ -2,7 +2,7 @@
 #[serde(rename_all = "camelCase")]
 pub struct DownloadProgressPayload {
     pub model: crate::LocalModel,
-    pub status: hypr_model_downloader::DownloadStatus,
+    pub status: anlg_model_downloader::DownloadStatus,
 }
 
 #[derive(Debug)]

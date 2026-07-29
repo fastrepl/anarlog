@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/plugin-dictation",
+  "name": "@anlg/plugin-dictation",
   "private": true,
   "main": "./js/index.ts",
   "scripts": {

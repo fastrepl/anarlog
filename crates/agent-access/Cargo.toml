@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-db-app = { workspace = true }
-hypr-tiptap = { workspace = true }
+anlg-db-app = { workspace = true }
+anlg-tiptap = { workspace = true }
 
 schemars = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -17,5 +17,5 @@ tokio = { workspace = true, features = ["macros"] }
 utoipa = { workspace = true }
 
 [dev-dependencies]
-hypr-db-core = { workspace = true }
+anlg-db-core = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt"] }

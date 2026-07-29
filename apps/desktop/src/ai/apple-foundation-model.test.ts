@@ -6,7 +6,7 @@ const localLlmCommands = vi.hoisted(() => ({
   foundationModelGenerate: vi.fn(),
 }));
 
-vi.mock("@hypr/plugin-local-llm", () => ({ commands: localLlmCommands }));
+vi.mock("@anlg/plugin-local-llm", () => ({ commands: localLlmCommands }));
 
 import {
   createAppleFoundationModel,

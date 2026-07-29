@@ -6,7 +6,7 @@ import {
   commands as permissionsCommands,
   type PermissionStatus,
   type Result,
-} from "@hypr/plugin-permissions";
+} from "@anlg/plugin-permissions";
 
 function unwrap<T>(result: Result<T, string>): T {
   if (result.status === "error") {

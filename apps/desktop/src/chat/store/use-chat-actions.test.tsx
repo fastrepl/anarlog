@@ -26,7 +26,7 @@ vi.mock("~/chat/store/queries", () => ({
   upsertChatMessage: mocks.upsertChatMessage,
 }));
 
-vi.mock("@hypr/ui/components/ui/toast", () => ({
+vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: { error: mocks.toastError },
 }));
 

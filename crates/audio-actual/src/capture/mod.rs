@@ -1,7 +1,7 @@
 mod joiner;
 mod stream;
 
-use hypr_audio::{CaptureConfig, CaptureStream, Error};
+use anlg_audio::{CaptureConfig, CaptureStream, Error};
 use stream::{CaptureSide, setup_mic_stream, setup_speaker_stream};
 
 pub(crate) fn open_capture(config: CaptureConfig) -> Result<CaptureStream, Error> {

@@ -338,7 +338,7 @@ candidate artifact:
 ~~~powershell
 pnpm -F desktop typecheck
 cargo check -p desktop --target x86_64-pc-windows-msvc
-pnpm -F desktop tauri:dev
+turbo dev:desktop
 $env:POSTHOG_API_KEY = "phc_local_smoke"
 $env:VITE_API_URL = "https://api.anarlog.so"
 pnpm -F desktop tauri build --ci --bundles nsis --no-sign --target x86_64-pc-windows-msvc --config ./src-tauri/tauri.conf.staging.json --features devtools

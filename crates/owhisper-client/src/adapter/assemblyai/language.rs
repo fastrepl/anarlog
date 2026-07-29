@@ -18,7 +18,7 @@ pub(super) const BATCH_LANGUAGES: &[&str] = &[
 
 pub(super) const STREAMING_LANGUAGES: &[&str] = BATCH_LANGUAGES;
 
-pub(super) fn single_language_support_live(language: &hypr_language::Language) -> LanguageSupport {
+pub(super) fn single_language_support_live(language: &anlg_language::Language) -> LanguageSupport {
     let code = language.iso639().code();
     if U3_STREAMING_LANGUAGES.contains(&code) {
         LanguageSupport::Supported {
@@ -33,7 +33,7 @@ pub(super) fn single_language_support_live(language: &hypr_language::Language) -
     }
 }
 
-pub(super) fn single_language_support_batch(language: &hypr_language::Language) -> LanguageSupport {
+pub(super) fn single_language_support_batch(language: &anlg_language::Language) -> LanguageSupport {
     let code = language.iso639().code();
     if BATCH_LANGUAGES.contains(&code) {
         LanguageSupport::Supported {

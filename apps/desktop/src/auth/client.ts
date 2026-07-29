@@ -7,7 +7,7 @@ import {
 } from "@supabase/supabase-js";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 
-import { commands as authCommands } from "@hypr/plugin-auth";
+import { commands as authCommands } from "@anlg/plugin-auth";
 
 import { env } from "~/env";
 

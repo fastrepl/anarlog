@@ -4,12 +4,15 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-am = { workspace = true }
-hypr-file = { workspace = true }
-hypr-model-downloader = { workspace = true }
-hypr-transcribe-soniqo = { workspace = true }
-hypr-transcribe-speechanalyzer = { workspace = true }
-hypr-whisper-local-model = { workspace = true }
+anlg-am = { workspace = true }
+anlg-file = { workspace = true }
+anlg-model-downloader = { workspace = true }
+anlg-transcribe-soniqo = { workspace = true }
+anlg-transcribe-speechanalyzer = { workspace = true }
+anlg-whisper-local-model = { workspace = true }
 
 serde = { workspace = true }
 specta = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/plugin-attachment-sync",
+  "name": "@anlg/plugin-attachment-sync",
   "private": true,
   "main": "./js/index.ts",
   "scripts": {

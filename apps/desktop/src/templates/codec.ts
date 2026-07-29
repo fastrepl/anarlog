@@ -1,4 +1,4 @@
-import type { TemplateSection } from "@hypr/store";
+import type { TemplateSection } from "@anlg/store";
 
 import { normalizeTemplateIcon, type TemplateIcon } from "./template-icon";
 

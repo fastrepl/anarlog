@@ -23,4 +23,4 @@ tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 tauri-plugin-shortcut = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-hypr-dictation-ui-macos = { workspace = true }
+anlg-dictation-ui-macos = { workspace = true }

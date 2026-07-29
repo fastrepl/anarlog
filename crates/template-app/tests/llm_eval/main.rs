@@ -1,7 +1,7 @@
 mod cases;
 mod support;
 
-use hypr_template_eval::{Arguments, run_case_suite, samples_from_env};
+use anlg_template_eval::{Arguments, run_case_suite, samples_from_env};
 
 fn main() {
     let samples = samples_from_env();

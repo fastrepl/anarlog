@@ -17,7 +17,7 @@ vi.mock("@lingui/react/macro", () => ({
   }),
 }));
 
-vi.mock("@hypr/ui/components/ui/toast", () => ({
+vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: { success: mocks.toastSuccess },
 }));
 
@@ -71,7 +71,7 @@ describe("useProviderSelectionPrompt", () => {
         providerType: "stt",
         providerId: "deepgram",
         providerName: "Deepgram",
-        currentProvider: "hyprnote",
+        currentProvider: "anarlog",
         providerStateReady: true,
         storedApiKey: "",
       }),
@@ -103,7 +103,7 @@ describe("useProviderSelectionPrompt", () => {
         providerType: "stt",
         providerId: "deepgram",
         providerName: "Deepgram",
-        currentProvider: "hyprnote",
+        currentProvider: "anarlog",
         providerStateReady: true,
         storedApiKey: "dg-existing",
       }),

@@ -31,7 +31,7 @@ const mocks = vi.hoisted(() => ({
   upsertChatMessage: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("@hypr/plugin-db", () => ({
+vi.mock("@anlg/plugin-db", () => ({
   beginCloudsyncActivity: mocks.beginCloudsyncActivity,
   endCloudsyncActivity: mocks.endCloudsyncActivity,
 }));
@@ -93,10 +93,10 @@ import {
   buildPersistedChatMessage,
   type ChatMessageRecord,
 } from "~/chat/store/persisted-messages";
-import type { HyprUIMessage } from "~/chat/types";
+import type { AnlgUIMessage } from "~/chat/types";
 
 function persistedMessage(
-  message: HyprUIMessage,
+  message: AnlgUIMessage,
   chatGroupId = "group-1",
 ): PersistedChatMessage {
   const record: ChatMessageRecord = buildPersistedChatMessage({
@@ -131,14 +131,14 @@ function connectChatSendToTransport(
     sendMessages,
     reconnectToStream: vi.fn().mockResolvedValue(null),
   };
-  mocks.chatSendMessage.mockImplementation((message: HyprUIMessage) => {
+  mocks.chatSendMessage.mockImplementation((message: AnlgUIMessage) => {
     const init = mocks.chatInits[mocks.chatInits.length - 1] as {
       transport: {
         sendMessages: (options: {
           trigger: "submit-message";
           chatId: string;
           messageId: undefined;
-          messages: HyprUIMessage[];
+          messages: AnlgUIMessage[];
           abortSignal: AbortSignal;
         }) => Promise<ReadableStream>;
       };
@@ -172,7 +172,7 @@ function connectChatRegenerateToTransport(
           trigger: "regenerate-message";
           chatId: string;
           messageId: string | undefined;
-          messages: HyprUIMessage[];
+          messages: AnlgUIMessage[];
           abortSignal: AbortSignal;
         }) => Promise<ReadableStream>;
       };
@@ -181,7 +181,7 @@ function connectChatRegenerateToTransport(
       trigger: "regenerate-message",
       chatId: "session-1",
       messageId: undefined,
-      messages: mocks.messages as HyprUIMessage[],
+      messages: mocks.messages as AnlgUIMessage[],
       abortSignal: new AbortController().signal,
     });
   });
@@ -219,7 +219,7 @@ describe("ChatSession", () => {
     {
       name: "empty",
       id: "assistant-new",
-      parts: [] as HyprUIMessage["parts"],
+      parts: [] as AnlgUIMessage["parts"],
       isAbort: false,
       isError: false,
       shouldReplace: false,
@@ -229,7 +229,7 @@ describe("ChatSession", () => {
       id: "assistant-new",
       parts: [
         { type: "text", text: "Partial answer" },
-      ] as HyprUIMessage["parts"],
+      ] as AnlgUIMessage["parts"],
       isAbort: true,
       isError: false,
       shouldReplace: false,
@@ -239,7 +239,7 @@ describe("ChatSession", () => {
       id: "assistant-new",
       parts: [
         { type: "text", text: "Partial answer" },
-      ] as HyprUIMessage["parts"],
+      ] as AnlgUIMessage["parts"],
       isAbort: false,
       isError: true,
       shouldReplace: false,
@@ -249,7 +249,7 @@ describe("ChatSession", () => {
       id: "assistant-old",
       parts: [
         { type: "text", text: "Partial answer" },
-      ] as HyprUIMessage["parts"],
+      ] as AnlgUIMessage["parts"],
       isAbort: false,
       isError: true,
       shouldReplace: false,
@@ -259,7 +259,7 @@ describe("ChatSession", () => {
       id: "assistant-old",
       parts: [
         { type: "text", text: "Replacement answer" },
-      ] as HyprUIMessage["parts"],
+      ] as AnlgUIMessage["parts"],
       isAbort: false,
       isError: false,
       shouldReplace: true,
@@ -267,17 +267,17 @@ describe("ChatSession", () => {
   ])(
     "keeps the prior assistant for a $name replacement",
     async ({ id, parts, isAbort, isError, shouldReplace }) => {
-      const userMessage: HyprUIMessage = {
+      const userMessage: AnlgUIMessage = {
         id: "user-1",
         role: "user",
         parts: [{ type: "text", text: "Question" }],
       };
-      const oldAssistant: HyprUIMessage = {
+      const oldAssistant: AnlgUIMessage = {
         id: "assistant-old",
         role: "assistant",
         parts: [{ type: "text", text: "Old answer" }],
       };
-      const replacement: HyprUIMessage = {
+      const replacement: AnlgUIMessage = {
         id,
         role: "assistant",
         parts,
@@ -291,8 +291,8 @@ describe("ChatSession", () => {
       await waitFor(() => expect(sendTransport).toHaveBeenCalledOnce());
       const chat = mocks.chatInits[0] as {
         onFinish: (params: {
-          message: HyprUIMessage;
-          messages: HyprUIMessage[];
+          message: AnlgUIMessage;
+          messages: AnlgUIMessage[];
           isAbort: boolean;
           isError: boolean;
         }) => void;
@@ -323,12 +323,12 @@ describe("ChatSession", () => {
   );
 
   it("keeps persisting partial failures for normal sends", async () => {
-    const userMessage: HyprUIMessage = {
+    const userMessage: AnlgUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "Question" }],
     };
-    const partialAssistant: HyprUIMessage = {
+    const partialAssistant: AnlgUIMessage = {
       id: "assistant-partial",
       role: "assistant",
       parts: [{ type: "text", text: "Partial answer" }],
@@ -339,8 +339,8 @@ describe("ChatSession", () => {
     renderSession();
     const chat = mocks.chatInits[0] as {
       onFinish: (params: {
-        message: HyprUIMessage;
-        messages: HyprUIMessage[];
+        message: AnlgUIMessage;
+        messages: AnlgUIMessage[];
         isAbort: boolean;
         isError: boolean;
       }) => void;
@@ -361,22 +361,22 @@ describe("ChatSession", () => {
   });
 
   it("does not replace an assistant from before the latest user", async () => {
-    const firstUser: HyprUIMessage = {
+    const firstUser: AnlgUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "First question" }],
     };
-    const firstAssistant: HyprUIMessage = {
+    const firstAssistant: AnlgUIMessage = {
       id: "assistant-1",
       role: "assistant",
       parts: [{ type: "text", text: "First answer" }],
     };
-    const latestUser: HyprUIMessage = {
+    const latestUser: AnlgUIMessage = {
       id: "user-2",
       role: "user",
       parts: [{ type: "text", text: "Second question" }],
     };
-    const latestAssistant: HyprUIMessage = {
+    const latestAssistant: AnlgUIMessage = {
       id: "assistant-2",
       role: "assistant",
       parts: [{ type: "text", text: "Second answer" }],
@@ -391,8 +391,8 @@ describe("ChatSession", () => {
     await waitFor(() => expect(sendTransport).toHaveBeenCalledOnce());
     const chat = mocks.chatInits[0] as {
       onFinish: (params: {
-        message: HyprUIMessage;
-        messages: HyprUIMessage[];
+        message: AnlgUIMessage;
+        messages: AnlgUIMessage[];
         isAbort: boolean;
         isError: boolean;
       }) => void;
@@ -450,17 +450,17 @@ describe("ChatSession", () => {
   ])(
     "keeps the original durable target across a $name retry",
     async ({ failedMessage, isAbort, isError }) => {
-      const userMessage: HyprUIMessage = {
+      const userMessage: AnlgUIMessage = {
         id: "user-1",
         role: "user",
         parts: [{ type: "text", text: "Question" }],
       };
-      const oldAssistant: HyprUIMessage = {
+      const oldAssistant: AnlgUIMessage = {
         id: "assistant-old",
         role: "assistant",
         parts: [{ type: "text", text: "Old answer" }],
       };
-      const replacement: HyprUIMessage = {
+      const replacement: AnlgUIMessage = {
         id: "assistant-new",
         role: "assistant",
         parts: [{ type: "text", text: "Replacement answer" }],
@@ -474,8 +474,8 @@ describe("ChatSession", () => {
       await waitFor(() => expect(sendTransport).toHaveBeenCalledOnce());
       const chat = mocks.chatInits[0] as {
         onFinish: (params: {
-          message: HyprUIMessage;
-          messages: HyprUIMessage[];
+          message: AnlgUIMessage;
+          messages: AnlgUIMessage[];
           isAbort: boolean;
           isError: boolean;
         }) => void;
@@ -528,22 +528,22 @@ describe("ChatSession", () => {
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
-    const userMessage: HyprUIMessage = {
+    const userMessage: AnlgUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "Question" }],
     };
-    const oldAssistant: HyprUIMessage = {
+    const oldAssistant: AnlgUIMessage = {
       id: "assistant-old",
       role: "assistant",
       parts: [{ type: "text", text: "Old answer" }],
     };
-    const failedReplacement: HyprUIMessage = {
+    const failedReplacement: AnlgUIMessage = {
       id: "assistant-failed",
       role: "assistant",
       parts: [{ type: "text", text: "Failed replacement" }],
     };
-    const successfulReplacement: HyprUIMessage = {
+    const successfulReplacement: AnlgUIMessage = {
       id: "assistant-success",
       role: "assistant",
       parts: [{ type: "text", text: "Successful replacement" }],
@@ -560,8 +560,8 @@ describe("ChatSession", () => {
     await waitFor(() => expect(sendTransport).toHaveBeenCalledOnce());
     const chat = mocks.chatInits[0] as {
       onFinish: (params: {
-        message: HyprUIMessage;
-        messages: HyprUIMessage[];
+        message: AnlgUIMessage;
+        messages: AnlgUIMessage[];
         isAbort: boolean;
         isError: boolean;
       }) => void;
@@ -613,17 +613,17 @@ describe("ChatSession", () => {
     const replacement = new Promise<void>((resolve) => {
       finishReplacement = resolve;
     });
-    const userMessage: HyprUIMessage = {
+    const userMessage: AnlgUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "Question" }],
     };
-    const oldAssistant: HyprUIMessage = {
+    const oldAssistant: AnlgUIMessage = {
       id: "assistant-old",
       role: "assistant",
       parts: [{ type: "text", text: "Old answer" }],
     };
-    const replacementMessage: HyprUIMessage = {
+    const replacementMessage: AnlgUIMessage = {
       id: "assistant-new",
       role: "assistant",
       parts: [{ type: "text", text: "Replacement answer" }],
@@ -639,8 +639,8 @@ describe("ChatSession", () => {
     const nativeKey = startedNativeKey();
     const chat = mocks.chatInits[0] as {
       onFinish: (params: {
-        message: HyprUIMessage;
-        messages: HyprUIMessage[];
+        message: AnlgUIMessage;
+        messages: AnlgUIMessage[];
         isAbort: boolean;
         isError: boolean;
       }) => void;
@@ -680,17 +680,17 @@ describe("ChatSession", () => {
     const firstPersist = new Promise<void>((resolve) => {
       finishFirstPersist = resolve;
     });
-    const userMessage: HyprUIMessage = {
+    const userMessage: AnlgUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "Question" }],
     };
-    const oldAssistant: HyprUIMessage = {
+    const oldAssistant: AnlgUIMessage = {
       id: "assistant-old",
       role: "assistant",
       parts: [{ type: "text", text: "Old answer" }],
     };
-    const firstReplacement: HyprUIMessage = {
+    const firstReplacement: AnlgUIMessage = {
       id: "assistant-first",
       role: "assistant",
       parts: [{ type: "text", text: "First replacement" }],
@@ -715,13 +715,13 @@ describe("ChatSession", () => {
             trigger: "regenerate-message";
             chatId: string;
             messageId: string | undefined;
-            messages: HyprUIMessage[];
+            messages: AnlgUIMessage[];
             abortSignal: AbortSignal;
           }) => Promise<ReadableStream>;
         };
         onFinish: (params: {
-          message: HyprUIMessage;
-          messages: HyprUIMessage[];
+          message: AnlgUIMessage;
+          messages: AnlgUIMessage[];
           isAbort: boolean;
           isError: boolean;
         }) => void;
@@ -730,7 +730,7 @@ describe("ChatSession", () => {
         trigger: "regenerate-message",
         chatId: "session-1",
         messageId: undefined,
-        messages: mocks.messages as HyprUIMessage[],
+        messages: mocks.messages as AnlgUIMessage[],
         abortSignal: new AbortController().signal,
       });
       if (requestCount++ === 0) {
@@ -826,17 +826,17 @@ describe("ChatSession", () => {
     const assistantPersist = new Promise<void>((resolve) => {
       finishAssistantPersist = resolve;
     });
-    const userMessage: HyprUIMessage = {
+    const userMessage: AnlgUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "Question" }],
     };
-    const oldAssistant: HyprUIMessage = {
+    const oldAssistant: AnlgUIMessage = {
       id: "assistant-old",
       role: "assistant",
       parts: [{ type: "text", text: "Old answer" }],
     };
-    const regeneratedAssistant: HyprUIMessage = {
+    const regeneratedAssistant: AnlgUIMessage = {
       id: "assistant-regenerated",
       role: "assistant",
       parts: [{ type: "text", text: "Regenerated answer" }],
@@ -861,13 +861,13 @@ describe("ChatSession", () => {
             trigger: "regenerate-message";
             chatId: string;
             messageId: string | undefined;
-            messages: HyprUIMessage[];
+            messages: AnlgUIMessage[];
             abortSignal: AbortSignal;
           }) => Promise<ReadableStream>;
         };
         onFinish: (params: {
-          message: HyprUIMessage;
-          messages: HyprUIMessage[];
+          message: AnlgUIMessage;
+          messages: AnlgUIMessage[];
           isAbort: boolean;
         }) => void;
       };
@@ -875,7 +875,7 @@ describe("ChatSession", () => {
         trigger: "regenerate-message",
         chatId: "session-1",
         messageId: undefined,
-        messages: mocks.messages as HyprUIMessage[],
+        messages: mocks.messages as AnlgUIMessage[],
         abortSignal: new AbortController().signal,
       });
       const assistant =
@@ -986,7 +986,7 @@ describe("ChatSession", () => {
   });
 
   it("syncs SDK messages when SQLite rows load later", async () => {
-    const userMessage: HyprUIMessage = {
+    const userMessage: AnlgUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "Question" }],
@@ -1028,7 +1028,7 @@ describe("ChatSession", () => {
   it("stops and drains the active lease when switching chat sessions", async () => {
     connectChatSendToTransport();
     const captured: { send?: ChatSessionRenderProps["sendMessage"] } = {};
-    const userMessage: HyprUIMessage = {
+    const userMessage: AnlgUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "Question" }],
@@ -1049,8 +1049,8 @@ describe("ChatSession", () => {
     const nativeKey = startedNativeKey();
     const oldChat = mocks.chatInits[0] as {
       onFinish: (params: {
-        message: HyprUIMessage;
-        messages: HyprUIMessage[];
+        message: AnlgUIMessage;
+        messages: AnlgUIMessage[];
         isAbort: boolean;
       }) => void;
     };
@@ -1082,7 +1082,7 @@ describe("ChatSession", () => {
   });
 
   it("does not replace streaming SDK messages with stale SQLite rows", () => {
-    const userMessage: HyprUIMessage = {
+    const userMessage: AnlgUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "Question" }],
@@ -1115,12 +1115,12 @@ describe("ChatSession", () => {
         finishAssistantPersist = resolve;
       }),
     );
-    const userMessage: HyprUIMessage = {
+    const userMessage: AnlgUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "Question" }],
     };
-    const assistantMessage: HyprUIMessage = {
+    const assistantMessage: AnlgUIMessage = {
       id: "assistant-1",
       role: "assistant",
       parts: [{ type: "text", text: "Finished answer" }],
@@ -1136,8 +1136,8 @@ describe("ChatSession", () => {
     );
     const chat = mocks.chatInits[0] as {
       onFinish: (params: {
-        message: HyprUIMessage;
-        messages: HyprUIMessage[];
+        message: AnlgUIMessage;
+        messages: AnlgUIMessage[];
         isAbort: boolean;
       }) => void;
     };
@@ -1176,21 +1176,21 @@ describe("ChatSession", () => {
       </ChatSession>,
     );
 
-    const userMessage: HyprUIMessage = {
+    const userMessage: AnlgUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "Question" }],
     };
     captured.send!(userMessage, { chatGroupId: "new-group" });
-    const assistant: HyprUIMessage = {
+    const assistant: AnlgUIMessage = {
       id: "assistant-1",
       role: "assistant",
       parts: [{ type: "text", text: "Answer" }],
     };
     const onFinish = mocks.chatInits[0] as {
       onFinish: (params: {
-        message: HyprUIMessage;
-        messages: HyprUIMessage[];
+        message: AnlgUIMessage;
+        messages: AnlgUIMessage[];
         isAbort: boolean;
       }) => void;
     };
@@ -1226,12 +1226,12 @@ describe("ChatSession", () => {
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
-    const userMessage: HyprUIMessage = {
+    const userMessage: AnlgUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "Question" }],
     };
-    const assistant: HyprUIMessage = {
+    const assistant: AnlgUIMessage = {
       id: "assistant-1",
       role: "assistant",
       parts: [{ type: "text", text: "Answer" }],
@@ -1243,8 +1243,8 @@ describe("ChatSession", () => {
     );
     const onFinish = mocks.chatInits[0] as {
       onFinish: (params: {
-        message: HyprUIMessage;
-        messages: HyprUIMessage[];
+        message: AnlgUIMessage;
+        messages: AnlgUIMessage[];
         isAbort: boolean;
       }) => void;
     };
@@ -1278,12 +1278,12 @@ describe("ChatSession", () => {
       </ChatSession>,
     );
 
-    const userOne: HyprUIMessage = {
+    const userOne: AnlgUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "First question" }],
     };
-    const userTwo: HyprUIMessage = {
+    const userTwo: AnlgUIMessage = {
       id: "user-2",
       role: "user",
       parts: [{ type: "text", text: "Second question" }],
@@ -1293,17 +1293,17 @@ describe("ChatSession", () => {
 
     const onFinish = mocks.chatInits[0] as {
       onFinish: (params: {
-        message: HyprUIMessage;
-        messages: HyprUIMessage[];
+        message: AnlgUIMessage;
+        messages: AnlgUIMessage[];
         isAbort: boolean;
       }) => void;
     };
-    const assistantOne: HyprUIMessage = {
+    const assistantOne: AnlgUIMessage = {
       id: "assistant-1",
       role: "assistant",
       parts: [{ type: "text", text: "First answer" }],
     };
-    const assistantTwo: HyprUIMessage = {
+    const assistantTwo: AnlgUIMessage = {
       id: "assistant-2",
       role: "assistant",
       parts: [{ type: "text", text: "Second answer" }],
@@ -1354,12 +1354,12 @@ describe("ChatSession", () => {
         }}
       </ChatSession>,
     );
-    const userMessage: HyprUIMessage = {
+    const userMessage: AnlgUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "Question" }],
     };
-    const assistant: HyprUIMessage = {
+    const assistant: AnlgUIMessage = {
       id: "assistant-1",
       role: "assistant",
       parts: [{ type: "text", text: "Answer" }],
@@ -1370,8 +1370,8 @@ describe("ChatSession", () => {
     mocks.endCloudsyncActivity.mockClear();
     const onFinish = mocks.chatInits[0] as {
       onFinish: (params: {
-        message: HyprUIMessage;
-        messages: HyprUIMessage[];
+        message: AnlgUIMessage;
+        messages: AnlgUIMessage[];
         isAbort: boolean;
       }) => void;
     };
@@ -1424,7 +1424,7 @@ describe("ChatSession", () => {
         }}
       </ChatSession>,
     );
-    const userMessage: HyprUIMessage = {
+    const userMessage: AnlgUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "Question" }],
@@ -1533,7 +1533,7 @@ describe("ChatSession", () => {
         }}
       </ChatSession>,
     );
-    const userMessage: HyprUIMessage = {
+    const userMessage: AnlgUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "Question" }],
@@ -1545,15 +1545,15 @@ describe("ChatSession", () => {
     captured.stop!();
     expect(mocks.chatStop).toHaveBeenCalledOnce();
 
-    const assistant: HyprUIMessage = {
+    const assistant: AnlgUIMessage = {
       id: "assistant-1",
       role: "assistant",
       parts: [],
     };
     const onFinish = mocks.chatInits[0] as {
       onFinish: (params: {
-        message: HyprUIMessage;
-        messages: HyprUIMessage[];
+        message: AnlgUIMessage;
+        messages: AnlgUIMessage[];
         isAbort: boolean;
       }) => void;
     };
@@ -1589,7 +1589,7 @@ describe("ChatSession", () => {
       </ChatSession>,
     );
 
-    const userMessage: HyprUIMessage = {
+    const userMessage: AnlgUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "Question" }],
@@ -1601,8 +1601,8 @@ describe("ChatSession", () => {
     const nativeKey = startedNativeKey();
     const onFinish = mocks.chatInits[0] as {
       onFinish: (params: {
-        message: HyprUIMessage;
-        messages: HyprUIMessage[];
+        message: AnlgUIMessage;
+        messages: AnlgUIMessage[];
         isAbort: boolean;
       }) => void;
     };
@@ -1661,7 +1661,7 @@ describe("ChatSession", () => {
         </ChatSession>
       </StrictMode>,
     );
-    const userMessage: HyprUIMessage = {
+    const userMessage: AnlgUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "Question" }],
@@ -1672,15 +1672,15 @@ describe("ChatSession", () => {
     await waitFor(() => expect(sendTransport).toHaveBeenCalledOnce());
     expect(mocks.beginCloudsyncActivity).toHaveBeenCalledOnce();
 
-    const assistant: HyprUIMessage = {
+    const assistant: AnlgUIMessage = {
       id: "assistant-1",
       role: "assistant",
       parts: [],
     };
     const onFinish = mocks.chatInits[mocks.chatInits.length - 1] as {
       onFinish: (params: {
-        message: HyprUIMessage;
-        messages: HyprUIMessage[];
+        message: AnlgUIMessage;
+        messages: AnlgUIMessage[];
         isAbort: boolean;
       }) => void;
     };
@@ -1718,7 +1718,7 @@ describe("ChatSession", () => {
         }}
       </ChatSession>,
     );
-    const userMessage: HyprUIMessage = {
+    const userMessage: AnlgUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "Question" }],
@@ -1743,15 +1743,15 @@ describe("ChatSession", () => {
     finishPreflight?.();
     await waitFor(() => expect(sendTransport).toHaveBeenCalledOnce());
 
-    const assistant: HyprUIMessage = {
+    const assistant: AnlgUIMessage = {
       id: "assistant-1",
       role: "assistant",
       parts: [],
     };
     const onFinish = mocks.chatInits[0] as {
       onFinish: (params: {
-        message: HyprUIMessage;
-        messages: HyprUIMessage[];
+        message: AnlgUIMessage;
+        messages: AnlgUIMessage[];
         isAbort: boolean;
       }) => void;
     };
@@ -1787,7 +1787,7 @@ describe("ChatSession", () => {
         }}
       </ChatSession>,
     );
-    const userMessage: HyprUIMessage = {
+    const userMessage: AnlgUIMessage = {
       id: "user-1",
       role: "user",
       parts: [{ type: "text", text: "Question" }],
@@ -1815,15 +1815,15 @@ describe("ChatSession", () => {
     expect(failedPreflight).toHaveBeenCalledOnce();
     expect(sendTransport).toHaveBeenCalledOnce();
 
-    const assistant: HyprUIMessage = {
+    const assistant: AnlgUIMessage = {
       id: "assistant-1",
       role: "assistant",
       parts: [],
     };
     const onFinish = mocks.chatInits[0] as {
       onFinish: (params: {
-        message: HyprUIMessage;
-        messages: HyprUIMessage[];
+        message: AnlgUIMessage;
+        messages: AnlgUIMessage[];
         isAbort: boolean;
       }) => void;
     };

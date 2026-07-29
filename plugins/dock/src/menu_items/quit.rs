@@ -8,6 +8,6 @@ impl DockMenuItem for DockQuit {
     }
 
     fn handle(app: &tauri::AppHandle<tauri::Wry>) {
-        tauri_plugin_tray::HyprMenuItem::TrayQuit.handle(app);
+        tauri_plugin_tray::AnlgMenuItem::TrayQuit.handle(app);
     }
 }

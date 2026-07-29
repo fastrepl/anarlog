@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   resetPermission: vi.fn(),
 }));
 
-vi.mock("@hypr/plugin-permissions", () => ({
+vi.mock("@anlg/plugin-permissions", () => ({
   commands: mocks,
 }));
 

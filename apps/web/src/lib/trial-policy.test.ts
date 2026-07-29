@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { PRO_TRIAL_DAYS } from "@hypr/pricing/trial";
+import { PRO_TRIAL_DAYS } from "@anlg/pricing/trial";
 
 import { WEB_TRIAL_CHECKOUT_FIELDS } from "./trial-policy.ts";
 

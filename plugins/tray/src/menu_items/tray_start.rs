@@ -8,7 +8,7 @@ use super::MenuItemHandler;
 pub struct TrayStart;
 
 impl MenuItemHandler for TrayStart {
-    const ID: &'static str = "hypr_tray_start";
+    const ID: &'static str = "anlg_tray_start";
 
     fn build(app: &AppHandle<tauri::Wry>) -> Result<MenuItemKind<tauri::Wry>> {
         let item = MenuItem::with_id(app, Self::ID, "Start a new meeting", true, None::<&str>)?;

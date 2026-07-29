@@ -1,8 +1,8 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useSyncExternalStore } from "react";
 
-import type { JSONContent } from "@hypr/editor/note";
-import { commands as attachmentSyncCommands } from "@hypr/plugin-attachment-sync";
+import type { JSONContent } from "@anlg/editor/note";
+import { commands as attachmentSyncCommands } from "@anlg/plugin-attachment-sync";
 
 import type { SharedAttachmentDownload } from "./attachment-client";
 import type { SharedNoteAttachment } from "./cache";

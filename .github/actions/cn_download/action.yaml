@@ -3,7 +3,7 @@ description: Resolve and download one exact public-platform release asset
 
 inputs:
   app:
-    description: "Fully qualified application slug (e.g., fastrepl/hyprnote2)"
+    description: "Fully qualified application slug (e.g., fastrepl/anarlog)"
     required: true
   version:
     description: "Version to download"

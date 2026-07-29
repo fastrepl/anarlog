@@ -5,8 +5,8 @@ use std::time::Duration;
 use owhisper_client::Provider;
 
 use crate::analytics::SttAnalyticsReporter;
+use crate::anarlog_routing::{AnarlogRouter, AnarlogRoutingConfig};
 use crate::env::{ApiKeys, Env};
-use crate::hyprnote_routing::{HyprnoteRouter, HyprnoteRoutingConfig};
 use crate::provider_selector::ProviderSelector;
 
 pub const DEFAULT_CONNECT_TIMEOUT_MS: u64 = 7 * 1000;
@@ -30,20 +30,20 @@ pub struct SttProxyConfig {
     pub connect_timeout: Duration,
     pub analytics: Option<Arc<dyn SttAnalyticsReporter>>,
     pub upstream_urls: HashMap<Provider, String>,
-    pub hyprnote_routing: Option<HyprnoteRoutingConfig>,
+    pub anarlog_routing: Option<AnarlogRoutingConfig>,
     pub supabase: SupabaseConfig,
     pub callback: CallbackConfig,
 }
 
 impl SttProxyConfig {
-    pub fn new(env: &Env, supabase: &hypr_api_env::SupabaseEnv) -> Self {
+    pub fn new(env: &Env, supabase: &anlg_api_env::SupabaseEnv) -> Self {
         Self {
             api_keys: ApiKeys::from(&env.stt).0,
             default_provider: Provider::Deepgram,
             connect_timeout: Duration::from_millis(DEFAULT_CONNECT_TIMEOUT_MS),
             analytics: None,
             upstream_urls: HashMap::new(),
-            hyprnote_routing: None,
+            anarlog_routing: None,
             supabase: SupabaseConfig {
                 url: Some(supabase.supabase_url.clone()),
                 service_role_key: Some(supabase.supabase_service_role_key.clone()),
@@ -75,8 +75,8 @@ impl SttProxyConfig {
         self
     }
 
-    pub fn with_hyprnote_routing(mut self, config: HyprnoteRoutingConfig) -> Self {
-        self.hyprnote_routing = Some(config);
+    pub fn with_anarlog_routing(mut self, config: AnarlogRoutingConfig) -> Self {
+        self.anarlog_routing = Some(config);
         self
     }
 
@@ -88,7 +88,7 @@ impl SttProxyConfig {
         )
     }
 
-    pub fn hyprnote_router(&self) -> Option<HyprnoteRouter> {
-        self.hyprnote_routing.clone().map(HyprnoteRouter::new)
+    pub fn anarlog_router(&self) -> Option<AnarlogRouter> {
+        self.anarlog_routing.clone().map(AnarlogRouter::new)
     }
 }

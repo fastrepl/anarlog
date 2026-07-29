@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anlg-openrouter = { workspace = true }
 askama = { workspace = true }
-hypr-openrouter = { workspace = true }
 libtest-mimic = "0.8.1"
 markdown = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -15,5 +15,5 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
 
 [dev-dependencies]
-hypr-askama-utils = { workspace = true }
+anlg-askama-utils = { workspace = true }
 insta = { workspace = true }

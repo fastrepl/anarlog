@@ -16,8 +16,8 @@ use axum::{
 };
 use owhisper_client::Provider;
 
+use crate::anarlog_routing::{AnarlogRouter, RoutingMode, should_use_anarlog_routing};
 use crate::config::SttProxyConfig;
-use crate::hyprnote_routing::{HyprnoteRouter, RoutingMode, should_use_hyprnote_routing};
 use crate::provider_selector::{ProviderSelector, SelectedProvider};
 use crate::query_params::QueryParams;
 use crate::supabase::SupabaseClient;
@@ -30,7 +30,7 @@ const MAX_BATCH_AUDIO_BODY_BYTES: usize = 512 * 1024 * 1024;
 pub(crate) struct AppState {
     pub config: SttProxyConfig,
     pub selector: ProviderSelector,
-    pub router: Option<Arc<HyprnoteRouter>>,
+    pub router: Option<Arc<AnarlogRouter>>,
     pub client: reqwest::Client,
 }
 
@@ -65,8 +65,8 @@ impl AppState {
     pub fn resolve_provider(&self, params: &mut QueryParams) -> Result<SelectedProvider, Response> {
         let provider_param = params.remove_first("provider");
 
-        if should_use_hyprnote_routing(provider_param.as_deref()) {
-            return self.resolve_hyprnote_provider(params);
+        if should_use_anarlog_routing(provider_param.as_deref()) {
+            return self.resolve_anarlog_provider(params);
         }
 
         let requested = match provider_param {
@@ -75,7 +75,7 @@ impl AppState {
                 Err(_) => {
                     return Err((
                         StatusCode::BAD_REQUEST,
-                        format!("Invalid provider: {}. Supported providers: hyprnote, deepgram, soniox, assemblyai, gladia, elevenlabs, fireworks, openai, mistral, dashscope", s)
+                        format!("Invalid provider: {}. Supported providers: anarlog, deepgram, soniox, assemblyai, gladia, elevenlabs, fireworks, openai, mistral, dashscope", s)
                     ).into_response());
                 }
             },
@@ -85,7 +85,7 @@ impl AppState {
         self.selector.select(requested).map_err(|e| {
             tracing::warn!(
                 error = %e,
-                hyprnote.stt.requested_provider = ?requested,
+                anarlog.stt.requested_provider = ?requested,
                 "provider_selection_failed"
             );
             (StatusCode::BAD_REQUEST, e.to_string()).into_response()
@@ -93,17 +93,10 @@ impl AppState {
     }
 
     #[allow(clippy::result_large_err)]
-    fn resolve_hyprnote_provider(
-        &self,
-        params: &QueryParams,
-    ) -> Result<SelectedProvider, Response> {
+    fn resolve_anarlog_provider(&self, params: &QueryParams) -> Result<SelectedProvider, Response> {
         let router = self.router.as_ref().ok_or_else(|| {
-            tracing::warn!("hyprnote_routing_not_configured");
-            (
-                StatusCode::BAD_REQUEST,
-                "hyprnote routing is not configured",
-            )
-                .into_response()
+            tracing::warn!("anarlog_routing_not_configured");
+            (StatusCode::BAD_REQUEST, "anarlog routing is not configured").into_response()
         })?;
 
         let languages = params.get_languages();
@@ -111,23 +104,23 @@ impl AppState {
         let routed_provider = router.select_provider(&languages, &available_providers);
 
         tracing::debug!(
-            hyprnote.stt.language_codes = ?languages,
-            hyprnote.stt.available_providers = ?available_providers,
-            hyprnote.stt.provider.name = ?routed_provider,
-            "hyprnote_routing"
+            anarlog.stt.language_codes = ?languages,
+            anarlog.stt.available_providers = ?available_providers,
+            anarlog.stt.provider.name = ?routed_provider,
+            "anarlog_routing"
         );
 
         self.selector.select(routed_provider).map_err(|e| {
             tracing::warn!(
                 error = %e,
-                hyprnote.stt.language_codes = ?languages,
-                "hyprnote_routing_failed"
+                anarlog.stt.language_codes = ?languages,
+                "anarlog_routing_failed"
             );
             (StatusCode::BAD_REQUEST, e.to_string()).into_response()
         })
     }
 
-    pub fn resolve_hyprnote_provider_chain_for_mode(
+    pub fn resolve_anarlog_provider_chain_for_mode(
         &self,
         mode: RoutingMode,
         params: &QueryParams,
@@ -149,7 +142,7 @@ impl AppState {
 
 fn make_state(config: SttProxyConfig) -> AppState {
     let selector = config.provider_selector();
-    let router = config.hyprnote_router().map(Arc::new);
+    let router = config.anarlog_router().map(Arc::new);
 
     AppState {
         config,
@@ -205,7 +198,7 @@ mod tests {
         let mut env = Env::default();
         env.stt.deepgram_api_key = Some("deepgram-key".to_string());
 
-        let supabase = hypr_api_env::SupabaseEnv {
+        let supabase = anlg_api_env::SupabaseEnv {
             supabase_url: String::new(),
             supabase_anon_key: String::new(),
             supabase_service_role_key: String::new(),

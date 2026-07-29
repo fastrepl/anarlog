@@ -3,8 +3,8 @@ import type {
   Segment,
   Session,
   Transcript,
-} from "@hypr/plugin-template";
-import { sessionEventSchema } from "@hypr/store";
+} from "@anlg/plugin-template";
+import { sessionEventSchema } from "@anlg/store";
 
 import type { TaskArgsMap, TaskArgsMapTransformed, TaskConfig } from ".";
 import { collectEnhanceImageContext } from "./enhance-images";

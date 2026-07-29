@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anlg-cli-process = { workspace = true }
 dirs = { workspace = true }
 futures-util = { workspace = true }
-hypr-cli-process = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 tempfile = { workspace = true }

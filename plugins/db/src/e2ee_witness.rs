@@ -151,7 +151,7 @@ impl E2eeWitnessClient {
     pub(crate) async fn initialize(
         &self,
         pool: &sqlx::SqlitePool,
-        key: &hypr_e2ee::WorkspaceKey,
+        key: &anlg_e2ee::WorkspaceKey,
     ) -> io::Result<()> {
         self.initialize_cancellable(pool, key, &E2eeWitnessCancellation::default())
             .await
@@ -160,7 +160,7 @@ impl E2eeWitnessClient {
     pub(crate) async fn initialize_cancellable(
         &self,
         pool: &sqlx::SqlitePool,
-        key: &hypr_e2ee::WorkspaceKey,
+        key: &anlg_e2ee::WorkspaceKey,
         cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<()> {
         let cursor = witness_cursor_cancellable(pool, &self.workspace_id, cancellation).await?;
@@ -177,7 +177,7 @@ impl E2eeWitnessClient {
             self.publish_pending(pool, key, false, cancellation).await?;
         } else {
             cancellation.check()?;
-            let has_local_state = hypr_db_app::has_e2ee_local_state(pool, &self.workspace_id)
+            let has_local_state = anlg_db_app::has_e2ee_local_state(pool, &self.workspace_id)
                 .await
                 .map_err(replica_error)?;
             cancellation.check()?;
@@ -198,7 +198,7 @@ impl E2eeWitnessClient {
     pub(crate) async fn publish_and_refresh(
         &self,
         pool: &sqlx::SqlitePool,
-        key: &hypr_e2ee::WorkspaceKey,
+        key: &anlg_e2ee::WorkspaceKey,
     ) -> io::Result<usize> {
         self.publish_and_refresh_cancellable(pool, key, &E2eeWitnessCancellation::default())
             .await
@@ -207,7 +207,7 @@ impl E2eeWitnessClient {
     pub(crate) async fn publish_and_refresh_cancellable(
         &self,
         pool: &sqlx::SqlitePool,
-        key: &hypr_e2ee::WorkspaceKey,
+        key: &anlg_e2ee::WorkspaceKey,
         cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<usize> {
         self.publish_pending(pool, key, false, cancellation).await?;
@@ -217,7 +217,7 @@ impl E2eeWitnessClient {
     pub(crate) async fn publish_and_refresh_notifying_cancellable<F>(
         &self,
         pool: &sqlx::SqlitePool,
-        key: &hypr_e2ee::WorkspaceKey,
+        key: &anlg_e2ee::WorkspaceKey,
         on_events: F,
         cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<usize>
@@ -233,7 +233,7 @@ impl E2eeWitnessClient {
     pub(crate) async fn refresh(
         &self,
         pool: &sqlx::SqlitePool,
-        key: &hypr_e2ee::WorkspaceKey,
+        key: &anlg_e2ee::WorkspaceKey,
     ) -> io::Result<usize> {
         self.refresh_cancellable(pool, key, &E2eeWitnessCancellation::default())
             .await
@@ -242,7 +242,7 @@ impl E2eeWitnessClient {
     pub(crate) async fn refresh_cancellable(
         &self,
         pool: &sqlx::SqlitePool,
-        key: &hypr_e2ee::WorkspaceKey,
+        key: &anlg_e2ee::WorkspaceKey,
         cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<usize> {
         self.refresh_notifying_cancellable(pool, key, || {}, cancellation)
@@ -253,7 +253,7 @@ impl E2eeWitnessClient {
     pub(crate) async fn refresh_notifying<F>(
         &self,
         pool: &sqlx::SqlitePool,
-        key: &hypr_e2ee::WorkspaceKey,
+        key: &anlg_e2ee::WorkspaceKey,
         on_events: F,
     ) -> io::Result<usize>
     where
@@ -271,7 +271,7 @@ impl E2eeWitnessClient {
     pub(crate) async fn refresh_notifying_cancellable<F>(
         &self,
         pool: &sqlx::SqlitePool,
-        key: &hypr_e2ee::WorkspaceKey,
+        key: &anlg_e2ee::WorkspaceKey,
         mut on_events: F,
         cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<usize>
@@ -302,7 +302,7 @@ impl E2eeWitnessClient {
             let events = page
                 .events
                 .into_iter()
-                .map(|event| hypr_db_app::E2eeWitnessEvent {
+                .map(|event| anlg_db_app::E2eeWitnessEvent {
                     sequence: event.sequence,
                     record_id: event.record_id,
                     workspace_id: self.workspace_id.clone(),
@@ -311,7 +311,7 @@ impl E2eeWitnessClient {
                 })
                 .collect::<Vec<_>>();
             cancellation.check()?;
-            hypr_db_app::merge_e2ee_witness_events_cancellable(
+            anlg_db_app::merge_e2ee_witness_events_cancellable(
                 pool,
                 key,
                 &self.workspace_id,
@@ -324,7 +324,7 @@ impl E2eeWitnessClient {
             let after = page.next_after_sequence;
             if after != cursor {
                 cancellation.check()?;
-                hypr_db_app::advance_e2ee_witness_cursor(pool, &self.workspace_id, after)
+                anlg_db_app::advance_e2ee_witness_cursor(pool, &self.workspace_id, after)
                     .await
                     .map_err(replica_error)?;
                 cancellation.check()?;
@@ -347,7 +347,7 @@ impl E2eeWitnessClient {
     async fn publish_pending(
         &self,
         pool: &sqlx::SqlitePool,
-        key: &hypr_e2ee::WorkspaceKey,
+        key: &anlg_e2ee::WorkspaceKey,
         initialize: bool,
         cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<()> {
@@ -355,7 +355,7 @@ impl E2eeWitnessClient {
         let mut first_batch = true;
         loop {
             cancellation.check()?;
-            let uploads = hypr_db_app::pending_e2ee_witness_uploads_cancellable(
+            let uploads = anlg_db_app::pending_e2ee_witness_uploads_cancellable(
                 pool,
                 &self.workspace_id,
                 key,
@@ -426,7 +426,7 @@ impl E2eeWitnessClient {
                 return Err(rollback_error());
             }
             cancellation.check()?;
-            hypr_db_app::acknowledge_e2ee_witness_uploads_cancellable(pool, key, &uploads, || {
+            anlg_db_app::acknowledge_e2ee_witness_uploads_cancellable(pool, key, &uploads, || {
                 cancellation.is_cancelled()
             })
             .await
@@ -535,7 +535,7 @@ impl E2eeWitnessClient {
 }
 
 async fn witness_cursor(pool: &sqlx::SqlitePool, workspace_id: &str) -> io::Result<u64> {
-    hypr_db_app::e2ee_witness_cursor(pool, workspace_id)
+    anlg_db_app::e2ee_witness_cursor(pool, workspace_id)
         .await
         .map_err(replica_error)
 }
@@ -570,8 +570,8 @@ async fn read_bounded(response: reqwest::Response) -> io::Result<Vec<u8>> {
     Ok(bytes)
 }
 
-fn replica_error(error: hypr_db_app::E2eeReplicaError) -> io::Error {
-    if matches!(&error, hypr_db_app::E2eeReplicaError::Cancelled) {
+fn replica_error(error: anlg_db_app::E2eeReplicaError) -> io::Error {
+    if matches!(&error, anlg_db_app::E2eeReplicaError::Cancelled) {
         cancelled_error()
     } else {
         io::Error::other(format!("E2EE witness state failed: {error}"))
@@ -731,7 +731,7 @@ mod tests {
     #[test]
     fn cancelled_replica_work_is_reported_as_an_interrupted_witness_operation() {
         assert_eq!(
-            replica_error(hypr_db_app::E2eeReplicaError::Cancelled).kind(),
+            replica_error(anlg_db_app::E2eeReplicaError::Cancelled).kind(),
             io::ErrorKind::Interrupted
         );
     }
@@ -811,9 +811,9 @@ mod tests {
 
     #[tokio::test]
     async fn cancelled_witness_merge_does_not_advance_the_authenticated_cursor() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
-        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
+        let recovery_key = anlg_e2ee::RecoveryKey::parse(
             "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
         )
         .unwrap();
@@ -833,7 +833,7 @@ mod tests {
         let event = json!({
             "sequence": 1,
             "recordId": sealed.record_id,
-            "payloadHash": hypr_e2ee::payload_hash(&sealed.payload),
+            "payloadHash": anlg_e2ee::payload_hash(&sealed.payload),
             "payload": sealed.payload,
         });
         let server = MockServer::start().await;
@@ -865,7 +865,7 @@ mod tests {
 
         assert_eq!(error.kind(), io::ErrorKind::Interrupted);
         assert_eq!(
-            hypr_db_app::e2ee_witness_cursor(db.pool(), "user-a")
+            anlg_db_app::e2ee_witness_cursor(db.pool(), "user-a")
                 .await
                 .unwrap(),
             0
@@ -930,9 +930,9 @@ mod tests {
 
     #[tokio::test]
     async fn empty_refresh_does_not_write_an_unchanged_cursor() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
-        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
+        let recovery_key = anlg_e2ee::RecoveryKey::parse(
             "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
         )
         .unwrap();
@@ -964,8 +964,8 @@ mod tests {
 
     #[tokio::test]
     async fn initialized_witness_refreshes_before_publishing_pending_state() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
         sqlx::query(
             "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
              VALUES ('session', 'user-a', 'user-a', 'Session')",
@@ -973,12 +973,12 @@ mod tests {
         .execute(db.pool())
         .await
         .unwrap();
-        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+        let recovery_key = anlg_e2ee::RecoveryKey::parse(
             "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
         )
         .unwrap();
         let key = recovery_key.workspace_key("user-a").unwrap();
-        hypr_db_app::encrypt_e2ee_replica_changes(
+        anlg_db_app::encrypt_e2ee_replica_changes(
             db.pool(),
             &HashMap::from([("user-a".to_string(), key.clone())]),
         )
@@ -1014,8 +1014,8 @@ mod tests {
 
     #[tokio::test]
     async fn pending_local_state_is_retryable_after_a_failed_publish() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
         sqlx::query(
             "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
              VALUES ('session', 'user-a', 'user-a', 'Before')",
@@ -1023,17 +1023,17 @@ mod tests {
         .execute(db.pool())
         .await
         .unwrap();
-        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+        let recovery_key = anlg_e2ee::RecoveryKey::parse(
             "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
         )
         .unwrap();
         let key = recovery_key.workspace_key("user-a").unwrap();
         let keys = HashMap::from([("user-a".to_string(), key.clone())]);
-        hypr_db_app::encrypt_e2ee_replica_changes(db.pool(), &keys)
+        anlg_db_app::encrypt_e2ee_replica_changes(db.pool(), &keys)
             .await
             .unwrap();
         loop {
-            let uploads = hypr_db_app::pending_e2ee_witness_uploads(
+            let uploads = anlg_db_app::pending_e2ee_witness_uploads(
                 db.pool(),
                 "user-a",
                 &key,
@@ -1045,7 +1045,7 @@ mod tests {
             if uploads.is_empty() {
                 break;
             }
-            hypr_db_app::acknowledge_e2ee_witness_uploads(db.pool(), &key, &uploads)
+            anlg_db_app::acknowledge_e2ee_witness_uploads(db.pool(), &key, &uploads)
                 .await
                 .unwrap();
         }
@@ -1054,7 +1054,7 @@ mod tests {
             .execute(db.pool())
             .await
             .unwrap();
-        hypr_db_app::encrypt_e2ee_replica_changes(db.pool(), &keys)
+        anlg_db_app::encrypt_e2ee_replica_changes(db.pool(), &keys)
             .await
             .unwrap();
 
@@ -1081,7 +1081,7 @@ mod tests {
                 .unwrap();
         assert!(queued_after_failure > 0);
         assert!(
-            !hypr_db_app::pending_e2ee_witness_uploads(
+            !anlg_db_app::pending_e2ee_witness_uploads(
                 db.pool(),
                 "user-a",
                 &key,
@@ -1103,7 +1103,7 @@ mod tests {
                 .unwrap();
         assert_eq!(queued_after_retry, 0);
         assert!(
-            hypr_db_app::pending_e2ee_witness_uploads(
+            anlg_db_app::pending_e2ee_witness_uploads(
                 db.pool(),
                 "user-a",
                 &key,
@@ -1146,8 +1146,8 @@ mod tests {
     #[tokio::test]
     async fn resumes_refresh_from_the_last_authenticated_page() {
         let dir = tempfile::tempdir().unwrap();
-        let db = hypr_db_core::Db::open(hypr_db_core::DbOpenOptions {
-            storage: hypr_db_core::DbStorage::Local(&dir.path().join("app.db")),
+        let db = anlg_db_core::Db::open(anlg_db_core::DbOpenOptions {
+            storage: anlg_db_core::DbStorage::Local(&dir.path().join("app.db")),
             cloudsync_enabled: false,
             journal_mode_wal: true,
             foreign_keys: true,
@@ -1155,7 +1155,7 @@ mod tests {
         })
         .await
         .unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
         sqlx::query(
             "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
              VALUES ('session', 'user-a', 'user-a', 'Session')",
@@ -1163,18 +1163,18 @@ mod tests {
         .execute(db.pool())
         .await
         .unwrap();
-        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+        let recovery_key = anlg_e2ee::RecoveryKey::parse(
             "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
         )
         .unwrap();
         let key = recovery_key.workspace_key("user-a").unwrap();
-        hypr_db_app::encrypt_e2ee_replica_changes(
+        anlg_db_app::encrypt_e2ee_replica_changes(
             db.pool(),
             &HashMap::from([("user-a".to_string(), key.clone())]),
         )
         .await
         .unwrap();
-        let uploads = hypr_db_app::pending_e2ee_witness_uploads(
+        let uploads = anlg_db_app::pending_e2ee_witness_uploads(
             db.pool(),
             "user-a",
             &key,
@@ -1230,7 +1230,7 @@ mod tests {
         );
         assert!(reconciliation_requested.load(Ordering::SeqCst));
         assert_eq!(
-            hypr_db_app::e2ee_witness_cursor(db.pool(), "user-a")
+            anlg_db_app::e2ee_witness_cursor(db.pool(), "user-a")
                 .await
                 .unwrap(),
             3
@@ -1239,7 +1239,7 @@ mod tests {
         assert_eq!(client.refresh(db.pool(), &key).await.unwrap(), 1);
 
         assert_eq!(
-            hypr_db_app::e2ee_witness_cursor(db.pool(), "user-a")
+            anlg_db_app::e2ee_witness_cursor(db.pool(), "user-a")
                 .await
                 .unwrap(),
             4

@@ -1,6 +1,6 @@
 use crate::{Event, Participant, Transcript, common_derives};
 #[allow(unused_imports)]
-use hypr_askama_utils::filters;
+use anlg_askama_utils::filters;
 
 common_derives! {
     pub struct SessionContext {
@@ -34,7 +34,7 @@ common_derives! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hypr_askama_utils::tpl_snapshot_with_assert;
+    use anlg_askama_utils::tpl_snapshot_with_assert;
 
     tpl_snapshot_with_assert!(
         test_chat_system,

@@ -13,8 +13,8 @@ mod tests {
     use std::pin::Pin;
     use std::task::{Context, Poll};
 
+    use anlg_audio_interface::AsyncSource;
     use futures_util::{Stream, StreamExt};
-    use hypr_audio_interface::AsyncSource;
 
     fn get_samples_with_rate(path: impl AsRef<std::path::Path>) -> (Vec<f32>, u32) {
         let source = rodio::Decoder::try_from(std::fs::File::open(path).unwrap()).unwrap();
@@ -101,12 +101,12 @@ mod tests {
 
     fn create_test_source() -> DynamicRateSource {
         DynamicRateSource::new(vec![
-            get_samples_with_rate(hypr_data::english_1::AUDIO_PART1_8000HZ_PATH),
-            get_samples_with_rate(hypr_data::english_1::AUDIO_PART2_16000HZ_PATH),
-            get_samples_with_rate(hypr_data::english_1::AUDIO_PART3_22050HZ_PATH),
-            get_samples_with_rate(hypr_data::english_1::AUDIO_PART4_32000HZ_PATH),
-            get_samples_with_rate(hypr_data::english_1::AUDIO_PART5_44100HZ_PATH),
-            get_samples_with_rate(hypr_data::english_1::AUDIO_PART6_48000HZ_PATH),
+            get_samples_with_rate(anlg_data::english_1::AUDIO_PART1_8000HZ_PATH),
+            get_samples_with_rate(anlg_data::english_1::AUDIO_PART2_16000HZ_PATH),
+            get_samples_with_rate(anlg_data::english_1::AUDIO_PART3_22050HZ_PATH),
+            get_samples_with_rate(anlg_data::english_1::AUDIO_PART4_32000HZ_PATH),
+            get_samples_with_rate(anlg_data::english_1::AUDIO_PART5_44100HZ_PATH),
+            get_samples_with_rate(anlg_data::english_1::AUDIO_PART6_48000HZ_PATH),
         ])
     }
 
@@ -160,7 +160,7 @@ mod tests {
     async fn test_dynamic_new_resampler_passthrough() {
         let (original_sample_rate, original_samples) = {
             let mut static_source = DynamicRateSource::new(vec![get_samples_with_rate(
-                hypr_data::english_1::AUDIO_PART2_16000HZ_PATH,
+                anlg_data::english_1::AUDIO_PART2_16000HZ_PATH,
             )]);
 
             let original_sample_rate = static_source.sample_rate();
@@ -171,7 +171,7 @@ mod tests {
 
         let (resampler_sample_rate, resampled_samples) = {
             let static_source = DynamicRateSource::new(vec![get_samples_with_rate(
-                hypr_data::english_1::AUDIO_PART2_16000HZ_PATH,
+                anlg_data::english_1::AUDIO_PART2_16000HZ_PATH,
             )]);
 
             let resampler_sample_rate = static_source.sample_rate();
@@ -196,7 +196,7 @@ mod tests {
     #[tokio::test]
     async fn test_static_new_resampler() {
         let static_source = DynamicRateSource::new(vec![get_samples_with_rate(
-            hypr_data::english_1::AUDIO_PART1_8000HZ_PATH,
+            anlg_data::english_1::AUDIO_PART1_8000HZ_PATH,
         )]);
 
         let chunk_size = 1920;

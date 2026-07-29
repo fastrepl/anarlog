@@ -1,6 +1,6 @@
 import levenshtein from "js-levenshtein-esm";
 
-import type { EnhanceTemplate } from "@hypr/plugin-template";
+import type { EnhanceTemplate } from "@anlg/plugin-template";
 
 import type { EarlyValidatorFn } from "~/store/zustand/ai-task/shared/validate";
 

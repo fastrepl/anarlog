@@ -1,7 +1,7 @@
 import type { LanguageModel } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { json2md } from "@hypr/editor/markdown";
+import { json2md } from "@anlg/editor/markdown";
 
 import type { TaskConfig } from ".";
 import { enhanceSuccess, runEnhanceSuccess } from "./enhance-success";
@@ -18,8 +18,8 @@ const mocks = vi.hoisted(() => ({
   inferAutomaticSpeakerAssignments: vi.fn().mockResolvedValue([]),
 }));
 
-vi.mock("@hypr/plugin-db", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@hypr/plugin-db")>()),
+vi.mock("@anlg/plugin-db", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@anlg/plugin-db")>()),
   beginCloudsyncActivity: mocks.beginCloudsyncActivity,
   endCloudsyncActivity: mocks.endCloudsyncActivity,
 }));

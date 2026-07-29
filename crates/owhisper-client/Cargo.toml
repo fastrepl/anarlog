@@ -5,16 +5,16 @@ edition = "2024"
 
 [features]
 default = []
-local = ["hypr-audio-utils", "hypr-transcribe-soniqo", "hypr-transcribe-speechanalyzer"]
+local = ["anlg-audio-utils", "anlg-transcribe-soniqo", "anlg-transcribe-speechanalyzer"]
 
 [dependencies]
-hypr-am = { workspace = true }
-hypr-audio-utils = { workspace = true, optional = true }
-hypr-language = { workspace = true }
-hypr-observability = { workspace = true }
-hypr-transcribe-soniqo = { workspace = true, optional = true }
-hypr-transcribe-speechanalyzer = { workspace = true, optional = true }
-hypr-ws-client = { workspace = true }
+anlg-am = { workspace = true }
+anlg-audio-utils = { workspace = true, optional = true }
+anlg-language = { workspace = true }
+anlg-observability = { workspace = true }
+anlg-transcribe-soniqo = { workspace = true, optional = true }
+anlg-transcribe-speechanalyzer = { workspace = true, optional = true }
+anlg-ws-client = { workspace = true }
 soniox = { workspace = true }
 
 openai-transcription = { workspace = true }
@@ -38,8 +38,8 @@ tracing = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]
-hypr-audio-utils = { workspace = true }
-hypr-data = { workspace = true }
+anlg-audio-utils = { workspace = true }
+anlg-data = { workspace = true }
 
 deepgram = { workspace = true, features = ["listen"] }
 rodio = { workspace = true }

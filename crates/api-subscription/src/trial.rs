@@ -1,15 +1,15 @@
+use anlg_analytics::{AnalyticsPayload, PropertiesPayload, ToAnalyticsPayload};
 use axum::{
     Json,
     http::StatusCode,
     response::{IntoResponse, Response},
 };
 use chrono::Utc;
-use hypr_analytics::{AnalyticsPayload, PropertiesPayload, ToAnalyticsPayload};
 use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
 use utoipa::{IntoParams, ToSchema};
 
-use hypr_api_error::error_response;
+use anlg_api_error::error_response;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -121,8 +121,8 @@ impl ToAnalyticsPayload for TrialOutcome {
 
 #[cfg(test)]
 mod tests {
+    use anlg_analytics::ToAnalyticsPayload;
     use chrono::{TimeZone, Utc};
-    use hypr_analytics::ToAnalyticsPayload;
     use serde_json::json;
 
     use super::{Interval, TrialOutcome, pro_trial_days, trial_end_date};

@@ -17,7 +17,7 @@ vi.mock("ai", async (importOriginal) => ({
   generateText: hoisted.generateText,
 }));
 
-vi.mock("@hypr/plugin-template", () => ({
+vi.mock("@anlg/plugin-template", () => ({
   commands: {
     renderCustom: vi.fn(async (template: string) => ({
       status: "ok",
@@ -26,7 +26,7 @@ vi.mock("@hypr/plugin-template", () => ({
   },
 }));
 
-vi.mock("@hypr/ui/components/ui/toast", () => ({
+vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: { error: hoisted.toastError },
 }));
 

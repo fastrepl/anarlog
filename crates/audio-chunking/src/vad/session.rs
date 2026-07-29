@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use hypr_onnx::ndarray::ArrayView1;
-use hypr_vad::silero_onnx::{CHUNK_SIZE_16KHZ, SileroVad};
+use anlg_onnx::ndarray::ArrayView1;
+use anlg_vad::silero_onnx::{CHUNK_SIZE_16KHZ, SileroVad};
 
 const SAMPLE_RATE: usize = 16000;
 
@@ -351,7 +351,7 @@ mod tests {
 
     fn decode_audio() -> Vec<f32> {
         rodio::Decoder::new(BufReader::new(
-            std::fs::File::open(hypr_data::english_1::AUDIO_PATH).unwrap(),
+            std::fs::File::open(anlg_data::english_1::AUDIO_PATH).unwrap(),
         ))
         .unwrap()
         .collect()

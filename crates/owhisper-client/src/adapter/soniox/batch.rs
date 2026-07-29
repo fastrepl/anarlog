@@ -33,17 +33,17 @@ impl SonioxAdapter {
             ))
         })?;
 
-        tracing::info!(hyprnote.file.path = %file_path.display(), "uploading_file_to_soniox");
+        tracing::info!(anarlog.file.path = %file_path.display(), "uploading_file_to_soniox");
         let file_id = soniox::upload_file(&client, &file_name, file_bytes, api_key)
             .await
             .map_err(soniox_err)?;
 
-        tracing::info!(hyprnote.file.id = %file_id, "soniox_file_uploaded");
+        tracing::info!(anarlog.file.id = %file_id, "soniox_file_uploaded");
         let result = Self::transcribe_and_fetch(&client, api_key, params, &file_id).await;
 
         if let Err(e) = soniox::delete_file(&client, &file_id, api_key).await {
             tracing::warn!(
-                hyprnote.file.id = %file_id,
+                anarlog.file.id = %file_id,
                 error = %e,
                 "failed_to_delete_soniox_file"
             );
@@ -83,7 +83,7 @@ impl SonioxAdapter {
             .await
             .map_err(soniox_err)?;
         tracing::info!(
-            hyprnote.stt.job.id = %transcription_id,
+            anarlog.stt.job.id = %transcription_id,
             "soniox_transcription_created"
         );
 
@@ -91,7 +91,7 @@ impl SonioxAdapter {
             .await
             .map_err(soniox_err)?;
         tracing::info!(
-            hyprnote.stt.job.id = %transcription_id,
+            anarlog.stt.job.id = %transcription_id,
             "soniox_transcription_completed"
         );
 
@@ -148,7 +148,7 @@ impl BatchSttAdapter for SonioxAdapter {
 
     fn is_supported_languages(
         &self,
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         _model: Option<&str>,
     ) -> bool {
         SonioxAdapter::is_supported_languages_batch(languages)
@@ -317,7 +317,7 @@ mod tests {
         let adapter = SonioxAdapter::default();
         let params = ListenParams::default();
 
-        let audio_path = std::path::PathBuf::from(hypr_data::english_1::AUDIO_PATH);
+        let audio_path = std::path::PathBuf::from(anlg_data::english_1::AUDIO_PATH);
 
         let result = adapter
             .transcribe_file(&client, "", &api_key, &params, &audio_path)

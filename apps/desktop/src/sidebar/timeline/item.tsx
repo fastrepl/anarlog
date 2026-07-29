@@ -12,11 +12,11 @@ import {
   useState,
 } from "react";
 
-import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
-import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
-import { Spinner } from "@hypr/ui/components/ui/spinner";
-import { cn, format, getYear, safeParseDate, TZDate } from "@hypr/utils";
+import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
+import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
+import { Spinner } from "@anlg/ui/components/ui/spinner";
+import { cn, format, getYear, safeParseDate, TZDate } from "@anlg/utils";
 
 import {
   type EventTimelineItem,

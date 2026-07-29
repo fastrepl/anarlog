@@ -15,8 +15,8 @@ describe("getVisibleModelSelection", () => {
   });
 
   test("keeps a configured provider visible when its model is missing", () => {
-    expect(getVisibleModelSelection("hyprnote", undefined, true)).toEqual({
-      provider: "hyprnote",
+    expect(getVisibleModelSelection("anarlog", undefined, true)).toEqual({
+      provider: "anarlog",
       model: "",
     });
   });

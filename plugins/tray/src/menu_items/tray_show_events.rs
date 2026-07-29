@@ -9,7 +9,7 @@ use crate::TrayPluginExt;
 pub struct TrayShowEvents;
 
 impl MenuItemHandler for TrayShowEvents {
-    const ID: &'static str = "hypr_tray_show_events";
+    const ID: &'static str = "anlg_tray_show_events";
 
     fn build(app: &AppHandle<tauri::Wry>) -> Result<MenuItemKind<tauri::Wry>> {
         let item = CheckMenuItem::with_id(

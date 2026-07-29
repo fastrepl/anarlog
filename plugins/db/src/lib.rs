@@ -169,7 +169,7 @@ pub struct CloudsyncE2eeWitness {
     pub access_token: String,
 }
 
-impl From<CloudsyncWorkspaceProjection> for hypr_db_app::CloudsyncWorkspaceProjection {
+impl From<CloudsyncWorkspaceProjection> for anlg_db_app::CloudsyncWorkspaceProjection {
     fn from(projection: CloudsyncWorkspaceProjection) -> Self {
         Self {
             account_user_id: projection.account_user_id,
@@ -177,7 +177,7 @@ impl From<CloudsyncWorkspaceProjection> for hypr_db_app::CloudsyncWorkspaceProje
             workspaces: projection
                 .workspaces
                 .into_iter()
-                .map(|workspace| hypr_db_app::CloudsyncWorkspaceProjectionEntry {
+                .map(|workspace| anlg_db_app::CloudsyncWorkspaceProjectionEntry {
                     id: workspace.id,
                     owner_user_id: workspace.owner_user_id,
                     kind: workspace.kind,
@@ -232,31 +232,31 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
 }
 
 pub fn init<R: tauri::Runtime>(
-    db: std::sync::Arc<hypr_db_core::Db>,
+    db: std::sync::Arc<anlg_db_core::Db>,
 ) -> tauri::plugin::TauriPlugin<R> {
     init_with_cloudsync(db, None)
 }
 
 pub fn init_with_cloudsync<R: tauri::Runtime>(
-    db: std::sync::Arc<hypr_db_core::Db>,
-    startup_config: Option<hypr_db_core::CloudsyncRuntimeConfig>,
+    db: std::sync::Arc<anlg_db_core::Db>,
+    startup_config: Option<anlg_db_core::CloudsyncRuntimeConfig>,
 ) -> tauri::plugin::TauriPlugin<R> {
     let specta_builder = make_specta_builder();
 
     tauri::plugin::Builder::new(PLUGIN_NAME)
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app, _| {
-            hypr_tauri_utils::block_on(hypr_db_app::prepare_schema(db.as_ref()))?;
-            hypr_tauri_utils::block_on(import::import_legacy_data(app.app_handle(), db.pool()))?;
+            anlg_tauri_utils::block_on(anlg_db_app::prepare_schema(db.as_ref()))?;
+            anlg_tauri_utils::block_on(import::import_legacy_data(app.app_handle(), db.pool()))?;
             if let Some(config) = startup_config.clone() {
                 let migration_verified =
-                    hypr_tauri_utils::block_on(import::legacy_migration_verified(db.pool()))?;
+                    anlg_tauri_utils::block_on(import::legacy_migration_verified(db.pool()))?;
                 if !migration_verified {
                     tracing::warn!(
                         "startup CloudSync configuration skipped until legacy migration is verified"
                     );
                 } else if let Err(error) =
-                    hypr_tauri_utils::block_on(db.cloudsync_configure(config))
+                    anlg_tauri_utils::block_on(db.cloudsync_configure(config))
                 {
                     tracing::warn!(%error, "failed to configure startup cloudsync");
                 } else {
@@ -283,7 +283,7 @@ mod test {
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
-    use hypr_db_reactive::QueryEventSink;
+    use anlg_db_reactive::QueryEventSink;
     use serde_json::json;
     use tauri::ipc::{Channel, InvokeResponseBody};
     use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate, matchers::path};
@@ -370,8 +370,8 @@ mod test {
     ) -> (tempfile::TempDir, Arc<runtime::PluginDbRuntime>) {
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("app.db");
-        let db = hypr_db_core::Db::open(hypr_db_core::DbOpenOptions {
-            storage: hypr_db_core::DbStorage::Local(&db_path),
+        let db = anlg_db_core::Db::open(anlg_db_core::DbOpenOptions {
+            storage: anlg_db_core::DbStorage::Local(&db_path),
             cloudsync_enabled,
             journal_mode_wal: true,
             foreign_keys: true,
@@ -379,13 +379,13 @@ mod test {
         })
         .await
         .unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
         sqlx::query(
             "UPDATE storage_migration_state
              SET importer_version = ?, parity_verified = 1
              WHERE id = 'legacy_v1'",
         )
-        .bind(hypr_db_app::LEGACY_IMPORTER_VERSION)
+        .bind(anlg_db_app::LEGACY_IMPORTER_VERSION)
         .execute(db.pool())
         .await
         .unwrap();
@@ -400,7 +400,7 @@ mod test {
     async fn setup_enabled_cloudsync_runtime() -> (tempfile::TempDir, Arc<runtime::PluginDbRuntime>)
     {
         let (dir, runtime) = setup_runtime_with_cloudsync(true).await;
-        let recovery_key = hypr_e2ee::RecoveryKey::parse(
+        let recovery_key = anlg_e2ee::RecoveryKey::parse(
             "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
         )
         .unwrap();
@@ -498,8 +498,8 @@ mod test {
     async fn setup_unmigrated_runtime() -> (tempfile::TempDir, Arc<runtime::PluginDbRuntime>) {
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("app.db");
-        let db = hypr_db_core::Db::open(hypr_db_core::DbOpenOptions {
-            storage: hypr_db_core::DbStorage::Local(&db_path),
+        let db = anlg_db_core::Db::open(anlg_db_core::DbOpenOptions {
+            storage: anlg_db_core::DbStorage::Local(&db_path),
             cloudsync_enabled: false,
             journal_mode_wal: true,
             foreign_keys: true,
@@ -545,8 +545,8 @@ mod test {
     async fn sign_out_suspend_command_defers_busy_pool_teardown() {
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("app.db");
-        let db = hypr_db_core::Db::open(hypr_db_core::DbOpenOptions {
-            storage: hypr_db_core::DbStorage::Local(&db_path),
+        let db = anlg_db_core::Db::open(anlg_db_core::DbOpenOptions {
+            storage: anlg_db_core::DbStorage::Local(&db_path),
             cloudsync_enabled: true,
             journal_mode_wal: true,
             foreign_keys: true,
@@ -554,7 +554,7 @@ mod test {
         })
         .await
         .unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
         db.cloudsync_init("sessions", None, None).await.unwrap();
         let runtime = Arc::new(runtime::PluginDbRuntime::new(Arc::new(db)));
         runtime
@@ -662,7 +662,7 @@ mod test {
             .execute_proxy(
                 "INSERT INTO templates (id, title) VALUES (?, ?)".to_string(),
                 vec![json!("template-1"), json!("Template 1")],
-                hypr_db_execute::ProxyQueryMethod::Run,
+                anlg_db_execute::ProxyQueryMethod::Run,
             )
             .await
             .unwrap();
@@ -802,7 +802,7 @@ mod test {
 
         assert!(matches!(
             registration.analysis,
-            hypr_db_reactive::DependencyAnalysis::Reactive { .. }
+            anlg_db_reactive::DependencyAnalysis::Reactive { .. }
         ));
 
         let event = next_event(&events, 0).await.unwrap();
@@ -822,7 +822,7 @@ mod test {
                 serde_json::json!({
                     "connection_string": "managed-database-id",
                     "auth": { "type": "token", "token": "test-token" },
-                    "tables": hypr_db_app::cloudsync_table_registry(),
+                    "tables": anlg_db_app::cloudsync_table_registry(),
                     "sync_interval_ms": 30_000,
                     "wait_ms": 5_000,
                     "max_retries": 3
@@ -884,7 +884,7 @@ mod test {
     #[tokio::test]
     async fn account_binding_is_durable_without_rekeying_local_rows() {
         let (_dir, runtime) = setup_runtime().await;
-        let local_workspace = hypr_db_app::ensure_cloudsync_workspace_binding(runtime.pool())
+        let local_workspace = anlg_db_app::ensure_cloudsync_workspace_binding(runtime.pool())
             .await
             .unwrap();
         sqlx::query(
@@ -959,7 +959,7 @@ mod test {
     #[tokio::test]
     async fn token_configuration_rejects_local_only_runtime_before_rekeying() {
         let (_dir, runtime) = setup_runtime().await;
-        let local_workspace = hypr_db_app::ensure_cloudsync_workspace_binding(runtime.pool())
+        let local_workspace = anlg_db_app::ensure_cloudsync_workspace_binding(runtime.pool())
             .await
             .unwrap();
         sqlx::query(
@@ -998,7 +998,7 @@ mod test {
 
         assert!(matches!(
             error,
-            crate::Error::Cloudsync(hypr_db_core::CloudsyncRuntimeError::Unavailable)
+            crate::Error::Cloudsync(anlg_db_core::CloudsyncRuntimeError::Unavailable)
         ));
         assert_eq!(binding, (local_workspace.clone(), None));
         assert_eq!(session, (local_workspace.clone(), local_workspace));
@@ -1025,7 +1025,7 @@ mod test {
                 "managed-database-id".to_string(),
                 "token".to_string(),
                 "user-a".to_string(),
-                Some(hypr_db_app::CloudsyncWorkspaceProjection {
+                Some(anlg_db_app::CloudsyncWorkspaceProjection {
                     account_user_id: "user-a".to_string(),
                     personal_workspace_id: "user-a".to_string(),
                     workspaces: vec![],
@@ -1050,7 +1050,7 @@ mod test {
         assert!(matches!(
             error,
             crate::Error::CloudsyncWorkspace(
-                hypr_db_app::CloudsyncWorkspaceError::InvalidWorkspaceProjection
+                anlg_db_app::CloudsyncWorkspaceError::InvalidWorkspaceProjection
             )
         ));
         assert_eq!(binding_count, 0);
@@ -1061,7 +1061,7 @@ mod test {
     async fn token_configuration_claims_workspace_and_can_be_suspended() {
         let (_dir, runtime) = setup_enabled_cloudsync_runtime().await;
         let (_witness_server, witness) = setup_witness("user-a").await;
-        let local_workspace = hypr_db_app::ensure_cloudsync_workspace_binding(runtime.pool())
+        let local_workspace = anlg_db_app::ensure_cloudsync_workspace_binding(runtime.pool())
             .await
             .unwrap();
         sqlx::query(
@@ -1117,7 +1117,7 @@ mod test {
     async fn token_refresh_restarts_pending_full_resync_with_new_credentials() {
         let (_dir, runtime) = setup_enabled_cloudsync_runtime().await;
         let (_witness_server, witness) = setup_witness("user-a").await;
-        let local_workspace = hypr_db_app::ensure_cloudsync_workspace_binding(runtime.pool())
+        let local_workspace = anlg_db_app::ensure_cloudsync_workspace_binding(runtime.pool())
             .await
             .unwrap();
         sqlx::query(
@@ -1135,10 +1135,10 @@ mod test {
                 .await
                 .unwrap()
         );
-        let projection = hypr_db_app::CloudsyncWorkspaceProjection {
+        let projection = anlg_db_app::CloudsyncWorkspaceProjection {
             account_user_id: "user-a".to_string(),
             personal_workspace_id: "user-a".to_string(),
-            workspaces: vec![hypr_db_app::CloudsyncWorkspaceProjectionEntry {
+            workspaces: vec![anlg_db_app::CloudsyncWorkspaceProjectionEntry {
                 id: "user-a".to_string(),
                 owner_user_id: "user-a".to_string(),
                 kind: "personal".to_string(),
@@ -1168,7 +1168,7 @@ mod test {
         let (generation, auth) = runtime.cloudsync_full_resync_task_snapshot().await.unwrap();
         assert_eq!(
             auth,
-            hypr_db_core::CloudsyncAuth::Token {
+            anlg_db_core::CloudsyncAuth::Token {
                 token: "initial-token".to_string(),
             }
         );
@@ -1191,7 +1191,7 @@ mod test {
         assert_eq!(refreshed_generation, generation);
         assert_eq!(
             refreshed_auth,
-            hypr_db_core::CloudsyncAuth::Token {
+            anlg_db_core::CloudsyncAuth::Token {
                 token: "refreshed-token".to_string(),
             }
         );
@@ -1210,11 +1210,11 @@ mod test {
                 .unwrap()
         );
 
-        let projection = hypr_db_app::CloudsyncWorkspaceProjection {
+        let projection = anlg_db_app::CloudsyncWorkspaceProjection {
             account_user_id: "user-a".to_string(),
             personal_workspace_id: "user-a".to_string(),
             workspaces: vec![
-                hypr_db_app::CloudsyncWorkspaceProjectionEntry {
+                anlg_db_app::CloudsyncWorkspaceProjectionEntry {
                     id: "user-a".to_string(),
                     owner_user_id: "user-a".to_string(),
                     kind: "personal".to_string(),
@@ -1226,7 +1226,7 @@ mod test {
                     created_at: "2026-07-01T00:00:00Z".to_string(),
                     updated_at: "2026-07-16T00:00:00Z".to_string(),
                 },
-                hypr_db_app::CloudsyncWorkspaceProjectionEntry {
+                anlg_db_app::CloudsyncWorkspaceProjectionEntry {
                     id: "workspace-shared".to_string(),
                     owner_user_id: "user-b".to_string(),
                     kind: "shared".to_string(),
@@ -1300,7 +1300,7 @@ mod test {
         );
         assert_eq!(writable_workspace_ids, vec!["user-a".to_string()]);
         assert!(
-            hypr_db_app::cloudsync_write_filter_installed(runtime.pool(), "user-a")
+            anlg_db_app::cloudsync_write_filter_installed(runtime.pool(), "user-a")
                 .await
                 .unwrap()
         );
@@ -1316,12 +1316,12 @@ mod test {
                 .await
                 .unwrap()
         );
-        hypr_db_app::replace_cloudsync_workspace_projection(
+        anlg_db_app::replace_cloudsync_workspace_projection(
             runtime.pool(),
-            &hypr_db_app::CloudsyncWorkspaceProjection {
+            &anlg_db_app::CloudsyncWorkspaceProjection {
                 account_user_id: "user-a".to_string(),
                 personal_workspace_id: "user-a".to_string(),
-                workspaces: vec![hypr_db_app::CloudsyncWorkspaceProjectionEntry {
+                workspaces: vec![anlg_db_app::CloudsyncWorkspaceProjectionEntry {
                     id: "user-a".to_string(),
                     owner_user_id: "user-a".to_string(),
                     kind: "personal".to_string(),
@@ -1343,10 +1343,10 @@ mod test {
                 "managed-database-id".to_string(),
                 "token".to_string(),
                 "user-a".to_string(),
-                Some(hypr_db_app::CloudsyncWorkspaceProjection {
+                Some(anlg_db_app::CloudsyncWorkspaceProjection {
                     account_user_id: "user-b".to_string(),
                     personal_workspace_id: "user-b".to_string(),
-                    workspaces: vec![hypr_db_app::CloudsyncWorkspaceProjectionEntry {
+                    workspaces: vec![anlg_db_app::CloudsyncWorkspaceProjectionEntry {
                         id: "user-b".to_string(),
                         owner_user_id: "user-b".to_string(),
                         kind: "personal".to_string(),
@@ -1372,7 +1372,7 @@ mod test {
         assert!(matches!(
             error,
             crate::Error::CloudsyncWorkspace(
-                hypr_db_app::CloudsyncWorkspaceError::InvalidWorkspaceProjection
+                anlg_db_app::CloudsyncWorkspaceError::InvalidWorkspaceProjection
             )
         ));
         assert_eq!(

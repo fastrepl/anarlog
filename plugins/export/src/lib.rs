@@ -1,9 +1,9 @@
 mod commands;
 mod ext;
-pub use ext::*;
-pub use hypr_export_core::{
+pub use anlg_export_core::{
     Error, ExportInput, ExportMetadata, Result, Transcript, TranscriptItem,
 };
+pub use ext::*;
 
 const PLUGIN_NAME: &str = "export";
 

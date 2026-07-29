@@ -13,8 +13,8 @@ import {
 import type { NodeSpec } from "prosemirror-model";
 import { forwardRef } from "react";
 
-import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { cn } from "@hypr/utils";
+import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { cn } from "@anlg/utils";
 
 import {
   useAttachmentEditingEnabled,

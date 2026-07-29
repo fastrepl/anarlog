@@ -6,24 +6,24 @@ import { ExternalLink } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Streamdown } from "streamdown";
 
-import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import type { AIProvider } from "@hypr/store";
-import { aiProviderSchema } from "@hypr/store";
+import { commands as analyticsCommands } from "@anlg/plugin-analytics";
+import type { AIProvider } from "@anlg/store";
+import { aiProviderSchema } from "@anlg/store";
 import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@hypr/ui/components/ui/accordion";
+} from "@anlg/ui/components/ui/accordion";
 import {
   InputGroup,
   InputGroupInput,
-} from "@hypr/ui/components/ui/input-group";
+} from "@anlg/ui/components/ui/input-group";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@hypr/ui/components/ui/tooltip";
-import { cn } from "@hypr/utils";
+} from "@anlg/ui/components/ui/tooltip";
+import { cn } from "@anlg/utils";
 
 import {
   getProviderSelectionBlockers,
@@ -43,7 +43,7 @@ import {
 } from "~/settings/providers";
 import { SettingsAlertToast } from "~/shared/ui/settings-alert";
 
-export * from "./hypr-cloud-button";
+export * from "./anarlog-cloud-button";
 export * from "./model-combobox";
 
 type ProviderType = "stt" | "llm";
@@ -165,7 +165,7 @@ export function useIsProviderReady(
   return availabilityQuery.data === true;
 }
 
-export function NonHyprProviderCard({
+export function NonAnarlogProviderCard({
   config,
   providerType,
   providers,

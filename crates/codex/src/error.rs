@@ -30,19 +30,19 @@ pub enum Error {
     Poisoned,
 }
 
-impl From<hypr_cli_process::ProcessError> for Error {
-    fn from(value: hypr_cli_process::ProcessError) -> Self {
+impl From<anlg_cli_process::ProcessError> for Error {
+    fn from(value: anlg_cli_process::ProcessError) -> Self {
         match value {
-            hypr_cli_process::ProcessError::MissingStdin => Self::MissingStdin,
-            hypr_cli_process::ProcessError::MissingStdout => Self::MissingStdout,
-            hypr_cli_process::ProcessError::StdinWrite(error) => Self::StdinWrite(error),
-            hypr_cli_process::ProcessError::StdoutRead(error) => Self::StdoutRead(error),
-            hypr_cli_process::ProcessError::Wait(error) => Self::Wait(error),
-            hypr_cli_process::ProcessError::Kill(error) => Self::Kill(error),
-            hypr_cli_process::ProcessError::ProcessFailed { detail } => {
+            anlg_cli_process::ProcessError::MissingStdin => Self::MissingStdin,
+            anlg_cli_process::ProcessError::MissingStdout => Self::MissingStdout,
+            anlg_cli_process::ProcessError::StdinWrite(error) => Self::StdinWrite(error),
+            anlg_cli_process::ProcessError::StdoutRead(error) => Self::StdoutRead(error),
+            anlg_cli_process::ProcessError::Wait(error) => Self::Wait(error),
+            anlg_cli_process::ProcessError::Kill(error) => Self::Kill(error),
+            anlg_cli_process::ProcessError::ProcessFailed { detail } => {
                 Self::ProcessFailed { detail }
             }
-            hypr_cli_process::ProcessError::Cancelled => Self::Cancelled,
+            anlg_cli_process::ProcessError::Cancelled => Self::Cancelled,
         }
     }
 }

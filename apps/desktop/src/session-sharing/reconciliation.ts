@@ -1,4 +1,4 @@
-import type { JSONContent } from "@hypr/editor/note";
+import type { JSONContent } from "@anlg/editor/note";
 
 import {
   addSharedAttachmentIds,

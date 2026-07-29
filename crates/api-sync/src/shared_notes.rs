@@ -1,5 +1,7 @@
 use std::{net::IpAddr, time::Duration};
 
+use anlg_api_auth::AuthContext;
+use anlg_loops::{LoopClient, TransactionalEmail};
 use axum::{
     Extension, Json, Router,
     extract::{DefaultBodyLimit, Path, Request, State},
@@ -10,8 +12,6 @@ use axum::{
 };
 use chrono::{SecondsFormat, TimeDelta, Utc};
 use hmac::{Hmac, KeyInit, Mac};
-use hypr_api_auth::AuthContext;
-use hypr_loops::{LoopClient, TransactionalEmail};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use sha2::Sha256;
@@ -42,7 +42,7 @@ const INVITATION_TRANSACTIONAL_ID: &str = "cmrvkrh3c0k0t0jvh80zpkk93";
 pub struct SharedNotesState {
     config: SharedNotesConfig,
     client: reqwest::Client,
-    storage: hypr_supabase_storage::SupabaseStorage,
+    storage: anlg_supabase_storage::SupabaseStorage,
     invitation_email: Option<LoopClient>,
 }
 
@@ -53,7 +53,7 @@ impl SharedNotesState {
             .redirect(reqwest::redirect::Policy::none())
             .build()
             .expect("shared-note HTTP client must build");
-        let storage = hypr_supabase_storage::SupabaseStorage::new(
+        let storage = anlg_supabase_storage::SupabaseStorage::new(
             client.clone(),
             &config.supabase_url,
             &config.supabase_service_role_key,
@@ -1157,8 +1157,8 @@ fn is_valid_public_slug(value: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use anlg_api_auth::Claims;
     use axum::{body::Body, body::to_bytes, http::Request, http::StatusCode};
-    use hypr_api_auth::Claims;
     use serde_json::{Value, json};
     use tower::ServiceExt;
     use wiremock::{

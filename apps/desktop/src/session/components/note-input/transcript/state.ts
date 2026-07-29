@@ -1,4 +1,4 @@
-import type { DegradedError } from "@hypr/plugin-transcription";
+import type { DegradedError } from "@anlg/plugin-transcription";
 
 import { useAudioPlayer } from "~/audio-player";
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";

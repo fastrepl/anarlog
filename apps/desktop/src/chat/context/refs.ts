@@ -1,4 +1,4 @@
-import type { HyprUIMessage } from "../types";
+import type { AnlgUIMessage } from "../types";
 import { CONTEXT_ENTITY_SOURCES } from "./entities";
 import type { ContextRef } from "./entities";
 
@@ -46,7 +46,7 @@ function getContextRefs(metadata: unknown): ContextRef[] {
 }
 
 export function extractContextRefsFromMessages(
-  messages: Array<Pick<HyprUIMessage, "role" | "metadata">>,
+  messages: Array<Pick<AnlgUIMessage, "role" | "metadata">>,
 ): ContextRef[] {
   const seen = new Set<string>();
   const refs: ContextRef[] = [];

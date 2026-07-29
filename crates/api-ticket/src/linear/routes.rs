@@ -1,8 +1,8 @@
+use anlg_api_auth::AuthContext;
+use anlg_api_nango::{Linear, NangoConnectionState, NangoIntegrationId};
+use anlg_linear::LinearClient;
+use anlg_ticket_interface::{CollectionPage, CollectionRef, TicketPage};
 use axum::{Extension, Json};
-use hypr_api_auth::AuthContext;
-use hypr_api_nango::{Linear, NangoConnectionState, NangoIntegrationId};
-use hypr_linear::LinearClient;
-use hypr_ticket_interface::{CollectionPage, CollectionRef, TicketPage};
 use serde::Deserialize;
 use utoipa::ToSchema;
 
@@ -59,7 +59,7 @@ pub async fn list_teams(
     let client = LinearClient::new(http);
 
     let teams = client
-        .list_teams(hypr_linear::ListTeamsRequest {
+        .list_teams(anlg_linear::ListTeamsRequest {
             first: req.limit,
             after: req.cursor,
         })
@@ -115,7 +115,7 @@ pub async fn list_tickets(
     let client = LinearClient::new(http);
 
     let issues = client
-        .list_issues(hypr_linear::ListIssuesRequest {
+        .list_issues(anlg_linear::ListIssuesRequest {
             team_id: Some(req.team_id.clone()),
             first: req.limit,
             after: req.cursor,

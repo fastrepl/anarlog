@@ -58,10 +58,10 @@ export function initializeErrorReporting() {
     initialScope: {
       tags: {
         "service.name": "mobile",
-        "service.namespace": "hyprnote",
-        "hyprnote.mobile.execution_environment": Constants.executionEnvironment,
-        "hyprnote.mobile.os": Platform.OS,
-        "hyprnote.surface": "mobile",
+        "service.namespace": "anarlog",
+        "anarlog.mobile.execution_environment": Constants.executionEnvironment,
+        "anarlog.mobile.os": Platform.OS,
+        "anarlog.surface": "mobile",
       },
     },
   });
@@ -91,22 +91,22 @@ export function captureOperationalError(
 
   return Sentry.withScope((scope) => {
     scope.setLevel(level);
-    scope.setTag("hyprnote.operation", operation);
+    scope.setTag("anarlog.operation", operation);
     scope.setTag("error.type", metadata.type);
     if (metadata.code) scope.setTag("error.code", metadata.code);
     if (metadata.stage) {
-      scope.setTag("hyprnote.error.stage", metadata.stage);
+      scope.setTag("anarlog.error.stage", metadata.stage);
     }
     if (metadata.status) {
       scope.setTag("http.response.status_code", metadata.status);
     }
     for (const [key, value] of Object.entries(tags ?? {})) {
       if (value !== null) {
-        scope.setTag(`hyprnote.${key}`, value);
+        scope.setTag(`anarlog.${key}`, value);
       }
     }
     if (context) {
-      scope.setContext("hyprnote.operation", context);
+      scope.setContext("anarlog.operation", context);
     }
     return Sentry.captureException(exception);
   });
@@ -117,7 +117,7 @@ export function addOperationalBreadcrumb(
   data?: Record<string, ErrorContextValue>,
 ) {
   Sentry.addBreadcrumb({
-    category: "hyprnote.operation",
+    category: "anarlog.operation",
     level: "info",
     message: operation,
     data,

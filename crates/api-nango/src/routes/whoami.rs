@@ -1,6 +1,6 @@
+use anlg_api_auth::AuthContext;
+use anlg_nango::ListConnectionsParams;
 use axum::{Extension, Json, extract::State};
-use hypr_api_auth::AuthContext;
-use hypr_nango::ListConnectionsParams;
 use serde::Serialize;
 use utoipa::ToSchema;
 

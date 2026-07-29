@@ -1,6 +1,6 @@
 use tauri_plugin_settings::SettingsPluginExt;
 
-use hypr_hooks::HooksConfig;
+use anlg_hooks::HooksConfig;
 
 use crate::error::{Error, Result};
 

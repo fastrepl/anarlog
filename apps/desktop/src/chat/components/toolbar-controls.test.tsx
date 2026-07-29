@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@hypr/ui/components/ui/button", () => ({
+vi.mock("@anlg/ui/components/ui/button", () => ({
   Button: ({
     children,
     className,
@@ -14,7 +14,7 @@ vi.mock("@hypr/ui/components/ui/button", () => ({
   ),
 }));
 
-vi.mock("@hypr/ui/components/ui/dropdown-menu", () => ({
+vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
   AppFloatingPanel: ({
     children,
     className,

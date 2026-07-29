@@ -50,7 +50,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
                 use tauri_specta::Event;
 
                 let app_handle = app.app_handle().clone();
-                hypr_apple_todo::setup_change_notification(move || {
+                anlg_apple_todo::setup_change_notification(move || {
                     let _ = TodoChangedEvent.emit(&app_handle);
                 });
             }

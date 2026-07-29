@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-import type { PermissionStatus } from "@hypr/plugin-permissions";
+import type { PermissionStatus } from "@anlg/plugin-permissions";
 
 import { trackAnalyticsEvent } from "~/analytics";
 

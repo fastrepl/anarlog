@@ -1,4 +1,4 @@
-use hypr_hid_interface::{PacketError, PacketType};
+use anlg_hid_interface::{PacketError, PacketType};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

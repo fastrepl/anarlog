@@ -6,7 +6,7 @@ use transcribe_speechanalyzer as apple_speech;
 const LOCALE: &str = "en-US";
 
 fn sample_wav() -> std::path::PathBuf {
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../aec/data/inputs/hyprnote_mic.wav")
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../aec/data/inputs/anarlog_mic.wav")
 }
 
 fn read_wav_samples(path: &std::path::Path) -> Vec<f32> {
@@ -101,10 +101,10 @@ fn unsupported_languages_never_resolve_to_a_locale() {
 
     // Norwegian is not transcribable, and `supportedLocale(equivalentTo:)` echoes the tag
     // back rather than returning nil, so the bridge must reject it explicitly.
-    let norwegian: hypr_language::Language = "nb".parse().unwrap();
+    let norwegian: anlg_language::Language = "nb".parse().unwrap();
     assert_eq!(apple_speech::resolve_session_locale(&[norwegian]), None);
 
-    let hindi: hypr_language::Language = "hi".parse().unwrap();
+    let hindi: anlg_language::Language = "hi".parse().unwrap();
     assert_eq!(apple_speech::resolve_session_locale(&[hindi]), None);
 
     // Rejection surfaces as an error state, matching the download-state contract.

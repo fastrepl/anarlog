@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-db-core = { workspace = true }
-hypr-db-migrate = { workspace = true }
-hypr-e2ee = { workspace = true }
+anlg-db-core = { workspace = true }
+anlg-db-migrate = { workspace = true }
+anlg-e2ee = { workspace = true }
 
 base64 = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

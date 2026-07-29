@@ -1,8 +1,8 @@
 mod analytics;
+mod anarlog_routing;
 mod config;
 mod env;
 mod error;
-mod hyprnote_routing;
 mod openapi;
 mod provider_selector;
 mod query_params;
@@ -12,13 +12,11 @@ mod supabase;
 mod upstream_url;
 
 pub use analytics::{SttAnalyticsReporter, SttEvent};
+pub use anarlog_routing::{AnarlogRouter, AnarlogRoutingConfig, RetryConfig, is_retryable_error};
+pub use anlg_analytics::{AuthenticatedUserId, DeviceFingerprint};
 pub use config::*;
 pub use env::{ApiKeys, Env};
 pub use error::*;
-pub use hypr_analytics::{AuthenticatedUserId, DeviceFingerprint};
-pub use hyprnote_routing::{
-    HyprnoteRouter, HyprnoteRoutingConfig, RetryConfig, is_retryable_error,
-};
 pub use openapi::openapi;
 pub use provider_selector::{ProviderSelector, SelectedProvider};
 pub use relay::{ClientRequestBuilder, UpstreamError, WebSocketProxy, detect_upstream_error};

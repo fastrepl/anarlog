@@ -36,7 +36,7 @@ pub enum ListenerMsg {
 
 #[derive(Clone)]
 pub struct ListenerConfigUpdate {
-    pub languages: Vec<hypr_language::Language>,
+    pub languages: Vec<anlg_language::Language>,
     pub participant_human_ids: Vec<String>,
     pub self_human_id: Option<String>,
 }
@@ -44,7 +44,7 @@ pub struct ListenerConfigUpdate {
 #[derive(Clone)]
 pub struct ListenerArgs {
     pub runtime: Arc<dyn ListenerRuntime>,
-    pub languages: Vec<hypr_language::Language>,
+    pub languages: Vec<anlg_language::Language>,
     pub onboarding: bool,
     pub model: String,
     pub base_url: String,

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-pub use hypr_importer_core::ir::{
+pub use anlg_importer_core::ir::{
     Collection, CollectionStats, EnhancedNote, Human, Organization, Session, SessionParticipant,
     Tag, TagMapping, Template, TemplateSection, Transcript, Word,
 };
@@ -66,7 +66,7 @@ impl ImportSource {
     }
 
     pub fn granola() -> Option<Self> {
-        let path = hypr_granola::default_supabase_path();
+        let path = anlg_granola::default_supabase_path();
         Some(Self {
             kind: Some(ImportSourceKind::Granola),
             transform: TransformKind::Granola,

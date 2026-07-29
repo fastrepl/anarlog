@@ -1,8 +1,8 @@
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 
-import { Separator } from "@hypr/ui/components/ui/separator";
-import { cn } from "@hypr/utils";
+import { Separator } from "@anlg/ui/components/ui/separator";
+import { cn } from "@anlg/utils";
 
 const buttonGroupVariants = cva(
   "flex w-fit items-stretch focus-visible:*:relative focus-visible:*:z-10 has-[>[data-slot=button-group]]:gap-2 [&>[data-slot=select-trigger]:last-of-type]:has-[select[aria-hidden=true]:last-child]:rounded-r-full [&>[data-slot=select-trigger]:not([class*='w-'])]:w-fit [&>input]:flex-1",

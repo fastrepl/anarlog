@@ -14,6 +14,10 @@ describe("STT model display labels", () => {
     expect(displayModelLabel("gpt-4o-transcribe-diarize")).toBe(
       "GPT-4o Transcribe Diarize",
     );
+    expect(displayModelLabel("gpt-live-transcribe")).toBe(
+      "GPT Live Transcribe",
+    );
+    expect(displayModelLabel("gpt-transcribe")).toBe("GPT Transcribe");
   });
 
   test("treats apple speech as an on-device model", () => {

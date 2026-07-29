@@ -164,7 +164,7 @@ mod tests {
     fn test_chat_format() {
         let test_path = dirs::data_dir()
             .unwrap()
-            .join("hyprnote")
+            .join("anarlog")
             .join("models/llm/hypr-llm.gguf");
 
         assert!(test_path.exists());

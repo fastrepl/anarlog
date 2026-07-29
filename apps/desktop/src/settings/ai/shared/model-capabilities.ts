@@ -25,7 +25,7 @@ export function modelSupportsImageInput(
     return false;
   }
 
-  if (providerId === "hyprnote" && modelId === "Auto") {
+  if (providerId === "anarlog" && modelId === "Auto") {
     return true;
   }
 

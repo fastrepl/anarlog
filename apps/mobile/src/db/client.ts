@@ -11,7 +11,7 @@ import type {
   TransactionClient,
   TransactionStatement,
   Unsubscribe,
-} from "@hypr/db-runtime";
+} from "@anlg/db-runtime";
 
 import { migrate } from "@/db/migrations";
 import { captureOperationalError } from "@/lib/error-reporting";

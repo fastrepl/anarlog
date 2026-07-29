@@ -2,12 +2,12 @@ use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::str::FromStr;
 
+use anlg_language::Language;
 use axum::{
     extract::FromRequestParts,
     http::{StatusCode, request::Parts},
     response::{IntoResponse, Response},
 };
-use hypr_language::Language;
 
 #[derive(Debug, Clone)]
 pub enum QueryValue {
@@ -147,8 +147,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anlg_language::ISO639;
     use axum::http::Uri;
-    use hypr_language::ISO639;
 
     fn parse_query(query: &str) -> QueryParams {
         let uri: Uri = format!("http://example.com{}", query).parse().unwrap();

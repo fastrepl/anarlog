@@ -17,7 +17,7 @@ import {
 import {
   captureCommentAnchor,
   type CommentAnchor,
-} from "@hypr/editor/comments";
+} from "@anlg/editor/comments";
 import {
   type CommentAnchorsEvent,
   getCommentAnchorScreenPositions,
@@ -28,9 +28,9 @@ import {
   schema,
   setActiveCommentAnchor,
   setCommentAnchors,
-} from "@hypr/editor/note";
-import { Avatar } from "@hypr/ui/components/avatar";
-import { cn } from "@hypr/utils";
+} from "@anlg/editor/note";
+import { Avatar } from "@anlg/ui/components/avatar";
+import { cn } from "@anlg/utils";
 
 import {
   DRAFT_COMMENT_ID,

@@ -6,7 +6,7 @@ const { isSupportedLanguagesBatchMock, isSupportedLanguagesLiveMock } =
     isSupportedLanguagesLiveMock: vi.fn(),
   }));
 
-vi.mock("@hypr/plugin-transcription", () => ({
+vi.mock("@anlg/plugin-transcription", () => ({
   commands: {
     isSupportedLanguagesBatch: isSupportedLanguagesBatchMock,
     isSupportedLanguagesLive: isSupportedLanguagesLiveMock,
@@ -66,6 +66,15 @@ describe("getOnDeviceTranscriptionMode", () => {
 
 describe("getSttModelTranscriptionMode", () => {
   test("distinguishes external batch and realtime model variants", () => {
+    expect(getSttModelTranscriptionMode("openai", "gpt-live-transcribe")).toBe(
+      "live",
+    );
+    expect(getSttModelTranscriptionMode("openai", "gpt-transcribe")).toBe(
+      "batch",
+    );
+    expect(
+      getSttModelTranscriptionMode("openai", "gpt-4o-transcribe-diarize"),
+    ).toBe("batch");
     expect(getSttModelTranscriptionMode("elevenlabs", "scribe_v2")).toBe(
       "batch",
     );
@@ -145,9 +154,9 @@ describe("isRealtimeLocalModel", () => {
 
 describe("isConfiguredSttModel", () => {
   test("requires known model ids for Anarlog STT", () => {
-    expect(isConfiguredSttModel("hyprnote", "cloud")).toBe(true);
-    expect(isConfiguredSttModel("hyprnote", "soniqo-qwen3-small")).toBe(true);
-    expect(isConfiguredSttModel("hyprnote", "removed-local-model")).toBe(false);
+    expect(isConfiguredSttModel("anarlog", "cloud")).toBe(true);
+    expect(isConfiguredSttModel("anarlog", "soniqo-qwen3-small")).toBe(true);
+    expect(isConfiguredSttModel("anarlog", "removed-local-model")).toBe(false);
   });
 
   test("allows custom model ids for external providers", () => {
@@ -169,11 +178,11 @@ describe("getUnsupportedDesktopLocalSttRepair", () => {
         getUnsupportedDesktopLocalSttRepair(
           currentPlatform,
           "x86_64",
-          "hyprnote",
+          "anarlog",
           "soniqo-parakeet-streaming",
           true,
         ),
-      ).toEqual({ provider: "hyprnote", model: "cloud" });
+      ).toEqual({ provider: "anarlog", model: "cloud" });
     },
   );
 
@@ -184,7 +193,7 @@ describe("getUnsupportedDesktopLocalSttRepair", () => {
         getUnsupportedDesktopLocalSttRepair(
           currentPlatform,
           "x86_64",
-          "hyprnote",
+          "anarlog",
           "am-parakeet-v3",
           false,
         ),
@@ -197,7 +206,7 @@ describe("getUnsupportedDesktopLocalSttRepair", () => {
       getUnsupportedDesktopLocalSttRepair(
         "macos",
         "aarch64",
-        "hyprnote",
+        "anarlog",
         "soniqo-parakeet-streaming",
         false,
       ),
@@ -205,7 +214,7 @@ describe("getUnsupportedDesktopLocalSttRepair", () => {
   });
 
   test.each([
-    [true, { provider: "hyprnote", model: "cloud" }],
+    [true, { provider: "anarlog", model: "cloud" }],
     [false, { provider: "", model: "" }],
   ])(
     "repairs unsupported Intel Mac local transcription when cloud access is %s",
@@ -214,7 +223,7 @@ describe("getUnsupportedDesktopLocalSttRepair", () => {
         getUnsupportedDesktopLocalSttRepair(
           "macos",
           "x86_64",
-          "hyprnote",
+          "anarlog",
           "soniqo-parakeet-streaming",
           canUseCloud,
         ),
@@ -227,7 +236,7 @@ describe("getUnsupportedDesktopLocalSttRepair", () => {
       getUnsupportedDesktopLocalSttRepair(
         "windows",
         "x86_64",
-        "hyprnote",
+        "anarlog",
         "cloud",
         true,
       ),
@@ -274,6 +283,33 @@ describe("getOnDeviceTranscriptionConfig", () => {
 });
 
 describe("getLiveTranscriptionConfig", () => {
+  test("uses the dedicated OpenAI live model during recording", async () => {
+    await expect(
+      getLiveTranscriptionConfig({
+        provider: "openai",
+        model: "gpt-live-transcribe",
+        languages: ["en", "ko"],
+      }),
+    ).resolves.toEqual({
+      languages: ["en", "ko"],
+      transcriptionMode: "live",
+    });
+  });
+
+  test("uses the dedicated OpenAI file model after recording", async () => {
+    await expect(
+      getLiveTranscriptionConfig({
+        provider: "openai",
+        model: "gpt-transcribe",
+        languages: ["en", "ko"],
+      }),
+    ).resolves.toEqual({
+      languages: ["en", "ko"],
+      transcriptionMode: "batch",
+    });
+    expect(isSupportedLanguagesLiveMock).not.toHaveBeenCalled();
+  });
+
   test("forces ElevenLabs Scribe V2 into after-recording batch mode", async () => {
     await expect(
       getLiveTranscriptionConfig({

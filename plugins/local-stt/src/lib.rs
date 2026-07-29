@@ -1,5 +1,5 @@
-use hypr_model_downloader::ModelDownloadManager;
-use hypr_supervisor::dynamic::DynamicSupervisorMsg;
+use anlg_model_downloader::ModelDownloadManager;
+use anlg_supervisor::dynamic::DynamicSupervisorMsg;
 use ractor::{ActorCell, ActorRef};
 use tauri::{Manager, Wry};
 
@@ -54,7 +54,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .events(tauri_specta::collect_events![
             types::DownloadProgressPayload,
         ])
-        .typ::<hypr_whisper_local_model::WhisperModel>()
+        .typ::<anlg_whisper_local_model::WhisperModel>()
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
 

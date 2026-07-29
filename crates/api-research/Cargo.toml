@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-exa = { workspace = true }
-hypr-jina = { workspace = true }
-hypr-mcp = { workspace = true }
+anlg-exa = { workspace = true }
+anlg-jina = { workspace = true }
+anlg-mcp = { workspace = true }
 
 axum = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

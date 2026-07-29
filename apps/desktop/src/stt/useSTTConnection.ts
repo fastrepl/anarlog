@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-import { commands as localSttCommands } from "@hypr/plugin-local-stt";
-import type { AIProviderStorage } from "@hypr/store";
+import { commands as localSttCommands } from "@anlg/plugin-local-stt";
+import type { AIProviderStorage } from "@anlg/store";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
@@ -11,8 +11,8 @@ import { type ProviderId } from "~/settings/ai/stt/shared";
 import { useAiProvider } from "~/settings/providers";
 import { useConfigValues } from "~/shared/config";
 import {
-  isHyprnoteCloudSttModel,
-  isHyprnoteLocalSttModel,
+  isAnarlogCloudSttModel,
+  isAnarlogLocalSttModel,
 } from "~/stt/capabilities";
 
 export const useSTTConnection = () => {
@@ -30,7 +30,7 @@ export const useSTTConnection = () => {
     | AIProviderStorage
     | undefined;
 
-  const localModel = isHyprnoteLocalSttModel(
+  const localModel = isAnarlogLocalSttModel(
     current_stt_provider,
     current_stt_model,
   )
@@ -38,13 +38,13 @@ export const useSTTConnection = () => {
     : null;
   const isLocalModel = !!localModel;
 
-  const isCloudModel = isHyprnoteCloudSttModel(
+  const isCloudModel = isAnarlogCloudSttModel(
     current_stt_provider,
     current_stt_model,
   );
 
   const local = useQuery({
-    enabled: current_stt_provider === "hyprnote",
+    enabled: current_stt_provider === "anarlog",
     queryKey: ["stt-connection", current_stt_provider, localModel],
     refetchInterval: 1000,
     queryFn: async () => {

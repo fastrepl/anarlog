@@ -50,7 +50,7 @@ vi.mock("~/session-sharing/comments", () => ({
   },
 }));
 
-vi.mock("@hypr/plugin-opener2", () => ({
+vi.mock("@anlg/plugin-opener2", () => ({
   commands: { openPath: vi.fn() },
 }));
 
@@ -69,7 +69,7 @@ vi.mock("~/session/components/session-surface", () => ({
   ),
 }));
 
-vi.mock("@hypr/editor/note", () => ({
+vi.mock("@anlg/editor/note", () => ({
   NoteEditor: ({
     readOnly,
     showFormatToolbar,

@@ -2,8 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { canStartTrial as canStartTrialApi } from "@hypr/api-client";
-import { commands as authCommands } from "@hypr/plugin-auth";
+import { canStartTrial as canStartTrialApi } from "@anlg/api-client";
+import { commands as authCommands } from "@anlg/plugin-auth";
 
 import * as billingProviderModule from "./billing";
 import { useBillingAccess } from "./billing-context";
@@ -47,27 +47,27 @@ vi.mock("./auth-context", () => ({
   }),
 }));
 
-vi.mock("@hypr/api-client", () => ({
+vi.mock("@anlg/api-client", () => ({
   canStartTrial: vi.fn(),
 }));
 
-vi.mock("@hypr/api-client/client", () => ({
+vi.mock("@anlg/api-client/client", () => ({
   createClient: vi.fn(() => ({})),
 }));
 
-vi.mock("@hypr/plugin-auth", () => ({
+vi.mock("@anlg/plugin-auth", () => ({
   commands: {
     decodeClaims: vi.fn(),
   },
 }));
 
-vi.mock("@hypr/plugin-opener2", () => ({
+vi.mock("@anlg/plugin-opener2", () => ({
   commands: {
     openUrl: vi.fn(),
   },
 }));
 
-vi.mock("@hypr/plugin-windows", () => ({
+vi.mock("@anlg/plugin-windows", () => ({
   openUrlWithInstruction: vi.fn(),
 }));
 
@@ -308,7 +308,7 @@ describe("BillingProvider", () => {
     });
     settingsState.setSettingValues.mockClear();
 
-    settingsState.values.current_stt_provider = "hyprnote";
+    settingsState.values.current_stt_provider = "anarlog";
     settingsState.values.current_stt_model = "soniqo-parakeet-streaming";
     authState.session = {
       ...authState.session!,
@@ -330,7 +330,7 @@ describe("BillingProvider", () => {
       });
     });
     expect(settingsState.setSettingValues).not.toHaveBeenCalledWith({
-      current_stt_provider: "hyprnote",
+      current_stt_provider: "anarlog",
       current_stt_model: "cloud",
     });
   });
@@ -350,7 +350,7 @@ describe("BillingProvider", () => {
       ).toBe("false");
     });
 
-    settingsState.values.current_stt_provider = "hyprnote";
+    settingsState.values.current_stt_provider = "anarlog";
     settingsState.values.current_stt_model = "soniqo-parakeet-streaming";
     authState.session = {
       ...authState.session!,
@@ -367,7 +367,7 @@ describe("BillingProvider", () => {
 
     await waitFor(() => {
       expect(settingsState.setSettingValues).toHaveBeenCalledWith({
-        current_stt_provider: "hyprnote",
+        current_stt_provider: "anarlog",
         current_stt_model: "cloud",
       });
     });
@@ -466,7 +466,7 @@ describe("BillingProvider", () => {
     "repairs Apple-local transcription to hosted transcription for paid users on %s",
     async (currentPlatform) => {
       settingsState.currentPlatform = currentPlatform;
-      settingsState.values.current_stt_provider = "hyprnote";
+      settingsState.values.current_stt_provider = "anarlog";
       settingsState.values.current_stt_model = "soniqo-parakeet-streaming";
       vi.mocked(authCommands.decodeClaims).mockResolvedValue(
         paidClaims("user-1"),
@@ -476,7 +476,7 @@ describe("BillingProvider", () => {
 
       await waitFor(() => {
         expect(settingsState.setSettingValues).toHaveBeenCalledWith({
-          current_stt_provider: "hyprnote",
+          current_stt_provider: "anarlog",
           current_stt_model: "cloud",
         });
       });
@@ -484,14 +484,14 @@ describe("BillingProvider", () => {
   );
 
   it.each([
-    [true, "hyprnote", "cloud"],
+    [true, "anarlog", "cloud"],
     [false, "", ""],
   ])(
     "repairs Intel Mac local transcription when paid access is %s",
     async (isPaid, expectedProvider, expectedModel) => {
       settingsState.currentPlatform = "macos";
       settingsState.currentArch = "x86_64";
-      settingsState.values.current_stt_provider = "hyprnote";
+      settingsState.values.current_stt_provider = "anarlog";
       settingsState.values.current_stt_model = "soniqo-parakeet-streaming";
       if (isPaid) {
         vi.mocked(authCommands.decodeClaims).mockResolvedValue(
@@ -513,7 +513,7 @@ describe("BillingProvider", () => {
   it("preserves local transcription on Apple Silicon", async () => {
     settingsState.currentPlatform = "macos";
     settingsState.currentArch = "aarch64";
-    settingsState.values.current_stt_provider = "hyprnote";
+    settingsState.values.current_stt_provider = "anarlog";
     settingsState.values.current_stt_model = "soniqo-parakeet-streaming";
 
     renderBillingProvider();
@@ -528,7 +528,7 @@ describe("BillingProvider", () => {
     "requires provider selection for free users with Apple-local transcription on %s",
     async (currentPlatform) => {
       settingsState.currentPlatform = currentPlatform;
-      settingsState.values.current_stt_provider = "hyprnote";
+      settingsState.values.current_stt_provider = "anarlog";
       settingsState.values.current_stt_model = "am-parakeet-v3";
 
       renderBillingProvider();
@@ -545,7 +545,7 @@ describe("BillingProvider", () => {
   it("preserves Apple-local transcription until paid auth finishes loading", async () => {
     authState.session = undefined;
     settingsState.currentPlatform = "windows";
-    settingsState.values.current_stt_provider = "hyprnote";
+    settingsState.values.current_stt_provider = "anarlog";
     settingsState.values.current_stt_model = "soniqo-parakeet-streaming";
     vi.mocked(authCommands.decodeClaims).mockResolvedValue(
       paidClaims("user-1"),
@@ -562,7 +562,7 @@ describe("BillingProvider", () => {
 
     await waitFor(() => {
       expect(settingsState.setSettingValues).toHaveBeenCalledWith({
-        current_stt_provider: "hyprnote",
+        current_stt_provider: "anarlog",
         current_stt_model: "cloud",
       });
     });
@@ -575,7 +575,7 @@ describe("BillingProvider", () => {
   it("requires provider selection for signed-out Windows users with Apple-local transcription", async () => {
     authState.session = undefined;
     settingsState.currentPlatform = "windows";
-    settingsState.values.current_stt_provider = "hyprnote";
+    settingsState.values.current_stt_provider = "anarlog";
     settingsState.values.current_stt_model = "soniqo-parakeet-streaming";
     const { queryClient, view } = renderBillingProvider();
 
@@ -595,7 +595,7 @@ describe("BillingProvider", () => {
 
   it("defers Windows transcription repair when authenticated billing claims fail", async () => {
     settingsState.currentPlatform = "windows";
-    settingsState.values.current_stt_provider = "hyprnote";
+    settingsState.values.current_stt_provider = "anarlog";
     settingsState.values.current_stt_model = "soniqo-parakeet-streaming";
     vi.mocked(authCommands.decodeClaims).mockResolvedValue({
       status: "error",

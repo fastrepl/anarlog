@@ -2,8 +2,8 @@ import { emitTo, listen } from "@tauri-apps/api/event";
 import { getAllWebviewWindows } from "@tauri-apps/api/webviewWindow";
 import { useCallback, useEffect } from "react";
 
-import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
+import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import { supabase } from "~/auth/client";
 import { useIgnoredEvents } from "~/calendar/ignored-events";
@@ -25,7 +25,7 @@ import {
   useUndoDelete,
 } from "~/store/zustand/undo-delete";
 
-const SESSION_DELETED_FOR_UNDO_EVENT = "hypr://session-deleted-for-undo";
+const SESSION_DELETED_FOR_UNDO_EVENT = "anlg://session-deleted-for-undo";
 
 type SessionDeletedForUndoPayload = {
   sessionId: string;

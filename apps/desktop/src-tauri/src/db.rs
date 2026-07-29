@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use hypr_db_core::Db;
+use anlg_db_core::Db;
 
 const DB_FILENAME: &str = "app.db";
 const DEFAULT_CLOUDSYNC_INTERVAL_MS: u64 = 30_000;
@@ -19,13 +19,13 @@ pub async fn open_desktop_db(identifier: &str) -> Arc<Db> {
 }
 
 pub fn cloudsync_runtime_config_from_env()
--> Result<Option<hypr_db_core::CloudsyncRuntimeConfig>, String> {
+-> Result<Option<anlg_db_core::CloudsyncRuntimeConfig>, String> {
     cloudsync_runtime_config(|key| std::env::var(key).ok())
 }
 
 fn cloudsync_runtime_config(
     get: impl Fn(&str) -> Option<String>,
-) -> Result<Option<hypr_db_core::CloudsyncRuntimeConfig>, String> {
+) -> Result<Option<anlg_db_core::CloudsyncRuntimeConfig>, String> {
     let allow_static_auth = get("ANARLOG_CLOUDSYNC_ALLOW_STATIC_AUTH")
         .and_then(nonempty)
         .map(parse_env_flag)
@@ -48,8 +48,8 @@ fn cloudsync_runtime_config(
             .to_string()
     })?;
     let auth = match (api_key, token) {
-        (Some(api_key), None) => hypr_db_core::CloudsyncAuth::ApiKey { api_key },
-        (None, Some(token)) => hypr_db_core::CloudsyncAuth::Token { token },
+        (Some(api_key), None) => anlg_db_core::CloudsyncAuth::ApiKey { api_key },
+        (None, Some(token)) => anlg_db_core::CloudsyncAuth::Token { token },
         (None, None) => {
             return Err(
                 "ANARLOG_CLOUDSYNC_API_KEY or ANARLOG_CLOUDSYNC_TOKEN is required".to_string(),
@@ -76,10 +76,10 @@ fn cloudsync_runtime_config(
         .transpose()?
         .unwrap_or(DEFAULT_CLOUDSYNC_INTERVAL_MS);
 
-    Ok(Some(hypr_db_core::CloudsyncRuntimeConfig {
+    Ok(Some(anlg_db_core::CloudsyncRuntimeConfig {
         connection_string: database_id,
         auth,
-        tables: hypr_db_app::cloudsync_table_registry().to_vec(),
+        tables: anlg_db_app::cloudsync_table_registry().to_vec(),
         sync_interval_ms,
         wait_ms: Some(5_000),
         max_retries: Some(3),
@@ -102,7 +102,7 @@ fn parse_env_flag(value: String) -> Result<bool, String> {
 fn desktop_db_dir(identifier: &str) -> Option<std::path::PathBuf> {
     let data_dir = dirs::data_dir().expect("data_dir must be available");
     let default_dir =
-        hypr_storage::global::compute_default_base(identifier).expect("data_dir must be available");
+        anlg_storage::global::compute_default_base(identifier).expect("data_dir must be available");
     let identifier_dir = data_dir.join(identifier);
 
     if identifier_dir.join(DB_FILENAME).is_file() && !default_dir.join(DB_FILENAME).is_file() {
@@ -157,7 +157,7 @@ mod tests {
         assert_eq!(config.sync_interval_ms, 15_000);
         assert!(matches!(
             config.auth,
-            hypr_db_core::CloudsyncAuth::Token { .. }
+            anlg_db_core::CloudsyncAuth::Token { .. }
         ));
         assert_eq!(enabled, vec!["e2ee_records"]);
         assert!(!enabled.contains(&"sessions"));

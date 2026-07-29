@@ -15,7 +15,7 @@ use owhisper_client::{
 use owhisper_interface::ListenParams;
 use owhisper_interface::batch::Response as BatchResponse;
 
-use crate::hyprnote_routing::{RetryConfig, RoutingMode};
+use crate::anarlog_routing::{RetryConfig, RoutingMode};
 use crate::provider_selector::SelectedProvider;
 use crate::query_params::QueryParams;
 
@@ -82,9 +82,9 @@ fn log_batch_routing_trace(trace: &BatchRoutingTrace, success: bool) {
         .to_string()
     });
     if success {
-        tracing::info!(trace_json = %trace_json, "hyprnote_batch_routing_trace");
+        tracing::info!(trace_json = %trace_json, "anarlog_batch_routing_trace");
     } else {
-        tracing::error!(trace_json = %trace_json, "hyprnote_batch_routing_trace");
+        tracing::error!(trace_json = %trace_json, "anarlog_batch_routing_trace");
     }
 }
 
@@ -97,7 +97,7 @@ fn resolve_listen_params_for_provider(
     resolved_params
 }
 
-pub(super) async fn handle_hyprnote_batch(
+pub(super) async fn handle_anarlog_batch(
     state: &AppState,
     params: &QueryParams,
     listen_params: ListenParams,
@@ -106,7 +106,7 @@ pub(super) async fn handle_hyprnote_batch(
     content_type: &str,
 ) -> Response {
     let mut provider_chain =
-        state.resolve_hyprnote_provider_chain_for_mode(RoutingMode::Batch, params);
+        state.resolve_anarlog_provider_chain_for_mode(RoutingMode::Batch, params);
     append_deepgram_batch_detection_fallback(state, &mut provider_chain, &listen_params);
 
     if provider_chain.is_empty() {
@@ -130,7 +130,7 @@ pub(super) async fn handle_hyprnote_batch(
         provider_chain = ?provider_chain.iter().map(|p| p.provider()).collect::<Vec<_>>(),
         content_type = %content_type,
         body_size_bytes = %audio_size_bytes,
-        "hyprnote_batch_transcription_request"
+        "anarlog_batch_transcription_request"
     );
 
     let mut last_error: Option<String> = None;
@@ -161,8 +161,8 @@ pub(super) async fn handle_hyprnote_batch(
         {
             Ok((response, retries)) => {
                 tracing::info!(
-                    hyprnote.stt.provider.name = ?provider,
-                    hyprnote.attempt.number = attempt + 1,
+                    anarlog.stt.provider.name = ?provider,
+                    anarlog.attempt.number = attempt + 1,
                     "batch_transcription_succeeded"
                 );
                 trace.attempts.push(BatchRoutingAttempt {
@@ -178,10 +178,10 @@ pub(super) async fn handle_hyprnote_batch(
             }
             Err((e, retries)) => {
                 tracing::warn!(
-                    hyprnote.stt.provider.name = ?provider,
+                    anarlog.stt.provider.name = ?provider,
                     error = %e,
-                    hyprnote.attempt.number = attempt + 1,
-                    hyprnote.remaining_provider_count = provider_chain.len() - attempt - 1,
+                    anarlog.attempt.number = attempt + 1,
+                    anarlog.remaining_provider_count = provider_chain.len() - attempt - 1,
                     "provider_failed_trying_next"
                 );
                 trace.attempts.push(BatchRoutingAttempt {
@@ -245,9 +245,9 @@ pub(super) async fn transcribe_with_retry(
             .retry(backoff)
             .notify(|err, dur| {
                 tracing::warn!(
-                    hyprnote.stt.provider.name = ?selected.provider(),
+                    anarlog.stt.provider.name = ?selected.provider(),
                     error = %err,
-                    hyprnote.retry.delay_ms = dur.as_millis(),
+                    anarlog.retry.delay_ms = dur.as_millis(),
                     "retrying_transcription"
                 );
                 retries += 1;
@@ -399,7 +399,7 @@ fn classify_audio_processing_message(message: String) -> BatchAttemptError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hypr_language::ISO639;
+    use anlg_language::ISO639;
 
     #[test]
     fn test_resolve_listen_params_for_provider_resolves_meta_model_per_provider() {

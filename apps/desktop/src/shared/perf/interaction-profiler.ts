@@ -118,7 +118,7 @@ export function startInteractionProfiler() {
   if (!hasLoaf) {
     console.info(
       "[perf] Long Animation Frames unsupported (WebKit). Slow keystrokes will be " +
-        "reported without attribution -- run `pnpm -F @hypr/desktop dev` in Chrome, " +
+        "reported without attribution -- run `pnpm -F @anlg/desktop dev` in Chrome, " +
         "or profile with Safari Web Inspector, to name the function.",
     );
   }

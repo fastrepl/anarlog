@@ -15,7 +15,7 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: mocks.listen,
 }));
 
-vi.mock("@hypr/plugin-windows", () => ({
+vi.mock("@anlg/plugin-windows", () => ({
   getCurrentWebviewWindowLabel: () => mocks.currentLabel,
 }));
 
@@ -101,7 +101,7 @@ describe("requestMainAutoEnhance", () => {
     await vi.waitFor(() =>
       expect(mocks.emitTo).toHaveBeenCalledWith(
         "main",
-        "hypr:ai-task-auto-enhance-request",
+        "anlg:ai-task-auto-enhance-request",
         {
           requestId: "request-id",
           sourceLabel: "note-window",
@@ -111,7 +111,7 @@ describe("requestMainAutoEnhance", () => {
       ),
     );
 
-    mocks.callbacks.get("hypr:ai-task-auto-enhance-result")?.({
+    mocks.callbacks.get("anlg:ai-task-auto-enhance-result")?.({
       payload: {
         requestId: "request-id",
         completed: true,
@@ -120,18 +120,18 @@ describe("requestMainAutoEnhance", () => {
     });
 
     await expect(request).resolves.toBeUndefined();
-    expect(mocks.callbacks.has("hypr:ai-task-auto-enhance-result")).toBe(false);
+    expect(mocks.callbacks.has("anlg:ai-task-auto-enhance-result")).toBe(false);
   });
 
   it("rejects a main-window scheduling error", async () => {
     const request = requestMainAutoEnhance("session-1", "if_empty");
     await vi.waitFor(() =>
-      expect(mocks.callbacks.has("hypr:ai-task-auto-enhance-result")).toBe(
+      expect(mocks.callbacks.has("anlg:ai-task-auto-enhance-result")).toBe(
         true,
       ),
     );
 
-    mocks.callbacks.get("hypr:ai-task-auto-enhance-result")?.({
+    mocks.callbacks.get("anlg:ai-task-auto-enhance-result")?.({
       payload: {
         requestId: "request-id",
         completed: false,
@@ -140,7 +140,7 @@ describe("requestMainAutoEnhance", () => {
     });
 
     await expect(request).rejects.toThrow("database is locked");
-    expect(mocks.callbacks.has("hypr:ai-task-auto-enhance-result")).toBe(false);
+    expect(mocks.callbacks.has("anlg:ai-task-auto-enhance-result")).toBe(false);
   });
 
   it("rejects when the main window does not acknowledge in time", async () => {
@@ -153,7 +153,7 @@ describe("requestMainAutoEnhance", () => {
     await vi.advanceTimersByTimeAsync(MAIN_AUTO_ENHANCE_TIMEOUT_MS);
     await rejection;
 
-    expect(mocks.callbacks.has("hypr:ai-task-auto-enhance-result")).toBe(false);
+    expect(mocks.callbacks.has("anlg:ai-task-auto-enhance-result")).toBe(false);
   });
 
   it("rejects when request dispatch fails", async () => {
@@ -162,7 +162,7 @@ describe("requestMainAutoEnhance", () => {
     await expect(
       requestMainAutoEnhance("session-1", "regenerate"),
     ).rejects.toThrow("event bus unavailable");
-    expect(mocks.callbacks.has("hypr:ai-task-auto-enhance-result")).toBe(false);
+    expect(mocks.callbacks.has("anlg:ai-task-auto-enhance-result")).toBe(false);
   });
 });
 
@@ -184,7 +184,7 @@ describe("handleMainAutoEnhanceRequest", () => {
     expect(requestAutoEnhance).toHaveBeenCalledBefore(mocks.emitTo);
     expect(mocks.emitTo).toHaveBeenCalledWith(
       "note-window",
-      "hypr:ai-task-auto-enhance-result",
+      "anlg:ai-task-auto-enhance-result",
       {
         requestId: "request-id",
         completed: true,
@@ -218,11 +218,11 @@ describe("handleMainAutoEnhanceRequest", () => {
     expect(requestAutoEnhance).toHaveBeenCalledOnce();
     expect(mocks.emitTo).toHaveBeenCalledWith(
       "note-window",
-      "hypr:ai-task-auto-enhance-result",
+      "anlg:ai-task-auto-enhance-result",
       result,
     );
     expect(mocks.emit).toHaveBeenCalledWith(
-      "hypr:ai-task-auto-enhance-result",
+      "anlg:ai-task-auto-enhance-result",
       result,
     );
     expect(requestAutoEnhance).toHaveBeenCalledBefore(mocks.emitTo);
@@ -266,7 +266,7 @@ describe("handleMainAutoEnhanceRequest", () => {
 
     expect(mocks.emitTo).toHaveBeenCalledWith(
       "note-window",
-      "hypr:ai-task-auto-enhance-result",
+      "anlg:ai-task-auto-enhance-result",
       {
         requestId: "request-id",
         completed: false,
@@ -285,7 +285,7 @@ describe("handleMainAutoEnhanceRequest", () => {
 
     expect(mocks.emitTo).toHaveBeenCalledWith(
       "note-window",
-      "hypr:ai-task-auto-enhance-result",
+      "anlg:ai-task-auto-enhance-result",
       {
         requestId: "request-id",
         completed: false,

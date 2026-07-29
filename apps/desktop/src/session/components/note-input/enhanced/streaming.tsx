@@ -1,7 +1,7 @@
 import { Trans } from "@lingui/react/macro";
 import { Streamdown } from "streamdown";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import { streamdownComponents } from "../../streamdown";
 

@@ -10,7 +10,7 @@ name = "Desktop"
 icon = "run"
 command = '''
 pnpm i
-pnpm -F @hypr/desktop tauri dev
+pnpm -F @anlg/desktop tauri dev
 '''
 
 [[actions]]
@@ -18,5 +18,5 @@ name = "Website"
 icon = "run"
 command = '''
 pnpm i
-pnpm -F @hypr/web dev
+pnpm -F @anlg/web dev
 '''

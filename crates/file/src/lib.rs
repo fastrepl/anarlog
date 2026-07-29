@@ -7,8 +7,8 @@ pub use remote::*;
 pub use types::*;
 
 use {
+    anlg_download_interface::DownloadProgress,
     futures_util::{StreamExt, TryStreamExt, stream::FuturesUnordered},
-    hypr_download_interface::DownloadProgress,
     reqwest::StatusCode,
     std::{
         cmp::min,
@@ -546,7 +546,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_calculate_file_size_and_checksum() {
-        let base = "/Users/yujonglee/dev/hyprnote/.cache";
+        let base = "/Users/yujonglee/dev/anarlog/.cache";
 
         fn walk_dir(dir: &std::path::Path) -> std::io::Result<()> {
             for entry in std::fs::read_dir(dir)? {

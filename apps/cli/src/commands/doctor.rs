@@ -47,7 +47,7 @@ async fn inspect(args: &Args) -> Result<DoctorReport> {
     } else if !path.is_file() {
         database.error = Some("database path is not a file".to_string());
     } else {
-        match hypr_db_core::Db::connect_local_read_only(&path).await {
+        match anlg_db_core::Db::connect_local_read_only(&path).await {
             Ok(connection) => {
                 database.opened_read_only = true;
                 match schema_check(&connection).await {
@@ -66,13 +66,13 @@ async fn inspect(args: &Args) -> Result<DoctorReport> {
     })
 }
 
-async fn schema_check(db: &hypr_db_core::Db) -> std::result::Result<(), String> {
+async fn schema_check(db: &anlg_db_core::Db) -> std::result::Result<(), String> {
     tokio::try_join!(
-        hypr_db_app::get_session(db.pool(), "__anarlog_doctor__"),
-        hypr_db_app::list_session_documents(db.pool(), "__anarlog_doctor__"),
-        hypr_db_app::list_session_transcripts(db.pool(), "__anarlog_doctor__"),
-        hypr_db_app::list_session_participants(db.pool(), "__anarlog_doctor__"),
-        hypr_db_app::list_session_action_items(db.pool(), "__anarlog_doctor__"),
+        anlg_db_app::get_session(db.pool(), "__anarlog_doctor__"),
+        anlg_db_app::list_session_documents(db.pool(), "__anarlog_doctor__"),
+        anlg_db_app::list_session_transcripts(db.pool(), "__anarlog_doctor__"),
+        anlg_db_app::list_session_participants(db.pool(), "__anarlog_doctor__"),
+        anlg_db_app::list_session_action_items(db.pool(), "__anarlog_doctor__"),
     )
     .map(|_| ())
     .map_err(|error| format!("schema check failed: {error}"))
@@ -129,8 +129,8 @@ mod tests {
     async fn reports_current_schema_as_ready_over_read_only_connection() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("app.db");
-        let db = hypr_db_core::Db::connect_local_plain(&path).await.unwrap();
-        hypr_db_app::prepare_schema(&db).await.unwrap();
+        let db = anlg_db_core::Db::connect_local_plain(&path).await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
         db.pool().close().await;
 
         let report = inspect(&args(path)).await.unwrap();

@@ -29,250 +29,250 @@ use sha2::{Digest, Sha384};
 pub use template_ops::*;
 pub use template_types::*;
 
-pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
-    hypr_db_migrate::MigrationStep {
+pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
+    anlg_db_migrate::MigrationStep {
         id: "20260413020000_templates",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260413020000_templates.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260414120000_calendars_events",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260414120000_calendars_events.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260524000000_default_templates",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260524000000_default_templates.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260624000000_repair_templates",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260624000000_repair_templates.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260710223922_canonical_data_model",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260710223922_canonical_data_model.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260710231809_import_target_audit",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260710231809_import_target_audit.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260711000000_calendar_event_tombstones",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260711000000_calendar_event_tombstones.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260712170000_template_icons",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260712170000_template_icons.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260713164500_repair_empty_session_titles",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260713164500_repair_empty_session_titles.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260714120000_search_index_queue",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260714120000_search_index_queue.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260714120100_search_index_sessions_triggers",
-        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
             table_name: "sessions",
         },
         sql: include_str!("../migrations/20260714120100_search_index_sessions_triggers.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260714120200_search_index_session_documents_triggers",
-        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
             table_name: "session_documents",
         },
         sql: include_str!(
             "../migrations/20260714120200_search_index_session_documents_triggers.sql"
         ),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260714120300_search_index_transcripts_triggers",
-        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
             table_name: "transcripts",
         },
         sql: include_str!("../migrations/20260714120300_search_index_transcripts_triggers.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260714120400_search_index_humans_triggers",
-        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
             table_name: "humans",
         },
         sql: include_str!("../migrations/20260714120400_search_index_humans_triggers.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260714120500_search_index_organizations_triggers",
-        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
             table_name: "organizations",
         },
         sql: include_str!("../migrations/20260714120500_search_index_organizations_triggers.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260716120000_personal_workspaces",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260716120000_personal_workspaces.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260716130000_cloudsync_session_evictions",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260716130000_cloudsync_session_evictions.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260716173000_shared_session_cache",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260716173000_shared_session_cache.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260717120000_e2ee_replica",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260717120000_e2ee_replica.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260717140000_attachment_local_state",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260717140000_attachment_local_state.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260717192000_e2ee_replica_order",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260717192000_e2ee_replica_order.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260717193000_e2ee_freshness_witness",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260717193000_e2ee_freshness_witness.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260717150000_attachment_transfer_jobs",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260717150000_attachment_transfer_jobs.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260717170000_attachment_cloud_sync_intent",
-        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
             table_name: "session_attachments",
         },
         sql: include_str!("../migrations/20260717170000_attachment_cloud_sync_intent.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260717171000_shared_session_attachment_cache",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260717171000_shared_session_attachment_cache.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260717172000_shared_session_cache_attachments",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260717172000_shared_session_cache_attachments.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260717190000_shared_session_cache_web_edits",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260717190000_shared_session_cache_web_edits.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260717191000_session_share_sync_state",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260717191000_session_share_sync_state.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260723120000_e2ee_dirty_rows",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260723120000_e2ee_dirty_rows.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260723120100_e2ee_dirty_action_items_triggers",
-        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
             table_name: "action_items",
         },
         sql: include_str!("../migrations/20260723120100_e2ee_dirty_action_items_triggers.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260723120200_e2ee_dirty_humans_triggers",
-        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
             table_name: "humans",
         },
         sql: include_str!("../migrations/20260723120200_e2ee_dirty_humans_triggers.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260723120300_e2ee_dirty_organizations_triggers",
-        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
             table_name: "organizations",
         },
         sql: include_str!("../migrations/20260723120300_e2ee_dirty_organizations_triggers.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260723120400_e2ee_dirty_session_attachments_triggers",
-        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
             table_name: "session_attachments",
         },
         sql: include_str!(
             "../migrations/20260723120400_e2ee_dirty_session_attachments_triggers.sql"
         ),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260723120500_e2ee_dirty_session_documents_triggers",
-        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
             table_name: "session_documents",
         },
         sql: include_str!("../migrations/20260723120500_e2ee_dirty_session_documents_triggers.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260723120600_e2ee_dirty_session_participants_triggers",
-        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
             table_name: "session_participants",
         },
         sql: include_str!(
             "../migrations/20260723120600_e2ee_dirty_session_participants_triggers.sql"
         ),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260723120700_e2ee_dirty_sessions_triggers",
-        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
             table_name: "sessions",
         },
         sql: include_str!("../migrations/20260723120700_e2ee_dirty_sessions_triggers.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260723120800_e2ee_dirty_transcripts_triggers",
-        scope: hypr_db_migrate::MigrationScope::CloudsyncAlter {
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
             table_name: "transcripts",
         },
         sql: include_str!("../migrations/20260723120800_e2ee_dirty_transcripts_triggers.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260723120900_e2ee_witness_upload_index",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260723120900_e2ee_witness_upload_index.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260725001400_e2ee_witness_pending",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260725001400_e2ee_witness_pending.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260725020000_cloudsync_projection_indexes",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260725020000_cloudsync_projection_indexes.sql"),
     },
-    hypr_db_migrate::MigrationStep {
+    anlg_db_migrate::MigrationStep {
         id: "20260728090000_local_api",
-        scope: hypr_db_migrate::MigrationScope::Plain,
+        scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260728090000_local_api.sql"),
     },
 ];
 
-pub fn schema() -> hypr_db_migrate::DbSchema {
-    hypr_db_migrate::DbSchema {
+pub fn schema() -> anlg_db_migrate::DbSchema {
+    anlg_db_migrate::DbSchema {
         steps: APP_MIGRATION_STEPS,
         validate_cloudsync_table: cloudsync_alter_guard_required,
     }
@@ -289,7 +289,7 @@ const CURRENT_ATTACHMENT_TRANSFER_JOBS_SCHEMA_CHECKSUM: &str = "3beb182b60f84e0f
 
 #[derive(Debug)]
 pub enum AppSchemaError {
-    Migrate(hypr_db_migrate::MigrateError),
+    Migrate(anlg_db_migrate::MigrateError),
     Sqlx(sqlx::Error),
     CloudsyncWorkspace(CloudsyncWorkspaceError),
     SharedSessionCacheRepair(&'static str),
@@ -310,8 +310,8 @@ impl std::fmt::Display for AppSchemaError {
 
 impl std::error::Error for AppSchemaError {}
 
-impl From<hypr_db_migrate::MigrateError> for AppSchemaError {
-    fn from(error: hypr_db_migrate::MigrateError) -> Self {
+impl From<anlg_db_migrate::MigrateError> for AppSchemaError {
+    fn from(error: anlg_db_migrate::MigrateError) -> Self {
         Self::Migrate(error)
     }
 }
@@ -328,11 +328,11 @@ impl From<CloudsyncWorkspaceError> for AppSchemaError {
     }
 }
 
-pub async fn prepare_schema(db: &hypr_db_core::Db) -> Result<(), AppSchemaError> {
+pub async fn prepare_schema(db: &anlg_db_core::Db) -> Result<(), AppSchemaError> {
     let templates_missing_before_migration = !templates_table_exists(db.pool()).await?;
     repair_legacy_shared_session_cache_migration(db.pool()).await?;
     repair_legacy_attachment_transfer_jobs_migration(db.pool()).await?;
-    hypr_db_migrate::migrate(db, schema()).await?;
+    anlg_db_migrate::migrate(db, schema()).await?;
     repair_missing_core_tables(db.pool(), templates_missing_before_migration).await?;
     ensure_cloudsync_workspace_binding(db.pool()).await?;
     Ok(())
@@ -776,7 +776,7 @@ async fn repair_missing_core_tables(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hypr_db_core::Db;
+    use anlg_db_core::Db;
     use sqlx::Row;
 
     const LEGACY_SHARED_SESSION_CACHE_SQL: &str = r#"CREATE TABLE IF NOT EXISTS shared_session_cache (
@@ -819,8 +819,8 @@ ON shared_session_cache(workspace_id);
 "#;
 
     async fn test_db() -> Db {
-        let db = Db::open(hypr_db_core::DbOpenOptions {
-            storage: hypr_db_core::DbStorage::Memory,
+        let db = Db::open(anlg_db_core::DbOpenOptions {
+            storage: anlg_db_core::DbStorage::Memory,
             cloudsync_enabled: false,
             journal_mode_wal: true,
             foreign_keys: true,
@@ -847,7 +847,7 @@ ON shared_session_cache(workspace_id);
         }
     }
 
-    fn migration_steps_before(id: &str) -> &'static [hypr_db_migrate::MigrationStep] {
+    fn migration_steps_before(id: &str) -> &'static [anlg_db_migrate::MigrationStep] {
         let index = APP_MIGRATION_STEPS
             .iter()
             .position(|step| step.id == id)
@@ -857,7 +857,7 @@ ON shared_session_cache(workspace_id);
 
     fn schema_with_legacy_shared_session_cache(
         include_later_migrations: bool,
-    ) -> hypr_db_migrate::DbSchema {
+    ) -> anlg_db_migrate::DbSchema {
         let migration_index = APP_MIGRATION_STEPS
             .iter()
             .position(|step| step.id == "20260716173000_shared_session_cache")
@@ -873,7 +873,7 @@ ON shared_session_cache(workspace_id);
             .unwrap();
         migration.sql = LEGACY_SHARED_SESSION_CACHE_SQL;
 
-        hypr_db_migrate::DbSchema {
+        anlg_db_migrate::DbSchema {
             steps: Box::leak(steps.into_boxed_slice()),
             validate_cloudsync_table: cloudsync_alter_guard_required,
         }
@@ -895,7 +895,7 @@ ON shared_session_cache(workspace_id);
             )
     }
 
-    fn schema_with_legacy_attachment_transfer_jobs() -> hypr_db_migrate::DbSchema {
+    fn schema_with_legacy_attachment_transfer_jobs() -> anlg_db_migrate::DbSchema {
         let mut steps = APP_MIGRATION_STEPS.to_vec();
         let migration = steps
             .iter_mut()
@@ -903,7 +903,7 @@ ON shared_session_cache(workspace_id);
             .unwrap();
         migration.sql = Box::leak(legacy_attachment_transfer_jobs_sql().into_boxed_str());
 
-        hypr_db_migrate::DbSchema {
+        anlg_db_migrate::DbSchema {
             steps: Box::leak(steps.into_boxed_slice()),
             validate_cloudsync_table: cloudsync_alter_guard_required,
         }
@@ -919,8 +919,8 @@ ON shared_session_cache(workspace_id);
     }
 
     async fn test_db_without_default_templates() -> Db {
-        let db = Db::open(hypr_db_core::DbOpenOptions {
-            storage: hypr_db_core::DbStorage::Memory,
+        let db = Db::open(anlg_db_core::DbOpenOptions {
+            storage: anlg_db_core::DbStorage::Memory,
             cloudsync_enabled: false,
             journal_mode_wal: true,
             foreign_keys: true,
@@ -928,9 +928,9 @@ ON shared_session_cache(workspace_id);
         })
         .await
         .unwrap();
-        hypr_db_migrate::migrate(
+        anlg_db_migrate::migrate(
             &db,
-            hypr_db_migrate::DbSchema {
+            anlg_db_migrate::DbSchema {
                 steps: &APP_MIGRATION_STEPS[..2],
                 validate_cloudsync_table: cloudsync_alter_guard_required,
             },
@@ -1031,9 +1031,9 @@ ON shared_session_cache(workspace_id);
     #[tokio::test]
     async fn personal_workspace_migration_preserves_existing_session_workspace_ids() {
         let db = Db::connect_memory_plain().await.unwrap();
-        hypr_db_migrate::migrate(
+        anlg_db_migrate::migrate(
             &db,
-            hypr_db_migrate::DbSchema {
+            anlg_db_migrate::DbSchema {
                 steps: migration_steps_before("20260716120000_personal_workspaces"),
                 validate_cloudsync_table: cloudsync_alter_guard_required,
             },
@@ -1049,7 +1049,7 @@ ON shared_session_cache(workspace_id);
         .await
         .unwrap();
 
-        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+        anlg_db_migrate::migrate(&db, schema()).await.unwrap();
         sqlx::query(
             "INSERT INTO workspaces (id, owner_user_id, name)
              VALUES ('user-1', 'user-1', 'Personal')",
@@ -1111,7 +1111,7 @@ ON shared_session_cache(workspace_id);
         for table_name in ["workspaces", "workspace_memberships"] {
             db.cloudsync_init(table_name, None, None).await.unwrap();
             assert!(
-                hypr_db_core::cloudsync_is_enabled_on(db.pool(), table_name)
+                anlg_db_core::cloudsync_is_enabled_on(db.pool(), table_name)
                     .await
                     .unwrap()
             );
@@ -1170,9 +1170,9 @@ ON shared_session_cache(workspace_id);
     #[tokio::test]
     async fn search_index_migrations_apply_to_initialized_cloudsync_tables() {
         let db = Db::connect_memory().await.unwrap();
-        hypr_db_migrate::migrate(
+        anlg_db_migrate::migrate(
             &db,
-            hypr_db_migrate::DbSchema {
+            anlg_db_migrate::DbSchema {
                 steps: migration_steps_before("20260714120000_search_index_queue"),
                 validate_cloudsync_table: cloudsync_alter_guard_required,
             },
@@ -1204,7 +1204,7 @@ ON shared_session_cache(workspace_id);
             .filter(|table| table.enabled)
         {
             assert!(
-                hypr_db_core::cloudsync_is_enabled_on(db.pool(), &table.table_name)
+                anlg_db_core::cloudsync_is_enabled_on(db.pool(), &table.table_name)
                     .await
                     .unwrap()
             );
@@ -1214,9 +1214,9 @@ ON shared_session_cache(workspace_id);
     #[tokio::test]
     async fn migration_repairs_empty_titles_from_summary_headings() {
         let db = Db::connect_memory_plain().await.unwrap();
-        hypr_db_migrate::migrate(
+        anlg_db_migrate::migrate(
             &db,
-            hypr_db_migrate::DbSchema {
+            anlg_db_migrate::DbSchema {
                 steps: migration_steps_before("20260713164500_repair_empty_session_titles"),
                 validate_cloudsync_table: cloudsync_alter_guard_required,
             },
@@ -1246,7 +1246,7 @@ ON shared_session_cache(workspace_id);
         .await
         .unwrap();
 
-        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+        anlg_db_migrate::migrate(&db, schema()).await.unwrap();
 
         let titles =
             sqlx::query_as::<_, (String, String)>("SELECT id, title FROM sessions ORDER BY id")
@@ -1265,9 +1265,9 @@ ON shared_session_cache(workspace_id);
     #[tokio::test]
     async fn repair_migration_recreates_missing_templates_table() {
         let db = Db::connect_memory_plain().await.unwrap();
-        hypr_db_migrate::migrate(
+        anlg_db_migrate::migrate(
             &db,
-            hypr_db_migrate::DbSchema {
+            anlg_db_migrate::DbSchema {
                 steps: &APP_MIGRATION_STEPS[..3],
                 validate_cloudsync_table: cloudsync_alter_guard_required,
             },
@@ -1280,7 +1280,7 @@ ON shared_session_cache(workspace_id);
             .await
             .unwrap();
 
-        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+        anlg_db_migrate::migrate(&db, schema()).await.unwrap();
 
         let row_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM templates")
             .fetch_one(db.pool())
@@ -1320,9 +1320,9 @@ ON shared_session_cache(workspace_id);
     #[tokio::test]
     async fn prepare_schema_seeds_templates_when_repair_migration_creates_missing_table() {
         let db = Db::connect_memory_plain().await.unwrap();
-        hypr_db_migrate::migrate(
+        anlg_db_migrate::migrate(
             &db,
-            hypr_db_migrate::DbSchema {
+            anlg_db_migrate::DbSchema {
                 steps: &APP_MIGRATION_STEPS[..3],
                 validate_cloudsync_table: cloudsync_alter_guard_required,
             },
@@ -1385,9 +1385,9 @@ ON shared_session_cache(workspace_id);
 
     #[tokio::test]
     async fn e2ee_order_migration_backfills_the_canonical_payload_locally() {
-        let db = hypr_db_core::Db::connect_memory_plain().await.unwrap();
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
         let payload = "ciphertext";
-        let payload_hash = hypr_e2ee::payload_hash(payload);
+        let payload_hash = anlg_e2ee::payload_hash(payload);
         sqlx::raw_sql(include_str!(
             "../migrations/20260717120000_e2ee_replica.sql"
         ))
@@ -1432,7 +1432,7 @@ ON shared_session_cache(workspace_id);
             .iter()
             .find(|step| step.id == "20260717192000_e2ee_replica_order")
             .unwrap();
-        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert_eq!(migration.scope, anlg_db_migrate::MigrationScope::Plain);
         sqlx::raw_sql(migration.sql)
             .execute(db.pool())
             .await
@@ -1469,7 +1469,7 @@ ON shared_session_cache(workspace_id);
             .find(|step| step.id == "20260717193000_e2ee_freshness_witness")
             .unwrap();
 
-        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert_eq!(migration.scope, anlg_db_migrate::MigrationScope::Plain);
         for table_name in ["e2ee_witness_records", "e2ee_witness_state"] {
             assert!(
                 !cloudsync_table_registry()
@@ -1487,7 +1487,7 @@ ON shared_session_cache(workspace_id);
             .find(|step| step.id == "20260725001400_e2ee_witness_pending")
             .unwrap();
 
-        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert_eq!(migration.scope, anlg_db_migrate::MigrationScope::Plain);
         assert!(
             !cloudsync_table_registry()
                 .iter()
@@ -1503,9 +1503,9 @@ ON shared_session_cache(workspace_id);
     #[tokio::test]
     async fn e2ee_witness_pending_migration_seeds_only_dominating_local_state() {
         let db = Db::connect_memory_plain().await.unwrap();
-        hypr_db_migrate::migrate(
+        anlg_db_migrate::migrate(
             &db,
-            hypr_db_migrate::DbSchema {
+            anlg_db_migrate::DbSchema {
                 steps: migration_steps_before("20260725001400_e2ee_witness_pending"),
                 validate_cloudsync_table: cloudsync_alter_guard_required,
             },
@@ -1542,7 +1542,7 @@ ON shared_session_cache(workspace_id);
         .await
         .unwrap();
 
-        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+        anlg_db_migrate::migrate(&db, schema()).await.unwrap();
 
         let pending: Vec<String> =
             sqlx::query_scalar("SELECT record_id FROM e2ee_witness_pending ORDER BY record_id")
@@ -1580,7 +1580,7 @@ ON shared_session_cache(workspace_id);
             .unwrap();
         assert_eq!(
             table_migration.scope,
-            hypr_db_migrate::MigrationScope::Plain
+            anlg_db_migrate::MigrationScope::Plain
         );
         for local_table in ["e2ee_apply_guard", "e2ee_dirty_rows"] {
             assert!(
@@ -1599,7 +1599,7 @@ ON shared_session_cache(workspace_id);
         for table_name in E2EE_DOMAIN_TABLES {
             assert!(trigger_migrations.iter().any(|step| matches!(
                 step.scope,
-                hypr_db_migrate::MigrationScope::CloudsyncAlter {
+                anlg_db_migrate::MigrationScope::CloudsyncAlter {
                     table_name: scoped_table
                 } if scoped_table == *table_name
             )));
@@ -1609,9 +1609,9 @@ ON shared_session_cache(workspace_id);
     #[tokio::test]
     async fn e2ee_dirty_rows_migration_seeds_existing_domain_rows_and_tombstones() {
         let db = Db::connect_memory_plain().await.unwrap();
-        hypr_db_migrate::migrate(
+        anlg_db_migrate::migrate(
             &db,
-            hypr_db_migrate::DbSchema {
+            anlg_db_migrate::DbSchema {
                 steps: migration_steps_before("20260723120000_e2ee_dirty_rows"),
                 validate_cloudsync_table: cloudsync_alter_guard_required,
             },
@@ -1643,7 +1643,7 @@ ON shared_session_cache(workspace_id);
             .unwrap();
         }
 
-        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+        anlg_db_migrate::migrate(&db, schema()).await.unwrap();
 
         let dirty_rows: Vec<(String, String, String, i64)> = sqlx::query_as(
             "SELECT workspace_id, table_name, row_id, generation
@@ -1876,9 +1876,9 @@ ON shared_session_cache(workspace_id);
     #[tokio::test]
     async fn e2ee_dirty_triggers_apply_to_initialized_cloudsync_tables() {
         let db = Db::connect_memory().await.unwrap();
-        hypr_db_migrate::migrate(
+        anlg_db_migrate::migrate(
             &db,
-            hypr_db_migrate::DbSchema {
+            anlg_db_migrate::DbSchema {
                 steps: migration_steps_before("20260723120000_e2ee_dirty_rows"),
                 validate_cloudsync_table: cloudsync_alter_guard_required,
             },
@@ -1889,7 +1889,7 @@ ON shared_session_cache(workspace_id);
             db.cloudsync_init(table_name, None, None).await.unwrap();
         }
 
-        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+        anlg_db_migrate::migrate(&db, schema()).await.unwrap();
 
         let trigger_count: i64 = sqlx::query_scalar(
             "SELECT COUNT(*)
@@ -1928,7 +1928,7 @@ ON shared_session_cache(workspace_id);
             .find(|step| step.id == "20260716173000_shared_session_cache")
             .unwrap();
 
-        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert_eq!(migration.scope, anlg_db_migrate::MigrationScope::Plain);
         assert!(
             !cloudsync_table_registry()
                 .iter()
@@ -1954,7 +1954,7 @@ ON shared_session_cache(workspace_id);
     #[tokio::test]
     async fn repairs_the_base_only_dev_cache_without_touching_notes() {
         let db = Db::connect_memory_plain().await.unwrap();
-        hypr_db_migrate::migrate(&db, schema_with_legacy_shared_session_cache(false))
+        anlg_db_migrate::migrate(&db, schema_with_legacy_shared_session_cache(false))
             .await
             .unwrap();
         sqlx::query(
@@ -2013,7 +2013,7 @@ ON shared_session_cache(workspace_id);
     #[tokio::test]
     async fn repairs_the_known_legacy_shared_session_cache_migration() {
         let db = Db::connect_memory_plain().await.unwrap();
-        hypr_db_migrate::migrate(&db, schema_with_legacy_shared_session_cache(true))
+        anlg_db_migrate::migrate(&db, schema_with_legacy_shared_session_cache(true))
             .await
             .unwrap();
         sqlx::query(
@@ -2195,7 +2195,7 @@ ON shared_session_cache(workspace_id);
             .find(|step| step.id == "20260717191000_session_share_sync_state")
             .unwrap();
 
-        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert_eq!(migration.scope, anlg_db_migrate::MigrationScope::Plain);
         assert!(
             !cloudsync_table_registry()
                 .iter()
@@ -2284,7 +2284,7 @@ ON shared_session_cache(workspace_id);
             .iter()
             .find(|step| step.id == "20260717190000_shared_session_cache_web_edits")
             .unwrap();
-        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert_eq!(migration.scope, anlg_db_migrate::MigrationScope::Plain);
 
         let db = test_db().await;
         let insert = "INSERT INTO shared_session_cache (
@@ -2354,7 +2354,7 @@ ON shared_session_cache(workspace_id);
             .iter()
             .find(|step| step.id == "20260717172000_shared_session_cache_attachments")
             .unwrap();
-        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert_eq!(migration.scope, anlg_db_migrate::MigrationScope::Plain);
 
         let db = test_db().await;
         sqlx::query(
@@ -2413,7 +2413,7 @@ ON shared_session_cache(workspace_id);
             .find(|step| step.id == "20260717140000_attachment_local_state")
             .unwrap();
 
-        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert_eq!(migration.scope, anlg_db_migrate::MigrationScope::Plain);
         assert!(
             !cloudsync_table_registry()
                 .iter()
@@ -2430,7 +2430,7 @@ ON shared_session_cache(workspace_id);
             .find(|step| step.id == "20260717150000_attachment_transfer_jobs")
             .unwrap();
 
-        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert_eq!(migration.scope, anlg_db_migrate::MigrationScope::Plain);
         assert!(
             !cloudsync_table_registry()
                 .iter()
@@ -2461,7 +2461,7 @@ ON shared_session_cache(workspace_id);
     #[tokio::test]
     async fn repairs_known_attachment_transfer_job_indexes_without_dropping_jobs() {
         let db = Db::connect_memory_plain().await.unwrap();
-        hypr_db_migrate::migrate(&db, schema_with_legacy_attachment_transfer_jobs())
+        anlg_db_migrate::migrate(&db, schema_with_legacy_attachment_transfer_jobs())
             .await
             .unwrap();
         assert_eq!(
@@ -2606,7 +2606,7 @@ ON shared_session_cache(workspace_id);
     #[tokio::test]
     async fn legacy_attachment_transfer_checksum_rejects_a_changed_schema() {
         let db = Db::connect_memory_plain().await.unwrap();
-        hypr_db_migrate::migrate(&db, schema_with_legacy_attachment_transfer_jobs())
+        anlg_db_migrate::migrate(&db, schema_with_legacy_attachment_transfer_jobs())
             .await
             .unwrap();
         sqlx::raw_sql(
@@ -2670,7 +2670,7 @@ ON shared_session_cache(workspace_id);
     #[tokio::test]
     async fn attachment_transfer_job_index_repair_rolls_back_when_checksum_update_fails() {
         let db = Db::connect_memory_plain().await.unwrap();
-        hypr_db_migrate::migrate(&db, schema_with_legacy_attachment_transfer_jobs())
+        anlg_db_migrate::migrate(&db, schema_with_legacy_attachment_transfer_jobs())
             .await
             .unwrap();
         sqlx::raw_sql(
@@ -2711,7 +2711,7 @@ ON shared_session_cache(workspace_id);
 
         assert_eq!(
             migration.scope,
-            hypr_db_migrate::MigrationScope::CloudsyncAlter {
+            anlg_db_migrate::MigrationScope::CloudsyncAlter {
                 table_name: "session_attachments",
             }
         );
@@ -2749,7 +2749,7 @@ ON shared_session_cache(workspace_id);
             .find(|step| step.id == "20260717171000_shared_session_attachment_cache")
             .unwrap();
 
-        assert_eq!(migration.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert_eq!(migration.scope, anlg_db_migrate::MigrationScope::Plain);
         assert!(
             !cloudsync_table_registry()
                 .iter()
@@ -3208,7 +3208,7 @@ ON shared_session_cache(workspace_id);
             .iter()
             .find(|step| step.id == "20260714120000_search_index_queue")
             .unwrap();
-        assert_eq!(queue_step.scope, hypr_db_migrate::MigrationScope::Plain);
+        assert_eq!(queue_step.scope, anlg_db_migrate::MigrationScope::Plain);
 
         for (id, table_name) in [
             ("20260714120100_search_index_sessions_triggers", "sessions"),
@@ -3232,7 +3232,7 @@ ON shared_session_cache(workspace_id);
                 .unwrap();
             assert_eq!(
                 step.scope,
-                hypr_db_migrate::MigrationScope::CloudsyncAlter { table_name }
+                anlg_db_migrate::MigrationScope::CloudsyncAlter { table_name }
             );
         }
     }
@@ -3515,9 +3515,9 @@ ON shared_session_cache(workspace_id);
     #[tokio::test]
     async fn migrations_seed_default_templates_without_overwriting_existing_rows() {
         let db = Db::connect_memory_plain().await.unwrap();
-        hypr_db_migrate::migrate(
+        anlg_db_migrate::migrate(
             &db,
-            hypr_db_migrate::DbSchema {
+            anlg_db_migrate::DbSchema {
                 steps: &APP_MIGRATION_STEPS[..1],
                 validate_cloudsync_table: cloudsync_alter_guard_required,
             },
@@ -3541,7 +3541,7 @@ ON shared_session_cache(workspace_id);
         .await
         .unwrap();
 
-        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+        anlg_db_migrate::migrate(&db, schema()).await.unwrap();
 
         let rows = list_templates(db.pool()).await.unwrap();
         assert_eq!(rows.len(), 17);

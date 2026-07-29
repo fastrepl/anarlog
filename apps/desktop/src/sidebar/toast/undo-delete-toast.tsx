@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useCallback, useMemo } from "react";
 
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import { restoreDeletedSession } from "~/session/queries";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";

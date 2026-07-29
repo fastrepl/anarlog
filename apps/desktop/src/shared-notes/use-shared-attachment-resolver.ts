@@ -2,8 +2,8 @@ import { useQueries } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useCallback, useMemo } from "react";
 
-import { and, eq, sharedSessionAttachmentCache } from "@hypr/db";
-import type { AttachmentResolver } from "@hypr/editor/node-views";
+import { and, eq, sharedSessionAttachmentCache } from "@anlg/db";
+import type { AttachmentResolver } from "@anlg/editor/node-views";
 
 import { attachmentTransferNative } from "~/attachment-sync/native";
 import { db, useDrizzleLiveQuery } from "~/db";

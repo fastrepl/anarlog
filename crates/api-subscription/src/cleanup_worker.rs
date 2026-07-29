@@ -36,7 +36,7 @@ fn full_batch_poll_delay(full_batch: bool) -> Option<Duration> {
 #[derive(Clone)]
 pub struct CleanupWorker {
     supabase: SupabaseClient,
-    storage: hypr_supabase_storage::SupabaseStorage,
+    storage: anlg_supabase_storage::SupabaseStorage,
     stripe: stripe::Client,
     cloudsync: Option<CloudsyncCleanupClient>,
 }
@@ -406,7 +406,7 @@ impl CleanupWorker {
                 .await
             {
                 Ok(_) => {}
-                Err(hypr_supabase_storage::Error::Cancelled) => return Ok(()),
+                Err(anlg_supabase_storage::Error::Cancelled) => return Ok(()),
                 Err(error) => return Err(storage_error(error)),
             }
             if cancellation.is_cancelled() {
@@ -420,7 +420,7 @@ impl CleanupWorker {
                 .await
             {
                 Ok(_) => {}
-                Err(hypr_supabase_storage::Error::Cancelled) => return Ok(()),
+                Err(anlg_supabase_storage::Error::Cancelled) => return Ok(()),
                 Err(error) => return Err(storage_error(error)),
             }
             if cancellation.is_cancelled() {
@@ -437,7 +437,7 @@ impl CleanupWorker {
                 .await
             {
                 Ok(_) => {}
-                Err(hypr_supabase_storage::Error::Cancelled) => return Ok(()),
+                Err(anlg_supabase_storage::Error::Cancelled) => return Ok(()),
                 Err(error) => return Err(storage_error(error)),
             }
             if cancellation.is_cancelled() {
@@ -547,7 +547,7 @@ impl CleanupWorker {
             | Err(stripe::StripeError::Stripe(_, 404)) => {
                 tracing::info!(
                     enduser.id = %owner_user_id,
-                    hyprnote.billing.customer.id = %customer_id,
+                    anarlog.billing.customer.id = %customer_id,
                     "account_deletion_stripe_customer_already_deleted"
                 );
                 return Ok(());
@@ -559,7 +559,7 @@ impl CleanupWorker {
             Ok(_) => {
                 tracing::info!(
                     enduser.id = %owner_user_id,
-                    hyprnote.billing.customer.id = %customer_id,
+                    anarlog.billing.customer.id = %customer_id,
                     "account_deletion_stripe_customer_deleted"
                 );
                 Ok(())
@@ -567,7 +567,7 @@ impl CleanupWorker {
             Err(stripe::StripeError::Stripe(_, 404)) => {
                 tracing::info!(
                     enduser.id = %owner_user_id,
-                    hyprnote.billing.customer.id = %customer_id,
+                    anarlog.billing.customer.id = %customer_id,
                     "account_deletion_stripe_customer_already_deleted"
                 );
                 Ok(())
@@ -721,7 +721,7 @@ fn validate_shared_attachment_object_key(
     Ok(value.to_string())
 }
 
-fn storage_error(error: hypr_supabase_storage::Error) -> SubscriptionError {
+fn storage_error(error: anlg_supabase_storage::Error) -> SubscriptionError {
     SubscriptionError::Internal(format!("Storage cleanup failed: {error}"))
 }
 
@@ -731,7 +731,7 @@ fn invalid_upstream(context: &str) -> SubscriptionError {
 
 #[cfg(test)]
 mod tests {
-    use hypr_api_env::{LoopsEnv, StripeEnv, SupabaseEnv};
+    use anlg_api_env::{LoopsEnv, StripeEnv, SupabaseEnv};
     use serde_json::{Value, json};
     use wiremock::{
         Mock, MockServer, Request, ResponseTemplate,

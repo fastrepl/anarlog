@@ -27,7 +27,7 @@ vi.mock("~/attachment-sync/native", () => ({
   },
 }));
 
-vi.mock("@hypr/plugin-attachment-sync", () => ({
+vi.mock("@anlg/plugin-attachment-sync", () => ({
   commands: {
     clearSharedAttachmentPreviewScopes:
       mocks.clearSharedAttachmentPreviewScopes,

@@ -5,8 +5,8 @@ import { Volume2Icon, VolumeXIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { commands as sfxCommands } from "@hypr/plugin-sfx";
-import { cn } from "@hypr/utils";
+import { commands as sfxCommands } from "@anlg/plugin-sfx";
+import { cn } from "@anlg/utils";
 
 import { LoginSection } from "./account";
 import { CalendarSection } from "./calendar";

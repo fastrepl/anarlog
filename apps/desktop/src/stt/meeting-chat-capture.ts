@@ -1,6 +1,6 @@
-import { commands as detectCommands } from "@hypr/plugin-detect";
-import type { MeetingCapturedChatMessage } from "@hypr/plugin-detect";
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
+import { commands as detectCommands } from "@anlg/plugin-detect";
+import type { MeetingCapturedChatMessage } from "@anlg/plugin-detect";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import { getStoredSettingValues } from "~/settings/queries";
 import { resolveConfigValue } from "~/shared/config";

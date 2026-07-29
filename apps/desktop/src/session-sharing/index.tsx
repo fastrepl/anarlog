@@ -16,15 +16,15 @@ import {
 } from "lucide-react";
 import { type MutableRefObject, useCallback, useRef, useState } from "react";
 
-import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { Button } from "@hypr/ui/components/ui/button";
-import { Input } from "@hypr/ui/components/ui/input";
+import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { Button } from "@anlg/ui/components/ui/button";
+import { Input } from "@anlg/ui/components/ui/input";
 import {
   AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@hypr/ui/components/ui/popover";
+} from "@anlg/ui/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -32,9 +32,9 @@ import {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
-} from "@hypr/ui/components/ui/select";
-import { sonnerToast } from "@hypr/ui/components/ui/toast";
-import { cn } from "@hypr/utils";
+} from "@anlg/ui/components/ui/select";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { cn } from "@anlg/utils";
 
 import { SessionAttachmentControls } from "./attachment-controls";
 import {

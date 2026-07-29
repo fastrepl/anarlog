@@ -1,4 +1,4 @@
-use hypr_ws_client::client::Message;
+use anlg_ws_client::client::Message;
 use owhisper_interface::ListenParams;
 use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse};
 use serde::Deserialize;
@@ -16,7 +16,7 @@ impl RealtimeSttAdapter for AssemblyAIAdapter {
 
     fn is_supported_languages(
         &self,
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         _model: Option<&str>,
     ) -> bool {
         languages.is_empty() || Self::language_support_live(languages).is_supported()
@@ -94,7 +94,7 @@ impl RealtimeSttAdapter for AssemblyAIAdapter {
             Err(e) => {
                 tracing::warn!(
                     error = ?e,
-                    hyprnote.payload.size_bytes = raw.len() as u64,
+                    anarlog.payload.size_bytes = raw.len() as u64,
                     "assemblyai_json_parse_failed"
                 );
                 return vec![];
@@ -104,8 +104,8 @@ impl RealtimeSttAdapter for AssemblyAIAdapter {
         match msg {
             AssemblyAIMessage::Begin { id, expires_at } => {
                 tracing::debug!(
-                    hyprnote.stt.provider_session.id = %id,
-                    hyprnote.stt.provider_session.expires_at = %expires_at,
+                    anarlog.stt.provider_session.id = %id,
+                    anarlog.stt.provider_session.expires_at = %expires_at,
                     "assemblyai_session_began"
                 );
                 vec![]
@@ -116,8 +116,8 @@ impl RealtimeSttAdapter for AssemblyAIAdapter {
                 session_duration_seconds,
             } => {
                 tracing::debug!(
-                    hyprnote.audio.duration_s = audio_duration_seconds,
-                    hyprnote.stt.provider_session.duration_s = session_duration_seconds,
+                    anarlog.audio.duration_s = audio_duration_seconds,
+                    anarlog.stt.provider_session.duration_s = session_duration_seconds,
                     "assemblyai_session_terminated"
                 );
                 vec![StreamResponse::TerminalResponse {
@@ -137,7 +137,7 @@ impl RealtimeSttAdapter for AssemblyAIAdapter {
             }
             AssemblyAIMessage::Unknown => {
                 tracing::debug!(
-                    hyprnote.payload.size_bytes = raw.len() as u64,
+                    anarlog.payload.size_bytes = raw.len() as u64,
                     "assemblyai_unknown_message"
                 );
                 vec![]
@@ -355,7 +355,7 @@ impl ResolvedLiveModel {
 
 #[cfg(test)]
 mod tests {
-    use hypr_language::ISO639;
+    use anlg_language::ISO639;
     use owhisper_interface::ListenParams;
     use owhisper_interface::stream::StreamResponse;
 
@@ -574,7 +574,7 @@ mod tests {
         test_build_single,
         owhisper_interface::ListenParams {
             model: Some("u3-rt-pro".to_string()),
-            languages: vec![hypr_language::ISO639::En.into()],
+            languages: vec![anlg_language::ISO639::En.into()],
             ..Default::default()
         }
     );
@@ -583,8 +583,8 @@ mod tests {
         test_single_with_keywords,
         owhisper_interface::ListenParams {
             model: Some("u3-rt-pro".to_string()),
-            languages: vec![hypr_language::ISO639::En.into()],
-            keywords: vec!["Hyprnote".to_string(), "transcription".to_string()],
+            languages: vec![anlg_language::ISO639::En.into()],
+            keywords: vec!["Anarlog".to_string(), "transcription".to_string()],
             ..Default::default()
         }
     );
@@ -594,8 +594,8 @@ mod tests {
         owhisper_interface::ListenParams {
             model: Some("u3-rt-pro".to_string()),
             languages: vec![
-                hypr_language::ISO639::En.into(),
-                hypr_language::ISO639::Es.into(),
+                anlg_language::ISO639::En.into(),
+                anlg_language::ISO639::Es.into(),
             ],
             ..Default::default()
         }
@@ -606,8 +606,8 @@ mod tests {
         owhisper_interface::ListenParams {
             model: Some("whisper-rt".to_string()),
             languages: vec![
-                hypr_language::ISO639::En.into(),
-                hypr_language::ISO639::Ko.into(),
+                anlg_language::ISO639::En.into(),
+                anlg_language::ISO639::Ko.into(),
             ],
             ..Default::default()
         }
@@ -622,7 +622,7 @@ mod tests {
             .api_key(std::env::var("ASSEMBLYAI_API_KEY").expect("ASSEMBLYAI_API_KEY not set"))
             .params(owhisper_interface::ListenParams {
                 model: Some("u3-rt-pro".to_string()),
-                languages: vec![hypr_language::ISO639::En.into()],
+                languages: vec![anlg_language::ISO639::En.into()],
                 ..Default::default()
             })
             .build_dual()

@@ -9,10 +9,10 @@ import {
   commands as detectCommands,
   type InstalledApp,
   type Result,
-} from "@hypr/plugin-detect";
-import { commands as notificationCommands } from "@hypr/plugin-notification";
-import { Badge } from "@hypr/ui/components/ui/badge";
-import { Button } from "@hypr/ui/components/ui/button";
+} from "@anlg/plugin-detect";
+import { commands as notificationCommands } from "@anlg/plugin-notification";
+import { Badge } from "@anlg/ui/components/ui/badge";
+import { Button } from "@anlg/ui/components/ui/button";
 import {
   Command,
   CommandEmpty,
@@ -20,21 +20,21 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@hypr/ui/components/ui/command";
+} from "@anlg/ui/components/ui/command";
 import {
   AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@hypr/ui/components/ui/popover";
+} from "@anlg/ui/components/ui/popover";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@hypr/ui/components/ui/select";
-import { cn } from "@hypr/utils";
+} from "@anlg/ui/components/ui/select";
+import { cn } from "@anlg/utils";
 
 import {
   getIgnoredBundleIds,

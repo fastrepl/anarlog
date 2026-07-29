@@ -20,14 +20,14 @@ jobs:
         env:
           CERT_ID: ${{ steps.apple-cert.outputs.cert-id }}
         run: |
-          swiftc scripts/passthrough.swift -o build/hyprnote-passthrough
-          codesign -s "$CERT_ID" build/hyprnote-passthrough
+          swiftc scripts/passthrough.swift -o build/anarlog-passthrough
+          codesign -s "$CERT_ID" build/anarlog-passthrough
 
           # Verify signing
-          codesign -dv build/hyprnote-passthrough
+          codesign -dv build/anarlog-passthrough
 
           # Verify team identifier is correct
-          if ! codesign -dv build/hyprnote-passthrough 2>&1 | grep -q "TeamIdentifier=6SLY7V277V"; then
+          if ! codesign -dv build/anarlog-passthrough 2>&1 | grep -q "TeamIdentifier=6SLY7V277V"; then
             echo "Error: Binary not signed with correct team identifier (6SLY7V277V)"
             exit 1
           fi
@@ -35,7 +35,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: hyprnote-passthrough-${{ github.sha }}
+          name: anarlog-passthrough-${{ github.sha }}
           path: |
-            build/hyprnote-passthrough
+            build/anarlog-passthrough
           retention-days: 7

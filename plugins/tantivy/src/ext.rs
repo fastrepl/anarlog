@@ -16,8 +16,8 @@ use crate::{
     SearchRequest, SearchResult, Snippet,
 };
 
-pub fn detect_language(text: &str) -> hypr_language::Language {
-    hypr_language::detect(text)
+pub fn detect_language(text: &str) -> anlg_language::Language {
+    anlg_language::detect(text)
 }
 
 fn parse_query_parts(query: &str) -> (Vec<&str>, Vec<&str>) {

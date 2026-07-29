@@ -73,11 +73,11 @@ impl DeepgramModel {
         }
     }
 
-    pub fn supports_language(&self, lang: &hypr_language::Language) -> bool {
+    pub fn supports_language(&self, lang: &anlg_language::Language) -> bool {
         lang.matches_any_code(self.supported_languages())
     }
 
-    pub fn supports_multi(&self, languages: &[hypr_language::Language]) -> bool {
+    pub fn supports_multi(&self, languages: &[anlg_language::Language]) -> bool {
         language::can_use_multi(self.as_ref(), languages)
     }
 }
@@ -92,7 +92,7 @@ const MODELS: &[DeepgramModel] = &[
 pub struct DeepgramAdapter;
 
 impl DeepgramAdapter {
-    pub fn find_model(languages: &[hypr_language::Language]) -> Option<DeepgramModel> {
+    pub fn find_model(languages: &[anlg_language::Language]) -> Option<DeepgramModel> {
         if languages.len() >= 2 {
             MODELS.iter().find(|m| m.supports_multi(languages)).copied()
         } else {
@@ -105,21 +105,21 @@ impl DeepgramAdapter {
     }
 
     pub fn language_support_live(
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<DeepgramModel>,
     ) -> LanguageSupport {
         Self::language_support_impl(languages, model)
     }
 
     pub fn language_support_batch(
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<DeepgramModel>,
     ) -> LanguageSupport {
         Self::language_support_impl(languages, model)
     }
 
     fn language_support_impl(
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<DeepgramModel>,
     ) -> LanguageSupport {
         if languages.is_empty() {
@@ -147,7 +147,7 @@ impl DeepgramAdapter {
     }
 
     pub fn is_supported_languages_live(
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> bool {
         let model = model.and_then(|m| m.parse::<DeepgramModel>().ok());
@@ -155,23 +155,23 @@ impl DeepgramAdapter {
     }
 
     pub fn is_supported_languages_batch(
-        languages: &[hypr_language::Language],
+        languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> bool {
         let model = model.and_then(|m| m.parse::<DeepgramModel>().ok());
         Self::language_support_batch(languages, model).is_supported()
     }
 
-    pub fn supports_batch_language_detection(languages: &[hypr_language::Language]) -> bool {
+    pub fn supports_batch_language_detection(languages: &[anlg_language::Language]) -> bool {
         !languages.is_empty() && languages.iter().all(language::supports_language_detection)
     }
 
-    fn can_use_multi(languages: &[hypr_language::Language]) -> bool {
+    fn can_use_multi(languages: &[anlg_language::Language]) -> bool {
         language::can_use_multi(DeepgramModel::Nova3General.as_ref(), languages)
             || language::can_use_multi(DeepgramModel::Nova2General.as_ref(), languages)
     }
 
-    fn single_language_support(language: &hypr_language::Language) -> LanguageSupport {
+    fn single_language_support(language: &anlg_language::Language) -> LanguageSupport {
         let code = language.iso639().code();
         let quality = if EXCELLENT_LANGS.contains(&code) {
             LanguageQuality::Excellent
@@ -189,7 +189,7 @@ impl DeepgramAdapter {
         LanguageSupport::Supported { quality }
     }
 
-    pub fn recommended_model_live(languages: &[hypr_language::Language]) -> Option<&'static str> {
+    pub fn recommended_model_live(languages: &[anlg_language::Language]) -> Option<&'static str> {
         match Self::find_model(languages) {
             Some(DeepgramModel::Nova3General) => Some("nova-3"),
             Some(DeepgramModel::Nova3Medical) => Some("nova-3-medical"),
@@ -212,7 +212,7 @@ pub(super) fn documented_language_codes() -> Vec<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hypr_language::{ISO639, Language};
+    use anlg_language::{ISO639, Language};
 
     #[test]
     fn test_recommended_model_live() {
@@ -305,19 +305,19 @@ mod tests {
 
     #[test]
     fn test_language_support_quality() {
-        let en: Vec<hypr_language::Language> = vec![ISO639::En.into()];
+        let en: Vec<anlg_language::Language> = vec![ISO639::En.into()];
         let support = DeepgramAdapter::language_support_live(&en, None);
         assert_eq!(support.quality(), Some(LanguageQuality::Excellent));
 
-        let ja: Vec<hypr_language::Language> = vec![ISO639::Ja.into()];
+        let ja: Vec<anlg_language::Language> = vec![ISO639::Ja.into()];
         let support = DeepgramAdapter::language_support_live(&ja, None);
         assert_eq!(support.quality(), Some(LanguageQuality::Moderate));
     }
 
     #[test]
     fn test_model_supports_language() {
-        let en: hypr_language::Language = ISO639::En.into();
-        let zh: hypr_language::Language = ISO639::Zh.into();
+        let en: anlg_language::Language = ISO639::En.into();
+        let zh: anlg_language::Language = ISO639::Zh.into();
 
         assert!(DeepgramModel::Nova3General.supports_language(&en));
         assert!(!DeepgramModel::Nova3General.supports_language(&zh));
@@ -326,7 +326,7 @@ mod tests {
 
     #[test]
     fn test_en_ca_with_nova3_general_not_supported() {
-        let en_ca: hypr_language::Language = "en-CA".parse().unwrap();
+        let en_ca: anlg_language::Language = "en-CA".parse().unwrap();
         let languages = vec![en_ca];
 
         assert!(!DeepgramAdapter::is_supported_languages_live(
@@ -342,7 +342,7 @@ mod tests {
 
     #[test]
     fn test_en_ca_with_nova3_medical_supported() {
-        let en_ca: hypr_language::Language = "en-CA".parse().unwrap();
+        let en_ca: anlg_language::Language = "en-CA".parse().unwrap();
         let languages = vec![en_ca];
 
         assert!(DeepgramAdapter::is_supported_languages_live(
@@ -358,7 +358,7 @@ mod tests {
 
     #[test]
     fn test_en_ca_auto_selects_nova3_medical() {
-        let en_ca: hypr_language::Language = "en-CA".parse().unwrap();
+        let en_ca: anlg_language::Language = "en-CA".parse().unwrap();
         let languages = vec![en_ca];
 
         assert_eq!(
@@ -369,7 +369,7 @@ mod tests {
 
     #[test]
     fn test_en_us_with_nova3_general_supported() {
-        let en_us: hypr_language::Language = "en-US".parse().unwrap();
+        let en_us: anlg_language::Language = "en-US".parse().unwrap();
         let languages = vec![en_us];
 
         assert!(DeepgramAdapter::is_supported_languages_live(

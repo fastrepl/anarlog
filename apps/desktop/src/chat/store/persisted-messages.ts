@@ -1,7 +1,7 @@
-import type { ChatMessageStatus } from "@hypr/store";
+import type { ChatMessageStatus } from "@anlg/store";
 
 import { hasRenderableContent } from "~/chat/message-content";
-import type { HyprUIMessage } from "~/chat/types";
+import type { AnlgUIMessage } from "~/chat/types";
 
 export type ChatMessageRecord = {
   id: string;
@@ -31,7 +31,7 @@ export type PersistedChatMessage = {
   id: string;
   record: ChatMessageRecord;
   status: ChatMessageStatus;
-  message: HyprUIMessage;
+  message: AnlgUIMessage;
 };
 
 function parseJson<T>(value: string | undefined, fallback: T): T {
@@ -59,7 +59,7 @@ export function normalizeChatMessageStatus(status: unknown): ChatMessageStatus {
   return "ready";
 }
 
-function extractTextContent(parts: HyprUIMessage["parts"]) {
+function extractTextContent(parts: AnlgUIMessage["parts"]) {
   return parts
     .filter((part): part is Extract<typeof part, { type: "text" }> => {
       return part.type === "text";
@@ -69,7 +69,7 @@ function extractTextContent(parts: HyprUIMessage["parts"]) {
 }
 
 function getCreatedAt(
-  message: HyprUIMessage,
+  message: AnlgUIMessage,
   existingRecord?: Partial<ChatMessageRecord>,
 ) {
   if (existingRecord?.createdAt) {
@@ -92,7 +92,7 @@ export function buildPersistedChatMessage({
   content,
   existingRecord,
 }: {
-  message: HyprUIMessage;
+  message: AnlgUIMessage;
   chatGroupId: string;
   ownerUserId: string;
   status: ChatMessageStatus;
@@ -116,7 +116,7 @@ export function rowToPersistedChatMessage(
   row: ChatMessageSqlRow,
 ): PersistedChatMessage {
   const status = normalizeChatMessageStatus(row.status);
-  const message: HyprUIMessage = {
+  const message: AnlgUIMessage = {
     id: row.id,
     role: row.role as "user" | "assistant",
     parts: parseJson(row.parts_json, []),
@@ -149,13 +149,13 @@ export function shouldHidePersistedMessage(message: PersistedChatMessage) {
   );
 }
 
-export function shouldPersistFinishedMessage(message: HyprUIMessage): boolean {
+export function shouldPersistFinishedMessage(message: AnlgUIMessage): boolean {
   return message.role !== "assistant" || hasRenderableContent(message);
 }
 
 export function getVisibleChatMessages(
   messages: PersistedChatMessage[],
-): HyprUIMessage[] {
+): AnlgUIMessage[] {
   return messages
     .filter((message) => !shouldHidePersistedMessage(message))
     .map((message) => message.message);

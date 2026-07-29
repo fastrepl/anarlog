@@ -15,11 +15,11 @@ vi.mock("@tauri-apps/api/event", () => ({
   }),
 }));
 
-vi.mock("@hypr/plugin-analytics", () => ({
+vi.mock("@anlg/plugin-analytics", () => ({
   commands: { event: mocks.analyticsEvent },
 }));
 
-vi.mock("@hypr/plugin-store2", () => ({
+vi.mock("@anlg/plugin-store2", () => ({
   commands: { save: mocks.save },
 }));
 

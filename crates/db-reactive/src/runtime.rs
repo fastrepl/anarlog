@@ -4,15 +4,15 @@ use std::sync::Arc;
 use tokio::sync::broadcast::error::{RecvError, TryRecvError};
 use tokio::sync::watch as tokio_watch;
 
-use hypr_db_core::Db;
-use hypr_db_execute::DbExecutor;
+use anlg_db_core::Db;
+use anlg_db_execute::DbExecutor;
 
 use crate::error::{Error, Result};
 use crate::schema::CatalogStore;
 use crate::subscriptions::{QueryEventPayload, RefreshJob, Registry};
 use crate::types::{DependencyAnalysis, QueryEventSink, SubscriptionRegistration};
 use crate::watch::WatchId;
-use hypr_db_change::{ChangeNotifier, TableChange};
+use anlg_db_change::{ChangeNotifier, TableChange};
 
 pub struct LiveQueryRuntime<S> {
     db: Arc<Db>,
@@ -445,7 +445,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
-    use hypr_db_core::{DbOpenOptions, DbStorage};
+    use anlg_db_core::{DbOpenOptions, DbStorage};
     use serde_json::json;
 
     use super::*;
@@ -491,15 +491,15 @@ mod tests {
         }
     }
 
-    const LIVE_QUERY_TEST_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] =
-        &[hypr_db_migrate::MigrationStep {
+    const LIVE_QUERY_TEST_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] =
+        &[anlg_db_migrate::MigrationStep {
             id: "20260415000000_live_query_test_schema",
-            scope: hypr_db_migrate::MigrationScope::Plain,
+            scope: anlg_db_migrate::MigrationScope::Plain,
             sql: include_str!("../tests/common/live_query_test_schema.sql"),
         }];
 
-    fn live_query_test_schema() -> hypr_db_migrate::DbSchema {
-        hypr_db_migrate::DbSchema {
+    fn live_query_test_schema() -> anlg_db_migrate::DbSchema {
+        anlg_db_migrate::DbSchema {
             steps: LIVE_QUERY_TEST_MIGRATION_STEPS,
             validate_cloudsync_table: |_| false,
         }
@@ -512,7 +512,7 @@ mod tests {
     ) {
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("app.db");
-        let db = hypr_db_core::Db::open(DbOpenOptions {
+        let db = anlg_db_core::Db::open(DbOpenOptions {
             storage: DbStorage::Local(&db_path),
             cloudsync_enabled: false,
             journal_mode_wal: true,
@@ -521,7 +521,7 @@ mod tests {
         })
         .await
         .unwrap();
-        hypr_db_migrate::migrate(&db, live_query_test_schema())
+        anlg_db_migrate::migrate(&db, live_query_test_schema())
             .await
             .unwrap();
 

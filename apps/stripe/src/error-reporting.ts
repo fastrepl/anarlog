@@ -72,15 +72,15 @@ export function captureOperationalError(
 
   return Sentry.withScope((scope) => {
     scope.setLevel(level);
-    scope.setTag("hyprnote.operation", operation);
-    scope.setTag("hyprnote.surface", "billing");
+    scope.setTag("anarlog.operation", operation);
+    scope.setTag("anarlog.surface", "billing");
     for (const [key, value] of Object.entries(tags ?? {})) {
       if (value !== null) {
-        scope.setTag(`hyprnote.${key}`, value);
+        scope.setTag(`anarlog.${key}`, value);
       }
     }
     if (context) {
-      scope.setContext("hyprnote.operation", context);
+      scope.setContext("anarlog.operation", context);
     }
     return Sentry.captureException(exception);
   });

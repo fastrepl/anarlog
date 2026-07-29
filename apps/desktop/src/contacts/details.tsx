@@ -8,15 +8,15 @@ import {
 } from "lucide-react";
 import React, { useCallback, useState } from "react";
 
-import { Button } from "@hypr/ui/components/ui/button";
-import { Input } from "@hypr/ui/components/ui/input";
+import { Button } from "@anlg/ui/components/ui/button";
+import { Input } from "@anlg/ui/components/ui/input";
 import {
   AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@hypr/ui/components/ui/popover";
-import { Textarea } from "@hypr/ui/components/ui/textarea";
+} from "@anlg/ui/components/ui/popover";
+import { Textarea } from "@anlg/ui/components/ui/textarea";
 
 import {
   createOrganization,

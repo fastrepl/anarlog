@@ -1,6 +1,6 @@
 import { relaunch as tauriRelaunch } from "@tauri-apps/plugin-process";
 
-import { commands as store2Commands } from "@hypr/plugin-store2";
+import { commands as store2Commands } from "@anlg/plugin-store2";
 
 import { flushDatabaseWritesWithin } from "~/db/write-queue";
 import { commands } from "~/types/tauri.gen";

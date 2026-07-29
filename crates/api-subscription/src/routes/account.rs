@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use anlg_api_auth::AuthContext;
 use axum::{
     Extension, Json,
     extract::State,
@@ -7,7 +8,6 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use backon::{ExponentialBuilder, Retryable};
-use hypr_api_auth::AuthContext;
 use serde::Serialize;
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -123,13 +123,13 @@ fn canonical_user_id(value: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use anlg_api_auth::{AuthContext, Claims};
+    use anlg_api_env::{LoopsEnv, StripeEnv, SupabaseEnv};
     use axum::{
         Extension,
         body::{Body, to_bytes},
         http::{Method, Request, StatusCode},
     };
-    use hypr_api_auth::{AuthContext, Claims};
-    use hypr_api_env::{LoopsEnv, StripeEnv, SupabaseEnv};
     use serde_json::{Value, json};
     use tower::ServiceExt;
     use wiremock::{

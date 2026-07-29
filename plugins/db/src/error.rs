@@ -5,23 +5,23 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
-    Db(#[from] hypr_db_core::DbOpenError),
+    Db(#[from] anlg_db_core::DbOpenError),
     #[error(transparent)]
-    Migrate(#[from] hypr_db_migrate::MigrateError),
+    Migrate(#[from] anlg_db_migrate::MigrateError),
     #[error(transparent)]
-    AppSchema(#[from] hypr_db_app::AppSchemaError),
+    AppSchema(#[from] anlg_db_app::AppSchemaError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
     #[error(transparent)]
-    Execute(#[from] hypr_db_execute::Error),
+    Execute(#[from] anlg_db_execute::Error),
     #[error(transparent)]
-    Reactive(#[from] hypr_db_reactive::Error),
+    Reactive(#[from] anlg_db_reactive::Error),
     #[error(transparent)]
-    Cloudsync(#[from] hypr_db_core::CloudsyncRuntimeError),
+    Cloudsync(#[from] anlg_db_core::CloudsyncRuntimeError),
     #[error(transparent)]
-    CloudsyncWorkspace(#[from] hypr_db_app::CloudsyncWorkspaceError),
+    CloudsyncWorkspace(#[from] anlg_db_app::CloudsyncWorkspaceError),
     #[error(transparent)]
     Json(#[from] serde_json::Error),
     #[error("end-to-end encryption recovery key setup is required before CloudSync can start")]

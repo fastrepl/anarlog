@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use anlg_db_core::{CloudsyncAuth, CloudsyncRuntimeConfig, Db, DbOpenOptions, DbStorage};
+use anlg_e2ee::{RecoveryKey, WorkspaceKey};
 use db_app::{
     apply_e2ee_replica_changes, claim_cloudsync_workspace, cloudsync_table_registry,
     encrypt_e2ee_replica_changes, prepare_schema,
 };
-use hypr_db_core::{CloudsyncAuth, CloudsyncRuntimeConfig, Db, DbOpenOptions, DbStorage};
-use hypr_e2ee::{RecoveryKey, WorkspaceKey};
 
 const SYNC_TIMEOUT: Duration = Duration::from_secs(90);
 const SYNC_ATTEMPTS: usize = 3;

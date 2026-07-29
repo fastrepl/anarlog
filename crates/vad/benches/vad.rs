@@ -14,7 +14,7 @@ fn pcm_bytes_to_i16(bytes: &[u8]) -> Vec<i16> {
 }
 
 fn bench_earshot(c: &mut Criterion) {
-    let pcm_bytes = hypr_data::english_1::AUDIO;
+    let pcm_bytes = anlg_data::english_1::AUDIO;
     let samples: Vec<i16> = pcm_bytes_to_i16(pcm_bytes);
     let frame_size = choose_optimal_frame_size(samples.len());
 
@@ -38,7 +38,7 @@ fn bench_earshot(c: &mut Criterion) {
 }
 
 fn bench_silero_onnx(c: &mut Criterion) {
-    let pcm_bytes = hypr_data::english_1::AUDIO;
+    let pcm_bytes = anlg_data::english_1::AUDIO;
 
     c.bench_function("silero_onnx english_1", |b| {
         b.iter_batched(
@@ -54,7 +54,7 @@ fn bench_silero_onnx(c: &mut Criterion) {
                 let mut probs = Vec::new();
                 for chunk in black_box(&samples_f32).chunks(CHUNK_SIZE_16KHZ) {
                     if chunk.len() == CHUNK_SIZE_16KHZ {
-                        let view = hypr_onnx::ndarray::ArrayView1::from(chunk);
+                        let view = anlg_onnx::ndarray::ArrayView1::from(chunk);
                         probs.push(model.process_chunk(&view, 16000).unwrap());
                     }
                 }

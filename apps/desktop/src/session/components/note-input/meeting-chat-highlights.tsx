@@ -1,4 +1,4 @@
-import { commands as openerCommands } from "@hypr/plugin-opener2";
+import { commands as openerCommands } from "@anlg/plugin-opener2";
 
 import {
   formatMeetingPlatform,

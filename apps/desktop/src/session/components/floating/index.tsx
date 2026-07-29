@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 
-import { cn } from "@hypr/utils";
+import { cn } from "@anlg/utils";
 
 import { ChatCTA } from "~/shared/chat-cta";
 import type { EditorView, Tab } from "~/store/zustand/tabs/schema";

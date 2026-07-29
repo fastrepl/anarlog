@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import type { MeetingCapturedChatMessage } from "@hypr/plugin-detect";
+import type { MeetingCapturedChatMessage } from "@anlg/plugin-detect";
 
 import { startMeetingChatCapture } from "./meeting-chat-capture";
 
@@ -18,7 +18,7 @@ const {
   captureSettingState: { value: true },
 }));
 
-vi.mock("@hypr/plugin-detect", () => ({
+vi.mock("@anlg/plugin-detect", () => ({
   commands: {
     captureMeetingChatMessages: captureMeetingChatMessagesMock,
     listMicUsingApplications: listMicUsingApplicationsMock,
@@ -29,7 +29,7 @@ vi.mock("~/stt/meeting-chat-records", () => ({
   persistMeetingChatRecords: persistMeetingChatRecordsMock,
 }));
 
-vi.mock("@hypr/ui/components/ui/toast", () => ({
+vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: { warning: sonnerToastWarningMock },
 }));
 

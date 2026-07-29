@@ -70,7 +70,7 @@ out of scope for this migration.
 Why: one storage-swap PR per domain touches 1 file (the hook module),
 not 20–50 consumer files.
 
-Enforced by `hypr/no-raw-tinybase` in `eslint-plugin-hypr.mjs`.
+Enforced by `anlg/no-raw-tinybase` in `eslint-plugin-anlg.mjs`.
 `.oxlintrc.json` keeps a `TINYBASE_MIGRATION_PENDING` override that
 shrinks as each domain is cleaned. CI gates this via
 `.github/workflows/lint.yaml`.
@@ -95,7 +95,7 @@ indexes/queries into or out of the domain, and <10 consumer sites).
 
 - **Schema source of truth:** Rust migration in `crates/db-app/migrations/`
 - **Drizzle mirror:** `packages/db/src/schema.ts` (typed TS query interface, not schema management)
-- **Reads (reactive):** `useDrizzleLiveQuery` — calls `.toSQL()` on a Drizzle query, feeds `{sql, params}` to the underlying `useLiveQuery` which uses `subscribe()` from `@hypr/plugin-db`
+- **Reads (reactive):** `useDrizzleLiveQuery` — calls `.toSQL()` on a Drizzle query, feeds `{sql, params}` to the underlying `useLiveQuery` which uses `subscribe()` from `@anlg/plugin-db`
 - **Reads (imperative):** `db.select()...` through the Drizzle sqlite-proxy driver
 - **Writes:** `db.insert()`, `db.update()`, `db.delete()` through the Drizzle sqlite-proxy driver, wrapped in `useMutation` from tanstack-query
 - **Reactivity loop:** write via `execute` → SQLite change → Rust `db-live-query` notifies subscribers → `useLiveQuery` fires `onData` → React re-renders. No manual invalidation needed.
@@ -104,10 +104,10 @@ indexes/queries into or out of the domain, and <10 consumer sites).
 
 The DB stack uses a factory/DI pattern across four packages:
 
-1. `@hypr/db-runtime` (`packages/db-runtime/`) — type contracts only: `LiveQueryClient`, `DrizzleProxyClient`, shared row/query types.
-2. `@hypr/db` (`packages/db/`) — Drizzle schema (`schema.ts`) + `createDb(client)` factory using `drizzle-orm/sqlite-proxy`. Re-exports Drizzle operators (`eq`, `and`, `sql`, etc.).
-3. `@hypr/db-tauri` (`packages/db-tauri/`) — Tauri-specific client that binds `execute`/`executeProxy`/`subscribe` from `@hypr/plugin-db` to the `db-runtime` types.
-4. `@hypr/db-react` (`packages/db-react/`) — `createUseLiveQuery(client)` and `createUseDrizzleLiveQuery(client)` factories.
+1. `@anlg/db-runtime` (`packages/db-runtime/`) — type contracts only: `LiveQueryClient`, `DrizzleProxyClient`, shared row/query types.
+2. `@anlg/db` (`packages/db/`) — Drizzle schema (`schema.ts`) + `createDb(client)` factory using `drizzle-orm/sqlite-proxy`. Re-exports Drizzle operators (`eq`, `and`, `sql`, etc.).
+3. `@anlg/db-tauri` (`packages/db-tauri/`) — Tauri-specific client that binds `execute`/`executeProxy`/`subscribe` from `@anlg/plugin-db` to the `db-runtime` types.
+4. `@anlg/db-react` (`packages/db-react/`) — `createUseLiveQuery(client)` and `createUseDrizzleLiveQuery(client)` factories.
 
 These are wired together in `apps/desktop/src/db/index.ts`, which exports `db`, `useLiveQuery`, and `useDrizzleLiveQuery`. **Consumer code imports from `~/db`, not directly from the packages.**
 
@@ -143,7 +143,7 @@ stay the same, so consumer code doesn't change.
 - `db.select()...` for imperative reads (returns parsed objects via proxy driver)
 - `db.insert()`, `db.update()`, `db.delete()` for writes, wrapped in `useMutation`
 
-Import `db` and `useDrizzleLiveQuery` from `~/db`, and schema tables/operators from `@hypr/db`.
+Import `db` and `useDrizzleLiveQuery` from `~/db`, and schema tables/operators from `@anlg/db`.
 
 Live query results come from Rust `subscribe` as raw objects (not through the Drizzle driver), so `mapRows` must handle two things:
 
@@ -170,7 +170,7 @@ swapped.
 ### 8. Verify
 
 - `cargo check` and `cargo test -p db-app -p tauri-plugin-db`
-- `pnpm -F @hypr/desktop typecheck`
-- `pnpm -F @hypr/desktop test`
-- `npx oxlint --quiet apps/desktop/src/` (the `hypr/no-raw-tinybase` CI gate)
+- `pnpm -F @anlg/desktop typecheck`
+- `pnpm -F @anlg/desktop test`
+- `npx oxlint --quiet apps/desktop/src/` (the `anlg/no-raw-tinybase` CI gate)
 - `pnpm exec dprint fmt`

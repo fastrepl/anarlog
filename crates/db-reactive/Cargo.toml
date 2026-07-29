@@ -7,9 +7,9 @@ edition = "2024"
 specta = ["dep:specta"]
 
 [dependencies]
-hypr-db-change = { workspace = true }
-hypr-db-core = { workspace = true }
-hypr-db-execute = { workspace = true }
+anlg-db-change = { workspace = true }
+anlg-db-core = { workspace = true }
+anlg-db-execute = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 specta = { workspace = true, optional = true, features = ["serde_json"] }
@@ -19,8 +19,8 @@ tokio = { workspace = true, features = ["macros", "sync", "time"] }
 uuid = { workspace = true, features = ["v4"] }
 
 [dev-dependencies]
-hypr-cloudsync = { workspace = true }
-hypr-db-migrate = { workspace = true }
+anlg-cloudsync = { workspace = true }
+anlg-db-migrate = { workspace = true }
 
 anyhow = { workspace = true }
 tempfile = { workspace = true }

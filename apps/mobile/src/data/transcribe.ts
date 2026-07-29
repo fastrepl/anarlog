@@ -64,7 +64,7 @@ INSERT INTO transcripts (
   updated_at, deleted_at
 )
 SELECT ?, session.workspace_id, session.owner_user_id, session.id,
-  'batch_transcription', 'hyprnote', 'cloud', ?, ?, NULL, '',
+  'batch_transcription', 'anarlog', 'cloud', ?, ?, NULL, '',
   COALESCE((
     SELECT note.body FROM session_documents AS note
     WHERE note.id = session.id AND note.kind = 'note' AND note.deleted_at IS NULL
@@ -172,7 +172,7 @@ function mapBatchResponse(payload: unknown): {
           word_id: wordId,
           type: "provider_speaker_index",
           value: JSON.stringify({
-            provider: "hyprnote",
+            provider: "anarlog",
             channel: wordChannel,
             speaker_index: word.speaker,
           }),
@@ -259,7 +259,7 @@ async function requestTranscription(
   token: string | undefined,
   timeoutMs: number,
 ): Promise<{ status: number; body: string }> {
-  const url = `${env.apiUrl}/stt/listen?provider=hyprnote`;
+  const url = `${env.apiUrl}/stt/listen?provider=anarlog`;
   const headers = {
     "Content-Type": contentType,
     ...(token ? { Authorization: `Bearer ${token}` } : {}),

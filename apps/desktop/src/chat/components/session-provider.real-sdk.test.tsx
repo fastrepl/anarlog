@@ -1,14 +1,14 @@
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { beginCloudsyncActivity, endCloudsyncActivity } from "@hypr/plugin-db";
+import { beginCloudsyncActivity, endCloudsyncActivity } from "@anlg/plugin-db";
 
 import { ChatSession, type ChatSessionRenderProps } from "./session-provider";
 
 import { CHAT_CLOUDSYNC_RELEASE_DELAY_MS } from "~/chat/store/cloudsync-activity";
 import type { PersistedChatMessage } from "~/chat/store/persisted-messages";
 import { useChatActions } from "~/chat/store/use-chat-actions";
-import type { HyprUIMessage } from "~/chat/types";
+import type { AnlgUIMessage } from "~/chat/types";
 
 const mocks = vi.hoisted(() => ({
   createChatGroupWithMessage: vi.fn().mockResolvedValue(undefined),
@@ -34,7 +34,7 @@ vi.mock("~/ai/hooks", () => ({
   useLanguageModel: () => undefined,
 }));
 
-vi.mock("@hypr/ui/components/ui/toast", () => ({
+vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: { error: vi.fn() },
 }));
 
@@ -86,7 +86,7 @@ function deferredVoid() {
   return { promise, reject, resolve };
 }
 
-const userMessage: HyprUIMessage = {
+const userMessage: AnlgUIMessage = {
   id: "user-1",
   role: "user",
   parts: [{ type: "text", text: "Question" }],

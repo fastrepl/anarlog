@@ -1,5 +1,5 @@
 {
-  "name": "@hypr/db",
+  "name": "@anlg/db",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
   },
   "types": "./src/index.ts",
   "dependencies": {
-    "@hypr/db-runtime": "workspace:*",
+    "@anlg/db-runtime": "workspace:*",
     "drizzle-orm": "^0.44.2"
   },
   "devDependencies": {
