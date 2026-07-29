@@ -865,12 +865,9 @@ version = "0.1.0"
 dependencies = [
  "api-auth",
  "api-env",
- "async-stream",
  "async-stripe",
  "async-stripe-billing",
  "axum 0.8.9",
- "chatwoot",
- "futures-util",
  "jsonwebtoken",
  "llm-proxy",
  "mcp",
@@ -883,12 +880,9 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlx",
- "strum 0.28.0",
  "template-support",
  "thiserror 2.0.18",
  "tokio",
- "tokio-tungstenite 0.29.0",
- "tokio-util",
  "tracing",
  "urlencoding",
  "utoipa",
@@ -3288,18 +3282,6 @@ dependencies = [
  "cfg-if",
  "encoding_rs",
  "memchr",
-]
-
-[[package]]
-name = "chatwoot"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "progenitor-client 0.13.0",
- "progenitor-utils",
- "reqwest 0.13.2",
- "serde",
- "serde_json",
 ]
 
 [[package]]

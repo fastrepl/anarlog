@@ -316,34 +316,8 @@ export type ConnectionItem = {
     updated_at?: string | null;
 };
 
-export type ConversationSummary = {
-    id: number;
-    inboxId?: string | null;
-};
-
 export type CreateApiKeyBody = {
     name: string;
-};
-
-export type CreateContactRequest = {
-    customAttributes?: unknown;
-    email?: string | null;
-    identifier: string;
-    name?: string | null;
-};
-
-export type CreateContactResponse = {
-    pubsubToken: string;
-    sourceId: string;
-};
-
-export type CreateConversationRequest = {
-    customAttributes?: unknown;
-    sourceId: string;
-};
-
-export type CreateConversationResponse = {
-    conversationId: number;
 };
 
 export type CreateEventRequest = {
@@ -998,10 +972,6 @@ export type ListConnectionsResponse = {
     connections: Array<ConnectionItem>;
 };
 
-export type ListConversationsQuery = {
-    sourceId: string;
-};
-
 export type ListEventsRequest = {
     calendar_id: string;
     event_types?: Array<GoogleEventType> | null;
@@ -1172,13 +1142,6 @@ export type MessagePartHeader = {
 export type MessageRef = {
     id: string;
     threadId: string;
-};
-
-export type MessageResponse = {
-    content?: string | null;
-    createdAt?: string | null;
-    id: string;
-    messageType?: string | null;
 };
 
 export type NotificationMethod = 'email' | 'unknown';
@@ -1417,12 +1380,6 @@ export type ScheduledAttachmentBackupDeletion = {
     deleteRequestId: string;
     objectKey: string;
     versionRef: string;
-};
-
-export type SendMessageRequest = {
-    content: string;
-    messageType?: string;
-    sourceId?: string | null;
 };
 
 export type Sensitivity = 'normal' | 'personal' | 'private' | 'confidential' | 'unknown';
@@ -3195,141 +3152,6 @@ export type StartTrialResponses = {
 };
 
 export type StartTrialResponse2 = StartTrialResponses[keyof StartTrialResponses];
-
-export type CreateContactData = {
-    body: CreateContactRequest;
-    path?: never;
-    query?: never;
-    url: '/support/chatwoot/contact';
-};
-
-export type CreateContactErrors = {
-    /**
-     * Chatwoot API error
-     */
-    500: unknown;
-};
-
-export type CreateContactResponses = {
-    /**
-     * Contact created or found
-     */
-    200: CreateContactResponse;
-};
-
-export type CreateContactResponse2 = CreateContactResponses[keyof CreateContactResponses];
-
-export type ListConversationsData = {
-    body?: never;
-    path?: never;
-    query: {
-        /**
-         * Contact source ID
-         */
-        source_id: string;
-    };
-    url: '/support/chatwoot/conversations';
-};
-
-export type ListConversationsErrors = {
-    /**
-     * Chatwoot API error
-     */
-    500: unknown;
-};
-
-export type ListConversationsResponses = {
-    /**
-     * List of conversations
-     */
-    200: Array<ConversationSummary>;
-};
-
-export type ListConversationsResponse = ListConversationsResponses[keyof ListConversationsResponses];
-
-export type CreateConversationData = {
-    body: CreateConversationRequest;
-    path?: never;
-    query?: never;
-    url: '/support/chatwoot/conversations';
-};
-
-export type CreateConversationErrors = {
-    /**
-     * Chatwoot API error
-     */
-    500: unknown;
-};
-
-export type CreateConversationResponses = {
-    /**
-     * Conversation created
-     */
-    200: CreateConversationResponse;
-};
-
-export type CreateConversationResponse2 = CreateConversationResponses[keyof CreateConversationResponses];
-
-export type GetMessagesData = {
-    body?: never;
-    path: {
-        /**
-         * Conversation ID
-         */
-        conversation_id: number;
-    };
-    query: {
-        /**
-         * Contact source ID
-         */
-        source_id: string;
-    };
-    url: '/support/chatwoot/conversations/{conversation_id}/messages';
-};
-
-export type GetMessagesErrors = {
-    /**
-     * Chatwoot API error
-     */
-    500: unknown;
-};
-
-export type GetMessagesResponses = {
-    /**
-     * List of messages
-     */
-    200: Array<MessageResponse>;
-};
-
-export type GetMessagesResponse = GetMessagesResponses[keyof GetMessagesResponses];
-
-export type SendMessageData = {
-    body: SendMessageRequest;
-    path: {
-        /**
-         * Conversation ID
-         */
-        conversation_id: number;
-    };
-    query?: never;
-    url: '/support/chatwoot/conversations/{conversation_id}/messages';
-};
-
-export type SendMessageErrors = {
-    /**
-     * Chatwoot API error
-     */
-    500: unknown;
-};
-
-export type SendMessageResponses = {
-    /**
-     * Message sent
-     */
-    200: MessageResponse;
-};
-
-export type SendMessageResponse = SendMessageResponses[keyof SendMessageResponses];
 
 export type DeleteAttachmentBackupData = {
     body: DeleteAttachmentBackupRequest;

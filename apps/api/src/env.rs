@@ -38,8 +38,6 @@ pub struct Env {
     pub github_app: hypr_api_support::GitHubAppEnv,
     #[serde(flatten)]
     pub support_database: hypr_api_support::SupportDatabaseEnv,
-    #[serde(flatten)]
-    pub chatwoot: hypr_api_support::ChatwootEnv,
 
     pub exa_api_key: String,
     pub jina_api_key: String,

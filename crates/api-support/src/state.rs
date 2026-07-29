@@ -13,7 +13,6 @@ pub(crate) struct AppState {
     pub(crate) stripe: StripeClient,
     pub(crate) _auth: AuthState,
     pub(crate) http_client: HttpClient,
-    pub(crate) chatwoot: hypr_chatwoot::Client,
 }
 
 impl AppState {
@@ -38,32 +37,12 @@ impl AppState {
 
         let auth = config.auth.clone();
 
-        let chatwoot = {
-            let mut headers = reqwest::header::HeaderMap::new();
-            let mut token =
-                reqwest::header::HeaderValue::from_str(&config.chatwoot.chatwoot_access_token)
-                    .expect("invalid chatwoot api token");
-            token.set_sensitive(true);
-            headers.insert("api_access_token", token);
-
-            let reqwest_client = reqwest::ClientBuilder::new()
-                .default_headers(headers)
-                .build()
-                .expect("failed to build chatwoot http client");
-
-            hypr_chatwoot::Client::new_with_client(
-                &config.chatwoot.chatwoot_base_url,
-                reqwest_client,
-            )
-        };
-
         Self {
             config,
             octocrab,
             stripe,
             _auth: auth,
             http_client: HttpClient::new(),
-            chatwoot,
         }
     }
 

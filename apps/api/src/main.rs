@@ -235,7 +235,6 @@ async fn app() -> Router {
         &env.support_database,
         &env.stripe,
         &env.supabase,
-        &env.chatwoot,
         auth_state_support.clone(),
     );
     let research_config = hypr_api_research::ResearchConfig {

@@ -15,9 +15,6 @@ pub enum SupportError {
     #[error("GitHub API error: {0}")]
     GitHub(String),
 
-    #[error("Chatwoot API error: {0}")]
-    Chatwoot(String),
-
     #[error("Internal error: {0}")]
     Internal(String),
 }
@@ -42,19 +39,6 @@ impl IntoResponse for SupportError {
                 }),
             )
                 .into_response(),
-            Self::Chatwoot(message) => {
-                tracing::error!(error = %message, "chatwoot_error");
-                sentry::capture_message(&message, sentry::Level::Error);
-                (
-                    StatusCode::BAD_GATEWAY,
-                    Json(crate::routes::FeedbackResponse {
-                        success: false,
-                        issue_url: None,
-                        error: Some("Chatwoot service error".to_string()),
-                    }),
-                )
-                    .into_response()
-            }
             Self::GitHub(message) => {
                 tracing::error!(error = %message, "github_error");
                 sentry::capture_message(&message, sentry::Level::Error);
