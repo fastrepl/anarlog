@@ -323,6 +323,13 @@ function replaceTranscriptText(
   oldText: string,
   newText: string,
 ): ReplacementResult {
+  if (
+    tokenizeComparable(oldText).length === 1 &&
+    tokenizeReplacement(newText).length === 1
+  ) {
+    return replaceBoundedExact(value, oldText, newText);
+  }
+
   const exact = replaceExact(value, oldText, newText);
   return exact.count > 0 ? exact : replaceLoosePhrase(value, oldText, newText);
 }

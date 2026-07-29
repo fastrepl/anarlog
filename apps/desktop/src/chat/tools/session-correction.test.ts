@@ -237,6 +237,46 @@ describe("session correction chat tool", () => {
     ]);
   });
 
+  it("keeps compound transcript words and memo text in sync", () => {
+    const plan = sessionCorrectionTestInternals.planTranscriptCorrections({
+      transcripts: [
+        transcript({
+          words: [
+            {
+              id: "w1",
+              text: "mini-tara",
+              start_ms: 0,
+              end_ms: 100,
+              channel: 0,
+            },
+            {
+              id: "w2",
+              text: "Tarantino",
+              start_ms: 100,
+              end_ms: 200,
+              channel: 0,
+            },
+          ],
+          memo: "Speaker 1: mini-tara, not Tarantino",
+        }),
+      ] as any,
+      oldText: "Tara",
+      newText: "Char",
+    });
+
+    expect(plan.changes[0]).toMatchObject({
+      wordReplacements: 1,
+      memoReplacements: 1,
+    });
+    expect(JSON.parse(plan.updates[0]!.nextWordsJson)).toMatchObject([
+      { text: "mini-Char" },
+      { text: "Tarantino" },
+    ]);
+    expect(plan.updates[0]?.nextMemo).toBe(
+      "Speaker 1: mini-Char, not Tarantino",
+    );
+  });
+
   it("does not plan a partial transcript row update", () => {
     const plan = sessionCorrectionTestInternals.planTranscriptCorrections({
       transcripts: [
