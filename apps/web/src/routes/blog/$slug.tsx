@@ -13,6 +13,7 @@ import {
 
 import { mdxComponents } from "@/components/mdx-components";
 import { SiteFooter } from "@/components/site-footer";
+import { formatBlogDate } from "@/lib/blog-date";
 import { ANARLOG_SITE_URL, getBlogOgImageUrl } from "@/lib/seo";
 
 const blogMdxComponents = {
@@ -89,11 +90,7 @@ function Component() {
             <span>{authors}</span>
             <span>·</span>
             <time dateTime={article.date}>
-              {new Date(article.date).toLocaleDateString("en-US", {
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              })}
+              {formatBlogDate(article.date, "long")}
             </time>
           </div>
         </header>

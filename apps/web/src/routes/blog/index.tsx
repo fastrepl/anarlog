@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { allArticles } from "content-collections";
 
 import { SiteFooter } from "@/components/site-footer";
+import { formatBlogDate } from "@/lib/blog-date";
 import { ANARLOG_SITE_URL } from "@/lib/seo";
 
 export const Route = createFileRoute("/blog/")({
@@ -70,11 +71,7 @@ function Component() {
                     </span>
                     <span>·</span>
                     <time dateTime={article.date}>
-                      {new Date(article.date).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
+                      {formatBlogDate(article.date, "short")}
                     </time>
                   </div>
                 </article>
