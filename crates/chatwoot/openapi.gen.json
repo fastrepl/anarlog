@@ -418,7 +418,209 @@
           "payload": {
             "description": "List of conversations for the contact",
             "items": {
-              "$ref": "#/components/schemas/conversation"
+              "properties": {
+                "account_id": {
+                  "description": "Account Id",
+                  "type": "number"
+                },
+                "additional_attributes": {
+                  "description": "The object containing additional attributes related to the conversation",
+                  "type": "object"
+                },
+                "agent_last_seen_at": {
+                  "description": "The last activity at of the agent",
+                  "type": "number"
+                },
+                "applied_sla": {
+                  "description": "The applied SLA",
+                  "type": "object"
+                },
+                "assignee_last_seen_at": {
+                  "description": "The last activity at of the assignee",
+                  "type": "number"
+                },
+                "can_reply": {
+                  "description": "Whether the conversation can be replied to",
+                  "type": "boolean"
+                },
+                "contact_last_seen_at": {
+                  "description": "The last activity at of the contact",
+                  "type": "number"
+                },
+                "created_at": {
+                  "description": "The time at which conversation was created",
+                  "type": "number"
+                },
+                "custom_attributes": {
+                  "description": "The object to save custom attributes for conversation, accepts custom attributes key and value",
+                  "type": "object"
+                },
+                "first_reply_created_at": {
+                  "description": "The time at which the first reply was created",
+                  "nullable": true,
+                  "type": "number"
+                },
+                "id": {
+                  "description": "ID of the conversation",
+                  "type": "number"
+                },
+                "inbox_id": {
+                  "description": "ID of the inbox",
+                  "type": "number"
+                },
+                "labels": {
+                  "description": "The labels of the conversation",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "last_activity_at": {
+                  "description": "The last activity at of the conversation",
+                  "type": "number"
+                },
+                "last_non_activity_message": {
+                  "$ref": "#/components/schemas/message",
+                  "description": "The last non activity message",
+                  "nullable": true
+                },
+                "messages": {
+                  "items": {
+                    "$ref": "#/components/schemas/message"
+                  },
+                  "type": "array"
+                },
+                "meta": {
+                  "properties": {
+                    "assignee": {
+                      "$ref": "#/components/schemas/user"
+                    },
+                    "channel": {
+                      "description": "Channel Type",
+                      "type": "string"
+                    },
+                    "hmac_verified": {
+                      "description": "Whether the hmac is verified",
+                      "type": "boolean"
+                    },
+                    "sender": {
+                      "properties": {
+                        "additional_attributes": {
+                          "description": "The additional attributes of the sender",
+                          "type": "object"
+                        },
+                        "availability_status": {
+                          "description": "The availability status of the sender",
+                          "type": "string"
+                        },
+                        "blocked": {
+                          "description": "Whether the sender is blocked",
+                          "type": "boolean"
+                        },
+                        "created_at": {
+                          "description": "The created at of the sender",
+                          "type": "number"
+                        },
+                        "custom_attributes": {
+                          "description": "The custom attributes of the sender",
+                          "type": "object"
+                        },
+                        "email": {
+                          "description": "The email of the sender",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "id": {
+                          "description": "ID fo the sender",
+                          "type": "number"
+                        },
+                        "identifier": {
+                          "description": "The identifier of the sender",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_activity_at": {
+                          "description": "The last activity at of the sender",
+                          "type": "number"
+                        },
+                        "name": {
+                          "description": "The name of the sender",
+                          "type": "string"
+                        },
+                        "phone_number": {
+                          "description": "The phone number of the sender",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "thumbnail": {
+                          "description": "Avatar URL of the contact",
+                          "nullable": true,
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                },
+                "muted": {
+                  "description": "Whether the conversation is muted",
+                  "type": "boolean"
+                },
+                "priority": {
+                  "description": "The priority of the conversation",
+                  "nullable": true,
+                  "type": "string"
+                },
+                "sla_events": {
+                  "items": {
+                    "description": "SLA event objects",
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "sla_policy_id": {
+                  "description": "The ID of the SLA policy",
+                  "nullable": true,
+                  "type": "number"
+                },
+                "snoozed_until": {
+                  "description": "The time at which the conversation will be unmuted",
+                  "nullable": true,
+                  "type": "number"
+                },
+                "status": {
+                  "description": "The status of the conversation",
+                  "enum": [
+                    "open",
+                    "resolved",
+                    "pending"
+                  ],
+                  "type": "string"
+                },
+                "timestamp": {
+                  "description": "The time at which conversation was created",
+                  "type": "number"
+                },
+                "unread_count": {
+                  "description": "The number of unread messages",
+                  "type": "number"
+                },
+                "updated_at": {
+                  "description": "The time at which conversation was updated",
+                  "type": "number"
+                },
+                "uuid": {
+                  "description": "UUID of the conversation",
+                  "type": "string"
+                },
+                "waiting_since": {
+                  "description": "The time at which the conversation was waiting",
+                  "nullable": true,
+                  "type": "number"
+                }
+              },
+              "type": "object"
             },
             "type": "array"
           }
@@ -1014,7 +1216,209 @@
               "payload": {
                 "description": "array of conversations",
                 "items": {
-                  "$ref": "#/components/schemas/conversation"
+                  "properties": {
+                    "account_id": {
+                      "description": "Account Id",
+                      "type": "number"
+                    },
+                    "additional_attributes": {
+                      "description": "The object containing additional attributes related to the conversation",
+                      "type": "object"
+                    },
+                    "agent_last_seen_at": {
+                      "description": "The last activity at of the agent",
+                      "type": "number"
+                    },
+                    "applied_sla": {
+                      "description": "The applied SLA",
+                      "type": "object"
+                    },
+                    "assignee_last_seen_at": {
+                      "description": "The last activity at of the assignee",
+                      "type": "number"
+                    },
+                    "can_reply": {
+                      "description": "Whether the conversation can be replied to",
+                      "type": "boolean"
+                    },
+                    "contact_last_seen_at": {
+                      "description": "The last activity at of the contact",
+                      "type": "number"
+                    },
+                    "created_at": {
+                      "description": "The time at which conversation was created",
+                      "type": "number"
+                    },
+                    "custom_attributes": {
+                      "description": "The object to save custom attributes for conversation, accepts custom attributes key and value",
+                      "type": "object"
+                    },
+                    "first_reply_created_at": {
+                      "description": "The time at which the first reply was created",
+                      "nullable": true,
+                      "type": "number"
+                    },
+                    "id": {
+                      "description": "ID of the conversation",
+                      "type": "number"
+                    },
+                    "inbox_id": {
+                      "description": "ID of the inbox",
+                      "type": "number"
+                    },
+                    "labels": {
+                      "description": "The labels of the conversation",
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "last_activity_at": {
+                      "description": "The last activity at of the conversation",
+                      "type": "number"
+                    },
+                    "last_non_activity_message": {
+                      "$ref": "#/components/schemas/message",
+                      "description": "The last non activity message",
+                      "nullable": true
+                    },
+                    "messages": {
+                      "items": {
+                        "$ref": "#/components/schemas/message"
+                      },
+                      "type": "array"
+                    },
+                    "meta": {
+                      "properties": {
+                        "assignee": {
+                          "$ref": "#/components/schemas/user"
+                        },
+                        "channel": {
+                          "description": "Channel Type",
+                          "type": "string"
+                        },
+                        "hmac_verified": {
+                          "description": "Whether the hmac is verified",
+                          "type": "boolean"
+                        },
+                        "sender": {
+                          "properties": {
+                            "additional_attributes": {
+                              "description": "The additional attributes of the sender",
+                              "type": "object"
+                            },
+                            "availability_status": {
+                              "description": "The availability status of the sender",
+                              "type": "string"
+                            },
+                            "blocked": {
+                              "description": "Whether the sender is blocked",
+                              "type": "boolean"
+                            },
+                            "created_at": {
+                              "description": "The created at of the sender",
+                              "type": "number"
+                            },
+                            "custom_attributes": {
+                              "description": "The custom attributes of the sender",
+                              "type": "object"
+                            },
+                            "email": {
+                              "description": "The email of the sender",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "id": {
+                              "description": "ID fo the sender",
+                              "type": "number"
+                            },
+                            "identifier": {
+                              "description": "The identifier of the sender",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "last_activity_at": {
+                              "description": "The last activity at of the sender",
+                              "type": "number"
+                            },
+                            "name": {
+                              "description": "The name of the sender",
+                              "type": "string"
+                            },
+                            "phone_number": {
+                              "description": "The phone number of the sender",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "thumbnail": {
+                              "description": "Avatar URL of the contact",
+                              "nullable": true,
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "muted": {
+                      "description": "Whether the conversation is muted",
+                      "type": "boolean"
+                    },
+                    "priority": {
+                      "description": "The priority of the conversation",
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "sla_events": {
+                      "items": {
+                        "description": "SLA event objects",
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "sla_policy_id": {
+                      "description": "The ID of the SLA policy",
+                      "nullable": true,
+                      "type": "number"
+                    },
+                    "snoozed_until": {
+                      "description": "The time at which the conversation will be unmuted",
+                      "nullable": true,
+                      "type": "number"
+                    },
+                    "status": {
+                      "description": "The status of the conversation",
+                      "enum": [
+                        "open",
+                        "resolved",
+                        "pending"
+                      ],
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "description": "The time at which conversation was created",
+                      "type": "number"
+                    },
+                    "unread_count": {
+                      "description": "The number of unread messages",
+                      "type": "number"
+                    },
+                    "updated_at": {
+                      "description": "The time at which conversation was updated",
+                      "type": "number"
+                    },
+                    "uuid": {
+                      "description": "UUID of the conversation",
+                      "type": "string"
+                    },
+                    "waiting_since": {
+                      "description": "The time at which the conversation was waiting",
+                      "nullable": true,
+                      "type": "number"
+                    }
+                  },
+                  "type": "object"
                 },
                 "type": "array"
               }
@@ -1171,10 +1575,292 @@
         "type": "object"
       },
       "conversation_show": {
-        "$ref": "#/components/schemas/conversation"
+        "properties": {
+          "account_id": {
+            "description": "Account Id",
+            "type": "number"
+          },
+          "additional_attributes": {
+            "description": "The object containing additional attributes related to the conversation",
+            "type": "object"
+          },
+          "agent_last_seen_at": {
+            "description": "The last activity at of the agent",
+            "type": "number"
+          },
+          "applied_sla": {
+            "description": "The applied SLA",
+            "type": "object"
+          },
+          "assignee_last_seen_at": {
+            "description": "The last activity at of the assignee",
+            "type": "number"
+          },
+          "can_reply": {
+            "description": "Whether the conversation can be replied to",
+            "type": "boolean"
+          },
+          "contact_last_seen_at": {
+            "description": "The last activity at of the contact",
+            "type": "number"
+          },
+          "created_at": {
+            "description": "The time at which conversation was created",
+            "type": "number"
+          },
+          "custom_attributes": {
+            "description": "The object to save custom attributes for conversation, accepts custom attributes key and value",
+            "type": "object"
+          },
+          "first_reply_created_at": {
+            "description": "The time at which the first reply was created",
+            "nullable": true,
+            "type": "number"
+          },
+          "id": {
+            "description": "ID of the conversation",
+            "type": "number"
+          },
+          "inbox_id": {
+            "description": "ID of the inbox",
+            "type": "number"
+          },
+          "labels": {
+            "description": "The labels of the conversation",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "last_activity_at": {
+            "description": "The last activity at of the conversation",
+            "type": "number"
+          },
+          "last_non_activity_message": {
+            "$ref": "#/components/schemas/message",
+            "description": "The last non activity message",
+            "nullable": true
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/message"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "properties": {
+              "assignee": {
+                "$ref": "#/components/schemas/user"
+              },
+              "channel": {
+                "description": "Channel Type",
+                "type": "string"
+              },
+              "hmac_verified": {
+                "description": "Whether the hmac is verified",
+                "type": "boolean"
+              },
+              "sender": {
+                "properties": {
+                  "additional_attributes": {
+                    "description": "The additional attributes of the sender",
+                    "type": "object"
+                  },
+                  "availability_status": {
+                    "description": "The availability status of the sender",
+                    "type": "string"
+                  },
+                  "blocked": {
+                    "description": "Whether the sender is blocked",
+                    "type": "boolean"
+                  },
+                  "created_at": {
+                    "description": "The created at of the sender",
+                    "type": "number"
+                  },
+                  "custom_attributes": {
+                    "description": "The custom attributes of the sender",
+                    "type": "object"
+                  },
+                  "email": {
+                    "description": "The email of the sender",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "id": {
+                    "description": "ID fo the sender",
+                    "type": "number"
+                  },
+                  "identifier": {
+                    "description": "The identifier of the sender",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "last_activity_at": {
+                    "description": "The last activity at of the sender",
+                    "type": "number"
+                  },
+                  "name": {
+                    "description": "The name of the sender",
+                    "type": "string"
+                  },
+                  "phone_number": {
+                    "description": "The phone number of the sender",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "thumbnail": {
+                    "description": "Avatar URL of the contact",
+                    "nullable": true,
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "muted": {
+            "description": "Whether the conversation is muted",
+            "type": "boolean"
+          },
+          "priority": {
+            "description": "The priority of the conversation",
+            "nullable": true,
+            "type": "string"
+          },
+          "sla_events": {
+            "items": {
+              "description": "SLA event objects",
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "sla_policy_id": {
+            "description": "The ID of the SLA policy",
+            "nullable": true,
+            "type": "number"
+          },
+          "snoozed_until": {
+            "description": "The time at which the conversation will be unmuted",
+            "nullable": true,
+            "type": "number"
+          },
+          "status": {
+            "description": "The status of the conversation",
+            "enum": [
+              "open",
+              "resolved",
+              "pending"
+            ],
+            "type": "string"
+          },
+          "timestamp": {
+            "description": "The time at which conversation was created",
+            "type": "number"
+          },
+          "unread_count": {
+            "description": "The number of unread messages",
+            "type": "number"
+          },
+          "updated_at": {
+            "description": "The time at which conversation was updated",
+            "type": "number"
+          },
+          "uuid": {
+            "description": "UUID of the conversation",
+            "type": "string"
+          },
+          "waiting_since": {
+            "description": "The time at which the conversation was waiting",
+            "nullable": true,
+            "type": "number"
+          }
+        },
+        "type": "object"
       },
       "extended_contact": {
-        "$ref": "#/components/schemas/contact"
+        "properties": {
+          "availability_status": {
+            "description": "Availability status of the user",
+            "enum": [
+              "online",
+              "offline"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "description": "Id of the user",
+            "type": "number"
+          },
+          "payload": {
+            "items": {
+              "properties": {
+                "additional_attributes": {
+                  "description": "The object containing additional attributes related to the contact",
+                  "type": "object"
+                },
+                "availability_status": {
+                  "description": "The availability status of the contact",
+                  "type": "string"
+                },
+                "blocked": {
+                  "description": "Whether the contact is blocked",
+                  "type": "boolean"
+                },
+                "contact_inboxes": {
+                  "items": {
+                    "$ref": "#/components/schemas/contact_inboxes"
+                  },
+                  "type": "array"
+                },
+                "created_at": {
+                  "description": "The created at of the contact",
+                  "type": "integer"
+                },
+                "custom_attributes": {
+                  "description": "The custom attributes of the contact",
+                  "example": {
+                    "attribute_key": "attribute_value",
+                    "signed_up_at": "dd/mm/yyyy"
+                  },
+                  "type": "object"
+                },
+                "email": {
+                  "description": "The email address of the contact",
+                  "type": "string"
+                },
+                "id": {
+                  "description": "The ID of the contact",
+                  "type": "integer"
+                },
+                "identifier": {
+                  "description": "The identifier of the contact",
+                  "type": "string"
+                },
+                "last_activity_at": {
+                  "description": "The last activity at of the contact",
+                  "type": "integer"
+                },
+                "name": {
+                  "description": "The name of the contact",
+                  "type": "string"
+                },
+                "phone_number": {
+                  "description": "The phone number of the contact",
+                  "type": "string"
+                },
+                "thumbnail": {
+                  "description": "The thumbnail of the contact",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
       },
       "inbox": {
         "properties": {
