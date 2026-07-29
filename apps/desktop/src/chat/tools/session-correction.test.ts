@@ -182,6 +182,61 @@ describe("session correction chat tool", () => {
     expect(plan.updates[0]?.nextMemo).toBe("Speaker 1: Y then Y");
   });
 
+  it("replaces bounded terms inside compound transcript words", () => {
+    const result = sessionCorrectionTestInternals.replaceTranscriptWords(
+      [
+        {
+          id: "w1",
+          text: " mini-Tara,",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 0,
+        },
+        {
+          id: "w2",
+          text: "Tara",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 0,
+        },
+        {
+          id: "w3",
+          text: "Tarantino",
+          start_ms: 200,
+          end_ms: 300,
+          channel: 0,
+        },
+      ],
+      "Tara",
+      "Char",
+    );
+
+    expect(result.count).toBe(2);
+    expect(result.words).toEqual([
+      {
+        id: "w1",
+        text: " mini-Char,",
+        start_ms: 0,
+        end_ms: 100,
+        channel: 0,
+      },
+      {
+        id: "w2",
+        text: "Char",
+        start_ms: 100,
+        end_ms: 200,
+        channel: 0,
+      },
+      {
+        id: "w3",
+        text: "Tarantino",
+        start_ms: 200,
+        end_ms: 300,
+        channel: 0,
+      },
+    ]);
+  });
+
   it("does not plan a partial transcript row update", () => {
     const plan = sessionCorrectionTestInternals.planTranscriptCorrections({
       transcripts: [

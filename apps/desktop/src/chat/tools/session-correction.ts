@@ -80,6 +80,29 @@ function replaceExact(
   };
 }
 
+function replaceBoundedExact(
+  value: string,
+  oldText: string,
+  newText: string,
+): ReplacementResult {
+  if (!oldText) {
+    return { text: value, count: 0 };
+  }
+
+  const escaped = oldText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(
+    `(^|[^\\p{L}\\p{N}])${escaped}(?=$|[^\\p{L}\\p{N}])`,
+    "giu",
+  );
+  let count = 0;
+  const text = value.replace(pattern, (_match, prefix: string) => {
+    count++;
+    return `${prefix}${newText}`;
+  });
+
+  return { text, count };
+}
+
 function planSummaryCorrections({
   notes,
   enhancedNoteId,
@@ -213,6 +236,17 @@ function replaceTranscriptWords(
   const nextWords: TranscriptWord[] = [];
   let count = 0;
   for (let index = 0; index < words.length; ) {
+    if (target.length === 1 && replacementTokens.length === 1) {
+      const word = words[index];
+      const replaced = replaceBoundedExact(word.text ?? "", oldText, newText);
+      if (replaced.count > 0) {
+        nextWords.push({ ...word, text: replaced.text });
+        count += replaced.count;
+        index++;
+        continue;
+      }
+    }
+
     if (wordRangeMatchesAt(words, target, index)) {
       const original = words.slice(index, index + target.length);
       nextWords.push(...buildReplacementWords(original, newText));
