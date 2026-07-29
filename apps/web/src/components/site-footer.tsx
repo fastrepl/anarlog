@@ -31,6 +31,9 @@ export function SiteFooter() {
         <Link to="/changelog/" className="hover:text-[#181613]">
           Changelog
         </Link>
+        <a href="https://status.anarlog.so" className="hover:text-[#181613]">
+          Status
+        </a>
         <Link to="/privacy/" className="hover:text-[#181613]">
           Privacy
         </Link>

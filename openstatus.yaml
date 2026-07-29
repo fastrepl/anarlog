@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://www.openstatus.dev/schema.json
 
-"7697":
+"11026":
   active: true
   assertions:
     - compare: eq
@@ -8,20 +8,21 @@
       target: 200
   frequency: 1m
   kind: http
-  name: Char Web
+  name: Anarlog API
   openTelemetry: {}
   regions:
-    - railway_europe-west4-drams3a
-    - lhr
-    - railway_asia-southeast1-eqsg3a
-    - nrt
-    - yyz
-    - koyeb_was
+    - iad
+    - arn
+    - sin
+    - syd
+    - gru
+    - jnb
   request:
     method: GET
-    url: https://char.com
+    url: https://api.anarlog.so/health
   retry: 3
-"8351":
+  timeout: 45000
+"11027":
   active: true
   assertions:
     - compare: eq
@@ -29,20 +30,21 @@
       target: 200
   frequency: 1m
   kind: http
-  name: Char API
+  name: Anarlog Web
   openTelemetry: {}
   regions:
-    - cdg
-    - lax
-    - koyeb_par
-    - koyeb_fra
-    - fra
-    - bom
+    - iad
+    - arn
+    - sin
+    - syd
+    - gru
+    - jnb
   request:
     method: GET
-    url: https://api.char.com/health
+    url: https://anarlog.so
   retry: 3
-"8354":
+  timeout: 45000
+"11028":
   active: true
   assertions:
     - compare: eq
@@ -50,37 +52,17 @@
       target: 200
   frequency: 1m
   kind: http
-  name: Char Web
+  name: Anarlog Docs
   openTelemetry: {}
   regions:
-    - railway_europe-west4-drams3a
-    - lhr
-    - railway_asia-southeast1-eqsg3a
-    - nrt
-    - yyz
-    - koyeb_was
+    - iad
+    - arn
+    - sin
+    - syd
+    - gru
+    - jnb
   request:
     method: GET
-    url: https://char.com
+    url: https://docs.anarlog.so
   retry: 3
-"8355":
-  active: true
-  assertions:
-    - compare: eq
-      kind: statusCode
-      target: 200
-  frequency: 1m
-  kind: http
-  name: Char API
-  openTelemetry: {}
-  regions:
-    - cdg
-    - lax
-    - koyeb_par
-    - koyeb_fra
-    - fra
-    - bom
-  request:
-    method: GET
-    url: https://api.char.com/health
-  retry: 3
+  timeout: 45000
