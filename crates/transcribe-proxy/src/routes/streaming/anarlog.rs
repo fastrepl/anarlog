@@ -2,9 +2,9 @@ use base64::Engine;
 use std::sync::Arc;
 
 use owhisper_client::{
-    AssemblyAIAdapter, Auth, CartesiaAdapter, DashScopeAdapter, DeepgramAdapter, ElevenLabsAdapter,
-    FireworksAdapter, GladiaAdapter, MistralAdapter, OpenAIAdapter, Provider, RealtimeSttAdapter,
-    SonioxAdapter, normalize_listen_params,
+    AssemblyAIAdapter, Auth, CartesiaAdapter, DashScopeAdapter, DeepgramAdapter,
+    DeepgramFluxAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, MistralAdapter,
+    OpenAIAdapter, Provider, RealtimeSttAdapter, SonioxAdapter, normalize_listen_params,
 };
 use owhisper_interface::ListenParams;
 
@@ -42,6 +42,14 @@ fn build_upstream_url_with_adapter(
     channels: u8,
 ) -> url::Url {
     match provider {
+        Provider::Deepgram
+            if params
+                .model
+                .as_deref()
+                .is_some_and(DeepgramFluxAdapter::is_model) =>
+        {
+            DeepgramFluxAdapter.build_ws_url(api_base, params, channels)
+        }
         Provider::Deepgram => DeepgramAdapter.build_ws_url(api_base, params, channels),
         Provider::AssemblyAI => AssemblyAIAdapter.build_ws_url(api_base, params, channels),
         Provider::Cartesia => CartesiaAdapter.build_ws_url(api_base, params, channels),
@@ -64,6 +72,14 @@ fn build_initial_message_with_adapter(
     channels: u8,
 ) -> Option<String> {
     let msg = match provider {
+        Provider::Deepgram
+            if params
+                .model
+                .as_deref()
+                .is_some_and(DeepgramFluxAdapter::is_model) =>
+        {
+            DeepgramFluxAdapter.initial_message(api_key, params, channels)
+        }
         Provider::Deepgram => DeepgramAdapter.initial_message(api_key, params, channels),
         Provider::AssemblyAI => AssemblyAIAdapter.initial_message(api_key, params, channels),
         Provider::Cartesia => CartesiaAdapter.initial_message(api_key, params, channels),
@@ -86,11 +102,15 @@ fn build_initial_message_with_adapter(
 
 fn build_response_transformer(
     provider: Provider,
+    model: Option<&str>,
 ) -> impl Fn(&str) -> Option<String> + Send + Sync + 'static {
     let mistral_adapter = MistralAdapter::default();
     let openai_adapter = OpenAIAdapter::default();
+    let is_deepgram_flux =
+        provider == Provider::Deepgram && model.is_some_and(DeepgramFluxAdapter::is_model);
     move |raw: &str| {
         let responses: Vec<owhisper_interface::stream::StreamResponse> = match provider {
+            Provider::Deepgram if is_deepgram_flux => DeepgramFluxAdapter.parse_response(raw),
             Provider::Deepgram => DeepgramAdapter.parse_response(raw),
             Provider::AssemblyAI => AssemblyAIAdapter.parse_response(raw),
             Provider::Cartesia => CartesiaAdapter.parse_response(raw),
@@ -138,12 +158,23 @@ fn proxy_debug_enabled() -> bool {
         .unwrap_or(false)
 }
 
-fn build_client_message_filter(provider: Provider) -> ClientMessageFilter {
+fn build_client_message_filter(provider: Provider, model: Option<&str>) -> ClientMessageFilter {
+    let is_deepgram_flux =
+        provider == Provider::Deepgram && model.is_some_and(DeepgramFluxAdapter::is_model);
     Arc::new(move |text: String| {
         let msg = match serde_json::from_str::<owhisper_interface::ControlMessage>(&text) {
             Ok(msg) => msg,
             Err(_) => return Some(text),
         };
+        if is_deepgram_flux {
+            return match msg {
+                owhisper_interface::ControlMessage::Finalize
+                | owhisper_interface::ControlMessage::CloseStream => {
+                    Some(r#"{"type":"CloseStream"}"#.to_string())
+                }
+                owhisper_interface::ControlMessage::KeepAlive => None,
+            };
+        }
         provider.translate_control_message(&msg)
     })
 }
@@ -181,21 +212,24 @@ fn build_proxy_plan(
     selected: &SelectedProvider,
     channels: u8,
     sample_rate: u32,
+    model: Option<&str>,
     config: &SttProxyConfig,
     analytics_ctx: AnalyticsContext,
 ) -> Result<StreamingProxyPlan, crate::ProxyError> {
     let mut plan = StreamingProxyPlan::new(StreamingTransport::for_channels(
         channels,
-        provider.supports_native_multichannel(),
+        provider.supports_native_multichannel()
+            && !(provider == Provider::Deepgram
+                && model.is_some_and(DeepgramFluxAdapter::is_model)),
     )?)
     .connect_timeout(config.connect_timeout)
     .control_message_types(provider.control_message_types())
-    .response_transformer(build_response_transformer(provider))
-    .client_message_filter(build_client_message_filter(provider))
+    .response_transformer(build_response_transformer(provider, model))
+    .client_message_filter(build_client_message_filter(provider, model))
     .apply_auth(selected);
 
     if plan.upstream_count() == 2 {
-        plan = plan.split_response_transformer(build_response_transformer(provider));
+        plan = plan.split_response_transformer(build_response_transformer(provider, model));
     }
 
     if let Some(mapper) = build_client_binary_message_mapper(provider, sample_rate) {
@@ -210,29 +244,22 @@ fn build_proxy_plan(
 }
 
 fn build_proxy_with_adapter(
-    client_params: &QueryParams,
+    listen_params: &ListenParams,
+    channels: u8,
     api_base: &str,
     mut plan: StreamingProxyPlan,
     provider: Provider,
     api_key: &str,
 ) -> Result<StreamingProxy, crate::ProxyError> {
-    let mut listen_params = build_listen_params(client_params);
-    let channels: u8 = parse_param(client_params, "channels", 1);
-    if matches!(provider, Provider::AquaVoice | Provider::Pyannote) {
-        return Err(crate::ProxyError::InvalidRequest(format!(
-            "{provider} only supports batch transcription"
-        )));
-    }
-    resolve_model_live(provider, &mut listen_params);
     let upstream_channels = plan.upstream_request_channels(channels);
 
     let upstream_url =
-        build_upstream_url_with_adapter(provider, api_base, &listen_params, upstream_channels);
+        build_upstream_url_with_adapter(provider, api_base, listen_params, upstream_channels);
 
     let initial_message = build_initial_message_with_adapter(
         provider,
         Some(api_key),
-        &listen_params,
+        listen_params,
         upstream_channels,
     );
 
@@ -251,11 +278,21 @@ pub async fn build_proxy(
 ) -> Result<StreamingProxy, ProxyBuildError> {
     let provider = selected.provider();
     let channels: u8 = parse_param(params, "channels", 1);
+    if matches!(provider, Provider::AquaVoice | Provider::Pyannote) {
+        return Err(ProxyBuildError::ProxyError(
+            crate::ProxyError::InvalidRequest(format!(
+                "{provider} only supports batch transcription"
+            )),
+        ));
+    }
+    let mut listen_params = build_listen_params(params);
+    resolve_model_live(provider, &mut listen_params);
     let plan = build_proxy_plan(
         provider,
         selected,
         channels,
-        parse_param(params, "sample_rate", 16000),
+        listen_params.sample_rate,
+        listen_params.model.as_deref(),
         &state.config,
         analytics_ctx,
     )?;
@@ -267,7 +304,8 @@ pub async fn build_proxy(
         Auth::SessionInit { header_name } => {
             if selected.upstream_url().is_some() {
                 Ok(build_proxy_with_adapter(
-                    params,
+                    &listen_params,
+                    channels,
                     api_base,
                     plan,
                     provider,
@@ -307,7 +345,8 @@ pub async fn build_proxy(
             }
         }
         _ => Ok(build_proxy_with_adapter(
-            params,
+            &listen_params,
+            channels,
             api_base,
             plan,
             provider,
@@ -443,6 +482,29 @@ mod tests {
     }
 
     #[test]
+    fn test_build_upstream_url_deepgram_flux() {
+        let params = ListenParams {
+            model: Some("flux-general-multi".to_string()),
+            languages: vec![ISO639::En.into(), ISO639::Ja.into()],
+            sample_rate: 16000,
+            channels: 1,
+            ..Default::default()
+        };
+
+        let url = build_upstream_url_with_adapter(
+            Provider::Deepgram,
+            "https://api.deepgram.com/v1",
+            &params,
+            1,
+        );
+
+        assert_eq!(url.path(), "/v2/listen");
+        assert!(url.as_str().contains("model=flux-general-multi"));
+        assert!(url.as_str().contains("language_hint=en"));
+        assert!(url.as_str().contains("language_hint=ja"));
+    }
+
+    #[test]
     fn test_build_upstream_url_soniox() {
         let params = ListenParams {
             model: Some("stt-rt-v3".to_string()),
@@ -494,7 +556,7 @@ mod tests {
 
     #[test]
     fn test_response_transformer_deepgram() {
-        let transformer = build_response_transformer(Provider::Deepgram);
+        let transformer = build_response_transformer(Provider::Deepgram, Some("nova-3"));
 
         let deepgram_response = r#"{
             "type": "Results",
@@ -530,8 +592,32 @@ mod tests {
     }
 
     #[test]
+    fn test_response_transformer_deepgram_flux() {
+        let transformer =
+            build_response_transformer(Provider::Deepgram, Some("flux-general-multi"));
+        let result = transformer(
+            r#"{
+                "type": "TurnInfo",
+                "request_id": "test",
+                "event": "EndOfTurn",
+                "audio_window_start": 0.0,
+                "audio_window_end": 1.0,
+                "transcript": "hello",
+                "words": [
+                    {"word": "hello", "start": 0.0, "end": 0.5, "confidence": 0.9}
+                ],
+                "languages": ["en"]
+            }"#,
+        );
+
+        let parsed: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        assert_eq!(parsed["type"], "Results");
+        assert_eq!(parsed["channel"]["alternatives"][0]["transcript"], "hello");
+    }
+
+    #[test]
     fn test_response_transformer_empty_response() {
-        let transformer = build_response_transformer(Provider::Soniox);
+        let transformer = build_response_transformer(Provider::Soniox, None);
 
         let result = transformer("{}");
         assert!(result.is_none());
@@ -539,7 +625,7 @@ mod tests {
 
     #[test]
     fn test_client_message_filter_deepgram_identity() {
-        let filter = build_client_message_filter(Provider::Deepgram);
+        let filter = build_client_message_filter(Provider::Deepgram, Some("nova-3"));
         assert_eq!(
             filter(r#"{"type":"KeepAlive"}"#.to_string()),
             Some(r#"{"type":"KeepAlive"}"#.to_string())
@@ -552,8 +638,22 @@ mod tests {
     }
 
     #[test]
+    fn test_client_message_filter_deepgram_flux_translates_finalize() {
+        let filter = build_client_message_filter(Provider::Deepgram, Some("flux-general-multi"));
+        assert_eq!(filter(r#"{"type":"KeepAlive"}"#.to_string()), None);
+        assert_eq!(
+            filter(r#"{"type":"Finalize"}"#.to_string()),
+            Some(r#"{"type":"CloseStream"}"#.to_string())
+        );
+        assert_eq!(
+            filter(r#"{"type":"CloseStream"}"#.to_string()),
+            Some(r#"{"type":"CloseStream"}"#.to_string())
+        );
+    }
+
+    #[test]
     fn test_client_message_filter_soniox_translates_control_messages() {
-        let filter = build_client_message_filter(Provider::Soniox);
+        let filter = build_client_message_filter(Provider::Soniox, None);
 
         assert_eq!(filter(r#"{"type":"CloseStream"}"#.to_string()), None);
         assert_eq!(
@@ -568,7 +668,7 @@ mod tests {
 
     #[test]
     fn test_client_message_filter_assemblyai_translates_finalize() {
-        let filter = build_client_message_filter(Provider::AssemblyAI);
+        let filter = build_client_message_filter(Provider::AssemblyAI, None);
         assert_eq!(filter(r#"{"type":"KeepAlive"}"#.to_string()), None);
         assert_eq!(
             filter(r#"{"type":"Finalize"}"#.to_string()),
@@ -578,7 +678,7 @@ mod tests {
 
     #[test]
     fn test_client_message_filter_non_json_passthrough() {
-        let filter = build_client_message_filter(Provider::Soniox);
+        let filter = build_client_message_filter(Provider::Soniox, None);
         assert_eq!(filter("not json".to_string()), Some("not json".to_string()));
     }
 

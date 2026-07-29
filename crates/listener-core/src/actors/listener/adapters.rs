@@ -6,8 +6,9 @@ use ractor::{ActorProcessingErr, ActorRef};
 
 use owhisper_client::{
     AdapterKind, AnarlogAdapter, ArgmaxAdapter, AssemblyAIAdapter, CartesiaAdapter,
-    DashScopeAdapter, DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter,
-    MistralAdapter, OpenAIAdapter, RealtimeSttAdapter, SonioxAdapter, anlg_ws_client,
+    DashScopeAdapter, DeepgramAdapter, DeepgramFluxAdapter, ElevenLabsAdapter, FireworksAdapter,
+    GladiaAdapter, MistralAdapter, OpenAIAdapter, RealtimeSttAdapter, SonioxAdapter,
+    anlg_ws_client,
 };
 use owhisper_interface::stream::Extra;
 use owhisper_interface::{ControlMessage, MixedMessage};
@@ -75,6 +76,15 @@ pub(super) async fn spawn_rx_task(
     let adapter_kind =
         AdapterKind::from_url_and_languages(&args.base_url, &args.languages, Some(&args.model));
     let is_dual = matches!(args.mode, crate::actors::ChannelMode::MicAndSpeaker);
+
+    if adapter_kind == AdapterKind::Deepgram && DeepgramFluxAdapter::is_model(&args.model) {
+        let result = if is_dual {
+            spawn_rx_task_dual_with_adapter::<DeepgramFluxAdapter>(args, myself).await?
+        } else {
+            spawn_rx_task_single_with_adapter::<DeepgramFluxAdapter>(args, myself).await?
+        };
+        return Ok((result.0, result.1, result.2, "deepgram".to_string()));
+    }
 
     macro_rules! dispatch_realtime {
         ($ak:expr, $is_dual:expr, $args:expr, $myself:expr,

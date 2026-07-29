@@ -182,6 +182,14 @@ export function getSttModelTranscriptionMode(
     }
   }
 
+  if (provider === "deepgram" && model?.startsWith("flux-")) {
+    return "live";
+  }
+
+  if (provider === "gladia" && model === "solaria-3") {
+    return "batch";
+  }
+
   return undefined;
 }
 

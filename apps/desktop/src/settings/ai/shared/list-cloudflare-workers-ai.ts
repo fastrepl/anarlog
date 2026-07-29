@@ -2,6 +2,8 @@ import type { ListModelsResult, ModelMetadata } from "./list-common";
 import { DEFAULT_RESULT } from "./list-common";
 
 export const CLOUDFLARE_WORKERS_AI_MODELS = [
+  "@cf/moonshotai/kimi-k2.7-code",
+  "@cf/zai-org/glm-5.2",
   "@cf/moonshotai/kimi-k2.6",
   "@cf/zai-org/glm-4.7-flash",
   "@cf/openai/gpt-oss-120b",
@@ -15,6 +17,7 @@ export const CLOUDFLARE_WORKERS_AI_MODELS = [
 ] as const;
 
 const VISION_MODELS = new Set<string>([
+  "@cf/moonshotai/kimi-k2.7-code",
   "@cf/moonshotai/kimi-k2.6",
   "@cf/meta/llama-4-scout-17b-16e-instruct",
   "@cf/google/gemma-4-26b-a4b-it",

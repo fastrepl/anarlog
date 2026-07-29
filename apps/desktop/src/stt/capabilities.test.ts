@@ -87,6 +87,10 @@ describe("getSttModelTranscriptionMode", () => {
     expect(getSttModelTranscriptionMode("mistral", "voxtral-mini-2602")).toBe(
       "batch",
     );
+    expect(getSttModelTranscriptionMode("deepgram", "flux-general-multi")).toBe(
+      "live",
+    );
+    expect(getSttModelTranscriptionMode("gladia", "solaria-3")).toBe("batch");
   });
 
   test("leaves models without an explicit mode to provider inference", () => {

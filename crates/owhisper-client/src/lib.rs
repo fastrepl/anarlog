@@ -24,9 +24,9 @@ pub use adapter::deepgram::DeepgramModel;
 pub use adapter::{
     AdapterKind, AnarlogAdapter, AquaVoiceAdapter, ArgmaxAdapter, AssemblyAIAdapter,
     BatchSttAdapter, CallbackResult, CallbackSttAdapter, CartesiaAdapter, DashScopeAdapter,
-    DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, LanguageQuality,
-    LanguageSupport, MistralAdapter, OpenAIAdapter, PyannoteAdapter, RealtimeSttAdapter,
-    SmallestAIAdapter, SonioxAdapter, WhisperCppAdapter, append_provider_param,
+    DeepgramAdapter, DeepgramFluxAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter,
+    LanguageQuality, LanguageSupport, MistralAdapter, OpenAIAdapter, PyannoteAdapter,
+    RealtimeSttAdapter, SmallestAIAdapter, SonioxAdapter, WhisperCppAdapter, append_provider_param,
     documented_language_codes_batch, documented_language_codes_live, is_anarlog_proxy,
     is_local_host, normalize_languages,
 };

@@ -53,6 +53,7 @@ const commonIgnoreKeywords = [
 const modelPriorityPatterns = [
   /(?:^|\/)gpt-5\.5$/,
   /(?:^|\/)(?:chat-latest|gpt-chat-latest)$/,
+  /(?:^|\/)claude-opus-5$/,
   /(?:^|\/)claude-sonnet-(?:5|latest)$/,
   /(?:^|\/)gpt-5\.4$/,
   /(?:^|\/)gpt-5\.4-mini$/,
@@ -61,6 +62,8 @@ const modelPriorityPatterns = [
   /(?:^|\/)claude-opus-4[-.]8$/,
   /(?:^|\/)claude-sonnet-4[-.]6$/,
   /(?:^|\/)claude-haiku-4[-.]5(?:-\d{8})?$/,
+  /(?:^|\/)gemini-3\.6-flash$/,
+  /(?:^|\/)gemini-3\.5-flash-lite$/,
   /(?:^|\/)gemini-3\.1-pro-preview$/,
   /(?:^|\/)gemini-3\.5-flash$/,
   /(?:^|\/)gemini-3-flash-preview$/,

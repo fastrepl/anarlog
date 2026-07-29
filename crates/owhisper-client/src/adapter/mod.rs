@@ -484,7 +484,7 @@ impl AdapterKind {
             }
             Self::Soniox => SonioxAdapter::language_support_live(languages),
             Self::AssemblyAI => AssemblyAIAdapter::language_support_live(languages),
-            Self::Gladia => GladiaAdapter::language_support_live(languages),
+            Self::Gladia => GladiaAdapter::language_support_live(languages, model),
             Self::OpenAI => OpenAIAdapter::language_support_live(languages),
             Self::Fireworks => FireworksAdapter::language_support_live(languages),
             Self::ElevenLabs => ElevenLabsAdapter::language_support_live(languages),
@@ -510,7 +510,7 @@ impl AdapterKind {
             }
             Self::Soniox => SonioxAdapter::language_support_batch(languages),
             Self::AssemblyAI => AssemblyAIAdapter::language_support_batch(languages),
-            Self::Gladia => GladiaAdapter::language_support_batch(languages),
+            Self::Gladia => GladiaAdapter::language_support_batch(languages, model),
             Self::OpenAI => OpenAIAdapter::language_support_batch(languages),
             Self::Fireworks => FireworksAdapter::language_support_batch(languages),
             Self::ElevenLabs => ElevenLabsAdapter::language_support_batch(languages),

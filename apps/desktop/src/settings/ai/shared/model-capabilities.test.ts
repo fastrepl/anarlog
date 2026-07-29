@@ -35,7 +35,7 @@ describe("modelSupportsImageInput", () => {
     expect(
       modelSupportsImageInput(
         "cloudflare_workers_ai",
-        "@cf/moonshotai/kimi-k2.6",
+        "@cf/moonshotai/kimi-k2.7-code",
       ),
     ).toBe(true);
     expect(

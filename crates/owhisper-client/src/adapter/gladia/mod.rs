@@ -10,20 +10,46 @@ use super::LanguageSupport;
 pub struct GladiaAdapter;
 
 impl GladiaAdapter {
-    pub fn language_support_live(languages: &[anlg_language::Language]) -> LanguageSupport {
+    pub fn language_support_live(
+        languages: &[anlg_language::Language],
+        model: Option<&str>,
+    ) -> LanguageSupport {
+        if model == Some("solaria-3") {
+            return LanguageSupport::NotSupported;
+        }
+
         LanguageSupport::min(languages.iter().map(language::single_language_support))
     }
 
-    pub fn language_support_batch(languages: &[anlg_language::Language]) -> LanguageSupport {
-        Self::language_support_live(languages)
+    pub fn language_support_batch(
+        languages: &[anlg_language::Language],
+        model: Option<&str>,
+    ) -> LanguageSupport {
+        if model == Some("solaria-3") && languages.len() != 1 {
+            return LanguageSupport::NotSupported;
+        }
+
+        let support = if model == Some("solaria-3") {
+            language::solaria_3_language_support
+        } else {
+            language::single_language_support
+        };
+
+        LanguageSupport::min(languages.iter().map(support))
     }
 
-    pub fn is_supported_languages_live(languages: &[anlg_language::Language]) -> bool {
-        Self::language_support_live(languages).is_supported()
+    pub fn is_supported_languages_live(
+        languages: &[anlg_language::Language],
+        model: Option<&str>,
+    ) -> bool {
+        Self::language_support_live(languages, model).is_supported()
     }
 
-    pub fn is_supported_languages_batch(languages: &[anlg_language::Language]) -> bool {
-        Self::language_support_batch(languages).is_supported()
+    pub fn is_supported_languages_batch(
+        languages: &[anlg_language::Language],
+        model: Option<&str>,
+    ) -> bool {
+        Self::language_support_batch(languages, model).is_supported()
     }
 
     pub(crate) fn build_ws_url_from_base(api_base: &str) -> (url::Url, Vec<(String, String)>) {
@@ -79,6 +105,7 @@ pub(super) fn documented_language_codes() -> &'static [&'static str] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anlg_language::ISO639;
 
     #[test]
     fn test_build_ws_url_from_base() {
@@ -139,5 +166,36 @@ mod tests {
     fn test_batch_api_url_custom() {
         let url = GladiaAdapter::batch_api_url("https://custom.gladia.io/v2");
         assert_eq!(url.as_str(), "https://custom.gladia.io/v2");
+    }
+
+    #[test]
+    fn solaria_3_is_batch_only_and_requires_one_supported_language() {
+        let supported = [ISO639::En, ISO639::Fr, ISO639::De, ISO639::Es, ISO639::It]
+            .map(anlg_language::Language::new);
+
+        for language in &supported {
+            assert!(
+                GladiaAdapter::language_support_batch(
+                    std::slice::from_ref(language),
+                    Some("solaria-3"),
+                )
+                .is_supported()
+            );
+        }
+        assert!(!GladiaAdapter::language_support_batch(&[], Some("solaria-3")).is_supported());
+        assert!(
+            !GladiaAdapter::language_support_batch(&supported[..2], Some("solaria-3"))
+                .is_supported()
+        );
+        assert!(
+            !GladiaAdapter::language_support_batch(
+                &[anlg_language::Language::new(ISO639::Ja)],
+                Some("solaria-3"),
+            )
+            .is_supported()
+        );
+        assert!(
+            !GladiaAdapter::language_support_live(&supported, Some("solaria-3")).is_supported()
+        );
     }
 }

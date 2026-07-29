@@ -23,9 +23,9 @@ impl BatchSttAdapter for GladiaAdapter {
     fn is_supported_languages(
         &self,
         languages: &[anlg_language::Language],
-        _model: Option<&str>,
+        model: Option<&str>,
     ) -> bool {
-        GladiaAdapter::is_supported_languages_batch(languages)
+        GladiaAdapter::is_supported_languages_batch(languages, model)
     }
 
     fn transcribe_file<'a, P: AsRef<Path> + Send + 'a>(

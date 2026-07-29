@@ -11,9 +11,22 @@ pub(super) const SUPPORTED_LANGUAGES: &[&str] = &[
     "wo", "yi", "yo",
 ];
 
+pub(super) const SOLARIA_3_LANGUAGES: &[&str] = &["de", "en", "es", "fr", "it"];
+
 pub(super) fn single_language_support(language: &anlg_language::Language) -> LanguageSupport {
     let code = language.iso639().code();
     if SUPPORTED_LANGUAGES.contains(&code) {
+        LanguageSupport::Supported {
+            quality: LanguageQuality::NoData,
+        }
+    } else {
+        LanguageSupport::NotSupported
+    }
+}
+
+pub(super) fn solaria_3_language_support(language: &anlg_language::Language) -> LanguageSupport {
+    let code = language.iso639().code();
+    if SOLARIA_3_LANGUAGES.contains(&code) {
         LanguageSupport::Supported {
             quality: LanguageQuality::NoData,
         }

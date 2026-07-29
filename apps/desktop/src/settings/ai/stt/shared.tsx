@@ -47,6 +47,14 @@ export const displayModelId = (model: string) => {
     return "Nova 3 Medical";
   }
 
+  if (model === "flux-general-multi") {
+    return "Flux General Multilingual";
+  }
+
+  if (model === "flux-general-en") {
+    return "Flux General English";
+  }
+
   if (model === "u3-rt-pro") {
     return "Universal 3.5 Pro Realtime";
   }
@@ -73,6 +81,10 @@ export const displayModelId = (model: string) => {
 
   if (model === "solaria-1") {
     return "Solaria 1";
+  }
+
+  if (model === "solaria-3") {
+    return "Solaria 3";
   }
 
   if (model === "scribe_v2_realtime") {
@@ -199,7 +211,12 @@ const _PROVIDERS = [
       <Icon icon="simple-icons:deepgram" className="text-foreground size-4" />
     ),
     baseUrl: "https://api.deepgram.com/v1",
-    models: ["nova-3-general", "nova-3-medical"],
+    models: [
+      "flux-general-multi",
+      "flux-general-en",
+      "nova-3-general",
+      "nova-3-medical",
+    ],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
   },
   {
@@ -290,7 +307,7 @@ const _PROVIDERS = [
       />
     ),
     baseUrl: "https://api.gladia.io",
-    models: ["solaria-1"],
+    models: ["solaria-3", "solaria-1"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
   },
   {

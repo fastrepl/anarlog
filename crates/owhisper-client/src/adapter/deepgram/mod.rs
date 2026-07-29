@@ -1,11 +1,14 @@
 mod batch;
 mod callback;
 pub mod error;
+mod flux;
 mod keywords;
 mod language;
 mod live;
 
 use super::{LanguageQuality, LanguageSupport};
+
+pub use flux::DeepgramFluxAdapter;
 
 // https://developers.deepgram.com/docs/models-languages-overview
 const NOVA3_GENERAL_LANGUAGES: &[&str] = &[
@@ -30,6 +33,8 @@ const NOVA3_MEDICAL_LANGUAGES: &[&str] = &[
 ];
 
 const ENGLISH_ONLY: &[&str] = &["en", "en-US"];
+const FLUX_MULTILINGUAL_LANGUAGES: &[&str] =
+    &["de", "en", "es", "fr", "hi", "it", "ja", "nl", "pt", "ru"];
 
 const EXCELLENT_LANGS: &[&str] = &["ru", "en", "es", "pl", "fr", "it"];
 
@@ -61,6 +66,10 @@ pub enum DeepgramModel {
         serialize = "nova-2-atc"
     )]
     Nova2Specialized,
+    #[strum(serialize = "flux-general-en")]
+    FluxGeneralEn,
+    #[strum(serialize = "flux-general-multi")]
+    FluxGeneralMulti,
 }
 
 impl DeepgramModel {
@@ -70,6 +79,8 @@ impl DeepgramModel {
             Self::Nova3Medical => NOVA3_MEDICAL_LANGUAGES,
             Self::Nova2General => NOVA2_GENERAL_LANGUAGES,
             Self::Nova2Specialized => ENGLISH_ONLY,
+            Self::FluxGeneralEn => ENGLISH_ONLY,
+            Self::FluxGeneralMulti => FLUX_MULTILINGUAL_LANGUAGES,
         }
     }
 
@@ -78,7 +89,20 @@ impl DeepgramModel {
     }
 
     pub fn supports_multi(&self, languages: &[anlg_language::Language]) -> bool {
-        language::can_use_multi(self.as_ref(), languages)
+        match self {
+            Self::FluxGeneralMulti => {
+                languages.len() >= 2
+                    && languages
+                        .iter()
+                        .all(|language| self.supports_language(language))
+            }
+            Self::FluxGeneralEn => false,
+            _ => language::can_use_multi(self.as_ref(), languages),
+        }
+    }
+
+    pub fn is_flux(&self) -> bool {
+        matches!(self, Self::FluxGeneralEn | Self::FluxGeneralMulti)
     }
 }
 
@@ -115,6 +139,10 @@ impl DeepgramAdapter {
         languages: &[anlg_language::Language],
         model: Option<DeepgramModel>,
     ) -> LanguageSupport {
+        if model.is_some_and(|model| model.is_flux()) {
+            return LanguageSupport::NotSupported;
+        }
+
         Self::language_support_impl(languages, model)
     }
 
@@ -195,6 +223,7 @@ impl DeepgramAdapter {
             Some(DeepgramModel::Nova3Medical) => Some("nova-3-medical"),
             Some(DeepgramModel::Nova2General) => Some("nova-2"),
             Some(DeepgramModel::Nova2Specialized) => Some("nova-2"),
+            Some(DeepgramModel::FluxGeneralEn | DeepgramModel::FluxGeneralMulti) => None,
             None => None,
         }
     }
@@ -206,6 +235,7 @@ pub(super) fn documented_language_codes() -> Vec<&'static str> {
     codes.extend_from_slice(NOVA2_GENERAL_LANGUAGES);
     codes.extend_from_slice(NOVA3_MEDICAL_LANGUAGES);
     codes.extend_from_slice(ENGLISH_ONLY);
+    codes.extend_from_slice(FLUX_MULTILINGUAL_LANGUAGES);
     codes
 }
 
@@ -481,6 +511,8 @@ mod tests {
             ("nova-2-meeting", DeepgramModel::Nova2Specialized),
             ("nova-2-phonecall", DeepgramModel::Nova2Specialized),
             ("nova-2-medical", DeepgramModel::Nova2Specialized),
+            ("flux-general-en", DeepgramModel::FluxGeneralEn),
+            ("flux-general-multi", DeepgramModel::FluxGeneralMulti),
         ];
 
         for (input, expected) in valid_cases {

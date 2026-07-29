@@ -71,6 +71,8 @@ pub fn resolve_model_for_languages<'a>(
                 DeepgramModel::Nova2General => "nova-2",
                 DeepgramModel::Nova3Medical => "nova-3-medical",
                 DeepgramModel::Nova2Specialized => "nova-2-meeting",
+                DeepgramModel::FluxGeneralEn => "flux-general-en",
+                DeepgramModel::FluxGeneralMulti => "flux-general-multi",
             })
             .unwrap_or(default),
     }

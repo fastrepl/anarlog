@@ -53,9 +53,9 @@ impl RealtimeSttAdapter for GladiaAdapter {
     fn is_supported_languages(
         &self,
         languages: &[anlg_language::Language],
-        _model: Option<&str>,
+        model: Option<&str>,
     ) -> bool {
-        GladiaAdapter::is_supported_languages_live(languages)
+        GladiaAdapter::is_supported_languages_live(languages, model)
     }
 
     fn supports_native_multichannel(&self) -> bool {

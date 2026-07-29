@@ -69,7 +69,7 @@ impl Default for StaticModelResolver {
             MODEL_KEY_AUDIO.to_owned(),
             vec![
                 "google/gemini-3.1-pro-preview".into(),
-                "google/gemini-3.5-flash".into(),
+                "google/gemini-3.6-flash".into(),
                 "mistralai/voxtral-small-24b-2507".into(),
             ],
         );
@@ -182,7 +182,7 @@ mod tests {
                 None,
                 &[
                     "google/gemini-3.1-pro-preview",
-                    "google/gemini-3.5-flash",
+                    "google/gemini-3.6-flash",
                     "mistralai/voxtral-small-24b-2507",
                 ],
             ),
@@ -194,7 +194,7 @@ mod tests {
                 None,
                 &[
                     "google/gemini-3.1-pro-preview",
-                    "google/gemini-3.5-flash",
+                    "google/gemini-3.6-flash",
                     "mistralai/voxtral-small-24b-2507",
                 ],
             ),
