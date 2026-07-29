@@ -277,6 +277,36 @@ describe("session correction chat tool", () => {
     );
   });
 
+  it("falls back to normalized matching for transcript memos", () => {
+    const plan = sessionCorrectionTestInternals.planTranscriptCorrections({
+      transcripts: [
+        transcript({
+          words: [
+            {
+              id: "w1",
+              text: "Ta-ra",
+              start_ms: 0,
+              end_ms: 100,
+              channel: 0,
+            },
+          ],
+          memo: "Speaker 1: Ta-ra",
+        }),
+      ] as any,
+      oldText: "Tara",
+      newText: "Char",
+    });
+
+    expect(plan.changes[0]).toMatchObject({
+      wordReplacements: 1,
+      memoReplacements: 1,
+    });
+    expect(JSON.parse(plan.updates[0]!.nextWordsJson)).toMatchObject([
+      { text: "Char" },
+    ]);
+    expect(plan.updates[0]?.nextMemo).toBe("Speaker 1: Char");
+  });
+
   it("does not plan a partial transcript row update", () => {
     const plan = sessionCorrectionTestInternals.planTranscriptCorrections({
       transcripts: [

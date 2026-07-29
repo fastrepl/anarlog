@@ -327,7 +327,10 @@ function replaceTranscriptText(
     tokenizeComparable(oldText).length === 1 &&
     tokenizeReplacement(newText).length === 1
   ) {
-    return replaceBoundedExact(value, oldText, newText);
+    const bounded = replaceBoundedExact(value, oldText, newText);
+    return bounded.count > 0
+      ? bounded
+      : replaceLoosePhrase(value, oldText, newText);
   }
 
   const exact = replaceExact(value, oldText, newText);
