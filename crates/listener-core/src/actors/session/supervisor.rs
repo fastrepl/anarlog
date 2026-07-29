@@ -361,18 +361,7 @@ fn expected_speaker_count(
     participant_human_ids: &[String],
     self_human_id: Option<&str>,
 ) -> Option<u32> {
-    let mut participants = participant_human_ids.to_vec();
-
-    if let Some(self_human_id) = self_human_id
-        && !participants.iter().any(|id| id == self_human_id)
-    {
-        participants.push(self_human_id.to_string());
-    }
-
-    participants.sort();
-    participants.dedup();
-
-    (participants.len() > 1).then_some(participants.len() as u32)
+    crate::expected_speakers_per_channel(participant_human_ids, self_human_id)
 }
 
 async fn handle_listener_failure(
@@ -705,7 +694,7 @@ mod tests {
         ctx.params.participant_human_ids = vec!["self".to_string()];
         ctx.params.self_human_id = Some("self".to_string());
         let state = test_state(ctx);
-        let update = test_update(vec![], vec!["self", "remote"], Some("self"));
+        let update = test_update(vec![], vec!["self", "remote-a", "remote-b"], Some("self"));
 
         assert!(update_requires_listener_refresh(&state.ctx.params, &update));
     }

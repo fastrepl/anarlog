@@ -144,22 +144,9 @@ fn max_speaker_index_for_participants(
     participant_human_ids: &[String],
     self_human_id: Option<&str>,
 ) -> Option<i32> {
-    let mut participants = participant_human_ids.to_vec();
-
-    if let Some(self_human_id) = self_human_id
-        && !participants.iter().any(|id| id == self_human_id)
-    {
-        participants.push(self_human_id.to_string());
-    }
-
-    participants.sort();
-    participants.dedup();
-
-    if participants.len() <= 1 {
-        return None;
-    }
-
-    i32::try_from(participants.len() - 1).ok()
+    crate::expected_speakers_per_channel(participant_human_ids, self_human_id)
+        .and_then(|count| count.checked_sub(1))
+        .and_then(|index| i32::try_from(index).ok())
 }
 
 fn clamp_response_speaker_indices(response: &mut StreamResponse, max_speaker_index: Option<i32>) {
@@ -1328,8 +1315,14 @@ mod tests {
 
     #[test]
     fn clamps_provider_speakers_to_participant_count() {
-        let max_speaker_index =
-            max_speaker_index_for_participants(&["remote".to_string()], Some("self"));
+        let max_speaker_index = max_speaker_index_for_participants(
+            &[
+                "self".to_string(),
+                "remote-a".to_string(),
+                "remote-b".to_string(),
+            ],
+            Some("self"),
+        );
         let mut high_word = word("too-high", 0.0, 0.5);
         high_word.speaker = Some(2);
         let mut negative_word = word("negative", 0.5, 1.0);
@@ -1352,6 +1345,22 @@ mod tests {
 
         assert_eq!(words[0].speaker, Some(1));
         assert_eq!(words[1].speaker, Some(0));
+    }
+
+    #[test]
+    fn clamps_single_remote_speaker_to_zero() {
+        let max_speaker_index =
+            max_speaker_index_for_participants(&["remote".to_string()], Some("self"));
+        let mut high_word = word("too-high", 0.0, 0.5);
+        high_word.speaker = Some(2);
+        let mut response = transcript_response_at("too-high", vec![high_word], true, 1, 0.0, 0.5);
+
+        clamp_response_speaker_indices(&mut response, max_speaker_index);
+
+        let StreamResponse::TranscriptResponse { channel, .. } = response else {
+            panic!("expected transcript response");
+        };
+        assert_eq!(channel.alternatives[0].words[0].speaker, Some(0));
     }
 
     #[test]

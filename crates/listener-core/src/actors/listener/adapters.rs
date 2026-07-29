@@ -394,18 +394,7 @@ fn build_listen_params(args: &ListenerArgs) -> owhisper_interface::ListenParams 
 }
 
 fn expected_speakers(args: &ListenerArgs) -> Option<u32> {
-    let mut participants = args.participant_human_ids.clone();
-
-    if let Some(self_human_id) = &args.self_human_id
-        && !participants.iter().any(|id| id == self_human_id)
-    {
-        participants.push(self_human_id.clone());
-    }
-
-    participants.sort();
-    participants.dedup();
-
-    (participants.len() > 1).then_some(participants.len() as u32)
+    crate::expected_speakers_per_channel(&args.participant_human_ids, args.self_human_id.as_deref())
 }
 
 fn format_languages(languages: &[anlg_language::Language]) -> String {
@@ -616,9 +605,14 @@ mod tests {
     }
 
     #[test]
-    fn expected_speakers_counts_distinct_participants() {
+    fn expected_speakers_counts_distinct_remote_participants() {
         let mut args = listener_args("https://api.assemblyai.com", "u3-rt-pro");
-        args.participant_human_ids = vec!["remote".to_string(), "self".to_string()];
+        args.participant_human_ids = vec![
+            "remote-a".to_string(),
+            "self".to_string(),
+            "remote-b".to_string(),
+            "remote-a".to_string(),
+        ];
         args.self_human_id = Some("self".to_string());
 
         assert_eq!(expected_speakers(&args), Some(2));
@@ -643,8 +637,8 @@ mod tests {
         let params = build_listen_params(&args);
         let custom_query = params.custom_query.expect("custom query");
 
-        assert_eq!(params.num_speakers, Some(2));
-        assert_eq!(params.max_speakers, Some(2));
+        assert_eq!(params.num_speakers, Some(1));
+        assert_eq!(params.max_speakers, Some(1));
         assert!(!custom_query.contains_key("speaker_labels"));
         assert!(!custom_query.contains_key("max_speakers"));
     }
@@ -658,10 +652,26 @@ mod tests {
         let params = build_listen_params(&args);
         let custom_query = params.custom_query.expect("custom query");
 
-        assert_eq!(params.num_speakers, Some(2));
-        assert_eq!(params.max_speakers, Some(2));
+        assert_eq!(params.num_speakers, Some(1));
+        assert_eq!(params.max_speakers, Some(1));
         assert!(!custom_query.contains_key("speaker_labels"));
         assert!(!custom_query.contains_key("max_speakers"));
+    }
+
+    #[test]
+    fn build_listen_params_limits_each_channel_to_remote_participants() {
+        let mut args = listener_args("https://api.anarlog.so/stt", "cloud");
+        args.participant_human_ids = vec![
+            "self".to_string(),
+            "remote-a".to_string(),
+            "remote-b".to_string(),
+        ];
+        args.self_human_id = Some("self".to_string());
+
+        let params = build_listen_params(&args);
+
+        assert_eq!(params.num_speakers, Some(2));
+        assert_eq!(params.max_speakers, Some(2));
     }
 
     #[test]
