@@ -124,6 +124,10 @@ pub fn documented_language_codes_batch() -> Vec<String> {
 }
 
 pub trait RealtimeSttAdapter: Clone + Default + Send + Sync + 'static {
+    fn fork_session(&self) -> Self {
+        self.clone()
+    }
+
     fn provider_name(&self) -> &'static str;
 
     fn is_supported_languages(
@@ -451,12 +455,13 @@ impl AdapterKind {
 
     pub fn has_live_mode(&self) -> bool {
         match self {
-            Self::AquaVoice | Self::Argmax | Self::OpenAI | Self::Pyannote => false,
+            Self::AquaVoice | Self::Argmax | Self::Pyannote => false,
             Self::Soniox
             | Self::Cartesia
             | Self::Fireworks
             | Self::Deepgram
             | Self::AssemblyAI
+            | Self::OpenAI
             | Self::Gladia
             | Self::ElevenLabs
             | Self::DashScope
@@ -480,7 +485,7 @@ impl AdapterKind {
             Self::Soniox => SonioxAdapter::language_support_live(languages),
             Self::AssemblyAI => AssemblyAIAdapter::language_support_live(languages),
             Self::Gladia => GladiaAdapter::language_support_live(languages),
-            Self::OpenAI => LanguageSupport::NotSupported,
+            Self::OpenAI => OpenAIAdapter::language_support_live(languages),
             Self::Fireworks => FireworksAdapter::language_support_live(languages),
             Self::ElevenLabs => ElevenLabsAdapter::language_support_live(languages),
             Self::DashScope => DashScopeAdapter::language_support_live(languages),
@@ -797,6 +802,7 @@ mod tests {
             AdapterKind::AssemblyAI,
             AdapterKind::Gladia,
             AdapterKind::Fireworks,
+            AdapterKind::OpenAI,
             AdapterKind::ElevenLabs,
             AdapterKind::DashScope,
             AdapterKind::Mistral,
@@ -809,7 +815,6 @@ mod tests {
         let batch_only = [
             AdapterKind::AquaVoice,
             AdapterKind::Argmax,
-            AdapterKind::OpenAI,
             AdapterKind::Pyannote,
         ];
         for kind in batch_only {

@@ -317,7 +317,7 @@ impl Provider {
             Self::Soniox => "stt-rt-v5",
             Self::AssemblyAI => "u3-rt-pro",
             Self::Fireworks => "whisper-v3-turbo",
-            Self::OpenAI => "gpt-4o-transcribe",
+            Self::OpenAI => "gpt-live-transcribe",
             Self::Gladia => "solaria-1",
             Self::ElevenLabs => "scribe_v2_realtime",
             Self::DashScope => "qwen3-asr-flash-realtime",
@@ -343,7 +343,7 @@ impl Provider {
             Self::Soniox => "stt-async-v5",
             Self::AssemblyAI => "universal-3-pro",
             Self::Fireworks => "whisper-v3-turbo",
-            Self::OpenAI => "gpt-4o-transcribe-diarize",
+            Self::OpenAI => "gpt-transcribe",
             Self::Gladia => "solaria-1",
             Self::ElevenLabs => "scribe_v2",
             Self::DashScope => "qwen3-asr-flash-filetrans",
@@ -446,7 +446,7 @@ impl Provider {
             Self::Mistral => from_adapter(&crate::adapter::MistralAdapter::default(), msg),
             Self::AquaVoice => None,
             Self::Cartesia => from_adapter(&crate::adapter::CartesiaAdapter, msg),
-            Self::OpenAI => None,
+            Self::OpenAI => from_adapter(&crate::adapter::OpenAIAdapter::default(), msg),
             Self::Pyannote => None,
         }
     }

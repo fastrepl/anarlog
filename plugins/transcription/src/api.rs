@@ -1,5 +1,5 @@
 use anlg_transcription_core::{listener, listener2};
-use owhisper_client::AdapterKind;
+use owhisper_client::{AdapterKind, Provider};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -88,6 +88,12 @@ impl CaptureParams {
 
         let adapter_kind =
             AdapterKind::from_url_and_languages(&self.base_url, &self.languages, Some(&self.model));
+
+        if adapter_kind == AdapterKind::OpenAI
+            && self.model != Provider::OpenAI.default_live_model()
+        {
+            return listener::TranscriptionMode::Batch;
+        }
 
         if !adapter_kind.has_live_mode() {
             return listener::TranscriptionMode::Batch;
@@ -482,6 +488,13 @@ mod tests {
             params.default_transcription_mode(),
             TranscriptionMode::Batch
         );
+    }
+
+    #[test]
+    fn defaults_openai_live_capture_to_live_mode() {
+        let params = capture_params("https://api.openai.com/v1", "gpt-live-transcribe");
+
+        assert_eq!(params.default_transcription_mode(), TranscriptionMode::Live);
     }
 
     #[test]

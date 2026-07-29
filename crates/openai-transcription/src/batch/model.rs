@@ -4,6 +4,7 @@ use strum::{AsRefStr, Display, EnumString};
 use super::request::AudioResponseFormat;
 
 pub const MODEL_WHISPER_1: AudioModel = AudioModel::Whisper1;
+pub const MODEL_GPT_TRANSCRIBE: AudioModel = AudioModel::GptTranscribe;
 pub const MODEL_GPT_4O_TRANSCRIBE: AudioModel = AudioModel::Gpt4oTranscribe;
 pub const MODEL_GPT_4O_MINI_TRANSCRIBE: AudioModel = AudioModel::Gpt4oMiniTranscribe;
 pub const MODEL_GPT_4O_MINI_TRANSCRIBE_2025_12_15: AudioModel =
@@ -32,6 +33,9 @@ pub enum AudioModel {
     #[serde(rename = "whisper-1")]
     #[strum(serialize = "whisper-1")]
     Whisper1,
+    #[serde(rename = "gpt-transcribe")]
+    #[strum(serialize = "gpt-transcribe")]
+    GptTranscribe,
     #[serde(rename = "gpt-4o-transcribe")]
     #[strum(serialize = "gpt-4o-transcribe")]
     Gpt4oTranscribe,
@@ -69,7 +73,8 @@ impl AudioModel {
     pub fn default_response_format(self) -> AudioResponseFormat {
         match self {
             Self::Whisper1 => AudioResponseFormat::VerboseJson,
-            Self::Gpt4oTranscribe
+            Self::GptTranscribe
+            | Self::Gpt4oTranscribe
             | Self::Gpt4oMiniTranscribe
             | Self::Gpt4oMiniTranscribe20251215
             | Self::Gpt4oTranscribeDiarize => AudioResponseFormat::Json,
@@ -79,6 +84,7 @@ impl AudioModel {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GptTranscriptionModel {
+    GptTranscribe,
     Gpt4oTranscribe,
     Gpt4oMiniTranscribe,
     Gpt4oMiniTranscribe20251215,
@@ -87,6 +93,7 @@ pub enum GptTranscriptionModel {
 impl From<GptTranscriptionModel> for AudioModel {
     fn from(value: GptTranscriptionModel) -> Self {
         match value {
+            GptTranscriptionModel::GptTranscribe => Self::GptTranscribe,
             GptTranscriptionModel::Gpt4oTranscribe => Self::Gpt4oTranscribe,
             GptTranscriptionModel::Gpt4oMiniTranscribe => Self::Gpt4oMiniTranscribe,
             GptTranscriptionModel::Gpt4oMiniTranscribe20251215 => Self::Gpt4oMiniTranscribe20251215,
@@ -99,6 +106,7 @@ impl TryFrom<AudioModel> for GptTranscriptionModel {
 
     fn try_from(value: AudioModel) -> Result<Self, Self::Error> {
         match value {
+            AudioModel::GptTranscribe => Ok(Self::GptTranscribe),
             AudioModel::Gpt4oTranscribe => Ok(Self::Gpt4oTranscribe),
             AudioModel::Gpt4oMiniTranscribe => Ok(Self::Gpt4oMiniTranscribe),
             AudioModel::Gpt4oMiniTranscribe20251215 => Ok(Self::Gpt4oMiniTranscribe20251215),
@@ -132,6 +140,10 @@ mod tests {
         assert!(AudioModel::Gpt4oTranscribe.supports_streaming());
         assert!(AudioModel::Gpt4oTranscribe.supports_logprobs());
         assert!(AudioModel::Gpt4oTranscribe.supports_prompt());
+
+        assert!(AudioModel::GptTranscribe.supports_streaming());
+        assert!(!AudioModel::GptTranscribe.supports_logprobs());
+        assert!(AudioModel::GptTranscribe.supports_prompt());
 
         assert!(!AudioModel::Gpt4oTranscribeDiarize.supports_timestamp_granularities());
         assert!(AudioModel::Gpt4oTranscribeDiarize.supports_streaming());

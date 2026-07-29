@@ -8,8 +8,6 @@ use owhisper_client::{
 };
 use owhisper_interface::ListenParams;
 
-const _: Option<OpenAIAdapter> = None;
-
 use crate::config::SttProxyConfig;
 use crate::provider_selector::SelectedProvider;
 use crate::query_params::{QueryParams, QueryValue};
@@ -49,7 +47,7 @@ fn build_upstream_url_with_adapter(
         Provider::Cartesia => CartesiaAdapter.build_ws_url(api_base, params, channels),
         Provider::Soniox => SonioxAdapter.build_ws_url(api_base, params, channels),
         Provider::Fireworks => FireworksAdapter.build_ws_url(api_base, params, channels),
-        Provider::OpenAI => unreachable!("openai only supports batch transcription"),
+        Provider::OpenAI => OpenAIAdapter::default().build_ws_url(api_base, params, channels),
         Provider::Gladia => GladiaAdapter.build_ws_url(api_base, params, channels),
         Provider::ElevenLabs => ElevenLabsAdapter.build_ws_url(api_base, params, channels),
         Provider::DashScope => DashScopeAdapter.build_ws_url(api_base, params, channels),
@@ -71,7 +69,7 @@ fn build_initial_message_with_adapter(
         Provider::Cartesia => CartesiaAdapter.initial_message(api_key, params, channels),
         Provider::Soniox => SonioxAdapter.initial_message(api_key, params, channels),
         Provider::Fireworks => FireworksAdapter.initial_message(api_key, params, channels),
-        Provider::OpenAI => unreachable!("openai only supports batch transcription"),
+        Provider::OpenAI => OpenAIAdapter::default().initial_message(api_key, params, channels),
         Provider::Gladia => GladiaAdapter.initial_message(api_key, params, channels),
         Provider::ElevenLabs => ElevenLabsAdapter.initial_message(api_key, params, channels),
         Provider::DashScope => DashScopeAdapter.initial_message(api_key, params, channels),
@@ -90,6 +88,7 @@ fn build_response_transformer(
     provider: Provider,
 ) -> impl Fn(&str) -> Option<String> + Send + Sync + 'static {
     let mistral_adapter = MistralAdapter::default();
+    let openai_adapter = OpenAIAdapter::default();
     move |raw: &str| {
         let responses: Vec<owhisper_interface::stream::StreamResponse> = match provider {
             Provider::Deepgram => DeepgramAdapter.parse_response(raw),
@@ -97,7 +96,7 @@ fn build_response_transformer(
             Provider::Cartesia => CartesiaAdapter.parse_response(raw),
             Provider::Soniox => SonioxAdapter.parse_response(raw),
             Provider::Fireworks => FireworksAdapter.parse_response(raw),
-            Provider::OpenAI => unreachable!("openai only supports batch transcription"),
+            Provider::OpenAI => openai_adapter.parse_response(raw),
             Provider::Gladia => GladiaAdapter.parse_response(raw),
             Provider::ElevenLabs => ElevenLabsAdapter.parse_response(raw),
             Provider::DashScope => DashScopeAdapter.parse_response(raw),
@@ -149,25 +148,39 @@ fn build_client_message_filter(provider: Provider) -> ClientMessageFilter {
     })
 }
 
-fn build_client_binary_message_mapper(provider: Provider) -> Option<ClientBinaryMessageMapper> {
-    if provider != Provider::ElevenLabs {
-        return None;
+fn build_client_binary_message_mapper(
+    provider: Provider,
+    sample_rate: u32,
+) -> Option<ClientBinaryMessageMapper> {
+    match provider {
+        Provider::ElevenLabs => Some(Arc::new(|audio: Vec<u8>| {
+            let chunk = serde_json::json!({
+                "message_type": "input_audio_chunk",
+                "audio_base_64": base64::engine::general_purpose::STANDARD.encode(audio),
+            });
+
+            Some(ClientBinaryMessage::Text(chunk.to_string()))
+        })),
+        Provider::OpenAI => {
+            let adapter = OpenAIAdapter::for_live_sample_rate(sample_rate);
+            Some(Arc::new(move |audio: Vec<u8>| {
+                let owhisper_client::anlg_ws_client::client::Message::Text(message) =
+                    adapter.audio_to_message(audio.into())
+                else {
+                    return None;
+                };
+                Some(ClientBinaryMessage::Text(message.to_string()))
+            }))
+        }
+        _ => None,
     }
-
-    Some(Arc::new(|audio: Vec<u8>| {
-        let chunk = serde_json::json!({
-            "message_type": "input_audio_chunk",
-            "audio_base_64": base64::engine::general_purpose::STANDARD.encode(audio),
-        });
-
-        Some(ClientBinaryMessage::Text(chunk.to_string()))
-    }))
 }
 
 fn build_proxy_plan(
     provider: Provider,
     selected: &SelectedProvider,
     channels: u8,
+    sample_rate: u32,
     config: &SttProxyConfig,
     analytics_ctx: AnalyticsContext,
 ) -> Result<StreamingProxyPlan, crate::ProxyError> {
@@ -181,7 +194,11 @@ fn build_proxy_plan(
     .client_message_filter(build_client_message_filter(provider))
     .apply_auth(selected);
 
-    if let Some(mapper) = build_client_binary_message_mapper(provider) {
+    if plan.upstream_count() == 2 {
+        plan = plan.split_response_transformer(build_response_transformer(provider));
+    }
+
+    if let Some(mapper) = build_client_binary_message_mapper(provider, sample_rate) {
         plan = plan.client_binary_message_mapper(mapper);
     }
 
@@ -234,7 +251,14 @@ pub async fn build_proxy(
 ) -> Result<StreamingProxy, ProxyBuildError> {
     let provider = selected.provider();
     let channels: u8 = parse_param(params, "channels", 1);
-    let plan = build_proxy_plan(provider, selected, channels, &state.config, analytics_ctx)?;
+    let plan = build_proxy_plan(
+        provider,
+        selected,
+        channels,
+        parse_param(params, "sample_rate", 16000),
+        &state.config,
+        analytics_ctx,
+    )?;
     let api_base = selected
         .upstream_url()
         .unwrap_or(provider.default_api_base());
@@ -560,9 +584,9 @@ mod tests {
 
     #[test]
     fn test_client_binary_message_mapper_elevenlabs_wraps_audio_chunks() {
-        assert!(build_client_binary_message_mapper(Provider::Deepgram).is_none());
+        assert!(build_client_binary_message_mapper(Provider::Deepgram, 16_000).is_none());
 
-        let mapper = build_client_binary_message_mapper(Provider::ElevenLabs).unwrap();
+        let mapper = build_client_binary_message_mapper(Provider::ElevenLabs, 16_000).unwrap();
         let Some(ClientBinaryMessage::Text(text)) = mapper(vec![1, 2, 3]) else {
             panic!("expected ElevenLabs binary audio to map to text JSON");
         };
@@ -570,6 +594,22 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
         assert_eq!(parsed["message_type"], "input_audio_chunk");
         assert_eq!(parsed["audio_base_64"], "AQID");
+    }
+
+    #[test]
+    fn test_client_binary_message_mapper_openai_encodes_resampled_audio() {
+        let mapper = build_client_binary_message_mapper(Provider::OpenAI, 16_000).unwrap();
+        let input = (0..160_i16).flat_map(i16::to_le_bytes).collect::<Vec<_>>();
+        let Some(ClientBinaryMessage::Text(text)) = mapper(input) else {
+            panic!("expected OpenAI binary audio to map to text JSON");
+        };
+
+        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(parsed["type"], "input_audio_buffer.append");
+        let output = base64::engine::general_purpose::STANDARD
+            .decode(parsed["audio"].as_str().unwrap())
+            .unwrap();
+        assert_eq!(output.len(), 240 * std::mem::size_of::<i16>());
     }
 
     #[test]

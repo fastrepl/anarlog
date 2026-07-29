@@ -168,8 +168,15 @@ fn build_transcription_options(
         }
     }
 
-    if let Some(lang) = params.languages.first() {
-        options.push_language(lang.iso639().code().to_string());
+    if model == openai_transcription::batch::AudioModel::GptTranscribe {
+        for language in &params.languages {
+            options.push_language(language.iso639().code().to_string());
+        }
+        for keyword in &params.keywords {
+            options.push_keyword(keyword);
+        }
+    } else if let Some(language) = params.languages.first() {
+        options.push_language(language.iso639().code().to_string());
     }
 
     options
@@ -504,7 +511,7 @@ mod tests {
     use crate::http_client::create_client;
 
     #[test]
-    fn build_transcription_options_defaults_to_diarized_json_for_diarize_model() {
+    fn build_transcription_options_defaults_to_gpt_transcribe_json() {
         let options = build_transcription_options(&ListenParams::default(), true, false);
 
         let fields = options
@@ -513,9 +520,36 @@ mod tests {
         assert!(
             fields
                 .iter()
-                .any(|field| { field.name == "response_format" && field.value == "diarized_json" })
+                .any(|field| { field.name == "response_format" && field.value == "json" })
         );
         assert!(!fields.iter().any(|field| field.name == "stream"));
+    }
+
+    #[test]
+    fn gpt_transcribe_preserves_all_language_hints() {
+        let options = build_transcription_options(
+            &ListenParams {
+                languages: vec![
+                    anlg_language::ISO639::En.into(),
+                    anlg_language::ISO639::Ko.into(),
+                ],
+                ..Default::default()
+            },
+            true,
+            false,
+        );
+
+        let fields = options
+            .multipart_text_fields()
+            .expect("serialize multipart");
+        let languages = fields
+            .iter()
+            .filter(|field| field.name == "languages[]")
+            .map(|field| field.value.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(languages, vec!["en", "ko"]);
+        assert!(!fields.iter().any(|field| field.name == "language"));
     }
 
     #[test]

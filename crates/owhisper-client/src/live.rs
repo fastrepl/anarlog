@@ -441,16 +441,18 @@ impl<A: RealtimeSttAdapter> ListenClientDual<A> {
         stream: impl Stream<Item = ListenClientDualInput> + Send + Unpin + 'static,
     ) -> Result<(DualOutputStream, DualHandle), anlg_ws_client::Error> {
         let finalize_text = extract_finalize_text(&self.adapter);
+        let mic_adapter = self.adapter.fork_session();
+        let spk_adapter = self.adapter.fork_session();
         let (mic_tx, mic_rx) = tokio::sync::mpsc::channel::<TransformedInput>(32);
         let (spk_tx, spk_rx) = tokio::sync::mpsc::channel::<TransformedInput>(32);
 
         let mic_ws = websocket_client_with_keep_alive(
             &self.request,
-            &self.adapter,
+            &mic_adapter,
             self.connect_policy.clone(),
         );
         let spk_ws =
-            websocket_client_with_keep_alive(&self.request, &self.adapter, self.connect_policy);
+            websocket_client_with_keep_alive(&self.request, &spk_adapter, self.connect_policy);
 
         let mic_outbound = tokio_stream::wrappers::ReceiverStream::new(mic_rx);
         let spk_outbound = tokio_stream::wrappers::ReceiverStream::new(spk_rx);
@@ -467,12 +469,12 @@ impl<A: RealtimeSttAdapter> ListenClientDual<A> {
             stream,
             mic_tx,
             spk_tx,
-            self.adapter.clone(),
+            mic_adapter.clone(),
+            spk_adapter.clone(),
         ));
 
-        let adapter = self.adapter.clone();
         let mic_stream = mic_raw.flat_map({
-            let adapter = adapter.clone();
+            let adapter = mic_adapter;
             move |result| {
                 let adapter = adapter.clone();
                 let responses: Vec<Result<StreamResponse, anlg_ws_client::Error>> = match result {
@@ -484,7 +486,7 @@ impl<A: RealtimeSttAdapter> ListenClientDual<A> {
         });
 
         let spk_stream = spk_raw.flat_map({
-            let adapter = adapter.clone();
+            let adapter = spk_adapter;
             move |result| {
                 let adapter = adapter.clone();
                 let responses: Vec<Result<StreamResponse, anlg_ws_client::Error>> = match result {
@@ -512,13 +514,14 @@ async fn forward_dual_to_single<A: RealtimeSttAdapter>(
     mut stream: impl Stream<Item = ListenClientDualInput> + Send + Unpin + 'static,
     mic_tx: tokio::sync::mpsc::Sender<TransformedInput>,
     spk_tx: tokio::sync::mpsc::Sender<TransformedInput>,
-    adapter: A,
+    mic_adapter: A,
+    spk_adapter: A,
 ) {
     while let Some(msg) = stream.next().await {
         match msg {
             MixedMessage::Audio((mic, spk)) => {
-                let mic_msg = adapter.audio_to_message(mic);
-                let spk_msg = adapter.audio_to_message(spk);
+                let mic_msg = mic_adapter.audio_to_message(mic);
+                let spk_msg = spk_adapter.audio_to_message(spk);
                 if mic_tx.send(MixedMessage::Audio(mic_msg)).await.is_err() {
                     break;
                 }
@@ -670,7 +673,13 @@ mod tests {
         let (mic_tx, mut mic_rx) = tokio::sync::mpsc::channel(1);
         let (spk_tx, mut spk_rx) = tokio::sync::mpsc::channel(1);
 
-        let task = tokio::spawn(forward_dual_to_single(stream, mic_tx, spk_tx, TestAdapter));
+        let task = tokio::spawn(forward_dual_to_single(
+            stream,
+            mic_tx,
+            spk_tx,
+            TestAdapter,
+            TestAdapter,
+        ));
 
         let Some(TransformedInput::Audio(Message::Binary(first_mic))) = mic_rx.recv().await else {
             panic!("missing first mic frame");

@@ -58,6 +58,10 @@ pub struct TranscriptionConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub languages: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keywords: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub prompt: Option<String>,
 }
 
@@ -286,6 +290,8 @@ mod tests {
                         transcription: Some(TranscriptionConfig {
                             model: "gpt-4o-transcribe".to_string(),
                             language: Some("en".to_string()),
+                            languages: None,
+                            keywords: None,
                             prompt: Some("expect technical terms".to_string()),
                         }),
                         turn_detection: Some(TurnDetectionConfig {

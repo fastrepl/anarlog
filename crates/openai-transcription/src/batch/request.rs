@@ -12,9 +12,11 @@ pub struct MultipartTextField {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct CommonTranscriptionOptions {
     pub chunking_strategy: Option<ChunkingStrategy>,
+    pub keywords: Vec<String>,
     pub known_speaker_names: Vec<String>,
     pub known_speaker_references: Vec<String>,
     pub language: Option<String>,
+    pub languages: Vec<String>,
     pub temperature: Option<f32>,
 }
 
@@ -83,7 +85,9 @@ impl CreateTranscriptionOptions {
                 response_format: use_response_format.then_some(WhisperResponseFormat::VerboseJson),
                 ..Default::default()
             }),
-            AudioModel::Gpt4oTranscribe | AudioModel::Gpt4oMiniTranscribe => {
+            AudioModel::GptTranscribe
+            | AudioModel::Gpt4oTranscribe
+            | AudioModel::Gpt4oMiniTranscribe => {
                 let model = GptTranscriptionModel::try_from(model)
                     .expect("resolved OpenAI GPT transcription model should be typed");
                 Self::Gpt(CreateGptTranscriptionOptions {
@@ -150,7 +154,15 @@ impl CreateTranscriptionOptions {
     }
 
     pub fn push_language(&mut self, language: impl Into<String>) {
-        self.common_mut().language = Some(language.into());
+        if self.model() == AudioModel::GptTranscribe {
+            self.common_mut().languages.push(language.into());
+        } else {
+            self.common_mut().language = Some(language.into());
+        }
+    }
+
+    pub fn push_keyword(&mut self, keyword: impl Into<String>) {
+        self.common_mut().keywords.push(keyword.into());
     }
 
     pub fn multipart_text_fields(&self) -> Result<Vec<MultipartTextField>, serde_json::Error> {
@@ -255,6 +267,13 @@ fn append_common_fields(
         });
     }
 
+    for keyword in &common.keywords {
+        fields.push(MultipartTextField {
+            name: "keywords[]",
+            value: keyword.clone(),
+        });
+    }
+
     for speaker_name in &common.known_speaker_names {
         fields.push(MultipartTextField {
             name: "known_speaker_names[]",
@@ -272,6 +291,13 @@ fn append_common_fields(
     if let Some(language) = &common.language {
         fields.push(MultipartTextField {
             name: "language",
+            value: language.clone(),
+        });
+    }
+
+    for language in &common.languages {
+        fields.push(MultipartTextField {
+            name: "languages[]",
             value: language.clone(),
         });
     }
@@ -533,6 +559,33 @@ mod tests {
             fields
                 .iter()
                 .any(|field| field.name == "stream" && field.value == "true")
+        );
+    }
+
+    #[test]
+    fn gpt_transcribe_uses_plural_languages() {
+        let mut options =
+            CreateTranscriptionOptions::for_model(AudioModel::GptTranscribe, true, true);
+        options.push_language("en");
+        options.push_language("ko");
+        options.push_keyword("technical term");
+
+        let fields = options
+            .multipart_text_fields()
+            .expect("serialize multipart");
+
+        let languages = fields
+            .iter()
+            .filter(|field| field.name == "languages[]")
+            .map(|field| field.value.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(languages, vec!["en", "ko"]);
+        assert!(!fields.iter().any(|field| field.name == "language"));
+        assert!(
+            fields
+                .iter()
+                .any(|field| field.name == "keywords[]" && field.value == "technical term")
         );
     }
 

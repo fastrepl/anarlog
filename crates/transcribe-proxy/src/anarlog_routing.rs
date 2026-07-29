@@ -594,7 +594,7 @@ mod tests {
 
         assert_eq!(
             router.select_provider_chain_with_mode(RoutingMode::Live, &languages, &available),
-            Vec::<Provider>::new()
+            vec![Provider::OpenAI]
         );
         assert_eq!(
             router.select_provider_chain_with_mode(RoutingMode::Batch, &languages, &available),

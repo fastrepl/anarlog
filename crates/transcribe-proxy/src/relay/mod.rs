@@ -70,6 +70,7 @@ pub struct StreamingProxyPlan {
     transform_first_message: Option<FirstMessageTransformer>,
     initial_message: Option<InitialMessage>,
     response_transformer: Option<ResponseTransformer>,
+    split_response_transformer: Option<ResponseTransformer>,
     connect_timeout: Duration,
     on_close: Option<OnCloseCallback>,
     client_message_filter: Option<ClientMessageFilter>,
@@ -90,6 +91,7 @@ impl StreamingProxyPlan {
             transform_first_message: None,
             initial_message: None,
             response_transformer: None,
+            split_response_transformer: None,
             connect_timeout: Duration::default(),
             on_close: None,
             client_message_filter: None,
@@ -125,6 +127,14 @@ impl StreamingProxyPlan {
         F: Fn(&str) -> Option<String> + Send + Sync + 'static,
     {
         self.response_transformer = Some(std::sync::Arc::new(transformer));
+        self
+    }
+
+    pub fn split_response_transformer<F>(mut self, transformer: F) -> Self
+    where
+        F: Fn(&str) -> Option<String> + Send + Sync + 'static,
+    {
+        self.split_response_transformer = Some(std::sync::Arc::new(transformer));
         self
     }
 
@@ -212,7 +222,10 @@ impl StreamingProxyPlan {
             StreamingTransport::SplitStereo => StreamingProxy::split(
                 apply_headers(request, self.headers),
                 self.initial_message,
-                self.response_transformer,
+                response_transformers_for_split(
+                    self.response_transformer,
+                    self.split_response_transformer,
+                ),
                 self.connect_timeout,
                 self.on_close,
                 self.client_message_filter,
@@ -232,7 +245,10 @@ impl StreamingProxyPlan {
                 apply_headers(mic_request, self.headers.clone()),
                 apply_headers(spk_request, self.headers),
                 self.initial_message,
-                self.response_transformer,
+                response_transformers_for_split(
+                    self.response_transformer,
+                    self.split_response_transformer,
+                ),
                 self.connect_timeout,
                 self.on_close,
                 self.client_message_filter,
@@ -250,7 +266,7 @@ impl StreamingProxy {
     pub fn split(
         upstream_request: ClientRequestBuilder,
         initial_message: Option<InitialMessage>,
-        response_transformer: Option<ResponseTransformer>,
+        response_transformers: [Option<ResponseTransformer>; 2],
         connect_timeout: Duration,
         on_close: Option<OnCloseCallback>,
         client_message_filter: Option<ClientMessageFilter>,
@@ -259,7 +275,7 @@ impl StreamingProxy {
         let proxy = ChannelSplitProxy::new(
             upstream_request,
             initial_message,
-            response_transformer,
+            response_transformers,
             connect_timeout,
             on_close,
         );
@@ -275,7 +291,7 @@ impl StreamingProxy {
         mic_request: ClientRequestBuilder,
         spk_request: ClientRequestBuilder,
         initial_message: Option<InitialMessage>,
-        response_transformer: Option<ResponseTransformer>,
+        response_transformers: [Option<ResponseTransformer>; 2],
         connect_timeout: Duration,
         on_close: Option<OnCloseCallback>,
         client_message_filter: Option<ClientMessageFilter>,
@@ -285,7 +301,7 @@ impl StreamingProxy {
             mic_request,
             spk_request,
             initial_message,
-            response_transformer,
+            response_transformers,
             connect_timeout,
             on_close,
         );
@@ -315,6 +331,14 @@ impl StreamingProxy {
             Self::ChannelSplit(proxy) => proxy.handle_upgrade(ws).await,
         }
     }
+}
+
+fn response_transformers_for_split(
+    primary: Option<ResponseTransformer>,
+    secondary: Option<ResponseTransformer>,
+) -> [Option<ResponseTransformer>; 2] {
+    let secondary = secondary.or_else(|| primary.clone());
+    [primary, secondary]
 }
 
 fn control_message_types(
