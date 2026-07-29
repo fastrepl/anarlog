@@ -273,7 +273,14 @@ export function AudioPlayerProvider({
 
     const audioContext = audioContextRef.current;
     if (audioContext?.state === "suspended") {
-      void audioContext.resume().then(() => wavesurfer.play());
+      void audioContext
+        .resume()
+        .then(() => {
+          if (audioContextRef.current === audioContext) {
+            return wavesurfer.play();
+          }
+        })
+        .catch(() => {});
       return;
     }
 
