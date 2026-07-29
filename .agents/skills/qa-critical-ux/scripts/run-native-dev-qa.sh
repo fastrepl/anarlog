@@ -298,7 +298,12 @@ source_fingerprint() {
       done
     } |
       LC_ALL=C sort -u |
-      COPYFILE_DISABLE=1 tar -cf - --no-recursion -T - 2>/dev/null
+      COPYFILE_DISABLE=1 tar -cf - \
+        --format=mtree \
+        --options='!all,type,mode,link,sha256' \
+        --no-recursion \
+        -T - \
+        2>/dev/null
   ) |
     shasum -a 256 |
     awk '{print $1}'
