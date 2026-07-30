@@ -10,6 +10,49 @@ import WatchConnectivityModule, {
 let initialized = false;
 let activeAccountUserId: string | null | undefined;
 const importsInFlight = new Set<string>();
+const importRetryAttempts = new Map<string, number>();
+const importRetryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const MAX_IMPORT_RETRIES = 5;
+
+function clearImportRetry(id: string): void {
+  const timer = importRetryTimers.get(id);
+  if (timer) {
+    clearTimeout(timer);
+  }
+  importRetryTimers.delete(id);
+  importRetryAttempts.delete(id);
+}
+
+function clearImportRetries(): void {
+  for (const id of importRetryTimers.keys()) {
+    clearImportRetry(id);
+  }
+  importRetryAttempts.clear();
+}
+
+function scheduleImportRetry(recording: PendingWatchRecording): void {
+  if (
+    activeAccountUserId !== recording.accountUserId ||
+    importRetryTimers.has(recording.id)
+  ) {
+    return;
+  }
+
+  const attempt = (importRetryAttempts.get(recording.id) ?? 0) + 1;
+  if (attempt > MAX_IMPORT_RETRIES) {
+    return;
+  }
+  importRetryAttempts.set(recording.id, attempt);
+
+  const timer = setTimeout(
+    () => {
+      importRetryTimers.delete(recording.id);
+      void importRecording(recording);
+    },
+    Math.min(1_000 * 2 ** (attempt - 1), 30_000),
+  );
+  importRetryTimers.set(recording.id, timer);
+}
 
 async function importRecording(
   recording: PendingWatchRecording,
@@ -17,7 +60,8 @@ async function importRecording(
   if (
     !WatchConnectivityModule ||
     activeAccountUserId !== recording.accountUserId ||
-    importsInFlight.has(recording.id)
+    importsInFlight.has(recording.id) ||
+    importRetryTimers.has(recording.id)
   ) {
     return;
   }
@@ -26,11 +70,13 @@ async function importRecording(
   try {
     await importWatchRecording(recording);
     WatchConnectivityModule.markRecordingImported(recording.id);
+    clearImportRetry(recording.id);
   } catch (error) {
     captureOperationalError(error, {
       operation: "watch_recording_import",
       context: { recording_id: recording.id },
     });
+    scheduleImportRetry(recording);
   } finally {
     importsInFlight.delete(recording.id);
   }
@@ -50,7 +96,11 @@ export function initializeWatchConnectivity(): void {
 export function updateWatchAccount(
   account: { userId: string; email: string | null } | null,
 ): void {
-  activeAccountUserId = account?.userId ?? null;
+  const nextAccountUserId = account?.userId ?? null;
+  if (activeAccountUserId !== nextAccountUserId) {
+    clearImportRetries();
+  }
+  activeAccountUserId = nextAccountUserId;
   if (Platform.OS !== "ios" || !WatchConnectivityModule) {
     return;
   }

@@ -30,6 +30,8 @@ final class WatchSyncController: NSObject, ObservableObject {
   private let iso8601Formatter = ISO8601DateFormatter()
   private var pendingRecordings: [PendingRecording] = []
   private var queuedRecordingIds: Set<String> = []
+  private var retryDelay: TimeInterval = 2
+  private var retryWorkItem: DispatchWorkItem?
 
   override init() {
     if let data = UserDefaults.standard.data(forKey: Self.accountDefaultsKey) {
@@ -240,6 +242,7 @@ final class WatchSyncController: NSObject, ObservableObject {
     persistPendingRecordings()
     persistQueuedRecordingIds()
     try? FileManager.default.removeItem(at: recording.url)
+    retryDelay = 2
     flushPendingRecordings()
   }
 
@@ -248,6 +251,25 @@ final class WatchSyncController: NSObject, ObservableObject {
       return
     }
     persistQueuedRecordingIds()
+    scheduleRetry()
+  }
+
+  private func scheduleRetry() {
+    guard retryWorkItem == nil else {
+      return
+    }
+
+    let delay = retryDelay
+    retryDelay = min(retryDelay * 2, 60)
+    let workItem = DispatchWorkItem { [weak self] in
+      guard let self else {
+        return
+      }
+      retryWorkItem = nil
+      flushPendingRecordings()
+    }
+    retryWorkItem = workItem
+    DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
   }
 }
 
@@ -311,6 +333,7 @@ extension WatchSyncController: WCSessionDelegate {
           .lastPathComponent
         self.queuedRecordingIds.remove(id)
         self.persistQueuedRecordingIds()
+        self.scheduleRetry()
       }
       self.updateState(from: session)
     }
