@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { displayModelLabel, displayModelTitle } from "./shared";
+import { displayModelLabel, displayModelTitle, PROVIDERS } from "./shared";
 
 describe("STT model display labels", () => {
   test("keeps cloud model product-facing", () => {
@@ -21,6 +21,32 @@ describe("STT model display labels", () => {
     expect(displayModelLabel("cohere-transcribe-03-2026")).toBe(
       "Cohere Transcribe",
     );
+    expect(displayModelLabel("whisper-large-v3-turbo")).toBe(
+      "Whisper Large V3 Turbo",
+    );
+    expect(displayModelLabel("xai-stt")).toBe("xAI Speech to Text");
+    expect(displayModelLabel("fast-transcription")).toBe("Fast Transcription");
+  });
+
+  test("exposes all new providers with honest capability badges", () => {
+    const providers = Object.fromEntries(
+      PROVIDERS.map((provider) => [provider.id, provider]),
+    );
+
+    expect(providers.fireworks.disabled).toBe(false);
+    expect(providers.fireworks.models).toEqual(["whisper-v3-turbo"]);
+    expect(providers.xai.badge).toBeNull();
+    for (const provider of [
+      "groq",
+      "together",
+      "speechmatics",
+      "azure_speech",
+      "revai",
+    ]) {
+      expect(providers[provider]?.badge).toBe("Batch only");
+    }
+    expect(providers.google_cloud.badge).toBe("Short batch");
+    expect(providers.aws_transcribe.badge).toBe("Gateway");
   });
 
   test("treats apple speech as an on-device model", () => {

@@ -2,7 +2,8 @@ use std::path::PathBuf;
 
 use owhisper_client::{
     AssemblyAIAdapter, BatchClient, BatchSttAdapter, CohereAdapter, DeepgramAdapter,
-    ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, OpenAIAdapter, Provider, SonioxAdapter,
+    ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, MistralAdapter, OpenAIAdapter, Provider,
+    SonioxAdapter,
 };
 use owhisper_interface::ListenParams;
 
@@ -65,5 +66,6 @@ mod direct_batch {
     direct_batch_test!(fireworks, FireworksAdapter, Provider::Fireworks);
     direct_batch_test!(openai, OpenAIAdapter, Provider::OpenAI);
     direct_batch_test!(elevenlabs, ElevenLabsAdapter, Provider::ElevenLabs);
+    direct_batch_test!(mistral, MistralAdapter, Provider::Mistral);
     direct_batch_test!(cohere, CohereAdapter, Provider::Cohere);
 }

@@ -302,6 +302,18 @@ pub(super) async fn transcribe_with_provider(
                 "{provider:?} does not support batch transcription",
             )));
         }
+        Provider::AwsTranscribe
+        | Provider::AzureSpeech
+        | Provider::GoogleCloud
+        | Provider::Groq
+        | Provider::RevAi
+        | Provider::Speechmatics
+        | Provider::Together
+        | Provider::Xai => {
+            return Err(BatchAttemptError::Unsupported(format!(
+                "{provider:?} is a direct BYOK provider",
+            )));
+        }
     };
 
     result.map_err(map_provider_error)

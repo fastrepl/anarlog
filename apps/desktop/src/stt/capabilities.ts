@@ -144,6 +144,18 @@ export function getSttModelTranscriptionMode(
     return "batch";
   }
 
+  if (
+    provider === "groq" ||
+    provider === "together" ||
+    provider === "speechmatics" ||
+    provider === "azure_speech" ||
+    provider === "google_cloud" ||
+    provider === "aws_transcribe" ||
+    provider === "revai"
+  ) {
+    return "batch";
+  }
+
   if (provider === "openai") {
     if (model === "gpt-live-transcribe") return "live";
     if (

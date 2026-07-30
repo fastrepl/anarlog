@@ -144,6 +144,42 @@ export const displayModelId = (model: string) => {
     return "Cohere Transcribe";
   }
 
+  if (model === "whisper-large-v3-turbo") {
+    return "Whisper Large V3 Turbo";
+  }
+
+  if (model === "whisper-large-v3") {
+    return "Whisper Large V3";
+  }
+
+  if (model === "openai/whisper-large-v3") {
+    return "Whisper Large V3";
+  }
+
+  if (model === "xai-stt") {
+    return "xAI Speech to Text";
+  }
+
+  if (model === "enhanced") {
+    return "Enhanced";
+  }
+
+  if (model === "fast-transcription") {
+    return "Fast Transcription";
+  }
+
+  if (model === "latest_long") {
+    return "Latest Long";
+  }
+
+  if (model === "amazon-transcribe") {
+    return "Amazon Transcribe";
+  }
+
+  if (model === "machine") {
+    return "Machine Transcription";
+  }
+
   if (model === "apple-speech") {
     return "Apple Speech";
   }
@@ -250,6 +286,192 @@ const _PROVIDERS = [
       "whisper-1",
     ],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+  },
+  {
+    disabled: false,
+    id: "groq",
+    displayName: "Groq",
+    badge: "Batch only",
+    icon: <Icon icon="simple-icons:groq" className="text-foreground size-4" />,
+    baseUrl: "https://api.groq.com/openai/v1",
+    models: ["whisper-large-v3-turbo", "whisper-large-v3"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Speech-to-text models",
+        url: "https://console.groq.com/docs/speech-to-text",
+      },
+      setup: {
+        label: "API keys",
+        url: "https://console.groq.com/keys",
+      },
+    },
+  },
+  {
+    disabled: false,
+    id: "xai",
+    displayName: "xAI",
+    badge: null,
+    icon: <Icon icon="simple-icons:x" className="text-foreground size-4" />,
+    baseUrl: "https://api.x.ai/v1",
+    models: ["xai-stt"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Speech-to-text docs",
+        url: "https://docs.x.ai/developers/model-capabilities/audio/speech-to-text",
+      },
+      setup: {
+        label: "API keys",
+        url: "https://console.x.ai/",
+      },
+    },
+  },
+  {
+    disabled: false,
+    id: "together",
+    displayName: "Together AI",
+    badge: "Batch only",
+    icon: (
+      <Icon icon="simple-icons:together" className="text-foreground size-4" />
+    ),
+    baseUrl: "https://api.together.xyz/v1",
+    models: ["openai/whisper-large-v3"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Transcription docs",
+        url: "https://docs.together.ai/docs/inference-transcription",
+      },
+      setup: {
+        label: "API keys",
+        url: "https://api.together.ai/settings/api-keys",
+      },
+    },
+  },
+  {
+    disabled: false,
+    id: "speechmatics",
+    displayName: "Speechmatics",
+    badge: "Batch only",
+    icon: (
+      <Icon
+        icon="simple-icons:speechmatics"
+        className="text-foreground size-4"
+      />
+    ),
+    baseUrl: "https://eu1.asr.api.speechmatics.com/v2",
+    models: ["enhanced"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Batch transcription docs",
+        url: "https://docs.speechmatics.com/speech-to-text/batch/quickstart",
+      },
+      setup: {
+        label: "API keys",
+        url: "https://portal.speechmatics.com/settings/api-keys",
+      },
+    },
+  },
+  {
+    disabled: false,
+    id: "azure_speech",
+    displayName: "Azure AI Speech",
+    badge: "Batch only",
+    icon: (
+      <Icon
+        icon="simple-icons:microsoftazure"
+        className="text-foreground size-4"
+      />
+    ),
+    baseUrl: undefined,
+    models: ["fast-transcription"],
+    requirements: [
+      { kind: "requires_config", fields: ["base_url", "api_key"] },
+    ],
+    links: {
+      models: {
+        label: "Fast transcription docs",
+        url: "https://learn.microsoft.com/azure/ai-services/speech-service/fast-transcription-create",
+      },
+      setup: {
+        label: "Speech resource setup",
+        url: "https://learn.microsoft.com/azure/ai-services/speech-service/get-started-speech-to-text",
+      },
+    },
+  },
+  {
+    disabled: false,
+    id: "google_cloud",
+    displayName: "Google Cloud Speech-to-Text",
+    badge: "Short batch",
+    icon: (
+      <Icon
+        icon="simple-icons:googlecloud"
+        className="text-foreground size-4"
+      />
+    ),
+    baseUrl: "https://speech.googleapis.com/v1",
+    models: ["latest_long"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Speech-to-Text models",
+        url: "https://cloud.google.com/speech-to-text/docs/transcription-model",
+      },
+      setup: {
+        label: "Authentication",
+        url: "https://cloud.google.com/speech-to-text/docs/authentication",
+      },
+    },
+  },
+  {
+    disabled: false,
+    id: "aws_transcribe",
+    displayName: "Amazon Transcribe",
+    badge: "Gateway",
+    icon: (
+      <Icon
+        icon="simple-icons:amazonwebservices"
+        className="text-foreground size-4"
+      />
+    ),
+    baseUrl: undefined,
+    models: ["amazon-transcribe"],
+    requirements: [
+      { kind: "requires_config", fields: ["base_url", "api_key"] },
+    ],
+    links: {
+      models: {
+        label: "Amazon Transcribe docs",
+        url: "https://docs.aws.amazon.com/transcribe/latest/dg/how-it-works.html",
+      },
+      setup: {
+        label: "Authentication requirements",
+        url: "https://docs.aws.amazon.com/transcribe/latest/dg/getting-started-http-websocket.html",
+      },
+    },
+  },
+  {
+    disabled: false,
+    id: "revai",
+    displayName: "Rev AI",
+    badge: "Batch only",
+    icon: <Icon icon="simple-icons:rev" className="text-foreground size-4" />,
+    baseUrl: "https://api.rev.ai/speechtotext/v1",
+    models: ["machine"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Asynchronous transcription docs",
+        url: "https://docs.rev.ai/api/asynchronous/get-started",
+      },
+      setup: {
+        label: "Access tokens",
+        url: "https://www.rev.ai/access_token",
+      },
+    },
   },
   {
     disabled: false,
@@ -418,14 +640,24 @@ const _PROVIDERS = [
     ],
   },
   {
-    disabled: true,
+    disabled: false,
     id: "fireworks",
     displayName: "Fireworks",
     badge: null,
     icon: <Fireworks size={14} />,
     baseUrl: "https://api.fireworks.ai",
-    models: ["Default"],
+    models: ["whisper-v3-turbo"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Audio transcription docs",
+        url: "https://docs.fireworks.ai/guides/querying-asr-models",
+      },
+      setup: {
+        label: "API keys",
+        url: "https://fireworks.ai/account/api-keys",
+      },
+    },
   },
 ] as const satisfies readonly Provider[];
 

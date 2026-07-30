@@ -38,6 +38,20 @@ pub enum BatchProvider {
     AquaVoice,
     Cartesia,
     Cohere,
+    #[serde(rename = "aws_transcribe")]
+    #[strum(serialize = "aws_transcribe")]
+    AwsTranscribe,
+    #[serde(rename = "azure_speech")]
+    #[strum(serialize = "azure_speech")]
+    AzureSpeech,
+    #[serde(rename = "google_cloud")]
+    #[strum(serialize = "google_cloud")]
+    GoogleCloud,
+    Groq,
+    RevAi,
+    Speechmatics,
+    Together,
+    Xai,
 }
 
 impl BatchProvider {
@@ -57,6 +71,14 @@ impl BatchProvider {
             Self::AquaVoice => Some(AdapterKind::AquaVoice),
             Self::Cartesia => Some(AdapterKind::Cartesia),
             Self::Cohere => Some(AdapterKind::Cohere),
+            Self::AwsTranscribe => Some(AdapterKind::AwsTranscribe),
+            Self::AzureSpeech => Some(AdapterKind::AzureSpeech),
+            Self::GoogleCloud => Some(AdapterKind::GoogleCloud),
+            Self::Groq => Some(AdapterKind::Groq),
+            Self::RevAi => Some(AdapterKind::RevAi),
+            Self::Speechmatics => Some(AdapterKind::Speechmatics),
+            Self::Together => Some(AdapterKind::Together),
+            Self::Xai => Some(AdapterKind::Xai),
             Self::Am | Self::WhisperLocal | Self::Soniqo | Self::AppleSpeech | Self::DashScope => {
                 None
             }

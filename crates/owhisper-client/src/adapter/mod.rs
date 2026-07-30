@@ -5,6 +5,8 @@ mod anarlog;
 mod aquavoice;
 mod argmax;
 pub(crate) mod assemblyai;
+mod aws_transcribe;
+mod azure_speech;
 pub(crate) mod cartesia;
 mod cohere;
 mod dashscope;
@@ -13,20 +15,29 @@ mod deepgram_compat;
 pub(crate) mod elevenlabs;
 mod fireworks;
 mod gladia;
+mod google_cloud;
+mod groq;
 pub mod http;
 mod language;
 mod mistral;
 mod openai;
+mod openai_compatible_batch;
 mod owhisper;
 mod pyannote;
+mod revai;
 mod smallestai;
 pub(crate) mod soniox;
+mod speechmatics;
+mod together;
 mod whispercpp;
+mod xai;
 
 pub use anarlog::*;
 pub use aquavoice::*;
 pub use argmax::*;
 pub use assemblyai::*;
+pub use aws_transcribe::*;
+pub use azure_speech::*;
 pub use cartesia::*;
 pub use cohere::*;
 pub use dashscope::*;
@@ -34,13 +45,19 @@ pub use deepgram::*;
 pub use elevenlabs::*;
 pub use fireworks::*;
 pub use gladia::*;
+pub use google_cloud::*;
+pub use groq::*;
 pub use language::{LanguageQuality, LanguageSupport};
 pub use mistral::*;
 pub use openai::*;
 pub use pyannote::*;
+pub use revai::*;
 pub use smallestai::*;
 pub use soniox::*;
+pub use speechmatics::*;
+pub use together::*;
 pub use whispercpp::*;
+pub use xai::*;
 
 use std::collections::{BTreeSet, HashSet};
 use std::future::Future;
@@ -433,6 +450,22 @@ pub enum AdapterKind {
     Pyannote,
     #[strum(serialize = "cohere")]
     Cohere,
+    #[strum(serialize = "aws_transcribe")]
+    AwsTranscribe,
+    #[strum(serialize = "azure_speech")]
+    AzureSpeech,
+    #[strum(serialize = "google_cloud")]
+    GoogleCloud,
+    #[strum(serialize = "groq")]
+    Groq,
+    #[strum(serialize = "revai")]
+    RevAi,
+    #[strum(serialize = "speechmatics")]
+    Speechmatics,
+    #[strum(serialize = "together")]
+    Together,
+    #[strum(serialize = "xai")]
+    Xai,
     #[strum(serialize = "anarlog")]
     Anarlog,
 }
@@ -460,7 +493,17 @@ impl AdapterKind {
 
     pub fn has_live_mode(&self) -> bool {
         match self {
-            Self::AquaVoice | Self::Argmax | Self::Pyannote | Self::Cohere => false,
+            Self::AquaVoice
+            | Self::Argmax
+            | Self::Pyannote
+            | Self::Cohere
+            | Self::AwsTranscribe
+            | Self::AzureSpeech
+            | Self::GoogleCloud
+            | Self::Groq
+            | Self::RevAi
+            | Self::Speechmatics
+            | Self::Together => false,
             Self::Soniox
             | Self::Cartesia
             | Self::Fireworks
@@ -471,6 +514,7 @@ impl AdapterKind {
             | Self::ElevenLabs
             | Self::DashScope
             | Self::Mistral
+            | Self::Xai
             | Self::Anarlog => true,
         }
     }
@@ -498,6 +542,14 @@ impl AdapterKind {
             Self::Mistral => MistralAdapter::language_support_live(languages),
             Self::Pyannote => LanguageSupport::NotSupported,
             Self::Cohere => LanguageSupport::NotSupported,
+            Self::AwsTranscribe
+            | Self::AzureSpeech
+            | Self::GoogleCloud
+            | Self::Groq
+            | Self::RevAi
+            | Self::Speechmatics
+            | Self::Together => LanguageSupport::NotSupported,
+            Self::Xai => XaiAdapter::language_support_live(languages),
             Self::Anarlog => AnarlogAdapter::language_support_live(languages, model),
         }
     }
@@ -525,6 +577,14 @@ impl AdapterKind {
             Self::Mistral => MistralAdapter::language_support_batch(languages),
             Self::Pyannote => PyannoteAdapter::language_support_batch(languages, model),
             Self::Cohere => CohereAdapter::language_support_batch(languages),
+            Self::AwsTranscribe => AwsTranscribeAdapter::language_support_batch(languages),
+            Self::AzureSpeech => AzureSpeechAdapter::language_support_batch(languages),
+            Self::GoogleCloud => GoogleCloudAdapter::language_support_batch(languages),
+            Self::Groq => GroqAdapter::language_support_batch(languages),
+            Self::RevAi => RevAiAdapter::language_support_batch(languages),
+            Self::Speechmatics => SpeechmaticsAdapter::language_support_batch(languages),
+            Self::Together => TogetherAdapter::language_support_batch(languages),
+            Self::Xai => XaiAdapter::language_support_batch(languages),
             Self::Anarlog => AnarlogAdapter::language_support_batch(languages, model),
         }
     }
@@ -583,6 +643,14 @@ impl From<crate::providers::Provider> for AdapterKind {
             Provider::Mistral => Self::Mistral,
             Provider::Pyannote => Self::Pyannote,
             Provider::Cohere => Self::Cohere,
+            Provider::AwsTranscribe => Self::AwsTranscribe,
+            Provider::AzureSpeech => Self::AzureSpeech,
+            Provider::GoogleCloud => Self::GoogleCloud,
+            Provider::Groq => Self::Groq,
+            Provider::RevAi => Self::RevAi,
+            Provider::Speechmatics => Self::Speechmatics,
+            Provider::Together => Self::Together,
+            Provider::Xai => Self::Xai,
         }
     }
 }
@@ -814,6 +882,7 @@ mod tests {
             AdapterKind::ElevenLabs,
             AdapterKind::DashScope,
             AdapterKind::Mistral,
+            AdapterKind::Xai,
             AdapterKind::Anarlog,
         ];
         for kind in live {
@@ -825,6 +894,13 @@ mod tests {
             AdapterKind::Argmax,
             AdapterKind::Pyannote,
             AdapterKind::Cohere,
+            AdapterKind::AwsTranscribe,
+            AdapterKind::AzureSpeech,
+            AdapterKind::GoogleCloud,
+            AdapterKind::Groq,
+            AdapterKind::RevAi,
+            AdapterKind::Speechmatics,
+            AdapterKind::Together,
         ];
         for kind in batch_only {
             assert!(
@@ -1019,6 +1095,50 @@ mod tests {
         assert_eq!(
             AdapterKind::from_url_and_languages("https://api.cohere.com/v2", &en, None),
             AdapterKind::Cohere,
+        );
+        assert_eq!(
+            AdapterKind::from_url_and_languages(
+                "https://transcribe.us-east-1.amazonaws.com",
+                &en,
+                None,
+            ),
+            AdapterKind::AwsTranscribe,
+        );
+        assert_eq!(
+            AdapterKind::from_url_and_languages(
+                "https://example.cognitiveservices.azure.com",
+                &en,
+                None,
+            ),
+            AdapterKind::AzureSpeech,
+        );
+        assert_eq!(
+            AdapterKind::from_url_and_languages("https://speech.googleapis.com/v1", &en, None,),
+            AdapterKind::GoogleCloud,
+        );
+        assert_eq!(
+            AdapterKind::from_url_and_languages("https://api.groq.com/openai/v1", &en, None,),
+            AdapterKind::Groq,
+        );
+        assert_eq!(
+            AdapterKind::from_url_and_languages("https://api.rev.ai/speechtotext/v1", &en, None,),
+            AdapterKind::RevAi,
+        );
+        assert_eq!(
+            AdapterKind::from_url_and_languages(
+                "https://eu1.asr.api.speechmatics.com/v2",
+                &en,
+                None,
+            ),
+            AdapterKind::Speechmatics,
+        );
+        assert_eq!(
+            AdapterKind::from_url_and_languages("https://api.together.xyz/v1", &en, None,),
+            AdapterKind::Together,
+        );
+        assert_eq!(
+            AdapterKind::from_url_and_languages("https://api.x.ai/v1", &en, None),
+            AdapterKind::Xai,
         );
         assert_eq!(
             AdapterKind::from_url_and_languages("http://localhost:50060/v1", &en, None),

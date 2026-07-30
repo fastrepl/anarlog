@@ -257,6 +257,12 @@ mod passthrough {
             owhisper_client::ElevenLabsAdapter,
             Provider::ElevenLabs
         );
+        passthrough_live_test!(mistral, owhisper_client::MistralAdapter, Provider::Mistral);
+        passthrough_live_test!(
+            dashscope,
+            owhisper_client::DashScopeAdapter,
+            Provider::DashScope
+        );
     }
 
     pub mod batch {
@@ -269,6 +275,7 @@ mod passthrough {
         passthrough_batch_test!(fireworks, Provider::Fireworks);
         passthrough_batch_test!(openai, Provider::OpenAI);
         passthrough_batch_test!(elevenlabs, Provider::ElevenLabs);
+        passthrough_batch_test!(mistral, Provider::Mistral);
     }
 }
 
@@ -284,6 +291,8 @@ mod anarlog {
         anarlog_live_test!(gladia, Provider::Gladia);
         anarlog_live_test!(fireworks, Provider::Fireworks);
         anarlog_live_test!(elevenlabs, Provider::ElevenLabs);
+        anarlog_live_test!(mistral, Provider::Mistral);
+        anarlog_live_test!(dashscope, Provider::DashScope);
     }
 
     pub mod batch {
@@ -296,5 +305,6 @@ mod anarlog {
         anarlog_batch_test!(fireworks, Provider::Fireworks);
         anarlog_batch_test!(openai, Provider::OpenAI);
         anarlog_batch_test!(elevenlabs, Provider::ElevenLabs);
+        anarlog_batch_test!(mistral, Provider::Mistral);
     }
 }

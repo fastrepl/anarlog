@@ -21,7 +21,15 @@ const DEFAULT_EXTERNAL_STT_MODELS: Record<string, string> = {
   pyannote: "parakeet-tdt-0.6b-v3",
   aquavoice: "avalon-v1-en",
   cohere: "cohere-transcribe-03-2026",
-  fireworks: "Default",
+  fireworks: "whisper-v3-turbo",
+  groq: "whisper-large-v3-turbo",
+  xai: "xai-stt",
+  together: "openai/whisper-large-v3",
+  speechmatics: "enhanced",
+  azure_speech: "fast-transcription",
+  google_cloud: "latest_long",
+  aws_transcribe: "amazon-transcribe",
+  revai: "machine",
 };
 
 export function getDefaultSttModel(provider?: string | null) {

@@ -187,6 +187,19 @@ describe("getBatchProvider", () => {
     );
   });
 
+  test.each([
+    ["aws_transcribe", "amazon-transcribe"],
+    ["azure_speech", "fast-transcription"],
+    ["google_cloud", "latest_long"],
+    ["groq", "whisper-large-v3-turbo"],
+    ["revai", "machine"],
+    ["speechmatics", "enhanced"],
+    ["together", "openai/whisper-large-v3"],
+    ["xai", "xai-stt"],
+  ] as const)("maps %s to its direct batch provider", (provider, model) => {
+    expect(getBatchProvider(provider, model)).toBe(provider);
+  });
+
   test("maps Cloudflare Workers AI to the Deepgram-compatible batch provider", () => {
     expect(getBatchProvider("cloudflare_workers_ai", "nova-3")).toBe(
       "deepgram",

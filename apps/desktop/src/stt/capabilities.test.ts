@@ -94,12 +94,24 @@ describe("getSttModelTranscriptionMode", () => {
     expect(
       getSttModelTranscriptionMode("cohere", "cohere-transcribe-03-2026"),
     ).toBe("batch");
+    for (const [provider, model] of [
+      ["groq", "whisper-large-v3-turbo"],
+      ["together", "openai/whisper-large-v3"],
+      ["speechmatics", "enhanced"],
+      ["azure_speech", "fast-transcription"],
+      ["google_cloud", "latest_long"],
+      ["aws_transcribe", "amazon-transcribe"],
+      ["revai", "machine"],
+    ]) {
+      expect(getSttModelTranscriptionMode(provider, model)).toBe("batch");
+    }
   });
 
   test("leaves models without an explicit mode to provider inference", () => {
     expect(getSttModelTranscriptionMode("deepgram", "nova-3-general")).toBe(
       undefined,
     );
+    expect(getSttModelTranscriptionMode("xai", "xai-stt")).toBeUndefined();
   });
 });
 

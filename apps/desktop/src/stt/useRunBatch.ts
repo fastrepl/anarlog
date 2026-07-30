@@ -78,6 +78,14 @@ const DIRECT_BATCH_PROVIDERS: Set<TranscriptionParams["provider"]> = new Set([
   "pyannote",
   "aquavoice",
   "cohere",
+  "aws_transcribe",
+  "azure_speech",
+  "google_cloud",
+  "groq",
+  "revai",
+  "speechmatics",
+  "together",
+  "xai",
 ]);
 
 export const STOPPED_TRANSCRIPTION_ERROR_MESSAGE = "Transcription stopped.";

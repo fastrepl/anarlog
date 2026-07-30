@@ -13,6 +13,15 @@ describe("getDefaultSttModel", () => {
     expect(getDefaultSttModel("deepgram")).toBe("nova-3-general");
     expect(getDefaultSttModel("soniox")).toBe("stt-rt-v5");
     expect(getDefaultSttModel("cohere")).toBe("cohere-transcribe-03-2026");
+    expect(getDefaultSttModel("groq")).toBe("whisper-large-v3-turbo");
+    expect(getDefaultSttModel("xai")).toBe("xai-stt");
+    expect(getDefaultSttModel("together")).toBe("openai/whisper-large-v3");
+    expect(getDefaultSttModel("speechmatics")).toBe("enhanced");
+    expect(getDefaultSttModel("azure_speech")).toBe("fast-transcription");
+    expect(getDefaultSttModel("google_cloud")).toBe("latest_long");
+    expect(getDefaultSttModel("aws_transcribe")).toBe("amazon-transcribe");
+    expect(getDefaultSttModel("revai")).toBe("machine");
+    expect(getDefaultSttModel("fireworks")).toBe("whisper-v3-turbo");
   });
 
   test("does not invent a model for custom or Anarlog providers", () => {

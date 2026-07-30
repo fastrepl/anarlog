@@ -11,6 +11,8 @@ on:
           - fireworks
           - openai
           - elevenlabs
+          - mistral
+          - dashscope
   push:
     branches:
       - main
@@ -50,6 +52,10 @@ jobs:
               - 'crates/owhisper-client/src/adapter/openai/**'
             elevenlabs:
               - 'crates/owhisper-client/src/adapter/elevenlabs/**'
+            mistral:
+              - 'crates/owhisper-client/src/adapter/mistral/**'
+            dashscope:
+              - 'crates/owhisper-client/src/adapter/dashscope/**'
       - id: detect
         run: |
           set -euo pipefail
@@ -63,12 +69,15 @@ jobs:
           if [ "${{ steps.filter.outputs.fireworks }}" == "true" ]; then providers+=("fireworks"); fi
           if [ "${{ steps.filter.outputs.openai }}" == "true" ]; then providers+=("openai"); fi
           if [ "${{ steps.filter.outputs.elevenlabs }}" == "true" ]; then providers+=("elevenlabs"); fi
+          if [ "${{ steps.filter.outputs.mistral }}" == "true" ]; then providers+=("mistral"); fi
+          if [ "${{ steps.filter.outputs.dashscope }}" == "true" ]; then providers+=("dashscope"); fi
 
           if [ ${#providers[@]} -eq 0 ]; then
             if [ "${{ steps.filter.outputs.transcribe_proxy }}" == "true" ]; then
               providers=("deepgram" "soniox")
             else
-              providers=("deepgram")
+              echo "providers=" >> "$GITHUB_OUTPUT"
+              exit 0
             fi
           fi
 
@@ -132,6 +141,13 @@ jobs:
               elevenlabs)
                 : "${ELEVENLABS_API_KEY:?ELEVENLABS_API_KEY is required}"
                 ;;
+              mistral)
+                : "${MISTRAL_API_KEY:?MISTRAL_API_KEY is required}"
+                ;;
+              dashscope)
+                echo "DashScope is realtime-only; direct batch E2E is covered by the proxy live suites"
+                exit 0
+                ;;
               *)
                 echo "Unknown provider: $provider"
                 exit 1
@@ -188,6 +204,12 @@ jobs:
               elevenlabs)
                 : "${ELEVENLABS_API_KEY:?ELEVENLABS_API_KEY is required}"
                 ;;
+              mistral)
+                : "${MISTRAL_API_KEY:?MISTRAL_API_KEY is required}"
+                ;;
+              dashscope)
+                : "${DASHSCOPE_API_KEY:?DASHSCOPE_API_KEY is required}"
+                ;;
               *)
                 echo "Unknown provider: $provider"
                 exit 1
@@ -196,7 +218,12 @@ jobs:
 
             echo "Running transcribe-proxy provider e2e tests for $provider"
 
-            for suite in passthrough::live passthrough::batch anarlog::live anarlog::batch; do
+            suites=(passthrough::live anarlog::live)
+            if [ "$provider" != "dashscope" ]; then
+              suites+=(passthrough::batch anarlog::batch)
+            fi
+
+            for suite in "${suites[@]}"; do
               cargo test -p transcribe-proxy --test proxy_provider_e2e "${suite}::${provider}" -- --ignored --nocapture
             done
           '

@@ -7,7 +7,7 @@ use ractor::{ActorProcessingErr, ActorRef};
 use owhisper_client::{
     AdapterKind, AnarlogAdapter, ArgmaxAdapter, AssemblyAIAdapter, CartesiaAdapter,
     DashScopeAdapter, DeepgramAdapter, DeepgramFluxAdapter, ElevenLabsAdapter, FireworksAdapter,
-    GladiaAdapter, MistralAdapter, OpenAIAdapter, RealtimeSttAdapter, SonioxAdapter,
+    GladiaAdapter, MistralAdapter, OpenAIAdapter, RealtimeSttAdapter, SonioxAdapter, XaiAdapter,
     anlg_ws_client,
 };
 use owhisper_interface::stream::Extra;
@@ -123,8 +123,20 @@ pub(super) async fn spawn_rx_task(
         ElevenLabs => ElevenLabsAdapter,
         DashScope => DashScopeAdapter,
         Mistral => MistralAdapter,
+        Xai => XaiAdapter,
         Anarlog => AnarlogAdapter,
-    }, batch_only: [AquaVoice, Pyannote, Cohere])?;
+    }, batch_only: [
+        AquaVoice,
+        Pyannote,
+        Cohere,
+        AwsTranscribe,
+        AzureSpeech,
+        GoogleCloud,
+        Groq,
+        RevAi,
+        Speechmatics,
+        Together
+    ])?;
 
     Ok((result.0, result.1, result.2, adapter_kind.to_string()))
 }

@@ -117,6 +117,14 @@ pub fn env_with_provider(provider: Provider, api_key: String) -> transcribe_prox
         Provider::AquaVoice => env.stt.aquavoice_api_key = Some(api_key),
         Provider::Cohere => env.stt.cohere_api_key = Some(api_key),
         Provider::Pyannote => {}
+        Provider::AwsTranscribe
+        | Provider::AzureSpeech
+        | Provider::GoogleCloud
+        | Provider::Groq
+        | Provider::RevAi
+        | Provider::Speechmatics
+        | Provider::Together
+        | Provider::Xai => panic!("{provider} is not configured in the Pro proxy"),
     }
     env
 }

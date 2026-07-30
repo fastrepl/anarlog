@@ -145,6 +145,14 @@ pub fn suggest_providers_for_languages_batch(languages: &[anlg_language::Languag
         AdapterKind::DashScope,
         AdapterKind::Mistral,
         AdapterKind::Cohere,
+        AdapterKind::AwsTranscribe,
+        AdapterKind::AzureSpeech,
+        AdapterKind::GoogleCloud,
+        AdapterKind::Groq,
+        AdapterKind::RevAi,
+        AdapterKind::Speechmatics,
+        AdapterKind::Together,
+        AdapterKind::Xai,
     ];
 
     let mut with_support: Vec<_> = all_providers
