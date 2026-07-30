@@ -837,6 +837,7 @@ function useMainAreaTopWindowDrag(enabled: boolean) {
         !enabled ||
         event.button !== 0 ||
         isInteractiveMainAreaDragTarget(event.target) ||
+        isNativeWindowDragTarget(event.target) ||
         !isWithinMainAreaTopDragRegion(event)
       ) {
         return;
@@ -890,6 +891,17 @@ function isInteractiveMainAreaDragTarget(target: EventTarget | null): boolean {
         "[role='textbox']",
       ].join(","),
     ),
+  );
+}
+
+function isNativeWindowDragTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+
+  return (
+    target.hasAttribute("data-tauri-drag-region") &&
+    target.getAttribute("data-tauri-drag-region") !== "false"
   );
 }
 

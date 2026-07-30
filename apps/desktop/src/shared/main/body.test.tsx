@@ -119,6 +119,12 @@ vi.mock("~/main/tab-content", () => ({
       <div data-testid="main-tab-content">
         <input aria-label="Session title" />
       </div>
+    ) : tab.type === "empty" ? (
+      <div data-testid="main-tab-content">
+        <div data-tauri-drag-region data-testid="native-main-tab-drag-region">
+          <span data-testid="native-main-tab-drag-target">{tab.type}</span>
+        </div>
+      </div>
     ) : (
       <div data-testid="main-tab-content">{tab.type}</div>
     ),
@@ -648,6 +654,34 @@ describe("ClassicMainBody", () => {
     const mainContent = screen.getByTestId("main-tab-content");
 
     fireEvent.doubleClick(mainContent, {
+      button: 0,
+      clientX: 12,
+      clientY: 12,
+    });
+
+    expect(mocks.toggleMaximize).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves exact native drag-region double-clicks to Tauri", () => {
+    render(<ClassicMainBody />);
+
+    const nativeDragRegion = screen.getByTestId("native-main-tab-drag-region");
+
+    fireEvent.doubleClick(nativeDragRegion, {
+      button: 0,
+      clientX: 12,
+      clientY: 12,
+    });
+
+    expect(mocks.toggleMaximize).not.toHaveBeenCalled();
+  });
+
+  it("toggles maximization from children of a native drag region", () => {
+    render(<ClassicMainBody />);
+
+    const nativeDragTarget = screen.getByTestId("native-main-tab-drag-target");
+
+    fireEvent.doubleClick(nativeDragTarget, {
       button: 0,
       clientX: 12,
       clientY: 12,
