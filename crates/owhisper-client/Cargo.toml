@@ -46,3 +46,4 @@ rodio = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tracing-subscriber = { workspace = true }
+wiremock = { workspace = true }

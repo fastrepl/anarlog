@@ -103,19 +103,17 @@ async fn do_transcribe_file(
         .send()
         .await?;
     let job: SpeechmaticsJob = ensure_success(response).await?.json().await?;
+    let terminal_error = terminal_job_error(&job);
 
     let transcript = match job.transcript {
         Some(transcript) => transcript,
         None if job.status == "done" => {
             fetch_transcript(client, api_base, api_key, &job.id).await?
         }
-        None if matches!(job.status.as_str(), "rejected" | "deleted") => {
-            return Err(Error::AudioProcessing(format!(
-                "Speechmatics job {}",
-                job.status
-            )));
-        }
-        None => wait_for_transcript(client, api_base, api_key, &job.id).await?,
+        None => match terminal_error {
+            Some(error) => return Err(error),
+            None => wait_for_transcript(client, api_base, api_key, &job.id).await?,
+        },
     };
 
     Ok(convert_response(transcript))
@@ -144,7 +142,12 @@ async fn wait_for_transcript(
     for _ in 0..30 {
         match fetch_transcript(client, api_base, api_key, job_id).await {
             Ok(transcript) => return Ok(transcript),
-            Err(Error::UnexpectedStatus { status, .. }) if status == StatusCode::NOT_FOUND => {}
+            Err(Error::UnexpectedStatus { status, .. }) if status == StatusCode::NOT_FOUND => {
+                let job = fetch_job(client, api_base, api_key, job_id).await?;
+                if let Some(error) = terminal_job_error(&job) {
+                    return Err(error);
+                }
+            }
             Err(error) => return Err(error),
         }
     }
@@ -152,6 +155,24 @@ async fn wait_for_transcript(
     Err(Error::AudioProcessing(
         "Speechmatics transcription did not finish before the polling limit".to_string(),
     ))
+}
+
+async fn fetch_job(
+    client: &ClientWithMiddleware,
+    api_base: &str,
+    api_key: &str,
+    job_id: &str,
+) -> Result<SpeechmaticsJob, Error> {
+    let mut url = jobs_url(api_base)?;
+    append_path_if_missing(&mut url, job_id);
+
+    let response = client
+        .get(url.to_string())
+        .bearer_auth(api_key)
+        .send()
+        .await?;
+    let payload: SpeechmaticsJobResponse = ensure_success(response).await?.json().await?;
+    Ok(payload.job)
 }
 
 async fn fetch_transcript(
@@ -178,8 +199,37 @@ async fn fetch_transcript(
 struct SpeechmaticsJob {
     id: String,
     status: String,
+    #[serde(default)]
+    errors: Vec<SpeechmaticsJobError>,
     #[serde(default, rename = "json-v2")]
     transcript: Option<SpeechmaticsTranscript>,
+}
+
+#[derive(serde::Deserialize)]
+struct SpeechmaticsJobResponse {
+    job: SpeechmaticsJob,
+}
+
+#[derive(serde::Deserialize)]
+struct SpeechmaticsJobError {
+    message: String,
+}
+
+fn terminal_job_error(job: &SpeechmaticsJob) -> Option<Error> {
+    if !matches!(job.status.as_str(), "rejected" | "deleted" | "expired") {
+        return None;
+    }
+
+    let detail = job
+        .errors
+        .last()
+        .map(|error| error.message.trim())
+        .filter(|message| !message.is_empty());
+    let message = match detail {
+        Some(detail) => format!("Speechmatics job {}: {detail}", job.status),
+        None => format!("Speechmatics job {}", job.status),
+    };
+    Some(Error::AudioProcessing(message))
 }
 
 #[derive(serde::Deserialize)]
@@ -290,6 +340,8 @@ fn parse_speaker_label(label: &str) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     #[test]
     fn converts_json_v2_words_and_speakers() {
@@ -342,5 +394,38 @@ mod tests {
             Some("world.")
         );
         assert_eq!(word.speaker, Some(2));
+    }
+
+    #[tokio::test]
+    async fn returns_rejected_job_details_while_polling() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/jobs/job-1/transcript"))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/jobs/job-1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "job": {
+                    "id": "job-1",
+                    "status": "rejected",
+                    "errors": [{ "message": "unsupported audio" }]
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = crate::http_client::create_client();
+        let Err(error) = wait_for_transcript(&client, &server.uri(), "test-key", "job-1").await
+        else {
+            panic!("expected rejected job error");
+        };
+
+        assert!(matches!(
+            error,
+            Error::AudioProcessing(message)
+                if message == "Speechmatics job rejected: unsupported audio"
+        ));
     }
 }

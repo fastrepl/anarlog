@@ -1,3 +1,5 @@
+use std::sync::atomic::Ordering;
+
 use anlg_ws_client::client::Message;
 use owhisper_interface::ListenParams;
 use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse, Word};
@@ -25,6 +27,8 @@ impl RealtimeSttAdapter for XaiAdapter {
     }
 
     fn build_ws_url(&self, api_base: &str, params: &ListenParams, channels: u8) -> url::Url {
+        self.live_channels.store(channels.max(1), Ordering::Relaxed);
+
         let (mut url, existing_params) = if let Some(result) = build_proxy_ws_url(api_base) {
             result
         } else {
@@ -120,6 +124,7 @@ impl RealtimeSttAdapter for XaiAdapter {
             "transcript.partial" | "transcript.done" => {
                 let is_done = event.event_type == "transcript.done";
                 let channel_index = event.channel_index.unwrap_or(0);
+                let total_channels = self.live_channels.load(Ordering::Relaxed).max(1);
                 vec![StreamResponse::TranscriptResponse {
                     start: event.start.unwrap_or_default(),
                     duration: event.duration.unwrap_or_default(),
@@ -147,7 +152,7 @@ impl RealtimeSttAdapter for XaiAdapter {
                         }],
                     },
                     metadata: Metadata::default(),
-                    channel_index: vec![channel_index, 1],
+                    channel_index: vec![channel_index, i32::from(total_channels)],
                 }]
             }
             _ => Vec::new(),
@@ -199,8 +204,9 @@ mod tests {
             ..Default::default()
         };
 
-        let direct = XaiAdapter.build_ws_url("https://api.x.ai/v1", &params, 2);
-        let proxy = XaiAdapter.build_ws_url("https://api.anarlog.so/stt?provider=xai", &params, 1);
+        let adapter = XaiAdapter::default();
+        let direct = adapter.build_ws_url("https://api.x.ai/v1", &params, 2);
+        let proxy = adapter.build_ws_url("https://api.anarlog.so/stt?provider=xai", &params, 1);
 
         assert_eq!(direct.scheme(), "wss");
         assert_eq!(direct.path(), "/v1/stt");
@@ -214,7 +220,7 @@ mod tests {
 
     #[test]
     fn parses_partial_transcript() {
-        let responses = XaiAdapter.parse_response(
+        let responses = XaiAdapter::default().parse_response(
             r#"{"type":"transcript.partial","text":"hello","is_final":true,"speech_final":true,"start":0.1,"duration":0.5,"words":[{"text":"hello","start":0.1,"end":0.6,"speaker":1}]}"#,
         );
 
@@ -230,5 +236,19 @@ mod tests {
         assert!(*is_final);
         assert!(*speech_final);
         assert_eq!(channel.alternatives[0].words[0].speaker, Some(1));
+    }
+
+    #[test]
+    fn reports_the_configured_multichannel_total() {
+        let adapter = XaiAdapter::default();
+        adapter.build_ws_url("https://api.x.ai/v1", &ListenParams::default(), 2);
+
+        let responses = adapter
+            .parse_response(r#"{"type":"transcript.partial","text":"hello","channel_index":1}"#);
+
+        let StreamResponse::TranscriptResponse { channel_index, .. } = &responses[0] else {
+            panic!("expected transcript response");
+        };
+        assert_eq!(channel_index, &[1, 2]);
     }
 }

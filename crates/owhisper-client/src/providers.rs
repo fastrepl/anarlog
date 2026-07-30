@@ -636,7 +636,7 @@ impl Provider {
             Self::OpenAI => from_adapter(&crate::adapter::OpenAIAdapter::default(), msg),
             Self::Pyannote => None,
             Self::Cohere => None,
-            Self::Xai => from_adapter(&crate::adapter::XaiAdapter, msg),
+            Self::Xai => from_adapter(&crate::adapter::XaiAdapter::default(), msg),
             Self::AwsTranscribe
             | Self::AzureSpeech
             | Self::GoogleCloud

@@ -12785,6 +12785,7 @@ dependencies = [
  "transcribe-soniqo",
  "transcribe-speechanalyzer",
  "url",
+ "wiremock",
  "ws-client",
 ]
 
