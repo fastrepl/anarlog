@@ -15,11 +15,13 @@ export function useDraftState({
   onDraftContentChange,
   onContextRefsChange,
   onUserEdit,
+  shouldPersistUpdate,
 }: {
   draftKey: string;
   onDraftContentChange?: (hasDraftContent: boolean) => void;
   onContextRefsChange?: (refs: ContextRef[]) => void;
   onUserEdit?: () => void;
+  shouldPersistUpdate?: () => boolean;
 }) {
   const initialContent = useRef(draftsByKey.get(draftKey) ?? EMPTY_DOC);
   const [hasContent, setHasContent] = useState(() =>
@@ -36,12 +38,23 @@ export function useDraftState({
   const handleEditorUpdate = useCallback(
     (json: JSONContent) => {
       setHasContent(hasTextContent(json));
-      draftsByKey.set(draftKey, json);
+      const shouldPersist = shouldPersistUpdate?.() ?? true;
+      if (shouldPersist) {
+        draftsByKey.set(draftKey, json);
+      }
       onDraftContentChange?.(hasDraftContent(json));
       onContextRefsChange?.(extractContextRefsFromTiptapJson(json));
-      onUserEdit?.();
+      if (shouldPersist) {
+        onUserEdit?.();
+      }
     },
-    [draftKey, onDraftContentChange, onContextRefsChange, onUserEdit],
+    [
+      draftKey,
+      onDraftContentChange,
+      onContextRefsChange,
+      onUserEdit,
+      shouldPersistUpdate,
+    ],
   );
 
   return {
@@ -110,9 +123,9 @@ export function useMessageHistory({
   const isApplyingRef = useRef(false);
 
   const applyContent = useCallback(
-    (content: JSONContent | undefined) => {
+    (content: JSONContent | undefined, selection: "start" | "end") => {
       isApplyingRef.current = true;
-      editorRef.current?.replaceContent(content ?? EMPTY_DOC);
+      editorRef.current?.replaceContent(content ?? EMPTY_DOC, selection);
       isApplyingRef.current = false;
     },
     [editorRef],
@@ -135,7 +148,7 @@ export function useMessageHistory({
           draftBeforeHistory.current = editorRef.current?.getJSON();
         }
         setIndex(next);
-        applyContent(sentMessageAt(next));
+        applyContent(sentMessageAt(next), "start");
         return true;
       }
 
@@ -145,12 +158,12 @@ export function useMessageHistory({
 
       if (index === 0) {
         setIndex(null);
-        applyContent(draftBeforeHistory.current);
+        applyContent(draftBeforeHistory.current, "end");
         return true;
       }
 
       setIndex(index - 1);
-      applyContent(sentMessageAt(index - 1));
+      applyContent(sentMessageAt(index - 1), "end");
       return true;
     },
     [applyContent, editorRef, index],
@@ -162,6 +175,8 @@ export function useMessageHistory({
     }
     setIndex(null);
   }, []);
+
+  const shouldPersistUpdate = useCallback(() => !isApplyingRef.current, []);
 
   const handleSubmitted = useCallback((json: JSONContent | undefined) => {
     pushSentMessage(json);
@@ -175,6 +190,7 @@ export function useMessageHistory({
     navigate,
     handleUserEdit,
     handleSubmitted,
+    shouldPersistUpdate,
   };
 }
 

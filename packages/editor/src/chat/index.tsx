@@ -62,7 +62,7 @@ export interface ChatEditorHandle {
   focus(): void;
   getJSON(): JSONContent | undefined;
   clearContent(): void;
-  replaceContent(content: JSONContent): void;
+  replaceContent(content: JSONContent, selection?: "start" | "end"): void;
 }
 
 interface ChatEditorProps {
@@ -212,7 +212,7 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
           );
           view.dispatch(tr);
         },
-        replaceContent(content) {
+        replaceContent(content, selection = "end") {
           const view = viewRef.current;
           if (!view || content.type !== "doc") return;
 
@@ -228,7 +228,11 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
             view.state.doc.content.size,
             doc.content,
           );
-          tr.setSelection(Selection.atEnd(tr.doc));
+          tr.setSelection(
+            selection === "start"
+              ? Selection.atStart(tr.doc)
+              : Selection.atEnd(tr.doc),
+          );
           view.dispatch(tr);
           view.focus();
         },

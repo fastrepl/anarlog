@@ -56,6 +56,7 @@ export function ChatMessageInput({
     onDraftContentChange,
     onContextRefsChange,
     onUserEdit: history.handleUserEdit,
+    shouldPersistUpdate: history.shouldPersistUpdate,
   });
   const handleSubmit = useSubmit({
     draftKey,

@@ -16,6 +16,8 @@ const { clearContentMock, editorState, shellState } = vi.hoisted(() => ({
     onHistoryNavigate: undefined as
       | undefined
       | ((direction: "prev" | "next") => boolean),
+    initialContent: undefined as unknown,
+    replacementSelections: [] as Array<"start" | "end">,
     submitShortcut: undefined as undefined | "mod-enter" | "enter",
   },
   shellState: {
@@ -35,10 +37,11 @@ vi.mock("@anlg/editor/chat", async () => {
         clearContent: () => void;
         focus: () => void;
         getJSON: () => unknown;
-        replaceContent: (content: unknown) => void;
+        replaceContent: (content: unknown, selection?: "start" | "end") => void;
       },
       {
         className: string;
+        initialContent?: unknown;
         onSubmit: () => void;
         onUpdate: (json: unknown) => void;
         onHistoryNavigate?: (direction: "prev" | "next") => boolean;
@@ -51,6 +54,7 @@ vi.mock("@anlg/editor/chat", async () => {
     >(function ChatEditor(
       {
         className,
+        initialContent,
         onSubmit,
         onUpdate,
         onHistoryNavigate,
@@ -62,14 +66,19 @@ vi.mock("@anlg/editor/chat", async () => {
       editorState.onSubmit = onSubmit;
       editorState.onUpdate = onUpdate;
       editorState.onHistoryNavigate = onHistoryNavigate;
+      editorState.initialContent = initialContent;
       editorState.submitShortcut = submitShortcut;
 
       React.useImperativeHandle(ref, () => ({
         clearContent: clearContentMock,
         focus: vi.fn(),
         getJSON: () => editorState.json,
-        replaceContent: (content: unknown) => {
+        replaceContent: (
+          content: unknown,
+          selection: "start" | "end" = "end",
+        ) => {
           editorState.json = content;
+          editorState.replacementSelections.push(selection);
           editorState.onUpdate?.(content);
         },
       }));
@@ -136,6 +145,8 @@ describe("ChatMessageInput", () => {
     editorState.onSubmit = undefined;
     editorState.onUpdate = undefined;
     editorState.onHistoryNavigate = undefined;
+    editorState.initialContent = undefined;
+    editorState.replacementSelections = [];
     editorState.submitShortcut = undefined;
     shellState.mode = "FloatingOpen";
   });
@@ -464,6 +475,12 @@ describe("ChatMessageInput", () => {
     });
     expect(editorState.json).toEqual(docWithText("In progress"));
     expect(screen.queryByText(/History/)).toBeNull();
+    expect(editorState.replacementSelections).toEqual([
+      "start",
+      "start",
+      "end",
+      "end",
+    ]);
   });
 
   it("leaves arrow keys alone without history to walk", () => {
@@ -508,6 +525,32 @@ describe("ChatMessageInput", () => {
     });
 
     expect(screen.queryByText(/History/)).toBeNull();
+  });
+
+  it("preserves the pending draft when unmounted while browsing history", () => {
+    shellState.mode = "RightPanelOpen";
+    const draftKey = "chat-input-history-unmount";
+    const { unmount } = render(
+      <ChatMessageInput draftKey={draftKey} onSendMessage={vi.fn()} />,
+    );
+
+    editorState.json = docWithText("Sent");
+    act(() => {
+      editorState.onUpdate?.(editorState.json);
+      editorState.onSubmit?.();
+    });
+
+    editorState.json = docWithText("In progress");
+    act(() => {
+      editorState.onUpdate?.(editorState.json);
+      editorState.onHistoryNavigate?.("prev");
+    });
+    expect(editorState.json).toEqual(docWithText("Sent"));
+
+    unmount();
+    render(<ChatMessageInput draftKey={draftKey} onSendMessage={vi.fn()} />);
+
+    expect(editorState.initialContent).toEqual(docWithText("In progress"));
   });
 
   it("caps the editor height in the right panel separately", () => {
