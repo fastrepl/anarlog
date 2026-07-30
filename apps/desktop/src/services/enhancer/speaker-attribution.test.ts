@@ -14,31 +14,31 @@ import { inferAutomaticSpeakerAssignments } from "./speaker-attribution";
 
 import type { SessionContentSnapshot } from "~/session/content-queries";
 
-function createSnapshot(): SessionContentSnapshot {
+function createSnapshot(channel = 1): SessionContentSnapshot {
   const speakerHints = [
     {
       id: "lex-1:provider_speaker_index",
       word_id: "lex-1",
       type: "provider_speaker_index",
-      value: JSON.stringify({ channel: 1, speaker_index: 0 }),
+      value: JSON.stringify({ channel, speaker_index: 0 }),
     },
     {
       id: "lex-2:provider_speaker_index",
       word_id: "lex-2",
       type: "provider_speaker_index",
-      value: JSON.stringify({ channel: 1, speaker_index: 0 }),
+      value: JSON.stringify({ channel, speaker_index: 0 }),
     },
     {
       id: "george-1:provider_speaker_index",
       word_id: "george-1",
       type: "provider_speaker_index",
-      value: JSON.stringify({ channel: 1, speaker_index: 1 }),
+      value: JSON.stringify({ channel, speaker_index: 1 }),
     },
     {
       id: "george-2:provider_speaker_index",
       word_id: "george-2",
       type: "provider_speaker_index",
-      value: JSON.stringify({ channel: 1, speaker_index: 1 }),
+      value: JSON.stringify({ channel, speaker_index: 1 }),
     },
   ];
 
@@ -68,28 +68,28 @@ function createSnapshot(): SessionContentSnapshot {
             text: " What do you think about open source Llama",
             start_ms: 0,
             end_ms: 500,
-            channel: 1,
+            channel,
           },
           {
             id: "lex-2",
             text: " and the future of AI?",
             start_ms: 500,
             end_ms: 1_000,
-            channel: 1,
+            channel,
           },
           {
             id: "george-1",
             text: " Zuckerberg is a good guy and open source matters",
             start_ms: 1_000,
             end_ms: 1_500,
-            channel: 1,
+            channel,
           },
           {
             id: "george-2",
             text: " undoubtedly.",
             start_ms: 1_500,
             end_ms: 2_000,
-            channel: 1,
+            channel,
           },
         ],
         speaker_hints: speakerHints,
@@ -201,6 +201,43 @@ ${JSON.stringify({
         }),
       },
     ]);
+  });
+
+  it("attributes diarized mixed-capture batch transcripts", async () => {
+    mocks.generateText.mockResolvedValue({
+      text: JSON.stringify({
+        mappings: [
+          {
+            cluster_id: "transcript-1:0",
+            human_id: "human-lex",
+            confidence: 0.98,
+            evidence_id: "evidence-1",
+          },
+          {
+            cluster_id: "transcript-1:1",
+            human_id: "human-george",
+            confidence: 0.97,
+            evidence_id: "evidence-1",
+          },
+        ],
+      }),
+    });
+
+    const updates = await inferAutomaticSpeakerAssignments({
+      generatedSummary:
+        "Lex Fridman asked about Llama. George Hotz discussed open source.",
+      model: {} as LanguageModel,
+      snapshot: createSnapshot(2),
+      signal: new AbortController().signal,
+    });
+
+    expect(mocks.generateText).toHaveBeenCalledOnce();
+    expect(
+      JSON.parse(updates[0]!.nextSpeakerHintsJson).filter(
+        (hint: { type: string }) =>
+          hint.type === "automatic_speaker_assignment",
+      ),
+    ).toHaveLength(2);
   });
 
   it("attributes recurring participants independently in each transcript", async () => {

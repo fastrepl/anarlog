@@ -9,7 +9,7 @@ import type { SpeakerHintWithId } from "~/stt/types";
 const AUTOMATIC_SPEAKER_ASSIGNMENT = "automatic_speaker_assignment";
 const USER_SPEAKER_ASSIGNMENT = "user_speaker_assignment";
 const PROVIDER_SPEAKER_INDEX = "provider_speaker_index";
-const REMOTE_PARTY_CHANNEL = 1;
+const ATTRIBUTABLE_SPEAKER_CHANNELS = new Set([1, 2]);
 const MIN_CLUSTER_TEXT_LENGTH = 40;
 const MAX_CLUSTER_TEXT_LENGTH = 4_000;
 const MAX_EVIDENCE_CANDIDATE_LENGTH = 320;
@@ -214,7 +214,7 @@ function buildSpeakerAttributionContext(
         continue;
       }
       const speaker = speakerByWordId.get(hint.word_id);
-      if (speaker?.channel === REMOTE_PARTY_CHANNEL) {
+      if (speaker && ATTRIBUTABLE_SPEAKER_CHANNELS.has(speaker.channel)) {
         assignedClusterIds.add(
           getClusterId(transcript.id, speaker.speakerIndex),
         );
@@ -227,7 +227,7 @@ function buildSpeakerAttributionContext(
     >();
     for (const word of transcript.words) {
       const speaker = speakerByWordId.get(word.id);
-      if (speaker?.channel !== REMOTE_PARTY_CHANNEL) {
+      if (!speaker || !ATTRIBUTABLE_SPEAKER_CHANNELS.has(speaker.channel)) {
         continue;
       }
 
