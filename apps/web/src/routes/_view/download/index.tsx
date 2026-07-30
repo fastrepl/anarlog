@@ -73,6 +73,7 @@ function Component() {
                         <span className="font-medium">{download.name}</span>
                         <a
                           href={download.url}
+                          aria-label={`Download ${download.name} for ${section.name}`}
                           onClick={() =>
                             track("download_clicked", {
                               platform: section.platform,
