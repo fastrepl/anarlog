@@ -83,6 +83,9 @@ private final class WatchConnectivityService: NSObject, WCSessionDelegate {
   private let accountEmailKey = "watch-connectivity-account-email"
   private let pendingRecordingsKey = "watch-connectivity-pending-recordings"
   private let defaults = UserDefaults.standard
+  private let recordingsQueue = DispatchQueue(
+    label: "so.anarlog.watch-connectivity.recordings"
+  )
   private weak var module: AnarlogWatchConnectivityModule?
 
   private override init() {
@@ -150,22 +153,26 @@ private final class WatchConnectivityService: NSObject, WCSessionDelegate {
     guard let userId = defaults.string(forKey: accountUserIdKey) else {
       return []
     }
-    return pendingRecordings()
-      .filter { $0.accountUserId == userId }
-      .map(\.payload)
+    return recordingsQueue.sync {
+      pendingRecordings()
+        .filter { $0.accountUserId == userId }
+        .map(\.payload)
+    }
   }
 
   func markRecordingImported(id: String) {
-    var recordings = pendingRecordings()
-    guard let index = recordings.firstIndex(where: { $0.id == id }) else {
-      return
-    }
+    recordingsQueue.sync {
+      var recordings = pendingRecordings()
+      guard let index = recordings.firstIndex(where: { $0.id == id }) else {
+        return
+      }
 
-    let recording = recordings.remove(at: index)
-    if let url = URL(string: recording.uri) {
-      try? FileManager.default.removeItem(at: url)
+      let recording = recordings.remove(at: index)
+      if let url = URL(string: recording.uri) {
+        try? FileManager.default.removeItem(at: url)
+      }
+      persist(recordings)
     }
-    persist(recordings)
   }
 
   private func accountContext() -> [String: Any] {
@@ -210,7 +217,7 @@ private final class WatchConnectivityService: NSObject, WCSessionDelegate {
     emitState()
   }
 
-  private func receive(_ file: WCSessionFile) {
+  private func receive(_ file: WCSessionFile, from session: WCSession) {
     let metadata = file.metadata ?? [:]
     guard let accountUserId = metadata["account_user_id"] as? String else {
       return
@@ -225,40 +232,51 @@ private final class WatchConnectivityService: NSObject, WCSessionDelegate {
       : file.fileURL.pathExtension
     let filename = "\(id).\(fileExtension)"
 
+    let recording: PendingWatchRecording
     do {
-      let directory = try watchInboxDirectory()
-      let destination = directory.appendingPathComponent(filename)
-      if FileManager.default.fileExists(atPath: destination.path) {
-        try FileManager.default.removeItem(at: destination)
-      }
-      try FileManager.default.moveItem(at: file.fileURL, to: destination)
-
-      var recordings = pendingRecordings()
-      let recording = PendingWatchRecording(
-        id: id,
-        uri: destination.absoluteString,
-        filename: filename,
-        recordedAt: recordedAt,
-        accountUserId: accountUserId
-      )
-      recordings.removeAll(where: { $0.id == id })
-      recordings.append(recording)
-      persist(recordings)
-
-      DispatchQueue.main.async { [weak self] in
-        guard let self else {
-          return
+      recording = try recordingsQueue.sync {
+        let directory = try watchInboxDirectory()
+        let destination = directory.appendingPathComponent(filename)
+        if !FileManager.default.fileExists(atPath: destination.path) {
+          try FileManager.default.moveItem(at: file.fileURL, to: destination)
         }
-        guard
-          self.defaults.string(forKey: self.accountUserIdKey)
-            == recording.accountUserId
-        else {
-          return
-        }
-        self.module?.emitRecording(recording)
+
+        var recordings = pendingRecordings()
+        let recording = PendingWatchRecording(
+          id: id,
+          uri: destination.absoluteString,
+          filename: filename,
+          recordedAt: recordedAt,
+          accountUserId: accountUserId
+        )
+        recordings.removeAll(where: { $0.id == id })
+        recordings.append(recording)
+        persist(recordings)
+        return recording
       }
     } catch {
       return
+    }
+
+    if session.activationState == .activated {
+      session.transferUserInfo([
+        "schema_version": 1,
+        "kind": "recording_received",
+        "id": id,
+      ])
+    }
+
+    DispatchQueue.main.async { [weak self] in
+      guard let self else {
+        return
+      }
+      guard
+        self.defaults.string(forKey: self.accountUserIdKey)
+          == recording.accountUserId
+      else {
+        return
+      }
+      self.module?.emitRecording(recording)
     }
   }
 
@@ -348,6 +366,6 @@ private final class WatchConnectivityService: NSObject, WCSessionDelegate {
   }
 
   func session(_ session: WCSession, didReceive file: WCSessionFile) {
-    receive(file)
+    receive(file, from: session)
   }
 }

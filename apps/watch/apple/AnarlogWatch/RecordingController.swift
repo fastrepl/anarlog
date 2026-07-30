@@ -15,7 +15,7 @@ final class RecordingController: ObservableObject {
   @Published private(set) var lastCompletedRecording: CompletedRecording?
 
   private let audioSession = AVAudioSession.sharedInstance()
-  private var isStarting = false
+  private var startTask: Task<Void, Never>?
   private var meterTimer: Timer?
   private var audioRecorder: AVAudioRecorder?
   private var currentRecordingURL: URL?
@@ -24,11 +24,18 @@ final class RecordingController: ObservableObject {
   func toggle() {
     if isRecording {
       stop()
-    } else if !isStarting {
-      isStarting = true
-      Task {
-        await start()
+      return
+    }
+
+    guard startTask == nil else {
+      return
+    }
+    startTask = Task { [weak self] in
+      guard let self else {
+        return
       }
+      await start()
+      startTask = nil
     }
   }
 
@@ -37,17 +44,18 @@ final class RecordingController: ObservableObject {
   }
 
   func stopIfNeeded() {
+    startTask?.cancel()
     if isRecording {
       stop()
     }
   }
 
   private func start() async {
-    defer {
-      isStarting = false
+    let hasMicrophonePermission = await requestMicrophonePermission()
+    guard !Task.isCancelled else {
+      return
     }
-
-    guard await requestMicrophonePermission() else {
+    guard hasMicrophonePermission else {
       errorMessage = "Allow microphone access in Settings to record from your watch."
       return
     }
@@ -57,6 +65,7 @@ final class RecordingController: ObservableObject {
     do {
       try audioSession.setCategory(.record, mode: .default)
       try await activateAudioSession()
+      try Task.checkCancellation()
 
       let url = try nextRecordingURL()
       recordingURL = url
@@ -76,12 +85,14 @@ final class RecordingController: ObservableObject {
       guard recorder.record() else {
         throw RecordingError.couldNotStart
       }
+      try Task.checkCancellation()
 
       currentRecordingURL = url
       recordingStartedAt = Date()
       isRecording = true
       startMetering()
     } catch {
+      audioRecorder?.stop()
       audioRecorder = nil
       currentRecordingURL = nil
       recordingStartedAt = nil
@@ -89,7 +100,9 @@ final class RecordingController: ObservableObject {
         try? FileManager.default.removeItem(at: recordingURL)
       }
       try? audioSession.setActive(false, options: .notifyOthersOnDeactivation)
-      errorMessage = "Recording could not start. Try again in a moment."
+      if !(error is CancellationError) {
+        errorMessage = "Recording could not start. Try again in a moment."
+      }
     }
   }
 

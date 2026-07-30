@@ -206,6 +206,17 @@ final class WatchSyncController: NSObject, ObservableObject {
       defaults.set(data, forKey: Self.pendingRecordingsDefaultsKey)
     }
   }
+
+  private func acknowledgeRecording(id: String) {
+    guard let index = pendingRecordings.firstIndex(where: { $0.id == id }) else {
+      return
+    }
+
+    let recording = pendingRecordings.remove(at: index)
+    persistPendingRecordings()
+    try? FileManager.default.removeItem(at: recording.url)
+    flushPendingRecordings()
+  }
 }
 
 extension WatchSyncController: WCSessionDelegate {
@@ -261,18 +272,20 @@ extension WatchSyncController: WCSessionDelegate {
         return
       }
 
-      if error == nil {
-        let id =
-          fileTransfer.file.metadata?["id"] as? String
-          ?? fileTransfer.file.fileURL.deletingPathExtension()
-          .lastPathComponent
-        self.pendingRecordings.removeAll(where: { $0.id == id })
-        self.persistPendingRecordings()
-        try? FileManager.default.removeItem(at: fileTransfer.file.fileURL)
-        self.flushPendingRecordings()
-      } else {
-        self.updateState(from: session)
-      }
+      self.updateState(from: session)
+    }
+  }
+
+  func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
+    guard
+      userInfo["kind"] as? String == "recording_received",
+      let id = userInfo["id"] as? String
+    else {
+      return
+    }
+
+    DispatchQueue.main.async { [weak self] in
+      self?.acknowledgeRecording(id: id)
     }
   }
 }

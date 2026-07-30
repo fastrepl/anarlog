@@ -17,8 +17,10 @@ struct ContentView: View {
         PairingView(syncController: syncController)
       } else {
         TabView(selection: $selectedPage) {
-          ListeningView(recorder: recorder)
-            .tag(WatchPage.listening)
+          ListeningView(recorder: recorder) {
+            toggleRecording()
+          }
+          .tag(WatchPage.listening)
           AccountSettingsView(syncController: syncController)
             .tag(WatchPage.account)
         }
@@ -32,11 +34,6 @@ struct ContentView: View {
         }
       }
     }
-    .onChange(of: recorder.isRecording) { _, isRecording in
-      if isRecording {
-        recordingAccountUserId = syncController.account?.userId
-      }
-    }
     .onChange(of: recorder.lastCompletedRecording) { _, recording in
       guard let recording, let recordingAccountUserId else {
         return
@@ -48,8 +45,8 @@ struct ContentView: View {
       )
       self.recordingAccountUserId = nil
     }
-    .onChange(of: syncController.account) { _, account in
-      if account == nil {
+    .onChange(of: syncController.account) { previousAccount, account in
+      if previousAccount?.userId != account?.userId {
         recorder.stopIfNeeded()
       }
     }
@@ -73,6 +70,19 @@ struct ContentView: View {
     .sensoryFeedback(trigger: recorder.isRecording) { _, isRecording in
       isRecording ? .start : .stop
     }
+  }
+
+  private func toggleRecording() {
+    if recorder.isRecording {
+      recorder.toggle()
+      return
+    }
+
+    guard let accountUserId = syncController.account?.userId else {
+      return
+    }
+    recordingAccountUserId = accountUserId
+    recorder.toggle()
   }
 }
 
@@ -108,6 +118,7 @@ private struct PairingView: View {
 
 private struct ListeningView: View {
   @ObservedObject var recorder: RecordingController
+  let onToggle: () -> Void
 
   var body: some View {
     ZStack {
@@ -133,7 +144,7 @@ private struct ListeningView: View {
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .contentShape(Rectangle())
     .onTapGesture {
-      recorder.toggle()
+      onToggle()
     }
     .ignoresSafeArea()
     .accessibilityElement(children: .ignore)
@@ -143,7 +154,7 @@ private struct ListeningView: View {
     .accessibilityValue(recorder.isRecording ? "Recording" : "Not recording")
     .accessibilityAddTraits(.isButton)
     .accessibilityAction {
-      recorder.toggle()
+      onToggle()
     }
   }
 }
