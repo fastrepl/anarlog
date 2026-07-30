@@ -185,16 +185,19 @@ export async function importWatchRecording(
           SELECT 1 FROM session_attachments
           WHERE session_id = sessions.id
             AND source_type = 'session_audio'
+            AND deleted_at IS NULL
         ) AS has_audio,
         COALESCE((
           SELECT json_extract(metadata_json, '$.transcript_status')
           FROM session_attachments
           WHERE session_id = sessions.id
             AND source_type = 'session_audio'
+            AND deleted_at IS NULL
           LIMIT 1
         ), '') AS transcript_status
       FROM sessions
       WHERE id = ?
+        AND deleted_at IS NULL
       LIMIT 1`,
       [recording.id],
     )

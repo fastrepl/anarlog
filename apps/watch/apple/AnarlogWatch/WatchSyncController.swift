@@ -23,13 +23,13 @@ final class WatchSyncController: NSObject, ObservableObject {
   private static let accountDefaultsKey = "watch-connectivity-account"
   private static let pendingRecordingsDefaultsKey =
     "watch-connectivity-pending-recordings"
-  private static let queuedRecordingIdsDefaultsKey =
-    "watch-connectivity-queued-recording-ids"
+  private static let acknowledgementTimeout: TimeInterval = 60
 
   private let defaults = UserDefaults.standard
   private let iso8601Formatter = ISO8601DateFormatter()
   private var pendingRecordings: [PendingRecording] = []
   private var queuedRecordingIds: Set<String> = []
+  private var acknowledgementWorkItems: [String: DispatchWorkItem] = [:]
   private var retryDelay: TimeInterval = 2
   private var retryWorkItem: DispatchWorkItem?
 
@@ -43,12 +43,6 @@ final class WatchSyncController: NSObject, ObservableObject {
       pendingRecordings =
         (try? JSONDecoder().decode([PendingRecording].self, from: data)) ?? []
     }
-    queuedRecordingIds = Set(
-      UserDefaults.standard.stringArray(
-        forKey: Self.queuedRecordingIdsDefaultsKey
-      ) ?? []
-    )
-    queuedRecordingIds.formIntersection(pendingRecordings.map(\.id))
     pendingTransferCount = pendingRecordings.count
 
     #if DEBUG
@@ -129,6 +123,11 @@ final class WatchSyncController: NSObject, ObservableObject {
 
   func syncNow() {
     refreshAccount()
+    for workItem in acknowledgementWorkItems.values {
+      workItem.cancel()
+    }
+    acknowledgementWorkItems.removeAll()
+    queuedRecordingIds.removeAll()
     flushPendingRecordings()
   }
 
@@ -148,7 +147,6 @@ final class WatchSyncController: NSObject, ObservableObject {
     }
     queuedRecordingIds.formIntersection(pendingRecordings.map(\.id))
     persistPendingRecordings()
-    persistQueuedRecordingIds()
 
     guard WCSession.isSupported() else {
       return
@@ -171,7 +169,6 @@ final class WatchSyncController: NSObject, ObservableObject {
       && !queuedRecordingIds.contains(recording.id)
     {
       queuedRecordingIds.insert(recording.id)
-      persistQueuedRecordingIds()
       session.transferFile(
         recording.url,
         metadata: [
@@ -225,33 +222,52 @@ final class WatchSyncController: NSObject, ObservableObject {
     }
   }
 
-  private func persistQueuedRecordingIds() {
-    defaults.set(
-      queuedRecordingIds.sorted(),
-      forKey: Self.queuedRecordingIdsDefaultsKey
-    )
-  }
-
   private func acknowledgeImportedRecording(id: String) {
     guard let index = pendingRecordings.firstIndex(where: { $0.id == id }) else {
       return
     }
 
     let recording = pendingRecordings.remove(at: index)
+    acknowledgementWorkItems.removeValue(forKey: id)?.cancel()
     queuedRecordingIds.remove(id)
     persistPendingRecordings()
-    persistQueuedRecordingIds()
     try? FileManager.default.removeItem(at: recording.url)
     retryDelay = 2
     flushPendingRecordings()
   }
 
   private func retryRecording(id: String) {
+    acknowledgementWorkItems.removeValue(forKey: id)?.cancel()
     guard queuedRecordingIds.remove(id) != nil else {
       return
     }
-    persistQueuedRecordingIds()
     scheduleRetry()
+  }
+
+  private func scheduleAcknowledgementRetry(id: String) {
+    guard
+      pendingRecordings.contains(where: { $0.id == id }),
+      acknowledgementWorkItems[id] == nil
+    else {
+      return
+    }
+
+    let workItem = DispatchWorkItem { [weak self] in
+      guard let self else {
+        return
+      }
+      acknowledgementWorkItems.removeValue(forKey: id)
+      guard pendingRecordings.contains(where: { $0.id == id }) else {
+        return
+      }
+      queuedRecordingIds.remove(id)
+      flushPendingRecordings()
+    }
+    acknowledgementWorkItems[id] = workItem
+    DispatchQueue.main.asyncAfter(
+      deadline: .now() + Self.acknowledgementTimeout,
+      execute: workItem
+    )
   }
 
   private func scheduleRetry() {
@@ -332,8 +348,10 @@ extension WatchSyncController: WCSessionDelegate {
           ?? fileTransfer.file.fileURL.deletingPathExtension()
           .lastPathComponent
         self.queuedRecordingIds.remove(id)
-        self.persistQueuedRecordingIds()
+        self.acknowledgementWorkItems.removeValue(forKey: id)?.cancel()
         self.scheduleRetry()
+      } else if let id = fileTransfer.file.metadata?["id"] as? String {
+        self.scheduleAcknowledgementRetry(id: id)
       }
       self.updateState(from: session)
     }
