@@ -9,6 +9,7 @@ import WatchConnectivityModule, {
 
 let initialized = false;
 let activeAccountUserId: string | null | undefined;
+let activeImportController = new AbortController();
 const importsInFlight = new Set<string>();
 const importRetryAttempts = new Map<string, number>();
 const importRetryTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -67,11 +68,21 @@ async function importRecording(
   }
 
   importsInFlight.add(recording.id);
+  const importController = activeImportController;
   try {
-    await importWatchRecording(recording);
+    await importWatchRecording(recording, importController.signal);
+    if (
+      importController.signal.aborted ||
+      activeAccountUserId !== recording.accountUserId
+    ) {
+      return;
+    }
     WatchConnectivityModule.markRecordingImported(recording.id);
     clearImportRetry(recording.id);
   } catch (error) {
+    if (importController.signal.aborted) {
+      return;
+    }
     captureOperationalError(error, {
       operation: "watch_recording_import",
       context: { recording_id: recording.id },
@@ -98,6 +109,8 @@ export function updateWatchAccount(
 ): void {
   const nextAccountUserId = account?.userId ?? null;
   if (activeAccountUserId !== nextAccountUserId) {
+    activeImportController.abort();
+    activeImportController = new AbortController();
     clearImportRetries();
   }
   activeAccountUserId = nextAccountUserId;
