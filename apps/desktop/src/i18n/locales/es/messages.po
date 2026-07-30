@@ -1204,6 +1204,10 @@ msgstr ""
 msgid "macOS cannot access your login Keychain. Repairing briefly locks it and asks for your Mac password before Anarlog retries this API key."
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "macOS could not access your recovery key. Repair Keychain access, then resume sync."
+msgstr ""
+
 #: src/settings/general/main-language.tsx
 msgid "Main language"
 msgstr "Idioma principal"
@@ -1666,6 +1670,7 @@ msgid "Reopen sign-in page"
 msgstr ""
 
 #: src/settings/ai/shared/index.tsx
+#: src/settings/sync/index.tsx
 msgid "Repair Keychain Access"
 msgstr ""
 

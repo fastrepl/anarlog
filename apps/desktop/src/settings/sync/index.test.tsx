@@ -9,12 +9,15 @@ const mocks = vi.hoisted(() => ({
   syncCloudsyncNow: vi.fn(),
   setSettingValue: vi.fn(),
   applyCloudsyncPreference: vi.fn(),
+  repairKeychainAccess: vi.fn(),
   vaultBase: vi.fn(),
   openUrl: vi.fn(),
   openNew: vi.fn(),
   signOut: vi.fn(),
   trackAnalyticsEvent: vi.fn(),
   billing: { isPro: true, isReady: true },
+  credentialBlock: null as string | null,
+  platform: "macos",
   syncEnabled: true,
   session: {
     user: { id: "user-1" },
@@ -32,8 +35,16 @@ vi.mock("@anlg/plugin-settings", () => ({
   commands: { vaultBase: mocks.vaultBase },
 }));
 
+vi.mock("@anlg/plugin-store2", () => ({
+  commands: { repairKeychainAccess: mocks.repairKeychainAccess },
+}));
+
 vi.mock("@anlg/plugin-opener2", () => ({
   commands: { openUrl: mocks.openUrl },
+}));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  platform: () => mocks.platform,
 }));
 
 vi.mock("~/auth", () => ({
@@ -46,7 +57,7 @@ vi.mock("~/auth/billing-context", () => ({
 
 vi.mock("~/auth/cloudsync", () => ({
   applyCloudsyncPreference: mocks.applyCloudsyncPreference,
-  getCloudsyncCredentialBlock: () => null,
+  getCloudsyncCredentialBlock: () => mocks.credentialBlock,
   subscribeCloudsyncCredentialBlock: () => () => {},
 }));
 
@@ -127,6 +138,8 @@ describe("SettingsSync", () => {
     vi.clearAllMocks();
     mocks.billing.isPro = true;
     mocks.billing.isReady = true;
+    mocks.credentialBlock = null;
+    mocks.platform = "macos";
     mocks.syncEnabled = true;
     mocks.session = {
       user: { id: "user-1" },
@@ -141,6 +154,10 @@ describe("SettingsSync", () => {
     mocks.syncCloudsyncNow.mockResolvedValue({});
     mocks.setSettingValue.mockResolvedValue(undefined);
     mocks.applyCloudsyncPreference.mockResolvedValue("ok");
+    mocks.repairKeychainAccess.mockResolvedValue({
+      status: "ok",
+      data: null,
+    });
   });
 
   afterEach(cleanup);
@@ -190,6 +207,53 @@ describe("SettingsSync", () => {
       );
     });
     expect(mocks.applyCloudsyncPreference).toHaveBeenCalledWith(mocks.session);
+  });
+
+  it("repairs macOS Keychain access and retries cloud sync", async () => {
+    mocks.credentialBlock = "unavailable";
+    mocks.getE2eeIdentityStatus
+      .mockRejectedValueOnce("E2EE recovery key read timed out")
+      .mockResolvedValue({ configured: true });
+    renderSettings();
+
+    const repair = await screen.findByRole("button", {
+      name: "Repair Keychain Access",
+    });
+    expect(screen.getByText(/could not access your recovery key/)).toBeTruthy();
+    fireEvent.click(repair);
+
+    await vi.waitFor(() =>
+      expect(mocks.repairKeychainAccess).toHaveBeenCalledOnce(),
+    );
+    await vi.waitFor(() =>
+      expect(mocks.getE2eeIdentityStatus).toHaveBeenCalledTimes(2),
+    );
+    await vi.waitFor(() =>
+      expect(mocks.setSettingValue).toHaveBeenCalledWith(
+        "cloud_sync_enabled",
+        true,
+      ),
+    );
+  });
+
+  it("shows native cloud sync preflight errors", async () => {
+    mocks.syncEnabled = false;
+    mocks.getE2eeIdentityStatus
+      .mockResolvedValueOnce({ configured: true })
+      .mockRejectedValueOnce("E2EE recovery key read timed out");
+    renderSettings();
+
+    const syncSwitch = await screen.findByRole("switch", {
+      name: "Cloud sync",
+    });
+    await vi.waitFor(() =>
+      expect(syncSwitch.hasAttribute("disabled")).toBe(false),
+    );
+    fireEvent.click(syncSwitch);
+
+    expect(
+      await screen.findByText("E2EE recovery key read timed out"),
+    ).toBeTruthy();
   });
 
   it("records an account mismatch as a failed preference change", async () => {

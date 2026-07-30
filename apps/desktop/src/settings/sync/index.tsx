@@ -1,5 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { platform } from "@tauri-apps/plugin-os";
 import {
   AlertTriangleIcon,
   CheckCircle2Icon,
@@ -18,6 +19,7 @@ import {
 } from "@anlg/plugin-db";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { commands as settingsCommands } from "@anlg/plugin-settings";
+import { commands as store2Commands } from "@anlg/plugin-store2";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Switch } from "@anlg/ui/components/ui/switch";
 import { cn, formatDistanceToNow } from "@anlg/utils";
@@ -44,6 +46,21 @@ import { useTabs } from "~/store/zustand/tabs";
 
 const STATUS_POLL_INTERVAL_MS = 10_000;
 const SYNC_GUIDE_URL = "https://docs.anarlog.so/sync";
+
+async function readE2eeIdentityStatus(accountUserId: string) {
+  try {
+    return await getE2eeIdentityStatus(accountUserId);
+  } catch (error) {
+    throw error instanceof Error ? error : new Error(String(error));
+  }
+}
+
+async function repairKeychainAccess() {
+  const result = await store2Commands.repairKeychainAccess();
+  if (result.status === "error") {
+    throw new Error(result.error);
+  }
+}
 
 export function SettingsSync() {
   const { t } = useLingui();
@@ -76,8 +93,9 @@ export function SettingsSync() {
 
   const e2eeIdentityQuery = useQuery({
     queryKey: ["e2ee-identity", session?.user.id],
-    queryFn: () => getE2eeIdentityStatus(session!.user.id),
+    queryFn: () => readE2eeIdentityStatus(session!.user.id),
     enabled: Boolean(session?.user.id),
+    retry: false,
   });
   const vaultBaseQuery = useQuery({
     queryKey: ["vault-base-path"],
@@ -137,13 +155,23 @@ export function SettingsSync() {
       if (!session?.user.id) {
         throw new Error(t`Sign in before enabling encrypted cloud sync`);
       }
-      return getE2eeIdentityStatus(session.user.id);
+      return readE2eeIdentityStatus(session.user.id);
     },
     onSuccess: ({ configured }) => {
       if (configured) {
         setSyncEnabledMutation.mutate(true);
       } else {
         setE2eeSetupOpen(true);
+      }
+    },
+  });
+  const repairKeychainMutation = useMutation({
+    mutationKey: ["repair-keychain-access", "cloudsync"],
+    mutationFn: repairKeychainAccess,
+    onSuccess: async () => {
+      const identity = await e2eeIdentityQuery.refetch();
+      if (storedSyncEnabled && identity.data?.configured) {
+        setSyncEnabledMutation.mutate(true);
       }
     },
   });
@@ -398,7 +426,11 @@ export function SettingsSync() {
   const mutationError =
     setSyncEnabledMutation.error ??
     e2eePreflightMutation.error ??
+    repairKeychainMutation.error ??
     syncNowMutation.error;
+  const canRepairKeychainAccess =
+    platform() === "macos" &&
+    (credentialBlock === "unavailable" || e2eeIdentityQuery.isError);
 
   return (
     <div className="flex flex-col gap-8">
@@ -522,12 +554,31 @@ export function SettingsSync() {
                   Your recovery key encrypts synced notes before they leave this
                   device. Anarlog cannot read them.
                 </Trans>
+              ) : canRepairKeychainAccess ? (
+                <Trans>
+                  macOS could not access your recovery key. Repair Keychain
+                  access, then resume sync.
+                </Trans>
               ) : (
                 <Trans>
                   Turn on sync to create or enter your recovery key.
                 </Trans>
               )}
             </p>
+            {canRepairKeychainAccess && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                disabled={repairKeychainMutation.isPending}
+                onClick={() => repairKeychainMutation.mutate()}
+              >
+                {repairKeychainMutation.isPending && (
+                  <Loader2Icon className="size-3.5 animate-spin" />
+                )}
+                <Trans>Repair Keychain Access</Trans>
+              </Button>
+            )}
           </div>
         </div>
       </section>
