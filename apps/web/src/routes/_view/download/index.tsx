@@ -69,27 +69,27 @@ function Component() {
                 <ul className="border-color-subtle divide-y divide-[var(--color-border-subtle)] border-y">
                   {section.downloads.map((download) => (
                     <li key={download.name}>
-                      <a
-                        href={download.url}
-                        onClick={() =>
-                          track("download_clicked", {
-                            platform: section.platform,
-                            spec: download.name,
-                            source: "download_page",
-                          })
-                        }
-                        className="hover:bg-surface-subtle flex items-center justify-between gap-6 px-1 py-5 transition-colors"
-                      >
+                      <div className="flex items-center justify-between gap-6 px-1 py-5">
                         <span className="font-medium">{download.name}</span>
-                        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#181613] px-4 py-3 text-[13px] font-medium text-white sm:px-5 sm:text-sm">
+                        <a
+                          href={download.url}
+                          onClick={() =>
+                            track("download_clicked", {
+                              platform: section.platform,
+                              spec: download.name,
+                              source: "download_page",
+                            })
+                          }
+                          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#181613] px-4 py-3 text-[13px] font-medium text-white sm:px-5 sm:text-sm"
+                        >
                           Download
                           <Download
                             size={16}
                             strokeWidth={2}
                             aria-hidden="true"
                           />
-                        </span>
-                      </a>
+                        </a>
+                      </div>
                     </li>
                   ))}
                 </ul>
