@@ -6,6 +6,7 @@ mod aquavoice;
 mod argmax;
 pub(crate) mod assemblyai;
 pub(crate) mod cartesia;
+mod cohere;
 mod dashscope;
 pub mod deepgram;
 mod deepgram_compat;
@@ -27,6 +28,7 @@ pub use aquavoice::*;
 pub use argmax::*;
 pub use assemblyai::*;
 pub use cartesia::*;
+pub use cohere::*;
 pub use dashscope::*;
 pub use deepgram::*;
 pub use elevenlabs::*;
@@ -119,6 +121,7 @@ pub fn documented_language_codes_batch() -> Vec<String> {
     codes.extend(elevenlabs::documented_language_codes());
     codes.extend(argmax::PARAKEET_V3_LANGS.iter().copied());
     codes.extend(pyannote::documented_language_codes());
+    codes.extend(cohere::documented_language_codes().iter().copied());
 
     simple_documented_language_codes(codes)
 }
@@ -428,6 +431,8 @@ pub enum AdapterKind {
     Mistral,
     #[strum(serialize = "pyannote")]
     Pyannote,
+    #[strum(serialize = "cohere")]
+    Cohere,
     #[strum(serialize = "anarlog")]
     Anarlog,
 }
@@ -455,7 +460,7 @@ impl AdapterKind {
 
     pub fn has_live_mode(&self) -> bool {
         match self {
-            Self::AquaVoice | Self::Argmax | Self::Pyannote => false,
+            Self::AquaVoice | Self::Argmax | Self::Pyannote | Self::Cohere => false,
             Self::Soniox
             | Self::Cartesia
             | Self::Fireworks
@@ -492,6 +497,7 @@ impl AdapterKind {
             Self::Argmax => ArgmaxAdapter::language_support_live(languages, model),
             Self::Mistral => MistralAdapter::language_support_live(languages),
             Self::Pyannote => LanguageSupport::NotSupported,
+            Self::Cohere => LanguageSupport::NotSupported,
             Self::Anarlog => AnarlogAdapter::language_support_live(languages, model),
         }
     }
@@ -518,6 +524,7 @@ impl AdapterKind {
             Self::Argmax => ArgmaxAdapter::language_support_batch(languages, model),
             Self::Mistral => MistralAdapter::language_support_batch(languages),
             Self::Pyannote => PyannoteAdapter::language_support_batch(languages, model),
+            Self::Cohere => CohereAdapter::language_support_batch(languages),
             Self::Anarlog => AnarlogAdapter::language_support_batch(languages, model),
         }
     }
@@ -575,6 +582,7 @@ impl From<crate::providers::Provider> for AdapterKind {
             Provider::DashScope => Self::DashScope,
             Provider::Mistral => Self::Mistral,
             Provider::Pyannote => Self::Pyannote,
+            Provider::Cohere => Self::Cohere,
         }
     }
 }
@@ -816,6 +824,7 @@ mod tests {
             AdapterKind::AquaVoice,
             AdapterKind::Argmax,
             AdapterKind::Pyannote,
+            AdapterKind::Cohere,
         ];
         for kind in batch_only {
             assert!(
@@ -1006,6 +1015,10 @@ mod tests {
         assert_eq!(
             AdapterKind::from_url_and_languages("https://api.pyannote.ai", &en, None),
             AdapterKind::Pyannote,
+        );
+        assert_eq!(
+            AdapterKind::from_url_and_languages("https://api.cohere.com/v2", &en, None),
+            AdapterKind::Cohere,
         );
         assert_eq!(
             AdapterKind::from_url_and_languages("http://localhost:50060/v1", &en, None),

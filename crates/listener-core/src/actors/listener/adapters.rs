@@ -124,7 +124,7 @@ pub(super) async fn spawn_rx_task(
         DashScope => DashScopeAdapter,
         Mistral => MistralAdapter,
         Anarlog => AnarlogAdapter,
-    }, batch_only: [AquaVoice, Pyannote])?;
+    }, batch_only: [AquaVoice, Pyannote, Cohere])?;
 
     Ok((result.0, result.1, result.2, adapter_kind.to_string()))
 }

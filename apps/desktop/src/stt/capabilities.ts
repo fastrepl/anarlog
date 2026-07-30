@@ -140,6 +140,10 @@ export function getSttModelTranscriptionMode(
   provider?: string | null,
   model?: string | null,
 ): TranscriptionMode | undefined {
+  if (provider === "cohere" && model === "cohere-transcribe-03-2026") {
+    return "batch";
+  }
+
   if (provider === "openai") {
     if (model === "gpt-live-transcribe") return "live";
     if (

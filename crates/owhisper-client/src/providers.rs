@@ -91,10 +91,12 @@ pub enum Provider {
     Mistral,
     #[strum(serialize = "pyannote")]
     Pyannote,
+    #[strum(serialize = "cohere")]
+    Cohere,
 }
 
 impl Provider {
-    const ALL: [Provider; 12] = [
+    const ALL: [Provider; 13] = [
         Self::AquaVoice,
         Self::Cartesia,
         Self::Deepgram,
@@ -107,6 +109,7 @@ impl Provider {
         Self::DashScope,
         Self::Mistral,
         Self::Pyannote,
+        Self::Cohere,
     ];
 
     pub fn from_host(host: &str) -> Option<Self> {
@@ -161,6 +164,10 @@ impl Provider {
                 name: "Authorization",
                 prefix: Some("Bearer "),
             },
+            Self::Cohere => Auth::Header {
+                name: "Authorization",
+                prefix: Some("Bearer "),
+            },
         }
     }
 
@@ -186,6 +193,7 @@ impl Provider {
             Self::DashScope => "dashscope-intl.aliyuncs.com",
             Self::Mistral => "api.mistral.ai",
             Self::Pyannote => "api.pyannote.ai",
+            Self::Cohere => "api.cohere.com",
         }
     }
 
@@ -203,6 +211,7 @@ impl Provider {
             Self::DashScope => "dashscope-intl.aliyuncs.com",
             Self::Mistral => "api.mistral.ai",
             Self::Pyannote => "api.pyannote.ai",
+            Self::Cohere => "api.cohere.com",
         }
     }
 
@@ -220,6 +229,7 @@ impl Provider {
             Self::DashScope => "/api-ws/v1/realtime",
             Self::Mistral => "/v1/audio/transcriptions/realtime",
             Self::Pyannote => "/v1/diarize",
+            Self::Cohere => "",
         }
     }
 
@@ -237,6 +247,7 @@ impl Provider {
             Self::DashScope => None,
             Self::Mistral => None,
             Self::Pyannote => Some("https://api.pyannote.ai/v1"),
+            Self::Cohere => Some("https://api.cohere.com/v2"),
         }
     }
 
@@ -254,6 +265,7 @@ impl Provider {
             Self::DashScope => "https://dashscope-intl.aliyuncs.com",
             Self::Mistral => "https://api.mistral.ai/v1",
             Self::Pyannote => "https://api.pyannote.ai",
+            Self::Cohere => "https://api.cohere.com/v2",
         }
     }
 
@@ -271,6 +283,7 @@ impl Provider {
             Self::DashScope => "aliyuncs.com",
             Self::Mistral => "mistral.ai",
             Self::Pyannote => "pyannote.ai",
+            Self::Cohere => "cohere.com",
         }
     }
 
@@ -306,6 +319,7 @@ impl Provider {
             Self::DashScope => "DASHSCOPE_API_KEY",
             Self::Mistral => "MISTRAL_API_KEY",
             Self::Pyannote => "PYANNOTE_API_KEY",
+            Self::Cohere => "COHERE_API_KEY",
         }
     }
 
@@ -323,6 +337,7 @@ impl Provider {
             Self::DashScope => "qwen3-asr-flash-realtime",
             Self::Mistral => "voxtral-mini-transcribe-realtime-2602",
             Self::Pyannote => "parakeet-tdt-0.6b-v3",
+            Self::Cohere => "cohere-transcribe-03-2026",
         }
     }
 
@@ -330,7 +345,9 @@ impl Provider {
         match self {
             Self::AquaVoice => 16000,
             Self::OpenAI => 24000,
-            Self::ElevenLabs | Self::DashScope | Self::Mistral | Self::Pyannote => 16000,
+            Self::ElevenLabs | Self::DashScope | Self::Mistral | Self::Pyannote | Self::Cohere => {
+                16000
+            }
             _ => 16000,
         }
     }
@@ -349,6 +366,7 @@ impl Provider {
             Self::DashScope => "qwen3-asr-flash-filetrans",
             Self::Mistral => "voxtral-mini-2602",
             Self::Pyannote => "parakeet-tdt-0.6b-v3",
+            Self::Cohere => "cohere-transcribe-03-2026",
         }
     }
 
@@ -356,7 +374,9 @@ impl Provider {
         match self {
             Self::Deepgram => &[("model", "nova-3-general"), ("mip_opt_out", "false")],
             Self::OpenAI => &[("intent", "transcription")],
-            Self::AquaVoice | Self::DashScope | Self::Mistral | Self::Pyannote => &[],
+            Self::AquaVoice | Self::DashScope | Self::Mistral | Self::Pyannote | Self::Cohere => {
+                &[]
+            }
             _ => &[],
         }
     }
@@ -373,7 +393,8 @@ impl Provider {
             | Self::ElevenLabs
             | Self::DashScope
             | Self::Mistral
-            | Self::Pyannote => false,
+            | Self::Pyannote
+            | Self::Cohere => false,
         }
     }
 
@@ -388,7 +409,7 @@ impl Provider {
             Self::OpenAI => &[],
             Self::Gladia => &[],
             Self::ElevenLabs => &["commit"],
-            Self::DashScope | Self::Mistral | Self::Pyannote => &[],
+            Self::DashScope | Self::Mistral | Self::Pyannote | Self::Cohere => &[],
         }
     }
 
@@ -407,7 +428,9 @@ impl Provider {
                     "words_accurate_timestamps": true
                 }
             })),
-            Self::AquaVoice | Self::Cartesia | Self::Mistral | Self::Pyannote => None,
+            Self::AquaVoice | Self::Cartesia | Self::Mistral | Self::Pyannote | Self::Cohere => {
+                None
+            }
             _ => None,
         }
     }
@@ -448,6 +471,7 @@ impl Provider {
             Self::Cartesia => from_adapter(&crate::adapter::CartesiaAdapter, msg),
             Self::OpenAI => from_adapter(&crate::adapter::OpenAIAdapter::default(), msg),
             Self::Pyannote => None,
+            Self::Cohere => None,
         }
     }
 
@@ -464,7 +488,8 @@ impl Provider {
             | Self::Gladia
             | Self::DashScope
             | Self::Mistral
-            | Self::Pyannote => None,
+            | Self::Pyannote
+            | Self::Cohere => None,
         }
     }
 

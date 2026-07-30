@@ -37,6 +37,7 @@ pub enum BatchProvider {
     AppleSpeech,
     AquaVoice,
     Cartesia,
+    Cohere,
 }
 
 impl BatchProvider {
@@ -55,6 +56,7 @@ impl BatchProvider {
             Self::Anarlog => Some(AdapterKind::Anarlog),
             Self::AquaVoice => Some(AdapterKind::AquaVoice),
             Self::Cartesia => Some(AdapterKind::Cartesia),
+            Self::Cohere => Some(AdapterKind::Cohere),
             Self::Am | Self::WhisperLocal | Self::Soniqo | Self::AppleSpeech | Self::DashScope => {
                 None
             }

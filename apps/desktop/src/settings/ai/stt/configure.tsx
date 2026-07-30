@@ -64,9 +64,11 @@ function ProviderContext({ providerId }: { providerId: ProviderId }) {
                     ? `Use [Fireworks AI](https://fireworks.ai) for transcriptions.`
                     : providerId === "mistral"
                       ? `Use [Mistral](https://mistral.ai) for transcriptions.`
-                      : providerId === "custom"
-                        ? `We only support **Deepgram compatible** endpoints for now.`
-                        : "";
+                      : providerId === "cohere"
+                        ? `Use [Cohere Transcribe](https://docs.cohere.com/docs/transcribe) for batch transcription. Files must be 25 MB or smaller and use one selected language. Cohere does not return timestamps or speaker labels, so Anarlog estimates word timing.`
+                        : providerId === "custom"
+                          ? `We only support **Deepgram compatible** endpoints for now.`
+                          : "";
 
   if (!content.trim()) {
     return null;

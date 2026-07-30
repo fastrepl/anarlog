@@ -2,6 +2,7 @@ import { Icon } from "@iconify-icon/react";
 import {
   AssemblyAI,
   Cloudflare,
+  Cohere,
   ElevenLabs,
   Fireworks,
   Mistral,
@@ -137,6 +138,10 @@ export const displayModelId = (model: string) => {
 
   if (model === "avalon-v1-en") {
     return "Avalon V1";
+  }
+
+  if (model === "cohere-transcribe-03-2026") {
+    return "Cohere Transcribe";
   }
 
   if (model === "apple-speech") {
@@ -377,6 +382,26 @@ const _PROVIDERS = [
     baseUrl: "https://api.aquavoice.com/api/v1",
     models: ["avalon-v1-en"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+  },
+  {
+    disabled: false,
+    id: "cohere",
+    displayName: "Cohere",
+    badge: "Batch only",
+    icon: <Cohere size={14} />,
+    baseUrl: "https://api.cohere.com/v2",
+    models: ["cohere-transcribe-03-2026"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Cohere Transcribe docs",
+        url: "https://docs.cohere.com/docs/transcribe",
+      },
+      setup: {
+        label: "API keys",
+        url: "https://dashboard.cohere.com/api-keys",
+      },
+    },
   },
   {
     disabled: false,

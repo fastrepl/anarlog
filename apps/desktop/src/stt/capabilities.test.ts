@@ -91,6 +91,9 @@ describe("getSttModelTranscriptionMode", () => {
       "live",
     );
     expect(getSttModelTranscriptionMode("gladia", "solaria-3")).toBe("batch");
+    expect(
+      getSttModelTranscriptionMode("cohere", "cohere-transcribe-03-2026"),
+    ).toBe("batch");
   });
 
   test("leaves models without an explicit mode to provider inference", () => {

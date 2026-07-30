@@ -62,6 +62,7 @@ fn build_upstream_url_with_adapter(
         Provider::Mistral => MistralAdapter::default().build_ws_url(api_base, params, channels),
         Provider::AquaVoice => unreachable!("aquavoice only supports batch transcription"),
         Provider::Pyannote => unreachable!("pyannote only supports batch transcription"),
+        Provider::Cohere => unreachable!("cohere only supports batch transcription"),
     }
 }
 
@@ -92,6 +93,7 @@ fn build_initial_message_with_adapter(
         Provider::Mistral => MistralAdapter::default().initial_message(api_key, params, channels),
         Provider::AquaVoice => unreachable!("aquavoice only supports batch transcription"),
         Provider::Pyannote => unreachable!("pyannote only supports batch transcription"),
+        Provider::Cohere => unreachable!("cohere only supports batch transcription"),
     };
 
     msg.and_then(|m| match m {
@@ -125,6 +127,7 @@ fn build_response_transformer(
                 unreachable!("aquavoice only supports batch transcription")
             }
             Provider::Pyannote => unreachable!("pyannote only supports batch transcription"),
+            Provider::Cohere => unreachable!("cohere only supports batch transcription"),
         };
 
         if provider == Provider::Soniox && proxy_debug_enabled() {
@@ -278,7 +281,10 @@ pub async fn build_proxy(
 ) -> Result<StreamingProxy, ProxyBuildError> {
     let provider = selected.provider();
     let channels: u8 = parse_param(params, "channels", 1);
-    if matches!(provider, Provider::AquaVoice | Provider::Pyannote) {
+    if matches!(
+        provider,
+        Provider::AquaVoice | Provider::Pyannote | Provider::Cohere
+    ) {
         return Err(ProxyBuildError::ProxyError(
             crate::ProxyError::InvalidRequest(format!(
                 "{provider} only supports batch transcription"

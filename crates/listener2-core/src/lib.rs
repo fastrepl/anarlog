@@ -144,6 +144,7 @@ pub fn suggest_providers_for_languages_batch(languages: &[anlg_language::Languag
         AdapterKind::ElevenLabs,
         AdapterKind::DashScope,
         AdapterKind::Mistral,
+        AdapterKind::Cohere,
     ];
 
     let mut with_support: Vec<_> = all_providers

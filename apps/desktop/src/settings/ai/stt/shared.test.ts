@@ -18,6 +18,9 @@ describe("STT model display labels", () => {
       "GPT Live Transcribe",
     );
     expect(displayModelLabel("gpt-transcribe")).toBe("GPT Transcribe");
+    expect(displayModelLabel("cohere-transcribe-03-2026")).toBe(
+      "Cohere Transcribe",
+    );
   });
 
   test("treats apple speech as an on-device model", () => {

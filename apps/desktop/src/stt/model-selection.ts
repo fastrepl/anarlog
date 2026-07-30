@@ -20,6 +20,7 @@ const DEFAULT_EXTERNAL_STT_MODELS: Record<string, string> = {
   mistral: "voxtral-mini-2602",
   pyannote: "parakeet-tdt-0.6b-v3",
   aquavoice: "avalon-v1-en",
+  cohere: "cohere-transcribe-03-2026",
   fireworks: "Default",
 };
 

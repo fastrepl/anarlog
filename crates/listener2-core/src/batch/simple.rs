@@ -4,8 +4,8 @@ use std::time::{Duration, Instant};
 
 use owhisper_client::{
     AdapterKind, AnarlogAdapter, AquaVoiceAdapter, ArgmaxAdapter, AssemblyAIAdapter,
-    BatchSttAdapter, CartesiaAdapter, DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter,
-    GladiaAdapter, MistralAdapter, OpenAIAdapter, PyannoteAdapter, SonioxAdapter,
+    BatchSttAdapter, CartesiaAdapter, CohereAdapter, DeepgramAdapter, ElevenLabsAdapter,
+    FireworksAdapter, GladiaAdapter, MistralAdapter, OpenAIAdapter, PyannoteAdapter, SonioxAdapter,
 };
 use owhisper_interface::batch_stream::BatchStreamEvent;
 use tracing::Instrument;
@@ -65,6 +65,7 @@ pub(super) async fn run_direct_batch_for_adapter_kind(
         Mistral => MistralAdapter,
         Anarlog => AnarlogAdapter,
         AquaVoice => AquaVoiceAdapter,
+        Cohere => CohereAdapter,
     }, unsupported: [DashScope])
 }
 

@@ -181,6 +181,12 @@ describe("getBatchProvider", () => {
     expect(getBatchProvider("cartesia", "ink-2")).toBe("cartesia");
   });
 
+  test("maps Cohere to the batch transcription provider", () => {
+    expect(getBatchProvider("cohere", "cohere-transcribe-03-2026")).toBe(
+      "cohere",
+    );
+  });
+
   test("maps Cloudflare Workers AI to the Deepgram-compatible batch provider", () => {
     expect(getBatchProvider("cloudflare_workers_ai", "nova-3")).toBe(
       "deepgram",
