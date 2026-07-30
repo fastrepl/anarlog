@@ -1044,6 +1044,12 @@ msgstr ""
 msgid "Hide Deleted Events"
 msgstr ""
 
+#. placeholder {0}: history.position
+#. placeholder {1}: history.total
+#: src/chat/components/input/index.tsx
+msgid "History {0}/{1}"
+msgstr ""
+
 #: src/settings/general/app-settings.tsx
 msgid "How long recorded meeting audio is kept on this device."
 msgstr ""

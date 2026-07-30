@@ -1044,6 +1044,12 @@ msgstr "Help Anarlog read meeting activity"
 msgid "Hide Deleted Events"
 msgstr "Hide Deleted Events"
 
+#. placeholder {0}: history.position
+#. placeholder {1}: history.total
+#: src/chat/components/input/index.tsx
+msgid "History {0}/{1}"
+msgstr "History {0}/{1}"
+
 #: src/settings/general/app-settings.tsx
 msgid "How long recorded meeting audio is kept on this device."
 msgstr "How long recorded meeting audio is kept on this device."

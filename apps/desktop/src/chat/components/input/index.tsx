@@ -9,7 +9,12 @@ import type { PlaceholderFunction } from "@anlg/editor/plugins";
 import { Button } from "@anlg/ui/components/ui/button";
 import { cn } from "@anlg/utils";
 
-import { useAutoFocusEditor, useDraftState, useSubmit } from "./hooks";
+import {
+  useAutoFocusEditor,
+  useDraftState,
+  useMessageHistory,
+  useSubmit,
+} from "./hooks";
 
 import type { ContextRef } from "~/chat/context/entities";
 import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
@@ -45,10 +50,12 @@ export function ChatMessageInput({
     typeof disabledProp === "object" ? disabledProp.disabled : disabledProp;
   const shouldFocus = chat.mode !== "FloatingClosed";
 
+  const history = useMessageHistory({ editorRef });
   const { hasContent, initialContent, handleEditorUpdate } = useDraftState({
     draftKey,
     onDraftContentChange,
     onContextRefsChange,
+    onUserEdit: history.handleUserEdit,
   });
   const handleSubmit = useSubmit({
     draftKey,
@@ -57,6 +64,7 @@ export function ChatMessageInput({
     onSendMessage,
     onDraftContentChange,
     onContextRefsChange,
+    onSubmitted: history.handleSubmitted,
   });
   useAutoFocusEditor({ editorRef, disabled, shouldFocus });
   const mentionConfig = useMentionConfig();
@@ -79,6 +87,19 @@ export function ChatMessageInput({
       elevatedSurfaceClassName={elevatedSurfaceClassName}
       isFloating={isFloating}
       isRightPanel={isRightPanel}
+      indicator={
+        history.position !== null && (
+          <div
+            data-chat-history-indicator
+            className={cn([
+              "text-muted-foreground/80 pb-1 text-[11px] leading-none",
+              isFloating ? "px-4" : "px-2",
+            ])}
+          >
+            {t`History ${history.position}/${history.total}`}
+          </div>
+        )
+      }
     >
       <div
         data-chat-message-input
@@ -105,6 +126,7 @@ export function ChatMessageInput({
             submitShortcut="enter"
             onUpdate={handleEditorUpdate}
             onSubmit={handleSubmit}
+            onHistoryNavigate={history.navigate}
           />
         </div>
 
@@ -159,11 +181,13 @@ function Container({
   elevatedSurfaceClassName,
   isFloating,
   isRightPanel,
+  indicator,
 }: {
   children: React.ReactNode;
   elevatedSurfaceClassName: string;
   isFloating: boolean;
   isRightPanel: boolean;
+  indicator?: React.ReactNode;
 }) {
   return (
     <div
@@ -172,6 +196,7 @@ function Container({
         isRightPanel ? "px-3 pb-4" : "px-1 pb-1",
       ])}
     >
+      {indicator}
       <div
         data-chat-input-surface={isFloating ? "floating" : "elevated"}
         className={cn([

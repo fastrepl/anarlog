@@ -13,6 +13,9 @@ const { clearContentMock, editorState, shellState } = vi.hoisted(() => ({
     json: undefined as unknown,
     onUpdate: undefined as undefined | ((json: unknown) => void),
     onSubmit: undefined as undefined | (() => void),
+    onHistoryNavigate: undefined as
+      | undefined
+      | ((direction: "prev" | "next") => boolean),
     submitShortcut: undefined as undefined | "mod-enter" | "enter",
   },
   shellState: {
@@ -28,11 +31,17 @@ vi.mock("@anlg/editor/chat", async () => {
 
   return {
     ChatEditor: React.forwardRef<
-      { clearContent: () => void; focus: () => void; getJSON: () => unknown },
+      {
+        clearContent: () => void;
+        focus: () => void;
+        getJSON: () => unknown;
+        replaceContent: (content: unknown) => void;
+      },
       {
         className: string;
         onSubmit: () => void;
         onUpdate: (json: unknown) => void;
+        onHistoryNavigate?: (direction: "prev" | "next") => boolean;
         placeholder: (props: {
           node: { type: { name: string } };
           pos: number;
@@ -40,17 +49,29 @@ vi.mock("@anlg/editor/chat", async () => {
         submitShortcut?: "mod-enter" | "enter";
       }
     >(function ChatEditor(
-      { className, onSubmit, onUpdate, placeholder, submitShortcut },
+      {
+        className,
+        onSubmit,
+        onUpdate,
+        onHistoryNavigate,
+        placeholder,
+        submitShortcut,
+      },
       ref,
     ) {
       editorState.onSubmit = onSubmit;
       editorState.onUpdate = onUpdate;
+      editorState.onHistoryNavigate = onHistoryNavigate;
       editorState.submitShortcut = submitShortcut;
 
       React.useImperativeHandle(ref, () => ({
         clearContent: clearContentMock,
         focus: vi.fn(),
         getJSON: () => editorState.json,
+        replaceContent: (content: unknown) => {
+          editorState.json = content;
+          editorState.onUpdate?.(content);
+        },
       }));
 
       return (
@@ -96,15 +117,25 @@ vi.mock("~/editor-bridge/mention-config", () => ({
   useMentionConfig: () => undefined,
 }));
 
+import { clearSentMessages } from "./history";
 import { ChatMessageInput } from "./index";
+
+function docWithText(text: string) {
+  return {
+    type: "doc",
+    content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+  };
+}
 
 describe("ChatMessageInput", () => {
   beforeEach(() => {
     cleanup();
     clearContentMock.mockClear();
+    clearSentMessages();
     editorState.json = { type: "doc", content: [] };
     editorState.onSubmit = undefined;
     editorState.onUpdate = undefined;
+    editorState.onHistoryNavigate = undefined;
     editorState.submitShortcut = undefined;
     shellState.mode = "FloatingOpen";
   });
@@ -387,6 +418,96 @@ describe("ChatMessageInput", () => {
     expect(outerContainer?.className).not.toContain("px-5");
     expect(outerContainer?.className).not.toContain("px-2");
     expect(outerContainer?.className).not.toContain("pr-0");
+  });
+
+  it("walks sent messages with arrow navigation and restores the pending draft", () => {
+    shellState.mode = "RightPanelOpen";
+    render(
+      <ChatMessageInput
+        draftKey="chat-input-history-walk"
+        onSendMessage={vi.fn()}
+      />,
+    );
+
+    for (const text of ["First", "Second"]) {
+      editorState.json = docWithText(text);
+      act(() => {
+        editorState.onUpdate?.(editorState.json);
+        editorState.onSubmit?.();
+      });
+    }
+
+    editorState.json = docWithText("In progress");
+    act(() => {
+      editorState.onUpdate?.(editorState.json);
+    });
+
+    act(() => {
+      expect(editorState.onHistoryNavigate?.("prev")).toBe(true);
+    });
+    expect(editorState.json).toEqual(docWithText("Second"));
+    expect(screen.getByText("History 1/2")).not.toBeNull();
+
+    act(() => {
+      expect(editorState.onHistoryNavigate?.("prev")).toBe(true);
+    });
+    expect(editorState.json).toEqual(docWithText("First"));
+    expect(screen.getByText("History 2/2")).not.toBeNull();
+
+    act(() => {
+      expect(editorState.onHistoryNavigate?.("next")).toBe(true);
+    });
+    expect(editorState.json).toEqual(docWithText("Second"));
+
+    act(() => {
+      expect(editorState.onHistoryNavigate?.("next")).toBe(true);
+    });
+    expect(editorState.json).toEqual(docWithText("In progress"));
+    expect(screen.queryByText(/History/)).toBeNull();
+  });
+
+  it("leaves arrow keys alone without history to walk", () => {
+    shellState.mode = "RightPanelOpen";
+    render(
+      <ChatMessageInput
+        draftKey="chat-input-history-empty"
+        onSendMessage={vi.fn()}
+      />,
+    );
+
+    act(() => {
+      expect(editorState.onHistoryNavigate?.("prev")).toBe(false);
+      expect(editorState.onHistoryNavigate?.("next")).toBe(false);
+    });
+
+    expect(screen.queryByText(/History/)).toBeNull();
+  });
+
+  it("drops out of history once the recalled message is edited", () => {
+    shellState.mode = "RightPanelOpen";
+    render(
+      <ChatMessageInput
+        draftKey="chat-input-history-edit"
+        onSendMessage={vi.fn()}
+      />,
+    );
+
+    editorState.json = docWithText("Sent");
+    act(() => {
+      editorState.onUpdate?.(editorState.json);
+      editorState.onSubmit?.();
+    });
+
+    act(() => {
+      editorState.onHistoryNavigate?.("prev");
+    });
+    expect(screen.getByText("History 1/1")).not.toBeNull();
+
+    act(() => {
+      editorState.onUpdate?.(docWithText("Sent again"));
+    });
+
+    expect(screen.queryByText(/History/)).toBeNull();
   });
 
   it("caps the editor height in the right panel separately", () => {

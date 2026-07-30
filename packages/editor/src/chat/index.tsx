@@ -22,7 +22,7 @@ import {
 import { history, redo, undo } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
 import { Node as PMNode } from "prosemirror-model";
-import { EditorState, Plugin, PluginKey } from "prosemirror-state";
+import { EditorState, Plugin, PluginKey, Selection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
 
@@ -62,6 +62,7 @@ export interface ChatEditorHandle {
   focus(): void;
   getJSON(): JSONContent | undefined;
   clearContent(): void;
+  replaceContent(content: JSONContent): void;
 }
 
 interface ChatEditorProps {
@@ -72,6 +73,7 @@ interface ChatEditorProps {
   submitShortcut?: "mod-enter" | "enter";
   onUpdate?: (json: JSONContent) => void;
   onSubmit?: () => void;
+  onHistoryNavigate?: (direction: "prev" | "next") => boolean;
 }
 
 const nodeViews = {
@@ -177,6 +179,7 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
       submitShortcut = "mod-enter",
       onUpdate,
       onSubmit,
+      onHistoryNavigate,
     } = props;
 
     const viewRef = useRef<EditorView | null>(null);
@@ -184,6 +187,8 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
     onSubmitRef.current = onSubmit;
     const onUpdateRef = useRef(onUpdate);
     onUpdateRef.current = onUpdate;
+    const onHistoryNavigateRef = useRef(onHistoryNavigate);
+    onHistoryNavigateRef.current = onHistoryNavigate;
 
     useImperativeHandle(
       ref,
@@ -207,6 +212,26 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
           );
           view.dispatch(tr);
         },
+        replaceContent(content) {
+          const view = viewRef.current;
+          if (!view || content.type !== "doc") return;
+
+          let doc: PMNode;
+          try {
+            doc = PMNode.fromJSON(chatSchema, content);
+          } catch {
+            return;
+          }
+
+          const tr = view.state.tr.replaceWith(
+            0,
+            view.state.doc.content.size,
+            doc.content,
+          );
+          tr.setSelection(Selection.atEnd(tr.doc));
+          view.dispatch(tr);
+          view.focus();
+        },
       }),
       [],
     );
@@ -227,6 +252,25 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
         submitShortcut === "enter"
           ? chainCommands(createParagraphNear, liftEmptyBlock, splitBlock)
           : undefined;
+      const historyNavCommand =
+        (direction: "prev" | "next") => (state: EditorState) => {
+          if (!state.selection.empty) {
+            return false;
+          }
+          if (mentionConfig && findMention(state, mentionConfig.trigger)) {
+            return false;
+          }
+
+          const edge =
+            direction === "prev"
+              ? Selection.atStart(state.doc).from
+              : Selection.atEnd(state.doc).to;
+          if (state.selection.from !== edge) {
+            return false;
+          }
+
+          return onHistoryNavigateRef.current?.(direction) ?? false;
+        };
 
       return [
         reactKeys(),
@@ -253,6 +297,8 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
             selectNodeForward,
           ),
           "Mod-a": selectAll,
+          ArrowUp: historyNavCommand("prev"),
+          ArrowDown: historyNavCommand("next"),
         }),
         history(),
         placeholderPlugin(placeholder),
