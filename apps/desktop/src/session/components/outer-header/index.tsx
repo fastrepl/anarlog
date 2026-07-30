@@ -312,7 +312,7 @@ function HeaderMeetingActionPill({
       {showCountdown ? (
         <div
           data-header-meeting-countdown
-          className="text-muted-foreground max-w-40 truncate font-mono text-xs whitespace-nowrap"
+          className="border-border bg-popover/80 text-popover-foreground max-w-40 truncate rounded-md border px-2.5 py-1 font-mono text-xs whitespace-nowrap tabular-nums shadow-sm backdrop-blur-sm"
         >
           {countdown.label}
         </div>

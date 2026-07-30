@@ -583,7 +583,7 @@ describe("OuterHeader", () => {
     });
   });
 
-  it("shows the meeting countdown to the left of the header action", () => {
+  it("shows the meeting countdown in a tooltip-style badge to the left of the header action", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-05T09:55:30.000Z"));
     mocks.nowMs = Date.now();
@@ -611,6 +611,10 @@ describe("OuterHeader", () => {
       "true",
     );
     expect(countdown.className).toContain("font-mono");
+    expect(countdown.className).toContain("rounded-md");
+    expect(countdown.className).toContain("border");
+    expect(countdown.className).toContain("shadow-sm");
+    expect(countdown.className).toContain("tabular-nums");
     expect(
       countdown.compareDocumentPosition(joinButton) &
         Node.DOCUMENT_POSITION_FOLLOWING,
