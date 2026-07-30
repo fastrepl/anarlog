@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   platform: "macos" as "linux" | "macos" | "windows",
   resizeListeners: [] as Array<() => void>,
   startDragging: vi.fn().mockResolvedValue(undefined),
+  toggleMaximize: vi.fn().mockResolvedValue(undefined),
   devtoolsPanelActionListeners: [] as Array<
     (event: { payload: { action: string } }) => void
   >,
@@ -79,6 +80,7 @@ vi.mock("@tauri-apps/api/window", () => ({
       };
     }),
     startDragging: mocks.startDragging,
+    toggleMaximize: mocks.toggleMaximize,
   }),
 }));
 
@@ -204,6 +206,7 @@ describe("ClassicMainBody", () => {
     mocks.platform = "macos";
     mocks.resizeListeners = [];
     mocks.startDragging.mockClear();
+    mocks.toggleMaximize.mockClear();
     mocks.devtoolsPanelActionListeners = [];
     mocks.windowsCommands.devtoolsPanelHide.mockClear();
     mocks.windowsCommands.devtoolsPanelShow.mockClear();
@@ -639,6 +642,20 @@ describe("ClassicMainBody", () => {
     expect(mocks.startDragging).toHaveBeenCalledTimes(1);
   });
 
+  it("toggles window maximization from the top 48px of the main area", () => {
+    render(<ClassicMainBody />);
+
+    const mainContent = screen.getByTestId("main-tab-content");
+
+    fireEvent.doubleClick(mainContent, {
+      button: 0,
+      clientX: 12,
+      clientY: 12,
+    });
+
+    expect(mocks.toggleMaximize).toHaveBeenCalledTimes(1);
+  });
+
   it("does not start window dragging from an input in the top drag strip", () => {
     mocks.currentTab = {
       active: true,
@@ -666,6 +683,27 @@ describe("ClassicMainBody", () => {
     expect(mocks.startDragging).not.toHaveBeenCalled();
   });
 
+  it("does not toggle window maximization from an input in the top drag strip", () => {
+    mocks.currentTab = {
+      active: true,
+      pinned: false,
+      slotId: "slot-1",
+      type: "sessions",
+    };
+
+    render(<ClassicMainBody />);
+
+    const titleInput = screen.getByRole("textbox", { name: "Session title" });
+
+    fireEvent.doubleClick(titleInput, {
+      button: 0,
+      clientX: 240,
+      clientY: 12,
+    });
+
+    expect(mocks.toggleMaximize).not.toHaveBeenCalled();
+  });
+
   it("does not start window dragging below the main area drag strip", () => {
     render(<ClassicMainBody />);
 
@@ -684,6 +722,20 @@ describe("ClassicMainBody", () => {
     });
 
     expect(mocks.startDragging).not.toHaveBeenCalled();
+  });
+
+  it("does not toggle window maximization below the main area drag strip", () => {
+    render(<ClassicMainBody />);
+
+    const mainContent = screen.getByTestId("main-tab-content");
+
+    fireEvent.doubleClick(mainContent, {
+      button: 0,
+      clientX: 12,
+      clientY: 56,
+    });
+
+    expect(mocks.toggleMaximize).not.toHaveBeenCalled();
   });
 
   it("renders the shell while the initial tab is still loading", async () => {
