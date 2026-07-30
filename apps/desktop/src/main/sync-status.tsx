@@ -168,17 +168,12 @@ export function SyncStatusIndicator() {
 
     if (
       status &&
-      (status.last_error_kind === "auth" ||
-        status.last_error_kind === "fatal" ||
-        status.consecutive_failures > 0)
+      (status.last_error_kind === "auth" || status.last_error_kind === "fatal")
     ) {
       return {
         kind: "error" as const,
         label: t`Sync issue`,
-        description:
-          status.last_error_kind === "transient"
-            ? t`Anarlog will retry automatically. This does not affect your notes.`
-            : (status.last_error ?? t`Anarlog will keep retrying`),
+        description: status.last_error ?? t`Anarlog will keep retrying`,
       };
     }
 
@@ -195,6 +190,17 @@ export function SyncStatusIndicator() {
         kind: "deferred" as const,
         label: t`Saved locally`,
         description: t`Cloud sync resumes when the current activity finishes`,
+      };
+    }
+
+    if (status && status.consecutive_failures > 0) {
+      return {
+        kind: "error" as const,
+        label: t`Sync issue`,
+        description:
+          status.last_error_kind === "transient"
+            ? t`Anarlog will retry automatically. This does not affect your notes.`
+            : (status.last_error ?? t`Anarlog will keep retrying`),
       };
     }
 
@@ -252,7 +258,7 @@ export function SyncStatusIndicator() {
           aria-label={t`Cloud sync status: ${view.label}`}
           data-testid="sync-status-indicator"
           className={cn([
-            "fixed right-3 bottom-3 z-40",
+            "fixed right-2 bottom-2 z-40",
             "border-border/60 bg-background/90 flex size-8 items-center justify-center rounded-xl border shadow-sm backdrop-blur",
             "text-muted-foreground hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground outline-hidden transition-colors",
           ])}

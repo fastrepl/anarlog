@@ -383,6 +383,33 @@ describe("SyncStatusIndicator", () => {
     expect(screen.getByText("token rejected")).toBeTruthy();
   });
 
+  it("shows capture deferral instead of a transient sync issue during recording", async () => {
+    mocks.getCloudsyncStatus.mockResolvedValue(
+      syncedStatus({
+        activity_paused: true,
+        deferred_for_capture: true,
+        has_unsent_changes: true,
+        last_error: "connection reset",
+        last_error_kind: "transient",
+        consecutive_failures: 1,
+      }),
+    );
+
+    renderIndicator();
+    await openMenu();
+
+    expect(await screen.findByText("Saved locally")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Cloud sync resumes after this meeting finishes processing",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("Sync issue")).toBeNull();
+
+    const syncNowItem = screen.getByRole("menuitem", { name: "Sync now" });
+    expect(syncNowItem.getAttribute("data-disabled")).not.toBeNull();
+  });
+
   it("uses the last successful sync while native local status is busy", async () => {
     mocks.getCloudsyncStatus.mockResolvedValue(
       syncedStatus({ has_unsent_changes: null }),
