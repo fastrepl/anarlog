@@ -1,0 +1,87 @@
+name: mobile_ci
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/actions/pnpm_install/**
+      - .github/workflows/mobile_ci.yaml
+      - apps/mobile/**
+      - apps/watch/apple/**
+      - packages/db-react/**
+      - packages/db-runtime/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+  pull_request:
+    paths:
+      - .github/actions/pnpm_install/**
+      - .github/workflows/mobile_ci.yaml
+      - apps/mobile/**
+      - apps/watch/apple/**
+      - packages/db-react/**
+      - packages/db-runtime/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+
+permissions:
+  contents: read
+
+env:
+  CI: "1"
+  EXPO_NO_GIT_STATUS: "1"
+  SENTRY_DISABLE_AUTO_UPLOAD: "true"
+
+jobs:
+  watchos_build:
+    runs-on: depot-macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          xcodebuild \
+            -project apps/watch/apple/AnarlogWatch.xcodeproj \
+            -scheme AnarlogWatch \
+            -configuration Release \
+            -destination "generic/platform=watchOS Simulator" \
+            -derivedDataPath "$RUNNER_TEMP/AnarlogWatchDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+  ios_build:
+    runs-on: depot-macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/pnpm_install
+      - run: |
+          pnpm -F @anlg/mobile exec expo run:ios \
+            --configuration Release \
+            --device generic \
+            --output "$RUNNER_TEMP/anarlog-mobile-ios" \
+            --no-bundler
+
+  android_build:
+    runs-on: depot-ubuntu-24.04-8
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/pnpm_install
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - run: pnpm -F @anlg/mobile exec expo prebuild --platform android --no-install
+      - run: ./gradlew :app:assembleRelease --no-daemon
+        working-directory: apps/mobile/android
+
+  mobile_ci:
+    if: always()
+    needs: [watchos_build, ios_build, android_build]
+    runs-on: ubuntu-latest
+    steps:
+      - run: exit 1
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
