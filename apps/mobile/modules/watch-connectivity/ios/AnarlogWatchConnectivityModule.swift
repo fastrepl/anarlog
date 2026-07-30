@@ -82,6 +82,8 @@ private final class WatchConnectivityService: NSObject, WCSessionDelegate {
   private let accountUserIdKey = "watch-connectivity-account-user-id"
   private let accountEmailKey = "watch-connectivity-account-email"
   private let pendingRecordingsKey = "watch-connectivity-pending-recordings"
+  private let pendingAcknowledgementsKey =
+    "watch-connectivity-pending-acknowledgements"
   private let defaults = UserDefaults.standard
   private let recordingsQueue = DispatchQueue(
     label: "so.anarlog.watch-connectivity.recordings"
@@ -161,17 +163,25 @@ private final class WatchConnectivityService: NSObject, WCSessionDelegate {
   }
 
   func markRecordingImported(id: String) {
-    recordingsQueue.sync {
+    let imported = recordingsQueue.sync {
       var recordings = pendingRecordings()
       guard let index = recordings.firstIndex(where: { $0.id == id }) else {
-        return
+        return false
       }
 
       let recording = recordings.remove(at: index)
+      var acknowledgements = pendingAcknowledgements()
+      acknowledgements[id] = "recording_imported"
+      persistAcknowledgements(acknowledgements)
       if let url = URL(string: recording.uri) {
         try? FileManager.default.removeItem(at: url)
       }
       persist(recordings)
+      return true
+    }
+
+    if imported {
+      flushAcknowledgements()
     }
   }
 
@@ -207,6 +217,7 @@ private final class WatchConnectivityService: NSObject, WCSessionDelegate {
     }
 
     try? session.updateApplicationContext(accountContext())
+    flushAcknowledgements()
     if session.isReachable {
       session.sendMessage(
         accountContext(),
@@ -255,15 +266,8 @@ private final class WatchConnectivityService: NSObject, WCSessionDelegate {
         return recording
       }
     } catch {
+      queueAcknowledgement(kind: "recording_receive_failed", id: id)
       return
-    }
-
-    if session.activationState == .activated {
-      session.transferUserInfo([
-        "schema_version": 1,
-        "kind": "recording_received",
-        "id": id,
-      ])
     }
 
     DispatchQueue.main.async { [weak self] in
@@ -304,6 +308,61 @@ private final class WatchConnectivityService: NSObject, WCSessionDelegate {
       return
     }
     defaults.set(data, forKey: pendingRecordingsKey)
+  }
+
+  private func queueAcknowledgement(kind: String, id: String) {
+    recordingsQueue.sync {
+      var acknowledgements = pendingAcknowledgements()
+      acknowledgements[id] = kind
+      persistAcknowledgements(acknowledgements)
+    }
+    flushAcknowledgements()
+  }
+
+  private func flushAcknowledgements() {
+    guard WCSession.isSupported() else {
+      return
+    }
+
+    let session = WCSession.default
+    guard session.activationState == .activated else {
+      return
+    }
+
+    let acknowledgements = recordingsQueue.sync {
+      pendingAcknowledgements()
+    }
+    for (id, kind) in acknowledgements {
+      session.transferUserInfo([
+        "schema_version": 1,
+        "kind": kind,
+        "id": id,
+      ])
+    }
+
+    recordingsQueue.sync {
+      var pending = pendingAcknowledgements()
+      for (id, kind) in acknowledgements where pending[id] == kind {
+        pending.removeValue(forKey: id)
+      }
+      persistAcknowledgements(pending)
+    }
+  }
+
+  private func pendingAcknowledgements() -> [String: String] {
+    guard let data = defaults.data(forKey: pendingAcknowledgementsKey) else {
+      return [:]
+    }
+    return (try? JSONDecoder().decode([String: String].self, from: data)) ?? [:]
+  }
+
+  private func persistAcknowledgements(
+    _ acknowledgements: [String: String]
+  ) {
+    guard let data = try? JSONEncoder().encode(acknowledgements) else {
+      return
+    }
+    defaults.set(data, forKey: pendingAcknowledgementsKey)
   }
 
   private func activationStateName(

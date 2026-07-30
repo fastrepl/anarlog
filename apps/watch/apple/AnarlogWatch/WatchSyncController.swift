@@ -23,10 +23,13 @@ final class WatchSyncController: NSObject, ObservableObject {
   private static let accountDefaultsKey = "watch-connectivity-account"
   private static let pendingRecordingsDefaultsKey =
     "watch-connectivity-pending-recordings"
+  private static let queuedRecordingIdsDefaultsKey =
+    "watch-connectivity-queued-recording-ids"
 
   private let defaults = UserDefaults.standard
   private let iso8601Formatter = ISO8601DateFormatter()
   private var pendingRecordings: [PendingRecording] = []
+  private var queuedRecordingIds: Set<String> = []
 
   override init() {
     if let data = UserDefaults.standard.data(forKey: Self.accountDefaultsKey) {
@@ -38,6 +41,12 @@ final class WatchSyncController: NSObject, ObservableObject {
       pendingRecordings =
         (try? JSONDecoder().decode([PendingRecording].self, from: data)) ?? []
     }
+    queuedRecordingIds = Set(
+      UserDefaults.standard.stringArray(
+        forKey: Self.queuedRecordingIdsDefaultsKey
+      ) ?? []
+    )
+    queuedRecordingIds.formIntersection(pendingRecordings.map(\.id))
     pendingTransferCount = pendingRecordings.count
 
     #if DEBUG
@@ -135,7 +144,9 @@ final class WatchSyncController: NSObject, ObservableObject {
     pendingRecordings.removeAll {
       !FileManager.default.fileExists(atPath: $0.url.path)
     }
+    queuedRecordingIds.formIntersection(pendingRecordings.map(\.id))
     persistPendingRecordings()
+    persistQueuedRecordingIds()
 
     guard WCSession.isSupported() else {
       return
@@ -153,7 +164,12 @@ final class WatchSyncController: NSObject, ObservableObject {
       }
     )
     for recording in pendingRecordings
-    where !outstandingIds.contains(recording.id) {
+    where
+      !outstandingIds.contains(recording.id)
+      && !queuedRecordingIds.contains(recording.id)
+    {
+      queuedRecordingIds.insert(recording.id)
+      persistQueuedRecordingIds()
       session.transferFile(
         recording.url,
         metadata: [
@@ -207,15 +223,31 @@ final class WatchSyncController: NSObject, ObservableObject {
     }
   }
 
-  private func acknowledgeRecording(id: String) {
+  private func persistQueuedRecordingIds() {
+    defaults.set(
+      queuedRecordingIds.sorted(),
+      forKey: Self.queuedRecordingIdsDefaultsKey
+    )
+  }
+
+  private func acknowledgeImportedRecording(id: String) {
     guard let index = pendingRecordings.firstIndex(where: { $0.id == id }) else {
       return
     }
 
     let recording = pendingRecordings.remove(at: index)
+    queuedRecordingIds.remove(id)
     persistPendingRecordings()
+    persistQueuedRecordingIds()
     try? FileManager.default.removeItem(at: recording.url)
     flushPendingRecordings()
+  }
+
+  private func retryRecording(id: String) {
+    guard queuedRecordingIds.remove(id) != nil else {
+      return
+    }
+    persistQueuedRecordingIds()
   }
 }
 
@@ -272,20 +304,35 @@ extension WatchSyncController: WCSessionDelegate {
         return
       }
 
+      if error != nil {
+        let id =
+          fileTransfer.file.metadata?["id"] as? String
+          ?? fileTransfer.file.fileURL.deletingPathExtension()
+          .lastPathComponent
+        self.queuedRecordingIds.remove(id)
+        self.persistQueuedRecordingIds()
+      }
       self.updateState(from: session)
     }
   }
 
   func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
     guard
-      userInfo["kind"] as? String == "recording_received",
+      let kind = userInfo["kind"] as? String,
       let id = userInfo["id"] as? String
     else {
       return
     }
 
     DispatchQueue.main.async { [weak self] in
-      self?.acknowledgeRecording(id: id)
+      switch kind {
+      case "recording_imported":
+        self?.acknowledgeImportedRecording(id: id)
+      case "recording_receive_failed":
+        self?.retryRecording(id: id)
+      default:
+        break
+      }
     }
   }
 }
