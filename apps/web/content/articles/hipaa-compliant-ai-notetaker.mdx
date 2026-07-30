@@ -1,0 +1,182 @@
+---
+meta_title: "HIPAA-Compliant AI Notetakers: A Buyer's Guide"
+display_title: "How to Choose a HIPAA-Compliant AI Notetaker"
+meta_description: "Why encryption does not exempt a notetaker from HIPAA, where the subprocessor chain breaks, which vendors sign a BAA and on which plans, and what local capture actually changes."
+author:
+  - "John Jeong"
+featured: false
+category: "Guides"
+date: "2026-07-30"
+---
+
+Search for a HIPAA-compliant AI notetaker and every vendor says yes. Most of them are describing a plan tier you are not on, a Business Associate Agreement you have not signed, or a certification that covers their infrastructure rather than your configuration.
+
+HIPAA does not certify products. It imposes obligations on covered entities and on the business associates they contract with. A notetaker can help you meet those obligations or make them harder, but no purchase makes you compliant on its own.
+
+This guide covers what the rules actually require of a meeting notetaker, where the vendor chain usually breaks, which products sign a BAA and on which plans, and what changes when the transcript never leaves your machine. It is not legal advice — review any deployment involving protected health information with your compliance team and counsel.
+
+## "HIPAA compliant" is not a product property
+
+Three claims get used interchangeably in vendor marketing, and they mean different things:
+
+| Claim | What it means | What it does not mean |
+| --- | --- | --- |
+| "SOC 2 Type II certified" | An auditor reviewed the vendor's security controls over a period | Nothing about HIPAA specifically |
+| "HIPAA compliant" | The vendor believes its controls can support a compliant deployment | That your use of it is compliant |
+| "We will sign a BAA" | The vendor accepts business associate liability, in writing, for defined services | That the BAA is active, or covers the plan you bought |
+
+Only the third is contractually meaningful, and it is meaningful only once executed. Several vendors here will sign a BAA that takes effect on specific plans and with specific settings enabled — Fireflies, for example, ties its arrangement to Private Storage. A signed BAA plus a misconfigured workspace is not coverage.
+
+## Encryption does not remove the obligation
+
+The most common misreading in this category is that strong encryption puts a vendor outside HIPAA's scope. It does not.
+
+HHS's [guidance on HIPAA and cloud computing](https://www.hhs.gov/hipaa/for-professionals/special-topics/health-information-technology/cloud-computing/index.html) addresses this directly. A cloud service provider that creates, receives, maintains, or transmits electronic protected health information on behalf of a covered entity is a business associate — even when the ePHI is encrypted and the provider does not hold the decryption key. Lacking the key does not exempt a provider from business associate status or the obligations that follow.
+
+The narrow carve-out people reach for is the conduit exception, and it is narrower than it sounds. It covers transmission-only services, including temporary storage incidental to transmission. Postal and telecommunications services fit. A platform that stores your meeting transcripts does not.
+
+This matters for meeting notetakers because it kills the shortcut. "The audio is encrypted in transit and at rest" describes a control, not a scope reduction. If a vendor holds your transcripts, they are a business associate and you need a BAA with them, whatever the encryption story is.
+
+The exception is genuinely local processing. If audio is captured, transcribed, and stored on a device the covered entity controls, and no third party creates, receives, maintains, or transmits it, there is no business associate for that step — because there is no third party in it. That is a scope question, not a compliance certificate, and it only holds for the parts of the pipeline that stay local.
+
+## The subprocessor chain is where most notetakers break
+
+A modern notetaker is rarely one vendor. It is a capture app, a transcription engine, and a language model that writes the summary — often three companies.
+
+Signing a BAA with the notetaker does not automatically cover the model provider behind it. That provider is receiving the transcript, which contains the PHI. The chain has to hold end to end.
+
+Where the major model providers stand:
+
+| Provider | BAA availability | Notes |
+| --- | --- | --- |
+| Anthropic | HIPAA-eligible services with a BAA for qualifying customers | Certain features, including web search, are disabled under the BAA. Consumer Claude is not covered. See our [Anthropic retention guide](/blog/anthropic-data-retention-policy/) |
+| Azure OpenAI | Covered under Microsoft's HIPAA BAA via the Data Protection Addendum | Requires qualifying enterprise licensing. Details in our [Azure OpenAI retention guide](/blog/azure-open-ai-data-retention-policy/) |
+| Gemini for Workspace | Included under Google's HIPAA Business Associate Addendum | Requires a signed BAA and the right Admin Console configuration. The consumer version is not covered — see our [Gemini retention guide](/blog/google-gemini-data-retention-policy/) |
+| OpenAI consumer ChatGPT | No BAA on Free, Plus, Pro, or Team | Not usable with PHI. See our [ChatGPT retention guide](/blog/chatgpt-data-retention-policy/) |
+| Mistral | No published HIPAA BAA | Confirm directly before assuming coverage — [Mistral retention guide](/blog/mistral-data-retention-policy/) |
+| OpenRouter | No published HIPAA BAA | A routing layer adds providers rather than removing them — [OpenRouter retention guide](/blog/openrouter-data-retention-policy/) |
+
+Two questions cut through most vendor conversations:
+
+1. Which subprocessors receive transcript content when a summary is generated?
+2. Is each of them covered by a BAA, and can you see the list?
+
+A vendor that cannot name its model provider cannot demonstrate an intact chain. A vendor that routes to whichever model is cheapest that week has a chain that changes without telling you.
+
+## Where the major notetakers currently stand
+
+Every product below can be part of a compliant deployment under the right plan and contract. The differences are which plan, what has to be enabled, and how much of the pipeline you can see.
+
+| Tool | BAA available | Plan gating | What to check |
+| --- | --- | --- | --- |
+| **Otter** | Yes | Enterprise | Confirm BAA execution before any PHI is recorded; free and Pro tiers are not covered |
+| **Fireflies** | Yes | Enterprise, on request | [Private Storage](https://fireflies.ai/hipaa) is a precondition for the arrangement to take effect |
+| **Fathom** | Yes | Enterprise+ | The generous free tier carries no BAA |
+| **Avoma** | Yes | Enterprise | HIPAA, DPAs, and custom retention are Enterprise-only; see our [Avoma alternatives guide](/blog/avoma-alternatives/) |
+| **Sembly** | Yes | Enterprise-oriented | Broad certification set including SOC 2 Type II, HIPAA, GDPR, FERPA |
+| **Zoom AI Companion** | No | Not applicable | Zoom's HIPAA-compliant instances do not offer AI Companion. Institutional guidance warns against using it for sensitive discussion |
+| **Anarlog** | Not applicable — no third party receives the data by default | Any | Local capture removes the vendor from the pipeline; your device controls become the safeguard |
+
+The pattern is consistent: HIPAA coverage lives on the top tier. If you evaluated a notetaker on its free plan and liked it, the price you will actually pay for a compliant deployment is a different number, usually with a seat minimum and an annual contract.
+
+Zoom is the case worth flagging. Teams often assume the AI summary comes with the HIPAA-configured meeting platform they already have. It does not, and the two are provisioned separately.
+
+## What changes when transcription runs on your device
+
+Local capture does not make you compliant. It changes which safeguards are in play.
+
+[Anarlog](/) captures microphone and system audio from your machine without joining the call as a participant, transcribes on-device, and stores the meeting in local SQLite. In that configuration, no third party creates, receives, maintains, or transmits the recording or transcript, so there is no business associate to contract with for those steps.
+
+What this removes:
+
+- A vendor BAA for capture, transcription, and storage, because there is no vendor in those steps
+- A hosted archive of PHI that persists under someone else's retention policy
+- A model provider receiving transcript content, when summarization runs locally or is not used
+- A visible bot in the participant list, which matters when patients or clients are on the call
+
+What it does not remove:
+
+- Device encryption, screen lock, and physical control of the machine
+- Access controls and unique user identification
+- Backup, and the encryption of those backups
+- Audit logging sufficient to reconstruct who accessed what
+- Workforce training, sanctions, and documented policies
+- Consent and recording obligations under state law, which are separate from HIPAA — see [is AI notetaking legal](/blog/is-ai-notetaking-legal/)
+
+If you enable a hosted AI provider for summaries, that provider is back in scope and needs a BAA like any other. Anarlog supports local models and your own provider keys precisely so this is a decision you make rather than a default you inherit, but the decision still has to be made deliberately.
+
+The honest framing: local processing reduces the number of parties who touch PHI and shrinks the contractual surface. It moves responsibility onto your device management rather than eliminating it. Organizations without endpoint controls may be worse off with unmanaged laptops holding transcripts than with a properly contracted hosted vendor.
+
+## An evaluation checklist
+
+Run every candidate through this before recording a single patient conversation.
+
+**Contract**
+
+1. Will the vendor sign a BAA, and on which plan?
+2. Is the BAA executed, or merely offered?
+3. What settings must be enabled for it to apply?
+4. Does it cover transcription, summarization, and storage, or only some of those?
+
+**Data path**
+
+5. Where is audio processed, and where is it stored?
+6. Which subprocessors receive transcripts, and are they each covered?
+7. What is the retention period, and can you set it?
+8. Can you delete a specific meeting and have it actually removed downstream?
+9. Is customer content excluded from model training by contract, not just by policy page?
+
+**Controls**
+
+10. Is there audit logging that shows who accessed a transcript?
+11. Does access control map to your existing identity provider?
+12. Can you restrict which meetings the tool is allowed to capture at all?
+
+**Practical**
+
+13. Does capture add a visible participant, and is that acceptable to the people on the call?
+14. Can you export the complete record in a portable format if you leave?
+15. What happens to existing transcripts when the contract ends?
+
+Questions 6 and 8 are where most vendors slow down. A confident answer to both is a better signal than any certification badge.
+
+## The simpler answer for many teams
+
+A large share of healthcare meetings are not clinical. Staff standups, vendor calls, budget reviews, and hiring conversations contain no PHI, and applying clinical controls to them is expensive friction.
+
+Segmenting is usually the cheaper design:
+
+- Conversations involving PHI use a tool and configuration your compliance team has approved, with an executed BAA or fully local processing.
+- Everything else uses whatever the organization prefers.
+
+The failure mode is a single tool configured for convenience that quietly captures a clinical conversation because it was already running. Whatever you choose, the capture rule has to be explicit and enforced, not left to whoever remembers to close the app.
+
+## Frequently asked questions
+
+### Is any AI notetaker HIPAA compliant out of the box?
+
+No. HIPAA compliance is a property of your organization's controls, contracts, and configuration, not of a product. Otter, Fireflies, Fathom, Avoma, and Sembly will each sign a BAA on their enterprise tiers, which makes a compliant deployment possible. Executing the BAA and configuring the tool correctly is the part that makes it real.
+
+### Does end-to-end encryption make a notetaker HIPAA compliant?
+
+No. HHS guidance is explicit that a cloud provider handling ePHI is a business associate even when the data is encrypted and the provider has no decryption key. Encryption is a required safeguard, not a scope exemption, and it does not remove the need for a BAA.
+
+### Can I use a free AI notetaker with patient information?
+
+No. Every vendor here gates HIPAA coverage to a paid enterprise tier. Fathom's free plan and Fireflies' free plan carry no BAA, which means recording PHI on them is a violation regardless of how the product behaves.
+
+### Is Zoom AI Companion HIPAA compliant?
+
+Zoom's HIPAA-configured instances do not offer AI Companion, and institutional guidance advises against using it in meetings involving sensitive or protected information. Having a HIPAA-configured Zoom deployment does not mean the AI summarization feature is covered by it.
+
+### Does running transcription locally satisfy HIPAA?
+
+It removes third parties from the capture and transcription steps, which eliminates the BAA requirement for those steps. It does not satisfy the Security Rule's requirements for device encryption, access control, audit logging, backup, and workforce training — those remain yours. Local processing narrows the problem rather than solving it.
+
+### What about attorney-client privilege and other confidential conversations?
+
+The analysis is similar and the stakes differ. Sharing a privileged conversation with a third-party processor can risk waiver, and AI-generated transcripts may be discoverable in ways contemporaneous human notes are not. Our guide to [whether AI notetaking is legal](/blog/is-ai-notetaking-legal/) covers consent, privilege, and recording law in more depth.
+
+### Which notetaker should a small clinic actually use?
+
+If PHI is involved, the shortlist is a vendor with an executed BAA on a plan you can afford, or a fully local setup on managed devices. Fathom Enterprise+ and Fireflies Enterprise with Private Storage are the common hosted answers. If the practice already manages its endpoints and would rather not add a business associate at all, [Anarlog](/) keeps capture, transcription, and storage on the clinician's own machine. Either way, the decision should be documented and reviewed by whoever signs off on your risk analysis.

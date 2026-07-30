@@ -1,0 +1,212 @@
+---
+meta_title: "How to Use Notion for Meeting Notes"
+display_title: "How to Run Meeting Notes in Notion Without Losing the Transcript"
+meta_description: "Build a Notion meeting notes system with a proper database schema, relations, and action item rollups—then decide whether Notion AI Meeting Notes should do the capture."
+author:
+  - "John Jeong"
+featured: false
+category: "Guides"
+date: "2026-07-27"
+---
+
+Notion is good at the part most notetakers are bad at: connecting a meeting to the people, projects, and decisions around it. A transcript tells you what was said in one room. A Notion database can tell you every conversation you have had with a customer, which commitments came out of them, and which are still open.
+
+Notion is less good at capture. Its native AI Meeting Notes handles a specific set of situations well and degrades outside them, and it sits behind Business and Enterprise plans.
+
+This guide builds the database side first, because that is the part that keeps working regardless of which tool records the audio. Then it covers what Notion's own capture does, where it stops, and how to pair it with a local notetaker when the recording should not leave your machine.
+
+## What we're building
+
+A meeting notes system with four pieces:
+
+- A **Meetings** database with typed properties instead of free-text pages
+- **People** and **Projects** databases linked by relation, so history assembles itself
+- An **Action Items** database rolled up into both
+- Views that answer the three questions people actually ask after a meeting
+
+Everything here works on a free Notion plan. Only the AI capture step requires Business or Enterprise.
+
+## Step 1: Create the Meetings database
+
+Start with a database, not a page tree. A page tree gives you a folder of documents you have to remember the names of. A database gives you filters.
+
+Create a new database called `Meetings` with these properties:
+
+| Property | Type | Why it exists |
+| --- | --- | --- |
+| `Name` | Title | Format as `2026-07-27 · Acme kickoff` so sorting works |
+| `Date` | Date | Include time; you will filter on it constantly |
+| `Type` | Select | `1:1`, `Standup`, `Customer`, `Review`, `Interview`, `Other` |
+| `Attendees` | Relation → People | The property that makes history work |
+| `Project` | Relation → Projects | Groups meetings by the thing they are about |
+| `Status` | Select | `Scheduled`, `Held`, `Notes done` |
+| `Decisions` | Text | One line each, extracted after the meeting |
+| `Transcript` | Files or Text | Where the raw record lands |
+
+The `Type` property earns its place quickly. A 1:1 and a customer call need different templates, and once meetings are typed you can build a view per type instead of scrolling one list.
+
+## Step 2: Create People and Projects
+
+Both are small.
+
+`People` needs `Name`, `Company` or `Team`, `Role`, and a `Meetings` relation that Notion creates automatically when you add the relation from `Meetings`. That is the whole schema. Everything useful on a person page — every meeting you have had with them, in order — comes from the relation, not from anything you type.
+
+`Projects` needs `Name`, `Status`, `Owner` (relation to People), and the reverse `Meetings` relation.
+
+Once these exist, open any person's page and you have their full meeting history without maintaining it. This is the single biggest advantage Notion has over a folder of Markdown files, and it costs about ten minutes to set up.
+
+## Step 3: Build the meeting template
+
+Open the `Meetings` database, click the dropdown beside **New**, and choose **New template**. Name it `Meeting note`.
+
+Set the template body to this structure:
+
+```markdown
+## Context
+Why this meeting is happening. One or two lines, written before it starts.
+
+## Notes
+Raw notes during the conversation. Do not clean these up live.
+
+## Decisions
+- Decided: …
+  - Because: …
+  - Owner: …
+
+## Action items
+- [ ] Owner — task — due date
+
+## Open questions
+- …
+
+## Transcript
+```
+
+Keep `Context` above `Notes`. Written before the call, it takes thirty seconds and it is the field that makes the note readable six months later, when nobody remembers why the meeting was scheduled.
+
+The `Decisions` block matters more than the notes. A summary preserves discussion; it does not reliably preserve what the team committed to and why the alternatives were rejected. If decisions accumulate across many meetings, promote them to their own database — the reasoning is the same as in our [meeting decision log guide](/blog/meeting-decision-log/).
+
+## Step 4: Split action items into their own database
+
+Checkboxes inside a page are invisible. An action item written as `- [ ] Ship the migration` on the Acme kickoff page is findable only if you remember which meeting produced it.
+
+Create an `Action Items` database:
+
+| Property | Type |
+| --- | --- |
+| `Task` | Title |
+| `Owner` | Relation → People |
+| `Due` | Date |
+| `Status` | Select: `Open`, `Blocked`, `Done` |
+| `Source meeting` | Relation → Meetings |
+| `Project` | Relation → Projects |
+
+Then add a rollup on `Meetings` that counts open items from `Source meeting`. A meeting row now carries its own outstanding-commitment count, which is the number that tells you whether the meeting produced anything.
+
+One owner per item, always. An action item assigned to two people is assigned to nobody — see [how to write meeting action items people actually complete](/blog/meeting-action-items/) for the full pattern.
+
+## Step 5: Build the three views that get used
+
+Most Notion setups die from too many views. These three cover the real questions.
+
+**This week.** Filter `Meetings` where `Date` is within the next 7 days, sorted ascending. This is the view you open in the morning.
+
+**Needs notes.** Filter where `Status` is `Held` and the open-items rollup is empty, or `Status` is not `Notes done`. This catches meetings that happened and produced nothing, which is the most common failure in any notes system.
+
+**My open items.** On `Action Items`, filter `Owner` is me and `Status` is not `Done`, grouped by `Due`. Add a board view grouped by `Owner` for anyone running a team.
+
+Everything else — by project, by person, by type — you already get for free by opening the relevant page.
+
+## Step 6: Decide who does the capture
+
+The database above works with any recording source. The question is which one.
+
+### Notion AI Meeting Notes
+
+Notion's [built-in AI Meeting Notes](https://www.notion.com/help/ai-meeting-notes) records a meeting and writes a transcript and summary directly onto a page. Its behavior is worth knowing precisely before you build a workflow on it.
+
+**Where it captures well:**
+
+- The desktop app captures both system audio and your microphone, which is what you need for a video call. It requires macOS 13 or later, or a current Windows build, on desktop app version 4.7.0 or higher.
+- Speaker changes are detected and labeled. Notion's own documentation says this works best on virtual one-on-one meetings, and that linking the page to a calendar event lets it name the other participant.
+
+**Where it stops:**
+
+- The browser version captures microphone input only, not system audio. It is usable for an in-person conversation and not for a video call.
+- Speaker labeling is limited in group meetings, and in the browser and mobile apps. Labeling is available in English only.
+- Transcription covers 15 languages: English, Chinese, Spanish, French, German, Japanese, Korean, Portuguese, Russian, Thai, Vietnamese, Danish, Finnish, Norwegian, Dutch, and Swedish.
+- It requires a Business or Enterprise plan, or an eligible mobile subscription that includes Notion AI. There is no free path.
+- It will not join a meeting on your behalf. Your machine has to be in the call.
+
+**Where the audio goes:**
+
+Notion processes meeting audio through sub-processors including OpenAI, Anthropic, and Fireworks. On desktop and in the browser, audio is held locally during the session; if processing fails, it is uploaded to Notion's servers and kept for up to three days to retry. The mobile app uploads audio to Notion's servers as part of normal operation.
+
+None of that is unusual for a hosted notetaker, and for most internal meetings it is fine. It is worth knowing anyway, because "the recording stayed on my laptop" and "the recording went to three AI vendors" are different answers to a security questionnaire. Our guides to [Anthropic](/blog/anthropic-data-retention-policy/) and [ChatGPT](/blog/chatgpt-data-retention-policy/) retention cover what each provider does with content it receives.
+
+### A local notetaker feeding Notion
+
+The alternative is to record locally and send Notion the finished artifact rather than the raw audio.
+
+[Anarlog](/) captures microphone and system audio from your device without joining the call as a participant, transcribes it — on-device if you want — and keeps the meeting in local SQLite with Markdown export. You paste or export the transcript and summary into the Notion page, and the database, relations, and rollups work exactly as described above.
+
+This split is worth it when:
+
+- meetings include candidate interviews, legal calls, medical conversations, or anything under a retention policy you did not write;
+- you are not on a Notion Business plan and do not want to upgrade for capture alone;
+- transcription needs to work offline, or on a flight;
+- you want to choose which AI provider, if any, sees the transcript;
+- meetings happen in a language Notion does not transcribe.
+
+The tradeoff is one manual step. Notion's native capture writes onto the page by itself; an external notetaker means an export or a paste. In practice that step takes a few seconds and happens once per meeting, and you get to keep the raw record locally rather than only in a workspace.
+
+The same architecture works with [Obsidian](/blog/obsidian-meeting-notes/) if you would rather the whole system be local files. Notion buys you relations and shared views; Obsidian buys you plain files. Pick based on whether other people need to read the notes.
+
+## Step 7: Keep the transcript out of the note body
+
+Paste a 6,000-word transcript into a meeting page and every subsequent search returns that page for every term in it. The signal disappears.
+
+Two options that avoid this:
+
+- **Toggle block.** Put the transcript inside a collapsed toggle at the bottom under `## Transcript`. Notion still indexes it, but the page stays readable.
+- **Attached file.** Export the transcript as Markdown or text and attach it to the `Transcript` file property. The page holds notes, decisions, and action items only, and the raw record stays retrievable without polluting the page.
+
+The second is better once you have more than a few dozen meetings. It also keeps the durable record in a portable file rather than inside a Notion block, which matters if you ever move.
+
+## The workflow, end to end
+
+1. Meeting gets scheduled. Create the row from the `Meeting note` template, set `Type`, link `Attendees` and `Project`, write two lines of `Context`.
+2. Meeting happens. Capture runs — Notion AI, Anarlog, or whatever else. You take sparse notes on what matters to you rather than trying to transcribe.
+3. Within ten minutes of the call, fill `Decisions` and create `Action Items` rows with one owner and a date each.
+4. Attach the transcript, set `Status` to `Notes done`.
+5. The rollups, person histories, and project views update themselves.
+
+Step 3 is the one that decides whether any of this works. Every other step can be automated; that one cannot, because deciding what was actually committed to is judgment, not extraction. Ten minutes after the meeting you still remember the context. The next morning you do not.
+
+## Frequently asked questions
+
+### Does Notion have built-in meeting transcription?
+
+Yes. Notion AI Meeting Notes records and transcribes meetings on the desktop app and in the browser, then generates a summary on the page. The desktop app captures system audio and microphone; the browser captures microphone only. It requires a Business or Enterprise plan, or an eligible mobile subscription with Notion AI included.
+
+### Is Notion AI Meeting Notes free?
+
+No. It is gated to Business and Enterprise plans, and the standalone AI add-on that previously covered it is no longer offered to new users. The database, template, and relation setup in this guide works on a free plan; only the capture step requires an upgrade.
+
+### Can Notion identify who said what?
+
+It detects speaker changes and labels them, and it can name the other participant when the page is linked to a calendar event. Notion states this works best in virtual one-on-one meetings, and that labeling is limited in group meetings, in the browser, and on mobile. Speaker labeling is English-only.
+
+### Will Notion send my meeting audio to AI providers?
+
+Notion processes meeting audio through sub-processors including OpenAI, Anthropic, and Fireworks. On desktop and browser, audio is held locally during the session and uploaded to Notion's servers only if processing fails, where it is retained for up to three days. The mobile app uploads audio as part of normal operation.
+
+### How do I get meeting notes into Notion from another tool?
+
+Export the transcript and summary as Markdown and paste them into the meeting page, or attach the file to a `Transcript` property. Anarlog exports Markdown directly, which pastes into Notion with formatting intact. Keep the transcript in a toggle or an attached file so it does not swamp search.
+
+### Is Notion or Obsidian better for meeting notes?
+
+Notion is better when other people need to read, filter, or comment on the notes, and when relations between meetings, people, and projects carry real weight. Obsidian is better when the notes should be plain local files that outlive any product. Our [Obsidian meeting notes guide](/blog/obsidian-meeting-notes/) builds the equivalent system in files, and [Markdown note-taking apps](/blog/markdown-note-taking-apps/) compares the wider field.
+
+If you want the structure Notion gives you without handing the recording to a hosted service, [try Anarlog](/). It captures the meeting locally, transcribes on-device, and exports Markdown that drops straight into the databases above.
