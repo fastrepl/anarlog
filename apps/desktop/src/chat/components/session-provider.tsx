@@ -478,19 +478,27 @@ function ChatSessionLifecycle({
         const localResponse = chatCloudsyncActivity.runWithLease(
           message.id,
           async () => {
-            const trackedCompletions: Promise<unknown>[] = [];
-            await options?.beforeSend?.((completion) => {
-              trackedCompletions.push(completion);
-            });
-            await upsertChatMessage(
-              buildPersistedChatMessage({
-                message: assistantMessage,
-                chatGroupId: targetChatGroupId,
-                ownerUserId,
-                status: "ready",
-              }),
-            );
-            await Promise.allSettled(trackedCompletions);
+            try {
+              const trackedCompletions: Promise<unknown>[] = [];
+              await options?.beforeSend?.((completion) => {
+                trackedCompletions.push(completion);
+              });
+              await upsertChatMessage(
+                buildPersistedChatMessage({
+                  message: assistantMessage,
+                  chatGroupId: targetChatGroupId,
+                  ownerUserId,
+                  status: "ready",
+                }),
+              );
+              await Promise.allSettled(trackedCompletions);
+            } catch (error) {
+              await Promise.allSettled([
+                deleteChatMessage(targetChatGroupId, message.id),
+                deleteChatMessage(targetChatGroupId, assistantMessage.id),
+              ]);
+              throw error;
+            }
           },
         );
         pendingFinishedChatPersistsRef.current.set(message.id, localResponse);

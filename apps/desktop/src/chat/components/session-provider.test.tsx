@@ -312,6 +312,55 @@ describe("ChatSession", () => {
       expect.objectContaining({ role: "assistant" }),
     ]);
     expect(updates[1]?.(optimisticMessages)).toEqual([]);
+    expect(mocks.deleteChatMessage).toHaveBeenCalledTimes(2);
+    expect(mocks.deleteChatMessage).toHaveBeenCalledWith(
+      "group-1",
+      "failed-user-message",
+    );
+    expect(mocks.chatSendMessage).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it("deletes the persisted user turn when batch guidance fails to save", async () => {
+    const captured: { send?: ChatSessionRenderProps["sendMessage"] } = {};
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    mocks.upsertChatMessage.mockRejectedValueOnce(
+      new Error("assistant save failed"),
+    );
+    render(
+      <ChatSession
+        chatGroupId="group-1"
+        currentSessionId="session-1"
+        isBatchTranscriptionPending
+        sessionId="chat-1"
+      >
+        {(props) => {
+          captured.send = props.sendMessage;
+          return null;
+        }}
+      </ChatSession>,
+    );
+
+    captured.send?.(
+      {
+        id: "persisted-user-message",
+        role: "user",
+        parts: [{ type: "text", text: "What did they say?" }],
+      },
+      {
+        chatGroupId: "group-1",
+        beforeSend: vi.fn().mockResolvedValue(undefined),
+      },
+    );
+
+    await waitFor(() => expect(consoleError).toHaveBeenCalledOnce());
+    expect(mocks.deleteChatMessage).toHaveBeenCalledTimes(2);
+    expect(mocks.deleteChatMessage).toHaveBeenCalledWith(
+      "group-1",
+      "persisted-user-message",
+    );
     expect(mocks.chatSendMessage).not.toHaveBeenCalled();
     consoleError.mockRestore();
   });
