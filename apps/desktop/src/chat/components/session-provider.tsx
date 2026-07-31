@@ -474,6 +474,7 @@ function ChatSessionLifecycle({
           ],
           metadata: { createdAt: Date.now() },
         };
+        chatSetMessages((current) => [...current, message, assistantMessage]);
         const localResponse = chatCloudsyncActivity.runWithLease(
           message.id,
           async () => {
@@ -489,11 +490,6 @@ function ChatSessionLifecycle({
                 status: "ready",
               }),
             );
-            chatSetMessages((current) => [
-              ...current,
-              message,
-              assistantMessage,
-            ]);
             await Promise.allSettled(trackedCompletions);
           },
         );

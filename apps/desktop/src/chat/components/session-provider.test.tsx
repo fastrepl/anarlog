@@ -235,16 +235,31 @@ describe("ChatSession", () => {
       role: "user",
       parts: [{ type: "text", text: "What did they say?" }],
     };
-    const beforeSend = vi.fn().mockResolvedValue(undefined);
+    let finishBeforeSend: (() => void) | undefined;
+    const beforeSend = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishBeforeSend = resolve;
+        }),
+    );
 
     captured.send?.(userMessage, {
       chatGroupId: "group-1",
       beforeSend,
     });
 
-    await waitFor(() => expect(beforeSend).toHaveBeenCalledOnce());
-    await waitFor(() => expect(mocks.upsertChatMessage).toHaveBeenCalledOnce());
     expect(mocks.chatSendMessage).not.toHaveBeenCalled();
+    await waitFor(() => expect(beforeSend).toHaveBeenCalledOnce());
+    const setMessages = mocks.chatSetMessages.mock.calls.find(
+      ([next]) => typeof next === "function",
+    )?.[0] as ((current: AnlgUIMessage[]) => AnlgUIMessage[]) | undefined;
+    expect(setMessages?.([])).toEqual([
+      userMessage,
+      expect.objectContaining({ role: "assistant" }),
+    ]);
+
+    finishBeforeSend?.();
+    await waitFor(() => expect(mocks.upsertChatMessage).toHaveBeenCalledOnce());
     expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         chatGroupId: "group-1",
@@ -253,13 +268,6 @@ describe("ChatSession", () => {
           "This recording is using batch transcription, so the transcript isn't available to chat yet. Ask again after transcription finishes, or switch to a Pro model for live transcription.",
       }),
     );
-    const setMessages = mocks.chatSetMessages.mock.calls.find(
-      ([next]) => typeof next === "function",
-    )?.[0] as ((current: AnlgUIMessage[]) => AnlgUIMessage[]) | undefined;
-    expect(setMessages?.([])).toEqual([
-      userMessage,
-      expect.objectContaining({ role: "assistant" }),
-    ]);
   });
 
   it("does not regenerate against a pending batch transcript", () => {
