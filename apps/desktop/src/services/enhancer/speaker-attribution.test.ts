@@ -277,6 +277,34 @@ describe("inferAutomaticSpeakerAssignments", () => {
     expect(mocks.generateText).not.toHaveBeenCalled();
   });
 
+  it("excludes shared given names that refer to another participant", async () => {
+    const snapshot = createSnapshot();
+    snapshot.participants[0]!.name = "Alex Smith";
+    snapshot.participants[1]!.name = "Alex Jones";
+    mocks.generateText.mockResolvedValue({
+      text: JSON.stringify({ mapping: null }),
+    });
+
+    await inferAutomaticSpeakerAssignments({
+      generatedSummary:
+        "Alex Smith supported open source AI, and Alex disagreed with the approach.",
+      model: {} as LanguageModel,
+      snapshot,
+      signal: new AbortController().signal,
+    });
+
+    expect(mocks.generateText).toHaveBeenCalledOnce();
+    const prompt = JSON.parse(mocks.generateText.mock.calls[0]![0].prompt);
+    expect(prompt.candidate).toMatchObject({
+      human_id: "human-lex",
+      summary_mentions: [
+        {
+          quote: "Alex Smith supported open source AI",
+        },
+      ],
+    });
+  });
+
   it("uses an exclusive clause when a summary sentence names both candidates", async () => {
     mocks.generateText.mockImplementation(({ prompt }: { prompt: string }) => {
       const payload = JSON.parse(prompt) as {

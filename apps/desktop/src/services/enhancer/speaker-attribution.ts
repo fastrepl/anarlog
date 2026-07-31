@@ -561,9 +561,7 @@ function buildCandidateSummaryMentions(
   const candidateAliases = buildCandidateNameAliases(candidateName, candidates);
   const otherAliases = candidates
     .filter((candidate) => candidate.name !== candidateName)
-    .flatMap((candidate) =>
-      buildCandidateNameAliases(candidate.name, candidates),
-    );
+    .flatMap((candidate) => buildCandidateExclusionAliases(candidate.name));
   const sentences = summary
     .split(/\r?\n/u)
     .flatMap((line) => line.match(/[^.!?]+[.!?]?/gu) ?? [])
@@ -573,7 +571,12 @@ function buildCandidateSummaryMentions(
       if (!containsNameAlias(normalizedSentence, candidateAliases)) {
         return [];
       }
-      if (!containsNameAlias(normalizedSentence, otherAliases)) {
+      if (
+        !containsNameAlias(
+          removeNameAliases(normalizedSentence, candidateAliases),
+          otherAliases,
+        )
+      ) {
         return [sentence];
       }
 
@@ -584,7 +587,10 @@ function buildCandidateSummaryMentions(
           const normalizedClause = clause.toLocaleLowerCase();
           return (
             startsWithNameAlias(normalizedClause, candidateAliases) &&
-            !containsNameAlias(normalizedClause, otherAliases)
+            !containsNameAlias(
+              removeNameAliases(normalizedClause, candidateAliases),
+              otherAliases,
+            )
           );
         });
     });
@@ -618,6 +624,28 @@ function buildCandidateNameAliases(
     );
 
   return isUnique ? [normalizedName, givenName] : [normalizedName];
+}
+
+function buildCandidateExclusionAliases(candidateName: string) {
+  const normalizedName = normalizeWhitespace(candidateName).toLocaleLowerCase();
+  const givenName = normalizedName.match(/[\p{L}\p{N}]+/u)?.[0];
+  return givenName && givenName.length >= 3
+    ? [normalizedName, givenName]
+    : [normalizedName];
+}
+
+function removeNameAliases(value: string, aliases: string[]) {
+  return aliases.reduce(
+    (remaining, alias) =>
+      remaining.replace(
+        new RegExp(
+          `(?:^|[^\\p{L}\\p{N}])${escapeRegExp(alias)}(?=$|[^\\p{L}\\p{N}])`,
+          "gu",
+        ),
+        " ",
+      ),
+    value,
+  );
 }
 
 function containsNameAlias(value: string, aliases: string[]) {
