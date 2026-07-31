@@ -30,6 +30,7 @@ describe("local model icons", () => {
 
   test("gives apple speech its own mark and no runtime badge", () => {
     expect(getLocalModelIcon("apple-speech")?.title).toBe("Apple Speech");
+    expect(getLocalModelIcon("apple-speech")?.node).toBeTruthy();
     expect(getLocalModelBackendBadge("apple-speech")).toBeNull();
   });
 

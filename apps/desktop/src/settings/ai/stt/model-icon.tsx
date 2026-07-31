@@ -1,11 +1,15 @@
+import { Apple } from "@lobehub/icons";
+import type { ReactNode } from "react";
+
 import { cn } from "@anlg/utils";
 
 type ModelIconSpec = {
-  label: string;
   title: string;
-  className: string;
+  label?: string;
+  className?: string;
   imageSrc?: string;
   imageClassName?: string;
+  node?: ReactNode;
 };
 
 const MODEL_ICON_ASSET_BASE = "/assets/model-icons";
@@ -26,9 +30,10 @@ export function getLocalModelIcon(model: string): ModelIconSpec | null {
 
   if (value === "apple-speech") {
     return {
-      label: "",
       title: "Apple Speech",
-      className: "border-border bg-card text-foreground",
+      // The Apple mark is full-bleed in its viewBox, so it renders smaller than the
+      // 20px slot to match the optical size of the padded brand logos.
+      node: <Apple size={16} />,
     };
   }
 
@@ -145,7 +150,15 @@ export function LocalModelLabel({
       title={title}
       className={cn(["flex min-w-0 items-center gap-2", className])}
     >
-      {icon?.imageSrc ? (
+      {icon?.node ? (
+        <span
+          title={icon.title}
+          aria-label={icon.title}
+          className="flex size-5 shrink-0 items-center justify-center"
+        >
+          {icon.node}
+        </span>
+      ) : icon?.imageSrc ? (
         <img
           title={icon.title}
           aria-label={icon.title}

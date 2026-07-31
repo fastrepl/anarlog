@@ -54,7 +54,9 @@ const _PROVIDERS = [
     id: "apple_foundation",
     displayName: "Apple Intelligence",
     badge: "Experimental",
-    icon: <Apple size={16} />,
+    // The Apple mark fills its viewBox edge to edge, so it needs an explicit size to
+    // escape the icon slot's `size-full` stretch and match the padded brand logos.
+    icon: <Apple className="!size-4" />,
     baseUrl: undefined,
     requirements: [],
     checkAvailability: checkAppleFoundationModelAvailability,

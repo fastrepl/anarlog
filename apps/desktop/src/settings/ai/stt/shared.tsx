@@ -184,6 +184,26 @@ export const displayModelId = (model: string) => {
     return "Apple Speech";
   }
 
+  if (model === "soniqo-parakeet-streaming") {
+    return "Soniqo Parakeet Streaming";
+  }
+
+  if (model === "soniqo-parakeet-batch") {
+    return "Soniqo Parakeet Batch";
+  }
+
+  if (model === "soniqo-omnilingual") {
+    return "Soniqo Omnilingual";
+  }
+
+  if (model === "soniqo-qwen3-small") {
+    return "Soniqo Qwen3 0.6B";
+  }
+
+  if (model === "soniqo-qwen3-large") {
+    return "Soniqo Qwen3 1.7B";
+  }
+
   if (model === "parakeet-tdt-0.6b-v3") {
     return "Parakeet TDT 0.6B V3";
   }
@@ -195,27 +215,8 @@ export const displayModelId = (model: string) => {
   return model;
 };
 
-function isOnDeviceModelId(model: string) {
-  return (
-    model.startsWith("soniqo-") ||
-    model === "apple-speech" ||
-    model.startsWith("am-") ||
-    model.startsWith("Quantized")
-  );
-}
-
 export function displayModelLabel(model: string, displayName?: string) {
-  if (isOnDeviceModelId(model)) {
-    return "On device";
-  }
-
   return displayName ?? displayModelId(model);
-}
-
-export function displayModelTitle(model: string, displayName?: string) {
-  const title = displayName ?? displayModelId(model);
-
-  return displayModelLabel(model, displayName) === title ? undefined : title;
 }
 
 export function formatModelSize(sizeBytes?: number | null) {

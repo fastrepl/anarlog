@@ -1,11 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { displayModelLabel, displayModelTitle, PROVIDERS } from "./shared";
+import { displayModelLabel, PROVIDERS } from "./shared";
 
 describe("STT model display labels", () => {
   test("keeps cloud model product-facing", () => {
     expect(displayModelLabel("cloud")).toBe("Pro (Cloud)");
-    expect(displayModelTitle("cloud")).toBeUndefined();
   });
 
   test("uses product-facing labels for hosted provider models", () => {
@@ -49,25 +48,23 @@ describe("STT model display labels", () => {
     expect(providers.aws_transcribe.badge).toBe("Gateway");
   });
 
-  test("treats apple speech as an on-device model", () => {
-    expect(displayModelLabel("apple-speech", "Apple Speech")).toBe("On device");
-    expect(displayModelTitle("apple-speech", "Apple Speech")).toBe(
+  test("names on-device models instead of collapsing them", () => {
+    expect(displayModelLabel("apple-speech", "Apple Speech")).toBe(
       "Apple Speech",
     );
-  });
-
-  test("collapses local model names to on-device labels", () => {
     expect(
       displayModelLabel(
         "soniqo-parakeet-streaming",
         "Soniqo Parakeet Streaming",
       ),
-    ).toBe("On device");
-    expect(
-      displayModelTitle(
-        "soniqo-parakeet-streaming",
-        "Soniqo Parakeet Streaming",
-      ),
     ).toBe("Soniqo Parakeet Streaming");
+  });
+
+  test("names on-device models without a backend display name", () => {
+    expect(displayModelLabel("apple-speech")).toBe("Apple Speech");
+    expect(displayModelLabel("soniqo-parakeet-batch")).toBe(
+      "Soniqo Parakeet Batch",
+    );
+    expect(displayModelLabel("soniqo-omnilingual")).toBe("Soniqo Omnilingual");
   });
 });

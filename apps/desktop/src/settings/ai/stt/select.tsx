@@ -47,7 +47,6 @@ import {
 } from "./selection";
 import {
   displayModelLabel,
-  displayModelTitle,
   formatModelSize,
   type ProviderId,
   PROVIDERS,
@@ -693,7 +692,6 @@ function ModelSelectItem({
     !!downloadInfo || queuedDownloads.includes(model.id as LocalModel);
 
   const label = displayModelLabel(model.id, model.displayName);
-  const title = displayModelTitle(model.id, model.displayName);
   const sizeLabel = formatModelSize(model.sizeBytes);
   const showLocalActions = model.isDownloaded && isLocalModelId(model.id);
   const isDeprecated = model.isDeprecated === true;
@@ -702,7 +700,7 @@ function ModelSelectItem({
       <LocalModelLabel
         model={model.id}
         label={label}
-        title={title}
+        title={label}
         className="min-w-0 flex-1"
       />
       <div className="flex shrink-0 items-center gap-2 text-[11px]">
@@ -797,13 +795,14 @@ function ModelSelectItem({
 
 function ModelSelectedValue({ model }: { model: ModelEntry }) {
   const isDeprecated = model.isDeprecated === true;
+  const label = displayModelLabel(model.id, model.displayName);
 
   return (
     <div className="flex max-w-full min-w-0 items-center gap-2">
       <LocalModelLabel
         model={model.id}
-        label={displayModelLabel(model.id, model.displayName)}
-        title={displayModelTitle(model.id, model.displayName)}
+        label={label}
+        title={label}
         className={cn(["min-w-0", isDeprecated && "opacity-60"])}
         labelClassName={cn([isDeprecated && "text-muted-foreground"])}
       />
