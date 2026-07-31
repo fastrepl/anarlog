@@ -243,6 +243,52 @@ describe("inferAutomaticSpeakerAssignments", () => {
     ]);
   });
 
+  it("uses an exclusive clause when a summary sentence names both candidates", async () => {
+    mocks.generateText.mockImplementation(({ prompt }: { prompt: string }) => {
+      const payload = JSON.parse(prompt) as {
+        candidate: { human_id: string };
+        clusters: Array<{
+          cluster_id: string;
+          evidence: { id: string };
+        }>;
+      };
+      expect(payload.candidate).toMatchObject({
+        human_id: "human-george",
+        summary_mentions: [
+          {
+            quote: "George Hotz argued open sourcing AI is safe",
+          },
+        ],
+      });
+      const cluster = payload.clusters.find((candidate) =>
+        candidate.cluster_id.endsWith(":1"),
+      )!;
+      return Promise.resolve({
+        text: JSON.stringify({
+          mapping: {
+            cluster_id: cluster.cluster_id,
+            confidence: 0.98,
+            evidence_id: cluster.evidence.id,
+          },
+        }),
+      });
+    });
+
+    const updates = await inferAutomaticSpeakerAssignments({
+      generatedSummary:
+        "George Hotz argued open sourcing AI is safe, and referenced Lex Fridman's recent conversation with Mark Zuckerberg.",
+      model: {} as LanguageModel,
+      snapshot: createSnapshot(),
+      signal: new AbortController().signal,
+    });
+
+    expect(mocks.generateText).toHaveBeenCalledOnce();
+    expect(automaticHumanIds(updates[0]!)).toEqual([
+      "human-lex",
+      "human-george",
+    ]);
+  });
+
   it("selects exclusive summary evidence and the most relevant cluster quote", async () => {
     const snapshot = createSnapshot();
     snapshot.transcripts[0]!.words[2]!.text = ` ${"irrelevant filler ".repeat(24)}OpenAI used AI safety to hype its company`;

@@ -566,12 +566,25 @@ function buildCandidateSummaryMentions(
     .split(/\r?\n/u)
     .flatMap((line) => line.match(/[^.!?]+[.!?]?/gu) ?? [])
     .map(normalizeWhitespace)
-    .filter((sentence) => {
+    .flatMap((sentence) => {
       const normalizedSentence = sentence.toLocaleLowerCase();
-      return (
-        normalizedSentence.includes(normalizedName) &&
-        otherNames.every((name) => !normalizedSentence.includes(name))
-      );
+      if (!normalizedSentence.includes(normalizedName)) {
+        return [];
+      }
+      if (otherNames.every((name) => !normalizedSentence.includes(name))) {
+        return [sentence];
+      }
+
+      return sentence
+        .split(/[,;]\s+(?:and\s+)?|\s+[—–]\s+/u)
+        .map(normalizeWhitespace)
+        .filter((clause) => {
+          const normalizedClause = clause.toLocaleLowerCase();
+          return (
+            normalizedClause.startsWith(normalizedName) &&
+            otherNames.every((name) => !normalizedClause.includes(name))
+          );
+        });
     });
 
   return Array.from(new Set(sentences))
