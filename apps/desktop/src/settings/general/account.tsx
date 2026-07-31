@@ -433,7 +433,7 @@ function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
   };
 
   return (
-    <section className="border-border border-t pt-6">
+    <section>
       <div className="mb-4 flex flex-col gap-1">
         <h2 className="font-sans text-lg font-semibold">
           <Trans>Plans</Trans>
@@ -481,7 +481,7 @@ function PlanTierList({
   return (
     <div ref={containerRef}>
       {isWide ? (
-        <div className="divide-border grid grid-cols-2 divide-x">
+        <div className="grid grid-cols-2">
           {PLAN_TIERS.map((tier) => {
             const isCurrent = tier.id === currentTier;
             const action = getActionForTier(
@@ -539,10 +539,7 @@ function PlanTierList({
             );
 
             return (
-              <div
-                key={tier.id}
-                className="border-border border-b py-3 last:border-b-0"
-              >
+              <div key={tier.id} className="py-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="text-foreground text-sm font-medium">
