@@ -321,6 +321,25 @@ describe("inferAutomaticSpeakerAssignments", () => {
     expect(prompt.candidate.human_id).toBe("human-george");
   });
 
+  it("does not treat a third-party surname as given-name evidence", async () => {
+    const snapshot = createSnapshot();
+    snapshot.participants[0]!.name = "Jane Doe";
+    mocks.generateText.mockResolvedValue({
+      text: JSON.stringify({ mapping: null }),
+    });
+
+    await inferAutomaticSpeakerAssignments({
+      generatedSummary: "George Hotz discussed Mary Jane.",
+      model: {} as LanguageModel,
+      snapshot,
+      signal: new AbortController().signal,
+    });
+
+    expect(mocks.generateText).toHaveBeenCalledOnce();
+    const prompt = JSON.parse(mocks.generateText.mock.calls[0]![0].prompt);
+    expect(prompt.candidate.human_id).toBe("human-george");
+  });
+
   it("keeps standalone names distinct from joined given names", async () => {
     const snapshot = createSnapshot();
     snapshot.participants[0]!.name = "Mary-Jane Smith";

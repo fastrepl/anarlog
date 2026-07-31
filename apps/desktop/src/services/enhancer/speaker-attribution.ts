@@ -723,8 +723,12 @@ function buildNameAliasRegExp(
 }
 
 function hasProperNameAffix(value: string, start: number, end: number) {
+  const prefix = value.slice(0, start);
   return (
-    /[\p{L}\p{N}][-‐‑‒–—―'’]$/u.test(value.slice(0, start)) ||
+    /[\p{L}\p{N}][-‐‑‒–—―'’]$/u.test(prefix) ||
+    /(?:^|[^\p{L}\p{N}])(?:\p{Lu}[\p{L}\p{N}]*(?:[-‐‑‒–—―'’][\p{L}\p{N}]+)*|\p{Lu}\.)\s+$/u.test(
+      prefix,
+    ) ||
     /^(?:\s+\p{Lu}|[-‐‑‒–—―'’]\p{Lu})/u.test(value.slice(end))
   );
 }
