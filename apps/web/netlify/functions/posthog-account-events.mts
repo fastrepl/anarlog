@@ -15,10 +15,6 @@ function requireEnvironmentVariable(name: string) {
 }
 
 export default async () => {
-  if (process.env.CONTEXT !== "production") {
-    throw new Error("Account analytics delivery is production-only");
-  }
-
   const supabase = createClient(
     requireEnvironmentVariable("SUPABASE_URL"),
     requireEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY"),
