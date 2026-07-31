@@ -6,7 +6,7 @@ It gates the first Windows release tracked by
 [ANLG-68](https://linear.app/fastrepl-inc/issue/ANLG-68/ship-windows-desktop-capture-notifications-and-overlay-support).
 
 Use the exact candidate artifact in every required run. Version 1.4.0 is a VM-first
-Windows preview: its explicitly listed VM scope may ship while physical-hardware and AEC
+Windows beta: its explicitly listed VM scope may ship while physical-hardware and AEC
 rows remain DEFERRED. VM evidence proves guest endpoint capture only; it does not prove
 AEC, real-device routing, hot-plug, suspend/resume, or mixed-DPI behavior.
 
@@ -31,7 +31,7 @@ different artifact hash.
 | -------------------- | ------------------------------------ |
 | Version              | 1.4.0                                |
 | Commit               | TBD                                  |
-| Release scope         | VM-first preview                     |
+| Release scope         | VM-first beta                        |
 | Cross-platform parity | Version and commit must match macOS and Linux |
 | Physical/AEC status   | DEFERRED; not evaluated              |
 | Installer artifact   | TBD                                  |
@@ -92,7 +92,7 @@ release notes, and do not claim mixed-DPI overlay support.
 
 ## 1.4.0 VM-first scope
 
-For this candidate only, the following tests are required for **VM-FIRST PREVIEW SHIP**:
+For this candidate only, the following tests are required for **VM-FIRST BETA SHIP**:
 W-ENV-X64-CLEAN; W-DSP-01; W-ART-01 through W-ART-03; W-INS-01 and W-INS-02;
 W-UPD-01 and W-UPD-02; W-UNINS-01; W-CORE-01 and W-CORE-02; W-CRED-01 and
 W-CRED-02; W-SYNC-01 and W-SYNC-02; W-AUD-05, W-AUD-06, W-AUD-09, and W-AUD-11;
@@ -369,7 +369,7 @@ Copy this section for each failure:
 
 ## Ship and no-ship rules
 
-Mark the candidate **VM-FIRST PREVIEW SHIP** only when all of the following are true:
+Mark the candidate **VM-FIRST BETA SHIP** only when all of the following are true:
 
 - Every test in the 1.4.0 VM-first scope is PASS for the exact published artifact hash.
 - Version and commit exactly match the macOS and Linux 1.4.0 candidate reports.
@@ -379,12 +379,12 @@ Mark the candidate **VM-FIRST PREVIEW SHIP** only when all of the following are 
   not reported as AEC evidence.
 - DPAPI-protected auth persistence, local SQLite durability, CloudSync, basic
   notifications, and W-PERM-01 capability gating pass.
-- The download page and release notes label Windows as a preview and list the deferred
+- The download page and release notes label Windows as beta and list the deferred
   physical-device, AEC, suspend/resume, and multi-display coverage.
 - Every physical row in the 1.4.0 waiver remains DEFERRED, and no open blocker remains in
-  the preview scope.
+  the beta scope.
 
-Mark the candidate **HARDWARE-VALIDATED SHIP** only after VM-FIRST PREVIEW SHIP and all
+Mark the candidate **HARDWARE-VALIDATED SHIP** only after VM-FIRST BETA SHIP and all
 of the following:
 
 - W-ENV-X64-AMD and the physical W-AUD-01 through W-AUD-03, W-AUD-07, W-AUD-08,
@@ -418,10 +418,10 @@ say so explicitly:
 - Meeting/app detection, mic-based auto-stop, floating controls, DND controls, and
   notification-history clearing while those controls remain hidden from Windows users.
 
-For the 1.4.0 VM-first preview only, the explicit physical and AEC rows above may be
+For the 1.4.0 VM-first beta only, the explicit physical and AEC rows above may be
 deferred. It may not defer signed x64 artifacts, clean install/update/uninstall, VM mic
 and system-audio capture, durable local data, secure credentials, CloudSync, or desktop
-behaviors advertised to Windows preview users.
+behaviors advertised to Windows beta users.
 
 ## Run ledger
 
