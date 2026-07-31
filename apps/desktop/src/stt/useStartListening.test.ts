@@ -1762,7 +1762,7 @@ describe("useStartListening", () => {
     );
   });
 
-  test("keeps synthetic recovery ownership across a failed retry", async () => {
+  test("keeps synthetic recovery ownership without repeating failure toasts", async () => {
     attachLiveSessionMock.mockResolvedValue("inactive");
     runBatchMock
       .mockRejectedValueOnce(new Error("temporary repair failure"))
@@ -1794,6 +1794,8 @@ describe("useStartListening", () => {
     await act(async () => {
       await expect(result.current()).resolves.toBe("error");
     });
+    expect(sonnerToastErrorMock).not.toHaveBeenCalled();
+
     await act(async () => {
       await expect(result.current()).resolves.toBe("inactive");
     });

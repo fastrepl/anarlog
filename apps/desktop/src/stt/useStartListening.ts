@@ -499,6 +499,11 @@ function useCaptureLifecycle(sessionId: string) {
         details: Parameters<OnStoppedCallback>[1],
         requestRecoveryOnFailure: boolean,
       ) => {
+        const notifyFailure = (message: string, id: string) => {
+          if (requestRecoveryOnFailure) {
+            sonnerToast.error(message, { id });
+          }
+        };
         const requestRecovery = async () => {
           recoveryPending = true;
           if (requestRecoveryOnFailure) {
@@ -606,14 +611,14 @@ function useCaptureLifecycle(sessionId: string) {
               failure_stage: "batch_repair",
             });
             if (transcriptWriteError || !details.liveTranscriptionActive) {
-              sonnerToast.error(
+              notifyFailure(
                 "Anarlog could not finish saving the transcript. The recording was kept so you can try again.",
-                { id: "post-capture-transcript-incomplete" },
+                "post-capture-transcript-incomplete",
               );
             } else {
-              sonnerToast.error(
+              notifyFailure(
                 "Post-meeting transcription failed. The recording was kept so you can try again.",
-                { id: "post-capture-batch-failed" },
+                "post-capture-batch-failed",
               );
             }
             if (isTerminalTranscriptionError(error)) {
@@ -639,15 +644,13 @@ function useCaptureLifecycle(sessionId: string) {
           transcriptWriteError &&
           postCaptureAction !== "batch_then_enhance"
         ) {
-          sonnerToast.error(
+          notifyFailure(
             details.audioPath
               ? "Anarlog could not finish saving the transcript. The recording was kept so you can try again."
               : "Anarlog could not save part of the live transcript.",
-            {
-              id: details.audioPath
-                ? "post-capture-transcript-incomplete"
-                : "live-transcript-persist-failed",
-            },
+            details.audioPath
+              ? "post-capture-transcript-incomplete"
+              : "live-transcript-persist-failed",
           );
         }
 
@@ -715,9 +718,9 @@ function useCaptureLifecycle(sessionId: string) {
                 "[listener] failed to persist summary recovery state",
                 error,
               );
-              sonnerToast.error(
+              notifyFailure(
                 "The transcript was saved, but Anarlog could not start the summary. Try generating it again.",
-                { id: "post-capture-summary-failed" },
+                "post-capture-summary-failed",
               );
               await requestRecovery();
               return;
@@ -733,9 +736,9 @@ function useCaptureLifecycle(sessionId: string) {
           } catch (error) {
             summaryScheduled = false;
             console.error("[listener] failed to schedule summary", error);
-            sonnerToast.error(
+            notifyFailure(
               "The transcript was saved, but Anarlog could not start the summary. Try generating it again.",
-              { id: "post-capture-summary-failed" },
+              "post-capture-summary-failed",
             );
           }
         }
