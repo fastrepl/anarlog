@@ -321,7 +321,7 @@ describe("inferAutomaticSpeakerAssignments", () => {
     expect(prompt.candidate.human_id).toBe("human-george");
   });
 
-  it("does not let a hyphenated name hide another participant", async () => {
+  it("keeps standalone names distinct from joined given names", async () => {
     const snapshot = createSnapshot();
     snapshot.participants[0]!.name = "Mary-Jane Smith";
     snapshot.participants[1]!.name = "Jane Doe";
@@ -330,7 +330,7 @@ describe("inferAutomaticSpeakerAssignments", () => {
     });
 
     await inferAutomaticSpeakerAssignments({
-      generatedSummary: "Jane Doe agreed with Mary-Jane.",
+      generatedSummary: "Jane discussed open source AI.",
       model: {} as LanguageModel,
       snapshot,
       signal: new AbortController().signal,
@@ -342,7 +342,7 @@ describe("inferAutomaticSpeakerAssignments", () => {
   });
 
   it.each(["Mary-Jane Smith", "Mary'Jane Smith"])(
-    "does not use a joined name suffix as given-name evidence in %s",
+    "uses the full joined given name as evidence in %s",
     async (joinedName) => {
       const snapshot = createSnapshot();
       snapshot.participants[0]!.name = joinedName;
@@ -352,7 +352,7 @@ describe("inferAutomaticSpeakerAssignments", () => {
       });
 
       await inferAutomaticSpeakerAssignments({
-        generatedSummary: `${joinedName} discussed open source AI.`,
+        generatedSummary: `${joinedName.split(" ")[0]} discussed open source AI.`,
         model: {} as LanguageModel,
         snapshot,
         signal: new AbortController().signal,
@@ -363,6 +363,21 @@ describe("inferAutomaticSpeakerAssignments", () => {
       expect(prompt.candidate.human_id).toBe("human-lex");
     },
   );
+
+  it("does not shorten a joined given name to its first token", async () => {
+    const snapshot = createSnapshot();
+    snapshot.participants[0]!.name = "Mary-Jane Smith";
+
+    await expect(
+      inferAutomaticSpeakerAssignments({
+        generatedSummary: "Mary discussed open source AI.",
+        model: {} as LanguageModel,
+        snapshot,
+        signal: new AbortController().signal,
+      }),
+    ).resolves.toEqual([]);
+    expect(mocks.generateText).not.toHaveBeenCalled();
+  });
 
   it("excludes shared given names that refer to another participant", async () => {
     const snapshot = createSnapshot();

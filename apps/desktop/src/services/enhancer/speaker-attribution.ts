@@ -615,10 +615,9 @@ function buildCandidateNameAliases(
     .filter((candidate) => candidate.name !== candidateName)
     .every(
       (candidate) =>
-        !candidate.name
-          .toLocaleLowerCase()
-          .match(/[\p{L}\p{N}]+/gu)
-          ?.includes(givenName),
+        getCandidateGivenNameAlias(
+          normalizeWhitespace(candidate.name).toLocaleLowerCase(),
+        ) !== givenName,
     );
 
   return isUnique
@@ -641,7 +640,9 @@ function buildCandidateExclusionAliases(candidateName: string) {
 }
 
 function getCandidateGivenNameAlias(normalizedName: string) {
-  const givenName = normalizedName.match(/[\p{L}\p{N}]+/u)?.[0];
+  const givenName = normalizedName.match(
+    /^[\p{L}\p{N}]+(?:[-‐‑‒–—―'’][\p{L}\p{N}]+)*/u,
+  )?.[0];
   return givenName &&
     givenName.length >= 3 &&
     !ATTRIBUTION_STOP_WORDS.has(givenName)
