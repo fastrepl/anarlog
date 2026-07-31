@@ -561,6 +561,7 @@ function ChatSessionLifecycle({
 
   const regenerate = useCallback(() => {
     if (
+      isBatchTranscriptionPending ||
       !chatGroupId ||
       (status !== "ready" && status !== "error") ||
       regenerateRequestInFlightRef.current
@@ -671,7 +672,13 @@ function ChatSessionLifecycle({
       return;
     }
     void runRegenerate();
-  }, [chatGroupId, messages, chatRegenerate, status]);
+  }, [
+    chatGroupId,
+    messages,
+    chatRegenerate,
+    isBatchTranscriptionPending,
+    status,
+  ]);
 
   const stop = useCallback(() => {
     void Promise.resolve(chatStop()).catch((error) => {

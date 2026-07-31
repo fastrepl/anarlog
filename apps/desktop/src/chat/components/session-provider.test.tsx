@@ -262,6 +262,26 @@ describe("ChatSession", () => {
     ]);
   });
 
+  it("does not regenerate against a pending batch transcript", () => {
+    render(
+      <ChatSession
+        chatGroupId="group-1"
+        isBatchTranscriptionPending
+        sessionId="chat-1"
+      >
+        {({ regenerate }) => (
+          <button type="button" onClick={regenerate}>
+            Regenerate
+          </button>
+        )}
+      </ChatSession>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
+
+    expect(mocks.chatRegenerate).not.toHaveBeenCalled();
+  });
+
   it.each([
     {
       name: "empty",
