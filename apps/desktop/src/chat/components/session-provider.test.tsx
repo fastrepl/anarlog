@@ -230,10 +230,12 @@ describe("ChatSession", () => {
         }}
       </ChatSession>,
     );
+    const userCreatedAt = Date.now() + 60_000;
     const userMessage: AnlgUIMessage = {
       id: "user-message",
       role: "user",
       parts: [{ type: "text", text: "What did they say?" }],
+      metadata: { createdAt: userCreatedAt },
     };
     let finishBeforeSend: (() => void) | undefined;
     const beforeSend = vi.fn(
@@ -264,6 +266,7 @@ describe("ChatSession", () => {
       expect.objectContaining({
         chatGroupId: "group-1",
         role: "assistant",
+        createdAt: new Date(userCreatedAt + 1).toISOString(),
         content:
           "This recording is using batch transcription, so the transcript isn't available to chat yet. Ask again after transcription finishes, or switch to a Pro model for live transcription.",
       }),

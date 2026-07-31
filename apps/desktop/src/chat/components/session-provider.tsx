@@ -472,7 +472,12 @@ function ChatSessionLifecycle({
               text: t`This recording is using batch transcription, so the transcript isn't available to chat yet. Ask again after transcription finishes, or switch to a Pro model for live transcription.`,
             },
           ],
-          metadata: { createdAt: Date.now() },
+          metadata: {
+            createdAt: Math.max(
+              Date.now() + 1,
+              (message.metadata?.createdAt ?? 0) + 1,
+            ),
+          },
         };
         chatSetMessages((current) => [...current, message, assistantMessage]);
         const localResponse = chatCloudsyncActivity.runWithLease(
