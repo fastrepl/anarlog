@@ -1,4 +1,4 @@
-import { CornerDownLeft } from "lucide-react";
+import { ArrowElbowDownLeft } from "@phosphor-icons/react";
 import { type CSSProperties, useEffect, useRef } from "react";
 
 import { cn } from "@anlg/utils";
@@ -82,7 +82,7 @@ export function ParticipantDropdown({
                 </span>
               )}
               {selectedIndex === index && (
-                <CornerDownLeft className="text-muted-foreground size-3" />
+                <ArrowElbowDownLeft className="text-muted-foreground size-3" />
               )}
             </span>
           </button>

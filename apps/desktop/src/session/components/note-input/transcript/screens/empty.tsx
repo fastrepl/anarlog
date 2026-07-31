@@ -1,9 +1,9 @@
 import {
-  AlertCircleIcon,
-  AudioLinesIcon,
-  RefreshCwIcon,
-  SquareIcon,
-} from "lucide-react";
+  ArrowsClockwise,
+  Square,
+  WarningCircle,
+  Waveform,
+} from "@phosphor-icons/react";
 
 import { Button } from "@anlg/ui/components/ui/button";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
@@ -35,7 +35,7 @@ export function TranscriptEmptyState({
         role="alert"
         className="flex h-full min-h-[400px] flex-col items-center justify-center px-6 text-center"
       >
-        <AlertCircleIcon
+        <WarningCircle
           aria-hidden
           className="text-muted-foreground mb-5 size-9 stroke-[1.5]"
         />
@@ -47,7 +47,7 @@ export function TranscriptEmptyState({
         </div>
         {onRetranscribe && (
           <Button size="sm" className="gap-2" onClick={onRetranscribe}>
-            <RefreshCwIcon className="size-4" />
+            <ArrowsClockwise className="size-4" />
             Re-transcribe
           </Button>
         )}
@@ -85,7 +85,7 @@ export function TranscriptEmptyState({
             className="gap-2"
             onClick={onStopTranscription}
           >
-            <SquareIcon className="size-3 fill-current" />
+            <Square className="size-3" weight="fill" />
             Stop transcription
           </Button>
         )}
@@ -95,7 +95,7 @@ export function TranscriptEmptyState({
 
   return (
     <div className="flex h-full min-h-[400px] flex-col items-center justify-center px-6 text-center">
-      <AudioLinesIcon
+      <Waveform
         aria-hidden
         className="text-muted-foreground mb-5 size-9 stroke-[1.5]"
       />
@@ -113,7 +113,7 @@ export function TranscriptEmptyState({
         <div className="flex items-center gap-2">
           {hasAudio && onRetranscribe && (
             <Button size="sm" className="gap-2" onClick={onRetranscribe}>
-              <RefreshCwIcon className="size-4" />
+              <ArrowsClockwise className="size-4" />
               Re-transcribe
             </Button>
           )}

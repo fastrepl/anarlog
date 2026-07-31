@@ -1,13 +1,13 @@
 import { useLingui } from "@lingui/react/macro";
-import { platform } from "@tauri-apps/plugin-os";
 import {
-  ArrowRightIcon,
-  CheckIcon,
-  MicIcon,
-  MousePointer2Icon,
-  type LucideIcon,
-  Volume2Icon,
-} from "lucide-react";
+  ArrowRight,
+  Check,
+  Cursor,
+  type Icon,
+  Microphone,
+  SpeakerHigh,
+} from "@phosphor-icons/react";
+import { platform } from "@tauri-apps/plugin-os";
 import { useRef } from "react";
 
 import { type PermissionStatus } from "@anlg/plugin-permissions";
@@ -37,7 +37,7 @@ function PermissionBlock({
   enableLabel: string;
   enabledBody: string;
   enableBody: string;
-  Icon: LucideIcon;
+  Icon: Icon;
   permissionName: string;
   status: PermissionStatus | undefined;
   isPending: boolean;
@@ -81,7 +81,7 @@ function PermissionBlock({
         ])}
       >
         {isAuthorized ? (
-          <CheckIcon className="size-3.5" />
+          <Check className="size-3.5" />
         ) : (
           <Icon className="size-3.5" />
         )}
@@ -95,7 +95,10 @@ function PermissionBlock({
         {title}
       </span>
       {!isAuthorized && (
-        <ArrowRightIcon className="text-primary-foreground/70 size-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
+        <ArrowRight
+          className="text-primary-foreground/70 size-4 shrink-0 transition-transform group-hover:translate-x-0.5"
+          data-testid="permission-action-arrow"
+        />
       )}
     </button>
   );
@@ -186,7 +189,7 @@ function PermissionsSectionContent({
           enableLabel={t`Help Anarlog listen to you`}
           enabledBody={t`Microphone access turned on`}
           enableBody={mic.error ?? t`Use your microphone to capture your voice`}
-          Icon={MicIcon}
+          Icon={Microphone}
           permissionName={t`Microphone`}
           status={mic.status}
           isPending={mic.isPending}
@@ -206,7 +209,7 @@ function PermissionsSectionContent({
           enableBody={
             systemAudio.error ?? t`Use system audio to capture other speakers`
           }
-          Icon={Volume2Icon}
+          Icon={SpeakerHigh}
           permissionName={t`System audio`}
           status={systemAudio.status}
           isPending={systemAudio.isPending}
@@ -227,7 +230,7 @@ function PermissionsSectionContent({
             enableLabel={t`Help Anarlog read meeting activity`}
             enabledBody={t`Meeting details access turned on`}
             enableBody={t`Read meeting controls, visible chat, and participant status`}
-            Icon={MousePointer2Icon}
+            Icon={Cursor}
             permissionName={t`Accessibility`}
             status={accessibility.status}
             isPending={accessibility.isPending}

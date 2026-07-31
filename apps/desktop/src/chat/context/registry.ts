@@ -1,10 +1,10 @@
 import {
-  Building2Icon,
-  CalendarIcon,
-  MonitorIcon,
-  SearchIcon,
-  UserIcon,
-} from "lucide-react";
+  Buildings,
+  CalendarBlank,
+  MagnifyingGlass,
+  Monitor,
+  User,
+} from "@phosphor-icons/react";
 
 import type { ContextEntity, ContextEntityKind } from "./entities";
 
@@ -37,7 +37,7 @@ const renderers: RendererMap = {
       const isFromTool = entity.source === "tool";
       return {
         key: entity.key,
-        icon: isFromTool ? SearchIcon : CalendarIcon,
+        icon: isFromTool ? MagnifyingGlass : CalendarBlank,
         label,
         removable: entity.removable,
         entityKind: "session",
@@ -51,7 +51,7 @@ const renderers: RendererMap = {
       const label = entity.name || entity.email || "Person";
       return {
         key: entity.key,
-        icon: UserIcon,
+        icon: User,
         label,
         removable: entity.removable,
         entityKind: "human",
@@ -65,7 +65,7 @@ const renderers: RendererMap = {
       const label = entity.name || "Organization";
       return {
         key: entity.key,
-        icon: Building2Icon,
+        icon: Buildings,
         label,
         removable: entity.removable,
         entityKind: "organization",
@@ -79,7 +79,7 @@ const renderers: RendererMap = {
       if (!entity.email && !entity.userId) return null;
       return {
         key: entity.key,
-        icon: UserIcon,
+        icon: User,
         label: "Account",
       };
     },
@@ -89,7 +89,7 @@ const renderers: RendererMap = {
     toChip: (entity) => {
       return {
         key: entity.key,
-        icon: MonitorIcon,
+        icon: Monitor,
         label: "Device",
       };
     },

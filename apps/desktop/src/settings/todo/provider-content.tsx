@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Loader2Icon } from "lucide-react";
+import { CircleNotch } from "@phosphor-icons/react";
 import { useCallback, useMemo } from "react";
 
 import {
@@ -94,7 +94,7 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
           className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors disabled:opacity-50"
         >
           {isUpgradingToPro && (
-            <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+            <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
           )}
           <Trans>Upgrade to connect</Trans>
         </button>
@@ -122,7 +122,7 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
           className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors disabled:opacity-50"
         >
           {openingAction === "connect" && (
-            <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+            <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
           )}
           <Trans>Connect {config.displayName}</Trans>
         </button>
@@ -189,7 +189,7 @@ function ConnectionActions({
           className="inline-flex cursor-pointer items-center gap-1 text-xs text-amber-700 underline transition-colors hover:text-amber-900 disabled:opacity-50"
         >
           {openingAction === "reconnect" && (
-            <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+            <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
           )}
           <Trans>Reconnect required</Trans>
         </button>
@@ -210,7 +210,7 @@ function ConnectionActions({
           className="inline-flex cursor-pointer items-center gap-1 text-xs text-red-500 underline transition-colors hover:text-red-700 disabled:opacity-50"
         >
           {openingAction === "disconnect" && (
-            <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+            <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
           )}
           <Trans>Disconnect</Trans>
         </button>
@@ -234,7 +234,7 @@ function ConnectionActions({
         className="text-muted-foreground hover:text-muted-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors disabled:opacity-50"
       >
         {openingAction === "disconnect" && (
-          <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+          <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
         )}
         <Trans>Disconnect</Trans>
       </button>

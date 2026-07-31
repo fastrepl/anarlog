@@ -1,39 +1,39 @@
 import {
-  BriefcaseBusinessIcon,
-  Code2Icon,
-  HandshakeIcon,
-  LandmarkIcon,
-  MegaphoneIcon,
-  PaletteIcon,
-  SearchIcon,
-  Settings2Icon,
-  ShieldCheckIcon,
-  TagIcon,
-  TrendingUpIcon,
-  UsersIcon,
-  type LucideIcon,
-} from "lucide-react";
+  Bank,
+  Briefcase,
+  Code,
+  GearSix,
+  Handshake,
+  type Icon,
+  MagnifyingGlass,
+  Megaphone,
+  Palette,
+  ShieldCheck,
+  Tag,
+  TrendUp,
+  Users,
+} from "@phosphor-icons/react";
 
 import { cn } from "@anlg/utils";
 
-const CATEGORY_ICONS: Record<string, LucideIcon> = {
-  "customer success": HandshakeIcon,
-  design: PaletteIcon,
-  engineering: Code2Icon,
-  finance: LandmarkIcon,
-  leadership: BriefcaseBusinessIcon,
-  legal: ShieldCheckIcon,
-  marketing: MegaphoneIcon,
-  operations: Settings2Icon,
-  people: UsersIcon,
-  product: SearchIcon,
-  research: SearchIcon,
-  sales: TrendingUpIcon,
-  support: HandshakeIcon,
+const CATEGORY_ICONS: Record<string, Icon> = {
+  "customer success": Handshake,
+  design: Palette,
+  engineering: Code,
+  finance: Bank,
+  leadership: Briefcase,
+  legal: ShieldCheck,
+  marketing: Megaphone,
+  operations: GearSix,
+  people: Users,
+  product: MagnifyingGlass,
+  research: MagnifyingGlass,
+  sales: TrendUp,
+  support: Handshake,
 };
 
 function getCategoryIcon(category: string) {
-  return CATEGORY_ICONS[category.trim().toLowerCase()] ?? TagIcon;
+  return CATEGORY_ICONS[category.trim().toLowerCase()] ?? Tag;
 }
 
 export function TemplateCategoryLabel({

@@ -1,7 +1,7 @@
 import { Icon } from "@iconify-icon/react";
+import { ArrowLeft, Envelope } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { ArrowLeftIcon, MailIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
@@ -154,7 +154,7 @@ function Component() {
                 onClick={() => setView("email")}
                 className={authSecondaryButtonClassName}
               >
-                <MailIcon className="size-4" />
+                <Envelope className="size-4" />
                 Sign in with Email
               </button>
             )}
@@ -287,7 +287,7 @@ function EmailAuthView({
         onClick={onBack}
         className="flex cursor-pointer items-center gap-1 self-start text-sm text-[#756b5d] transition-colors hover:text-[#181613]"
       >
-        <ArrowLeftIcon className="size-3.5" />
+        <ArrowLeft className="size-3.5" />
         Back
       </button>
 

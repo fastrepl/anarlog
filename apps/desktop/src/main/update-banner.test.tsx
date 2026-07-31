@@ -319,7 +319,9 @@ describe("SidebarTimelineUpdateButton", () => {
     });
 
     expect(button.hasAttribute("disabled")).toBe(true);
-    expect(button.querySelector(".lucide-download")).toBeNull();
+    expect(
+      button.querySelector("[data-testid='update-download-icon']"),
+    ).toBeNull();
   });
 
   it("restarts from the sidebar update button when ready", async () => {

@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { EllipsisVerticalIcon } from "lucide-react";
+import { DotsThreeVertical } from "@phosphor-icons/react";
 import { useCallback, useState } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
@@ -63,7 +63,7 @@ export function OptionsMenu({
         setOpen(true);
       }}
     >
-      <EllipsisVerticalIcon className="size-4" />
+      <DotsThreeVertical className="size-4" />
       <span className="sr-only">
         <Trans>More options</Trans>
       </span>

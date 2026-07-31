@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ArrowDownUp, Plus, Search, X } from "lucide-react";
+import { ArrowsDownUp, MagnifyingGlass, Plus, X } from "@phosphor-icons/react";
 import type { KeyboardEvent, RefObject } from "react";
 
 import { Avatar } from "@anlg/ui/components/avatar";
@@ -45,7 +45,7 @@ function SortDropdown({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button size="icon" variant="ghost" aria-label={t`Sort options`}>
-          <ArrowDownUp size={16} />
+          <ArrowsDownUp size={16} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent variant="app" align="end">
@@ -129,7 +129,7 @@ export function ColumnHeader({
       {onSearchChange && (
         <div className="pb-2">
           <div className="border-border bg-muted focus-within:bg-accent flex h-8 w-full items-center gap-2 rounded-lg border px-3 transition-colors">
-            <Search className="text-muted-foreground h-4 w-4 shrink-0" />
+            <MagnifyingGlass className="text-muted-foreground h-4 w-4 shrink-0" />
             <input
               ref={searchInputRef}
               type="text"

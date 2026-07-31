@@ -1,6 +1,6 @@
 import { Icon } from "@iconify-icon/react";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Building2, Mail } from "lucide-react";
+import { Buildings, Envelope } from "@phosphor-icons/react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { Button } from "@anlg/ui/components/ui/button";
@@ -36,7 +36,7 @@ export function OrganizationDetailsColumn({
             className="border-border flex items-center justify-center border-b py-6"
           >
             <div className="bg-accent flex h-16 w-16 items-center justify-center rounded-full">
-              <Building2 className="text-muted-foreground h-8 w-8" />
+              <Buildings className="text-muted-foreground h-8 w-8" />
             </div>
           </div>
 
@@ -105,7 +105,7 @@ export function OrganizationDetailsColumn({
                                   }}
                                   title={t`Send email`}
                                 >
-                                  <Mail />
+                                  <Envelope className="size-4" />
                                 </Button>
                               )}
                               {human.linkedinUsername && (

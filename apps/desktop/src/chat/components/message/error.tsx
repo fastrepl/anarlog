@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ExternalLink, RotateCcw } from "lucide-react";
+import { ArrowCounterClockwise, ArrowSquareOut } from "@phosphor-icons/react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 
@@ -45,7 +45,7 @@ export function ErrorMessage({
             onClick={handleOpenFaq}
             className="mt-2 flex items-center gap-1 text-xs text-red-700 underline hover:text-red-900"
           >
-            <ExternalLink className="h-3 w-3" />
+            <ArrowSquareOut className="h-3 w-3" />
             <Trans>Learn how to fix this</Trans>
           </button>
         )}
@@ -53,7 +53,7 @@ export function ErrorMessage({
           <ActionButton
             onClick={onRetry}
             variant="error"
-            icon={RotateCcw}
+            icon={ArrowCounterClockwise}
             label={t`Retry`}
           />
         )}

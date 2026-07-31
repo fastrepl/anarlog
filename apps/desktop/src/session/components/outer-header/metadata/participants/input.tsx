@@ -7,8 +7,8 @@ import {
   size,
   useFloating,
 } from "@floating-ui/react";
+import { CircleNotch } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
-import { Loader2Icon } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@anlg/ui/components/ui/badge";
@@ -140,7 +140,7 @@ export function ParticipantInput({ sessionId }: { sessionId: string }) {
             className="bg-foreground/10 flex items-center gap-1 px-2 py-0.5 text-xs opacity-60"
           >
             <span>{pending.name}</span>
-            <Loader2Icon className="size-2.5 animate-spin" aria-hidden="true" />
+            <CircleNotch className="size-2.5 animate-spin" aria-hidden="true" />
           </Badge>
         ))}
 

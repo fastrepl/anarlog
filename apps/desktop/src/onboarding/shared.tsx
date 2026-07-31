@@ -1,12 +1,12 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
-  CheckCircle2Icon,
-  CheckIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  Loader2Icon,
-  XCircleIcon,
-} from "lucide-react";
+  CaretLeft,
+  CaretRight,
+  Check,
+  CheckCircle,
+  CircleNotch,
+  XCircle,
+} from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "motion/react";
 import { type ReactNode, useEffect, useRef } from "react";
 
@@ -65,10 +65,7 @@ export function OnboardingSection({
         ])}
       >
         {isCompleted && (
-          <CheckIcon
-            className="size-4 shrink-0 text-green-600"
-            strokeWidth={2.5}
-          />
+          <Check className="size-4 shrink-0 text-green-600" weight="bold" />
         )}
         <div className="flex min-w-0 flex-col gap-3">
           <div className="flex items-center gap-2">
@@ -90,7 +87,7 @@ export function OnboardingSection({
                     aria-label={t`Go to previous section`}
                     className="text-muted-foreground hover:text-muted-foreground rounded p-0.5 transition-colors"
                   >
-                    <ChevronLeftIcon className="size-3" />
+                    <CaretLeft className="size-3" />
                   </button>
                 )}
                 {onNext &&
@@ -106,7 +103,7 @@ export function OnboardingSection({
                       className="text-muted-foreground hover:text-muted-foreground flex items-center gap-1 text-sm transition-colors"
                     >
                       <Trans>Skip</Trans>
-                      <ChevronRightIcon className="size-3" />
+                      <CaretRight className="size-3" />
                     </button>
                   ) : import.meta.env.DEV ? (
                     <button
@@ -114,7 +111,7 @@ export function OnboardingSection({
                       aria-label={t`Go to next section`}
                       className="text-muted-foreground hover:text-muted-foreground rounded p-0.5 transition-colors"
                     >
-                      <ChevronRightIcon className="size-3" />
+                      <CaretRight className="size-3" />
                     </button>
                   ) : null)}
               </div>
@@ -177,13 +174,11 @@ export function StepRow({
 }) {
   return (
     <div className="flex items-center gap-2 text-sm">
-      {status === "done" && (
-        <CheckCircle2Icon className="size-4 text-emerald-600" />
-      )}
+      {status === "done" && <CheckCircle className="size-4 text-emerald-600" />}
       {status === "active" && (
-        <Loader2Icon className="text-muted-foreground size-4 animate-spin" />
+        <CircleNotch className="text-muted-foreground size-4 animate-spin" />
       )}
-      {status === "failed" && <XCircleIcon className="size-4 text-red-400" />}
+      {status === "failed" && <XCircle className="size-4 text-red-400" />}
       <span
         className={
           status === "failed" ? "text-red-500" : "text-muted-foreground"

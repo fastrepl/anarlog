@@ -149,7 +149,7 @@ describe("SettingsNav", () => {
       screen
         .getByText("Dictionary")
         .closest("button")
-        ?.querySelector(".lucide-book-open"),
+        ?.querySelector("[data-testid='settings-nav-icon-dictionary']"),
     ).toBeTruthy();
     expect(screen.queryByText("Personalization")).toBeNull();
   });

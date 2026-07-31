@@ -1,5 +1,5 @@
+import { ArrowClockwise, DownloadSimple } from "@phosphor-icons/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { DownloadIcon, RotateCwIcon } from "lucide-react";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 
 import {
@@ -430,10 +430,16 @@ function sidebarUpdateLabel(
 
 function sidebarActionIcon(status: UpdateBannerStatus): ReactNode {
   if (status === "ready") {
-    return <RotateCwIcon size={14} aria-hidden="true" />;
+    return <ArrowClockwise size={14} aria-hidden="true" />;
   }
 
-  return <DownloadIcon size={14} aria-hidden="true" />;
+  return (
+    <DownloadSimple
+      size={14}
+      aria-hidden="true"
+      data-testid="update-download-icon"
+    />
+  );
 }
 
 function unwrapResult<T>(result: Result<T, string>): T {

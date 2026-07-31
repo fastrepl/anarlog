@@ -1,6 +1,6 @@
 import { Trans } from "@lingui/react/macro";
+import { ArrowsClockwise, WarningCircle } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
-import { AlertCircleIcon, RefreshCwIcon } from "lucide-react";
 
 import { Button } from "@anlg/ui/components/ui/button";
 
@@ -43,7 +43,7 @@ export function EnhanceError({
       role="alert"
       className="flex h-full min-h-[400px] flex-col items-center justify-center px-6 text-center"
     >
-      <AlertCircleIcon
+      <WarningCircle
         aria-hidden
         className="text-muted-foreground mb-5 size-9 stroke-[1.5]"
       />
@@ -89,7 +89,7 @@ export function EnhanceError({
           className="gap-2"
           variant="default"
         >
-          <RefreshCwIcon size={16} />
+          <ArrowsClockwise size={16} />
           <span>
             <Trans>Retry</Trans>
           </span>

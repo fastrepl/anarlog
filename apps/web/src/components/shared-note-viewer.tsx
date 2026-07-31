@@ -1,10 +1,10 @@
 import {
-  AlertCircleIcon,
-  CalendarDaysIcon,
-  LoaderCircleIcon,
-  RefreshCwIcon,
-  UsersRoundIcon,
-} from "lucide-react";
+  ArrowsClockwise,
+  CalendarDots,
+  CircleNotch,
+  Users,
+  WarningCircle,
+} from "@phosphor-icons/react";
 import { useSyncExternalStore } from "react";
 
 import { cn } from "@anlg/utils";
@@ -91,7 +91,7 @@ export function SharedNoteViewer({
             ])}
           >
             <span className="inline-flex min-h-7 items-center gap-1.5">
-              <UsersRoundIcon className="size-3.5" aria-hidden="true" />
+              <Users className="size-3.5" aria-hidden="true" />
               {accessLabel}
             </span>
             <time
@@ -99,7 +99,7 @@ export function SharedNoteViewer({
               dateTime={snapshot.publishedAt}
               title={`Published ${formatSharedNotePublishedAt(snapshot.publishedAt)}`}
             >
-              <CalendarDaysIcon className="size-3.5" aria-hidden="true" />
+              <CalendarDots className="size-3.5" aria-hidden="true" />
               {formatSharedNotePublishedAt(snapshot.publishedAt)}
             </time>
           </div>
@@ -136,7 +136,7 @@ export function SharedNoteLoading() {
         className="surface border-color-subtle rounded-3xl border px-6 py-8 sm:px-10"
         aria-label="Loading shared note"
       >
-        <LoaderCircleIcon
+        <CircleNotch
           className="text-color-muted mb-6 size-5 animate-spin"
           aria-hidden="true"
         />
@@ -151,7 +151,7 @@ export function SharedNoteLoading() {
 export function SharedNoteUnavailable() {
   return (
     <SharedNotePrompt
-      icon={<AlertCircleIcon className="size-6" aria-hidden="true" />}
+      icon={<WarningCircle className="size-6" aria-hidden="true" />}
       title="This shared note isn’t available"
       description="The link may have expired, access may have changed, or the note may no longer be shared."
     />
@@ -161,7 +161,7 @@ export function SharedNoteUnavailable() {
 export function SharedNoteTransientError({ retry }: { retry?: () => void }) {
   return (
     <SharedNotePrompt
-      icon={<AlertCircleIcon className="size-6" aria-hidden="true" />}
+      icon={<WarningCircle className="size-6" aria-hidden="true" />}
       title="We couldn’t load this shared note"
       description="Anarlog had a temporary problem loading the note. Please try again."
       actions={
@@ -170,7 +170,7 @@ export function SharedNoteTransientError({ retry }: { retry?: () => void }) {
           className={sharedPrimaryButtonClassName}
           onClick={retry ?? (() => window.location.reload())}
         >
-          <RefreshCwIcon className="mr-2 size-4" aria-hidden="true" />
+          <ArrowsClockwise className="mr-2 size-4" aria-hidden="true" />
           Try again
         </button>
       }

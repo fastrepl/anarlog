@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { DotsThree, Heart, Plus, X } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
-import { HeartIcon, MoreHorizontalIcon, Plus, X } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { Badge } from "@anlg/ui/components/ui/badge";
@@ -229,9 +229,9 @@ export function TemplateForm({
               template.pinned ? "Unfavorite template" : "Favorite template"
             }
           >
-            <HeartIcon
+            <Heart
               className="size-4"
-              fill={template.pinned ? "currentColor" : "none"}
+              weight={template.pinned ? "fill" : "regular"}
             />
           </Button>
           <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>
@@ -246,7 +246,7 @@ export function TemplateForm({
                 ])}
                 aria-label={t`Template actions`}
               >
-                <MoreHorizontalIcon className="size-4" />
+                <DotsThree className="size-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent variant="app" align="end">

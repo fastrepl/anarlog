@@ -1,4 +1,4 @@
-import { WandSparklesIcon } from "lucide-react";
+import { MagicWand } from "@phosphor-icons/react";
 
 import { defineTool } from "./define-tool";
 import { ToolCardBody, ToolCardFooterError, ToolCardFooters } from "./shared";
@@ -18,7 +18,7 @@ function parseUpdatePromptTemplateOutput(
 }
 
 export const ToolUpdatePromptTemplate = defineTool({
-  icon: <WandSparklesIcon />,
+  icon: <MagicWand />,
   parseFn: parseUpdatePromptTemplateOutput,
   isDone: (parsed) => parsed?.status === "applied",
   label: ({ running, failed, parsed }) => {

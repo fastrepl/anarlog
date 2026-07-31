@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { Check, ChevronDown } from "lucide-react";
+import { CaretDown, Check } from "@phosphor-icons/react";
 import { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
@@ -100,7 +100,7 @@ export function SearchableSelect({
                 : selectedOption.label
               : (placeholder ?? t`Select...`)}
           </span>
-          <ChevronDown className="-mr-1 h-4 w-4 shrink-0 opacity-50" />
+          <CaretDown className="-mr-1 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent

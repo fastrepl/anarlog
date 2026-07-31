@@ -1,4 +1,4 @@
-import { ArrowDownIcon, ArrowUpIcon } from "lucide-react";
+import { ArrowDown, ArrowUp } from "@phosphor-icons/react";
 import {
   type RefObject,
   useCallback,
@@ -170,7 +170,7 @@ export function TranscriptViewer({
               "disabled:pointer-events-none disabled:opacity-30",
             ])}
           >
-            <ArrowUpIcon aria-hidden="true" className="size-3.5" />
+            <ArrowUp aria-hidden="true" className="size-3.5" />
           </button>
           <div className="bg-border/70 h-px w-full" />
           <button
@@ -184,7 +184,7 @@ export function TranscriptViewer({
               "disabled:pointer-events-none disabled:opacity-30",
             ])}
           >
-            <ArrowDownIcon aria-hidden="true" className="size-3.5" />
+            <ArrowDown aria-hidden="true" className="size-3.5" />
           </button>
         </div>
       )}

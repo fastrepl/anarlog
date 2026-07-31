@@ -1,3 +1,4 @@
+import { ArrowsClockwise, CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addDays,
@@ -12,7 +13,6 @@ import {
   startOfWeek,
   subMonths,
 } from "date-fns";
-import { ChevronLeftIcon, ChevronRightIcon, RefreshCwIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
@@ -245,7 +245,7 @@ export function CalendarView() {
             className="hover:bg-accent h-full w-10 rounded-none border-0 bg-transparent shadow-none"
             onClick={goToPrev}
           >
-            <ChevronLeftIcon className="h-4 w-4" />
+            <CaretLeft className="h-4 w-4" />
           </Button>
           <ButtonGroupSeparator className="bg-accent" />
           <Button
@@ -266,7 +266,7 @@ export function CalendarView() {
             className="hover:bg-accent h-full w-10 rounded-none border-0 bg-transparent shadow-none"
             onClick={goToNext}
           >
-            <ChevronRightIcon className="h-4 w-4" />
+            <CaretRight className="h-4 w-4" />
           </Button>
         </ButtonGroup>
       </div>
@@ -439,7 +439,7 @@ function CalendarSyncHeaderControls() {
           data-tauri-drag-region="false"
           onClick={handleRefresh}
         >
-          <RefreshCwIcon className="size-3.5" />
+          <ArrowsClockwise className="size-3.5" />
         </Button>
       )}
     </div>

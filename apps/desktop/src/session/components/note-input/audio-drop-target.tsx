@@ -1,4 +1,4 @@
-import { AudioLinesIcon } from "lucide-react";
+import { Waveform } from "@phosphor-icons/react";
 import type { HTMLAttributes, ReactNode } from "react";
 
 import { cn } from "@anlg/utils";
@@ -31,7 +31,7 @@ export function AudioDropTarget({
           ])}
         >
           <div className="border-border/70 bg-card/95 text-foreground flex items-center gap-3 rounded-md border px-4 py-3 shadow-sm">
-            <AudioLinesIcon className="text-muted-foreground size-5 shrink-0" />
+            <Waveform className="text-muted-foreground size-5 shrink-0" />
             <div className="flex min-w-0 flex-col gap-0.5">
               <p className="text-sm font-medium">
                 Drop to upload and transcribe audio

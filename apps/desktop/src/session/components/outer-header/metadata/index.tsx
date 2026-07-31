@@ -1,4 +1,4 @@
-import { CalendarIcon, MapPinIcon, VideoIcon } from "lucide-react";
+import { CalendarBlank, MapPin, VideoCamera } from "@phosphor-icons/react";
 import { forwardRef, type ReactElement, useState } from "react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
@@ -70,7 +70,7 @@ const TriggerInner = forwardRef<
         open && "bg-muted text-foreground",
       ])}
     >
-      <CalendarIcon size={16} />
+      <CalendarBlank size={16} />
     </Button>
   );
 });
@@ -192,7 +192,7 @@ export function EventDisplay({
       {shouldShowLocation && (
         <>
           <div className="text-muted-foreground flex items-center gap-2 text-sm">
-            <MapPinIcon size={16} className="text-muted-foreground shrink-0" />
+            <MapPin size={16} className="text-muted-foreground shrink-0" />
             <span>{event.location}</span>
           </div>
         </>
@@ -202,7 +202,10 @@ export function EventDisplay({
         <>
           <div className="flex items-center justify-between gap-2">
             <div className="text-muted-foreground flex min-w-0 items-center gap-2 text-sm">
-              <VideoIcon size={16} className="text-muted-foreground shrink-0" />
+              <VideoCamera
+                size={16}
+                className="text-muted-foreground shrink-0"
+              />
               <span className="truncate">
                 {meetingDomain || "Meeting link"}
               </span>

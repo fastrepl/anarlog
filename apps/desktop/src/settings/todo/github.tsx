@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { ArrowSquareOut, CircleNotch, Plus, X } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { fetch } from "@tauri-apps/plugin-http";
-import { ExternalLinkIcon, Loader2Icon, PlusIcon, XIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
@@ -108,7 +108,7 @@ export function GitHubTodoProviderContent({
             className="hover:text-muted-foreground inline-flex items-center gap-1 underline transition-colors disabled:opacity-50"
           >
             {isUpgradingToPro && (
-              <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+              <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
             )}
             <Trans>Upgrade for private repos.</Trans>
           </button>
@@ -126,7 +126,7 @@ export function GitHubTodoProviderContent({
             className="hover:text-muted-foreground inline-flex items-center gap-1 underline transition-colors disabled:opacity-50"
           >
             {openingAction === "connect" && (
-              <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+              <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
             )}
             <Trans>Connect GitHub for private repos.</Trans>
           </button>
@@ -145,7 +145,7 @@ export function GitHubTodoProviderContent({
             className="hover:text-muted-foreground inline-flex items-center gap-1 underline transition-colors disabled:opacity-50"
           >
             {openingAction === "disconnect" && (
-              <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+              <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
             )}
             <Trans>Disconnect private repo access.</Trans>
           </button>
@@ -168,7 +168,7 @@ export function GitHubTodoProviderContent({
             className="text-muted-foreground hover:text-muted-foreground transition-colors"
             aria-label={t`Open repository on GitHub`}
           >
-            <ExternalLinkIcon className="size-3.5" />
+            <ArrowSquareOut className="size-3.5" />
           </button>
           <button
             type="button"
@@ -176,7 +176,7 @@ export function GitHubTodoProviderContent({
             className="text-muted-foreground hover:text-muted-foreground transition-colors"
             aria-label={t`Remove repository`}
           >
-            <XIcon className="size-3.5" />
+            <X className="size-3.5" />
           </button>
         </div>
       ) : null}
@@ -252,7 +252,7 @@ export function GitHubTodoProviderContent({
           onClick={() => setShowAddInput(true)}
           className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-xs transition-colors"
         >
-          <PlusIcon className="size-3" />
+          <Plus className="size-3" />
           {hasRepository ? (
             <Trans>Replace repository</Trans>
           ) : (

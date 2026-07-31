@@ -1,6 +1,6 @@
+import { ShieldCheck } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ShieldCheckIcon } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
 
@@ -103,7 +103,7 @@ function Component() {
     >
       <div className="flex flex-col gap-4">
         <div className={authNoticeClassName}>
-          <ShieldCheckIcon className="mx-auto mb-2 size-5 text-[#4f4940]" />
+          <ShieldCheck className="mx-auto mb-2 size-5 text-[#4f4940]" />
           <p className="text-center text-sm leading-6 text-[#756b5d]">
             This extra step keeps automated email scanners from using your
             one-time link.

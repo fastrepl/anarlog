@@ -1,14 +1,14 @@
 import { Trans } from "@lingui/react/macro";
-import { platform } from "@tauri-apps/plugin-os";
 import {
-  AudioLinesIcon,
-  FileDownIcon,
-  FileTextIcon,
-  MoreHorizontalIcon,
-  PictureInPicture2Icon,
-  RefreshCwIcon,
-  SquareArrowOutUpRightIcon,
-} from "lucide-react";
+  ArrowsClockwise,
+  ArrowSquareOut,
+  DotsThree,
+  FileArrowDown,
+  FileText,
+  PictureInPicture,
+  Waveform,
+} from "@phosphor-icons/react";
+import { platform } from "@tauri-apps/plugin-os";
 import { useState } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
@@ -124,7 +124,7 @@ export function OverflowButton({
             data-tauri-drag-region="false"
             className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-full"
           >
-            <MoreHorizontalIcon size={16} />
+            <DotsThree size={16} />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent variant="app" align="end" className="w-56">
@@ -133,7 +133,7 @@ export function OverflowButton({
               onClick={openExportModal}
               className="cursor-pointer"
             >
-              <FileDownIcon />
+              <FileArrowDown />
               <span>
                 <Trans>Export</Trans>
               </span>
@@ -150,7 +150,7 @@ export function OverflowButton({
                 onClick={handleRetranscribe}
                 className="cursor-pointer"
               >
-                <RefreshCwIcon />
+                <ArrowsClockwise />
                 <span>Re-transcribe</span>
               </DropdownMenuItem>
             )}
@@ -160,7 +160,7 @@ export function OverflowButton({
                   onClick={handleUploadAudio}
                   className="cursor-pointer"
                 >
-                  <AudioLinesIcon />
+                  <Waveform />
                   <span>
                     <Trans>Upload audio</Trans>
                   </span>
@@ -169,7 +169,7 @@ export function OverflowButton({
                   onClick={handleUploadTranscript}
                   className="cursor-pointer"
                 >
-                  <FileTextIcon />
+                  <FileText />
                   <span>
                     <Trans>Upload transcript</Trans>
                   </span>
@@ -181,7 +181,7 @@ export function OverflowButton({
                 onClick={handleOpenFloatingPanel}
                 className="cursor-pointer"
               >
-                <PictureInPicture2Icon />
+                <PictureInPicture />
                 <span>
                   <Trans>Open floating panel</Trans>
                 </span>
@@ -193,7 +193,7 @@ export function OverflowButton({
                 onClick={handleOpenStandaloneWindow}
                 className="cursor-pointer"
               >
-                <SquareArrowOutUpRightIcon />
+                <ArrowSquareOut />
                 <span>
                   <Trans>Open in New Window</Trans>
                 </span>

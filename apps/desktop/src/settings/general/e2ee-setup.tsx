@@ -1,13 +1,8 @@
 import { Trans } from "@lingui/react/macro";
+import { CircleNotch, Copy, DownloadSimple, Key } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { downloadDir, join } from "@tauri-apps/api/path";
-import {
-  CopyIcon,
-  DownloadIcon,
-  KeyRoundIcon,
-  Loader2Icon,
-} from "lucide-react";
 import { useRef, useState } from "react";
 
 import {
@@ -154,7 +149,7 @@ export function E2eeSetupDialog({
       <DialogContent className="border-border/45 bg-card/95 w-[calc(100vw-48px)] max-w-[320px] gap-0 overflow-hidden rounded-[26px] p-0 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:rounded-[26px] [&>button:last-child]:hidden">
         <DialogHeader className="items-center gap-2 px-5 pt-7 text-center sm:text-center">
           <div className="bg-accent flex size-9 items-center justify-center rounded-full">
-            <KeyRoundIcon className="size-4" aria-hidden="true" />
+            <Key className="size-4" aria-hidden="true" />
           </div>
           <DialogTitle className="text-foreground text-[13px] leading-5 font-semibold tracking-normal">
             <Trans>Protect cloud sync</Trans>
@@ -185,7 +180,7 @@ export function E2eeSetupDialog({
                 onClick={() => copyMutation.mutate(recoveryKey)}
                 disabled={copyMutation.isPending}
               >
-                <CopyIcon className="size-3.5" aria-hidden="true" />
+                <Copy className="size-3.5" aria-hidden="true" />
                 <Trans>Copy recovery key</Trans>
               </Button>
               <Button
@@ -195,9 +190,9 @@ export function E2eeSetupDialog({
                 disabled={downloadMutation.isPending}
               >
                 {downloadMutation.isPending ? (
-                  <Loader2Icon className="size-3.5 animate-spin" />
+                  <CircleNotch className="size-3.5 animate-spin" />
                 ) : (
-                  <DownloadIcon className="size-3.5" aria-hidden="true" />
+                  <DownloadSimple className="size-3.5" aria-hidden="true" />
                 )}
                 <Trans>Download recovery key (.txt)</Trans>
               </Button>
@@ -234,7 +229,7 @@ export function E2eeSetupDialog({
                 disabled={pending}
               >
                 {createMutation.isPending && (
-                  <Loader2Icon className="size-3.5 animate-spin" />
+                  <CircleNotch className="size-3.5 animate-spin" />
                 )}
                 <Trans>Create a recovery key</Trans>
               </Button>
@@ -289,7 +284,7 @@ export function E2eeSetupDialog({
                 disabled={pending}
               >
                 {importMutation.isPending && (
-                  <Loader2Icon className="size-3.5 animate-spin" />
+                  <CircleNotch className="size-3.5 animate-spin" />
                 )}
                 <Trans>I saved it</Trans>
               </Button>
@@ -304,7 +299,7 @@ export function E2eeSetupDialog({
                     disabled={!importedKey.trim() || pending}
                   >
                     {importMutation.isPending && (
-                      <Loader2Icon className="size-3.5 animate-spin" />
+                      <CircleNotch className="size-3.5 animate-spin" />
                     )}
                     <Trans>Unlock sync</Trans>
                   </Button>

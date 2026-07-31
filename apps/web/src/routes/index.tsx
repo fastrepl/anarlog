@@ -1,13 +1,13 @@
 import { Icon } from "@iconify-icon/react";
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import {
   ArrowRight,
-  ChevronDown,
+  CaretDown,
   Cloud,
   Cpu,
-  KeyRound,
-  type LucideIcon,
-} from "lucide-react";
+  type Icon as PhosphorIcon,
+  Key,
+} from "@phosphor-icons/react";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { type CSSProperties, useRef, useState } from "react";
 import { z } from "zod";
 
@@ -592,7 +592,7 @@ function FinalCtaSection() {
           className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#181613] px-5 py-3 text-sm font-medium text-white"
         >
           <span>Download for free</span>
-          <ArrowRight size={16} strokeWidth={2.2} aria-hidden="true" />
+          <ArrowRight size={16} weight="bold" aria-hidden="true" />
         </Link>
       </div>
     </section>
@@ -776,7 +776,7 @@ function TestimonialsSection() {
               className="inline-flex items-center gap-2 rounded-full bg-[#181613] px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-[#4f4940]"
             >
               Start using for free
-              <ArrowRight size={16} strokeWidth={2.2} aria-hidden="true" />
+              <ArrowRight size={16} weight="bold" aria-hidden="true" />
             </Link>
           </div>
         </div>
@@ -953,7 +953,7 @@ function PrivacyVisual({
           <AiOptionPlayingCard
             className="ai-option-card-key"
             rank="K"
-            IconComponent={KeyRound}
+            IconComponent={Key}
           />
           <AiOptionPlayingCard
             className="ai-option-card-chip"
@@ -1000,7 +1000,7 @@ function AiOptionPlayingCard({
 }: {
   className: string;
   rank: string;
-  IconComponent: LucideIcon;
+  IconComponent: PhosphorIcon;
 }) {
   return (
     <div className={cn(["ai-option-card", className])}>
@@ -1360,7 +1360,7 @@ function DownloadButton() {
         onClick={() => setOpen((previous) => !previous)}
         className="inline-flex h-full cursor-pointer items-center rounded-r-full bg-[#181613] py-3 pr-3 pl-2 text-white"
       >
-        <ChevronDown size={17} strokeWidth={2.2} aria-hidden="true" />
+        <CaretDown size={17} weight="bold" aria-hidden="true" />
       </button>
       {open && (
         <div
@@ -1407,7 +1407,7 @@ function DownloadButton() {
             className="text-color-muted hover:surface-subtle mt-1 flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors"
           >
             <span>View all downloads</span>
-            <ArrowRight size={15} strokeWidth={2.2} aria-hidden="true" />
+            <ArrowRight size={15} weight="bold" aria-hidden="true" />
           </Link>
         </div>
       )}

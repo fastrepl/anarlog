@@ -1,4 +1,4 @@
-import { PencilIcon } from "lucide-react";
+import { Pencil } from "@phosphor-icons/react";
 
 import { defineTool } from "./define-tool";
 import {
@@ -26,7 +26,7 @@ function parseEditSummaryOutput(output: unknown): EditSummaryOutput | null {
 }
 
 export const ToolEditSummary = defineTool({
-  icon: <PencilIcon />,
+  icon: <Pencil />,
   parseFn: parseEditSummaryOutput,
   isDone: (parsed) => parsed?.status === "applied",
   label: ({ running, failed, parsed }) => {

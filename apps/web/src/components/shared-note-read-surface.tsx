@@ -1,6 +1,6 @@
+import { CircleNotch, File, Image } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
-import { FileIcon, ImageIcon, LoaderCircleIcon } from "lucide-react";
 import {
   type ComponentProps,
   createContext,
@@ -570,7 +570,7 @@ function DraftComposer({
                   disabled={pending || !comment.valid}
                 >
                   {pending && (
-                    <LoaderCircleIcon
+                    <CircleNotch
                       className="mr-1.5 size-3.5 animate-spin"
                       aria-hidden="true"
                     />
@@ -687,7 +687,7 @@ function SharedReadAttachment({
     );
   }
 
-  const Icon = isImage ? ImageIcon : FileIcon;
+  const Icon = isImage ? Image : File;
   return (
     <div className="border-color-subtle bg-surface-subtle my-3 flex items-center gap-3 rounded-xl border px-4 py-3">
       <div className="bg-surface flex size-10 shrink-0 items-center justify-center rounded-lg">

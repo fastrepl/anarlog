@@ -1,6 +1,6 @@
 import emojiData, { type Emoji, type EmojiMartData } from "@emoji-mart/data";
 import { useLingui } from "@lingui/react/macro";
-import { Check, Search, X } from "lucide-react";
+import { Check, MagnifyingGlass, X } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import { HexColorInput, HexColorPicker } from "react-colorful";
 
@@ -145,7 +145,7 @@ function SearchField({
 }) {
   return (
     <div className="border-border flex h-12 items-center gap-2 border-b px-4">
-      <Search className="text-muted-foreground size-4 shrink-0" />
+      <MagnifyingGlass className="text-muted-foreground size-4 shrink-0" />
       <input
         type="text"
         value={value}

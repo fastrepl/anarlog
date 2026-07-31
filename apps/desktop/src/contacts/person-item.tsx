@@ -1,4 +1,4 @@
-import { Pin } from "lucide-react";
+import { PushPin } from "@phosphor-icons/react";
 import React, { useCallback } from "react";
 
 import { cn } from "@anlg/utils";
@@ -88,7 +88,7 @@ export function PersonItem({
         ])}
         aria-label={isPinned ? "Unpin contact" : "Pin contact"}
       >
-        <Pin className="size-3.5" fill={isPinned ? "currentColor" : "none"} />
+        <PushPin className="size-3.5" weight={isPinned ? "fill" : "regular"} />
       </button>
     </div>
   );

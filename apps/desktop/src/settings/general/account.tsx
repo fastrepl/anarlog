@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { ArrowsClockwise } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
-import { RefreshCw } from "lucide-react";
 import {
   type ReactNode,
   useCallback,
@@ -587,7 +587,7 @@ function RefreshBillingButton() {
       className="text-muted-foreground hover:text-muted-foreground transition-colors disabled:opacity-50"
       aria-label={t`Refresh billing status`}
     >
-      <RefreshCw
+      <ArrowsClockwise
         className={cn(["size-3", auth.isRefreshingSession && "animate-spin"])}
       />
     </button>

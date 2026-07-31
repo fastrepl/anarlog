@@ -14,17 +14,17 @@ import {
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
 import {
-  CodeIcon,
-  Heading1Icon,
-  Heading2Icon,
-  Heading3Icon,
-  ListIcon,
-  ListOrderedIcon,
-  ListTodoIcon,
-  MinusIcon,
-  QuoteIcon,
-  TextIcon,
-} from "lucide-react";
+  Code,
+  ListBullets,
+  ListChecks,
+  ListNumbers,
+  Minus,
+  Quotes,
+  TextHOne,
+  TextHThree,
+  TextHTwo,
+  TextT,
+} from "@phosphor-icons/react";
 import { setBlockType } from "prosemirror-commands";
 import { wrapInList } from "prosemirror-schema-list";
 import type { EditorState, Transaction } from "prosemirror-state";
@@ -68,7 +68,7 @@ const SLASH_COMMANDS: SlashCommandItem[] = [
     id: "paragraph",
     label: "Text",
     description: "Plain text",
-    icon: TextIcon,
+    icon: TextT,
     keywords: ["text", "paragraph", "plain"],
     action(view, from, to) {
       clearSlashAndRun(view, from, to, setBlockType(schema.nodes.paragraph));
@@ -78,7 +78,7 @@ const SLASH_COMMANDS: SlashCommandItem[] = [
     id: "heading1",
     label: "Heading 1",
     description: "Large heading",
-    icon: Heading1Icon,
+    icon: TextHOne,
     keywords: ["heading", "h1", "title", "large"],
     action(view, from, to) {
       clearSlashAndRun(
@@ -93,7 +93,7 @@ const SLASH_COMMANDS: SlashCommandItem[] = [
     id: "heading2",
     label: "Heading 2",
     description: "Medium heading",
-    icon: Heading2Icon,
+    icon: TextHTwo,
     keywords: ["heading", "h2", "subtitle", "medium"],
     action(view, from, to) {
       clearSlashAndRun(
@@ -108,7 +108,7 @@ const SLASH_COMMANDS: SlashCommandItem[] = [
     id: "heading3",
     label: "Heading 3",
     description: "Small heading",
-    icon: Heading3Icon,
+    icon: TextHThree,
     keywords: ["heading", "h3", "small"],
     action(view, from, to) {
       clearSlashAndRun(
@@ -123,7 +123,7 @@ const SLASH_COMMANDS: SlashCommandItem[] = [
     id: "bulletList",
     label: "Bullet List",
     description: "Unordered list",
-    icon: ListIcon,
+    icon: ListBullets,
     keywords: ["bullet", "list", "unordered", "ul"],
     action(view, from, to) {
       clearSlashAndRun(view, from, to, wrapInList(schema.nodes.bulletList));
@@ -133,7 +133,7 @@ const SLASH_COMMANDS: SlashCommandItem[] = [
     id: "orderedList",
     label: "Numbered List",
     description: "Ordered list",
-    icon: ListOrderedIcon,
+    icon: ListNumbers,
     keywords: ["numbered", "list", "ordered", "ol"],
     action(view, from, to) {
       clearSlashAndRun(view, from, to, wrapInList(schema.nodes.orderedList));
@@ -143,7 +143,7 @@ const SLASH_COMMANDS: SlashCommandItem[] = [
     id: "taskList",
     label: "Task List",
     description: "List with checkboxes",
-    icon: ListTodoIcon,
+    icon: ListChecks,
     keywords: ["task", "todo", "checkbox", "check"],
     action(view, from, to) {
       const tr = view.state.tr.delete(from, to);
@@ -163,7 +163,7 @@ const SLASH_COMMANDS: SlashCommandItem[] = [
     id: "blockquote",
     label: "Quote",
     description: "Block quote",
-    icon: QuoteIcon,
+    icon: Quotes,
     keywords: ["quote", "blockquote", "callout"],
     action(view, from, to) {
       clearSlashAndRun(view, from, to, (state, dispatch) => {
@@ -182,7 +182,7 @@ const SLASH_COMMANDS: SlashCommandItem[] = [
     id: "codeBlock",
     label: "Code Block",
     description: "Code with syntax highlighting",
-    icon: CodeIcon,
+    icon: Code,
     keywords: ["code", "pre", "block", "snippet"],
     action(view, from, to) {
       clearSlashAndRun(view, from, to, setBlockType(schema.nodes.codeBlock));
@@ -192,7 +192,7 @@ const SLASH_COMMANDS: SlashCommandItem[] = [
     id: "horizontalRule",
     label: "Divider",
     description: "Horizontal rule",
-    icon: MinusIcon,
+    icon: Minus,
     keywords: ["divider", "horizontal", "rule", "line", "hr"],
     action(view, from, to) {
       const tr = view.state.tr.delete(from, to);

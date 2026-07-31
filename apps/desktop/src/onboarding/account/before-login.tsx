@@ -1,5 +1,5 @@
 import { Trans } from "@lingui/react/macro";
-import { Loader2Icon } from "lucide-react";
+import { CircleNotch } from "@phosphor-icons/react";
 import { useState } from "react";
 
 import { OnboardingButton } from "../shared";
@@ -25,7 +25,7 @@ export function BeforeLogin({ onContinue: _ }: { onContinue: () => void }) {
           className="flex items-center gap-2 px-6 py-2 text-sm disabled:opacity-70"
         >
           {isOpening ? (
-            <Loader2Icon className="size-3.5 animate-spin" aria-hidden="true" />
+            <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
           ) : null}
           <Trans>Get started</Trans>
         </OnboardingButton>

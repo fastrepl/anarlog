@@ -1,4 +1,4 @@
-import { MicIcon, MicOffIcon } from "lucide-react";
+import { Microphone, MicrophoneSlash } from "@phosphor-icons/react";
 
 import { DropdownMenuItem } from "@anlg/ui/components/ui/dropdown-menu";
 
@@ -53,7 +53,7 @@ export function Listening({
       onClick={handleToggleListening}
       disabled={isFinalizing || isBatching}
     >
-      {isListening ? <MicOffIcon /> : <MicIcon />}
+      {isListening ? <MicrophoneSlash /> : <Microphone />}
       <span>
         {isBatching
           ? "Batch processing"

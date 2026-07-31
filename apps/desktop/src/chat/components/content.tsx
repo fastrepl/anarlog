@@ -1,5 +1,5 @@
+import { ArrowElbowDownRight, Trash } from "@phosphor-icons/react";
 import type { ChatStatus } from "ai";
-import { CornerDownRightIcon, Trash2Icon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ChatBody } from "./body";
@@ -270,7 +270,7 @@ function ChatQueue({
             data-chat-queue-item
             className="group text-muted-foreground hover:bg-muted/55 grid min-h-7 grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-1 text-xs transition-colors"
           >
-            <CornerDownRightIcon className="size-3.5" />
+            <ArrowElbowDownRight className="size-3.5" />
             <span className="truncate">{message.content}</span>
             <button
               type="button"
@@ -278,7 +278,7 @@ function ChatQueue({
               onClick={() => onRemoveMessage(message.id)}
               className="hover:bg-accent/20 inline-flex size-6 items-center justify-center rounded-md opacity-65 transition-opacity group-hover:opacity-100"
             >
-              <Trash2Icon className="size-3.5" />
+              <Trash className="size-3.5" />
             </button>
           </div>
         ))}

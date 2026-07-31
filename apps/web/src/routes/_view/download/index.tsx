@@ -1,6 +1,6 @@
 import { Icon } from "@iconify-icon/react";
+import { DownloadSimple } from "@phosphor-icons/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Download } from "lucide-react";
 
 import { SiteFooter } from "@/components/site-footer";
 import { useAnalytics } from "@/hooks/use-posthog";
@@ -84,11 +84,7 @@ function Component() {
                           className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#181613] px-4 py-3 text-[13px] font-medium text-white sm:px-5 sm:text-sm"
                         >
                           Download
-                          <Download
-                            size={16}
-                            strokeWidth={2}
-                            aria-hidden="true"
-                          />
+                          <DownloadSimple size={16} aria-hidden="true" />
                         </a>
                       </div>
                     </li>

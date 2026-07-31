@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { MinusCircle, Plus } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
-import { CircleMinusIcon, PlusIcon } from "lucide-react";
 
 import { Button } from "@anlg/ui/components/ui/button";
 import {
@@ -117,7 +117,7 @@ export function DictionarySettings({
                   ])}
                   disabled={!canAdd}
                 >
-                  <PlusIcon className="size-3.5" />
+                  <Plus className="size-3.5" />
                   <Trans>Add</Trans>
                 </InputGroupButton>
               );
@@ -158,7 +158,7 @@ export function DictionarySettings({
                     onClick={() => removeTerm(term)}
                     aria-label={t`Remove ${term}`}
                   >
-                    <CircleMinusIcon className="size-4" />
+                    <MinusCircle className="size-4" />
                   </Button>
                 </div>
               ))}

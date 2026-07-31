@@ -1,4 +1,4 @@
-import { Loader2Icon } from "lucide-react";
+import { CircleNotch } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
 import { useStoredSettingValuesQuery } from "~/settings/queries";
@@ -16,7 +16,7 @@ export function SettingsHydrationBoundary({
   if (isLoading || !data) {
     return (
       <div className="flex min-h-48 items-center justify-center">
-        <Loader2Icon
+        <CircleNotch
           aria-label="Loading settings"
           className="text-muted-foreground size-5 animate-spin"
         />

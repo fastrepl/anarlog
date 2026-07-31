@@ -1,20 +1,20 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
-  AudioLinesIcon,
-  ArrowUpRightIcon,
-  BellIcon,
-  BookOpenIcon,
-  BookText,
-  CalendarIcon,
-  Code2Icon,
-  CogIcon,
-  RefreshCwIcon,
-  LockIcon,
-  SparklesIcon,
-  type LucideIcon,
-  UserIcon,
-  UsersIcon,
-} from "lucide-react";
+  ArrowsClockwise,
+  ArrowUpRight,
+  Bell,
+  BookOpen,
+  BookOpenText,
+  CalendarBlank,
+  Code,
+  Gear,
+  type Icon,
+  Lock,
+  Sparkle,
+  User,
+  Users,
+  Waveform,
+} from "@phosphor-icons/react";
 import { useCallback } from "react";
 
 import { cn } from "@anlg/utils";
@@ -25,11 +25,11 @@ import { type SettingsTab, useTabs } from "~/store/zustand/tabs";
 import { AUTO_TEMPLATE_ID, useOpenTemplatesTab } from "~/templates";
 
 type SettingsNavItem =
-  | { id: SettingsTab; label: string; icon: LucideIcon }
+  | { id: SettingsTab; label: string; icon: Icon }
   | {
       action: "open-templates" | "open-calendar" | "open-contacts";
       label: string;
-      icon: LucideIcon;
+      icon: Icon;
     };
 
 type SettingsNavGroup = { label: string; items: SettingsNavItem[] };
@@ -76,12 +76,12 @@ export function SettingsNav() {
     {
       label: t`General`,
       items: [
-        { id: "app", label: t`App`, icon: CogIcon },
-        { id: "account", label: t`Account`, icon: UserIcon },
-        { id: "sync", label: t`Sync`, icon: RefreshCwIcon },
-        { id: "notifications", label: t`Notifications`, icon: BellIcon },
-        { id: "permissions", label: t`Permissions`, icon: LockIcon },
-        { id: "developers", label: t`Developers`, icon: Code2Icon },
+        { id: "app", label: t`App`, icon: Gear },
+        { id: "account", label: t`Account`, icon: User },
+        { id: "sync", label: t`Sync`, icon: ArrowsClockwise },
+        { id: "notifications", label: t`Notifications`, icon: Bell },
+        { id: "permissions", label: t`Permissions`, icon: Lock },
+        { id: "developers", label: t`Developers`, icon: Code },
       ],
     },
     {
@@ -90,29 +90,29 @@ export function SettingsNav() {
         {
           action: "open-calendar",
           label: t`Calendar`,
-          icon: CalendarIcon,
+          icon: CalendarBlank,
         },
         {
           action: "open-contacts",
           label: t`Contacts`,
-          icon: UsersIcon,
+          icon: Users,
         },
       ],
     },
     {
       label: "AI",
       items: [
-        { id: "transcription", label: t`Transcription`, icon: AudioLinesIcon },
-        { id: "intelligence", label: t`Intelligence`, icon: SparklesIcon },
+        { id: "transcription", label: t`Transcription`, icon: Waveform },
+        { id: "intelligence", label: t`Intelligence`, icon: Sparkle },
         {
           id: "dictionary",
           label: t`Dictionary`,
-          icon: BookOpenIcon,
+          icon: BookOpen,
         },
         {
           action: "open-templates",
           label: t`Templates`,
-          icon: BookText,
+          icon: BookOpenText,
         },
       ],
     },
@@ -156,12 +156,18 @@ export function SettingsNav() {
                         : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground",
                     ])}
                   >
-                    <item.icon size={15} className="shrink-0" />
+                    <item.icon
+                      size={15}
+                      className="shrink-0"
+                      data-testid={`settings-nav-icon-${
+                        isSettingsItem ? item.id : item.action
+                      }`}
+                    />
                     <span className="min-w-0 flex-1 truncate">
                       {item.label}
                     </span>
                     {!isSettingsItem ? (
-                      <ArrowUpRightIcon size={13} className="shrink-0" />
+                      <ArrowUpRight size={13} className="shrink-0" />
                     ) : null}
                   </button>
                 );

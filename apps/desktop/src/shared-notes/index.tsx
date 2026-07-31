@@ -1,12 +1,12 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { useMutation } from "@tanstack/react-query";
 import {
-  AlertCircleIcon,
-  LinkIcon,
-  LogInIcon,
-  PaperclipIcon,
-  UsersRoundIcon,
-} from "lucide-react";
+  Link,
+  Paperclip,
+  SignIn,
+  Users,
+  WarningCircle,
+} from "@phosphor-icons/react";
+import { useMutation } from "@tanstack/react-query";
 
 import { NoteEditor } from "@anlg/editor/note";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
@@ -49,7 +49,7 @@ export function TabContentSharedNote({
     return (
       <SharedNoteUnavailable
         action={<SharedNoteSignInAction />}
-        icon={LogInIcon}
+        icon={SignIn}
         title={t`Sign in to view this shared note`}
         description={t`Shared notes are tied to the account they were shared with.`}
       />
@@ -61,7 +61,7 @@ export function TabContentSharedNote({
   if (snapshotQuery.error) {
     return (
       <SharedNoteUnavailable
-        icon={AlertCircleIcon}
+        icon={WarningCircle}
         title={t`Shared note unavailable`}
         description={t`Anarlog could not read the local shared-note cache.`}
       />
@@ -72,7 +72,7 @@ export function TabContentSharedNote({
   if (!snapshot) {
     return (
       <SharedNoteUnavailable
-        icon={UsersRoundIcon}
+        icon={Users}
         title={t`Access no longer available`}
         description={t`The note may have been unshared or moved out of a workspace you can access.`}
       />
@@ -136,7 +136,7 @@ function AuthenticatedSharedNoteDocument({
         shareId: snapshot.shareId,
       }}
       contentKey={`${snapshot.shareId}:${snapshot.contentRevision}`}
-      icon={UsersRoundIcon}
+      icon={Users}
       attachments={snapshot.attachments}
       resolveAttachment={resolveAttachment}
       subtitle={subtitle}
@@ -159,7 +159,7 @@ export function TabContentSharedNotePreview({
   if (preview.status === "unavailable") {
     return (
       <SharedNoteUnavailable
-        icon={AlertCircleIcon}
+        icon={WarningCircle}
         title={t`Shared note unavailable`}
         description={t`The link may have expired or its access may have changed.`}
       />
@@ -197,7 +197,7 @@ function PreviewSharedNoteDocument({
       attachments={snapshot.attachments}
       body={snapshot.body}
       contentKey={`${viewId}:${snapshot.contentRevision}`}
-      icon={LinkIcon}
+      icon={Link}
       resolveAttachment={resolveAttachment}
       subtitle={<Trans>Shared link · View only</Trans>}
       title={snapshot.title}
@@ -224,7 +224,7 @@ function SharedNoteDocument({
     shareId: string;
   };
   contentKey: string;
-  icon: typeof UsersRoundIcon;
+  icon: typeof Users;
   subtitle: React.ReactNode;
   title: string;
   resolveAttachment?: React.ComponentProps<
@@ -385,7 +385,7 @@ function SharedAttachmentList({
               }}
               className="border-border/60 hover:bg-muted/60 disabled:text-muted-foreground flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left disabled:cursor-not-allowed"
             >
-              <PaperclipIcon className="size-4 shrink-0" aria-hidden="true" />
+              <Paperclip className="size-4 shrink-0" aria-hidden="true" />
               <span className="min-w-0 flex-1 truncate text-sm">
                 {attachment.filename}
               </span>
@@ -438,7 +438,7 @@ function SharedNoteUnavailable({
   description,
 }: {
   action?: React.ReactNode;
-  icon: typeof UsersRoundIcon;
+  icon: typeof Users;
   title: string;
   description: string;
 }) {

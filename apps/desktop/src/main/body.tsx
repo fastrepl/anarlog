@@ -1,13 +1,13 @@
+import {
+  ArrowLeft,
+  MagnifyingGlass,
+  NotePencil,
+  Sidebar,
+  SidebarSimple,
+  Wrench,
+} from "@phosphor-icons/react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import {
-  ArrowLeftIcon,
-  PanelLeftCloseIcon,
-  PanelLeftOpenIcon,
-  SearchIcon,
-  SquarePenIcon,
-  WrenchIcon,
-} from "lucide-react";
 import {
   type CSSProperties,
   memo,
@@ -570,7 +570,7 @@ export function ClassicMainBody() {
               ariaLabel="Go back"
               onClick={runEscapeShortcut}
             >
-              <ArrowLeftIcon size={16} />
+              <ArrowLeft size={16} />
             </LeftSurfaceChromeButton>
           </div>
         </div>
@@ -1006,25 +1006,25 @@ function SidebarTimelineChrome({
           onClick={onToggleSidebar}
         >
           {sidebarExpanded ? (
-            <PanelLeftCloseIcon size={16} />
+            <SidebarSimple size={16} />
           ) : (
-            <PanelLeftOpenIcon size={16} />
+            <Sidebar size={16} />
           )}
         </LeftSurfaceChromeButton>
         {sidebarExpanded ? (
           <>
             <LeftSurfaceChromeButton ariaLabel="Search" onClick={onSearch}>
-              <SearchIcon size={15} />
+              <MagnifyingGlass size={15} />
             </LeftSurfaceChromeButton>
             <LeftSurfaceChromeButton ariaLabel="New note" onClick={onNewNote}>
-              <SquarePenIcon size={15} />
+              <NotePencil size={15} />
             </LeftSurfaceChromeButton>
             {showDevtoolsPanelButton && !devtoolsPanelOpen ? (
               <LeftSurfaceChromeButton
                 ariaLabel="Show devtools panel"
                 onClick={onOpenDevtools}
               >
-                <WrenchIcon size={15} />
+                <Wrench size={15} />
               </LeftSurfaceChromeButton>
             ) : null}
             {showUpdateButton ? (

@@ -1,5 +1,10 @@
 import { useLingui } from "@lingui/react/macro";
-import { BrainIcon, CheckIcon, CopyIcon, RotateCcwIcon } from "lucide-react";
+import {
+  ArrowCounterClockwise,
+  Brain,
+  Check,
+  Copy,
+} from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Streamdown } from "streamdown";
 
@@ -82,7 +87,7 @@ export function NormalMessage({
               className={`p-1 transition-colors ${copied ? "text-green-500" : "text-muted-foreground hover:text-foreground"}`}
               aria-label={t`Copy message`}
             >
-              {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
+              {copied ? <Check size={14} /> : <Copy size={14} />}
             </button>
             {handleReload && (
               <button
@@ -90,7 +95,7 @@ export function NormalMessage({
                 className="text-muted-foreground hover:text-foreground p-1 transition-colors"
                 aria-label={t`Regenerate message`}
               >
-                <RotateCcwIcon size={14} />
+                <ArrowCounterClockwise size={14} />
               </button>
             )}
           </div>
@@ -135,7 +140,7 @@ function Reasoning({ part }: { part: Extract<Part, { type: "reasoning" }> }) {
 
   return (
     <Disclosure
-      icon={<BrainIcon className="h-3 w-3" />}
+      icon={<Brain className="h-3 w-3" />}
       title={title}
       disabled={streaming}
     >

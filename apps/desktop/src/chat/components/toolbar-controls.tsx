@@ -1,13 +1,13 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
-  ChevronDown,
-  History,
-  MessageCircle,
-  PanelRight,
-  PictureInPicture2,
+  CaretDown,
+  ChatCircle,
+  ClockCounterClockwise,
+  PictureInPicture,
   Plus,
+  SidebarSimple,
   X,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import { useState } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
@@ -74,7 +74,7 @@ export function ChatToolbarControls({
         {isRightPanel ? (
           <>
             <ChatActionButton
-              icon={<PictureInPicture2 size={16} />}
+              icon={<PictureInPicture size={16} />}
               label={t`Float chat`}
               onClick={onOpenFloating ?? (() => {})}
               className={
@@ -97,7 +97,7 @@ export function ChatToolbarControls({
         ) : (
           <>
             <ChatActionButton
-              icon={<PanelRight size={16} />}
+              icon={<SidebarSimple size={16} />}
               label={t`Open in right panel`}
               onClick={onOpenRightPanel ?? (() => {})}
               className={
@@ -174,13 +174,13 @@ function ChatGroups({
               : "text-muted-foreground hover:bg-muted/80 hover:text-foreground data-[state=open]:bg-muted/80 data-[state=open]:text-foreground",
           ])}
         >
-          <History
+          <ClockCounterClockwise
             className={cn([
               "h-4 w-4",
               isDark ? "text-primary-foreground/70" : "text-muted-foreground",
             ])}
           />
-          <ChevronDown
+          <CaretDown
             className={cn([
               "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
               isDark ? "text-primary-foreground/50" : "text-muted-foreground",
@@ -220,7 +220,7 @@ function ChatGroups({
             </div>
           ) : (
             <div className="px-3 py-6 text-center">
-              <MessageCircle className="text-muted-foreground/70 mx-auto mb-1.5 h-6 w-6" />
+              <ChatCircle className="text-muted-foreground/70 mx-auto mb-1.5 h-6 w-6" />
               <p className="text-muted-foreground text-xs">
                 <Trans>No recent chats</Trans>
               </p>
@@ -260,7 +260,7 @@ function ChatGroupItem({
     >
       <div className="flex w-full items-center gap-2.5">
         <div className="shrink-0">
-          <MessageCircle
+          <ChatCircle
             className={cn([
               "h-3.5 w-3.5 transition-colors",
               isActive

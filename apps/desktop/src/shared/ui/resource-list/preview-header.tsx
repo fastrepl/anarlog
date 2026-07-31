@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { Copy } from "lucide-react";
+import { Copy } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
 import { Button, type ButtonProps } from "@anlg/ui/components/ui/button";

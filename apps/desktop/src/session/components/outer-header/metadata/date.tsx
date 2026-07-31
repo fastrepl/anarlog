@@ -1,6 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
+import { Check, Pencil, X } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
-import { CheckIcon, PencilIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
@@ -43,7 +43,7 @@ export function DateEditor({ sessionId }: { sessionId: string }) {
           onClick={() => setIsEditing(true)}
           aria-label={t`Edit date`}
         >
-          <PencilIcon size={16} />
+          <Pencil size={16} />
         </Button>
       </div>
     );
@@ -153,7 +153,7 @@ function EditableDateForm({
                 onClick={onCancel}
                 aria-label={t`Cancel date edit`}
               >
-                <XIcon size={16} />
+                <X size={16} />
               </Button>
             )}
 
@@ -168,7 +168,7 @@ function EditableDateForm({
                   disabled={!canSubmit}
                   aria-label={t`Save date`}
                 >
-                  <CheckIcon size={16} />
+                  <Check size={16} />
                 </Button>
               )}
             </form.Subscribe>

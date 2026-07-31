@@ -1,4 +1,4 @@
-import { Loader2Icon, XCircleIcon } from "lucide-react";
+import { CircleNotch, XCircle } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { Streamdown } from "streamdown";
 
@@ -46,7 +46,7 @@ export function ToolCardHeader({
       ])}
     >
       {running ? (
-        <Loader2Icon className="h-4 w-4 animate-spin" />
+        <CircleNotch className="h-4 w-4 animate-spin" />
       ) : (
         <span
           className={cn([
@@ -73,7 +73,7 @@ export function ToolCardBody({ children }: { children: ReactNode }) {
 export function ToolCardFooterError({ text }: { text: string }) {
   return (
     <div className="flex items-center gap-2 border-t border-red-200 bg-red-50 px-3.5 py-2.5">
-      <XCircleIcon className="h-4 w-4 shrink-0 text-red-500" />
+      <XCircle className="h-4 w-4 shrink-0 text-red-500" />
       <p className="text-[13px] text-red-600">{text}</p>
     </div>
   );

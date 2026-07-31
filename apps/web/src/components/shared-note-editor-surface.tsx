@@ -1,11 +1,11 @@
-import { useMutation } from "@tanstack/react-query";
 import {
-  AlertCircleIcon,
-  FileIcon,
-  ImageIcon,
-  LoaderCircleIcon,
-  PaperclipIcon,
-} from "lucide-react";
+  CircleNotch,
+  File,
+  Image,
+  Paperclip,
+  WarningCircle,
+} from "@phosphor-icons/react";
+import { useMutation } from "@tanstack/react-query";
 import {
   type ComponentProps,
   createContext,
@@ -237,7 +237,7 @@ export function SharedNoteEditorSurface({
           className="mb-5 flex gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900"
           role="alert"
         >
-          <AlertCircleIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <WarningCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
           <p className="text-sm leading-6">
             {clientError ??
               "We couldn’t save this edit. Your draft is still here."}
@@ -249,7 +249,7 @@ export function SharedNoteEditorSurface({
           className="mb-5 flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950"
           role="alert"
         >
-          <AlertCircleIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <WarningCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
           <p className="text-sm leading-6">
             {availabilityIssue === "sign_in_required"
               ? "Your session expired. Your draft is still here and can be copied before you leave the editor and sign in again."
@@ -260,7 +260,7 @@ export function SharedNoteEditorSurface({
 
       {snapshot.attachments.length > 0 && (
         <div className="border-color-subtle bg-surface-subtle text-color-muted mb-5 flex items-start gap-3 rounded-xl border px-4 py-3 text-sm leading-6">
-          <PaperclipIcon className="mt-1 size-4 shrink-0" aria-hidden />
+          <Paperclip className="mt-1 size-4 shrink-0" aria-hidden />
           <span>
             {snapshot.attachments.length}{" "}
             {snapshot.attachments.length === 1 ? "attachment" : "attachments"}
@@ -318,10 +318,7 @@ export function SharedNoteEditorSurface({
           onClick={save}
         >
           {mutation.isPending && (
-            <LoaderCircleIcon
-              className="mr-2 size-4 animate-spin"
-              aria-hidden
-            />
+            <CircleNotch className="mr-2 size-4 animate-spin" aria-hidden />
           )}
           {mutation.isPending
             ? "Saving…"
@@ -345,7 +342,7 @@ const LockedSharedAttachmentView = forwardRef<
       ? attachments.get(sharedAttachmentId)
       : undefined;
   const isImage = nodeProps.node.type.name === "image";
-  const Icon = isImage ? ImageIcon : FileIcon;
+  const Icon = isImage ? Image : File;
 
   return (
     <div

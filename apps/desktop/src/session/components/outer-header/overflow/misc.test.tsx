@@ -33,7 +33,9 @@ describe("ShowInFolder", () => {
     render(<ShowInFolder sessionId="session-1" />);
 
     const action = screen.getByRole("button", { name: "Show in folder" });
-    expect(action.querySelector(".lucide-folder-open")).toBeTruthy();
+    expect(
+      action.querySelector("[data-testid='show-in-folder-icon']"),
+    ).toBeTruthy();
     expect(screen.queryByText("Show in Finder")).toBeNull();
   });
 

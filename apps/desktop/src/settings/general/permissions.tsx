@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { ArrowRight, Check, WarningCircle } from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
-import { AlertCircleIcon, ArrowRightIcon, CheckIcon } from "lucide-react";
 
 import type { PermissionStatus } from "@anlg/plugin-permissions";
 import { Button } from "@anlg/ui/components/ui/button";
@@ -64,7 +64,7 @@ function PermissionRow({
             !isAuthorized && "text-red-500",
           ])}
         >
-          {!isAuthorized && <AlertCircleIcon className="size-4" />}
+          {!isAuthorized && <WarningCircle className="size-4" />}
           <h3 className="text-sm font-medium">{title}</h3>
         </div>
         <p className="text-muted-foreground text-xs">{description}</p>
@@ -95,9 +95,9 @@ function PermissionRow({
         }
       >
         {isAuthorized ? (
-          <CheckIcon className="size-4" />
+          <Check className="size-4" />
         ) : (
-          <ArrowRightIcon className="size-5" />
+          <ArrowRight className="size-5" />
         )}
       </Button>
     </div>

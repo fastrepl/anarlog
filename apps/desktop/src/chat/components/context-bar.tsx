@@ -1,4 +1,4 @@
-import { ChevronUpIcon, XCircleIcon } from "lucide-react";
+import { CaretUp, XCircle } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 
 import { cn } from "@anlg/utils";
@@ -71,7 +71,7 @@ function ContextChip({
             }}
             className="text-muted-foreground hover:text-foreground pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
           >
-            <XCircleIcon className="size-3.5" />
+            <XCircle className="size-3.5" />
           </button>
         )}
       </span>
@@ -123,7 +123,7 @@ function ChipList({
           className="bg-card/70 border-border/60 text-muted-foreground hover:bg-accent/20 hover:text-muted-foreground inline-flex h-7 shrink-0 items-center gap-0.5 rounded-[10px] border px-1.5 text-xs shadow-xs transition-colors"
         >
           {isExpanded ? (
-            <ChevronUpIcon aria-hidden="true" className="size-3" />
+            <CaretUp aria-hidden="true" className="size-3" />
           ) : (
             `+${hiddenCount} more`
           )}

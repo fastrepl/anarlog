@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { FileText, MagnifyingGlass, Users, X } from "@phosphor-icons/react";
 import { Command as CommandPrimitive } from "cmdk";
-import { FileTextIcon, SearchIcon, UsersRoundIcon, XIcon } from "lucide-react";
 import {
   createContext,
   useCallback,
@@ -258,7 +258,7 @@ export function OpenNoteDialog({
             }}
           >
             <div className="border-border/60 flex items-center gap-3 border-b px-4 py-3">
-              <SearchIcon className="text-muted-foreground h-4 w-4 shrink-0" />
+              <MagnifyingGlass className="text-muted-foreground h-4 w-4 shrink-0" />
               <CommandPrimitive.Input
                 ref={focusInput}
                 value={query}
@@ -280,7 +280,7 @@ export function OpenNoteDialog({
                   "transition-colors",
                 ])}
               >
-                <XIcon className="h-3 w-3" />
+                <X className="h-3 w-3" />
               </button>
             </div>
 
@@ -312,7 +312,7 @@ export function OpenNoteDialog({
                             "transition-colors",
                           ])}
                         >
-                          <FileTextIcon className="text-muted-foreground h-4 w-4 shrink-0" />
+                          <FileText className="text-muted-foreground h-4 w-4 shrink-0" />
                           <span className="truncate">{session.title}</span>
                         </CommandPrimitive.Item>
                       ))}
@@ -345,9 +345,12 @@ export function OpenNoteDialog({
                           ])}
                         >
                           {note.resourceType === "shared_session" ? (
-                            <UsersRoundIcon className="text-muted-foreground h-4 w-4 shrink-0" />
+                            <Users
+                              className="text-muted-foreground h-4 w-4 shrink-0"
+                              data-testid="shared-note-icon"
+                            />
                           ) : (
-                            <FileTextIcon className="text-muted-foreground h-4 w-4 shrink-0" />
+                            <FileText className="text-muted-foreground h-4 w-4 shrink-0" />
                           )}
                           <span className="truncate">{note.title}</span>
                         </CommandPrimitive.Item>

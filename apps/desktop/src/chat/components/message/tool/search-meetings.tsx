@@ -1,4 +1,4 @@
-import { SearchIcon } from "lucide-react";
+import { MagnifyingGlass } from "@phosphor-icons/react";
 import { useCallback, useMemo } from "react";
 
 import { Card, CardContent } from "@anlg/ui/components/ui/card";
@@ -135,7 +135,7 @@ export const ToolSearchMeetings: Renderer = ({ part }) => {
 
   return (
     <Disclosure
-      icon={<SearchIcon className="h-3 w-3" />}
+      icon={<MagnifyingGlass className="h-3 w-3" />}
       title={getTitle(part)}
       disabled={disabled}
     >

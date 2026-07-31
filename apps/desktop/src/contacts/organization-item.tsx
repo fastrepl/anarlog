@@ -1,4 +1,4 @@
-import { Building2, Pin } from "lucide-react";
+import { Buildings, PushPin } from "@phosphor-icons/react";
 import React, { useCallback } from "react";
 
 import { cn } from "@anlg/utils";
@@ -64,7 +64,7 @@ export function OrganizationItem({
       ])}
     >
       <div className="bg-muted flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
-        <Building2 className="text-muted-foreground h-4 w-4" />
+        <Buildings className="text-muted-foreground h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium">{organization.name}</div>
@@ -79,7 +79,7 @@ export function OrganizationItem({
         ])}
         aria-label={isPinned ? "Unpin organization" : "Pin organization"}
       >
-        <Pin className="size-3.5" fill={isPinned ? "currentColor" : "none"} />
+        <PushPin className="size-3.5" weight={isPinned ? "fill" : "regular"} />
       </button>
     </div>
   );

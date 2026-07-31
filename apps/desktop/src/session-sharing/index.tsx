@@ -1,19 +1,19 @@
 import { Trans } from "@lingui/react/macro";
+import {
+  ArrowsClockwise,
+  ArrowSquareOut,
+  Check,
+  CircleNotch,
+  Copy,
+  LockKey,
+  ShareNetwork,
+  Users,
+  Warning,
+} from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isTauri } from "@tauri-apps/api/core";
 import { writeText as writeClipboardText } from "@tauri-apps/plugin-clipboard-manager";
-import {
-  AlertTriangleIcon,
-  CheckIcon,
-  CopyIcon,
-  ExternalLinkIcon,
-  Loader2Icon,
-  LockKeyholeIcon,
-  RefreshCwIcon,
-  Share2Icon,
-  UsersIcon,
-} from "lucide-react";
 import { type MutableRefObject, useCallback, useRef, useState } from "react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
@@ -619,9 +619,9 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           ])}
         >
           {shareButtonPending ? (
-            <Loader2Icon className="size-3.5 animate-spin" aria-hidden="true" />
+            <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
           ) : (
-            <Share2Icon className="size-3.5" aria-hidden="true" />
+            <ShareNetwork className="size-3.5" aria-hidden="true" />
           )}
         </Button>
       </PopoverTrigger>
@@ -715,7 +715,7 @@ function SessionSharePreparationContent({
         <header className="border-border/60 border-b px-5 py-4 text-left">
           <div className="flex items-center gap-3">
             <div className="bg-accent flex size-9 items-center justify-center rounded-full">
-              <UsersIcon className="size-4" aria-hidden="true" />
+              <Users className="size-4" aria-hidden="true" />
             </div>
             <div className="min-w-0">
               <h2
@@ -741,13 +741,13 @@ function SessionSharePreparationContent({
                 <Trans>Access settings could not be loaded.</Trans>
               </p>
               <Button size="sm" variant="outline" onClick={onRetry}>
-                <RefreshCwIcon className="size-3.5" aria-hidden="true" />
+                <ArrowsClockwise className="size-3.5" aria-hidden="true" />
                 <Trans>Try again</Trans>
               </Button>
             </div>
           ) : (
             <div className="text-muted-foreground flex items-center gap-2 text-xs">
-              <Loader2Icon className="size-4 animate-spin" aria-hidden="true" />
+              <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
               <Trans>Loading access…</Trans>
             </div>
           )}
@@ -755,7 +755,7 @@ function SessionSharePreparationContent({
 
         <footer className="border-border/60 flex justify-end border-t px-5 py-3">
           <Button type="button" size="sm" onClick={onClose}>
-            <CheckIcon className="size-3.5" aria-hidden="true" />
+            <Check className="size-3.5" aria-hidden="true" />
             <Trans>Done</Trans>
           </Button>
         </footer>
@@ -783,7 +783,7 @@ function SessionShareUpgradeContent({ onUpgrade }: { onUpgrade: () => void }) {
     >
       <AppFloatingPanel className="flex h-full flex-col items-center overflow-y-auto px-6 py-7 text-center">
         <div className="bg-accent flex size-10 items-center justify-center rounded-full">
-          <UsersIcon className="size-4" aria-hidden="true" />
+          <Users className="size-4" aria-hidden="true" />
         </div>
         <h2
           id="session-share-upgrade-heading"
@@ -1529,7 +1529,7 @@ function SessionSharePopoverContent({
           <div className="scrollbar-soft min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2">
             {loading && !data ? (
               <div className="text-muted-foreground flex min-h-full items-center justify-center gap-2 text-xs">
-                <Loader2Icon
+                <CircleNotch
                   className="size-4 animate-spin"
                   aria-hidden="true"
                 />
@@ -1541,7 +1541,7 @@ function SessionSharePopoverContent({
                   <Trans>Access settings could not be loaded.</Trans>
                 </p>
                 <Button size="sm" variant="outline" onClick={onRetry}>
-                  <RefreshCwIcon className="size-3.5" aria-hidden="true" />
+                  <ArrowsClockwise className="size-3.5" aria-hidden="true" />
                   <Trans>Try again</Trans>
                 </Button>
               </div>
@@ -1553,7 +1553,7 @@ function SessionSharePopoverContent({
                     className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-2.5 py-2"
                   >
                     <div className="flex items-start gap-2.5">
-                      <AlertTriangleIcon
+                      <Warning
                         className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400"
                         aria-hidden="true"
                       />
@@ -1579,12 +1579,12 @@ function SessionSharePopoverContent({
                             onClick={() => openWebCopyMutation.mutate()}
                           >
                             {openWebCopyMutation.isPending ? (
-                              <Loader2Icon
+                              <CircleNotch
                                 className="size-3.5 animate-spin"
                                 aria-hidden="true"
                               />
                             ) : (
-                              <ExternalLinkIcon
+                              <ArrowSquareOut
                                 className="size-3.5"
                                 aria-hidden="true"
                               />
@@ -1600,7 +1600,7 @@ function SessionSharePopoverContent({
                             onClick={() => keepDesktopMutation.mutate()}
                           >
                             {keepDesktopMutation.isPending ? (
-                              <Loader2Icon
+                              <CircleNotch
                                 className="size-3.5 animate-spin"
                                 aria-hidden="true"
                               />
@@ -1658,7 +1658,7 @@ function SessionSharePopoverContent({
                           className="h-8 shrink-0 rounded-md px-3"
                         >
                           {inviteMutation.isPending ? (
-                            <Loader2Icon
+                            <CircleNotch
                               className="size-3.5 animate-spin"
                               aria-hidden="true"
                             />
@@ -1806,10 +1806,7 @@ function SessionSharePopoverContent({
                   </h3>
                   <div className="flex items-center gap-2 rounded-lg px-1.5 py-1">
                     <span className="bg-muted flex size-7 shrink-0 items-center justify-center rounded-md">
-                      <LockKeyholeIcon
-                        className="size-3.5"
-                        aria-hidden="true"
-                      />
+                      <LockKey className="size-3.5" aria-hidden="true" />
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-xs font-medium">
@@ -1834,7 +1831,7 @@ function SessionSharePopoverContent({
                         className="h-7 shrink-0 px-2 text-[11px]"
                       >
                         {scopeMutation.isPending ? (
-                          <Loader2Icon
+                          <CircleNotch
                             className="size-3.5 animate-spin"
                             aria-hidden="true"
                           />
@@ -1860,12 +1857,12 @@ function SessionSharePopoverContent({
               className="size-7"
             >
               {refreshMutation.isPending ? (
-                <Loader2Icon
+                <CircleNotch
                   className="size-3.5 animate-spin"
                   aria-hidden="true"
                 />
               ) : (
-                <RefreshCwIcon className="size-3.5" aria-hidden="true" />
+                <ArrowsClockwise className="size-3.5" aria-hidden="true" />
               )}
             </Button>
             <Button
@@ -1877,12 +1874,12 @@ function SessionSharePopoverContent({
               className="h-7 rounded-md px-2.5 text-xs"
             >
               {generalCopyMutation.isPending ? (
-                <Loader2Icon
+                <CircleNotch
                   className="size-3.5 animate-spin"
                   aria-hidden="true"
                 />
               ) : (
-                <CopyIcon className="size-3.5" aria-hidden="true" />
+                <Copy className="size-3.5" aria-hidden="true" />
               )}
               <Trans>Copy link</Trans>
             </Button>
@@ -1923,7 +1920,7 @@ function AccessEntryRow({
         </p>
       </div>
       {pending ? (
-        <Loader2Icon
+        <CircleNotch
           className="text-muted-foreground size-3.5 animate-spin"
           aria-label="Updating access"
         />

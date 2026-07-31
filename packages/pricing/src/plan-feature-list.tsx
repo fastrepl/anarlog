@@ -1,4 +1,4 @@
-import { CheckCircle2, Construction, XCircle } from "lucide-react";
+import { Barricade, CheckCircle, XCircle } from "@phosphor-icons/react";
 
 import { cn } from "@anlg/utils";
 
@@ -23,9 +23,9 @@ export function PlanFeatureList({
       {features.map((feature) => {
         const Icon =
           feature.included === true
-            ? CheckCircle2
+            ? CheckCircle
             : feature.included === "partial"
-              ? Construction
+              ? Barricade
               : XCircle;
         const isPartial = feature.included === "partial";
         const iconContainerClassName = cn([

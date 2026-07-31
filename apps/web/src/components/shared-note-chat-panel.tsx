@@ -1,10 +1,5 @@
+import { ArrowUp, CircleNotch, SignIn, Sparkle } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
-import {
-  ArrowUpIcon,
-  LoaderCircleIcon,
-  LogInIcon,
-  SparklesIcon,
-} from "lucide-react";
 import { useRef, useState } from "react";
 import { Streamdown } from "streamdown";
 
@@ -158,7 +153,7 @@ export function SharedNoteChatPanel({
               "focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:outline-hidden",
             ])}
           >
-            <SparklesIcon className="size-4" aria-hidden="true" />
+            <Sparkle className="size-4" aria-hidden="true" />
             Ask anything about this note
           </button>
         </DialogTrigger>
@@ -170,7 +165,7 @@ export function SharedNoteChatPanel({
         >
           <header className="border-color-subtle flex items-center gap-3 border-b px-5 py-4 pr-14">
             <div className="text-color flex items-center gap-2">
-              <SparklesIcon className="size-4" aria-hidden="true" />
+              <Sparkle className="size-4" aria-hidden="true" />
               <DialogTitle className="font-mono text-sm font-medium">
                 Ask about this note
               </DialogTitle>
@@ -231,10 +226,7 @@ function ChatBody({
         {streaming !== null &&
           (streaming === "" ? (
             <p className="text-color-muted flex items-center gap-2 text-sm">
-              <LoaderCircleIcon
-                className="size-4 animate-spin"
-                aria-hidden="true"
-              />
+              <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
               Thinking…
             </p>
           ) : (
@@ -284,12 +276,12 @@ function ChatBody({
               disabled={pending || draft.trim() === ""}
             >
               {pending ? (
-                <LoaderCircleIcon
+                <CircleNotch
                   className="size-4 animate-spin"
                   aria-hidden="true"
                 />
               ) : (
-                <ArrowUpIcon className="size-4" aria-hidden="true" />
+                <ArrowUp className="size-4" aria-hidden="true" />
               )}
             </button>
           </form>
@@ -318,7 +310,7 @@ function SignInToChat({ returnPath }: { returnPath: string }) {
         href={`/auth/?${search.toString()}`}
         className={cn([sharedPrimaryButtonClassName, "mt-4"])}
       >
-        <LogInIcon className="mr-2 size-4" aria-hidden="true" />
+        <SignIn className="mr-2 size-4" aria-hidden="true" />
         Sign in
       </a>
     </div>

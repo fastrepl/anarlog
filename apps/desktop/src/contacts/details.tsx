@@ -1,11 +1,11 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
-  Building2,
-  CircleMinus,
+  Buildings,
   FileText,
+  MagnifyingGlass,
+  MinusCircle,
   Plus,
-  SearchIcon,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import React, { useCallback, useState } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
@@ -437,7 +437,7 @@ function EditPersonOrganizationSelector({
             <div className="flex items-center">
               <span className="text-base">{organization.name}</span>
               <span className="group text-muted-foreground ml-2">
-                <CircleMinus
+                <MinusCircle
                   className="text-muted-foreground size-4 cursor-pointer hover:text-red-600"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -538,7 +538,7 @@ function OrganizationControl({
         <div className="flex flex-col gap-2">
           <div className="border-border bg-muted flex w-full items-center gap-2 rounded-xs border px-2 py-1.5">
             <span className="text-muted-foreground shrink-0">
-              <SearchIcon className="size-4" />
+              <MagnifyingGlass className="size-4" />
             </span>
             <input
               type="text"
@@ -567,7 +567,7 @@ function OrganizationControl({
                   onMouseEnter={() => setHighlightedIndex(index)}
                 >
                   <span className="bg-muted mr-2 flex size-5 shrink-0 items-center justify-center rounded-full">
-                    <Building2 className="size-3" />
+                    <Buildings className="size-3" />
                   </span>
                   <span className="truncate font-medium">{org.name}</span>
                 </button>
@@ -613,7 +613,7 @@ function OrganizationControl({
                   onMouseEnter={() => setHighlightedIndex(index)}
                 >
                   <span className="bg-muted mr-2 flex size-5 shrink-0 items-center justify-center rounded-full">
-                    <Building2 className="size-3" />
+                    <Buildings className="size-3" />
                   </span>
                   <span className="truncate font-medium">{org.name}</span>
                 </button>

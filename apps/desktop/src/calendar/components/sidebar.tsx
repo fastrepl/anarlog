@@ -1,6 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
+import { CaretRight, CircleNotch, Plus } from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
-import { ChevronRight, Loader2Icon, PlusIcon } from "lucide-react";
 import { useCallback, useMemo, type MouseEvent } from "react";
 
 import type { ConnectionItem } from "@anlg/api-client";
@@ -304,7 +304,7 @@ function ProviderAccordionItem({
             aria-label={t`Upgrade to Pro for ${provider.displayName}`}
           >
             {isUpgradingToPro && (
-              <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+              <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
             )}
             {t`Upgrade to Pro`}
           </button>
@@ -317,15 +317,15 @@ function ProviderAccordionItem({
             aria-label={t`Add ${provider.displayName} account`}
           >
             {openingAction === "connect" ? (
-              <Loader2Icon className="size-4 animate-spin" />
+              <CircleNotch className="size-4 animate-spin" />
             ) : (
-              <PlusIcon className="size-4" />
+              <Plus className="size-4" />
             )}
           </button>
         ) : null}
 
         {!requiresPro && (
-          <ChevronRight
+          <CaretRight
             className={cn([
               "text-muted-foreground size-4 shrink-0 transition-transform duration-200",
               "group-data-[state=open]/provider:rotate-90",

@@ -1,15 +1,15 @@
 import { useLingui } from "@lingui/react/macro";
 import {
-  AlignLeftIcon,
-  AudioLinesIcon,
-  ChevronDownIcon,
-  ChevronRightIcon,
-  HeartIcon,
-  PlusIcon,
-  SearchIcon,
-  SparklesIcon,
-  XIcon,
-} from "lucide-react";
+  CaretDown,
+  CaretRight,
+  Heart,
+  MagnifyingGlass,
+  Plus,
+  Sparkle,
+  TextAlignLeft,
+  Waveform,
+  X,
+} from "@phosphor-icons/react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { json2md, parseJsonContent } from "@anlg/editor/markdown";
@@ -289,7 +289,7 @@ function HeaderViewRawButton({
     <IconHeaderView
       isActive={isActive}
       label={t`Memos`}
-      icon={<AlignLeftIcon className="size-4" />}
+      icon={<TextAlignLeft className="size-4" />}
       onClick={onClick}
       onContextMenu={onContextMenu}
       size={standalone ? "standalone" : "tray"}
@@ -427,7 +427,7 @@ function HeaderViewEnhancedInactive({
       {isGenerating ? (
         <Spinner size={16} className="shrink-0" />
       ) : (
-        <SparklesIcon className="size-4" />
+        <Sparkle className="size-4" />
       )}
     </button>
   );
@@ -572,10 +572,10 @@ function HeaderViewEnhancedActive({
       {isGenerating ? (
         <Spinner size={16} className="shrink-0" />
       ) : (
-        <SparklesIcon className="size-4" />
+        <Sparkle className="size-4" />
       )}
       <span className="min-w-0 truncate text-xs font-medium">{viewTitle}</span>
-      <ChevronDownIcon className="size-3.5" />
+      <CaretDown className="size-3.5" />
     </button>
   );
 
@@ -652,7 +652,7 @@ function HeaderViewTranscriptButton({
         ) : isTranscribing ? (
           <Spinner size={16} className="shrink-0" />
         ) : (
-          <AudioLinesIcon className="size-4" />
+          <Waveform className="size-4" />
         )
       }
       onClick={onClick}
@@ -695,7 +695,7 @@ function HeaderViewTranscriptLiveIcon({
   return (
     <span className="relative flex size-4 items-center justify-center">
       {live.muted ? (
-        <AudioLinesIcon className="size-4" />
+        <Waveform className="size-4" />
       ) : (
         <DancingSticks
           amplitude={live.amplitude}
@@ -1111,7 +1111,7 @@ function TemplatePickerPopover({
       {
         key: "create",
         title: "Create new template",
-        icon: <PlusIcon className="h-3.5 w-3.5 text-blue-500" />,
+        icon: <Plus className="h-3.5 w-3.5 text-blue-500" />,
         uppercase: false,
         items: [
           {
@@ -1201,7 +1201,7 @@ function TemplatePickerPopover({
                   "flex h-8 items-center gap-2 rounded-md px-2.5",
                 ])}
               >
-                <SearchIcon className="text-muted-foreground h-4 w-4" />
+                <MagnifyingGlass className="text-muted-foreground h-4 w-4" />
                 <input
                   ref={searchInputRef}
                   autoFocus
@@ -1217,7 +1217,7 @@ function TemplatePickerPopover({
                     onClick={() => setSearch("")}
                     className="hover:bg-accent rounded-xs p-0.5"
                   >
-                    <XIcon className="text-muted-foreground h-3 w-3" />
+                    <X className="text-muted-foreground h-3 w-3" />
                   </button>
                 )}
               </div>
@@ -1277,7 +1277,7 @@ function TemplatePickerPopover({
             ])}
           >
             {t`See all templates`}
-            <ChevronRightIcon className="h-3.5 w-3.5" />
+            <CaretRight className="h-3.5 w-3.5" />
           </button>
         </div>
       </PopoverContent>
@@ -1542,7 +1542,7 @@ function TemplateResultButton({
         {title}
       </span>
       {isFavorite ? (
-        <HeartIcon
+        <Heart
           aria-hidden
           className="size-3.5 shrink-0 fill-rose-500 text-rose-500"
         />

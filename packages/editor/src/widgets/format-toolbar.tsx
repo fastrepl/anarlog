@@ -12,13 +12,13 @@ import {
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
 import {
-  BoldIcon,
-  CodeIcon,
-  HighlighterIcon,
-  ItalicIcon,
-  StrikethroughIcon,
-  UnderlineIcon,
-} from "lucide-react";
+  Code,
+  Highlighter,
+  TextB,
+  TextItalic,
+  TextStrikethrough,
+  TextUnderline,
+} from "@phosphor-icons/react";
 import { toggleMark } from "prosemirror-commands";
 import type { MarkType } from "prosemirror-model";
 import type { EditorState } from "prosemirror-state";
@@ -60,12 +60,12 @@ const TOOLBAR_BUTTONS: {
   icon: React.ComponentType<{ className?: string }>;
   markType: MarkType;
 }[] = [
-  { id: "bold", icon: BoldIcon, markType: schema.marks.bold },
-  { id: "italic", icon: ItalicIcon, markType: schema.marks.italic },
-  { id: "underline", icon: UnderlineIcon, markType: schema.marks.underline },
-  { id: "strike", icon: StrikethroughIcon, markType: schema.marks.strike },
-  { id: "code", icon: CodeIcon, markType: schema.marks.code },
-  { id: "highlight", icon: HighlighterIcon, markType: schema.marks.highlight },
+  { id: "bold", icon: TextB, markType: schema.marks.bold },
+  { id: "italic", icon: TextItalic, markType: schema.marks.italic },
+  { id: "underline", icon: TextUnderline, markType: schema.marks.underline },
+  { id: "strike", icon: TextStrikethrough, markType: schema.marks.strike },
+  { id: "code", icon: Code, markType: schema.marks.code },
+  { id: "highlight", icon: Highlighter, markType: schema.marks.highlight },
 ];
 
 export function FormatToolbar() {

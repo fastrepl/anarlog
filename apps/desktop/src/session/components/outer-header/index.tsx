@@ -1,10 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import {
-  ChevronDownIcon,
-  HeadsetIcon,
-  SquareIcon,
-  VideoIcon,
-} from "lucide-react";
+import { CaretDown, Headset, Square, VideoCamera } from "@phosphor-icons/react";
 import { useCallback, useRef, useState } from "react";
 
 import { commands as deeplinkCommands } from "@anlg/plugin-deeplink2";
@@ -252,7 +247,7 @@ function HeaderMeetingActionPill({
       return {
         label: t`Stop`,
         title: t`Stop listening`,
-        icon: <SquareIcon className="size-3 fill-current text-red-500" />,
+        icon: <Square className="size-3 text-red-500" weight="fill" />,
         onClick: stopListening,
       };
     }
@@ -261,7 +256,7 @@ function HeaderMeetingActionPill({
       return {
         label: t`Stop`,
         title: t`Stop transcription`,
-        icon: <SquareIcon className="size-3 fill-current text-red-500" />,
+        icon: <Square className="size-3 text-red-500" weight="fill" />,
         onClick: () => {
           void stopTranscription(sessionId);
         },
@@ -349,7 +344,7 @@ function HeaderMeetingActionPill({
                 open && "bg-accent text-foreground",
               ])}
             >
-              <ChevronDownIcon size={14} />
+              <CaretDown size={14} />
             </button>
           )}
         />
@@ -383,12 +378,12 @@ function getMeetingDisplay(type: RemoteMeeting["type"]) {
     case "cal-com":
       return {
         name: "Cal.com",
-        icon: <VideoIcon size={18} />,
+        icon: <VideoCamera size={18} />,
       };
     default:
       return {
         name: "Meeting",
-        icon: <HeadsetIcon size={18} />,
+        icon: <Headset size={18} />,
       };
   }
 }

@@ -1,7 +1,7 @@
 import "./chat-input.css";
 
 import { useLingui } from "@lingui/react/macro";
-import { ArrowUpIcon, SquareIcon } from "lucide-react";
+import { ArrowUp, Square } from "@phosphor-icons/react";
 import { useMemo, useRef } from "react";
 
 import { ChatEditor, type ChatEditorHandle } from "@anlg/editor/chat";
@@ -149,7 +149,7 @@ export function ChatMessageInput({
                 className="h-7 w-7 rounded-full"
                 aria-label={t`Stop response`}
               >
-                <SquareIcon size={14} className="fill-current" />
+                <Square size={14} weight="fill" />
               </Button>
             ) : (
               <button
@@ -167,7 +167,7 @@ export function ChatMessageInput({
                   ],
                 ])}
               >
-                <ArrowUpIcon size={15} strokeWidth={2.25} />
+                <ArrowUp size={15} weight="bold" />
               </button>
             )}
           </div>

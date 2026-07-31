@@ -1,5 +1,5 @@
 import { Trans } from "@lingui/react/macro";
-import { CheckCircle2Icon } from "lucide-react";
+import { CheckCircle } from "@phosphor-icons/react";
 
 import { PRO_TRIAL_DAYS } from "@anlg/pricing";
 
@@ -86,7 +86,7 @@ export function AfterLogin({ onContinue }: { onContinue: () => void }) {
 
   return (
     <div className="flex items-center gap-2 text-sm text-emerald-600">
-      <CheckCircle2Icon className="size-4" />
+      <CheckCircle className="size-4" />
       <span>
         <Trans>Signed in</Trans>
       </span>

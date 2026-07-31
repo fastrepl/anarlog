@@ -3,13 +3,13 @@ import {
   useEditorEventCallback,
 } from "@handlewithcare/react-prosemirror";
 import {
-  ExternalLinkIcon,
-  FileIcon,
-  FileSpreadsheetIcon,
-  FileTextIcon,
-  ImageIcon,
-  XIcon,
-} from "lucide-react";
+  ArrowSquareOut,
+  File,
+  FileText,
+  FileXls,
+  Image,
+  X,
+} from "@phosphor-icons/react";
 import type { NodeSpec } from "prosemirror-model";
 import { forwardRef } from "react";
 
@@ -22,21 +22,20 @@ import {
 } from "./attachment-resolver";
 import { getSafeNodePos } from "./error-boundary";
 
-const MIME_ICON_MAP: Record<string, typeof FileIcon> = {
-  "application/pdf": FileTextIcon,
-  "text/plain": FileTextIcon,
-  "text/csv": FileSpreadsheetIcon,
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-    FileSpreadsheetIcon,
-  "application/vnd.ms-excel": FileSpreadsheetIcon,
+const MIME_ICON_MAP: Record<string, typeof File> = {
+  "application/pdf": FileText,
+  "text/plain": FileText,
+  "text/csv": FileXls,
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": FileXls,
+  "application/vnd.ms-excel": FileXls,
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-    FileTextIcon,
-  "application/msword": FileTextIcon,
+    FileText,
+  "application/msword": FileText,
 };
 
 function getFileIcon(mimeType: string) {
-  if (mimeType.startsWith("image/")) return ImageIcon;
-  return MIME_ICON_MAP[mimeType] ?? FileIcon;
+  if (mimeType.startsWith("image/")) return Image;
+  return MIME_ICON_MAP[mimeType] ?? File;
 }
 
 function formatFileSize(bytes: number | null): string {
@@ -183,7 +182,7 @@ export const FileAttachmentView = forwardRef<
               className="hover:bg-accent rounded p-1"
               title="Open file"
             >
-              <ExternalLinkIcon size={14} className="text-muted-foreground" />
+              <ArrowSquareOut size={14} className="text-muted-foreground" />
             </button>
           )}
           {attachmentEditingEnabled ? (
@@ -197,7 +196,7 @@ export const FileAttachmentView = forwardRef<
               className="hover:bg-accent rounded p-1"
               title="Remove attachment"
             >
-              <XIcon size={14} className="text-muted-foreground" />
+              <X size={14} className="text-muted-foreground" />
             </button>
           ) : null}
         </div>

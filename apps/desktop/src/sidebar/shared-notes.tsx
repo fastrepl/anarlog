@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { UsersRoundIcon } from "lucide-react";
+import { Users } from "@phosphor-icons/react";
 import { useMemo } from "react";
 
 import { cn } from "@anlg/utils";
@@ -28,7 +28,7 @@ export function SharedNotesNav() {
   return (
     <section className="border-border/60 shrink-0 border-b px-2 pt-1 pb-2">
       <div className="text-muted-foreground flex items-center gap-1.5 px-1.5 py-1 text-xs font-medium">
-        <UsersRoundIcon className="size-3.5" />
+        <Users className="size-3.5" />
         <span>
           <Trans>Shared with me</Trans>
         </span>
@@ -56,7 +56,7 @@ export function SharedNotesNav() {
                   : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
               ])}
             >
-              <UsersRoundIcon className="size-3.5 shrink-0" />
+              <Users className="size-3.5 shrink-0" />
               <span className="truncate">{note.title || t`Untitled`}</span>
             </button>
           );

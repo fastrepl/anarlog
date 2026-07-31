@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { HeartIcon, MoreHorizontalIcon, PlusIcon } from "lucide-react";
+import { DotsThree, Heart, Plus } from "@phosphor-icons/react";
 import { useState } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
@@ -95,7 +95,7 @@ function TemplateDetailEmpty({ onCreate }: { onCreate: () => void }) {
         onClick={onCreate}
         className="gap-2"
       >
-        <PlusIcon className="size-4" />
+        <Plus className="size-4" />
         <Trans>Create template</Trans>
       </Button>
     </div>
@@ -160,7 +160,7 @@ function WebTemplatePreview({
               title={t`Favorite template`}
               aria-label={t`Favorite template`}
             >
-              <HeartIcon className="size-4" />
+              <Heart className="size-4" />
             </Button>
             <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>
               <DropdownMenuTrigger asChild>
@@ -174,7 +174,7 @@ function WebTemplatePreview({
                   ])}
                   aria-label={t`Template actions`}
                 >
-                  <MoreHorizontalIcon className="size-4" />
+                  <DotsThree className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent variant="app" align="end">

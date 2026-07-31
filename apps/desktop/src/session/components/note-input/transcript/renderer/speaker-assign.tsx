@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { SearchIcon } from "lucide-react";
+import { MagnifyingGlass } from "@phosphor-icons/react";
 import { useCallback, useMemo, useState } from "react";
 
 import type { EventParticipant } from "@anlg/store";
@@ -448,7 +448,10 @@ function ParticipantList({
       <AppFloatingPanel className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="border-border border-b py-2">
           <div className="flex h-9 items-center gap-2 px-3">
-            <SearchIcon size={16} className="text-muted-foreground shrink-0" />
+            <MagnifyingGlass
+              size={16}
+              className="text-muted-foreground shrink-0"
+            />
             <input
               autoFocus
               type="search"

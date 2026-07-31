@@ -1,8 +1,8 @@
 import { Icon } from "@iconify-icon/react";
 import { Trans, useLingui } from "@lingui/react/macro";
+import { ArrowSquareOut } from "@phosphor-icons/react";
 import { type AnyFieldApi, useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ExternalLink } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Streamdown } from "streamdown";
 
@@ -342,7 +342,7 @@ export function NonAnarlogProviderCard({
                   className="text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 hover:underline"
                 >
                   {config.links.download.label}
-                  <ExternalLink size={12} />
+                  <ArrowSquareOut size={12} />
                 </a>
               )}
               {config.links.models && (
@@ -353,7 +353,7 @@ export function NonAnarlogProviderCard({
                   className="text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 hover:underline"
                 >
                   {config.links.models.label}
-                  <ExternalLink size={12} />
+                  <ArrowSquareOut size={12} />
                 </a>
               )}
               {config.links.setup && (
@@ -364,7 +364,7 @@ export function NonAnarlogProviderCard({
                   className="text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 hover:underline"
                 >
                   {config.links.setup.label}
-                  <ExternalLink size={12} />
+                  <ArrowSquareOut size={12} />
                 </a>
               )}
             </div>

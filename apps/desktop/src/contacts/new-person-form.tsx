@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { CornerDownLeft } from "lucide-react";
+import { ArrowElbowDownLeft } from "@phosphor-icons/react";
 import React, { useState } from "react";
 
 import { createHuman } from "~/contacts/queries";
@@ -62,7 +62,7 @@ export function NewPersonForm({
               className="text-muted-foreground hover:text-muted-foreground shrink-0 transition-colors"
               aria-label={t`Add person`}
             >
-              <CornerDownLeft className="size-4" />
+              <ArrowElbowDownLeft className="size-4" />
             </button>
           )}
         </div>

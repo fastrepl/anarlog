@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { FolderIcon } from "lucide-react";
+import { Folder } from "@phosphor-icons/react";
 import { useMemo } from "react";
 
 import { cn } from "@anlg/utils";
@@ -30,7 +30,7 @@ export function NoteTitleBreadcrumb({
         {folderChain.length > 0 ? (
           <>
             <li className="mr-1 shrink-0">
-              <FolderIcon aria-hidden="true" className="size-3" />
+              <Folder aria-hidden="true" className="size-3" />
             </li>
             {folderChain.map((folder, index) => (
               <BreadcrumbFolderCrumb

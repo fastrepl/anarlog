@@ -1,6 +1,6 @@
 import { Trans } from "@lingui/react/macro";
+import { CircleNotch } from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
-import { Loader2Icon } from "lucide-react";
 import { motion } from "motion/react";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 
@@ -368,7 +368,7 @@ function OAuthCalendarProviderAction({
         ) : (
           <>
             {isOpening ? (
-              <Loader2Icon
+              <CircleNotch
                 className="size-4 shrink-0 animate-spin"
                 aria-hidden="true"
               />

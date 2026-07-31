@@ -1,11 +1,11 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
-  CalendarOffIcon,
-  CheckIcon,
-  EllipsisIcon,
-  Loader2Icon,
-  RefreshCwIcon,
-} from "lucide-react";
+  ArrowsClockwise,
+  CalendarSlash,
+  Check,
+  CircleNotch,
+  DotsThree,
+} from "@phosphor-icons/react";
 import { type MouseEvent, useRef, useState } from "react";
 
 import { cn } from "@anlg/utils";
@@ -61,14 +61,14 @@ export function CalendarSelection({
       >
         {isLoading ? (
           <>
-            <Loader2Icon className="text-muted-foreground/70 mb-2 size-6 animate-spin" />
+            <CircleNotch className="text-muted-foreground/70 mb-2 size-6 animate-spin" />
             <p className="text-muted-foreground text-xs">
               <Trans>Loading calendars...</Trans>
             </p>
           </>
         ) : (
           <>
-            <CalendarOffIcon className="text-muted-foreground/70 mb-2 size-6" />
+            <CalendarSlash className="text-muted-foreground/70 mb-2 size-6" />
             <div className="text-muted-foreground flex items-center gap-1 text-xs">
               <p>
                 <Trans>No calendars found</Trans>
@@ -80,7 +80,7 @@ export function CalendarSelection({
                   className="text-muted-foreground hover:bg-accent hover:text-muted-foreground rounded p-1 transition-colors"
                   aria-label={t`Refresh calendars`}
                 >
-                  <RefreshCwIcon className="size-3" />
+                  <ArrowsClockwise className="size-3" />
                 </button>
               ) : null}
             </div>
@@ -172,7 +172,7 @@ function CalendarGroupMenuButton({
       ])}
       aria-label={t`Open calendar account actions`}
     >
-      <EllipsisIcon className="size-4" />
+      <DotsThree className="size-4" />
     </button>
   );
 }
@@ -225,10 +225,7 @@ function CalendarToggleRow({
         }
       >
         {shownEnabled && (
-          <CheckIcon
-            className="text-primary-foreground size-3"
-            strokeWidth={3}
-          />
+          <Check className="text-primary-foreground size-3" weight="bold" />
         )}
       </div>
       <span className="truncate text-sm">{calendar.title}</span>

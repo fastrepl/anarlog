@@ -59,7 +59,7 @@
     "html-to-image": "^1.11.13",
     "jszip": "^3.10.1",
     "jwt-decode": "^4.0.0",
-    "lucide-react": "^0.544.0",
+    "@phosphor-icons/react": "^2.1.10",
     "mdx-mermaid": "^2.0.3",
     "mermaid": "^11.14.0",
     "motion": "^11.18.2",

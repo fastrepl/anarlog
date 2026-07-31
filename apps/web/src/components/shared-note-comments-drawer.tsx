@@ -1,4 +1,4 @@
-import { MessageSquareIcon } from "lucide-react";
+import { Chat } from "@phosphor-icons/react";
 
 import { Avatar } from "@anlg/ui/components/avatar";
 import {
@@ -33,7 +33,7 @@ export function SharedNoteCommentsDrawer({
             "focus-visible:ring-2 focus-visible:ring-stone-900 focus-visible:ring-offset-2 focus-visible:outline-hidden",
           ])}
         >
-          <MessageSquareIcon className="size-[19px]" aria-hidden="true" />
+          <Chat className="size-[19px]" aria-hidden="true" />
           {count > 0 ? (
             <span className="absolute -top-0.5 -right-0.5 grid min-w-4 place-items-center rounded-full border-2 border-white bg-stone-700 px-0.5 text-[9px] leading-3 text-white">
               {count > 99 ? "99+" : count}

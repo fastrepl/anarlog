@@ -13,7 +13,7 @@ import {
   useEditorEventListener,
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
-import { Building2Icon, StickyNoteIcon, UserIcon } from "lucide-react";
+import { Buildings, Note, User } from "@phosphor-icons/react";
 import {
   type EditorState,
   NodeSelection,
@@ -220,11 +220,11 @@ export function MentionSuggestion({ config }: { config: MentionConfig }) {
           onMouseEnter={() => setSelectedIndex(index)}
         >
           {item.type === "session" ? (
-            <StickyNoteIcon className="mention-type-icon mention-type-session" />
+            <Note className="mention-type-icon mention-type-session" />
           ) : item.type === "human" ? (
-            <UserIcon className="mention-type-icon mention-type-human" />
+            <User className="mention-type-icon mention-type-human" />
           ) : item.type === "organization" ? (
-            <Building2Icon className="mention-type-icon mention-type-organization" />
+            <Buildings className="mention-type-icon mention-type-organization" />
           ) : null}
           <span className="mention-label">{item.label}</span>
         </button>

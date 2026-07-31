@@ -2,7 +2,7 @@ import {
   type NodeViewComponentProps,
   useEditorEventCallback,
 } from "@handlewithcare/react-prosemirror";
-import { FileIcon, XIcon } from "lucide-react";
+import { File, X } from "@phosphor-icons/react";
 import type { NodeSpec } from "prosemirror-model";
 import { forwardRef } from "react";
 
@@ -81,7 +81,7 @@ export const AttachmentChipView = forwardRef<
             className="h-4 w-4 shrink-0 rounded object-cover"
           />
         ) : (
-          <FileIcon size={12} className="text-muted-foreground shrink-0" />
+          <File size={12} className="text-muted-foreground shrink-0" />
         )}
         <span className="max-w-[120px] truncate">{displayName}</span>
         <button
@@ -93,7 +93,7 @@ export const AttachmentChipView = forwardRef<
           }}
           className="hover:bg-accent shrink-0 rounded p-0.5"
         >
-          <XIcon size={10} />
+          <X size={10} />
         </button>
       </span>
     </span>

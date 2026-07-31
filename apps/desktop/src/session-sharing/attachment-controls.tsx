@@ -1,11 +1,11 @@
-import { useMutation } from "@tanstack/react-query";
 import {
-  AlertCircleIcon,
-  CloudIcon,
-  Loader2Icon,
-  PaperclipIcon,
-  RefreshCwIcon,
-} from "lucide-react";
+  ArrowsClockwise,
+  CircleNotch,
+  Cloud,
+  Paperclip,
+  WarningCircle,
+} from "@phosphor-icons/react";
+import { useMutation } from "@tanstack/react-query";
 
 import { Button } from "@anlg/ui/components/ui/button";
 import {
@@ -88,9 +88,9 @@ export function SessionAttachmentControls({
               <div className="flex items-start gap-2.5">
                 <div className="bg-muted mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg">
                   {attachment.sourceType === "session_audio" ? (
-                    <CloudIcon className="size-3.5" aria-hidden="true" />
+                    <Cloud className="size-3.5" aria-hidden="true" />
                   ) : (
-                    <PaperclipIcon className="size-3.5" aria-hidden="true" />
+                    <Paperclip className="size-3.5" aria-hidden="true" />
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -119,9 +119,9 @@ export function SessionAttachmentControls({
                   >
                     {retryMutation.isPending &&
                     retryMutation.variables === attachment.id ? (
-                      <Loader2Icon className="size-3.5 animate-spin" />
+                      <CircleNotch className="size-3.5 animate-spin" />
                     ) : (
-                      <RefreshCwIcon className="size-3.5" />
+                      <ArrowsClockwise className="size-3.5" />
                     )}
                   </Button>
                 ) : null}
@@ -143,7 +143,7 @@ export function SessionAttachmentControls({
                     className="h-8 rounded-full text-xs"
                   >
                     {cloudPending ? (
-                      <Loader2Icon className="size-3 animate-spin" />
+                      <CircleNotch className="size-3 animate-spin" />
                     ) : null}
                     <SelectValue />
                   </SelectTrigger>
@@ -173,7 +173,7 @@ export function SessionAttachmentControls({
                     className="h-8 rounded-full text-xs"
                   >
                     {sharePending ? (
-                      <Loader2Icon className="size-3 animate-spin" />
+                      <CircleNotch className="size-3 animate-spin" />
                     ) : null}
                     <SelectValue />
                   </SelectTrigger>
@@ -191,12 +191,12 @@ export function SessionAttachmentControls({
                 </p>
               ) : attachment.localAvailability !== "present" ? (
                 <p className="text-muted-foreground mt-2 flex items-center gap-1 text-[11px]">
-                  <AlertCircleIcon className="size-3" aria-hidden="true" />
+                  <WarningCircle className="size-3" aria-hidden="true" />
                   This file is not available on this device yet.
                 </p>
               ) : attachment.cloudSyncEnabled && !attachment.cloudObjectKey ? (
                 <p className="text-muted-foreground mt-2 flex items-center gap-1 text-[11px]">
-                  <Loader2Icon
+                  <CircleNotch
                     className="size-3 animate-spin"
                     aria-hidden="true"
                   />

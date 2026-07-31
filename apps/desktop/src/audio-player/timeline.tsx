@@ -1,4 +1,4 @@
-import { Pause, Play } from "lucide-react";
+import { Pause, Play } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { cn } from "@anlg/utils";
@@ -111,12 +111,9 @@ export function Timeline({
           ])}
         >
           {state === "playing" ? (
-            <Pause
-              className="text-foreground h-3.5 w-3.5"
-              fill="currentColor"
-            />
+            <Pause className="text-foreground h-3.5 w-3.5" weight="fill" />
           ) : (
-            <Play className="text-foreground h-3.5 w-3.5" fill="currentColor" />
+            <Play className="text-foreground h-3.5 w-3.5" weight="fill" />
           )}
         </button>
       }

@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { ArrowLeftIcon } from "lucide-react";
+import { ArrowLeft } from "@phosphor-icons/react";
 import { type ReactNode, useCallback } from "react";
 
 import { cn } from "@anlg/utils";
@@ -59,7 +59,7 @@ export function CustomSidebarHeader({
           title={t`Back`}
           onClick={handleBack}
         >
-          <ArrowLeftIcon size={14} />
+          <ArrowLeft size={14} />
         </CustomSidebarHeaderButton>
         <h3 className="truncate font-sans text-sm font-medium select-none">
           {title}

@@ -1,7 +1,7 @@
 import { Trans } from "@lingui/react/macro";
+import { SpeakerHigh, SpeakerX } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { platform } from "@tauri-apps/plugin-os";
-import { Volume2Icon, VolumeXIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -202,9 +202,9 @@ function OnboardingScreenContent({
           aria-label={isMuted ? "Unmute" : "Mute"}
         >
           {isMuted ? (
-            <VolumeXIcon size={16} className="text-muted-foreground" />
+            <SpeakerX size={16} className="text-muted-foreground" />
           ) : (
-            <Volume2Icon size={16} className="text-muted-foreground" />
+            <SpeakerHigh size={16} className="text-muted-foreground" />
           )}
         </button>
       </div>

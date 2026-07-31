@@ -1,5 +1,5 @@
+import { Check, Copy } from "@phosphor-icons/react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { CheckIcon, CopyIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
@@ -110,12 +110,12 @@ function Component() {
             >
               {copied ? (
                 <>
-                  <CheckIcon className="size-4" />
+                  <Check className="size-4" />
                   Copied!
                 </>
               ) : (
                 <>
-                  <CopyIcon className="size-4" />
+                  <Copy className="size-4" />
                   Copy URL
                 </>
               )}

@@ -1,13 +1,13 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  CheckCircle2Icon,
-  InfoIcon,
-  Loader2Icon,
-  RotateCcwIcon,
-  Trash2Icon,
-  TriangleAlertIcon,
-} from "lucide-react";
+  ArrowCounterClockwise,
+  CheckCircle,
+  CircleNotch,
+  Info,
+  Trash,
+  Warning,
+} from "@phosphor-icons/react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import {
@@ -134,16 +134,16 @@ export function LegacyMigrationCleanupRow() {
       <div className="grid grid-cols-[minmax(0,1fr)_9rem] items-center gap-3">
         <div className="flex min-w-0 items-start gap-1.5 text-sm">
           {statusCopy.state === "loading" && (
-            <Loader2Icon className="text-muted-foreground mt-0.5 size-4 shrink-0 animate-spin" />
+            <CircleNotch className="text-muted-foreground mt-0.5 size-4 shrink-0 animate-spin" />
           )}
           {statusCopy.state === "success" && (
-            <CheckCircle2Icon className="mt-0.5 size-4 shrink-0 text-green-600" />
+            <CheckCircle className="mt-0.5 size-4 shrink-0 text-green-600" />
           )}
           {statusCopy.state === "warning" && (
-            <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-yellow-600" />
+            <Warning className="mt-0.5 size-4 shrink-0 text-yellow-600" />
           )}
           {statusCopy.state === "unavailable" && (
-            <InfoIcon className="text-muted-foreground mt-0.5 size-4 shrink-0" />
+            <Info className="text-muted-foreground mt-0.5 size-4 shrink-0" />
           )}
           <div className="min-w-0">
             <p className="font-medium">{statusCopy.label}</p>
@@ -162,9 +162,9 @@ export function LegacyMigrationCleanupRow() {
             disabled={retryMutation.isPending}
           >
             {retryMutation.isPending ? (
-              <Loader2Icon className="size-4 animate-spin" aria-hidden="true" />
+              <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
             ) : (
-              <RotateCcwIcon className="size-4" aria-hidden="true" />
+              <ArrowCounterClockwise className="size-4" aria-hidden="true" />
             )}
             {t`Retry`}
           </Button>
@@ -175,7 +175,7 @@ export function LegacyMigrationCleanupRow() {
             className="h-9 w-full justify-center"
             onClick={() => setConfirmationOpen(true)}
           >
-            <Trash2Icon className="size-4" aria-hidden="true" />
+            <Trash className="size-4" aria-hidden="true" />
             <Trans>Clean Up</Trans>
           </Button>
         )}

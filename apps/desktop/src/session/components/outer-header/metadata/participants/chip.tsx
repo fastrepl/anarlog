@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Loader2Icon, SparklesIcon, X } from "lucide-react";
+import { CircleNotch, Sparkle, X } from "@phosphor-icons/react";
 import { useCallback, useState } from "react";
 
 import { Badge } from "@anlg/ui/components/ui/badge";
@@ -134,9 +134,9 @@ function EnhanceContactButton({
           }}
         >
           {isEnhancing ? (
-            <Loader2Icon className="h-2.5 w-2.5 animate-spin" />
+            <CircleNotch className="h-2.5 w-2.5 animate-spin" />
           ) : (
-            <SparklesIcon className="h-2.5 w-2.5" />
+            <Sparkle className="h-2.5 w-2.5" />
           )}
         </Button>
       </TooltipTrigger>

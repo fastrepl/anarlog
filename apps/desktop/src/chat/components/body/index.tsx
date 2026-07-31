@@ -1,6 +1,6 @@
 import { Trans } from "@lingui/react/macro";
+import { CaretDown } from "@phosphor-icons/react";
 import type { ChatStatus } from "ai";
-import { ChevronDownIcon } from "lucide-react";
 
 import { Button } from "@anlg/ui/components/ui/button";
 import { cn } from "@anlg/utils";
@@ -105,7 +105,7 @@ export function ChatBody({
           ])}
           variant="outline"
         >
-          <ChevronDownIcon size={12} />
+          <CaretDown size={12} />
           <span className="text-xs">
             <Trans>Go to recent</Trans>
           </span>

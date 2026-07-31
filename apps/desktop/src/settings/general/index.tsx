@@ -1,7 +1,7 @@
 import { Trans } from "@lingui/react/macro";
+import { CircleNotch } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2Icon } from "lucide-react";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { commands as listenerCommands } from "@anlg/plugin-transcription";
@@ -149,7 +149,7 @@ export function SettingsApp() {
   if (isLoading || !data) {
     return (
       <div className="flex min-h-48 items-center justify-center">
-        <Loader2Icon
+        <CircleNotch
           aria-label="Loading settings"
           className="text-muted-foreground size-5 animate-spin"
         />

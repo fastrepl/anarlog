@@ -1,11 +1,11 @@
-import { platform } from "@tauri-apps/plugin-os";
 import {
-  ArrowUpIcon,
-  ArrowUpRightIcon,
-  Settings2Icon,
-  SparklesIcon,
-  XIcon,
-} from "lucide-react";
+  ArrowUp,
+  ArrowUpRight,
+  GearSix,
+  Sparkle,
+  X,
+} from "@phosphor-icons/react";
+import { platform } from "@tauri-apps/plugin-os";
 import { useEffect, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
@@ -136,7 +136,7 @@ function ComposerSettingsCard() {
             "hover:bg-primary-foreground/12 hover:text-primary-foreground",
           ])}
         >
-          <XIcon className="size-4" />
+          <X className="size-4" />
         </button>
       </div>
 
@@ -149,7 +149,7 @@ function ComposerSettingsCard() {
           "hover:bg-primary-foreground/10 hover:text-primary-foreground",
         ])}
       >
-        <Settings2Icon className="size-4" />
+        <GearSix className="size-4" />
         Configure a chat model in Settings
       </button>
     </div>
@@ -222,7 +222,7 @@ function ComposerInput({
               "hover:bg-primary-foreground/12 hover:text-primary-foreground transition-colors",
             ])}
           >
-            <ArrowUpRightIcon className="size-3.5" />
+            <ArrowUpRight className="size-3.5" />
             Open Anarlog
           </button>
           <button
@@ -235,7 +235,7 @@ function ComposerInput({
               "hover:bg-primary-foreground/12 hover:text-primary-foreground",
             ])}
           >
-            <XIcon className="size-4" />
+            <X className="size-4" />
           </button>
         </div>
       </div>
@@ -274,7 +274,7 @@ function ComposerInput({
               "hover:bg-primary-foreground/12 hover:text-primary-foreground",
             ])}
           >
-            <SparklesIcon className="size-3.5" />
+            <Sparkle className="size-3.5" />
             Stop
           </button>
         ) : (
@@ -293,7 +293,7 @@ function ComposerInput({
               !hasContent && !disabled && "opacity-55",
             ])}
           >
-            <ArrowUpIcon className="size-4" />
+            <ArrowUp className="size-4" />
           </button>
         )}
       </div>

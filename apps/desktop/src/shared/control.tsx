@@ -1,10 +1,15 @@
 import {
+  ArrowClockwise,
+  House,
+  MagnifyingGlass,
+  Warning,
+} from "@phosphor-icons/react";
+import {
   type ErrorRouteComponent,
   NotFoundRouteComponent,
   useNavigate,
 } from "@tanstack/react-router";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { AlertTriangle, Home, RotateCw, Search } from "lucide-react";
 import { motion } from "motion/react";
 
 import { Button } from "@anlg/ui/components/ui/button";
@@ -73,7 +78,7 @@ const ReportedErrorComponent = ({ error }: { error: Error }) => {
                   stiffness: 200,
                 }}
               >
-                <AlertTriangle className="h-6 w-6 text-red-500" />
+                <Warning className="h-6 w-6 text-red-500" />
               </motion.div>
 
               <div className="flex flex-col gap-1.5">
@@ -87,7 +92,7 @@ const ReportedErrorComponent = ({ error }: { error: Error }) => {
 
               <div className="pt-2">
                 <Button size="sm" onClick={handleRestart}>
-                  <RotateCw className="mr-1.5 h-3.5 w-3.5" />
+                  <ArrowClockwise className="mr-1.5 h-3.5 w-3.5" />
                   Restart App
                 </Button>
               </div>
@@ -132,7 +137,7 @@ export const NotFoundComponent: NotFoundRouteComponent = () => {
                   stiffness: 200,
                 }}
               >
-                <Search className="text-muted-foreground h-6 w-6" />
+                <MagnifyingGlass className="text-muted-foreground h-6 w-6" />
               </motion.div>
 
               <div className="flex flex-col gap-1.5">
@@ -158,7 +163,7 @@ export const NotFoundComponent: NotFoundRouteComponent = () => {
 
               <div className="pt-2">
                 <Button size="sm" onClick={() => navigate({ to: "/app" })}>
-                  <Home className="mr-1.5 h-3.5 w-3.5" />
+                  <House className="mr-1.5 h-3.5 w-3.5" />
                   Go to Home
                 </Button>
               </div>

@@ -1,6 +1,6 @@
 import { Trans } from "@lingui/react/macro";
+import { CaretDown } from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
-import { ChevronDown } from "lucide-react";
 
 import {
   Accordion,
@@ -40,7 +40,7 @@ export function SettingsTodo() {
                   <span>{provider.displayName}</span>
                 </AccordionTriggerPrimitive>
               </AccordionHeader>
-              <ChevronDown
+              <CaretDown
                 className={cn([
                   "text-muted-foreground size-4 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100 focus-within:opacity-100",
                   "group-data-[state=open]/provider:rotate-180",

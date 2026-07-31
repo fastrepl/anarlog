@@ -1,10 +1,10 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
-  AlertCircleIcon,
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  CheckIcon,
-} from "lucide-react";
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  WarningCircle,
+} from "@phosphor-icons/react";
 import { useState } from "react";
 
 import { type PermissionStatus } from "@anlg/plugin-permissions";
@@ -80,7 +80,7 @@ export function AccessPermissionRow({
             !isAuthorized && "text-red-500",
           ])}
         >
-          {!isAuthorized && <AlertCircleIcon className="size-4" />}
+          {!isAuthorized && <WarningCircle className="size-4" />}
           <h3 className="text-sm font-medium">{title}</h3>
         </div>
         <TroubleShootingLink
@@ -107,9 +107,9 @@ export function AccessPermissionRow({
           }
         >
           {isAuthorized ? (
-            <CheckIcon className="size-5" />
+            <Check className="size-5" />
           ) : (
-            <ArrowRightIcon className="size-5" />
+            <ArrowRight className="size-5" />
           )}
         </Button>
       )}
@@ -157,7 +157,7 @@ export function TroubleShootingLink({
           </ActionLink>{" "}
           <Trans>permission panel.</Trans>{" "}
           <ActionLink onClick={() => setShowActions(false)}>
-            <ArrowLeftIcon className="inline-block size-3 underline" />
+            <ArrowLeft className="inline-block size-3 underline" />
             <Trans>Back</Trans>
           </ActionLink>
         </div>

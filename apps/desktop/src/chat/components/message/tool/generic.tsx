@@ -1,4 +1,4 @@
-import { WrenchIcon } from "lucide-react";
+import { Wrench } from "@phosphor-icons/react";
 
 import { useToolState } from "./shared";
 
@@ -56,7 +56,7 @@ export function ToolGeneric({ part }: { part: Record<string, unknown> }) {
 
     return (
       <Disclosure
-        icon={<WrenchIcon className="h-3 w-3" />}
+        icon={<Wrench className="h-3 w-3" />}
         title={
           failed
             ? `${formatToolName(toolName)} failed`
@@ -82,7 +82,7 @@ export function ToolGeneric({ part }: { part: Record<string, unknown> }) {
 
   return (
     <Disclosure
-      icon={<WrenchIcon className="h-3 w-3" />}
+      icon={<Wrench className="h-3 w-3" />}
       title={`Running ${formatToolName(toolName)}…`}
       disabled
     >

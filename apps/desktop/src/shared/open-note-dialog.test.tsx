@@ -98,7 +98,9 @@ describe("OpenNoteDialog", () => {
     const sharedNote = screen.getByRole("option", {
       name: "Shared roadmap",
     });
-    expect(sharedNote.querySelector(".lucide-users-round")).toBeTruthy();
+    expect(
+      sharedNote.querySelector("[data-testid='shared-note-icon']"),
+    ).toBeTruthy();
     expect(screen.queryByText("Owned note")).toBeNull();
     expect(screen.getByText("Owned canonical note")).toBeTruthy();
     expect(screen.getByText("Viewer local snapshot")).toBeTruthy();

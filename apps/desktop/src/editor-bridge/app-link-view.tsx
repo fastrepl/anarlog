@@ -3,8 +3,8 @@ import {
   useEditorEventCallback,
 } from "@handlewithcare/react-prosemirror";
 import { Figma, Github, Google, Notion } from "@lobehub/icons";
+import { Check } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { CheckIcon } from "lucide-react";
 import { forwardRef } from "react";
 
 import {
@@ -258,10 +258,7 @@ function Checkbox({ checked }: { checked: boolean }) {
       ])}
     >
       {checked && (
-        <CheckIcon
-          className="text-primary-foreground size-3.5"
-          strokeWidth={3}
-        />
+        <Check className="text-primary-foreground size-3.5" weight="bold" />
       )}
     </span>
   );

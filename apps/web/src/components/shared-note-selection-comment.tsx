@@ -5,7 +5,7 @@ import {
   offset,
   shift,
 } from "@floating-ui/dom";
-import { MessageSquarePlusIcon } from "lucide-react";
+import { ChatCenteredDots } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -85,7 +85,7 @@ export function SharedNoteSelectionComment({
       onMouseDown={(event) => event.preventDefault()}
       onClick={onStart}
     >
-      <MessageSquarePlusIcon className="size-4" aria-hidden="true" />
+      <ChatCenteredDots className="size-4" aria-hidden="true" />
       Comment
     </button>,
     document.body,

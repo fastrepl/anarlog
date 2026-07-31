@@ -1,6 +1,6 @@
+import { CircleNotch } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Loader2Icon } from "lucide-react";
 import { useCallback, useMemo } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
@@ -172,7 +172,7 @@ function EventPopoverContent({
         onClick={() => openNote.mutate()}
       >
         {openNote.isPending ? (
-          <Loader2Icon className="size-3.5 animate-spin" aria-hidden="true" />
+          <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
         ) : null}
         Open note
       </Button>

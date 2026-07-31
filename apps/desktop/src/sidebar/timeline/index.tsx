@@ -1,10 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  CalendarDaysIcon,
-  SunIcon,
-} from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarDots, Sun } from "@phosphor-icons/react";
 import {
   type ReactNode,
   memo,
@@ -591,7 +586,7 @@ export const TimelineView = memo(function TimelineView({
             {showOpenCalendarChip && (
               <TimelineTopChip
                 ariaLabel={t`Open calendar`}
-                icon={<CalendarDaysIcon size={12} />}
+                icon={<CalendarDots size={12} />}
                 onClick={handleOpenCalendar}
               >
                 <Trans>Open calendar</Trans>
@@ -643,7 +638,7 @@ function SidebarUpcomingMeetingStatus({
       ariaLabel={`${title || t`Meeting`} ${label.toLowerCase()}`}
       data-sidebar-upcoming-meeting-status
       className="border-destructive bg-destructive text-destructive-foreground w-28 justify-center shadow-md"
-      icon={<ArrowUpIcon aria-hidden className="size-3" strokeWidth={2.4} />}
+      icon={<ArrowUp aria-hidden className="size-3" weight="bold" />}
       onClick={onClick}
     >
       {label}
@@ -798,7 +793,7 @@ function TimelineNowChip({
   direction: "up" | "down";
   onClick: () => void;
 }) {
-  const DirectionIcon = direction === "up" ? ArrowUpIcon : ArrowDownIcon;
+  const DirectionIcon = direction === "up" ? ArrowUp : ArrowDown;
   const { t } = useLingui();
 
   return (
@@ -814,7 +809,7 @@ function TimelineNowChip({
       onClick={onClick}
     >
       {direction === "up" ? <DirectionIcon size={12} /> : null}
-      <SunIcon size={13} className="shrink-0 text-yellow-400" />
+      <Sun size={13} className="shrink-0 text-yellow-400" />
       <span>
         <Trans>Now</Trans>
       </span>

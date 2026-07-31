@@ -1,9 +1,9 @@
 import {
-  ListChecksIcon,
-  MailIcon,
-  SearchIcon,
-  SparklesIcon,
-} from "lucide-react";
+  Envelope,
+  ListChecks,
+  MagnifyingGlass,
+  Sparkle,
+} from "@phosphor-icons/react";
 import { useCallback } from "react";
 
 import { cn } from "@anlg/utils";
@@ -15,17 +15,17 @@ import { useTabs } from "~/store/zustand/tabs";
 const SUGGESTIONS = [
   {
     label: "List action items.",
-    icon: ListChecksIcon,
+    icon: ListChecks,
     prompt: "What are my action items from this meeting?",
   },
   {
     label: "Draft follow-up email.",
-    icon: MailIcon,
+    icon: Envelope,
     prompt: "Draft a follow-up email to the participants",
   },
   {
     label: "Find key decisions.",
-    icon: SearchIcon,
+    icon: MagnifyingGlass,
     prompt: "What were the key decisions that have been made?",
   },
 ];
@@ -92,7 +92,7 @@ export function ChatBodyEmpty({
               "hover:bg-primary/90 shadow-[0_4px_14px_rgba(87,83,78,0.18)] transition-colors",
             ])}
           >
-            <SparklesIcon size={12} />
+            <Sparkle size={12} />
             Open AI Settings
           </button>
         </div>

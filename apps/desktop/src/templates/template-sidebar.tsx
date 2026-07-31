@@ -1,12 +1,12 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
-  ArrowDownUp,
-  BookText,
+  ArrowsDownUp,
+  BookOpenText,
+  MagnifyingGlass,
   Plus,
-  Search,
-  SparklesIcon,
+  Sparkle,
   X,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
@@ -346,7 +346,7 @@ export function TemplatesSidebarContent({
                   variant="ghost"
                   className="text-muted-foreground relative z-[60] hover:text-black"
                 >
-                  <ArrowDownUp size={16} />
+                  <ArrowsDownUp size={16} />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent variant="app" align="end">
@@ -383,7 +383,7 @@ export function TemplatesSidebarContent({
               "focus-within:bg-accent transition-colors",
             ])}
           >
-            <Search className="text-muted-foreground h-4 w-4 shrink-0" />
+            <MagnifyingGlass className="text-muted-foreground h-4 w-4 shrink-0" />
             <input
               type="text"
               value={search}
@@ -419,7 +419,7 @@ export function TemplatesSidebarContent({
       >
         {isEmpty ? (
           <div className="text-muted-foreground px-3 py-8 text-center">
-            <BookText
+            <BookOpenText
               size={32}
               className="text-muted-foreground/70 mx-auto mb-2"
             />
@@ -452,7 +452,7 @@ export function TemplatesSidebarContent({
                       ])}
                     >
                       <div className="flex items-center gap-2">
-                        <SparklesIcon className="size-4 text-violet-500" />
+                        <Sparkle className="size-4 text-violet-500" />
                         <div className="min-w-0 flex-1">
                           <div className="truncate font-medium">
                             {item.title}

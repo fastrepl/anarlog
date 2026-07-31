@@ -72,7 +72,9 @@ describe("PermissionsSection", () => {
         .getByRole("button", { name: "Enable accessibility" })
         .getAttribute("title"),
     ).toBe("Read meeting controls, visible chat, and participant status");
-    expect(container.querySelectorAll(".lucide-arrow-right")).toHaveLength(3);
+    expect(
+      container.querySelectorAll("[data-testid='permission-action-arrow']"),
+    ).toHaveLength(3);
   });
 
   it("waits for all three macOS permissions before continuing", () => {

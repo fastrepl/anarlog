@@ -1,6 +1,6 @@
+import { CircleNotch, FolderOpen } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { platform } from "@tauri-apps/plugin-os";
-import { FolderOpenIcon, Loader2Icon } from "lucide-react";
 
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
@@ -28,9 +28,9 @@ export function ShowInFolder({ sessionId }: { sessionId: string }) {
       className="cursor-pointer"
     >
       {isPending ? (
-        <Loader2Icon className="animate-spin" />
+        <CircleNotch className="animate-spin" />
       ) : (
-        <FolderOpenIcon />
+        <FolderOpen data-testid="show-in-folder-icon" />
       )}
       <span>{isPending ? "Opening..." : label}</span>
     </DropdownMenuItem>

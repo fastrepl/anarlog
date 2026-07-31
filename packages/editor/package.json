@@ -29,7 +29,7 @@
     "@anlg/store": "workspace:*",
     "@anlg/utils": "workspace:^",
     "facehash": "^0.0.7",
-    "lucide-react": "^0.544.0",
+    "@phosphor-icons/react": "^2.1.10",
     "markdown-it": "^14.1.1",
     "prosemirror-commands": "^1.7.1",
     "prosemirror-dropcursor": "^1.8.2",

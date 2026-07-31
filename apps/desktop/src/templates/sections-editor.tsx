@@ -1,9 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import {
-  GripVertical as HandleIcon,
-  MoreHorizontalIcon,
-  Plus,
-} from "lucide-react";
+import { DotsSixVertical, DotsThree, Plus } from "@phosphor-icons/react";
 import { Reorder, useDragControls } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -227,7 +223,7 @@ function SectionItem({
           onPointerDown={(event) => dragControls.start(event)}
           disabled={disabled}
         >
-          <HandleIcon className="text-muted-foreground h-4 w-4" />
+          <DotsSixVertical className="text-muted-foreground h-4 w-4" />
         </button>
       )}
 
@@ -242,7 +238,7 @@ function SectionItem({
                 className="text-muted-foreground hover:text-muted-foreground h-7 w-7"
                 aria-label={t`Section actions`}
               >
-                <MoreHorizontalIcon className="size-4" />
+                <DotsThree className="size-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent variant="app" align="end">

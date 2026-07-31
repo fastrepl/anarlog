@@ -1,18 +1,18 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
+  Check,
+  CircleNotch,
+  FolderOpen,
+  Trash,
+  Warning,
+} from "@phosphor-icons/react";
+import {
   useMutation,
   useQueries,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
 import { arch } from "@tauri-apps/plugin-os";
-import {
-  AlertTriangle,
-  Check,
-  FolderOpen,
-  Loader2,
-  Trash2,
-} from "lucide-react";
 import { useRef, useState } from "react";
 
 import {
@@ -410,7 +410,7 @@ function TranscriptionLanguageWarningToastLifecycle({
     sonnerToast.warning(description, {
       id: TRANSCRIPTION_LANGUAGE_WARNING_TOAST_ID,
       duration: Infinity,
-      icon: <AlertTriangle className="size-4 shrink-0 text-amber-500" />,
+      icon: <Warning className="size-4 shrink-0 text-amber-500" />,
       action: {
         label: actionLabel,
         onClick: () => {
@@ -769,7 +769,7 @@ function ModelSelectItem({
             "from-muted to-accent text-muted-foreground bg-linear-to-t",
           ])}
         >
-          <Loader2 className="size-3 animate-spin" />
+          <CircleNotch className="size-3 animate-spin" />
           {downloadInfo ? (
             <span>{Math.round(downloadInfo.progress)}%</span>
           ) : (
@@ -930,9 +930,9 @@ function LocalModelDropdownActions({ model }: { model: LocalModel }) {
         }}
       >
         {deleteModel.isPending ? (
-          <Loader2 className="size-3.5 animate-spin" />
+          <CircleNotch className="size-3.5 animate-spin" />
         ) : (
-          <Trash2 className="size-3.5" />
+          <Trash className="size-3.5" />
         )}
       </button>
     </div>

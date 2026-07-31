@@ -1,16 +1,16 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  CloudAlertIcon,
-  CheckCircle2Icon,
-  CloudOffIcon,
-  HardDriveIcon,
-  Loader2Icon,
-  PauseIcon,
-  PlayIcon,
-  RefreshCwIcon,
-  SettingsIcon,
-} from "lucide-react";
+  ArrowsClockwise,
+  CheckCircle,
+  CircleNotch,
+  CloudSlash,
+  CloudWarning,
+  Gear,
+  HardDrive,
+  Pause,
+  Play,
+} from "@phosphor-icons/react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSyncExternalStore } from "react";
 
 import { getCloudsyncStatus, syncCloudsyncNow } from "@anlg/plugin-db";
@@ -264,18 +264,18 @@ export function SyncStatusIndicator() {
           ])}
         >
           {view.kind === "error" && (
-            <CloudAlertIcon className="size-4 text-yellow-600" />
+            <CloudWarning className="size-4 text-yellow-600" />
           )}
           {view.kind === "connecting" && (
-            <Loader2Icon className="size-4 animate-spin text-blue-500" />
+            <CircleNotch className="size-4 animate-spin text-blue-500" />
           )}
           {view.kind === "syncing" && (
-            <RefreshCwIcon className="size-4 animate-spin text-blue-500" />
+            <ArrowsClockwise className="size-4 animate-spin text-blue-500" />
           )}
-          {view.kind === "deferred" && <HardDriveIcon className="size-4" />}
-          {view.kind === "paused" && <CloudOffIcon className="size-4" />}
+          {view.kind === "deferred" && <HardDrive className="size-4" />}
+          {view.kind === "paused" && <CloudSlash className="size-4" />}
           {view.kind === "synced" && (
-            <CheckCircle2Icon className="size-4 text-emerald-500" />
+            <CheckCircle className="size-4 text-emerald-500" />
           )}
         </button>
       </DropdownMenuTrigger>
@@ -305,7 +305,7 @@ export function SyncStatusIndicator() {
             syncNowMutation.mutate();
           }}
         >
-          <RefreshCwIcon className="size-4" />
+          <ArrowsClockwise className="size-4" />
           {canRetry ? <Trans>Retry</Trans> : <Trans>Sync now</Trans>}
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -313,9 +313,9 @@ export function SyncStatusIndicator() {
           onSelect={() => setSyncEnabledMutation.mutate(!syncPreferred)}
         >
           {syncPreferred ? (
-            <PauseIcon className="size-4" />
+            <Pause className="size-4" />
           ) : (
-            <PlayIcon className="size-4" />
+            <Play className="size-4" />
           )}
           {syncPreferred ? (
             <Trans>Pause sync</Trans>
@@ -325,7 +325,7 @@ export function SyncStatusIndicator() {
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={openSyncSettings}>
-          <SettingsIcon className="size-4" />
+          <Gear className="size-4" />
           <Trans>Sync settings</Trans>
         </DropdownMenuItem>
       </DropdownMenuContent>

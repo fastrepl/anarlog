@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Search, X } from "lucide-react";
+import { MagnifyingGlass, X } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 
 import { Badge } from "@anlg/ui/components/ui/badge";
@@ -150,7 +150,7 @@ export function SpokenLanguagesView({
             </Badge>
           ))}
           {selectedLanguageCodes.length === 0 && (
-            <Search className="text-muted-foreground size-4 shrink-0" />
+            <MagnifyingGlass className="text-muted-foreground size-4 shrink-0" />
           )}
           <input
             id="language-search-input"

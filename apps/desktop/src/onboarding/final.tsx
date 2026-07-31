@@ -1,7 +1,7 @@
 import { Icon } from "@iconify-icon/react";
 import { useLingui } from "@lingui/react";
 import { Trans } from "@lingui/react/macro";
-import { Loader2Icon } from "lucide-react";
+import { CircleNotch } from "@phosphor-icons/react";
 import { useRef, useState } from "react";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
@@ -101,7 +101,7 @@ export function FinalSection({
       >
         {status === "loading" ? (
           <span className="flex items-center gap-2">
-            <Loader2Icon className="size-4 animate-spin" />
+            <CircleNotch className="size-4 animate-spin" />
             <Trans>Open Anarlog</Trans>
           </span>
         ) : (

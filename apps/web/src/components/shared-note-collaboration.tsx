@@ -1,18 +1,18 @@
 import {
+  Chat,
+  Check,
+  CircleNotch,
+  Clock,
+  SignIn,
+  Trash,
+  X,
+} from "@phosphor-icons/react";
+import {
   useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import {
-  CheckIcon,
-  Clock3Icon,
-  LoaderCircleIcon,
-  LogInIcon,
-  MessageSquareIcon,
-  Trash2Icon,
-  XIcon,
-} from "lucide-react";
 
 import { Avatar } from "@anlg/ui/components/avatar";
 import { cn } from "@anlg/utils";
@@ -182,7 +182,7 @@ export function SharedNoteCollaboration({
       <div className="flex items-start justify-between gap-5">
         <div>
           <div className="text-color flex items-center gap-2">
-            <MessageSquareIcon className="size-5" aria-hidden="true" />
+            <Chat className="size-5" aria-hidden="true" />
             <h2
               id="shared-note-comments-heading"
               className="font-mono text-lg font-medium"
@@ -318,7 +318,7 @@ function CommentList({
   if (loading) {
     return (
       <div className="text-color-muted mt-6 flex items-center gap-2 text-sm">
-        <LoaderCircleIcon className="size-4 animate-spin" aria-hidden="true" />
+        <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
         Loading comments…
       </div>
     );
@@ -348,10 +348,7 @@ function CommentList({
           onClick={onLoadEarlier}
         >
           {loadingEarlier && (
-            <LoaderCircleIcon
-              className="size-4 animate-spin"
-              aria-hidden="true"
-            />
+            <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
           )}
           Load earlier comments
         </button>
@@ -404,12 +401,12 @@ function CommentList({
                     onClick={() => onDelete(comment.commentId)}
                   >
                     {deleting ? (
-                      <LoaderCircleIcon
+                      <CircleNotch
                         className="size-4 animate-spin"
                         aria-hidden="true"
                       />
                     ) : (
-                      <Trash2Icon className="size-4" aria-hidden="true" />
+                      <Trash className="size-4" aria-hidden="true" />
                     )}
                   </button>
                 )}
@@ -449,7 +446,7 @@ function SignInToCollaborate({ returnPath }: { returnPath: string }) {
         href={`/auth/?${search.toString()}`}
         className={cn([sharedPrimaryButtonClassName, "mt-4 sm:mt-0"])}
       >
-        <LogInIcon className="mr-2 size-4" aria-hidden="true" />
+        <SignIn className="mr-2 size-4" aria-hidden="true" />
         Sign in
       </a>
     </div>
@@ -474,7 +471,7 @@ function AccessRequestPanel({
   if (loading) {
     return (
       <div className="border-color-subtle text-color-muted mt-6 flex items-center gap-2 border-t pt-5 text-sm">
-        <LoaderCircleIcon className="size-4 animate-spin" aria-hidden="true" />
+        <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
         Checking comment access…
       </div>
     );
@@ -497,7 +494,7 @@ function AccessRequestPanel({
       <div className="sm:flex sm:items-center sm:justify-between sm:gap-5">
         <div>
           <p className="text-color flex items-center gap-2 font-mono text-sm font-medium">
-            {isPending && <Clock3Icon className="size-4" aria-hidden="true" />}
+            {isPending && <Clock className="size-4" aria-hidden="true" />}
             {isApproved ? "Comment access approved" : "Want to comment?"}
           </p>
           <p className="text-color-muted mt-1 text-sm leading-6">
@@ -613,7 +610,7 @@ function ManagerRequests({
                       onReview(request.entryId, "denied", request.capability)
                     }
                   >
-                    <XIcon className="mr-1.5 size-4" aria-hidden="true" />
+                    <X className="mr-1.5 size-4" aria-hidden="true" />
                     Deny
                   </button>
                   <button
@@ -628,12 +625,12 @@ function ManagerRequests({
                     }
                   >
                     {pending ? (
-                      <LoaderCircleIcon
+                      <CircleNotch
                         className="mr-1.5 size-4 animate-spin"
                         aria-hidden="true"
                       />
                     ) : (
-                      <CheckIcon className="mr-1.5 size-4" aria-hidden="true" />
+                      <Check className="mr-1.5 size-4" aria-hidden="true" />
                     )}
                     Approve
                   </button>
@@ -651,7 +648,7 @@ function ManagerRequests({
           onClick={onLoadEarlier}
         >
           {loadingEarlier && (
-            <LoaderCircleIcon
+            <CircleNotch
               className="mr-2 size-4 animate-spin"
               aria-hidden="true"
             />

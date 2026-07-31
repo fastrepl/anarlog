@@ -1,4 +1,4 @@
-import { Loader2Icon } from "lucide-react";
+import { CircleNotch } from "@phosphor-icons/react";
 import { useCallback, useMemo } from "react";
 
 import type { ConnectionItem } from "@anlg/api-client";
@@ -81,7 +81,7 @@ export function OAuthProviderContent({
           className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors disabled:opacity-50"
         >
           {isUpgradingToPro && (
-            <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+            <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
           )}
           Upgrade to connect
         </button>
@@ -148,7 +148,7 @@ export function OAuthProviderContent({
         className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors disabled:opacity-50"
       >
         {openingAction === "connect" && (
-          <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+          <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
         )}
         Connect {config.displayName} Calendar
       </button>
@@ -187,7 +187,7 @@ function ReconnectRequiredContent({
           className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors disabled:opacity-50"
         >
           {openingAction === "reconnect" && (
-            <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+            <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
           )}
           Reconnect
         </button>
@@ -198,7 +198,7 @@ function ReconnectRequiredContent({
           className="inline-flex cursor-pointer items-center gap-1 text-xs text-red-500 underline transition-colors hover:text-red-700 disabled:opacity-50"
         >
           {openingAction === "disconnect" && (
-            <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+            <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
           )}
           Disconnect
         </button>

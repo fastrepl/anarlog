@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { XIcon } from "lucide-react";
+import { X } from "@phosphor-icons/react";
 
 import { ChangelogContent } from "@anlg/changelog";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
@@ -182,7 +182,7 @@ function ChangelogHeader({
           title={t`Close`}
           onClick={onClose}
         >
-          <XIcon size={16} />
+          <X size={16} />
         </Button>
       </div>
     </div>

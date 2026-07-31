@@ -32,7 +32,7 @@
     "class-variance-authority": "^0.7.1",
     "cmdk": "1.1.1",
     "embla-carousel-react": "^8.6.0",
-    "lucide-react": "^0.544.0",
+    "@phosphor-icons/react": "^2.1.10",
     "motion": "^11.18.2",
     "react-resizable-panels": "^2.1.9",
     "sonner": "^1.7.4"

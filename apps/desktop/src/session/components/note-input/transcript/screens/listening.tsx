@@ -1,4 +1,4 @@
-import { AudioLinesIcon } from "lucide-react";
+import { Waveform } from "@phosphor-icons/react";
 
 import { Spinner } from "@anlg/ui/components/ui/spinner";
 
@@ -19,7 +19,7 @@ export function TranscriptListeningState({
           <Spinner size={36} />
         </div>
       ) : (
-        <AudioLinesIcon
+        <Waveform
           aria-hidden
           className="text-muted-foreground mb-5 size-9 stroke-[1.5]"
         />

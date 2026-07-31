@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { BracketsCurly, Sparkle } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { BracesIcon, SparklesIcon } from "lucide-react";
 import { useRef } from "react";
 
 import {
@@ -118,7 +118,7 @@ export function AutoPromptForm({
     >
       <div className="flex h-12 shrink-0 items-center justify-between gap-3 pr-1 pl-3">
         <div className="flex min-w-0 items-center gap-2">
-          <SparklesIcon className="size-4 shrink-0 text-violet-500" />
+          <Sparkle className="size-4 shrink-0 text-violet-500" />
           <span className="truncate text-sm font-semibold">Auto</span>
           <Badge variant="secondary" className="h-5 rounded-full text-[10px]">
             {isCustomized ? <Trans>Customized</Trans> : <Trans>Default</Trans>}
@@ -191,7 +191,7 @@ export function AutoPromptForm({
                           editorRef.current?.insertToken(token.name)
                         }
                       >
-                        <BracesIcon className="size-3.5" />
+                        <BracketsCurly className="size-3.5" />
                         {token.label}
                       </Button>
                     ))}

@@ -1,14 +1,14 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { platform } from "@tauri-apps/plugin-os";
 import {
-  ALargeSmallIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-  ReplaceAllIcon,
-  ReplaceIcon,
-  WholeWordIcon,
-  XIcon,
-} from "lucide-react";
+  CaretDown,
+  CaretUp,
+  Repeat,
+  Swap,
+  TextAa,
+  Textbox,
+  X,
+} from "@phosphor-icons/react";
+import { platform } from "@tauri-apps/plugin-os";
 import { useEffect, useRef } from "react";
 
 import type { NoteEditorRef } from "@anlg/editor/note";
@@ -222,14 +222,14 @@ export function SearchBar({
             onClick={toggleCaseSensitive}
             tooltip={t`Match case`}
           >
-            <ALargeSmallIcon className="size-3.5" />
+            <TextAa className="size-3.5" />
           </ToggleButton>
           <ToggleButton
             active={wholeWord}
             onClick={toggleWholeWord}
             tooltip={t`Match whole word`}
           >
-            <WholeWordIcon className="size-3.5" />
+            <Textbox className="size-3.5" />
           </ToggleButton>
           <ToggleButton
             active={showReplace}
@@ -243,7 +243,7 @@ export function SearchBar({
               </>
             }
           >
-            <ReplaceIcon className="size-3.5" />
+            <Swap className="size-3.5" />
           </ToggleButton>
         </div>
         <span className="text-muted-foreground text-[10px] whitespace-nowrap tabular-nums">
@@ -262,7 +262,7 @@ export function SearchBar({
               </>
             }
           >
-            <ChevronUpIcon className="size-3.5" />
+            <CaretUp className="size-3.5" />
           </IconButton>
           <IconButton
             onClick={onNext}
@@ -276,7 +276,7 @@ export function SearchBar({
               </>
             }
           >
-            <ChevronDownIcon className="size-3.5" />
+            <CaretDown className="size-3.5" />
           </IconButton>
         </div>
         <IconButton
@@ -290,7 +290,7 @@ export function SearchBar({
             </>
           }
         >
-          <XIcon className="size-3.5" />
+          <X className="size-3.5" />
         </IconButton>
       </div>
 
@@ -317,7 +317,7 @@ export function SearchBar({
                 </>
               }
             >
-              <ReplaceIcon className="size-3.5" />
+              <Swap className="size-3.5" />
             </IconButton>
             <IconButton
               onClick={replaceAll}
@@ -330,7 +330,7 @@ export function SearchBar({
                 </>
               }
             >
-              <ReplaceAllIcon className="size-3.5" />
+              <Repeat className="size-3.5" />
             </IconButton>
           </div>
         </div>

@@ -1,10 +1,5 @@
+import { CircleNotch, Pause, Play, SpeakerHigh } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  LoaderCircleIcon,
-  PauseIcon,
-  PlayIcon,
-  Volume2Icon,
-} from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
 import { cn } from "@anlg/utils";
@@ -121,7 +116,7 @@ export function SharedNoteAudioPlayer({
           "text-stone-600",
         ])}
       >
-        <Volume2Icon
+        <SpeakerHigh
           className="size-3.5 shrink-0 text-stone-400"
           aria-hidden="true"
         />
@@ -217,17 +212,11 @@ export function SharedNoteAudioPlayer({
         onClick={() => void togglePlayback()}
       >
         {downloadQuery.isPending && resolve ? (
-          <LoaderCircleIcon
-            className="size-3.5 animate-spin"
-            aria-hidden="true"
-          />
+          <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
         ) : playing ? (
-          <PauseIcon className="size-3.5 fill-current" aria-hidden="true" />
+          <Pause className="size-3.5" weight="fill" aria-hidden="true" />
         ) : (
-          <PlayIcon
-            className="ml-0.5 size-3.5 fill-current"
-            aria-hidden="true"
-          />
+          <Play className="ml-0.5 size-3.5" weight="fill" aria-hidden="true" />
         )}
       </button>
       <span className="flex shrink-0 gap-1 font-mono text-[10px] tabular-nums">
@@ -267,7 +256,7 @@ export function SharedNoteAudioPlayer({
         />
       </div>
       {!resolve ? (
-        <Volume2Icon
+        <SpeakerHigh
           className="size-3.5 shrink-0 text-stone-400"
           aria-hidden="true"
         />

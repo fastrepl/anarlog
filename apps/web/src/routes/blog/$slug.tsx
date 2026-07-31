@@ -1,7 +1,7 @@
 import { MDXContent } from "@content-collections/mdx/react";
+import { ArrowRight } from "@phosphor-icons/react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { type Article, allArticles } from "content-collections";
-import { ArrowRight } from "lucide-react";
 import {
   Children,
   cloneElement,
@@ -238,7 +238,7 @@ function BlogArticleCta() {
           className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-[#181613] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#363029]"
         >
           Try for free
-          <ArrowRight size={17} strokeWidth={2.2} aria-hidden="true" />
+          <ArrowRight size={17} weight="bold" aria-hidden="true" />
         </Link>
       </div>
     </aside>

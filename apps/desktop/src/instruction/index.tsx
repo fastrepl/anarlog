@@ -1,6 +1,6 @@
 import { Icon } from "@iconify-icon/react";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ChevronLeft, ExternalLink, Github } from "lucide-react";
+import { ArrowSquareOut, CaretLeft, GithubLogo } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
@@ -58,7 +58,7 @@ function InstructionShell({
             "text-muted-foreground hover:bg-muted/70 hover:text-muted-foreground flex h-9 items-center gap-1.5 rounded-full px-3 transition-colors",
           ])}
         >
-          <ChevronLeft className="h-4 w-4" />
+          <CaretLeft className="h-4 w-4" />
           <span className="text-xs font-medium">
             <Trans>Back</Trans>
           </span>
@@ -136,7 +136,7 @@ function ExternalInstruction({
             onClick={() => void openerCommands.openUrl(url, null)}
           >
             {actionLabel}
-            <ExternalLink className="size-3.5" />
+            <ArrowSquareOut className="size-3.5" />
           </Button>
         ) : undefined
       }
@@ -214,7 +214,7 @@ function getIntegrationInstruction(integrationId?: string):
     case "github":
       return {
         displayName: "GitHub",
-        icon: <Github className="text-foreground size-14" strokeWidth={1.5} />,
+        icon: <GithubLogo className="text-foreground size-14" weight="light" />,
       };
     default:
       return undefined;

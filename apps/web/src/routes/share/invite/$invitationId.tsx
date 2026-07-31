@@ -1,12 +1,12 @@
+import {
+  CheckCircle,
+  Clock,
+  EnvelopeOpen,
+  Prohibit,
+  SignIn,
+} from "@phosphor-icons/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ClientOnly, createFileRoute } from "@tanstack/react-router";
-import {
-  CircleCheckIcon,
-  Clock3Icon,
-  LogInIcon,
-  MailCheckIcon,
-  MailXIcon,
-} from "lucide-react";
 
 import { useShareRouteContinuation } from "@/components/share-route-continuation";
 import {
@@ -152,7 +152,7 @@ function InvitationClient({
     });
     return (
       <SharedNotePrompt
-        icon={<LogInIcon className="size-6" aria-hidden="true" />}
+        icon={<SignIn className="size-6" aria-hidden="true" />}
         title="Sign in to accept this invitation"
         description="Use the email address this note was shared with. Your invitation stays in this browser tab while you sign in."
         actions={
@@ -193,7 +193,7 @@ function InvitationClient({
 
     return (
       <SharedNotePrompt
-        icon={<CircleCheckIcon className="size-6" aria-hidden="true" />}
+        icon={<CheckCircle className="size-6" aria-hidden="true" />}
         title="Invitation accepted"
         description="This note is already available in your shared notes."
         actions={
@@ -221,7 +221,7 @@ function InvitationClient({
   if (invitation.status === "revoked") {
     return (
       <SharedNotePrompt
-        icon={<MailXIcon className="size-6" aria-hidden="true" />}
+        icon={<Prohibit className="size-6" aria-hidden="true" />}
         title="This invitation was revoked"
         description="The person who shared the note has withdrawn this invitation."
       />
@@ -231,7 +231,7 @@ function InvitationClient({
   if (invitation.status === "expired") {
     return (
       <SharedNotePrompt
-        icon={<Clock3Icon className="size-6" aria-hidden="true" />}
+        icon={<Clock className="size-6" aria-hidden="true" />}
         title="This invitation has expired"
         description="Ask the person who shared the note to send a new invitation."
       />
@@ -240,7 +240,7 @@ function InvitationClient({
 
   return (
     <SharedNotePrompt
-      icon={<MailCheckIcon className="size-6" aria-hidden="true" />}
+      icon={<EnvelopeOpen className="size-6" aria-hidden="true" />}
       title="A note was shared with you"
       description="Accept the invitation to add this note to your shared notes in Anarlog."
       actions={

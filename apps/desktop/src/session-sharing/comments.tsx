@@ -1,11 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { ChatCenteredDots, CircleNotch, Trash } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  LoaderCircleIcon,
-  MessageSquarePlusIcon,
-  Trash2Icon,
-} from "lucide-react";
 import type { EditorView } from "prosemirror-view";
 import { useCallback, useRef, useState } from "react";
 
@@ -419,7 +415,7 @@ export function SessionCommentsLayer({
           onMouseDown={(event) => event.preventDefault()}
           onClick={controller.startDraft}
         >
-          <MessageSquarePlusIcon className="size-3.5" aria-hidden="true" />
+          <ChatCenteredDots className="size-3.5" aria-hidden="true" />
           <Trans>Comment</Trans>
         </Button>
       )}
@@ -576,7 +572,7 @@ function CommentComposer({
                   disabled={pending || !comment.valid}
                 >
                   {pending && (
-                    <LoaderCircleIcon
+                    <CircleNotch
                       className="size-3.5 animate-spin"
                       aria-hidden="true"
                     />
@@ -637,12 +633,12 @@ function SessionCommentItem({
             onClick={onDelete}
           >
             {deleting ? (
-              <LoaderCircleIcon
+              <CircleNotch
                 className="size-3.5 animate-spin"
                 aria-hidden="true"
               />
             ) : (
-              <Trash2Icon className="size-3.5" aria-hidden="true" />
+              <Trash className="size-3.5" aria-hidden="true" />
             )}
           </Button>
         )}

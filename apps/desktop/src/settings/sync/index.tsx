@@ -1,15 +1,15 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import {
+  ArrowsClockwise,
+  CheckCircle,
+  CircleNotch,
+  CloudSlash,
+  Shield,
+  ShieldCheck,
+  Warning,
+} from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { platform } from "@tauri-apps/plugin-os";
-import {
-  AlertTriangleIcon,
-  CheckCircle2Icon,
-  CloudOffIcon,
-  Loader2Icon,
-  RefreshCwIcon,
-  ShieldCheckIcon,
-  ShieldIcon,
-} from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import {
@@ -278,7 +278,7 @@ export function SettingsSync() {
   if (settingsQuery.isLoading || !settingsQuery.data || !isReady) {
     return (
       <div className="flex min-h-48 items-center justify-center">
-        <Loader2Icon
+        <CircleNotch
           aria-label={t`Loading sync settings`}
           className="text-muted-foreground size-5 animate-spin"
         />
@@ -297,7 +297,7 @@ export function SettingsSync() {
         <div className="border-border/70 bg-card/60 flex items-start justify-between gap-4 rounded-2xl border p-5">
           <div className="flex gap-3">
             <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-full">
-              <CloudOffIcon className="text-muted-foreground size-4" />
+              <CloudSlash className="text-muted-foreground size-4" />
             </div>
             <div>
               <h3 className="text-sm font-medium">
@@ -413,14 +413,16 @@ export function SettingsSync() {
   const statusIcon = (() => {
     switch (statusView.kind) {
       case "syncing":
-        return <RefreshCwIcon className="size-4 animate-spin text-blue-500" />;
+        return (
+          <ArrowsClockwise className="size-4 animate-spin text-blue-500" />
+        );
       case "synced":
-        return <CheckCircle2Icon className="size-4 text-emerald-500" />;
+        return <CheckCircle className="size-4 text-emerald-500" />;
       case "error":
-        return <AlertTriangleIcon className="size-4 text-amber-500" />;
+        return <Warning className="size-4 text-amber-500" />;
       case "paused":
       case "local":
-        return <CloudOffIcon className="text-muted-foreground size-4" />;
+        return <CloudSlash className="text-muted-foreground size-4" />;
     }
   })();
   const mutationError =
@@ -486,7 +488,7 @@ export function SettingsSync() {
             }
             onClick={() => syncNowMutation.mutate()}
           >
-            <RefreshCwIcon
+            <ArrowsClockwise
               className={cn([
                 "size-3.5",
                 syncNowMutation.isPending && "animate-spin",
@@ -501,7 +503,7 @@ export function SettingsSync() {
         <section className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-5">
           <div className="flex items-start gap-3">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-500/10">
-              <AlertTriangleIcon className="size-4 text-amber-500" />
+              <Warning className="size-4 text-amber-500" />
             </div>
             <div className="min-w-0">
               <h3 className="text-sm font-medium">
@@ -539,9 +541,9 @@ export function SettingsSync() {
         <div className="flex items-start gap-3">
           <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-full">
             {e2eeIdentityQuery.data?.configured ? (
-              <ShieldCheckIcon className="size-4 text-emerald-500" />
+              <ShieldCheck className="size-4 text-emerald-500" />
             ) : (
-              <ShieldIcon className="text-muted-foreground size-4" />
+              <Shield className="text-muted-foreground size-4" />
             )}
           </div>
           <div>
@@ -574,7 +576,7 @@ export function SettingsSync() {
                 onClick={() => repairKeychainMutation.mutate()}
               >
                 {repairKeychainMutation.isPending && (
-                  <Loader2Icon className="size-3.5 animate-spin" />
+                  <CircleNotch className="size-3.5 animate-spin" />
                 )}
                 <Trans>Repair Keychain Access</Trans>
               </Button>

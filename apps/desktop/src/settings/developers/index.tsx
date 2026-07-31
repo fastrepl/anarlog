@@ -1,18 +1,18 @@
+import {
+  ArrowSquareOut,
+  CheckCircle,
+  CircleNotch,
+  Code,
+  Copy,
+  Globe,
+  Key,
+  Plug,
+  Terminal,
+  Trash,
+  WebhooksLogo,
+} from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  CheckCircle2Icon,
-  Code2Icon,
-  CopyIcon,
-  ExternalLinkIcon,
-  GlobeIcon,
-  KeyRoundIcon,
-  Loader2Icon,
-  PlugIcon,
-  TerminalIcon,
-  Trash2Icon,
-  WebhookIcon,
-} from "lucide-react";
 
 import {
   commands as localApiCommands,
@@ -174,7 +174,7 @@ function CliSection({
         <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 gap-3">
             <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-xl">
-              <TerminalIcon className="size-5" />
+              <Terminal className="size-5" />
             </div>
             <div className="min-w-0">
               <h3 className="font-medium">Anarlog CLI</h3>
@@ -193,7 +193,7 @@ function CliSection({
               onClick={() => void openerCommands.openUrl(CLI_GUIDE_URL, null)}
             >
               Guide
-              <ExternalLinkIcon className="size-3.5" />
+              <ArrowSquareOut className="size-3.5" />
             </Button>
             <Button
               type="button"
@@ -202,7 +202,7 @@ function CliSection({
               onClick={onInstall}
             >
               {isInstalling ? (
-                <Loader2Icon className="size-3.5 animate-spin" />
+                <CircleNotch className="size-3.5 animate-spin" />
               ) : isInstalled ? (
                 "Reinstall"
               ) : (
@@ -214,12 +214,12 @@ function CliSection({
 
         <div className="border-border divide-border divide-y border-t">
           <CommandExample
-            icon={<TerminalIcon className="size-4" />}
+            icon={<Terminal className="size-4" />}
             command={`${commandName} --json meetings list`}
             description="List recent meetings for scripts and coding agents."
           />
           <CommandExample
-            icon={<PlugIcon className="size-4" />}
+            icon={<Plug className="size-4" />}
             command={`${commandName} mcp`}
             description="Connect local Anarlog meeting context over MCP."
           />
@@ -241,7 +241,7 @@ function CliStatus({
   if (isLoading) {
     return (
       <span className="text-muted-foreground mt-2 flex items-center gap-1.5 text-xs">
-        <Loader2Icon className="size-3 animate-spin" />
+        <CircleNotch className="size-3 animate-spin" />
         Checking installation…
       </span>
     );
@@ -262,7 +262,7 @@ function CliStatus({
   return (
     <div className="mt-2 flex items-start gap-1.5 text-xs">
       {status.state === "installed" ? (
-        <CheckCircle2Icon className="mt-0.5 size-3.5 shrink-0 text-emerald-600" />
+        <CheckCircle className="mt-0.5 size-3.5 shrink-0 text-emerald-600" />
       ) : (
         <span
           className={cn([
@@ -327,7 +327,7 @@ function McpSection({ status }: { status: EmbeddedCliStatus | undefined }) {
         <div className="flex items-start justify-between gap-4 p-4">
           <div className="flex min-w-0 gap-3">
             <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-xl">
-              <Code2Icon className="size-5" />
+              <Code className="size-5" />
             </div>
             <div>
               <h3 className="font-medium">Anarlog MCP server</h3>
@@ -344,7 +344,7 @@ function McpSection({ status }: { status: EmbeddedCliStatus | undefined }) {
             onClick={() => void openerCommands.openUrl(MCP_GUIDE_URL, null)}
           >
             Guide
-            <ExternalLinkIcon className="size-3.5" />
+            <ArrowSquareOut className="size-3.5" />
           </Button>
         </div>
 
@@ -361,7 +361,7 @@ function McpSection({ status }: { status: EmbeddedCliStatus | undefined }) {
               disabled={!isInstalled}
               onClick={() => void copyConfiguration()}
             >
-              <CopyIcon className="size-3.5" />
+              <Copy className="size-3.5" />
               Copy
             </Button>
           </div>
@@ -437,7 +437,7 @@ function CloudApiSection() {
         <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 gap-3">
             <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-xl">
-              <GlobeIcon className="size-5" />
+              <Globe className="size-5" />
             </div>
             <div className="min-w-0">
               <h3 className="font-medium">Hosted access for agents</h3>
@@ -468,7 +468,7 @@ function CloudApiSection() {
               }
             >
               Guide
-              <ExternalLinkIcon className="size-3.5" />
+              <ArrowSquareOut className="size-3.5" />
             </Button>
             <Switch
               checked={enabled}
@@ -529,7 +529,7 @@ function CloudEndpoint({
           aria-label={`Copy ${label} URL`}
           onClick={() => void copyText(value, copyMessage)}
         >
-          <CopyIcon className="size-3.5" />
+          <Copy className="size-3.5" />
         </Button>
       </div>
     </div>
@@ -566,7 +566,7 @@ function CloudApiKeysCard() {
   return (
     <div className="border-border border-t p-4">
       <div className="mb-3 flex items-center gap-2">
-        <KeyRoundIcon className="text-muted-foreground size-4" />
+        <Key className="text-muted-foreground size-4" />
         <h4 className="text-sm font-medium">Cloud API keys</h4>
       </div>
       <form
@@ -617,7 +617,7 @@ function CloudApiKeysCard() {
                 }
               }}
             >
-              <CopyIcon className="size-3.5" />
+              <Copy className="size-3.5" />
               Copy
             </Button>
           </div>
@@ -678,7 +678,7 @@ function ApiSection() {
         <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 gap-3">
             <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-xl">
-              <GlobeIcon className="size-5" />
+              <Globe className="size-5" />
             </div>
             <div className="min-w-0">
               <h3 className="font-medium">Anarlog local API</h3>
@@ -690,7 +690,7 @@ function ApiSection() {
               <p className="text-muted-foreground mt-2 flex items-center gap-1.5 text-xs">
                 {running ? (
                   <>
-                    <CheckCircle2Icon className="size-3.5 shrink-0 text-emerald-600" />
+                    <CheckCircle className="size-3.5 shrink-0 text-emerald-600" />
                     <code className="bg-muted rounded-md px-1.5 py-0.5">
                       http://127.0.0.1:{status?.port}
                     </code>
@@ -712,7 +712,7 @@ function ApiSection() {
               onClick={() => void openerCommands.openUrl(API_GUIDE_URL, null)}
             >
               Guide
-              <ExternalLinkIcon className="size-3.5" />
+              <ArrowSquareOut className="size-3.5" />
             </Button>
             <Switch
               checked={status?.enabled === true}
@@ -761,7 +761,7 @@ function ApiKeysCard() {
   return (
     <div className="border-border border-t p-4">
       <div className="mb-3 flex items-center gap-2">
-        <KeyRoundIcon className="text-muted-foreground size-4" />
+        <Key className="text-muted-foreground size-4" />
         <h4 className="text-sm font-medium">API keys</h4>
       </div>
 
@@ -813,7 +813,7 @@ function ApiKeysCard() {
                 }
               }}
             >
-              <CopyIcon className="size-3.5" />
+              <Copy className="size-3.5" />
               Copy
             </Button>
           </div>
@@ -925,7 +925,7 @@ function WebhooksCard() {
   return (
     <div className="border-border border-t p-4">
       <div className="mb-3 flex items-center gap-2">
-        <WebhookIcon className="text-muted-foreground size-4" />
+        <WebhooksLogo className="text-muted-foreground size-4" />
         <h4 className="text-sm font-medium">Webhooks</h4>
       </div>
       <p className="text-muted-foreground mb-3 text-xs">
@@ -984,7 +984,7 @@ function WebhooksCard() {
                 }
               }}
             >
-              <CopyIcon className="size-3.5" />
+              <Copy className="size-3.5" />
               Copy
             </Button>
           </div>
@@ -1050,7 +1050,7 @@ function WebhookRow({
           className="text-destructive h-7"
           onClick={onDelete}
         >
-          <Trash2Icon className="size-3.5" />
+          <Trash className="size-3.5" />
         </Button>
       </div>
     </li>

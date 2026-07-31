@@ -1,6 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
+import { Square, Users } from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
-import { SquareIcon, UsersRoundIcon } from "lucide-react";
 import {
   createContext,
   memo,
@@ -229,7 +229,7 @@ const ItemBase = memo(function ItemBase({
                 {title || t`Untitled`}
               </div>
               {isShared ? (
-                <UsersRoundIcon
+                <Users
                   aria-label={t`Shared note`}
                   className="text-muted-foreground size-3.5 shrink-0"
                 />
@@ -303,7 +303,7 @@ const ItemBase = memo(function ItemBase({
             aria-hidden
             className="hidden items-center justify-center group-hover/sidebar-live-item:flex"
           >
-            <SquareIcon size={10} className="fill-current" />
+            <Square size={10} weight="fill" />
           </span>
         </button>
       ) : null}

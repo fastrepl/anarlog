@@ -1,8 +1,4 @@
-import {
-  ArrowUpIcon,
-  LoaderCircleIcon,
-  MoreHorizontalIcon,
-} from "lucide-react";
+import { ArrowUp, CircleNotch, DotsThree } from "@phosphor-icons/react";
 import { useRef, useState } from "react";
 
 import { Avatar } from "@anlg/ui/components/avatar";
@@ -347,12 +343,9 @@ function CommentActions({
         }}
       >
         {deleting ? (
-          <LoaderCircleIcon
-            className="size-3.5 animate-spin"
-            aria-hidden="true"
-          />
+          <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
         ) : (
-          <MoreHorizontalIcon className="size-4" aria-hidden="true" />
+          <DotsThree className="size-4" aria-hidden="true" />
         )}
       </button>
       {open ? (
@@ -440,12 +433,9 @@ function ReplyComposer({
           disabled={!validated.valid || pending}
         >
           {pending ? (
-            <LoaderCircleIcon
-              className="size-3.5 animate-spin"
-              aria-hidden="true"
-            />
+            <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
           ) : (
-            <ArrowUpIcon className="size-3.5" aria-hidden="true" />
+            <ArrowUp className="size-3.5" aria-hidden="true" />
           )}
         </button>
       </div>
