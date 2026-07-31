@@ -2,6 +2,10 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  chatSession: vi.fn(),
+  sessionMode: "inactive",
+  requestedLiveTranscription: null as boolean | null,
+  liveTranscriptionActive: null as boolean | null,
   toolbarControls: vi.fn((_props: Record<string, unknown>) => (
     <div data-testid="chat-toolbar" />
   )),
@@ -33,12 +37,9 @@ vi.mock("./content", () => ({
 }));
 
 vi.mock("./session-provider", () => ({
-  ChatSession: ({
-    children,
-  }: {
-    children: (props: object) => React.ReactNode;
-  }) =>
-    children({
+  ChatSession: (props: { children: (props: object) => React.ReactNode }) => {
+    mocks.chatSession(props);
+    return props.children({
       messages: [],
       status: "ready",
       error: undefined,
@@ -46,7 +47,8 @@ vi.mock("./session-provider", () => ({
       contextEntities: [],
       sendMessage: vi.fn(),
       pendingRefs: [],
-    }),
+    });
+  },
 }));
 
 vi.mock("~/ai/hooks", () => ({
@@ -67,12 +69,43 @@ vi.mock("~/contexts/shell", () => ({
   useShell: () => ({ chat: mocks.chat }),
 }));
 
+vi.mock("~/shared/owner-user", () => ({
+  useOwnerUserId: () => "user-1",
+}));
+
+vi.mock("~/stt/contexts", () => ({
+  useListener: (selector: (state: unknown) => unknown) =>
+    selector({
+      getSessionMode: () => mocks.sessionMode,
+      live: {
+        requestedLiveTranscription: mocks.requestedLiveTranscription,
+        liveTranscriptionActive: mocks.liveTranscriptionActive,
+      },
+    }),
+}));
+
 import { ChatView } from "./chat-panel";
 
 describe("ChatView", () => {
   beforeEach(() => {
     cleanup();
+    mocks.chatSession.mockClear();
+    mocks.sessionMode = "inactive";
+    mocks.requestedLiveTranscription = null;
+    mocks.liveTranscriptionActive = null;
     mocks.toolbarControls.mockClear();
+  });
+
+  it("passes batch-only recording state to the chat session", () => {
+    mocks.sessionMode = "active";
+    mocks.requestedLiveTranscription = false;
+    mocks.liveTranscriptionActive = false;
+
+    render(<ChatView />);
+
+    expect(mocks.chatSession).toHaveBeenCalledWith(
+      expect.objectContaining({ isBatchTranscriptionPending: true }),
+    );
   });
 
   it("uses the sidebar card shell in the right panel layout", () => {

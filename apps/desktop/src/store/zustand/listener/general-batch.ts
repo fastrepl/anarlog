@@ -24,6 +24,7 @@ const SYNTHETIC_BATCH_PROGRESS_INITIAL = 0.06;
 const SYNTHETIC_BATCH_PROGRESS_MAX = 0.88;
 const SYNTHETIC_BATCH_PROGRESS_INTERVAL_MS = 800;
 const SYNTHETIC_BATCH_PROGRESS_TIME_CONSTANT_MS = 32_000;
+const BATCH_COMPLETED_NOTIFICATION_TIMEOUT_SECONDS = 15;
 const OPENAI_PROGRESSIVE_BATCH_MODELS = new Set([
   "gpt-transcribe",
   "gpt-4o-transcribe",
@@ -59,7 +60,10 @@ export async function showBatchCompletedNotification(
       key: createBatchCompletedNotificationKey(sessionId),
       title: "Transcription complete",
       message: "Your transcript is ready.",
-      timeout: null,
+      timeout: {
+        secs: BATCH_COMPLETED_NOTIFICATION_TIMEOUT_SECONDS,
+        nanos: 0,
+      },
       source: { type: "session", session_id: sessionId },
       start_time: null,
       participants: null,

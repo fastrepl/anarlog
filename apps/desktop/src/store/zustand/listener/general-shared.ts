@@ -409,3 +409,13 @@ export const getLiveCaptureUiMode = (
 
   return "live";
 };
+
+export const isBatchTranscriptionPending = (
+  sessionMode: SessionMode,
+  live: Pick<
+    LiveState,
+    "requestedLiveTranscription" | "liveTranscriptionActive"
+  >,
+) =>
+  sessionMode === "running_batch" ||
+  (sessionMode === "active" && getLiveCaptureUiMode(live) !== "live");

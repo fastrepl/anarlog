@@ -14,6 +14,8 @@ import { useChatActions } from "~/chat/store/use-chat-actions";
 import { chatFloatingPanelClassNames } from "~/chat/surface";
 import { useShell } from "~/contexts/shell";
 import { useOwnerUserId } from "~/shared/owner-user";
+import { isBatchTranscriptionPending } from "~/store/zustand/listener/general-shared";
+import { useListener } from "~/stt/contexts";
 
 export function ChatView({
   layout = "floating",
@@ -47,6 +49,15 @@ export function ChatSessionHost({
   const { groupId, sessionId } = chat;
   const { currentSessionId } = useSessionTab();
   const ownerUserId = useOwnerUserId();
+  const batchTranscriptionPending = useListener((state) => {
+    if (!currentSessionId) {
+      return false;
+    }
+    return isBatchTranscriptionPending(
+      state.getSessionMode(currentSessionId),
+      state.live,
+    );
+  });
 
   if (!ownerUserId) {
     return <>{children(null)}</>;
@@ -57,6 +68,7 @@ export function ChatSessionHost({
       sessionId={sessionId}
       chatGroupId={groupId}
       currentSessionId={currentSessionId}
+      isBatchTranscriptionPending={batchTranscriptionPending}
       unstyled
     >
       {children}

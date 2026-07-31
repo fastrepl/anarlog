@@ -1,4 +1,5 @@
 import { Chat, useChat } from "@ai-sdk/react";
+import { useLingui } from "@lingui/react/macro";
 import type { ChatStatus, ChatTransport, LanguageModel, ToolSet } from "ai";
 import {
   type ReactNode,
@@ -47,6 +48,7 @@ import type {
 import { flushDatabaseWritesByPrefix } from "~/db/write-queue";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useOwnerUserId } from "~/shared/owner-user";
+import { id } from "~/shared/utils";
 
 export type ChatSessionRenderProps = {
   sessionId: string;
@@ -73,6 +75,7 @@ interface ChatSessionProps {
   sessionId: string;
   chatGroupId?: string;
   currentSessionId?: string;
+  isBatchTranscriptionPending?: boolean;
   modelOverride?: LanguageModel;
   extraTools?: ToolSet;
   systemPromptOverride?: string;
@@ -105,12 +108,14 @@ function ChatSessionLifecycle({
   sessionId,
   chatGroupId,
   currentSessionId,
+  isBatchTranscriptionPending = false,
   modelOverride,
   extraTools,
   systemPromptOverride,
   unstyled = false,
   children,
 }: ChatSessionProps) {
+  const { t } = useLingui();
   const ownerUserId = useOwnerUserId();
   const persistedMessages = usePersistedChatMessages(chatGroupId);
 
@@ -457,6 +462,59 @@ function ChatSessionLifecycle({
     (message: AnlgUIMessage, options?: ChatSendOptions) => {
       const targetChatGroupId =
         options?.chatGroupId ?? latestChatGroupIdRef.current;
+      if (isBatchTranscriptionPending && targetChatGroupId && ownerUserId) {
+        const assistantMessage: AnlgUIMessage = {
+          id: id(),
+          role: "assistant",
+          parts: [
+            {
+              type: "text",
+              text: t`This recording is using batch transcription, so the transcript isn't available to chat yet. Ask again after transcription finishes, or switch to a Pro model for live transcription.`,
+            },
+          ],
+          metadata: { createdAt: Date.now() },
+        };
+        const localResponse = chatCloudsyncActivity.runWithLease(
+          message.id,
+          async () => {
+            const trackedCompletions: Promise<unknown>[] = [];
+            await options?.beforeSend?.((completion) => {
+              trackedCompletions.push(completion);
+            });
+            await upsertChatMessage(
+              buildPersistedChatMessage({
+                message: assistantMessage,
+                chatGroupId: targetChatGroupId,
+                ownerUserId,
+                status: "ready",
+              }),
+            );
+            chatSetMessages((current) => [
+              ...current,
+              message,
+              assistantMessage,
+            ]);
+            await Promise.allSettled(trackedCompletions);
+          },
+        );
+        pendingFinishedChatPersistsRef.current.set(message.id, localResponse);
+        void localResponse
+          .catch((error) => {
+            console.error(
+              "Failed to save batch transcription chat response",
+              error,
+            );
+          })
+          .finally(() => {
+            if (
+              pendingFinishedChatPersistsRef.current.get(message.id) ===
+              localResponse
+            ) {
+              pendingFinishedChatPersistsRef.current.delete(message.id);
+            }
+          });
+        return;
+      }
       if (targetChatGroupId) {
         submittedChatGroupIdsRef.current.set(message.id, targetChatGroupId);
       }
@@ -490,7 +548,15 @@ function ChatSessionLifecycle({
         console.error("Failed to send chat message", error);
       });
     },
-    [chatSendMessage, removeTransportPreflight],
+    [
+      chatCloudsyncActivity,
+      chatSendMessage,
+      chatSetMessages,
+      isBatchTranscriptionPending,
+      ownerUserId,
+      removeTransportPreflight,
+      t,
+    ],
   );
 
   const regenerate = useCallback(() => {

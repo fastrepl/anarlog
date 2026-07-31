@@ -492,6 +492,7 @@ describe("runBatchSession", () => {
       expect.objectContaining({
         title: "Transcription complete",
         message: "Your transcript is ready.",
+        timeout: { secs: 15, nanos: 0 },
         action_label: "Open Anarlog",
         source: { type: "session", session_id: "session-1" },
       }),

@@ -2355,6 +2355,10 @@ msgstr ""
 msgid "This device's sync identity does not match your account. Sign in again or check Sync settings."
 msgstr ""
 
+#: src/chat/components/session-provider.tsx
+msgid "This recording is using batch transcription, so the transcript isn't available to chat yet. Ask again after transcription finishes, or switch to a Pro model for live transcription."
+msgstr ""
+
 #. placeholder {0}: status.fileCount
 #. placeholder {1}: formatBytes(status.totalBytes)
 #: src/settings/general/storage/legacy-cleanup.tsx

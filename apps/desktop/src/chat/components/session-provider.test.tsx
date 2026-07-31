@@ -215,6 +215,53 @@ describe("ChatSession", () => {
     mocks.upsertChatMessage.mockReset().mockResolvedValue(undefined);
   });
 
+  it("responds locally while batch transcription is pending", async () => {
+    const captured: { send?: ChatSessionRenderProps["sendMessage"] } = {};
+    render(
+      <ChatSession
+        chatGroupId="group-1"
+        currentSessionId="session-1"
+        isBatchTranscriptionPending
+        sessionId="chat-1"
+      >
+        {(props) => {
+          captured.send = props.sendMessage;
+          return null;
+        }}
+      </ChatSession>,
+    );
+    const userMessage: AnlgUIMessage = {
+      id: "user-message",
+      role: "user",
+      parts: [{ type: "text", text: "What did they say?" }],
+    };
+    const beforeSend = vi.fn().mockResolvedValue(undefined);
+
+    captured.send?.(userMessage, {
+      chatGroupId: "group-1",
+      beforeSend,
+    });
+
+    await waitFor(() => expect(beforeSend).toHaveBeenCalledOnce());
+    await waitFor(() => expect(mocks.upsertChatMessage).toHaveBeenCalledOnce());
+    expect(mocks.chatSendMessage).not.toHaveBeenCalled();
+    expect(mocks.upsertChatMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatGroupId: "group-1",
+        role: "assistant",
+        content:
+          "This recording is using batch transcription, so the transcript isn't available to chat yet. Ask again after transcription finishes, or switch to a Pro model for live transcription.",
+      }),
+    );
+    const setMessages = mocks.chatSetMessages.mock.calls.find(
+      ([next]) => typeof next === "function",
+    )?.[0] as ((current: AnlgUIMessage[]) => AnlgUIMessage[]) | undefined;
+    expect(setMessages?.([])).toEqual([
+      userMessage,
+      expect.objectContaining({ role: "assistant" }),
+    ]);
+  });
+
   it.each([
     {
       name: "empty",

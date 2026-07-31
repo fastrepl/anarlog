@@ -2355,6 +2355,10 @@ msgstr "This account already syncs on 5 devices. Remove another device to sync h
 msgid "This device's sync identity does not match your account. Sign in again or check Sync settings."
 msgstr "This device's sync identity does not match your account. Sign in again or check Sync settings."
 
+#: src/chat/components/session-provider.tsx
+msgid "This recording is using batch transcription, so the transcript isn't available to chat yet. Ask again after transcription finishes, or switch to a Pro model for live transcription."
+msgstr "This recording is using batch transcription, so the transcript isn't available to chat yet. Ask again after transcription finishes, or switch to a Pro model for live transcription."
+
 #. placeholder {0}: status.fileCount
 #. placeholder {1}: formatBytes(status.totalBytes)
 #: src/settings/general/storage/legacy-cleanup.tsx
