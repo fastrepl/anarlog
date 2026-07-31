@@ -1,0 +1,301 @@
+---
+meta_title: "Meeting Notes Template: 7 Formats You Can Copy"
+display_title: "Meeting Notes Templates That Survive the Week"
+meta_description: "Copy-paste meeting notes templates for one-on-ones, standups, customer calls, kickoffs, retros, and formal minutes—plus the four rules that decide whether any of them work."
+author:
+  - "John Jeong"
+featured: false
+category: "Guides"
+date: "2026-07-31"
+---
+
+Most meeting notes templates fail for the same reason: they are designed to be filled in, not to be read later. They produce a tidy document that nobody opens again, while the three things people actually come back for — what we decided, who owns what, and what is still open — are buried in a wall of discussion.
+
+A template earns its place when someone can answer those three questions in ten seconds, three weeks later, without having been in the room.
+
+Below are seven templates for the meeting types that make up most calendars, plus the rules that make the difference between a format that holds and one that quietly stops being used by week three.
+
+## The default template
+
+If you only adopt one, use this. It works for most internal meetings.
+
+```markdown
+# 2026-07-31 · Acme kickoff
+**Attendees:** …
+**Purpose:** one line, written before the meeting
+
+## Decisions
+- Decided: …
+  - Why: …
+  - Owner: …
+
+## Action items
+- [ ] Owner — task — due date
+
+## Open questions
+- … (who needs to resolve it, by when)
+
+## Notes
+Raw discussion. Written during. Not cleaned up.
+```
+
+The ordering is the whole point. Decisions and action items sit above the notes because those are what people return for. Most templates put discussion first and outcomes last, which is backwards for every read after the first one.
+
+`Purpose` is written before the meeting starts. It takes fifteen seconds and it is the field that makes the note comprehensible later, when nobody remembers why the meeting was on the calendar.
+
+## Four rules that decide whether a template works
+
+Format matters less than these.
+
+**One owner per action item.** An item assigned to two people is assigned to nobody. If two people genuinely need to act, that is two items. This is the single most common failure in meeting notes, and no template fixes it for you.
+
+**Decisions are separate from discussion.** A summary preserves what was said. It does not reliably preserve what the group committed to, or which alternatives were rejected and why. Keeping decisions in their own block — with the reasoning attached — is what makes notes useful in a disagreement six weeks out. If your team makes enough consequential calls, promote them out of the notes entirely into a [meeting decision log](/blog/meeting-decision-log/).
+
+**Write outcomes within ten minutes of the call.** Everything else can wait. Ten minutes after, you still remember what the vague "we should probably look at that" actually referred to. The next morning you do not.
+
+**Raw notes stay raw.** Do not clean up during the meeting. Cleaning while listening costs you the thing you are there for. Capture messily, structure after.
+
+## Template 1: One-on-one
+
+The point of a 1:1 template is continuity. Most 1:1s fail because they restart from zero every time.
+
+```markdown
+# 1:1 — [Name] — 2026-07-31
+
+## Since last time
+- Carried over: …          ← pulled from last 1:1's open items
+- Landed: …
+
+## Their agenda
+- …
+
+## My agenda
+- …
+
+## Feedback
+- Gave: …
+- Received: …
+
+## Action items
+- [ ] Owner — task — due date
+
+## Next time
+- …
+```
+
+`Since last time` and `Next time` are what turn a series of disconnected chats into a thread. If you use nothing else here, use those two fields.
+
+Keep `Their agenda` above yours. It is a small ordering choice that changes who sets the direction of the conversation. More on the mechanics in [how to have productive one-on-one meetings](/blog/how-to-have-productive-one-on-one-meetings/).
+
+## Template 2: Standup
+
+Standup notes should take under a minute to write. If your template takes longer, people stop.
+
+```markdown
+# Standup — 2026-07-31
+
+| Person | Yesterday | Today | Blocked on |
+| --- | --- | --- | --- |
+| … | … | … | … |
+
+## Blockers needing someone outside this room
+- [ ] Owner — blocker — who can unblock
+```
+
+The second section is the only part that matters after the meeting ends. A blocker that stays inside the standup notes is a blocker nobody acted on.
+
+## Template 3: Customer or discovery call
+
+Structured for recall across many calls, not for a single conversation.
+
+```markdown
+# [Company] — discovery — 2026-07-31
+**Attendees:** … (roles matter more than names)
+**Stage:** …
+
+## Their situation
+- Current process: …
+- Tools in use: …
+
+## Problems, in their words
+- "…"
+- "…"
+
+## Requirements
+- Must have: …
+- Nice to have: …
+
+## Objections and concerns
+- …
+
+## Next step
+- [ ] Owner — what — by when
+```
+
+`Problems, in their words` should hold actual quotes. Paraphrased customer pain converges on generic language within two calls, and then every account sounds the same in your notes. Verbatim phrasing is also what you reuse in positioning later.
+
+`Next step` is a single committed action with a date, not a list of possibilities. A discovery call without one did not close.
+
+## Template 4: Project kickoff
+
+Kickoffs generate the most durable notes of any meeting type, because everything downstream refers back to them.
+
+```markdown
+# [Project] kickoff — 2026-07-31
+
+## Problem we are solving
+One paragraph. If this is hard to write, the project is not ready.
+
+## Success criteria
+- …  ← measurable, not "improve X"
+
+## Explicitly out of scope
+- …
+
+## Owners
+| Area | Owner | Backup |
+| --- | --- | --- |
+
+## Key dates
+| Milestone | Date | Depends on |
+| --- | --- | --- |
+
+## Risks
+| Risk | Likelihood | Mitigation | Owner |
+| --- | --- | --- | --- |
+
+## Open questions
+- [ ] Question — who resolves — by when
+```
+
+`Explicitly out of scope` prevents more rework than any other field on this page. Scope creep is rarely a decision; it is usually an assumption that was never written down and contradicted.
+
+## Template 5: Retrospective
+
+```markdown
+# Retro — [Sprint/Period] — 2026-07-31
+
+## What worked
+- …
+
+## What did not
+- …
+
+## What we are changing
+- [ ] Owner — change — review on [date]
+
+## Carried over from last retro
+- … ← did the change actually happen?
+```
+
+The last section is what separates a retro that improves things from a recurring venting session. If a change from the previous retro never happened, that is the most useful data point in the room.
+
+Keep `What we are changing` short. Three changes get done. Twelve do not.
+
+## Template 6: Formal minutes
+
+For board meetings, committees, HOAs, nonprofits, and anywhere the record may be reviewed externally. This is a different document from working notes — it records the proceeding, not the discussion.
+
+```markdown
+# [Organization] — [Body] — Minutes
+**Date:** 2026-07-31   **Time:** 14:00–15:30   **Location:** …
+**Present:** …
+**Absent:** …
+**Quorum:** Yes / No
+**Chair:** …   **Recorder:** …
+
+## 1. Call to order
+Called to order at 14:00 by [name].
+
+## 2. Approval of previous minutes
+Minutes of [date] approved / approved as amended.
+- Moved: [name]  Seconded: [name]  Result: Carried / Failed
+
+## 3. [Agenda item]
+Discussion: brief, neutral summary.
+**Motion:** [exact wording]
+- Moved: [name]  Seconded: [name]
+- Vote: For __ / Against __ / Abstain __
+- Result: Carried / Failed
+
+## 4. Action items
+| # | Action | Owner | Due |
+| --- | --- | --- | --- |
+
+## 5. Adjournment
+Adjourned at 15:30. Next meeting: [date].
+```
+
+Two things differ from working notes. Motions are recorded in their exact wording, because paraphrase changes meaning. And discussion summaries stay neutral — minutes record that a matter was debated, not who argued badly. If you need software rather than a file for this, see our comparison of [meeting minutes software](/blog/meeting-minutes-software/).
+
+## Template 7: Interview
+
+```markdown
+# [Candidate] — [Role] — [Round] — 2026-07-31
+**Interviewer:** …   **Focus area:** …
+
+## Questions and responses
+**Q:** …
+**A:** … (what they said, not your read of it)
+
+## Signals
+- Evidence for: …
+- Evidence against: …
+
+## Recommendation
+Strong hire / Hire / No hire / Strong no hire
+**Rationale:** …
+```
+
+Keep observation separate from judgment. Mixing them is how interview notes turn into a record of an impression formed in the first four minutes. Write what the candidate said, then decide.
+
+Interview notes are also the clearest case for keeping recordings and transcripts off third-party servers — they contain personal data about someone who did not choose your vendor.
+
+## Where to keep the template
+
+The template is only half the system. Retrieval is the other half.
+
+**Plain Markdown files.** The most portable option. Files you own, greppable, no vendor, and they still open in twenty years. Works well with [Obsidian](/blog/obsidian-meeting-notes/) if you want backlinks and person pages assembling themselves. Our [Markdown note-taking app comparison](/blog/markdown-note-taking-apps/) covers the editors.
+
+**A database.** [Notion](/blog/notion-meeting-notes/) and similar tools buy you relations — every meeting with a person, every meeting on a project — and shared views for a team. The cost is that your notes live inside a product.
+
+**Whatever your notetaker produces.** If an AI tool is generating the summary, the template still matters: it tells you what to keep. Most AI summaries are decent at discussion and weak at decisions and ownership, which is exactly the part these templates protect.
+
+If you want the transcript captured automatically but the notes to stay as files you control, [Anarlog](/) records microphone and system audio without joining the call as a participant, transcribes on-device, and exports Markdown that drops straight into any of the templates above.
+
+## Filling the template without transcribing the meeting
+
+The templates assume you are participating, not stenographing. In practice:
+
+1. Before the call, write `Purpose` and paste the template. Fifteen seconds.
+2. During, capture only in `Notes`, messily. Star anything that sounds like a commitment.
+3. In the ten minutes after, lift decisions and action items into their sections. Assign one owner and a date to each.
+4. Attach or link the transcript at the bottom, not inline — a 6,000-word transcript pasted into the note destroys search for every other note.
+
+Step 3 is judgment and cannot be automated. Deciding what the group actually committed to is different from extracting sentences that contain the word "will." That ten minutes is the difference between notes and a transcript.
+
+## Frequently asked questions
+
+### What should a meeting notes template include?
+
+At minimum: date, attendees, purpose, decisions, action items with one owner and a due date each, and open questions. Everything else is optional. If a field is not read after the meeting, remove it — unused fields are why templates get abandoned.
+
+### How detailed should meeting notes be?
+
+Detailed on outcomes, sparse on discussion. Nobody re-reads a full account of a conversation. They re-read what was decided and what they owe. If you find yourself transcribing, you are doing the machine's job and not your own — see [how to participate in meetings effectively](/blog/how-to-participate-in-meetings-effectively/).
+
+### What is the difference between meeting notes and meeting minutes?
+
+Meeting notes are a working document for the people involved: decisions, actions, context. Minutes are a formal record of a proceeding — attendance, quorum, motions in their exact wording, votes — often subject to approval at the next meeting. Use Template 6 for minutes and the default template for everything else.
+
+### Should I use a different template for every meeting type?
+
+Use the default for most things and add a specific template only where the meeting type has a recurring structure the default misses — 1:1s need continuity fields, kickoffs need scope and risks, minutes need motions. Three or four templates is usually the ceiling before people stop choosing correctly.
+
+### Can AI fill in a meeting notes template for me?
+
+It can draft the discussion summary and propose action items reliably. It is weaker at deciding which statements were real commitments and who owns them, which is the part that matters. Treat AI output as the raw material for steps 3 and 4 above, not as the finished note.
+
+### Where should meeting notes live?
+
+Somewhere searchable that you will still have access to in two years. Plain Markdown files are the safest default; a shared database is better when other people need to read and filter them. What matters more than the tool is that the notes are exportable — see [how to organize meeting notes](/blog/organize-meeting-notes/) for the retrieval side.
