@@ -496,6 +496,13 @@ function ChatSessionLifecycle({
         pendingFinishedChatPersistsRef.current.set(message.id, localResponse);
         void localResponse
           .catch((error) => {
+            chatSetMessages((current) =>
+              current.filter(
+                (candidate) =>
+                  candidate.id !== message.id &&
+                  candidate.id !== assistantMessage.id,
+              ),
+            );
             console.error(
               "Failed to save batch transcription chat response",
               error,
