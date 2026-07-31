@@ -1,0 +1,101 @@
+{
+  "ai-meeting-notes-without-bot": [],
+  "ai-meeting-summary-tools": [],
+  "anthropic-data-retention-policy": [],
+  "avoma-alternatives": [
+    {
+      "filename": "avoma-three-layers.png",
+      "content": "Meeting assistant\nConversation intelligence\nRevenue intelligence",
+      "context": "Vertical stacked-layer diagram for an Anarlog blog post showing the three product layers bundled into Avoma, so a reader can identify which layer they actually need to replace.",
+      "orientation": "vertical",
+      "width": 1000
+    }
+  ],
+  "azure-open-ai-data-retention-policy": [],
+  "best-ai-meeting-assistant-for-taking-notes": [],
+  "best-ai-notetaker": [],
+  "best-ai-notetaker-for-in-person-meetings": [],
+  "best-ai-notetaker-for-microsoft-teams": [],
+  "best-ai-notetaker-for-zoom": [],
+  "best-ai-notetakers-google-meet": [],
+  "bot-free-ai-meeting-assistants": [],
+  "can-you-transcribe-meetings-without-sending-data-to-cloud": [],
+  "char-is-now-anarlog": [],
+  "char-vs-meetily": [],
+  "chatgpt-data-retention-policy": [],
+  "enterprise-ai-notetaking-tools": [],
+  "fathom-ai-alternatives": [],
+  "filesystem-is-coretex": [],
+  "fireflies-ai-alternatives": [],
+  "free-ai-notetakers": [],
+  "free-transcription-software": [],
+  "google-gemini-data-retention-policy": [],
+  "google-gemini-meeting-notes": [],
+  "granola-ai-alternatives": [],
+  "hipaa-compliant-ai-notetaker": [
+    {
+      "filename": "baa-chain.png",
+      "content": "Covered entity\nAI notetaker vendor\nTranscription provider\nLanguage model provider",
+      "context": "Horizontal chain diagram for an Anarlog blog post. Show that every party that receives protected health information becomes a business associate needing its own signed BAA. Neutral and professional, not alarming.",
+      "visualQuery": "flowchart",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
+  "how-to-have-productive-one-on-one-meetings": [],
+  "how-to-participate-in-meetings-effectively": [],
+  "how-to-reduce-meeting-fatigue": [],
+  "how-to-transcribe-zoom-calls": [],
+  "is-ai-notetaking-legal": [],
+  "is-fireflies-ai-safe": [],
+  "is-otter-ai-safe": [],
+  "local-ai-meeting-notes": [],
+  "local-ai-privacy-tools": [],
+  "mac-productivity-apps": [],
+  "markdown-note-taking-apps": [],
+  "meetgeek-alternatives": [],
+  "meetily-review": [],
+  "meeting-action-items": [],
+  "meeting-decision-log": [],
+  "meeting-minutes-software": [],
+  "meeting-notes-template": [
+    {
+      "filename": "meeting-note-anatomy.png",
+      "content": "Purpose\nDecisions\nAction items\nOpen questions\nRaw notes",
+      "context": "Vertical diagram for an Anarlog blog post showing the anatomy of a meeting note, ordered so outcomes sit above raw discussion.",
+      "orientation": "vertical",
+      "width": 1000
+    }
+  ],
+  "meeting-preparation-checklist": [],
+  "meeting-productivity-tools": [],
+  "mistral-api-key": [],
+  "mistral-data-retention-policy": [],
+  "notetakers-for-developers": [],
+  "notion-meeting-notes": [
+    {
+      "filename": "notion-relations.png",
+      "content": "Meetings\nPeople\nProjects\nAction items",
+      "context": "Relationship diagram for an Anarlog blog post showing a Notion Meetings database linked by relation to People, Projects, and Action Items.",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
+  "notta-ai-alternative": [],
+  "obsidian-meeting-notes": [],
+  "open-source-meeting-transcription-software": [],
+  "openrouter-data-retention-policy": [],
+  "organize-meeting-notes": [],
+  "otter-ai-alternatives": [],
+  "otter-ai-review": [],
+  "plaud-ai-alternatives": [],
+  "read-ai-alternatives": [],
+  "see-zoom-meeting-history": [],
+  "selfhosted-ai-notetakers": [],
+  "tactiq-alternatives": [],
+  "tldv-alternatives": [],
+  "tldv-review": [],
+  "transcription-software-mac": [],
+  "what-makes-reliable-ai-note-taker": [],
+  "zoom-ai-companion-review": []
+}
