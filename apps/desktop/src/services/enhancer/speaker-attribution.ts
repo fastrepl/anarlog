@@ -608,8 +608,8 @@ function buildCandidateNameAliases(
   candidates: SpeakerAttributionContext["candidates"],
 ) {
   const normalizedName = normalizeWhitespace(candidateName).toLocaleLowerCase();
-  const givenName = normalizedName.match(/[\p{L}\p{N}]+/u)?.[0];
-  if (!givenName || givenName.length < 3) {
+  const givenName = getCandidateGivenNameAlias(normalizedName);
+  if (!givenName) {
     return [normalizedName];
   }
 
@@ -628,10 +628,17 @@ function buildCandidateNameAliases(
 
 function buildCandidateExclusionAliases(candidateName: string) {
   const normalizedName = normalizeWhitespace(candidateName).toLocaleLowerCase();
+  const givenName = getCandidateGivenNameAlias(normalizedName);
+  return givenName ? [normalizedName, givenName] : [normalizedName];
+}
+
+function getCandidateGivenNameAlias(normalizedName: string) {
   const givenName = normalizedName.match(/[\p{L}\p{N}]+/u)?.[0];
-  return givenName && givenName.length >= 3
-    ? [normalizedName, givenName]
-    : [normalizedName];
+  return givenName &&
+    givenName.length >= 3 &&
+    !ATTRIBUTION_STOP_WORDS.has(givenName)
+    ? givenName
+    : undefined;
 }
 
 function removeNameAliases(value: string, aliases: string[]) {
@@ -691,7 +698,7 @@ function selectRelevantEvidence(
 }
 
 const ATTRIBUTION_STOP_WORDS = new Set(
-  "about after again against all also among and any are around because been before being below between both but can could did does doing down during each few for from further had has have having here how into its itself just more most other our ours out over own same should some such than that the their theirs them themselves then there these they this those through under until very was were what when where which while who whom why will with would you your yours yourself yourselves".split(
+  "about after again against all also among and any are around because been before being below between both but can could did does doing down during each few for from further had has have having here how into its itself just may more most other our ours out over own same should some such than that the their theirs them themselves then there these they this those through under until very was were what when where which while who whom why will with would you your yours yourself yourselves".split(
     " ",
   ),
 );

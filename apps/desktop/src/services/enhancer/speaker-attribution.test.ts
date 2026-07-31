@@ -277,6 +277,31 @@ describe("inferAutomaticSpeakerAssignments", () => {
     expect(mocks.generateText).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["Will Smith", "will"],
+    ["May Jones", "may"],
+  ])(
+    "does not treat common words as given-name evidence for %s",
+    async (participantName, commonWord) => {
+      const snapshot = createSnapshot();
+      snapshot.participants[0]!.name = participantName;
+      mocks.generateText.mockResolvedValue({
+        text: JSON.stringify({ mapping: null }),
+      });
+
+      await inferAutomaticSpeakerAssignments({
+        generatedSummary: `George Hotz ${commonWord} discuss open source AI.`,
+        model: {} as LanguageModel,
+        snapshot,
+        signal: new AbortController().signal,
+      });
+
+      expect(mocks.generateText).toHaveBeenCalledOnce();
+      const prompt = JSON.parse(mocks.generateText.mock.calls[0]![0].prompt);
+      expect(prompt.candidate.human_id).toBe("human-george");
+    },
+  );
+
   it("excludes shared given names that refer to another participant", async () => {
     const snapshot = createSnapshot();
     snapshot.participants[0]!.name = "Alex Smith";
