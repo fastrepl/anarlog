@@ -659,7 +659,11 @@ function removeNameAliases(
         buildNameAliasRegExp(alias, "giu"),
         (match, offset: number) =>
           alias.isGivenName &&
-          hasProperNameContinuation(remaining, offset + match.length)
+          hasProperNameAffix(
+            remaining,
+            offset + match.length - alias.value.length,
+            offset + match.length,
+          )
             ? match
             : " ",
       ),
@@ -677,7 +681,11 @@ function containsNameAlias(
     while (match) {
       if (
         !alias.isGivenName ||
-        !hasProperNameContinuation(value, pattern.lastIndex)
+        !hasProperNameAffix(
+          value,
+          pattern.lastIndex - alias.value.length,
+          pattern.lastIndex,
+        )
       ) {
         return true;
       }
@@ -698,8 +706,7 @@ function startsWithNameAlias(
     ).test(value);
     return (
       matches &&
-      (!alias.isGivenName ||
-        !hasProperNameContinuation(value, alias.value.length))
+      (!alias.isGivenName || !hasProperNameAffix(value, 0, alias.value.length))
     );
   });
 }
@@ -714,8 +721,11 @@ function buildNameAliasRegExp(
   );
 }
 
-function hasProperNameContinuation(value: string, offset: number) {
-  return /^(?:\s+\p{Lu}|[-‐‑‒–—―'’]\p{Lu})/u.test(value.slice(offset));
+function hasProperNameAffix(value: string, start: number, end: number) {
+  return (
+    /[\p{L}\p{N}][-‐‑‒–—―'’]$/u.test(value.slice(0, start)) ||
+    /^(?:\s+\p{Lu}|[-‐‑‒–—―'’]\p{Lu})/u.test(value.slice(end))
+  );
 }
 
 function escapeRegExp(value: string) {
