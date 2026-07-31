@@ -4,7 +4,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { SiteFooter } from "@/components/site-footer";
 import { useAnalytics } from "@/hooks/use-posthog";
-import { desktopDownloadSections } from "@/lib/download";
+import { comingSoonPlatforms, desktopDownloadSections } from "@/lib/download";
 import { ANARLOG_SITE_URL } from "@/lib/seo";
 
 const platformIcons = {
@@ -64,6 +64,11 @@ function Component() {
                     aria-hidden="true"
                   />
                   {section.name}
+                  {section.status && (
+                    <span className="border-color-subtle text-color-muted rounded-full border px-2.5 py-1 font-sans text-xs leading-none font-medium tracking-wide uppercase">
+                      {section.status}
+                    </span>
+                  )}
                 </h2>
 
                 <ul className="border-color-subtle divide-y divide-[var(--color-border-subtle)] border-y">
@@ -93,6 +98,26 @@ function Component() {
               </section>
             );
           })}
+
+          <section aria-labelledby="coming-soon-platforms">
+            <h2
+              id="coming-soon-platforms"
+              className="font-hand mb-5 text-3xl leading-none font-semibold tracking-normal"
+            >
+              Coming soon
+            </h2>
+
+            <ul className="flex flex-wrap gap-2">
+              {comingSoonPlatforms.map((platform) => (
+                <li
+                  key={platform}
+                  className="border-color-subtle text-color-muted rounded-full border px-4 py-2 text-sm font-medium"
+                >
+                  {platform}
+                </li>
+              ))}
+            </ul>
+          </section>
         </div>
       </div>
 

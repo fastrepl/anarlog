@@ -1369,6 +1369,7 @@ function DownloadButton() {
         >
           {orderedSections.map((section) =>
             section.downloads.map((download) => {
+              if (!download.showInMenu) return null;
               if (download.url === preferredDownload.url) return null;
 
               return (
@@ -1396,6 +1397,11 @@ function DownloadButton() {
                   <span>
                     {getDownloadOptionLabel(section.platform, download.name)}
                   </span>
+                  {section.status && (
+                    <span className="border-color-subtle text-color-muted ml-auto rounded-full border px-2 py-0.5 text-[11px] leading-none font-medium tracking-wide uppercase">
+                      {section.status}
+                    </span>
+                  )}
                 </a>
               );
             }),
