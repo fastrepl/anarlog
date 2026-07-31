@@ -724,10 +724,16 @@ function buildNameAliasRegExp(
 
 function hasProperNameAffix(value: string, start: number, end: number) {
   const prefix = value.slice(0, start);
+  const precedingToken = prefix.match(
+    /(?:^|[^\p{L}\p{N}])(\p{Lu}[\p{L}\p{N}]*(?:[-‐‑‒–—―'’][\p{L}\p{N}]+)*|\p{Lu}\.)\s+$/u,
+  )?.[1];
   return (
     /[\p{L}\p{N}][-‐‑‒–—―'’]$/u.test(prefix) ||
-    /(?:^|[^\p{L}\p{N}])(?:\p{Lu}[\p{L}\p{N}]*(?:[-‐‑‒–—―'’][\p{L}\p{N}]+)*|\p{Lu}\.)\s+$/u.test(
-      prefix,
+    Boolean(
+      precedingToken &&
+      !ATTRIBUTION_STOP_WORDS.has(
+        precedingToken.replace(/\.$/u, "").toLocaleLowerCase(),
+      ),
     ) ||
     /^(?:\s+\p{Lu}|[-‐‑‒–—―'’]\p{Lu})/u.test(value.slice(end))
   );
@@ -761,7 +767,7 @@ function selectRelevantEvidence(
 }
 
 const ATTRIBUTION_STOP_WORDS = new Set(
-  "about after again against all also among and any are around because been before being below between both but can could did does doing down during each few for from further had has have having here how into its itself just may more most other our ours out over own same should some such than that the their theirs them themselves then there these they this those through under until very was were what when where which while who whom why will with would you your yours yourself yourselves".split(
+  "about after again against all also among and any are around as because been before being below between both but can could did does doing down during each few for from further had has have having here how if into its itself just may more most once other our ours out over own same should since some such than that the their theirs them themselves then there these they this those though through under unless until very was were what when whenever where whereas whether which while who whom why will with would you your yours yourself yourselves".split(
     " ",
   ),
 );
