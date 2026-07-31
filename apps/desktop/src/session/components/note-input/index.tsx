@@ -346,7 +346,7 @@ const NoteInputContent = forwardRef<
               "pt-2",
               renderedCurrentTab.type === "transcript"
                 ? "overflow-hidden pb-0"
-                : "overflow-auto pb-6",
+                : "overflow-x-hidden overflow-y-auto pb-6",
             ])}
           >
             {renderedCurrentTab.type === "enhanced" && (

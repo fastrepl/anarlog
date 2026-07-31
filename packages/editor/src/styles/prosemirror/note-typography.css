@@ -24,11 +24,15 @@
   padding-block: 0.125em;
 }
 
+/* The inset is `rem`, not `em`: it has to cancel against the scroll
+ * container's fixed `px-3`, so it must not scale with the block's own font
+ * size. With `em`, an h1 (1.5em) bled 18px into 12px of padding and the extra
+ * 6px scrolled the whole note sideways. */
 .note-typography.prosemirror-editor > * {
   transition: background-color 120ms ease;
-  margin-inline: -0.75em;
+  margin-inline: -0.75rem;
   border-radius: 0.5rem;
-  padding-inline: 0.75em;
+  padding-inline: 0.75rem;
 }
 
 /* font-size is explicit, not inherited: web's `@layer base` sets `p` to
@@ -148,7 +152,7 @@
 .note-typography.prosemirror-editor
   ul:not([data-type="taskList"])
   > li::before {
-  left: calc(0.5em + 0.75em);
+  left: calc(0.5em + 0.75rem);
 }
 
 /* Ordered markers cycle by depth: decimal -> lower-alpha -> lower-roman. */
@@ -201,7 +205,7 @@
   }
 }
 .note-typography.prosemirror-editor ol > li::before {
-  left: 0.75em;
+  left: 0.75rem;
 }
 
 /* Li layout. In the editor the margin extends past the text column for the
@@ -222,10 +226,10 @@
 
 .note-typography.prosemirror-editor li {
   transition: background-color 120ms ease;
-  margin-inline: -0.75em;
+  margin-inline: -0.75rem;
   border-radius: 0.5rem;
-  padding-right: 0.75em;
-  padding-left: calc(1.5em + 0.75em);
+  padding-right: 0.75rem;
+  padding-left: calc(1.5em + 0.75rem);
 }
 
 /* Guide rail centered under the parent li marker. Second selector handles
@@ -340,14 +344,14 @@
 }
 
 /* In the editor, the hover-row rule (higher specificity than the element
- * rules above) would drag these blocks into the -0.75em row inset. Their
+ * rules above) would drag these blocks into the -0.75rem row inset. Their
  * visible left edge — quote border, code background — belongs at the text
  * column, aligned with plain text. That rule's radius also rounds off the ends
  * of the quote border, so it is reset here too. */
 .note-typography.prosemirror-editor blockquote {
   margin-inline-start: 0;
   border-radius: 0;
-  padding-inline: 1em 0.75em;
+  padding-inline: 1em 0.75rem;
 }
 
 .note-typography.prosemirror-editor pre {

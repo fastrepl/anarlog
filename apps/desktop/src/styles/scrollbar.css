@@ -1,5 +1,8 @@
+/* `height` covers horizontal bars; without it they fall back to WebKit's 15px
+ * default while vertical ones stay slim. */
 ::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {

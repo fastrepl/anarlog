@@ -45,7 +45,7 @@
   ul[data-type="taskList"]
   > li
   > .task-checkbox-label {
-  left: 0.75em;
+  left: 0.75rem;
 }
 
 .note-typography input.task-checkbox {
