@@ -90,10 +90,10 @@ waived by the user) before running the release-new-version skill.
 2. Do not repurpose this helper as a staging build. Staging release evidence
    must come from the signed, notarized artifact produced by
    `desktop_cd.yaml`; use the exact-run handoff below.
-3. Sign in with a test account that has calendar access. For provider
-   matrix runs you need: a Pro (or trialing) account, an API key for at
-   least one cloud provider (e.g. OpenAI), and a downloaded local STT +
-   LLM model pair.
+3. Sign in with a test account that has calendar access. On the Fastrepl QA
+   machine, choose Google and select `john@fastrepl.com`. For provider matrix
+   runs you need: a Pro (or trialing) account, an API key for at least one
+   cloud provider (e.g. OpenAI), and a downloaded local STT + LLM model pair.
 4. Note the app version and the provider config under test in the report.
 5. For macOS audio regression runs, leave the MacBook open and use its
    built-in speakers and microphone with no external audio device attached.
@@ -222,6 +222,9 @@ tests alone is not cross-platform evidence.
 
 - Settings → Calendar (or onboarding): connect Apple Calendar and/or
   Google/Outlook via the integration flow.
+- When creating a macOS Calendar test event, set its calendar to the
+  `john@fastrepl.com` Google account (`John (Char)` in Calendar), never
+  `Personal`.
 - PASS when: the calendar list renders the account's calendars, events for
   today/this week appear in the timeline/sidebar, and an upcoming-event
   notification (meeting-start notification or in-app banner) fires for a
