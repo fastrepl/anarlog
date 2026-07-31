@@ -58,6 +58,7 @@ export type GeneralState = {
       string,
       { startedAtMs: number; seconds: number; needsBatchRepair: boolean }
     >;
+    batchTranscriptionPendingBySession: Record<string, boolean>;
     postStopProcessingBySession: Record<string, boolean>;
     triggerAppIds: string[] | null;
   };
@@ -88,6 +89,7 @@ const initialLiveState: LiveState = {
   finalStallAudibleSeconds: 0,
   transcriptionStalled: false,
   finalizingBySession: {},
+  batchTranscriptionPendingBySession: {},
   postStopProcessingBySession: {},
   triggerAppIds: null,
 };
@@ -416,6 +418,9 @@ export const isBatchTranscriptionPending = (
     LiveState,
     "requestedLiveTranscription" | "liveTranscriptionActive"
   >,
+  postStopBatchPending = false,
 ) =>
+  postStopBatchPending ||
   sessionMode === "running_batch" ||
-  (sessionMode === "active" && getLiveCaptureUiMode(live) !== "live");
+  ((sessionMode === "active" || sessionMode === "finalizing") &&
+    getLiveCaptureUiMode(live) !== "live");

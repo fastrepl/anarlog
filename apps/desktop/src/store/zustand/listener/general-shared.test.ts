@@ -18,6 +18,8 @@ describe("isBatchTranscriptionPending", () => {
   it.each([
     ["active", false, false, true],
     ["active", true, false, true],
+    ["finalizing", false, false, true],
+    ["finalizing", true, true, false],
     ["running_batch", null, null, true],
     ["active", true, true, false],
     ["inactive", false, false, false],
@@ -32,6 +34,19 @@ describe("isBatchTranscriptionPending", () => {
       ).toBe(expected);
     },
   );
+
+  it("covers the post-stop gap before batch processing starts", () => {
+    expect(
+      isBatchTranscriptionPending(
+        "inactive",
+        {
+          requestedLiveTranscription: null,
+          liveTranscriptionActive: null,
+        },
+        true,
+      ),
+    ).toBe(true);
+  });
 });
 
 function createLive(): GeneralState["live"] {

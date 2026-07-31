@@ -355,6 +355,9 @@ function useCaptureLifecycle(sessionId: string) {
   );
   const { conn } = useSTTConnection();
   const runBatch = useRunBatch(sessionId);
+  const setBatchTranscriptionPending = useListener(
+    (state) => state.setBatchTranscriptionPending,
+  );
 
   const runBatchRef = useRef(runBatch);
   const canRunBatchRef = useRef(canRunBatchTranscription(conn));
@@ -420,6 +423,14 @@ function useCaptureLifecycle(sessionId: string) {
       let cloudsyncLeaseRelease: Promise<void> | null = null;
       let recoveryPending = Boolean(recoveredMarker);
       let recoveryStateCleared = false;
+      let batchTranscriptionPending = false;
+      const updateBatchTranscriptionPending = (pending: boolean) => {
+        if (batchTranscriptionPending === pending) {
+          return;
+        }
+        batchTranscriptionPending = pending;
+        setBatchTranscriptionPending(sessionId, pending);
+      };
       const handoffCloudsyncLease = () => {
         cloudsyncLeaseActive = false;
         cloudsyncLeaseAcquire = null;
@@ -562,6 +573,7 @@ function useCaptureLifecycle(sessionId: string) {
 
         let batchCompleted = false;
         if (postCaptureAction === "batch_then_enhance") {
+          updateBatchTranscriptionPending(true);
           console.info("[listener] starting post-stop transcript repair", {
             sessionId,
             reasons: repairReasons,
@@ -795,6 +807,7 @@ function useCaptureLifecycle(sessionId: string) {
           }
           throw error;
         } finally {
+          updateBatchTranscriptionPending(false);
           if (recoveryPending) {
             if (requestRecoveryOnFailure) {
               handoffCloudsyncLease();
@@ -827,10 +840,26 @@ function useCaptureLifecycle(sessionId: string) {
           recoveredMarker ? "recovered_capture_stopped" : "capture_stopped",
         );
         recoveryPending = false;
+        markExpectedPostStopBatch(details);
         return finalizeStopped(details, true);
+      };
+      const markExpectedPostStopBatch = (
+        details: Parameters<OnStoppedCallback>[1],
+      ) => {
+        if (
+          !pendingSummaryMode &&
+          details.audioPath &&
+          canRunBatchRef.current &&
+          (!details.liveTranscriptionActive ||
+            details.needsBatchRepair ||
+            refineSpeakerDiarization)
+        ) {
+          updateBatchTranscriptionPending(true);
+        }
       };
       const recoverStopped: OnStoppedCallback = (_sessionId, details) => {
         trackSessionCompletion(details, "recovered_capture_stopped");
+        markExpectedPostStopBatch(details);
         return finalizeStopped(details, false);
       };
 
@@ -894,6 +923,7 @@ function useCaptureLifecycle(sessionId: string) {
       session?.raw_md,
       session?.user_id,
       sessionId,
+      setBatchTranscriptionPending,
       stopMeetingChatTasks,
       transcriptExistence,
     ],

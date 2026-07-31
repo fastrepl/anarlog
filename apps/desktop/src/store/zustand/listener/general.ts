@@ -54,6 +54,7 @@ export type GeneralActions = {
   beginCaptureRecoveryFinalization: (sessionId: string) => boolean;
   finishCaptureRecoveryFinalization: (sessionId: string) => void;
   setMuted: (value: boolean) => void;
+  setBatchTranscriptionPending: (sessionId: string, pending: boolean) => void;
   setTriggerAppIds: (appIds: string[] | null) => void;
   updateCaptureConfig: (
     update: Pick<
@@ -166,6 +167,15 @@ export const createGeneralSlice = <
         void listenerCommands.setMicMuted(value);
       }),
     );
+  },
+  setBatchTranscriptionPending: (sessionId, pending) => {
+    setLiveState(set, (live) => {
+      if (pending) {
+        live.batchTranscriptionPendingBySession[sessionId] = true;
+      } else {
+        delete live.batchTranscriptionPendingBySession[sessionId];
+      }
+    });
   },
   setTriggerAppIds: (appIds) => {
     setLiveState(set, (live) => {

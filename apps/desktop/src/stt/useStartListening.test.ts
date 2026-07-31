@@ -23,6 +23,7 @@ const {
   canStartLiveSessionMock,
   startMock,
   getSessionModeMock,
+  setBatchTranscriptionPendingMock,
   runBatchMock,
   useListenerMock,
   useSessionMock,
@@ -70,6 +71,7 @@ const {
   canStartLiveSessionMock: vi.fn(),
   startMock: vi.fn(),
   getSessionModeMock: vi.fn(),
+  setBatchTranscriptionPendingMock: vi.fn(),
   runBatchMock: vi.fn(),
   useListenerMock: vi.fn(),
   useSessionMock: vi.fn(),
@@ -427,6 +429,7 @@ describe("useStartListening", () => {
           finishCaptureRecoveryFinalizationMock,
         canStartLiveSession: canStartLiveSessionMock,
         getSessionMode: getSessionModeMock,
+        setBatchTranscriptionPending: setBatchTranscriptionPendingMock,
         start: startMock,
       }),
     );
@@ -833,6 +836,13 @@ describe("useStartListening", () => {
       deferAudioFinalization: true,
       promotion: { scope: "whole_session" },
     });
+    expect(setBatchTranscriptionPendingMock.mock.calls).toEqual([
+      ["session-1", true],
+      ["session-1", false],
+    ]);
+    expect(
+      setBatchTranscriptionPendingMock.mock.invocationCallOrder[0],
+    ).toBeLessThan(runBatchMock.mock.invocationCallOrder[0]!);
     expect(runBatchMock.mock.invocationCallOrder[0]!).toBeLessThan(
       clearCaptureLifecycleMarkerMock.mock.invocationCallOrder[0]!,
     );

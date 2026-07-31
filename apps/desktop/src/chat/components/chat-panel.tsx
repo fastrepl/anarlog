@@ -56,6 +56,7 @@ export function ChatSessionHost({
     return isBatchTranscriptionPending(
       state.getSessionMode(currentSessionId),
       state.live,
+      state.live.batchTranscriptionPendingBySession[currentSessionId],
     );
   });
 

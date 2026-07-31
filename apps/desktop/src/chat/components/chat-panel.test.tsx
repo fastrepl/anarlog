@@ -80,6 +80,7 @@ vi.mock("~/stt/contexts", () => ({
       live: {
         requestedLiveTranscription: mocks.requestedLiveTranscription,
         liveTranscriptionActive: mocks.liveTranscriptionActive,
+        batchTranscriptionPendingBySession: {},
       },
     }),
 }));
