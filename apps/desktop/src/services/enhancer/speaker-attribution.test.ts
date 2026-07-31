@@ -302,6 +302,45 @@ describe("inferAutomaticSpeakerAssignments", () => {
     },
   );
 
+  it("does not treat a third-party full name as given-name evidence", async () => {
+    const snapshot = createSnapshot();
+    snapshot.participants[0]!.name = "Mark Smith";
+    mocks.generateText.mockResolvedValue({
+      text: JSON.stringify({ mapping: null }),
+    });
+
+    await inferAutomaticSpeakerAssignments({
+      generatedSummary: "George Hotz discussed Mark Zuckerberg.",
+      model: {} as LanguageModel,
+      snapshot,
+      signal: new AbortController().signal,
+    });
+
+    expect(mocks.generateText).toHaveBeenCalledOnce();
+    const prompt = JSON.parse(mocks.generateText.mock.calls[0]![0].prompt);
+    expect(prompt.candidate.human_id).toBe("human-george");
+  });
+
+  it("does not let a hyphenated name hide another participant", async () => {
+    const snapshot = createSnapshot();
+    snapshot.participants[0]!.name = "Mary-Jane Smith";
+    snapshot.participants[1]!.name = "Jane Doe";
+    mocks.generateText.mockResolvedValue({
+      text: JSON.stringify({ mapping: null }),
+    });
+
+    await inferAutomaticSpeakerAssignments({
+      generatedSummary: "Jane Doe agreed with Mary-Jane.",
+      model: {} as LanguageModel,
+      snapshot,
+      signal: new AbortController().signal,
+    });
+
+    expect(mocks.generateText).toHaveBeenCalledOnce();
+    const prompt = JSON.parse(mocks.generateText.mock.calls[0]![0].prompt);
+    expect(prompt.candidate.human_id).toBe("human-george");
+  });
+
   it("excludes shared given names that refer to another participant", async () => {
     const snapshot = createSnapshot();
     snapshot.participants[0]!.name = "Alex Smith";

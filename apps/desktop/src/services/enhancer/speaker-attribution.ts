@@ -567,13 +567,12 @@ function buildCandidateSummaryMentions(
     .flatMap((line) => line.match(/[^.!?]+[.!?]?/gu) ?? [])
     .map(normalizeWhitespace)
     .flatMap((sentence) => {
-      const normalizedSentence = sentence.toLocaleLowerCase();
-      if (!containsNameAlias(normalizedSentence, candidateAliases)) {
+      if (!containsNameAlias(sentence, candidateAliases)) {
         return [];
       }
       if (
         !containsNameAlias(
-          removeNameAliases(normalizedSentence, candidateAliases),
+          removeNameAliases(sentence, candidateAliases),
           otherAliases,
         )
       ) {
@@ -584,11 +583,10 @@ function buildCandidateSummaryMentions(
         .split(/[,;]\s+(?:and\s+)?|\s+[—–]\s+/u)
         .map(normalizeWhitespace)
         .filter((clause) => {
-          const normalizedClause = clause.toLocaleLowerCase();
           return (
-            startsWithNameAlias(normalizedClause, candidateAliases) &&
+            startsWithNameAlias(clause, candidateAliases) &&
             !containsNameAlias(
-              removeNameAliases(normalizedClause, candidateAliases),
+              removeNameAliases(clause, candidateAliases),
               otherAliases,
             )
           );
@@ -610,7 +608,7 @@ function buildCandidateNameAliases(
   const normalizedName = normalizeWhitespace(candidateName).toLocaleLowerCase();
   const givenName = getCandidateGivenNameAlias(normalizedName);
   if (!givenName) {
-    return [normalizedName];
+    return [{ value: normalizedName, isGivenName: false }];
   }
 
   const isUnique = candidates
@@ -623,13 +621,23 @@ function buildCandidateNameAliases(
           ?.includes(givenName),
     );
 
-  return isUnique ? [normalizedName, givenName] : [normalizedName];
+  return isUnique
+    ? [
+        { value: normalizedName, isGivenName: false },
+        { value: givenName, isGivenName: true },
+      ]
+    : [{ value: normalizedName, isGivenName: false }];
 }
 
 function buildCandidateExclusionAliases(candidateName: string) {
   const normalizedName = normalizeWhitespace(candidateName).toLocaleLowerCase();
   const givenName = getCandidateGivenNameAlias(normalizedName);
-  return givenName ? [normalizedName, givenName] : [normalizedName];
+  return givenName
+    ? [
+        { value: normalizedName, isGivenName: false },
+        { value: givenName, isGivenName: true },
+      ]
+    : [{ value: normalizedName, isGivenName: false }];
 }
 
 function getCandidateGivenNameAlias(normalizedName: string) {
@@ -641,33 +649,73 @@ function getCandidateGivenNameAlias(normalizedName: string) {
     : undefined;
 }
 
-function removeNameAliases(value: string, aliases: string[]) {
+function removeNameAliases(
+  value: string,
+  aliases: Array<{ value: string; isGivenName: boolean }>,
+) {
   return aliases.reduce(
     (remaining, alias) =>
       remaining.replace(
-        new RegExp(
-          `(?:^|[^\\p{L}\\p{N}])${escapeRegExp(alias)}(?=$|[^\\p{L}\\p{N}])`,
-          "gu",
-        ),
-        " ",
+        buildNameAliasRegExp(alias, "giu"),
+        (match, offset: number) =>
+          alias.isGivenName &&
+          hasProperNameContinuation(remaining, offset + match.length)
+            ? match
+            : " ",
       ),
     value,
   );
 }
 
-function containsNameAlias(value: string, aliases: string[]) {
-  return aliases.some((alias) =>
-    new RegExp(
-      `(?:^|[^\\p{L}\\p{N}])${escapeRegExp(alias)}(?=$|[^\\p{L}\\p{N}])`,
-      "u",
-    ).test(value),
+function containsNameAlias(
+  value: string,
+  aliases: Array<{ value: string; isGivenName: boolean }>,
+) {
+  return aliases.some((alias) => {
+    const pattern = buildNameAliasRegExp(alias, "giu");
+    let match = pattern.exec(value);
+    while (match) {
+      if (
+        !alias.isGivenName ||
+        !hasProperNameContinuation(value, pattern.lastIndex)
+      ) {
+        return true;
+      }
+      match = pattern.exec(value);
+    }
+    return false;
+  });
+}
+
+function startsWithNameAlias(
+  value: string,
+  aliases: Array<{ value: string; isGivenName: boolean }>,
+) {
+  return aliases.some((alias) => {
+    const matches = new RegExp(
+      `^${escapeRegExp(alias.value)}(?=$|[^\\p{L}\\p{N}])`,
+      "iu",
+    ).test(value);
+    return (
+      matches &&
+      (!alias.isGivenName ||
+        !hasProperNameContinuation(value, alias.value.length))
+    );
+  });
+}
+
+function buildNameAliasRegExp(
+  alias: { value: string; isGivenName: boolean },
+  flags: string,
+) {
+  return new RegExp(
+    `(?:^|[^\\p{L}\\p{N}])${escapeRegExp(alias.value)}(?=$|[^\\p{L}\\p{N}])`,
+    flags,
   );
 }
 
-function startsWithNameAlias(value: string, aliases: string[]) {
-  return aliases.some((alias) =>
-    new RegExp(`^${escapeRegExp(alias)}(?=$|[^\\p{L}\\p{N}])`, "u").test(value),
-  );
+function hasProperNameContinuation(value: string, offset: number) {
+  return /^(?:\s+\p{Lu}|[-‐‑‒–—―'’]\p{Lu})/u.test(value.slice(offset));
 }
 
 function escapeRegExp(value: string) {
