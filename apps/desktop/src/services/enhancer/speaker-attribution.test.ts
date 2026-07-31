@@ -243,6 +243,40 @@ describe("inferAutomaticSpeakerAssignments", () => {
     ]);
   });
 
+  it("matches unique given names in generated summaries", async () => {
+    mockDirectCandidateMatches();
+
+    const updates = await inferAutomaticSpeakerAssignments({
+      generatedSummary:
+        "Lex mentions his conversation with Mark Zuckerberg. George strongly endorses open source AI.",
+      model: {} as LanguageModel,
+      snapshot: createSnapshot(),
+      signal: new AbortController().signal,
+    });
+
+    expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    expect(automaticHumanIds(updates[0]!)).toEqual([
+      "human-lex",
+      "human-george",
+    ]);
+  });
+
+  it("does not use a given name shared by multiple participants", async () => {
+    const snapshot = createSnapshot();
+    snapshot.participants[0]!.name = "Alex Smith";
+    snapshot.participants[1]!.name = "Alex Jones";
+
+    await expect(
+      inferAutomaticSpeakerAssignments({
+        generatedSummary: "Alex discussed open source AI.",
+        model: {} as LanguageModel,
+        snapshot,
+        signal: new AbortController().signal,
+      }),
+    ).resolves.toEqual([]);
+    expect(mocks.generateText).not.toHaveBeenCalled();
+  });
+
   it("uses an exclusive clause when a summary sentence names both candidates", async () => {
     mocks.generateText.mockImplementation(({ prompt }: { prompt: string }) => {
       const payload = JSON.parse(prompt) as {

@@ -558,20 +558,22 @@ function buildCandidateSummaryMentions(
   candidateName: string,
   candidates: SpeakerAttributionContext["candidates"],
 ) {
-  const normalizedName = candidateName.toLocaleLowerCase();
-  const otherNames = candidates
+  const candidateAliases = buildCandidateNameAliases(candidateName, candidates);
+  const otherAliases = candidates
     .filter((candidate) => candidate.name !== candidateName)
-    .map((candidate) => candidate.name.toLocaleLowerCase());
+    .flatMap((candidate) =>
+      buildCandidateNameAliases(candidate.name, candidates),
+    );
   const sentences = summary
     .split(/\r?\n/u)
     .flatMap((line) => line.match(/[^.!?]+[.!?]?/gu) ?? [])
     .map(normalizeWhitespace)
     .flatMap((sentence) => {
       const normalizedSentence = sentence.toLocaleLowerCase();
-      if (!normalizedSentence.includes(normalizedName)) {
+      if (!containsNameAlias(normalizedSentence, candidateAliases)) {
         return [];
       }
-      if (otherNames.every((name) => !normalizedSentence.includes(name))) {
+      if (!containsNameAlias(normalizedSentence, otherAliases)) {
         return [sentence];
       }
 
@@ -581,8 +583,8 @@ function buildCandidateSummaryMentions(
         .filter((clause) => {
           const normalizedClause = clause.toLocaleLowerCase();
           return (
-            normalizedClause.startsWith(normalizedName) &&
-            otherNames.every((name) => !normalizedClause.includes(name))
+            startsWithNameAlias(normalizedClause, candidateAliases) &&
+            !containsNameAlias(normalizedClause, otherAliases)
           );
         });
     });
@@ -593,6 +595,48 @@ function buildCandidateSummaryMentions(
       id: `summary-${index + 1}`,
       quote: quote.slice(0, MAX_SUMMARY_MENTION_LENGTH),
     }));
+}
+
+function buildCandidateNameAliases(
+  candidateName: string,
+  candidates: SpeakerAttributionContext["candidates"],
+) {
+  const normalizedName = normalizeWhitespace(candidateName).toLocaleLowerCase();
+  const givenName = normalizedName.match(/[\p{L}\p{N}]+/u)?.[0];
+  if (!givenName || givenName.length < 3) {
+    return [normalizedName];
+  }
+
+  const isUnique = candidates
+    .filter((candidate) => candidate.name !== candidateName)
+    .every(
+      (candidate) =>
+        !candidate.name
+          .toLocaleLowerCase()
+          .match(/[\p{L}\p{N}]+/gu)
+          ?.includes(givenName),
+    );
+
+  return isUnique ? [normalizedName, givenName] : [normalizedName];
+}
+
+function containsNameAlias(value: string, aliases: string[]) {
+  return aliases.some((alias) =>
+    new RegExp(
+      `(?:^|[^\\p{L}\\p{N}])${escapeRegExp(alias)}(?=$|[^\\p{L}\\p{N}])`,
+      "u",
+    ).test(value),
+  );
+}
+
+function startsWithNameAlias(value: string, aliases: string[]) {
+  return aliases.some((alias) =>
+    new RegExp(`^${escapeRegExp(alias)}(?=$|[^\\p{L}\\p{N}])`, "u").test(value),
+  );
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
 function selectRelevantEvidence(
