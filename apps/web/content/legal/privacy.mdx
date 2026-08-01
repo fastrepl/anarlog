@@ -1,121 +1,121 @@
 ---
 date: "2026-08-01"
 title: "Privacy Policy"
-summary: "How we collect, use, and protect your personal information"
+summary: "What we collect, what stays on your device, and the choices you have."
 ---
 
-## 1. Introduction
+> **The short version:** Anarlog is local-first. Your notes live on your device, and you can use the app entirely offline. Cloud features are optional, and this policy tells you exactly what each one sends off your device. Encrypted sync is built so we can't read your notes. We don't sell your data. The full policy below is the one that governs.
 
-Fastrepl, Inc. ("we," "our," or "us") operates Anarlog. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our application and services.
+## 1. Who we are
 
-## 2. Local-First Design
+Anarlog is made by Fastrepl, Inc. ("we," "our," or "us"). This policy explains what information we collect when you use Anarlog, how we use it, and the choices you have.
 
-Anarlog is a local-first, open-source application. Your notes, transcripts, and meeting data are stored locally on your device. You can use Anarlog entirely offline with local transcription and a local language model. Cloud-powered features — such as cloud transcription, AI summarization, Cloud Sync, sharing, and the Cloud API — are optional, require an account, and are described individually below so you can see exactly what each one sends off your device. If you no longer wish to maintain an account, you can delete it at any time (see Section 9.2).
+## 2. Local-first by design
 
-## 3. Information We Collect
+Your notes, transcripts, and meeting data are stored locally, on your device. You can use Anarlog entirely offline with local transcription and a local language model — nothing leaves your computer.
 
-### 3.1 Information You Provide
+Cloud features — cloud transcription, AI summaries, Cloud Sync, sharing, and the Cloud API — are optional and require an account. Each one is described below, so you can see exactly what it sends and decide for yourself. If you no longer want an account, you can delete it at any time (see Section 9.2).
 
-We collect information that you directly provide to us, including:
+## 3. What we collect
 
-- **Account Information:** Email address, plus your name and profile picture when you provide them or when your sign-in provider (Google or GitHub) shares them. Passwords are handled by our authentication provider and stored only in hashed form; we also store a billing customer identifier linking your account to our payment processor.
-- **User Content:** Notes, transcripts, attachments, and other content you choose to send to the cloud features described in Sections 4 and 5
-- **Payment Information:** Billing details and payment card information, processed securely through third-party payment processors; we do not store card numbers
-- **Communications:** Information you provide when you contact us for support or feedback
+### 3.1 Things you give us
 
-### 3.2 Information Collected Automatically
+- **Account details.** Your email address, plus your name and profile picture when you provide them or your sign-in provider (Google or GitHub) shares them. Passwords are handled by our authentication provider and stored only in hashed form. We also keep a billing customer identifier that links your account to our payment processor.
+- **Your content.** Notes, transcripts, attachments, and anything else you choose to send to the cloud features described in Sections 4 and 5.
+- **Payment details.** Handled by our payment processor. We never see or store your card number.
+- **Messages to us.** Whatever you include when you reach out for support or send feedback.
 
-When you use the Service, we may automatically collect:
+### 3.2 Things collected automatically
 
-- **Usage Data:** Pseudonymous information about how you interact with the Service, including product interaction events (such as onboarding, downloads, note creation, transcription, summary generation, exports, and settings interactions). If you sign in, usage data is associated with your account.
-- **Device Information:** Device type, operating system, browser type, IP address, and a stable device identifier
-- **Log Data:** Access times, pages viewed, system activity, and technical diagnostics (latency, status codes, error events)
-- **Website Analytics Data:** On Anarlog-owned websites, behavioral metrics, click and scroll activity, referrers, approximate location derived from IP address, browser/device information, and similar interaction metadata, including session replays of website visits collected by our website analytics providers
-- **Service Telemetry Metadata:** Pseudonymous identifiers, app/browser version metadata, and cloud feature usage metadata (speech-to-text duration, AI token counts, AI latency, provider/model metadata) used for operations, billing, product improvement, and abuse prevention
-- **Error and Crash Reports:** Error events with messages and content stripped, sanitized diagnostic breadcrumbs, and crash reports. On a small sample of desktop sessions we record masked session replays (all text hidden, all media blocked) to diagnose issues; these are recorded only while the `Share usage data` setting is enabled (see Section 9.4).
+- **Usage data.** Pseudonymous events about how you use the app — onboarding, downloads, note creation, transcription, summaries, exports, settings. If you're signed in, these are associated with your account.
+- **Device information.** Device type, operating system, browser type, IP address, and a stable device identifier.
+- **Log data.** Access times, pages viewed, and technical diagnostics like latency, status codes, and errors.
+- **Website analytics.** On our websites: page views, clicks and scrolling, referrers, rough location from your IP address, and browser details — including session replays collected by our website analytics providers.
+- **Service telemetry.** Pseudonymous identifiers, app version, and cloud usage metadata (transcription minutes, AI token counts, latency, which provider and model served a request). We use this to run the service, bill correctly, improve the product, and prevent abuse.
+- **Error and crash reports.** Error events with messages and content stripped out, sanitized diagnostics, and crash reports. On a small sample of desktop sessions we record a masked session replay — all text hidden, all media blocked — to diagnose issues. These replays only happen while `Share usage data` is on (see Section 9.4).
 
-Analytics and telemetry events are designed to avoid raw meeting audio, transcript text, note content, and summary text.
+Analytics and telemetry are designed to never include your meeting audio, transcripts, notes, or summaries.
 
-### 3.3 Google Calendar and Microsoft Outlook Calendar Accounts
+### 3.3 Google Calendar and Microsoft Outlook Calendar
 
 If you connect Google Calendar or Microsoft Outlook Calendar, we use the Google Calendar API or Microsoft Graph, respectively, to collect and process the data needed to display your calendars and upcoming events in Anarlog and let you create personal notes and memos associated with those events. This may include:
 
-- **Calendar Information:** Calendar IDs, names, colors, access or ownership metadata, and source or account identifiers
-- **Event Information:** Event IDs, titles, descriptions, locations, meeting links, start and end times, time zones, recurrence metadata, organizer details, and attendee details such as names, email addresses, and RSVP status
-- **Connection Information:** Provider connection IDs, connection status, and the Google or Microsoft account identity associated with the connection
+- **Calendar information:** Calendar IDs, names, colors, access or ownership metadata, and source or account identifiers
+- **Event information:** Event IDs, titles, descriptions, locations, meeting links, start and end times, time zones, recurrence metadata, organizer details, and attendee details such as names, email addresses, and RSVP status
+- **Connection information:** Provider connection IDs, connection status, and the Google or Microsoft account identity associated with the connection
 
 We use connected calendar data to display calendars and upcoming events and to support the personal notes and memos you create for those events. Calendar API responses pass through Nango's encrypted API proxy before reaching Anarlog. We do not use connected calendar data for advertising, marketing personalization, sale to data brokers, or training generalized AI models. The use of information received from Google Workspace APIs adheres to the [Google Workspace API User Data and Developer Policy](https://developers.google.com/workspace/workspace-api-user-data-developer-policy), including the Limited Use requirements.
 
-### 3.4 Other Connected Accounts
+### 3.4 Other connected accounts
 
-If you connect an issue tracker such as Linear or GitHub, we access the issues, pull requests, and related metadata needed to provide the features you enable, through the same encrypted integration proxy. Connected-account data is used only to provide those features, and the commitments in Section 8.3 apply to it as well.
+If you connect an issue tracker like Linear or GitHub, we access the issues, pull requests, and related metadata needed for the features you enable, through the same encrypted integration proxy. We use connected-account data only to provide those features, and the commitments in Section 8.3 apply to it too.
 
-## 4. Meeting Audio, Transcription, and AI Features
+## 4. Meeting audio, transcription, and AI
 
-- **Recording is local.** Anarlog captures microphone and system audio on your device, without adding a bot to the call. Recordings may include the voices of other meeting participants; you are responsible for providing any notice and obtaining any consent required by the laws that apply to your meetings.
-- **Local options.** You can transcribe with on-device models and use a local language model, in which case meeting content does not leave your device.
-- **Hosted transcription.** If you use cloud transcription, the audio needed to create the transcript is sent through our servers to our speech-to-text providers, and a request may fail over among the providers listed in Section 8.2. Uploaded audio is deleted from our storage once the transcription job completes; the transcription result is stored so your devices can retrieve it and is deleted with your account.
-- **Hosted AI features.** If you use cloud AI features (such as summaries or chat), the text and instructions needed to fulfill the request are sent through our AI gateway to the model providers listed in Section 8.2. If you use AI chat with web search, your search queries are sent to our search providers. We do not use your notes, transcripts, or audio to train AI models.
-- **Your own providers.** If you configure your own API key or a local endpoint, content is sent directly to the provider you chose under your agreement with them.
+- **Recording happens on your device.** Anarlog captures microphone and system audio locally, without adding a bot to your call. Recordings can include other people's voices — you're responsible for giving any notice and getting any consent the law requires for your meetings.
+- **Local options.** Use on-device transcription and a local language model, and meeting content never leaves your device.
+- **Cloud transcription.** If you use it, the audio needed for the transcript travels through our servers to our speech-to-text providers, and a request may fail over between the providers listed in Section 8.2. We delete uploaded audio from our storage once the job completes. The transcript result is stored so your devices can fetch it, and deleted with your account.
+- **Cloud AI.** If you use cloud summaries or chat, the text and instructions needed for the request go through our AI gateway to the model providers listed in Section 8.2. If you use AI chat with web search, your search queries go to our search providers. We never use your notes, transcripts, or audio to train AI models.
+- **Your own providers.** If you bring your own API key or a local endpoint, content goes directly to the provider you chose, under your agreement with them.
 
-## 5. Cloud Sync, Sharing, and Cloud API
+## 5. Cloud Sync, sharing, and the Cloud API
 
-### 5.1 End-to-End Encrypted Cloud Sync
+### 5.1 Cloud Sync is end-to-end encrypted
 
-Cloud Sync is end-to-end encrypted. Synced notes, transcripts, and attachments are encrypted on your device with keys derived from a recovery key that is stored in your operating system's keychain and never sent to us. **We cannot read your synced content, and we cannot recover it if you lose your recovery key.** Our sync infrastructure stores only encrypted records together with limited operational metadata: your account and workspace identifier, record timestamps and sizes, and the names of your registered devices — not content, titles, or field names.
+Synced notes, transcripts, and attachments are encrypted on your device before upload, with keys derived from a recovery key that lives in your operating system's keychain and never reaches us. **We cannot read your synced content, and we cannot recover it if you lose your recovery key.** Our sync servers see only encrypted records plus limited operational metadata — your account and workspace identifier, record timestamps and sizes, and your device names. Not content, not titles, not field names.
 
-### 5.2 Shared Notes
+### 5.2 Shared notes are different
 
-Sharing is different from Cloud Sync: when you share a note or create a share link, a server-readable copy of that note's title, content, and attachments is stored on our servers so recipients can view it in the browser. We also collect view metadata for shared notes (such as when a shared note is opened) to provide sharing features like view tracking. When you stop sharing, the note is no longer accessible to recipients.
+When you share a note or create a share link, a server-readable copy of that note — title, content, attachments — is stored on our servers so recipients can open it in a browser. We also collect view metadata (like when a shared note is opened) to power features like view tracking. When you stop sharing, recipients lose access.
 
-### 5.3 Cloud API & Connectors
+### 5.3 Cloud API & Connectors is opt-in
 
-Cloud API & Connectors is an optional feature that is off by default. If you enable it, Anarlog uploads a separate server-readable copy of your meeting titles, notes, summaries, participants, action items, and transcripts so that agents and API clients you authorize can access them while your desktop is offline. It does not weaken Cloud Sync's end-to-end encryption. Turning the feature off deletes the server-readable copies.
+Off by default. If you turn it on, Anarlog uploads a separate server-readable copy of your meeting titles, notes, summaries, participants, action items, and transcripts, so agents and API clients you authorize can reach them while your desktop is offline. It doesn't weaken Cloud Sync's encryption. Turn it off and the server-readable copies are deleted.
 
-## 6. How We Use Your Information
+## 6. How we use your information
 
 We use your information to:
 
-- Provide, maintain, and improve the Service
-- Operate the optional cloud features you enable, as described in Sections 4 and 5
-- Process transactions and manage your account
+- Provide, maintain, and improve Anarlog
+- Run the optional cloud features you enable, as described in Sections 4 and 5
+- Process payments and manage your account
 - Send technical notices, updates, and support messages
-- Send marketing communications (newsletters, product announcements, updates) — you may opt out at any time
-- Display calendars and upcoming events and support event-related notes and memos when you connect Google Calendar or Microsoft Outlook Calendar
-- Respond to your comments, questions, and requests
-- Protect against fraud and other illegal activities
-- Comply with legal obligations
+- Send marketing emails like newsletters and product announcements — you can opt out anytime
+- Show your calendars and upcoming events, and support event-related notes, when you connect a calendar
+- Answer your questions and requests
+- Protect against fraud and abuse
+- Meet our legal obligations
 
-## 7. Data Storage and Security
+## 7. Storage and security
 
-We implement appropriate technical and organizational security measures to protect your information against unauthorized access, alteration, disclosure, or destruction. We use HTTPS/TLS to protect data transmitted over external networks, and Cloud Sync content is additionally end-to-end encrypted as described in Section 5.1. The operating system controls at-rest protection for data stored locally on your device, including any device-level encryption you enable.
+We use appropriate technical and organizational measures to protect your information from unauthorized access, alteration, disclosure, or destruction. Data in transit is protected with HTTPS/TLS, and Cloud Sync content is additionally end-to-end encrypted as described in Section 5.1. Data on your device is protected by your operating system, including any device-level encryption you've turned on.
 
-For connected calendars, calendar and event data is primarily stored in Anarlog's local application database on your device. Nango, our integration provider, stores the OAuth access and refresh tokens needed to maintain the connection. Nango encrypts these credentials at rest using AES-256-GCM and protects data in transit using TLS. We store limited connection metadata on our backend (integration ID, connection ID, connection status, error state, and timestamps) needed to operate the integration securely.
+For connected calendars, calendar and event data lives primarily in Anarlog's local database on your device. Nango, our integration provider, stores the OAuth tokens needed to keep the connection alive — encrypted at rest with AES-256-GCM and in transit with TLS. On our backend we keep only the connection metadata needed to operate the integration securely: integration ID, connection ID, status, error state, and timestamps.
 
-No method of transmission over the Internet or electronic storage is 100% secure. While we strive to use commercially acceptable means to protect your information, we cannot guarantee its absolute security.
+No system is perfectly secure. We work to protect your information with commercially reasonable means, but we can't guarantee absolute security.
 
-## 8. Data Sharing and Disclosure
+## 8. When we share information
 
-### 8.1 We Do Not Sell Your Data
+### 8.1 We don't sell your data
 
-We do not sell, trade, or rent your personal information to third parties, including connected calendar data. We also do not share personal information for cross-context behavioral advertising.
+We don't sell, trade, or rent your personal information — including connected calendar data. We also don't share it for cross-context behavioral advertising.
 
-### 8.2 Service Providers
+### 8.2 Service providers
 
-We may share your information with third-party service providers who perform services on our behalf, such as:
+We share information with providers who do work on our behalf:
 
-- **Cloud hosting and infrastructure providers** (e.g., Fly.io, Netlify, Supabase, Render, Amazon Web Services, Cloudflare) for hosting our application, storing data securely, and delivering downloads
+- **Hosting and infrastructure** (e.g., Fly.io, Netlify, Supabase, Render, Amazon Web Services, Cloudflare) for running the service, storing data securely, and delivering downloads
 - **Sync storage** (SQLite Cloud) for storing end-to-end encrypted Cloud Sync records
-- **Integration providers** (e.g., Nango) for encrypted OAuth credential storage, token refresh, and the API proxy used to retrieve connected-account data
-- **Payment processors** (e.g., Stripe) for processing payments securely
-- **Analytics services** (e.g., PostHog, Google Analytics, Microsoft Clarity) for understanding how users interact with our Service, including website session replay
-- **Error monitoring and observability services** (e.g., Sentry, Honeycomb) for identifying and fixing issues and monitoring performance
-- **Speech-to-text providers** (e.g., Deepgram, Soniox, AssemblyAI, Gladia, ElevenLabs, Fireworks AI, OpenAI, Mistral, Alibaba Cloud) for cloud-based transcription when you enable it; a request may be routed to any of these for reliability
-- **AI gateway and model providers** (OpenRouter, routing to models from providers such as Anthropic, Google, and Mistral) for cloud-based AI features when you enable them
-- **Web search providers** (e.g., Exa, Jina) when you use AI features that search the web
-- **Email services** (e.g., Loops) for sending transactional and marketing communications
+- **Integrations** (e.g., Nango) for encrypted OAuth credential storage, token refresh, and the proxy that retrieves connected-account data
+- **Payments** (e.g., Stripe)
+- **Analytics** (e.g., PostHog, Google Analytics, Microsoft Clarity) for understanding how people use Anarlog, including website session replay
+- **Error monitoring and observability** (e.g., Sentry, Honeycomb) for finding and fixing issues
+- **Speech-to-text** (e.g., Deepgram, Soniox, AssemblyAI, Gladia, ElevenLabs, Fireworks AI, OpenAI, Mistral, Alibaba Cloud) for cloud transcription; a request may be routed to any of these for reliability
+- **AI gateway and models** (OpenRouter, routing to models from providers such as Anthropic, Google, and Mistral) for cloud AI features
+- **Web search** (e.g., Exa, Jina) when you use AI features that search the web
+- **Email** (e.g., Loops) for transactional and marketing messages
 
-### 8.3 Connected Calendar Data Sharing
+### 8.3 Connected calendar data
 
 When you connect Google Calendar or Microsoft Outlook Calendar, we may share connected calendar data only:
 
@@ -129,63 +129,62 @@ We do not sell connected calendar data or transfer it to third parties for adver
 
 We do not permit employees, contractors, or other people to read connected calendar data unless you give explicit consent for support involving specific data, access is necessary to investigate a security issue or abuse, or access is required by applicable law.
 
-### 8.4 Legal Requirements
+### 8.4 Legal requirements
 
-We may disclose your information if required by law or in response to valid requests by public authorities (court orders or government agencies).
+We may disclose your information if the law requires it, or in response to valid requests from public authorities like courts or government agencies.
 
-## 9. Your Rights and Choices
+## 9. Your rights and choices
 
-### 9.1 Access and Portability
+### 9.1 Access and portability
 
-Your notes are stored locally on your device. You can access them in Anarlog and use Anarlog's export tools to create portable copies.
+Your notes are on your device. Open them in Anarlog anytime, and use the export tools to make portable copies.
 
-### 9.2 Correction and Deletion
+### 9.2 Correction and deletion
 
-You can delete your account yourself from the Account page in the web app (`anarlog.so/app/account`), or request deletion by contacting us at hello@anarlog.so. Your locally stored data remains on your device and is not affected by account deletion.
+Delete your account yourself from the Account page in the web app (`anarlog.so/app/account`), or email us at founders@anarlog.so and we'll do it. Your local data stays on your device — account deletion doesn't touch it.
 
-### 9.3 Data Retention
+### 9.3 How long we keep things
 
 - **Local data** stays on your device until you remove it.
-- **Cloud-stored data controlled by Anarlog** (including Cloud Sync records, transcription results, shared notes, and Cloud API copies) is deleted within 30 days of account deletion, except where required to retain it for legal purposes.
-- **Audio uploaded for cloud transcription** is deleted from our storage once the transcription job completes.
+- **Cloud data we control** — Cloud Sync records, transcription results, shared notes, Cloud API copies — is deleted within 30 days of account deletion, unless the law requires us to keep it.
+- **Audio uploaded for cloud transcription** is deleted from our storage once the job completes.
 - **Cloud API & Connectors copies** are deleted when you turn the feature off.
-- **Shared notes** remain available until you stop sharing them or delete your account.
+- **Shared notes** stay available until you stop sharing them or delete your account.
 - **Connected calendar data** is retained locally on your device. Disconnecting stops future access and removes the data from active calendar views after Anarlog refreshes, but underlying local records and event context already associated with notes may remain until you remove local Anarlog app data. When a connection is deleted, our integration provider makes it inaccessible immediately and permanently deletes its credentials and associated metadata after its default 31-day retention period. Before requesting account deletion, disconnect each connected calendar account. If you cannot access the app, contact us so we can delete the connection for you.
 
-### 9.4 Analytics and Telemetry Controls
+### 9.4 Analytics controls
 
-- **Desktop app setting:** You can disable desktop usage analytics in Settings (`Share usage data`). Disabling it stops product analytics events and desktop session replay. Error and crash reporting operates independently of this setting so we can keep the app reliable; error reports are sanitized as described in Section 3.2.
-- **Global Privacy Control:** We honor Global Privacy Control (GPC) for non-essential website tracking, including our website analytics, session replay, and tracing providers.
+- **In the desktop app:** turn off `Share usage data` in Settings. That stops product analytics events and desktop session replay. Error and crash reporting stays on so we can keep the app reliable — reports are sanitized as described in Section 3.2.
+- **On our websites:** we honor Global Privacy Control (GPC) for non-essential tracking, including analytics, session replay, and tracing.
 
-### 9.5 Connected Account Controls
+### 9.5 Connected account controls
 
 You can choose which calendars Anarlog displays or disconnect an account from the Calendar sidebar. Disconnecting stops future access and syncs; it does not delete personal notes or memos you created. Follow our [connected calendar data instructions](https://docs.anarlog.so/calendar#manage-or-delete-connected-calendar-data) to manage calendars, disconnect an account, revoke provider access, or permanently remove locally retained calendar data. Permanently removing local calendar data currently requires removing all local Anarlog app data from that device.
 
 ### 9.6 Cookies
 
-Our websites use cookies and similar technologies for signing you in and keeping your session (essential) and for the analytics described in Section 3.2 (non-essential). We do not use advertising cookies or pixels. You can limit non-essential cookies through your browser settings or by enabling Global Privacy Control.
+Our websites use cookies for signing you in and keeping your session (essential), and for the analytics described in Section 3.2 (non-essential). No advertising cookies, no pixels. Limit non-essential cookies through your browser settings or by turning on Global Privacy Control.
 
-## 10. Regional Privacy Rights
+## 10. Your regional rights
 
-**European Economic Area and United Kingdom.** We process personal data to perform our contract with you (providing the Service), for our legitimate interests (such as securing and improving the Service), with your consent (such as marketing emails), and to comply with legal obligations. You have the right to access, correct, delete, restrict, or object to our processing of your personal data, the right to data portability, the right to withdraw consent at any time, and the right to lodge a complaint with your local supervisory authority. Contact us at hello@anarlog.so to exercise these rights.
+**European Economic Area and United Kingdom.** We process personal data to perform our contract with you (providing the service), for our legitimate interests (like securing and improving it), with your consent (like marketing emails), and to comply with legal obligations. You can access, correct, delete, restrict, or object to our processing of your data; take your data with you; withdraw consent at any time; and lodge a complaint with your local supervisory authority. Email founders@anarlog.so to exercise any of these.
 
-**California.** You have the right to know what personal information we collect (Section 3), to delete it (Section 9.2), to correct it, and to not be discriminated against for exercising these rights. We do not sell personal information or share it for cross-context behavioral advertising, and we honor Global Privacy Control as an opt-out signal.
+**California.** You have the right to know what we collect (Section 3), delete it (Section 9.2), correct it, and never be treated worse for exercising those rights. We don't sell personal information or share it for cross-context behavioral advertising, and we honor Global Privacy Control as an opt-out signal.
 
-## 11. International Data Transfers
+## 11. International transfers
 
-Your information may be transferred to and maintained on computers located outside of your jurisdiction where data protection laws may differ. Where required, we rely on appropriate safeguards for such transfers, such as our providers' data processing agreements incorporating standard contractual clauses.
+Your information may be processed on computers outside your jurisdiction, where data protection laws differ. Where required, we rely on appropriate safeguards — like our providers' data processing agreements incorporating standard contractual clauses.
 
-## 12. Children's Privacy
+## 12. Children
 
-Our Service is not intended for children under 13. We do not knowingly collect personal information from children under 13.
+Anarlog isn't for children under 13, and we don't knowingly collect their personal information.
 
-## 13. Changes to This Privacy Policy
+## 13. Changes to this policy
 
-We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the date above.
+When we update this policy, we'll post the new version here and update the date above.
 
-## 14. Contact Us
+## 14. Contact us
 
-If you have any questions about this Privacy Policy, please contact us at:
+Questions about this policy? Email us at [founders@anarlog.so](mailto:founders@anarlog.so).
 
 **Fastrepl, Inc.**
-Email: hello@anarlog.so
