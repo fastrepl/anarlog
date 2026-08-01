@@ -1,6 +1,46 @@
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import { displayModelLabel, PROVIDERS } from "./shared";
+
+describe("STT providers", () => {
+  test("orders providers by popularity", () => {
+    expect(PROVIDERS.map(({ id }) => id)).toEqual([
+      "anarlog",
+      "deepgram",
+      "assemblyai",
+      "openai",
+      "google_cloud",
+      "aws_transcribe",
+      "azure_speech",
+      "elevenlabs",
+      "soniox",
+      "speechmatics",
+      "groq",
+      "mistral",
+      "revai",
+      "gladia",
+      "cartesia",
+      "cloudflare_workers_ai",
+      "together",
+      "fireworks",
+      "xai",
+      "pyannote",
+      "cohere",
+      "aquavoice",
+      "custom",
+    ]);
+  });
+
+  test("bundles every provider icon", () => {
+    for (const { icon } of PROVIDERS) {
+      const markup = renderToStaticMarkup(icon);
+
+      expect(markup).toMatch(/<(img|svg)\b/);
+      expect(markup).not.toContain("iconify-icon");
+    }
+  });
+});
 
 describe("STT model display labels", () => {
   test("keeps cloud model product-facing", () => {

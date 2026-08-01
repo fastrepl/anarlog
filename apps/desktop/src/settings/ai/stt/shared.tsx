@@ -1,13 +1,19 @@
-import { Icon } from "@iconify-icon/react";
 import {
   AssemblyAI,
+  Aws,
+  Azure,
   Cloudflare,
   Cohere,
   ElevenLabs,
   Fireworks,
+  GoogleCloud,
+  Groq,
   Mistral,
   OpenAI,
+  Together,
+  XAI,
 } from "@lobehub/icons";
+import { Shuffle } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
 import type { LocalModel } from "@anlg/plugin-local-stt";
@@ -249,9 +255,7 @@ const _PROVIDERS = [
     id: "deepgram",
     displayName: "Deepgram",
     badge: null,
-    icon: (
-      <Icon icon="simple-icons:deepgram" className="text-foreground size-4" />
-    ),
+    icon: <ProviderBrandImage src="/assets/deepgram-mark.svg" alt="Deepgram" />,
     baseUrl: "https://api.deepgram.com/v1",
     models: [
       "flux-general-multi",
@@ -266,7 +270,7 @@ const _PROVIDERS = [
     id: "assemblyai",
     displayName: "AssemblyAI",
     badge: null,
-    icon: <AssemblyAI size={16} style={{ height: 16, width: 16 }} />,
+    icon: <AssemblyAI />,
     baseUrl: "https://api.assemblyai.com",
     models: ["universal-3-pro", "u3-rt-pro"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
@@ -276,7 +280,7 @@ const _PROVIDERS = [
     id: "openai",
     displayName: "OpenAI",
     badge: null,
-    icon: <OpenAI size={14} />,
+    icon: <OpenAI />,
     baseUrl: "https://api.openai.com/v1",
     models: [
       "gpt-live-transcribe",
@@ -293,7 +297,7 @@ const _PROVIDERS = [
     id: "groq",
     displayName: "Groq",
     badge: "Batch only",
-    icon: <Icon icon="simple-icons:groq" className="text-foreground size-4" />,
+    icon: <Groq />,
     baseUrl: "https://api.groq.com/openai/v1",
     models: ["whisper-large-v3-turbo", "whisper-large-v3"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
@@ -313,7 +317,7 @@ const _PROVIDERS = [
     id: "xai",
     displayName: "xAI",
     badge: null,
-    icon: <Icon icon="simple-icons:x" className="text-foreground size-4" />,
+    icon: <XAI />,
     baseUrl: "https://api.x.ai/v1",
     models: ["xai-stt"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
@@ -333,9 +337,7 @@ const _PROVIDERS = [
     id: "together",
     displayName: "Together AI",
     badge: "Batch only",
-    icon: (
-      <Icon icon="simple-icons:together" className="text-foreground size-4" />
-    ),
+    icon: <Together />,
     baseUrl: "https://api.together.xyz/v1",
     models: ["openai/whisper-large-v3"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
@@ -356,9 +358,9 @@ const _PROVIDERS = [
     displayName: "Speechmatics",
     badge: "Batch only",
     icon: (
-      <Icon
-        icon="simple-icons:speechmatics"
-        className="text-foreground size-4"
+      <ProviderBrandImage
+        src="/assets/speechmatics-mark.svg"
+        alt="Speechmatics"
       />
     ),
     baseUrl: "https://eu1.asr.api.speechmatics.com/v2",
@@ -380,12 +382,7 @@ const _PROVIDERS = [
     id: "azure_speech",
     displayName: "Azure AI Speech",
     badge: "Batch only",
-    icon: (
-      <Icon
-        icon="simple-icons:microsoftazure"
-        className="text-foreground size-4"
-      />
-    ),
+    icon: <Azure />,
     baseUrl: undefined,
     models: ["fast-transcription"],
     requirements: [
@@ -407,12 +404,7 @@ const _PROVIDERS = [
     id: "google_cloud",
     displayName: "Google Cloud Speech-to-Text",
     badge: "Short batch",
-    icon: (
-      <Icon
-        icon="simple-icons:googlecloud"
-        className="text-foreground size-4"
-      />
-    ),
+    icon: <GoogleCloud />,
     baseUrl: "https://speech.googleapis.com/v1",
     models: ["latest_long"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
@@ -432,12 +424,7 @@ const _PROVIDERS = [
     id: "aws_transcribe",
     displayName: "Amazon Transcribe",
     badge: "Gateway",
-    icon: (
-      <Icon
-        icon="simple-icons:amazonwebservices"
-        className="text-foreground size-4"
-      />
-    ),
+    icon: <Aws />,
     baseUrl: undefined,
     models: ["amazon-transcribe"],
     requirements: [
@@ -459,7 +446,7 @@ const _PROVIDERS = [
     id: "revai",
     displayName: "Rev AI",
     badge: "Batch only",
-    icon: <Icon icon="simple-icons:rev" className="text-foreground size-4" />,
+    icon: <ProviderBrandImage src="/assets/revai-mark.svg" alt="Rev AI" />,
     baseUrl: "https://api.rev.ai/speechtotext/v1",
     models: ["machine"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
@@ -479,13 +466,7 @@ const _PROVIDERS = [
     id: "cartesia",
     displayName: "Cartesia",
     badge: null,
-    icon: (
-      <ProviderBrandImage
-        src="/assets/cartesia-mark.svg"
-        alt="Cartesia"
-        className="size-4"
-      />
-    ),
+    icon: <ProviderBrandImage src="/assets/cartesia-mark.svg" alt="Cartesia" />,
     baseUrl: "https://api.cartesia.ai",
     models: ["ink-2"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
@@ -505,7 +486,7 @@ const _PROVIDERS = [
     id: "cloudflare_workers_ai",
     displayName: "Cloudflare Workers AI",
     badge: null,
-    icon: <Cloudflare size={14} />,
+    icon: <Cloudflare />,
     baseUrl: undefined,
     models: ["nova-3"],
     requirements: [
@@ -527,13 +508,7 @@ const _PROVIDERS = [
     id: "gladia",
     displayName: "Gladia",
     badge: null,
-    icon: (
-      <ProviderBrandImage
-        src="/assets/gladia-mark.svg"
-        alt="Gladia"
-        className="size-4"
-      />
-    ),
+    icon: <ProviderBrandImage src="/assets/gladia-mark.svg" alt="Gladia" />,
     baseUrl: "https://api.gladia.io",
     models: ["solaria-3", "solaria-1"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
@@ -547,7 +522,7 @@ const _PROVIDERS = [
       <ProviderBrandImage
         src="/assets/soniox-black.png"
         alt="Soniox"
-        className="size-5 rounded-xs"
+        className="rounded-xs"
       />
     ),
     baseUrl: "https://api.soniox.com",
@@ -559,7 +534,7 @@ const _PROVIDERS = [
     id: "elevenlabs",
     displayName: "ElevenLabs",
     badge: null,
-    icon: <ElevenLabs size={14} style={{ height: 14, width: 14 }} />,
+    icon: <ElevenLabs />,
     baseUrl: "https://api.elevenlabs.io",
     models: ["scribe_v2", "scribe_v2_realtime"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
@@ -569,7 +544,7 @@ const _PROVIDERS = [
     id: "mistral",
     displayName: "Mistral",
     badge: null,
-    icon: <Mistral size={14} />,
+    icon: <Mistral />,
     baseUrl: "https://api.mistral.ai/v1",
     models: ["voxtral-mini-2602", "voxtral-mini-transcribe-realtime-2602"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
@@ -583,7 +558,6 @@ const _PROVIDERS = [
       <ProviderBrandImage
         src="/assets/pyannote-logo-black.png"
         alt="pyannoteAI"
-        className="size-5"
       />
     ),
     baseUrl: "https://api.pyannote.ai",
@@ -599,7 +573,7 @@ const _PROVIDERS = [
       <ProviderBrandImage
         src="/assets/aquavoice-black.png"
         alt="AquaVoice"
-        className="size-3.5 rounded-xs"
+        className="rounded-xs"
       />
     ),
     baseUrl: "https://api.aquavoice.com/api/v1",
@@ -611,7 +585,7 @@ const _PROVIDERS = [
     id: "cohere",
     displayName: "Cohere",
     badge: "Batch only",
-    icon: <Cohere size={14} />,
+    icon: <Cohere />,
     baseUrl: "https://api.cohere.com/v2",
     models: ["cohere-transcribe-03-2026"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
@@ -631,9 +605,7 @@ const _PROVIDERS = [
     id: "custom",
     displayName: "Custom",
     badge: null,
-    icon: (
-      <Icon icon="mingcute:random-fill" className="text-foreground size-4" />
-    ),
+    icon: <Shuffle weight="fill" />,
     baseUrl: undefined,
     models: [],
     requirements: [
@@ -645,7 +617,7 @@ const _PROVIDERS = [
     id: "fireworks",
     displayName: "Fireworks",
     badge: null,
-    icon: <Fireworks size={14} />,
+    icon: <Fireworks />,
     baseUrl: "https://api.fireworks.ai",
     models: ["whisper-v3-turbo"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
@@ -662,5 +634,29 @@ const _PROVIDERS = [
   },
 ] as const satisfies readonly Provider[];
 
-export const PROVIDERS = sortProviders(_PROVIDERS);
+const PROVIDER_ORDER = [
+  "deepgram",
+  "assemblyai",
+  "openai",
+  "google_cloud",
+  "aws_transcribe",
+  "azure_speech",
+  "elevenlabs",
+  "soniox",
+  "speechmatics",
+  "groq",
+  "mistral",
+  "revai",
+  "gladia",
+  "cartesia",
+  "cloudflare_workers_ai",
+  "together",
+  "fireworks",
+  "xai",
+  "pyannote",
+  "cohere",
+  "aquavoice",
+] as const;
+
+export const PROVIDERS = sortProviders(_PROVIDERS, PROVIDER_ORDER);
 export type ProviderId = (typeof _PROVIDERS)[number]["id"];

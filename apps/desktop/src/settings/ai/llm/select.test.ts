@@ -1,3 +1,4 @@
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import { getLlmProviderStatus } from "./select";
@@ -10,6 +11,43 @@ function provider(id: string) {
   }
   return provider;
 }
+
+describe("LLM providers", () => {
+  test("orders providers by popularity", () => {
+    expect(PROVIDERS.map(({ id }) => id)).toEqual([
+      "anarlog",
+      "openai",
+      "anthropic",
+      "google_generative_ai",
+      "openrouter",
+      "amazon_bedrock",
+      "azure_openai",
+      "google_vertex_ai",
+      "azure_ai",
+      "groq",
+      "ollama",
+      "xai",
+      "mistral",
+      "together",
+      "cohere",
+      "fireworks",
+      "cloudflare_workers_ai",
+      "cerebras",
+      "lmstudio",
+      "apple_foundation",
+      "custom",
+    ]);
+  });
+
+  test("bundles every provider icon", () => {
+    for (const { icon } of PROVIDERS) {
+      const markup = renderToStaticMarkup(icon);
+
+      expect(markup).toMatch(/<(img|svg)\b/);
+      expect(markup).not.toContain("iconify-icon");
+    }
+  });
+});
 
 describe("getLlmProviderStatus", () => {
   test("does not configure API-key providers without a saved key", () => {

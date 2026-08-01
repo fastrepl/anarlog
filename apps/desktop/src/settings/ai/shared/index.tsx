@@ -106,12 +106,18 @@ export function ProviderIconSlot({ children }: { children: ReactNode }) {
       data-slot="provider-icon"
       className={cn([
         "text-foreground flex size-5 shrink-0 items-center justify-center",
-        "[&_svg]:block [&_svg]:size-full [&_svg]:text-inherit",
-        "[&_iconify-icon]:text-inherit",
         "[&_[data-slot=provider-brand-icon]]:[filter:var(--provider-brand-filter)]",
       ])}
     >
-      {children}
+      <span
+        data-slot="provider-icon-art"
+        className={cn([
+          "flex size-4 items-center justify-center",
+          "[&>img]:size-full [&>svg]:block [&>svg]:size-full [&>svg]:text-inherit",
+        ])}
+      >
+        {children}
+      </span>
     </span>
   );
 }
