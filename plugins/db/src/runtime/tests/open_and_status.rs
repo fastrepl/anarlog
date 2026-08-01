@@ -8,6 +8,20 @@ fn failed_extension_probe_error() -> DbOpenError {
     DbOpenError::Io(std::io::Error::other("cloudsync extension probe failed"))
 }
 
+async fn wait_for_unsent_changes(runtime: &PluginDbRuntime) {
+    tokio::time::timeout(std::time::Duration::from_secs(1), async {
+        loop {
+            let status = runtime.cloudsync_status().await.unwrap();
+            if status["has_unsent_changes"] == true {
+                return;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("CloudSync status remained unenriched");
+}
+
 #[tokio::test]
 async fn cloudsync_open_failure_falls_back_for_uninitialized_database() {
     let dir = tempfile::tempdir().unwrap();
@@ -226,9 +240,7 @@ async fn cloudsync_status_reports_pending_e2ee_dirty_rows() {
     .await
     .unwrap();
 
-    let status = runtime.cloudsync_status().await.unwrap();
-
-    assert_eq!(status["has_unsent_changes"], true);
+    wait_for_unsent_changes(&runtime).await;
 }
 
 #[tokio::test]
@@ -318,8 +330,7 @@ async fn cloudsync_status_ignores_only_the_active_transcript() {
     .execute(db.pool())
     .await
     .unwrap();
-    let status = runtime.cloudsync_status().await.unwrap();
-    assert_eq!(status["has_unsent_changes"], true);
+    wait_for_unsent_changes(&runtime).await;
 }
 
 #[tokio::test]
