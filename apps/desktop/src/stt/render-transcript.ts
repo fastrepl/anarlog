@@ -313,6 +313,13 @@ function normalizeSpeakerHint(
     typeof (value as { human_id?: unknown }).human_id === "string"
   ) {
     const humanId = (value as { human_id: string }).human_id;
+    const explicitSpeakerScope = getExplicitSpeakerScope(value);
+    if (explicitSpeakerScope) {
+      return {
+        human_id: humanId,
+        scope: explicitSpeakerScope,
+      };
+    }
     if (
       (value as { scope?: unknown }).scope === "segment" &&
       Array.isArray((value as { word_ids?: unknown }).word_ids)
@@ -361,6 +368,37 @@ function normalizeSpeakerHint(
   }
 
   return null;
+}
+
+function getExplicitSpeakerScope(
+  value: object,
+): IdentityAssignment["scope"] | null {
+  if ((value as { scope?: unknown }).scope !== "speaker") {
+    return null;
+  }
+
+  const channel = (value as { channel?: unknown }).channel;
+  if (channel !== 0 && channel !== 1 && channel !== 2) {
+    return null;
+  }
+
+  const channelProfile =
+    channel === 0
+      ? "DirectMic"
+      : channel === 1
+        ? "RemoteParty"
+        : "MixedCapture";
+  const speakerIndex = (value as { speaker_index?: unknown }).speaker_index;
+
+  return typeof speakerIndex === "number"
+    ? {
+        kind: "channel_speaker",
+        channel: channelProfile,
+        speaker_index: speakerIndex,
+      }
+    : speakerIndex === null
+      ? { kind: "channel", channel: channelProfile }
+      : null;
 }
 
 function parseHintValue(value: unknown): unknown {

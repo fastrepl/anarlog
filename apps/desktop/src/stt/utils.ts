@@ -276,7 +276,12 @@ export function upsertSpeakerAssignment(
     value: JSON.stringify(
       mode === "segment"
         ? { human_id: humanId, scope: "segment", word_ids: assignmentWordIds }
-        : { human_id: humanId },
+        : {
+            human_id: humanId,
+            scope: "speaker",
+            channel,
+            speaker_index: segmentKey.speaker_index ?? null,
+          },
     ),
   };
 
@@ -332,6 +337,30 @@ function getSpeakerAssignmentScopeForHint(
   hint: SpeakerHintWithId,
 ): SpeakerAssignmentScope | null {
   const value = parseHintValue(hint.value);
+  const explicitScope =
+    value && typeof value === "object"
+      ? (value as {
+          scope?: unknown;
+          channel?: unknown;
+          speaker_index?: unknown;
+        })
+      : null;
+  if (
+    explicitScope?.scope === "speaker" &&
+    (explicitScope.channel === 0 ||
+      explicitScope.channel === 1 ||
+      explicitScope.channel === 2)
+  ) {
+    const speakerIndex = explicitScope.speaker_index;
+    if (speakerIndex === null || typeof speakerIndex === "number") {
+      return {
+        kind: "all",
+        channel: explicitScope.channel,
+        speakerIndex,
+      };
+    }
+  }
+
   if (
     value &&
     typeof value === "object" &&

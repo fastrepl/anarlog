@@ -187,6 +187,57 @@ describe("buildRenderTranscriptRequestFromRows", () => {
     ]);
   });
 
+  it("keeps an explicit matching-speaker assignment when its anchor lacks a provider hint", () => {
+    const request = buildRenderTranscriptRequestFromRows([
+      {
+        words: [
+          {
+            id: "anchor-word",
+            text: " hello",
+            start_ms: 0,
+            end_ms: 100,
+            channel: 1,
+          },
+          {
+            id: "hinted-word",
+            text: " again",
+            start_ms: 100,
+            end_ms: 200,
+            channel: 1,
+          },
+        ],
+        speaker_hints: [
+          {
+            word_id: "hinted-word",
+            type: "provider_speaker_index",
+            value: { channel: 1, speaker_index: 2 },
+          },
+          {
+            word_id: "anchor-word",
+            type: "user_speaker_assignment",
+            value: {
+              human_id: "remote",
+              scope: "speaker",
+              channel: 1,
+              speaker_index: 2,
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(request?.transcripts[0]?.assignments).toEqual([
+      {
+        human_id: "remote",
+        scope: {
+          kind: "channel_speaker",
+          channel: "RemoteParty",
+          speaker_index: 2,
+        },
+      },
+    ]);
+  });
+
   it("turns segment speaker assignments into word-scoped render assignments", () => {
     const request = createRequest(["segmentOnly"]);
 

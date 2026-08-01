@@ -551,7 +551,12 @@ describe("TranscriptAccumulator", () => {
         id: "word-1:user_speaker_assignment",
         word_id: "word-1",
         type: "user_speaker_assignment",
-        value: JSON.stringify({ human_id: "human-1" }),
+        value: JSON.stringify({
+          human_id: "human-1",
+          scope: "speaker",
+          channel: 1,
+          speaker_index: 2,
+        }),
       },
       {
         id: "word-2:provider_speaker_index",
@@ -707,7 +712,12 @@ describe("upsertSpeakerAssignment", () => {
         id: "word-1:user_speaker_assignment",
         word_id: "word-1",
         type: "user_speaker_assignment",
-        value: JSON.stringify({ human_id: "bob" }),
+        value: JSON.stringify({
+          human_id: "bob",
+          scope: "speaker",
+          channel: 1,
+          speaker_index: 2,
+        }),
       },
     ]);
   });
@@ -769,7 +779,12 @@ describe("upsertSpeakerAssignment", () => {
         id: "new-word:user_speaker_assignment",
         word_id: "new-word",
         type: "user_speaker_assignment",
-        value: JSON.stringify({ human_id: "bob" }),
+        value: JSON.stringify({
+          human_id: "bob",
+          scope: "speaker",
+          channel: 1,
+          speaker_index: 2,
+        }),
       },
     ]);
   });
@@ -874,7 +889,12 @@ describe("upsertSpeakerAssignment", () => {
         id: "speaker-2-word-new:user_speaker_assignment",
         word_id: "speaker-2-word-new",
         type: "user_speaker_assignment",
-        value: JSON.stringify({ human_id: "carol" }),
+        value: JSON.stringify({
+          human_id: "carol",
+          scope: "speaker",
+          channel: 1,
+          speaker_index: 2,
+        }),
       },
     ]);
   });
@@ -1013,7 +1033,12 @@ describe("upsertSpeakerAssignment", () => {
         id: "word-1:user_speaker_assignment",
         word_id: "word-1",
         type: "user_speaker_assignment",
-        value: JSON.stringify({ human_id: "bob" }),
+        value: JSON.stringify({
+          human_id: "bob",
+          scope: "speaker",
+          channel: 1,
+          speaker_index: 2,
+        }),
       },
     ]);
   });
@@ -1089,7 +1114,12 @@ describe("upsertSpeakerAssignment", () => {
         id: "word-1:user_speaker_assignment",
         word_id: "word-1",
         type: "user_speaker_assignment",
-        value: JSON.stringify({ human_id: "bob" }),
+        value: JSON.stringify({
+          human_id: "bob",
+          scope: "speaker",
+          channel: 1,
+          speaker_index: 2,
+        }),
       },
     ]);
   });
