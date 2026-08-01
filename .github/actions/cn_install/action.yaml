@@ -94,7 +94,8 @@ runs:
         fi
 
         chmod +x "$CLI_PATH"
-        ACTUAL_VERSION=$("$CLI_PATH" --version | tr -d '\r')
+        VERSION_OUTPUT=$("$CLI_PATH" --version | tr -d '\r')
+        ACTUAL_VERSION=${VERSION_OUTPUT%%$'\n'*}
         if [[ "$ACTUAL_VERSION" != "cn 0.13.2" ]]; then
           echo "::error::Expected CrabNebula CLI cn 0.13.2, got $ACTUAL_VERSION"
           exit 1
