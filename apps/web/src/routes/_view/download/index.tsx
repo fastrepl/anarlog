@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_view/download/")({
       {
         name: "description",
         content:
-          "Download Anarlog for macOS or try the Linux beta. Windows is coming soon.",
+          "Download Anarlog for macOS. Linux and Windows are coming soon.",
       },
       { property: "og:title", content: "Download Anarlog" },
       { property: "og:url", content: `${ANARLOG_SITE_URL}/download` },

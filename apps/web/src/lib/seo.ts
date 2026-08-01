@@ -53,7 +53,7 @@ export function getSoftwareApplicationJsonLd({
     url,
     description,
     applicationCategory: "ProductivityApplication",
-    operatingSystem: ["macOS", "Windows", "Linux"],
+    operatingSystem: ["macOS"],
     downloadUrl: `${ANARLOG_SITE_URL}/download`,
     publisher: getOrganizationJsonLd(),
     ...(featureList ? { featureList } : {}),

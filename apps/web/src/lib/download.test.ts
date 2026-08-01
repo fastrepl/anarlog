@@ -8,12 +8,12 @@ import {
   getOrderedDesktopDownloadSections,
 } from "./download.ts";
 
-test("offers macOS and Linux downloads while Windows is coming soon", () => {
+test("offers macOS downloads while Linux and Windows are coming soon", () => {
   assert.deepEqual(
     desktopDownloadSections.map((section) => section.platform),
-    ["macos", "linux"],
+    ["macos"],
   );
-  assert.equal(comingSoonPlatforms[0], "Windows");
+  assert.deepEqual(comingSoonPlatforms.slice(0, 2), ["Linux", "Windows"]);
 });
 
 test("detects supported desktop platforms from browser user agents", () => {
@@ -50,7 +50,7 @@ test("orders the detected platform first", () => {
     getOrderedDesktopDownloadSections("windows").map(
       (section) => section.platform,
     ),
-    ["macos", "linux"],
+    ["macos"],
   );
   assert.equal(
     getOrderedDesktopDownloadSections("macos")[0].downloads[0].name,

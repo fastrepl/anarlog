@@ -1297,9 +1297,9 @@ function DownloadButton() {
   const orderedSections = getOrderedDesktopDownloadSections(preferredPlatform);
   const preferredSection = orderedSections[0];
   const preferredDownload = preferredSection.downloads[0];
-  const preferredPlatformComingSoon = preferredPlatform === "windows";
+  const preferredPlatformComingSoon = preferredPlatform !== "macos";
   const preferredLabel = preferredPlatformComingSoon
-    ? "Windows — Coming soon"
+    ? `${preferredPlatform === "linux" ? "Linux" : "Windows"} — Coming soon`
     : preferredSection.platform === "macos"
       ? `Download for ${preferredDownload.name}`
       : `Download for ${preferredSection.name}`;
