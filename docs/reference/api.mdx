@@ -17,9 +17,9 @@ curl -H "Authorization: Bearer anl_..." http://127.0.0.1:33443/v1/meetings
 
 ## Authentication
 
-Send the key as a bearer token: `Authorization: Bearer anl_...`. Keys are shown once at creation and stored hashed. Requests without a valid key receive `401` with an error body.
+Send the key as a bearer token: `Authorization: Bearer anl_...`. Keys are shown once and stored hashed. Requests without a valid key receive `401`.
 
-Errors always look like:
+Errors returned by Anarlog's endpoint handlers use this envelope:
 
 ```json
 { "error": { "code": "not_found", "message": "meeting 'x' not found" } }
