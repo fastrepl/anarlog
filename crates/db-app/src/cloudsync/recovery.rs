@@ -2,12 +2,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{Executor, Sqlite, SqlitePool};
 
+use super::binding::{require_claimed_binding, validated_account_user_id};
 use super::{
     CLOUDSYNC_FULL_RESYNC_PENDING_ID, CLOUDSYNC_FULL_RESYNC_RECEIVE_ONLY_RESET_APPLIED_ID,
     CLOUDSYNC_FULL_RESYNC_RECOVERY_ID, CLOUDSYNC_FULL_RESYNC_RESET_APPLIED_ID,
     CLOUDSYNC_RECOVERY_BARRIER_FIELD, CLOUDSYNC_RECOVERY_BARRIER_TABLE,
-    CLOUDSYNC_RECOVERY_PROTOCOL_VERSION, CloudsyncWorkspaceError, require_claimed_binding,
-    validated_account_user_id,
+    CLOUDSYNC_RECOVERY_PROTOCOL_VERSION, CloudsyncWorkspaceError,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
