@@ -68,6 +68,7 @@ msgid "Access no longer available"
 msgstr "Access no longer available"
 
 #: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Access settings could not be loaded."
 msgstr "Access settings could not be loaded."
 
@@ -281,7 +282,7 @@ msgstr "Appearance"
 msgid "Apply to all"
 msgstr "Apply to all"
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Approve"
 msgstr "Approve"
 
@@ -649,7 +650,7 @@ msgstr "Continue"
 msgid "Continuing without trial"
 msgstr "Continuing without trial"
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Copy link"
 msgstr "Copy link"
 
@@ -749,7 +750,7 @@ msgstr "Delete This Event"
 msgid "Deleting..."
 msgstr "Deleting..."
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Deny"
 msgstr "Deny"
 
@@ -970,7 +971,7 @@ msgstr "Free"
 msgid "Frequently used"
 msgstr "Frequently used"
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Full access"
 msgstr "Full access"
 
@@ -978,7 +979,7 @@ msgstr "Full access"
 msgid "General"
 msgstr "General"
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "General access"
 msgstr "General access"
 
@@ -1099,11 +1100,11 @@ msgstr "Insert below"
 msgid "Intelligence"
 msgstr "Intelligence"
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Invite"
 msgstr "Invite"
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Invite people to this note."
 msgstr "Invite people to this note."
 
@@ -1131,7 +1132,7 @@ msgstr "Join scheduled meetings"
 msgid "Keep Anarlog available from the menu bar."
 msgstr "Keep Anarlog available from the menu bar."
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Keep desktop edits"
 msgstr "Keep desktop edits"
 
@@ -1178,6 +1179,7 @@ msgid "Live"
 msgstr "Live"
 
 #: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Loading access…"
 msgstr "Loading access…"
 
@@ -1450,7 +1452,7 @@ msgstr "Objects"
 msgid "Oldest"
 msgstr "Oldest"
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Only people invited"
 msgstr "Only people invited"
 
@@ -1504,7 +1506,7 @@ msgstr "Open on GitHub"
 msgid "Open repository on GitHub"
 msgstr "Open repository on GitHub"
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Open web copy"
 msgstr "Open web copy"
 
@@ -1553,7 +1555,7 @@ msgstr "Pause sync"
 msgid "People"
 msgstr "People"
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "People with access"
 msgstr "People with access"
 
@@ -1590,7 +1592,7 @@ msgstr "Post recording disclosure in meeting chat"
 msgid "Preparing transcript..."
 msgstr "Preparing transcript..."
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Previous broad access is still active"
 msgstr "Previous broad access is still active"
 
@@ -1734,7 +1736,7 @@ msgstr "Reset"
 msgid "Reset to Anarlog default"
 msgstr "Reset to Anarlog default"
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Resolve the web and desktop edits before inviting anyone."
 msgstr "Resolve the web and desktop edits before inviting anyone."
 
@@ -1747,7 +1749,7 @@ msgstr "Respect Do-Not-Disturb mode"
 msgid "Restoring cloud sync..."
 msgstr "Restoring cloud sync..."
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Restrict"
 msgstr "Restrict"
 
@@ -1958,7 +1960,7 @@ msgstr "Setting up encrypted cloud sync."
 msgid "Settings"
 msgstr "Settings"
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Share"
 msgstr "Share"
 
@@ -2010,7 +2012,7 @@ msgstr "Shared with me · Can edit"
 msgid "Shared with me · View only"
 msgstr "Shared with me · View only"
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Sharing paused to protect your edits"
 msgstr "Sharing paused to protect your edits"
 
@@ -2406,6 +2408,7 @@ msgstr "Trial activated - {trialDays} days of Pro"
 
 #: src/onboarding/permissions.tsx
 #: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 #: src/settings/general/permissions.tsx
 msgid "Try again"
 msgstr "Try again"

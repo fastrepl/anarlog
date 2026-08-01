@@ -68,6 +68,7 @@ msgid "Access no longer available"
 msgstr ""
 
 #: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Access settings could not be loaded."
 msgstr ""
 
@@ -281,7 +282,7 @@ msgstr ""
 msgid "Apply to all"
 msgstr ""
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Approve"
 msgstr ""
 
@@ -649,7 +650,7 @@ msgstr ""
 msgid "Continuing without trial"
 msgstr ""
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Copy link"
 msgstr ""
 
@@ -749,7 +750,7 @@ msgstr ""
 msgid "Deleting..."
 msgstr ""
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Deny"
 msgstr ""
 
@@ -970,7 +971,7 @@ msgstr ""
 msgid "Frequently used"
 msgstr ""
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Full access"
 msgstr ""
 
@@ -978,7 +979,7 @@ msgstr ""
 msgid "General"
 msgstr ""
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "General access"
 msgstr ""
 
@@ -1099,11 +1100,11 @@ msgstr ""
 msgid "Intelligence"
 msgstr ""
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Invite"
 msgstr ""
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Invite people to this note."
 msgstr ""
 
@@ -1131,7 +1132,7 @@ msgstr ""
 msgid "Keep Anarlog available from the menu bar."
 msgstr ""
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Keep desktop edits"
 msgstr ""
 
@@ -1178,6 +1179,7 @@ msgid "Live"
 msgstr ""
 
 #: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Loading access…"
 msgstr ""
 
@@ -1450,7 +1452,7 @@ msgstr ""
 msgid "Oldest"
 msgstr ""
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Only people invited"
 msgstr ""
 
@@ -1504,7 +1506,7 @@ msgstr ""
 msgid "Open repository on GitHub"
 msgstr ""
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Open web copy"
 msgstr ""
 
@@ -1553,7 +1555,7 @@ msgstr ""
 msgid "People"
 msgstr ""
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "People with access"
 msgstr ""
 
@@ -1590,7 +1592,7 @@ msgstr ""
 msgid "Preparing transcript..."
 msgstr ""
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Previous broad access is still active"
 msgstr ""
 
@@ -1734,7 +1736,7 @@ msgstr ""
 msgid "Reset to Anarlog default"
 msgstr ""
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Resolve the web and desktop edits before inviting anyone."
 msgstr ""
 
@@ -1747,7 +1749,7 @@ msgstr ""
 msgid "Restoring cloud sync..."
 msgstr ""
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Restrict"
 msgstr ""
 
@@ -1958,7 +1960,7 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Share"
 msgstr ""
 
@@ -2010,7 +2012,7 @@ msgstr ""
 msgid "Shared with me · View only"
 msgstr ""
 
-#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Sharing paused to protect your edits"
 msgstr ""
 
@@ -2406,6 +2408,7 @@ msgstr ""
 
 #: src/onboarding/permissions.tsx
 #: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
 #: src/settings/general/permissions.tsx
 msgid "Try again"
 msgstr ""
