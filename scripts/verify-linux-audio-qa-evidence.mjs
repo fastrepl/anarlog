@@ -7,12 +7,12 @@ const SOURCE_WORKFLOW = ".github/workflows/desktop_cd.yaml";
 const ARCHITECTURES = [
   {
     artifactArch: "x64",
-    publicPlatform: "deb-x86_64",
+    publicPlatform: "debian-x86_64",
     debianArch: "amd64",
   },
   {
     artifactArch: "arm64",
-    publicPlatform: "deb-aarch64",
+    publicPlatform: "debian-aarch64",
     debianArch: "arm64",
   },
 ];

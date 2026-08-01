@@ -55,7 +55,7 @@ export const desktopDownloadSections = [
       {
         name: "Debian x64",
         detail: "Debian or Ubuntu · DEB",
-        url: getStableDownloadUrl("deb-x86_64"),
+        url: getStableDownloadUrl("debian-x86_64"),
         showInMenu: true,
       },
       {
@@ -67,7 +67,7 @@ export const desktopDownloadSections = [
       {
         name: "Debian ARM64",
         detail: "Debian or Ubuntu on 64-bit ARM · DEB",
-        url: getStableDownloadUrl("deb-aarch64"),
+        url: getStableDownloadUrl("debian-aarch64"),
         showInMenu: false,
       },
     ],

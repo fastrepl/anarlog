@@ -12,7 +12,7 @@ inputs:
     description: "Release channel (stable)"
     required: true
   platform:
-    description: "CrabNebula public platform (for example dmg-aarch64, nsis-x86_64, appimage-x86_64, or deb-x86_64)"
+    description: "CrabNebula public platform (for example dmg-aarch64, nsis-x86_64, appimage-x86_64, or debian-x86_64)"
     required: true
   output:
     description: "Output filename"

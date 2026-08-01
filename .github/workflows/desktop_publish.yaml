@@ -301,9 +301,9 @@ jobs:
           if [[ "$INCLUDE_LINUX" == "true" ]]; then
             EXPECTED_PLATFORMS+=(
               "appimage-x86_64"
-              "deb-x86_64"
+              "debian-x86_64"
               "appimage-aarch64"
-              "deb-aarch64"
+              "debian-aarch64"
             )
           fi
           if [[ "$INCLUDE_WINDOWS" == "true" ]]; then
@@ -510,7 +510,7 @@ jobs:
           app: ${{ env.CN_APPLICATION }}
           version: ${{ needs.parse.outputs.version }}
           channel: ${{ needs.parse.outputs.channel }}
-          platform: deb-x86_64
+          platform: debian-x86_64
           output: anarlog-linux-x86_64.deb
           key: ${{ secrets.CN_API_KEY }}
       - id: download-linux-aarch64-appimage
@@ -530,7 +530,7 @@ jobs:
           app: ${{ env.CN_APPLICATION }}
           version: ${{ needs.parse.outputs.version }}
           channel: ${{ needs.parse.outputs.channel }}
-          platform: deb-aarch64
+          platform: debian-aarch64
           output: anarlog-linux-aarch64.deb
           key: ${{ secrets.CN_API_KEY }}
       - id: download-windows-x86_64
@@ -606,9 +606,9 @@ jobs:
             }
             + if $include_linux == "true" then {
                 "appimage-x86_64": $appimage_x86_64,
-                "deb-x86_64": $deb_x86_64,
+                "debian-x86_64": $deb_x86_64,
                 "appimage-aarch64": $appimage_aarch64,
-                "deb-aarch64": $deb_aarch64
+                "debian-aarch64": $deb_aarch64
               } else {} end
             + if $include_windows == "true" then {
                 "nsis-x86_64": $nsis_x86_64

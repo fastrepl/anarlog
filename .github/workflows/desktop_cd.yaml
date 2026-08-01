@@ -737,9 +737,9 @@ jobs:
           if [[ "${{ inputs.include_linux }}" == "true" ]]; then
             EXPECTED_PLATFORMS+=(
               "appimage-x86_64"
-              "deb-x86_64"
+              "debian-x86_64"
               "appimage-aarch64"
-              "deb-aarch64"
+              "debian-aarch64"
             )
           fi
           if [[ "${{ inputs.include_windows }}" == "true" ]]; then

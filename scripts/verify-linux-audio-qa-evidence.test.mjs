@@ -16,13 +16,13 @@ const hashes = {
 };
 const architectures = {
   x64: {
-    publicPlatform: "deb-x86_64",
+    publicPlatform: "debian-x86_64",
     updatePlatform: "linux-x86_64-deb",
     debianArch: "amd64",
     assetId: "asset-x64",
   },
   arm64: {
-    publicPlatform: "deb-aarch64",
+    publicPlatform: "debian-aarch64",
     updatePlatform: "linux-aarch64-deb",
     debianArch: "arm64",
     assetId: "asset-arm64",

@@ -10,8 +10,8 @@ const MACOS_PUBLIC_PLATFORMS = ["dmg-aarch64", "dmg-x86_64"];
 const LINUX_PUBLIC_PLATFORMS = [
   "appimage-aarch64",
   "appimage-x86_64",
-  "deb-aarch64",
-  "deb-x86_64",
+  "debian-aarch64",
+  "debian-x86_64",
 ];
 const WINDOWS_PUBLIC_PLATFORMS = ["nsis-x86_64"];
 const MACOS_UPDATE_PLATFORMS = ["darwin-aarch64", "darwin-x86_64"];

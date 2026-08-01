@@ -121,11 +121,11 @@ jobs:
         include:
           - runner: depot-ubuntu-24.04-8
             artifact_arch: x64
-            public_platform: deb-x86_64
+            public_platform: debian-x86_64
             debian_arch: amd64
           - runner: depot-ubuntu-24.04-arm-8
             artifact_arch: arm64
-            public_platform: deb-aarch64
+            public_platform: debian-aarch64
             debian_arch: arm64
     runs-on: ${{ matrix.runner }}
     steps:

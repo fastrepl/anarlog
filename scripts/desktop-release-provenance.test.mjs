@@ -27,9 +27,9 @@ function createDesktopRelease({
     ...(includeLinux
       ? [
           ["appimage-x86_64", "linux-x86_64-appimage"],
-          ["deb-x86_64", "linux-x86_64-deb"],
+          ["debian-x86_64", "linux-x86_64-deb"],
           ["appimage-aarch64", "linux-aarch64-appimage"],
-          ["deb-aarch64", "linux-aarch64-deb"],
+          ["debian-aarch64", "linux-aarch64-deb"],
         ]
       : []),
     ...(includeWindows ? [["nsis-x86_64", "windows-x86_64-nsis"]] : []),
