@@ -3,23 +3,22 @@ import {
   AuthRetryableFetchError,
   AuthSessionMissingError,
   type Session,
-  type SupabaseClient,
 } from "@supabase/supabase-js";
 import { useMutation } from "@tanstack/react-query";
-import { getVersion } from "@tauri-apps/api/app";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { version as osVersion, platform } from "@tauri-apps/plugin-os";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { commands as analyticsCommands } from "@anlg/plugin-analytics";
-import { commands as authPluginCommands } from "@anlg/plugin-auth";
 import { commands as miscCommands } from "@anlg/plugin-misc";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { openUrlWithInstruction } from "@anlg/plugin-windows";
-import { deriveBillingInfo } from "@anlg/supabase";
 
+import {
+  clearAuthAnalyticsGroups,
+  resetTrackedAuthIdentity,
+  trackAuthEvent,
+} from "./auth-analytics";
 import { AuthContext } from "./auth-context";
 import { persistAuthSession, supabase } from "./client";
 import {
@@ -28,10 +27,19 @@ import {
   prepareCloudsyncSignOut,
   refreshCloudsyncForSession,
 } from "./cloudsync";
-import { clearAuthStorage, isFatalSessionError } from "./errors";
+import { clearAuthStorage } from "./errors";
+import { loadInitialSession } from "./initial-session";
+import {
+  AUTH_SIGN_OUT_REQUEST_EVENT,
+  AUTH_SIGN_OUT_RESULT_EVENT,
+  type AuthSignOutRequestPayload,
+  type AuthSignOutResultPayload,
+  getErrorMessage,
+  isAuthSignOutRequestPayload,
+  requestMainSignOut,
+} from "./sign-out-coordination";
 
 import { trackAnalyticsEvent } from "~/analytics";
-import { setErrorReportingUser } from "~/error-reporting";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
@@ -40,211 +48,6 @@ import {
   REQUEST_ID_HEADER,
   id,
 } from "~/shared/utils";
-
-const AUTH_SIGN_OUT_REQUEST_EVENT = "anlg:auth-sign-out-request";
-const AUTH_SIGN_OUT_RESULT_EVENT = "anlg:auth-sign-out-result";
-const AUTH_SIGN_OUT_TIMEOUT_MS = 10_000;
-
-type AuthSignOutRequestPayload = {
-  requestId: string;
-  sourceLabel: string;
-};
-
-type AuthSignOutResultPayload = {
-  requestId: string;
-  completed: boolean;
-  error: string | null;
-};
-
-async function loadInitialSession(
-  client: SupabaseClient,
-): Promise<{ clearStorage: boolean; session: Session | null }> {
-  try {
-    const { data, error } = await client.auth.getSession();
-
-    if (error) {
-      return {
-        clearStorage: isFatalSessionError(error),
-        session: null,
-      };
-    }
-
-    return {
-      clearStorage: false,
-      session: data.session ?? null,
-    };
-  } catch (e) {
-    return {
-      clearStorage: isFatalSessionError(e),
-      session: null,
-    };
-  }
-}
-
-let trackedIdentifySignature: string | null = null;
-let trackedSignedInUserId: string | null = null;
-
-async function getBillingAnalytics(accessToken: string) {
-  const result = await authPluginCommands.decodeClaims(accessToken);
-  if (result.status === "error") {
-    return {
-      plan: "free" as const,
-      trialEndDate: null,
-    };
-  }
-
-  const billing = deriveBillingInfo({
-    sub: result.data.sub,
-    email: result.data.email ?? undefined,
-    entitlements: result.data.entitlements,
-    subscription_status: result.data.subscription_status,
-    trial_end: result.data.trial_end,
-  });
-
-  return {
-    plan: billing.plan,
-    trialEndDate: billing.trialEnd?.toISOString() ?? null,
-  };
-}
-
-async function trackAuthEvent(
-  event: AuthChangeEvent,
-  session: Session | null,
-): Promise<void> {
-  if (
-    (event === "SIGNED_IN" ||
-      event === "INITIAL_SESSION" ||
-      event === "TOKEN_REFRESHED") &&
-    session
-  ) {
-    setErrorReportingUser(session.user.id);
-    const appVersion = await getVersion();
-    const billing = await getBillingAnalytics(session.access_token);
-    const identifySignature = JSON.stringify({
-      userId: session.user.id,
-      email: session.user.email ?? null,
-      plan: billing.plan,
-      trialEndDate: billing.trialEndDate,
-      appVersion,
-    });
-
-    if (identifySignature !== trackedIdentifySignature) {
-      trackedIdentifySignature = identifySignature;
-
-      await analyticsCommands.identify(session.user.id, {
-        email: session.user.email,
-        set: {
-          account_created_date: session.user.created_at,
-          is_signed_up: true,
-          app_version: appVersion,
-          os_version: osVersion(),
-          platform: platform(),
-          plan: billing.plan,
-          trial_end_date: billing.trialEndDate,
-        },
-        group: {
-          type: "account",
-          key: session.user.id,
-          properties: {
-            name: session.user.email ?? session.user.id,
-            email: session.user.email ?? null,
-            created_at: session.user.created_at,
-            plan: billing.plan,
-            trial_end_date: billing.trialEndDate,
-          },
-        },
-      });
-    }
-
-    if (event === "SIGNED_IN" && trackedSignedInUserId !== session.user.id) {
-      trackedSignedInUserId = session.user.id;
-      await analyticsCommands.event({ event: "user_signed_in" });
-    }
-  }
-}
-
-function isAuthSignOutRequestPayload(
-  payload: unknown,
-): payload is AuthSignOutRequestPayload {
-  if (!payload || typeof payload !== "object") {
-    return false;
-  }
-
-  const candidate = payload as Partial<AuthSignOutRequestPayload>;
-  return (
-    typeof candidate.requestId === "string" &&
-    candidate.requestId.length > 0 &&
-    typeof candidate.sourceLabel === "string" &&
-    candidate.sourceLabel.length > 0
-  );
-}
-
-function isAuthSignOutResultPayload(
-  payload: unknown,
-): payload is AuthSignOutResultPayload {
-  if (!payload || typeof payload !== "object") {
-    return false;
-  }
-
-  const candidate = payload as Partial<AuthSignOutResultPayload>;
-  return (
-    typeof candidate.requestId === "string" &&
-    typeof candidate.completed === "boolean" &&
-    (candidate.error === null || typeof candidate.error === "string")
-  );
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
-}
-
-async function requestMainSignOut(sourceLabel: string): Promise<boolean> {
-  const requestId = id();
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-  let resolveResult!: (completed: boolean) => void;
-  let rejectResult!: (error: Error) => void;
-  const result = new Promise<boolean>((resolve, reject) => {
-    resolveResult = resolve;
-    rejectResult = reject;
-  });
-  const unlisten = await listen<AuthSignOutResultPayload>(
-    AUTH_SIGN_OUT_RESULT_EVENT,
-    (event) => {
-      if (
-        !isAuthSignOutResultPayload(event.payload) ||
-        event.payload.requestId !== requestId
-      ) {
-        return;
-      }
-
-      if (event.payload.error) {
-        rejectResult(new Error(event.payload.error));
-      } else {
-        resolveResult(event.payload.completed);
-      }
-    },
-  );
-
-  timeout = setTimeout(() => {
-    rejectResult(new Error("Main window did not acknowledge sign-out"));
-  }, AUTH_SIGN_OUT_TIMEOUT_MS);
-
-  try {
-    const [, completed] = await Promise.all([
-      emitTo("main", AUTH_SIGN_OUT_REQUEST_EVENT, {
-        requestId,
-        sourceLabel,
-      } satisfies AuthSignOutRequestPayload),
-      result,
-    ]);
-    return completed;
-  } finally {
-    if (timeout) {
-      clearTimeout(timeout);
-    }
-    unlisten();
-  }
-}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -393,10 +196,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      trackedIdentifySignature = null;
-      trackedSignedInUserId = null;
-      setErrorReportingUser(null);
-      await enqueueAuthAnalytics(() => analyticsCommands.clearGroups());
+      resetTrackedAuthIdentity();
+      await enqueueAuthAnalytics(clearAuthAnalyticsGroups);
       setSession(null);
       if (managesCloudsync) {
         await handleCloudsyncAuthChange("SIGNED_OUT", null);
@@ -420,9 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (clearStorage || event === "SIGNED_OUT") {
         let mainSignOutCompleted = false;
         if (event === "SIGNED_OUT" && !managesCloudsync) {
-          trackedIdentifySignature = null;
-          trackedSignedInUserId = null;
-          setErrorReportingUser(null);
+          resetTrackedAuthIdentity();
           setSession(null);
 
           try {
