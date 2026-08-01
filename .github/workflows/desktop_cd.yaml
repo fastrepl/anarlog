@@ -18,6 +18,14 @@ on:
         description: "Legacy compatibility input; stable publication must use desktop_publish"
         type: boolean
         default: false
+      include_linux:
+        description: "Build and include Linux beta artifacts"
+        type: boolean
+        default: true
+      include_windows:
+        description: "Build and include Windows artifacts"
+        type: boolean
+        default: true
       version:
         description: "Explicit semantic version required for stable releases"
         required: false
@@ -97,7 +105,8 @@ jobs:
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
       - run: ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "${{ needs.compute-version.outputs.version }}"
-      - name: Verify stable signing configuration
+      - if: ${{ inputs.include_windows }}
+        name: Verify stable signing configuration
         env:
           AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
@@ -284,7 +293,7 @@ jobs:
 
   build-linux:
     needs: [compute-version, cn-draft]
-    if: ${{ !cancelled() && (needs.cn-draft.result == 'success' || needs.cn-draft.result == 'skipped') }}
+    if: ${{ inputs.include_linux && !cancelled() && (needs.cn-draft.result == 'success' || needs.cn-draft.result == 'skipped') }}
     strategy:
       fail-fast: true
       matrix:
@@ -478,7 +487,7 @@ jobs:
 
   build-windows:
     needs: [compute-version, cn-draft]
-    if: ${{ !cancelled() && (needs.cn-draft.result == 'success' || needs.cn-draft.result == 'skipped') }}
+    if: ${{ inputs.include_windows && !cancelled() && (needs.cn-draft.result == 'success' || needs.cn-draft.result == 'skipped') }}
     permissions:
       contents: read
       id-token: write
@@ -697,7 +706,7 @@ jobs:
           working-directory: ./apps/desktop
 
   verify-cn-release:
-    if: ${{ inputs.channel != 'staging' && !cancelled() && needs.build-macos.result == 'success' && needs.build-windows.result == 'success' && needs.build-linux.result == 'success' }}
+    if: ${{ inputs.channel != 'staging' && !cancelled() && needs.build-macos.result == 'success' && (!inputs.include_linux || needs.build-linux.result == 'success') && (!inputs.include_windows || needs.build-windows.result == 'success') }}
     needs: [compute-version, build-macos, build-windows, build-linux]
     runs-on: ubuntu-latest
     steps:
@@ -724,12 +733,18 @@ jobs:
           EXPECTED_PLATFORMS=(
             "dmg-aarch64"
             "dmg-x86_64"
-            "nsis-x86_64"
-            "appimage-x86_64"
-            "deb-x86_64"
-            "appimage-aarch64"
-            "deb-aarch64"
           )
+          if [[ "${{ inputs.include_linux }}" == "true" ]]; then
+            EXPECTED_PLATFORMS+=(
+              "appimage-x86_64"
+              "deb-x86_64"
+              "appimage-aarch64"
+              "deb-aarch64"
+            )
+          fi
+          if [[ "${{ inputs.include_windows }}" == "true" ]]; then
+            EXPECTED_PLATFORMS+=("nsis-x86_64")
+          fi
 
           INVALID_PLATFORMS=()
           for platform in "${EXPECTED_PLATFORMS[@]}"; do
@@ -747,12 +762,18 @@ jobs:
           EXPECTED_UPDATE_PLATFORMS=(
             "darwin-aarch64"
             "darwin-x86_64"
-            "windows-x86_64-nsis"
-            "linux-x86_64-appimage"
-            "linux-x86_64-deb"
-            "linux-aarch64-appimage"
-            "linux-aarch64-deb"
           )
+          if [[ "${{ inputs.include_linux }}" == "true" ]]; then
+            EXPECTED_UPDATE_PLATFORMS+=(
+              "linux-x86_64-appimage"
+              "linux-x86_64-deb"
+              "linux-aarch64-appimage"
+              "linux-aarch64-deb"
+            )
+          fi
+          if [[ "${{ inputs.include_windows }}" == "true" ]]; then
+            EXPECTED_UPDATE_PLATFORMS+=("windows-x86_64-nsis")
+          fi
 
           INVALID_UPDATE_PLATFORMS=()
           for platform in "${EXPECTED_UPDATE_PLATFORMS[@]}"; do

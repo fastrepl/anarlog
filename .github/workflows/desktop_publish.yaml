@@ -13,10 +13,19 @@ on:
         description: "Successful publish=false desktop CD run that built the candidate"
         required: true
         type: string
+      include_linux:
+        description: "Publish Linux beta artifacts from the candidate"
+        type: boolean
+        default: true
+      include_windows:
+        description: "Publish Windows artifacts from the candidate"
+        type: boolean
+        default: true
       audio_qa_run_id:
         description: "Successful desktop Linux virtual-audio QA run for the candidate"
-        required: true
+        required: false
         type: string
+        default: ""
 
 concurrency:
   group: desktop-stable-release
@@ -33,6 +42,8 @@ jobs:
       channel: ${{ steps.parse.outputs.channel }}
       candidate_sha: ${{ steps.parse.outputs.candidate_sha }}
       dry_run_id: ${{ steps.parse.outputs.dry_run_id }}
+      include_linux: ${{ steps.parse.outputs.include_linux }}
+      include_windows: ${{ steps.parse.outputs.include_windows }}
       audio_qa_run_id: ${{ steps.parse.outputs.audio_qa_run_id }}
     steps:
       - id: parse
@@ -42,6 +53,8 @@ jobs:
           INPUT_AUDIO_QA_RUN_ID: ${{ inputs.audio_qa_run_id }}
           INPUT_CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           INPUT_DRY_RUN_ID: ${{ inputs.dry_run_id }}
+          INPUT_INCLUDE_LINUX: ${{ inputs.include_linux }}
+          INPUT_INCLUDE_WINDOWS: ${{ inputs.include_windows }}
           INPUT_VERSION: ${{ inputs.version }}
         run: |
           if [[ ! "$INPUT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -57,8 +70,13 @@ jobs:
             echo "::error::Dry-run workflow ID must be a positive integer"
             exit 1
           fi
-          if [[ ! "$INPUT_AUDIO_QA_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
-            echo "::error::Linux audio QA workflow ID must be a positive integer"
+          if [[ "$INPUT_INCLUDE_LINUX" == "true" ]]; then
+            if [[ ! "$INPUT_AUDIO_QA_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
+              echo "::error::Linux audio QA workflow ID must be a positive integer when Linux is included"
+              exit 1
+            fi
+          elif [[ -n "$INPUT_AUDIO_QA_RUN_ID" ]]; then
+            echo "::error::Linux audio QA workflow ID must be empty when Linux is excluded"
             exit 1
           fi
 
@@ -77,6 +95,8 @@ jobs:
           echo "channel=stable" >> $GITHUB_OUTPUT
           echo "candidate_sha=$CANDIDATE_SHA" >> $GITHUB_OUTPUT
           echo "dry_run_id=$INPUT_DRY_RUN_ID" >> $GITHUB_OUTPUT
+          echo "include_linux=$INPUT_INCLUDE_LINUX" >> $GITHUB_OUTPUT
+          echo "include_windows=$INPUT_INCLUDE_WINDOWS" >> $GITHUB_OUTPUT
           echo "audio_qa_run_id=$INPUT_AUDIO_QA_RUN_ID" >> $GITHUB_OUTPUT
 
   verify-candidate:
@@ -113,6 +133,7 @@ jobs:
           fi
 
   verify-windows-signature:
+    if: ${{ needs.parse.outputs.include_windows == 'true' }}
     needs: [parse, verify-candidate]
     runs-on: windows-latest
     steps:
@@ -151,6 +172,7 @@ jobs:
 
   cn-publish:
     needs: [parse, verify-candidate, verify-windows-signature]
+    if: ${{ !cancelled() && needs.parse.result == 'success' && needs.verify-candidate.result == 'success' && (needs.parse.outputs.include_windows != 'true' || needs.verify-windows-signature.result == 'success') }}
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -195,6 +217,7 @@ jobs:
             --name "desktop-release-provenance-$VERSION-$EXPECTED_SHA" \
             --dir release-provenance
       - name: Verify Linux virtual-audio QA evidence
+        if: ${{ needs.parse.outputs.include_linux == 'true' }}
         env:
           AUDIO_QA_RUN_ID: ${{ needs.parse.outputs.audio_qa_run_id }}
           DRY_RUN_ID: ${{ needs.parse.outputs.dry_run_id }}
@@ -256,6 +279,8 @@ jobs:
         env:
           RELEASE: ${{ steps.release.outputs.raw }}
           EXPECTED_VERSION: ${{ needs.parse.outputs.version }}
+          INCLUDE_LINUX: ${{ needs.parse.outputs.include_linux }}
+          INCLUDE_WINDOWS: ${{ needs.parse.outputs.include_windows }}
         run: |
           ACTUAL_VERSION=$(echo "$RELEASE" | jq -r '.version // empty')
           if [[ "$ACTUAL_VERSION" != "$EXPECTED_VERSION" ]]; then
@@ -265,17 +290,25 @@ jobs:
 
           printf '%s' "$RELEASE" > "$RUNNER_TEMP/crabnebula-release.json"
           node scripts/desktop-release-provenance.mjs verify-platforms \
-            --release "$RUNNER_TEMP/crabnebula-release.json"
+            --release "$RUNNER_TEMP/crabnebula-release.json" \
+            --include-linux "$INCLUDE_LINUX" \
+            --include-windows "$INCLUDE_WINDOWS"
 
           EXPECTED_PLATFORMS=(
             "dmg-aarch64"
             "dmg-x86_64"
-            "nsis-x86_64"
-            "appimage-x86_64"
-            "deb-x86_64"
-            "appimage-aarch64"
-            "deb-aarch64"
           )
+          if [[ "$INCLUDE_LINUX" == "true" ]]; then
+            EXPECTED_PLATFORMS+=(
+              "appimage-x86_64"
+              "deb-x86_64"
+              "appimage-aarch64"
+              "deb-aarch64"
+            )
+          fi
+          if [[ "$INCLUDE_WINDOWS" == "true" ]]; then
+            EXPECTED_PLATFORMS+=("nsis-x86_64")
+          fi
 
           INVALID_PLATFORMS=()
           for platform in "${EXPECTED_PLATFORMS[@]}"; do
@@ -293,12 +326,18 @@ jobs:
           EXPECTED_UPDATE_PLATFORMS=(
             "darwin-aarch64"
             "darwin-x86_64"
-            "windows-x86_64-nsis"
-            "linux-x86_64-appimage"
-            "linux-x86_64-deb"
-            "linux-aarch64-appimage"
-            "linux-aarch64-deb"
           )
+          if [[ "$INCLUDE_LINUX" == "true" ]]; then
+            EXPECTED_UPDATE_PLATFORMS+=(
+              "linux-x86_64-appimage"
+              "linux-x86_64-deb"
+              "linux-aarch64-appimage"
+              "linux-aarch64-deb"
+            )
+          fi
+          if [[ "$INCLUDE_WINDOWS" == "true" ]]; then
+            EXPECTED_UPDATE_PLATFORMS+=("windows-x86_64-nsis")
+          fi
 
           INVALID_UPDATE_PLATFORMS=()
           for platform in "${EXPECTED_UPDATE_PLATFORMS[@]}"; do
@@ -455,6 +494,7 @@ jobs:
           output: anarlog-macos-x86_64.dmg
           key: ${{ secrets.CN_API_KEY }}
       - id: download-linux-x86_64-appimage
+        if: ${{ needs.parse.outputs.include_linux == 'true' }}
         uses: ./.github/actions/cn_download
         with:
           app: ${{ env.CN_APPLICATION }}
@@ -464,6 +504,7 @@ jobs:
           output: anarlog-linux-x86_64.AppImage
           key: ${{ secrets.CN_API_KEY }}
       - id: download-linux-x86_64-deb
+        if: ${{ needs.parse.outputs.include_linux == 'true' }}
         uses: ./.github/actions/cn_download
         with:
           app: ${{ env.CN_APPLICATION }}
@@ -473,6 +514,7 @@ jobs:
           output: anarlog-linux-x86_64.deb
           key: ${{ secrets.CN_API_KEY }}
       - id: download-linux-aarch64-appimage
+        if: ${{ needs.parse.outputs.include_linux == 'true' }}
         uses: ./.github/actions/cn_download
         with:
           app: ${{ env.CN_APPLICATION }}
@@ -482,6 +524,7 @@ jobs:
           output: anarlog-linux-aarch64.AppImage
           key: ${{ secrets.CN_API_KEY }}
       - id: download-linux-aarch64-deb
+        if: ${{ needs.parse.outputs.include_linux == 'true' }}
         uses: ./.github/actions/cn_download
         with:
           app: ${{ env.CN_APPLICATION }}
@@ -491,6 +534,7 @@ jobs:
           output: anarlog-linux-aarch64.deb
           key: ${{ secrets.CN_API_KEY }}
       - id: download-windows-x86_64
+        if: ${{ needs.parse.outputs.include_windows == 'true' }}
         uses: ./.github/actions/cn_download
         with:
           app: ${{ env.CN_APPLICATION }}
@@ -505,6 +549,8 @@ jobs:
           CN_SHA256: ${{ steps.download-macos-aarch64.outputs.cli-sha256 }}
           CN_VERSION: ${{ steps.download-macos-aarch64.outputs.cli-version }}
           EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
+          INCLUDE_LINUX: ${{ needs.parse.outputs.include_linux }}
+          INCLUDE_WINDOWS: ${{ needs.parse.outputs.include_windows }}
           LINUX_ARM64_APPIMAGE_ID: ${{ steps.download-linux-aarch64-appimage.outputs.asset_id }}
           LINUX_ARM64_DEB_ID: ${{ steps.download-linux-aarch64-deb.outputs.asset_id }}
           LINUX_X64_APPIMAGE_ID: ${{ steps.download-linux-x86_64-appimage.outputs.asset_id }}
@@ -534,13 +580,19 @@ jobs:
 
           copy_asset "$MACOS_ARM64_ID" "anarlog-macos-aarch64.dmg"
           copy_asset "$MACOS_X64_ID" "anarlog-macos-x86_64.dmg"
-          copy_asset "$LINUX_X64_APPIMAGE_ID" "anarlog-linux-x86_64.AppImage"
-          copy_asset "$LINUX_X64_DEB_ID" "anarlog-linux-x86_64.deb"
-          copy_asset "$LINUX_ARM64_APPIMAGE_ID" "anarlog-linux-aarch64.AppImage"
-          copy_asset "$LINUX_ARM64_DEB_ID" "anarlog-linux-aarch64.deb"
-          copy_asset "$WINDOWS_X64_ID" "anarlog-windows-x86_64-setup.exe"
+          if [[ "$INCLUDE_LINUX" == "true" ]]; then
+            copy_asset "$LINUX_X64_APPIMAGE_ID" "anarlog-linux-x86_64.AppImage"
+            copy_asset "$LINUX_X64_DEB_ID" "anarlog-linux-x86_64.deb"
+            copy_asset "$LINUX_ARM64_APPIMAGE_ID" "anarlog-linux-aarch64.AppImage"
+            copy_asset "$LINUX_ARM64_DEB_ID" "anarlog-linux-aarch64.deb"
+          fi
+          if [[ "$INCLUDE_WINDOWS" == "true" ]]; then
+            copy_asset "$WINDOWS_X64_ID" "anarlog-windows-x86_64-setup.exe"
+          fi
 
           PLATFORM_ASSET_IDS=$(jq -cn \
+            --arg include_linux "$INCLUDE_LINUX" \
+            --arg include_windows "$INCLUDE_WINDOWS" \
             --arg dmg_aarch64 "$MACOS_ARM64_ID" \
             --arg dmg_x86_64 "$MACOS_X64_ID" \
             --arg appimage_x86_64 "$LINUX_X64_APPIMAGE_ID" \
@@ -550,13 +602,17 @@ jobs:
             --arg nsis_x86_64 "$WINDOWS_X64_ID" \
             '{
               "dmg-aarch64": $dmg_aarch64,
-              "dmg-x86_64": $dmg_x86_64,
-              "appimage-x86_64": $appimage_x86_64,
-              "deb-x86_64": $deb_x86_64,
-              "appimage-aarch64": $appimage_aarch64,
-              "deb-aarch64": $deb_aarch64,
-              "nsis-x86_64": $nsis_x86_64
-            }')
+              "dmg-x86_64": $dmg_x86_64
+            }
+            + if $include_linux == "true" then {
+                "appimage-x86_64": $appimage_x86_64,
+                "deb-x86_64": $deb_x86_64,
+                "appimage-aarch64": $appimage_aarch64,
+                "deb-aarch64": $deb_aarch64
+              } else {} end
+            + if $include_windows == "true" then {
+                "nsis-x86_64": $nsis_x86_64
+              } else {} end')
 
           node scripts/desktop-release-provenance.mjs verify-assets \
             --manifest release-provenance/manifest.json \
@@ -574,11 +630,35 @@ jobs:
           files: |
             anarlog-macos-aarch64.dmg
             anarlog-macos-x86_64.dmg
-            anarlog-linux-x86_64.AppImage
-            anarlog-linux-x86_64.deb
-            anarlog-linux-aarch64.AppImage
-            anarlog-linux-aarch64.deb
-            anarlog-windows-x86_64-setup.exe
+            ${{ needs.parse.outputs.include_linux == 'true' && 'anarlog-linux-x86_64.AppImage' || '' }}
+            ${{ needs.parse.outputs.include_linux == 'true' && 'anarlog-linux-x86_64.deb' || '' }}
+            ${{ needs.parse.outputs.include_linux == 'true' && 'anarlog-linux-aarch64.AppImage' || '' }}
+            ${{ needs.parse.outputs.include_linux == 'true' && 'anarlog-linux-aarch64.deb' || '' }}
+            ${{ needs.parse.outputs.include_windows == 'true' && 'anarlog-windows-x86_64-setup.exe' || '' }}
+      - id: release-assets
+        env:
+          CHECKSUM_FILES: ${{ steps.checksums.outputs.checksum_files }}
+          INCLUDE_LINUX: ${{ needs.parse.outputs.include_linux }}
+          INCLUDE_WINDOWS: ${{ needs.parse.outputs.include_windows }}
+        run: |
+          files=(
+            "anarlog-macos-aarch64.dmg"
+            "anarlog-macos-x86_64.dmg"
+          )
+          if [[ "$INCLUDE_LINUX" == "true" ]]; then
+            files+=(
+              "anarlog-linux-x86_64.AppImage"
+              "anarlog-linux-x86_64.deb"
+              "anarlog-linux-aarch64.AppImage"
+              "anarlog-linux-aarch64.deb"
+            )
+          fi
+          if [[ "$INCLUDE_WINDOWS" == "true" ]]; then
+            files+=("anarlog-windows-x86_64-setup.exe")
+          fi
+
+          artifact_files=$(IFS=,; echo "${files[*]}")
+          echo "artifacts=$artifact_files,$CHECKSUM_FILES" >> "$GITHUB_OUTPUT"
       - id: release-body
         run: |
           echo "value=https://anarlog.so/changelog/${{ needs.parse.outputs.version }}" >> "$GITHUB_OUTPUT"
@@ -588,7 +668,7 @@ jobs:
           name: desktop_v${{ needs.parse.outputs.version }}
           body: ${{ steps.release-body.outputs.value }}
           prerelease: false
-          artifacts: anarlog-macos-aarch64.dmg,anarlog-macos-x86_64.dmg,anarlog-linux-x86_64.AppImage,anarlog-linux-x86_64.deb,anarlog-linux-aarch64.AppImage,anarlog-linux-aarch64.deb,anarlog-windows-x86_64-setup.exe,${{ steps.checksums.outputs.checksum_files }}
+          artifacts: ${{ steps.release-assets.outputs.artifacts }}
           allowUpdates: true
           makeLatest: true
           replacesArtifacts: true

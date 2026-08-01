@@ -6,24 +6,22 @@ import { pathToFileURL } from "node:url";
 
 const DEFAULT_ASSET_BASE_URL = "https://cdn.crabnebula.app/asset";
 const SOURCE_WORKFLOW = ".github/workflows/desktop_cd.yaml";
-const EXPECTED_PUBLIC_PLATFORMS = [
+const MACOS_PUBLIC_PLATFORMS = ["dmg-aarch64", "dmg-x86_64"];
+const LINUX_PUBLIC_PLATFORMS = [
   "appimage-aarch64",
   "appimage-x86_64",
   "deb-aarch64",
   "deb-x86_64",
-  "dmg-aarch64",
-  "dmg-x86_64",
-  "nsis-x86_64",
 ];
-const EXPECTED_UPDATE_PLATFORMS = [
-  "darwin-aarch64",
-  "darwin-x86_64",
+const WINDOWS_PUBLIC_PLATFORMS = ["nsis-x86_64"];
+const MACOS_UPDATE_PLATFORMS = ["darwin-aarch64", "darwin-x86_64"];
+const LINUX_UPDATE_PLATFORMS = [
   "linux-aarch64-appimage",
   "linux-aarch64-deb",
   "linux-x86_64-appimage",
   "linux-x86_64-deb",
-  "windows-x86_64-nsis",
 ];
+const WINDOWS_UPDATE_PLATFORMS = ["windows-x86_64-nsis"];
 
 function invariant(condition, message) {
   if (!condition) {
@@ -60,6 +58,14 @@ function normalizeRunId(value) {
     "Workflow run ID must be a positive integer",
   );
   return runId;
+}
+
+function normalizeBoolean(value, label) {
+  invariant(
+    value === "true" || value === "false",
+    `${label} must be true or false`,
+  );
+  return value === "true";
 }
 
 function normalizeCnVersion(value) {
@@ -142,11 +148,24 @@ function normalizeAssets(release) {
   return assets;
 }
 
-export function verifyDesktopPlatformSets(release) {
+export function verifyDesktopPlatformSets(
+  release,
+  { includeLinux = true, includeWindows = true } = {},
+) {
   const assets = normalizeAssets(release);
+  const expectedPublicPlatforms = [
+    ...MACOS_PUBLIC_PLATFORMS,
+    ...(includeLinux ? LINUX_PUBLIC_PLATFORMS : []),
+    ...(includeWindows ? WINDOWS_PUBLIC_PLATFORMS : []),
+  ].sort();
+  const expectedUpdatePlatforms = [
+    ...MACOS_UPDATE_PLATFORMS,
+    ...(includeLinux ? LINUX_UPDATE_PLATFORMS : []),
+    ...(includeWindows ? WINDOWS_UPDATE_PLATFORMS : []),
+  ].sort();
   invariant(
-    assets.length === EXPECTED_PUBLIC_PLATFORMS.length,
-    `Release must contain exactly ${EXPECTED_PUBLIC_PLATFORMS.length} desktop assets`,
+    assets.length === expectedPublicPlatforms.length,
+    `Release must contain exactly ${expectedPublicPlatforms.length} selected desktop assets`,
   );
 
   const publicPlatforms = assets
@@ -154,9 +173,8 @@ export function verifyDesktopPlatformSets(release) {
     .filter((platform) => platform !== null)
     .sort();
   invariant(
-    JSON.stringify(publicPlatforms) ===
-      JSON.stringify(EXPECTED_PUBLIC_PLATFORMS),
-    "Release public platforms do not match the desktop allowlist",
+    JSON.stringify(publicPlatforms) === JSON.stringify(expectedPublicPlatforms),
+    "Release public platforms do not match the selected desktop platforms",
   );
 
   const updatePlatforms = assets
@@ -164,9 +182,8 @@ export function verifyDesktopPlatformSets(release) {
     .filter((platform) => platform !== null)
     .sort();
   invariant(
-    JSON.stringify(updatePlatforms) ===
-      JSON.stringify(EXPECTED_UPDATE_PLATFORMS),
-    "Release update platforms do not match the desktop allowlist",
+    JSON.stringify(updatePlatforms) === JSON.stringify(expectedUpdatePlatforms),
+    "Release update platforms do not match the selected desktop platforms",
   );
 }
 
@@ -449,8 +466,17 @@ async function main() {
 
   if (command === "verify-platforms") {
     invariant(args.release, "Missing --release");
-    verifyDesktopPlatformSets(await readJson(args.release));
-    console.log("Release desktop platforms match the allowlist");
+    verifyDesktopPlatformSets(await readJson(args.release), {
+      includeLinux: normalizeBoolean(
+        args["include-linux"] ?? "true",
+        "include-linux",
+      ),
+      includeWindows: normalizeBoolean(
+        args["include-windows"] ?? "true",
+        "include-windows",
+      ),
+    });
+    console.log("Release desktop platforms match the selected release plan");
     return;
   }
 

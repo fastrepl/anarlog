@@ -17,41 +17,62 @@ const cnSha256 =
   "760b11d1ab9326dc78068ac8ef450685ea116e329903b14d94a5133641a54128";
 const cnVersion = "cn 0.13.2";
 
-function createDesktopRelease() {
-  const publicPlatforms = [
-    "dmg-aarch64",
-    "dmg-x86_64",
-    "nsis-x86_64",
-    "appimage-x86_64",
-    "deb-x86_64",
-    "appimage-aarch64",
-    "deb-aarch64",
-  ];
-  const updatePlatforms = [
-    "darwin-aarch64",
-    "darwin-x86_64",
-    "windows-x86_64-nsis",
-    "linux-x86_64-appimage",
-    "linux-x86_64-deb",
-    "linux-aarch64-appimage",
-    "linux-aarch64-deb",
+function createDesktopRelease({
+  includeLinux = true,
+  includeWindows = true,
+} = {}) {
+  const platformPairs = [
+    ["dmg-aarch64", "darwin-aarch64"],
+    ["dmg-x86_64", "darwin-x86_64"],
+    ...(includeLinux
+      ? [
+          ["appimage-x86_64", "linux-x86_64-appimage"],
+          ["deb-x86_64", "linux-x86_64-deb"],
+          ["appimage-aarch64", "linux-aarch64-appimage"],
+          ["deb-aarch64", "linux-aarch64-deb"],
+        ]
+      : []),
+    ...(includeWindows ? [["nsis-x86_64", "windows-x86_64-nsis"]] : []),
   ];
 
   return {
     version: "1.4.0",
     status: "draft",
-    assets: publicPlatforms.map((publicPlatform, index) => ({
+    assets: platformPairs.map(([publicPlatform, updatePlatform], index) => ({
       id: `asset-${index}`,
       publicPlatform,
-      updatePlatform: updatePlatforms[index],
+      updatePlatform,
       size: index + 1,
       signature: `signature-${index}`,
     })),
   };
 }
 
-test("accepts the exact desktop public and update platform sets", () => {
+test("accepts the complete desktop public and update platform sets", () => {
   verifyDesktopPlatformSets(createDesktopRelease());
+});
+
+test("accepts a macOS and Linux release without Windows", () => {
+  verifyDesktopPlatformSets(createDesktopRelease({ includeWindows: false }), {
+    includeWindows: false,
+  });
+});
+
+test("accepts a macOS-only release", () => {
+  verifyDesktopPlatformSets(
+    createDesktopRelease({ includeLinux: false, includeWindows: false }),
+    { includeLinux: false, includeWindows: false },
+  );
+});
+
+test("rejects an omitted selected platform", () => {
+  assert.throws(
+    () =>
+      verifyDesktopPlatformSets(
+        createDesktopRelease({ includeWindows: false }),
+      ),
+    /exactly 7 selected desktop assets/,
+  );
 });
 
 test("rejects an extra public desktop platform", () => {
@@ -66,7 +87,7 @@ test("rejects an extra public desktop platform", () => {
 
   assert.throws(
     () => verifyDesktopPlatformSets(release),
-    /exactly 7 desktop assets/,
+    /exactly 7 selected desktop assets/,
   );
 });
 
@@ -92,7 +113,7 @@ test("rejects an updater-only desktop platform", () => {
 
   assert.throws(
     () => verifyDesktopPlatformSets(release),
-    /exactly 7 desktop assets/,
+    /exactly 7 selected desktop assets/,
   );
 });
 
@@ -108,7 +129,7 @@ test("rejects an opaque desktop release asset", () => {
 
   assert.throws(
     () => verifyDesktopPlatformSets(release),
-    /exactly 7 desktop assets/,
+    /exactly 7 selected desktop assets/,
   );
 });
 
