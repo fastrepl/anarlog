@@ -1,27 +1,36 @@
 use std::{net::IpAddr, time::Duration};
 
 use anlg_api_auth::AuthContext;
-use anlg_loops::{LoopClient, TransactionalEmail};
+use anlg_loops::LoopClient;
 use axum::{
     Extension, Json, Router,
     extract::{DefaultBodyLimit, Path, Request, State},
-    http::{HeaderMap, HeaderValue, StatusCode, header},
+    http::{HeaderMap, HeaderValue, header},
     middleware::{self, Next},
     response::Response,
     routing::{get, post},
 };
-use chrono::{SecondsFormat, TimeDelta, Utc};
 use hmac::{Hmac, KeyInit, Mac};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::Sha256;
 use utoipa::OpenApi;
-use uuid::Uuid;
+
+mod gateway;
+mod invitation;
+
+use gateway::{
+    attachment_rpc_single, canonical_uuid, canonical_uuid_v4, future_timestamp,
+    is_valid_link_token, is_valid_public_slug, rpc_single, sign_attachment_download,
+    validate_handoff, validate_handoff_lease, validate_snapshot,
+};
+use invitation::__path_send_shared_note_invitation_email;
+use invitation::send_shared_note_invitation_email;
 
 use crate::{
     SharedNotesConfig,
     error::{Result, SyncError},
-    routes::{SharedNoteAttachment, validate_shared_attachments},
+    routes::SharedNoteAttachment,
     snapshot::MAX_SNAPSHOT_BODY_BYTES,
 };
 
@@ -353,162 +362,6 @@ pub fn authenticated_router(state: SharedNotesState) -> Router {
         )
         .layer(middleware::from_fn(add_no_store))
         .with_state(state)
-}
-
-#[utoipa::path(
-    post,
-    path = "/shared-notes/invitations/{invitation_id}/email",
-    tag = "shared-notes",
-    params(("invitation_id" = String, Path, description = "Session access invitation ID")),
-    request_body = SharedNoteInvitationEmailRequest,
-    responses(
-        (status = 204, description = "Invitation email sent"),
-        (status = 400, description = "Invalid invitation email request"),
-        (status = 401, description = "Authentication required"),
-        (status = 404, description = "Invitation unavailable"),
-        (status = 502, description = "Invitation email service unavailable")
-    )
-)]
-async fn send_shared_note_invitation_email(
-    Extension(auth): Extension<AuthContext>,
-    State(state): State<SharedNotesState>,
-    Path(invitation_id): Path<String>,
-    Json(input): Json<SharedNoteInvitationEmailRequest>,
-) -> Result<StatusCode> {
-    let invitation_id = canonical_uuid_v4(&invitation_id)
-        .ok_or_else(|| SyncError::BadRequest("invalid invitation".to_string()))?;
-    let share_id = canonical_uuid_v4(&input.share_id)
-        .ok_or_else(|| SyncError::BadRequest("invalid share".to_string()))?;
-    if input.invite_token.len() != 43
-        || !input
-            .invite_token
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-    {
-        return Err(SyncError::BadRequest(
-            "invalid invitation token".to_string(),
-        ));
-    }
-    let note_title = invitation_note_title(&input.note_title)?;
-    let access = list_session_share_access_as_user(&state, &auth, &share_id).await?;
-    let recipient = access
-        .into_iter()
-        .find(|row| {
-            row.entry_type == "invitation"
-                && row.entry_id == invitation_id
-                && row.status == "pending"
-        })
-        .and_then(|row| row.user_email)
-        .filter(|email| is_valid_invitation_email(email))
-        .ok_or(SyncError::SharedNoteNotFound)?;
-    let sender_name = auth
-        .claims
-        .email
-        .as_deref()
-        .filter(|email| is_valid_invitation_email(email))
-        .unwrap_or("An Anarlog user")
-        .to_string();
-    let invitation_url = format!(
-        "https://anarlog.so/share/invite/{invitation_id}/#token={}",
-        input.invite_token
-    );
-    let invitation_email = state
-        .invitation_email
-        .as_ref()
-        .ok_or(SyncError::InvitationEmailUnavailable)?;
-    invitation_email
-        .send_transactional(
-            TransactionalEmail {
-                email: recipient,
-                transactional_id: INVITATION_TRANSACTIONAL_ID.to_string(),
-                data_variables: [
-                    ("senderName".to_string(), sender_name),
-                    ("noteTitle".to_string(), note_title),
-                    ("inviteUrl".to_string(), invitation_url),
-                ]
-                .into_iter()
-                .collect(),
-            },
-            &invitation_id,
-        )
-        .await
-        .map_err(|error| {
-            tracing::warn!(%error, invitation_id, "shared-note invitation email failed");
-            SyncError::InvitationEmailUnavailable
-        })?;
-    Ok(StatusCode::NO_CONTENT)
-}
-
-fn invitation_note_title(value: &str) -> Result<String> {
-    if value.chars().any(char::is_control) {
-        return Err(SyncError::BadRequest("invalid note title".to_string()));
-    }
-    let value = value.trim();
-    if value.is_empty() {
-        return Ok("Untitled note".to_string());
-    }
-    let mut title = value.chars().take(160).collect::<String>();
-    if value.chars().count() > 160 {
-        title.push('…');
-    }
-    Ok(title)
-}
-
-fn is_valid_invitation_email(value: &str) -> bool {
-    value.len() <= 320
-        && value.trim() == value
-        && !value.chars().any(char::is_control)
-        && value
-            .split_once('@')
-            .is_some_and(|(local, domain)| !local.is_empty() && domain.contains('.'))
-}
-
-async fn list_session_share_access_as_user(
-    state: &SharedNotesState,
-    auth: &AuthContext,
-    share_id: &str,
-) -> Result<Vec<SessionShareAccessRow>> {
-    let mut response = state
-        .client
-        .post(format!(
-            "{}/rest/v1/rpc/list_session_share_access",
-            state.config.supabase_url
-        ))
-        .header("apikey", &state.config.supabase_service_role_key)
-        .bearer_auth(&auth.token)
-        .json(&ListSessionShareAccessRequest {
-            p_share_id: share_id,
-        })
-        .send()
-        .await
-        .map_err(|error| {
-            tracing::warn!(%error, "shared-note access verification failed");
-            SyncError::InvitationEmailUnavailable
-        })?;
-    let status = response.status();
-    if response
-        .content_length()
-        .is_some_and(|length| length > MAX_ACCESS_LIST_RESPONSE_BYTES as u64)
-    {
-        return Err(SyncError::InvitationEmailUnavailable);
-    }
-    let mut bytes = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(|error| {
-        tracing::warn!(%error, "shared-note access verification response failed");
-        SyncError::InvitationEmailUnavailable
-    })? {
-        if bytes.len().saturating_add(chunk.len()) > MAX_ACCESS_LIST_RESPONSE_BYTES {
-            return Err(SyncError::InvitationEmailUnavailable);
-        }
-        bytes.extend_from_slice(&chunk);
-    }
-    if !status.is_success() {
-        return Err(SyncError::SharedNoteNotFound);
-    }
-    serde_json::from_slice(&bytes).map_err(|error| {
-        tracing::warn!(%error, "shared-note access verification response was invalid");
-        SyncError::InvitationEmailUnavailable
-    })
 }
 
 async fn add_no_store(request: Request, next: Next) -> Response {
@@ -890,269 +743,6 @@ async fn download_access_shared_attachment(
         )
         .await?,
     ))
-}
-
-async fn attachment_rpc_single<RequestBody>(
-    state: &SharedNotesState,
-    function: &str,
-    request: &RequestBody,
-) -> Result<PreparedAttachmentRow>
-where
-    RequestBody: Serialize + ?Sized,
-{
-    rpc_single(state, function, request, MAX_HANDOFF_RESPONSE_BYTES)
-        .await
-        .map_err(|error| match error {
-            SyncError::SharedNoteNotFound => SyncError::SharedAttachmentNotFound,
-            SyncError::SnapshotServiceUnavailable => SyncError::SharedAttachmentServiceUnavailable,
-            other => other,
-        })
-}
-
-async fn sign_attachment_download(
-    state: &SharedNotesState,
-    row: PreparedAttachmentRow,
-    expected_attachment_id: &str,
-    expires_at: &str,
-    expires_in_seconds: i64,
-) -> Result<SharedAttachmentDownload> {
-    validate_prepared_attachment(&row, expected_attachment_id, expires_at)?;
-    let signed_url = state
-        .storage
-        .create_signed_url(
-            SHARED_ATTACHMENT_BUCKET,
-            &row.object_key,
-            expires_in_seconds as u64,
-        )
-        .await
-        .map_err(|error| {
-            tracing::warn!(%error, "shared attachment download signing failed");
-            SyncError::SharedAttachmentServiceUnavailable
-        })?;
-    Ok(SharedAttachmentDownload {
-        id: row.attachment_id,
-        filename: row.filename,
-        content_type: row.content_type,
-        size_bytes: row.size_bytes as u64,
-        sha256: row.sha256,
-        signed_url,
-        expires_at: expires_at.to_string(),
-    })
-}
-
-fn validate_prepared_attachment(
-    row: &PreparedAttachmentRow,
-    expected_attachment_id: &str,
-    expires_at: &str,
-) -> Result<()> {
-    let share_id =
-        canonical_uuid(&row.share_id).ok_or(SyncError::SharedAttachmentServiceUnavailable)?;
-    if row.attachment_id != expected_attachment_id
-        || canonical_uuid_v4(&row.attachment_id).is_none()
-        || !is_valid_attachment_object_key(&row.object_key, &share_id, expected_attachment_id)
-        || row.filename.is_empty()
-        || row.filename.len() > 1024
-        || row.filename.trim() != row.filename
-        || row.filename.contains(['/', '\\'])
-        || row.filename.chars().any(char::is_control)
-        || !is_valid_content_type(&row.content_type)
-        || !(1..=512 * 1024 * 1024).contains(&row.size_bytes)
-        || row.sha256.len() != 64
-        || !row
-            .sha256
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
-        || row.access_version < 1
-        || chrono::DateTime::parse_from_rfc3339(&row.cleanup_not_before).is_err()
-        || chrono::DateTime::parse_from_rfc3339(expires_at).is_err()
-    {
-        return Err(SyncError::SharedAttachmentServiceUnavailable);
-    }
-    Ok(())
-}
-
-fn is_valid_attachment_object_key(value: &str, share_id: &str, attachment_id: &str) -> bool {
-    let mut parts = value.split('/');
-    let Some(owner) = parts.next() else {
-        return false;
-    };
-    let Some(share) = parts.next() else {
-        return false;
-    };
-    let Some(filename) = parts.next() else {
-        return false;
-    };
-    parts.next().is_none()
-        && canonical_uuid(owner).as_deref() == Some(owner)
-        && share == share_id
-        && filename == format!("{attachment_id}.sna1")
-}
-
-fn is_valid_content_type(value: &str) -> bool {
-    value.len() <= 255
-        && value == value.to_ascii_lowercase()
-        && value
-            .split_once('/')
-            .is_some_and(|(kind, subtype)| !kind.is_empty() && !subtype.is_empty())
-}
-
-fn future_timestamp(seconds: i64) -> Result<String> {
-    Utc::now()
-        .checked_add_signed(TimeDelta::seconds(seconds))
-        .map(|value| value.to_rfc3339_opts(SecondsFormat::Millis, true))
-        .ok_or_else(|| SyncError::Internal("shared attachment expiry overflow".to_string()))
-}
-
-fn validate_handoff_lease(value: &str) -> Result<String> {
-    let expires_at = chrono::DateTime::parse_from_rfc3339(value)
-        .map_err(|_| invalid_gateway_response("handoff lease expiry"))?;
-    if expires_at <= Utc::now() {
-        return Err(invalid_gateway_response("handoff lease expiry"));
-    }
-    Ok(value.to_string())
-}
-
-async fn rpc_single<RequestBody, Row>(
-    state: &SharedNotesState,
-    function: &str,
-    request: &RequestBody,
-    max_response_bytes: usize,
-) -> Result<Row>
-where
-    RequestBody: Serialize + ?Sized,
-    Row: DeserializeOwned,
-{
-    let mut response = state
-        .client
-        .post(format!(
-            "{}/rest/v1/rpc/{function}",
-            state.config.supabase_url
-        ))
-        .header("apikey", &state.config.supabase_service_role_key)
-        .bearer_auth(&state.config.supabase_service_role_key)
-        .timeout(SHARED_NOTE_TIMEOUT)
-        .json(request)
-        .send()
-        .await
-        .map_err(|error| {
-            tracing::warn!(%error, "shared-note gateway request failed");
-            SyncError::SnapshotServiceUnavailable
-        })?;
-    let status = response.status();
-    if response
-        .content_length()
-        .is_some_and(|length| length > max_response_bytes as u64)
-    {
-        tracing::warn!(%status, "shared-note gateway response was too large");
-        return Err(SyncError::SnapshotServiceUnavailable);
-    }
-    let mut bytes = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(|error| {
-        tracing::warn!(%error, "shared-note gateway response could not be read");
-        SyncError::SnapshotServiceUnavailable
-    })? {
-        if bytes.len().saturating_add(chunk.len()) > max_response_bytes {
-            tracing::warn!(%status, "shared-note gateway response was too large");
-            return Err(SyncError::SnapshotServiceUnavailable);
-        }
-        bytes.extend_from_slice(&chunk);
-    }
-    if !status.is_success() {
-        tracing::warn!(%status, "shared-note gateway request was rejected");
-        return Err(SyncError::SnapshotServiceUnavailable);
-    }
-
-    let mut rows = serde_json::from_slice::<Vec<Row>>(&bytes).map_err(|error| {
-        tracing::warn!(%error, "shared-note gateway response was invalid");
-        SyncError::SnapshotServiceUnavailable
-    })?;
-    match rows.len() {
-        0 => Err(SyncError::SharedNoteNotFound),
-        1 => Ok(rows.pop().expect("row count was checked")),
-        row_count => {
-            tracing::warn!(row_count, "shared-note gateway returned multiple rows");
-            Err(SyncError::SnapshotServiceUnavailable)
-        }
-    }
-}
-
-fn validate_snapshot(
-    row: GatewaySnapshotRow,
-    expected_share_id: Option<&str>,
-) -> Result<SharedNoteSnapshot> {
-    let share_id =
-        canonical_uuid(&row.share_id).ok_or_else(|| invalid_gateway_response("share"))?;
-    let body_size = serde_json::to_vec(&row.body_json)
-        .map_err(|_| invalid_gateway_response("body"))?
-        .len();
-    if expected_share_id.is_some_and(|expected| expected != share_id)
-        || row.schema_version != 1
-        || row.content_revision < 1
-        || row.title.trim() != row.title
-        || row.title.len() > 4096
-        || row.body_json.get("type").and_then(Value::as_str) != Some("doc")
-        || body_size > MAX_SNAPSHOT_BODY_BYTES
-        || validate_shared_attachments(&row.attachments_json, None).is_err()
-        || chrono::DateTime::parse_from_rfc3339(&row.published_at).is_err()
-    {
-        return Err(invalid_gateway_response("snapshot"));
-    }
-
-    Ok(SharedNoteSnapshot {
-        share_id,
-        schema_version: row.schema_version,
-        content_revision: row.content_revision,
-        title: row.title,
-        body: row.body_json,
-        attachments: row.attachments_json,
-        lease_expires_at: None,
-        published_at: row.published_at,
-    })
-}
-
-fn validate_handoff(row: GatewayHandoffRow) -> Result<SharedNoteHandoff> {
-    let request_id =
-        canonical_uuid_v4(&row.request_id).ok_or_else(|| invalid_gateway_response("handoff"))?;
-    if chrono::DateTime::parse_from_rfc3339(&row.expires_at).is_err() {
-        return Err(invalid_gateway_response("handoff expiry"));
-    }
-
-    Ok(SharedNoteHandoff {
-        request_id,
-        expires_at: row.expires_at,
-    })
-}
-
-fn invalid_gateway_response(field: &str) -> SyncError {
-    tracing::warn!(field, "shared-note gateway response failed validation");
-    SyncError::SnapshotServiceUnavailable
-}
-
-fn canonical_uuid(value: &str) -> Option<String> {
-    let parsed = Uuid::parse_str(value).ok()?;
-    let canonical = parsed.hyphenated().to_string();
-    (canonical == value).then_some(canonical)
-}
-
-fn canonical_uuid_v4(value: &str) -> Option<String> {
-    let parsed = Uuid::parse_str(value).ok()?;
-    let canonical = parsed.hyphenated().to_string();
-    (parsed.get_version_num() == 4 && canonical == value).then_some(canonical)
-}
-
-fn is_valid_link_token(value: &str) -> bool {
-    value.len() == 43
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
-}
-
-fn is_valid_public_slug(value: &str) -> bool {
-    value.len() == 34
-        && value.starts_with("s_")
-        && value[2..]
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
 }
 
 #[cfg(test)]
