@@ -38,13 +38,22 @@ function createDesktopRelease({
   return {
     version: "1.4.0",
     status: "draft",
-    assets: platformPairs.map(([publicPlatform, updatePlatform], index) => ({
-      id: `asset-${index}`,
-      publicPlatform,
-      updatePlatform,
-      size: index + 1,
-      signature: `signature-${index}`,
-    })),
+    assets: platformPairs.flatMap(([publicPlatform, updatePlatform], index) => [
+      {
+        id: `asset-public-${index}`,
+        publicPlatform,
+        updatePlatform: null,
+        size: index + 1,
+        signature: null,
+      },
+      {
+        id: `asset-update-${index}`,
+        publicPlatform: null,
+        updatePlatform,
+        size: index + 1,
+        signature: `signature-${index}`,
+      },
+    ]),
   };
 }
 
@@ -71,7 +80,7 @@ test("rejects an omitted selected platform", () => {
       verifyDesktopPlatformSets(
         createDesktopRelease({ includeWindows: false }),
       ),
-    /exactly 7 selected desktop assets/,
+    /exactly 14 selected desktop assets/,
   );
 });
 
@@ -87,7 +96,7 @@ test("rejects an extra public desktop platform", () => {
 
   assert.throws(
     () => verifyDesktopPlatformSets(release),
-    /exactly 7 selected desktop assets/,
+    /exactly 14 selected desktop assets/,
   );
 });
 
@@ -113,7 +122,7 @@ test("rejects an updater-only desktop platform", () => {
 
   assert.throws(
     () => verifyDesktopPlatformSets(release),
-    /exactly 7 selected desktop assets/,
+    /exactly 14 selected desktop assets/,
   );
 });
 
@@ -129,7 +138,7 @@ test("rejects an opaque desktop release asset", () => {
 
   assert.throws(
     () => verifyDesktopPlatformSets(release),
-    /exactly 7 selected desktop assets/,
+    /exactly 14 selected desktop assets/,
   );
 });
 

@@ -163,9 +163,11 @@ export function verifyDesktopPlatformSets(
     ...(includeLinux ? LINUX_UPDATE_PLATFORMS : []),
     ...(includeWindows ? WINDOWS_UPDATE_PLATFORMS : []),
   ].sort();
+  const expectedAssetCount =
+    expectedPublicPlatforms.length + expectedUpdatePlatforms.length;
   invariant(
-    assets.length === expectedPublicPlatforms.length,
-    `Release must contain exactly ${expectedPublicPlatforms.length} selected desktop assets`,
+    assets.length === expectedAssetCount,
+    `Release must contain exactly ${expectedAssetCount} selected desktop assets`,
   );
 
   const publicPlatforms = assets
