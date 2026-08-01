@@ -1,7 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ArrowDown, ArrowUp, CalendarDots, Sun } from "@phosphor-icons/react";
+import { CalendarDots } from "@phosphor-icons/react";
 import {
-  type ReactNode,
   memo,
   type RefCallback,
   type WheelEvent as ReactWheelEvent,
@@ -12,32 +11,26 @@ import {
   useState,
 } from "react";
 
-import { Button } from "@anlg/ui/components/ui/button";
 import { cn } from "@anlg/utils";
 
 import { useAnchor, useAutoScrollToAnchor } from "./anchor";
-import { ManagedSharedSessionIdsContext, TimelineItemComponent } from "./item";
+import { TimelineBuckets } from "./buckets";
+import { TimelineNowChip, TimelineTopChip, UpcomingMeetingChip } from "./chips";
+import { getFallbackIndicatorIndex, useTimelineData } from "./data";
 import {
-  CurrentTimeIndicator,
-  useCurrentTimeMs,
-  useSmartCurrentTime,
-} from "./realtime";
+  hasSidebarNoteSelectionContext,
+  isSelectAllShortcut,
+  isSessionItemKey,
+  isTextEditingShortcutTarget,
+  isTimelineItemVisible,
+  scrollTimelineItemIntoView,
+} from "./interaction";
+import { ManagedSharedSessionIdsContext } from "./item";
+import { useCurrentTimeMs } from "./realtime";
 import {
   useUpcomingMeetingStatus,
   useUpcomingMeetingLabelFormatter,
 } from "./upcoming-meeting";
-import {
-  buildTimelineBuckets,
-  calculateTodayIndicatorPlacement,
-  deriveTimelineWindowData,
-  getItemTimestamp,
-  type TimelineBucket,
-  type TimelineEventsTable,
-  type TimelineIndicatorPlacement,
-  type TimelineItem,
-  type TimelinePrecision,
-  type TimelineSessionsTable,
-} from "./utils";
 
 import { useAuth } from "~/auth";
 import { useIgnoredEvents } from "~/calendar/ignored-events";
@@ -447,114 +440,22 @@ export const TimelineView = memo(function TimelineView({
               className={cn([topSpacerClassName, "shrink-0"])}
             />
           )}
-          {buckets.map((bucket, index) => {
-            const isToday = bucket.label === "Today";
-            const shouldPlaceIndicatorBefore =
-              !hasToday && indicatorIndex === index;
-            const shouldRenderIndicatorBefore =
-              shouldPlaceIndicatorBefore && !hasActiveVisibleSession;
-            const shouldRenderIndicatorAnchorBefore =
-              shouldPlaceIndicatorBefore && hasActiveVisibleSession;
-            const isTopIndicator = shouldRenderIndicatorBefore && index === 0;
-
-            return (
-              <div
-                key={bucket.label}
-                className={cn([isTopIndicator && "pt-3"])}
-              >
-                {shouldRenderIndicatorBefore && (
-                  <div data-sidebar-current-time-header-gap className="py-3">
-                    <CurrentTimeIndicator
-                      ref={setCurrentTimeIndicatorRef}
-                      timezone={timezone}
-                    />
-                  </div>
-                )}
-                {shouldRenderIndicatorAnchorBefore && (
-                  <CurrentTimeAnchor
-                    registerIndicator={setCurrentTimeIndicatorRef}
-                  />
-                )}
-                <div
-                  data-sidebar-timeline-bucket-header
-                  className={cn([
-                    "sticky z-20",
-                    bucketHeaderTopClassName,
-                    "bg-background pt-0 pr-1 pb-1 pl-3",
-                  ])}
-                >
-                  <div className="text-foreground text-base font-bold">
-                    {bucket.label}
-                  </div>
-                </div>
-                {isToday ? (
-                  <TodayBucket
-                    items={bucket.items}
-                    precision={bucket.precision}
-                    registerIndicator={setCurrentTimeIndicatorRef}
-                    selectedSessionId={selectedSessionId}
-                    selectedNodeRef={scrollSelectedSessionIntoView}
-                    suppressCurrentTimeIndicator={hasActiveVisibleSession}
-                    timezone={timezone}
-                    selectedIds={selectedIds}
-                    getFlatItemKeys={getFlatItemKeys}
-                    upcomingItemKey={upcomingMeetingStatus?.itemKey}
-                    upcomingItemLabel={upcomingMeetingStatus?.label}
-                    upcomingItemProgress={upcomingMeetingStatus?.progress}
-                    upcomingItemNodeRef={setUpcomingMeetingNodeRef}
-                  />
-                ) : (
-                  bucket.items.map((item) => {
-                    const itemKey = `${item.type}-${item.id}`;
-                    const selected =
-                      item.type === "session" && item.id === selectedSessionId;
-                    return (
-                      <TimelineItemComponent
-                        key={itemKey}
-                        item={item}
-                        precision={bucket.precision}
-                        selected={selected}
-                        timezone={timezone}
-                        multiSelected={selectedIds.includes(itemKey)}
-                        getFlatItemKeys={getFlatItemKeys}
-                        selectedNodeRef={
-                          selected ? scrollSelectedSessionIntoView : undefined
-                        }
-                        itemNodeRef={
-                          itemKey === upcomingMeetingStatus?.itemKey
-                            ? setUpcomingMeetingNodeRef
-                            : undefined
-                        }
-                        isUpcoming={itemKey === upcomingMeetingStatus?.itemKey}
-                        upcomingLabel={
-                          itemKey === upcomingMeetingStatus?.itemKey
-                            ? upcomingMeetingStatus.label
-                            : undefined
-                        }
-                        upcomingProgress={
-                          itemKey === upcomingMeetingStatus?.itemKey
-                            ? upcomingMeetingStatus.progress
-                            : undefined
-                        }
-                      />
-                    );
-                  })
-                )}
-              </div>
-            );
-          })}
-          {!hasToday &&
-            (indicatorIndex === -1 || indicatorIndex === buckets.length) &&
-            (hasActiveVisibleSession ? (
-              <CurrentTimeAnchor
-                registerIndicator={setCurrentTimeIndicatorRef}
-              />
-            ) : (
-              <CurrentTimeIndicator
-                ref={setCurrentTimeIndicatorRef}
-                timezone={timezone}
-              />
-            ))}
+          <TimelineBuckets
+            bucketHeaderTopClassName={bucketHeaderTopClassName}
+            buckets={buckets}
+            emptyTodayLabel={<Trans>No items today</Trans>}
+            getFlatItemKeys={getFlatItemKeys}
+            hasActiveVisibleSession={hasActiveVisibleSession}
+            hasToday={hasToday}
+            indicatorIndex={indicatorIndex}
+            registerIndicator={setCurrentTimeIndicatorRef}
+            selectedIds={selectedIds}
+            selectedNodeRef={scrollSelectedSessionIntoView}
+            selectedSessionId={selectedSessionId}
+            timezone={timezone}
+            upcomingMeetingStatus={upcomingMeetingStatus}
+            upcomingNodeRef={setUpcomingMeetingNodeRef}
+          />
         </div>
 
         {!isScrolledToBottom && (
@@ -593,14 +494,22 @@ export const TimelineView = memo(function TimelineView({
               </TimelineTopChip>
             )}
             {upcomingMeetingStatus && showUpcomingMeetingChip && (
-              <SidebarUpcomingMeetingStatus
+              <UpcomingMeetingChip
+                ariaLabel={`${
+                  upcomingMeetingStatus.title || t`Meeting`
+                } ${upcomingMeetingStatus.label.toLowerCase()}`}
                 label={upcomingMeetingStatus.label}
                 onClick={scrollToUpcomingMeeting}
-                title={upcomingMeetingStatus.title}
               />
             )}
             {showTopNowChip && (
-              <TimelineNowChip direction="up" onClick={scrollToToday} />
+              <TimelineNowChip
+                ariaLabel={t`Go back to now`}
+                direction="up"
+                onClick={scrollToToday}
+              >
+                <Trans>Now</Trans>
+              </TimelineNowChip>
             )}
           </div>
         )}
@@ -609,530 +518,18 @@ export const TimelineView = memo(function TimelineView({
           !isTodayVisible &&
           !isScrolledPastToday && (
             <TimelineNowChip
+              ariaLabel={t`Go back to now`}
               onClick={scrollToToday}
               direction="down"
               className={cn([
                 "absolute bottom-2 left-1/2 -translate-x-1/2 transform",
                 "z-40",
               ])}
-            />
+            >
+              <Trans>Now</Trans>
+            </TimelineNowChip>
           )}
       </div>
     </ManagedSharedSessionIdsContext.Provider>
   );
 });
-
-function SidebarUpcomingMeetingStatus({
-  label,
-  onClick,
-  title,
-}: {
-  label: string;
-  onClick: () => void;
-  title: string;
-}) {
-  const { t } = useLingui();
-  return (
-    <TimelineTopChip
-      aria-live="polite"
-      ariaLabel={`${title || t`Meeting`} ${label.toLowerCase()}`}
-      data-sidebar-upcoming-meeting-status
-      className="border-destructive bg-destructive text-destructive-foreground w-28 justify-center shadow-md"
-      icon={<ArrowUp aria-hidden className="size-3" weight="bold" />}
-      onClick={onClick}
-    >
-      {label}
-    </TimelineTopChip>
-  );
-}
-
-function TimelineTopChip({
-  ariaLabel,
-  children,
-  icon,
-  onClick,
-  ...props
-}: {
-  ariaLabel?: string;
-  children: ReactNode;
-  icon: ReactNode;
-  className?: string;
-  role?: string;
-  "aria-live"?: "off" | "polite" | "assertive";
-  "data-sidebar-upcoming-meeting-status"?: true;
-  onClick?: () => void;
-}) {
-  const className = cn([
-    "border-border bg-card text-muted-foreground flex h-6 items-center gap-1 rounded-full border px-2.5 text-xs font-medium shadow-xs",
-    onClick && "hover:bg-accent hover:text-foreground transition-colors",
-    "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
-    props.className,
-  ]);
-
-  if (onClick) {
-    return (
-      <Button
-        {...props}
-        aria-label={ariaLabel}
-        className={className}
-        onClick={onClick}
-        size="sm"
-        variant="outline"
-      >
-        <span className="flex size-3 shrink-0 items-center justify-center">
-          {icon}
-        </span>
-        <span className="truncate">{children}</span>
-      </Button>
-    );
-  }
-
-  return (
-    <div {...props} aria-label={ariaLabel} className={className}>
-      <span className="flex size-3 shrink-0 items-center justify-center">
-        {icon}
-      </span>
-      <span className="truncate">{children}</span>
-    </div>
-  );
-}
-
-function getFallbackIndicatorIndex(buckets: TimelineBucket[], nowMs: number) {
-  let staleFutureBoundary: number | null = null;
-
-  for (let index = 0; index < buckets.length; index++) {
-    const bucket = buckets[index];
-    const firstItem = bucket?.items[0];
-    if (!bucket || !firstItem) {
-      continue;
-    }
-
-    const itemDate = getItemTimestamp(firstItem);
-    if (!itemDate || itemDate.getTime() >= nowMs) {
-      continue;
-    }
-
-    if (isFutureBucketLabel(bucket.label)) {
-      staleFutureBoundary = index + 1;
-      continue;
-    }
-
-    return staleFutureBoundary ?? index;
-  }
-
-  return staleFutureBoundary ?? -1;
-}
-
-function isFutureBucketLabel(label: string) {
-  return (
-    label === "Tomorrow" ||
-    label === "next week" ||
-    label === "next month" ||
-    label.startsWith("in ")
-  );
-}
-
-function isSelectAllShortcut(event: KeyboardEvent) {
-  return (
-    event.key.toLowerCase() === "a" &&
-    (event.metaKey || event.ctrlKey) &&
-    !event.altKey &&
-    !event.shiftKey
-  );
-}
-
-function isSessionItemKey(key: string) {
-  return key.startsWith("session-");
-}
-
-function hasSidebarNoteSelectionContext({
-  anchorId,
-  selectedIds,
-  selectedSessionId,
-}: {
-  anchorId: string | null;
-  selectedIds: string[];
-  selectedSessionId: string;
-}) {
-  const currentSessionKey = `session-${selectedSessionId}`;
-
-  return anchorId === currentSessionKey || selectedIds.some(isSessionItemKey);
-}
-
-function isTextEditingShortcutTarget(target: EventTarget | null) {
-  const element =
-    target instanceof Element
-      ? target
-      : target instanceof Node
-        ? target.parentElement
-        : null;
-
-  return (
-    element !== null &&
-    Boolean(
-      element.closest(
-        [
-          "input",
-          "textarea",
-          "select",
-          "[contenteditable='true']",
-          "[role='textbox']",
-          ".ProseMirror",
-        ].join(","),
-      ),
-    )
-  );
-}
-
-function TimelineNowChip({
-  className,
-  direction,
-  onClick,
-}: {
-  className?: string;
-  direction: "up" | "down";
-  onClick: () => void;
-}) {
-  const DirectionIcon = direction === "up" ? ArrowUp : ArrowDown;
-  const { t } = useLingui();
-
-  return (
-    <button
-      type="button"
-      aria-label={t`Go back to now`}
-      className={cn([
-        "border-border bg-card text-foreground flex h-6 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold shadow-md",
-        "hover:border-border hover:bg-accent hover:text-foreground transition-colors",
-        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
-        className,
-      ])}
-      onClick={onClick}
-    >
-      {direction === "up" ? <DirectionIcon size={12} /> : null}
-      <Sun size={13} className="shrink-0 text-yellow-400" />
-      <span>
-        <Trans>Now</Trans>
-      </span>
-      {direction === "down" ? <DirectionIcon size={12} /> : null}
-    </button>
-  );
-}
-
-function CurrentTimeAnchor({
-  progress = 0.5,
-  registerIndicator,
-  variant = "seam",
-}: {
-  progress?: number;
-  registerIndicator: (node: HTMLDivElement | null) => void;
-  variant?: "seam" | "inside";
-}) {
-  return (
-    <div
-      ref={registerIndicator}
-      aria-hidden
-      data-sidebar-current-time-anchor
-      className={cn([
-        "pointer-events-none opacity-0",
-        variant === "inside"
-          ? "absolute inset-x-0 z-20 h-px"
-          : "relative z-20 h-px",
-      ])}
-      style={
-        variant === "inside" ? { top: `${(1 - progress) * 100}%` } : undefined
-      }
-    />
-  );
-}
-
-function TodayBucket({
-  items,
-  precision,
-  registerIndicator,
-  selectedSessionId,
-  selectedNodeRef,
-  suppressCurrentTimeIndicator,
-  timezone,
-  selectedIds,
-  getFlatItemKeys,
-  upcomingItemKey,
-  upcomingItemLabel,
-  upcomingItemProgress,
-  upcomingItemNodeRef,
-}: {
-  items: TimelineItem[];
-  precision: TimelinePrecision;
-  registerIndicator: (node: HTMLDivElement | null) => void;
-  selectedSessionId: string | undefined;
-  selectedNodeRef: RefCallback<HTMLDivElement>;
-  suppressCurrentTimeIndicator: boolean;
-  timezone?: string;
-  selectedIds: string[];
-  getFlatItemKeys: () => string[];
-  upcomingItemKey?: string;
-  upcomingItemLabel?: string;
-  upcomingItemProgress?: number;
-  upcomingItemNodeRef: RefCallback<HTMLDivElement>;
-}) {
-  const currentTimeMs = useCurrentTimeMs();
-
-  const entries = useMemo(
-    () =>
-      items.map((timelineItem) => ({
-        item: timelineItem,
-        timestamp: getItemTimestamp(timelineItem),
-      })),
-    [items],
-  );
-
-  const indicatorPlacement = useMemo<TimelineIndicatorPlacement>(
-    // currentTimeMs in deps triggers updates as time passes,
-    // but we use fresh Date() so indicator positions correctly when entries change immediately (new note).
-    () => calculateTodayIndicatorPlacement(entries, new Date()),
-    [entries, currentTimeMs],
-  );
-
-  const renderedEntries = useMemo(() => {
-    if (entries.length === 0) {
-      return (
-        <>
-          {suppressCurrentTimeIndicator ? (
-            <CurrentTimeAnchor registerIndicator={registerIndicator} />
-          ) : (
-            <CurrentTimeIndicator ref={registerIndicator} timezone={timezone} />
-          )}
-          <div className="text-muted-foreground px-3 py-4 text-center text-sm">
-            <Trans>No items today</Trans>
-          </div>
-        </>
-      );
-    }
-
-    const nodes: ReactNode[] = [];
-
-    entries.forEach((entry, index) => {
-      if (
-        indicatorPlacement.type === "before" &&
-        index === indicatorPlacement.index
-      ) {
-        nodes.push(
-          suppressCurrentTimeIndicator ? (
-            <CurrentTimeAnchor
-              key="current-time-anchor"
-              registerIndicator={registerIndicator}
-            />
-          ) : (
-            <CurrentTimeIndicator
-              ref={registerIndicator}
-              key="current-time-indicator"
-              timezone={timezone}
-            />
-          ),
-        );
-      }
-
-      const itemKey = `${entry.item.type}-${entry.item.id}`;
-      const selected =
-        entry.item.type === "session" && entry.item.id === selectedSessionId;
-
-      const itemNode = (
-        <TimelineItemComponent
-          key={itemKey}
-          item={entry.item}
-          precision={precision}
-          selected={selected}
-          timezone={timezone}
-          multiSelected={selectedIds.includes(itemKey)}
-          getFlatItemKeys={getFlatItemKeys}
-          selectedNodeRef={selected ? selectedNodeRef : undefined}
-          itemNodeRef={
-            itemKey === upcomingItemKey ? upcomingItemNodeRef : undefined
-          }
-          isUpcoming={itemKey === upcomingItemKey}
-          upcomingLabel={
-            itemKey === upcomingItemKey ? upcomingItemLabel : undefined
-          }
-          upcomingProgress={
-            itemKey === upcomingItemKey ? upcomingItemProgress : undefined
-          }
-        />
-      );
-
-      if (
-        indicatorPlacement.type === "inside" &&
-        index === indicatorPlacement.index
-      ) {
-        nodes.push(
-          <div key={`${itemKey}-wrapper`} className="relative">
-            {suppressCurrentTimeIndicator ? (
-              <CurrentTimeAnchor
-                registerIndicator={registerIndicator}
-                variant="inside"
-                progress={indicatorPlacement.progress}
-              />
-            ) : (
-              <CurrentTimeIndicator
-                ref={registerIndicator}
-                key="current-time-indicator-inside"
-                timezone={timezone}
-                variant="inside"
-                progress={indicatorPlacement.progress}
-              />
-            )}
-            {itemNode}
-          </div>,
-        );
-        return;
-      }
-
-      nodes.push(itemNode);
-    });
-
-    if (indicatorPlacement.type === "after") {
-      nodes.push(
-        suppressCurrentTimeIndicator ? (
-          <CurrentTimeAnchor
-            key="current-time-anchor-end"
-            registerIndicator={registerIndicator}
-          />
-        ) : (
-          <CurrentTimeIndicator
-            ref={registerIndicator}
-            key="current-time-indicator-end"
-            timezone={timezone}
-          />
-        ),
-      );
-    }
-
-    return <>{nodes}</>;
-  }, [
-    entries,
-    indicatorPlacement,
-    precision,
-    registerIndicator,
-    selectedSessionId,
-    selectedNodeRef,
-    suppressCurrentTimeIndicator,
-    timezone,
-    selectedIds,
-    getFlatItemKeys,
-    upcomingItemKey,
-    upcomingItemLabel,
-    upcomingItemProgress,
-    upcomingItemNodeRef,
-  ]);
-
-  return renderedEntries;
-}
-
-function scrollTimelineItemIntoView(
-  container: HTMLDivElement | null,
-  item: HTMLDivElement,
-) {
-  if (!container) {
-    return;
-  }
-
-  const containerRect = container.getBoundingClientRect();
-  const itemRect = item.getBoundingClientRect();
-  const margin = 12;
-  const aboveViewport = itemRect.top < containerRect.top + margin;
-  const belowViewport = itemRect.bottom > containerRect.bottom - margin;
-
-  if (!aboveViewport && !belowViewport) {
-    return;
-  }
-
-  const itemCenter =
-    itemRect.top -
-    containerRect.top +
-    container.scrollTop +
-    itemRect.height / 2;
-  const targetScrollTop = Math.max(
-    itemCenter - container.clientHeight * 0.45,
-    0,
-  );
-
-  container.scrollTo({
-    top: targetScrollTop,
-    behavior: "smooth",
-  });
-}
-
-function isTimelineItemVisible(
-  container: HTMLDivElement | null,
-  item: HTMLDivElement | null,
-) {
-  if (!container || !item) {
-    return false;
-  }
-
-  const containerRect = container.getBoundingClientRect();
-  const itemRect = item.getBoundingClientRect();
-  const margin = 8;
-
-  return (
-    itemRect.bottom > containerRect.top + margin &&
-    itemRect.top < containerRect.bottom - margin
-  );
-}
-
-function useTimelineData({
-  isEventIgnored,
-  showIgnored,
-  timelineEventsTable,
-  timelineSessionsTable,
-  timezone,
-}: {
-  isEventIgnored: (
-    trackingId: string | null | undefined,
-    recurrenceSeriesId: string | null | undefined,
-  ) => boolean;
-  showIgnored: boolean;
-  timelineEventsTable: TimelineEventsTable;
-  timelineSessionsTable: TimelineSessionsTable;
-  timezone?: string;
-}): {
-  buckets: TimelineBucket[];
-  hasMoreFutureItems: boolean;
-  hasVisibleCalendarEvents: boolean;
-} {
-  const windowData = useMemo(
-    () =>
-      deriveTimelineWindowData({
-        isEventIgnored,
-        showIgnored,
-        timelineEventsTable,
-        timelineSessionsTable,
-        timezone,
-      }),
-    [
-      isEventIgnored,
-      showIgnored,
-      timelineEventsTable,
-      timelineSessionsTable,
-      timezone,
-    ],
-  );
-  const currentTimeMs = useSmartCurrentTime(
-    windowData.timelineEventsTable,
-    windowData.timelineSessionsTable,
-  );
-
-  return useMemo(() => {
-    const buckets = buildTimelineBuckets({
-      timelineEventsTable: windowData.timelineEventsTable,
-      timelineSessionsTable: windowData.timelineSessionsTable,
-      timezone,
-    });
-
-    return {
-      buckets,
-      hasMoreFutureItems: windowData.hasMoreFutureItems,
-      hasVisibleCalendarEvents: buckets.some((bucket) =>
-        bucket.items.some((item) => item.type === "event"),
-      ),
-    };
-  }, [windowData, currentTimeMs, timezone]);
-}
