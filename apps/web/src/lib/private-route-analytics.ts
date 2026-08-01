@@ -1,4 +1,5 @@
 import { env } from "@/env";
+import { hasGlobalPrivacyControl } from "@/lib/global-privacy-control";
 
 const PRIVATE_ANALYTICS_ID_KEY = "anarlog.private-analytics-id";
 let fallbackDistinctId: string | null = null;
@@ -25,8 +26,7 @@ export function capturePrivateRouteEvent(
     typeof window === "undefined" ||
     import.meta.env.DEV ||
     !env.VITE_POSTHOG_API_KEY ||
-    (navigator as Navigator & { globalPrivacyControl?: boolean })
-      .globalPrivacyControl === true
+    hasGlobalPrivacyControl()
   ) {
     return;
   }

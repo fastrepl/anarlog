@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { isTelemetryPrivateLocation } from "@/lib/auth-route-privacy";
+import { hasGlobalPrivacyControl } from "@/lib/global-privacy-control";
 import { PostHogProvider } from "@/providers/posthog";
 import { bootstrapBrowserTelemetry, stopBrowserTelemetry } from "@/telemetry";
 
@@ -29,6 +30,7 @@ function GoogleAnalyticsScript() {
     if (
       typeof document === "undefined" ||
       import.meta.env.DEV ||
+      hasGlobalPrivacyControl() ||
       window.location.pathname.startsWith("/admin") ||
       isTelemetryPrivateLocation(
         window.location.pathname,
@@ -71,6 +73,7 @@ function MicrosoftClarityScript() {
     if (
       typeof document === "undefined" ||
       import.meta.env.DEV ||
+      hasGlobalPrivacyControl() ||
       window.location.pathname.startsWith("/admin") ||
       isTelemetryPrivateLocation(
         window.location.pathname,

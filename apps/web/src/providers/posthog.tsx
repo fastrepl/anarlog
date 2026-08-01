@@ -11,6 +11,7 @@ import {
 
 import { env } from "../env";
 import { isTelemetryPrivateLocation } from "../lib/auth-route-privacy";
+import { hasGlobalPrivacyControl } from "../lib/global-privacy-control";
 
 const isDev = import.meta.env.DEV;
 
@@ -40,10 +41,7 @@ export function PostHogProvider({
   const routeDisabledRef = useRef(false);
   const pendingOperationsRef = useRef<PendingAnalyticsOperation[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
-  const globalPrivacyControl =
-    typeof navigator !== "undefined" &&
-    (navigator as Navigator & { globalPrivacyControl?: boolean })
-      .globalPrivacyControl === true;
+  const globalPrivacyControl = hasGlobalPrivacyControl();
   const analyticsAvailable =
     typeof window !== "undefined" &&
     Boolean(env.VITE_POSTHOG_API_KEY) &&

@@ -3,6 +3,7 @@ import { getWebAutoInstrumentations } from "@opentelemetry/auto-instrumentations
 
 import { env } from "./env";
 import { isTelemetryPrivateLocation } from "./lib/auth-route-privacy";
+import { hasGlobalPrivacyControl } from "./lib/global-privacy-control";
 
 declare global {
   interface Window {
@@ -79,6 +80,7 @@ function getPropagationTargets(): string[] {
 export function bootstrapBrowserTelemetry() {
   if (
     typeof window === "undefined" ||
+    hasGlobalPrivacyControl() ||
     isTelemetryPrivateLocation(window.location.pathname, window.location.search)
   ) {
     return;
