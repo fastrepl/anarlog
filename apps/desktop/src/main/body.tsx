@@ -1,18 +1,6 @@
-import {
-  ArrowLeft,
-  MagnifyingGlass,
-  NotePencil,
-  Sidebar,
-  SidebarSimple,
-  Wrench,
-} from "@phosphor-icons/react";
-import { isTauri } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { ArrowLeft } from "@phosphor-icons/react";
 import {
   type CSSProperties,
-  memo,
-  type MouseEvent,
-  type PointerEvent,
   type WheelEvent as ReactWheelEvent,
   useCallback,
   useMemo,
@@ -32,13 +20,25 @@ import {
 } from "@anlg/ui/components/ui/resizable";
 import { cn } from "@anlg/utils";
 
-import { ClassicMainSidebar } from "./shell-sidebar";
-import { ClassicMainTabContent } from "./tab-content";
 import {
-  type DesktopUpdateControl,
-  SidebarTimelineUpdateButton,
-  useDesktopUpdateControl,
-} from "./update-banner";
+  createFixedLeftSidebarPanelConstraints,
+  createLeftSidebarPanelConstraints,
+  getMeasuredMainAreaWidthPx,
+  LEFT_SIDEBAR_COLLAPSED_SIZE,
+  LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
+  LEFT_SIDEBAR_MAX_WIDTH_PX,
+  LEFT_SIDEBAR_MIN_WIDTH_PX,
+  panelSizesAreEqual,
+  resizeLeftSidebarPanel,
+} from "./left-sidebar-panel";
+import { useMainAreaTopWindowDrag } from "./main-area-window-drag";
+import { ClassicMainSidebar } from "./shell-sidebar";
+import {
+  LeftSurfaceChromeButton,
+  SidebarTimelineChromeWithUpcomingMeeting,
+} from "./sidebar-timeline-chrome";
+import { ClassicMainTabContent } from "./tab-content";
+import { useDesktopUpdateControl } from "./update-banner";
 import { useClassicMainShortcuts } from "./useShortcuts";
 
 import { useShell } from "~/contexts/shell";
@@ -51,7 +51,6 @@ import {
 } from "~/shared/main/layout-widths";
 import { useOpenNoteDialog } from "~/shared/open-note-dialog";
 import { useNewNote } from "~/shared/useNewNote";
-import { useSidebarUpcomingMeetingStatus } from "~/sidebar/timeline/upcoming-meeting";
 import {
   hasCustomSidebarTab,
   hasLeftSurfaceCustomSidebarTab,
@@ -59,21 +58,6 @@ import {
 import { type Tab, uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
 import { commands } from "~/types/tauri.gen";
 
-const MAIN_AREA_TOP_DRAG_HEIGHT_PX = 48;
-const MAIN_AREA_WINDOW_DRAG_THRESHOLD_PX = 5;
-const LEFT_SIDEBAR_DEFAULT_WIDTH_PX = 200;
-const LEFT_SIDEBAR_MIN_WIDTH_PX = 200;
-const LEFT_SIDEBAR_MAX_WIDTH_PX = 360;
-const LEFT_SIDEBAR_COLLAPSED_SIZE = 0;
-const LEFT_SIDEBAR_FALLBACK_CONTAINER_WIDTH_PX = 1000;
-const LEFT_SIDEBAR_PANEL_SIZE_EPSILON = 0.01;
-
-type MainAreaWindowDragStart = {
-  pointerId: number;
-  clientX: number;
-  clientY: number;
-  dragging: boolean;
-};
 type LeftSidebarSizeStyle = CSSProperties & {
   "--left-sidebar-panel-size": string;
   "--left-sidebar-panel-width": string;
@@ -670,417 +654,5 @@ export function ClassicMainBody() {
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>
-  );
-}
-
-function createLeftSidebarPanelConstraints(widthPx?: number) {
-  const containerWidthPx = Math.max(
-    widthPx ?? getInitialMainAreaWidthPx(),
-    LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
-  );
-  const minSize = percentageFromPixels(
-    LEFT_SIDEBAR_MIN_WIDTH_PX,
-    containerWidthPx,
-  );
-
-  return {
-    defaultSize: percentageFromPixels(
-      LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
-      containerWidthPx,
-    ),
-    minSize,
-    maxSize: Math.max(
-      minSize,
-      percentageFromPixels(LEFT_SIDEBAR_MAX_WIDTH_PX, containerWidthPx),
-    ),
-  };
-}
-
-function createFixedLeftSidebarPanelConstraints(defaultSize: number) {
-  return {
-    defaultSize,
-    minSize: defaultSize,
-    maxSize: defaultSize,
-  };
-}
-
-function getMeasuredMainAreaWidthPx(element: HTMLElement | null) {
-  const measuredWidth = element?.getBoundingClientRect().width ?? 0;
-
-  return measuredWidth > 0 ? measuredWidth : getInitialMainAreaWidthPx();
-}
-
-function getInitialMainAreaWidthPx() {
-  if (typeof window === "undefined") {
-    return LEFT_SIDEBAR_FALLBACK_CONTAINER_WIDTH_PX;
-  }
-
-  return (
-    window.innerWidth ||
-    document.documentElement.clientWidth ||
-    LEFT_SIDEBAR_FALLBACK_CONTAINER_WIDTH_PX
-  );
-}
-
-function percentageFromPixels(widthPx: number, containerWidthPx: number) {
-  return Math.min((widthPx / containerWidthPx) * 100, 100);
-}
-
-function panelSizesAreEqual(left: number, right: number) {
-  return Math.abs(left - right) < LEFT_SIDEBAR_PANEL_SIZE_EPSILON;
-}
-
-function resizeLeftSidebarPanel(
-  panel: ImperativePanelHandle | null,
-  size: number,
-) {
-  if (!panel) {
-    return;
-  }
-
-  try {
-    panel.resize(size);
-  } catch {
-    window.requestAnimationFrame(() => {
-      try {
-        panel.resize(size);
-      } catch {
-        // The panel can be layoutless while hidden; the CSS variables still restore visual width on reopen.
-      }
-    });
-  }
-}
-
-function useMainAreaTopWindowDrag(enabled: boolean) {
-  const windowDragStartRef = useRef<MainAreaWindowDragStart | null>(null);
-  const suppressNextClickRef = useRef(false);
-
-  const handlePointerDown = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      suppressNextClickRef.current = false;
-
-      if (
-        !enabled ||
-        event.button !== 0 ||
-        isInteractiveMainAreaDragTarget(event.target) ||
-        !isWithinMainAreaTopDragRegion(event)
-      ) {
-        windowDragStartRef.current = null;
-        return;
-      }
-
-      windowDragStartRef.current = {
-        pointerId: event.pointerId,
-        clientX: event.clientX,
-        clientY: event.clientY,
-        dragging: false,
-      };
-    },
-    [enabled],
-  );
-
-  const handlePointerMove = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const dragStart = windowDragStartRef.current;
-
-      if (
-        !dragStart ||
-        dragStart.dragging ||
-        dragStart.pointerId !== event.pointerId ||
-        !isMainAreaWindowDrag(dragStart, event)
-      ) {
-        return;
-      }
-
-      dragStart.dragging = true;
-      suppressNextClickRef.current = true;
-      event.preventDefault();
-
-      if (isTauri()) {
-        void getCurrentWindow()
-          .startDragging()
-          .catch(() => {});
-      }
-    },
-    [],
-  );
-
-  const handlePointerEnd = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const dragStart = windowDragStartRef.current;
-
-      if (!dragStart || dragStart.pointerId !== event.pointerId) {
-        return;
-      }
-
-      windowDragStartRef.current = null;
-    },
-    [],
-  );
-
-  const handleClickCapture = useCallback(
-    (event: MouseEvent<HTMLDivElement>) => {
-      if (!suppressNextClickRef.current) {
-        return;
-      }
-
-      suppressNextClickRef.current = false;
-      event.preventDefault();
-      event.stopPropagation();
-    },
-    [],
-  );
-
-  const handleDoubleClickCapture = useCallback(
-    (event: MouseEvent<HTMLDivElement>) => {
-      if (
-        !enabled ||
-        event.button !== 0 ||
-        isInteractiveMainAreaDragTarget(event.target) ||
-        isNativeWindowDragTarget(event.target) ||
-        !isWithinMainAreaTopDragRegion(event)
-      ) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-
-      if (isTauri()) {
-        void getCurrentWindow()
-          .toggleMaximize()
-          .catch(() => {});
-      }
-    },
-    [enabled],
-  );
-
-  return {
-    onClickCapture: handleClickCapture,
-    onDoubleClickCapture: handleDoubleClickCapture,
-    onPointerDown: handlePointerDown,
-    onPointerEnd: handlePointerEnd,
-    onPointerMove: handlePointerMove,
-  };
-}
-
-function isWithinMainAreaTopDragRegion(
-  event: MouseEvent<HTMLDivElement> | PointerEvent<HTMLDivElement>,
-): boolean {
-  const rect = event.currentTarget.getBoundingClientRect();
-  const offsetY = event.clientY - rect.top;
-
-  return offsetY >= 0 && offsetY < MAIN_AREA_TOP_DRAG_HEIGHT_PX;
-}
-
-function isInteractiveMainAreaDragTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof Element)) {
-    return false;
-  }
-
-  return Boolean(
-    target.closest(
-      [
-        "a",
-        "button",
-        "input",
-        "select",
-        "textarea",
-        "[contenteditable='true']",
-        "[role='button']",
-        "[role='textbox']",
-      ].join(","),
-    ),
-  );
-}
-
-function isNativeWindowDragTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof Element)) {
-    return false;
-  }
-
-  return (
-    target.hasAttribute("data-tauri-drag-region") &&
-    target.getAttribute("data-tauri-drag-region") !== "false"
-  );
-}
-
-function isMainAreaWindowDrag(
-  start: { clientX: number; clientY: number },
-  current: { clientX: number; clientY: number },
-): boolean {
-  const deltaX = current.clientX - start.clientX;
-  const deltaY = current.clientY - start.clientY;
-
-  return (
-    deltaX * deltaX + deltaY * deltaY >=
-    MAIN_AREA_WINDOW_DRAG_THRESHOLD_PX * MAIN_AREA_WINDOW_DRAG_THRESHOLD_PX
-  );
-}
-
-const SidebarTimelineChromeWithUpcomingMeeting = memo(
-  function SidebarTimelineChromeWithUpcomingMeeting({
-    currentSessionId,
-    devtoolsPanelOpen,
-    onNewNote,
-    onOpenDevtools,
-    onSearch,
-    onToggleSidebar,
-    sidebarExpanded,
-    showDevtoolsPanelButton,
-    showIgnoredTimelineEvents,
-    update,
-  }: {
-    currentSessionId?: string;
-    devtoolsPanelOpen: boolean;
-    onNewNote: () => void;
-    onOpenDevtools: () => void;
-    onSearch: () => void;
-    onToggleSidebar: () => void;
-    sidebarExpanded: boolean;
-    showDevtoolsPanelButton: boolean;
-    showIgnoredTimelineEvents: boolean;
-    update: DesktopUpdateControl;
-  }) {
-    const upcomingMeetingStatus = useSidebarUpcomingMeetingStatus({
-      showIgnored: showIgnoredTimelineEvents,
-    });
-    const hasUpcomingMeeting = upcomingMeetingStatus
-      ? !currentSessionId ||
-        upcomingMeetingStatus.itemKey !== `session-${currentSessionId}`
-      : false;
-
-    return (
-      <SidebarTimelineChrome
-        devtoolsPanelOpen={devtoolsPanelOpen}
-        hasUpcomingMeeting={hasUpcomingMeeting}
-        onNewNote={onNewNote}
-        onOpenDevtools={onOpenDevtools}
-        onSearch={onSearch}
-        onToggleSidebar={onToggleSidebar}
-        sidebarExpanded={sidebarExpanded}
-        showDevtoolsPanelButton={showDevtoolsPanelButton}
-        update={update}
-      />
-    );
-  },
-);
-
-function SidebarTimelineChrome({
-  devtoolsPanelOpen,
-  hasUpcomingMeeting,
-  onNewNote,
-  onOpenDevtools,
-  onSearch,
-  onToggleSidebar,
-  sidebarExpanded,
-  showDevtoolsPanelButton,
-  update,
-}: {
-  devtoolsPanelOpen: boolean;
-  hasUpcomingMeeting: boolean;
-  onNewNote: () => void;
-  onOpenDevtools: () => void;
-  onSearch: () => void;
-  onToggleSidebar: () => void;
-  sidebarExpanded: boolean;
-  showDevtoolsPanelButton: boolean;
-  update: DesktopUpdateControl;
-}) {
-  const updateVisible = Boolean(update.status && update.version);
-  const showUpdateButton = sidebarExpanded && updateVisible;
-  const collapsedBadge = !sidebarExpanded
-    ? hasUpcomingMeeting
-      ? "upcomingMeeting"
-      : updateVisible
-        ? "update"
-        : null
-    : null;
-
-  return (
-    <div data-tauri-drag-region className="flex w-full items-center">
-      <div data-tauri-drag-region className="flex items-center gap-0">
-        <LeftSurfaceChromeButton
-          ariaLabel={sidebarExpanded ? "Hide sidebar" : "Show sidebar"}
-          badge={collapsedBadge}
-          onClick={onToggleSidebar}
-        >
-          {sidebarExpanded ? (
-            <SidebarSimple size={16} />
-          ) : (
-            <Sidebar size={16} />
-          )}
-        </LeftSurfaceChromeButton>
-        {sidebarExpanded ? (
-          <>
-            <LeftSurfaceChromeButton ariaLabel="Search" onClick={onSearch}>
-              <MagnifyingGlass size={15} />
-            </LeftSurfaceChromeButton>
-            <LeftSurfaceChromeButton ariaLabel="New note" onClick={onNewNote}>
-              <NotePencil size={15} />
-            </LeftSurfaceChromeButton>
-            {showDevtoolsPanelButton && !devtoolsPanelOpen ? (
-              <LeftSurfaceChromeButton
-                ariaLabel="Show devtools panel"
-                onClick={onOpenDevtools}
-              >
-                <Wrench size={15} />
-              </LeftSurfaceChromeButton>
-            ) : null}
-            {showUpdateButton ? (
-              <SidebarTimelineUpdateButton update={update} />
-            ) : null}
-          </>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-type LeftSurfaceChromeBadge = "update" | "upcomingMeeting";
-
-function LeftSurfaceChromeButton({
-  ariaLabel,
-  badge = null,
-  children,
-  disabled = false,
-  onClick,
-}: {
-  ariaLabel: string;
-  badge?: LeftSurfaceChromeBadge | null;
-  children: React.ReactNode;
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      data-tauri-drag-region="false"
-      disabled={disabled}
-      className={cn([
-        "shape-circle pointer-events-auto relative flex size-7 items-center justify-center rounded-full",
-        "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
-        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
-        "disabled:text-muted-foreground/70 disabled:hover:text-muted-foreground/70 disabled:hover:bg-transparent",
-      ])}
-      onClick={onClick}
-    >
-      {children}
-      {badge ? (
-        <span
-          aria-hidden="true"
-          data-testid={
-            badge === "upcomingMeeting"
-              ? "collapsed-sidebar-upcoming-meeting-badge"
-              : "collapsed-sidebar-update-badge"
-          }
-          className={cn([
-            "shape-circle ring-background pointer-events-none absolute top-1 right-1 size-1.5 rounded-full ring-2",
-            badge === "upcomingMeeting" ? "bg-red-500" : "bg-blue-500",
-          ])}
-        />
-      ) : null}
-    </button>
   );
 }
