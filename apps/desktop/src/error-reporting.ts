@@ -185,9 +185,20 @@ function stopSessionReplay() {
 
   sessionReplayAttached = false;
   const replay = Sentry.getClient()?.getIntegrationByName?.("Replay") as
-    | { stop?: () => Promise<void> }
+    | {
+        _replay?: {
+          stop?: (options: {
+            forceFlush: boolean;
+            reason: string;
+          }) => Promise<void>;
+        };
+      }
     | undefined;
-  void replay?.stop?.()?.catch(() => {});
+  // The public stop() force-flushes session recordings, so consent revocation
+  // must stop the internal controller without sending its buffered segment.
+  void replay?._replay
+    ?.stop?.({ forceFlush: false, reason: "consent_revoked" })
+    .catch(() => {});
 }
 
 // Turning consent back on takes effect on the next launch, so the

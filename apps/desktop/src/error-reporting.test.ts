@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   isDisabled: vi.fn(),
   listener: undefined as undefined | (() => void),
   listen: vi.fn(),
+  publicStopReplay: vi.fn(),
   replayIntegration: vi.fn(),
   stopReplay: vi.fn(),
 }));
@@ -48,7 +49,10 @@ beforeEach(() => {
   mocks.listener = undefined;
   mocks.emit.mockResolvedValue(undefined);
   mocks.getClient.mockReturnValue({
-    getIntegrationByName: () => ({ stop: mocks.stopReplay }),
+    getIntegrationByName: () => ({
+      _replay: { stop: mocks.stopReplay },
+      stop: mocks.publicStopReplay,
+    }),
   });
   mocks.isDisabled.mockResolvedValue({ status: "ok", data: false });
   mocks.listen.mockImplementation(async (_event, listener) => {
@@ -215,7 +219,11 @@ describe("session replay consent", () => {
 
     disableSessionReplay();
 
-    expect(mocks.stopReplay).toHaveBeenCalledOnce();
+    expect(mocks.stopReplay).toHaveBeenCalledWith({
+      forceFlush: false,
+      reason: "consent_revoked",
+    });
+    expect(mocks.publicStopReplay).not.toHaveBeenCalled();
     expect(mocks.emit).toHaveBeenCalledWith("anlg:session-replay-disabled");
   });
 
