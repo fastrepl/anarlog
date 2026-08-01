@@ -577,7 +577,7 @@ function SessionSharePreparationContent({
       <AppFloatingPanel className="flex h-full flex-col overflow-hidden">
         <header className="border-border/60 border-b px-5 py-4 text-left">
           <div className="flex items-center gap-3">
-            <div className="bg-accent flex size-9 items-center justify-center rounded-full">
+            <div className="shape-circle bg-accent flex size-9 items-center justify-center rounded-full">
               <Users className="size-4" aria-hidden="true" />
             </div>
             <div className="min-w-0">
@@ -645,7 +645,7 @@ function SessionShareUpgradeContent({ onUpgrade }: { onUpgrade: () => void }) {
       className="h-[240px] max-h-[calc(100vh-64px)] w-[320px] max-w-[calc(100vw-16px)] overflow-hidden"
     >
       <AppFloatingPanel className="flex h-full flex-col items-center overflow-y-auto px-6 py-7 text-center">
-        <div className="bg-accent flex size-10 items-center justify-center rounded-full">
+        <div className="shape-circle bg-accent flex size-10 items-center justify-center rounded-full">
           <Users className="size-4" aria-hidden="true" />
         </div>
         <h2

@@ -98,7 +98,7 @@ function CustomSidebarHeaderButton({
       data-tauri-drag-region="false"
       disabled={disabled}
       className={cn([
-        "relative z-50 flex size-6 shrink-0 items-center justify-center rounded-full",
+        "shape-circle relative z-50 flex size-6 shrink-0 items-center justify-center rounded-full",
         "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
         "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
         "disabled:text-muted-foreground/70 disabled:hover:text-muted-foreground/70 disabled:hover:bg-transparent",

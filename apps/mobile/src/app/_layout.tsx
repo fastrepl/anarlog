@@ -12,7 +12,7 @@ import {
 
 import { AuthProvider, useAuth } from "@/auth/context";
 import { PaywallScreen, SignInScreen } from "@/auth/screens";
-import { Colors } from "@/constants/theme";
+import { Colors, CornerCurve } from "@/constants/theme";
 import { initializeAnalytics, screenAnalytics } from "@/lib/analytics";
 import {
   addNavigationBreadcrumb,
@@ -206,6 +206,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 12,
     borderRadius: 999,
+    borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.ink,
   },
   routeErrorButtonPressed: {

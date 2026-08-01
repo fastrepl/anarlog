@@ -65,7 +65,9 @@ struct LiveCaptionView: View {
       .frame(height: LiveCaptionLayout.footerHeight)
     }
     .background(captionBackground)
-    .contentShape(RoundedRectangle(cornerRadius: LiveCaptionLayout.cornerRadius))
+    .contentShape(
+      RoundedRectangle(cornerRadius: LiveCaptionLayout.cornerRadius, style: .continuous)
+    )
   }
 
   private var captionBackground: some View {

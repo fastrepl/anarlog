@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./corners.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 

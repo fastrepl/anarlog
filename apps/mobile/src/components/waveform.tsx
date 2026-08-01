@@ -9,7 +9,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { Colors } from "@/constants/theme";
+import { Colors, CornerCurve } from "@/constants/theme";
 
 export const WAVEFORM_BAR_COUNT = 28;
 
@@ -72,6 +72,7 @@ const styles = StyleSheet.create({
     width: 3,
     height: 56,
     borderRadius: 1.5,
+    borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.inkInverse,
   },
 });

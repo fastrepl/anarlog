@@ -161,7 +161,7 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
                     <img
                       src={assignee.avatar_url}
                       alt={assignee.login}
-                      className="size-5 rounded-full"
+                      className="shape-circle size-5 rounded-full"
                     />
                   ) : null}
                   {assignee.login}
@@ -207,7 +207,7 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
                         <img
                           src={comment.user.avatar_url}
                           alt={comment.user.login}
-                          className="size-5 rounded-full"
+                          className="shape-circle size-5 rounded-full"
                         />
                       ) : null}
                       <span className="text-muted-foreground font-medium">

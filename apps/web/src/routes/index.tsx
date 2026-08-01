@@ -239,7 +239,7 @@ function TestimonialTweetCard({
             <img
               src={testimonial.avatar}
               alt={`${testimonial.author} profile photo`}
-              className="size-12 rounded-full object-cover shadow-sm"
+              className="shape-circle size-12 rounded-full object-cover shadow-sm"
             />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-[#181613]">
@@ -257,7 +257,7 @@ function TestimonialTweetCard({
             rel="noreferrer"
             aria-label={`View ${testimonial.author} post on X`}
             onClick={(event) => event.stopPropagation()}
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[#181613] transition-colors hover:bg-[#f7f4ef]"
+            className="shape-circle inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[#181613] transition-colors hover:bg-[#f7f4ef]"
           >
             <Icon
               icon="simple-icons:x"
@@ -434,14 +434,14 @@ function Component() {
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label={`${member.name} on X`}
-                          className="block rounded-full transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#181613]"
+                          className="shape-circle block rounded-full transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#181613]"
                         >
                           <img
                             src={member.avatar}
                             alt=""
                             width={30}
                             height={30}
-                            className="size-[30px] rounded-full object-cover"
+                            className="shape-circle size-[30px] rounded-full object-cover"
                             decoding="async"
                             loading="lazy"
                           />
@@ -450,7 +450,7 @@ function Component() {
                         <span
                           key={member.id}
                           aria-label={`${member.name} profile picture`}
-                          className="block rounded-full"
+                          className="shape-circle block rounded-full"
                           role="img"
                         >
                           <img
@@ -458,7 +458,7 @@ function Component() {
                             alt=""
                             width={30}
                             height={30}
-                            className="size-[30px] rounded-full object-cover"
+                            className="shape-circle size-[30px] rounded-full object-cover"
                             decoding="async"
                             loading="lazy"
                           />
@@ -1120,9 +1120,9 @@ function HeroWorkflowDemo() {
       >
         <div className="flex items-center gap-2 px-4 py-3">
           <div className="flex gap-2">
-            <div className="h-3 w-3 rounded-full bg-red-400"></div>
-            <div className="h-3 w-3 rounded-full bg-yellow-400"></div>
-            <div className="h-3 w-3 rounded-full bg-green-400"></div>
+            <div className="shape-circle h-3 w-3 rounded-full bg-red-400"></div>
+            <div className="shape-circle h-3 w-3 rounded-full bg-yellow-400"></div>
+            <div className="shape-circle h-3 w-3 rounded-full bg-green-400"></div>
           </div>
           <div className="ml-auto flex h-4 w-6 items-center justify-end">
             {isGeneratingSummary ? (

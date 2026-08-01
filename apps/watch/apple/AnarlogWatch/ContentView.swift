@@ -250,7 +250,7 @@ private struct Waveform: View {
     GeometryReader { geometry in
       HStack(spacing: 3) {
         ForEach(levels.indices, id: \.self) { index in
-          Capsule()
+          Capsule(style: .continuous)
             .fill(.white)
             .frame(maxWidth: .infinity)
             .frame(height: max(4, geometry.size.height * levels[index]))

@@ -566,7 +566,7 @@ function OrganizationControl({
                   onClick={() => selectOrganization(org.id)}
                   onMouseEnter={() => setHighlightedIndex(index)}
                 >
-                  <span className="bg-muted mr-2 flex size-5 shrink-0 items-center justify-center rounded-full">
+                  <span className="shape-circle bg-muted mr-2 flex size-5 shrink-0 items-center justify-center rounded-full">
                     <Buildings className="size-3" />
                   </span>
                   <span className="truncate font-medium">{org.name}</span>
@@ -585,7 +585,7 @@ function OrganizationControl({
                   onClick={() => void handleCreateOrganization()}
                   onMouseEnter={() => setHighlightedIndex(organizations.length)}
                 >
-                  <span className="bg-accent mr-2 flex size-5 shrink-0 items-center justify-center rounded-full">
+                  <span className="shape-circle bg-accent mr-2 flex size-5 shrink-0 items-center justify-center rounded-full">
                     <span className="text-xs">+</span>
                   </span>
                   <span className="text-muted-foreground flex items-center gap-1 font-medium">
@@ -612,7 +612,7 @@ function OrganizationControl({
                   onClick={() => selectOrganization(org.id)}
                   onMouseEnter={() => setHighlightedIndex(index)}
                 >
-                  <span className="bg-muted mr-2 flex size-5 shrink-0 items-center justify-center rounded-full">
+                  <span className="shape-circle bg-muted mr-2 flex size-5 shrink-0 items-center justify-center rounded-full">
                     <Buildings className="size-3" />
                   </span>
                   <span className="truncate font-medium">{org.name}</span>

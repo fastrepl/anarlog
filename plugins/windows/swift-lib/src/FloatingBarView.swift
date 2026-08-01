@@ -10,7 +10,6 @@ enum FloatingBarLayout {
   static let compactIconSize: CGFloat = 30
   static let compactGap: CGFloat = 3
   static let compactHorizontalPadding: CGFloat = 4
-  static let compactCornerControlFactor: CGFloat = 0.55228475
   static let expandedWidth: CGFloat = 360
   static let expandedHeight: CGFloat = 430
   static let expandedCornerRadius: CGFloat = 21
@@ -92,8 +91,7 @@ struct FloatingBarView: View {
     let radius = FloatingBarLayout.compactHeight / 2
     let pillShape = FloatingBarSurfaceShape(
       topRadius: radius,
-      bottomRadius: radius,
-      cornerControlFactor: FloatingBarLayout.compactCornerControlFactor
+      bottomRadius: radius
     )
 
     return ZStack(alignment: .bottom) {

@@ -313,7 +313,7 @@ function ProviderAccordionItem({
             type="button"
             onClick={handleAddAccount}
             disabled={openingAction !== null}
-            className="text-muted-foreground hover:bg-accent hover:text-foreground shrink-0 rounded-full p-1 transition-colors disabled:opacity-50"
+            className="shape-circle text-muted-foreground hover:bg-accent hover:text-foreground shrink-0 rounded-full p-1 transition-colors disabled:opacity-50"
             aria-label={t`Add ${provider.displayName} account`}
           >
             {openingAction === "connect" ? (

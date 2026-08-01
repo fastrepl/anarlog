@@ -15,7 +15,7 @@ import Animated, {
 
 import type { RecorderPhase } from "@/audio/use-session-recorder";
 import { Waveform } from "@/components/waveform";
-import { Colors, Radius, Spacing } from "@/constants/theme";
+import { Colors, CornerCurve, Radius, Spacing } from "@/constants/theme";
 
 const DETAIL_HEIGHT = 96;
 
@@ -141,6 +141,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
+    borderCurve: CornerCurve.circle,
     backgroundColor: Colors.accent,
   },
   detailStatus: {
@@ -157,6 +158,7 @@ const styles = StyleSheet.create({
   },
   panel: {
     borderRadius: Radius.card + 4,
+    borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.accent,
     paddingVertical: Spacing.md,
   },

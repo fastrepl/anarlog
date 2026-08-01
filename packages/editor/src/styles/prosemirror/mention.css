@@ -85,6 +85,7 @@
   width: 1em;
   height: 1em;
   border-radius: 50%;
+  corner-shape: round;
   overflow: hidden;
   vertical-align: middle;
   position: relative;

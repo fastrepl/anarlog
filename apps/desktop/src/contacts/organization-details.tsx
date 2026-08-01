@@ -35,7 +35,7 @@ export function OrganizationDetailsColumn({
             data-tauri-drag-region
             className="border-border flex items-center justify-center border-b py-6"
           >
-            <div className="bg-accent flex h-16 w-16 items-center justify-center rounded-full">
+            <div className="shape-circle bg-accent flex h-16 w-16 items-center justify-center rounded-full">
               <Buildings className="text-muted-foreground h-8 w-8" />
             </div>
           </div>

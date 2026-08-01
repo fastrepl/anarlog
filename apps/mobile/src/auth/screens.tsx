@@ -9,7 +9,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { BillingInfo } from "@/auth/billing";
-import { Colors, Radius, Spacing } from "@/constants/theme";
+import { Colors, CornerCurve, Radius, Spacing } from "@/constants/theme";
 import { captureAnalytics } from "@/lib/analytics";
 import { env } from "@/lib/env";
 import { captureOperationalError } from "@/lib/error-reporting";
@@ -150,6 +150,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
+    borderCurve: CornerCurve.circle,
     backgroundColor: Colors.accent,
   },
   subtitle: {
@@ -174,6 +175,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: Spacing.lg,
     borderRadius: Radius.pill,
+    borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.ink,
     marginBottom: Spacing.md,
   },

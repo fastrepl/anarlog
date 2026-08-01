@@ -95,6 +95,7 @@
     box-sizing: border-box;
     border: 0 solid currentColor;
     border-radius: 50%;
+    corner-shape: round;
     background-color: currentColor;
     width: 0.5em;
     height: 0.5em;
@@ -115,6 +116,7 @@
       & > li::before {
         border-width: 0;
         border-radius: 0.1em;
+        corner-shape: squircle;
         background-color: currentColor;
         width: 0.42em;
         height: 0.42em;
@@ -124,6 +126,7 @@
         & > li::before {
           border-width: 0;
           border-radius: 50%;
+          corner-shape: round;
           background-color: currentColor;
           width: 0.5em;
           height: 0.5em;
@@ -133,12 +136,14 @@
           & > li::before {
             border-width: 1.5px;
             border-radius: 50%;
+            corner-shape: round;
             background-color: transparent;
           }
 
           & ul:not([data-type="taskList"]) > li::before {
             border-width: 0;
             border-radius: 0.1em;
+            corner-shape: squircle;
             background-color: currentColor;
             width: 0.42em;
             height: 0.42em;

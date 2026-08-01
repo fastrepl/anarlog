@@ -266,7 +266,7 @@ function CliStatus({
       ) : (
         <span
           className={cn([
-            "mt-1 size-2 shrink-0 rounded-full",
+            "shape-circle mt-1 size-2 shrink-0 rounded-full",
             status.state === "conflict"
               ? "bg-amber-500"
               : "bg-muted-foreground/50",
@@ -697,7 +697,7 @@ function ApiSection() {
                   </>
                 ) : (
                   <>
-                    <span className="bg-muted-foreground/50 size-2 shrink-0 rounded-full" />
+                    <span className="shape-circle bg-muted-foreground/50 size-2 shrink-0 rounded-full" />
                     Server is off
                   </>
                 )}

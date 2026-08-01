@@ -73,6 +73,7 @@ const INDEX_TEMPLATE: &str = r#"<!DOCTYPE html>
   <meta charset="UTF-8">
   <title>Callback UI — Scenarios</title>
   <style>
+    * { corner-shape: squircle; }
     body { font-family: system-ui, sans-serif; max-width: 480px; margin: 3rem auto; padding: 0 1.5rem; color: #333; }
     h1 { font-size: 1.25rem; margin-bottom: 1.5rem; }
     ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }

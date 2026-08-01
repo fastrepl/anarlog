@@ -13,7 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ProfileSheet } from "@/components/profile-sheet";
 import { SessionCard } from "@/components/session-card";
-import { Colors, Radius, Spacing } from "@/constants/theme";
+import { Colors, CornerCurve, Radius, Spacing } from "@/constants/theme";
 import { importVoiceMemos } from "@/data/import-voice-memo";
 import { useSessionSearch } from "@/data/search";
 import { createSession, deleteSession } from "@/data/session";
@@ -260,6 +260,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
+    borderCurve: CornerCurve.circle,
     borderWidth: 1.5,
     borderColor: Colors.ink,
   },
@@ -309,6 +310,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
+    borderCurve: CornerCurve.circle,
     backgroundColor: Colors.accent,
   },
   nowLine: {
@@ -331,6 +333,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Colors.ink,
     borderRadius: Radius.pill,
+    borderCurve: CornerCurve.squircle,
     paddingVertical: Spacing.sm + 2,
     backgroundColor: Colors.paper,
   },
@@ -351,12 +354,14 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     paddingVertical: Spacing.lg,
     borderRadius: Radius.pill,
+    borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.ink,
   },
   listenDot: {
     width: 12,
     height: 12,
     borderRadius: 6,
+    borderCurve: CornerCurve.circle,
     backgroundColor: Colors.accent,
   },
   listenLabel: {

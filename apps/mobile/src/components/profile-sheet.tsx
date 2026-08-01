@@ -1,7 +1,7 @@
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "@/auth/context";
-import { Colors, Radius, Spacing } from "@/constants/theme";
+import { Colors, CornerCurve, Radius, Spacing } from "@/constants/theme";
 
 export function ProfileSheet({
   visible,
@@ -80,6 +80,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
+    borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.border,
     marginBottom: Spacing.md,
   },
@@ -99,6 +100,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Colors.ink,
     borderRadius: Radius.pill,
+    borderCurve: CornerCurve.squircle,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
   },

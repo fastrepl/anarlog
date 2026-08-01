@@ -78,7 +78,7 @@ export function ActionButton({
         "absolute -top-1 -right-1",
         "opacity-0 group-hover:opacity-100",
         "transition-opacity",
-        "rounded-full p-1",
+        "shape-circle rounded-full p-1",
         variant === "default" && [
           "bg-accent hover:bg-accent",
           "text-muted-foreground hover:text-foreground",

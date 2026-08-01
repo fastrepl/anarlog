@@ -273,7 +273,7 @@ export function OpenNoteDialog({
                 aria-label={t`Close`}
                 onClick={() => handleOpenChange(false)}
                 className={cn([
-                  "h-5 w-5 rounded-full",
+                  "shape-circle h-5 w-5 rounded-full",
                   "flex items-center justify-center",
                   "bg-accent/80 hover:bg-accent/80",
                   "text-muted-foreground text-xs",

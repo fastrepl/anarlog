@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { Colors, Radius, Spacing } from "@/constants/theme";
+import { Colors, CornerCurve, Radius, Spacing } from "@/constants/theme";
 import { relativeLabel, type TimelineSession } from "@/data/timeline";
 
 export function SessionCard({
@@ -40,6 +40,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Colors.ink,
     borderRadius: Radius.card,
+    borderCurve: CornerCurve.squircle,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
     marginBottom: Spacing.md,

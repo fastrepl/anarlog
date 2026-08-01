@@ -126,7 +126,7 @@ export const SessionNodeView = forwardRef<
             className="flex size-[18px] shrink-0 items-center justify-center"
             contentEditable={false}
           >
-            <div className="size-2.5 animate-pulse rounded-full bg-red-500" />
+            <div className="shape-circle size-2.5 animate-pulse rounded-full bg-red-500" />
           </div>
         ) : (
           <TaskCheckbox status={status} isInteractive onToggle={handleToggle} />

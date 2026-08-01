@@ -1,0 +1,15 @@
+@layer base {
+  *,
+  ::before,
+  ::after,
+  ::backdrop,
+  ::file-selector-button,
+  ::-webkit-scrollbar-thumb,
+  ::-webkit-scrollbar-track {
+    corner-shape: squircle;
+  }
+}
+
+@utility shape-circle {
+  corner-shape: round;
+}

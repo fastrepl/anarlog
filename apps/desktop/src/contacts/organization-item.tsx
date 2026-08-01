@@ -63,7 +63,7 @@ export function OrganizationItem({
         active ? "bg-accent" : "hover:bg-accent/50",
       ])}
     >
-      <div className="bg-muted flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
+      <div className="shape-circle bg-muted flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
         <Buildings className="text-muted-foreground h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
