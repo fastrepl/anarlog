@@ -1,32 +1,49 @@
 import { t } from "@lingui/core/macro";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
-import { hostname } from "@tauri-apps/plugin-os";
 
-import type { CloudsyncWorkspaceProjection } from "@anlg/plugin-db";
 import {
   bindCloudsyncAccount,
   configureCloudsyncToken,
   execute,
   getCloudsyncStatus,
-  getE2eeIdentityStatus,
   isCloudsyncActivityDeferredError,
   suspendCloudsync,
   suspendCloudsyncAfterAuthLoss,
   suspendCloudsyncForSignOut,
 } from "@anlg/plugin-db";
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
-import { commands as miscCommands } from "@anlg/plugin-misc";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
+import {
+  DEVICE_LIMIT_ERROR_CODE,
+  DEVICE_LIMIT_TOAST_ID,
+  DEVICE_NAME_HEADER,
+  getCloudsyncCredentialBlock,
+  getDeviceIdentity,
+  hasWorkspaceProjection,
+  isCredentials,
+  raceWithAbort,
+  readCredentialErrorCode,
+  readE2eeIdentity,
+  readStoredSettings,
+  setCredentialBlock,
+  subscribeCloudsyncCredentialBlock,
+  type CloudsyncCredentialBlock,
+} from "./cloudsync-credentials";
 import {
   startCloudsyncInitialSyncProgress,
   stopCloudsyncInitialSyncProgress,
 } from "./cloudsync-progress";
 
 import { env } from "~/env";
-import { getStoredSettingValues } from "~/settings/queries";
 import { resolveConfigValue } from "~/shared/config";
 import { DEVICE_FINGERPRINT_HEADER } from "~/shared/utils";
+
+export {
+  getCloudsyncCredentialBlock,
+  subscribeCloudsyncCredentialBlock,
+  type CloudsyncCredentialBlock,
+};
 
 const REFRESH_LEAD_MS = 2 * 60 * 1000;
 const RETRY_DELAY_MS = 60 * 1000;
@@ -39,180 +56,6 @@ const CLOUDSYNC_TEARDOWN_TIMEOUT_MS = 2 * 1000;
 export type CloudsyncAuthChangeResult = "ok" | "account_mismatch";
 
 type CloudsyncAccountMismatchHandler = () => Promise<void>;
-
-type CloudsyncCredentialCore = {
-  encryptionVersion: 2;
-  encryptionKeyId: string;
-  databaseId: string;
-  token: string;
-  expiresAt: string;
-  workspaceId: string;
-};
-
-type LegacyCloudsyncCredentials = CloudsyncCredentialCore & {
-  accountUserId?: undefined;
-  personalWorkspaceId?: undefined;
-  workspaces?: undefined;
-};
-
-type ProjectedCloudsyncCredentials = CloudsyncCredentialCore &
-  CloudsyncWorkspaceProjection;
-
-type CloudsyncCredentials =
-  | LegacyCloudsyncCredentials
-  | ProjectedCloudsyncCredentials;
-
-const DEVICE_NAME_HEADER = "x-anarlog-device-name";
-const DEVICE_LIMIT_ERROR_CODE = "sync_device_limit_reached";
-const DEVICE_LIMIT_TOAST_ID = "cloudsync-device-limit";
-
-export type CloudsyncCredentialBlock =
-  | "device_limit"
-  | "identity_mismatch"
-  | "not_entitled"
-  | "reauth_required"
-  | "setup_required"
-  | "unavailable"
-  | null;
-
-let credentialBlock: CloudsyncCredentialBlock = null;
-const credentialBlockListeners = new Set<() => void>();
-
-function setCredentialBlock(next: CloudsyncCredentialBlock) {
-  if (credentialBlock === next) {
-    return;
-  }
-  credentialBlock = next;
-  credentialBlockListeners.forEach((listener) => listener());
-}
-
-export function getCloudsyncCredentialBlock(): CloudsyncCredentialBlock {
-  return credentialBlock;
-}
-
-export function subscribeCloudsyncCredentialBlock(listener: () => void) {
-  credentialBlockListeners.add(listener);
-  return () => {
-    credentialBlockListeners.delete(listener);
-  };
-}
-
-let cachedDeviceIdentity: {
-  fingerprint: string | null;
-  name: string | null;
-} | null = null;
-let pendingStoredSettings: ReturnType<typeof getStoredSettingValues> | null =
-  null;
-const pendingE2eeIdentityReads = new Map<
-  string,
-  ReturnType<typeof getE2eeIdentityStatus>
->();
-
-function raceWithAbort<T>(operation: Promise<T>, signal: AbortSignal) {
-  return new Promise<T>((resolve, reject) => {
-    const abort = () => {
-      signal.removeEventListener("abort", abort);
-      reject(new Error("aborted"));
-    };
-    if (signal.aborted) {
-      abort();
-    } else {
-      signal.addEventListener("abort", abort, { once: true });
-    }
-    operation.then(
-      (value) => {
-        signal.removeEventListener("abort", abort);
-        resolve(value);
-      },
-      (error) => {
-        signal.removeEventListener("abort", abort);
-        reject(error);
-      },
-    );
-  });
-}
-
-function readStoredSettings() {
-  if (pendingStoredSettings) {
-    return pendingStoredSettings;
-  }
-
-  const read = getStoredSettingValues().finally(() => {
-    if (pendingStoredSettings === read) {
-      pendingStoredSettings = null;
-    }
-  });
-  pendingStoredSettings = read;
-  return read;
-}
-
-function readE2eeIdentity(userId: string) {
-  const pending = pendingE2eeIdentityReads.get(userId);
-  if (pending) {
-    return pending;
-  }
-
-  const read = getE2eeIdentityStatus(userId).finally(() => {
-    if (pendingE2eeIdentityReads.get(userId) === read) {
-      pendingE2eeIdentityReads.delete(userId);
-    }
-  });
-  pendingE2eeIdentityReads.set(userId, read);
-  return read;
-}
-
-async function getDeviceIdentity() {
-  if (cachedDeviceIdentity) {
-    return cachedDeviceIdentity;
-  }
-
-  let fingerprint: string | null = null;
-  try {
-    const result = await miscCommands.getFingerprint();
-    if (result.status === "ok") {
-      fingerprint = result.data;
-    }
-  } catch {
-    // Token exchange still works without a device identity.
-  }
-
-  let name: string | null = null;
-  try {
-    name = await hostname();
-  } catch {
-    // Device name is optional.
-  }
-
-  const identity = { fingerprint, name };
-  // Cache only a fully resolved identity so a transiently missing
-  // fingerprint or hostname is retried on the next exchange.
-  if (fingerprint !== null && name !== null) {
-    cachedDeviceIdentity = identity;
-  }
-  return identity;
-}
-
-async function readCredentialErrorCode(
-  response: Response,
-): Promise<string | null> {
-  try {
-    const body: unknown = await response.json();
-    if (
-      typeof body === "object" &&
-      body !== null &&
-      "error" in body &&
-      typeof body.error === "object" &&
-      body.error !== null &&
-      "code" in body.error &&
-      typeof body.error.code === "string"
-    ) {
-      return body.error.code;
-    }
-  } catch {
-    // Rejections without a structured body fall through to generic handling.
-  }
-  return null;
-}
 
 let generation = 0;
 let exchangeController: AbortController | null = null;
@@ -730,105 +573,6 @@ async function suspendCloudsyncAfterCredentialRejection(
       }, RETRY_DELAY_MS);
     }
   }
-}
-
-function isCredentials(value: unknown): value is CloudsyncCredentials {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const candidate = value as Record<string, unknown>;
-  const hasCoreCredentials =
-    candidate.encryptionVersion === 2 &&
-    typeof candidate.encryptionKeyId === "string" &&
-    /^[A-Za-z0-9_-]{22}$/.test(candidate.encryptionKeyId) &&
-    typeof candidate.databaseId === "string" &&
-    candidate.databaseId.length > 0 &&
-    typeof candidate.token === "string" &&
-    candidate.token.length > 0 &&
-    typeof candidate.expiresAt === "string" &&
-    Number.isFinite(Date.parse(candidate.expiresAt)) &&
-    typeof candidate.workspaceId === "string" &&
-    candidate.workspaceId.length > 0;
-  if (!hasCoreCredentials) {
-    return false;
-  }
-
-  const projectionKeys = ["accountUserId", "personalWorkspaceId", "workspaces"];
-  if (!projectionKeys.some((key) => key in candidate)) {
-    return true;
-  }
-
-  if (
-    typeof candidate.accountUserId !== "string" ||
-    candidate.accountUserId.length === 0 ||
-    typeof candidate.personalWorkspaceId !== "string" ||
-    candidate.personalWorkspaceId.length === 0 ||
-    candidate.personalWorkspaceId !== candidate.workspaceId ||
-    candidate.accountUserId !== candidate.personalWorkspaceId ||
-    !Array.isArray(candidate.workspaces) ||
-    candidate.workspaces.length === 0
-  ) {
-    return false;
-  }
-
-  const workspaceIds = new Set<string>();
-  const membershipIds = new Set<string>();
-  for (const value of candidate.workspaces) {
-    if (!value || typeof value !== "object") {
-      return false;
-    }
-
-    const workspace = value as Record<string, unknown>;
-    if (
-      typeof workspace.id !== "string" ||
-      workspace.id.length === 0 ||
-      typeof workspace.ownerUserId !== "string" ||
-      workspace.ownerUserId.length === 0 ||
-      typeof workspace.kind !== "string" ||
-      !["personal", "shared"].includes(workspace.kind) ||
-      typeof workspace.name !== "string" ||
-      typeof workspace.membershipId !== "string" ||
-      workspace.membershipId.length === 0 ||
-      typeof workspace.role !== "string" ||
-      !["owner", "admin", "member"].includes(workspace.role) ||
-      typeof workspace.membershipCreatedAt !== "string" ||
-      !Number.isFinite(Date.parse(workspace.membershipCreatedAt)) ||
-      typeof workspace.membershipUpdatedAt !== "string" ||
-      !Number.isFinite(Date.parse(workspace.membershipUpdatedAt)) ||
-      typeof workspace.createdAt !== "string" ||
-      !Number.isFinite(Date.parse(workspace.createdAt)) ||
-      typeof workspace.updatedAt !== "string" ||
-      !Number.isFinite(Date.parse(workspace.updatedAt)) ||
-      workspaceIds.has(workspace.id) ||
-      membershipIds.has(workspace.membershipId)
-    ) {
-      return false;
-    }
-
-    workspaceIds.add(workspace.id);
-    membershipIds.add(workspace.membershipId);
-  }
-
-  const personalWorkspaces = candidate.workspaces.filter(
-    (workspace) => workspace.kind === "personal",
-  );
-  if (personalWorkspaces.length !== 1) {
-    return false;
-  }
-
-  const personalWorkspace = personalWorkspaces[0]!;
-  return (
-    personalWorkspace.id === candidate.personalWorkspaceId &&
-    personalWorkspace.ownerUserId === candidate.accountUserId &&
-    personalWorkspace.role === "owner"
-  );
-}
-
-function hasWorkspaceProjection(
-  credentials: CloudsyncCredentials,
-): credentials is ProjectedCloudsyncCredentials {
-  return credentials.accountUserId !== undefined;
 }
 
 function scheduleExchange(
