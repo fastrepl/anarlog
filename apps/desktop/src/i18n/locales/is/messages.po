@@ -1832,7 +1832,7 @@ msgstr ""
 msgid "Search people"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx
+#: src/session/components/note-input/template-picker.tsx
 #: src/templates/template-sidebar.tsx
 msgid "Search templates..."
 msgstr ""
@@ -1854,7 +1854,7 @@ msgstr ""
 msgid "Security"
 msgstr ""
 
-#: src/session/components/note-input/header.tsx
+#: src/session/components/note-input/template-picker.tsx
 msgid "See all templates"
 msgstr ""
 

@@ -1832,7 +1832,7 @@ msgstr "Search or type owner/repo"
 msgid "Search people"
 msgstr "Search people"
 
-#: src/session/components/note-input/header.tsx
+#: src/session/components/note-input/template-picker.tsx
 #: src/templates/template-sidebar.tsx
 msgid "Search templates..."
 msgstr "Search templates..."
@@ -1854,7 +1854,7 @@ msgstr "Section actions"
 msgid "Security"
 msgstr "Security"
 
-#: src/session/components/note-input/header.tsx
+#: src/session/components/note-input/template-picker.tsx
 msgid "See all templates"
 msgstr "See all templates"
 
