@@ -129,45 +129,21 @@ jobs:
           key: ${{ secrets.CN_API_KEY }}
       - shell: pwsh
         env:
-          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          WINDOWS_SIGNER_ORGANIZATION: ${{ vars.WINDOWS_SIGNER_ORGANIZATION }}
         run: |
-          if (
-            [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE) -or
-            [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_PASSWORD)
-          ) {
-            throw "Windows signature verification requires WINDOWS_CERTIFICATE and WINDOWS_CERTIFICATE_PASSWORD"
-          }
-
-          $encodedCertificate = Join-Path $env:RUNNER_TEMP "anarlog-windows-certificate.txt"
-          $certificatePath = Join-Path $env:RUNNER_TEMP "anarlog-windows-certificate.pfx"
-          Set-Content -Path $encodedCertificate -Value $env:WINDOWS_CERTIFICATE
-          certutil -decode $encodedCertificate $certificatePath
-          if ($LASTEXITCODE -ne 0) {
-            throw "Could not decode the Windows signing certificate"
-          }
-
-          $password = ConvertTo-SecureString `
-            -String $env:WINDOWS_CERTIFICATE_PASSWORD `
-            -Force `
-            -AsPlainText
-          $expectedCertificate = @(
-            (Get-PfxData -FilePath $certificatePath -Password $password).EndEntityCertificates
-          ) | Select-Object -First 1
-          Remove-Item $encodedCertificate, $certificatePath -Force
-          if (-not $expectedCertificate) {
-            throw "Could not read the Windows signing certificate"
-          }
-
           $signature = Get-AuthenticodeSignature "anarlog-windows-x86_64-setup.exe"
           if ($signature.Status -ne "Valid") {
             throw "Invalid Windows Authenticode signature: $($signature.Status)"
           }
-          if (
-            -not $signature.SignerCertificate -or
-            $signature.SignerCertificate.Thumbprint -ne $expectedCertificate.Thumbprint
-          ) {
-            throw "Windows Authenticode signer does not match the release certificate"
+          if (-not $signature.SignerCertificate) {
+            throw "Windows Authenticode signer certificate is missing"
+          }
+          $signerOrganization = $signature.SignerCertificate.GetNameInfo(
+            [System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName,
+            $false
+          )
+          if ($signerOrganization -ne $env:WINDOWS_SIGNER_ORGANIZATION) {
+            throw "Unexpected Windows Authenticode signer '$signerOrganization'"
           }
           if (-not $signature.TimeStamperCertificate) {
             throw "Windows Authenticode signature is missing a trusted timestamp"

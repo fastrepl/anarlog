@@ -97,16 +97,26 @@ jobs:
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
       - run: ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "${{ needs.compute-version.outputs.version }}"
-      - name: Verify stable signing credentials
+      - name: Verify stable signing configuration
         env:
-          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          AZURE_ARTIFACT_SIGNING_ENDPOINT: ${{ vars.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
+          AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME: ${{ vars.AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME }}
+          AZURE_ARTIFACT_SIGNING_CERTIFICATE_PROFILE_NAME: ${{ vars.AZURE_ARTIFACT_SIGNING_CERTIFICATE_PROFILE_NAME }}
+          WINDOWS_SIGNER_ORGANIZATION: ${{ vars.WINDOWS_SIGNER_ORGANIZATION }}
         run: |
           missing=()
-          [[ -n "$WINDOWS_CERTIFICATE" ]] || missing+=("WINDOWS_CERTIFICATE")
-          [[ -n "$WINDOWS_CERTIFICATE_PASSWORD" ]] || missing+=("WINDOWS_CERTIFICATE_PASSWORD")
+          [[ -n "$AZURE_CLIENT_ID" ]] || missing+=("AZURE_CLIENT_ID")
+          [[ -n "$AZURE_TENANT_ID" ]] || missing+=("AZURE_TENANT_ID")
+          [[ -n "$AZURE_SUBSCRIPTION_ID" ]] || missing+=("AZURE_SUBSCRIPTION_ID")
+          [[ -n "$AZURE_ARTIFACT_SIGNING_ENDPOINT" ]] || missing+=("AZURE_ARTIFACT_SIGNING_ENDPOINT")
+          [[ -n "$AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME" ]] || missing+=("AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME")
+          [[ -n "$AZURE_ARTIFACT_SIGNING_CERTIFICATE_PROFILE_NAME" ]] || missing+=("AZURE_ARTIFACT_SIGNING_CERTIFICATE_PROFILE_NAME")
+          [[ -n "$WINDOWS_SIGNER_ORGANIZATION" ]] || missing+=("WINDOWS_SIGNER_ORGANIZATION")
           if [[ ${#missing[@]} -gt 0 ]]; then
-            echo "::error::Stable Windows release signing is missing: ${missing[*]}"
+            echo "::error::Stable Windows release signing configuration is missing: ${missing[*]}"
             exit 1
           fi
       - uses: ./.github/actions/cn_release
@@ -469,6 +479,9 @@ jobs:
   build-windows:
     needs: [compute-version, cn-draft]
     if: ${{ !cancelled() && (needs.cn-draft.result == 'success' || needs.cn-draft.result == 'skipped') }}
+    permissions:
+      contents: read
+      id-token: write
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -494,75 +507,19 @@ jobs:
           ./scripts/sidecar.sh \
             "./apps/desktop/${{ env.TAURI_CONF_PATH }}" \
             resources/cli/anarlog-cli
-      - if: ${{ inputs.channel == 'stable' }}
-        name: Import Windows signing certificate
-        shell: pwsh
-        env:
-          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-        run: |
-          if (
-            [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE) -or
-            [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_PASSWORD)
-          ) {
-            throw "Stable Windows releases require WINDOWS_CERTIFICATE and WINDOWS_CERTIFICATE_PASSWORD"
-          }
-
-          $encodedCertificate = Join-Path $env:RUNNER_TEMP "anarlog-windows-certificate.txt"
-          $certificatePath = Join-Path $env:RUNNER_TEMP "anarlog-windows-certificate.pfx"
-          Set-Content -Path $encodedCertificate -Value $env:WINDOWS_CERTIFICATE
-          certutil -decode $encodedCertificate $certificatePath
-          if ($LASTEXITCODE -ne 0) {
-            throw "Could not decode the Windows signing certificate"
-          }
-
-          $password = ConvertTo-SecureString `
-            -String $env:WINDOWS_CERTIFICATE_PASSWORD `
-            -Force `
-            -AsPlainText
-          $certificate = @(
-            Import-PfxCertificate `
-              -FilePath $certificatePath `
-              -CertStoreLocation Cert:\CurrentUser\My `
-              -Password $password
-          ) |
-            Where-Object { $_.HasPrivateKey } |
-            Select-Object -First 1
-          if (-not $certificate) {
-            throw "Could not import the Windows signing certificate"
-          }
-          Remove-Item $encodedCertificate, $certificatePath -Force
-
-          $signingConfigPath = Join-Path $env:RUNNER_TEMP "tauri.windows-signing.json"
-          @{
-            bundle = @{
-              windows = @{
-                certificateThumbprint = $certificate.Thumbprint
-                digestAlgorithm = "sha256"
-                timestampUrl = "http://timestamp.digicert.com"
-              }
-            }
-          } |
-            ConvertTo-Json -Depth 4 |
-            Set-Content -Path $signingConfigPath -Encoding utf8
-
-          "WINDOWS_SIGNING_CONFIG=$($signingConfigPath.Replace('\', '/'))" |
-            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "WINDOWS_SIGNING_THUMBPRINT=$($certificate.Thumbprint)" |
-            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-      - shell: bash
+      - name: Build Windows app
+        shell: bash
         run: |
           BUILD_ARGS=(
             --ci
-            --bundles nsis
             --target x86_64-pc-windows-msvc
             --config "${{ env.TAURI_CONF_PATH }}"
             --verbose
           )
           if [[ "${{ inputs.channel }}" == "staging" ]]; then
-            BUILD_ARGS+=(--features devtools --no-sign)
+            BUILD_ARGS+=(--bundles nsis --features devtools --no-sign)
           else
-            BUILD_ARGS+=(--config "$WINDOWS_SIGNING_CONFIG")
+            BUILD_ARGS+=(--no-bundle --no-sign)
           fi
           pnpm -F desktop tauri build "${BUILD_ARGS[@]}"
         env:
@@ -579,10 +536,82 @@ jobs:
           VITE_API_URL: https://api.anarlog.so
           VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
           VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
+      - if: ${{ inputs.channel == 'stable' }}
+        name: Sign in to Azure
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - if: ${{ inputs.channel == 'stable' }}
+        name: Sign Windows binaries
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: ${{ vars.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME }}
+          certificate-profile-name: ${{ vars.AZURE_ARTIFACT_SIGNING_CERTIFICATE_PROFILE_NAME }}
+          files: |
+            ${{ github.workspace }}\apps\desktop\src-tauri\target\x86_64-pc-windows-msvc\release\anarlog.exe
+            ${{ github.workspace }}\apps\desktop\src-tauri\resources\cli\anarlog-cli-x86_64-pc-windows-msvc.exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+      - if: ${{ inputs.channel == 'stable' }}
+        name: Bundle signed Windows app
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          pnpm -F desktop tauri bundle \
+            --ci \
+            --bundles nsis \
+            --target x86_64-pc-windows-msvc \
+            --config "${{ env.TAURI_CONF_PATH }}" \
+            --verbose \
+            --no-sign
+      - if: ${{ inputs.channel == 'stable' }}
+        id: windows-installer
+        name: Locate Windows installer
+        shell: pwsh
+        run: |
+          $bundleDir = "apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis"
+          $installers = @(Get-ChildItem $bundleDir -Filter "*.exe")
+          if ($installers.Count -ne 1) {
+            throw "Expected one NSIS installer in $bundleDir, found $($installers.Count)"
+          }
+          "path=$($installers[0].FullName)" |
+            Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+      - if: ${{ inputs.channel == 'stable' }}
+        name: Sign Windows installer
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: ${{ vars.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME }}
+          certificate-profile-name: ${{ vars.AZURE_ARTIFACT_SIGNING_CERTIFICATE_PROFILE_NAME }}
+          files: ${{ steps.windows-installer.outputs.path }}
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+      - if: ${{ inputs.channel == 'stable' }}
+        name: Sign Windows updater artifact
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          $installer = "${{ steps.windows-installer.outputs.path }}"
+          $signaturePath = "$installer.sig"
+          Remove-Item $signaturePath -Force -ErrorAction SilentlyContinue
+          pnpm -F desktop tauri signer sign $installer
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $signaturePath)) {
+            throw "Could not create the Windows updater signature"
+          }
       - shell: pwsh
         env:
           EXPECTED_VERSION: ${{ needs.compute-version.outputs.version }}
           RELEASE_CHANNEL: ${{ inputs.channel }}
+          WINDOWS_SIGNER_ORGANIZATION: ${{ vars.WINDOWS_SIGNER_ORGANIZATION }}
         run: |
           $config = Get-Content "apps/desktop/src-tauri/tauri.conf.json" | ConvertFrom-Json
           if ($config.version -ne $env:EXPECTED_VERSION) {
@@ -609,16 +638,21 @@ jobs:
             }
 
             $appBinary = "apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/anarlog.exe"
-            foreach ($signedFile in @($appBinary, $installers[0].FullName)) {
+            $sidecarBinary = "apps/desktop/src-tauri/resources/cli/anarlog-cli-x86_64-pc-windows-msvc.exe"
+            foreach ($signedFile in @($appBinary, $sidecarBinary, $installers[0].FullName)) {
               $signature = Get-AuthenticodeSignature $signedFile
               if ($signature.Status -ne "Valid") {
                 throw "Invalid Authenticode signature for $signedFile`: $($signature.Status)"
               }
-              if (
-                -not $signature.SignerCertificate -or
-                $signature.SignerCertificate.Thumbprint -ne $env:WINDOWS_SIGNING_THUMBPRINT
-              ) {
-                throw "Authenticode signer does not match the imported release certificate for $signedFile"
+              if (-not $signature.SignerCertificate) {
+                throw "Authenticode signer certificate is missing for $signedFile"
+              }
+              $signerOrganization = $signature.SignerCertificate.GetNameInfo(
+                [System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName,
+                $false
+              )
+              if ($signerOrganization -ne $env:WINDOWS_SIGNER_ORGANIZATION) {
+                throw "Unexpected Authenticode signer '$signerOrganization' for $signedFile"
               }
               if (-not $signature.TimeStamperCertificate) {
                 throw "Authenticode signature is missing a trusted timestamp for $signedFile"
