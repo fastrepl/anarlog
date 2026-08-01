@@ -5,7 +5,7 @@ use super::analysis::{
 use super::{
     AxNode, BrowserMeetingRoot, MeetingPlatform, NativeMeetingRoot, browser_platform_from_url,
     is_platform_active_call_control, is_slack_huddle_composer, is_slack_thread_container_label,
-    node_labels, slack_huddle_context,
+    node_has_positive_bounds, node_labels, slack_huddle_context,
 };
 
 fn stable_capture_context_id(kind: &str, parts: &[String]) -> String {
@@ -129,12 +129,6 @@ fn is_chat_message_list(node: &AxNode) -> bool {
 
 fn is_platform_chat_message_list(platform: &MeetingPlatform, node: &AxNode) -> bool {
     is_chat_message_list(node) && is_platform_chat_scope_container(platform, node)
-}
-
-pub(super) fn node_has_positive_bounds(node: &AxNode) -> bool {
-    node.bounds
-        .as_ref()
-        .is_some_and(|bounds| bounds.width > 0.0 && bounds.height > 0.0)
 }
 
 fn is_platform_chat_composer(platform: &MeetingPlatform, node: &AxNode) -> bool {

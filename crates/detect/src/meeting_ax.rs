@@ -2,12 +2,17 @@
 use std::collections::HashSet;
 
 #[cfg(target_os = "macos")]
-use cidre::{arc, ax, cf, cg, ns};
+use cidre::{arc, ax, cf, cg};
 
 #[cfg(target_os = "macos")]
 mod analysis;
 #[cfg(target_os = "macos")]
 mod context;
+#[cfg(target_os = "macos")]
+mod node;
+#[cfg(target_os = "macos")]
+mod platform;
+mod types;
 
 #[cfg(target_os = "macos")]
 use analysis::{
@@ -23,81 +28,36 @@ use analysis::{
 };
 #[cfg(target_os = "macos")]
 use context::{
-    browser_capture_context_id, native_capture_context_id, node_has_positive_bounds,
-    path_is_ancestor, slack_capture_context_id, validated_chat_scope, zoom_capture_context_id,
+    browser_capture_context_id, native_capture_context_id, path_is_ancestor,
+    slack_capture_context_id, validated_chat_scope, zoom_capture_context_id,
     zoom_chat_surface_is_visible,
 };
-
+#[cfg(all(test, target_os = "macos"))]
+use node::node_text;
 #[cfg(target_os = "macos")]
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum MeetingAppBundleKind {
-    Native,
-    Browser,
-}
-
+use node::{
+    is_platform_active_call_control, is_platform_meeting_control, node_has_positive_bounds,
+    node_labels, searchable_node_text,
+};
 #[cfg(target_os = "macos")]
-struct MeetingAppBundle {
-    id: &'static str,
-    kind: MeetingAppBundleKind,
-}
-
+use platform::{
+    MEETING_APP_BUNDLES, browser_platform_from_url, browser_title_platform_signals,
+    classify_browser_context, classify_bundle, classify_platform, classify_surface,
+    is_browser_bundle, running_apps_for_bundle, running_meeting_apps, select_active_bundle_ids,
+    supports_meeting_chat_mutation, unique_recognized_meeting_bundle,
+};
+#[cfg(all(test, target_os = "macos"))]
+use platform::{MeetingAppBundleKind, is_meeting_app_bundle};
 #[cfg(target_os = "macos")]
-impl MeetingAppBundle {
-    const fn native(id: &'static str) -> Self {
-        Self {
-            id,
-            kind: MeetingAppBundleKind::Native,
-        }
-    }
-
-    const fn browser(id: &'static str) -> Self {
-        Self {
-            id,
-            kind: MeetingAppBundleKind::Browser,
-        }
-    }
-}
-
-#[cfg(target_os = "macos")]
-const MEETING_APP_BUNDLES: &[MeetingAppBundle] = &[
-    MeetingAppBundle::native("us.zoom.xos"),
-    MeetingAppBundle::native("com.microsoft.teams2"),
-    MeetingAppBundle::native("com.microsoft.teams"),
-    MeetingAppBundle::native("com.tinyspeck.slackmacgap"),
-    MeetingAppBundle::native("com.slack.Slack"),
-    MeetingAppBundle::native("com.hnc.Discord"),
-    MeetingAppBundle::native("com.discordapp.Discord"),
-    MeetingAppBundle::native("Cisco-Systems.Spark"),
-    MeetingAppBundle::native("com.cisco.webex"),
-    MeetingAppBundle::native("com.cisco.webexmeetingsapp"),
-    MeetingAppBundle::browser("com.google.Chrome"),
-    MeetingAppBundle::browser("com.google.Chrome.canary"),
-    MeetingAppBundle::browser("com.microsoft.edgemac"),
-    MeetingAppBundle::browser("com.microsoft.edgemac.Beta"),
-    MeetingAppBundle::browser("com.microsoft.edgemac.Canary"),
-    MeetingAppBundle::browser("com.microsoft.edgemac.Dev"),
-    MeetingAppBundle::browser("org.mozilla.firefox"),
-    MeetingAppBundle::browser("org.mozilla.firefoxdeveloperedition"),
-    MeetingAppBundle::browser("org.mozilla.nightly"),
-    MeetingAppBundle::browser("com.apple.Safari"),
-    MeetingAppBundle::browser("com.apple.SafariTechnologyPreview"),
-    MeetingAppBundle::browser("com.brave.Browser"),
-    MeetingAppBundle::browser("com.brave.Browser.beta"),
-    MeetingAppBundle::browser("com.brave.Browser.nightly"),
-    MeetingAppBundle::browser("org.chromium.Chromium"),
-    MeetingAppBundle::browser("com.vivaldi.Vivaldi"),
-    MeetingAppBundle::browser("com.operasoftware.Opera"),
-    MeetingAppBundle::browser("com.operasoftware.OperaDeveloper"),
-    MeetingAppBundle::browser("com.operasoftware.OperaGX"),
-    MeetingAppBundle::browser("com.operasoftware.OperaNext"),
-    MeetingAppBundle::browser("company.thebrowser.Browser"),
-    MeetingAppBundle::browser("ai.perplexity.comet"),
-    MeetingAppBundle::browser("at.studio.AsideBrowser"),
-    MeetingAppBundle::browser("company.thebrowser.dia"),
-    MeetingAppBundle::browser("com.sigmaos.sigmaos.macos"),
-    MeetingAppBundle::browser("net.imput.helium"),
-    MeetingAppBundle::browser("com.nousresearch.hermes"),
-];
+use types::{
+    AxAncestor, AxChatElement, AxNode, BrowserMeetingRoot, MeetingChatTarget, NativeMeetingRoot,
+    SlackHuddleRoot, UniqueMatch,
+};
+pub use types::{
+    AxRect, MeetingAccessibilityInspection, MeetingApp, MeetingCapturedChatMessage,
+    MeetingChatCaptureResult, MeetingChatDirection, MeetingChatSendResult,
+    MeetingParticipantStream, MeetingPlatform, MeetingSurface,
+};
 
 #[cfg(target_os = "macos")]
 const MAX_TREE_DEPTH: usize = 18;
@@ -106,188 +66,6 @@ const MAX_NODES: usize = 1800;
 #[cfg(target_os = "macos")]
 const MIN_VIDEO_AREA: f64 = 18_000.0;
 const MAX_MEETING_CHAT_MESSAGE_CHARS: usize = 2_000;
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub enum MeetingPlatform {
-    Zoom,
-    GoogleMeet,
-    MicrosoftTeams,
-    Slack,
-    Discord,
-    Webex,
-    Unknown,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub enum MeetingSurface {
-    Native,
-    Web,
-    Unknown,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub enum MeetingChatDirection {
-    Incoming,
-    Outgoing,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq)]
-pub struct AxRect {
-    pub x: f64,
-    pub y: f64,
-    pub width: f64,
-    pub height: f64,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct MeetingApp {
-    pub id: String,
-    pub name: String,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct MeetingParticipantStream {
-    pub id: String,
-    pub platform: MeetingPlatform,
-    pub surface: MeetingSurface,
-    pub participant_name: Option<String>,
-    pub label: Option<String>,
-    pub bounds: Option<AxRect>,
-    pub confidence: f32,
-    pub is_active_speaker: bool,
-    pub signals: Vec<String>,
-}
-
-#[cfg(target_os = "macos")]
-#[derive(Debug, Clone)]
-struct MeetingChatTarget {
-    kind: String,
-    #[cfg(test)]
-    settable: bool,
-    confidence: f32,
-    #[cfg(test)]
-    signals: Vec<String>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct MeetingAccessibilityInspection {
-    pub app: MeetingApp,
-    pub pid: i32,
-    pub platform: MeetingPlatform,
-    pub surface: MeetingSurface,
-    pub accessibility_trusted: bool,
-    pub window_title: Option<String>,
-    pub participant_streams: Vec<MeetingParticipantStream>,
-    pub active_speakers: Vec<String>,
-    pub warnings: Vec<String>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct MeetingChatSendResult {
-    pub sent: bool,
-    pub app: Option<MeetingApp>,
-    pub platform: MeetingPlatform,
-    pub surface: MeetingSurface,
-    pub input_label: Option<String>,
-    pub send_action: Option<String>,
-    pub warnings: Vec<String>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct MeetingCapturedChatMessage {
-    pub id: String,
-    pub platform: MeetingPlatform,
-    pub surface: MeetingSurface,
-    pub sender: Option<String>,
-    pub timestamp: Option<String>,
-    pub direction: Option<MeetingChatDirection>,
-    pub text: String,
-    pub links: Vec<String>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct MeetingChatCaptureResult {
-    pub app: Option<MeetingApp>,
-    pub platform: MeetingPlatform,
-    pub surface: MeetingSurface,
-    pub context_id: Option<String>,
-    pub messages: Vec<MeetingCapturedChatMessage>,
-    pub warnings: Vec<String>,
-}
-
-#[cfg(target_os = "macos")]
-#[derive(Debug, Clone)]
-struct AxNode {
-    index: usize,
-    tree_path: Vec<usize>,
-    element_hash: Option<usize>,
-    role: Option<String>,
-    identifier: Option<String>,
-    title: Option<String>,
-    value: Option<String>,
-    description: Option<String>,
-    placeholder: Option<String>,
-    enabled: Option<bool>,
-    settable_value: bool,
-    bounds: Option<AxRect>,
-    text: String,
-    within_zoom_meeting_scope: bool,
-    within_zoom_chat_scope: bool,
-    within_slack_huddle_scope: bool,
-}
-
-#[cfg(target_os = "macos")]
-struct AxChatElement {
-    node: AxNode,
-    ancestors: Vec<AxAncestor>,
-    element: arc::R<ax::UiElement>,
-}
-
-#[cfg(target_os = "macos")]
-#[derive(Debug, Clone)]
-struct AxAncestor {
-    path: Vec<usize>,
-    labels: Vec<String>,
-}
-
-#[cfg(target_os = "macos")]
-struct SlackHuddleRoot {
-    channel: String,
-    label: String,
-    nodes: Vec<AxNode>,
-    element: arc::R<ax::UiElement>,
-}
-
-#[cfg(target_os = "macos")]
-struct BrowserMeetingRoot {
-    platform: MeetingPlatform,
-    window_title: Option<String>,
-    web_area_url: Option<String>,
-    nodes: Vec<AxNode>,
-}
-
-#[cfg(target_os = "macos")]
-struct NativeMeetingRoot {
-    window_title: Option<String>,
-    nodes: Vec<AxNode>,
-}
-
-#[cfg(target_os = "macos")]
-#[derive(Debug, PartialEq, Eq)]
-enum UniqueMatch {
-    Missing,
-    One(usize),
-    Ambiguous,
-}
 
 #[cfg(target_os = "macos")]
 fn unique_scope_for_count(count: usize) -> UniqueMatch {
@@ -464,74 +242,6 @@ pub fn send_meeting_chat_message(
         send_action: None,
         warnings: vec!["meeting chat AX send is only available on macOS".to_string()],
     }
-}
-
-#[cfg(target_os = "macos")]
-fn unique_recognized_meeting_bundle(mic_active_bundle_ids: &[String]) -> Result<&str, String> {
-    let recognized = mic_active_bundle_ids
-        .iter()
-        .map(String::as_str)
-        .filter(|bundle_id| is_meeting_app_bundle(bundle_id))
-        .collect::<HashSet<_>>();
-
-    if recognized.len() != 1 {
-        return Err(format!(
-            "refusing to send because the mic-active apps contain {} recognized meeting app bundles; expected exactly one",
-            recognized.len()
-        ));
-    }
-
-    Ok(recognized.into_iter().next().unwrap())
-}
-
-#[cfg(target_os = "macos")]
-fn running_apps_for_bundle(bundle_id: &str) -> Vec<(MeetingApp, i32)> {
-    let mut apps = Vec::new();
-    let bundle = ns::String::with_str(bundle_id);
-    let running = ns::RunningApp::with_bundle_id(&bundle);
-
-    for app in running.iter() {
-        let pid = app.pid();
-        let name = app
-            .localized_name()
-            .map(|name| name.to_string())
-            .unwrap_or_else(|| bundle_id.to_string());
-        let id = app
-            .bundle_id()
-            .map(|id| id.to_string())
-            .unwrap_or_else(|| bundle_id.to_string());
-
-        apps.push((MeetingApp { id, name }, pid));
-    }
-
-    apps
-}
-
-#[cfg(target_os = "macos")]
-fn running_meeting_apps() -> Vec<(MeetingApp, i32)> {
-    let mut seen = HashSet::new();
-
-    MEETING_APP_BUNDLES
-        .iter()
-        .flat_map(|bundle| running_apps_for_bundle(bundle.id))
-        .filter(|(_, pid)| seen.insert(*pid))
-        .collect()
-}
-
-#[cfg(target_os = "macos")]
-fn select_active_bundle_ids<'a>(
-    supported_bundle_ids: impl IntoIterator<Item = &'a str>,
-    active_bundle_ids: &[String],
-) -> Vec<&'a str> {
-    let active_bundle_ids = active_bundle_ids
-        .iter()
-        .map(String::as_str)
-        .collect::<HashSet<_>>();
-
-    supported_bundle_ids
-        .into_iter()
-        .filter(|bundle_id| active_bundle_ids.contains(bundle_id))
-        .collect()
 }
 
 #[cfg(target_os = "macos")]
@@ -1759,67 +1469,6 @@ fn rect_from_position_and_size(element: &ax::UiElement) -> Option<cg::Rect> {
 }
 
 #[cfg(target_os = "macos")]
-fn node_text(
-    role: &Option<String>,
-    title: &Option<String>,
-    value: &Option<String>,
-    description: &Option<String>,
-    placeholder: &Option<String>,
-) -> String {
-    [role, title, value, description, placeholder]
-        .into_iter()
-        .filter_map(|v| v.as_deref())
-        .collect::<Vec<_>>()
-        .join(" ")
-        .to_lowercase()
-}
-
-#[cfg(target_os = "macos")]
-fn searchable_node_text(
-    role: &Option<String>,
-    title: &Option<String>,
-    value: &Option<String>,
-    description: &Option<String>,
-    placeholder: &Option<String>,
-    settable_value: bool,
-) -> String {
-    let hidden_value = None;
-    node_text(
-        role,
-        title,
-        if settable_value || is_text_input_role(role) {
-            &hidden_value
-        } else {
-            value
-        },
-        description,
-        placeholder,
-    )
-}
-
-#[cfg(target_os = "macos")]
-fn is_text_input_role(role: &Option<String>) -> bool {
-    matches!(
-        role.as_deref(),
-        Some("AXTextArea") | Some("AXTextField") | Some("AXSecureTextField")
-    )
-}
-
-#[cfg(target_os = "macos")]
-fn node_labels(node: &AxNode) -> impl Iterator<Item = &str> {
-    [
-        node.title.as_deref(),
-        node.placeholder.as_deref(),
-        node.description.as_deref(),
-        (!node.settable_value && !is_text_input_role(&node.role))
-            .then_some(node.value.as_deref())
-            .flatten(),
-    ]
-    .into_iter()
-    .flatten()
-}
-
-#[cfg(target_os = "macos")]
 fn slack_huddle_context(nodes: &[AxNode]) -> Option<(String, String)> {
     let has_leave_control = nodes.iter().any(is_enabled_slack_leave_control);
     if !has_leave_control {
@@ -1936,230 +1585,6 @@ fn has_nonempty_draft(node: &AxNode) -> bool {
 #[cfg(target_os = "macos")]
 fn chat_input_is_owned(current_value: &str, injected_message: &str) -> bool {
     current_value == injected_message
-}
-
-#[cfg(target_os = "macos")]
-fn classify_bundle(bundle_id: &str) -> MeetingPlatform {
-    match bundle_id {
-        "us.zoom.xos" => MeetingPlatform::Zoom,
-        "com.microsoft.teams2" | "com.microsoft.teams" => MeetingPlatform::MicrosoftTeams,
-        "com.tinyspeck.slackmacgap" | "com.slack.Slack" => MeetingPlatform::Slack,
-        "com.hnc.Discord" | "com.discordapp.Discord" => MeetingPlatform::Discord,
-        "Cisco-Systems.Spark" | "com.cisco.webex" | "com.cisco.webexmeetingsapp" => {
-            MeetingPlatform::Webex
-        }
-        _ => MeetingPlatform::Unknown,
-    }
-}
-
-#[cfg(target_os = "macos")]
-fn supports_meeting_chat_mutation(bundle_id: &str) -> bool {
-    classify_bundle(bundle_id) == MeetingPlatform::Slack
-}
-
-#[cfg(target_os = "macos")]
-fn classify_browser_context(
-    web_area_url: Option<&str>,
-    window_title: Option<&str>,
-    active_web_area: Option<&AxNode>,
-    nodes: &[AxNode],
-) -> MeetingPlatform {
-    let Some(platform) = browser_platform_from_url(web_area_url) else {
-        return MeetingPlatform::Unknown;
-    };
-
-    let mut title_platforms = window_title
-        .into_iter()
-        .chain(active_web_area.into_iter().flat_map(node_labels))
-        .flat_map(browser_title_platform_signals)
-        .collect::<Vec<_>>();
-    title_platforms.dedup();
-    if title_platforms.iter().any(|signal| signal != &platform) {
-        return MeetingPlatform::Unknown;
-    }
-    let has_matching_title = title_platforms.contains(&platform);
-    let has_matching_control = nodes
-        .iter()
-        .any(|node| is_platform_meeting_control(&platform, node));
-
-    if has_matching_title || has_matching_control {
-        platform
-    } else {
-        MeetingPlatform::Unknown
-    }
-}
-
-#[cfg(target_os = "macos")]
-fn browser_platform_from_url(url: Option<&str>) -> Option<MeetingPlatform> {
-    let url = url::Url::parse(url?).ok()?;
-    if url.scheme() != "https" {
-        return None;
-    }
-    let host = url.host_str()?.to_ascii_lowercase();
-
-    if host == "meet.google.com" {
-        Some(MeetingPlatform::GoogleMeet)
-    } else if matches!(host.as_str(), "teams.microsoft.com" | "teams.live.com") {
-        Some(MeetingPlatform::MicrosoftTeams)
-    } else if host == "zoom.us" || host.ends_with(".zoom.us") {
-        Some(MeetingPlatform::Zoom)
-    } else if host == "webex.com" || host.ends_with(".webex.com") {
-        Some(MeetingPlatform::Webex)
-    } else if matches!(host.as_str(), "slack.com" | "app.slack.com") {
-        Some(MeetingPlatform::Slack)
-    } else if matches!(
-        host.as_str(),
-        "discord.com" | "canary.discord.com" | "ptb.discord.com"
-    ) {
-        Some(MeetingPlatform::Discord)
-    } else {
-        None
-    }
-}
-
-#[cfg(target_os = "macos")]
-fn browser_title_platform_signals(text: &str) -> Vec<MeetingPlatform> {
-    let text = text.to_ascii_lowercase();
-    let mut platforms = Vec::new();
-
-    if text.contains("google meet") {
-        platforms.push(MeetingPlatform::GoogleMeet);
-    }
-    if text.contains("microsoft teams") || text.contains("teams meeting") {
-        platforms.push(MeetingPlatform::MicrosoftTeams);
-    }
-    if text.contains("zoom meeting") {
-        platforms.push(MeetingPlatform::Zoom);
-    }
-    if text.contains("huddle") && text.contains("slack") {
-        platforms.push(MeetingPlatform::Slack);
-    }
-    if text.contains("discord") && (text.contains("voice") || text.contains("call")) {
-        platforms.push(MeetingPlatform::Discord);
-    }
-    if text.contains("webex meeting") || text.contains("cisco webex") {
-        platforms.push(MeetingPlatform::Webex);
-    }
-
-    platforms
-}
-
-#[cfg(target_os = "macos")]
-fn is_platform_meeting_control(platform: &MeetingPlatform, node: &AxNode) -> bool {
-    if !matches!(node.role.as_deref(), Some("AXButton") | Some("AXMenuItem"))
-        || node.enabled == Some(false)
-    {
-        return false;
-    }
-
-    node_labels(node).any(|label| {
-        let label = label.trim().to_ascii_lowercase();
-        match platform {
-            MeetingPlatform::GoogleMeet => matches!(
-                label.as_str(),
-                "leave call"
-                    | "turn on microphone"
-                    | "turn off microphone"
-                    | "turn on camera"
-                    | "turn off camera"
-                    | "present now"
-            ),
-            MeetingPlatform::MicrosoftTeams => matches!(
-                label.as_str(),
-                "hang up"
-                    | "mute microphone"
-                    | "unmute microphone"
-                    | "turn camera on"
-                    | "turn camera off"
-            ),
-            MeetingPlatform::Zoom => matches!(
-                label.as_str(),
-                "leave meeting" | "end meeting" | "mute my audio" | "unmute my audio"
-            ),
-            MeetingPlatform::Slack => label == "leave huddle",
-            MeetingPlatform::Discord => label == "disconnect",
-            MeetingPlatform::Webex => matches!(
-                label.as_str(),
-                "leave meeting" | "end meeting" | "mute me" | "unmute me"
-            ),
-            MeetingPlatform::Unknown => false,
-        }
-    })
-}
-
-#[cfg(target_os = "macos")]
-fn is_platform_active_call_control(platform: &MeetingPlatform, node: &AxNode) -> bool {
-    if !matches!(node.role.as_deref(), Some("AXButton") | Some("AXMenuItem"))
-        || node.enabled == Some(false)
-        || !node_has_positive_bounds(node)
-    {
-        return false;
-    }
-
-    node_labels(node).any(|label| {
-        let label = label.trim().to_ascii_lowercase();
-        match platform {
-            MeetingPlatform::GoogleMeet => label == "leave call",
-            MeetingPlatform::MicrosoftTeams => label == "hang up",
-            MeetingPlatform::Zoom => matches!(label.as_str(), "leave meeting" | "end meeting"),
-            MeetingPlatform::Slack => matches!(label.as_str(), "leave huddle" | "end huddle"),
-            MeetingPlatform::Webex => matches!(label.as_str(), "leave meeting" | "end meeting"),
-            MeetingPlatform::Discord | MeetingPlatform::Unknown => false,
-        }
-    })
-}
-
-#[cfg(target_os = "macos")]
-fn classify_platform(
-    bundle_id: &str,
-    _window_title: Option<&str>,
-    _nodes: &[AxNode],
-    bundle_platform: MeetingPlatform,
-) -> MeetingPlatform {
-    if is_browser_bundle(bundle_id) {
-        MeetingPlatform::Unknown
-    } else {
-        bundle_platform
-    }
-}
-
-#[cfg(target_os = "macos")]
-fn classify_surface(bundle_id: &str, platform: &MeetingPlatform) -> MeetingSurface {
-    if is_browser_bundle(bundle_id) {
-        MeetingSurface::Web
-    } else if *platform == MeetingPlatform::Unknown {
-        MeetingSurface::Unknown
-    } else {
-        MeetingSurface::Native
-    }
-}
-
-#[cfg(target_os = "macos")]
-fn meeting_app_bundle(bundle_id: &str) -> Option<&MeetingAppBundle> {
-    MEETING_APP_BUNDLES
-        .iter()
-        .find(|bundle| bundle.id == bundle_id)
-}
-
-#[cfg(target_os = "macos")]
-fn is_meeting_app_bundle(bundle_id: &str) -> bool {
-    meeting_app_bundle(bundle_id).is_some()
-}
-
-#[cfg(target_os = "macos")]
-fn is_browser_bundle(bundle_id: &str) -> bool {
-    meeting_app_bundle(bundle_id).is_some_and(|bundle| bundle.kind == MeetingAppBundleKind::Browser)
-}
-
-impl From<cg::Rect> for AxRect {
-    fn from(rect: cg::Rect) -> Self {
-        Self {
-            x: rect.origin.x,
-            y: rect.origin.y,
-            width: rect.size.width,
-            height: rect.size.height,
-        }
-    }
 }
 
 #[cfg(all(test, target_os = "macos"))]
