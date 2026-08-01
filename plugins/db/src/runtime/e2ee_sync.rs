@@ -1,9 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
-use super::{
-    E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT, cloudsync_receive_completed,
-    cloudsync_receive_requires_reconciliation,
-};
+use super::E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT;
+use super::sync_result::{cloudsync_receive_completed, cloudsync_receive_requires_reconciliation};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 struct CloudsyncActivity {
