@@ -1,6 +1,6 @@
 ---
 name: qa-critical-ux
-description: QA-test the critical desktop user experience before a release — auth, CloudSync, calendar connect + notifications, note creation, recording, speaker identification, chat, and automated summaries across on-device, API-key, and Pro providers. Use before cutting a stable release, after changes to auth/CloudSync/STT/enhance/calendar/billing flows, or when asked to "QA the app".
+description: QA-test the critical desktop user experience before a release — auth, CloudSync, calendar connect + notifications, note creation, recording, speaker identification, chat, and automated summaries across on-device and Pro providers. Use before cutting a stable release, after changes to auth/CloudSync/STT/enhance/calendar/billing flows, or when asked to "QA the app".
 ---
 
 # QA: Critical User Experience
@@ -92,8 +92,8 @@ waived by the user) before running the release-new-version skill.
    `desktop_cd.yaml`; use the exact-run handoff below.
 3. Sign in with a test account that has calendar access. On the Fastrepl QA
    machine, choose Google and select `john@fastrepl.com`. For provider matrix
-   runs you need: a Pro (or trialing) account, an API key for at least one
-   cloud provider (e.g. OpenAI), and a downloaded local STT + LLM model pair.
+   runs you need a Pro (or trialing) account and a downloaded local STT + LLM
+   model pair.
 4. Note the app version and the provider config under test in the report.
 5. For macOS audio regression runs, leave the MacBook open and use its
    built-in speakers and microphone with no external audio device attached.
@@ -339,7 +339,6 @@ tests alone is not cross-platform evidence.
 | Config | How to set |
 | --- | --- |
 | On-device | Settings → AI: select local STT model and local LLM; sign-out state is also worth one pass |
-| API keys | Settings → AI: configure a custom provider with an API key for both STT (if supported) and LLM |
 | Pro plan | Settings → AI: select Anarlog cloud (`anarlog` provider) with a Pro/trialing account |
 
 - PASS when: steps 3–6 behave identically in outcome under each config
