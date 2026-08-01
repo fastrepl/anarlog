@@ -11,6 +11,7 @@ export const appleSiliconDownloadUrl = getStableDownloadUrl("dmg-aarch64");
 export const appleIntelDownloadUrl = getStableDownloadUrl("dmg-x86_64");
 
 export const comingSoonPlatforms = [
+  "Windows",
   "iOS",
   "Android",
   "Apple Watch",
@@ -34,21 +35,6 @@ export const desktopDownloadSections = [
         name: "Intel",
         detail: "Intel-based Mac · DMG",
         url: appleIntelDownloadUrl,
-        showInMenu: true,
-      },
-    ],
-  },
-  {
-    platform: "windows",
-    name: "Windows",
-    status: "Beta",
-    description:
-      "Beta installer for 64-bit Windows PCs. Physical audio and AEC validation is pending.",
-    downloads: [
-      {
-        name: "Windows x64",
-        detail: "NSIS installer · EXE",
-        url: getStableDownloadUrl("nsis-x86_64"),
         showInMenu: true,
       },
     ],

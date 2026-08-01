@@ -2,9 +2,19 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  comingSoonPlatforms,
+  desktopDownloadSections,
   detectDesktopPlatform,
   getOrderedDesktopDownloadSections,
 } from "./download.ts";
+
+test("offers macOS and Linux downloads while Windows is coming soon", () => {
+  assert.deepEqual(
+    desktopDownloadSections.map((section) => section.platform),
+    ["macos", "linux"],
+  );
+  assert.equal(comingSoonPlatforms[0], "Windows");
+});
 
 test("detects supported desktop platforms from browser user agents", () => {
   assert.equal(
@@ -40,7 +50,7 @@ test("orders the detected platform first", () => {
     getOrderedDesktopDownloadSections("windows").map(
       (section) => section.platform,
     ),
-    ["windows", "macos", "linux"],
+    ["macos", "linux"],
   );
   assert.equal(
     getOrderedDesktopDownloadSections("macos")[0].downloads[0].name,

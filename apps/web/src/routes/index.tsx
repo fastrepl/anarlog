@@ -1297,8 +1297,10 @@ function DownloadButton() {
   const orderedSections = getOrderedDesktopDownloadSections(preferredPlatform);
   const preferredSection = orderedSections[0];
   const preferredDownload = preferredSection.downloads[0];
-  const preferredLabel =
-    preferredSection.platform === "macos"
+  const preferredPlatformComingSoon = preferredPlatform === "windows";
+  const preferredLabel = preferredPlatformComingSoon
+    ? "Windows — Coming soon"
+    : preferredSection.platform === "macos"
       ? `Download for ${preferredDownload.name}`
       : `Download for ${preferredSection.name}`;
 
@@ -1333,18 +1335,26 @@ function DownloadButton() {
       className="relative inline-flex text-sm font-medium"
     >
       <a
-        href={preferredDownload.url}
-        onClick={() =>
-          track("download_clicked", {
-            platform: preferredSection.platform,
-            spec: preferredDownload.name,
-            source: "homepage",
-          })
+        href={
+          preferredPlatformComingSoon ? "/download/" : preferredDownload.url
         }
+        onClick={() => {
+          if (!preferredPlatformComingSoon) {
+            track("download_clicked", {
+              platform: preferredSection.platform,
+              spec: preferredDownload.name,
+              source: "homepage",
+            });
+          }
+        }}
         className="inline-flex items-center gap-1.5 rounded-l-full bg-[#181613] py-3 pr-2 pl-4 text-[13px] text-white sm:pl-5 sm:text-sm"
       >
         <Icon
-          icon={getPlatformIcon(preferredSection.platform)}
+          icon={getPlatformIcon(
+            preferredPlatformComingSoon
+              ? preferredPlatform
+              : preferredSection.platform,
+          )}
           width={16}
           height={16}
           className="shrink-0"
@@ -1370,7 +1380,12 @@ function DownloadButton() {
           {orderedSections.map((section) =>
             section.downloads.map((download) => {
               if (!download.showInMenu) return null;
-              if (download.url === preferredDownload.url) return null;
+              if (
+                !preferredPlatformComingSoon &&
+                download.url === preferredDownload.url
+              ) {
+                return null;
+              }
 
               return (
                 <a
