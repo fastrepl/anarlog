@@ -1260,7 +1260,7 @@ msgstr "members"
 msgid "Memo"
 msgstr "Memo"
 
-#: src/session/components/note-input/header.tsx
+#: src/session/components/note-input/header-raw.tsx
 msgid "Memos"
 msgstr "Memos"
 
@@ -2379,7 +2379,7 @@ msgstr "Timezone"
 msgid "Tip: The Anarlog team loves our users!"
 msgstr "Tip: The Anarlog team loves our users!"
 
-#: src/session/components/note-input/header.tsx
+#: src/session/components/note-input/header-transcript.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
 #: src/templates/auto-form.tsx
 msgid "Transcript"
