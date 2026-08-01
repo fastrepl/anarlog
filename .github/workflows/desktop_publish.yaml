@@ -442,6 +442,7 @@ jobs:
 
   gh-release:
     needs: [parse, cn-publish]
+    if: ${{ !cancelled() && needs.parse.result == 'success' && needs.cn-publish.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       actions: read
