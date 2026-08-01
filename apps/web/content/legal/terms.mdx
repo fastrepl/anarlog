@@ -1,12 +1,12 @@
 ---
-date: "2026-05-03"
+date: "2026-08-01"
 title: "Terms of Service"
 summary: "Terms and conditions for using Anarlog"
 ---
 
 ## 1. Agreement to Terms
 
-By accessing or using Anarlog ("the Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, you may not access or use the Service.
+By accessing or using Anarlog ("the Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, you may not access or use the Service. You must be at least 13 years old and legally capable of entering into these Terms to use the Service.
 
 ## 2. Description of Service
 
@@ -14,11 +14,11 @@ Anarlog is an open-source note-taking and meeting transcription application. It 
 
 ### 2.1 Local-First Architecture
 
-Anarlog is designed as a local-first application. Your canonical notes, transcripts, and meeting data are stored locally on your device in SQLite; attachments and recordings are stored as local files. You can export Markdown and other formats. You can run Anarlog completely offline with local transcription and a local language model (for example, via LM Studio or Ollama). Cloud-based features — such as cloud transcription, AI summarization, CloudSync, and sharing — are optional and require an internet connection.
+Anarlog is designed as a local-first application. Your canonical notes, transcripts, and meeting data are stored locally on your device in SQLite; attachments and recordings are stored as local files. You can export Markdown and other formats. You can run Anarlog completely offline with local transcription and a local language model (for example, via LM Studio or Ollama). Cloud-based features — such as cloud transcription, AI summarization, Cloud Sync, sharing, and the Cloud API — are optional and require an internet connection.
 
 ### 2.2 Account and Cloud Features
 
-You can use Anarlog without an account by running it in fully local mode. If you want to use cloud-powered transcription and summarization, an account is created during onboarding so you can experience the full product. If you no longer wish to maintain an account, you can request account deletion at any time (see Section 3.3).
+You can use Anarlog without an account by running it in fully local mode. Creating an account is offered during onboarding and is required only for cloud-powered features such as cloud transcription and summarization. If you no longer wish to maintain an account, you can delete it at any time (see Section 3.3).
 
 ## 3. User Accounts
 
@@ -32,9 +32,20 @@ You are responsible for maintaining the confidentiality of your account credenti
 
 ### 3.3 Account Deletion
 
-You may request deletion of your account at any time by contacting us at hello@anarlog.so. Upon account deletion, your cloud-stored data will be removed within 30 days. Your locally stored data remains on your device and is not affected by account deletion. After deleting your account, Anarlog will continue to function with local-only features.
+You may delete your account at any time from the Account page in the web app (`anarlog.so/app/account`) or by contacting us at hello@anarlog.so. Upon account deletion, your cloud-stored data will be removed within 30 days. Your locally stored data remains on your device and is not affected by account deletion. After deleting your account, Anarlog will continue to function with local-only features.
 
-## 4. Acceptable Use
+## 4. Subscriptions, Trials, and Payment
+
+Anarlog is free and open source. Optional cloud features require a paid subscription ("Anarlog Pro").
+
+- **Billing and renewal.** Subscriptions are billed in advance on a monthly or yearly basis and renew automatically at the end of each billing period until canceled. You authorize our payment processor to charge your payment method for each renewal.
+- **Cancellation.** You can cancel at any time from the billing portal linked in the app's account settings. Cancellation takes effect at the end of the current billing period, and you keep access to paid features until then.
+- **Free trials.** We may offer a free trial of paid features for the period presented when you start it. Trials do not require a payment method, and we do not charge you automatically when a trial ends; paid features simply stop until you subscribe.
+- **Price changes.** We may change subscription prices with at least 30 days' notice before the change applies to you; continued use after renewal constitutes acceptance of the new price.
+- **Refunds.** Except where required by applicable law, fees are non-refundable.
+- **Taxes.** Fees exclude taxes, which you are responsible for where applicable.
+
+## 5. Acceptable Use
 
 You agree not to:
 
@@ -44,27 +55,31 @@ You agree not to:
 - Distribute viruses, malware, or other harmful computer code
 - Attempt to gain unauthorized access to the Service or its related systems or networks
 
-## 5. Intellectual Property
+## 6. Recording Consent
 
-The Anarlog source code is open source and licensed under the MIT License. The Anarlog name, logo, and trademarks are owned by Fastrepl, Inc. The Anarlog cloud service and any proprietary components are protected by international copyright, trademark, patent, trade secret, and other intellectual property laws.
+Anarlog can record meeting audio, which may include the voices of other participants. Laws on recording conversations vary by jurisdiction, and some require the consent of all participants. You are solely responsible for providing any required notice, obtaining any required consent from meeting participants, and otherwise complying with the laws that apply to your recordings. We are not responsible for your failure to do so.
 
-## 6. User Content
+## 7. Intellectual Property
 
-### 6.1 Ownership
+The Anarlog source code is open source and licensed under the MIT License. Anarlog also includes and interoperates with third-party components that are licensed under their own terms. The Anarlog name, logo, and trademarks are owned by Fastrepl, Inc. The Anarlog cloud service and any proprietary components are protected by international copyright, trademark, patent, trade secret, and other intellectual property laws.
+
+## 8. User Content
+
+### 8.1 Ownership
 
 You retain all rights to the content you create, upload, or store using the Service ("User Content").
 
-### 6.2 License
+### 8.2 License
 
 By uploading User Content to the Service's cloud features, you grant us a non-exclusive, worldwide, royalty-free license to use, store, and process your User Content solely for the purpose of providing the Service to you.
 
-## 7. Payment Terms
+### 8.3 End-to-End Encrypted Sync
 
-Anarlog is free and open source. Optional cloud features may require payment. You agree to pay all fees associated with your use of paid features. All fees are non-refundable unless otherwise specified.
+Content synced through Cloud Sync is end-to-end encrypted on your device using a recovery key that only you hold. We cannot read that content, and **we cannot recover it if you lose your recovery key**. You are responsible for keeping your recovery key safe.
 
-## 8. Communications and Marketing
+## 9. Communications and Marketing
 
-By providing your email address to us — whether through account registration, waitlist sign-ups, download reminders, or any other form on our website — you consent to receive communications from us. These communications may include:
+By providing your email address to us — whether through account registration, download reminders, or any other form on our website — you consent to receive communications from us. These communications may include:
 
 - **Transactional messages:** Account confirmations, password resets, and service-related notices
 - **Product updates:** Information about new features, improvements, and releases
@@ -72,29 +87,43 @@ By providing your email address to us — whether through account registration, 
 
 You may opt out of marketing communications at any time by clicking the "unsubscribe" link in any marketing email or by contacting us at hello@anarlog.so. Opting out of marketing communications will not affect transactional or service-related messages.
 
-## 9. Privacy and Third-Party Services
+## 10. Privacy and Third-Party Services
 
 Your use of the Service is also governed by our [Privacy Policy](/privacy). Please review it to understand our practices.
 
 The Service may integrate with third-party services to provide certain features, including cloud-based transcription, AI-powered summarization, payment processing, and analytics. When you enable cloud-based features, your data may be processed by our sub-processors. You acknowledge and agree that your use of these features is subject to the terms and privacy practices of such third-party services.
 
-## 10. Termination
+## 11. Termination
 
 We may terminate or suspend your account and access to cloud features immediately, without prior notice or liability, for any reason, including if you breach these Terms. Your locally stored data and the open-source application itself are unaffected by termination.
 
-## 11. Disclaimers
+## 12. Disclaimers
 
 THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
 
-## 12. Limitation of Liability
+Transcripts, summaries, and other AI-generated output are produced automatically and may be inaccurate, incomplete, or misattributed. You are responsible for reviewing AI output before relying on it or sharing it.
 
-TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL FASTREPL, INC., ITS AFFILIATES, DIRECTORS, EMPLOYEES, OR AGENTS BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES ARISING OUT OF OR RELATED TO YOUR USE OF THE SERVICE.
+## 13. Limitation of Liability
 
-## 13. Changes to Terms
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL FASTREPL, INC., ITS AFFILIATES, DIRECTORS, EMPLOYEES, OR AGENTS BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES ARISING OUT OF OR RELATED TO YOUR USE OF THE SERVICE. TO THE MAXIMUM EXTENT PERMITTED BY LAW, OUR TOTAL AGGREGATE LIABILITY ARISING OUT OF OR RELATED TO THE SERVICE SHALL NOT EXCEED THE GREATER OF THE AMOUNTS YOU PAID US IN THE TWELVE MONTHS BEFORE THE CLAIM AROSE OR ONE HUNDRED U.S. DOLLARS ($100).
 
-We reserve the right to modify these Terms at any time. We will notify you of any changes by posting the new Terms on this page and updating the date above.
+## 14. Indemnification
 
-## 14. Contact Us
+You agree to indemnify and hold harmless Fastrepl, Inc. and its officers, directors, employees, and agents from any claims, damages, liabilities, and expenses (including reasonable attorneys' fees) arising out of your User Content, your recordings, your violation of these Terms, or your violation of any law or third-party right.
+
+## 15. Governing Law and Disputes
+
+These Terms are governed by the laws of the State of Delaware, without regard to its conflict-of-laws rules. Before filing a claim, you agree to try to resolve the dispute informally by contacting us at hello@anarlog.so and allowing 30 days for us to respond. Any dispute not resolved informally shall be brought exclusively in the state or federal courts located in Delaware, and both parties consent to their jurisdiction. If you are a consumer in a jurisdiction whose laws grant you mandatory rights or a different forum, nothing in this section limits those rights.
+
+## 16. General
+
+If any provision of these Terms is found unenforceable, the remaining provisions remain in full effect. These Terms, together with the Privacy Policy, are the entire agreement between you and us regarding the Service. You may not assign these Terms without our prior written consent; we may assign them in connection with a merger, acquisition, or sale of assets. Our failure to enforce any provision is not a waiver of it.
+
+## 17. Changes to Terms
+
+We reserve the right to modify these Terms at any time. We will notify you of any changes by posting the new Terms on this page and updating the date above. Material changes to these Terms will be effective upon posting or a later stated date.
+
+## 18. Contact Us
 
 If you have any questions about these Terms, please contact us at:
 
