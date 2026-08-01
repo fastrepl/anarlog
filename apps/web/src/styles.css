@@ -925,13 +925,35 @@
 }
 
 .changelog-prose [data-changelog-banner-content],
-.changelog-prose [data-changelog-banner-content] p {
+.changelog-prose [data-changelog-banner-content] p,
+.changelog-prose [data-changelog-banner-content] ul,
+.changelog-prose [data-changelog-banner-content] ol,
+.changelog-prose [data-changelog-banner-content] li,
+.changelog-prose [data-changelog-banner-content] strong,
+.changelog-prose [data-changelog-banner-content] a,
+.changelog-prose [data-changelog-banner-content] a:hover {
   color: inherit;
   font-size: 1rem;
   line-height: 1.6;
 }
 
-.changelog-prose [data-changelog-banner-content] p:last-child {
+.changelog-prose [data-changelog-banner-content] ul,
+.changelog-prose [data-changelog-banner-content] ol,
+.changelog-prose [data-changelog-banner-content] li {
+  margin-bottom: 0.25rem;
+}
+
+.changelog-prose [data-changelog-banner-content] li::marker {
+  color: inherit;
+}
+
+.changelog-prose [data-changelog-banner-content] a {
+  text-decoration-color: currentColor;
+}
+
+.changelog-prose [data-changelog-banner-content] p:last-child,
+.changelog-prose [data-changelog-banner-content] ul:last-child,
+.changelog-prose [data-changelog-banner-content] ol:last-child {
   margin-bottom: 0;
 }
 
