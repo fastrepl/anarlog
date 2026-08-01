@@ -282,7 +282,7 @@ msgstr "Appearance"
 msgid "Apply to all"
 msgstr "Apply to all"
 
-#: src/session-sharing/management-panel.tsx
+#: src/session-sharing/access-management.tsx
 msgid "Approve"
 msgstr "Approve"
 
@@ -750,7 +750,7 @@ msgstr "Delete This Event"
 msgid "Deleting..."
 msgstr "Deleting..."
 
-#: src/session-sharing/management-panel.tsx
+#: src/session-sharing/access-management.tsx
 msgid "Deny"
 msgstr "Deny"
 
