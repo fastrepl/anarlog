@@ -3,27 +3,21 @@ import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 import {
   bindCloudsyncAccount,
-  configureCloudsyncToken,
-  execute,
   getCloudsyncStatus,
   isCloudsyncActivityDeferredError,
   suspendCloudsync,
   suspendCloudsyncAfterAuthLoss,
   suspendCloudsyncForSignOut,
 } from "@anlg/plugin-db";
-import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
+import { configureCloudsyncCredentials } from "./cloudsync-configuration";
 import {
   DEVICE_LIMIT_ERROR_CODE,
   DEVICE_LIMIT_TOAST_ID,
-  DEVICE_NAME_HEADER,
   getCloudsyncCredentialBlock,
-  getDeviceIdentity,
   hasWorkspaceProjection,
   isCredentials,
-  raceWithAbort,
-  readCredentialErrorCode,
   readE2eeIdentity,
   readStoredSettings,
   setCredentialBlock,
@@ -34,10 +28,10 @@ import {
   startCloudsyncInitialSyncProgress,
   stopCloudsyncInitialSyncProgress,
 } from "./cloudsync-progress";
+import { flushCloudsyncSessionEvictions } from "./cloudsync-session-evictions";
+import { requestCloudsyncCredentials } from "./cloudsync-token-exchange";
 
-import { env } from "~/env";
 import { resolveConfigValue } from "~/shared/config";
-import { DEVICE_FINGERPRINT_HEADER } from "~/shared/utils";
 
 export {
   getCloudsyncCredentialBlock,
@@ -197,115 +191,6 @@ function shouldStopCloudsyncSessionEvictions(activeGeneration: number) {
   );
 }
 
-async function flushCloudsyncSessionEvictions(
-  activeGeneration: number,
-): Promise<boolean> {
-  const batchSize = 128;
-
-  while (true) {
-    if (shouldStopCloudsyncSessionEvictions(activeGeneration)) {
-      return false;
-    }
-
-    let rows: { sessionId: string; workspaceId: string }[];
-    try {
-      rows = await execute(
-        `
-          SELECT
-            eviction.session_id AS sessionId,
-            eviction.workspace_id AS workspaceId
-          FROM cloudsync_session_evictions AS eviction
-          WHERE NOT EXISTS (
-            SELECT 1
-            FROM workspace_memberships AS membership
-            WHERE membership.workspace_id = eviction.workspace_id
-              AND membership.deleted_at IS NULL
-          )
-          AND NOT EXISTS (
-            SELECT 1
-            FROM sessions
-            WHERE sessions.id = eviction.session_id
-          )
-          ORDER BY eviction.queued_at, eviction.session_id
-          LIMIT ?
-        `,
-        [batchSize],
-      );
-    } catch (error) {
-      console.warn("[cloudsync] session eviction queue unavailable", error);
-      return true;
-    }
-
-    if (shouldStopCloudsyncSessionEvictions(activeGeneration)) {
-      return false;
-    }
-    if (rows.length === 0) return false;
-
-    let failed = false;
-    for (const row of rows) {
-      if (shouldStopCloudsyncSessionEvictions(activeGeneration)) {
-        return false;
-      }
-
-      let deletionError = "";
-      try {
-        const result = await fsSyncCommands.deleteSessionFolder(row.sessionId);
-        if (result.status === "error") {
-          deletionError = String(result.error);
-        }
-      } catch (error) {
-        deletionError = error instanceof Error ? error.message : String(error);
-      }
-
-      if (shouldStopCloudsyncSessionEvictions(activeGeneration)) {
-        return false;
-      }
-
-      try {
-        if (deletionError) {
-          failed = true;
-          await execute(
-            `
-              UPDATE cloudsync_session_evictions
-              SET attempt_count = attempt_count + 1,
-                  last_attempt_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
-                  last_error = ?
-              WHERE session_id = ? AND workspace_id = ?
-            `,
-            [deletionError.slice(0, 512), row.sessionId, row.workspaceId],
-          );
-          continue;
-        }
-
-        await execute(
-          `
-            DELETE FROM cloudsync_session_evictions
-            WHERE session_id = ? AND workspace_id = ?
-              AND NOT EXISTS (
-                SELECT 1
-                FROM workspace_memberships
-                WHERE workspace_id = ? AND deleted_at IS NULL
-              )
-              AND NOT EXISTS (
-                SELECT 1 FROM sessions WHERE id = ?
-              )
-          `,
-          [row.sessionId, row.workspaceId, row.workspaceId, row.sessionId],
-        );
-      } catch (error) {
-        failed = true;
-        console.warn(
-          "[cloudsync] failed to update session eviction queue",
-          error,
-        );
-      }
-    }
-
-    if (failed) return true;
-    if (rows.length < batchSize) return false;
-  }
-}
-
 function scheduleCloudsyncSessionEvictionRetry(activeGeneration: number) {
   if (evictionRetryTimer) {
     clearTimeout(evictionRetryTimer);
@@ -316,7 +201,9 @@ function scheduleCloudsyncSessionEvictionRetry(activeGeneration: number) {
 
     void enqueuePluginOperation(async () => {
       if (shouldStopCloudsyncSessionEvictions(activeGeneration)) return;
-      const retry = await flushCloudsyncSessionEvictions(activeGeneration);
+      const retry = await flushCloudsyncSessionEvictions(() =>
+        shouldStopCloudsyncSessionEvictions(activeGeneration),
+      );
       if (retry && activeGeneration === generation) {
         scheduleCloudsyncSessionEvictionRetry(activeGeneration);
       }
@@ -1026,51 +913,23 @@ async function activateCloudsync(
     controller.abort();
   }, EXCHANGE_TIMEOUT_MS);
 
-  let response: Response | null = null;
-  let credentials: unknown;
-  let credentialErrorCode: string | null = null;
-  try {
-    const device = await raceWithAbort(getDeviceIdentity(), controller.signal);
-    if (isCleanupSuspendRequired()) {
-      scheduleReactivation();
-      return "ok";
-    }
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${session.access_token}`,
-      "X-Anarlog-E2EE-Key-Id": encryptionKeyId,
-    };
-    if (device.fingerprint) {
-      headers[DEVICE_FINGERPRINT_HEADER] = device.fingerprint;
-    }
-    if (device.name) {
-      headers[DEVICE_NAME_HEADER] = device.name;
-    }
+  const exchange = await requestCloudsyncCredentials({
+    accessToken: session.access_token,
+    encryptionKeyId,
+    shouldStop: isCleanupSuspendRequired,
+    signal: controller.signal,
+  });
+  clearTimeout(exchangeTimeout);
+  if (exchangeController === controller) {
+    exchangeController = null;
+  }
 
-    response = await raceWithAbort(
-      fetch(new URL("/sync/token", env.VITE_API_URL), {
-        method: "POST",
-        headers,
-        signal: controller.signal,
-      }),
-      controller.signal,
-    );
+  if (exchange.status === "stopped") {
+    scheduleReactivation();
+    return "ok";
+  }
 
-    if (response.ok) {
-      credentials = await raceWithAbort(response.json(), controller.signal);
-    } else if (response.status === 403) {
-      try {
-        credentialErrorCode = await raceWithAbort(
-          readCredentialErrorCode(response),
-          controller.signal,
-        );
-      } catch {
-        if (activeGeneration !== generation) {
-          return "ok";
-        }
-        credentialErrorCode = null;
-      }
-    }
-  } catch {
+  if (exchange.status === "error") {
     if (
       activeGeneration !== generation ||
       (controller.signal.aborted && !exchangeTimedOut)
@@ -1079,9 +938,9 @@ async function activateCloudsync(
     }
 
     console.warn(
-      response === null
-        ? "[cloudsync] credential exchange unavailable; retrying"
-        : "[cloudsync] credential exchange returned an invalid response",
+      exchange.responseReceived
+        ? "[cloudsync] credential exchange returned an invalid response"
+        : "[cloudsync] credential exchange unavailable; retrying",
     );
     scheduleExchange(
       session,
@@ -1090,12 +949,9 @@ async function activateCloudsync(
       onAccountMismatch,
     );
     return "ok";
-  } finally {
-    clearTimeout(exchangeTimeout);
-    if (exchangeController === controller) {
-      exchangeController = null;
-    }
   }
+
+  const { response, credentials, credentialErrorCode } = exchange;
 
   if (activeGeneration !== generation) {
     return "ok";
@@ -1226,36 +1082,11 @@ async function activateCloudsync(
         return "cleanup_required" as const;
       }
 
-      const configuration = hasWorkspaceProjection(credentials)
-        ? await configureCloudsyncToken(
-            credentials.databaseId,
-            credentials.token,
-            accountUserId,
-            {
-              endpoint: new URL(
-                `/sync/e2ee/witness/${credentials.personalWorkspaceId}`,
-                env.VITE_API_URL,
-              ).toString(),
-              accessToken: session.access_token,
-            },
-            {
-              accountUserId: credentials.accountUserId,
-              personalWorkspaceId: credentials.personalWorkspaceId,
-              workspaces: credentials.workspaces,
-            },
-          )
-        : await configureCloudsyncToken(
-            credentials.databaseId,
-            credentials.token,
-            accountUserId,
-            {
-              endpoint: new URL(
-                `/sync/e2ee/witness/${credentials.workspaceId}`,
-                env.VITE_API_URL,
-              ).toString(),
-              accessToken: session.access_token,
-            },
-          );
+      const configuration = await configureCloudsyncCredentials(
+        credentials,
+        session.access_token,
+        accountUserId,
+      );
 
       let cleanupRequired = isCleanupSuspendRequired();
       if (activeGeneration !== generation || cleanupRequired) {
@@ -1266,8 +1097,9 @@ async function activateCloudsync(
       }
 
       if (configuration === "configured" && activeGeneration === generation) {
-        const retryEvictions =
-          await flushCloudsyncSessionEvictions(activeGeneration);
+        const retryEvictions = await flushCloudsyncSessionEvictions(() =>
+          shouldStopCloudsyncSessionEvictions(activeGeneration),
+        );
         if (retryEvictions) {
           scheduleCloudsyncSessionEvictionRetry(activeGeneration);
         }
