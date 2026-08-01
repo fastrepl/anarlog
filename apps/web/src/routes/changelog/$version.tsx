@@ -50,7 +50,7 @@ function Component() {
 
   return (
     <main className="min-h-screen bg-white text-[#181613]">
-      <div className="mx-auto w-full max-w-[700px] px-5 py-8 md:px-8 md:py-12">
+      <div className="mx-auto w-full max-w-[860px] px-5 py-8 md:px-8 md:py-12">
         <header className="flex items-center justify-between gap-6">
           <Link to="/" aria-label="Anarlog home">
             <img src="/logo.svg" alt="Anarlog" className="h-9 w-auto" />
@@ -64,24 +64,34 @@ function Component() {
           ← Changelog
         </Link>
 
-        <header className="pt-10 pb-12">
-          <h1 className="font-hand text-5xl leading-[1.02] font-semibold tracking-normal text-balance text-black md:text-7xl">
-            v{entry.version}
+        <header className="max-w-[760px] pt-10 pb-12 md:pt-14 md:pb-16">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-[#756b5d]">
+            <span className="font-medium tracking-[0.14em] uppercase">
+              Release notes
+            </span>
+            {entry.date && (
+              <>
+                <span aria-hidden="true">·</span>
+                <time dateTime={entry.date}>
+                  {formatChangelogDate(entry.date)}
+                </time>
+              </>
+            )}
+          </div>
+          <h1 className="font-hand mt-5 text-5xl leading-[1.02] font-semibold tracking-normal text-balance text-black md:text-7xl">
+            Anarlog v{entry.version}
           </h1>
-          {entry.date && (
-            <time
-              dateTime={entry.date}
-              className="mt-6 block text-sm text-[#756b5d]"
-            >
-              {formatChangelogDate(entry.date)}
-            </time>
+          {entry.summary && (
+            <p className="mt-6 max-w-[720px] text-xl leading-8 text-[#4f4940] md:text-2xl md:leading-9">
+              {entry.summary}
+            </p>
           )}
         </header>
 
-        <article className="border-t border-[#eee8df] pt-8">
+        <article className="max-w-[760px] border-t border-[#eee8df] pt-10 md:pt-12">
           <ChangelogContent
             content={entry.content}
-            className="text-sm leading-7"
+            className="changelog-prose"
           />
         </article>
       </div>

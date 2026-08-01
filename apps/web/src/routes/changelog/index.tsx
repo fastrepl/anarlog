@@ -1,3 +1,4 @@
+import { ArrowRight } from "@phosphor-icons/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { SiteFooter } from "@/components/site-footer";
@@ -25,7 +26,7 @@ export const Route = createFileRoute("/changelog/")({
 function Component() {
   return (
     <main className="min-h-screen bg-white text-[#181613]">
-      <div className="mx-auto w-full max-w-[700px] px-5 py-8 md:px-8 md:py-12">
+      <div className="mx-auto w-full max-w-[860px] px-5 py-8 md:px-8 md:py-12">
         <header className="flex items-center justify-between gap-6">
           <Link to="/" aria-label="Anarlog home">
             <img src="/logo.svg" alt="Anarlog" className="h-9 w-auto" />
@@ -42,42 +43,47 @@ function Component() {
         </section>
 
         {changelogEntries.length > 0 ? (
-          <ol className="grid gap-12">
-            {changelogEntries.map((entry) => (
+          <ol className="border-y border-[#eee8df]">
+            {changelogEntries.map((entry, index) => (
               <li
                 key={entry.version}
                 id={entry.version}
-                className="scroll-mt-8 border-t border-[#eee8df] pt-8"
+                className="scroll-mt-8 border-b border-[#eee8df] last:border-b-0"
               >
-                <article className="grid gap-4">
-                  <header className="flex flex-wrap items-baseline justify-between gap-x-5 gap-y-2">
-                    <Link
-                      to="/changelog/$version/"
-                      params={{ version: entry.version }}
-                      className="group"
-                    >
-                      <h2 className="font-hand text-4xl leading-none font-semibold tracking-normal text-[#756b5d] group-hover:text-[#4f4940]">
-                        v{entry.version}
-                      </h2>
-                    </Link>
-                    {entry.date && (
-                      <time
-                        dateTime={entry.date}
-                        className="text-sm text-[#756b5d]"
-                      >
-                        {formatChangelogDate(entry.date)}
-                      </time>
-                    )}
-                  </header>
-                  <p className="leading-7 text-[#4f4940]">
-                    {getEntrySummary(entry.summary ?? entry.content)}
-                  </p>
+                <article>
                   <Link
                     to="/changelog/$version/"
                     params={{ version: entry.version }}
-                    className="text-sm font-medium text-[#756b5d] hover:text-[#181613]"
+                    className="group grid gap-4 py-7 sm:grid-cols-[10rem_minmax(0,1fr)_1.5rem] sm:items-start sm:gap-6 md:py-9"
                   >
-                    Read release notes
+                    <header>
+                      <div className="flex items-center gap-2.5">
+                        <h2 className="font-hand text-4xl leading-none font-semibold tracking-normal text-[#756b5d] transition-colors group-hover:text-[#181613]">
+                          v{entry.version}
+                        </h2>
+                        {index === 0 && (
+                          <span className="rounded-full bg-[#f3eee6] px-2 py-1 text-[0.65rem] font-semibold tracking-[0.12em] text-[#756b5d] uppercase">
+                            Latest
+                          </span>
+                        )}
+                      </div>
+                      {entry.date && (
+                        <time
+                          dateTime={entry.date}
+                          className="mt-2 block text-xs text-[#756b5d]"
+                        >
+                          {formatChangelogDate(entry.date)}
+                        </time>
+                      )}
+                    </header>
+                    <p className="text-base leading-7 text-[#4f4940] transition-colors group-hover:text-[#363029] md:text-lg md:leading-8">
+                      {getEntrySummary(entry.summary ?? entry.content)}
+                    </p>
+                    <ArrowRight
+                      aria-hidden="true"
+                      className="mt-1 hidden text-[#9a9082] transition group-hover:translate-x-1 group-hover:text-[#181613] sm:block"
+                      size={20}
+                    />
                   </Link>
                 </article>
               </li>

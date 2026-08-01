@@ -133,6 +133,8 @@ export const changelogComponents = {
     children?: React.ReactNode;
   }) => (
     <div
+      data-changelog-banner
+      data-variant={variant ?? "default"}
       className={cn([
         "mb-2 rounded-xl border px-5 pt-4 pb-4",
         variant === "warning"
@@ -144,6 +146,7 @@ export const changelogComponents = {
     >
       {title && (
         <div
+          data-changelog-banner-title
           className={cn([
             "mb-1 text-sm font-semibold",
             variant === "warning"
@@ -157,6 +160,7 @@ export const changelogComponents = {
         </div>
       )}
       <div
+        data-changelog-banner-content
         className={cn([
           "text-sm [&_p:last-child]:mb-0 [&_ul:last-child]:mb-0",
           changelogBodyClassName,
