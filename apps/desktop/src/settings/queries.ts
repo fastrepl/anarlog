@@ -414,12 +414,13 @@ function applySettingSideEffects(values: SettingValues): void {
       .catch(console.error);
   }
   if (values.telemetry_consent !== undefined) {
+    const telemetryConsent = values.telemetry_consent;
     void analyticsCommands
-      .setDisabled(!values.telemetry_consent)
-      .catch(console.error);
-    if (!values.telemetry_consent) {
-      disableSessionReplay();
-    }
+      .setDisabled(!telemetryConsent)
+      .catch(console.error)
+      .finally(() => {
+        if (!telemetryConsent) disableSessionReplay();
+      });
   }
   if (values.show_app_in_dock !== undefined) {
     void windowsCommands

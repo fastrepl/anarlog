@@ -1,10 +1,63 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  addIntegration: vi.fn(),
+  emit: vi.fn(),
+  getClient: vi.fn(),
+  isDisabled: vi.fn(),
+  listener: undefined as undefined | (() => void),
+  listen: vi.fn(),
+  replayIntegration: vi.fn(),
+  stopReplay: vi.fn(),
+}));
+
+vi.mock("@sentry/react", () => ({
+  addIntegration: mocks.addIntegration,
+  captureException: vi.fn(),
+  getClient: mocks.getClient,
+  init: vi.fn(),
+  replayIntegration: mocks.replayIntegration,
+  setUser: vi.fn(),
+  withScope: vi.fn(),
+}));
+
+vi.mock("@tauri-apps/api/event", () => ({
+  emit: mocks.emit,
+  listen: mocks.listen,
+}));
+
+vi.mock("@anlg/plugin-analytics", () => ({
+  commands: { isDisabled: mocks.isDisabled },
+}));
+
+vi.mock("./env", () => ({
+  env: {
+    VITE_APP_VERSION: "test",
+    VITE_SENTRY_DSN: "https://public@example.com/1",
+  },
+}));
 
 import {
   normalizeOperationalError,
   operationalErrorMetadata,
   sanitizeErrorEvent,
 } from "./error-reporting";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.listener = undefined;
+  mocks.emit.mockResolvedValue(undefined);
+  mocks.getClient.mockReturnValue({
+    getIntegrationByName: () => ({ stop: mocks.stopReplay }),
+  });
+  mocks.isDisabled.mockResolvedValue({ status: "ok", data: false });
+  mocks.listen.mockImplementation(async (_event, listener) => {
+    mocks.listener = listener;
+    return vi.fn();
+  });
+  mocks.replayIntegration.mockReturnValue({ name: "Replay" });
+  mocks.stopReplay.mockResolvedValue(undefined);
+});
 
 describe("normalizeOperationalError", () => {
   it("preserves useful fields from structured API failures", () => {
@@ -148,5 +201,52 @@ describe("sanitizeErrorEvent", () => {
         },
       },
     ]);
+  });
+});
+
+describe("session replay consent", () => {
+  it("broadcasts revocation and stops the local replay", async () => {
+    vi.resetModules();
+    const { disableSessionReplay, initializeErrorReporting } =
+      await import("./error-reporting");
+
+    initializeErrorReporting();
+    await vi.waitFor(() => expect(mocks.addIntegration).toHaveBeenCalledOnce());
+
+    disableSessionReplay();
+
+    expect(mocks.stopReplay).toHaveBeenCalledOnce();
+    expect(mocks.emit).toHaveBeenCalledWith("anlg:session-replay-disabled");
+  });
+
+  it("stops replay when another webview revokes consent", async () => {
+    vi.resetModules();
+    const { initializeErrorReporting } = await import("./error-reporting");
+
+    initializeErrorReporting();
+    await vi.waitFor(() => expect(mocks.addIntegration).toHaveBeenCalledOnce());
+
+    mocks.listener?.();
+
+    expect(mocks.stopReplay).toHaveBeenCalledOnce();
+  });
+
+  it("does not attach replay when revocation races with consent loading", async () => {
+    vi.resetModules();
+    let resolveConsent!: (value: { status: "ok"; data: boolean }) => void;
+    mocks.isDisabled.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveConsent = resolve;
+      }),
+    );
+    const { initializeErrorReporting } = await import("./error-reporting");
+
+    initializeErrorReporting();
+    await vi.waitFor(() => expect(mocks.isDisabled).toHaveBeenCalledOnce());
+    mocks.listener?.();
+    resolveConsent({ status: "ok", data: false });
+
+    await Promise.resolve();
+    expect(mocks.addIntegration).not.toHaveBeenCalled();
   });
 });

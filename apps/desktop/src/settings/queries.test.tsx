@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   execute: vi.fn(),
+  disableSessionReplay: vi.fn(),
   getPreferredLanguages: vi.fn(),
   getTemplateSource: vi.fn(),
+  setDisabled: vi.fn(async () => ({ status: "ok", data: null })),
   setAutomaticUpdatesEnabled: vi.fn(async () => undefined),
   setProperties: vi.fn(async () => undefined),
   executeTransaction: vi.fn(
@@ -14,9 +16,13 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@anlg/plugin-analytics", () => ({
   commands: {
-    setDisabled: vi.fn(async () => undefined),
+    setDisabled: mocks.setDisabled,
     setProperties: mocks.setProperties,
   },
+}));
+
+vi.mock("~/error-reporting", () => ({
+  disableSessionReplay: mocks.disableSessionReplay,
 }));
 
 vi.mock("@anlg/plugin-detect", () => ({
@@ -58,6 +64,7 @@ import {
 describe("SQLite settings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.setDisabled.mockResolvedValue({ status: "ok", data: null });
     mocks.execute.mockResolvedValue([]);
     mocks.getPreferredLanguages.mockResolvedValue({
       status: "error",
@@ -159,6 +166,25 @@ describe("SQLite settings", () => {
     await setSettingValues({ automatic_updates: false });
 
     expect(mocks.setAutomaticUpdatesEnabled).toHaveBeenCalledWith(false);
+  });
+
+  it("broadcasts replay revocation after persisting telemetry opt-out", async () => {
+    let resolveDisabled!: (value: { status: "ok"; data: null }) => void;
+    mocks.setDisabled.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveDisabled = resolve;
+      }),
+    );
+
+    await setSettingValues({ telemetry_consent: false });
+
+    expect(mocks.setDisabled).toHaveBeenCalledWith(true);
+    expect(mocks.disableSessionReplay).not.toHaveBeenCalled();
+
+    resolveDisabled({ status: "ok", data: null });
+    await vi.waitFor(() =>
+      expect(mocks.disableSessionReplay).toHaveBeenCalledOnce(),
+    );
   });
 
   it("migrates and persists the consent chat auto-send setting", async () => {

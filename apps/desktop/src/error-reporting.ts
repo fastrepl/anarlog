@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/react";
 import type { ErrorEvent, SeverityLevel } from "@sentry/react";
+import { emit, listen } from "@tauri-apps/api/event";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 
@@ -7,6 +8,7 @@ import { env } from "./env";
 
 type ErrorContextValue = null | boolean | number | string;
 const SAFE_IDENTIFIER_RE = /^[a-zA-Z0-9_.:/-]{1,128}$/;
+const SESSION_REPLAY_DISABLED_EVENT = "anlg:session-replay-disabled";
 
 function safeIdentifier(value: unknown): string | undefined {
   return typeof value === "string" && SAFE_IDENTIFIER_RE.test(value)
@@ -153,15 +155,17 @@ export function initializeErrorReporting() {
     },
   });
 
-  void attachSessionReplayIfConsented();
+  void initializeSessionReplay();
 }
 
 let sessionReplayAttached = false;
+let sessionReplayDisabled = false;
 
-async function attachSessionReplayIfConsented() {
+async function initializeSessionReplay() {
   try {
+    await listen(SESSION_REPLAY_DISABLED_EVENT, stopSessionReplay);
     const disabled = await analyticsCommands.isDisabled();
-    if (disabled.status === "ok" && !disabled.data) {
+    if (disabled.status === "ok" && !disabled.data && !sessionReplayDisabled) {
       Sentry.addIntegration(
         Sentry.replayIntegration({
           blockAllMedia: true,
@@ -175,15 +179,22 @@ async function attachSessionReplayIfConsented() {
   }
 }
 
-// Turning consent back on takes effect on the next launch, so the
-// session sampling decision is only ever made at startup.
-export function disableSessionReplay() {
+function stopSessionReplay() {
+  sessionReplayDisabled = true;
   if (!sessionReplayAttached) return;
 
+  sessionReplayAttached = false;
   const replay = Sentry.getClient()?.getIntegrationByName?.("Replay") as
     | { stop?: () => Promise<void> }
     | undefined;
   void replay?.stop?.()?.catch(() => {});
+}
+
+// Turning consent back on takes effect on the next launch, so the
+// session sampling decision is only ever made at startup.
+export function disableSessionReplay() {
+  stopSessionReplay();
+  void emit(SESSION_REPLAY_DISABLED_EVENT).catch(() => {});
 }
 
 export function captureOperationalError(
