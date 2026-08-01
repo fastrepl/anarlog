@@ -3,7 +3,9 @@ title: "API reference"
 description: "Endpoints, authentication, and webhooks exposed by the Anarlog local API."
 ---
 
-The Anarlog API is a local REST server built into the desktop app, available on every plan. Enable it under **Settings → Developers → Local API**. It serves the same read-only meeting data as the CLI and MCP server, plus outbound webhooks — and because Anarlog is local-first with end-to-end encrypted sync, your notes are served from this device only and never pass through our servers.
+The local API is built into the desktop app and available on every plan. Enable it under **Settings → Developers → Local API**. It serves the same read-only meeting data as the CLI and MCP server and can send outbound webhooks.
+
+API reads stay on this device and do not pass through Anarlog's servers. Webhooks are different: Anarlog sends subscribed meeting data to the endpoint you configure.
 
 For hosted access that works while the desktop app is closed, see [Cloud API and connectors](/reference/api-cloud).
 
@@ -24,6 +26,8 @@ Errors always look like:
 ```
 
 Codes: `unauthorized`, `not_found`, `invalid_request`, `internal_error`.
+
+Malformed JSON can return a plain-text `400` before the endpoint handler runs.
 
 ## Endpoints
 
@@ -71,11 +75,11 @@ Manage webhook endpoints. Create with:
 { "url": "https://example.com/hooks", "events": ["note.enhanced"] }
 ```
 
-An empty `events` array subscribes to all events. The response includes the signing `secret` (`whsec_...`) exactly once; list responses omit it.
+An empty `events` array subscribes to all events. A successful create returns `201` and includes the signing `secret` (`whsec_...`) exactly once. List responses omit the secret. Delete returns `204`; test returns `delivered` and `status` for one delivery attempt.
 
 ## Webhooks
 
-Anarlog delivers events as JSON `POST` requests while the desktop app is running:
+Anarlog delivers events as JSON `POST` requests while the desktop app is running. Meeting events include the note, summaries, participants, action items, and full transcript text, so only use an endpoint you trust.
 
 | Event | Fires when |
 | --- | --- |
@@ -97,7 +101,7 @@ The payload envelope is:
 }
 ```
 
-Deliveries time out after 10 seconds and are retried twice (after 5s and 30s). Each request includes:
+Meeting event deliveries time out after 10 seconds. Failed attempts retry after 5 and 30 seconds. A `webhook.test` request makes one attempt. Each request includes:
 
 | Header | Content |
 | --- | --- |
@@ -114,11 +118,14 @@ import crypto from "node:crypto";
 const expected = `sha256=${
   crypto.createHmac("sha256", secret).update(rawBody).digest("hex")
 }`;
-const valid = crypto.timingSafeEqual(
-  Buffer.from(expected),
-  Buffer.from(request.headers["x-anarlog-signature"]),
-);
+const signature = request.headers["x-anarlog-signature"];
+const received = typeof signature === "string" ? signature : "";
+const valid =
+  Buffer.byteLength(received) === Buffer.byteLength(expected) &&
+  crypto.timingSafeEqual(Buffer.from(received), Buffer.from(expected));
 ```
+
+Verify the raw body before parsing it. For replay protection, reject stale signed `created_at` values and store each payload `id` so retries are processed once.
 
 ## Limits
 

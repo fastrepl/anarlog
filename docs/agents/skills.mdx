@@ -3,7 +3,7 @@ title: "Anarlog skill"
 description: "Teach a compatible agent when and how to use Anarlog's MCP and CLI surfaces."
 ---
 
-The public Anarlog skill gives agents one transport-agnostic workflow:
+The public Anarlog skill teaches agents a single workflow across MCP and CLI:
 
 1. Prefer connected Anarlog MCP tools.
 2. Fall back to `anarlog --json` when MCP is unavailable.
@@ -11,16 +11,16 @@ The public Anarlog skill gives agents one transport-agnostic workflow:
 4. Fetch meeting detail before transcript text.
 5. Keep transcript reads bounded and never access SQLite directly.
 
-## Canonical sources
+## Sources
 
-- Public skill: `https://docs.anarlog.so/skill.md`
+- Published skill: `https://docs.anarlog.so/skill.md`
 - Repository package: [`skills/anarlog`](https://github.com/fastrepl/anarlog/tree/main/skills/anarlog)
 
-The repository package includes concise references for setup, CLI commands, MCP tools, and errors.
+The published file is self-contained. The repository package adds references for setup, CLI commands, MCP tools, and errors.
 
 ## Install in an agent
 
-Install from the public documentation with the open skills CLI:
+Install it from the documentation site with the skills CLI:
 
 ```bash
 npx skills add https://docs.anarlog.so

@@ -5,7 +5,7 @@
 - This is the Mintlify project published at `https://docs.anarlog.so`.
 - Write for Anarlog users, developers, and agents using the CLI or MCP server.
 - Configuration lives in `docs.json`; content pages are MDX.
-- The public agent skill is maintained in `../skills/anarlog/`.
+- The public agent skill is served from `skill.md`. Keep its workflow aligned with the packaged skill in `../skills/anarlog/`.
 
 ## Sources of truth
 
@@ -26,13 +26,14 @@
 
 - Document only commands, options, tools, resources, and output behavior present in the source.
 - Mark planned features and distribution channels as forthcoming.
-- Never describe Homebrew, desktop-bundled CLI, or Windows binaries as available until release automation publishes them.
+- Never describe Homebrew, standalone release binaries, or Windows package-manager installation as available until release automation publishes them.
+- Document desktop-bundled CLI installation only for platforms whose release workflow includes the CLI sidecar and installer UI.
 - Never tell users or agents to read, migrate, or modify the SQLite database directly.
 - Keep transcript examples bounded. CLI and MCP transcript pages default to 200 words and cap at 500 words.
 
 ## Verification
 
 - Check `docs.json` after adding or moving a page.
-- Run `pnpm exec dprint fmt docs skills` from the repository root.
-- Run `pnpm exec dprint check docs skills` before submitting.
+- Run `pnpm exec dprint fmt 'docs/**/*' 'skills/**/*'` from the repository root.
+- Run `pnpm exec dprint check 'docs/**/*' 'skills/**/*'` before submitting.
 - Run `mint validate` and `mint broken-links --check-anchors --check-redirects` from `docs/` before deploying.

@@ -5,7 +5,7 @@ description: "Install the current Anarlog CLI and point it at local meeting data
 
 ## Current availability
 
-The CLI includes the `anarlog mcp` server in the same executable.
+The `anarlog` executable includes both the CLI and the local MCP server.
 
 <Warning>
   Homebrew, standalone release binaries, and Windows package-manager distribution are forthcoming. Do not rely on those channels yet.
@@ -13,7 +13,7 @@ The CLI includes the `anarlog mcp` server in the same executable.
 
 ## Install from the desktop app
 
-On macOS, open **Settings → Developers** and select **Install**. Anarlog installs the bundled command at `~/.local/bin/anarlog` without sending data anywhere.
+On macOS, open **Settings → Developers** and select **Install**. Anarlog copies its bundled CLI to `~/.local/bin/anarlog`.
 
 If your shell cannot find `anarlog`, add `~/.local/bin` to `PATH`:
 
@@ -38,7 +38,9 @@ anarlog --version
 
 By default, the CLI looks for `anarlog/app.db` in your operating system's application-data directory. It also recognizes legacy Anarlog locations.
 
-Open the desktop app once before using the CLI. For a custom database location, pass a global option or environment variable:
+Open the desktop app once so it can create the database. After that, the CLI and local MCP server work while the app is closed.
+
+For a custom database location, pass a global option or environment variable:
 
 ```bash
 anarlog --db-path /path/to/app.db --json meetings list

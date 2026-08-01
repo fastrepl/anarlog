@@ -20,9 +20,7 @@ Never query or modify Anarlog's SQLite database directly. The CLI and MCP server
 1. List recent meetings or search by a short title fragment.
 2. Use a meeting ID returned by the search. Never guess one.
 3. Get the meeting before requesting its transcript. Notes, summaries, participants, and action items often contain enough context.
-4. Ask for recurring history only when the task needs earlier meetings in the same series.
-
-See [CLI commands](references/cli.md) and [MCP tools](references/mcp.md).
+4. Request recurring history only when the task needs earlier meetings in the same series.
 
 ## Keep context bounded
 
@@ -39,4 +37,4 @@ See [CLI commands](references/cli.md) and [MCP tools](references/mcp.md).
 - CLI export can create a file. Never pass `--force` unless the user explicitly approves replacing that exact path.
 - If search results are ambiguous, ask the user to choose a meeting.
 
-For setup and failures, see [setup](references/setup.md) and [errors](references/errors.md).
+See the [CLI reference](https://docs.anarlog.so/reference/cli), [MCP reference](https://docs.anarlog.so/reference/mcp), and [error guide](https://docs.anarlog.so/reference/errors).

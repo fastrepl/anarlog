@@ -3,7 +3,7 @@ title: "Cloud API and connectors"
 description: "Opt in to hosted REST and remote MCP access for your Anarlog meetings."
 ---
 
-The Cloud API lets remote agents read your Anarlog meetings while the desktop app is closed. It is available with Anarlog Pro and is off by default.
+The Cloud API lets remote agents read your Anarlog meetings while the desktop app is closed. It requires Anarlog Pro and stays off until you enable it.
 
 <Warning>
   Enabling Cloud API & Connectors uploads a separate server-readable copy of
@@ -39,11 +39,19 @@ The hosted API mirrors the read endpoints in the [local API](/reference/api):
 - `GET /v1/meetings/{meeting_id}/history`
 - `GET /v1/meetings/{meeting_id}/export?format=json|markdown`
 
-List limits, transcript pagination, response fields, and error envelopes match the local API. The hosted API can also return:
+Response fields, list limits, and history pagination match the local API. See the [OpenAPI document](https://api.anarlog.so/openapi.json) for the complete hosted schema.
+
+Most hosted errors use the local API's JSON envelope. The hosted API can also return:
 
 - `403 subscription_required` when the account does not have an active Pro subscription.
 - `403 cloud_api_not_enabled` when the account has opted out.
-- `429` with `retry-after` when you exceed the hosted request limit.
+- `429` with a plain-text `rate limit exceeded` body and `retry-after` header when you exceed the hosted request limit.
+
+The request limit allows a burst of 10 requests per account, then refills one request every 200 milliseconds.
+
+<Note>
+  Meeting snapshots are limited to 2 MB. When a snapshot is larger, Anarlog removes word-level transcript timing before upload but keeps the transcript text. If the snapshot is still larger than 2 MB, that meeting cannot upload. A hosted transcript without word timing returns the retained text with an empty `words` array.
+</Note>
 
 ## Remote MCP
 
@@ -99,7 +107,7 @@ Choose Streamable HTTP, use `https://api.anarlog.so/mcp` as the server URL, and 
 Authorization: Bearer anl_...
 ```
 
-Web connector setup in claude.ai and ChatGPT depends on the authentication methods those products allow. Anarlog's current endpoint supports static bearer headers. OAuth-based account connection is forthcoming.
+Web connector setup in claude.ai and ChatGPT depends on the authentication methods those products accept. Anarlog currently supports static bearer headers. OAuth account connection is forthcoming.
 
 ## Disable cloud access
 

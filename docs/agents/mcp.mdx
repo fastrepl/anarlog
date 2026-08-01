@@ -3,7 +3,9 @@ title: "MCP for agents"
 description: "Connect an MCP client to local Anarlog meeting context over stdio."
 ---
 
-The MCP server runs inside the `anarlog` executable and communicates over standard input and output. It does not open a port or send meeting data to a hosted service.
+The local MCP server runs inside the `anarlog` executable and communicates over standard input and output. It opens no port and sends no meeting data to Anarlog's servers.
+
+Open the desktop app once so it can create the database. The app does not need to stay open after that.
 
 ## Configure a client
 
@@ -37,9 +39,9 @@ For a custom database path:
 
 ## Use tools deliberately
 
-Start with `list_meetings`, then pass the returned `id` to `get_meeting`. Only call `get_meeting_transcript` if notes and summaries do not contain the required evidence.
+Start with `list_meetings`, then pass a returned `id` to `get_meeting`. Call `get_meeting_transcript` only when the notes and summaries do not answer the question.
 
-Transcript pages default to 200 words and cap at 500 words. Continue from `pagination.next_offset` only when the next page is necessary.
+Transcript pages default to 200 words and cap at 500. Follow `pagination.next_offset` only when you need more context.
 
 Use `get_recurring_meeting_history` with a known meeting ID when a task depends on earlier meetings in the same series.
 

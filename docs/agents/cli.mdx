@@ -3,9 +3,9 @@ title: "CLI for agents"
 description: "Use structured Anarlog CLI output as an agent-friendly MCP fallback."
 ---
 
-Pass the global `--json` flag when an agent consumes CLI output.
+Use the global `--json` flag whenever an agent consumes CLI output.
 
-Every successful JSON response contains `schema_version`, `command`, `data`, and optional `pagination`. Read meeting results from `data` and continue from `pagination.next_offset` only when needed.
+A successful response contains `schema_version`, `command`, `data`, and optional `pagination`. Read results from `data`. Follow `pagination.next_offset` only when you need another page.
 
 ## Resolve meeting context
 
@@ -14,7 +14,7 @@ anarlog --json meetings list --query "weekly planning" --limit 10
 anarlog --json meetings get MEETING_ID
 ```
 
-Search is case-insensitive across meeting titles and IDs. If several results match, ask the user which meeting they mean.
+Search is case-insensitive across meeting titles and IDs. If several meetings match, ask the user to choose one.
 
 ## Read the smallest useful surface
 
@@ -32,7 +32,7 @@ Use `meetings get` when participants or action items matter. Use `meetings note`
 anarlog --json meetings transcript MEETING_ID --limit 200 --offset 0
 ```
 
-Transcript limits are measured in words. The default is 200 and the maximum is 500. Continue from `pagination.next_offset` only when the next page is necessary.
+Transcript limits are measured in words. A page defaults to 200 words and caps at 500. Stop paging once you have enough evidence.
 
 ## Diagnose setup
 
@@ -40,8 +40,7 @@ Transcript limits are measured in words. The default is 200 and the maximum is 5
 anarlog --json doctor
 ```
 
-The report includes the CLI version, resolved database path, read-only connection status, and schema readiness.
-The command exits with status 1 when `ready` is false while preserving the diagnostic report on standard output.
+The report includes the CLI version, resolved database path, read-only connection status, and schema readiness. When `ready` is false, the command still prints the report to standard output and exits with status 1.
 
 ## Exports
 

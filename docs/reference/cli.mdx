@@ -21,12 +21,12 @@ anarlog [--base DIR] [--db-path FILE] [--json] <command>
 
 | Command | Options | Result |
 | --- | --- | --- |
-| `meetings list` | `--query TEXT`, `--series-id ID`, `--limit 1..200`, `--offset NUMBER` | Meetings ordered by the application query layer. Defaults to 20 results. |
+| `meetings list` | `-q, --query TEXT`, `--series-id ID`, `--limit 1..200`, `--offset NUMBER` | Meetings ordered by the application query layer. Defaults to 20 results. |
 | `meetings get ID` | — | Metadata, canonical note, summaries, participants, and action items. |
 | `meetings note ID` | `--kind note\|summary\|all` | The selected note documents. Defaults to `note`. |
 | `meetings transcript ID` | `--limit 1..500`, `--offset NUMBER` | A bounded transcript word page. Defaults to 200 words from offset 0. |
 | `meetings history ID` | `--limit 1..200`, `--offset NUMBER` | A page of meetings from the same recurring series. Defaults to 20 from offset 0. |
-| `meetings export ID` | `--format markdown\|json`, `--output FILE`, `--force` | A complete meeting export, including transcripts. Defaults to Markdown on stdout. Existing files require `--force`. |
+| `meetings export ID` | `--format markdown\|json`, `-o, --output FILE`, `--force` | A complete meeting export, including transcripts. Defaults to Markdown on stdout. Existing files require `--force`. |
 
 ## JSON response contract
 
@@ -47,8 +47,7 @@ Pagination includes `offset`, `limit`, `returned`, optional `total`, and optiona
 anarlog --json doctor
 ```
 
-Checks the resolved database path, read-only access, and required schema without changing data.
-It exits with status 0 when `ready` is true and status 1 when `ready` is false.
+Checks the resolved database path, read-only access, and required schema without changing data. It exits with status 0 when `ready` is true and status 1 when `ready` is false.
 
 ## MCP command
 

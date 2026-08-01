@@ -3,12 +3,13 @@ title: "Agent overview"
 description: "Give an agent useful Anarlog context without exposing storage internals or unbounded transcripts."
 ---
 
-Anarlog offers two local, read-only agent transports. They share the same meeting model.
+Anarlog gives agents three read-only ways to access meeting context. Choose based on where the agent runs.
 
 | Transport | Choose it when | Output |
 | --- | --- | --- |
-| MCP | The agent supports a local stdio MCP server | Structured tool results and contextual resources |
-| CLI | The agent can run shell commands but MCP is unavailable | JSON with `--json`, or Markdown for people |
+| Local MCP | The agent supports a stdio MCP server on your computer | Structured tool results and contextual resources |
+| CLI | The agent can run local shell commands | JSON with `--json`, or Markdown for people |
+| Cloud API or remote MCP | A remote agent needs access while your computer is offline | Hosted REST or MCP responses; requires Anarlog Pro and explicit opt-in |
 
 ## Recommended agent flow
 
@@ -18,13 +19,15 @@ Anarlog offers two local, read-only agent transports. They share the same meetin
 4. Fetch recurring history only when earlier meetings are relevant.
 5. Read transcript pages only until the task has enough evidence.
 
-Prefer MCP when it is connected because tools carry their input schemas and results directly. The CLI provides the same bounded transcript workflow when an agent only has shell access.
+Prefer MCP when it is connected because each tool carries its input schema. Use the CLI when the agent only has shell access. Both support the same bounded transcript workflow.
 
 ## Safety boundary
 
-Agents should use the CLI or MCP server, not SQLite. Those interfaces apply Anarlog's rules for canonical notes, generated summaries, excluded participants, recurring meetings, and transcript text.
+Agents should use an Anarlog interface, not SQLite. The supported interfaces apply Anarlog's rules for canonical notes, generated summaries, excluded participants, recurring meetings, and transcript text.
 
-All current Anarlog data operations are read-only. An agent cannot update a note, action item, or meeting through these interfaces. CLI export may create a separate file; replacing an existing file requires `--force`.
+The CLI and both MCP endpoints are read-only. An agent cannot update a note, action item, or meeting through them. CLI export can create a separate file; replacing a file requires `--force`.
+
+Local CLI and MCP access stays on your computer. Cloud access uploads a separate server-readable copy of your meeting data. Review the [Cloud API disclosure](/reference/api-cloud) before enabling it.
 
 <CardGroup cols={2}>
   <Card title="CLI for agents" icon="terminal" href="/agents/cli">
@@ -34,3 +37,5 @@ All current Anarlog data operations are read-only. An agent cannot update a note
     Configure the stdio server and use bounded transcript pages.
   </Card>
 </CardGroup>
+
+For hosted REST and remote MCP setup, see [Cloud API and connectors](/reference/api-cloud).
