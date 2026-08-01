@@ -11,12 +11,14 @@ use sqlx::FromRow;
 use tauri::{Manager, Runtime};
 use uuid::Uuid;
 
+use super::cache::{
+    cleanup_shared_upload_path, file_matches, file_matches_cancellable,
+    file_matches_cancellable_async, sync_destination_directory, valid_cache_id, valid_sha256,
+};
 use super::{
     FORMAT_VERSION, LocalAttachment, MAX_CIPHERTEXT_BYTES, attachment_backup_refs,
-    attachment_paths, cleanup_shared_upload_path, file_matches, file_matches_cancellable,
-    file_matches_cancellable_async, plaintext_metadata, private_object_id, resolve_attachment_path,
-    sync_destination_directory, valid_cache_id, valid_plaintext_size, valid_sha256,
-    validate_opaque_id, workspace_key,
+    attachment_paths, plaintext_metadata, private_object_id, resolve_attachment_path,
+    valid_plaintext_size, validate_opaque_id, workspace_key,
 };
 use crate::control::DownloadOperation;
 use crate::error::{Error, Result};
