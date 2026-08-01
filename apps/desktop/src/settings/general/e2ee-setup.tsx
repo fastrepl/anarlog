@@ -148,7 +148,7 @@ export function E2eeSetupDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="border-border/45 bg-card/95 w-[calc(100vw-48px)] max-w-[320px] gap-0 overflow-hidden rounded-[26px] p-0 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:rounded-[26px] [&>button:last-child]:hidden">
         <DialogHeader className="items-center gap-2 px-5 pt-7 text-center sm:text-center">
-          <div className="shape-circle bg-accent flex size-9 items-center justify-center rounded-full">
+          <div className="bg-accent flex size-9 items-center justify-center rounded-full">
             <Key className="size-4" aria-hidden="true" />
           </div>
           <DialogTitle className="text-foreground text-[13px] leading-5 font-semibold tracking-normal">

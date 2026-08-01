@@ -165,7 +165,7 @@ function CalendarGroupMenuButton({
       type="button"
       onClick={onClick}
       className={cn([
-        "shape-circle text-muted-foreground shrink-0 rounded-full p-1 transition-colors",
+        "text-muted-foreground shrink-0 rounded-full p-1 transition-colors",
         "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100",
         "hover:bg-accent hover:text-muted-foreground",
         className,

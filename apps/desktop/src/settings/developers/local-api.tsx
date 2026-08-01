@@ -85,7 +85,7 @@ export function LocalApiSection() {
                   </>
                 ) : (
                   <>
-                    <span className="shape-circle bg-muted-foreground/50 size-2 shrink-0 rounded-full" />
+                    <span className="bg-muted-foreground/50 size-2 shrink-0 rounded-full" />
                     Server is off
                   </>
                 )}

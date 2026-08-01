@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    borderCurve: CornerCurve.circle,
+    borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.accent,
   },
   subtitle: {

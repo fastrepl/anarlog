@@ -9,7 +9,3 @@
     corner-shape: squircle;
   }
 }
-
-@utility shape-circle {
-  corner-shape: round;
-}

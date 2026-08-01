@@ -103,7 +103,7 @@ export function DayCell({
       <div className="flex shrink-0 justify-end">
         <div
           className={cn([
-            "shape-circle mb-1 flex h-7 w-7 items-center justify-center rounded-full text-sm font-medium",
+            "mb-1 flex h-7 w-7 items-center justify-center rounded-full text-sm font-medium",
             today && "bg-primary text-primary-foreground",
             !today && !isCurrentMonth && "text-muted-foreground/70",
             !today &&

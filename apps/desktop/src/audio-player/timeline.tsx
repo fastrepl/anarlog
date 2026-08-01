@@ -104,7 +104,7 @@ export function Timeline({
           onClick={handleClick}
           className={cn([
             "flex items-center justify-center",
-            "shape-circle h-7 w-7 rounded-full",
+            "h-7 w-7 rounded-full",
             "border-border bg-card border",
             "hover:bg-accent transition-all hover:scale-110",
             "shrink-0 shadow-xs select-none",

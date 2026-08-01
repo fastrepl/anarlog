@@ -155,7 +155,7 @@ export function LeftSurfaceChromeButton({
       data-tauri-drag-region="false"
       disabled={disabled}
       className={cn([
-        "shape-circle pointer-events-auto relative flex size-7 items-center justify-center rounded-full",
+        "pointer-events-auto relative flex size-7 items-center justify-center rounded-full",
         "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
         "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
         "disabled:text-muted-foreground/70 disabled:hover:text-muted-foreground/70 disabled:hover:bg-transparent",
@@ -172,7 +172,7 @@ export function LeftSurfaceChromeButton({
               : "collapsed-sidebar-update-badge"
           }
           className={cn([
-            "shape-circle ring-background pointer-events-none absolute top-1 right-1 size-1.5 rounded-full ring-2",
+            "ring-background pointer-events-none absolute top-1 right-1 size-1.5 rounded-full ring-2",
             badge === "upcomingMeeting" ? "bg-red-500" : "bg-blue-500",
           ])}
         />

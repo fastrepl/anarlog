@@ -1,7 +1,6 @@
 import { useState, type CSSProperties } from "react";
 
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
-import { cn } from "@anlg/utils";
 
 export type AvatarRenderStyle = "dithered" | "smooth";
 
@@ -126,11 +125,7 @@ function AvatarImage({
   });
 
   return (
-    <span
-      aria-hidden="true"
-      className={cn(["shape-circle", className])}
-      style={containerStyle}
-    >
+    <span aria-hidden="true" className={className} style={containerStyle}>
       {src ? (
         <img
           alt=""

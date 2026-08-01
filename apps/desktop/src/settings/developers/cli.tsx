@@ -218,7 +218,7 @@ function CliStatus({
       ) : (
         <span
           className={cn([
-            "shape-circle mt-1 size-2 shrink-0 rounded-full",
+            "mt-1 size-2 shrink-0 rounded-full",
             status.state === "conflict"
               ? "bg-amber-500"
               : "bg-muted-foreground/50",

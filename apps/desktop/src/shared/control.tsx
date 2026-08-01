@@ -69,7 +69,7 @@ const ReportedErrorComponent = ({ error }: { error: Error }) => {
           <div className="border-border bg-card rounded-xl border p-6 shadow-xs">
             <div className="flex flex-col items-center gap-4 text-center">
               <motion.div
-                className="shape-circle flex h-12 w-12 items-center justify-center rounded-full bg-red-50"
+                className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50"
                 initial={{ scale: 0.8 }}
                 animate={{ scale: 1 }}
                 transition={{
@@ -128,7 +128,7 @@ export const NotFoundComponent: NotFoundRouteComponent = () => {
           <div className="border-border bg-card rounded-xl border p-6 shadow-xs">
             <div className="flex flex-col items-center gap-4 text-center">
               <motion.div
-                className="shape-circle bg-muted flex h-12 w-12 items-center justify-center rounded-full"
+                className="bg-muted flex h-12 w-12 items-center justify-center rounded-full"
                 initial={{ scale: 0.8 }}
                 animate={{ scale: 1 }}
                 transition={{

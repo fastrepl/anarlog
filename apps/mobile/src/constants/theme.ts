@@ -21,6 +21,5 @@ export const Radius = {
 } as const;
 
 export const CornerCurve = {
-  circle: "circular",
   squircle: "continuous",
 } as const;

@@ -141,9 +141,9 @@ function HeroWorkflowDemo() {
       >
         <div className="flex items-center gap-2 px-4 py-3">
           <div className="flex gap-2">
-            <div className="shape-circle h-3 w-3 rounded-full bg-red-400"></div>
-            <div className="shape-circle h-3 w-3 rounded-full bg-yellow-400"></div>
-            <div className="shape-circle h-3 w-3 rounded-full bg-green-400"></div>
+            <div className="h-3 w-3 rounded-full bg-red-400"></div>
+            <div className="h-3 w-3 rounded-full bg-yellow-400"></div>
+            <div className="h-3 w-3 rounded-full bg-green-400"></div>
           </div>
           <div className="ml-auto flex h-4 w-6 items-center justify-end">
             {isGeneratingSummary ? (

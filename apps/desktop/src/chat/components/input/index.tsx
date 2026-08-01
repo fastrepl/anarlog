@@ -146,7 +146,7 @@ export function ChatMessageInput({
                 onClick={onStop}
                 size="icon"
                 variant="ghost"
-                className="shape-circle h-7 w-7 rounded-full"
+                className="h-7 w-7 rounded-full"
                 aria-label={t`Stop response`}
               >
                 <Square size={14} weight="fill" />
@@ -159,7 +159,7 @@ export function ChatMessageInput({
                 disabled={isSendDisabled}
                 className={cn([
                   "chat-input-send",
-                  "shape-circle border-border text-muted-foreground/60 inline-flex size-7 shrink-0 items-center justify-center rounded-full border transition-all duration-100",
+                  "border-border text-muted-foreground/60 inline-flex size-7 shrink-0 items-center justify-center rounded-full border transition-all duration-100",
                   !isSendDisabled && [
                     "bg-primary text-primary-foreground border-stone-600",
                     "hover:bg-primary/90",

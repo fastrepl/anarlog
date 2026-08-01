@@ -67,14 +67,14 @@ export function HomePage({
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label={`${member.name} on X`}
-                          className="shape-circle block rounded-full transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#181613]"
+                          className="block rounded-full transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#181613]"
                         >
                           <img
                             src={member.avatar}
                             alt=""
                             width={30}
                             height={30}
-                            className="shape-circle size-[30px] rounded-full object-cover"
+                            className="size-[30px] rounded-full object-cover"
                             decoding="async"
                             loading="lazy"
                           />
@@ -83,7 +83,7 @@ export function HomePage({
                         <span
                           key={member.id}
                           aria-label={`${member.name} profile picture`}
-                          className="shape-circle block rounded-full"
+                          className="block rounded-full"
                           role="img"
                         >
                           <img
@@ -91,7 +91,7 @@ export function HomePage({
                             alt=""
                             width={30}
                             height={30}
-                            className="shape-circle size-[30px] rounded-full object-cover"
+                            className="size-[30px] rounded-full object-cover"
                             decoding="async"
                             loading="lazy"
                           />

@@ -198,7 +198,7 @@ function OnboardingScreenContent({
         <button
           onClick={() => setIsMuted((prev) => !prev)}
           data-tauri-drag-region="false"
-          className="shape-circle hover:bg-accent rounded-full p-1.5 transition-colors"
+          className="hover:bg-accent rounded-full p-1.5 transition-colors"
           aria-label={isMuted ? "Unmute" : "Mute"}
         >
           {isMuted ? (

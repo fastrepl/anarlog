@@ -268,7 +268,7 @@ function ChatBody({
               type="submit"
               aria-label="Send message"
               className={cn([
-                "shape-circle inline-flex size-11 shrink-0 items-center justify-center rounded-full",
+                "inline-flex size-11 shrink-0 items-center justify-center rounded-full",
                 "bg-linear-to-t from-stone-600 to-stone-500 text-white transition-opacity hover:opacity-90",
                 "focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:ring-offset-2 focus-visible:outline-hidden",
                 "disabled:cursor-not-allowed disabled:opacity-50",

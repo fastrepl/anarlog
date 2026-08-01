@@ -167,7 +167,7 @@ function TestimonialTweetCard({
             <img
               src={testimonial.avatar}
               alt={`${testimonial.author} profile photo`}
-              className="shape-circle size-12 rounded-full object-cover shadow-sm"
+              className="size-12 rounded-full object-cover shadow-sm"
             />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-[#181613]">
@@ -185,7 +185,7 @@ function TestimonialTweetCard({
             rel="noreferrer"
             aria-label={`View ${testimonial.author} post on X`}
             onClick={(event) => event.stopPropagation()}
-            className="shape-circle inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[#181613] transition-colors hover:bg-[#f7f4ef]"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[#181613] transition-colors hover:bg-[#f7f4ef]"
           >
             <Icon
               icon="simple-icons:x"

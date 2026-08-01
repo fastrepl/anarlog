@@ -83,7 +83,7 @@
   list-style: none;
 }
 
-/* Unordered markers cycle by depth: filled disc -> hollow disc -> square. */
+/* Unordered markers cycle by depth: filled squircle -> hollow squircle -> square. */
 .note-typography ul:not([data-type="taskList"]) {
   & > li::before {
     position: absolute;
@@ -95,7 +95,7 @@
     box-sizing: border-box;
     border: 0 solid currentColor;
     border-radius: 50%;
-    corner-shape: round;
+    corner-shape: squircle;
     background-color: currentColor;
     width: 0.5em;
     height: 0.5em;
@@ -126,7 +126,7 @@
         & > li::before {
           border-width: 0;
           border-radius: 50%;
-          corner-shape: round;
+          corner-shape: squircle;
           background-color: currentColor;
           width: 0.5em;
           height: 0.5em;
@@ -136,7 +136,7 @@
           & > li::before {
             border-width: 1.5px;
             border-radius: 50%;
-            corner-shape: round;
+            corner-shape: squircle;
             background-color: transparent;
           }
 

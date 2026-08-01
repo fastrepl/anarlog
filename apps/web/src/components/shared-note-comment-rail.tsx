@@ -429,7 +429,7 @@ function ReplyComposer({
         <button
           type="submit"
           aria-label="Send reply"
-          className="shape-circle grid size-6 shrink-0 place-items-center rounded-full bg-stone-900 text-white disabled:bg-stone-200 disabled:text-stone-400"
+          className="grid size-6 shrink-0 place-items-center rounded-full bg-stone-900 text-white disabled:bg-stone-200 disabled:text-stone-400"
           disabled={!validated.valid || pending}
         >
           {pending ? (

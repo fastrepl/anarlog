@@ -296,7 +296,7 @@ export function SettingsSync() {
         <SettingsPageTitle title={<Trans>Sync</Trans>} />
         <div className="border-border/70 bg-card/60 flex items-start justify-between gap-4 rounded-2xl border p-5">
           <div className="flex gap-3">
-            <div className="shape-circle bg-muted flex size-9 shrink-0 items-center justify-center rounded-full">
+            <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-full">
               <CloudSlash className="text-muted-foreground size-4" />
             </div>
             <div>
@@ -441,7 +441,7 @@ export function SettingsSync() {
       <section className="border-border/70 bg-card/60 rounded-2xl border p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 gap-3">
-            <div className="shape-circle bg-muted flex size-9 shrink-0 items-center justify-center rounded-full">
+            <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-full">
               {statusIcon}
             </div>
             <div className="min-w-0">
@@ -502,7 +502,7 @@ export function SettingsSync() {
       {cloudStorageService && (
         <section className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-5">
           <div className="flex items-start gap-3">
-            <div className="shape-circle flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-500/10">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-500/10">
               <Warning className="size-4 text-amber-500" />
             </div>
             <div className="min-w-0">
@@ -539,7 +539,7 @@ export function SettingsSync() {
           <Trans>Security</Trans>
         </h2>
         <div className="flex items-start gap-3">
-          <div className="shape-circle bg-muted flex size-9 shrink-0 items-center justify-center rounded-full">
+          <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-full">
             {e2eeIdentityQuery.data?.configured ? (
               <ShieldCheck className="size-4 text-emerald-500" />
             ) : (

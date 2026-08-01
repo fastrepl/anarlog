@@ -304,7 +304,7 @@ export function TemplateIconPicker({
                     <button
                       key={color}
                       type="button"
-                      className="shape-circle relative flex size-7 items-center justify-center rounded-full"
+                      className="relative flex size-7 items-center justify-center rounded-full"
                       style={{ backgroundColor: color }}
                       onClick={() => {
                         setCustomColorOpen(false);
@@ -321,7 +321,7 @@ export function TemplateIconPicker({
                   <button
                     type="button"
                     className={cn([
-                      "shape-circle size-7 rounded-full bg-[conic-gradient(from_180deg,red,#ff0,#0f0,#0ff,#00f,#f0f,red)]",
+                      "size-7 rounded-full bg-[conic-gradient(from_180deg,red,#ff0,#0f0,#0ff,#00f,#f0f,red)]",
                       customColorOpen && "ring-primary ring-2 ring-offset-2",
                     ])}
                     onClick={() => setCustomColorOpen((current) => !current)}
@@ -333,7 +333,7 @@ export function TemplateIconPicker({
                   <div className="mt-3">
                     <div className="mb-2 flex items-center gap-2">
                       <span
-                        className="shape-circle size-6 rounded-full"
+                        className="size-6 rounded-full"
                         style={{ backgroundColor: iconColor }}
                       />
                       <span className="text-muted-foreground text-xs font-medium">

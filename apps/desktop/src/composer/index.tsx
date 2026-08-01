@@ -131,7 +131,7 @@ function ComposerSettingsCard() {
           onClick={() => void dismissComposer()}
           data-tauri-drag-region="false"
           className={cn([
-            "shape-circle inline-flex size-8 items-center justify-center rounded-full",
+            "inline-flex size-8 items-center justify-center rounded-full",
             "bg-primary-foreground/7 text-primary-foreground/65 transition-colors",
             "hover:bg-primary-foreground/12 hover:text-primary-foreground",
           ])}
@@ -230,7 +230,7 @@ function ComposerInput({
             onClick={() => void dismissComposer()}
             data-tauri-drag-region="false"
             className={cn([
-              "shape-circle inline-flex size-8 items-center justify-center rounded-full",
+              "inline-flex size-8 items-center justify-center rounded-full",
               "bg-primary-foreground/7 text-primary-foreground/65 transition-colors",
               "hover:bg-primary-foreground/12 hover:text-primary-foreground",
             ])}
@@ -283,7 +283,7 @@ function ComposerInput({
             onClick={handleSubmit}
             disabled={disabled}
             className={cn([
-              "shape-circle inline-flex size-10 items-center justify-center rounded-full",
+              "inline-flex size-10 items-center justify-center rounded-full",
               disabled
                 ? "bg-primary-foreground/8 text-primary-foreground/25 cursor-default"
                 : [

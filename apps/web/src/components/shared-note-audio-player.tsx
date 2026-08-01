@@ -203,7 +203,7 @@ export function SharedNoteAudioPlayer({
         type="button"
         aria-label={playing ? "Pause recording" : "Play recording"}
         className={cn([
-          "shape-circle grid size-7 shrink-0 place-items-center rounded-full border border-stone-300 bg-white text-stone-800 shadow-xs",
+          "grid size-7 shrink-0 place-items-center rounded-full border border-stone-300 bg-white text-stone-800 shadow-xs",
           "transition-transform hover:scale-105 hover:bg-stone-50",
           "focus-visible:ring-2 focus-visible:ring-stone-900 focus-visible:ring-offset-2 focus-visible:outline-hidden",
           "disabled:cursor-default disabled:opacity-50",

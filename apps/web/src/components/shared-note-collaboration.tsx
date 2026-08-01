@@ -395,7 +395,7 @@ function CommentList({
                 {canDelete && (
                   <button
                     type="button"
-                    className="shape-circle text-color-muted hover:text-color rounded-full p-2 transition-colors focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:outline-hidden disabled:opacity-50"
+                    className="text-color-muted hover:text-color rounded-full p-2 transition-colors focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:outline-hidden disabled:opacity-50"
                     aria-label="Delete comment"
                     disabled={deletePending}
                     onClick={() => onDelete(comment.commentId)}
