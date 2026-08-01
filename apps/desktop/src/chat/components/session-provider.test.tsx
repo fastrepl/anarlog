@@ -273,6 +273,34 @@ describe("ChatSession", () => {
     );
   });
 
+  it("uses an existing transcript while batch retranscription is pending", () => {
+    const captured: { send?: ChatSessionRenderProps["sendMessage"] } = {};
+    render(
+      <ChatSession
+        chatGroupId="group-1"
+        currentSessionId="session-1"
+        hasAvailableTranscript
+        isBatchTranscriptionPending
+        sessionId="chat-1"
+      >
+        {(props) => {
+          captured.send = props.sendMessage;
+          return null;
+        }}
+      </ChatSession>,
+    );
+    const userMessage: AnlgUIMessage = {
+      id: "user-message",
+      role: "user",
+      parts: [{ type: "text", text: "What did they say?" }],
+    };
+
+    captured.send?.(userMessage, { chatGroupId: "group-1" });
+
+    expect(mocks.chatSendMessage).toHaveBeenCalledWith(userMessage);
+    expect(mocks.chatSetMessages).not.toHaveBeenCalled();
+  });
+
   it("removes local batch guidance when persistence fails", async () => {
     const captured: { send?: ChatSessionRenderProps["sendMessage"] } = {};
     const consoleError = vi
@@ -386,6 +414,34 @@ describe("ChatSession", () => {
     fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
 
     expect(mocks.chatRegenerate).not.toHaveBeenCalled();
+  });
+
+  it("regenerates from an existing transcript during batch retranscription", () => {
+    mocks.messages = [
+      {
+        id: "user-message",
+        role: "user",
+        parts: [{ type: "text", text: "What did they say?" }],
+      },
+    ];
+    render(
+      <ChatSession
+        chatGroupId="group-1"
+        hasAvailableTranscript
+        isBatchTranscriptionPending
+        sessionId="chat-1"
+      >
+        {({ regenerate }) => (
+          <button type="button" onClick={regenerate}>
+            Regenerate
+          </button>
+        )}
+      </ChatSession>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
+
+    expect(mocks.chatRegenerate).toHaveBeenCalledOnce();
   });
 
   it.each([

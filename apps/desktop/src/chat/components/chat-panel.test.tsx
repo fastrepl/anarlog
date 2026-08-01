@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   chatSession: vi.fn(),
+  hasAvailableTranscript: false,
   sessionMode: "inactive",
   requestedLiveTranscription: null as boolean | null,
   liveTranscriptionActive: null as boolean | null,
@@ -73,6 +74,10 @@ vi.mock("~/shared/owner-user", () => ({
   useOwnerUserId: () => "user-1",
 }));
 
+vi.mock("~/session/queries", () => ({
+  useSessionHasTranscript: () => mocks.hasAvailableTranscript,
+}));
+
 vi.mock("~/stt/contexts", () => ({
   useListener: (selector: (state: unknown) => unknown) =>
     selector({
@@ -91,6 +96,7 @@ describe("ChatView", () => {
   beforeEach(() => {
     cleanup();
     mocks.chatSession.mockClear();
+    mocks.hasAvailableTranscript = false;
     mocks.sessionMode = "inactive";
     mocks.requestedLiveTranscription = null;
     mocks.liveTranscriptionActive = null;
@@ -105,7 +111,26 @@ describe("ChatView", () => {
     render(<ChatView />);
 
     expect(mocks.chatSession).toHaveBeenCalledWith(
-      expect.objectContaining({ isBatchTranscriptionPending: true }),
+      expect.objectContaining({
+        hasAvailableTranscript: false,
+        isBatchTranscriptionPending: true,
+      }),
+    );
+  });
+
+  it("preserves an existing transcript during batch retranscription", () => {
+    mocks.hasAvailableTranscript = true;
+    mocks.sessionMode = "active";
+    mocks.requestedLiveTranscription = false;
+    mocks.liveTranscriptionActive = false;
+
+    render(<ChatView />);
+
+    expect(mocks.chatSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hasAvailableTranscript: true,
+        isBatchTranscriptionPending: true,
+      }),
     );
   });
 

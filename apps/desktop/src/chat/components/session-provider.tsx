@@ -75,6 +75,7 @@ interface ChatSessionProps {
   sessionId: string;
   chatGroupId?: string;
   currentSessionId?: string;
+  hasAvailableTranscript?: boolean;
   isBatchTranscriptionPending?: boolean;
   modelOverride?: LanguageModel;
   extraTools?: ToolSet;
@@ -108,6 +109,7 @@ function ChatSessionLifecycle({
   sessionId,
   chatGroupId,
   currentSessionId,
+  hasAvailableTranscript = false,
   isBatchTranscriptionPending = false,
   modelOverride,
   extraTools,
@@ -395,6 +397,8 @@ function ChatSessionLifecycle({
   } = useChat<AnlgUIMessage>({ chat });
   const latestChatStopRef = useRef(chatStop);
   latestChatStopRef.current = chatStop;
+  const isTranscriptUnavailable =
+    isBatchTranscriptionPending && !hasAvailableTranscript;
 
   useMountEffect(() => {
     acceptFinishedChatPersistenceRef.current = true;
@@ -462,7 +466,7 @@ function ChatSessionLifecycle({
     (message: AnlgUIMessage, options?: ChatSendOptions) => {
       const targetChatGroupId =
         options?.chatGroupId ?? latestChatGroupIdRef.current;
-      if (isBatchTranscriptionPending && targetChatGroupId && ownerUserId) {
+      if (isTranscriptUnavailable && targetChatGroupId && ownerUserId) {
         const assistantMessage: AnlgUIMessage = {
           id: id(),
           role: "assistant",
@@ -568,7 +572,7 @@ function ChatSessionLifecycle({
       chatCloudsyncActivity,
       chatSendMessage,
       chatSetMessages,
-      isBatchTranscriptionPending,
+      isTranscriptUnavailable,
       ownerUserId,
       removeTransportPreflight,
       t,
@@ -577,7 +581,7 @@ function ChatSessionLifecycle({
 
   const regenerate = useCallback(() => {
     if (
-      isBatchTranscriptionPending ||
+      isTranscriptUnavailable ||
       !chatGroupId ||
       (status !== "ready" && status !== "error") ||
       regenerateRequestInFlightRef.current
@@ -688,13 +692,7 @@ function ChatSessionLifecycle({
       return;
     }
     void runRegenerate();
-  }, [
-    chatGroupId,
-    messages,
-    chatRegenerate,
-    isBatchTranscriptionPending,
-    status,
-  ]);
+  }, [chatGroupId, messages, chatRegenerate, isTranscriptUnavailable, status]);
 
   const stop = useCallback(() => {
     void Promise.resolve(chatStop()).catch((error) => {
