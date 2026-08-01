@@ -19,10 +19,7 @@ import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { useConfigValues } from "~/shared/config";
 import type { DownloadProgress } from "~/sidebar/toast/types";
 import { useTabs } from "~/store/zustand/tabs";
-import {
-  isConfiguredSttModel,
-  isAnarlogLocalSttModel,
-} from "~/stt/capabilities";
+import { isConfiguredSttModel, isOnDeviceSttModel } from "~/stt/capabilities";
 
 interface NotificationState {
   hasActiveBanner: boolean;
@@ -66,10 +63,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     !current_llm_provider ||
     !current_llm_model;
 
-  const sttModel = isAnarlogLocalSttModel(
-    current_stt_provider,
-    current_stt_model,
-  )
+  const sttModel = isOnDeviceSttModel(current_stt_provider, current_stt_model)
     ? current_stt_model
     : null;
   const isLocalSttModel = !!sttModel;

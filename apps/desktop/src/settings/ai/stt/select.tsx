@@ -12,13 +12,13 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { arch } from "@tauri-apps/plugin-os";
 import { useRef, useState } from "react";
 
 import {
   commands as localSttCommands,
   type LocalModel,
 } from "@anlg/plugin-local-stt";
+import { commands as miscCommands } from "@anlg/plugin-misc";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import type { AIProviderStorage } from "@anlg/store";
 import { Input } from "@anlg/ui/components/ui/input";
@@ -40,6 +40,7 @@ import { cn } from "@anlg/utils";
 import { useSttSettings } from "./context";
 import { HealthStatusIndicator, useConnectionHealth } from "./health";
 import { LocalModelBackendBadge, LocalModelLabel } from "./model-icon";
+import { recommendOnDeviceModel } from "./on-device-recommendation";
 import {
   getDefaultSttSelection,
   getLanguageSupportIssue,
@@ -76,7 +77,7 @@ import {
   canAppleSpeechTranscribe,
   isConfiguredSttModel,
   getSttModelTranscriptionMode,
-  isAnarlogLocalSttModel,
+  isOnDeviceSttModel,
   isLiveTranscriptionSupported,
   isRealtimeLocalModel,
   isSupportedLanguagesBatch,
@@ -445,7 +446,7 @@ function useTranscriptionLanguageWarning() {
     ? current_stt_model
     : undefined;
   const isConfigured = !!(current_stt_provider && selectedSttModel);
-  const isOnDeviceModel = isAnarlogLocalSttModel(
+  const isOnDeviceModel = isOnDeviceSttModel(
     current_stt_provider,
     selectedSttModel,
   );
@@ -525,7 +526,7 @@ function formatLanguageList(languages: string[]) {
   return visibleLanguages.join(", ");
 }
 
-type ModelCategory = "latest" | null;
+type ModelCategory = "hardware" | "latest" | null;
 type ModelEntry = {
   id: string;
   isDownloaded: boolean;
@@ -539,6 +540,10 @@ type ModelEntry = {
 function getModelCategoryLabel(category?: ModelCategory) {
   if (category === "latest") {
     return "Recommended";
+  }
+
+  if (category === "hardware") {
+    return <Trans>Best for this Mac</Trans>;
   }
 
   return null;
@@ -558,13 +563,14 @@ function useConfiguredMapping(): {
   const { providers: configuredProviders, isReady } =
     useAiProvidersState("stt");
 
-  const targetArch = useQuery({
-    queryKey: ["target-arch"],
-    queryFn: () => arch(),
+  const deviceInfo = useQuery({
+    queryKey: ["device-info"],
+    queryFn: async () => {
+      const result = await miscCommands.getDeviceInfo(null);
+      return result.status === "ok" ? result.data : null;
+    },
     staleTime: Infinity,
   });
-
-  const isAppleSilicon = targetArch.data === "aarch64";
 
   const supportedModels = useQuery({
     queryKey: ["list-supported-models"],
@@ -612,37 +618,37 @@ function useConfiguredMapping(): {
       }
 
       if (provider.id === "anarlog") {
-        const models: ModelEntry[] = [
-          { id: "cloud", isDownloaded: billing.isPaid, category: "latest" },
+        return [
+          provider.id,
+          {
+            configured: true,
+            models: [
+              {
+                id: "cloud",
+                isDownloaded: billing.isPaid,
+                category: "latest" as const,
+              },
+            ],
+          },
         ];
+      }
 
-        if (isAppleSilicon) {
-          soniqoModels.forEach((model, i) => {
-            models.push({
-              id: model.key,
-              isDownloaded: soniqoDownloaded[i]?.data ?? false,
-              displayName: model.display_name,
-              sizeBytes: model.size_bytes,
-              mode: isRealtimeLocalModel(String(model.key))
-                ? "realtime"
-                : "batch",
-              category: "latest",
-            });
-          });
-        }
+      if (provider.id === "soniqo") {
+        const models = buildOnDeviceModelEntries(
+          soniqoModels,
+          soniqoDownloaded,
+          deviceInfo.data?.totalMemoryBytes,
+        );
+        return [provider.id, { configured: models.length > 0, models }];
+      }
 
-        appleSpeechModels.forEach((model, i) => {
-          models.push({
-            id: model.key,
-            isDownloaded: appleSpeechDownloaded[i]?.data ?? false,
-            displayName: model.display_name,
-            sizeBytes: model.size_bytes,
-            mode: "realtime",
-            category: "latest",
-          });
-        });
-
-        return [provider.id, { configured: true, models }];
+      if (provider.id === "apple_speech") {
+        const models = buildOnDeviceModelEntries(
+          appleSpeechModels,
+          appleSpeechDownloaded,
+          deviceInfo.data?.totalMemoryBytes,
+        );
+        return [provider.id, { configured: models.length > 0, models }];
       }
 
       if (provider.id === "custom") {
@@ -672,7 +678,46 @@ function useConfiguredMapping(): {
     }
   >;
 
-  return { providers, isReady };
+  return {
+    providers,
+    isReady: isReady && supportedModels.isFetched && deviceInfo.isFetched,
+  };
+}
+
+function buildOnDeviceModelEntries(
+  models: Array<{
+    key: LocalModel;
+    display_name: string;
+    size_bytes: number | null;
+    supports_realtime: boolean;
+    recommended_memory_bytes: number;
+  }>,
+  downloads: Array<{ data?: boolean }>,
+  totalMemoryBytes?: number,
+): ModelEntry[] {
+  const recommendedModel = recommendOnDeviceModel(
+    models.map((model) => ({
+      id: model.key,
+      recommendedMemoryBytes: model.recommended_memory_bytes,
+    })),
+    totalMemoryBytes,
+  );
+
+  return models
+    .map((model, index) => ({
+      id: model.key,
+      isDownloaded: downloads[index]?.data ?? false,
+      displayName: model.display_name,
+      sizeBytes: model.size_bytes,
+      mode: model.supports_realtime
+        ? ("realtime" as const)
+        : ("batch" as const),
+      category: model.key === recommendedModel ? ("hardware" as const) : null,
+    }))
+    .sort(
+      (a, b) =>
+        Number(b.id === recommendedModel) - Number(a.id === recommendedModel),
+    );
 }
 
 function ModelSelectItem({

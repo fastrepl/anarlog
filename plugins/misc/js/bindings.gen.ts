@@ -50,7 +50,7 @@ async opinionatedMdToHtml(text: string) : Promise<Result<string, string>> {
 
 /** user-defined types **/
 
-export type DeviceInfo = { platform: string; arch: string; osVersion: string; appVersion: string; buildHash?: string | null; locale?: string | null }
+export type DeviceInfo = { platform: string; arch: string; totalMemoryBytes: number; osVersion: string; appVersion: string; buildHash?: string | null; locale?: string | null }
 
 /** tauri-specta globals **/
 

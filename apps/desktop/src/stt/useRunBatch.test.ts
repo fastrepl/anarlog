@@ -148,15 +148,17 @@ vi.mock("~/stt/capabilities", () => {
       currentPlatform: string,
       currentArch: string,
     ) => currentPlatform === "macos" && currentArch === "aarch64",
-    isAnarlogLocalSttModel: (
+    isOnDeviceSttModel: (
       provider: string | null | undefined,
       model: string | null | undefined,
     ) =>
-      provider === "anarlog" &&
       typeof model === "string" &&
-      (model.startsWith("soniqo-") ||
-        model.startsWith("am-") ||
-        model.startsWith("Quantized")),
+      ((provider === "soniqo" && model.startsWith("soniqo-")) ||
+        (provider === "apple_speech" && model === "apple-speech") ||
+        (provider === "anarlog" &&
+          (model.startsWith("soniqo-") ||
+            model.startsWith("am-") ||
+            model.startsWith("Quantized")))),
     isSupportedLanguagesBatch: isSupportedLanguagesBatchMock,
   };
 });
@@ -208,6 +210,13 @@ describe("getBatchProvider", () => {
 
   test("maps local soniqo models to soniqo batch provider", () => {
     expect(getBatchProvider("anarlog", "soniqo-parakeet-batch")).toBe("soniqo");
+    expect(getBatchProvider("soniqo", "soniqo-parakeet-batch")).toBe("soniqo");
+  });
+
+  test("maps Apple Speech to its batch runtime provider", () => {
+    expect(getBatchProvider("apple_speech", "apple-speech")).toBe(
+      "applespeech",
+    );
   });
 });
 

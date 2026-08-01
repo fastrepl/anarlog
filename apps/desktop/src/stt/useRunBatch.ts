@@ -25,7 +25,7 @@ import type { BatchPersistCallback } from "~/store/zustand/listener/transcript";
 import {
   getTranscriptionLanguages,
   isDesktopLocalSttAvailable,
-  isAnarlogLocalSttModel,
+  isOnDeviceSttModel,
   isSupportedLanguagesBatch,
 } from "~/stt/capabilities";
 import {
@@ -109,8 +109,13 @@ export function getBatchProvider(
 
   if (provider === "anarlog") {
     if (model.startsWith("soniqo-")) return "soniqo";
+    if (model === "apple-speech") return "applespeech";
     if (model.startsWith("am-")) return "am";
     return "anarlog";
+  }
+  if (provider === "soniqo") return "soniqo";
+  if (provider === "apple_speech" || provider === "apple-speech") {
+    return "applespeech";
   }
   if (DIRECT_BATCH_PROVIDERS.has(provider as TranscriptionParams["provider"])) {
     return provider as TranscriptionParams["provider"];
@@ -506,7 +511,7 @@ export const useRunBatch = (sessionId: string) => {
           : null;
       const selectedTargetSupported =
         selectedTarget &&
-        (!isAnarlogLocalSttModel(conn?.provider, selectedModel) ||
+        (!isOnDeviceSttModel(conn?.provider, selectedModel) ||
           isDesktopLocalSttAvailable(currentPlatform, currentArch))
           ? await canUseBatchTarget(
               selectedTarget.provider,

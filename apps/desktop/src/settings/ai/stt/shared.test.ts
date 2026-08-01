@@ -7,6 +7,8 @@ describe("STT providers", () => {
   test("orders providers by popularity", () => {
     expect(PROVIDERS.map(({ id }) => id)).toEqual([
       "anarlog",
+      "soniqo",
+      "apple_speech",
       "deepgram",
       "assemblyai",
       "openai",
@@ -86,6 +88,12 @@ describe("STT model display labels", () => {
     }
     expect(providers.google_cloud.badge).toBe("Short batch");
     expect(providers.aws_transcribe.badge).toBe("Gateway");
+    expect("builtIn" in providers.soniqo && providers.soniqo.builtIn).toBe(
+      true,
+    );
+    expect(
+      "builtIn" in providers.apple_speech && providers.apple_speech.builtIn,
+    ).toBe(true);
   });
 
   test("names on-device models instead of collapsing them", () => {
@@ -93,18 +101,13 @@ describe("STT model display labels", () => {
       "Apple Speech",
     );
     expect(
-      displayModelLabel(
-        "soniqo-parakeet-streaming",
-        "Soniqo Parakeet Streaming",
-      ),
-    ).toBe("Soniqo Parakeet Streaming");
+      displayModelLabel("soniqo-parakeet-streaming", "Parakeet Streaming"),
+    ).toBe("Parakeet Streaming");
   });
 
   test("names on-device models without a backend display name", () => {
     expect(displayModelLabel("apple-speech")).toBe("Apple Speech");
-    expect(displayModelLabel("soniqo-parakeet-batch")).toBe(
-      "Soniqo Parakeet Batch",
-    );
-    expect(displayModelLabel("soniqo-omnilingual")).toBe("Soniqo Omnilingual");
+    expect(displayModelLabel("soniqo-parakeet-batch")).toBe("Parakeet Batch");
+    expect(displayModelLabel("soniqo-omnilingual")).toBe("Omnilingual ASR");
   });
 });

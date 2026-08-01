@@ -44,7 +44,7 @@ vi.mock("~/store/zustand/tabs", () => ({
 
 vi.mock("~/stt/capabilities", () => ({
   isConfiguredSttModel: () => true,
-  isAnarlogLocalSttModel: () => false,
+  isOnDeviceSttModel: () => false,
 }));
 
 import { NotificationProvider } from "./notifications";

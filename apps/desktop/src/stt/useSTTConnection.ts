@@ -10,10 +10,7 @@ import { env } from "~/env";
 import { type ProviderId } from "~/settings/ai/stt/shared";
 import { useAiProvider } from "~/settings/providers";
 import { useConfigValues } from "~/shared/config";
-import {
-  isAnarlogCloudSttModel,
-  isAnarlogLocalSttModel,
-} from "~/stt/capabilities";
+import { isAnarlogCloudSttModel, isOnDeviceSttModel } from "~/stt/capabilities";
 
 export const useSTTConnection = () => {
   const auth = useAuth();
@@ -30,10 +27,7 @@ export const useSTTConnection = () => {
     | AIProviderStorage
     | undefined;
 
-  const localModel = isAnarlogLocalSttModel(
-    current_stt_provider,
-    current_stt_model,
-  )
+  const localModel = isOnDeviceSttModel(current_stt_provider, current_stt_model)
     ? current_stt_model
     : null;
   const isLocalModel = !!localModel;
@@ -44,7 +38,7 @@ export const useSTTConnection = () => {
   );
 
   const local = useQuery({
-    enabled: current_stt_provider === "anarlog",
+    enabled: isLocalModel,
     queryKey: ["stt-connection", current_stt_provider, localModel],
     refetchInterval: 1000,
     queryFn: async () => {

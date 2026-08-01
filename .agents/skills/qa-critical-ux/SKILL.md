@@ -338,11 +338,15 @@ tests alone is not cross-platform evidence.
 
 | Config | How to set |
 | --- | --- |
-| On-device | Settings → AI: select local STT model and local LLM; sign-out state is also worth one pass |
+| On-device | Settings → AI: repeat the recording gates with every on-device STT model exposed for the QA Mac, using a local LLM; sign-out state is also worth one pass |
 | Pro plan | Settings → AI: select Anarlog cloud (`anarlog` provider) with a Pro/trialing account |
 
 - PASS when: steps 3–6 behave identically in outcome under each config
   (transcript + chat + automated summary), with provider-appropriate quality.
+- Do not sample one on-device model as representative. Record each exposed
+  model ID, its hardware recommendation status, and its individual result.
+  A model that cannot download, start, transcribe, or settle a recording is a
+  failed on-device matrix row.
 - Watch for: feature-gate prompts appearing for entitled users, silent
   summary failures (check the AI task state), and stalled live
   transcription (watchdog should batch-repair from the recording after
@@ -369,8 +373,8 @@ tests alone is not cross-platform evidence.
 
 ## Reporting
 
-Produce a table: checklist item × provider config → PASS/FAIL with a
-one-line note. Include the Dev manifest's Git SHA/dirty state, staging run
+Produce a table: checklist item × provider config and on-device model →
+PASS/FAIL with a one-line note. Include the Dev manifest's Git SHA/dirty state, staging run
 URL and head SHA, staging artifact SHA-256, stable release URL and artifact
 SHA-256, app version, speaker-cluster count, speaker-name result, and any
 explicit waiver. Any FAIL or SHA mismatch blocks release; file or fix before

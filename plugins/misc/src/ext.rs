@@ -3,6 +3,7 @@
 pub struct DeviceInfo {
     pub platform: String,
     pub arch: String,
+    pub total_memory_bytes: u64,
     pub os_version: String,
     pub app_version: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -27,9 +28,13 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Misc<'a, R, M> {
     }
 
     pub fn get_device_info(&self, locale: Option<String>) -> DeviceInfo {
+        let mut system = sysinfo::System::new();
+        system.refresh_memory();
+
         DeviceInfo {
             platform: std::env::consts::OS.to_string(),
             arch: std::env::consts::ARCH.to_string(),
+            total_memory_bytes: system.total_memory(),
             os_version: sysinfo::System::long_os_version().unwrap_or_default(),
             app_version: self.manager.package_info().version.to_string(),
             build_hash: Some(self.get_git_hash()),

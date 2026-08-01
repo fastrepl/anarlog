@@ -23,13 +23,11 @@ import {
   type SettingValue,
   type SettingValues,
 } from "~/settings/schema";
-import {
-  isConfiguredSttModel,
-  isAnarlogLocalSttModel,
-} from "~/stt/capabilities";
+import { isConfiguredSttModel, isOnDeviceSttModel } from "~/stt/capabilities";
 import {
   getDefaultSttModel,
   normalizeStoredSttModel,
+  normalizeStoredSttSelection,
 } from "~/stt/model-selection";
 
 type AppSettingRow = { id: string; value_json: string };
@@ -103,6 +101,17 @@ export async function initializeApplicationSettings(): Promise<void> {
     .getPreferredLanguages()
     .catch(() => null);
   const updates: SettingValues = {};
+  const normalizedSttSelection = normalizeStoredSttSelection(
+    stored.values.current_stt_provider,
+    stored.values.current_stt_model,
+  );
+
+  if (normalizedSttSelection.provider !== stored.values.current_stt_provider) {
+    updates.current_stt_provider = normalizedSttSelection.provider;
+  }
+  if (normalizedSttSelection.model !== stored.values.current_stt_model) {
+    updates.current_stt_model = normalizedSttSelection.model;
+  }
 
   if (languageResult?.status === "ok" && languageResult.data.length > 0) {
     if (!stored.hasValues.has("ai_language")) {
@@ -113,8 +122,8 @@ export async function initializeApplicationSettings(): Promise<void> {
     }
   }
 
-  if (!stored.values.current_stt_model) {
-    const defaultModel = getDefaultSttModel(stored.values.current_stt_provider);
+  if (!normalizedSttSelection.model) {
+    const defaultModel = getDefaultSttModel(normalizedSttSelection.provider);
     if (defaultModel) {
       updates.current_stt_model = defaultModel;
     }
@@ -460,7 +469,7 @@ async function syncLocalSttServer(): Promise<void> {
   let model = values.current_stt_model;
 
   if (
-    provider === "anarlog" &&
+    ["anarlog", "soniqo", "apple_speech"].includes(provider ?? "") &&
     model &&
     !isConfiguredSttModel(provider, model)
   ) {
@@ -479,7 +488,7 @@ async function syncLocalSttServer(): Promise<void> {
     ]);
   }
 
-  if (isAnarlogLocalSttModel(provider, model)) {
+  if (isOnDeviceSttModel(provider, model)) {
     await localSttCommands.startServer(model);
   } else {
     await localSttCommands.stopServer(null);

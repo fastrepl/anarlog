@@ -358,6 +358,10 @@ msgstr "Back"
 msgid "Base URL"
 msgstr "Base URL"
 
+#: src/settings/ai/stt/select.tsx
+msgid "Best for this Mac"
+msgstr "Best for this Mac"
+
 #: src/instruction/index.tsx
 msgid "Browser handoff not working? Paste the callback link instead"
 msgstr "Browser handoff not working? Paste the callback link instead"

@@ -84,11 +84,23 @@ export function isAnarlogCloudSttModel(
   return provider === "anarlog" && model === "cloud";
 }
 
-export function isAnarlogLocalSttModel(
+export function isOnDeviceSttModel(
   provider?: string | null,
   model?: string | null,
 ): model is LocalModel {
-  return provider === "anarlog" && isSupportedLocalSttModel(model);
+  if (!isSupportedLocalSttModel(model)) {
+    return false;
+  }
+
+  if (provider === "soniqo") {
+    return model.startsWith("soniqo-");
+  }
+
+  if (provider === "apple_speech" || provider === "apple-speech") {
+    return model === "apple-speech";
+  }
+
+  return provider === "anarlog";
 }
 
 export function isDesktopLocalSttAvailable(
@@ -107,7 +119,7 @@ export function getUnsupportedDesktopLocalSttRepair(
 ) {
   if (
     isDesktopLocalSttAvailable(currentPlatform, currentArch) ||
-    !isAnarlogLocalSttModel(provider, model)
+    !isOnDeviceSttModel(provider, model)
   ) {
     return null;
   }
@@ -127,6 +139,14 @@ export function isConfiguredSttModel(
 
   if (provider === "anarlog") {
     return model === "cloud" || isSupportedLocalSttModel(model);
+  }
+
+  if (provider === "soniqo") {
+    return model.startsWith("soniqo-");
+  }
+
+  if (provider === "apple_speech") {
+    return model === "apple-speech";
   }
 
   return true;
@@ -214,9 +234,11 @@ function baseLanguageCode(language: string) {
 }
 
 function languageSupportProvider(provider: string) {
-  return provider === "custom" || provider === "cloudflare_workers_ai"
-    ? "deepgram"
-    : provider;
+  if (provider === "custom" || provider === "cloudflare_workers_ai") {
+    return "deepgram";
+  }
+
+  return provider === "apple_speech" ? "apple-speech" : provider;
 }
 
 export async function isSupportedLanguagesLive(
@@ -319,7 +341,7 @@ export async function getLiveTranscriptionConfig({
   model?: string | null;
   languages: readonly string[];
 }): Promise<LiveTranscriptionConfig> {
-  if (isAnarlogLocalSttModel(provider, model)) {
+  if (isOnDeviceSttModel(provider, model)) {
     return getOnDeviceTranscriptionConfig(model, languages);
   }
 

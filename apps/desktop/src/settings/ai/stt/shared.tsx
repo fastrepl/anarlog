@@ -1,5 +1,6 @@
 import {
   AssemblyAI,
+  Apple,
   Aws,
   Azure,
   Cloudflare,
@@ -13,7 +14,7 @@ import {
   Together,
   XAI,
 } from "@lobehub/icons";
-import { Shuffle } from "@phosphor-icons/react";
+import { Shuffle, Waveform } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
 import type { LocalModel } from "@anlg/plugin-local-stt";
@@ -27,6 +28,7 @@ import { localSttQueries } from "~/stt/useLocalSttModel";
 export { localSttQueries as sttModelQueries };
 
 type Provider = {
+  builtIn?: boolean;
   disabled: boolean;
   id: string;
   displayName: string;
@@ -191,23 +193,23 @@ export const displayModelId = (model: string) => {
   }
 
   if (model === "soniqo-parakeet-streaming") {
-    return "Soniqo Parakeet Streaming";
+    return "Parakeet Streaming";
   }
 
   if (model === "soniqo-parakeet-batch") {
-    return "Soniqo Parakeet Batch";
+    return "Parakeet Batch";
   }
 
   if (model === "soniqo-omnilingual") {
-    return "Soniqo Omnilingual";
+    return "Omnilingual ASR";
   }
 
   if (model === "soniqo-qwen3-small") {
-    return "Soniqo Qwen3 0.6B";
+    return "Qwen3 ASR 0.6B";
   }
 
   if (model === "soniqo-qwen3-large") {
-    return "Soniqo Qwen3 1.7B";
+    return "Qwen3 ASR 1.7B";
   }
 
   if (model === "parakeet-tdt-0.6b-v3") {
@@ -245,9 +247,32 @@ const _PROVIDERS = [
     id: "anarlog",
     displayName: "Anarlog",
     badge: "Recommended",
+    builtIn: true,
     icon: <AnarlogProviderIcon />,
     baseUrl: new URL("/stt", env.VITE_API_URL).toString(),
     models: ["cloud"],
+    requirements: [],
+  },
+  {
+    disabled: false,
+    id: "soniqo",
+    displayName: "Soniqo",
+    badge: "On device",
+    baseUrl: "",
+    builtIn: true,
+    icon: <Waveform />,
+    models: [],
+    requirements: [],
+  },
+  {
+    disabled: false,
+    id: "apple_speech",
+    displayName: "Apple Speech",
+    badge: "On device",
+    baseUrl: "",
+    builtIn: true,
+    icon: <Apple />,
+    models: [],
     requirements: [],
   },
   {
@@ -635,6 +660,8 @@ const _PROVIDERS = [
 ] as const satisfies readonly Provider[];
 
 const PROVIDER_ORDER = [
+  "soniqo",
+  "apple_speech",
   "deepgram",
   "assemblyai",
   "openai",

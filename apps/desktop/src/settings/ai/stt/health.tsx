@@ -4,10 +4,7 @@ import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
 
 import { useConfigValues } from "~/shared/config";
-import {
-  isAnarlogCloudSttModel,
-  isAnarlogLocalSttModel,
-} from "~/stt/capabilities";
+import { isAnarlogCloudSttModel, isOnDeviceSttModel } from "~/stt/capabilities";
 import { useSTTConnection } from "~/stt/useSTTConnection";
 
 export type HealthStatus = {
@@ -56,23 +53,21 @@ export function useConnectionHealth(): HealthStatus {
     "current_stt_model",
   ] as const);
 
-  const isLocalModel = isAnarlogLocalSttModel(
+  const isLocalModel = isOnDeviceSttModel(
     current_stt_provider,
     current_stt_model,
   );
+  const isManagedProvider = ["anarlog", "soniqo", "apple_speech"].includes(
+    current_stt_provider ?? "",
+  );
   const isCloud =
     isAnarlogCloudSttModel(current_stt_provider, current_stt_model) ||
-    current_stt_provider !== "anarlog";
+    !isManagedProvider;
   const isDeepgram = current_stt_provider === "deepgram";
 
   const deepgramHealth = useDeepgramHealth(isDeepgram && !!conn, conn?.apiKey);
 
-  if (
-    current_stt_provider === "anarlog" &&
-    current_stt_model &&
-    !isCloud &&
-    !isLocalModel
-  ) {
+  if (isManagedProvider && current_stt_model && !isCloud && !isLocalModel) {
     return {
       status: "error",
       message: "Selected model is no longer available.",

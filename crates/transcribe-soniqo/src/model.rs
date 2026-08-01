@@ -109,11 +109,11 @@ impl SoniqoModel {
 
     pub const fn display_name(self) -> &'static str {
         match self {
-            Self::ParakeetStreaming => "Soniqo Parakeet Streaming",
-            Self::ParakeetBatch => "Soniqo Parakeet Batch",
-            Self::Omnilingual => "Soniqo Omnilingual",
-            Self::Qwen3Small => "Soniqo Qwen3 0.6B",
-            Self::Qwen3Large => "Soniqo Qwen3 1.7B",
+            Self::ParakeetStreaming => "Parakeet Streaming",
+            Self::ParakeetBatch => "Parakeet Batch",
+            Self::Omnilingual => "Omnilingual ASR",
+            Self::Qwen3Small => "Qwen3 ASR 0.6B",
+            Self::Qwen3Large => "Qwen3 ASR 1.7B",
         }
     }
 

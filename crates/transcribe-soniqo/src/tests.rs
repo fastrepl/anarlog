@@ -83,7 +83,7 @@ fn qwen3_platform_error_mentions_macos_15() {
 
     assert_eq!(
         error.to_string(),
-        "Soniqo Qwen3 0.6B requires macOS 15 or newer."
+        "Qwen3 ASR 0.6B requires macOS 15 or newer."
     );
 }
 

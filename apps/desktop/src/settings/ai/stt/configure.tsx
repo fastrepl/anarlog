@@ -24,7 +24,7 @@ export function ConfigureProviders() {
         value={accordionValue}
         onValueChange={setAccordionValue}
       >
-        {PROVIDERS.filter((provider) => provider.id !== "anarlog").map(
+        {PROVIDERS.filter((provider) => !("builtIn" in provider)).map(
           (provider) => (
             <NonAnarlogProviderCard
               key={provider.id}

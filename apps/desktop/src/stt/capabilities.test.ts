@@ -22,6 +22,7 @@ import {
   getUnsupportedDesktopLocalSttRepair,
   isConfiguredSttModel,
   isDesktopLocalSttAvailable,
+  isOnDeviceSttModel,
   isSupportedLanguagesBatch,
   isSupportedLanguagesLive,
   isRealtimeLocalModel,
@@ -130,6 +131,25 @@ describe("isSupportedLocalSttModel", () => {
   });
 });
 
+describe("isOnDeviceSttModel", () => {
+  test("matches models to their dedicated on-device provider", () => {
+    expect(isOnDeviceSttModel("soniqo", "soniqo-parakeet-streaming")).toBe(
+      true,
+    );
+    expect(isOnDeviceSttModel("apple_speech", "apple-speech")).toBe(true);
+    expect(isOnDeviceSttModel("soniqo", "apple-speech")).toBe(false);
+    expect(isOnDeviceSttModel("apple_speech", "soniqo-parakeet-batch")).toBe(
+      false,
+    );
+  });
+
+  test("keeps legacy Anarlog local selections working during migration", () => {
+    expect(isOnDeviceSttModel("anarlog", "soniqo-parakeet-streaming")).toBe(
+      true,
+    );
+  });
+});
+
 describe("getOnDeviceTranscriptionConfig", () => {
   test("keeps languages Apple Speech supports but Parakeet does not", () => {
     expect(getOnDeviceTranscriptionConfig("apple-speech", ["ko"])).toEqual({
@@ -176,6 +196,15 @@ describe("isConfiguredSttModel", () => {
     expect(isConfiguredSttModel("anarlog", "cloud")).toBe(true);
     expect(isConfiguredSttModel("anarlog", "soniqo-qwen3-small")).toBe(true);
     expect(isConfiguredSttModel("anarlog", "removed-local-model")).toBe(false);
+  });
+
+  test("requires models from the selected built-in provider", () => {
+    expect(isConfiguredSttModel("soniqo", "soniqo-parakeet-batch")).toBe(true);
+    expect(isConfiguredSttModel("soniqo", "apple-speech")).toBe(false);
+    expect(isConfiguredSttModel("apple_speech", "apple-speech")).toBe(true);
+    expect(
+      isConfiguredSttModel("apple_speech", "soniqo-parakeet-streaming"),
+    ).toBe(false);
   });
 
   test("allows custom model ids for external providers", () => {
@@ -426,6 +455,16 @@ describe("getLiveTranscriptionConfig", () => {
       "deepgram",
       "nova-3",
       ["en"],
+    ]);
+  });
+
+  test("maps the Apple Speech product provider to its runtime provider", async () => {
+    await isSupportedLanguagesLive("apple_speech", "apple-speech", ["ko"]);
+
+    expect(isSupportedLanguagesLiveMock.mock.calls[0]).toEqual([
+      "apple-speech",
+      "apple-speech",
+      ["ko"],
     ]);
   });
 
