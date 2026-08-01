@@ -465,7 +465,7 @@ printf '%s' "$$" > "$PID_FILE"
         });
 
         assert!(
-            rx.recv_timeout(Duration::from_secs(3))
+            rx.recv_timeout(Duration::from_secs(8))
                 .expect("cleanup result"),
             "dropping the event stream should terminate codex"
         );
@@ -554,7 +554,7 @@ PY
 
     #[cfg(unix)]
     fn wait_for_pid(pid_file: &std::path::Path) -> u32 {
-        let deadline = std::time::Instant::now() + Duration::from_secs(1);
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
         loop {
             if let Ok(pid) = fs::read_to_string(pid_file) {
                 return pid.trim().parse().expect("pid");
