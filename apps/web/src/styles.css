@@ -831,9 +831,7 @@
   font-size: 1.625rem;
 }
 
-.changelog-prose > h1:first-of-type,
-.changelog-prose > h2:first-of-type,
-.changelog-prose > h3:first-of-type {
+.changelog-prose > :first-child:is(h1, h2, h3) {
   margin-top: 0;
 }
 

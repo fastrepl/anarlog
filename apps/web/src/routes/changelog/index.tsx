@@ -57,7 +57,7 @@ function Component() {
                     className="group grid gap-4 py-7 sm:grid-cols-[10rem_minmax(0,1fr)_1.5rem] sm:items-start sm:gap-6 md:py-9"
                   >
                     <header>
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex flex-wrap items-center gap-2.5">
                         <h2 className="font-hand text-4xl leading-none font-semibold tracking-normal text-[#756b5d] transition-colors group-hover:text-[#181613]">
                           v{entry.version}
                         </h2>
