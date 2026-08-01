@@ -1,6 +1,8 @@
 import * as Sentry from "@sentry/react";
 import type { ErrorEvent, SeverityLevel } from "@sentry/react";
 
+import { commands as analyticsCommands } from "@anlg/plugin-analytics";
+
 import { env } from "./env";
 
 type ErrorContextValue = null | boolean | number | string;
@@ -140,12 +142,6 @@ export function initializeErrorReporting() {
     sendDefaultPii: false,
     tracePropagationTargets: [],
     beforeSend: sanitizeErrorEvent,
-    integrations: [
-      Sentry.replayIntegration({
-        blockAllMedia: true,
-        maskAllText: true,
-      }),
-    ],
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,
     initialScope: {
@@ -156,6 +152,38 @@ export function initializeErrorReporting() {
       },
     },
   });
+
+  void attachSessionReplayIfConsented();
+}
+
+let sessionReplayAttached = false;
+
+async function attachSessionReplayIfConsented() {
+  try {
+    const disabled = await analyticsCommands.isDisabled();
+    if (disabled.status === "ok" && !disabled.data) {
+      Sentry.addIntegration(
+        Sentry.replayIntegration({
+          blockAllMedia: true,
+          maskAllText: true,
+        }),
+      );
+      sessionReplayAttached = true;
+    }
+  } catch {
+    // Without a readable consent state, keep replay off.
+  }
+}
+
+// Turning consent back on takes effect on the next launch, so the
+// session sampling decision is only ever made at startup.
+export function disableSessionReplay() {
+  if (!sessionReplayAttached) return;
+
+  const replay = Sentry.getClient()?.getIntegrationByName?.("Replay") as
+    | { stop?: () => Promise<void> }
+    | undefined;
+  void replay?.stop?.()?.catch(() => {});
 }
 
 export function captureOperationalError(

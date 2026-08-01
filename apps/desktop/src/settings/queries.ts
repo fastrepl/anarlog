@@ -11,6 +11,7 @@ import { commands as windowsCommands } from "@anlg/plugin-windows";
 
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
+import { disableSessionReplay } from "~/error-reporting";
 import { normalizeAudioRetention } from "~/services/audio-retention-policy";
 import {
   LEGACY_MAIN_VALUES_ID,
@@ -416,6 +417,9 @@ function applySettingSideEffects(values: SettingValues): void {
     void analyticsCommands
       .setDisabled(!values.telemetry_consent)
       .catch(console.error);
+    if (!values.telemetry_consent) {
+      disableSessionReplay();
+    }
   }
   if (values.show_app_in_dock !== undefined) {
     void windowsCommands
