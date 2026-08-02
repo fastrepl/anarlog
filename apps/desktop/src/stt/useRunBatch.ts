@@ -91,6 +91,7 @@ const DIRECT_BATCH_PROVIDERS: Set<TranscriptionParams["provider"]> = new Set([
 export const STOPPED_TRANSCRIPTION_ERROR_MESSAGE = "Transcription stopped.";
 export const EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE =
   "Batch transcription did not include the current recording.";
+const MIN_REFINED_SPEAKER_OVERLAP_RATIO = 0.6;
 const LOCAL_SONIQO_BATCH_TARGET = {
   provider: "soniqo",
   model: "soniqo-parakeet-batch",
@@ -260,6 +261,165 @@ function speakerKeysByWordId(hints: SpeakerHintWithId[]) {
   }
 
   return keys;
+}
+
+function parseSpeakerKey(key: string) {
+  const separator = key.indexOf(":");
+  if (separator <= 0 || separator === key.length - 1) {
+    return null;
+  }
+
+  const channel = Number(key.slice(0, separator));
+  const speakerIndex = Number(key.slice(separator + 1));
+
+  return Number.isFinite(channel) && Number.isFinite(speakerIndex)
+    ? { channel, speakerIndex }
+    : null;
+}
+
+export function reconcileRefinedSpeakerClusters(
+  source: TranscriptRecord,
+  words: WordWithId[],
+  hints: SpeakerHintWithId[],
+): SpeakerHintWithId[] {
+  const sourceSpeakerKeys = speakerKeysByWordId(source.speakerHints);
+  const targetSpeakerKeys = speakerKeysByWordId(hints);
+  if (sourceSpeakerKeys.size === 0 || targetSpeakerKeys.size === 0) {
+    return hints;
+  }
+
+  const sourceIntervalsByChannel = new Map<
+    number,
+    Array<{
+      speakerKey: string;
+      startMs: number;
+      endMs: number;
+    }>
+  >();
+
+  for (const word of source.words) {
+    const speakerKey = sourceSpeakerKeys.get(word.id);
+    const speaker = speakerKey ? parseSpeakerKey(speakerKey) : null;
+    if (!speakerKey || !speaker) {
+      continue;
+    }
+
+    const startMs = word.start_ms ?? 0;
+    const endMs = Math.max(startMs + 1, word.end_ms ?? startMs);
+    const intervals = sourceIntervalsByChannel.get(speaker.channel) ?? [];
+    intervals.push({ speakerKey, startMs, endMs });
+    sourceIntervalsByChannel.set(speaker.channel, intervals);
+  }
+
+  for (const intervals of sourceIntervalsByChannel.values()) {
+    intervals.sort((left, right) => left.startMs - right.startMs);
+  }
+
+  const targetWords = words
+    .flatMap((word) => {
+      const speakerKey = targetSpeakerKeys.get(word.id);
+      const speaker = speakerKey ? parseSpeakerKey(speakerKey) : null;
+      if (!speakerKey || !speaker) {
+        return [];
+      }
+
+      const startMs = word.start_ms ?? 0;
+      return [
+        {
+          speakerKey,
+          channel: speaker.channel,
+          startMs,
+          endMs: Math.max(startMs + 1, word.end_ms ?? startMs),
+        },
+      ];
+    })
+    .sort(
+      (left, right) =>
+        left.channel - right.channel || left.startMs - right.startMs,
+    );
+  const cursors = new Map<number, number>();
+  const weights = new Map<string, Map<string, number>>();
+
+  for (const word of targetWords) {
+    const sourceIntervals = sourceIntervalsByChannel.get(word.channel);
+    if (!sourceIntervals) {
+      continue;
+    }
+
+    let cursor = cursors.get(word.channel) ?? 0;
+    while (
+      cursor < sourceIntervals.length &&
+      sourceIntervals[cursor].endMs <= word.startMs
+    ) {
+      cursor += 1;
+    }
+    cursors.set(word.channel, cursor);
+
+    for (
+      let index = cursor;
+      index < sourceIntervals.length &&
+      sourceIntervals[index].startMs < word.endMs;
+      index += 1
+    ) {
+      const source = sourceIntervals[index];
+      const overlapMs =
+        Math.min(word.endMs, source.endMs) -
+        Math.max(word.startMs, source.startMs);
+      if (overlapMs <= 0) {
+        continue;
+      }
+
+      const sourceWeights = weights.get(word.speakerKey) ?? new Map();
+      sourceWeights.set(
+        source.speakerKey,
+        (sourceWeights.get(source.speakerKey) ?? 0) + overlapMs,
+      );
+      weights.set(word.speakerKey, sourceWeights);
+    }
+  }
+
+  const sourceSpeakerByTarget = new Map<string, number>();
+  for (const [targetSpeakerKey, sourceWeights] of weights) {
+    const candidates = [...sourceWeights].sort(
+      ([leftKey, leftWeight], [rightKey, rightWeight]) =>
+        rightWeight - leftWeight || leftKey.localeCompare(rightKey),
+    );
+    const totalOverlapMs = candidates.reduce(
+      (total, [, overlapMs]) => total + overlapMs,
+      0,
+    );
+    const [sourceSpeakerKey, overlapMs] = candidates[0] ?? [];
+    const sourceSpeaker = sourceSpeakerKey
+      ? parseSpeakerKey(sourceSpeakerKey)
+      : null;
+    if (
+      sourceSpeaker &&
+      totalOverlapMs > 0 &&
+      overlapMs / totalOverlapMs >= MIN_REFINED_SPEAKER_OVERLAP_RATIO
+    ) {
+      sourceSpeakerByTarget.set(targetSpeakerKey, sourceSpeaker.speakerIndex);
+    }
+  }
+
+  return hints.map((hint) => {
+    if (hint.type !== "provider_speaker_index" || !hint.word_id) {
+      return hint;
+    }
+
+    const targetSpeakerKey = targetSpeakerKeys.get(hint.word_id);
+    const speakerIndex = targetSpeakerKey
+      ? sourceSpeakerByTarget.get(targetSpeakerKey)
+      : undefined;
+    const value = parseHintValue(hint.value);
+    if (speakerIndex === undefined || !value) {
+      return hint;
+    }
+
+    return {
+      ...hint,
+      value: JSON.stringify({ ...value, speaker_index: speakerIndex }),
+    };
+  });
 }
 
 export function transferAutomaticSpeakerAssignments(
@@ -549,14 +709,14 @@ export const useRunBatch = (sessionId: string) => {
         });
       }
 
-      let speakerIdentitySource: TranscriptRecord | null = null;
+      let refinedTranscriptSource: TranscriptRecord | null = null;
       const replaceTranscriptId =
         options?.promotion?.scope === "current_capture"
           ? options.promotion.replaceTranscriptId
           : undefined;
       if (replaceTranscriptId) {
         try {
-          speakerIdentitySource =
+          refinedTranscriptSource =
             await getTranscriptRecord(replaceTranscriptId);
         } catch (error) {
           console.warn(
@@ -719,13 +879,20 @@ export const useRunBatch = (sessionId: string) => {
             if (transcriptId) {
               const completedTranscriptId = transcriptId;
               if (promoted.words.length > 0) {
-                const speakerHints = speakerIdentitySource
-                  ? transferAutomaticSpeakerAssignments(
-                      speakerIdentitySource,
+                const reconciledSpeakerHints = refinedTranscriptSource
+                  ? reconcileRefinedSpeakerClusters(
+                      refinedTranscriptSource,
                       promoted.words,
                       promoted.hints,
                     )
                   : promoted.hints;
+                const speakerHints = refinedTranscriptSource
+                  ? transferAutomaticSpeakerAssignments(
+                      refinedTranscriptSource,
+                      promoted.words,
+                      reconciledSpeakerHints,
+                    )
+                  : reconciledSpeakerHints;
                 await persistTranscriptWrite(() =>
                   createTranscript({
                     id: completedTranscriptId,

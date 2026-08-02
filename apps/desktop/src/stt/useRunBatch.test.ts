@@ -10,6 +10,7 @@ import {
   getBatchProvider,
   getSessionSpeakerCount,
   isTerminalTranscriptionError,
+  reconcileRefinedSpeakerClusters,
   transferAutomaticSpeakerAssignments,
 } from "./useRunBatch";
 import { useRunBatch } from "./useRunBatch";
@@ -316,6 +317,179 @@ describe("getBatchFallbackTarget", () => {
         currentArch: "x86_64",
       }),
     ).toBeNull();
+  });
+});
+
+describe("reconcileRefinedSpeakerClusters", () => {
+  test("collapses split batch clusters onto dominant live clusters", () => {
+    const source = {
+      id: "live-transcript",
+      ownerUserId: "user-1",
+      sessionId: "session-1",
+      startedAt: 0,
+      words: [
+        {
+          id: "live-lex-1",
+          text: "question",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 1,
+        },
+        {
+          id: "live-george-1",
+          text: "answer",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 1,
+        },
+        {
+          id: "live-lex-2",
+          text: "follow up",
+          start_ms: 200,
+          end_ms: 300,
+          channel: 1,
+        },
+        {
+          id: "live-george-2",
+          text: "response",
+          start_ms: 300,
+          end_ms: 400,
+          channel: 1,
+        },
+      ],
+      speakerHints: [
+        {
+          id: "live-lex-1-provider",
+          word_id: "live-lex-1",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 0 }),
+        },
+        {
+          id: "live-george-1-provider",
+          word_id: "live-george-1",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 1 }),
+        },
+        {
+          id: "live-lex-2-provider",
+          word_id: "live-lex-2",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 0 }),
+        },
+        {
+          id: "live-george-2-provider",
+          word_id: "live-george-2",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 1 }),
+        },
+      ],
+    } satisfies Parameters<typeof reconcileRefinedSpeakerClusters>[0];
+    const words = [
+      {
+        id: "batch-lex-primary",
+        text: "question",
+        start_ms: 0,
+        end_ms: 100,
+        channel: 1,
+      },
+      {
+        id: "batch-george-primary",
+        text: "answer",
+        start_ms: 100,
+        end_ms: 200,
+        channel: 1,
+      },
+      {
+        id: "batch-lex-split",
+        text: "follow up",
+        start_ms: 200,
+        end_ms: 300,
+        channel: 1,
+      },
+      {
+        id: "batch-george-split",
+        text: "response",
+        start_ms: 300,
+        end_ms: 400,
+        channel: 1,
+      },
+    ];
+    const hints = words.map((word, index) => ({
+      id: `${word.id}-provider`,
+      word_id: word.id,
+      type: "provider_speaker_index" as const,
+      value: JSON.stringify({
+        provider: "anarlog",
+        channel: 1,
+        speaker_index: index,
+      }),
+    }));
+
+    const result = reconcileRefinedSpeakerClusters(source, words, hints);
+
+    expect(result.map((hint) => JSON.parse(hint.value).speaker_index)).toEqual([
+      0, 1, 0, 1,
+    ]);
+  });
+
+  test("keeps an ambiguous batch cluster unchanged", () => {
+    const source = {
+      id: "live-transcript",
+      ownerUserId: "user-1",
+      sessionId: "session-1",
+      startedAt: 0,
+      words: [
+        {
+          id: "live-a",
+          text: "one",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 1,
+        },
+        {
+          id: "live-b",
+          text: "two",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 1,
+        },
+      ],
+      speakerHints: [
+        {
+          id: "live-a-provider",
+          word_id: "live-a",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 0 }),
+        },
+        {
+          id: "live-b-provider",
+          word_id: "live-b",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 1 }),
+        },
+      ],
+    } satisfies Parameters<typeof reconcileRefinedSpeakerClusters>[0];
+    const words = [
+      {
+        id: "batch-ambiguous",
+        text: "one two",
+        start_ms: 0,
+        end_ms: 200,
+        channel: 1,
+      },
+    ];
+    const hints = [
+      {
+        id: "batch-ambiguous-provider",
+        word_id: "batch-ambiguous",
+        type: "provider_speaker_index" as const,
+        value: JSON.stringify({ channel: 1, speaker_index: 4 }),
+      },
+    ];
+
+    const result = reconcileRefinedSpeakerClusters(source, words, hints);
+
+    expect(JSON.parse(result[0].value).speaker_index).toBe(4);
   });
 });
 
