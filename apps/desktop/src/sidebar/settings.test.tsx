@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   }>,
   openNew: vi.fn(),
   select: vi.fn(),
+  transitionChatMode: vi.fn(),
   updateSettingsTabState: vi.fn(),
   updateTemplatesTabState: vi.fn(),
 }));
@@ -78,6 +79,7 @@ vi.mock("~/store/zustand/tabs", () => {
     tabs: mocks.tabs,
     openNew: mocks.openNew,
     select: mocks.select,
+    transitionChatMode: mocks.transitionChatMode,
     updateSettingsTabState: mocks.updateSettingsTabState,
     updateTemplatesTabState: mocks.updateTemplatesTabState,
   });
@@ -101,6 +103,7 @@ describe("SettingsNav", () => {
     mocks.tabs = [];
     mocks.openNew.mockClear();
     mocks.select.mockClear();
+    mocks.transitionChatMode.mockClear();
     mocks.updateSettingsTabState.mockClear();
     mocks.updateTemplatesTabState.mockClear();
   });
@@ -113,6 +116,7 @@ describe("SettingsNav", () => {
       "App",
       "Account",
       "Sync",
+      "Automations",
       "Notifications",
       "Developers",
       "Permissions",
@@ -218,5 +222,28 @@ describe("SettingsNav", () => {
       mocks.currentTab,
       { tab: "sync" },
     );
+  });
+
+  it("opens Automations with Chat docked on the right", () => {
+    render(<SettingsNav />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Automations" }));
+
+    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
+      mocks.currentTab,
+      { tab: "automations" },
+    );
+    expect(mocks.transitionChatMode).toHaveBeenCalledWith({
+      type: "OPEN_RIGHT_PANEL",
+    });
+  });
+
+  it("closes the automation Chat panel when leaving the builder", () => {
+    mocks.currentTab = { type: "settings", state: { tab: "automations" } };
+    render(<SettingsNav />);
+
+    fireEvent.click(screen.getByRole("button", { name: "App" }));
+
+    expect(mocks.transitionChatMode).toHaveBeenCalledWith({ type: "CLOSE" });
   });
 });

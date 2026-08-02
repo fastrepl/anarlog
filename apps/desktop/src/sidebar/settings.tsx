@@ -8,6 +8,7 @@ import {
   CalendarBlank,
   Code,
   Gear,
+  Lightning,
   type Icon,
   Lock,
   Sparkle,
@@ -41,6 +42,7 @@ export function SettingsNav() {
   const updateSettingsTabState = useTabs(
     (state) => state.updateSettingsTabState,
   );
+  const transitionChatMode = useTabs((state) => state.transitionChatMode);
   const openTemplatesTab = useOpenTemplatesTab();
 
   const activeTab =
@@ -50,9 +52,14 @@ export function SettingsNav() {
     (tab: SettingsTab) => {
       if (currentTab?.type === "settings") {
         updateSettingsTabState(currentTab, { tab });
+        if (tab === "automations") {
+          transitionChatMode({ type: "OPEN_RIGHT_PANEL" });
+        } else if (activeTab === "automations") {
+          transitionChatMode({ type: "CLOSE" });
+        }
       }
     },
-    [currentTab, updateSettingsTabState],
+    [activeTab, currentTab, transitionChatMode, updateSettingsTabState],
   );
 
   const handleOpenTemplates = useCallback(() => {
@@ -79,6 +86,7 @@ export function SettingsNav() {
         { id: "app", label: t`App`, icon: Gear },
         { id: "account", label: t`Account`, icon: User },
         { id: "sync", label: t`Sync`, icon: ArrowsClockwise },
+        { id: "automations", label: t`Automations`, icon: Lightning },
         { id: "notifications", label: t`Notifications`, icon: Bell },
         { id: "permissions", label: t`Permissions`, icon: Lock },
         { id: "developers", label: t`Developers`, icon: Code },

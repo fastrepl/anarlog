@@ -185,6 +185,19 @@ describe("Basic Tab Actions", () => {
     expect(useTabs.getState().chatMode).toBe("FloatingClosed");
   });
 
+  test("openNew docks Chat when opening automation settings", () => {
+    useTabs.getState().openNew({
+      type: "settings",
+      state: { tab: "automations" },
+    });
+
+    expect(useTabs.getState()).toHaveCurrentTab({
+      type: "settings",
+      state: { tab: "automations" },
+    });
+    expect(useTabs.getState().chatMode).toBe("RightPanelOpen");
+  });
+
   test("openNew refreshes settings return target when reusing its tab", () => {
     const session1 = createSessionTab({ id: "tab1", active: false });
     const session2 = createSessionTab({ id: "tab2", active: false });

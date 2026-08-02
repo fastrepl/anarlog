@@ -10,6 +10,7 @@ import { SettingsTodo } from "./todo";
 
 import { LLM } from "~/settings/ai/llm";
 import { STT } from "~/settings/ai/stt";
+import { SettingsAutomations } from "~/settings/automations";
 import { SettingsDevelopers } from "~/settings/developers";
 import { SettingsDictionary } from "~/settings/dictionary";
 import { SettingsHydrationBoundary } from "~/settings/hydration-boundary";
@@ -46,6 +47,8 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <SettingsAccount />;
       case "app":
         return <SettingsApp />;
+      case "automations":
+        return <SettingsAutomations />;
       case "notifications":
         return <SettingsNotifications />;
       case "sync":

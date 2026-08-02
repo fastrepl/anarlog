@@ -207,6 +207,11 @@ export const SETTING_DEFINITIONS = {
     path: ["todo", "github_repository"],
     default: "" as string,
   },
+  automation_draft_template: {
+    type: "string",
+    path: ["automations", "draft_template"],
+    default: "" as string,
+  },
 } as const;
 
 export type SettingKey = keyof typeof SETTING_DEFINITIONS;
