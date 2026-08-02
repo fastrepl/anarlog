@@ -766,7 +766,8 @@ function ModelSelectItem({
           value={model.id}
           className={cn([
             "group-hover/model-row:bg-accent group-hover/model-row:text-accent-foreground",
-            showLocalActions && "pr-20",
+            showLocalActions &&
+              "pr-20 group-focus-within/model-row:[&>span:first-child]:opacity-0 group-hover/model-row:[&>span:first-child]:opacity-0",
             isDeprecated && "text-muted-foreground focus:text-muted-foreground",
           ])}
         >
