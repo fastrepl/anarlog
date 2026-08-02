@@ -75,6 +75,7 @@ async fn migrations_apply_cleanly() {
             "tags",
             "templates",
             "transcripts",
+            "voiceprint_exemplars",
             "webhook_endpoints",
             "workspace_memberships",
             "workspaces",

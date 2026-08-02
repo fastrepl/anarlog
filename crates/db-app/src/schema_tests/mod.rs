@@ -174,3 +174,4 @@ mod entities;
 mod migrations;
 mod search_index;
 mod shared_session_cache;
+mod voiceprints;

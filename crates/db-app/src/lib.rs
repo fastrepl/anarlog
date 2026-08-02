@@ -13,6 +13,8 @@ mod session_ops;
 mod session_types;
 mod template_ops;
 mod template_types;
+mod voiceprint_ops;
+mod voiceprint_types;
 
 pub use api_ops::*;
 pub use api_types::*;
@@ -28,6 +30,8 @@ pub use session_types::*;
 use sha2::{Digest, Sha384};
 pub use template_ops::*;
 pub use template_types::*;
+pub use voiceprint_ops::*;
+pub use voiceprint_types::*;
 
 pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
     anlg_db_migrate::MigrationStep {
@@ -268,6 +272,11 @@ pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
         id: "20260728090000_local_api",
         scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260728090000_local_api.sql"),
+    },
+    anlg_db_migrate::MigrationStep {
+        id: "20260802120000_voiceprint_exemplars",
+        scope: anlg_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260802120000_voiceprint_exemplars.sql"),
     },
 ];
 
