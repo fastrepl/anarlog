@@ -1,25 +1,143 @@
 {
-  "fill": "automatic",
+  "fill": {
+    "linear-gradient": [
+      "display-p3:0.95051,0.91029,0.73155,1.00000",
+      "srgb:1.00000,0.87843,0.58039,1.00000"
+    ],
+    "orientation": {
+      "start": {
+        "x": 0.5,
+        "y": 1
+      },
+      "stop": {
+        "x": 0.5,
+        "y": 0
+      }
+    }
+  },
   "groups": [
     {
       "layers": [
         {
-          "blend-mode": "normal",
-          "fill": "automatic",
-          "hidden": false,
-          "image-name": "icon.jpg",
-          "name": "icon"
+          "fill-specializations": [
+            {
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:1.00000,0.87843,0.58039,1.00000"
+              }
+            },
+            {
+              "appearance": "light",
+              "idiom": "square",
+              "value": {
+                "automatic-gradient": "srgb:0.25490,0.20784,0.11373,1.00000"
+              }
+            }
+          ],
+          "hidden-specializations": [
+            {
+              "value": true
+            },
+            {
+              "idiom": "square",
+              "value": false
+            }
+          ],
+          "image-name": "SVG Image.svg",
+          "name": "SVG Image",
+          "position-specializations": [
+            {
+              "idiom": "square",
+              "value": {
+                "scale": 0.72,
+                "translation-in-points": [
+                  0.19499999999993634,
+                  0.19500000000005002
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "fill-specializations": [
+            {
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:1.00000,0.87843,0.58039,1.00000"
+              }
+            },
+            {
+              "appearance": "light",
+              "idiom": "square",
+              "value": {
+                "automatic-gradient": "srgb:0.25490,0.20784,0.11373,1.00000"
+              }
+            }
+          ],
+          "hidden": true,
+          "image-name": "SVG Image 5.svg",
+          "name": "SVG Image 5",
+          "position-specializations": [
+            {
+              "idiom": "square",
+              "value": {
+                "scale": 0.36,
+                "translation-in-points": [
+                  0.09750000073495357,
+                  -20.14396490330364
+                ]
+              }
+            },
+            {
+              "idiom": "watchOS",
+              "value": {
+                "scale": 0.33,
+                "translation-in-points": [
+                  -0.0634999990356846,
+                  -27.248027761051617
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "fill-specializations": [
+            {
+              "value": {
+                "automatic-gradient": "srgb:0.25490,0.20784,0.11373,1.00000"
+              }
+            },
+            {
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:1.00000,0.87843,0.58039,1.00000"
+              }
+            }
+          ],
+          "hidden": true,
+          "image-name": "SVG Image 4.svg",
+          "name": "SVG Image 4",
+          "position-specializations": [
+            {
+              "idiom": "square",
+              "value": {
+                "scale": 1.25,
+                "translation-in-points": [
+                  32.88969721873491,
+                  21.952815885368295
+                ]
+              }
+            }
+          ]
         }
       ],
-      "lighting": "individual",
-      "opacity": 1,
       "shadow": {
         "kind": "neutral",
-        "opacity": 0.5
+        "opacity": 0.6
       },
       "translucency": {
         "enabled": true,
-        "value": 0.5
+        "value": 0.2
       }
     }
   ],
