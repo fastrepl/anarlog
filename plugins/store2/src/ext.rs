@@ -20,6 +20,16 @@ impl<R: tauri::Runtime> Default for Store2State<R> {
 
 pub const FILENAME: &str = "store.json";
 
+fn load_store_defaults(
+    path: &std::path::Path,
+) -> Result<HashMap<String, serde_json::Value>, crate::Error> {
+    match std::fs::read(path) {
+        Ok(bytes) => serde_json::from_slice(&bytes).map_err(Into::into),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(HashMap::new()),
+        Err(error) => Err(error.into()),
+    }
+}
+
 fn resolve_store_dir<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
 ) -> Result<PathBuf, crate::Error> {
@@ -79,7 +89,12 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Store2<'a, R, M> {
 
         use tauri_plugin_store::StoreExt;
 
-        let store = app.store_builder(&path).disable_auto_save().build()?;
+        let defaults = load_store_defaults(&path)?;
+        let store = app
+            .store_builder(&path)
+            .defaults(defaults)
+            .disable_auto_save()
+            .build()?;
         store.close_resource();
         retained.insert(path.clone(), Arc::clone(&store));
         Ok((store, path))

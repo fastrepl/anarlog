@@ -229,6 +229,53 @@ mod test {
     }
 
     #[test]
+    fn retries_after_an_existing_store_cannot_be_read() -> anyhow::Result<()> {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        let vault = TestVault::new("unreadable-store");
+        let path = vault.primary.join(FILENAME);
+        std::fs::create_dir(&path)?;
+        let app = create_app(tauri::test::mock_builder(), &vault.identifier);
+
+        let error = app.store2().store().err().expect("store read must fail");
+
+        assert!(matches!(error, Error::IoError(_)));
+        assert!(path.is_dir());
+
+        std::fs::remove_dir(&path)?;
+        let persisted_scope = serde_json::to_string(&serde_json::json!({
+            "key": "persisted"
+        }))?;
+        std::fs::write(
+            &path,
+            serde_json::to_string_pretty(&serde_json::json!({
+                "test": persisted_scope
+            }))?,
+        )?;
+
+        let recovered = app.store2().scoped_store::<String>("test")?;
+        assert_eq!(
+            recovered.get::<String>("key".to_string())?,
+            Some("persisted".to_string())
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn refuses_to_open_a_malformed_existing_store() -> anyhow::Result<()> {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        let vault = TestVault::new("malformed-store");
+        let path = vault.primary.join(FILENAME);
+        std::fs::write(&path, "not json")?;
+        let app = create_app(tauri::test::mock_builder(), &vault.identifier);
+
+        let error = app.store2().store().err().expect("store parse must fail");
+
+        assert!(matches!(error, Error::SerdeJsonError(_)));
+        assert_eq!(std::fs::read_to_string(path)?, "not json");
+        Ok(())
+    }
+
+    #[test]
     fn test_concurrent_set() -> anyhow::Result<()> {
         let _guard = TEST_MUTEX.lock().unwrap();
         let vault = TestVault::new("concurrent");
