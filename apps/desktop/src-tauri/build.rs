@@ -23,7 +23,9 @@ fn build_check_permissions() {
     let triple = std::env::var("TARGET").unwrap();
     let swift_target = swift_target(&triple);
 
-    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let manifest_dir = PathBuf::from(
+        std::env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is set by Cargo"),
+    );
     let build_rs = manifest_dir.join("build.rs");
     let swift_src = manifest_dir.join("../../../plugins/permissions/swift/check-permissions.swift");
     let binaries_dir = manifest_dir.join("binaries");

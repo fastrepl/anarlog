@@ -1,4 +1,5 @@
 use progenitor_utils::OpenApiSpec;
+use std::path::PathBuf;
 
 const ALLOWED_PATH_PREFIXES: &[&str] = &[
     "/calendar",
@@ -32,18 +33,18 @@ const TYPE_REPLACEMENTS: &[(&str, &str)] = &[
 ];
 
 fn main() {
-    let src = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../apps/api/openapi.gen.json"
+    let manifest_dir = PathBuf::from(
+        std::env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is set by Cargo"),
     );
-    println!("cargo:rerun-if-changed={src}");
+    let src = manifest_dir.join("../../apps/api/openapi.gen.json");
+    println!("cargo:rerun-if-changed={}", src.display());
 
-    OpenApiSpec::from_path(src)
+    OpenApiSpec::from_path(&src)
         .retain_paths(ALLOWED_PATH_PREFIXES)
         .normalize_responses()
         .flatten_all_of()
         .convert_31_to_30()
         .remove_unreferenced_schemas()
-        .write_filtered(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("openapi.gen.json"))
+        .write_filtered(manifest_dir.join("openapi.gen.json"))
         .generate_with_replacements("codegen.rs", TYPE_REPLACEMENTS);
 }
