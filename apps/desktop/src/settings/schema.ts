@@ -74,6 +74,11 @@ export const SETTING_DEFINITIONS = {
     path: ["general", "theme"],
     default: "system" as string,
   },
+  app_icon: {
+    type: "string",
+    path: ["general", "app_icon"],
+    default: "default" as string,
+  },
   save_recordings: {
     type: "boolean",
     path: ["general", "save_recordings"],

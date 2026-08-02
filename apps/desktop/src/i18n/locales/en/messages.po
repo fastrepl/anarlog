@@ -200,6 +200,10 @@ msgstr "All Notes"
 msgid "Always ready without manually launching."
 msgstr "Always ready without manually launching."
 
+#: src/settings/general/app-icon.tsx
+msgid "Anagram"
+msgstr "Anagram"
+
 #: src/session/components/note-input/enhanced/streaming.tsx
 msgid "Analyzing structure..."
 msgstr "Analyzing structure..."
@@ -301,6 +305,10 @@ msgstr "API key saved"
 #: src/sidebar/settings.tsx
 msgid "App"
 msgstr "App"
+
+#: src/settings/general/app-icon.tsx
+msgid "App icon"
+msgstr "App icon"
 
 #: src/settings/general/theme.tsx
 msgid "Appearance"
@@ -489,6 +497,10 @@ msgstr "Choose storage location"
 #: src/templates/template-icon-picker.tsx
 msgid "Choose template icon"
 msgstr "Choose template icon"
+
+#: src/settings/general/app-icon.tsx
+msgid "Choose the icon shown in the Dock and app switcher."
+msgstr "Choose the icon shown in the Dock and app switcher."
 
 #: src/session-sharing/index.tsx
 msgid "Choose who can open this note."
@@ -777,6 +789,7 @@ msgstr "Dark"
 msgid "Date and time are required"
 msgstr "Date and time are required"
 
+#: src/settings/general/app-icon.tsx
 #: src/templates/auto-form.tsx
 msgid "Default"
 msgstr "Default"

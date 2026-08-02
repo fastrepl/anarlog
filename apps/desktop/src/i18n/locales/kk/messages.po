@@ -200,6 +200,10 @@ msgstr ""
 msgid "Always ready without manually launching."
 msgstr "Қолмен іске қоспай-ақ әрқашан дайын."
 
+#: src/settings/general/app-icon.tsx
+msgid "Anagram"
+msgstr ""
+
 #: src/session/components/note-input/enhanced/streaming.tsx
 msgid "Analyzing structure..."
 msgstr ""
@@ -301,6 +305,10 @@ msgstr ""
 #: src/sidebar/settings.tsx
 msgid "App"
 msgstr "Қолданба"
+
+#: src/settings/general/app-icon.tsx
+msgid "App icon"
+msgstr ""
 
 #: src/settings/general/theme.tsx
 msgid "Appearance"
@@ -488,6 +496,10 @@ msgstr ""
 
 #: src/templates/template-icon-picker.tsx
 msgid "Choose template icon"
+msgstr ""
+
+#: src/settings/general/app-icon.tsx
+msgid "Choose the icon shown in the Dock and app switcher."
 msgstr ""
 
 #: src/session-sharing/index.tsx
@@ -777,6 +789,7 @@ msgstr ""
 msgid "Date and time are required"
 msgstr ""
 
+#: src/settings/general/app-icon.tsx
 #: src/templates/auto-form.tsx
 msgid "Default"
 msgstr ""

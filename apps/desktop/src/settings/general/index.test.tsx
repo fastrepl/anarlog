@@ -37,6 +37,7 @@ vi.mock("~/settings/queries", () => ({
 }));
 
 vi.mock("./account", () => ({ SettingsAccount: () => null }));
+vi.mock("./app-icon", () => ({ AppIconSelector: () => null }));
 vi.mock("./app-settings", () => ({ AppSettingsView: () => null }));
 vi.mock("./main-language", () => ({
   MainLanguageView: ({ value }: { value: string }) => (

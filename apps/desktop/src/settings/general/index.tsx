@@ -7,6 +7,7 @@ import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { commands as listenerCommands } from "@anlg/plugin-transcription";
 
 export { SettingsAccount } from "./account";
+import { AppIconSelector } from "./app-icon";
 import { AppSettingsView } from "./app-settings";
 import {
   CORE_TRANSCRIPTION_LANGUAGE_CODES,
@@ -189,6 +190,7 @@ function SettingsAppContent({
       <SettingsPageTitle title={<Trans>App</Trans>} />
       <div className="flex flex-col gap-4">
         <ThemeSelector />
+        <AppIconSelector />
         <form.Field name="autostart">
           {(autostartField) => (
             <form.Field name="automatic_updates">

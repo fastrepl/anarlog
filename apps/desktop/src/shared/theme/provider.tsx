@@ -4,6 +4,11 @@ import type { ReactNode } from "react";
 import { commands as iconCommands } from "@anlg/plugin-icon";
 
 import { applyDocumentTheme, writeStoredThemePreference } from "./apply";
+import {
+  type AppIconPreference,
+  normalizeAppIconPreference,
+  resolveDockIconName,
+} from "./icon";
 import type { ThemePreference } from "./resolve";
 import { useSettingsThemeReady } from "./use-settings-theme-ready";
 
@@ -12,23 +17,31 @@ import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export function AppThemeProvider({ children }: { children: ReactNode }) {
   const theme = useConfigValue("theme") as ThemePreference;
+  const appIcon = normalizeAppIconPreference(useConfigValue("app_icon"));
   const settingsReady = useSettingsThemeReady();
 
   return (
     <>
-      {settingsReady ? <ThemeSync key={theme} theme={theme} /> : null}
+      {settingsReady ? (
+        <ThemeSync
+          key={`${theme}:${appIcon}`}
+          theme={theme}
+          appIcon={appIcon}
+        />
+      ) : null}
       {children}
     </>
   );
 }
 
-function ThemeSync({ theme }: { theme: ThemePreference }) {
+function ThemeSync({
+  theme,
+  appIcon,
+}: {
+  theme: ThemePreference;
+  appIcon: AppIconPreference;
+}) {
   useMountEffect(() => {
-    if (theme !== "system") {
-      applyAppTheme(theme);
-      return;
-    }
-
     const appWindow = getCurrentWindow();
     let cancelled = false;
     let unlisten: (() => void) | undefined;
@@ -38,7 +51,7 @@ function ThemeSync({ theme }: { theme: ThemePreference }) {
         return;
       }
 
-      applyAppTheme(theme, systemTheme === "dark");
+      applyAppearance(theme, appIcon, isSystemDark(systemTheme));
     };
 
     void (async () => {
@@ -55,7 +68,7 @@ function ThemeSync({ theme }: { theme: ThemePreference }) {
     })().catch((error) => {
       if (!cancelled) {
         console.error("[theme] failed to read system appearance", error);
-        applyAppTheme(theme);
+        applyAppearance(theme, appIcon, prefersDarkColorScheme());
       }
     });
 
@@ -68,30 +81,47 @@ function ThemeSync({ theme }: { theme: ThemePreference }) {
   return null;
 }
 
-export async function applyThemePreference(theme: ThemePreference) {
-  if (theme !== "system") {
-    applyAppTheme(theme);
-    return;
-  }
+export async function applyThemePreference(
+  theme: ThemePreference,
+  appIcon: AppIconPreference = "default",
+) {
+  applyAppearance(theme, appIcon, await readSystemIsDark());
+}
 
+function applyAppearance(
+  theme: ThemePreference,
+  appIcon: AppIconPreference,
+  systemIsDark: boolean,
+) {
+  applyDocumentTheme(theme, systemIsDark);
+  writeStoredThemePreference(theme);
+  applyDockIcon(appIcon, systemIsDark);
+}
+
+export async function applyAppIconPreference(appIcon: AppIconPreference) {
+  applyDockIcon(appIcon, await readSystemIsDark());
+}
+
+async function readSystemIsDark(): Promise<boolean> {
   try {
-    const systemTheme = await getCurrentWindow().theme();
-    applyAppTheme(theme, systemTheme === "dark");
+    return isSystemDark(await getCurrentWindow().theme());
   } catch (error) {
     console.error("[theme] failed to read system appearance", error);
-    applyAppTheme(theme);
+    return prefersDarkColorScheme();
   }
 }
 
-function applyAppTheme(theme: ThemePreference, prefersDark?: boolean) {
-  const isDark =
-    prefersDark === undefined
-      ? applyDocumentTheme(theme)
-      : applyDocumentTheme(theme, prefersDark);
-  writeStoredThemePreference(theme);
+function isSystemDark(theme: Theme | null): boolean {
+  return theme === null ? prefersDarkColorScheme() : theme === "dark";
+}
 
+function prefersDarkColorScheme(): boolean {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+function applyDockIcon(appIcon: AppIconPreference, isDark: boolean) {
   void iconCommands
-    .setDockIcon(isDark ? "stable-dark" : "stable")
+    .setDockIcon(resolveDockIconName(appIcon, isDark))
     .then((result) => {
       if (result.status === "error") {
         console.error("[theme] failed to update Dock icon", result.error);

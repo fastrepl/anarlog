@@ -12,6 +12,7 @@ import {
 import { useSetSettingValue } from "~/settings/queries";
 import { SETTING_CONTROL_CLASS, SettingRow } from "~/settings/setting-row";
 import { useConfigValue } from "~/shared/config";
+import { normalizeAppIconPreference } from "~/shared/theme/icon";
 import { applyThemePreference } from "~/shared/theme/provider";
 import type { ThemePreference } from "~/shared/theme/resolve";
 
@@ -20,6 +21,7 @@ const THEME_OPTIONS: ThemePreference[] = ["light", "dark", "system"];
 export function ThemeSelector() {
   const { t } = useLingui();
   const value = useConfigValue("theme") as ThemePreference;
+  const appIcon = normalizeAppIconPreference(useConfigValue("app_icon"));
   const setTheme = useSetSettingValue("theme");
 
   const options = useMemo(
@@ -43,7 +45,7 @@ export function ThemeSelector() {
           value={THEME_OPTIONS.includes(value) ? value : "system"}
           onValueChange={(next) => {
             const preference = next as ThemePreference;
-            void applyThemePreference(preference);
+            void applyThemePreference(preference, appIcon);
             setTheme(next);
           }}
         >
