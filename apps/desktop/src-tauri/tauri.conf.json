@@ -47,17 +47,21 @@
     },
     "externalBin": [],
     "icon": [
-      "icons/stable/32x32.png",
-      "icons/stable/128x128.png",
-      "icons/stable/128x128@2x.png",
-      "icons/stable/icon.icns",
-      "icons/stable/icon.ico"
+      "icons/dev/32x32.png",
+      "icons/dev/128x128.png",
+      "icons/dev/128x128@2x.png",
+      "icons/dev/icon.icns",
+      "icons/dev/icon.ico"
     ],
     "resources": {
       "../../../plugins/windows/swift-lib/src/Resources/CabinSketch-Regular.ttf": "CabinSketch-Regular.ttf",
       "../../../plugins/windows/swift-lib/src/Resources/OFL.txt": "CabinSketch-OFL.txt",
       "resources/anagram/AppIcon.icns": "icons/anagram.icns",
       "resources/anagram-dark/AppIcon.icns": "icons/anagram-dark.icns",
+      "resources/dev/AppIcon.icns": "icons/dev.icns",
+      "resources/dev-dark/AppIcon.icns": "icons/dev-dark.icns",
+      "resources/staging/AppIcon.icns": "icons/staging.icns",
+      "resources/staging-dark/AppIcon.icns": "icons/staging-dark.icns",
       "icons/stable/icon.icns": "icons/stable.icns",
       "resources/stable-dark/AppIcon.icns": "icons/stable-dark.icns",
       "resources/notification-icons": "notification-icons"
@@ -85,8 +89,7 @@
       },
       "files": {
         "Resources/mlx-swift_Cmlx.bundle/default.metallib": "resources/mlx.metallib",
-        "Resources/AppIcon.incs": "resources/stable/AppIcon.icns",
-        "Resources/Assets.car": "resources/stable/Assets.car"
+        "Resources/AppIcon.icns": "resources/dev/AppIcon.icns"
       }
     }
   },

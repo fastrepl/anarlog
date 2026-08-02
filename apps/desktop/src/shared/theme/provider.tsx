@@ -1,3 +1,4 @@
+import { getIdentifier } from "@tauri-apps/api/app";
 import { getCurrentWindow, type Theme } from "@tauri-apps/api/window";
 import type { ReactNode } from "react";
 
@@ -51,7 +52,7 @@ function ThemeSync({
         return;
       }
 
-      applyAppearance(theme, appIcon, isSystemDark(systemTheme));
+      void applyAppearance(theme, appIcon, isSystemDark(systemTheme));
     };
 
     void (async () => {
@@ -85,21 +86,21 @@ export async function applyThemePreference(
   theme: ThemePreference,
   appIcon: AppIconPreference = "default",
 ) {
-  applyAppearance(theme, appIcon, await readSystemIsDark());
+  await applyAppearance(theme, appIcon, await readSystemIsDark());
 }
 
-function applyAppearance(
+async function applyAppearance(
   theme: ThemePreference,
   appIcon: AppIconPreference,
   systemIsDark: boolean,
 ) {
   applyDocumentTheme(theme, systemIsDark);
   writeStoredThemePreference(theme);
-  applyDockIcon(appIcon, systemIsDark);
+  await applyDockIcon(appIcon, systemIsDark);
 }
 
 export async function applyAppIconPreference(appIcon: AppIconPreference) {
-  applyDockIcon(appIcon, await readSystemIsDark());
+  await applyDockIcon(appIcon, await readSystemIsDark());
 }
 
 async function readSystemIsDark(): Promise<boolean> {
@@ -119,15 +120,17 @@ function prefersDarkColorScheme(): boolean {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
-function applyDockIcon(appIcon: AppIconPreference, isDark: boolean) {
-  void iconCommands
-    .setDockIcon(resolveDockIconName(appIcon, isDark))
-    .then((result) => {
-      if (result.status === "error") {
-        console.error("[theme] failed to update Dock icon", result.error);
-      }
-    })
-    .catch((error) => {
-      console.error("[theme] failed to update Dock icon", error);
-    });
+async function applyDockIcon(appIcon: AppIconPreference, isDark: boolean) {
+  const appIdentifier = await getIdentifier().catch(() => "com.hyprnote.dev");
+
+  try {
+    const result = await iconCommands.setDockIcon(
+      resolveDockIconName(appIcon, isDark, appIdentifier),
+    );
+    if (result.status === "error") {
+      console.error("[theme] failed to update Dock icon", result.error);
+    }
+  } catch (error) {
+    console.error("[theme] failed to update Dock icon", error);
+  }
 }

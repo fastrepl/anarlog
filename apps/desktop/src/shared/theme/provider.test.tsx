@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const themeState = vi.hoisted(() => ({
   settingsReady: false,
   theme: "system" as "light" | "dark" | "system",
-  appIcon: "default" as "default" | "anagram",
+  appIcon: "default" as "default" | "stable" | "anagram" | "dev" | "staging",
 }));
 
 const applyDocumentTheme = vi.hoisted(() =>
@@ -15,6 +15,9 @@ const applyDocumentTheme = vi.hoisted(() =>
 const writeStoredThemePreference = vi.hoisted(() => vi.fn());
 const setDockIcon = vi.hoisted(() =>
   vi.fn(async () => ({ status: "ok", data: null })),
+);
+const getIdentifier = vi.hoisted(() =>
+  vi.fn(async () => "com.hyprnote.stable"),
 );
 const nativeTheme = vi.hoisted(() => vi.fn(async () => "light"));
 const onThemeChanged = vi.hoisted(() =>
@@ -29,6 +32,8 @@ vi.mock("@tauri-apps/api/window", () => ({
     onThemeChanged,
   }),
 }));
+
+vi.mock("@tauri-apps/api/app", () => ({ getIdentifier }));
 
 vi.mock("@anlg/plugin-icon", () => ({
   commands: { setDockIcon },
@@ -63,6 +68,8 @@ describe("AppThemeProvider", () => {
     applyDocumentTheme.mockClear();
     writeStoredThemePreference.mockClear();
     setDockIcon.mockClear();
+    getIdentifier.mockReset();
+    getIdentifier.mockResolvedValue("com.hyprnote.stable");
     nativeTheme.mockReset();
     nativeTheme.mockResolvedValue("light");
     onThemeChanged.mockReset();
@@ -126,6 +133,19 @@ describe("AppThemeProvider", () => {
     await waitFor(() =>
       expect(setDockIcon).toHaveBeenCalledWith("stable-dark"),
     );
+  });
+
+  it("uses the channel-specific default Dock icon", async () => {
+    getIdentifier.mockResolvedValue("com.hyprnote.staging");
+    themeState.settingsReady = true;
+
+    render(
+      <AppThemeProvider>
+        <div>child</div>
+      </AppThemeProvider>,
+    );
+
+    await waitFor(() => expect(setDockIcon).toHaveBeenCalledWith("staging"));
   });
 
   it("applies the selected icon variant for the system appearance", async () => {

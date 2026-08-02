@@ -15,17 +15,16 @@
   },
   "bundle": {
     "icon": [
-      "icons/stable/32x32.png",
-      "icons/stable/128x128.png",
-      "icons/stable/128x128@2x.png",
-      "icons/stable/icon.icns",
-      "icons/stable/icon.ico"
+      "icons/staging/32x32.png",
+      "icons/staging/128x128.png",
+      "icons/staging/128x128@2x.png",
+      "icons/staging/icon.icns",
+      "icons/staging/icon.ico"
     ],
     "macOS": {
       "files": {
         "Resources/mlx-swift_Cmlx.bundle/default.metallib": "resources/mlx.metallib",
-        "Resources/AppIcon.incs": "resources/stable/AppIcon.icns",
-        "Resources/Assets.car": "resources/stable/Assets.car"
+        "Resources/AppIcon.icns": "resources/staging/AppIcon.icns"
       },
       "dmg": {
         "background": "assets/dmg-background-staging.png"

@@ -4,11 +4,24 @@
   "mainBinaryName": "anarlog",
   "identifier": "com.hyprnote.stable",
   "bundle": {
+    "icon": [
+      "icons/stable/32x32.png",
+      "icons/stable/128x128.png",
+      "icons/stable/128x128@2x.png",
+      "icons/stable/icon.icns",
+      "icons/stable/icon.ico"
+    ],
     "linux": {
       "deb": {
         "provides": ["char"],
         "conflicts": ["char"],
         "replaces": ["char"]
+      }
+    },
+    "macOS": {
+      "files": {
+        "Resources/AppIcon.icns": "resources/stable/AppIcon.icns",
+        "Resources/Assets.car": "resources/stable/Assets.car"
       }
     }
   },

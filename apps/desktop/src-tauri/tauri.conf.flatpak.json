@@ -3,6 +3,15 @@
   "productName": "Anarlog",
   "mainBinaryName": "anarlog",
   "identifier": "so.anarlog.Anarlog",
+  "bundle": {
+    "icon": [
+      "icons/stable/32x32.png",
+      "icons/stable/128x128.png",
+      "icons/stable/128x128@2x.png",
+      "icons/stable/icon.icns",
+      "icons/stable/icon.ico"
+    ]
+  },
   "plugins": {
     "deep-link": {
       "desktop": { "schemes": ["anarlog", "hyprnote"] }

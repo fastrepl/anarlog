@@ -6,6 +6,15 @@ const mocks = vi.hoisted(() => ({
   setAppIcon: vi.fn(),
   applyAppIconPreference: vi.fn(),
   appIcon: "default",
+  appIdentifier: "com.hyprnote.stable",
+}));
+
+vi.mock("@tanstack/react-query", () => ({
+  useQuery: () => ({ data: mocks.appIdentifier }),
+}));
+
+vi.mock("@tauri-apps/api/app", () => ({
+  getIdentifier: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
@@ -32,6 +41,7 @@ describe("AppIconSelector", () => {
     vi.clearAllMocks();
     mocks.platform.mockReturnValue("macos");
     mocks.appIcon = "default";
+    mocks.appIdentifier = "com.hyprnote.stable";
   });
 
   it("applies and stores the selected icon", () => {
@@ -43,15 +53,30 @@ describe("AppIconSelector", () => {
       defaultOption
         .querySelector('source[media="(prefers-color-scheme: dark)"]')
         ?.getAttribute("srcset"),
-    ).toBe("/assets/app-icons/default-dark.png");
+    ).toBe("/assets/app-icons/stable-dark.png");
     expect(defaultOption.querySelector("img")?.getAttribute("src")).toBe(
-      "/assets/app-icons/default-light.png",
+      "/assets/app-icons/stable-light.png",
     );
+    expect(screen.getAllByRole("radio")).toHaveLength(5);
+    expect(screen.getByRole("radio", { name: "Production" })).toBeDefined();
+    expect(screen.getByRole("radio", { name: "Blueprint" })).toBeDefined();
+    expect(screen.getByRole("radio", { name: "Sketch" })).toBeDefined();
 
-    fireEvent.click(screen.getByRole("radio", { name: "Anagram" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Blueprint" }));
 
-    expect(mocks.applyAppIconPreference).toHaveBeenCalledWith("anagram");
-    expect(mocks.setAppIcon).toHaveBeenCalledWith("anagram");
+    expect(mocks.applyAppIconPreference).toHaveBeenCalledWith("dev");
+    expect(mocks.setAppIcon).toHaveBeenCalledWith("dev");
+  });
+
+  it("previews the current channel icon for the default option", () => {
+    mocks.appIdentifier = "com.hyprnote.staging";
+
+    render(<AppIconSelector />);
+
+    const defaultOption = screen.getByRole("radio", { name: "Default" });
+    expect(defaultOption.querySelector("img")?.getAttribute("src")).toBe(
+      "/assets/app-icons/staging-light.png",
+    );
   });
 
   it("is hidden on platforms that cannot change the running app icon", () => {

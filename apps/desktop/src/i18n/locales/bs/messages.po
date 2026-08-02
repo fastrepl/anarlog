@@ -411,6 +411,10 @@ msgstr ""
 msgid "Best for this Mac"
 msgstr ""
 
+#: src/settings/general/app-icon.tsx
+msgid "Blueprint"
+msgstr ""
+
 #: src/instruction/index.tsx
 msgid "Browser handoff not working? Paste the callback link instead"
 msgstr ""
@@ -1779,6 +1783,10 @@ msgstr ""
 msgid "Pro trial"
 msgstr ""
 
+#: src/settings/general/app-icon.tsx
+msgid "Production"
+msgstr ""
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Protect cloud sync"
 msgstr ""
@@ -2330,6 +2338,10 @@ msgstr ""
 
 #: src/settings/general/account.tsx
 msgid "Signing out..."
+msgstr ""
+
+#: src/settings/general/app-icon.tsx
+msgid "Sketch"
 msgstr ""
 
 #: src/onboarding/shared.tsx
