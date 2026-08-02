@@ -3,12 +3,15 @@ use anlg_pyannote_cloud::ClientInfo;
 use axum::{
     Extension, Json, Router,
     body::Body,
-    extract::State,
+    extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::post,
+    routing::{get, post},
 };
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+use hmac::{Hmac, KeyInit, Mac};
 use serde::{Deserialize, Serialize};
+use sha2::Sha256;
 
 use crate::{
     config::PyannoteConfig,
@@ -19,7 +22,11 @@ use crate::{
 #[derive(Clone)]
 struct AppState {
     client: anlg_pyannote_cloud::Client,
+    job_handle_key: String,
 }
+
+const JOB_HANDLE_VERSION: &str = "v1";
+const JOB_HANDLE_DOMAIN: &[u8] = b"anarlog-pyannote-job-handle-v1";
 
 #[derive(Debug, Deserialize)]
 struct UpstreamApiError {
@@ -34,12 +41,15 @@ struct UpstreamValidationError {
 pub fn router(config: PyannoteConfig) -> Router {
     let state = AppState {
         client: config.client().expect("failed to build pyannote client"),
+        job_handle_key: config.api_key,
     };
 
     Router::new()
         .route("/v1/diarize", post(diarize))
         .route("/v1/identify", post(identify))
         .route("/v1/voiceprint", post(voiceprint))
+        .route("/v1/jobs/{job_id}", get(job))
+        .route("/v1/media/input", post(media_input))
         .with_state(state)
 }
 
@@ -51,12 +61,15 @@ async fn diarize(
     let body = sanitize_diarize_request(auth.claims.sub.as_str(), body)?;
     let payload = upstream_payload(body)?;
 
-    forward_request(
+    forward_job_request(
         state
             .client
             .client()
             .post(format!("{}/v1/diarize", state.client.baseurl()))
             .json(&payload),
+        auth.claims.sub.as_str(),
+        &state.job_handle_key,
+        true,
     )
     .await
 }
@@ -69,12 +82,15 @@ async fn identify(
     let body = sanitize_identify_request(auth.claims.sub.as_str(), body)?;
     let payload = upstream_payload(body)?;
 
-    forward_request(
+    forward_job_request(
         state
             .client
             .client()
             .post(format!("{}/v1/identify", state.client.baseurl()))
             .json(&payload),
+        auth.claims.sub.as_str(),
+        &state.job_handle_key,
+        true,
     )
     .await
 }
@@ -87,17 +103,97 @@ async fn voiceprint(
     let body = sanitize_voiceprint_request(auth.claims.sub.as_str(), body)?;
     let payload = upstream_payload(body)?;
 
-    forward_request(
+    forward_job_request(
         state
             .client
             .client()
             .post(format!("{}/v1/voiceprint", state.client.baseurl()))
             .json(&payload),
+        auth.claims.sub.as_str(),
+        &state.job_handle_key,
+        true,
+    )
+    .await
+}
+
+async fn job(
+    Extension(auth): Extension<AuthContext>,
+    State(state): State<AppState>,
+    Path(job_handle): Path<String>,
+) -> Result<Response> {
+    let job_id = verify_job_handle(&state.job_handle_key, auth.claims.sub.as_str(), &job_handle)?;
+
+    forward_job_request(
+        state
+            .client
+            .client()
+            .get(format!("{}/v1/jobs/{job_id}", state.client.baseurl())),
+        auth.claims.sub.as_str(),
+        &state.job_handle_key,
+        false,
+    )
+    .await
+}
+
+async fn media_input(
+    Extension(auth): Extension<AuthContext>,
+    State(state): State<AppState>,
+    Json(mut body): Json<anlg_pyannote_cloud::types::GetMediaUploadUrl>,
+) -> Result<Response> {
+    let url = normalize_media_url(auth.claims.sub.as_str(), &body.url)?;
+    body.url = url
+        .try_into()
+        .map_err(|_| PyannoteError::bad_request("Invalid managed media URL"))?;
+
+    forward_request(
+        state
+            .client
+            .client()
+            .post(format!("{}/v1/media/input", state.client.baseurl()))
+            .json(&body),
     )
     .await
 }
 
 async fn forward_request(request: reqwest::RequestBuilder) -> Result<Response> {
+    let (status, bytes) = upstream_response(request).await?;
+
+    Ok((
+        status,
+        [("content-type", "application/json")],
+        Body::from(bytes),
+    )
+        .into_response())
+}
+
+async fn forward_job_request(
+    request: reqwest::RequestBuilder,
+    user_id: &str,
+    key: &str,
+    job_id_required: bool,
+) -> Result<Response> {
+    let (status, bytes) = upstream_response(request).await?;
+    let mut body: serde_json::Value = serde_json::from_slice(&bytes)
+        .map_err(|_| PyannoteError::bad_gateway("Invalid upstream response"))?;
+    let job_id = body
+        .get("jobId")
+        .and_then(serde_json::Value::as_str)
+        .map(ToString::to_string);
+
+    if job_id_required && job_id.is_none() {
+        return Err(PyannoteError::bad_gateway(
+            "Upstream response did not include a job ID",
+        ));
+    }
+
+    if let Some(job_id) = job_id {
+        body["jobId"] = serde_json::Value::String(sign_job_handle(key, user_id, &job_id));
+    }
+
+    Ok((status, Json(body)).into_response())
+}
+
+async fn upstream_response(request: reqwest::RequestBuilder) -> Result<(StatusCode, Vec<u8>)> {
     let response = request
         .send()
         .await
@@ -109,12 +205,7 @@ async fn forward_request(request: reqwest::RequestBuilder) -> Result<Response> {
         .map_err(|err| PyannoteError::bad_gateway(err.to_string()))?;
 
     if status.is_success() {
-        return Ok((
-            status,
-            [("content-type", "application/json")],
-            Body::from(bytes),
-        )
-            .into_response());
+        return Ok((status, bytes.to_vec()));
     }
 
     let body = String::from_utf8_lossy(&bytes).to_string();
@@ -126,7 +217,7 @@ fn sanitize_diarize_request(
     user_id: &str,
     mut body: DiarizeRequest,
 ) -> Result<anlg_pyannote_cloud::types::DiarizeRequest> {
-    body.url = validate_media_url(user_id, &body.url)?;
+    body.url = normalize_media_url(user_id, &body.url)?;
     Ok(body.into())
 }
 
@@ -134,7 +225,7 @@ fn sanitize_identify_request(
     user_id: &str,
     mut body: IdentifyRequest,
 ) -> Result<anlg_pyannote_cloud::types::IdentifyRequest> {
-    body.url = validate_media_url(user_id, &body.url)?;
+    body.url = normalize_media_url(user_id, &body.url)?;
     Ok(body.into())
 }
 
@@ -142,19 +233,92 @@ fn sanitize_voiceprint_request(
     user_id: &str,
     mut body: VoiceprintRequest,
 ) -> Result<anlg_pyannote_cloud::types::VoiceprintRequest> {
-    body.url = validate_media_url(user_id, &body.url)?;
+    body.url = normalize_media_url(user_id, &body.url)?;
     Ok(body.into())
 }
 
-fn validate_media_url(user_id: &str, url: &str) -> Result<String> {
+fn normalize_media_url(user_id: &str, url: &str) -> Result<String> {
     let prefix = format!("media://users/{user_id}/");
-    if url.starts_with(&prefix) {
-        Ok(url.to_string())
+    let normalized = if url.starts_with(&prefix) {
+        url.to_string()
+    } else if let Some(suffix) = url.strip_prefix("media://owhisper/") {
+        format!("{prefix}owhisper/{suffix}")
     } else {
-        Err(PyannoteError::bad_request(
-            "Invalid media URL: expected caller-owned managed media",
-        ))
+        return Err(invalid_media_url());
+    };
+    let suffix = normalized.strip_prefix(&prefix);
+    let valid = normalized.len() <= 255
+        && normalized.bytes().all(|byte| {
+            byte.is_ascii_alphanumeric() || matches!(byte, b':' | b'/' | b'-' | b'_' | b'.')
+        })
+        && suffix.is_some_and(|suffix| {
+            !suffix.is_empty()
+                && suffix
+                    .split('/')
+                    .all(|segment| !segment.is_empty() && segment != "." && segment != "..")
+        });
+
+    if valid {
+        Ok(normalized)
+    } else {
+        Err(invalid_media_url())
     }
+}
+
+fn invalid_media_url() -> PyannoteError {
+    PyannoteError::bad_request("Invalid media URL: expected caller-owned managed media")
+}
+
+fn sign_job_handle(key: &str, user_id: &str, job_id: &str) -> String {
+    let encoded_job_id = URL_SAFE_NO_PAD.encode(job_id);
+    let signature = job_handle_mac(key, user_id, job_id).finalize().into_bytes();
+    format!(
+        "{JOB_HANDLE_VERSION}.{encoded_job_id}.{}",
+        URL_SAFE_NO_PAD.encode(signature)
+    )
+}
+
+fn verify_job_handle(key: &str, user_id: &str, handle: &str) -> Result<String> {
+    let mut parts = handle.split('.');
+    let (Some(version), Some(encoded_job_id), Some(encoded_signature), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return Err(invalid_job_handle());
+    };
+
+    if version != JOB_HANDLE_VERSION {
+        return Err(invalid_job_handle());
+    }
+
+    let job_id = URL_SAFE_NO_PAD
+        .decode(encoded_job_id)
+        .ok()
+        .and_then(|bytes| String::from_utf8(bytes).ok())
+        .filter(|job_id| !job_id.is_empty())
+        .ok_or_else(invalid_job_handle)?;
+    let signature = URL_SAFE_NO_PAD
+        .decode(encoded_signature)
+        .map_err(|_| invalid_job_handle())?;
+
+    job_handle_mac(key, user_id, &job_id)
+        .verify_slice(&signature)
+        .map_err(|_| invalid_job_handle())?;
+
+    Ok(job_id)
+}
+
+fn job_handle_mac(key: &str, user_id: &str, job_id: &str) -> Hmac<Sha256> {
+    let mut mac = <Hmac<Sha256> as KeyInit>::new_from_slice(key.as_bytes())
+        .expect("HMAC accepts keys of any length");
+    mac.update(JOB_HANDLE_DOMAIN);
+    mac.update(&(user_id.len() as u64).to_be_bytes());
+    mac.update(user_id.as_bytes());
+    mac.update(job_id.as_bytes());
+    mac
+}
+
+fn invalid_job_handle() -> PyannoteError {
+    PyannoteError::bad_request("Invalid job handle")
 }
 
 fn upstream_payload(body: impl Serialize) -> Result<serde_json::Value> {
@@ -236,7 +400,7 @@ mod tests {
 
     use crate::config::PyannoteConfig;
 
-    fn router(server: &MockServer) -> Router {
+    fn router_for_user(server: &MockServer, user_id: &str) -> Router {
         super::router(PyannoteConfig {
             api_key: "pyannote-key".to_string(),
             api_base: server.uri(),
@@ -244,7 +408,7 @@ mod tests {
         .layer(Extension(AuthContext {
             token: "token".to_string(),
             claims: Claims {
-                sub: "user-123".to_string(),
+                sub: user_id.to_string(),
                 email: None,
                 entitlements: vec![],
                 subscription_status: None,
@@ -252,6 +416,10 @@ mod tests {
                 has_payment_method: None,
             },
         }))
+    }
+
+    fn router(server: &MockServer) -> Router {
+        router_for_user(server, "user-123")
     }
 
     async fn response_json(response: axum::response::Response) -> Value {
@@ -283,9 +451,13 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+        let response_body = response_json(response).await;
+        let job_handle = response_body["jobId"].as_str().unwrap();
+        assert_ne!(job_handle, "job-123");
+        assert_eq!(response_body["status"], json!("created"));
         assert_eq!(
-            response_json(response).await,
-            json!({"jobId": "job-123", "status": "created"})
+            super::verify_job_handle("pyannote-key", "user-123", job_handle).unwrap(),
+            "job-123"
         );
 
         let requests = server.received_requests().await.unwrap();
@@ -400,24 +572,75 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn job_detail_route_is_not_exposed() {
+    async fn job_detail_accepts_only_a_caller_bound_handle() {
         let server = MockServer::start().await;
+        let job_handle = super::sign_job_handle("pyannote-key", "user-123", "job-123");
+
+        Mock::given(method("GET"))
+            .and(path("/v1/jobs/job-123"))
+            .and(header("authorization", "Bearer pyannote-key"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "jobId": "job-123",
+                "status": "succeeded",
+                "output": {"voiceprint": "biometric-value"}
+            })))
+            .mount(&server)
+            .await;
 
         let response = router(&server)
             .oneshot(
-                Request::get("/v1/jobs/job-123")
+                Request::get(format!("/v1/jobs/{job_handle}"))
                     .body(Body::empty())
                     .unwrap(),
             )
             .await
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response_json(response).await,
+            json!({
+                "jobId": job_handle,
+                "status": "succeeded",
+                "output": {"voiceprint": "biometric-value"}
+            })
+        );
     }
 
     #[tokio::test]
-    async fn media_input_route_is_not_exposed() {
+    async fn job_detail_rejects_a_handle_bound_to_another_user() {
         let server = MockServer::start().await;
+        let job_handle = super::sign_job_handle("pyannote-key", "user-999", "job-123");
+
+        let response = router(&server)
+            .oneshot(
+                Request::get(format!("/v1/jobs/{job_handle}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert_eq!(
+            response_json(response).await,
+            json!({"error": {"code": "bad_request", "message": "Invalid job handle"}})
+        );
+        assert!(server.received_requests().await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn media_input_forwards_only_caller_owned_media() {
+        let server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/v1/media/input"))
+            .and(header("authorization", "Bearer pyannote-key"))
+            .respond_with(ResponseTemplate::new(201).set_body_json(json!({
+                "url": "https://uploads.pyannote.test/presigned"
+            })))
+            .mount(&server)
+            .await;
 
         let response = router(&server)
             .oneshot(
@@ -429,7 +652,120 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        assert_eq!(response.status(), StatusCode::CREATED);
+        assert_eq!(
+            response_json(response).await,
+            json!({"url": "https://uploads.pyannote.test/presigned"})
+        );
+
+        let requests = server.received_requests().await.unwrap();
+        assert_eq!(
+            requests[0].body_json::<Value>().unwrap(),
+            json!({"url": "media://users/user-123/audio.wav"})
+        );
+    }
+
+    #[tokio::test]
+    async fn media_input_scopes_an_owhisper_key_to_the_caller() {
+        let server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/v1/media/input"))
+            .respond_with(ResponseTemplate::new(201).set_body_json(json!({
+                "url": "https://uploads.pyannote.test/presigned"
+            })))
+            .mount(&server)
+            .await;
+
+        let response = router(&server)
+            .oneshot(
+                Request::post("/v1/media/input")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{"url":"media://owhisper/process-123-audio.mp3"}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let requests = server.received_requests().await.unwrap();
+        assert_eq!(
+            requests[0].body_json::<Value>().unwrap(),
+            json!({"url": "media://users/user-123/owhisper/process-123-audio.mp3"})
+        );
+    }
+
+    #[tokio::test]
+    async fn diarize_scopes_an_owhisper_key_to_the_caller() {
+        let server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/v1/diarize"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "jobId": "job-123",
+                "status": "created"
+            })))
+            .mount(&server)
+            .await;
+
+        let response = router(&server)
+            .oneshot(
+                Request::post("/v1/diarize")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{"url":"media://owhisper/process-123-audio.mp3"}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let requests = server.received_requests().await.unwrap();
+        assert_eq!(
+            requests[0].body_json::<Value>().unwrap()["url"],
+            json!("media://users/user-123/owhisper/process-123-audio.mp3")
+        );
+    }
+
+    #[tokio::test]
+    async fn media_input_rejects_another_users_media() {
+        let server = MockServer::start().await;
+
+        let response = router(&server)
+            .oneshot(
+                Request::post("/v1/media/input")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"url":"media://users/user-999/audio.wav"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert!(server.received_requests().await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn media_input_rejects_parent_path_segments() {
+        let server = MockServer::start().await;
+
+        let response = router(&server)
+            .oneshot(
+                Request::post("/v1/media/input")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{"url":"media://users/user-123/../user-999/audio.wav"}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert!(server.received_requests().await.unwrap().is_empty());
     }
 
     #[tokio::test]

@@ -26,7 +26,11 @@ pub fn openapi() -> OpenApiDoc {
     doc.paths.paths.retain(|path, _| {
         matches!(
             path.as_str(),
-            "/v1/diarize" | "/v1/identify" | "/v1/voiceprint"
+            "/v1/diarize"
+                | "/v1/identify"
+                | "/v1/voiceprint"
+                | "/v1/jobs/{jobId}"
+                | "/v1/media/input"
         )
     });
 
@@ -41,8 +45,8 @@ pub fn openapi() -> OpenApiDoc {
         }
     }
 
-    // Account-wide jobs, shared media helpers, and `/v1/test` validate or expose
-    // capabilities of the shared server-side Pyannote account and are not public.
+    // Account-wide job listing, media downloads, and `/v1/test` expose capabilities
+    // of the shared server-side Pyannote account and are not public.
     for item in doc.paths.paths.values_mut() {
         with_each_operation(item, |operation| {
             operation.security = None;
@@ -100,9 +104,9 @@ mod tests {
         assert!(doc.paths.paths.contains_key("/v1/diarize"));
         assert!(doc.paths.paths.contains_key("/v1/identify"));
         assert!(doc.paths.paths.contains_key("/v1/voiceprint"));
+        assert!(doc.paths.paths.contains_key("/v1/jobs/{jobId}"));
+        assert!(doc.paths.paths.contains_key("/v1/media/input"));
         assert!(!doc.paths.paths.contains_key("/v1/jobs"));
-        assert!(!doc.paths.paths.contains_key("/v1/jobs/{jobId}"));
-        assert!(!doc.paths.paths.contains_key("/v1/media/input"));
         assert!(!doc.paths.paths.contains_key("/v1/media/output"));
         assert!(!doc.paths.paths.contains_key("/v1/test"));
     }

@@ -247,9 +247,15 @@ mod tests {
             doc.paths.paths.get("/pyannote/v1/voiceprint").unwrap(),
             "post",
         );
+        assert_bearer(
+            doc.paths.paths.get("/pyannote/v1/jobs/{jobId}").unwrap(),
+            "get",
+        );
+        assert_bearer(
+            doc.paths.paths.get("/pyannote/v1/media/input").unwrap(),
+            "post",
+        );
         assert!(!doc.paths.paths.contains_key("/pyannote/v1/jobs"));
-        assert!(!doc.paths.paths.contains_key("/pyannote/v1/jobs/{jobId}"));
-        assert!(!doc.paths.paths.contains_key("/pyannote/v1/media/input"));
         assert!(!doc.paths.paths.contains_key("/pyannote/v1/media/output"));
         assert!(!doc.paths.paths.contains_key("/pyannote/v1/test"));
     }

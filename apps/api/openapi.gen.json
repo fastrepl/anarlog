@@ -813,6 +813,115 @@
         ]
       }
     },
+    "/pyannote/v1/jobs/{jobId}": {
+      "get": {
+        "tags": [
+          "pyannote"
+        ],
+        "summary": "Get job by ID",
+        "operationId": "getJobById",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "description": "Job ID to track the progress",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DiarizationJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/VoiceprintJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/IdentifyJob"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "402": {
+            "description": "Subscription is required"
+          },
+          "429": {
+            "description": "Too many requests"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "x-api-key-permissions": [
+          "jobs:read"
+        ]
+      }
+    },
+    "/pyannote/v1/media/input": {
+      "post": {
+        "tags": [
+          "pyannote"
+        ],
+        "summary": "Get upload URL",
+        "description": "To use the provided temporary storage is a two step process.\n    You start by declaring a media:// url that you can reference in any other API calls. The response will provide a url where you can put your media. This allows you to use the media:// url as a short-cut for a temporary storage location.\n    You'll be returned a pre-signed url you can use to PUT and upload your media file. The temporary storage should allow you to read and write to the media:// locations for a period of at least 24 hours before it is removed.",
+        "operationId": "getMediaUploadURL",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetMediaUploadUrl"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "402": {
+            "description": "Subscription is required"
+          },
+          "429": {
+            "description": "Too many requests"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "x-api-key-permissions": [
+          "media:write"
+        ]
+      }
+    },
     "/pyannote/v1/voiceprint": {
       "post": {
         "tags": [

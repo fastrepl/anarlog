@@ -2478,6 +2478,67 @@ export type IdentifyResponses = {
 
 export type IdentifyResponse = IdentifyResponses[keyof IdentifyResponses];
 
+export type GetJobByIdData = {
+    body?: never;
+    path: {
+        /**
+         * Job ID to track the progress
+         */
+        jobId: string;
+    };
+    query?: never;
+    url: '/pyannote/v1/jobs/{jobId}';
+};
+
+export type GetJobByIdErrors = {
+    /**
+     * Invalid request
+     */
+    400: unknown;
+    /**
+     * Subscription is required
+     */
+    402: unknown;
+    /**
+     * Too many requests
+     */
+    429: unknown;
+};
+
+export type GetJobByIdResponses = {
+    200: DiarizationJob | VoiceprintJob | IdentifyJob;
+};
+
+export type GetJobByIdResponse = GetJobByIdResponses[keyof GetJobByIdResponses];
+
+export type GetMediaUploadUrlData = {
+    body: GetMediaUploadUrl;
+    path?: never;
+    query?: never;
+    url: '/pyannote/v1/media/input';
+};
+
+export type GetMediaUploadUrlErrors = {
+    /**
+     * Invalid request
+     */
+    400: unknown;
+    /**
+     * Subscription is required
+     */
+    402: unknown;
+    /**
+     * Too many requests
+     */
+    429: unknown;
+};
+
+export type GetMediaUploadUrlResponses = {
+    201: MediaResponse;
+};
+
+export type GetMediaUploadUrlResponse = GetMediaUploadUrlResponses[keyof GetMediaUploadUrlResponses];
+
 export type VoiceprintData = {
     body: VoiceprintRequest;
     path?: never;
