@@ -12,6 +12,7 @@ import {
   type Icon,
   Lock,
   Sparkle,
+  Sun,
   User,
   Users,
   Waveform,
@@ -84,6 +85,7 @@ export function SettingsNav() {
       label: t`General`,
       items: [
         { id: "app", label: t`App`, icon: Gear },
+        { id: "appearance", label: t`Appearance`, icon: Sun },
         { id: "account", label: t`Account`, icon: User },
         { id: "sync", label: t`Sync`, icon: ArrowsClockwise },
         { id: "automations", label: t`Automations`, icon: Lightning },

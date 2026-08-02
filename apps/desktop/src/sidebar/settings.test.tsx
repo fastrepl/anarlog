@@ -114,6 +114,7 @@ describe("SettingsNav", () => {
     [
       "General",
       "App",
+      "Appearance",
       "Account",
       "Sync",
       "Automations",
@@ -143,6 +144,17 @@ describe("SettingsNav", () => {
       {
         tab: "permissions",
       },
+    );
+  });
+
+  it("opens Appearance inside settings", () => {
+    render(<SettingsNav />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
+
+    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
+      mocks.currentTab,
+      { tab: "appearance" },
     );
   });
 

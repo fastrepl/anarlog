@@ -200,7 +200,7 @@ msgstr ""
 msgid "Always ready without manually launching."
 msgstr "Altyd gereed sonder om handmatig te begin."
 
-#: src/settings/general/app-icon.tsx
+#: src/settings/appearance/app-icon.tsx
 msgid "Anagram"
 msgstr ""
 
@@ -306,11 +306,12 @@ msgstr ""
 msgid "App"
 msgstr "Toepassing"
 
-#: src/settings/general/app-icon.tsx
+#: src/settings/appearance/app-icon.tsx
 msgid "App icon"
 msgstr ""
 
-#: src/settings/general/theme.tsx
+#: src/settings/appearance/index.tsx
+#: src/sidebar/settings.tsx
 msgid "Appearance"
 msgstr ""
 
@@ -411,8 +412,12 @@ msgstr ""
 msgid "Best for this Mac"
 msgstr ""
 
-#: src/settings/general/app-icon.tsx
+#: src/settings/appearance/app-icon.tsx
 msgid "Blueprint"
+msgstr ""
+
+#: src/settings/appearance/theme.tsx
+msgid "Bright canvas"
 msgstr ""
 
 #: src/instruction/index.tsx
@@ -486,10 +491,6 @@ msgstr ""
 msgid "Choose custom color"
 msgstr ""
 
-#: src/settings/general/theme.tsx
-msgid "Choose light, dark, or match your system setting."
-msgstr ""
-
 #: src/settings/automations/index.tsx
 msgid "Choose one to create an inspectable draft."
 msgstr ""
@@ -502,8 +503,8 @@ msgstr ""
 msgid "Choose template icon"
 msgstr ""
 
-#: src/settings/general/app-icon.tsx
-msgid "Choose the icon shown in the Dock and app switcher."
+#: src/settings/appearance/theme.tsx
+msgid "Choose the color theme Anarlog uses on this device. Changes apply immediately."
 msgstr ""
 
 #: src/session-sharing/index.tsx
@@ -609,6 +610,10 @@ msgstr ""
 
 #: src/session-sharing/comments.tsx
 msgid "Collaborator"
+msgstr ""
+
+#: src/settings/appearance/theme.tsx
+msgid "Color theme"
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -785,7 +790,7 @@ msgstr ""
 msgid "Customized"
 msgstr ""
 
-#: src/settings/general/theme.tsx
+#: src/settings/appearance/theme.tsx
 msgid "Dark"
 msgstr ""
 
@@ -793,7 +798,7 @@ msgstr ""
 msgid "Date and time are required"
 msgstr ""
 
-#: src/settings/general/app-icon.tsx
+#: src/settings/appearance/app-icon.tsx
 #: src/templates/auto-form.tsx
 msgid "Default"
 msgstr ""
@@ -1304,7 +1309,7 @@ msgstr ""
 msgid "Learn more"
 msgstr ""
 
-#: src/settings/general/theme.tsx
+#: src/settings/appearance/theme.tsx
 msgid "Light"
 msgstr ""
 
@@ -1346,6 +1351,10 @@ msgstr ""
 msgid "Login"
 msgstr ""
 
+#: src/settings/appearance/theme.tsx
+msgid "Low-light canvas"
+msgstr ""
+
 #: src/settings/ai/shared/index.tsx
 msgid "macOS cannot access your login Keychain. Repairing briefly locks it and asks for your Mac password before Anarlog retries this API key."
 msgstr ""
@@ -1376,6 +1385,10 @@ msgstr ""
 
 #: src/session/components/note-input/search/bar.tsx
 msgid "Match whole word"
+msgstr ""
+
+#: src/settings/appearance/theme.tsx
+msgid "Match your device"
 msgstr ""
 
 #: src/sidebar/timeline/index.tsx
@@ -1734,6 +1747,10 @@ msgstr ""
 msgid "Phone"
 msgstr ""
 
+#: src/settings/appearance/app-icon.tsx
+msgid "Pick the icon Anarlog shows in the Dock and app switcher. Changes apply immediately."
+msgstr ""
+
 #: src/settings/general/account.tsx
 msgid "Plan & Billing"
 msgstr ""
@@ -1783,7 +1800,7 @@ msgstr ""
 msgid "Pro trial"
 msgstr ""
 
-#: src/settings/general/app-icon.tsx
+#: src/settings/appearance/app-icon.tsx
 msgid "Production"
 msgstr ""
 
@@ -2069,10 +2086,6 @@ msgstr ""
 msgid "Select an organization to view details"
 msgstr ""
 
-#: src/settings/general/theme.tsx
-msgid "Select appearance"
-msgstr ""
-
 #: src/settings/general/week-start.tsx
 msgid "Select day"
 msgstr ""
@@ -2340,7 +2353,7 @@ msgstr ""
 msgid "Signing out..."
 msgstr ""
 
-#: src/settings/general/app-icon.tsx
+#: src/settings/appearance/app-icon.tsx
 msgid "Sketch"
 msgstr ""
 
@@ -2517,7 +2530,7 @@ msgstr ""
 msgid "Syncing..."
 msgstr ""
 
-#: src/settings/general/theme.tsx
+#: src/settings/appearance/theme.tsx
 msgid "System"
 msgstr ""
 
@@ -2566,6 +2579,10 @@ msgstr "Die hooftaal is altyd ingesluit vir transkripsie"
 
 #: src/shared-notes/index.tsx
 msgid "The note may have been unshared or moved out of a workspace you can access."
+msgstr ""
+
+#: src/settings/appearance/theme.tsx
+msgid "Theme"
 msgstr ""
 
 #: src/chat/components/message/loading.tsx

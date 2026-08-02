@@ -37,7 +37,6 @@ vi.mock("~/settings/queries", () => ({
 }));
 
 vi.mock("./account", () => ({ SettingsAccount: () => null }));
-vi.mock("./app-icon", () => ({ AppIconSelector: () => null }));
 vi.mock("./app-settings", () => ({ AppSettingsView: () => null }));
 vi.mock("./main-language", () => ({
   MainLanguageView: ({ value }: { value: string }) => (
@@ -48,7 +47,6 @@ vi.mock("./notification", () => ({ NotificationSettingsView: () => null }));
 vi.mock("./permissions", () => ({ Permissions: () => null }));
 vi.mock("./spoken-languages", () => ({ SpokenLanguagesView: () => null }));
 vi.mock("./storage", () => ({ StorageSettingsView: () => null }));
-vi.mock("./theme", () => ({ ThemeSelector: () => null }));
 vi.mock("./timezone", () => ({ TimezoneSelector: () => null }));
 vi.mock("./week-start", () => ({ WeekStartSelector: () => null }));
 

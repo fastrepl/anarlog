@@ -7,7 +7,6 @@ import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { commands as listenerCommands } from "@anlg/plugin-transcription";
 
 export { SettingsAccount } from "./account";
-import { AppIconSelector } from "./app-icon";
 import { AppSettingsView } from "./app-settings";
 import {
   CORE_TRANSCRIPTION_LANGUAGE_CODES,
@@ -18,7 +17,6 @@ import { NotificationSettingsView } from "./notification";
 import { Permissions } from "./permissions";
 import { SpokenLanguagesView } from "./spoken-languages";
 import { StorageSettingsView } from "./storage";
-import { ThemeSelector } from "./theme";
 import { TimezoneSelector } from "./timezone";
 import { WeekStartSelector } from "./week-start";
 
@@ -189,8 +187,6 @@ function SettingsAppContent({
     <div className="flex flex-col gap-8">
       <SettingsPageTitle title={<Trans>App</Trans>} />
       <div className="flex flex-col gap-4">
-        <ThemeSelector />
-        <AppIconSelector />
         <form.Field name="autostart">
           {(autostartField) => (
             <form.Field name="automatic_updates">
