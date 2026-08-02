@@ -541,6 +541,10 @@ impl Provider {
         }
     }
 
+    pub fn preserves_batch_channel_identity(&self) -> bool {
+        matches!(self, Self::Deepgram | Self::AssemblyAI | Self::GoogleCloud)
+    }
+
     pub fn control_message_types(&self) -> &'static [&'static str] {
         match self {
             Self::AquaVoice => &[],

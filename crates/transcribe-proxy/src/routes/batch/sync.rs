@@ -267,6 +267,11 @@ pub(super) async fn transcribe_with_provider(
     audio_path: &Path,
 ) -> Result<BatchResponse, BatchAttemptError> {
     let provider = selected.provider();
+    if params.channels > 1 && !provider.preserves_batch_channel_identity() {
+        return Err(BatchAttemptError::Unsupported(format!(
+            "{provider:?} does not preserve channel identity for multichannel batch audio",
+        )));
+    }
     let api_base = selected
         .upstream_url()
         .unwrap_or(provider.default_api_base());

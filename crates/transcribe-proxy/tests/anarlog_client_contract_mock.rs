@@ -7,9 +7,10 @@ use common::{
     ClientStreamResult, MockUpstreamConfig, batch_upstream_url, close_only_recording,
     collect_streaming_via_client, collect_streaming_via_client_result, english, load_fixture,
     sample_response, send_batch_via_anarlog_client, send_batch_via_deepgram_client,
-    send_streaming_via_client, single_response_recording, start_mock_batch_upstream,
-    start_mock_server_with_config, start_mock_ws, start_proxy, start_proxy_under_stt,
-    wait_for_first_batch_query, wait_for_first_request,
+    send_stereo_batch_via_anarlog_client, send_streaming_via_client, single_response_recording,
+    start_mock_batch_upstream, start_mock_server_with_config, start_mock_stereo_batch_upstream,
+    start_mock_ws, start_proxy, start_proxy_under_stt, wait_for_first_batch_query,
+    wait_for_first_request,
 };
 use owhisper_client::Provider;
 use owhisper_interface::batch::Response;
@@ -284,6 +285,52 @@ async fn batch_client_anarlog_adapter_uses_proxy_sync_path_under_stt() {
         !query.contains("model=cloud"),
         "meta model should not leak upstream: {query}"
     );
+}
+
+#[tokio::test]
+async fn stereo_batch_skips_downmixing_provider_and_keeps_remote_party_identity() {
+    let batch = start_mock_stereo_batch_upstream().await;
+    let upstream_url = batch_upstream_url(batch.addr);
+    let proxy = start_proxy_under_stt(
+        Provider::Deepgram,
+        Some(&upstream_url),
+        Some("http://127.0.0.1:9"),
+    )
+    .await;
+    let temp_dir = tempfile::tempdir().unwrap();
+    let audio_path = temp_dir.path().join("remote-party.wav");
+    let mut writer = hound::WavWriter::create(
+        &audio_path,
+        hound::WavSpec {
+            channels: 2,
+            sample_rate: 48_000,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        },
+    )
+    .unwrap();
+    for frame in 0..480 {
+        writer.write_sample(0i16).unwrap();
+        writer
+            .write_sample(if frame % 2 == 0 {
+                12_000i16
+            } else {
+                -12_000i16
+            })
+            .unwrap();
+    }
+    writer.finalize().unwrap();
+
+    let response = send_stereo_batch_via_anarlog_client(proxy, &audio_path).await;
+    let query = wait_for_first_batch_query(&batch, TIMEOUT).await;
+    let direct_mic_words = &response.results.channels[0].alternatives[0].words;
+    let remote_party_words = &response.results.channels[1].alternatives[0].words;
+
+    assert!(query.contains("multichannel=true"), "{query}");
+    assert!(direct_mic_words.is_empty());
+    assert_eq!(remote_party_words.len(), 1);
+    assert_eq!(remote_party_words[0].word, "remote");
+    assert_eq!(remote_party_words[0].channel, 1);
 }
 
 #[tokio::test]

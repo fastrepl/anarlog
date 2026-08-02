@@ -139,6 +139,11 @@ fn body_read_error_response(error: axum::Error) -> Response {
 pub(super) fn build_listen_params(params: &QueryParams) -> ListenParams {
     normalize_listen_params(ListenParams {
         model: params.get_first("model").map(|s| s.to_string()),
+        channels: params
+            .parse_optional_u32("channels")
+            .and_then(|channels| u8::try_from(channels).ok())
+            .unwrap_or(1),
+        sample_rate: params.parse_optional_u32("sample_rate").unwrap_or(16_000),
         languages: params.get_languages(),
         keywords: params.parse_keywords(),
         num_speakers: params.parse_optional_u32("num_speakers"),
@@ -295,6 +300,21 @@ mod tests {
         assert_eq!(listen_params.num_speakers, Some(3));
         assert_eq!(listen_params.min_speakers, Some(2));
         assert_eq!(listen_params.max_speakers, Some(4));
+    }
+
+    #[test]
+    fn test_build_listen_params_with_audio_format() {
+        let mut params = QueryParams::default();
+        params.insert("channels".to_string(), QueryValue::Single("2".to_string()));
+        params.insert(
+            "sample_rate".to_string(),
+            QueryValue::Single("48000".to_string()),
+        );
+
+        let listen_params = build_listen_params(&params);
+
+        assert_eq!(listen_params.channels, 2);
+        assert_eq!(listen_params.sample_rate, 48_000);
     }
 
     #[tokio::test]

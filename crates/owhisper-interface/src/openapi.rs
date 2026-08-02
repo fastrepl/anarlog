@@ -25,17 +25,17 @@ pub struct CommonListenParams {
     /// Maximum expected number of speakers, when supported by the selected provider
     #[allow(dead_code)]
     max_speakers: Option<u32>,
-}
-
-#[derive(utoipa::IntoParams)]
-#[into_params(parameter_in = Query)]
-pub struct StreamListenParams {
     /// Audio sample rate in Hz (default: 16000)
     #[allow(dead_code)]
     sample_rate: Option<u32>,
     /// Number of audio channels (default: 1)
     #[allow(dead_code)]
     channels: Option<u8>,
+}
+
+#[derive(utoipa::IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct StreamListenParams {
     /// Audio encoding: linear16, flac, mulaw, opus, ogg-opus, etc.
     #[allow(dead_code)]
     encoding: Option<String>,

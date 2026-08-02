@@ -619,7 +619,7 @@ describe("useRunBatch", () => {
     expect(createTranscriptMock).not.toHaveBeenCalled();
   });
 
-  test("appends only the current capture when prior transcript audio is partial", async () => {
+  test("promotes post-stop batch by replacing the live current capture", async () => {
     startTranscriptionMock.mockImplementation(async (_params, options) => {
       options.handlePersist(
         [
@@ -659,6 +659,7 @@ describe("useRunBatch", () => {
       });
     });
 
+    expect(createTranscriptMock).toHaveBeenCalledOnce();
     expect(createTranscriptMock).toHaveBeenCalledWith(
       expect.objectContaining({
         replaceSession: false,

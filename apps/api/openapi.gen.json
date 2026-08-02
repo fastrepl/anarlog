@@ -1512,6 +1512,28 @@
             }
           },
           {
+            "name": "sample_rate",
+            "in": "query",
+            "description": "Audio sample rate in Hz (default: 16000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "channels",
+            "in": "query",
+            "description": "Number of audio channels (default: 1)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
             "name": "callback",
             "in": "query",
             "description": "When set, enables async callback mode. Body should be JSON with a `url` field instead of raw audio",

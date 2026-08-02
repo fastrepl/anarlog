@@ -290,7 +290,7 @@ describe("transcript SQLite queries", () => {
     expect(statements[0]?.sql).not.toContain("UPDATE transcripts");
   });
 
-  it("replaces only the current partial capture in the insert transaction", async () => {
+  it("atomically replaces the live capture without a visible duplicate", async () => {
     await createTranscript({
       id: "transcript-new",
       sessionId: "session-1",
@@ -304,6 +304,7 @@ describe("transcript SQLite queries", () => {
       sql: string;
       params: unknown[];
     }>;
+    expect(mocks.executeTransaction).toHaveBeenCalledOnce();
     expect(statements).toHaveLength(2);
     expect(statements[0]?.sql).toContain("UPDATE transcripts");
     expect(statements[0]?.sql).toContain(

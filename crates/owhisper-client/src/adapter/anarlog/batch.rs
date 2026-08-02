@@ -50,6 +50,8 @@ async fn do_transcribe_file(
         if let Some(model) = &params.model {
             q.append_pair("model", model);
         }
+        q.append_pair("channels", &params.channels.to_string());
+        q.append_pair("sample_rate", &params.sample_rate.to_string());
         for lang in &params.languages {
             q.append_pair("language", &lang.to_string());
         }
@@ -92,5 +94,44 @@ async fn do_transcribe_file(
             status,
             body: response.text().await.unwrap_or_default(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use wiremock::matchers::{method, path, query_param};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    use super::*;
+    use crate::http_client::create_client;
+
+    #[tokio::test]
+    async fn forwards_audio_format_to_proxy() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/listen"))
+            .and(query_param("channels", "2"))
+            .and(query_param("sample_rate", "48000"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "metadata": {},
+                "results": { "channels": [] }
+            })))
+            .mount(&server)
+            .await;
+        let params = ListenParams {
+            channels: 2,
+            sample_rate: 48_000,
+            ..Default::default()
+        };
+
+        do_transcribe_file(
+            &create_client(),
+            &server.uri(),
+            "test-key",
+            &params,
+            anlg_data::english_1::AUDIO_PATH.into(),
+        )
+        .await
+        .unwrap();
     }
 }

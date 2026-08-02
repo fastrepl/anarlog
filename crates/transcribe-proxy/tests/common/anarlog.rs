@@ -213,6 +213,26 @@ pub async fn send_batch_via_anarlog_client(
         .expect("anarlog batch request should succeed")
 }
 
+pub async fn send_stereo_batch_via_anarlog_client(
+    addr: SocketAddr,
+    file_path: impl AsRef<std::path::Path> + Send,
+) -> owhisper_interface::batch::Response {
+    BatchClient::<AnarlogAdapter>::builder()
+        .api_base(format!("http://{addr}/stt"))
+        .api_key("test-access-token")
+        .params(ListenParams {
+            model: Some("cloud".to_string()),
+            channels: 2,
+            sample_rate: 48_000,
+            languages: english(),
+            ..Default::default()
+        })
+        .build()
+        .transcribe_file(file_path)
+        .await
+        .expect("stereo Anarlog batch request should succeed")
+}
+
 pub async fn send_batch_via_deepgram_client(
     addr: SocketAddr,
     model: &str,

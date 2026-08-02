@@ -43,6 +43,7 @@ anlg-data = { workspace = true }
 anlg-language = { workspace = true }
 owhisper-interface = { workspace = true, features = ["openapi"] }
 
+hound = { workspace = true }
 rodio = { workspace = true }
 tokio-stream = { workspace = true }
 tracing-subscriber = { workspace = true }

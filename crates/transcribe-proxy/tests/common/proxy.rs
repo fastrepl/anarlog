@@ -2,7 +2,10 @@ use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use axum::{Json, Router, extract::RawQuery, response::IntoResponse, routing::post};
+use axum::{
+    Json, Router, body::Bytes, extract::RawQuery, http::StatusCode, response::IntoResponse,
+    routing::post,
+};
 use owhisper_client::Provider;
 use transcribe_proxy::{AnarlogRoutingConfig, SttProxyConfig};
 
@@ -72,6 +75,91 @@ pub async fn start_mock_batch_upstream() -> MockBatchUpstream {
 
     let addr = serve(app).await;
     MockBatchUpstream { addr, queries }
+}
+
+pub async fn start_mock_stereo_batch_upstream() -> MockBatchUpstream {
+    let queries: Arc<Mutex<Vec<String>>> = Default::default();
+    let captured_queries = queries.clone();
+
+    let app = Router::new().route(
+        "/v1/listen",
+        post(move |query: RawQuery, body: Bytes| {
+            let captured_queries = captured_queries.clone();
+            async move {
+                let query = query.0.unwrap_or_default();
+                if let Ok(mut queries) = captured_queries.lock() {
+                    queries.push(query.clone());
+                }
+
+                if !query.contains("multichannel=true") {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        "stereo batch request did not enable multichannel transcription",
+                    )
+                        .into_response();
+                }
+
+                if let Err(error) = validate_remote_party_stereo_wav(&body) {
+                    return (StatusCode::BAD_REQUEST, error).into_response();
+                }
+
+                Json(serde_json::json!({
+                    "metadata": { "channels": 2 },
+                    "results": {
+                        "channels": [
+                            {
+                                "alternatives": [{
+                                    "transcript": "",
+                                    "confidence": 1.0,
+                                    "words": []
+                                }]
+                            },
+                            {
+                                "alternatives": [{
+                                    "transcript": "remote",
+                                    "confidence": 1.0,
+                                    "words": [{
+                                        "word": "remote",
+                                        "punctuated_word": "remote",
+                                        "start": 0.0,
+                                        "end": 0.5,
+                                        "confidence": 1.0
+                                    }]
+                                }]
+                            }
+                        ]
+                    }
+                }))
+                .into_response()
+            }
+        }),
+    );
+
+    let addr = serve(app).await;
+    MockBatchUpstream { addr, queries }
+}
+
+fn validate_remote_party_stereo_wav(body: &[u8]) -> Result<(), String> {
+    let mut reader = hound::WavReader::new(std::io::Cursor::new(body))
+        .map_err(|error| format!("invalid WAV: {error}"))?;
+    if reader.spec().channels != 2 {
+        return Err("expected stereo WAV".to_string());
+    }
+
+    let samples = reader
+        .samples::<i16>()
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("invalid PCM samples: {error}"))?;
+    let direct_mic_is_silent = samples.chunks_exact(2).all(|frame| frame[0] == 0);
+    let remote_party_has_audio = samples.chunks_exact(2).any(|frame| frame[1] != 0);
+
+    if !direct_mic_is_silent || !remote_party_has_audio {
+        return Err(
+            "expected silent direct-mic channel and active remote-party channel".to_string(),
+        );
+    }
+
+    Ok(())
 }
 
 pub async fn wait_for_first_request(mock: &MockServerHandle, timeout: Duration) -> String {

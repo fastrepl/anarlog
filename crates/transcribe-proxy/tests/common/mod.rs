@@ -11,11 +11,12 @@ pub mod ws;
 pub use anarlog::{
     ClientStreamResult, TranscriptEvent, batch_upstream_url, close_only_recording,
     collect_streaming_via_client, collect_streaming_via_client_result, english, sample_response,
-    send_batch, send_batch_via_anarlog_client, send_batch_via_deepgram_client, send_streaming,
-    send_streaming_via_client, single_response_recording, soniox_error_recording,
-    soniox_finalize_message, soniox_finalize_recording, soniox_finalize_ws_message,
-    soniox_partial_recording, soniox_partial_ws_message, split_test_audio_frame, start_mock_ws,
-    start_split_mock_ws, stereo_listen_url, terminal_finalize_count, transcript_events,
+    send_batch, send_batch_via_anarlog_client, send_batch_via_deepgram_client,
+    send_stereo_batch_via_anarlog_client, send_streaming, send_streaming_via_client,
+    single_response_recording, soniox_error_recording, soniox_finalize_message,
+    soniox_finalize_recording, soniox_finalize_ws_message, soniox_partial_recording,
+    soniox_partial_ws_message, split_test_audio_frame, start_mock_ws, start_split_mock_ws,
+    stereo_listen_url, terminal_finalize_count, transcript_events,
 };
 #[allow(unused_imports)]
 pub use fixtures::load_fixture;
@@ -26,8 +27,8 @@ pub use mock_upstream::{
 };
 #[allow(unused_imports)]
 pub use proxy::{
-    MockBatchUpstream, start_mock_batch_upstream, start_proxy, start_proxy_under_stt, wait_for,
-    wait_for_first_batch_query, wait_for_first_request,
+    MockBatchUpstream, start_mock_batch_upstream, start_mock_stereo_batch_upstream, start_proxy,
+    start_proxy_under_stt, wait_for, wait_for_first_batch_query, wait_for_first_request,
 };
 #[allow(unused_imports)]
 pub use recording::{Direction, MessageKind, WsMessage, WsRecording};
