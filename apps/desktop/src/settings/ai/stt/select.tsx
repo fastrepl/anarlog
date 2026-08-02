@@ -760,7 +760,7 @@ function ModelSelectItem({
 
   if (model.isDownloaded) {
     return (
-      <div className="group/model-row relative overflow-hidden rounded-full">
+      <div className="group/model-row relative overflow-hidden rounded-full has-[[data-model-actions-pending]]:[&>*:first-child>span:first-child]:opacity-0">
         <SelectItem
           key={model.id}
           value={model.id}
@@ -936,6 +936,7 @@ function LocalModelDropdownActions({ model }: { model: LocalModel }) {
 
   return (
     <div
+      data-model-actions-pending={deleteModel.isPending || undefined}
       className={cn([
         "absolute top-0 right-0 bottom-0 z-10 flex items-center justify-end gap-1 rounded-r-full pl-6",
         "pointer-events-none opacity-0 transition-opacity duration-150",
