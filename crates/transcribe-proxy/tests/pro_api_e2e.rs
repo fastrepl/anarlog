@@ -73,13 +73,48 @@ async fn assert_live_transcription(addr: std::net::SocketAddr) {
     assert!(saw_transcript, "Pro live transcription should return text");
 }
 
-async fn assert_batch_transcription(addr: std::net::SocketAddr) {
-    let audio = tokio::fs::read(anlg_data::english_1::AUDIO_PATH)
-        .await
+fn remote_party_stereo_audio() -> Vec<u8> {
+    let mut reader = hound::WavReader::open(anlg_data::english_1::AUDIO_PATH)
         .expect("test audio should be readable");
+    let spec = reader.spec();
+    assert_eq!(spec.channels, 1, "test audio should be mono");
+    assert_eq!(spec.sample_rate, 16_000, "test audio should be 16 kHz");
+    assert_eq!(spec.bits_per_sample, 16, "test audio should be 16-bit");
+    assert_eq!(
+        spec.sample_format,
+        hound::SampleFormat::Int,
+        "test audio should use integer PCM",
+    );
+
+    let mut output = std::io::Cursor::new(Vec::new());
+    let mut writer = hound::WavWriter::new(
+        &mut output,
+        hound::WavSpec {
+            channels: 2,
+            ..spec
+        },
+    )
+    .expect("stereo test audio should be writable");
+    for sample in reader.samples::<i16>() {
+        writer
+            .write_sample(0i16)
+            .expect("direct-mic silence should be writable");
+        writer
+            .write_sample(sample.expect("test audio samples should be readable"))
+            .expect("remote-party audio should be writable");
+    }
+    writer
+        .finalize()
+        .expect("stereo test audio should finalize");
+
+    output.into_inner()
+}
+
+async fn assert_batch_transcription(addr: std::net::SocketAddr) {
+    let audio = remote_party_stereo_audio();
     let response = reqwest::Client::new()
         .post(format!(
-            "http://{addr}/listen?provider=anarlog&model=cloud&language=en"
+            "http://{addr}/listen?provider=anarlog&model=cloud&language=en&channels=2&sample_rate=16000"
         ))
         .header("content-type", "audio/wav")
         .body(audio)
@@ -99,16 +134,31 @@ async fn assert_batch_transcription(addr: std::net::SocketAddr) {
 
     let response: owhisper_interface::batch::Response =
         serde_json::from_str(&body).expect("Pro batch response should be valid");
-    let transcript = response
-        .results
-        .channels
+    assert_eq!(
+        response.results.channels.len(),
+        2,
+        "Pro batch transcription should preserve both input channels",
+    );
+    let direct_mic = response.results.channels[0]
+        .alternatives
         .first()
-        .and_then(|channel| channel.alternatives.first())
-        .map(|alternative| alternative.transcript.trim())
-        .unwrap_or_default();
+        .expect("direct-mic channel should include an alternative");
+    let remote_party = response.results.channels[1]
+        .alternatives
+        .first()
+        .expect("remote-party channel should include an alternative");
+
     assert!(
-        !transcript.is_empty(),
-        "Pro batch transcription should return text"
+        direct_mic.transcript.trim().is_empty() && direct_mic.words.is_empty(),
+        "silent direct-mic channel should not contain transcript words",
+    );
+    assert!(
+        !remote_party.transcript.trim().is_empty() && !remote_party.words.is_empty(),
+        "remote-party channel should contain transcript words",
+    );
+    assert!(
+        remote_party.words.iter().all(|word| word.channel == 1),
+        "remote-party words should remain on channel 1",
     );
 }
 
