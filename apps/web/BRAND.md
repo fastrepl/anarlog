@@ -1,6 +1,6 @@
-# Char Brand
+# Anarlog Brand
 
-This document is the single source of truth for Char's visual identity on the web. All tokens referenced here are defined in `src/styles.css` and available as Tailwind utilities.
+This document is the single source of truth for Anarlog's visual identity on the web. All tokens referenced here are defined in `src/styles.css` and available as Tailwind utilities.
 
 ---
 
@@ -256,24 +256,15 @@ The homepage hero uses a bright-bordered rounded container at full viewport heig
 
 ## Logo
 
-The logo is an **SVG**, not text rendered in a font. It comes in two variants via the `CharLogo` component (`src/components/sidebar.tsx`):
+Use the official Anarlog wordmark SVG for website and public-facing artifacts.
+Do not re-render the wordmark as text in any font or alter its letterforms.
 
-| Variant | Description                                         | Usage                                  |
-| ------- | --------------------------------------------------- | -------------------------------------- |
-| Full    | "char" wordmark flanked by bracket marks `[ char ]` | Desktop sidebar, tablet header         |
-| Compact | Bracket marks only `[ ]`                            | Tablet header at smaller widths (< lg) |
-
-The footer has its own SVG wordmark (just "char" letterforms, no brackets).
-
-- **Scale animation** on hover: `hover:scale-105 transition-colors` on the sidebar logo.
-- **Do not** re-render the logo as text in any font. Always use the SVG component.
-
-### Bracket motif
-
-The bracket `[ ]` shape is a core visual element. It appears in:
-
-- The `CharLogo` component (full and compact variants)
-- The footer as large decorative SVG brackets on either side
+- The website serves the black wordmark from `public/logo.svg` through the
+  `AnarlogLogo` component.
+- Public documentation uses `docs/logo/light.svg` on light backgrounds and
+  the white `docs/logo/dark.svg` variant on dark backgrounds.
+- Preserve the wordmark's aspect ratio and provide the accessible name
+  "Anarlog" when it is rendered as meaningful content.
 
 ---
 
