@@ -109,27 +109,52 @@ candidate_git_sha() {
 
 candidate_source_dirty_state() {
   local qa_candidate_sha="$1"
+  local qa_candidate_index="$qa_lock_dir/candidate-index"
   local qa_diff_status=0
+  local qa_refresh_status=0
   local qa_untracked_files
 
-  "$qa_git_executable" -C "$qa_repo_root" diff --quiet \
-    "$qa_candidate_sha" -- "${qa_git_source_pathspecs[@]}" ||
+  rm -f -- "$qa_candidate_index"
+  GIT_INDEX_FILE="$qa_candidate_index" \
+    "$qa_git_executable" -C "$qa_repo_root" read-tree "$qa_candidate_sha" || {
+    rm -f -- "$qa_candidate_index"
+    fail "Could not load the candidate commit for QA build-input comparison."
+  }
+  GIT_INDEX_FILE="$qa_candidate_index" \
+    "$qa_git_executable" -C "$qa_repo_root" update-index -q --refresh ||
+    qa_refresh_status=$?
+  case "$qa_refresh_status" in
+    0 | 1) ;;
+    *)
+      rm -f -- "$qa_candidate_index"
+      fail "Could not refresh the candidate index for QA build-input comparison."
+      ;;
+  esac
+  GIT_INDEX_FILE="$qa_candidate_index" \
+    "$qa_git_executable" -C "$qa_repo_root" diff-files --quiet \
+    -- "${qa_git_source_pathspecs[@]}" ||
     qa_diff_status=$?
   case "$qa_diff_status" in
     0) ;;
     1)
+      rm -f -- "$qa_candidate_index"
       printf 'true'
       return
       ;;
-    *) fail "Could not compare QA build inputs with the candidate commit." ;;
+    *)
+      rm -f -- "$qa_candidate_index"
+      fail "Could not compare QA build inputs with the candidate commit."
+      ;;
   esac
 
   qa_untracked_files="$(
-    "$qa_git_executable" -C "$qa_repo_root" ls-files \
+    GIT_INDEX_FILE="$qa_candidate_index" \
+      "$qa_git_executable" -C "$qa_repo_root" ls-files \
       --others \
       --exclude-standard \
       -- "${qa_git_source_pathspecs[@]}"
   )"
+  rm -f -- "$qa_candidate_index"
   if [[ -n "$qa_untracked_files" ]]; then
     printf 'true'
   else
@@ -518,6 +543,7 @@ fi
 cleanup() {
   if [[ -f "$qa_lock_dir/pid" ]] &&
     [[ "$(cat "$qa_lock_dir/pid")" == "$$" ]]; then
+    rm -f -- "$qa_lock_dir/candidate-index"
     rm -f -- "$qa_lock_dir/pid"
     rmdir "$qa_lock_dir" 2>/dev/null || true
   fi
