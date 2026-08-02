@@ -491,6 +491,68 @@ describe("reconcileRefinedSpeakerClusters", () => {
 
     expect(JSON.parse(result[0].value).speaker_index).toBe(4);
   });
+
+  test("moves an unmapped batch cluster that collides with a live cluster", () => {
+    const source = {
+      id: "live-transcript",
+      ownerUserId: "user-1",
+      sessionId: "session-1",
+      startedAt: 0,
+      words: [
+        {
+          id: "live-speaker",
+          text: "mapped",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 1,
+        },
+      ],
+      speakerHints: [
+        {
+          id: "live-speaker-provider",
+          word_id: "live-speaker",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 1 }),
+        },
+      ],
+    } satisfies Parameters<typeof reconcileRefinedSpeakerClusters>[0];
+    const words = [
+      {
+        id: "batch-mapped",
+        text: "mapped",
+        start_ms: 0,
+        end_ms: 100,
+        channel: 1,
+      },
+      {
+        id: "batch-unmapped",
+        text: "unmapped",
+        start_ms: 200,
+        end_ms: 300,
+        channel: 1,
+      },
+    ];
+    const hints = [
+      {
+        id: "batch-mapped-provider",
+        word_id: "batch-mapped",
+        type: "provider_speaker_index" as const,
+        value: JSON.stringify({ channel: 1, speaker_index: 0 }),
+      },
+      {
+        id: "batch-unmapped-provider",
+        word_id: "batch-unmapped",
+        type: "provider_speaker_index" as const,
+        value: JSON.stringify({ channel: 1, speaker_index: 1 }),
+      },
+    ];
+
+    const result = reconcileRefinedSpeakerClusters(source, words, hints);
+
+    expect(result.map((hint) => JSON.parse(hint.value).speaker_index)).toEqual([
+      1, 2,
+    ]);
+  });
 });
 
 describe("transferAutomaticSpeakerAssignments", () => {

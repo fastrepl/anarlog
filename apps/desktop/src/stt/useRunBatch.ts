@@ -401,6 +401,60 @@ export function reconcileRefinedSpeakerClusters(
     }
   }
 
+  const usedSpeakerIndicesByChannel = new Map<number, Set<number>>();
+  for (const [targetSpeakerKey, speakerIndex] of sourceSpeakerByTarget) {
+    const targetSpeaker = parseSpeakerKey(targetSpeakerKey);
+    if (!targetSpeaker) {
+      continue;
+    }
+
+    const usedSpeakerIndices =
+      usedSpeakerIndicesByChannel.get(targetSpeaker.channel) ?? new Set();
+    usedSpeakerIndices.add(speakerIndex);
+    usedSpeakerIndicesByChannel.set(targetSpeaker.channel, usedSpeakerIndices);
+  }
+
+  const collidingTargetSpeakers: Array<{
+    speakerKey: string;
+    channel: number;
+  }> = [];
+  for (const targetSpeakerKey of new Set(targetSpeakerKeys.values())) {
+    if (sourceSpeakerByTarget.has(targetSpeakerKey)) {
+      continue;
+    }
+
+    const targetSpeaker = parseSpeakerKey(targetSpeakerKey);
+    if (!targetSpeaker) {
+      continue;
+    }
+
+    const usedSpeakerIndices =
+      usedSpeakerIndicesByChannel.get(targetSpeaker.channel) ?? new Set();
+    if (usedSpeakerIndices.has(targetSpeaker.speakerIndex)) {
+      collidingTargetSpeakers.push({
+        speakerKey: targetSpeakerKey,
+        channel: targetSpeaker.channel,
+      });
+    } else {
+      usedSpeakerIndices.add(targetSpeaker.speakerIndex);
+    }
+    usedSpeakerIndicesByChannel.set(targetSpeaker.channel, usedSpeakerIndices);
+  }
+
+  for (const { speakerKey, channel } of collidingTargetSpeakers) {
+    const usedSpeakerIndices = usedSpeakerIndicesByChannel.get(channel);
+    if (!usedSpeakerIndices) {
+      continue;
+    }
+
+    let speakerIndex = Math.max(...usedSpeakerIndices) + 1;
+    while (usedSpeakerIndices.has(speakerIndex)) {
+      speakerIndex += 1;
+    }
+    usedSpeakerIndices.add(speakerIndex);
+    sourceSpeakerByTarget.set(speakerKey, speakerIndex);
+  }
+
   return hints.map((hint) => {
     if (hint.type !== "provider_speaker_index" || !hint.word_id) {
       return hint;
