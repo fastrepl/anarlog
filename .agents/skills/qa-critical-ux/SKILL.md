@@ -162,7 +162,7 @@ the app.
    inputs match the candidate commit. Record
    `git_head_sha`, which is the candidate commit rather than GitButler's
    synthetic workspace HEAD. The manifest is
-   `${ANARLOG_QA_TARGET_DIR:-$HOME/Library/Caches/anarlog/native-dev-qa-target}/.anarlog-native-dev-qa-manifest`.
+   `${ANARLOG_QA_TARGET_DIR:-$HOME/Library/Caches/anarlog/native-dev-qa-target-v2}/.anarlog-native-dev-qa-manifest`.
 2. Require every Dev gate to pass, then trigger `desktop_cd.yaml` with
    `channel=staging` from a branch or ref whose tip is that exact SHA. Verify
    the Actions run's head SHA matches the manifest before testing it.

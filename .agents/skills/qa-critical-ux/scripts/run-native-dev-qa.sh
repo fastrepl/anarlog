@@ -4,12 +4,12 @@ set -euo pipefail
 umask 077
 
 qa_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
-qa_target_dir="${ANARLOG_QA_TARGET_DIR:-$HOME/Library/Caches/anarlog/native-dev-qa-target}"
+qa_target_dir="${ANARLOG_QA_TARGET_DIR:-$HOME/Library/Caches/anarlog/native-dev-qa-target-v2}"
 qa_target_parent="$(dirname "$qa_target_dir")"
 qa_bundle_dir="$qa_target_dir/debug/bundle/macos/Anarlog Dev.app"
 qa_bundle_executable="$qa_target_dir/debug/bundle/macos/Anarlog Dev.app/Contents/MacOS/anarlog-dev"
 qa_manifest="$qa_target_dir/.anarlog-native-dev-qa-manifest"
-qa_cache_marker="$qa_target_dir/.anarlog-native-dev-qa-cache-v1"
+qa_cache_marker="$qa_target_dir/.anarlog-native-dev-qa-cache-v2"
 qa_lock_dir="$qa_target_dir/.anarlog-native-dev-qa-lock"
 qa_frontend_dist="$qa_repo_root/apps/desktop/dist"
 qa_config_validator="$qa_repo_root/.agents/skills/qa-critical-ux/scripts/validate-native-dev-qa-config.mjs"
@@ -503,7 +503,7 @@ if [[ -e "$qa_target_dir" ]]; then
     fail "Refusing to use an existing directory not created by this helper: $qa_target_dir"
 else
   mkdir -m 700 "$qa_target_dir"
-  printf 'anarlog-native-dev-qa-cache-v1\n' >"$qa_cache_marker"
+  printf 'anarlog-native-dev-qa-cache-v2\n' >"$qa_cache_marker"
 fi
 chmod 700 "$qa_target_dir"
 
