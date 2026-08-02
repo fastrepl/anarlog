@@ -20,6 +20,13 @@ const mocks = vi.hoisted(() => ({
   isIgnored: vi.fn(() => false),
   liveSessionId: null as string | null,
   liveStatus: "inactive" as "inactive" | "active" | "finalizing",
+  nativeContextMenuItems: [] as Array<{
+    id?: string;
+    text?: string;
+    accelerator?: string;
+    action?: () => void;
+    disabled?: boolean;
+  }>,
   selectAll: vi.fn(),
   smartCurrentTimeMs: undefined as number | undefined,
   timelineSelectionAnchorId: null as string | null,
@@ -128,7 +135,10 @@ vi.mock("~/session/hooks/useDeleteSession", () => ({
 }));
 
 vi.mock("~/shared/hooks/useNativeContextMenu", () => ({
-  useNativeContextMenu: () => vi.fn(),
+  useNativeContextMenu: (items: typeof mocks.nativeContextMenuItems) => {
+    mocks.nativeContextMenuItems = items;
+    return vi.fn();
+  },
 }));
 
 vi.mock("~/calendar/ignored-events", () => ({
@@ -244,6 +254,7 @@ describe("TimelineView", () => {
     mocks.liveSessionId = null;
     mocks.liveStatus = "inactive";
     mocks.currentTab = { type: "empty" };
+    mocks.nativeContextMenuItems = [];
     mocks.selectAll.mockClear();
     mocks.smartCurrentTimeMs = undefined;
     mocks.timelineSelectionAnchorId = null;
@@ -529,6 +540,85 @@ describe("TimelineView", () => {
       "session-selected-note",
       "session-other-note",
     ]);
+  });
+
+  it("deletes selected notes with Backspace", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T09:00:00.000Z"));
+    mocks.currentTimeMs = Date.now();
+    mocks.timelineSelectionSelectedIds = [
+      "session-selected-note",
+      "session-other-note",
+    ];
+    mocks.timelineSessionsTable = {
+      "selected-note": {
+        title: "Selected note",
+        created_at: "2024-01-15T12:00:00.000Z",
+      },
+      "other-note": {
+        title: "Other note",
+        created_at: "2024-01-15T11:00:00.000Z",
+      },
+    };
+
+    render(<TimelineView />);
+
+    fireEvent.keyDown(window, { key: "Backspace" });
+
+    expect(mocks.deleteSession).toHaveBeenCalledTimes(2);
+    expect(mocks.deleteSession).toHaveBeenCalledWith("selected-note", {
+      batchId: expect.any(String),
+      title: "Selected note",
+    });
+    expect(mocks.deleteSession).toHaveBeenCalledWith("other-note", {
+      batchId: expect.any(String),
+      title: "Other note",
+    });
+    expect(mocks.deleteSession.mock.calls[0]![1].batchId).toBe(
+      mocks.deleteSession.mock.calls[1]![1].batchId,
+    );
+    expect(mocks.clearSelection).toHaveBeenCalledOnce();
+  });
+
+  it("shows Backspace beside Delete Selected in the context menu", () => {
+    mocks.timelineSelectionSelectedIds = [
+      "session-selected-note",
+      "session-other-note",
+    ];
+
+    render(<TimelineView />);
+
+    expect(
+      mocks.nativeContextMenuItems.find(
+        (item) => item.id === "delete-selected",
+      ),
+    ).toMatchObject({
+      text: "Delete Selected (2)",
+      accelerator: "Backspace",
+      disabled: false,
+    });
+  });
+
+  it("does not delete selected notes when Backspace starts in the editor", () => {
+    mocks.timelineSelectionSelectedIds = [
+      "session-selected-note",
+      "session-other-note",
+    ];
+
+    render(<TimelineView />);
+
+    const editor = document.createElement("div");
+    editor.className = "ProseMirror";
+    editor.contentEditable = "true";
+    editor.tabIndex = 0;
+    document.body.appendChild(editor);
+    editor.focus();
+
+    fireEvent.keyDown(editor, { key: "Backspace" });
+
+    expect(mocks.deleteSession).not.toHaveBeenCalled();
+
+    editor.remove();
   });
 
   it("does not select sidebar notes while the mounted timeline is hidden", () => {

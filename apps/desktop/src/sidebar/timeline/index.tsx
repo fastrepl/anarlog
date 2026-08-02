@@ -19,6 +19,7 @@ import { TimelineNowChip, TimelineTopChip, UpcomingMeetingChip } from "./chips";
 import { getFallbackIndicatorIndex, useTimelineData } from "./data";
 import {
   hasSidebarNoteSelectionContext,
+  isDeleteSelectionShortcut,
   isSelectAllShortcut,
   isSessionItemKey,
   isTextEditingShortcutTarget,
@@ -140,6 +141,28 @@ export const TimelineView = memo(function TimelineView({
   const clearSelection = useTimelineSelection((s) => s.clear);
   const deleteSession = useDeleteSession();
 
+  const handleDeleteSelected = useCallback(() => {
+    const sessionIds = selectedIds
+      .filter(isSessionItemKey)
+      .map((key) => key.replace("session-", ""));
+
+    const batchId = sessionIds.length > 1 ? crypto.randomUUID() : undefined;
+
+    for (const sessionId of sessionIds) {
+      deleteSession(sessionId, {
+        batchId,
+        title: timelineSessionsTable?.[sessionId]?.title ?? undefined,
+      });
+    }
+
+    clearSelection();
+  }, [selectedIds, deleteSession, clearSelection, timelineSessionsTable]);
+
+  const sessionCount = useMemo(
+    () => selectedIds.filter(isSessionItemKey).length,
+    [selectedIds],
+  );
+
   const flatItemKeys = useMemo(() => {
     const keys: string[] = [];
     for (const bucket of buckets) {
@@ -156,16 +179,18 @@ export const TimelineView = memo(function TimelineView({
     () => flatItemKeys.filter(isSessionItemKey),
     [flatItemKeys],
   );
-  const selectAllShortcutStateRef = useRef({
+  const shortcutStateRef = useRef({
     anchorId,
     flatSessionItemKeys,
+    handleDeleteSelected,
     selectedIds,
     selectedSessionId,
     selectAll,
   });
-  selectAllShortcutStateRef.current = {
+  shortcutStateRef.current = {
     anchorId,
     flatSessionItemKeys,
+    handleDeleteSelected,
     selectedIds,
     selectedSessionId,
     selectAll,
@@ -287,7 +312,6 @@ export const TimelineView = memo(function TimelineView({
         !container ||
         container.closest("[inert], [aria-hidden='true']") ||
         event.defaultPrevented ||
-        !isSelectAllShortcut(event) ||
         isTextEditingShortcutTarget(event.target) ||
         isTextEditingShortcutTarget(document.activeElement)
       ) {
@@ -297,25 +321,38 @@ export const TimelineView = memo(function TimelineView({
       const {
         anchorId,
         flatSessionItemKeys,
+        handleDeleteSelected,
         selectedIds,
         selectedSessionId,
         selectAll,
-      } = selectAllShortcutStateRef.current;
+      } = shortcutStateRef.current;
 
-      if (
-        !selectedSessionId ||
-        flatSessionItemKeys.length === 0 ||
-        !hasSidebarNoteSelectionContext({
-          anchorId,
-          selectedIds,
-          selectedSessionId,
-        })
-      ) {
+      if (isDeleteSelectionShortcut(event)) {
+        if (!selectedIds.some(isSessionItemKey)) {
+          return;
+        }
+
+        event.preventDefault();
+        handleDeleteSelected();
         return;
       }
 
-      event.preventDefault();
-      selectAll(flatSessionItemKeys);
+      if (isSelectAllShortcut(event)) {
+        if (
+          !selectedSessionId ||
+          flatSessionItemKeys.length === 0 ||
+          !hasSidebarNoteSelectionContext({
+            anchorId,
+            selectedIds,
+            selectedSessionId,
+          })
+        ) {
+          return;
+        }
+
+        event.preventDefault();
+        selectAll(flatSessionItemKeys);
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown, { capture: true });
@@ -346,28 +383,6 @@ export const TimelineView = memo(function TimelineView({
     openNew({ type: "calendar" });
   }, [openNew]);
 
-  const handleDeleteSelected = useCallback(() => {
-    const sessionIds = selectedIds
-      .filter((key) => key.startsWith("session-"))
-      .map((key) => key.replace("session-", ""));
-
-    const batchId = sessionIds.length > 1 ? crypto.randomUUID() : undefined;
-
-    for (const sessionId of sessionIds) {
-      deleteSession(sessionId, {
-        batchId,
-        title: timelineSessionsTable?.[sessionId]?.title ?? undefined,
-      });
-    }
-
-    clearSelection();
-  }, [selectedIds, deleteSession, clearSelection, timelineSessionsTable]);
-
-  const sessionCount = useMemo(
-    () => selectedIds.filter((key) => key.startsWith("session-")).length,
-    [selectedIds],
-  );
-
   const contextMenuItems = useMemo(
     () =>
       selectedIds.length > 0
@@ -376,6 +391,7 @@ export const TimelineView = memo(function TimelineView({
               id: "delete-selected",
               text: t`Delete Selected (${sessionCount})`,
               action: handleDeleteSelected,
+              accelerator: "Backspace",
               disabled: sessionCount === 0,
             },
           ]

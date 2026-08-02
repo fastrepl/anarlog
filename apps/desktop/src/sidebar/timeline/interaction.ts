@@ -7,6 +7,16 @@ export function isSelectAllShortcut(event: KeyboardEvent) {
   );
 }
 
+export function isDeleteSelectionShortcut(event: KeyboardEvent) {
+  return (
+    event.key === "Backspace" &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.altKey &&
+    !event.shiftKey
+  );
+}
+
 export function isSessionItemKey(key: string) {
   return key.startsWith("session-");
 }
