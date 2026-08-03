@@ -14,7 +14,9 @@ export function useSessionTab() {
       : undefined;
 
   const stickySessionIdRef = useRef(sessionTabId);
-  if (sessionTabId) {
+  if (currentTab?.type === "empty") {
+    stickySessionIdRef.current = undefined;
+  } else if (sessionTabId) {
     stickySessionIdRef.current = sessionTabId;
   }
 
