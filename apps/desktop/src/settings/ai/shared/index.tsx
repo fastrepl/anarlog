@@ -73,7 +73,7 @@ export function AnarlogProviderIcon() {
       src={ANARLOG_ICON_SRC}
       alt="Anarlog"
       data-slot="provider-logo"
-      className="size-4 object-contain object-center [clip-path:inset(6%_round_18%)]"
+      className="size-full object-contain object-center [clip-path:inset(6%_round_18%)]"
     />
   );
 }
@@ -100,26 +100,41 @@ export function ProviderBrandImage({
   );
 }
 
-export function ProviderIconSlot({ children }: { children: ReactNode }) {
+export function AiIconSlot({
+  children,
+  title,
+  className,
+}: {
+  children: ReactNode;
+  title?: string;
+  className?: string;
+}) {
   return (
     <span
-      data-slot="provider-icon"
+      title={title}
+      aria-label={title}
+      data-slot="ai-icon"
       className={cn([
-        "text-foreground flex size-5 shrink-0 items-center justify-center",
+        "bg-muted text-foreground flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-md",
         "[&_[data-slot=provider-brand-icon]]:[filter:var(--provider-brand-filter)]",
+        className,
       ])}
     >
       <span
-        data-slot="provider-icon-art"
+        data-slot="ai-icon-art"
         className={cn([
-          "flex size-4 items-center justify-center",
-          "[&>img]:size-full [&>svg]:block [&>svg]:size-full [&>svg]:text-inherit",
+          "flex size-3.5 items-center justify-center overflow-hidden",
+          "[&>img]:block [&>img]:size-full [&>svg]:block [&>svg]:size-full [&>svg]:text-inherit",
         ])}
       >
         {children}
       </span>
     </span>
   );
+}
+
+export function ProviderIconSlot({ children }: { children: ReactNode }) {
+  return <AiIconSlot>{children}</AiIconSlot>;
 }
 
 export function providerRowId(providerType: ProviderType, providerId: string) {
