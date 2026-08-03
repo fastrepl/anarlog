@@ -19,6 +19,7 @@ describe("buildTrayScheduleEvents", () => {
       {
         upcoming: event({
           title: "  Design sync  ",
+          meeting_link: "https://meet.example.com/design-sync",
           started_at: "2026-07-17T01:00:00.000Z",
           ended_at: "2026-07-17T02:00:00.000Z",
         }),
@@ -36,7 +37,9 @@ describe("buildTrayScheduleEvents", () => {
 
     expect(events).toEqual([
       {
+        id: "active",
         title: "Standup",
+        meetingLink: null,
         startsAtMs: Date.parse("2026-07-16T23:55:00.000Z"),
         endsAtMs: Date.parse("2026-07-17T00:25:00.000Z"),
         dayStartMs: Date.parse("2026-07-16T00:00:00.000Z"),
@@ -44,7 +47,9 @@ describe("buildTrayScheduleEvents", () => {
         timeLabel: "11:55 PM – 12:25 AM",
       },
       {
+        id: "upcoming",
         title: "Design sync",
+        meetingLink: "https://meet.example.com/design-sync",
         startsAtMs: Date.parse("2026-07-17T01:00:00.000Z"),
         endsAtMs: Date.parse("2026-07-17T02:00:00.000Z"),
         dayStartMs: NOW,

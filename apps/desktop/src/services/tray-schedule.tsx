@@ -33,8 +33,8 @@ export function buildTrayScheduleEvents(
     timeZone: timezone,
   });
 
-  return Object.values(rows ?? {})
-    .flatMap((row): TrayScheduleEvent[] => {
+  return Object.entries(rows ?? {})
+    .flatMap(([eventId, row]): TrayScheduleEvent[] => {
       if (
         row.is_all_day ||
         isIgnored(row.tracking_id_event, row.recurrence_series_id)
@@ -72,7 +72,9 @@ export function buildTrayScheduleEvents(
 
       return [
         {
+          id: eventId,
           title: row.title?.trim() || "Untitled event",
+          meetingLink: row.meeting_link || null,
           startsAtMs,
           endsAtMs,
           dayStartMs: dayStart.getTime(),

@@ -5,7 +5,9 @@ const MAX_MENU_BAR_LABEL_CHARS: usize = 30;
 #[derive(Debug, Clone, serde::Deserialize, specta::Type, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TrayScheduleEvent {
+    pub id: String,
     pub title: String,
+    pub meeting_link: Option<String>,
     pub starts_at_ms: f64,
     pub ends_at_ms: Option<f64>,
     pub day_start_ms: f64,
@@ -14,9 +16,15 @@ pub struct TrayScheduleEvent {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct TrayAgendaEvent {
+    pub id: String,
+    pub label: String,
+}
+
+#[derive(Debug, PartialEq)]
 pub struct TrayAgendaSection {
     pub label: String,
-    pub events: Vec<String>,
+    pub events: Vec<TrayAgendaEvent>,
 }
 
 pub fn agenda_sections(
@@ -47,11 +55,10 @@ pub fn agenda_sections(
             });
         }
 
-        sections
-            .last_mut()
-            .unwrap()
-            .events
-            .push(compact_agenda_label(event));
+        sections.last_mut().unwrap().events.push(TrayAgendaEvent {
+            id: event.id.clone(),
+            label: compact_agenda_label(event),
+        });
     }
 
     sections
@@ -184,7 +191,9 @@ mod tests {
 
     fn event(title: &str, starts_at_ms: f64, ends_at_ms: Option<f64>) -> TrayScheduleEvent {
         TrayScheduleEvent {
+            id: title.to_lowercase().replace(' ', "-"),
             title: title.to_string(),
+            meeting_link: None,
             starts_at_ms,
             ends_at_ms,
             day_start_ms: 0.0,
@@ -281,13 +290,22 @@ mod tests {
             vec![
                 TrayAgendaSection {
                     label: "Today".to_string(),
-                    events: vec!["Active · 9:00 AM".to_string()],
+                    events: vec![TrayAgendaEvent {
+                        id: "active".to_string(),
+                        label: "Active · 9:00 AM".to_string(),
+                    }],
                 },
                 TrayAgendaSection {
                     label: "Tomorrow".to_string(),
                     events: vec![
-                        "Next · 9:00 AM".to_string(),
-                        "Tomorrow one · 9:00 AM".to_string(),
+                        TrayAgendaEvent {
+                            id: "next".to_string(),
+                            label: "Next · 9:00 AM".to_string(),
+                        },
+                        TrayAgendaEvent {
+                            id: "tomorrow-one".to_string(),
+                            label: "Tomorrow one · 9:00 AM".to_string(),
+                        },
                     ],
                 },
             ]

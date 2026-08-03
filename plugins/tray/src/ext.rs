@@ -300,7 +300,6 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         agenda: &[TrayAgendaSection],
     ) -> Result<Menu<tauri::Wry>> {
         let menu = Menu::new(app)?;
-        let mut agenda_index = 0;
 
         for (section_index, section) in agenda.iter().enumerate() {
             let heading = MenuItem::with_id(
@@ -313,9 +312,8 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
             menu.append(&heading)?;
 
             for event in &section.events {
-                let item = build_agenda_item(app, agenda_index, event)?;
+                let item = build_agenda_item(app, &event.id, &event.label)?;
                 menu.append(&item)?;
-                agenda_index += 1;
             }
         }
 
@@ -425,6 +423,15 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         START_DISABLED.store(disabled, Ordering::SeqCst);
         Self::rebuild_menu(self.manager.app_handle())
     }
+}
+
+pub(crate) fn scheduled_event(event_id: &str) -> Option<TrayScheduleEvent> {
+    SCHEDULE
+        .lock()
+        .unwrap()
+        .iter()
+        .find(|event| event.id == event_id)
+        .cloned()
 }
 
 pub trait TrayPluginExt<R: tauri::Runtime> {

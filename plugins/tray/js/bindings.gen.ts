@@ -34,7 +34,7 @@ async setTraySchedule(events: TrayScheduleEvent[]) : Promise<Result<null, string
 
 /** user-defined types **/
 
-export type TrayScheduleEvent = { title: string; startsAtMs: number; endsAtMs: number | null; dayStartMs: number; previousDayStartMs: number; timeLabel: string }
+export type TrayScheduleEvent = { id: string; title: string; meetingLink: string | null; startsAtMs: number; endsAtMs: number | null; dayStartMs: number; previousDayStartMs: number; timeLabel: string }
 
 /** tauri-specta globals **/
 
