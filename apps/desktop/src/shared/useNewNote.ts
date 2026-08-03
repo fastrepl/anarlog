@@ -4,8 +4,8 @@ import { useCallback } from "react";
 import { useShallow } from "zustand/shallow";
 
 import { createSession } from "~/session/queries";
+import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
-import { useListener } from "~/stt/contexts";
 import { setPendingUpload } from "~/stt/pending-upload";
 
 export function useNewNote({
@@ -39,39 +39,39 @@ export function useNewNoteAndListen({
 }: {
   behavior?: "new" | "current";
 } = {}) {
-  const { openNew, openCurrent } = useTabs(
-    useShallow((state) => ({
-      openNew: state.openNew,
-      openCurrent: state.openCurrent,
-    })),
+  const handler = useCallback(
+    () => openNewNoteAndListen({ behavior }),
+    [behavior],
   );
-  const { status, sessionId: liveSessionId } = useListener((state) => ({
-    status: state.live.status,
-    sessionId: state.live.sessionId,
-  }));
-
-  const handler = useCallback(() => {
-    if (status === "active" && liveSessionId) {
-      const ff = behavior === "new" ? openNew : openCurrent;
-      ff({ type: "sessions", id: liveSessionId });
-      return;
-    }
-
-    const ff = behavior === "new" ? openNew : openCurrent;
-    void createSession()
-      .then((sessionId) => {
-        ff({
-          type: "sessions",
-          id: sessionId,
-          state: { view: null, autoStart: true },
-        });
-      })
-      .catch((error) => {
-        console.error("[session] failed to create listening note", error);
-      });
-  }, [status, liveSessionId, openNew, openCurrent, behavior]);
 
   return handler;
+}
+
+export function openNewNoteAndListen({
+  behavior = "new",
+}: {
+  behavior?: "new" | "current";
+} = {}) {
+  const { openNew, openCurrent } = useTabs.getState();
+  const { status, sessionId: liveSessionId } = listenerStore.getState().live;
+  const open = behavior === "new" ? openNew : openCurrent;
+
+  if (status === "active" && liveSessionId) {
+    open({ type: "sessions", id: liveSessionId });
+    return;
+  }
+
+  void createSession()
+    .then((sessionId) => {
+      open({
+        type: "sessions",
+        id: sessionId,
+        state: { view: null, autoStart: true },
+      });
+    })
+    .catch((error) => {
+      console.error("[session] failed to create listening note", error);
+    });
 }
 
 const AUDIO_FILTERS = [

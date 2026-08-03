@@ -3,7 +3,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 import { events as windowsEvents } from "@anlg/plugin-windows";
 
-import { useNewNote, useNewNoteAndListen } from "./useNewNote";
+import { openNewNoteAndListen, useNewNote } from "./useNewNote";
 
 import { AuthProvider } from "~/auth";
 import { BillingProvider } from "~/auth/billing";
@@ -39,7 +39,6 @@ const useNavigationEvents = () => {
   const navigate = useNavigate();
   const openNew = useTabs((state) => state.openNew);
   const openNewNote = useNewNote({ behavior: "new" });
-  const openNewNoteAndListen = useNewNoteAndListen({ behavior: "new" });
 
   useMountEffect(() => {
     (window as any).__ANARLOG_NAVIGATE__ = (path: string) => {
@@ -92,7 +91,7 @@ const useNavigationEvents = () => {
                 );
               });
           } else if (shouldRecord) {
-            openNewNoteAndListen();
+            openNewNoteAndListen({ behavior: "new" });
           } else {
             openNewNote();
           }
