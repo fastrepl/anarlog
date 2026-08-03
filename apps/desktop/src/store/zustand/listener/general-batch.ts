@@ -17,6 +17,7 @@ import {
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { createBatchCompletedNotificationKey } from "~/stt/batch-completed-notification";
+import { BatchResponseProcessingError } from "~/stt/batch-response-processing-error";
 
 type BatchStore = BatchActions & BatchState;
 
@@ -163,7 +164,11 @@ export const runBatchSession = async <T extends BatchStore>(
         failure_stage: "persist",
       });
       cleanup(false);
-      reject(error);
+      reject(
+        error instanceof Error && error.message === EMPTY_BATCH_TRANSCRIPT_ERROR
+          ? error
+          : new BatchResponseProcessingError(error),
+      );
       return;
     }
 

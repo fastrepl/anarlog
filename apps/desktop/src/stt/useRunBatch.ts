@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import type { TranscriptionParams } from "@anlg/plugin-transcription";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
+import { BatchResponseProcessingError } from "./batch-response-processing-error";
 import { useListener } from "./contexts";
 import { persistTranscriptWrite } from "./persist-retry";
 import { getSessionKeywords } from "./useKeywords";
@@ -656,6 +657,7 @@ export function isTranscriptionAuthenticationError(error: unknown) {
 export function isTerminalTranscriptionError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   return (
+    error instanceof BatchResponseProcessingError ||
     message === EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE ||
     isTranscriptionAuthenticationError(error) ||
     /corrupt or unsupported|unsupported (?:audio|data)|invalid audio|no speech|empty transcript/i.test(
@@ -918,69 +920,81 @@ export const useRunBatch = (sessionId: string) => {
             );
           }
 
-          if (!handlePersist) {
-            const promoted = prepareTranscriptPromotion(
-              stagedWords,
-              stagedHints,
-              options?.promotion ?? { scope: "preserve_existing" },
-            );
-            if (
-              options?.promotion?.scope === "current_capture" &&
-              promoted.words.length === 0
-            ) {
-              throw new Error(EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE);
-            }
-            if (transcriptId) {
-              const completedTranscriptId = transcriptId;
-              if (promoted.words.length > 0) {
-                const reconciledSpeakerHints = refinedTranscriptSource
-                  ? reconcileRefinedSpeakerClusters(
-                      refinedTranscriptSource,
-                      promoted.words,
-                      promoted.hints,
-                    )
-                  : promoted.hints;
-                const speakerHints = refinedTranscriptSource
-                  ? transferAutomaticSpeakerAssignments(
-                      refinedTranscriptSource,
-                      promoted.words,
-                      reconciledSpeakerHints,
-                    )
-                  : reconciledSpeakerHints;
-                await persistTranscriptWrite(() =>
-                  createTranscript({
-                    id: completedTranscriptId,
-                    sessionId,
-                    ownerUserId: session?.user_id ?? "",
-                    createdAt,
-                    startedAt: promoted.startedAt ?? startedAt,
-                    memo: memoMd,
-                    source: "batch_transcription",
-                    provider: target.provider,
-                    model: target.model,
-                    words: promoted.words,
-                    speakerHints,
-                    replaceSession: promoted.replaceSession,
-                    replaceTranscriptId: promoted.replaceTranscriptId,
-                  }),
-                );
+          try {
+            if (!handlePersist) {
+              const promoted = prepareTranscriptPromotion(
+                stagedWords,
+                stagedHints,
+                options?.promotion ?? { scope: "preserve_existing" },
+              );
+              if (
+                options?.promotion?.scope === "current_capture" &&
+                promoted.words.length === 0
+              ) {
+                throw new Error(EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE);
+              }
+              if (transcriptId) {
+                const completedTranscriptId = transcriptId;
+                if (promoted.words.length > 0) {
+                  const reconciledSpeakerHints = refinedTranscriptSource
+                    ? reconcileRefinedSpeakerClusters(
+                        refinedTranscriptSource,
+                        promoted.words,
+                        promoted.hints,
+                      )
+                    : promoted.hints;
+                  const speakerHints = refinedTranscriptSource
+                    ? transferAutomaticSpeakerAssignments(
+                        refinedTranscriptSource,
+                        promoted.words,
+                        reconciledSpeakerHints,
+                      )
+                    : reconciledSpeakerHints;
+                  await persistTranscriptWrite(() =>
+                    createTranscript({
+                      id: completedTranscriptId,
+                      sessionId,
+                      ownerUserId: session?.user_id ?? "",
+                      createdAt,
+                      startedAt: promoted.startedAt ?? startedAt,
+                      memo: memoMd,
+                      source: "batch_transcription",
+                      provider: target.provider,
+                      model: target.model,
+                      words: promoted.words,
+                      speakerHints,
+                      replaceSession: promoted.replaceSession,
+                      replaceTranscriptId: promoted.replaceTranscriptId,
+                    }),
+                  );
+                }
+              }
+              if (!options?.deferAudioFinalization) {
+                try {
+                  await persistTranscriptWrite(() =>
+                    markSessionAudioTranscriptionComplete(sessionId),
+                  );
+                } catch (error) {
+                  console.error(
+                    "[runBatch] failed to mark session audio as processed",
+                    error,
+                  );
+                }
               }
             }
             if (!options?.deferAudioFinalization) {
-              try {
-                await persistTranscriptWrite(() =>
-                  markSessionAudioTranscriptionComplete(sessionId),
-                );
-              } catch (error) {
-                console.error(
-                  "[runBatch] failed to mark session audio as processed",
-                  error,
-                );
-              }
+              await deleteProcessedAudioForRetention(audioRetention, sessionId);
             }
-          }
-          if (!options?.deferAudioFinalization) {
-            await deleteProcessedAudioForRetention(audioRetention, sessionId);
+          } catch (error) {
+            if (
+              error instanceof BatchResponseProcessingError ||
+              (error instanceof Error &&
+                error.message ===
+                  EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE)
+            ) {
+              throw error;
+            }
+            throw new BatchResponseProcessingError(error);
           }
         },
       );

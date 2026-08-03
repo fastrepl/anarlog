@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { beginCloudsyncActivity, endCloudsyncActivity } from "@anlg/plugin-db";
 
+import { BatchResponseProcessingError } from "./batch-response-processing-error";
 import {
   canRunBatchTranscription,
   EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE,
@@ -234,6 +235,14 @@ describe("canRunBatchTranscription", () => {
 });
 
 describe("isTerminalTranscriptionError", () => {
+  test("stops retries after a provider response cannot be processed", () => {
+    expect(
+      isTerminalTranscriptionError(
+        new BatchResponseProcessingError(new Error("database is locked")),
+      ),
+    ).toBe(true);
+  });
+
   test.each([
     "Bad Request: failed to process audio: corrupt or unsupported data",
     "No speech detected",
@@ -842,6 +851,35 @@ describe("useRunBatch", () => {
 
     expect(createTranscriptMock).toHaveBeenCalledOnce();
     expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
+    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
+  });
+
+  test("does not make completed provider work retryable when persistence fails", async () => {
+    startTranscriptionMock.mockImplementation(async (_params, options) => {
+      options.handlePersist(
+        [{ text: "recovered", start_ms: 0, end_ms: 100, channel: 0 }],
+        [],
+      );
+    });
+    createTranscriptMock.mockRejectedValueOnce(new Error("disk write failed"));
+
+    const { result } = renderHook(() => useRunBatch("session-1"));
+    let processingError: unknown;
+
+    await act(async () => {
+      try {
+        await result.current("/tmp/session.wav", {
+          deferAudioFinalization: true,
+          promotion: { scope: "whole_session" },
+        });
+      } catch (error) {
+        processingError = error;
+      }
+    });
+
+    expect(processingError).toBeInstanceOf(BatchResponseProcessingError);
+    expect(isTerminalTranscriptionError(processingError)).toBe(true);
+    expect(startTranscriptionMock).toHaveBeenCalledOnce();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
   });
 
