@@ -7,7 +7,7 @@ import {
   Users,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
 import {
@@ -73,6 +73,9 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     }
     prepareControllersRef.current.clear();
   };
+  useMountEffect(() => () => {
+    cancelSharePreparation();
+  });
   const isActiveSharePreparation = (identity: SharePreparationIdentity) => {
     const active = sharePreparationIdentityRef.current;
     return (
@@ -81,16 +84,6 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
       active.attemptId === identity.attemptId
     );
   };
-  const shareButtonLifecycleRef = useCallback(
-    (node: HTMLButtonElement | null) => {
-      if (node) return;
-      for (const controller of prepareControllersRef.current) {
-        controller.abort();
-      }
-      prepareControllersRef.current.clear();
-    },
-    [],
-  );
   const runPrepareOperation = async <T,>(
     operation: (signal: AbortSignal) => Promise<T>,
   ): Promise<T> => {
@@ -467,7 +460,6 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
       <PopoverTrigger asChild>
         <Button
           key={accountUserId ?? "signed-out"}
-          ref={shareButtonLifecycleRef}
           type="button"
           size="icon"
           variant="ghost"

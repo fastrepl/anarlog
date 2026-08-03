@@ -7,7 +7,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { StrictMode } from "react";
+import { cloneElement, StrictMode, type ReactElement, type Ref } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -195,9 +195,22 @@ vi.mock("@anlg/ui/components/ui/popover", () => ({
       {children}
     </div>
   ),
-  PopoverTrigger: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
+  PopoverTrigger: ({
+    children,
+  }: {
+    children: ReactElement<{ ref?: Ref<HTMLButtonElement> }>;
+  }) => {
+    const childRef = children.props.ref;
+    return cloneElement(children, {
+      ref: (node: HTMLButtonElement | null) => {
+        if (typeof childRef === "function") {
+          childRef(node);
+        } else if (childRef) {
+          childRef.current = node;
+        }
+      },
+    });
+  },
 }));
 
 vi.mock("@anlg/ui/components/ui/select", async () => {
@@ -546,6 +559,38 @@ describe("SessionShareButton", () => {
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     expect(screen.queryByTestId("share-popover")).toBeNull();
     expect(mocks.loadSessionShareSource).toHaveBeenCalledOnce();
+  });
+
+  it("keeps preparation open when the trigger ref is recomposed", async () => {
+    let resolveSource: ((value: any) => void) | undefined;
+    mocks.loadSessionShareSource.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSource = resolve;
+      }),
+    );
+    const view = renderShareButtonView();
+
+    const trigger = screen.getByRole("button", { name: "Share note" });
+    fireEvent.click(trigger);
+    expect(await screen.findByText("Loading access…")).not.toBeNull();
+
+    view.rerender();
+
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByTestId("share-popover")).not.toBeNull();
+
+    await act(async () => {
+      resolveSource?.({
+        sessionId: "session-1",
+        workspaceId: WORKSPACE_ID,
+        title: "Planning",
+        body: { type: "doc", content: [] },
+      });
+    });
+
+    expect(
+      await screen.findByRole("textbox", { name: "Invitee email" }),
+    ).not.toBeNull();
   });
 
   it("cancels preparation immediately when the pending popover is dismissed", async () => {
