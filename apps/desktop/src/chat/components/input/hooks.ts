@@ -213,8 +213,7 @@ export function useAutoFocusEditor({
     const maxAttempts = 20;
 
     const tryFocus = () => {
-      if (editorRef.current) {
-        editorRef.current.focus();
+      if (editorRef.current?.focus()) {
         return;
       }
 

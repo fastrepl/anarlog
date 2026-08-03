@@ -59,7 +59,7 @@ export interface JSONContent {
 }
 
 export interface ChatEditorHandle {
-  focus(): void;
+  focus(): boolean;
   getJSON(): JSONContent | undefined;
   clearContent(): void;
   replaceContent(content: JSONContent, selection?: "start" | "end"): void;
@@ -194,7 +194,11 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
       ref,
       () => ({
         focus() {
-          viewRef.current?.focus();
+          const view = viewRef.current;
+          if (!view) return false;
+
+          view.focus();
+          return true;
         },
         getJSON() {
           return viewRef.current?.state.doc.toJSON() as JSONContent | undefined;

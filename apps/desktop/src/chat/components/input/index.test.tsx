@@ -7,26 +7,29 @@ import {
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { clearContentMock, editorState, shellState } = vi.hoisted(() => ({
-  clearContentMock: vi.fn(),
-  editorState: {
-    json: undefined as unknown,
-    onUpdate: undefined as undefined | ((json: unknown) => void),
-    onSubmit: undefined as undefined | (() => void),
-    onHistoryNavigate: undefined as
-      | undefined
-      | ((direction: "prev" | "next") => boolean),
-    initialContent: undefined as unknown,
-    replacementSelections: [] as Array<"start" | "end">,
-    submitShortcut: undefined as undefined | "mod-enter" | "enter",
-  },
-  shellState: {
-    mode: "FloatingOpen" as
-      | "FloatingClosed"
-      | "FloatingOpen"
-      | "RightPanelOpen",
-  },
-}));
+const { clearContentMock, editorState, focusMock, shellState } = vi.hoisted(
+  () => ({
+    clearContentMock: vi.fn(),
+    editorState: {
+      json: undefined as unknown,
+      onUpdate: undefined as undefined | ((json: unknown) => void),
+      onSubmit: undefined as undefined | (() => void),
+      onHistoryNavigate: undefined as
+        | undefined
+        | ((direction: "prev" | "next") => boolean),
+      initialContent: undefined as unknown,
+      replacementSelections: [] as Array<"start" | "end">,
+      submitShortcut: undefined as undefined | "mod-enter" | "enter",
+    },
+    focusMock: vi.fn(() => true),
+    shellState: {
+      mode: "FloatingOpen" as
+        | "FloatingClosed"
+        | "FloatingOpen"
+        | "RightPanelOpen",
+    },
+  }),
+);
 
 vi.mock("@anlg/editor/chat", async () => {
   const React = await vi.importActual<typeof import("react")>("react");
@@ -35,7 +38,7 @@ vi.mock("@anlg/editor/chat", async () => {
     ChatEditor: React.forwardRef<
       {
         clearContent: () => void;
-        focus: () => void;
+        focus: () => boolean;
         getJSON: () => unknown;
         replaceContent: (content: unknown, selection?: "start" | "end") => void;
       },
@@ -71,7 +74,7 @@ vi.mock("@anlg/editor/chat", async () => {
 
       React.useImperativeHandle(ref, () => ({
         clearContent: clearContentMock,
-        focus: vi.fn(),
+        focus: focusMock,
         getJSON: () => editorState.json,
         replaceContent: (
           content: unknown,
@@ -140,6 +143,8 @@ describe("ChatMessageInput", () => {
   beforeEach(() => {
     cleanup();
     clearContentMock.mockClear();
+    focusMock.mockReset();
+    focusMock.mockReturnValue(true);
     clearSentMessages();
     editorState.json = { type: "doc", content: [] };
     editorState.onSubmit = undefined;
@@ -277,6 +282,31 @@ describe("ChatMessageInput", () => {
     );
 
     expect(editorState.submitShortcut).toBe("enter");
+  });
+
+  it("retries focus until the editor view is ready", () => {
+    const animationFrames: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      animationFrames.push(callback);
+      return animationFrames.length;
+    });
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    focusMock.mockReturnValueOnce(false).mockReturnValue(true);
+
+    const { unmount } = render(
+      <ChatMessageInput draftKey="chat-input-focus" onSendMessage={vi.fn()} />,
+    );
+
+    expect(focusMock).toHaveBeenCalledOnce();
+
+    act(() => {
+      animationFrames.shift()?.(0);
+    });
+
+    expect(focusMock).toHaveBeenCalledTimes(2);
+
+    unmount();
+    vi.unstubAllGlobals();
   });
 
   it("marks the send control for disabled surface styling before the draft has content", () => {
