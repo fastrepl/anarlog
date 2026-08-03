@@ -27,8 +27,9 @@ Select lanes by behavior, not by the existence of this checklist:
 - CLI parsing, output, or local DB access → CLI plus the closest contract tests.
 - Local API routes, keys, loopback lifecycle, or webhooks → the affected local
   REST/webhook cases only.
-- Shared agent-access DTOs, exports, filtering, or pagination → each direct
-  local consumer plus cross-surface parity only for the changed fields.
+- Shared agent-access DTOs, exports, filtering, or pagination → every direct
+  consumer, including hosted REST or remote MCP when affected, plus
+  cross-surface parity only for the changed fields.
 - Hosted auth, snapshots, entitlements, isolation, purge, or Supabase policy →
   the affected hosted REST lifecycle and negative cases.
 - Local or remote MCP protocol/tool changes → that MCP lane and its direct
