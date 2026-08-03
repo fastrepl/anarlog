@@ -583,7 +583,7 @@ describe("OuterHeader", () => {
     });
   });
 
-  it("shows the meeting countdown in a tooltip-style badge to the left of the header action", () => {
+  it("shows the meeting countdown in a callout below the header action", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-05T09:55:30.000Z"));
     mocks.nowMs = Date.now();
@@ -604,9 +604,13 @@ describe("OuterHeader", () => {
       />,
     );
 
-    const countdown = screen.getByText("starts in 4m 30s");
+    const countdown = screen
+      .getByText("starts in 4m 30s")
+      .closest("[data-header-meeting-countdown]");
     const joinButton = screen.getByRole("button", { name: "Join & record" });
 
+    expect(countdown).not.toBeNull();
+    if (!countdown) throw new Error("meeting countdown is missing");
     expect(countdown.getAttribute("data-header-meeting-countdown")).toBe(
       "true",
     );
@@ -615,10 +619,13 @@ describe("OuterHeader", () => {
     expect(countdown.className).toContain("border");
     expect(countdown.className).toContain("shadow-sm");
     expect(countdown.className).toContain("tabular-nums");
+    expect(countdown.className).toContain("absolute");
+    expect(countdown.className).toContain("top-full");
+    expect(countdown.className).toContain("left-1/2");
     expect(
-      countdown.compareDocumentPosition(joinButton) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+      countdown.querySelector("[data-header-meeting-countdown-tail]"),
+    ).not.toBeNull();
+    expect(countdown.parentElement?.className).toContain("relative");
     expect(joinButton.textContent).not.toContain("starts in");
   });
 

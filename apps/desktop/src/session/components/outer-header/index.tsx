@@ -303,15 +303,7 @@ function HeaderMeetingActionPill({
     sessionMode !== "finalizing";
 
   return (
-    <div className="mr-1 flex min-w-0 shrink-0 items-center gap-2">
-      {showCountdown ? (
-        <div
-          data-header-meeting-countdown
-          className="border-border bg-popover/80 text-popover-foreground max-w-40 truncate rounded-md border px-2.5 py-1 font-mono text-xs whitespace-nowrap tabular-nums shadow-sm backdrop-blur-sm"
-        >
-          {countdown.label}
-        </div>
-      ) : null}
+    <div className="relative mr-1 flex min-w-0 shrink-0 items-center">
       <div className="border-border bg-card text-foreground flex h-7 max-w-56 shrink-0 items-center overflow-hidden rounded-full border">
         <button
           type="button"
@@ -349,6 +341,19 @@ function HeaderMeetingActionPill({
           )}
         />
       </div>
+      {showCountdown ? (
+        <div
+          data-header-meeting-countdown
+          className="border-border bg-popover text-popover-foreground pointer-events-none absolute top-full left-1/2 z-20 mt-2 -translate-x-1/2 rounded-md border px-2.5 py-1 font-mono text-xs whitespace-nowrap tabular-nums shadow-sm"
+        >
+          <span
+            data-header-meeting-countdown-tail
+            aria-hidden="true"
+            className="border-border bg-popover absolute -top-1.5 left-1/2 size-3 -translate-x-1/2 rotate-45 border-t border-l"
+          />
+          <span className="relative">{countdown.label}</span>
+        </div>
+      ) : null}
     </div>
   );
 }
