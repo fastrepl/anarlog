@@ -119,6 +119,7 @@ function NewGroupHarness({
   capture: (props: ChatSessionRenderProps, send: () => void) => void;
 }) {
   const { handleSendMessage } = useChatActions({
+    chatScope: "general",
     groupId: undefined,
     onGroupCreated: mocks.onGroupCreated,
     onGroupCreateFailed: mocks.onGroupCreateFailed,

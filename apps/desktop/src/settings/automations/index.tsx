@@ -21,8 +21,24 @@ import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
 import { useBillingAccess } from "~/auth/billing-context";
+import { SettingsHydrationBoundary } from "~/settings/hydration-boundary";
 import { SettingsPageTitle } from "~/settings/page-title";
 import { setSettingValue, useStoredSettingValue } from "~/settings/queries";
+import { StandardContentWrapper } from "~/shared/main";
+
+export function TabContentAutomations() {
+  return (
+    <StandardContentWrapper>
+      <SettingsHydrationBoundary>
+        <div className="bg-card dark:bg-accent flex w-full flex-1 flex-col overflow-hidden">
+          <div className="scroll-fade-y scrollbar-hide h-full w-full flex-1 overflow-y-auto p-6">
+            <SettingsAutomations />
+          </div>
+        </div>
+      </SettingsHydrationBoundary>
+    </StandardContentWrapper>
+  );
+}
 
 export function SettingsAutomations() {
   const { t } = useLingui();

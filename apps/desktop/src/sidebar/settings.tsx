@@ -29,7 +29,11 @@ import { AUTO_TEMPLATE_ID, useOpenTemplatesTab } from "~/templates";
 type SettingsNavItem =
   | { id: SettingsTab; label: string; icon: Icon }
   | {
-      action: "open-templates" | "open-calendar" | "open-contacts";
+      action:
+        | "open-automations"
+        | "open-templates"
+        | "open-calendar"
+        | "open-contacts";
       label: string;
       icon: Icon;
     };
@@ -43,7 +47,6 @@ export function SettingsNav() {
   const updateSettingsTabState = useTabs(
     (state) => state.updateSettingsTabState,
   );
-  const transitionChatMode = useTabs((state) => state.transitionChatMode);
   const openTemplatesTab = useOpenTemplatesTab();
 
   const activeTab =
@@ -53,15 +56,14 @@ export function SettingsNav() {
     (tab: SettingsTab) => {
       if (currentTab?.type === "settings") {
         updateSettingsTabState(currentTab, { tab });
-        if (tab === "automations") {
-          transitionChatMode({ type: "OPEN_RIGHT_PANEL" });
-        } else if (activeTab === "automations") {
-          transitionChatMode({ type: "CLOSE" });
-        }
       }
     },
-    [activeTab, currentTab, transitionChatMode, updateSettingsTabState],
+    [currentTab, updateSettingsTabState],
   );
+
+  const handleOpenAutomations = useCallback(() => {
+    openNew({ type: "automations" });
+  }, [openNew]);
 
   const handleOpenTemplates = useCallback(() => {
     openTemplatesTab({
@@ -88,7 +90,11 @@ export function SettingsNav() {
         { id: "appearance", label: t`Appearance`, icon: Sun },
         { id: "account", label: t`Account`, icon: User },
         { id: "sync", label: t`Sync`, icon: ArrowsClockwise },
-        { id: "automations", label: t`Automations`, icon: Lightning },
+        {
+          action: "open-automations",
+          label: t`Automations`,
+          icon: Lightning,
+        },
         { id: "notifications", label: t`Notifications`, icon: Bell },
         { id: "permissions", label: t`Permissions`, icon: Lock },
         { id: "developers", label: t`Developers`, icon: Code },
@@ -146,7 +152,9 @@ export function SettingsNav() {
                     key={isSettingsItem ? item.id : item.action}
                     onClick={() => {
                       if (!isSettingsItem) {
-                        if (item.action === "open-templates") {
+                        if (item.action === "open-automations") {
+                          handleOpenAutomations();
+                        } else if (item.action === "open-templates") {
                           handleOpenTemplates();
                         } else if (item.action === "open-calendar") {
                           handleOpenCalendar();

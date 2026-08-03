@@ -23,8 +23,10 @@ import {
   type ChatGroupRecord,
   useRecentChatGroups,
 } from "~/chat/store/queries";
+import type { ChatScope } from "~/chat/types";
 
 export function ChatToolbarControls({
+  chatScope,
   currentChatGroupId,
   layout = "floating",
   onClose,
@@ -34,6 +36,7 @@ export function ChatToolbarControls({
   onSelectChat,
   surface = "light",
 }: {
+  chatScope: ChatScope;
   currentChatGroupId: string | undefined;
   layout?: "floating" | "right-panel";
   onClose?: () => void;
@@ -53,6 +56,7 @@ export function ChatToolbarControls({
     >
       <div className="flex min-w-0 flex-1 items-center gap-1">
         <ChatGroups
+          chatScope={chatScope}
           currentChatGroupId={currentChatGroupId}
           layout={layout}
           onSelectChat={onSelectChat}
@@ -144,11 +148,13 @@ function ChatActionButton({
 }
 
 function ChatGroups({
+  chatScope,
   currentChatGroupId,
   layout,
   onSelectChat,
   surface = "light",
 }: {
+  chatScope: ChatScope;
   currentChatGroupId: string | undefined;
   layout: "floating" | "right-panel";
   onSelectChat: (chatGroupId: string) => void;
@@ -158,7 +164,7 @@ function ChatGroups({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const isDark = surface === "dark";
 
-  const recentChatGroups = useRecentChatGroups(5);
+  const recentChatGroups = useRecentChatGroups(chatScope, 5);
 
   return (
     <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>

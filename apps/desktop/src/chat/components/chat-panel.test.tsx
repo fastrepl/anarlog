@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   )),
   chat: {
     groupId: "group-1",
+    scope: "general" as "general" | "automations",
     sessionId: "session-1",
     startNewChat: vi.fn(),
     selectChat: vi.fn(),
@@ -75,7 +76,8 @@ vi.mock("~/shared/owner-user", () => ({
 }));
 
 vi.mock("~/session/queries", () => ({
-  useSessionHasTranscript: () => mocks.hasAvailableTranscript,
+  useSessionHasTranscript: (sessionId: string) =>
+    Boolean(sessionId) && mocks.hasAvailableTranscript,
 }));
 
 vi.mock("~/stt/contexts", () => ({
@@ -96,6 +98,7 @@ describe("ChatView", () => {
   beforeEach(() => {
     cleanup();
     mocks.chatSession.mockClear();
+    mocks.chat.scope = "general";
     mocks.hasAvailableTranscript = false;
     mocks.sessionMode = "inactive";
     mocks.requestedLiveTranscription = null;
@@ -131,6 +134,25 @@ describe("ChatView", () => {
         hasAvailableTranscript: true,
         isBatchTranscriptionPending: true,
       }),
+    );
+  });
+
+  it("does not inherit note context in the automations scope", () => {
+    mocks.chat.scope = "automations";
+    mocks.hasAvailableTranscript = true;
+    mocks.sessionMode = "active";
+
+    render(<ChatView />);
+
+    expect(mocks.chatSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currentSessionId: undefined,
+        hasAvailableTranscript: false,
+        isBatchTranscriptionPending: false,
+      }),
+    );
+    expect(mocks.toolbarControls).toHaveBeenCalledWith(
+      expect.objectContaining({ chatScope: "automations" }),
     );
   });
 

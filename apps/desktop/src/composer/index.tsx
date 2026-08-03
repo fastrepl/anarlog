@@ -32,8 +32,9 @@ export function ComposerScreen() {
   const { chat } = useShell();
   const model = useLanguageModel("chat");
   const userId = useOwnerUserId();
-  const currentChatGroup = useChatGroup(chat.groupId);
+  const currentChatGroup = useChatGroup(chat.groupId, chat.scope);
   const { handleSendMessage } = useChatActions({
+    chatScope: chat.scope,
     groupId: chat.groupId,
     onGroupCreated: chat.setGroupId,
     onGroupCreateFailed: chat.rollbackFailedGroup,

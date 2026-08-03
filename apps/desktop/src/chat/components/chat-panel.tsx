@@ -49,18 +49,20 @@ export function ChatSessionHost({
   const { chat } = useShell();
   const { groupId, sessionId } = chat;
   const { currentSessionId } = useSessionTab();
+  const contextSessionId =
+    chat.scope === "automations" ? undefined : currentSessionId;
   const ownerUserId = useOwnerUserId();
   const hasAvailableTranscript = useSessionHasTranscript(
-    currentSessionId ?? "",
+    contextSessionId ?? "",
   );
   const batchTranscriptionPending = useListener((state) => {
-    if (!currentSessionId) {
+    if (!contextSessionId) {
       return false;
     }
     return isBatchTranscriptionPending(
-      state.getSessionMode(currentSessionId),
+      state.getSessionMode(contextSessionId),
       state.live,
-      state.live.batchTranscriptionPendingBySession[currentSessionId],
+      state.live.batchTranscriptionPendingBySession[contextSessionId],
     );
   });
 
@@ -72,7 +74,7 @@ export function ChatSessionHost({
     <ChatSession
       sessionId={sessionId}
       chatGroupId={groupId}
-      currentSessionId={currentSessionId}
+      currentSessionId={contextSessionId}
       hasAvailableTranscript={hasAvailableTranscript}
       isBatchTranscriptionPending={batchTranscriptionPending}
       unstyled
@@ -116,6 +118,7 @@ export function ChatPanelFrame({
   );
 
   const { handleSendMessage } = useChatActions({
+    chatScope: chat.scope,
     groupId,
     onGroupCreated: handleGroupCreated,
     onGroupCreateFailed: handleGroupCreateFailed,
@@ -136,6 +139,7 @@ export function ChatPanelFrame({
         ])}
       >
         <ChatToolbarControls
+          chatScope={chat.scope}
           currentChatGroupId={groupId}
           layout={layout}
           onClose={() => chat.sendEvent({ type: "CLOSE" })}

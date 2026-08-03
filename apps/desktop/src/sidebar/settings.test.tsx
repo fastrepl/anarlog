@@ -236,26 +236,14 @@ describe("SettingsNav", () => {
     );
   });
 
-  it("opens Automations with Chat docked on the right", () => {
+  it("opens Automations as a separate page", () => {
     render(<SettingsNav />);
 
     fireEvent.click(screen.getByRole("button", { name: "Automations" }));
 
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      { tab: "automations" },
-    );
-    expect(mocks.transitionChatMode).toHaveBeenCalledWith({
-      type: "OPEN_RIGHT_PANEL",
+    expect(mocks.openNew).toHaveBeenCalledWith({
+      type: "automations",
     });
-  });
-
-  it("closes the automation Chat panel when leaving the builder", () => {
-    mocks.currentTab = { type: "settings", state: { tab: "automations" } };
-    render(<SettingsNav />);
-
-    fireEvent.click(screen.getByRole("button", { name: "App" }));
-
-    expect(mocks.transitionChatMode).toHaveBeenCalledWith({ type: "CLOSE" });
+    expect(mocks.updateSettingsTabState).not.toHaveBeenCalled();
   });
 });

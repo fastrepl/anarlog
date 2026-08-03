@@ -4,7 +4,10 @@ import { z } from "zod";
 import { CONTEXT_ENTITY_SOURCES } from "~/chat/context/entities";
 import type { ContextRef } from "~/chat/context/entities";
 
+export type ChatScope = "general" | "automations";
+
 const messageMetadataSchema = z.object({
+  chatScope: z.enum(["general", "automations"]).optional(),
   createdAt: z.number().optional(),
   contextRefs: z
     .array(

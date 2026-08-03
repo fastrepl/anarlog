@@ -22,6 +22,7 @@ import { id } from "~/shared/utils";
 import { listenerStore } from "~/store/zustand/listener/instance";
 
 const RETURN_ORIGIN_TAB_TYPES: Tab["type"][] = [
+  "automations",
   "calendar",
   "contacts",
   "settings",
@@ -514,7 +515,10 @@ const getChatModeForNavigation = (
   targetTab: Tab | TabInput,
   chatMode: ChatModeState["chatMode"],
 ): ChatModeState["chatMode"] | null => {
-  if (targetTab.type === "settings" && targetTab.state?.tab === "automations") {
+  if (
+    targetTab.type === "automations" ||
+    (targetTab.type === "settings" && targetTab.state?.tab === "automations")
+  ) {
     return chatMode === "RightPanelOpen" ? null : "RightPanelOpen";
   }
 

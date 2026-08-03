@@ -6,6 +6,7 @@ import { TabContentEdit } from "~/edit";
 import { TabContentOnboarding } from "~/onboarding";
 import { TabContentNote } from "~/session";
 import { TabContentSettings } from "~/settings";
+import { TabContentAutomations } from "~/settings/automations";
 import {
   TabContentSharedNote,
   TabContentSharedNotePreview,
@@ -15,6 +16,9 @@ import { TabContentTask } from "~/task";
 import { TabContentTemplate } from "~/templates";
 
 export function MainTabContent({ tab }: { tab: Tab }) {
+  if (tab.type === "automations") {
+    return <TabContentAutomations />;
+  }
   if (tab.type === "sessions") {
     return <TabContentNote tab={tab} />;
   }

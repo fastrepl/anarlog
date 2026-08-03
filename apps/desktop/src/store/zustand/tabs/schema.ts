@@ -24,6 +24,7 @@ export type SupportedWindowTabInput = Exclude<
 
 export type TabInput =
   | SupportedWindowTabInput
+  | { type: "automations" }
   | { type: "shared_sessions"; id: string }
   | { type: "shared_note_preview"; id: string };
 
@@ -41,7 +42,6 @@ export type SettingsTab =
   | "account"
   | "app"
   | "appearance"
-  | "automations"
   | "sync"
   | "notifications"
   | "developers"
@@ -57,7 +57,6 @@ export const normalizeSettingsTab = (
   switch (tab) {
     case "app":
     case "appearance":
-    case "automations":
     case "sync":
     case "notifications":
     case "developers":
@@ -113,6 +112,7 @@ export type Tab =
       type: "templates";
       state: TemplatesState;
     })
+  | (BaseTab & { type: "automations" })
   | (BaseTab & {
       type: "humans";
       id: string;
@@ -176,6 +176,8 @@ export const getDefaultState = (tab: TabInput): Tab => {
           selectedWebIndex: null,
         },
       };
+    case "automations":
+      return { ...base, type: "automations" };
     case "humans":
       return { ...base, type: "humans", id: tab.id };
     case "organizations":
@@ -194,6 +196,9 @@ export const getDefaultState = (tab: TabInput): Tab => {
       const subtab = tab.state?.tab as string | null | undefined;
       if (subtab === "calendar") {
         return { ...base, type: "calendar" };
+      }
+      if (subtab === "automations") {
+        return { ...base, type: "automations" };
       }
       return {
         ...base,
@@ -229,6 +234,8 @@ export const uniqueIdfromTab = (tab: Tab): string => {
       return `contacts`;
     case "templates":
       return `templates`;
+    case "automations":
+      return `automations`;
     case "empty":
       return `empty-${tab.slotId}`;
     case "calendar":

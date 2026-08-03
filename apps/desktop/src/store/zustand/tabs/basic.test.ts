@@ -185,16 +185,22 @@ describe("Basic Tab Actions", () => {
     expect(useTabs.getState().chatMode).toBe("FloatingClosed");
   });
 
-  test("openNew docks Chat when opening automation settings", () => {
+  test("openNew docks Chat when opening Automations", () => {
+    useTabs.getState().openNew({ type: "automations" });
+
+    expect(useTabs.getState()).toHaveCurrentTab({
+      type: "automations",
+    });
+    expect(useTabs.getState().chatMode).toBe("RightPanelOpen");
+  });
+
+  test("openNew redirects legacy automation settings links", () => {
     useTabs.getState().openNew({
       type: "settings",
       state: { tab: "automations" },
     });
 
-    expect(useTabs.getState()).toHaveCurrentTab({
-      type: "settings",
-      state: { tab: "automations" },
-    });
+    expect(useTabs.getState()).toHaveCurrentTab({ type: "automations" });
     expect(useTabs.getState().chatMode).toBe("RightPanelOpen");
   });
 

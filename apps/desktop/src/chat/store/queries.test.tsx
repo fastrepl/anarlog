@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   execute: vi.fn(),
   executeTransaction: vi.fn().mockResolvedValue([1]),
+  liveQueries: [] as Array<{ params?: unknown[]; sql: string }>,
   rows: [] as Array<Record<string, unknown>>,
 }));
 
@@ -13,8 +14,15 @@ vi.mock("~/db", () => ({
   useLiveQuery: (options: {
     enabled?: boolean;
     mapRows: (rows: Array<Record<string, unknown>>) => unknown;
+    params?: unknown[];
+    sql: string;
   }) => ({
-    data: options.enabled === false ? undefined : options.mapRows(mocks.rows),
+    data: (() => {
+      mocks.liveQueries.push(options);
+      return options.enabled === false
+        ? undefined
+        : options.mapRows(mocks.rows);
+    })(),
   }),
 }));
 
@@ -52,6 +60,7 @@ const message: ChatMessageRecord = {
 describe("chat SQLite queries", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.liveQueries = [];
     mocks.rows = [];
     mocks.execute.mockResolvedValue([]);
     mocks.executeTransaction.mockResolvedValue([1]);
@@ -68,8 +77,10 @@ describe("chat SQLite queries", () => {
       },
     ];
 
-    const recent = renderHook(() => useRecentChatGroups()).result.current;
-    const selected = renderHook(() => useChatGroup("group-1")).result.current;
+    const recent = renderHook(() => useRecentChatGroups("general")).result
+      .current;
+    const selected = renderHook(() => useChatGroup("group-1", "general")).result
+      .current;
 
     expect(recent).toEqual([
       {
@@ -81,6 +92,21 @@ describe("chat SQLite queries", () => {
       },
     ]);
     expect(selected?.id).toBe("group-1");
+  });
+
+  it("isolates general and automation chat history", () => {
+    renderHook(() => useRecentChatGroups("general"));
+    const generalQuery =
+      mocks.liveQueries[mocks.liveQueries.length - 1]?.sql ?? "";
+
+    renderHook(() => useRecentChatGroups("automations"));
+    const automationsQuery =
+      mocks.liveQueries[mocks.liveQueries.length - 1]?.sql ?? "";
+
+    expect(generalQuery).toMatch(/AND\s+NOT\s+EXISTS/);
+    expect(automationsQuery).toMatch(/AND\s+EXISTS/);
+    expect(generalQuery).toContain("'$.chatScope'");
+    expect(automationsQuery).toContain("'$.chatScope'");
   });
 
   it("maps chat messages in their durable order", () => {

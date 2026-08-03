@@ -17,7 +17,7 @@ import {
 
 import { useLanguageModel } from "~/ai/hooks";
 import type { ContextRef } from "~/chat/context/entities";
-import type { ChatMessageSender, AnlgUIMessage } from "~/chat/types";
+import type { ChatMessageSender, ChatScope, AnlgUIMessage } from "~/chat/types";
 import { useOwnerUserId } from "~/shared/owner-user";
 import { id } from "~/shared/utils";
 
@@ -43,10 +43,12 @@ async function persistWithRetry(run: () => Promise<unknown>) {
 }
 
 export function useChatActions({
+  chatScope,
   groupId,
   onGroupCreated,
   onGroupCreateFailed,
 }: {
+  chatScope: ChatScope;
   groupId: string | undefined;
   onGroupCreated: (newGroupId: string) => void;
   onGroupCreateFailed?: (failedGroupId: string) => void;
@@ -102,6 +104,7 @@ export function useChatActions({
 
       const messageId = id();
       const metadata = {
+        chatScope,
         createdAt: Date.now(),
         ...(contextRefs && contextRefs.length > 0 ? { contextRefs } : {}),
       };
@@ -166,6 +169,7 @@ export function useChatActions({
       });
     },
     [
+      chatScope,
       groupId,
       ownerUserId,
       onGroupCreated,

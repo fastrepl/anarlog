@@ -2,6 +2,10 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const mocks = vi.hoisted(() => ({
+  useRecentChatGroups: vi.fn(() => []),
+}));
+
 vi.mock("@anlg/ui/components/ui/button", () => ({
   Button: ({
     children,
@@ -61,7 +65,7 @@ vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
 }));
 
 vi.mock("~/chat/store/queries", () => ({
-  useRecentChatGroups: () => [],
+  useRecentChatGroups: mocks.useRecentChatGroups,
 }));
 
 import { ChatToolbarControls } from "./toolbar-controls";
@@ -69,11 +73,13 @@ import { ChatToolbarControls } from "./toolbar-controls";
 describe("ChatToolbarControls", () => {
   beforeEach(() => {
     cleanup();
+    mocks.useRecentChatGroups.mockClear();
   });
 
   it("renders the dark chat history trigger as a pill button", () => {
     render(
       <ChatToolbarControls
+        chatScope="general"
         currentChatGroupId={undefined}
         onNewChat={vi.fn()}
         onOpenRightPanel={vi.fn()}
@@ -94,6 +100,7 @@ describe("ChatToolbarControls", () => {
   it("renders the light chat history trigger without title text", () => {
     const { container } = render(
       <ChatToolbarControls
+        chatScope="general"
         currentChatGroupId={undefined}
         onNewChat={vi.fn()}
         onOpenRightPanel={vi.fn()}
@@ -119,6 +126,7 @@ describe("ChatToolbarControls", () => {
   it("opens floating chat history to the right and adapts to viewport collisions", () => {
     render(
       <ChatToolbarControls
+        chatScope="general"
         currentChatGroupId={undefined}
         layout="floating"
         onNewChat={vi.fn()}
@@ -149,6 +157,7 @@ describe("ChatToolbarControls", () => {
   it("keeps right-panel chat history below the trigger", () => {
     render(
       <ChatToolbarControls
+        chatScope="general"
         currentChatGroupId={undefined}
         layout="right-panel"
         onNewChat={vi.fn()}
@@ -164,6 +173,7 @@ describe("ChatToolbarControls", () => {
   it("renders dark toolbar action buttons as circles without tooltips", () => {
     render(
       <ChatToolbarControls
+        chatScope="general"
         currentChatGroupId={undefined}
         onClose={vi.fn()}
         onNewChat={vi.fn()}
@@ -197,6 +207,7 @@ describe("ChatToolbarControls", () => {
 
     const { container } = render(
       <ChatToolbarControls
+        chatScope="general"
         currentChatGroupId={undefined}
         layout="floating"
         onClose={onClose}
@@ -227,6 +238,7 @@ describe("ChatToolbarControls", () => {
     const onOpenFloating = vi.fn();
     const { container } = render(
       <ChatToolbarControls
+        chatScope="general"
         currentChatGroupId={undefined}
         layout="right-panel"
         onClose={onClose}
@@ -266,5 +278,19 @@ describe("ChatToolbarControls", () => {
 
     expect(onOpenFloating).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("loads history for the active chat scope", () => {
+    render(
+      <ChatToolbarControls
+        chatScope="automations"
+        currentChatGroupId={undefined}
+        onNewChat={vi.fn()}
+        onOpenRightPanel={vi.fn()}
+        onSelectChat={vi.fn()}
+      />,
+    );
+
+    expect(mocks.useRecentChatGroups).toHaveBeenCalledWith("automations", 5);
   });
 });
