@@ -196,6 +196,7 @@ describe("getBatchProvider", () => {
     ["azure_speech", "fast-transcription"],
     ["google_cloud", "latest_long"],
     ["groq", "whisper-large-v3-turbo"],
+    ["openrouter", "openai/gpt-4o-mini-transcribe"],
     ["revai", "machine"],
     ["speechmatics", "enhanced"],
     ["together", "openai/whisper-large-v3"],

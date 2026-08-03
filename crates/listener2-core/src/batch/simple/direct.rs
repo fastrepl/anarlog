@@ -5,8 +5,8 @@ use owhisper_client::{
     AdapterKind, AnarlogAdapter, AquaVoiceAdapter, ArgmaxAdapter, AssemblyAIAdapter,
     AwsTranscribeAdapter, AzureSpeechAdapter, BatchSttAdapter, CartesiaAdapter, CohereAdapter,
     DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, GoogleCloudAdapter,
-    GroqAdapter, MistralAdapter, OpenAIAdapter, PyannoteAdapter, RevAiAdapter, SonioxAdapter,
-    SpeechmaticsAdapter, TogetherAdapter, XaiAdapter,
+    GroqAdapter, MistralAdapter, OpenAIAdapter, OpenRouterAdapter, PyannoteAdapter, RevAiAdapter,
+    SonioxAdapter, SpeechmaticsAdapter, TogetherAdapter, XaiAdapter,
 };
 use tracing::Instrument;
 
@@ -73,6 +73,7 @@ pub(in crate::batch) async fn run_direct_batch_for_adapter_kind(
         AssemblyAI => AssemblyAIAdapter,
         Fireworks => FireworksAdapter,
         OpenAI => OpenAIAdapter,
+        OpenRouter => OpenRouterAdapter,
         Gladia => GladiaAdapter,
         ElevenLabs => ElevenLabsAdapter,
         Pyannote => PyannoteAdapter,

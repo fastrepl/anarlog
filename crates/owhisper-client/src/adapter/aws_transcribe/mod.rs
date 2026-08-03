@@ -60,6 +60,7 @@ impl BatchSttAdapter for AwsTranscribeAdapter {
                     default_api_base: "",
                     default_model: "amazon-transcribe",
                     transcription_path: "audio/transcriptions",
+                    response_format: Some("verbose_json"),
                     timestamp_field: Some("timestamp_granularities[]"),
                 },
             )

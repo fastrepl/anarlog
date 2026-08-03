@@ -199,6 +199,12 @@ fn test_adapter_kind_from_url_and_languages() {
             None,
             AdapterKind::Argmax,
         ),
+        (
+            "https://openrouter.ai/api/v1",
+            &[En],
+            Some("openai/gpt-4o-mini-transcribe"),
+            AdapterKind::OpenRouter,
+        ),
     ];
 
     for (url, langs, model, expected) in cases {
@@ -239,6 +245,7 @@ fn test_has_live_mode() {
         AdapterKind::AzureSpeech,
         AdapterKind::GoogleCloud,
         AdapterKind::Groq,
+        AdapterKind::OpenRouter,
         AdapterKind::RevAi,
         AdapterKind::Speechmatics,
         AdapterKind::Together,

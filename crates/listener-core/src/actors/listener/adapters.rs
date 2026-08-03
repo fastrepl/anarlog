@@ -154,6 +154,7 @@ pub(super) async fn spawn_rx_task(
         AzureSpeech,
         GoogleCloud,
         Groq,
+        OpenRouter,
         RevAi,
         Speechmatics,
         Together

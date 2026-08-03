@@ -72,6 +72,7 @@ const DIRECT_BATCH_PROVIDERS: Set<TranscriptionParams["provider"]> = new Set([
   "soniox",
   "assemblyai",
   "openai",
+  "openrouter",
   "gladia",
   "elevenlabs",
   "mistral",

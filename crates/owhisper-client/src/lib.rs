@@ -26,9 +26,9 @@ pub use adapter::{
     AwsTranscribeAdapter, AzureSpeechAdapter, BatchSttAdapter, CallbackResult, CallbackSttAdapter,
     CartesiaAdapter, CohereAdapter, DashScopeAdapter, DeepgramAdapter, DeepgramFluxAdapter,
     ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, GoogleCloudAdapter, GroqAdapter,
-    LanguageQuality, LanguageSupport, MistralAdapter, OpenAIAdapter, PyannoteAdapter,
-    RealtimeSttAdapter, RevAiAdapter, SmallestAIAdapter, SonioxAdapter, SpeechmaticsAdapter,
-    TogetherAdapter, WhisperCppAdapter, XaiAdapter, append_provider_param,
+    LanguageQuality, LanguageSupport, MistralAdapter, OpenAIAdapter, OpenRouterAdapter,
+    PyannoteAdapter, RealtimeSttAdapter, RevAiAdapter, SmallestAIAdapter, SonioxAdapter,
+    SpeechmaticsAdapter, TogetherAdapter, WhisperCppAdapter, XaiAdapter, append_provider_param,
     documented_language_codes_batch, documented_language_codes_live, is_anarlog_proxy,
     is_local_host, normalize_languages,
 };

@@ -140,6 +140,7 @@ pub fn suggest_providers_for_languages_batch(languages: &[anlg_language::Languag
         AdapterKind::Deepgram,
         AdapterKind::AssemblyAI,
         AdapterKind::OpenAI,
+        AdapterKind::OpenRouter,
         AdapterKind::Gladia,
         AdapterKind::ElevenLabs,
         AdapterKind::DashScope,

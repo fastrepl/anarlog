@@ -97,6 +97,7 @@ describe("getSttModelTranscriptionMode", () => {
     ).toBe("batch");
     for (const [provider, model] of [
       ["groq", "whisper-large-v3-turbo"],
+      ["openrouter", "openai/gpt-4o-mini-transcribe"],
       ["together", "openai/whisper-large-v3"],
       ["speechmatics", "enhanced"],
       ["azure_speech", "fast-transcription"],

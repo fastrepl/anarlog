@@ -58,27 +58,29 @@ function ProviderContext({ providerId }: { providerId: ProviderId }) {
               ? `Use [Gladia](https://www.gladia.io) for transcriptions.`
               : providerId === "openai"
                 ? `Use [OpenAI](https://openai.com) for transcriptions.`
-                : providerId === "cloudflare_workers_ai"
-                  ? `Use a [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/) endpoint that exposes Deepgram-compatible Nova-3 transcription.`
-                  : providerId === "fireworks"
-                    ? `Use [Fireworks AI](https://fireworks.ai) for transcriptions.`
-                    : providerId === "mistral"
-                      ? `Use [Mistral](https://mistral.ai) for transcriptions.`
-                      : providerId === "cohere"
-                        ? `Use [Cohere Transcribe](https://docs.cohere.com/docs/transcribe) for batch transcription. Files must be 25 MB or smaller and use one selected language. Cohere does not return timestamps or speaker labels, so Anarlog estimates word timing.`
-                        : providerId === "google_cloud"
-                          ? `Use [Google Cloud Speech-to-Text](https://cloud.google.com/speech-to-text) synchronous recognition for recordings up to one minute and 10 MB. Paste an OAuth access token in the API key field; refresh it when it expires.`
-                          : providerId === "azure_speech"
-                            ? `Use [Azure AI Speech](https://learn.microsoft.com/azure/ai-services/speech-service/rest-speech-to-text) fast transcription. Enter the regional Speech resource endpoint as the Base URL and its subscription key as the API key.`
-                            : providerId === "aws_transcribe"
-                              ? `Amazon Transcribe's native file API requires SigV4 plus an S3 object. Enter an OpenAI-compatible gateway URL that performs that AWS authentication and upload, then paste the gateway token as the API key.`
-                              : providerId === "speechmatics"
-                                ? `Use [Speechmatics](https://docs.speechmatics.com/speech-to-text/batch/quickstart) enhanced batch transcription. The default endpoint uses the EU region and can be changed under Advanced.`
-                                : providerId === "revai"
-                                  ? `Use [Rev AI](https://docs.rev.ai/api/asynchronous/get-started) asynchronous transcription. Anarlog uploads the recording, waits for the job, and retrieves word timestamps and speaker labels.`
-                                  : providerId === "custom"
-                                    ? `We only support **Deepgram compatible** endpoints for now.`
-                                    : "";
+                : providerId === "openrouter"
+                  ? `Use [OpenRouter](https://openrouter.ai) to transcribe with supported speech-to-text models through one API key. OpenRouter transcription runs after recording.`
+                  : providerId === "cloudflare_workers_ai"
+                    ? `Use a [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/) endpoint that exposes Deepgram-compatible Nova-3 transcription.`
+                    : providerId === "fireworks"
+                      ? `Use [Fireworks AI](https://fireworks.ai) for transcriptions.`
+                      : providerId === "mistral"
+                        ? `Use [Mistral](https://mistral.ai) for transcriptions.`
+                        : providerId === "cohere"
+                          ? `Use [Cohere Transcribe](https://docs.cohere.com/docs/transcribe) for batch transcription. Files must be 25 MB or smaller and use one selected language. Cohere does not return timestamps or speaker labels, so Anarlog estimates word timing.`
+                          : providerId === "google_cloud"
+                            ? `Use [Google Cloud Speech-to-Text](https://cloud.google.com/speech-to-text) synchronous recognition for recordings up to one minute and 10 MB. Paste an OAuth access token in the API key field; refresh it when it expires.`
+                            : providerId === "azure_speech"
+                              ? `Use [Azure AI Speech](https://learn.microsoft.com/azure/ai-services/speech-service/rest-speech-to-text) fast transcription. Enter the regional Speech resource endpoint as the Base URL and its subscription key as the API key.`
+                              : providerId === "aws_transcribe"
+                                ? `Amazon Transcribe's native file API requires SigV4 plus an S3 object. Enter an OpenAI-compatible gateway URL that performs that AWS authentication and upload, then paste the gateway token as the API key.`
+                                : providerId === "speechmatics"
+                                  ? `Use [Speechmatics](https://docs.speechmatics.com/speech-to-text/batch/quickstart) enhanced batch transcription. The default endpoint uses the EU region and can be changed under Advanced.`
+                                  : providerId === "revai"
+                                    ? `Use [Rev AI](https://docs.rev.ai/api/asynchronous/get-started) asynchronous transcription. Anarlog uploads the recording, waits for the job, and retrieves word timestamps and speaker labels.`
+                                    : providerId === "custom"
+                                      ? `We only support **Deepgram compatible** endpoints for now.`
+                                      : "";
 
   if (!content.trim()) {
     return null;

@@ -22,6 +22,7 @@ mod language;
 mod mistral;
 mod openai;
 mod openai_compatible_batch;
+mod openrouter;
 mod owhisper;
 mod pyannote;
 mod revai;
@@ -50,6 +51,7 @@ pub use groq::*;
 pub use language::{LanguageQuality, LanguageSupport};
 pub use mistral::*;
 pub use openai::*;
+pub use openrouter::*;
 pub use pyannote::*;
 pub use revai::*;
 pub use smallestai::*;
@@ -438,6 +440,8 @@ pub enum AdapterKind {
     AssemblyAI,
     #[strum(serialize = "openai")]
     OpenAI,
+    #[strum(serialize = "openrouter")]
+    OpenRouter,
     #[strum(serialize = "gladia")]
     Gladia,
     #[strum(serialize = "elevenlabs")]
@@ -486,6 +490,12 @@ impl AdapterKind {
             return Self::Argmax;
         }
 
+        if host_matches(base_url, |host| {
+            host == "openrouter.ai" || host.ends_with(".openrouter.ai")
+        }) {
+            return Self::OpenRouter;
+        }
+
         Provider::from_url(base_url)
             .map(Self::from)
             .unwrap_or(Self::Deepgram)
@@ -501,6 +511,7 @@ impl AdapterKind {
             | Self::AzureSpeech
             | Self::GoogleCloud
             | Self::Groq
+            | Self::OpenRouter
             | Self::RevAi
             | Self::Speechmatics
             | Self::Together => false,
@@ -535,6 +546,7 @@ impl AdapterKind {
             Self::AssemblyAI => AssemblyAIAdapter::language_support_live(languages),
             Self::Gladia => GladiaAdapter::language_support_live(languages, model),
             Self::OpenAI => OpenAIAdapter::language_support_live(languages),
+            Self::OpenRouter => LanguageSupport::NotSupported,
             Self::Fireworks => FireworksAdapter::language_support_live(languages),
             Self::ElevenLabs => ElevenLabsAdapter::language_support_live(languages),
             Self::DashScope => DashScopeAdapter::language_support_live(languages),
@@ -570,6 +582,7 @@ impl AdapterKind {
             Self::AssemblyAI => AssemblyAIAdapter::language_support_batch(languages),
             Self::Gladia => GladiaAdapter::language_support_batch(languages, model),
             Self::OpenAI => OpenAIAdapter::language_support_batch(languages),
+            Self::OpenRouter => OpenRouterAdapter::language_support_batch(languages),
             Self::Fireworks => FireworksAdapter::language_support_batch(languages),
             Self::ElevenLabs => ElevenLabsAdapter::language_support_batch(languages),
             Self::DashScope => DashScopeAdapter::language_support_batch(languages),

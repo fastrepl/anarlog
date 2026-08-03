@@ -11,6 +11,7 @@ import {
   Groq,
   Mistral,
   OpenAI,
+  OpenRouter,
   Together,
   XAI,
 } from "@lobehub/icons";
@@ -43,7 +44,18 @@ type Provider = {
   };
 };
 
-export const displayModelId = (model: string) => {
+const OPENROUTER_MODEL_LABELS: Record<string, string> = {
+  "fish-audio/transcribe-1": "Transcribe 1",
+  "x-ai/grok-stt-1.0": "Grok STT 1.0",
+  "deepgram/nova-3": "Nova 3",
+  "microsoft/mai-transcribe-1.5": "MAI Transcribe 1.5",
+  "nvidia/parakeet-tdt-0.6b-v3": "Parakeet TDT 0.6B V3",
+  "mistralai/voxtral-mini-transcribe": "Voxtral Mini Transcribe",
+  "qwen/qwen3-asr-flash-2026-02-10": "Qwen3 ASR Flash",
+  "google/chirp-3": "Chirp 3",
+};
+
+export const displayModelId = (model: string): string => {
   if (model === "cloud") {
     return "Pro (Cloud)";
   }
@@ -220,6 +232,15 @@ export const displayModelId = (model: string) => {
     return "Faster Whisper Large V3 Turbo";
   }
 
+  const openRouterLabel = OPENROUTER_MODEL_LABELS[model];
+  if (openRouterLabel) {
+    return openRouterLabel;
+  }
+
+  if (model.startsWith("openai/")) {
+    return displayModelId(model.slice("openai/".length));
+  }
+
   return model;
 };
 
@@ -316,6 +337,40 @@ const _PROVIDERS = [
       "whisper-1",
     ],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+  },
+  {
+    disabled: false,
+    id: "openrouter",
+    displayName: "OpenRouter",
+    badge: "Batch only",
+    icon: <OpenRouter />,
+    baseUrl: "https://openrouter.ai/api/v1",
+    models: [
+      "openai/gpt-4o-mini-transcribe",
+      "openai/gpt-4o-transcribe",
+      "mistralai/voxtral-mini-transcribe",
+      "openai/whisper-large-v3-turbo",
+      "openai/whisper-large-v3",
+      "fish-audio/transcribe-1",
+      "x-ai/grok-stt-1.0",
+      "deepgram/nova-3",
+      "microsoft/mai-transcribe-1.5",
+      "nvidia/parakeet-tdt-0.6b-v3",
+      "qwen/qwen3-asr-flash-2026-02-10",
+      "google/chirp-3",
+      "openai/whisper-1",
+    ],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Transcription models",
+        url: "https://openrouter.ai/models?output_modalities=transcription",
+      },
+      setup: {
+        label: "API keys",
+        url: "https://openrouter.ai/settings/keys",
+      },
+    },
   },
   {
     disabled: false,
@@ -665,6 +720,7 @@ const PROVIDER_ORDER = [
   "deepgram",
   "assemblyai",
   "openai",
+  "openrouter",
   "google_cloud",
   "aws_transcribe",
   "azure_speech",

@@ -14,6 +14,9 @@ describe("getDefaultSttModel", () => {
     expect(getDefaultSttModel("soniox")).toBe("stt-rt-v5");
     expect(getDefaultSttModel("cohere")).toBe("cohere-transcribe-03-2026");
     expect(getDefaultSttModel("groq")).toBe("whisper-large-v3-turbo");
+    expect(getDefaultSttModel("openrouter")).toBe(
+      "openai/gpt-4o-mini-transcribe",
+    );
     expect(getDefaultSttModel("xai")).toBe("xai-stt");
     expect(getDefaultSttModel("together")).toBe("openai/whisper-large-v3");
     expect(getDefaultSttModel("speechmatics")).toBe("enhanced");

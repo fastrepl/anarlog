@@ -52,6 +52,7 @@ impl BatchSttAdapter for GroqAdapter {
                     default_api_base: "https://api.groq.com/openai/v1",
                     default_model: "whisper-large-v3-turbo",
                     transcription_path: "audio/transcriptions",
+                    response_format: Some("verbose_json"),
                     timestamp_field: Some("timestamp_granularities[]"),
                 },
             )

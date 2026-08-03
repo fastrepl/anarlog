@@ -166,6 +166,7 @@ export function getSttModelTranscriptionMode(
 
   if (
     provider === "groq" ||
+    provider === "openrouter" ||
     provider === "together" ||
     provider === "speechmatics" ||
     provider === "azure_speech" ||

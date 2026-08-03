@@ -14,6 +14,7 @@ pub(crate) struct OpenAICompatibleBatchConfig<'a> {
     pub default_api_base: &'a str,
     pub default_model: &'a str,
     pub transcription_path: &'a str,
+    pub response_format: Option<&'a str>,
     pub timestamp_field: Option<&'a str>,
 }
 
@@ -30,10 +31,11 @@ pub(crate) async fn transcribe(
         _ => config.default_model,
     };
 
-    let mut form = Form::new()
-        .text("model", model.to_string())
-        .text("response_format", "verbose_json");
+    let mut form = Form::new().text("model", model.to_string());
 
+    if let Some(response_format) = config.response_format {
+        form = form.text("response_format", response_format.to_string());
+    }
     if let Some(field) = config.timestamp_field {
         form = form.text(field.to_string(), "word");
     }

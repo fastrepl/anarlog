@@ -52,6 +52,7 @@ impl BatchSttAdapter for TogetherAdapter {
                     default_api_base: "https://api.together.xyz/v1",
                     default_model: "openai/whisper-large-v3",
                     transcription_path: "audio/transcriptions",
+                    response_format: Some("verbose_json"),
                     timestamp_field: Some("timestamp_granularities"),
                 },
             )

@@ -12,6 +12,7 @@ describe("STT providers", () => {
       "deepgram",
       "assemblyai",
       "openai",
+      "openrouter",
       "google_cloud",
       "aws_transcribe",
       "azure_speech",
@@ -67,6 +68,12 @@ describe("STT model display labels", () => {
     );
     expect(displayModelLabel("xai-stt")).toBe("xAI Speech to Text");
     expect(displayModelLabel("fast-transcription")).toBe("Fast Transcription");
+    expect(displayModelLabel("openai/gpt-4o-mini-transcribe")).toBe(
+      "GPT-4o mini Transcribe",
+    );
+    expect(displayModelLabel("mistralai/voxtral-mini-transcribe")).toBe(
+      "Voxtral Mini Transcribe",
+    );
   });
 
   test("exposes all new providers with honest capability badges", () => {
@@ -79,6 +86,7 @@ describe("STT model display labels", () => {
     expect(providers.xai.badge).toBeNull();
     for (const provider of [
       "groq",
+      "openrouter",
       "together",
       "speechmatics",
       "azure_speech",
