@@ -1,12 +1,55 @@
 ---
 name: qa-cli-mcp-api
-description: QA-test Anarlog's programmatic interfaces end to end: the CLI, local REST API, stdio MCP server, hosted Cloud API, and remote MCP server. Use before a release or after changes to agent-access DTOs, API auth, API keys, snapshots, pagination, exports, webhooks, or MCP tools.
+description: Select and run risk-based QA for Anarlog's CLI, local REST API, stdio MCP, hosted Cloud API, and remote MCP. Test only affected lanes for a branch or regression; use every lane only for an explicit programmatic-interface release gate.
 ---
 
 # QA: CLI, MCP, and API
 
-Treat this as a release gate for Anarlog's programmatic interfaces. Automated
-tests are necessary but do not replace the live smoke tests below.
+Default to the smallest set of programmatic-interface lanes that can prove the
+change. Automated tests are necessary but do not replace a live smoke test when
+the changed boundary is only exercised by a real client or deployment.
+
+## Choose the scope first
+
+Inspect the exact branch, commit, or diff and map changed code to its direct
+consumers before creating fixtures or credentials. In a GitButler workspace,
+use `but status` and `but show <commit-or-branch>`; do not use the synthetic
+workspace `HEAD` as the candidate or combine unrelated applied branches.
+
+Find the original reproduction in the current or past Codex task, linked
+issue, PR, support report, or regression test. State the selected lanes and the
+reason for each before testing.
+
+### Targeted regression mode (default)
+
+Select lanes by behavior, not by the existence of this checklist:
+
+- CLI parsing, output, or local DB access → CLI plus the closest contract tests.
+- Local API routes, keys, loopback lifecycle, or webhooks → the affected local
+  REST/webhook cases only.
+- Shared agent-access DTOs, exports, filtering, or pagination → each direct
+  local consumer plus cross-surface parity only for the changed fields.
+- Hosted auth, snapshots, entitlements, isolation, purge, or Supabase policy →
+  the affected hosted REST lifecycle and negative cases.
+- Local or remote MCP protocol/tool changes → that MCP lane and its direct
+  transport/contract dependency.
+- Shared hosted REST/MCP behavior → both hosted consumers, but not unrelated
+  local surfaces.
+
+Run the closest affected automated tests, the original live reproduction, and
+only credible boundary cases. A Rust or shared-crate change does not trigger
+all lanes unless every lane consumes the changed behavior. Create only the
+minimum non-sensitive fixture required for the selected checks. If a required
+deployment, account, fixture, or client is unavailable, mark that check
+`BLOCKED`; do not substitute unrelated lanes. Stop when the mapped risks are
+covered.
+
+### Full interface release-gate mode
+
+Run every fixture, baseline, live lane, lifecycle case, privacy check, and
+cross-surface comparison below only when the user explicitly requests full
+programmatic-interface QA or a release is being gated. Any required `FAIL` or
+`BLOCKED` result prevents release approval.
 
 ## Safety and evidence
 
@@ -26,7 +69,7 @@ tests are necessary but do not replace the live smoke tests below.
 - Mark a lane `BLOCKED`, not `PASS`, when its required deployment, account,
   fixture, or client is unavailable.
 
-## Required fixture
+## Full release-gate fixture
 
 Create two completed QA meetings through the desktop app:
 
@@ -47,7 +90,7 @@ The fixture must include:
 Record the meeting IDs and expected visible values. Do not seed SQLite or
 Postgres directly for the live happy-path tests.
 
-## Automated baseline
+## Full release-gate automated baseline
 
 Run from the repository root:
 
@@ -216,7 +259,12 @@ or fields outside the disclosed server-readable copy.
 
 ## Reporting
 
-Produce one table with rows for:
+For targeted mode, report the candidate branch/commit, base, selected lane and
+risk, `PASS`/`FAIL`/`BLOCKED`, and a one-line evidence note. List unrelated
+lanes once as `NOT APPLICABLE`, and say explicitly that the result is not full
+interface release certification.
+
+For full release-gate mode, produce one table with rows for:
 
 - automated baseline;
 - CLI;

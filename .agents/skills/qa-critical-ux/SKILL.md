@@ -1,14 +1,76 @@
 ---
 name: qa-critical-ux
-description: QA-test the critical desktop user experience before a release — auth, CloudSync, calendar connect + notifications, note creation, recording, speaker identification, chat, and automated summaries across on-device and Pro providers. Use before cutting a stable release, after changes to auth/CloudSync/STT/enhance/calendar/billing flows, or when asked to "QA the app".
+description: Select and run risk-based desktop QA for a branch, commit, diff, or reported regression. Use the complete auth, CloudSync, calendar, note, recording, speaker, chat, summary, and provider matrix only for an explicit release gate or full-app QA request.
 ---
 
 # QA: Critical User Experience
 
-Gate releases on this checklist. Every item must pass (or be explicitly
-waived by the user) before running the release-new-version skill.
+Default to the smallest faithful QA scope for the change. The complete
+checklist remains the release gate, but it is not the default for ordinary
+branch or regression validation.
 
-## Setup
+## Choose the scope first
+
+Before building or launching anything:
+
+1. Inspect the exact candidate and its base. In a GitButler workspace, use
+   `but status` and `but show <commit-or-branch>`; do not treat the synthetic
+   workspace `HEAD` or every applied branch as the candidate.
+2. Trace changed files to user-visible behavior and failure boundaries. Find
+   the original reproduction in the current or past Codex task, linked issue,
+   PR, support report, or regression test when available.
+3. Write a short risk map with:
+   - behavior directly changed;
+   - plausible adjacent failures caused by the changed boundary;
+   - lifecycle or persistence transitions affected;
+   - checklist areas that are unrelated and will be skipped.
+4. State the selected live checks before running them. Do not expand the run
+   because a broad checklist is available.
+
+### Targeted regression mode (default)
+
+Use this mode for a branch, commit, diff, bug fix, or change isolated to one
+product area. Run only:
+
+- the closest automated tests required by the affected packages and CI paths;
+- the original user reproduction and the expected fixed outcome;
+- one bounded adjacent smoke check for each credible cross-cutting failure;
+- restart or persistence checks only when startup, durable state, migrations,
+  cleanup, or recovery behavior changed;
+- provider, account, platform, or model variants only when the changed code
+  branches on those variants.
+
+A Rust or native-code diff does not justify the full user-experience matrix by
+itself. It does justify checking that the exact candidate launches, remains
+responsive, completes the changed native operation without a crash or hang,
+and emits no relevant panic, deadlock, or repeated-error loop. Test recording,
+transcription, speaker identity, chat, calendar, auth, and provider matrices
+only when the diff can affect them.
+
+For example, a retained legacy-migration conflict that changes DB readiness
+and CloudSync gating should test: native launch and responsiveness; the
+conflict reproduction; the resulting Storage state and action; CloudSync
+readiness; retained recovery-file protection; and restart persistence. It
+should not run an in-meeting recording or provider matrix unless that code is
+also in the candidate.
+
+If the original fixture or required account is unavailable, mark that specific
+check `BLOCKED`. Do not replace missing targeted evidence with unrelated broad
+testing. Stop when the risk map is covered.
+
+### Full release-gate mode
+
+Use the complete setup, release-candidate order, and checklist below only when:
+
+- the user explicitly asks for full-app QA or a release gate;
+- the release-new-version skill is about to run; or
+- the candidate is broad enough that the risk map genuinely includes most of
+  the critical experience.
+
+Every applicable item must pass or be explicitly waived by the user before a
+release. A targeted run is evidence for its stated scope, not release approval.
+
+## Full release-gate setup
 
 1. Build and launch an authenticated native Dev bundle with AEC diagnostics:
 
@@ -373,9 +435,14 @@ tests alone is not cross-platform evidence.
 
 ## Reporting
 
-Produce a table: checklist item × provider config and on-device model →
-PASS/FAIL with a one-line note. Include the Dev manifest's Git SHA/dirty state, staging run
-URL and head SHA, staging artifact SHA-256, stable release URL and artifact
-SHA-256, app version, speaker-cluster count, speaker-name result, and any
-explicit waiver. Any FAIL or SHA mismatch blocks release; file or fix before
-cutting.
+For targeted mode, report the candidate branch/commit, base, selected risk,
+`PASS`/`FAIL`/`BLOCKED`, and one-line evidence for each selected check. List
+unrelated checklist lanes once as `NOT APPLICABLE`, and say explicitly that the
+result is not full release certification.
+
+For full release-gate mode, produce a table: checklist item × provider config
+and on-device model → PASS/FAIL with a one-line note. Include the Dev manifest's
+Git SHA/dirty state, staging run URL and head SHA, staging artifact SHA-256,
+stable release URL and artifact SHA-256, app version, speaker-cluster count,
+speaker-name result, and any explicit waiver. Any FAIL or SHA mismatch blocks
+release; file or fix before cutting.
