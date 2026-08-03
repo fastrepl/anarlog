@@ -1619,6 +1619,10 @@ msgstr "Now"
 msgid "Objects"
 msgstr "Objects"
 
+#: src/settings/general/storage/legacy-cleanup.tsx
+msgid "Older files that differ from your current data were kept as recovery copies. No action is required."
+msgstr "Older files that differ from your current data were kept as recovery copies. No action is required."
+
 #: src/contacts/shared.tsx
 msgid "Oldest"
 msgstr "Oldest"

@@ -58,6 +58,7 @@ describe("LegacyMigrationCleanupRow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getLegacyCleanupStatus.mockResolvedValue({
+      migrationReady: true,
       migrationVerified: true,
       available: true,
       alreadyCleaned: false,
@@ -147,6 +148,7 @@ describe("LegacyMigrationCleanupRow", () => {
 
   it("renders nothing once the migration is verified and no legacy files remain", async () => {
     mocks.getLegacyCleanupStatus.mockResolvedValue({
+      migrationReady: true,
       migrationVerified: true,
       available: false,
       alreadyCleaned: true,
@@ -166,13 +168,14 @@ describe("LegacyMigrationCleanupRow", () => {
 
   it("shows a verification warning without offering cleanup", async () => {
     mocks.getLegacyCleanupStatus.mockResolvedValue({
+      migrationReady: false,
       migrationVerified: false,
       available: true,
       alreadyCleaned: false,
       fileCount: 0,
       totalBytes: 0,
       sourceRoot: "/Users/test/Anarlog",
-      blockingReason: "1 legacy file changed after migration",
+      blockingReason: "SQLite migration verification is incomplete",
     });
 
     renderRow();
@@ -181,9 +184,35 @@ describe("LegacyMigrationCleanupRow", () => {
       expect(screen.getByText("Migration needs attention")).toBeTruthy(),
     );
     expect(
-      screen.getByText("1 legacy file changed after migration"),
+      screen.getByText("SQLite migration verification is incomplete"),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Clean Up" })).toBeNull();
+  });
+
+  it("treats retained recovery copies as a completed migration", async () => {
+    mocks.getLegacyCleanupStatus.mockResolvedValue({
+      migrationReady: true,
+      migrationVerified: false,
+      available: false,
+      alreadyCleaned: false,
+      fileCount: 0,
+      totalBytes: 0,
+      sourceRoot: "/Users/test/Anarlog",
+      blockingReason:
+        "SQLite migration has not passed current parity verification",
+    });
+
+    renderRow();
+
+    expect(await screen.findByText("Migration complete")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Older files that differ from your current data were kept as recovery copies. No action is required.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("Migration needs attention")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Clean Up" })).toBeNull();
   });
 
@@ -242,6 +271,7 @@ describe("LegacyMigrationCleanupRow", () => {
   it("retries an incomplete migration and refreshes its status", async () => {
     mocks.getLegacyCleanupStatus
       .mockResolvedValueOnce({
+        migrationReady: false,
         migrationVerified: false,
         available: false,
         alreadyCleaned: false,
@@ -251,6 +281,7 @@ describe("LegacyMigrationCleanupRow", () => {
         blockingReason: "SQLite migration verification is incomplete",
       })
       .mockResolvedValue({
+        migrationReady: true,
         migrationVerified: true,
         available: true,
         alreadyCleaned: false,

@@ -96,6 +96,14 @@ export function LegacyMigrationCleanupRow() {
   })();
   const statusCopy = (() => {
     if (status) {
+      if (status.migrationReady && !status.migrationVerified) {
+        return {
+          state: "success" as const,
+          label: t`Migration complete`,
+          description: t`Older files that differ from your current data were kept as recovery copies. No action is required.`,
+        };
+      }
+
       if (!status.migrationVerified) {
         return {
           state: "warning" as const,
@@ -154,7 +162,7 @@ export function LegacyMigrationCleanupRow() {
             )}
           </div>
         </div>
-        {status && !status.migrationVerified && (
+        {status && !status.migrationReady && (
           <Button
             variant="outline"
             className="h-9 w-full justify-center"

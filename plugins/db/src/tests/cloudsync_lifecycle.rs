@@ -167,3 +167,44 @@ async fn cloudsync_waits_for_legacy_migration_verification() {
         false
     );
 }
+
+#[tokio::test]
+async fn cloudsync_accepts_conflict_only_legacy_migration() {
+    let (_dir, runtime) = setup_runtime().await;
+    anlg_db_app::begin_legacy_import_run(runtime.pool(), "conflict-run", "/vault", false)
+        .await
+        .unwrap();
+    sqlx::query(
+        "INSERT INTO migration_import_items
+         (id, run_id, source_path, source_kind, source_sha256, status,
+          discovered_count, conflict_count, error, completed_at)
+         VALUES ('conflict-item', 'conflict-run', 'sessions/note.md', 'session_document',
+                 'hash', 'conflict', 1, 1, '', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+    )
+    .execute(runtime.pool())
+    .await
+    .unwrap();
+    assert_eq!(
+        anlg_db_app::finish_legacy_import_run(runtime.pool(), "conflict-run")
+            .await
+            .unwrap(),
+        "completed_with_conflicts"
+    );
+
+    runtime
+        .configure_cloudsync(
+            serde_json::json!({
+                "connection_string": "managed-database-id",
+                "auth": { "type": "token", "token": "test-token" },
+                "tables": anlg_db_app::cloudsync_table_registry(),
+                "sync_interval_ms": 30_000,
+                "wait_ms": 5_000,
+                "max_retries": 3
+            })
+            .to_string(),
+        )
+        .await
+        .unwrap();
+    runtime.start_cloudsync().await.unwrap();
+    runtime.sync_cloudsync_now().await.unwrap();
+}

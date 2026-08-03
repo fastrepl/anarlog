@@ -29,7 +29,7 @@ pub async fn import_legacy_data<R: tauri::Runtime>(
         Err(error) => return Err(error),
     };
 
-    if !legacy_migration_verified(pool).await? {
+    if !legacy_migration_ready(pool).await? {
         tracing::warn!(
             %run_id,
             "legacy import needs attention; continuing with recovery copies intact"
@@ -63,6 +63,7 @@ async fn legacy_import_attempt_required(pool: &SqlitePool) -> Result<bool, sqlx:
     Ok(!attempted)
 }
 
+#[cfg(test)]
 pub(crate) async fn legacy_migration_verified(pool: &SqlitePool) -> Result<bool, sqlx::Error> {
     sqlx::query_scalar(
         "SELECT EXISTS(
@@ -73,6 +74,32 @@ pub(crate) async fn legacy_migration_verified(pool: &SqlitePool) -> Result<bool,
              AND parity_verified = 1
          )",
     )
+    .bind(anlg_db_app::LEGACY_IMPORTER_VERSION)
+    .fetch_one(pool)
+    .await
+}
+
+pub(crate) async fn legacy_migration_ready(pool: &SqlitePool) -> Result<bool, sqlx::Error> {
+    sqlx::query_scalar(
+        "SELECT EXISTS(
+           SELECT 1
+           FROM storage_migration_state AS state
+           LEFT JOIN migration_import_runs AS run ON run.id = state.latest_run_id
+           WHERE state.id = 'legacy_v1'
+             AND (
+               (state.importer_version = ? AND state.parity_verified = 1)
+               OR (
+                 run.importer_version = ?
+                 AND run.dry_run = 0
+                 AND run.status = 'completed_with_conflicts'
+                 AND run.conflict_count > 0
+                 AND run.skipped_count = 0
+                 AND run.error_count = 0
+               )
+             )
+         )",
+    )
+    .bind(anlg_db_app::LEGACY_IMPORTER_VERSION)
     .bind(anlg_db_app::LEGACY_IMPORTER_VERSION)
     .fetch_one(pool)
     .await
@@ -221,6 +248,7 @@ mod tests {
         anlg_db_app::prepare_schema(&db).await.unwrap();
 
         assert!(!legacy_migration_verified(db.pool()).await.unwrap());
+        assert!(!legacy_migration_ready(db.pool()).await.unwrap());
 
         sqlx::query(
             "UPDATE storage_migration_state
@@ -233,6 +261,7 @@ mod tests {
         .unwrap();
 
         assert!(legacy_migration_verified(db.pool()).await.unwrap());
+        assert!(legacy_migration_ready(db.pool()).await.unwrap());
 
         sqlx::query(
             "UPDATE storage_migration_state
@@ -244,6 +273,7 @@ mod tests {
         .unwrap();
 
         assert!(!legacy_migration_verified(db.pool()).await.unwrap());
+        assert!(!legacy_migration_ready(db.pool()).await.unwrap());
     }
 
     #[tokio::test]
@@ -259,7 +289,7 @@ mod tests {
 
         assert!(!legacy_import_attempt_required(db.pool()).await.unwrap());
         assert!(!legacy_migration_verified(db.pool()).await.unwrap());
-        assert!(!legacy_migration_verified(db.pool()).await.unwrap());
+        assert!(!legacy_migration_ready(db.pool()).await.unwrap());
     }
 
     #[tokio::test]
@@ -276,6 +306,7 @@ mod tests {
 
         assert!(!legacy_import_attempt_required(db.pool()).await.unwrap());
         assert!(!legacy_migration_verified(db.pool()).await.unwrap());
+        assert!(!legacy_migration_ready(db.pool()).await.unwrap());
     }
 
     #[tokio::test]
@@ -296,6 +327,7 @@ mod tests {
         .unwrap();
         assert!(!parity_verified);
         assert!(!legacy_migration_verified(db.pool()).await.unwrap());
+        assert!(legacy_migration_ready(db.pool()).await.unwrap());
         assert!(!legacy_import_attempt_required(db.pool()).await.unwrap());
 
         let cleanup_status = cleanup::get_status(db.pool()).await.unwrap();
@@ -318,6 +350,7 @@ mod tests {
         .unwrap();
 
         assert!(!legacy_migration_verified(db.pool()).await.unwrap());
+        assert!(!legacy_migration_ready(db.pool()).await.unwrap());
         assert!(!legacy_import_attempt_required(db.pool()).await.unwrap());
     }
 
@@ -463,6 +496,7 @@ mod tests {
         assert!(cleanup_status.blocking_reason.is_some());
 
         assert!(!legacy_migration_verified(db.pool()).await.unwrap());
+        assert!(legacy_migration_ready(db.pool()).await.unwrap());
         assert!(!legacy_import_attempt_required(db.pool()).await.unwrap());
         let run_count_before_second_startup: i64 =
             sqlx::query_scalar("SELECT COUNT(*) FROM migration_import_runs")
@@ -493,6 +527,7 @@ mod tests {
                 "completed_with_issues"
             );
             assert!(!legacy_migration_verified(db.pool()).await.unwrap());
+            assert!(!legacy_migration_ready(db.pool()).await.unwrap());
             assert!(!legacy_import_attempt_required(db.pool()).await.unwrap());
         }
     }
@@ -533,6 +568,7 @@ mod tests {
         assert_eq!(run, ("completed_with_issues".to_string(), 1, 0, 1));
         assert_eq!(target_status, "missing_dependency");
         assert!(!legacy_migration_verified(db.pool()).await.unwrap());
+        assert!(!legacy_migration_ready(db.pool()).await.unwrap());
         assert!(!legacy_import_attempt_required(db.pool()).await.unwrap());
     }
 
@@ -650,6 +686,7 @@ mod tests {
         .unwrap();
         assert!(!parity_verified);
         assert!(!legacy_migration_verified(db.pool()).await.unwrap());
+        assert!(legacy_migration_ready(db.pool()).await.unwrap());
         assert!(!legacy_import_attempt_required(db.pool()).await.unwrap());
 
         let cleanup_status = cleanup::get_status(db.pool()).await.unwrap();

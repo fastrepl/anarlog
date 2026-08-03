@@ -89,6 +89,7 @@ pub struct LegacyImportReport {
 #[derive(Debug, Clone, serde::Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct LegacyCleanupStatus {
+    pub migration_ready: bool,
     pub migration_verified: bool,
     pub available: bool,
     pub already_cleaned: bool,
@@ -249,11 +250,11 @@ pub fn init_with_cloudsync<R: tauri::Runtime>(
             anlg_tauri_utils::block_on(anlg_db_app::prepare_schema(db.as_ref()))?;
             anlg_tauri_utils::block_on(import::import_legacy_data(app.app_handle(), db.pool()))?;
             if let Some(config) = startup_config.clone() {
-                let migration_verified =
-                    anlg_tauri_utils::block_on(import::legacy_migration_verified(db.pool()))?;
-                if !migration_verified {
+                let migration_ready =
+                    anlg_tauri_utils::block_on(import::legacy_migration_ready(db.pool()))?;
+                if !migration_ready {
                     tracing::warn!(
-                        "startup CloudSync configuration skipped until legacy migration is verified"
+                        "startup CloudSync configuration skipped until legacy migration is ready"
                     );
                 } else if let Err(error) =
                     anlg_tauri_utils::block_on(db.cloudsync_configure(config))

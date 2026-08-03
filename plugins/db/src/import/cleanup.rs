@@ -120,10 +120,12 @@ async fn build_plan(pool: &SqlitePool) -> crate::Result<CleanupPlan> {
     )
     .fetch_one(pool)
     .await?;
+    let migration_ready = super::legacy_migration_ready(pool).await?;
 
     if state.phase == CLEANUP_COMPLETE_PHASE {
         return Ok(empty_plan(
             crate::LegacyCleanupStatus {
+                migration_ready: true,
                 migration_verified: true,
                 available: false,
                 already_cleaned: true,
@@ -140,6 +142,7 @@ async fn build_plan(pool: &SqlitePool) -> crate::Result<CleanupPlan> {
         return Ok(blocked_plan(
             "SQLite migration has not passed current parity verification",
             state.latest_run_id,
+            migration_ready,
         ));
     }
 
@@ -157,6 +160,7 @@ async fn build_plan(pool: &SqlitePool) -> crate::Result<CleanupPlan> {
         return Ok(blocked_plan(
             "Verified migration run is unavailable",
             state.latest_run_id,
+            migration_ready,
         ));
     };
 
@@ -164,6 +168,7 @@ async fn build_plan(pool: &SqlitePool) -> crate::Result<CleanupPlan> {
         return Ok(blocked_plan(
             "Verified migration run is not complete",
             state.latest_run_id,
+            migration_ready,
         ));
     }
 
@@ -172,6 +177,7 @@ async fn build_plan(pool: &SqlitePool) -> crate::Result<CleanupPlan> {
         return Ok(blocked_plan(
             "Legacy migration source is not an absolute path",
             state.latest_run_id,
+            migration_ready,
         ));
     }
 
@@ -200,6 +206,7 @@ async fn build_plan(pool: &SqlitePool) -> crate::Result<CleanupPlan> {
                     "Migration report contains an unsafe source path",
                     state.latest_run_id,
                     run.source_root,
+                    migration_ready,
                 ));
             }
         };
@@ -212,6 +219,7 @@ async fn build_plan(pool: &SqlitePool) -> crate::Result<CleanupPlan> {
                     format!("A legacy file could not be verified: {error}"),
                     state.latest_run_id,
                     run.source_root,
+                    migration_ready,
                 ));
             }
         };
@@ -236,11 +244,13 @@ async fn build_plan(pool: &SqlitePool) -> crate::Result<CleanupPlan> {
             ),
             state.latest_run_id,
             run.source_root,
+            migration_ready,
         ));
     }
 
     let total_bytes = files.iter().map(|file| file.size_bytes).sum();
     let status = crate::LegacyCleanupStatus {
+        migration_ready: true,
         migration_verified: true,
         available: !files.is_empty(),
         already_cleaned: false,
@@ -267,17 +277,23 @@ fn empty_plan(status: crate::LegacyCleanupStatus, latest_run_id: String) -> Clea
     }
 }
 
-fn blocked_plan(reason: impl Into<String>, latest_run_id: String) -> CleanupPlan {
-    blocked_plan_with_root(reason, latest_run_id, String::new())
+fn blocked_plan(
+    reason: impl Into<String>,
+    latest_run_id: String,
+    migration_ready: bool,
+) -> CleanupPlan {
+    blocked_plan_with_root(reason, latest_run_id, String::new(), migration_ready)
 }
 
 fn blocked_plan_with_root(
     reason: impl Into<String>,
     latest_run_id: String,
     source_root: String,
+    migration_ready: bool,
 ) -> CleanupPlan {
     empty_plan(
         crate::LegacyCleanupStatus {
+            migration_ready,
             migration_verified: false,
             available: false,
             already_cleaned: false,
@@ -411,6 +427,7 @@ mod tests {
         .await;
 
         let status = get_status(db.pool()).await.unwrap();
+        assert!(status.migration_ready);
         assert!(status.available);
         assert_eq!(status.file_count, 2);
         assert_eq!(status.total_bytes, (settings.len() + note.len()) as u64);
@@ -451,6 +468,7 @@ mod tests {
         .await;
 
         let status = get_status(db.pool()).await.unwrap();
+        assert!(status.migration_ready);
         assert!(!status.available);
         assert!(
             status

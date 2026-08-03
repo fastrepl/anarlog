@@ -388,9 +388,9 @@ impl PluginDbRuntime {
         Ok(())
     }
 
-    async fn ensure_legacy_migration_verified(&self) -> Result<()> {
+    async fn ensure_legacy_migration_ready(&self) -> Result<()> {
         self.ensure_app_schema().await?;
-        if crate::import::legacy_migration_verified(self.db.pool()).await? {
+        if crate::import::legacy_migration_ready(self.db.pool()).await? {
             return Ok(());
         }
 
@@ -509,7 +509,7 @@ impl PluginDbRuntime {
 
     pub async fn configure_cloudsync(&self, config_json: String) -> Result<()> {
         let _control_operation = self.cloudsync_control_guard().await?;
-        self.ensure_legacy_migration_verified().await?;
+        self.ensure_legacy_migration_ready().await?;
         let config = serde_json::from_str(&config_json)?;
         self.db.cloudsync_configure(config).await?;
         Ok(())
@@ -689,7 +689,7 @@ impl PluginDbRuntime {
             anlg_db_app::validate_cloudsync_workspace_projection(projection)?;
         }
 
-        self.ensure_legacy_migration_verified().await?;
+        self.ensure_legacy_migration_ready().await?;
         self.ensure_cloudsync_configuration_active(auth_generation, cancellation)?;
 
         let personal_workspace_id = workspace_projection
@@ -1097,7 +1097,7 @@ impl PluginDbRuntime {
 
     pub async fn start_cloudsync(&self) -> Result<()> {
         let _control_operation = self.cloudsync_control_guard().await?;
-        self.ensure_legacy_migration_verified().await?;
+        self.ensure_legacy_migration_ready().await?;
         self.e2ee_sync_hook.request_reconciliation();
         self.db.cloudsync_start().await?;
         Ok(())
@@ -1233,7 +1233,7 @@ impl PluginDbRuntime {
     }
 
     pub async fn sync_cloudsync_now(&self) -> Result<serde_json::Value> {
-        self.ensure_legacy_migration_verified().await?;
+        self.ensure_legacy_migration_ready().await?;
         Ok(serde_json::to_value(
             self.db.cloudsync_trigger_sync().await?,
         )?)
