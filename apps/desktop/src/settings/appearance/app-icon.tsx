@@ -39,6 +39,11 @@ export function AppIconSelector() {
     dev: t`Blueprint`,
     staging: t`Sketch`,
   };
+  const defaultIconName = resolveAppIconName("default", appIdentifier);
+  const selectedIconName = resolveAppIconName(value, appIdentifier);
+  const options = APP_ICON_OPTIONS.filter(
+    (option) => option === "default" || option !== defaultIconName,
+  );
 
   if (platform() !== "macos") {
     return null;
@@ -62,8 +67,9 @@ export function AppIconSelector() {
         aria-label={t`App icon`}
         className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
       >
-        {APP_ICON_OPTIONS.map((option) => {
-          const selected = option === value;
+        {options.map((option) => {
+          const selected =
+            resolveAppIconName(option, appIdentifier) === selectedIconName;
           const previewName = resolveAppIconName(option, appIdentifier);
 
           return (

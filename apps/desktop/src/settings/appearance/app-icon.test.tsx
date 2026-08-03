@@ -57,8 +57,8 @@ describe("AppIconSelector", () => {
     expect(defaultOption.querySelector("img")?.getAttribute("src")).toBe(
       "/assets/app-icons/stable-light.png",
     );
-    expect(screen.getAllByRole("radio")).toHaveLength(5);
-    expect(screen.getByRole("radio", { name: "Production" })).toBeDefined();
+    expect(screen.getAllByRole("radio")).toHaveLength(4);
+    expect(screen.queryByRole("radio", { name: "Production" })).toBeNull();
     expect(screen.getByRole("radio", { name: "Blueprint" })).toBeDefined();
     expect(screen.getByRole("radio", { name: "Sketch" })).toBeDefined();
 
@@ -77,6 +77,21 @@ describe("AppIconSelector", () => {
     expect(defaultOption.querySelector("img")?.getAttribute("src")).toBe(
       "/assets/app-icons/staging-light.png",
     );
+    expect(screen.queryByRole("radio", { name: "Sketch" })).toBeNull();
+    expect(screen.getByRole("radio", { name: "Production" })).toBeDefined();
+  });
+
+  it("selects default for an equivalent channel-specific preference", () => {
+    mocks.appIcon = "stable";
+
+    render(<AppIconSelector />);
+
+    expect(
+      screen
+        .getByRole("radio", { name: "Default" })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(screen.queryByRole("radio", { name: "Production" })).toBeNull();
   });
 
   it("is hidden on platforms that cannot change the running app icon", () => {
