@@ -176,21 +176,18 @@ export function ConnectFlow() {
       {isConnectedCalendar && !isConnecting && status !== "success" && (
         <div className="flex flex-col gap-3 rounded-2xl border border-stone-200 bg-stone-50 p-5 text-left text-sm leading-6 text-stone-700">
           <p>
-            Anarlog will read your calendar list and event details—including
-            titles, times, participants, locations, and meeting links—to show
-            upcoming events and associate them with your private notes.
+            Anarlog reads your calendar and event details to show upcoming
+            events and link them to private notes. Access is read-only: Anarlog
+            cannot create, edit, or delete events.
           </p>
           <p>
-            Access is read-only. Anarlog cannot create, edit, or delete events.
-            Calendar API responses pass through Nango's encrypted proxy before
-            reaching Anarlog, and Nango stores the encrypted OAuth credentials
-            needed to maintain the connection. Calendar data is then stored
-            locally on your device.
+            Calendar data passes through Nango's encrypted proxy and is stored
+            locally on your device. Nango securely stores the credentials needed
+            to keep your calendar connected.
           </p>
           <p>
-            If you enable encrypted Cloud Sync or share a note, event context
-            associated with that note can be included in the content you choose
-            to sync or share.
+            If you use encrypted Cloud Sync or share a note, its event context
+            may be included.
           </p>
           <p>
             Read our{" "}
