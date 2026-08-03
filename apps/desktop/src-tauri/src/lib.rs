@@ -245,6 +245,11 @@ pub async fn main() {
         builder = builder.plugin(plugin);
     }
 
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder.menu(tauri_plugin_tray::build_app_menu);
+    }
+
     let specta_builder = make_specta_builder::<tauri::Wry>();
 
     let root_supervisor_ctx_for_run = root_supervisor_ctx.clone();
@@ -279,7 +284,6 @@ pub async fn main() {
                 if appearance_settings.show_tray_icon {
                     app_handle.tray().create_tray_menu().unwrap();
                 }
-                app_handle.tray().create_app_menu().unwrap();
             }
 
             {
