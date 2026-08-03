@@ -100,6 +100,32 @@ describe("Basic Tab Actions", () => {
     expect(state).toHaveHistoryLength(1);
   });
 
+  test("openNew applies auto-start when reusing a session tab", () => {
+    useTabs.getState().openNew({
+      type: "sessions",
+      id: "tab1",
+      state: {
+        view: { type: "enhanced", id: "summary-1" },
+        autoStart: null,
+      },
+    });
+
+    useTabs.getState().openNew({
+      type: "sessions",
+      id: "tab1",
+      state: { view: null, autoStart: true },
+    });
+
+    expect(useTabs.getState()).toHaveCurrentTab({
+      id: "tab1",
+      state: {
+        view: { type: "enhanced", id: "summary-1" },
+        autoStart: true,
+      },
+    });
+    expect(useTabs.getState().tabs).toHaveLength(1);
+  });
+
   test("shared-note tabs are distinct, idempotent, and not pinnable", () => {
     useTabs.getState().openNew({ type: "shared_sessions", id: "share-1" });
     useTabs.getState().openNew({ type: "shared_sessions", id: "share-1" });

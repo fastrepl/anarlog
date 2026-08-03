@@ -467,6 +467,23 @@ const reuseExistingTab = (
     };
   }
 
+  if (
+    existingTab.type === "sessions" &&
+    requestedTab.type === "sessions" &&
+    requestedTab.state.autoStart
+  ) {
+    const nextTab = applyReturnOriginForReuse(
+      existingTab,
+      requestedTab,
+      preserveReturnOrigin,
+    );
+
+    return {
+      ...nextTab,
+      state: { ...nextTab.state, autoStart: true },
+    };
+  }
+
   return applyReturnOriginForReuse(
     existingTab,
     requestedTab,
