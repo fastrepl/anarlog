@@ -9,7 +9,7 @@ vi.mock("~/session/queries", () => ({
   createSession: mocks.createSession,
 }));
 
-import { useNewNoteAndListen } from "./useNewNote";
+import { openSessionAndListen, useNewNoteAndListen } from "./useNewNote";
 
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
@@ -52,5 +52,28 @@ it("reads the current live session when the handler runs", () => {
   expect(useTabs.getState().currentTab).toMatchObject({
     type: "sessions",
     id: "live-session",
+  });
+});
+
+it("does not rearm auto-start when opening the active live session", () => {
+  useTabs.getState().openNew({
+    type: "sessions",
+    id: "live-session",
+    state: { view: null, autoStart: null },
+  });
+  listenerStore.setState((state) => ({
+    live: {
+      ...state.live,
+      status: "active",
+      sessionId: "live-session",
+    },
+  }));
+
+  openSessionAndListen("live-session");
+
+  expect(useTabs.getState().currentTab).toMatchObject({
+    type: "sessions",
+    id: "live-session",
+    state: { autoStart: null },
   });
 });

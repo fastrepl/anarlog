@@ -52,6 +52,32 @@ export function openNewNoteAndListen({
 }: {
   behavior?: "new" | "current";
 } = {}) {
+  const { status, sessionId: liveSessionId } = listenerStore.getState().live;
+
+  if (status === "active" && liveSessionId) {
+    const { openNew, openCurrent } = useTabs.getState();
+    const open = behavior === "new" ? openNew : openCurrent;
+    open({ type: "sessions", id: liveSessionId });
+    return;
+  }
+
+  void createSession()
+    .then((sessionId) => {
+      openSessionAndListen(sessionId, { behavior });
+    })
+    .catch((error) => {
+      console.error("[session] failed to create listening note", error);
+    });
+}
+
+export function openSessionAndListen(
+  sessionId: string,
+  {
+    behavior = "new",
+  }: {
+    behavior?: "new" | "current";
+  } = {},
+) {
   const { openNew, openCurrent } = useTabs.getState();
   const { status, sessionId: liveSessionId } = listenerStore.getState().live;
   const open = behavior === "new" ? openNew : openCurrent;
@@ -61,17 +87,11 @@ export function openNewNoteAndListen({
     return;
   }
 
-  void createSession()
-    .then((sessionId) => {
-      open({
-        type: "sessions",
-        id: sessionId,
-        state: { view: null, autoStart: true },
-      });
-    })
-    .catch((error) => {
-      console.error("[session] failed to create listening note", error);
-    });
+  open({
+    type: "sessions",
+    id: sessionId,
+    state: { view: null, autoStart: true },
+  });
 }
 
 const AUDIO_FILTERS = [

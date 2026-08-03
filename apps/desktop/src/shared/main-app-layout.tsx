@@ -3,7 +3,11 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 import { events as windowsEvents } from "@anlg/plugin-windows";
 
-import { openNewNoteAndListen, useNewNote } from "./useNewNote";
+import {
+  openNewNoteAndListen,
+  openSessionAndListen,
+  useNewNote,
+} from "./useNewNote";
 
 import { AuthProvider } from "~/auth";
 import { BillingProvider } from "~/auth/billing";
@@ -75,12 +79,17 @@ const useNavigationEvents = () => {
           if (typeof calendarEventId === "string" && calendarEventId) {
             void getOrCreateSessionForEventId(calendarEventId)
               .then((sessionId) => {
+                if (shouldRecord) {
+                  openSessionAndListen(sessionId, { behavior: "new" });
+                  return;
+                }
+
                 openNew({
                   type: "sessions",
                   id: sessionId,
                   state: {
                     view: null,
-                    autoStart: shouldRecord ? true : null,
+                    autoStart: null,
                   },
                 });
               })
