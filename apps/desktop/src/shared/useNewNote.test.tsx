@@ -77,3 +77,21 @@ it("does not rearm auto-start when opening the active live session", () => {
     state: { autoStart: null },
   });
 });
+
+it("opens the requested session without auto-start while another is live", () => {
+  listenerStore.setState((state) => ({
+    live: {
+      ...state.live,
+      status: "active",
+      sessionId: "live-session",
+    },
+  }));
+
+  openSessionAndListen("calendar-session");
+
+  expect(useTabs.getState().currentTab).toMatchObject({
+    type: "sessions",
+    id: "calendar-session",
+    state: { autoStart: null },
+  });
+});

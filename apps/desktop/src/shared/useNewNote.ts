@@ -79,11 +79,11 @@ export function openSessionAndListen(
   } = {},
 ) {
   const { openNew, openCurrent } = useTabs.getState();
-  const { status, sessionId: liveSessionId } = listenerStore.getState().live;
+  const { status } = listenerStore.getState().live;
   const open = behavior === "new" ? openNew : openCurrent;
 
-  if (status === "active" && liveSessionId) {
-    open({ type: "sessions", id: liveSessionId });
+  if (status === "active") {
+    open({ type: "sessions", id: sessionId });
     return;
   }
 
