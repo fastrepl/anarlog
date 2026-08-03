@@ -294,7 +294,7 @@ export function SettingsSync() {
     return (
       <div className="flex flex-col gap-8">
         <SettingsPageTitle title={<Trans>Sync</Trans>} />
-        <div className="border-border/70 bg-card/60 flex items-start justify-between gap-4 rounded-2xl border p-5">
+        <div className="flex items-start justify-between gap-4">
           <div className="flex gap-3">
             <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-full">
               <CloudSlash className="text-muted-foreground size-4" />
@@ -438,7 +438,7 @@ export function SettingsSync() {
     <div className="flex flex-col gap-8">
       <SettingsPageTitle title={<Trans>Sync</Trans>} />
 
-      <section className="border-border/70 bg-card/60 rounded-2xl border p-5">
+      <section className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 gap-3">
             <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-full">
@@ -470,10 +470,10 @@ export function SettingsSync() {
         </div>
 
         {mutationError && (
-          <p className="mt-4 text-xs text-red-500">{mutationError.message}</p>
+          <p className="text-xs text-red-500">{mutationError.message}</p>
         )}
 
-        <div className="border-border/60 mt-5 flex items-center justify-between border-t pt-4">
+        <div className="flex items-center justify-between gap-4">
           <p className="text-muted-foreground text-xs">
             <Trans>Sync runs automatically in the background.</Trans>
           </p>
