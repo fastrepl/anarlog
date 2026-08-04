@@ -5,7 +5,7 @@ export const AUTO_STOP_CONFIRM_TIMEOUT_SECONDS = 30;
 const AUTO_STOP_ENDED_NOTIFICATION_KEY_NONCE_SEPARATOR = ":prompt:";
 
 export function createAutoStopEndedNotificationKey(sessionId: string) {
-  return `${AUTO_STOP_ENDED_NOTIFICATION_KEY_PREFIX}${sessionId}${AUTO_STOP_ENDED_NOTIFICATION_KEY_NONCE_SEPARATOR}${crypto.randomUUID()}`;
+  return `${AUTO_STOP_ENDED_NOTIFICATION_KEY_PREFIX}${sessionId}`;
 }
 
 export function parseAutoStopEndedNotificationKey(
