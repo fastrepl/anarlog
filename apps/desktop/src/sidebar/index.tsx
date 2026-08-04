@@ -5,6 +5,10 @@ import { cn } from "@anlg/utils";
 import { AutomationsNav } from "./automations";
 import { CalendarNav } from "./calendar";
 import { ContactsNav } from "./contacts";
+import {
+  sidebarNoteFilterShowsTimeline,
+  type SidebarNoteFilter,
+} from "./note-filter";
 import { SettingsNav } from "./settings";
 import { SharedNotesNav } from "./shared-notes";
 import { TemplatesNav } from "./templates";
@@ -13,10 +17,12 @@ import { TimelineView } from "./timeline";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function LeftSidebar({
+  noteFilter = "all",
   timelineHeader,
   showIgnoredTimelineEvents,
   onShowIgnoredTimelineEventsChange,
 }: {
+  noteFilter?: SidebarNoteFilter;
   timelineHeader?: ReactNode;
   showIgnoredTimelineEvents?: boolean;
   onShowIgnoredTimelineEventsChange?: (showIgnored: boolean) => void;
@@ -35,6 +41,7 @@ export function LeftSidebar({
     isTemplatesMode ||
     isAutomationsMode;
   const isTimelineSidebarLayout = !isSpecialMode;
+  const showTimeline = sidebarNoteFilterShowsTimeline(noteFilter);
 
   return (
     <div
@@ -59,17 +66,22 @@ export function LeftSidebar({
             <AutomationsNav />
           ) : (
             <div className="flex h-full min-h-0 flex-col">
-              <SharedNotesNav />
-              <div className="relative min-h-0 flex-1">
-                <TimelineView
-                  showIgnoredEvents={showIgnoredTimelineEvents}
-                  onShowIgnoredEventsChange={onShowIgnoredTimelineEventsChange}
-                  topChromeInset={isTimelineSidebarLayout && !timelineHeader}
-                  topChipsOverlapHeader={
-                    isTimelineSidebarLayout && !!timelineHeader
-                  }
-                />
-              </div>
+              <SharedNotesNav filter={noteFilter} />
+              {showTimeline ? (
+                <div className="relative min-h-0 flex-1">
+                  <TimelineView
+                    noteFilter={noteFilter}
+                    showIgnoredEvents={showIgnoredTimelineEvents}
+                    onShowIgnoredEventsChange={
+                      onShowIgnoredTimelineEventsChange
+                    }
+                    topChromeInset={isTimelineSidebarLayout && !timelineHeader}
+                    topChipsOverlapHeader={
+                      isTimelineSidebarLayout && !!timelineHeader
+                    }
+                  />
+                </div>
+              ) : null}
             </div>
           )}
         </div>

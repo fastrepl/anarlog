@@ -44,10 +44,6 @@ const mocks = vi.hoisted(() => ({
     devtoolsPanelHide: vi.fn(async () => ({ status: "ok" as const })),
     devtoolsPanelShow: vi.fn(async () => ({ status: "ok" as const })),
   },
-  updateControl: {
-    status: null as null | "available" | "downloading" | "ready" | "failed",
-    version: null as string | null,
-  },
   upcomingMeetingStatus: null as null | {
     itemKey: string;
     label: string;
@@ -226,9 +222,8 @@ vi.mock("./tab-content", () => ({
   },
 }));
 
-vi.mock("./update-banner", () => ({
-  SidebarTimelineUpdateButton: () => <button type="button">Update</button>,
-  useDesktopUpdateControl: () => mocks.updateControl,
+vi.mock("~/sidebar/note-filter-menu", () => ({
+  SidebarNoteFilterMenu: () => <button type="button">Filter notes</button>,
 }));
 
 vi.mock("./useShortcuts", () => ({
@@ -298,8 +293,6 @@ describe("ClassicMainBody", () => {
     mocks.devtoolsPanelActionListeners = [];
     mocks.windowsCommands.devtoolsPanelHide.mockClear();
     mocks.windowsCommands.devtoolsPanelShow.mockClear();
-    mocks.updateControl.status = null;
-    mocks.updateControl.version = null;
     mocks.upcomingMeetingStatus = null;
     mocks.setUpcomingMeetingStatus = null;
     vi.mocked(commands.showDevtool).mockClear();
@@ -664,16 +657,16 @@ describe("ClassicMainBody", () => {
     expect(mocks.tabContentRenderCount).toBe(initialRenderCount);
   });
 
-  it("keeps the update button in the fixed sidebar control group", () => {
-    mocks.updateControl.status = "available";
-    mocks.updateControl.version = "1.0.34";
-
+  it("keeps the note filter beside the new note button", () => {
     render(<ClassicMainBody />);
 
-    const searchButton = screen.getByRole("button", { name: "Search" });
-    const updateButton = screen.getByRole("button", { name: "Update" });
+    const newNoteButton = screen.getByRole("button", { name: "New note" });
+    const filterButton = screen.getByRole("button", { name: "Filter notes" });
 
-    expect(updateButton.parentElement).toBe(searchButton.parentElement);
+    expect(filterButton.parentElement).toBe(newNoteButton.parentElement);
+    expect(newNoteButton.compareDocumentPosition(filterButton)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
   });
 
   it("keeps near-equal sidebar size commits in sync with drag-time CSS variables", () => {

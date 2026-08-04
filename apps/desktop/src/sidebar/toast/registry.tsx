@@ -2,9 +2,11 @@ import type { ServerStatus } from "@anlg/plugin-local-stt";
 
 import type { DownloadProgress, ToastCondition, ToastType } from "./types";
 
+import type { DesktopUpdateControl } from "~/main/update-banner";
 import type { DevtoolsToastPreview } from "~/store/zustand/devtools-toast-preview";
 
 const ANARLOG_ICON_SRC = "/assets/anarlog-icon.png";
+const DESKTOP_UPDATE_TOAST_PREFIX = "desktop-update:";
 
 type ToastRegistryEntry = {
   toast: ToastType;
@@ -27,6 +29,7 @@ type ToastRegistryParams = {
   activeDownloads: DownloadProgress[];
   localSttStatus: ServerStatus | null;
   isLocalSttModel: boolean;
+  update: DesktopUpdateControl;
   onSignIn: () => void | Promise<void>;
   onOpenLLMSettings: () => void;
   onOpenSTTSettings: () => void;
@@ -55,6 +58,7 @@ export function createToastRegistry({
   activeDownloads,
   localSttStatus,
   isLocalSttModel,
+  update,
   onSignIn,
   onOpenLLMSettings,
   onOpenSTTSettings,
@@ -69,6 +73,7 @@ export function createToastRegistry({
   const hasUsableLlmConfigured =
     hasLLMConfigured &&
     (isAuthLoading || isAuthenticated || !hasProLlmConfigured);
+  const updateToast = createDesktopUpdateToast(update);
 
   // order matters
   return [
@@ -90,6 +95,14 @@ export function createToastRegistry({
       },
       condition: () => cloudsyncInitialSyncToastId !== null,
     },
+    ...(updateToast
+      ? [
+          {
+            toast: updateToast,
+            condition: () => true,
+          },
+        ]
+      : []),
     {
       toast: {
         id: "local-stt-loading",
@@ -186,6 +199,71 @@ export function createToastRegistry({
         !hasProLlmConfigured,
     },
   ];
+}
+
+export function isDesktopUpdateToastId(id: string): boolean {
+  return id.startsWith(DESKTOP_UPDATE_TOAST_PREFIX);
+}
+
+export function createDesktopUpdateToast(
+  update: DesktopUpdateControl,
+): ToastType | null {
+  if (!update.status || !update.version) {
+    return null;
+  }
+
+  const id = `${DESKTOP_UPDATE_TOAST_PREFIX}${update.version}`;
+  const busy =
+    update.status === "downloading" ||
+    update.downloadStarting ||
+    update.installing;
+
+  if (update.status === "ready") {
+    return {
+      id,
+      description: `Anarlog ${update.version} is ready to install`,
+      primaryAction: busy
+        ? undefined
+        : { label: "Restart", onClick: update.installUpdate },
+      dismissible: true,
+      loading: update.installing,
+    };
+  }
+
+  if (update.status === "downloading" || update.downloadStarting) {
+    const progress =
+      update.progress === null
+        ? ""
+        : ` (${Math.round(update.progress * 100)}%)`;
+    return {
+      id,
+      description: `Downloading Anarlog ${update.version}${progress}`,
+      dismissible: true,
+      loading: true,
+    };
+  }
+
+  if (update.status === "failed") {
+    return {
+      id,
+      description: update.errorMessage || "The update download failed",
+      primaryAction: busy
+        ? undefined
+        : { label: "Retry", onClick: update.downloadUpdate },
+      dismissible: true,
+      variant: "error",
+    };
+  }
+
+  return {
+    id,
+    description: `Anarlog ${update.version} is available`,
+    primaryAction: busy
+      ? undefined
+      : { label: "Download", onClick: update.downloadUpdate },
+    dismissible: true,
+    loading: update.downloadStarting,
+  };
 }
 
 export function getToastToShow(

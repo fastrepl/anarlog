@@ -4,12 +4,21 @@ import { useMemo } from "react";
 
 import { cn } from "@anlg/utils";
 
+import {
+  getSidebarWorkspaceFilterId,
+  type SidebarNoteFilter,
+} from "./note-filter";
+
 import { useAuth } from "~/auth";
 import { useSessionSummaries } from "~/session/queries";
 import { useDurableSharedNotes } from "~/shared-notes/cache";
 import { useTabs } from "~/store/zustand/tabs";
 
-export function SharedNotesNav() {
+export function SharedNotesNav({
+  filter = "all",
+}: {
+  filter?: SidebarNoteFilter;
+}) {
   const { t } = useLingui();
   const { session } = useAuth();
   const sessions = useSessionSummaries();
@@ -17,23 +26,50 @@ export function SharedNotesNav() {
     () => new Set(sessions.map((session) => session.id)),
     [sessions],
   );
-  const notes = useDurableSharedNotes(session?.user.id).filter(
-    (note) => !(note.manageAccess && localSessionIds.has(note.sessionId)),
-  );
+  const workspaceId = getSidebarWorkspaceFilterId(filter);
+  const notes = useDurableSharedNotes(session?.user.id)
+    .filter(
+      (note) => !(note.manageAccess && localSessionIds.has(note.sessionId)),
+    )
+    .filter((note) => !workspaceId || note.workspaceId === workspaceId);
   const currentTab = useTabs((state) => state.currentTab);
   const openCurrent = useTabs((state) => state.openCurrent);
 
-  if (notes.length === 0) return null;
+  const showReceivedNotes =
+    filter === "all" || filter === "shared-with-me" || workspaceId !== null;
+
+  if (!showReceivedNotes) return null;
+
+  const focused = filter !== "all";
+
+  if (notes.length === 0 && !focused) return null;
 
   return (
-    <section className="border-border/60 shrink-0 border-b px-2 pt-1 pb-2">
+    <section
+      className={cn([
+        "px-2 pt-1 pb-2",
+        focused
+          ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+          : "border-border/60 shrink-0 border-b",
+      ])}
+    >
       <div className="text-muted-foreground flex items-center gap-1.5 px-1.5 py-1 text-xs font-medium">
         <Users className="size-3.5" />
         <span>
           <Trans>Shared with me</Trans>
         </span>
       </div>
-      <div className="max-h-40 overflow-y-auto">
+      <div
+        className={cn([
+          "overflow-y-auto",
+          focused ? "min-h-0 flex-1" : "max-h-40",
+        ])}
+      >
+        {notes.length === 0 ? (
+          <div className="text-muted-foreground px-2 py-6 text-center text-sm">
+            <Trans>No shared notes</Trans>
+          </div>
+        ) : null}
         {notes.map((note) => {
           const selected =
             currentTab?.type === "shared_sessions" &&

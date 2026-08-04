@@ -39,16 +39,6 @@ const mocks = vi.hoisted(() => ({
     title: string;
   },
   leftSidebarExpanded: true,
-  sidebarUpdateControl: {
-    status: null as null | "available" | "downloading" | "ready" | "failed",
-    version: null as string | null,
-    progress: null as number | null,
-    errorMessage: null as string | null,
-    downloadStarting: false,
-    installing: false,
-    downloadUpdate: vi.fn(),
-    installUpdate: vi.fn(),
-  },
   currentTab: {
     active: true,
     pinned: false,
@@ -130,16 +120,8 @@ vi.mock("~/main/tab-content", () => ({
     ),
 }));
 
-vi.mock("~/main/update-banner", () => ({
-  SidebarTimelineUpdateButton: ({
-    update,
-  }: {
-    update: { status: string | null; version: string | null };
-  }) =>
-    update.status && update.version ? (
-      <button type="button" data-testid="sidebar-update-button" />
-    ) : null,
-  useDesktopUpdateControl: () => mocks.sidebarUpdateControl,
+vi.mock("~/sidebar/note-filter-menu", () => ({
+  SidebarNoteFilterMenu: () => <button type="button">Filter notes</button>,
 }));
 
 vi.mock("~/sidebar/timeline/upcoming-meeting", () => ({
@@ -220,14 +202,6 @@ describe("ClassicMainBody", () => {
     mocks.canGoNext = false;
     mocks.upcomingMeetingStatus = null;
     mocks.leftSidebarExpanded = true;
-    mocks.sidebarUpdateControl.status = null;
-    mocks.sidebarUpdateControl.version = null;
-    mocks.sidebarUpdateControl.progress = null;
-    mocks.sidebarUpdateControl.errorMessage = null;
-    mocks.sidebarUpdateControl.downloadStarting = false;
-    mocks.sidebarUpdateControl.installing = false;
-    mocks.sidebarUpdateControl.downloadUpdate.mockClear();
-    mocks.sidebarUpdateControl.installUpdate.mockClear();
     mocks.currentTab = {
       active: true,
       pinned: false,
@@ -324,7 +298,7 @@ describe("ClassicMainBody", () => {
 
     fireEvent.click(sidebarToggle);
 
-    expect(screen.queryByTestId("sidebar-update-button")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Filter notes" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
     expect(sidebarToggle.className).toContain("pointer-events-auto");
     expect(topArea?.className).toContain("absolute");
@@ -449,28 +423,25 @@ describe("ClassicMainBody", () => {
     },
   );
 
-  it("shows the update button in the expanded sidebar control group", () => {
-    mocks.sidebarUpdateControl.status = "available";
-    mocks.sidebarUpdateControl.version = "1.0.34";
-
+  it("shows the note filter beside the new note button", () => {
     render(<ClassicMainBody />);
 
     const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
     const searchButton = screen.getByRole("button", { name: "Search" });
     const newNoteButton = screen.getByRole("button", { name: "New note" });
-    const updateButton = screen.getByTestId("sidebar-update-button");
+    const filterButton = screen.getByRole("button", { name: "Filter notes" });
     const chrome = sidebarToggle.parentElement?.parentElement;
     const chromeFrame = chrome?.parentElement;
     const timelineHeader = document.querySelector<HTMLElement>(
       "[data-sidebar-timeline-header]",
     );
 
-    expect(updateButton).toBeTruthy();
-    expect(updateButton.parentElement).toBe(sidebarToggle.parentElement);
+    expect(filterButton).toBeTruthy();
+    expect(filterButton.parentElement).toBe(sidebarToggle.parentElement);
     expect(searchButton.compareDocumentPosition(newNoteButton)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
-    expect(newNoteButton.compareDocumentPosition(updateButton)).toBe(
+    expect(newNoteButton.compareDocumentPosition(filterButton)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
     expect(searchButton.parentElement).toBe(sidebarToggle.parentElement);
@@ -479,28 +450,10 @@ describe("ClassicMainBody", () => {
     expect(chromeFrame).toBe(timelineHeader);
     expect(chromeFrame?.className).toContain("pr-1");
     expect(chromeFrame?.className).not.toContain("pr-3");
-    expect(
-      within(sidebarToggle).queryByTestId("collapsed-sidebar-update-badge"),
-    ).toBeNull();
   });
 
-  it("shows ready updates in the expanded sidebar control group", () => {
-    mocks.sidebarUpdateControl.status = "ready";
-    mocks.sidebarUpdateControl.version = "1.0.34";
-
-    render(<ClassicMainBody />);
-
-    const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
-    const updateButton = screen.getByTestId("sidebar-update-button");
-
-    expect(updateButton).toBeTruthy();
-    expect(updateButton.parentElement).toBe(sidebarToggle.parentElement);
-  });
-
-  it("shows an update badge on the collapsed sidebar toggle", () => {
+  it("hides the note filter while the sidebar is collapsed", () => {
     mocks.leftSidebarExpanded = false;
-    mocks.sidebarUpdateControl.status = "available";
-    mocks.sidebarUpdateControl.version = "1.0.34";
 
     render(<ClassicMainBody />);
 
@@ -508,21 +461,12 @@ describe("ClassicMainBody", () => {
 
     fireEvent.click(sidebarToggle);
 
-    expect(screen.queryByTestId("sidebar-update-button")).toBeNull();
-    const badge = within(sidebarToggle).getByTestId(
-      "collapsed-sidebar-update-badge",
-    );
-
-    expect(badge).toBeTruthy();
-    expect(badge.className.split(" ")).toContain("bg-blue-500");
-    expect(badge.className.split(" ")).not.toContain("bg-red-500");
+    expect(screen.queryByRole("button", { name: "Filter notes" })).toBeNull();
     expect(mocks.toggleLeftSidebar).toHaveBeenCalledTimes(1);
   });
 
   it("shows a red upcoming meeting badge on the collapsed sidebar toggle", () => {
     mocks.leftSidebarExpanded = false;
-    mocks.sidebarUpdateControl.status = "available";
-    mocks.sidebarUpdateControl.version = "1.0.34";
     mocks.upcomingMeetingStatus = {
       itemKey: "session-upcoming",
       label: "Starts in 3m",
@@ -539,9 +483,6 @@ describe("ClassicMainBody", () => {
     expect(badge).toBeTruthy();
     expect(badge.className.split(" ")).toContain("bg-red-500");
     expect(badge.className.split(" ")).not.toContain("bg-blue-500");
-    expect(
-      within(sidebarToggle).queryByTestId("collapsed-sidebar-update-badge"),
-    ).toBeNull();
   });
 
   it("hides the red upcoming meeting badge when that note is already open", () => {
@@ -567,9 +508,6 @@ describe("ClassicMainBody", () => {
       within(sidebarToggle).queryByTestId(
         "collapsed-sidebar-upcoming-meeting-badge",
       ),
-    ).toBeNull();
-    expect(
-      within(sidebarToggle).queryByTestId("collapsed-sidebar-update-badge"),
     ).toBeNull();
   });
 

@@ -22,6 +22,16 @@ const baseParams = {
   activeDownloads: [],
   localSttStatus: null,
   isLocalSttModel: false,
+  update: {
+    status: null,
+    version: null,
+    progress: null,
+    errorMessage: null,
+    downloadStarting: false,
+    installing: false,
+    downloadUpdate: vi.fn(),
+    installUpdate: vi.fn(),
+  },
   onSignIn: vi.fn(),
   onOpenLLMSettings: vi.fn(),
   onOpenSTTSettings: vi.fn(),
@@ -172,6 +182,55 @@ describe("sidebar toast registry", () => {
     expect(toast?.description).toBe("Pro features available");
     expect(toast?.icon).toBeUndefined();
     expect(previewToast.icon).toBeUndefined();
+  });
+
+  it("offers an available desktop update as a dismissible toast", () => {
+    const downloadUpdate = vi.fn();
+    const toast = getToastToShow(
+      createToastRegistry({
+        ...baseParams,
+        update: {
+          ...baseParams.update,
+          status: "available",
+          version: "1.0.34",
+          downloadUpdate,
+        },
+      }),
+      () => false,
+    );
+
+    expect(toast).toMatchObject({
+      id: "desktop-update:1.0.34",
+      description: "Anarlog 1.0.34 is available",
+      dismissible: true,
+      primaryAction: { label: "Download" },
+    });
+
+    toast?.primaryAction?.onClick();
+    expect(downloadUpdate).toHaveBeenCalledOnce();
+  });
+
+  it("keeps desktop update progress in the toast", () => {
+    const toast = getToastToShow(
+      createToastRegistry({
+        ...baseParams,
+        update: {
+          ...baseParams.update,
+          status: "downloading",
+          version: "1.0.34",
+          progress: 0.58,
+        },
+      }),
+      () => false,
+    );
+
+    expect(toast).toMatchObject({
+      id: "desktop-update:1.0.34",
+      description: "Downloading Anarlog 1.0.34 (58%)",
+      dismissible: true,
+      loading: true,
+    });
+    expect(toast?.primaryAction).toBeUndefined();
   });
 
   it("creates devtools previews with app toast content", () => {

@@ -258,6 +258,7 @@ describe("TimelineView", () => {
     mocks.timelineSelectionSelectedIds = [];
     mocks.timelineEventsTable = {};
     mocks.timelineSessionsTable = {};
+    mocks.activatedSessionIds = new Set();
   });
 
   afterEach(() => {
@@ -271,6 +272,36 @@ describe("TimelineView", () => {
     expect(screen.queryByRole("button", { name: "New note" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Search" })).toBeNull();
     expect(getSidebarActionTabsOrNull()).toBeNull();
+  });
+
+  it("shows only explicitly shared personal notes in the shared-by-me view", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
+    mocks.currentTimeMs = Date.now();
+    mocks.smartCurrentTimeMs = Date.now();
+    mocks.activatedSessionIds = new Set(["shared-note"]);
+    mocks.timelineSessionsTable = {
+      "shared-note": {
+        title: "Shared planning",
+        created_at: "2024-01-15T10:00:00.000Z",
+      },
+      "private-note": {
+        title: "Private thoughts",
+        created_at: "2024-01-15T09:00:00.000Z",
+      },
+    };
+    mocks.timelineEventsTable = {
+      meeting: {
+        title: "Calendar event",
+        started_at: "2024-01-15T11:00:00.000Z",
+      },
+    };
+
+    render(<TimelineView noteFilter="shared-by-me" />);
+
+    expect(screen.getByTestId("timeline-item-shared-note")).toBeTruthy();
+    expect(screen.queryByTestId("timeline-item-private-note")).toBeNull();
+    expect(screen.queryByTestId("timeline-item-meeting")).toBeNull();
   });
 
   it("shows the open calendar chip in top chrome without action tabs", () => {

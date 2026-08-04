@@ -192,6 +192,10 @@ msgstr "AI step"
 msgid "AI-generated summary of all interactions and notes with this contact will appear here. This will synthesize key discussion points, action items, and relationship context across all meetings and notes."
 msgstr "AI-generated summary of all interactions and notes with this contact will appear here. This will synthesize key discussion points, action items, and relationship context across all meetings and notes."
 
+#: src/sidebar/note-filter-menu.tsx
+msgid "All notes"
+msgstr "All notes"
+
 #: src/shared/open-note-dialog.tsx
 msgid "All Notes"
 msgstr "All Notes"
@@ -1043,6 +1047,10 @@ msgstr "Favorite template"
 msgid "File format"
 msgstr "File format"
 
+#: src/sidebar/note-filter-menu.tsx
+msgid "Filter notes"
+msgstr "Filter notes"
+
 #: src/shared/open-note-dialog.tsx
 msgid "Find a note..."
 msgstr "Find a note..."
@@ -1473,6 +1481,10 @@ msgstr "Move down"
 msgid "Move up"
 msgstr "Move up"
 
+#: src/sidebar/note-filter-menu.tsx
+msgid "My notes"
+msgstr "My notes"
+
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
 msgid "Name"
@@ -1579,6 +1591,11 @@ msgstr "No related notes found"
 #: src/settings/general/searchable-select.tsx
 msgid "No results found."
 msgstr "No results found."
+
+#: src/sidebar/shared-notes.tsx
+#: src/sidebar/timeline/index.tsx
+msgid "No shared notes"
+msgstr "No shared notes"
 
 #: src/templates/details.tsx
 msgid "No templates yet"
@@ -2194,6 +2211,10 @@ msgstr "Share notes with others"
 msgid "Share usage data"
 msgstr "Share usage data"
 
+#: src/sidebar/note-filter-menu.tsx
+msgid "Shared by me"
+msgstr "Shared by me"
+
 #: src/shared-notes/index.tsx
 msgid "Shared link · View only"
 msgstr "Shared link · View only"
@@ -2214,6 +2235,7 @@ msgstr "Shared note unavailable"
 msgid "Shared notes are tied to the account they were shared with."
 msgstr "Shared notes are tied to the account they were shared with."
 
+#: src/sidebar/note-filter-menu.tsx
 #: src/sidebar/shared-notes.tsx
 msgid "Shared with me"
 msgstr "Shared with me"

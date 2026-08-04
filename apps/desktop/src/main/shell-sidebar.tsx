@@ -2,6 +2,7 @@ import { type ReactNode } from "react";
 
 import { useShell } from "~/contexts/shell";
 import { LeftSidebar } from "~/sidebar";
+import type { SidebarNoteFilter } from "~/sidebar/note-filter";
 import {
   hasCustomSidebarTab,
   useCustomSidebarEffect,
@@ -10,11 +11,13 @@ import { useTabs } from "~/store/zustand/tabs";
 
 export function ClassicMainSidebar({
   forceMount = false,
+  noteFilter = "all",
   timelineHeader,
   showIgnoredTimelineEvents,
   onShowIgnoredTimelineEventsChange,
 }: {
   forceMount?: boolean;
+  noteFilter?: SidebarNoteFilter;
   timelineHeader?: ReactNode;
   showIgnoredTimelineEvents?: boolean;
   onShowIgnoredTimelineEventsChange?: (showIgnored: boolean) => void;
@@ -33,6 +36,7 @@ export function ClassicMainSidebar({
 
   return (
     <LeftSidebar
+      noteFilter={noteFilter}
       timelineHeader={timelineHeader}
       showIgnoredTimelineEvents={showIgnoredTimelineEvents}
       onShowIgnoredTimelineEventsChange={onShowIgnoredTimelineEventsChange}

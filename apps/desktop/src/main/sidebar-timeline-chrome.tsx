@@ -9,36 +9,35 @@ import { memo, type ReactNode } from "react";
 
 import { cn } from "@anlg/utils";
 
-import {
-  type DesktopUpdateControl,
-  SidebarTimelineUpdateButton,
-} from "./update-banner";
-
+import type { SidebarNoteFilter } from "~/sidebar/note-filter";
+import { SidebarNoteFilterMenu } from "~/sidebar/note-filter-menu";
 import { useSidebarUpcomingMeetingStatus } from "~/sidebar/timeline/upcoming-meeting";
 
 export const SidebarTimelineChromeWithUpcomingMeeting = memo(
   function SidebarTimelineChromeWithUpcomingMeeting({
     currentSessionId,
     devtoolsPanelOpen,
+    noteFilter,
     onNewNote,
+    onNoteFilterChange,
     onOpenDevtools,
     onSearch,
     onToggleSidebar,
     sidebarExpanded,
     showDevtoolsPanelButton,
     showIgnoredTimelineEvents,
-    update,
   }: {
     currentSessionId?: string;
     devtoolsPanelOpen: boolean;
+    noteFilter: SidebarNoteFilter;
     onNewNote: () => void;
+    onNoteFilterChange: (filter: SidebarNoteFilter) => void;
     onOpenDevtools: () => void;
     onSearch: () => void;
     onToggleSidebar: () => void;
     sidebarExpanded: boolean;
     showDevtoolsPanelButton: boolean;
     showIgnoredTimelineEvents: boolean;
-    update: DesktopUpdateControl;
   }) {
     const upcomingMeetingStatus = useSidebarUpcomingMeetingStatus({
       showIgnored: showIgnoredTimelineEvents,
@@ -52,13 +51,14 @@ export const SidebarTimelineChromeWithUpcomingMeeting = memo(
       <SidebarTimelineChrome
         devtoolsPanelOpen={devtoolsPanelOpen}
         hasUpcomingMeeting={hasUpcomingMeeting}
+        noteFilter={noteFilter}
         onNewNote={onNewNote}
+        onNoteFilterChange={onNoteFilterChange}
         onOpenDevtools={onOpenDevtools}
         onSearch={onSearch}
         onToggleSidebar={onToggleSidebar}
         sidebarExpanded={sidebarExpanded}
         showDevtoolsPanelButton={showDevtoolsPanelButton}
-        update={update}
       />
     );
   },
@@ -67,32 +67,30 @@ export const SidebarTimelineChromeWithUpcomingMeeting = memo(
 function SidebarTimelineChrome({
   devtoolsPanelOpen,
   hasUpcomingMeeting,
+  noteFilter,
   onNewNote,
+  onNoteFilterChange,
   onOpenDevtools,
   onSearch,
   onToggleSidebar,
   sidebarExpanded,
   showDevtoolsPanelButton,
-  update,
 }: {
   devtoolsPanelOpen: boolean;
   hasUpcomingMeeting: boolean;
+  noteFilter: SidebarNoteFilter;
   onNewNote: () => void;
+  onNoteFilterChange: (filter: SidebarNoteFilter) => void;
   onOpenDevtools: () => void;
   onSearch: () => void;
   onToggleSidebar: () => void;
   sidebarExpanded: boolean;
   showDevtoolsPanelButton: boolean;
-  update: DesktopUpdateControl;
 }) {
-  const updateVisible = Boolean(update.status && update.version);
-  const showUpdateButton = sidebarExpanded && updateVisible;
   const collapsedBadge = !sidebarExpanded
     ? hasUpcomingMeeting
       ? "upcomingMeeting"
-      : updateVisible
-        ? "update"
-        : null
+      : null
     : null;
 
   return (
@@ -117,6 +115,10 @@ function SidebarTimelineChrome({
             <LeftSurfaceChromeButton ariaLabel="New note" onClick={onNewNote}>
               <NotePencil size={15} />
             </LeftSurfaceChromeButton>
+            <SidebarNoteFilterMenu
+              value={noteFilter}
+              onValueChange={onNoteFilterChange}
+            />
             {showDevtoolsPanelButton && !devtoolsPanelOpen ? (
               <LeftSurfaceChromeButton
                 ariaLabel="Show devtools panel"
@@ -124,9 +126,6 @@ function SidebarTimelineChrome({
               >
                 <Wrench size={15} />
               </LeftSurfaceChromeButton>
-            ) : null}
-            {showUpdateButton ? (
-              <SidebarTimelineUpdateButton update={update} />
             ) : null}
           </>
         ) : null}
@@ -143,7 +142,7 @@ export function LeftSurfaceChromeButton({
   onClick,
 }: {
   ariaLabel: string;
-  badge?: "update" | "upcomingMeeting" | null;
+  badge?: "upcomingMeeting" | null;
   children: ReactNode;
   disabled?: boolean;
   onClick: () => void;
@@ -166,15 +165,8 @@ export function LeftSurfaceChromeButton({
       {badge ? (
         <span
           aria-hidden="true"
-          data-testid={
-            badge === "upcomingMeeting"
-              ? "collapsed-sidebar-upcoming-meeting-badge"
-              : "collapsed-sidebar-update-badge"
-          }
-          className={cn([
-            "ring-background pointer-events-none absolute top-1 right-1 size-1.5 rounded-full ring-2",
-            badge === "upcomingMeeting" ? "bg-red-500" : "bg-blue-500",
-          ])}
+          data-testid="collapsed-sidebar-upcoming-meeting-badge"
+          className="ring-background pointer-events-none absolute top-1 right-1 size-1.5 rounded-full bg-red-500 ring-2"
         />
       ) : null}
     </button>

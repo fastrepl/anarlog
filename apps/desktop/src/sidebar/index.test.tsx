@@ -13,16 +13,19 @@ vi.mock("~/store/zustand/tabs", () => ({
 
 vi.mock("~/sidebar/timeline", () => ({
   TimelineView: ({
+    noteFilter = "all",
     showOpenCalendarButton = true,
     topChipsOverlapHeader = false,
     topChromeInset = false,
   }: {
+    noteFilter?: string;
     showOpenCalendarButton?: boolean;
     topChipsOverlapHeader?: boolean;
     topChromeInset?: boolean;
   }) => (
     <div
       data-testid="timeline-view"
+      data-note-filter={noteFilter}
       data-show-open-calendar-button={String(showOpenCalendarButton)}
       data-top-chips-overlap-header={String(topChipsOverlapHeader)}
       data-top-chrome-inset={String(topChromeInset)}
@@ -51,7 +54,9 @@ vi.mock("~/sidebar/templates", () => ({
 }));
 
 vi.mock("~/sidebar/shared-notes", () => ({
-  SharedNotesNav: () => <div data-testid="shared-notes-nav" />,
+  SharedNotesNav: ({ filter }: { filter: string }) => (
+    <div data-testid="shared-notes-nav" data-note-filter={filter} />
+  ),
 }));
 
 import { LeftSidebar } from "./index";
@@ -104,6 +109,15 @@ describe("LeftSidebar", () => {
         .getByTestId("timeline-view")
         .getAttribute("data-top-chips-overlap-header"),
     ).toBe("true");
+  });
+
+  it("shows received workspace notes without the personal timeline", () => {
+    render(<LeftSidebar noteFilter="workspace:workspace-1" />);
+
+    expect(screen.queryByTestId("timeline-view")).toBeNull();
+    expect(screen.getByTestId("shared-notes-nav").dataset.noteFilter).toBe(
+      "workspace:workspace-1",
+    );
   });
 
   it.each([

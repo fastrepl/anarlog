@@ -6,6 +6,7 @@ import {
   createDevtoolsToastPreview,
   createToastRegistry,
   getToastToShow,
+  isDesktopUpdateToastId,
 } from "./registry";
 import type { ToastType } from "./types";
 import { useDismissedToasts } from "./useDismissedToasts";
@@ -13,6 +14,7 @@ import { useDismissedToasts } from "./useDismissedToasts";
 import { useAuth } from "~/auth";
 import { useCloudsyncInitialSyncProgress } from "~/auth/cloudsync-progress";
 import { useNotifications } from "~/contexts/notifications";
+import { useDesktopUpdateControl } from "~/main/update-banner";
 import { useConfigValues } from "~/shared/config";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -29,6 +31,9 @@ export function ToastNotifications() {
   const auth = useAuth();
   const cloudsyncProgress = useCloudsyncInitialSyncProgress();
   const { dismissToast, isDismissed } = useDismissedToasts();
+  const [dismissedForLaunch, setDismissedForLaunch] = useState<Set<string>>(
+    () => new Set(),
+  );
   const shouldShowToast = useShouldShowToast();
   const {
     hasActiveDownload,
@@ -37,6 +42,7 @@ export function ToastNotifications() {
     localSttStatus,
     isLocalSttModel,
   } = useNotifications();
+  const update = useDesktopUpdateControl();
 
   const isAuthenticated = !!auth?.session;
   const isAuthLoading = auth.session === undefined;
@@ -134,6 +140,7 @@ export function ToastNotifications() {
         activeDownloads,
         localSttStatus,
         isLocalSttModel,
+        update,
         onSignIn: handleSignIn,
         onOpenLLMSettings: handleOpenLLMSettings,
         onOpenSTTSettings: handleOpenSTTSettings,
@@ -154,6 +161,7 @@ export function ToastNotifications() {
       activeDownloads,
       localSttStatus,
       isLocalSttModel,
+      update,
       handleSignIn,
       handleOpenLLMSettings,
       handleOpenSTTSettings,
@@ -161,8 +169,13 @@ export function ToastNotifications() {
   );
 
   const currentToast = useMemo(
-    () => getToastToShow(registry, isDismissed),
-    [registry, isDismissed],
+    () =>
+      getToastToShow(registry, (id) =>
+        isDesktopUpdateToastId(id)
+          ? dismissedForLaunch.has(id)
+          : isDismissed(id),
+      ),
+    [dismissedForLaunch, registry, isDismissed],
   );
   const devtoolsToast = useMemo(
     () =>
@@ -193,6 +206,14 @@ export function ToastNotifications() {
     }
 
     if (currentToast) {
+      if (isDesktopUpdateToastId(currentToast.id)) {
+        setDismissedForLaunch((dismissed) => {
+          const nextDismissed = new Set(dismissed);
+          nextDismissed.add(currentToast.id);
+          return nextDismissed;
+        });
+        return;
+      }
       dismissToast(currentToast.id);
     }
   }, [clearDevtoolsPreview, currentToast, devtoolsToast, dismissToast]);

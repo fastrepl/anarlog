@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
     sessionId: string;
     title: string;
     manageAccess: boolean;
+    workspaceId: string;
   }>,
   sessions: [] as Array<{ id: string }>,
 }));
@@ -57,24 +58,28 @@ describe("SharedNotesNav", () => {
         sessionId: "remote-session",
         title: "Shared plan",
         manageAccess: false,
+        workspaceId: "workspace-1",
       },
       {
         shareId: "owned-share",
         sessionId: "local-session",
         title: "Owned",
         manageAccess: true,
+        workspaceId: "workspace-1",
       },
       {
         shareId: "admin-share",
         sessionId: "remote-admin-session",
         title: "Admin remote",
         manageAccess: true,
+        workspaceId: "workspace-2",
       },
       {
         shareId: "viewer-local-share",
         sessionId: "local-session",
         title: "Viewer local",
         manageAccess: false,
+        workspaceId: "workspace-2",
       },
     ];
     mocks.sessions = [{ id: "local-session" }];
@@ -92,5 +97,29 @@ describe("SharedNotesNav", () => {
       type: "shared_sessions",
       id: "share-1",
     });
+  });
+
+  it("filters received notes by workspace", () => {
+    mocks.notes = [
+      {
+        shareId: "share-1",
+        sessionId: "session-1",
+        title: "Fastrepl planning",
+        manageAccess: false,
+        workspaceId: "workspace-1",
+      },
+      {
+        shareId: "share-2",
+        sessionId: "session-2",
+        title: "Partner research",
+        manageAccess: false,
+        workspaceId: "workspace-2",
+      },
+    ];
+
+    render(<SharedNotesNav filter="workspace:workspace-2" />);
+
+    expect(screen.queryByText("Fastrepl planning")).toBeNull();
+    expect(screen.getByText("Partner research")).toBeTruthy();
   });
 });

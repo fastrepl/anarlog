@@ -38,7 +38,6 @@ import {
   SidebarTimelineChromeWithUpcomingMeeting,
 } from "./sidebar-timeline-chrome";
 import { ClassicMainTabContent } from "./tab-content";
-import { useDesktopUpdateControl } from "./update-banner";
 import { useClassicMainShortcuts } from "./useShortcuts";
 
 import { useShell } from "~/contexts/shell";
@@ -51,6 +50,7 @@ import {
 } from "~/shared/main/layout-widths";
 import { useOpenNoteDialog } from "~/shared/open-note-dialog";
 import { useNewNote } from "~/shared/useNewNote";
+import type { SidebarNoteFilter } from "~/sidebar/note-filter";
 import {
   hasCustomSidebarTab,
   hasLeftSurfaceCustomSidebarTab,
@@ -83,6 +83,7 @@ export function ClassicMainBody() {
   const syncDefaultLeftSidebarPanelSizeRef = useRef<() => void>(() => {});
   const [showIgnoredTimelineEvents, setShowIgnoredTimelineEvents] =
     useState(false);
+  const [noteFilter, setNoteFilter] = useState<SidebarNoteFilter>("all");
   const [showDevtoolsPanelButton, setShowDevtoolsPanelButton] = useState(false);
   const [devtoolsPanelOpen, setDevtoolsPanelOpen] = useState(false);
   const showWindowControlsGutter = useWindowControlsGutter();
@@ -151,7 +152,6 @@ export function ClassicMainBody() {
   const enableMainAreaTopDrag =
     showSidebarTimelineChrome || hasLeftSurfaceCustomSidebar;
   const mainAreaTopDrag = useMainAreaTopWindowDrag(enableMainAreaTopDrag);
-  const update = useDesktopUpdateControl();
   const currentSessionId =
     currentTab?.type === "sessions" ? currentTab.id : undefined;
   const createNewNote = useNewNote();
@@ -466,15 +466,16 @@ export function ClassicMainBody() {
       {showSidebarTimeline ? (
         <SidebarTimelineChromeWithUpcomingMeeting
           currentSessionId={currentSessionId}
+          noteFilter={noteFilter}
           sidebarExpanded
           showDevtoolsPanelButton={showDevtoolsPanelButton}
           showIgnoredTimelineEvents={showIgnoredTimelineEvents}
           devtoolsPanelOpen={devtoolsPanelOpen}
           onNewNote={createNewNote}
+          onNoteFilterChange={setNoteFilter}
           onSearch={handleOpenNoteDialog}
           onOpenDevtools={handleOpenDevtoolsPanel}
           onToggleSidebar={handleToggleLeftSidebar}
-          update={update}
         />
       ) : null}
     </div>
@@ -506,15 +507,16 @@ export function ClassicMainBody() {
           >
             <SidebarTimelineChromeWithUpcomingMeeting
               currentSessionId={currentSessionId}
+              noteFilter={noteFilter}
               sidebarExpanded={false}
               showDevtoolsPanelButton={showDevtoolsPanelButton}
               showIgnoredTimelineEvents={showIgnoredTimelineEvents}
               devtoolsPanelOpen={devtoolsPanelOpen}
               onNewNote={createNewNote}
+              onNoteFilterChange={setNoteFilter}
               onSearch={handleOpenNoteDialog}
               onOpenDevtools={handleOpenDevtoolsPanel}
               onToggleSidebar={handleToggleLeftSidebar}
-              update={update}
             />
           </div>
         </div>
@@ -601,6 +603,7 @@ export function ClassicMainBody() {
               >
                 <ClassicMainSidebar
                   forceMount
+                  noteFilter={noteFilter}
                   timelineHeader={timelineHeader}
                   showIgnoredTimelineEvents={showIgnoredTimelineEvents}
                   onShowIgnoredTimelineEventsChange={

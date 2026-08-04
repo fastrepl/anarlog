@@ -39,6 +39,16 @@ const mocks = vi.hoisted(() => ({
     localSttStatus: null as null | "loading" | "unreachable",
     isLocalSttModel: false,
   },
+  update: {
+    status: null as null | "available" | "downloading" | "ready" | "failed",
+    version: null as string | null,
+    progress: null as number | null,
+    errorMessage: null as string | null,
+    downloadStarting: false,
+    installing: false,
+    downloadUpdate: vi.fn(),
+    installUpdate: vi.fn(),
+  },
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
@@ -61,6 +71,10 @@ vi.mock("~/auth/cloudsync-progress", () => ({
 
 vi.mock("~/contexts/notifications", () => ({
   useNotifications: () => mocks.notifications,
+}));
+
+vi.mock("~/main/update-banner", () => ({
+  useDesktopUpdateControl: () => mocks.update,
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -141,6 +155,14 @@ describe("ToastNotifications", () => {
     mocks.notifications.activeDownloads = [];
     mocks.notifications.localSttStatus = null;
     mocks.notifications.isLocalSttModel = false;
+    mocks.update.status = null;
+    mocks.update.version = null;
+    mocks.update.progress = null;
+    mocks.update.errorMessage = null;
+    mocks.update.downloadStarting = false;
+    mocks.update.installing = false;
+    mocks.update.downloadUpdate.mockClear();
+    mocks.update.installUpdate.mockClear();
   });
 
   afterEach(() => {
@@ -223,5 +245,35 @@ describe("ToastNotifications", () => {
       { tab: "intelligence" },
     );
     expect(mocks.openNew).not.toHaveBeenCalled();
+  });
+
+  it("dismisses update notices only for the current launch", () => {
+    mocks.update.status = "available";
+    mocks.update.version = "1.0.34";
+
+    const firstLaunch = render(<ToastNotifications />);
+    act(() => vi.advanceTimersByTime(500));
+
+    const firstOptions = mocks.message.mock.calls[0][1];
+    expect(mocks.message).toHaveBeenCalledWith(
+      "Anarlog 1.0.34 is available",
+      expect.objectContaining({
+        id: "desktop-update:1.0.34",
+        closeButton: true,
+      }),
+    );
+
+    act(() => firstOptions.onDismiss());
+    expect(mocks.dismissToast).not.toHaveBeenCalled();
+
+    firstLaunch.unmount();
+    mocks.message.mockClear();
+    render(<ToastNotifications />);
+    act(() => vi.advanceTimersByTime(500));
+
+    expect(mocks.message).toHaveBeenCalledWith(
+      "Anarlog 1.0.34 is available",
+      expect.objectContaining({ id: "desktop-update:1.0.34" }),
+    );
   });
 });
