@@ -177,8 +177,19 @@ describe("RawEditor", () => {
     expect(props?.className).toContain("session-note-editor");
     expect(props?.className).toContain("custom-editor-class");
     expect(props?.placeholderComponent).toEqual(expect.any(Function));
-    expect(props?.persistentPlaceholderComponent).toEqual(expect.any(Function));
+    expect((props?.placeholderComponent as () => string)()).toBe(
+      "Start writing...",
+    );
+    expect(props?.persistentPlaceholderComponent).toBeUndefined();
+    expect(props?.enforceTitleHeading).toBe(false);
     expect(props?.initialContent).toMatchObject({
+      type: "doc",
+      content: [{ type: "paragraph" }],
+    });
+  });
+
+  it("removes a legacy session title from the memo body", () => {
+    hoisted.rawMd = JSON.stringify({
       type: "doc",
       content: [
         {
@@ -186,8 +197,47 @@ describe("RawEditor", () => {
           attrs: { level: 1 },
           content: [{ type: "text", text: "Weekly sync" }],
         },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Follow up" }],
+        },
       ],
     });
+
+    render(<RawEditor sessionId="session-1" />);
+
+    const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
+    expect(props?.initialContent).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Follow up" }],
+        },
+      ],
+    });
+  });
+
+  it("persists memo content without changing the session title", async () => {
+    render(<RawEditor sessionId="session-1" />);
+
+    const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
+    const content = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Follow up" }],
+        },
+      ],
+    };
+    (props?.handleChange as (content: unknown) => void)(content);
+
+    await waitFor(() =>
+      expect(hoisted.persistChange).toHaveBeenCalledWith({
+        raw_md: JSON.stringify(content),
+      }),
+    );
   });
 
   it("renders captured chat without mutating the active memo editor", () => {

@@ -1396,7 +1396,6 @@ msgstr ""
 msgid "Meeting ends"
 msgstr ""
 
-#: src/session/components/note-input/raw.tsx
 #: src/templates/auto-form.tsx
 msgid "Meeting notes"
 msgstr ""
@@ -2445,6 +2444,10 @@ msgstr ""
 msgid "Start with permissions"
 msgstr ""
 
+#: src/session/components/note-input/raw.tsx
+msgid "Start writing..."
+msgstr ""
+
 #: src/settings/ai/stt/select.tsx
 msgid "Starting"
 msgstr ""
@@ -2727,6 +2730,7 @@ msgstr ""
 msgid "Unnamed"
 msgstr ""
 
+#: src/session/components/note-input/header.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
 #: src/session/components/title-input.tsx
 #: src/shared-notes/index.tsx

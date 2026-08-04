@@ -79,7 +79,7 @@ describe("titleSuccess.onSuccess", () => {
     mocks.applyGeneratedSessionTitle.mockResolvedValue(undefined);
   });
 
-  it("persists a trimmed title and all titled documents atomically", async () => {
+  it("persists a trimmed title without adding it to the memo", async () => {
     await titleSuccess.onSuccess?.(createParams({ text: "  Weekly sync  " }));
 
     expect(mocks.applyGeneratedSessionTitle).toHaveBeenCalledWith({
@@ -87,12 +87,6 @@ describe("titleSuccess.onSuccess", () => {
       currentTitle: "",
       nextTitle: "Weekly sync",
       documents: [
-        expect.objectContaining({
-          id: "session-1",
-          currentContent: "Raw note",
-          currentContentFormat: "markdown",
-          nextContent: expect.stringContaining("Weekly sync"),
-        }),
         expect.objectContaining({
           id: "note-1",
           currentContent: "# Summary section",
@@ -120,12 +114,6 @@ describe("titleSuccess.onSuccess", () => {
       currentTitle: "",
       nextTitle: "Bore Pit Wetland Compliance and Design Standards",
       documents: [
-        expect.objectContaining({
-          id: "session-1",
-          nextContent: expect.not.stringContaining(
-            "We need to output a super concise title",
-          ),
-        }),
         expect.objectContaining({
           id: "note-1",
           nextContent: expect.not.stringContaining(

@@ -170,6 +170,8 @@ function HeaderMeetingActionPill({
   );
   const remote = getRemoteMeeting(event?.meeting_link);
   const meetingLink = event?.meeting_link || null;
+  const canJoinFromHeader =
+    remote !== null || event?.tracking_id === WELCOME_NOTE_TRACKING_ID;
   const hasTranscript = useHasTranscript(sessionId);
   const { audioExists } = useAudioPlayer();
   const canResume = audioExists || hasTranscript;
@@ -271,7 +273,7 @@ function HeaderMeetingActionPill({
       };
     }
 
-    if (meetingLink) {
+    if (canJoinFromHeader) {
       return {
         label: t`Join & record`,
         title: t`Join meeting and record`,

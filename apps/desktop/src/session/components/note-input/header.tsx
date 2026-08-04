@@ -8,7 +8,11 @@ import { HeaderViewTranscript } from "./header-transcript";
 
 import { useCanShowTranscript } from "~/session/components/shared";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
-import { deleteEnhancedNote, useEnhancedNoteRecords } from "~/session/queries";
+import {
+  deleteEnhancedNote,
+  useEnhancedNoteRecords,
+  useSession,
+} from "~/session/queries";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 
 export function Header({
@@ -25,11 +29,23 @@ export function Header({
   isTranscribing?: boolean;
 }) {
   const { t } = useLingui();
+  const sessionTitle = useSession(sessionId)?.title.trim();
   const primaryEnhancedTabId = editorTabs.find(
     (view): view is Extract<EditorView, { type: "enhanced" }> =>
       view.type === "enhanced",
   )?.id;
   const shouldUseViewSwitcher = editorTabs.length > 1;
+
+  if (!shouldUseViewSwitcher) {
+    return (
+      <div
+        data-tauri-drag-region
+        className="text-foreground min-w-0 truncate pl-3 text-sm font-medium"
+      >
+        {sessionTitle || t`Untitled`}
+      </div>
+    );
+  }
 
   return (
     <div data-tauri-drag-region className="flex flex-col pl-1">

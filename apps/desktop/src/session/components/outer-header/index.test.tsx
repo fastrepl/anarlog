@@ -775,6 +775,32 @@ describe("OuterHeader", () => {
     ).not.toBeNull();
   });
 
+  it("shows record before a meeting with an unrecognized video link", () => {
+    mocks.sessionEvents = {
+      "session-1": {
+        title: "Design Review",
+        started_at: "2026-06-05T10:00:00.000Z",
+        ended_at: "2026-06-05T10:30:00.000Z",
+        meeting_link: "https://naver.me/example",
+      },
+    };
+    mocks.nowMs = new Date("2026-06-05T09:55:00.000Z").getTime();
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Record" }));
+
+    expect(screen.queryByRole("button", { name: "Join & record" })).toBeNull();
+    expect(mocks.startListening).toHaveBeenCalledTimes(1);
+    expect(mocks.openUrl).not.toHaveBeenCalled();
+  });
+
   it("shows resume when an inactive session already has a transcript", () => {
     mocks.hasTranscriptBySession = { "session-1": true };
 

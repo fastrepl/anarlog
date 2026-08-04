@@ -450,7 +450,7 @@ describe("Header", () => {
     });
   });
 
-  it("renders a raw-only memo view without the grouped view switcher", () => {
+  it("shows the session title without tab controls when the memo is the only view", () => {
     render(
       <Header
         sessionId="session-1"
@@ -460,24 +460,27 @@ describe("Header", () => {
       />,
     );
 
-    const memoTab = screen.getByRole("button", { name: "Weekly planning" });
-    const viewSwitcher = screen.getByRole("group", {
-      name: "Session note views",
-    });
+    expect(
+      screen.queryByRole("group", { name: "Session note views" }),
+    ).toBeNull();
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.getByText("Weekly planning").className).toContain("truncate");
+  });
 
-    expect(viewSwitcher.className).not.toContain("h-[30px]");
-    expect(viewSwitcher.className).not.toContain("bg-foreground/10");
-    expect(viewSwitcher.className).not.toContain("rounded-full");
-    expect(memoTab.textContent).toBe("Weekly planning");
-    expect(memoTab.getAttribute("title")).toBe("Weekly planning");
-    expect(memoTab.querySelector("span")?.className).toContain("truncate");
-    expect(memoTab.className).toContain("h-7");
-    expect(memoTab.className).toContain("bg-white");
-    expect(memoTab.className).toContain("border-0");
-    expect(memoTab.className).not.toContain("border-border");
-    expect(memoTab.className).toContain("shadow-none");
-    expect(memoTab.className).not.toContain("shadow-xs");
-    expect(memoTab.className).not.toContain("bg-foreground/10");
+  it("shows Untitled for an ad hoc memo with no title", () => {
+    hoisted.sessionTitle = "";
+
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={[{ type: "raw" }]}
+        currentTab={{ type: "raw" }}
+        handleTabChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Untitled")).not.toBeNull();
+    expect(screen.queryByRole("button")).toBeNull();
   });
 
   it("can switch from transcript back to memo or summary tabs", () => {

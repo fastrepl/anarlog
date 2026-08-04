@@ -22,15 +22,9 @@ import { openEditorLink } from "~/editor-bridge/open-editor-link";
 import { sessionMentionDropConfig } from "~/editor-bridge/session-mention-drop";
 import { SessionNodeView } from "~/editor-bridge/session-view";
 import { useSessionCommentAnchors } from "~/session-sharing/comment-anchors";
-import { hasStoredNoteContent } from "~/session/components/shared";
 import { useAttachmentResolver } from "~/session/hooks/useAttachmentResolver";
 import { useUpdateSession } from "~/session/queries";
-import {
-  createDocumentBodyPlaceholder,
-  ensureFirstLineTitle,
-  extractFirstLineTitle,
-  documentTitlePlaceholder,
-} from "~/session/title-content";
+import { removeDocumentTitle } from "~/session/title-content";
 
 const extraNodeViews = { appLink: AppLinkView, session: SessionNodeView };
 
@@ -68,22 +62,18 @@ export const RawEditor = forwardRef<
     const { audioDropTargetProps, fileHandlerConfig, isAudioDragActive } =
       useNoteFileHandlerConfig(sessionId);
     const initialContent = useMemo<JSONContent>(
-      () => ensureFirstLineTitle(parseJsonContent(rawMd), sessionTitle),
+      () => removeDocumentTitle(parseJsonContent(rawMd), sessionTitle),
       [rawMd, sessionTitle],
     );
 
     const persistChange = useCallback(
       (input: JSONContent) => {
         const portableInput = normalizePortableAttachmentUrls(input);
-        const title = extractFirstLineTitle(portableInput);
         return updateSession({
           raw_md: JSON.stringify(portableInput),
-          ...(title !== null || hasStoredNoteContent(rawMd)
-            ? { title: title ?? "" }
-            : {}),
         });
       },
-      [rawMd, updateSession],
+      [updateSession],
     );
 
     const hasTrackedWriteRef = useRef(false);
@@ -127,10 +117,7 @@ export const RawEditor = forwardRef<
           : undefined,
       [syncTasks, sessionId],
     );
-    const persistentPlaceholderComponent = useMemo(
-      () => createDocumentBodyPlaceholder(t`Meeting notes`),
-      [t],
-    );
+    const placeholderComponent = useMemo(() => () => t`Start writing...`, [t]);
     return (
       <AudioDropTarget
         targetProps={audioDropTargetProps}
@@ -144,8 +131,7 @@ export const RawEditor = forwardRef<
             initialContent={initialContent}
             resolveAttachment={resolveAttachment}
             handleChange={handleChange}
-            placeholderComponent={documentTitlePlaceholder}
-            persistentPlaceholderComponent={persistentPlaceholderComponent}
+            placeholderComponent={placeholderComponent}
             mentionConfig={mentionConfig}
             sessionMentionDropConfig={sessionMentionDropConfig}
             onNavigateToTitle={onNavigateToTitle}
@@ -154,6 +140,7 @@ export const RawEditor = forwardRef<
             taskSource={taskSource}
             extraNodeViews={extraNodeViews}
             showFormatToolbar={showFormatToolbar}
+            enforceTitleHeading={false}
             commentAnchorsEnabled
             onViewReady={(view) => {
               commentAnchors.onViewReady(view);

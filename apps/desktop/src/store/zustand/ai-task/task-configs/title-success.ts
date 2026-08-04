@@ -55,29 +55,16 @@ export async function persistGeneratedTitle({
     return false;
   }
 
-  const documents: SessionDocumentContentUpdate[] = [];
-  if (snapshot.rawNoteId && snapshot.rawContent.trim()) {
-    documents.push(
+  const documents: SessionDocumentContentUpdate[] = snapshot.enhancedNotes
+    .filter((note) => note.content.trim())
+    .map((note) =>
       createTitledDocumentUpdate(
-        snapshot.rawNoteId,
-        snapshot.rawContent,
-        snapshot.rawContentFormat,
+        note.id,
+        note.content,
+        note.contentFormat,
         trimmed,
       ),
     );
-  }
-  documents.push(
-    ...snapshot.enhancedNotes
-      .filter((note) => note.content.trim())
-      .map((note) =>
-        createTitledDocumentUpdate(
-          note.id,
-          note.content,
-          note.contentFormat,
-          trimmed,
-        ),
-      ),
-  );
 
   await applyGeneratedSessionTitle({
     sessionId: args.sessionId,

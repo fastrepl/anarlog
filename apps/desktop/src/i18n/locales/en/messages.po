@@ -1396,7 +1396,6 @@ msgstr "Meeting details access turned on"
 msgid "Meeting ends"
 msgstr "Meeting ends"
 
-#: src/session/components/note-input/raw.tsx
 #: src/templates/auto-form.tsx
 msgid "Meeting notes"
 msgstr "Meeting notes"
@@ -2445,6 +2444,10 @@ msgstr "Start with an example"
 msgid "Start with permissions"
 msgstr "Start with permissions"
 
+#: src/session/components/note-input/raw.tsx
+msgid "Start writing..."
+msgstr "Start writing..."
+
 #: src/settings/ai/stt/select.tsx
 msgid "Starting"
 msgstr "Starting"
@@ -2727,6 +2730,7 @@ msgstr "Unlock your login Keychain in the macOS prompt. Anarlog will retry savin
 msgid "Unnamed"
 msgstr "Unnamed"
 
+#: src/session/components/note-input/header.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
 #: src/session/components/title-input.tsx
 #: src/shared-notes/index.tsx
