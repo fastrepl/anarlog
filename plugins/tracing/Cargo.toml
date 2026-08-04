@@ -32,7 +32,6 @@ serde_json = { workspace = true }
 specta = { workspace = true, features = ["derive", "serde_json"] }
 thiserror = { workspace = true }
 
-file-rotate = "0.8"
 regex = "1"
 tracing = { workspace = true }
 tracing-appender = { version = "0.2" }

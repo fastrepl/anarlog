@@ -6,7 +6,7 @@ mod utils;
 
 pub use errors::*;
 pub use ext::*;
-pub use utils::cleanup_old_daily_logs;
+pub use utils::{cleanup_old_daily_logs, make_file_writer};
 
 use sentry::integrations::tracing::EventFilter;
 use tauri::Manager;
@@ -14,7 +14,7 @@ use tracing_subscriber::{
     EnvFilter, fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt,
 };
 
-use utils::{cleanup_legacy_logs, make_file_writer_if_enabled};
+use utils::cleanup_legacy_logs;
 
 const PLUGIN_NAME: &str = "tracing";
 const WEBVIEW_CONSOLE_TARGET: &str = "anarlog.webview.console";
@@ -93,20 +93,24 @@ impl Builder {
                         return Ok(());
                     }
                 };
-                if let Some((file_writer, guard)) = make_file_writer_if_enabled(true, &logs_dir) {
-                    tracing_subscriber::Registry::default()
-                        .with(env_filter)
-                        .with(sentry_layer)
-                        .with(fmt::layer())
-                        .with(fmt::layer().with_ansi(false).with_writer(file_writer))
-                        .init();
-                    assert!(app.manage(guard));
-                } else {
-                    tracing_subscriber::Registry::default()
-                        .with(env_filter)
-                        .with(sentry_layer)
-                        .with(fmt::layer())
-                        .init();
+                match make_file_writer(&logs_dir) {
+                    Ok((file_writer, guard)) => {
+                        tracing_subscriber::Registry::default()
+                            .with(env_filter)
+                            .with(sentry_layer)
+                            .with(fmt::layer())
+                            .with(fmt::layer().with_ansi(false).with_writer(file_writer))
+                            .init();
+                        app.manage(guard);
+                    }
+                    Err(error) => {
+                        eprintln!("Failed to create log file: {error}");
+                        tracing_subscriber::Registry::default()
+                            .with(env_filter)
+                            .with(sentry_layer)
+                            .with(fmt::layer())
+                            .init();
+                    }
                 }
 
                 Ok(())

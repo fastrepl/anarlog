@@ -2,27 +2,16 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use tauri_plugin_tracing::redaction::RedactingWriter;
+use tauri_plugin_tracing::{make_file_writer, redaction::RedactingWriter};
 use tempfile::tempdir;
 
-use file_rotate::{ContentLimit, FileRotate, compression::Compression, suffix::AppendCount};
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{fmt, prelude::*};
 
 fn create_test_file_writer(
     logs_dir: &PathBuf,
 ) -> (tracing_appender::non_blocking::NonBlocking, WorkerGuard) {
-    let log_path = logs_dir.join("app.log");
-    let file_appender = FileRotate::new(
-        log_path,
-        AppendCount::new(5),
-        ContentLimit::Bytes(5 * 1024 * 1024),
-        Compression::None,
-        None,
-    );
-
-    let redacting_appender = RedactingWriter::new(file_appender);
-    tracing_appender::non_blocking(redacting_appender)
+    make_file_writer(logs_dir).unwrap()
 }
 
 mod e2e {
@@ -126,17 +115,7 @@ mod e2e {
         let logs_dir = temp.path().to_path_buf();
         fs::create_dir_all(&logs_dir).unwrap();
 
-        let log_path = logs_dir.join("app.log");
-        let file_appender = FileRotate::new(
-            log_path,
-            AppendCount::new(5),
-            ContentLimit::Bytes(1024 * 1024),
-            Compression::None,
-            None,
-        );
-
-        let redacting_appender = RedactingWriter::new(file_appender);
-        let (file_writer, guard) = tracing_appender::non_blocking(redacting_appender);
+        let (file_writer, guard) = create_test_file_writer(&logs_dir);
 
         let subscriber = tracing_subscriber::registry()
             .with(fmt::layer().with_ansi(false).with_writer(file_writer));
@@ -209,7 +188,7 @@ mod e2e {
     }
 
     #[test]
-    fn test_redacting_writer_with_file_rotate_direct() {
+    fn test_redacting_writer_with_file_direct() {
         use std::io::Write;
 
         let temp = tempdir().unwrap();
@@ -217,13 +196,11 @@ mod e2e {
         fs::create_dir_all(&logs_dir).unwrap();
 
         let log_path = logs_dir.join("app.log");
-        let file_appender = FileRotate::new(
-            log_path,
-            AppendCount::new(5),
-            ContentLimit::Bytes(100),
-            Compression::None,
-            None,
-        );
+        let file_appender = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_path)
+            .unwrap();
 
         let mut redacting_writer = RedactingWriter::new(file_appender);
 
