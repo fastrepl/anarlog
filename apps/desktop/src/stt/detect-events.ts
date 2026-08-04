@@ -78,6 +78,20 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
     let unlistenDetect: (() => void) | undefined;
     let cancelled = false;
     isOnlineRef.current = navigator.onLine;
+    const clearNotificationsIfActive = () => {
+      if (store.getState().live.status === "active") {
+        void notificationCommands.clearNotifications();
+      }
+    };
+    clearNotificationsIfActive();
+    const unsubscribeStore = store.subscribe((state, previousState) => {
+      if (
+        state.live.status === "active" &&
+        previousState.live.status !== "active"
+      ) {
+        void notificationCommands.clearNotifications();
+      }
+    });
     const clearPendingAutoStop = () => {
       if (pendingAutoStopRef.current) {
         if (pendingAutoStopRef.current.timeout) {
@@ -393,6 +407,7 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
       clearPendingAutoStop();
       window.removeEventListener("offline", handleOffline);
       window.removeEventListener("online", handleOnline);
+      unsubscribeStore();
       unlistenDetect?.();
     };
   });

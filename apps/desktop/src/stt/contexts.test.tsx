@@ -15,6 +15,7 @@ import { createListenerStore } from "~/store/zustand/listener";
 const {
   listMicUsingApplicationsMock,
   listenMock,
+  clearNotificationsMock,
   showNotificationMock,
   useStoreMock,
   useConfigValueMock,
@@ -23,6 +24,7 @@ const {
 } = vi.hoisted(() => ({
   listMicUsingApplicationsMock: vi.fn(),
   listenMock: vi.fn(),
+  clearNotificationsMock: vi.fn(),
   showNotificationMock: vi.fn(),
   useStoreMock: vi.fn(() => null),
   useConfigValueMock: vi.fn((_key: string) => true),
@@ -43,6 +45,7 @@ vi.mock("@anlg/plugin-detect", () => ({
 
 vi.mock("@anlg/plugin-notification", () => ({
   commands: {
+    clearNotifications: clearNotificationsMock,
     showNotification: showNotificationMock,
   },
 }));
@@ -208,6 +211,7 @@ async function readConfiguredNearbyEvents(nowMs: number, windowMs: number) {
 describe("ListenerProvider detect events", () => {
   beforeEach(() => {
     listenMock.mockReset();
+    clearNotificationsMock.mockReset();
     showNotificationMock.mockReset();
     useStoreMock.mockReset();
     useConfigValueMock.mockReset();
@@ -230,6 +234,24 @@ describe("ListenerProvider detect events", () => {
     cleanup();
     vi.clearAllTimers();
     vi.useRealTimers();
+  });
+
+  test("clears pending notifications when listening becomes active", async () => {
+    const store = createListenerStore();
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    expect(clearNotificationsMock).not.toHaveBeenCalled();
+
+    setStoreActive(store);
+
+    await vi.waitFor(() =>
+      expect(clearNotificationsMock).toHaveBeenCalledTimes(1),
+    );
   });
 
   test("does not stop listening on MicStopped when no trigger apps are set (manual session — regression: #5120)", async () => {
