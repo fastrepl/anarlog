@@ -53,8 +53,12 @@ vi.mock("./metadata", () => ({
     renderTrigger ? (
       renderTrigger({ open: false, label: "Open event metadata" })
     ) : (
-      <button type="button" aria-label="Open event metadata">
-        Metadata
+      <button
+        type="button"
+        data-tauri-drag-region="false"
+        aria-label="Open event metadata"
+      >
+        <svg aria-hidden="true" data-testid="metadata-calendar-icon" />
       </button>
     ),
 }));
@@ -845,7 +849,33 @@ describe("OuterHeader", () => {
     expect(mocks.stopListening).toHaveBeenCalledTimes(1);
   });
 
-  it("shows resume after the meeting is over", () => {
+  it("keeps stop available when recording runs past the scheduled end", () => {
+    mocks.sessionEvents = {
+      "session-1": {
+        title: "Design Review",
+        started_at: "2026-06-05T10:00:00.000Z",
+        ended_at: "2026-06-05T10:30:00.000Z",
+        meeting_link: "https://meet.google.com/abc-defg-hij",
+      },
+    };
+    mocks.sessionModes = { "session-1": "active" };
+    mocks.nowMs = new Date("2026-06-05T10:31:00.000Z").getTime();
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+
+    expect(screen.queryByTestId("metadata-calendar-icon")).toBeNull();
+    expect(mocks.stopListening).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows only the calendar metadata button after the meeting is over", () => {
     mocks.sessionEvents = {
       "session-1": {
         title: "Design Review",
@@ -868,11 +898,10 @@ describe("OuterHeader", () => {
       name: "Open event metadata",
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Resume" }));
-
-    expect(screen.getByTestId("recording-icon")).not.toBeNull();
+    expect(screen.getByTestId("metadata-calendar-icon")).not.toBeNull();
     expect(screen.queryByRole("button", { name: "Join & record" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
     expect(metadataButton.getAttribute("data-tauri-drag-region")).toBe("false");
-    expect(mocks.startListening).toHaveBeenCalledTimes(1);
+    expect(mocks.startListening).not.toHaveBeenCalled();
   });
 });

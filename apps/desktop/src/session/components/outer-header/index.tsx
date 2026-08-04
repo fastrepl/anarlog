@@ -118,12 +118,25 @@ function HeaderMeetingControl({
 }) {
   const sessionEvent = useSessionEvent(sessionId);
   const now = useNow();
+  const endedAt = sessionEvent?.ended_at
+    ? safeParseDate(sessionEvent.ended_at)
+    : null;
+  const ended = !!endedAt && endedAt.getTime() <= now.getTime();
+  const isRecording =
+    sessionMode === "active" || sessionMode === "running_batch";
+
+  if (ended && !isRecording) {
+    return (
+      <div className="mr-1 shrink-0">
+        <MetadataButton sessionId={sessionId} />
+      </div>
+    );
+  }
 
   return (
     <HeaderMeetingActionPill
       sessionId={sessionId}
       event={sessionEvent}
-      now={now}
       sessionMode={sessionMode}
     />
   );
@@ -132,16 +145,13 @@ function HeaderMeetingControl({
 function HeaderMeetingActionPill({
   sessionId,
   event,
-  now,
   sessionMode,
 }: {
   sessionId: string;
   event: {
-    ended_at?: string;
     meeting_link?: string;
     tracking_id?: string;
   } | null;
-  now: Date;
   sessionMode: string;
 }) {
   const startListening = useStartListening(sessionId);
@@ -160,8 +170,6 @@ function HeaderMeetingActionPill({
   );
   const remote = getRemoteMeeting(event?.meeting_link);
   const meetingLink = event?.meeting_link || null;
-  const endedAt = event?.ended_at ? safeParseDate(event.ended_at) : null;
-  const ended = !!endedAt && endedAt.getTime() <= now.getTime();
   const hasTranscript = useHasTranscript(sessionId);
   const { audioExists } = useAudioPlayer();
   const canResume = audioExists || hasTranscript;
@@ -263,7 +271,7 @@ function HeaderMeetingActionPill({
       };
     }
 
-    if (meetingLink && !ended) {
+    if (meetingLink) {
       return {
         label: t`Join & record`,
         title: t`Join meeting and record`,
@@ -276,15 +284,6 @@ function HeaderMeetingActionPill({
         onClick: () => {
           void joinMeeting();
         },
-      };
-    }
-
-    if (ended) {
-      return {
-        label: t`Resume`,
-        title: t`Resume listening`,
-        icon: <RecordingIcon />,
-        onClick: start,
       };
     }
 
