@@ -15,8 +15,10 @@ Disallow: /admin/
 Disallow: /auth
 Disallow: /_view/callback/
 
-# Block API endpoints
+# Block API endpoints, but keep served assets and OG images crawlable
 Disallow: /api/
+Allow: /api/assets/
+Allow: /api/og/
 
 # Allow public content
 Allow: /blog
