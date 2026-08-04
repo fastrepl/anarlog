@@ -542,42 +542,74 @@ describe("TimelineView", () => {
     ]);
   });
 
-  it("deletes selected notes with Backspace", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T09:00:00.000Z"));
-    mocks.currentTimeMs = Date.now();
-    mocks.timelineSelectionSelectedIds = [
-      "session-selected-note",
-      "session-other-note",
-    ];
+  it.each(["Backspace", "Delete"])(
+    "confirms selected note deletion with %s",
+    (key) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2024-01-15T09:00:00.000Z"));
+      mocks.currentTimeMs = Date.now();
+      mocks.timelineSelectionSelectedIds = [
+        "session-selected-note",
+        "session-other-note",
+      ];
+      mocks.timelineSessionsTable = {
+        "selected-note": {
+          title: "Selected note",
+          created_at: "2024-01-15T12:00:00.000Z",
+        },
+        "other-note": {
+          title: "Other note",
+          created_at: "2024-01-15T11:00:00.000Z",
+        },
+      };
+
+      render(<TimelineView />);
+
+      fireEvent.keyDown(window, { key });
+
+      expect(mocks.deleteSession).not.toHaveBeenCalled();
+      expect(
+        screen.getByRole("heading", {
+          name: "Delete 2 selected notes?",
+        }),
+      ).toBeTruthy();
+      expect(screen.getByRole("dialog").className).toContain("max-w-[320px]");
+
+      fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+      expect(mocks.deleteSession).toHaveBeenCalledTimes(2);
+      expect(mocks.deleteSession).toHaveBeenCalledWith("selected-note", {
+        batchId: expect.any(String),
+        title: "Selected note",
+      });
+      expect(mocks.deleteSession).toHaveBeenCalledWith("other-note", {
+        batchId: expect.any(String),
+        title: "Other note",
+      });
+      expect(mocks.deleteSession.mock.calls[0]![1].batchId).toBe(
+        mocks.deleteSession.mock.calls[1]![1].batchId,
+      );
+      expect(mocks.clearSelection).toHaveBeenCalledOnce();
+    },
+  );
+
+  it("keeps selected notes when deletion is canceled", () => {
+    mocks.timelineSelectionSelectedIds = ["session-selected-note"];
     mocks.timelineSessionsTable = {
       "selected-note": {
         title: "Selected note",
         created_at: "2024-01-15T12:00:00.000Z",
-      },
-      "other-note": {
-        title: "Other note",
-        created_at: "2024-01-15T11:00:00.000Z",
       },
     };
 
     render(<TimelineView />);
 
     fireEvent.keyDown(window, { key: "Backspace" });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
-    expect(mocks.deleteSession).toHaveBeenCalledTimes(2);
-    expect(mocks.deleteSession).toHaveBeenCalledWith("selected-note", {
-      batchId: expect.any(String),
-      title: "Selected note",
-    });
-    expect(mocks.deleteSession).toHaveBeenCalledWith("other-note", {
-      batchId: expect.any(String),
-      title: "Other note",
-    });
-    expect(mocks.deleteSession.mock.calls[0]![1].batchId).toBe(
-      mocks.deleteSession.mock.calls[1]![1].batchId,
-    );
-    expect(mocks.clearSelection).toHaveBeenCalledOnce();
+    expect(mocks.deleteSession).not.toHaveBeenCalled();
+    expect(mocks.clearSelection).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("shows Backspace beside Delete Selected in the context menu", () => {

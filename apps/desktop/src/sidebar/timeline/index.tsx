@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { CalendarDots } from "@phosphor-icons/react";
+import { CalendarDots, Trash } from "@phosphor-icons/react";
 import {
   memo,
   type RefCallback,
@@ -42,6 +42,7 @@ import { useConfigValue } from "~/shared/config";
 import { scrollElementByWheel } from "~/shared/dom/scroll-wheel";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
+import { DestructiveConfirmationDialog } from "~/shared/ui/destructive-confirmation-dialog";
 import { useTabs } from "~/store/zustand/tabs";
 import { useTimelineSelection } from "~/store/zustand/timeline-selection";
 import { useListener } from "~/stt/contexts";
@@ -140,14 +141,25 @@ export const TimelineView = memo(function TimelineView({
   const selectAll = useTimelineSelection((s) => s.selectAll);
   const clearSelection = useTimelineSelection((s) => s.clear);
   const deleteSession = useDeleteSession();
+  const [pendingDeleteSessionIds, setPendingDeleteSessionIds] = useState<
+    string[]
+  >([]);
 
-  const handleDeleteSelected = useCallback(() => {
+  const handleRequestDeleteSelected = useCallback(() => {
     const sessionIds = selectedIds
       .filter(isSessionItemKey)
       .map((key) => key.replace("session-", ""));
 
+    if (sessionIds.length > 0) {
+      setPendingDeleteSessionIds(sessionIds);
+    }
+  }, [selectedIds]);
+
+  const handleConfirmDeleteSelected = useCallback(() => {
+    const sessionIds = pendingDeleteSessionIds;
     const batchId = sessionIds.length > 1 ? crypto.randomUUID() : undefined;
 
+    setPendingDeleteSessionIds([]);
     for (const sessionId of sessionIds) {
       deleteSession(sessionId, {
         batchId,
@@ -156,7 +168,12 @@ export const TimelineView = memo(function TimelineView({
     }
 
     clearSelection();
-  }, [selectedIds, deleteSession, clearSelection, timelineSessionsTable]);
+  }, [
+    pendingDeleteSessionIds,
+    deleteSession,
+    clearSelection,
+    timelineSessionsTable,
+  ]);
 
   const sessionCount = useMemo(
     () => selectedIds.filter(isSessionItemKey).length,
@@ -182,7 +199,7 @@ export const TimelineView = memo(function TimelineView({
   const shortcutStateRef = useRef({
     anchorId,
     flatSessionItemKeys,
-    handleDeleteSelected,
+    handleRequestDeleteSelected,
     selectedIds,
     selectedSessionId,
     selectAll,
@@ -190,7 +207,7 @@ export const TimelineView = memo(function TimelineView({
   shortcutStateRef.current = {
     anchorId,
     flatSessionItemKeys,
-    handleDeleteSelected,
+    handleRequestDeleteSelected,
     selectedIds,
     selectedSessionId,
     selectAll,
@@ -321,7 +338,7 @@ export const TimelineView = memo(function TimelineView({
       const {
         anchorId,
         flatSessionItemKeys,
-        handleDeleteSelected,
+        handleRequestDeleteSelected,
         selectedIds,
         selectedSessionId,
         selectAll,
@@ -333,7 +350,7 @@ export const TimelineView = memo(function TimelineView({
         }
 
         event.preventDefault();
-        handleDeleteSelected();
+        handleRequestDeleteSelected();
         return;
       }
 
@@ -390,7 +407,7 @@ export const TimelineView = memo(function TimelineView({
             {
               id: "delete-selected",
               text: t`Delete Selected (${sessionCount})`,
-              action: handleDeleteSelected,
+              action: handleRequestDeleteSelected,
               accelerator: "Backspace",
               disabled: sessionCount === 0,
             },
@@ -407,7 +424,7 @@ export const TimelineView = memo(function TimelineView({
     [
       selectedIds,
       sessionCount,
-      handleDeleteSelected,
+      handleRequestDeleteSelected,
       showIgnored,
       toggleShowIgnored,
       t,
@@ -433,8 +450,25 @@ export const TimelineView = memo(function TimelineView({
     [containerRef],
   );
 
+  const pendingDeleteCount = pendingDeleteSessionIds.length;
+
   return (
     <ManagedSharedSessionIdsContext.Provider value={managedSharedSessionIds}>
+      <DestructiveConfirmationDialog
+        open={pendingDeleteCount > 0}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteSessionIds([]);
+        }}
+        icon={<Trash weight="duotone" />}
+        title={
+          pendingDeleteCount === 1
+            ? t`Delete 1 selected note?`
+            : t`Delete ${pendingDeleteCount} selected notes?`
+        }
+        description={t`Are you sure you want to delete the selected notes? You can undo this action for a short time.`}
+        confirmLabel={t`Delete`}
+        onConfirm={handleConfirmDeleteSelected}
+      />
       <div
         data-sidebar-timeline-root
         className="relative h-full"

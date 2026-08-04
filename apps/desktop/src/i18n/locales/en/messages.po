@@ -323,6 +323,10 @@ msgstr "Apply to all"
 msgid "Approve"
 msgstr "Approve"
 
+#: src/sidebar/timeline/index.tsx
+msgid "Are you sure you want to delete the selected notes? You can undo this action for a short time."
+msgstr "Are you sure you want to delete the selected notes? You can undo this action for a short time."
+
 #: src/chat/components/input/index.tsx
 msgid "Ask & search about anything, or be creative!"
 msgstr "Ask & search about anything, or be creative!"
@@ -420,6 +424,7 @@ msgstr "Can transcribe while the meeting is happening."
 #: src/settings/general/e2ee-setup.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
 #: src/settings/todo/github.tsx
+#: src/shared/ui/destructive-confirmation-dialog.tsx
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -800,10 +805,19 @@ msgid "Default"
 msgstr "Default"
 
 #: src/session/components/outer-header/overflow/delete.tsx
+#: src/sidebar/timeline/index.tsx
 #: src/templates/sections-editor.tsx
 #: src/templates/template-form.tsx
 msgid "Delete"
 msgstr "Delete"
+
+#: src/sidebar/timeline/index.tsx
+msgid "Delete {pendingDeleteCount} selected notes?"
+msgstr "Delete {pendingDeleteCount} selected notes?"
+
+#: src/sidebar/timeline/index.tsx
+msgid "Delete 1 selected note?"
+msgstr "Delete 1 selected note?"
 
 #: src/sidebar/timeline/item.tsx
 msgid "Delete All Recurring Events"
@@ -2340,6 +2354,10 @@ msgstr "Sign out"
 msgid "Sign out and sign in again to resume cloud sync."
 msgstr "Sign out and sign in again to resume cloud sync."
 
+#: src/settings/general/account.tsx
+msgid "Sign out of Anarlog?"
+msgstr "Sign out of Anarlog?"
+
 #: src/onboarding/account/after-login.tsx
 #: src/onboarding/index.tsx
 #: src/settings/general/account.tsx
@@ -2846,6 +2864,10 @@ msgstr "You can"
 #: src/onboarding/account/after-login.tsx
 msgid "You have an active plan"
 msgstr "You have an active plan"
+
+#: src/settings/general/account.tsx
+msgid "You'll need to sign in again to use cloud sync and account features."
+msgstr "You'll need to sign in again to use cloud sync and account features."
 
 #: src/onboarding/account/after-login.tsx
 msgid "You're on a Pro trial"

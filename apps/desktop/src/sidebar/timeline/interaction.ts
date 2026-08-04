@@ -9,7 +9,7 @@ export function isSelectAllShortcut(event: KeyboardEvent) {
 
 export function isDeleteSelectionShortcut(event: KeyboardEvent) {
   return (
-    event.key === "Backspace" &&
+    (event.key === "Backspace" || event.key === "Delete") &&
     !event.metaKey &&
     !event.ctrlKey &&
     !event.altKey &&

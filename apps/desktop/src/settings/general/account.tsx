@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ArrowsClockwise } from "@phosphor-icons/react";
+import { ArrowsClockwise, SignOut } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import {
   type ReactNode,
@@ -26,6 +26,7 @@ import { cn } from "@anlg/utils";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { SettingsPageTitle } from "~/settings/page-title";
+import { DestructiveConfirmationDialog } from "~/shared/ui/destructive-confirmation-dialog";
 import { buildWebAppUrl } from "~/shared/utils";
 
 export function SettingsAccount() {
@@ -35,6 +36,7 @@ export function SettingsAccount() {
 
   const isAuthenticated = !!auth?.session;
   const [isPending, setIsPending] = useState(false);
+  const [isSignOutDialogOpen, setIsSignOutDialogOpen] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -56,6 +58,7 @@ export function SettingsAccount() {
       await auth?.signOut();
     },
     onSuccess: () => {
+      setIsSignOutDialogOpen(false);
       void analyticsCommands.event({
         event: "user_signed_out",
       });
@@ -142,12 +145,24 @@ export function SettingsAccount() {
         action={
           <Button
             variant="destructive"
-            onClick={() => signOutMutation.mutate()}
+            onClick={() => setIsSignOutDialogOpen(true)}
             disabled={signOutMutation.isPending}
           >
             {signOutMutation.isPending ? t`Signing out...` : t`Sign out`}
           </Button>
         }
+      />
+
+      <DestructiveConfirmationDialog
+        open={isSignOutDialogOpen}
+        onOpenChange={setIsSignOutDialogOpen}
+        icon={<SignOut weight="duotone" />}
+        title={t`Sign out of Anarlog?`}
+        description={t`You'll need to sign in again to use cloud sync and account features.`}
+        confirmLabel={t`Sign out`}
+        pendingLabel={t`Signing out...`}
+        isPending={signOutMutation.isPending}
+        onConfirm={() => signOutMutation.mutate()}
       />
 
       <PlanBillingSection
